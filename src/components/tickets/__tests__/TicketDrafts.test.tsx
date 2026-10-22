@@ -40,6 +40,8 @@ const aiDrafts = vi.hoisted(() => ({ off: false }));
 vi.mock('@/hooks/useAiDraftsOff', () => ({ useAiDraftsOff: () => ({ off: aiDrafts.off }) }));
 vi.mock('@/services/message.service', () => ({ messageService: { getThreads: vi.fn() } }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACME' }));
+// Translate has its own tests; its language list needs a query client this page test has none of.
+vi.mock('@/components/shared/TranslateButton', () => ({ TranslateButton: () => null }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 vi.mock('@/lib/socketManager', () => ({
   subscribeToEvent: vi.fn(),
@@ -147,12 +149,14 @@ beforeEach(() => {
 
 describe('Ticket reply box — making drafts', () => {
   it('a backend without drafts (404) offers neither "Make drafts" nor "Use template"', async () => {
+    const user = userEvent.setup();
     draftsOfTicket.mockResolvedValue({ unavailable: true });
     renderTicket();
     await waitFor(() => expect(box(11)).toBeChecked());
     await waitFor(() => expect(draftsOfTicket).toHaveBeenCalled());
-    expect(screen.queryByRole('button', { name: 'Make drafts' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Use template' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'More composer actions' }));
+    expect(screen.queryByRole('menuitem', { name: 'Make a draft for each customer' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Draft per customer from template' })).toBeNull();
   });
 
   it('the ticket box asks for TICKET templates; picking one drafts it for the ticked threads', async () => {
@@ -164,7 +168,7 @@ describe('Ticket reply box — making drafts', () => {
     renderTicket();
     await waitFor(() => expect(box(12)).toBeChecked());
     await user.click(box(12));
-    await user.click(await screen.findByRole('button', { name: 'Use template' }));
+    await user.click(await screen.findByRole('button', { name: 'Draft per customer from template' }));
     await user.click(await screen.findByRole('option', { name: 'Outage update' }));
     await waitFor(() => expect(create).toHaveBeenCalledWith(4, { templateId: 5 }, [11, 13]));
     expect(list).toHaveBeenCalledWith('ticket');
@@ -180,7 +184,8 @@ describe('Ticket reply box — making drafts', () => {
     renderTicket();
     await waitFor(() => expect(box(11)).toBeChecked());
     await user.type(screen.getByLabelText(BOX), 'Hi {{first_name|there}');
-    await user.click(screen.getByRole('button', { name: 'Make drafts' }));
+    await user.click(screen.getByRole('button', { name: 'More composer actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Make a draft for each customer' }));
     await waitFor(() =>
       expect(create).toHaveBeenCalledWith(4, { content: 'Hi {first_name|there}' }, [11, 12, 13])
     );
@@ -188,9 +193,11 @@ describe('Ticket reply box — making drafts', () => {
   });
 
   it('"Make drafts" needs text and a ticked thread', async () => {
+    const user = userEvent.setup();
     renderTicket();
     await waitFor(() => expect(box(11)).toBeChecked());
-    expect(await screen.findByRole('button', { name: 'Make drafts' })).toBeDisabled();
+    await user.click(await screen.findByRole('button', { name: 'More composer actions' }));
+    expect(screen.getByRole('menuitem', { name: 'Make a draft for each customer' })).toBeDisabled();
   });
 });
 

@@ -1,5 +1,6 @@
 import { MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { Menu } from '@/components/ui/Menu';
 import type { Ticket } from '@/types';
 import type { TicketRowProps } from './ticketRowShared';
@@ -21,16 +22,18 @@ export const RowMenu = ({
       align="end"
       width={230}
       trigger={({ open, toggle }) => (
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label={`Actions for #${ticket.id}`}
-          aria-expanded={open}
-          onClick={toggle}
-          className={`p-0 w-7 h-7 transition-opacity ${open ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100 focus:opacity-100'}`}
-        >
-          <MoreHorizontal className="w-4 h-4" />
-        </Button>
+        <Tooltip content={open ? null : 'More actions'} size="sm">
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={`Actions for #${ticket.id}`}
+            aria-expanded={open}
+            onClick={toggle}
+            className={`p-0 w-7 h-7 transition-opacity ${open ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100 focus:opacity-100'}`}
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </Button>
+        </Tooltip>
       )}
     >
       {onRowMenu(ticket)}

@@ -253,7 +253,7 @@ export const TicketDraftsReview = ({
   onDiscard,
 }: Props) => (
   <div className="space-y-2" aria-label="Drafts to review">
-    <h4 className="text-sm font-medium">Drafts to review</h4>
+    <h4 className="text-sm font-medium">Drafts — one per customer</h4>
     <p className="text-xs text-muted-foreground">
       One draft per thread, the customer’s details already filled in. Edit any of them, have AI
       adapt the ones you tick, then send — only the ticked threads above get theirs.

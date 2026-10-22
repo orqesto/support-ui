@@ -28,6 +28,7 @@ import { NewTicketButton } from '@/components/tickets/NewTicketButton';
 import { TicketsKanbanView } from '@/components/tickets/TicketsKanbanView';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { Select } from '@/components/ui/Select';
 import { Drawer } from '@/components/ui/Drawer';
 import { Pagination } from '@/components/ui/Pagination';
@@ -368,55 +369,60 @@ export const TicketsPage = () => {
   });
 
   const ticketPanel = selectedTicket ? (
-    <TicketPanel
-      ticketId={selectedTicket.id}
-      prevId={prevTicket?.id ?? null}
-      nextId={nextTicket?.id ?? null}
-      onGo={goTo}
-      onClose={closeTicket}
-      onFullPage={() => navigate(`/tickets/${selectedTicket.id}`)}
-      onCopyLink={() => copyLink(selectedTicket.id)}
-    >
-      <TicketDetail
-        // One mount per ticket, as MessageDetail is: state (labels, pickers, in-flight writes)
-        // from the ticket you left must not show — or act — on the next one.
-        key={selectedTicket.id}
-        ticket={selectedTicket}
-        onPushToJira={
-          hasPermission(Permission.MANAGE_TICKETS)
-            ? async () => {
-                await handlePushToJira(selectedTicket.id);
-                // Refresh to get updated ticket data
-                await fetchTickets();
-                setSelectedTicket(null);
-              }
-            : undefined
-        }
-        onDelete={
-          hasPermission(Permission.MANAGE_TICKETS)
-            ? () => {
-                setTicketToDelete(selectedTicket);
-                setSelectedTicket(null);
-                setDeleteDialogOpen(true);
-              }
-            : undefined
-        }
-        onRefresh={async () => {
-          // Clear cache to force fresh data
-          clearCache();
+    <TicketDetail
+      // One mount per ticket, as MessageDetail is: state (labels, pickers, in-flight writes)
+      // from the ticket you left must not show — or act — on the next one.
+      key={selectedTicket.id}
+      ticket={selectedTicket}
+      onPushToJira={
+        hasPermission(Permission.MANAGE_TICKETS)
+          ? async () => {
+              await handlePushToJira(selectedTicket.id);
+              // Refresh to get updated ticket data
+              await fetchTickets();
+              setSelectedTicket(null);
+            }
+          : undefined
+      }
+      onDelete={
+        hasPermission(Permission.MANAGE_TICKETS)
+          ? () => {
+              setTicketToDelete(selectedTicket);
+              setSelectedTicket(null);
+              setDeleteDialogOpen(true);
+            }
+          : undefined
+      }
+      onRefresh={async () => {
+        // Clear cache to force fresh data
+        clearCache();
 
-          // Refresh the detail view
-          const response = await ticketService.getById(selectedTicket.id);
-          if (response.success && response.data) {
-            setSelectedTicket(response.data);
-          }
+        // Refresh the detail view
+        const response = await ticketService.getById(selectedTicket.id);
+        if (response.success && response.data) {
+          setSelectedTicket(response.data);
+        }
 
-          // Refresh the list to show updated assignee
-          await fetchTickets(pagination.page, true);
-        }}
-        isPushingToJira={syncing === selectedTicket.id}
-      />
-    </TicketPanel>
+        // Refresh the list to show updated assignee
+        await fetchTickets(pagination.page, true);
+      }}
+      isPushingToJira={syncing === selectedTicket.id}
+      jiraOn={jiraIntegrations.length > 0}
+      renderChrome={(more, body) => (
+        <TicketPanel
+          ticketId={selectedTicket.id}
+          prevId={prevTicket?.id ?? null}
+          nextId={nextTicket?.id ?? null}
+          onGo={goTo}
+          onClose={closeTicket}
+          onFullPage={() => navigate(`/tickets/${selectedTicket.id}`)}
+          onCopyLink={() => copyLink(selectedTicket.id)}
+          more={more}
+        >
+          {body}
+        </TicketPanel>
+      )}
+    />
   ) : null;
 
   return (
@@ -428,10 +434,10 @@ export const TicketsPage = () => {
       >
         <div className={splitOn ? 'space-y-4 min-w-0' : 'px-4 mx-auto space-y-4 w-full'}>
           {/* Header */}
-          <div className="mb-6">
+          <div>
             <PageHeader
               title="Tickets"
-              description="Manage and track support tickets"
+              meta={<TicketsViewToggle displayMode={displayMode} onModeChange={setDisplayMode} />}
               actions={
                 <>
                   {jiraIntegrations.length > 1 && (
@@ -466,11 +472,20 @@ export const TicketsPage = () => {
                       Sync to Jira
                     </Button>
                   )}
-                  <NewTicketButton variant="outline" />
-                  <Button onClick={handleRefresh} disabled={refreshing}>
-                    <RefreshCw className={`mr-2 w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </Button>
+                  {/* The list updates by itself (Live); a manual refresh stays, but quiet. */}
+                  <Tooltip content="Refresh">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Refresh"
+                      onClick={handleRefresh}
+                      disabled={refreshing}
+                      className="p-0 w-8 h-8"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </Tooltip>
+                  <NewTicketButton />
                 </>
               }
             />
@@ -487,7 +502,9 @@ export const TicketsPage = () => {
             }}
             onSave={(name) => saveView(name, viewFiltersOf(filters))}
             onDelete={(view) =>
-              void deleteView(view).catch((error: unknown) => toast.failure('delete this view', error))
+              void deleteView(view).catch((error: unknown) =>
+                toast.failure('delete this view', error)
+              )
             }
           />
           <TicketFilterBar
@@ -499,9 +516,6 @@ export const TicketsPage = () => {
             onSearch={handleSearch}
             onClear={clearFilters}
           />
-
-          {/* Display mode toggle */}
-          <TicketsViewToggle displayMode={displayMode} onModeChange={setDisplayMode} />
 
           {displayMode === 'list' && newTickets.count > 0 && (
             <div className="flex justify-center">
@@ -524,6 +538,10 @@ export const TicketsPage = () => {
           {displayMode === 'kanban' ? (
             <TicketsKanbanView
               filters={filters}
+              canManage={hasPermission(Permission.MANAGE_TICKETS)}
+              assignees={filterSources.assignees}
+              currentUserId={currentUserId}
+              onAssign={(ticketId, userId) => void handleAssign(ticketId, userId)}
               onOpen={(ticket) => {
                 setSelectedTicket(ticket);
                 setSearchParams((params) => {

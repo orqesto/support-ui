@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { SearchInput } from '@/components/ui/SearchInput';
 import { logger } from '@/lib/logger';
 import {
   searchThreadCandidates,
@@ -51,20 +52,19 @@ export const TicketThreadPicker = ({ chosen, onChosenChange, fixed = null }: Pro
   const offered = (candidates ?? []).filter((row) => !takenIds.has(row.id));
 
   return (
-    <div className="space-y-2">
-      <Input
-        label="Threads it explains (optional)"
-        value={query}
-        placeholder="Search any customer’s threads — name, address, subject"
-        onChange={(event) => setQuery(event.target.value)}
-      />
+    <section className="space-y-2" aria-label="Threads it explains">
+      <p className="text-sm font-medium text-foreground">
+        Threads it explains <span className="font-normal text-muted-foreground">· optional</span>
+      </p>
       {(fixed || chosen.length > 0) && (
         <ul className="flex flex-wrap gap-1" aria-label="Chosen threads">
           {fixed && (
             <li>
-              <Badge variant="secondary">
-                {fixed.publicId ?? `#${fixed.id}`} · {fixed.sender} (this thread)
-              </Badge>
+              <Tooltip content="The thread this ticket is created from" size="sm">
+                <Badge variant="secondary">
+                  {fixed.publicId ?? `#${fixed.id}`} · {fixed.sender} (this thread)
+                </Badge>
+              </Tooltip>
             </li>
           )}
           {chosen.map((row) => (
@@ -83,20 +83,41 @@ export const TicketThreadPicker = ({ chosen, onChosenChange, fixed = null }: Pro
           ))}
         </ul>
       )}
-      <ul className="max-h-48 overflow-y-auto space-y-1" aria-label="Threads found">
+      <SearchInput
+        value={query}
+        onChange={setQuery}
+        leadingIcon
+        ariaLabel="Threads it explains (optional)"
+        placeholder="Search any customer’s threads — name, address, subject"
+      />
+      {/* One bordered list that scrolls, as the design's candidates (`.cands`). */}
+      <ul
+        className="overflow-y-auto max-h-[264px] rounded-[9px] border border-border"
+        aria-label="Threads found"
+      >
         {candidates === null ? (
-          <li className="text-xs text-muted-foreground">Searching…</li>
+          <li className="py-2.5 px-3 text-xs text-muted-foreground">Searching…</li>
         ) : offered.length === 0 ? (
-          <li className="text-xs text-muted-foreground">No threads match.</li>
+          <li className="py-2.5 px-3 text-xs text-muted-foreground">No threads match.</li>
         ) : (
           offered.map((row) => (
-            <li key={row.id} className="flex items-center gap-2">
-              <span className="flex-1 text-sm truncate">
-                {row.sender} · {row.subject ?? '(no subject)'}
+            <li
+              key={row.id}
+              className="flex gap-2.5 items-center py-1.5 pr-2 pl-3 text-[13px] border-t border-border/60 first:border-t-0"
+            >
+              <span className="flex-1 min-w-0 truncate">
+                <b className="font-semibold">{row.sender}</b>
+                <span className="text-muted-foreground"> · {row.subject ?? '(no subject)'}</span>
               </span>
+              {row.status && (
+                <Badge variant={statusVariant(row.status)} size="sm">
+                  {row.status.replace('_', ' ')}
+                </Badge>
+              )}
               <Button
                 type="button"
                 size="sm"
+                variant="outline"
                 onClick={() => onChosenChange([...chosen, row])}
                 aria-label={`Add ${row.sender || `thread #${row.id}`}`}
               >
@@ -106,11 +127,19 @@ export const TicketThreadPicker = ({ chosen, onChosenChange, fixed = null }: Pro
           ))
         )}
       </ul>
-      {capped && (
-        <p className="text-xs text-muted-foreground">
-          Showing the newest {THREAD_PICKER_LIMIT}. Search to find another thread.
-        </p>
-      )}
-    </div>
+      <p className="text-xs text-muted-foreground">
+        Every lifecycle is searched — a thread already answered and resolved still belongs on the
+        incident it reported. You can add more on the ticket later.
+        {capped && ` Showing the newest ${THREAD_PICKER_LIMIT}; search to find another thread.`}
+      </p>
+    </section>
   );
 };
+
+/** A thread's lifecycle as the thread list colours it: done green, waiting grey, live blue. */
+const statusVariant = (status: string): 'success' | 'secondary' | 'info' =>
+  status === 'resolved' || status === 'closed'
+    ? 'success'
+    : status === 'pending' || status === 'on_hold'
+      ? 'secondary'
+      : 'info';

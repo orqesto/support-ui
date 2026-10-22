@@ -11,8 +11,13 @@ export const MAX_FILE_BYTES = 10 * 1024 * 1024;
  */
 export const pickUploadableFiles = (picked: File[]): { kept: File[]; notice: string | null } => {
   const fitting = picked.filter((file) => file.size <= MAX_FILE_BYTES);
+  const oversized = picked.filter((file) => file.size > MAX_FILE_BYTES);
   const notes = [
-    ...(fitting.length < picked.length ? ['files over 10 MB were left out'] : []),
+    ...(oversized.length === 1
+      ? [`${oversized[0].name} is over 10 MB and was left out`]
+      : oversized.length > 1
+        ? [`${oversized.length} files over 10 MB were left out`]
+        : []),
     ...(fitting.length > MAX_FILES ? [`only the first ${MAX_FILES} files are kept`] : []),
   ];
   return {

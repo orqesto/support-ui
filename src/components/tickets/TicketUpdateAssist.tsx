@@ -1,9 +1,25 @@
-import { useEffect, useRef, useState } from 'react';
-import { Eye, Sparkles } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  Check,
+  ChevronDown,
+  Clock,
+  Eye,
+  MoreHorizontal,
+  Send,
+  Sparkles,
+  Undo2,
+} from 'lucide-react';
 import { HoldDialog } from '@/components/shared/HoldDialog';
 import { Button } from '@/components/ui/Button';
+import { Menu, MenuItem, MenuLabel, MenuSeparator } from '@/components/ui/Menu';
 import { Tooltip } from '@/components/ui/Tooltip';
-import { answerToEditorHtml } from '@/components/messages/messageDetailConstants';
+import {
+  COMPOSER_AI_TOOL,
+  COMPOSER_TOOL,
+  LABEL,
+  answerToEditorHtml,
+} from '@/components/messages/messageDetailConstants';
+import { Spinner } from '@/components/ui/Spinner';
 import { editorHtmlToText } from '@/lib/editorText';
 import { normalizeEditorHtml } from '@/lib/editorSchema';
 import { getApiErrorMessage } from '@/lib/errorMessages';
@@ -222,18 +238,31 @@ type ActionsProps = {
   aiDisabled: boolean;
   previewDisabled: boolean;
   sendDisabled: boolean;
+  /** Why Send is off — shown on hover over the greyed-out button. */
+  sendBlockedReason?: string | null;
   previewOpen: boolean;
   onGenerate: () => void;
   onTogglePreview: () => void;
-  /** Send update: each thread becomes Pending (waiting for the customer). */
+  /** Send: each thread becomes Pending (waiting for the customer). */
   onSend: () => void;
   /** Send & resolve all. */
   onResolve: () => void;
   /** Send & put on hold, once the reason and date are given. */
   onHold: (hold: Hold) => void;
+  /** Undo the AI draft — the agent's own text back. Absent while there is nothing to undo. */
+  onUndoDraft?: () => void;
+  /** The reply tools after the AI draft (Attach, Translate, Templates), as the thread composer. */
+  tools: ReactNode;
+  /** More ⋯ items after Preview (per-customer drafts); absent when the backend has none. */
+  moreItems?: ReactNode;
+  /** After the ⋯ menu (the template picker). */
+  trailing?: ReactNode;
 };
 
-/** Generate with AI · Preview · Send update · Send & put on hold · Send & resolve all. */
+/**
+ * The composer's action row (Tickets v3): Generate · Attach · ⋯ on the left, and the split
+ * "Send to N threads ▾" on the right — its menu holds Send & resolve all and Send & put on hold.
+ */
 export const TicketUpdateActions = ({
   count,
   composing,
@@ -241,53 +270,139 @@ export const TicketUpdateActions = ({
   aiDisabled,
   previewDisabled,
   sendDisabled,
+  sendBlockedReason,
   previewOpen,
   onGenerate,
   onTogglePreview,
   onSend,
   onResolve,
   onHold,
+  onUndoDraft,
+  tools,
+  moreItems,
+  trailing,
 }: ActionsProps) => {
   const [holdOpen, setHoldOpen] = useState(false);
   const threads = `${count} ${plural(count, 'thread', 'threads')}`;
   return (
-    <>
-      <Tooltip
-        content="Drafts one update for every ticked customer from the ticket’s title and cause, with your knowledge base. Text already typed is used as your notes."
-        size="sm"
-      >
-        <Button
+    <div className="flex flex-wrap gap-2 items-center">
+      <div className="flex flex-wrap gap-1.5 items-center">
+        {/* The thread composer's AI button: soft, the draft is a suggestion. */}
+        <Tooltip
+          content="Drafts one update for every ticked customer from the ticket’s title and cause, with your knowledge base. Text already typed is used as your notes."
           size="sm"
-          variant="outline"
-          type="button"
-          onClick={onGenerate}
-          isLoading={composing}
-          disabled={aiDisabled}
         >
-          <Sparkles className="w-4 h-4 mr-1" aria-hidden />
-          Generate with AI
-        </Button>
-      </Tooltip>
-      <Button
-        size="sm"
-        variant="outline"
-        type="button"
-        onClick={onTogglePreview}
-        disabled={previewDisabled}
-        aria-pressed={previewOpen}
-      >
-        <Eye className="w-4 h-4 mr-1" aria-hidden />
-        {previewOpen ? 'Hide preview' : 'Preview'}
-      </Button>
-      <Button size="sm" onClick={onSend} isLoading={sending} disabled={sendDisabled}>
-        Send update to {threads}
-      </Button>
-      <Button size="sm" variant="outline" onClick={() => setHoldOpen(true)} disabled={sendDisabled}>
-        Send &amp; put on hold
-      </Button>
-      <Button size="sm" variant="outline" onClick={onResolve} disabled={sendDisabled}>
-        Send &amp; resolve all
-      </Button>
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={onGenerate}
+            disabled={aiDisabled}
+            aria-busy={composing}
+            className={COMPOSER_AI_TOOL}
+          >
+            {composing ? <Spinner size={12} /> : <Sparkles className="w-3 h-3" aria-hidden />}
+            {composing ? 'Drafting…' : 'AI draft'}
+          </Button>
+        </Tooltip>
+        {onUndoDraft && !composing && (
+          <Tooltip content="Restore what you had written" size="sm">
+            <Button
+              variant="ghost"
+              type="button"
+              onClick={onUndoDraft}
+              className="flex gap-1 items-center px-2 py-1 h-auto rounded text-muted-foreground hover:text-foreground"
+            >
+              <Undo2 className="w-3.5 h-3.5" aria-hidden />
+              <span className={LABEL}>undo</span>
+            </Button>
+          </Tooltip>
+        )}
+        {tools}
+        <Menu
+          ariaLabel="More composer actions"
+          width={270}
+          trigger={({ open, toggle }) => (
+            <Tooltip content={open ? null : 'More composer actions'} size="sm">
+              <Button
+                variant="ghost"
+                type="button"
+                aria-label="More composer actions"
+                aria-expanded={open}
+                onClick={toggle}
+                disabled={previewDisabled}
+                className={`${COMPOSER_TOOL} h-auto`}
+              >
+                <MoreHorizontal className="w-3 h-3" />
+              </Button>
+            </Tooltip>
+          )}
+        >
+          <MenuItem
+            checked={previewOpen}
+            onSelect={onTogglePreview}
+            icon={<Eye className="w-3.5 h-3.5" />}
+          >
+            Preview per customer
+          </MenuItem>
+          {moreItems && (
+            <>
+              <MenuSeparator />
+              <MenuLabel>Per-customer drafts</MenuLabel>
+              {moreItems}
+            </>
+          )}
+        </Menu>
+        {trailing}
+      </div>
+      <span className="flex-1" />
+      <SendBlockedTip reason={sendDisabled ? sendBlockedReason : null}>
+        <div className="flex">
+          <Button
+            size="sm"
+            onClick={onSend}
+            isLoading={sending}
+            disabled={sendDisabled}
+            className="rounded-r-none"
+          >
+            <Send className="w-3.5 h-3.5 mr-1" aria-hidden />
+            Send to {threads}
+          </Button>
+          <Menu
+            ariaLabel="More send options"
+            align="end"
+            width={260}
+            trigger={({ open, toggle }) => (
+              <Tooltip content={open ? null : 'More send options'} size="sm">
+                <Button
+                  size="sm"
+                  aria-label="More send options"
+                  aria-expanded={open}
+                  onClick={toggle}
+                  disabled={sendDisabled}
+                  className="px-[7px] rounded-l-none border-l border-primary-foreground/30"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </Button>
+              </Tooltip>
+            )}
+          >
+            <MenuItem
+              icon={<Check className="w-3.5 h-3.5" />}
+              hint="threads resolved"
+              onSelect={onResolve}
+            >
+              Send &amp; resolve all
+            </MenuItem>
+            <MenuItem
+              icon={<Clock className="w-3.5 h-3.5" />}
+              hint="until a date"
+              onSelect={() => setHoldOpen(true)}
+            >
+              Send &amp; put on hold
+            </MenuItem>
+          </Menu>
+        </div>
+      </SendBlockedTip>
       <HoldDialog
         open={holdOpen}
         onOpenChange={setHoldOpen}
@@ -300,18 +415,23 @@ export const TicketUpdateActions = ({
           onHold(hold);
         }}
       />
-    </>
+    </div>
   );
 };
+
+/** Explains a greyed-out Send on hover; with no reason it adds nothing around the buttons. */
+const SendBlockedTip = ({ reason, children }: { reason?: string | null; children: ReactNode }) =>
+  reason ? (
+    <Tooltip content={reason} size="sm">
+      <span className="inline-flex">{children}</span>
+    </Tooltip>
+  ) : (
+    <>{children}</>
+  );
 
 /** Which placeholders exist, and how many ticked customers a `{customer_name}` cannot reach. */
 export const PlaceholderHints = ({ unnamed }: { unnamed: number }) => (
   <>
-    <p className="text-xs text-muted-foreground">
-      {'{first_name}'} greets each customer by their own first name — “Hi there,” when it is not
-      known, never their email address. Also: {'{customer_name}'}, {'{ticket_id}'}, {'{thread_id}'},{' '}
-      {'{agent_name}'}.
-    </p>
     {unnamed > 0 && (
       <p className="text-xs text-destructive">
         {unnamed} ticked {plural(unnamed, 'customer has', 'customers have')} no name on record —{' '}

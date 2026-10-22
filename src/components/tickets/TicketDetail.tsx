@@ -1,37 +1,38 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import DOMPurify from 'dompurify';
 import { addNoopenerHook } from '@/components/messages/messageDetailConstants';
 
 addNoopenerHook(DOMPurify);
-import {
-  ExternalLink as ExternalLinkIcon,
-  Send,
-  Trash2,
-  Link as LinkIcon,
-  Maximize2,
-  Tag,
-  X,
-  Plus,
-  Pencil,
-  GitBranch,
-} from 'lucide-react';
+import { Lock, Maximize2, Pencil } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import RichTextEditor from '@/components/shared/RichTextEditor';
 import { MoveDepartmentDialog } from './MoveDepartmentDialog';
 import { TicketPanelTabs } from './TicketPanelTabs';
+import { TicketReachStrip } from './TicketReachStrip';
+import { STATUS_DOT, StatusDot, plainText } from './list/ticketRowBits';
+import {
+  JiraSection,
+  PRIORITY_OPTIONS,
+  TicketMoreMenu,
+  field,
+  sectionTitle,
+  shortStamp,
+} from './ticketDetailParts';
 import { TranslateButton } from '@/components/shared/TranslateButton';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { TicketLabelsField } from './TicketLabelsField';
+import { Tooltip } from '@/components/ui/Tooltip';
+import { Card } from '@/components/ui/Card';
 import { ExternalLink } from '@/components/ui/ExternalLink';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { labelPickerEmptyText, type LabelsStatus } from '@/components/shared/labelPickerText';
-import { formatDate } from '@/lib/utils';
+import { formatAge } from '@/lib/utils';
+import { useDepartmentById } from '@/hooks/useDepartments';
+import { useElementWidth } from '@/hooks/useElementWidth';
+import type { TicketThread } from '@/services/ticketThreads.service';
 import { categoryService } from '@/services/category.service';
 import { messageService } from '@/services/message.service';
-import { labelService, type Label } from '@/services/settings.service';
-import { hashNameToLabelColor } from '@/components/messages/inboxCardHelpers';
 import { ticketService } from '@/services/ticket.service';
 import { ticketFieldPatch } from './ticketFieldPatch';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -40,7 +41,6 @@ import { Permission } from '@/types/roles';
 import type { Ticket, TicketStatus, TicketPriority, Message, Category } from '@/types';
 import { logger } from '@/lib/logger';
 import { allowedStatusOptions } from '@/lib/ticketStatus';
-import { solidChip } from '@/lib/userColor';
 
 type TicketDetailProps = {
   ticket: Ticket;
@@ -49,18 +49,17 @@ type TicketDetailProps = {
   onRefresh?: () => void | Promise<void>;
   isPushingToJira?: boolean;
   showFullPageButton?: boolean;
+  /** A Jira integration is connected: the sidebar's Jira section and Push to Jira show. */
+  jiraOn?: boolean;
+  /**
+   * The chrome around the ticket (side sheet, full page) — handed the ⋯ menu for its bar and the
+   * ticket body to render under it. Without it the body renders alone.
+   */
+  renderChrome?: (more: ReactNode, body: ReactNode) => ReactNode;
 };
 
-const statusColors: Record<
-  TicketStatus,
-  'default' | 'success' | 'warning' | 'danger' | 'secondary'
-> = {
-  pending: 'warning',
-  open: 'default',
-  in_progress: 'default',
-  resolved: 'success',
-  closed: 'secondary',
-};
+/** Below this width the sidebar folds into a Details tab (the design's 860 px container query). */
+const SIDEBAR_MIN_WIDTH = 860;
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
   pending: 'Pending',
@@ -70,13 +69,6 @@ const STATUS_LABELS: Record<TicketStatus, string> = {
   closed: 'Closed',
 };
 
-const priorityColors: Record<TicketPriority, 'default' | 'success' | 'warning' | 'danger'> = {
-  low: 'success',
-  medium: 'default',
-  high: 'warning',
-  critical: 'danger',
-};
-
 export const TicketDetail = ({
   ticket,
   onPushToJira,
@@ -84,7 +76,15 @@ export const TicketDetail = ({
   onRefresh,
   isPushingToJira,
   showFullPageButton = true,
+  jiraOn = false,
+  renderChrome,
 }: TicketDetailProps) => {
+  const rootRef = useRef<HTMLDivElement>(null);
+  // Wide until measured (and in jsdom): the sidebar is the layout the page is designed for.
+  const wide = useElementWidth(rootRef, SIDEBAR_MIN_WIDTH) >= SIDEBAR_MIN_WIDTH;
+  const department = useDepartmentById(ticket.departmentId);
+  const [threads, setThreads] = useState<TicketThread[]>([]);
+  const [descriptionOpen, setDescriptionOpen] = useState(false);
   const location = useLocation();
   const isFullPage = location.pathname.startsWith('/tickets/');
   const { hasPermission } = usePermissions();
@@ -95,17 +95,12 @@ export const TicketDetail = ({
   const [categories, setCategories] = useState<Category[]>([]);
   const [localStatus, setLocalStatus] = useState<TicketStatus>(ticket.status);
   const [localPriority, setLocalPriority] = useState<TicketPriority>(ticket.priority);
-  const [localCategoryId, setLocalCategoryId] = useState<string>(ticket.categoryId?.toString() ?? '');
+  const [localCategoryId, setLocalCategoryId] = useState<string>(
+    ticket.categoryId?.toString() ?? ''
+  );
   const [linkedMessages, setLinkedMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [linkCopied, setLinkCopied] = useState(false);
-  const [ticketLabels, setTicketLabels] = useState<Label[]>([]);
-  const [allLabels, setAllLabels] = useState<Label[]>([]);
-  const [labelsStatus, setLabelsStatus] = useState<LabelsStatus>('loading');
-  /** Bumped to fetch the labels again (the picker reopened after a failed load). */
-  const [labelsAttempt, setLabelsAttempt] = useState(0);
-  // Bumped after a label is created: remounting the picker closes it, as the old panel did.
-  const [labelPickerKey, setLabelPickerKey] = useState(0);
   const [editingDescription, setEditingDescription] = useState(false);
   // Rename in place (contingency page, 2026-10-19) — the edit page is no longer the only way.
   const [editingTitle, setEditingTitle] = useState(false);
@@ -115,26 +110,6 @@ export const TicketDetail = ({
   const [moveDeptOpen, setMoveDeptOpen] = useState(false);
   // Teams off: one team, so there is nowhere to move a ticket.
   const teamsEnabled = useTeamsEnabled();
-
-  const handleCreateLabel = async (name: string) => {
-    try {
-      const created = await labelService.createLabel({
-        name,
-        color: hashNameToLabelColor(name),
-      });
-      setAllLabels((prev) => [created, ...prev]);
-      setTicketLabels((prev) => [...prev, created]);
-      try {
-        await labelService.assignLabelToTicket(ticket.id, created.id);
-      } catch (assignErr) {
-        logger.error('Failed to assign newly-created label:', assignErr);
-        setTicketLabels((prev) => prev.filter((lbl) => lbl.id !== created.id));
-      }
-      setLabelPickerKey((key) => key + 1);
-    } catch (err) {
-      logger.error('Failed to create label:', err);
-    }
-  };
 
   const handleCopyLink = () => {
     const url = `${window.location.origin}/tickets?id=${ticket.id}`;
@@ -157,7 +132,16 @@ export const TicketDetail = ({
       setLocalDescription(ticket.description ?? '');
     }
     if (!editingTitle) setLocalTitle(ticket.title);
-  }, [ticket.id, ticket.status, ticket.priority, ticket.categoryId, ticket.description, ticket.title, editingDescription, editingTitle]);
+  }, [
+    ticket.id,
+    ticket.status,
+    ticket.priority,
+    ticket.categoryId,
+    ticket.description,
+    ticket.title,
+    editingDescription,
+    editingTitle,
+  ]);
 
   // The editor closes only once the save and the reload are done: closing it re-syncs the title
   // from `ticket`, which until then still holds the old one (staging 2026-10-19: the page kept
@@ -190,9 +174,14 @@ export const TicketDetail = ({
   const showCategoryPicker = hasManageTickets && canViewCategories && !ticket.externalId;
   useEffect(() => {
     if (!showCategoryPicker) return;
-    categoryService.getAll()
-      .then((res) => { if (res.data) setCategories(res.data); })
-      .catch((err) => { logger.error('Failed to load categories:', err); });
+    categoryService
+      .getAll()
+      .then((res) => {
+        if (res.data) setCategories(res.data);
+      })
+      .catch((err) => {
+        logger.error('Failed to load categories:', err);
+      });
   }, [showCategoryPicker]);
 
   const handleFieldUpdate = async (field: string, value: string) => {
@@ -201,56 +190,6 @@ export const TicketDetail = ({
       await onRefresh?.();
     } catch (err) {
       logger.error('Failed to update ticket field:', err);
-    }
-  };
-
-  useEffect(() => {
-    /*
-     * Only the latest request's answer lands. The pages mount one TicketDetail per ticket (keyed
-     * by id), so a reply for another ticket cannot arrive here — but a retry (labelsAttempt)
-     * re-runs this effect, and a superseded attempt's late reply must not overwrite a newer one.
-     */
-    // Labels need VIEW_LABELS (an associate has none): none shown, nothing asked.
-    if (!canViewLabels) {
-      setTicketLabels([]);
-      setAllLabels([]);
-      setLabelsStatus('ready');
-      return;
-    }
-    let live = true;
-    setLabelsStatus('loading');
-    Promise.all([
-      labelService.getTicketLabels(ticket.id),
-      labelService.getLabels(),
-    ])
-      .then(([tl, al]) => {
-        if (!live) return;
-        setTicketLabels(tl);
-        setAllLabels(al);
-        setLabelsStatus('ready');
-      })
-      .catch((err) => {
-        if (!live) return;
-        logger.error(err);
-        setLabelsStatus('error');
-      });
-    return () => {
-      live = false;
-    };
-  }, [ticket.id, labelsAttempt, canViewLabels]);
-
-  const handleToggleLabel = async (label: Label) => {
-    const assigned = ticketLabels.some((lbl) => lbl.id === label.id);
-    try {
-      if (assigned) {
-        await labelService.removeLabelFromTicket(ticket.id, label.id);
-        setTicketLabels((prev) => prev.filter((lbl) => lbl.id !== label.id));
-      } else {
-        await labelService.assignLabelToTicket(ticket.id, label.id);
-        setTicketLabels((prev) => [...prev, label]);
-      }
-    } catch (error) {
-      logger.error('Failed to toggle label:', error);
     }
   };
 
@@ -276,80 +215,54 @@ export const TicketDetail = ({
     });
   }, [ticket.id]);
 
-  return (
-    <div className="relative space-y-6">
-      {/* Header Section */}
-      <div className="space-y-4">
-        <div>
-          <div className="flex gap-3 items-center mb-2">
-            {editingTitle ? (
-              <div className="flex flex-1 gap-2 items-center">
-                <Input
-                  aria-label="Ticket title"
-                  value={localTitle}
-                  maxLength={500}
-                  autoFocus
-                  onChange={(event) => setLocalTitle(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') void saveTitle();
-                    if (event.key === 'Escape') {
-                      setLocalTitle(ticket.title);
-                      setEditingTitle(false);
-                    }
-                  }}
+  const canEdit = hasManageTickets && !ticket.externalId;
+  const ticketDone = ticket.status === 'resolved' || ticket.status === 'closed';
+  const descriptionHtml = DOMPurify.sanitize(translatedDescription ?? ticket.description ?? '', {
+    ALLOWED_TAGS: [
+      'p',
+      'br',
+      'b',
+      'i',
+      'u',
+      'strong',
+      'em',
+      'a',
+      'ul',
+      'ol',
+      'li',
+      'blockquote',
+      'pre',
+      'code',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+    ],
+    ALLOWED_ATTR: ['href', 'target', 'rel'],
+    ALLOWED_URI_REGEXP: /^https?:/i,
+  });
+  const longDescription = plainText(ticket.description ?? '').length > 260;
+
+  const sidebar = (
+    <>
+      <section className="grid gap-3 px-[18px] py-4 border-b border-border/60">
+        {sectionTitle('Properties')}
+        <div className="grid grid-cols-2 gap-x-3.5 gap-y-3">
+          {field(
+            'Status',
+            canEdit ? (
+              <span className="flex gap-1.5 items-center">
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[localStatus]}`}
+                  aria-hidden
                 />
-                <Button
-                  size="sm"
-                  onClick={() => void saveTitle()}
-                  disabled={!localTitle.trim() || savingTitle}
-                  isLoading={savingTitle}
-                >
-                  Save
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setLocalTitle(ticket.title);
-                    setEditingTitle(false);
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <h2 className="font-display flex-1 text-2xl font-bold">{localTitle}</h2>
-            )}
-            {hasManageTickets && !ticket.externalId && !editingTitle && (
-              <Button
-                variant="ghost"
-                size="sm"
-                title="Rename ticket"
-                aria-label="Rename ticket"
-                onClick={() => setEditingTitle(true)}
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </Button>
-            )}
-            <span className="px-2 py-1 font-mono text-xs rounded bg-muted text-muted-foreground">
-              #{ticket.id}
-            </span>
-            {showFullPageButton && !isFullPage && (
-              <Link to={`/tickets/${ticket.id}`}>
-                <Button variant="ghost" size="sm" title="Open in full page"
-  aria-label="Open in full page">
-                  <Maximize2 className="w-4 h-4" />
-                </Button>
-              </Link>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="flex gap-2 items-center">
-              <span className="text-sm font-medium text-muted-foreground">Status:</span>
-              {hasManageTickets && !ticket.externalId ? (
                 <Select
+                  variant="value"
                   value={localStatus}
-                  onChange={(val) => { setLocalStatus(val as TicketStatus); void handleFieldUpdate('status', val); }}
+                  onChange={(val) => {
+                    setLocalStatus(val as TicketStatus);
+                    void handleFieldUpdate('status', val);
+                  }}
                   // Only offer transitions the backend allows from the current status
                   // (mirrored via @/lib/ticketStatus) so the dropdown can't surface a move
                   // that 422s (audit HIGH, Wave1:134).
@@ -357,189 +270,333 @@ export const TicketDetail = ({
                     value: status,
                     label: STATUS_LABELS[status],
                   }))}
-                  className="min-w-[130px]"
-                  size="sm"
                   aria-label="Status"
                 />
-              ) : (
-                <Badge variant={statusColors[localStatus]}>{localStatus}</Badge>
-              )}
-            </div>
-            <div className="flex gap-2 items-center">
-              <span className="text-sm font-medium text-muted-foreground">Priority:</span>
-              {hasManageTickets && !ticket.externalId ? (
-                <Select
-                  value={localPriority}
-                  onChange={(val) => { setLocalPriority(val as TicketPriority); void handleFieldUpdate('priority', val); }}
-                  options={[
-                    { value: 'low', label: 'Low' },
-                    { value: 'medium', label: 'Medium' },
-                    { value: 'high', label: 'High' },
-                    { value: 'critical', label: 'Critical' },
-                  ]}
-                  className="min-w-[120px]"
-                  size="sm"
-                  aria-label="Priority"
-                />
-              ) : (
-                <Badge variant={priorityColors[localPriority]}>{localPriority}</Badge>
-              )}
-            </div>
-            <div className="flex gap-2 items-center">
-              <span className="text-sm font-medium text-muted-foreground">Category:</span>
-              {showCategoryPicker ? (
-                <Select
-                  value={localCategoryId}
-                  onChange={(val) => { setLocalCategoryId(val); void handleFieldUpdate('categoryId', val); }}
-                  options={[
-                    { value: '', label: 'None' },
-                    ...categories.map((cat) => ({ value: cat.id.toString(), label: cat.name })),
-                  ]}
-                  className="min-w-[140px]"
-                  size="sm"
-                  aria-label="Category"
-                  searchable
-                />
-              ) : (
-                ticket.categoryName ? <Badge variant="default">{ticket.categoryName}</Badge> : null
-              )}
-            </div>
-            {/* Labels */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {ticketLabels.map((label) => (
-                <span
-                  key={label.id}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-                  style={solidChip(label.color)}
-                >
-                  {label.name}
-                  {hasManageLabels && (
-                    <Button
-                      aria-label="Remove label"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleToggleLabel(label)}
-                      className="p-0 w-auto h-auto opacity-70 hover:opacity-100 ml-0.5 hover:bg-transparent"
-                      title={`Remove ${label.name}`}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  )}
+              </span>
+            ) : (
+              <StatusDot status={localStatus} />
+            )
+          )}
+          {field(
+            'Priority',
+            canEdit ? (
+              <Select
+                variant="value"
+                value={localPriority}
+                onChange={(val) => {
+                  setLocalPriority(val as TicketPriority);
+                  void handleFieldUpdate('priority', val);
+                }}
+                options={PRIORITY_OPTIONS}
+                aria-label="Priority"
+              />
+            ) : (
+              <span>{PRIORITY_OPTIONS.find((opt) => opt.value === localPriority)?.label}</span>
+            )
+          )}
+          {field(
+            'Category',
+            showCategoryPicker ? (
+              <Select
+                variant="value"
+                value={localCategoryId}
+                onChange={(val) => {
+                  setLocalCategoryId(val);
+                  void handleFieldUpdate('categoryId', val);
+                }}
+                options={[
+                  { value: '', label: 'None' },
+                  ...categories.map((cat) => ({ value: cat.id.toString(), label: cat.name })),
+                ]}
+                aria-label="Category"
+                searchable
+              />
+            ) : (
+              <span className="truncate">
+                {ticket.categoryName ?? (
+                  <span className="text-muted-foreground/70 font-normal">None</span>
+                )}
+              </span>
+            )
+          )}
+          {field(
+            'Assignee',
+            <AssignmentSelect
+              type="ticket"
+              variant="value"
+              itemId={ticket.id}
+              currentAssigneeId={ticket.assigneeId}
+              departmentId={ticket.departmentId ?? null}
+              onAssign={onRefresh}
+            />
+          )}
+          {/* Teams off: one team, nothing to show or move to (as staging's Teams switch). */}
+          {teamsEnabled &&
+            field(
+              'Team',
+              <>
+                <span className="truncate">{department?.name ?? '—'}</span>
+                {hasManageTickets && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 px-[3px] text-xs font-medium text-primary hover:bg-transparent hover:underline"
+                    onClick={() => setMoveDeptOpen(true)}
+                  >
+                    Move
+                  </Button>
+                )}
+              </>
+            )}
+          {canViewLabels &&
+            field(
+              'Labels',
+              <TicketLabelsField ticketId={ticket.id} canManage={hasManageLabels} />,
+              true
+            )}
+        </div>
+      </section>
+      <section className="grid gap-3 px-[18px] py-4 border-b border-border/60">
+        {sectionTitle('Details')}
+        <div className="grid grid-cols-2 gap-x-3.5 gap-y-3">
+          {field('From', <span className="truncate">{ticket.sender}</span>, true)}
+          {field(
+            'Created',
+            <span className="font-mono text-xs">{shortStamp(ticket.createdAt)}</span>
+          )}
+          {field(
+            'Updated',
+            <span className="font-mono text-xs">{shortStamp(ticket.updatedAt)}</span>
+          )}
+        </div>
+      </section>
+      {(!!ticket.externalId || jiraOn) && (
+        <JiraSection
+          ticket={ticket}
+          onPushToJira={onPushToJira}
+          isPushingToJira={isPushingToJira}
+        />
+      )}
+    </>
+  );
+
+  const moreMenu = (
+    <TicketMoreMenu
+      linkCopied={linkCopied}
+      onCopyLink={handleCopyLink}
+      onMove={hasManageTickets && teamsEnabled ? () => setMoveDeptOpen(true) : undefined}
+      onPushToJira={jiraOn && !ticket.externalId ? onPushToJira : undefined}
+      onDelete={onDelete}
+    />
+  );
+
+  const body = (
+    <div ref={rootRef} className="flex min-h-full">
+      <div
+        className={`grid flex-1 min-w-0 ${
+          wide ? 'grid-cols-[minmax(0,1fr)_clamp(300px,31%,380px)]' : 'grid-cols-1'
+        }`}
+      >
+        <div className="min-w-0">
+          <div
+            // Full width of its column: the design's final pass drops the 900 px cap.
+            className={`flex flex-col gap-4 ${wide ? 'px-6 pt-5 pb-10' : 'px-4 pt-4 pb-8'}`}
+          >
+            {/* Header: what it is, where it came from, then the title */}
+            <div className="grid gap-2">
+              <div className="flex flex-wrap gap-2 items-center text-[12.5px] text-muted-foreground">
+                <StatusDot status={localStatus} />
+                <span>·</span>
+                <span className="font-mono text-xs">#{ticket.id}</span>
+                {ticket.categoryName && (
+                  <>
+                    <span>·</span>
+                    <span>{ticket.categoryName}</span>
+                  </>
+                )}
+                <span>·</span>
+                <span>
+                  opened {formatAge(ticket.createdAt)} ago from {ticket.sender}
                 </span>
-              ))}
-              {hasManageLabels && (
-                <Select
-                  key={labelPickerKey}
-                  variant="popover"
-                  multi
-                  aria-label="Labels"
-                  options={allLabels.map((label) => ({
-                    value: String(label.id),
-                    label: label.name,
-                    color: label.color,
-                  }))}
-                  value={ticketLabels.map((label) => String(label.id))}
-                  onChange={(next) => {
-                    // The panel ticks one label per press: find it and run the same toggle as the chips.
-                    // Select hands back applied labels it does not list untouched, so the plain
-                    // difference between the two sets is exactly the one label pressed.
-                    const before = new Set(ticketLabels.map((label) => String(label.id)));
-                    const after = new Set(next);
-                    const changed =
-                      next.find((id) => !before.has(id)) ?? [...before].find((id) => !after.has(id));
-                    const label = allLabels.find((lbl) => String(lbl.id) === changed);
-                    if (label) void handleToggleLabel(label);
-                  }}
-                  // Only once the list is known: before that "Create Bug" would duplicate an existing Bug.
-                  creatable={hasManageLabels && labelsStatus === 'ready'}
-                  // The same wording as the message header's label picker (one helper for both).
-                  noOptionsMessage={() =>
-                    labelPickerEmptyText(labelsStatus, allLabels.length, hasManageLabels)
-                  }
-                  onCreate={(name) => void handleCreateLabel(name)}
-                  placeholder={
-                    hasManageLabels && labelsStatus === 'ready' ? 'Search or create…' : 'Search…'
-                  }
-                  // A failed load is retried each time the picker opens — not a dead end.
-                  onOpenChange={(open) => {
-                    if (open && labelsStatus === 'error') setLabelsAttempt((attempt) => attempt + 1);
-                  }}
-                  trigger={({ toggle }) => (
+                {ticket.externalId && (
+                  <span className="inline-flex gap-1 items-center font-mono text-[11px]">
+                    <Lock className="w-3 h-3" />
+                    {ticket.externalUrl ? (
+                      <ExternalLink href={ticket.externalUrl}>{ticket.externalId}</ExternalLink>
+                    ) : (
+                      ticket.externalId
+                    )}
+                  </span>
+                )}
+              </div>
+              {editingTitle ? (
+                <div className="flex gap-2 items-center">
+                  <Input
+                    aria-label="Ticket title"
+                    value={localTitle}
+                    maxLength={500}
+                    autoFocus
+                    className="font-display text-[19px] font-semibold"
+                    onChange={(event) => setLocalTitle(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') void saveTitle();
+                      if (event.key === 'Escape') {
+                        setLocalTitle(ticket.title);
+                        setEditingTitle(false);
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={() => void saveTitle()}
+                    disabled={!localTitle.trim() || savingTitle}
+                    isLoading={savingTitle}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setLocalTitle(ticket.title);
+                      setEditingTitle(false);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="group/title flex gap-1.5 items-start">
+                  <h2 className="flex-1 m-0 font-display text-[22px] font-semibold leading-tight tracking-[-0.01em] [text-wrap:pretty]">
+                    {localTitle}
+                  </h2>
+                  {canEdit && (
+                    <Tooltip content="Rename ticket" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Rename ticket"
+                        onClick={() => setEditingTitle(true)}
+                        className="p-0 mt-px w-8 h-8 opacity-0 group-hover/title:opacity-100 focus-visible:opacity-100"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                    </Tooltip>
+                  )}
+                  {showFullPageButton && !isFullPage && !renderChrome && (
+                    <Link to={`/tickets/${ticket.id}`}>
+                      <Tooltip content="Open in full page" size="sm">
+                        <Button variant="ghost" size="sm" aria-label="Open in full page">
+                          <Maximize2 className="w-4 h-4" />
+                        </Button>
+                      </Tooltip>
+                    </Link>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <TicketReachStrip threads={threads} ticketDone={ticketDone} />
+
+            {/* Description */}
+            <Card padding="none" className="relative rounded-[10px] shadow-none">
+              <div className="flex gap-1 items-center px-3.5 pt-1.5 pr-1.5">
+                <span className="font-display text-[10.5px] font-semibold tracking-[0.09em] uppercase text-muted-foreground">
+                  Description
+                </span>
+                <span className="flex-1" />
+                {canEdit && !editingDescription && (
+                  <Tooltip content="Edit description" size="sm">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Edit description"
+                      onClick={() => setEditingDescription(true)}
+                      className="p-0 w-8 h-8"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                  </Tooltip>
+                )}
+                <TranslateButton
+                  ticketId={ticket.id}
+                  onTranslated={(content) => setTranslatedDescription(content)}
+                  onCleared={() => setTranslatedDescription(null)}
+                />
+              </div>
+              {editingDescription ? (
+                <div className="grid gap-2 px-3.5 pt-1 pb-3">
+                  <RichTextEditor
+                    content={localDescription}
+                    onChange={setLocalDescription}
+                    placeholder="Enter ticket description..."
+                    minHeight="120px"
+                  />
+                  <div className="flex gap-1.5">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        void handleFieldUpdate('description', localDescription);
+                        setEditingDescription(false);
+                      }}
+                    >
+                      Save
+                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-6 px-1.5 text-xs"
-                      onClick={toggle}
-                      title="Add label"
-                      aria-label="Add label"
+                      onClick={() => {
+                        setLocalDescription(ticket.description ?? '');
+                        setEditingDescription(false);
+                      }}
                     >
-                      <Tag className="w-3 h-3 mr-1" />
-                      <Plus className="w-3 h-3" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {descriptionHtml ? (
+                    <div
+                      className={`px-3.5 pt-1 pb-3 max-w-none break-words [overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap prose prose-sm text-[13.5px] leading-relaxed text-foreground ${
+                        longDescription && !descriptionOpen
+                          ? 'max-h-[84px] overflow-hidden [mask-image:linear-gradient(#000_55%,transparent)]'
+                          : ''
+                      }`}
+                      dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+                    />
+                  ) : (
+                    <p className="px-3.5 pt-1 pb-3 m-0 text-[13.5px] text-muted-foreground/70">
+                      No description.
+                    </p>
+                  )}
+                  {longDescription && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto px-3.5 pt-0 pb-2.5 text-[12.5px] font-medium text-primary hover:bg-transparent hover:underline"
+                      onClick={() => setDescriptionOpen((open) => !open)}
+                    >
+                      {descriptionOpen ? 'Show less' : 'Show more'}
                     </Button>
                   )}
-                />
+                </>
               )}
-            </div>
+            </Card>
 
-            {ticket.externalId && ticket.externalUrl && (
-              <ExternalLink href={ticket.externalUrl} className="font-mono">{ticket.externalId}</ExternalLink>
-            )}
+            <TicketPanelTabs
+              ticketId={ticket.id}
+              hasJiraLink={!!ticket.externalId}
+              linkedMessages={linkedMessages}
+              loadingMessages={loadingMessages}
+              ticketStatus={ticket.status}
+              onThreadsChange={setThreads}
+              details={wide ? undefined : sidebar}
+            />
           </div>
-          {ticket.externalId && (
-            <div className="flex gap-2 items-center p-3 mt-3 text-sm rounded-lg border bg-muted border-border">
-              <ExternalLinkIcon className="w-4 h-4 text-muted-foreground" />
-              <p className="text-foreground">
-                <strong>Synced with Jira.</strong> This ticket is managed in Jira. Changes made in
-                Jira will automatically sync here.
-              </p>
-            </div>
-          )}
         </div>
-      </div>
-
-      {/* Meta strip — From, Created, Assigned */}
-      <div className="pt-4 border-t">
-        <div className="grid grid-cols-[80px_1fr] gap-x-4 gap-y-2.5 items-center">
-          <span className="font-display text-[11px] tracking-[0.09em] uppercase text-muted-foreground font-medium">From</span>
-          <span className="text-sm font-medium truncate">{ticket.sender}</span>
-
-          <span className="font-display text-[11px] tracking-[0.09em] uppercase text-muted-foreground font-medium">Created</span>
-          <span className="font-mono text-sm text-muted-foreground">{formatDate(ticket.createdAt)}</span>
-
-          <span className="font-display text-[11px] tracking-[0.09em] uppercase text-muted-foreground self-center font-medium">Assigned</span>
-          <AssignmentSelect
-            type="ticket"
-            itemId={ticket.id}
-            currentAssigneeId={ticket.assigneeId}
-            departmentId={ticket.departmentId ?? null}
-            onAssign={onRefresh}
-          />
-        </div>
-      </div>
-
-      {/* Action Bar */}
-      <div className="flex flex-wrap gap-2 pt-4 border-t">
-        <Button onClick={handleCopyLink} variant="outline" size="sm">
-          <LinkIcon className="mr-2 w-4 h-4" />
-          {linkCopied ? 'Link Copied!' : 'Copy Link'}
-        </Button>
-        {hasManageTickets && teamsEnabled && (
-          <Button onClick={() => setMoveDeptOpen(true)} variant="outline" size="sm">
-            <GitBranch className="mr-2 w-4 h-4" />
-            Move team
-          </Button>
-        )}
-        {!ticket.externalId && onPushToJira && (
-          <Button onClick={onPushToJira} isLoading={isPushingToJira} size="sm">
-            <Send className="mr-2 w-4 h-4" />
-            Push to Jira
-          </Button>
-        )}
-        {onDelete && (
-          <Button onClick={onDelete} variant="destructive" size="sm">
-            <Trash2 className="mr-2 w-4 h-4" />
-            Delete
-          </Button>
+        {wide && (
+          <aside aria-label="Ticket properties" className="border-l border-border bg-card">
+            <div className="sticky top-0">{sidebar}</div>
+          </aside>
         )}
       </div>
 
@@ -552,70 +609,8 @@ export const TicketDetail = ({
         currentAssigneeName={ticket.assigneeName}
         onMoved={onRefresh}
       />
-
-      {/* Description */}
-      <div className="pt-6 border-t">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="font-display text-sm font-semibold text-muted-foreground">Description</h3>
-          <div className="flex gap-1 items-center">
-            {hasManageTickets && !ticket.externalId && !editingDescription && (
-              <Button
-                variant="ghost"
-                size="sm"
-                title="Edit description"
-                aria-label="Edit description"
-                onClick={() => setEditingDescription(true)}
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </Button>
-            )}
-            <TranslateButton
-              ticketId={ticket.id}
-              onTranslated={(content) => setTranslatedDescription(content)}
-              onCleared={() => setTranslatedDescription(null)}
-            />
-          </div>
-        </div>
-        {editingDescription ? (
-          <div className="space-y-2">
-            <RichTextEditor
-              content={localDescription}
-              onChange={setLocalDescription}
-              placeholder="Enter ticket description..."
-              minHeight="120px"
-            />
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => { void handleFieldUpdate('description', localDescription); setEditingDescription(false); }}
-              >
-                Save
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => { setLocalDescription(ticket.description ?? ''); setEditingDescription(false); }}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div
-            className="max-w-none break-words [overflow-wrap:anywhere] [&_pre]:whitespace-pre-wrap prose prose-sm text-sm leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(translatedDescription ?? ticket.description ?? '', { ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'a', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'h1', 'h2', 'h3', 'h4'], ALLOWED_ATTR: ['href', 'target', 'rel'], ALLOWED_URI_REGEXP: /^https?:/i }) }}
-          />
-        )}
-      </div>
-
-      <TicketPanelTabs
-        ticketId={ticket.id}
-        hasJiraLink={!!ticket.externalId}
-        linkedMessages={linkedMessages}
-        loadingMessages={loadingMessages}
-        ticketStatus={ticket.status}
-      />
-
     </div>
   );
+
+  return <>{renderChrome ? renderChrome(moreMenu, body) : body}</>;
 };

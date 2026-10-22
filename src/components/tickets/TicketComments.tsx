@@ -1,29 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import DOMPurify from 'dompurify';
-import { Eye,
-  MessageSquare,
-  Send,
-  Edit2,
-  Trash2,
-  Check,
-  X,
+import {
   Download,
-  Paperclip,
+  Eye,
+  File as FileIcon,
   Lock,
-  File,
+  Paperclip,
+  Pencil,
   RefreshCw,
+  Send,
+  Trash2,
+  X,
 } from 'lucide-react';
 import RichTextEditor from '@/components/shared/RichTextEditor';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import {
-  Dialog,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-} from '@/components/ui/Dialog';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { apiClient } from '@/lib/api-client';
 import {
   getSocket,
@@ -64,6 +58,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
   const [deleteAttachmentDialogOpen, setDeleteAttachmentDialogOpen] = useState(false);
   const [attachmentToDelete, setAttachmentToDelete] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchComments = useCallback(async () => {
     try {
@@ -142,8 +137,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
           } catch (uploadError: unknown) {
             logger.error('Failed to upload attachments:', uploadError);
             toast.warning('Comment created, but attachment upload failed', {
-              description:
-                uploadError instanceof Error ? uploadError.message : undefined,
+              description: uploadError instanceof Error ? uploadError.message : undefined,
             });
           }
         }
@@ -212,9 +206,9 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      setSelectedFiles(Array.from(event.target.files));
-    }
+    const picked = Array.from(event.target.files ?? []);
+    setSelectedFiles((prev) => [...prev, ...picked]);
+    event.target.value = '';
   };
 
   const handleRemoveFile = (index: number) => {
@@ -279,350 +273,316 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
     return comment.userId === currentUserId;
   };
 
-  return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h3 className="font-display flex gap-2 items-center text-lg font-semibold">
-          <MessageSquare className="w-5 h-5" />
-          Comments ({comments.length})
-        </h3>
-        {hasJiraLink && (
-          <div className="flex gap-2 items-center">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleSyncFromJira}
-              isLoading={isSyncing}
-              disabled={isSyncing}
-            >
-              <RefreshCw className="mr-1 w-3 h-3" />
-              Sync from Jira
-            </Button>
-            <span className="text-xs text-muted-foreground">🔄 Auto-syncing every 60s</span>
-          </div>
-        )}
-      </div>
+  const authorOf = (comment: Comment) =>
+    comment.user
+      ? `${comment.user.firstName}${comment.user.lastName ? ' ' + comment.user.lastName : ''}`
+      : comment.authorName;
 
-      {/* Comments List */}
-      {isLoading ? (
-        <div className="py-8 text-center text-muted-foreground">Loading comments...</div>
-      ) : comments.length === 0 ? (
-        <div className="py-8 text-center text-muted-foreground">
-          No comments yet. Be the first to comment!
+  const download = (attachment: Attachment) => {
+    void apiClient
+      .get(`/api/attachments/${attachment.id}/download`, { responseType: 'blob' })
+      .then((response) => {
+        const url = URL.createObjectURL(response.data as Blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = attachment.originalFilename;
+        anchor.click();
+        URL.revokeObjectURL(url);
+      });
+  };
+
+  const iconButton = 'p-0 w-7 h-7 text-muted-foreground hover:text-foreground';
+
+  return (
+    <div className="space-y-3">
+      {hasJiraLink && (
+        <div className="flex flex-wrap gap-2 items-center text-xs text-muted-foreground">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void handleSyncFromJira()}
+            isLoading={isSyncing}
+            disabled={isSyncing}
+          >
+            <RefreshCw className="mr-1 w-3 h-3" aria-hidden />
+            Sync from Jira
+          </Button>
+          <span>Syncs from Jira every 60 s.</span>
         </div>
+      )}
+
+      {isLoading ? (
+        <p className="py-7 text-sm text-center text-muted-foreground">Loading comments…</p>
+      ) : comments.length === 0 ? (
+        <p className="py-7 text-sm text-center text-muted-foreground">No comments yet.</p>
       ) : (
-        <div className="space-y-3">
+        <ul className="space-y-2">
           {comments.map((comment) => (
-            <div
+            <li
               key={comment.id}
-              className={`p-4 rounded-lg border ${
-                comment.isInternal
-                  ? 'bg-note/10 border-note-line'
-                  : 'bg-card border-border'
+              className={`group/cm p-3 rounded-[10px] border ${
+                comment.isInternal ? 'bg-note-muted border-note-line' : 'bg-card border-border'
               }`}
             >
-              {/* Comment Header */}
-              <div className="flex gap-2 justify-between items-start mb-2">
-                <div className="flex flex-col gap-1">
-                  <div className="flex flex-wrap gap-2 items-center">
-                    <span className="text-sm font-semibold">
-                      {comment.user
-                        ? `${comment.user.firstName}${comment.user.lastName ? ' ' + comment.user.lastName : ''}`
-                        : comment.authorName}
-                    </span>
-                    {comment.user?.position && (
-                      <span className="text-xs text-muted-foreground">
-                        • {comment.user.position}
-                      </span>
-                    )}
-                    {comment.user && (
-                      <Badge variant="default" className="text-xs">
-                        {comment.user.role}
-                      </Badge>
-                    )}
-                    {comment.source === 'jira' && (
-                      <Badge variant="secondary" className="text-xs">
-                        Jira
-                      </Badge>
-                    )}
-                    {comment.metadata?.senderType === 'user' && (
-                      <Badge variant="secondary" className="text-xs">
-                        User
-                      </Badge>
-                    )}
-                    {comment.metadata?.senderType === 'bot' && (
-                      <Badge variant="default" className="text-xs">
-                        Bot
-                      </Badge>
-                    )}
-                    {comment.isInternal && (
-                      <Badge variant="warning" className="text-xs">
-                        <Lock className="mr-1 w-3 h-3" />
-                        Internal
-                      </Badge>
-                    )}
-                  </div>
-                  {comment.user && (
-                    <div className="flex gap-2 items-center text-xs text-muted-foreground">
-                      <span className="font-mono">{comment.user.email}</span>
-                    </div>
-                  )}
-                </div>
-                <span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
-                  {formatDate(comment.createdAt)}
-                </span>
-              </div>
-
-              {/* Comment Content */}
               {editingId === comment.id ? (
                 <div className="space-y-2">
                   <RichTextEditor
                     content={editContent}
                     onChange={setEditContent}
-                    placeholder="Edit comment..."
-                    minHeight="100px"
+                    placeholder="Edit comment…"
+                    minHeight="80px"
                   />
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5">
                     <Button
                       size="sm"
-                      onClick={() => handleEditSave(comment.id)}
+                      onClick={() => void handleEditSave(comment.id)}
                       disabled={!editContent.trim()}
                     >
-                      <Check className="mr-1 w-3 h-3" />
                       Save
                     </Button>
-                    <Button size="sm" variant="outline" onClick={handleEditCancel}>
-                      <X className="mr-1 w-3 h-3" />
+                    <Button size="sm" variant="ghost" onClick={handleEditCancel}>
                       Cancel
                     </Button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div
-                    className="max-w-none text-sm prose prose-sm"
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(comment.content, { ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'ul', 'ol', 'li', 'code', 'pre'], ALLOWED_ATTR: [] }) }}
-                  />
-                  {/* Attachments */}
-                  {comment.attachments && comment.attachments.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {comment.attachments.map((attachment) => (
-                        <div
-                          key={attachment.id}
-                          className="flex gap-2 items-center p-2 rounded border bg-muted border-border"
-                        >
-                          <File className="w-4 h-4 text-muted-foreground" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">
-                              {attachment.originalFilename}
-                            </p>
-                            <p className="font-mono text-xs text-muted-foreground">
-                              {formatFileSize(attachment.size)}
-                            </p>
-                          </div>
-                          {isPreviewable(attachment.mimeType) && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Preview attachment"
-                              title="Preview"
-                              onClick={() => setPreviewAttachment(attachment)}
-                              className="p-1 w-auto h-auto rounded hover:bg-accent"
-                            >
-                              <Eye className="w-4 h-4 text-muted-foreground" />
-                            </Button>
-                          )}
+                  <div className="flex flex-wrap gap-2 items-center mb-1.5 text-[12.5px]">
+                    <span className="font-semibold text-foreground">{authorOf(comment)}</span>
+                    {comment.isInternal && (
+                      <Badge variant="note" size="sm">
+                        <Lock className="mr-1 w-3 h-3" aria-hidden />
+                        Internal
+                      </Badge>
+                    )}
+                    {comment.source === 'jira' && (
+                      <Badge variant="secondary" size="sm">
+                        Jira
+                      </Badge>
+                    )}
+                    {comment.metadata?.senderType === 'bot' && (
+                      <Badge variant="secondary" size="sm">
+                        Bot
+                      </Badge>
+                    )}
+                    <span className="flex-1" />
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {formatDate(comment.createdAt)}
+                    </span>
+                    {canEditComment(comment) && (
+                      <span className="flex gap-0.5 opacity-0 transition-opacity group-hover/cm:opacity-100 focus-within:opacity-100">
+                        <Tooltip content="Edit comment" size="sm">
                           <Button
                             variant="ghost"
-                            size="icon"
-                            aria-label="Download attachment"
-                            onClick={() => {
-                              void apiClient.get(`/api/attachments/${attachment.id}/download`, { responseType: 'blob' }).then((response) => {
-                                const url = URL.createObjectURL(response.data as Blob);
-                                const anchor = document.createElement('a');
-                                anchor.href = url; anchor.download = attachment.originalFilename; anchor.click();
-                                URL.revokeObjectURL(url);
-                              });
-                            }}
-                            className="p-1 w-auto h-auto rounded hover:bg-accent"
+                            size="sm"
+                            aria-label="Edit comment"
+                            onClick={() => handleEditStart(comment)}
+                            className={iconButton}
                           >
-                            <Download className="w-4 h-4 text-muted-foreground" />
+                            <Pencil className="w-3.5 h-3.5" />
                           </Button>
-                          {canEditComment(comment) && (
+                        </Tooltip>
+                        <Tooltip content="Delete comment" size="sm">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            aria-label="Delete comment"
+                            onClick={() => handleDeleteClick(comment.id)}
+                            className={`${iconButton} hover:text-destructive`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </Tooltip>
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    className="max-w-none text-sm prose prose-sm text-foreground"
+                    dangerouslySetInnerHTML={{
+                      __html: DOMPurify.sanitize(comment.content, {
+                        ALLOWED_TAGS: [
+                          'p',
+                          'br',
+                          'b',
+                          'i',
+                          'u',
+                          'strong',
+                          'em',
+                          'ul',
+                          'ol',
+                          'li',
+                          'code',
+                          'pre',
+                        ],
+                        ALLOWED_ATTR: [],
+                      }),
+                    }}
+                  />
+                  {comment.attachments && comment.attachments.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {comment.attachments.map((attachment) => (
+                        <li
+                          key={attachment.id}
+                          className="flex gap-2 items-center py-1 pr-1 pl-2.5 rounded-lg border border-border bg-background text-[12.5px]"
+                        >
+                          <FileIcon className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
+                          <span className="flex-1 min-w-0 truncate">
+                            {attachment.originalFilename}
+                          </span>
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {formatFileSize(attachment.size)}
+                          </span>
+                          {isPreviewable(attachment.mimeType) && (
+                            <Tooltip content="Preview" size="sm">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                aria-label="Preview attachment"
+                                onClick={() => setPreviewAttachment(attachment)}
+                                className={iconButton}
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </Button>
+                            </Tooltip>
+                          )}
+                          <Tooltip content="Download" size="sm">
                             <Button
-                              aria-label="Remove attachment"
-                              title="Remove attachment"
                               variant="ghost"
                               size="sm"
-                              onClick={() => confirmDeleteAttachment(attachment.id)}
-                              className="p-1 text-destructive rounded hover:bg-destructive/10"
+                              aria-label="Download attachment"
+                              onClick={() => download(attachment)}
+                              className={iconButton}
                             >
-                              <X className="w-4 h-4" />
+                              <Download className="w-3.5 h-3.5" />
                             </Button>
+                          </Tooltip>
+                          {canEditComment(comment) && (
+                            <Tooltip content="Remove attachment" size="sm">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                aria-label="Remove attachment"
+                                onClick={() => confirmDeleteAttachment(attachment.id)}
+                                className={`${iconButton} hover:text-destructive`}
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </Button>
+                            </Tooltip>
                           )}
-                        </div>
+                        </li>
                       ))}
-                    </div>
-                  )}
-
-                  {/* Edit/Delete Actions - For own comments or admin */}
-                  {canEditComment(comment) && (
-                    <div className="flex gap-2 pt-3 mt-3 border-t">
-                      <Button size="sm" variant="ghost" onClick={() => handleEditStart(comment)}>
-                        <Edit2 className="mr-1 w-3 h-3" />
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDeleteClick(comment.id)}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="mr-1 w-3 h-3" />
-                        Delete
-                      </Button>
-                    </div>
+                    </ul>
                   )}
                 </>
               )}
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
-      {/* Add Comment Form */}
-      <div className="pt-4 border-t">
+      {/* New comment: unboxed, as the design — the note colour only while "Internal note" is ticked. */}
+      <div
+        className={`space-y-2 ${
+          isInternal ? 'p-2.5 rounded-[10px] border bg-note-muted border-note-line' : ''
+        }`}
+      >
         <RichTextEditor
           content={newComment}
           onChange={setNewComment}
-          placeholder="Add a comment... (formatting supported)"
-          minHeight="120px"
+          placeholder={isInternal ? 'Internal note — only your team sees this' : 'Add a comment…'}
+          minHeight="80px"
+          initiallyHidden={false}
           editable={!isSubmitting}
         />
-
-        {/* Selected Files Display */}
         {selectedFiles.length > 0 && (
-          <div className="mt-2 space-y-1">
+          <ul className="space-y-1">
             {selectedFiles.map((file, index) => (
-              <div
-                key={file.name}
-                className="flex gap-2 items-center p-2 rounded border bg-muted border-border"
+              <li
+                key={`${file.name}-${file.size}-${file.lastModified}`}
+                className="flex gap-2 items-center py-1 pr-1 pl-2.5 rounded-lg border border-border bg-background text-[12.5px]"
               >
-                <Paperclip className="w-4 h-4 text-muted-foreground" />
-                <span className="flex-1 text-sm truncate">{file.name}</span>
-                <span className="font-mono text-xs text-muted-foreground">{formatFileSize(file.size)}</span>
+                <Paperclip className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
+                <span className="flex-1 min-w-0 truncate">{file.name}</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {formatFileSize(file.size)}
+                </span>
                 <Button
-                  aria-label="Remove file"
-                  title="Remove file"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Remove ${file.name}`}
                   onClick={() => handleRemoveFile(index)}
-                  className="p-1 text-destructive rounded hover:bg-destructive/10"
+                  className={`${iconButton} hover:text-destructive`}
                   disabled={isSubmitting}
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </Button>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-
-        <div className="flex justify-between items-center mt-2">
-          <div className="flex gap-3 items-center">
-            <label className="flex gap-2 items-center text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isInternal}
-                onChange={(event) => setIsInternal(event.target.checked)}
-                className="rounded"
-                disabled={isSubmitting}
-              />
-              <span className="text-muted-foreground">Internal note (won&apos;t sync to Jira)</span>
-            </label>
-
-            <label className="flex gap-1 items-center px-3 py-1 text-sm font-medium rounded-md border cursor-pointer text-foreground bg-input border-border hover:bg-accent">
-              <Paperclip className="w-3 h-3" />
-              Add Files
-              <input
-                type="file"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-                disabled={isSubmitting}
-              />
-            </label>
-          </div>
-
+        <div className="flex flex-wrap gap-2 items-center">
+          <Checkbox
+            checked={isInternal}
+            onChange={(event) => setIsInternal(event.target.checked)}
+            disabled={isSubmitting}
+            label={hasJiraLink ? 'Internal note — not synced to Jira' : 'Internal note'}
+          />
           <Button
-            onClick={handleAddComment}
+            variant="ghost"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSubmitting}
+          >
+            <Paperclip className="mr-1 w-3 h-3" aria-hidden />
+            Attach
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            onChange={handleFileSelect}
+            className="hidden"
+            aria-label="Attach files to the comment"
+            disabled={isSubmitting}
+          />
+          <span className="flex-1" />
+          {!isInternal && hasJiraLink && (
+            <span className="text-xs text-muted-foreground">Also posted to Jira</span>
+          )}
+          <Button
+            onClick={() => void handleAddComment()}
             disabled={!newComment.trim() || isSubmitting}
             isLoading={isSubmitting}
             size="sm"
           >
-            <Send className="mr-1 w-3 h-3" />
-            Post Comment
+            <Send className="mr-1 w-3 h-3" aria-hidden />
+            {isInternal ? 'Add note' : 'Post comment'}
           </Button>
         </div>
-
-        {!isInternal && hasJiraLink && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            💡 This comment will be posted to Jira automatically
-          </p>
-        )}
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogHeader>
-          <DialogTitle>Delete Comment</DialogTitle>
-          <DialogClose onClose={() => setDeleteDialogOpen(false)} />
-        </DialogHeader>
-        <div className="p-6">
-          <p className="mb-4 text-sm text-muted-foreground">
-            Are you sure you want to delete this comment? This action cannot be undone.
-          </p>
-          <div className="flex gap-3 justify-end">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setDeleteDialogOpen(false);
-                setCommentToDelete(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteConfirm}>
-              Delete
-            </Button>
-          </div>
-        </div>
-      </Dialog>
-
-      {/* Delete Attachment Confirmation Dialog */}
-      <Dialog open={deleteAttachmentDialogOpen} onOpenChange={setDeleteAttachmentDialogOpen}>
-        <DialogHeader>
-          <DialogTitle>Delete Attachment</DialogTitle>
-          <DialogClose onClose={() => setDeleteAttachmentDialogOpen(false)} />
-        </DialogHeader>
-        <DialogContent>
-          <p className="text-sm text-muted-foreground">Are you sure you want to delete this attachment?</p>
-          <p className="mt-2 text-sm text-muted-foreground">This action cannot be undone.</p>
-        </DialogContent>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setDeleteAttachmentDialogOpen(false);
-              setAttachmentToDelete(null);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={handleDeleteAttachment}>
-            <Trash2 className="mr-2 w-4 h-4" />
-            Delete
-          </Button>
-        </DialogFooter>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) setCommentToDelete(null);
+        }}
+        onConfirm={() => void handleDeleteConfirm()}
+        title="Delete this comment?"
+        description="This can’t be undone."
+        confirmText="Delete"
+      />
+      <ConfirmDialog
+        open={deleteAttachmentDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteAttachmentDialogOpen(open);
+          if (!open) setAttachmentToDelete(null);
+        }}
+        onConfirm={() => void handleDeleteAttachment()}
+        title="Remove this file?"
+        description="It is deleted from the comment. This can’t be undone."
+        confirmText="Remove"
+      />
 
       <AttachmentPreviewDialog
         attachment={previewAttachment}

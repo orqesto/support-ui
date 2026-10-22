@@ -45,6 +45,8 @@ vi.mock('@/services/replyTemplates.service', () => ({
 }));
 vi.mock('@/hooks/useAiDraftsOff', () => ({ useAiDraftsOff: () => ({ off: false }) }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACME' }));
+// Translate has its own tests; its language list needs a query client this page test has none of.
+vi.mock('@/components/shared/TranslateButton', () => ({ TranslateButton: () => null }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 vi.mock('@/lib/socketManager', () => ({
   subscribeToEvent: vi.fn(),
@@ -146,11 +148,13 @@ beforeEach(() => {
 describe('contingency page', () => {
   it('each row shows its case number, the sender’s name and address, and open/resolved', async () => {
     renderTicket();
-    expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
-    expect(screen.getByText('SUP-12')).toBeInTheDocument();
+    // The thread list itself — the composer's "sending to" chips repeat the ticked names.
+    const list = await screen.findByRole('list', { name: 'Threads on this ticket' });
+    expect(await within(list).findByText('Ada Lovelace')).toBeInTheDocument();
+    expect(within(list).getByText('SUP-12')).toBeInTheDocument();
     // No name on record: the address alone, never a made-up name.
-    expect(screen.getByText('customer-12@example.com')).toBeInTheDocument();
-    expect(screen.getByText('resolved')).toBeInTheDocument();
+    expect(within(list).getByText('customer-12@example.com')).toBeInTheDocument();
+    expect(within(list).getByText('resolved')).toBeInTheDocument();
   });
 
   it('an update goes to the OPEN threads by default; a resolved one is not ticked', async () => {
@@ -219,7 +223,8 @@ describe('contingency page', () => {
     renderTicket();
     await waitFor(() => expect(box(11)).toBeChecked());
     await user.type(screen.getByLabelText('Reply text'), 'Hi {{first_name}, still at customs.');
-    await user.click(screen.getByRole('button', { name: 'Send & put on hold' }));
+    await user.click(screen.getByRole('button', { name: 'More send options' }));
+    await user.click(screen.getByRole('menuitem', { name: /Send & put on hold/ }));
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: 'Send & put on hold' });
     // No reason yet: nothing can be sent.
@@ -253,12 +258,12 @@ describe('contingency page', () => {
     composeUpdate.mockResolvedValue({ text: 'Hi {first_name}, an update.', sources: [] });
     renderTicket();
     await waitFor(() => expect(box(11)).toBeChecked());
-    await user.click(screen.getByRole('button', { name: /Generate with AI/ }));
+    await user.click(screen.getByRole('button', { name: /AI draft/ }));
     await waitFor(() => expect(composeUpdate).toHaveBeenCalledWith(4, undefined));
     await waitFor(() =>
       expect(screen.getByLabelText<HTMLTextAreaElement>('Reply text').value).toContain('an update.')
     );
-    await user.click(screen.getByRole('button', { name: /Generate with AI/ }));
+    await user.click(screen.getByRole('button', { name: /AI draft/ }));
     await waitFor(() => expect(composeUpdate).toHaveBeenLastCalledWith(4, expect.any(String)));
   });
 
@@ -267,7 +272,7 @@ describe('contingency page', () => {
     composeUpdate.mockResolvedValue({ text: null, sources: [], reason: 'no-sources' });
     renderTicket();
     await waitFor(() => expect(box(11)).toBeChecked());
-    await user.click(screen.getByRole('button', { name: /Generate with AI/ }));
+    await user.click(screen.getByRole('button', { name: /AI draft/ }));
     expect(await screen.findByText(/Type the key facts in the box/)).toBeInTheDocument();
 
     composeUpdate.mockResolvedValue({
@@ -275,7 +280,7 @@ describe('contingency page', () => {
       sources: [],
     });
     await user.type(screen.getByLabelText('Reply text'), 'papers re-sent, ETA Friday');
-    await user.click(screen.getByRole('button', { name: /Generate with AI/ }));
+    await user.click(screen.getByRole('button', { name: /AI draft/ }));
     await waitFor(() =>
       expect(composeUpdate).toHaveBeenLastCalledWith(4, expect.stringContaining('ETA Friday'))
     );
@@ -296,7 +301,7 @@ describe('contingency page', () => {
     });
     renderTicket();
     await waitFor(() => expect(box(11)).toBeChecked());
-    await user.click(screen.getByRole('button', { name: /Generate with AI/ }));
+    await user.click(screen.getByRole('button', { name: /AI draft/ }));
     expect(
       await screen.findByText(
         'Draft written from the ticket and the knowledge base — check it before sending.'
@@ -356,7 +361,8 @@ describe('contingency page', () => {
     renderTicket();
     await waitFor(() => expect(box(11)).toBeChecked());
     await user.type(screen.getByLabelText('Reply text'), 'Hi {{first_name}, held.');
-    await user.click(screen.getByRole('button', { name: 'Preview' }));
+    await user.click(screen.getByRole('button', { name: 'More composer actions' }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: /Preview per customer/ }));
     expect(await screen.findByText('Hi Ada, held.')).toBeInTheDocument();
     expect(screen.getByText('Hi there, held.')).toBeInTheDocument();
     expect(preview).toHaveBeenLastCalledWith(4, 'Hi {first_name}, held.', [11, 12]);
@@ -374,8 +380,8 @@ describe('contingency page', () => {
     ready([thread(11, { status: 'resolved' }), thread(12, { status: 'closed' })]);
     renderTicket();
     expect(await screen.findByText(/Every linked thread is resolved/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Send update to/ })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Generate with AI/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Send to/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /AI draft/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Attach' })).toBeDisabled();
   });
 
@@ -385,7 +391,7 @@ describe('contingency page', () => {
     await waitFor(() => expect(box(11)).toBeChecked());
     await user.type(screen.getByLabelText('Reply text'), 'Fixed.');
     replies({ replies: [sentReply(9, 'pending')] });
-    await user.click(screen.getByRole('button', { name: /Send update to 2/ }));
+    await user.click(screen.getByRole('button', { name: /Send to 2/ }));
     await user.click(
       within(await screen.findByRole('dialog')).getByRole('button', { name: /Send/ })
     );
@@ -399,7 +405,7 @@ describe('contingency page', () => {
 
   const sendFixed = async (user: ReturnType<typeof userEvent.setup>) => {
     await user.type(screen.getByLabelText('Reply text'), 'Fixed.');
-    await user.click(screen.getByRole('button', { name: /Send update to 2/ }));
+    await user.click(screen.getByRole('button', { name: /Send to 2/ }));
     await user.click(
       within(await screen.findByRole('dialog')).getByRole('button', { name: /Send/ })
     );

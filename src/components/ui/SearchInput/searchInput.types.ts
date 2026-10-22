@@ -9,4 +9,8 @@ export type SearchInputProps = VariantProps<typeof searchInputVariants> & {
   onSearch?: () => void;
   showSearchButton?: boolean;
   onBlur?: () => void;
+  /** A magnifier inside the field, on the left (pickers in dialogs and forms). */
+  leadingIcon?: boolean;
+  /** Accessible name when no visible label is tied to the field. */
+  ariaLabel?: string;
 };

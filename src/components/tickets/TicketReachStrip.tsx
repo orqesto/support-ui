@@ -6,7 +6,7 @@ const isDone = (status: string) => status === 'resolved' || status === 'closed';
 const Figure = ({ value, label, warn }: { value: number; label: string; warn?: boolean }) => (
   <div className="grid gap-0.5">
     <b
-      className={`font-display text-[22px] font-semibold leading-none ${warn ? 'text-pink-700 dark:text-pink-400' : ''}`}
+      className={`font-display text-[22px] font-semibold leading-none ${warn ? 'text-attention' : ''}`}
     >
       {value}
     </b>
@@ -53,7 +53,7 @@ export const TicketReachStrip = ({
         />
         <span
           data-testid="reach-owed"
-          className="bg-pink-600 dark:bg-pink-400"
+          className="bg-attention"
           style={{ width: share(owed) }}
         />
       </div>

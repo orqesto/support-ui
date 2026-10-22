@@ -1,17 +1,24 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
-import { Mail, Paperclip, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
-import { NewTicketFiles, pickUploadableFiles } from '@/components/tickets/NewTicketFiles';
+import {
+  CreateTicketBar,
+  CreateTicketFilesSection,
+  CreateTicketJiraOption,
+  CreateTicketQuote,
+} from '@/components/tickets/CreateTicketChrome';
+import { pickUploadableFiles } from '@/components/tickets/NewTicketFiles';
 import { TicketThreadPicker } from '@/components/tickets/TicketThreadPicker';
 import type { ThreadCandidate } from '@/services/threadCandidates.service';
 import { useTicketOwners } from '@/components/tickets/useTicketOwners';
 import { Alert } from '@/components/ui/Alert';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { useNewTicketTeams } from '@/hooks/useTeamsEnabled';
 import { apiClient } from '@/lib/api-client';
 import { getApiErrorMessage } from '@/lib/errorMessages';
@@ -29,7 +36,11 @@ import RichTextEditor from '@/components/shared/RichTextEditor';
 import { logger } from '@/lib/logger';
 
 /** The text of the editor's HTML, to tell an empty description from a written one. */
-const textOf = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim();
+const textOf = (html: string) =>
+  html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .trim();
 
 /** Words, or a picture (a thread whose body is an image): an image-only description is written. */
 const hasContent = (html: string) => textOf(html) !== '' || /<img\b/i.test(html);
@@ -39,9 +50,9 @@ const hasContent = (html: string) => textOf(html) !== '' || /<img\b/i.test(html)
  * `.planning/ONE-CREATE-TICKET-PAGE-PLAN-2026-10-21.md`):
  * - Tickets → New ticket: empty — a contingency (client spec; owner 2026-10-19: allowed with no
  *   thread yet, the cause is often known before anyone reports it), filed in one of the creator's
- *   departments;
- * - a thread → Create ticket (`?messageId=`): that thread is listed and its department shown.
- * Essentials first (title, cause, department, owner, threads), then priority, category, Jira and
+ *   teams;
+ * - a thread → Create ticket (`?messageId=`): that thread is listed and its team shown.
+ * Essentials first (title, cause, team, owner, threads), then priority, category, Jira and
  * files. The ticket is created, then the extra threads are linked and the files uploaded; a step
  * that fails after the ticket exists opens it anyway, and its page says what is missing.
  */
@@ -61,7 +72,6 @@ export const CreateTicketPage = () => {
   const [threadMessageIds, setThreadMessageIds] = useState<number[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
-  const [quoteOpen, setQuoteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** The thread the ticket is created from could not be read: Create cannot go ahead. */
   const [threadFailed, setThreadFailed] = useState(false);
@@ -70,6 +80,8 @@ export const CreateTicketPage = () => {
   const [pickedDepartmentId, setPickedDepartmentId] = useState('');
   /** Set once a ticket was created: the form stays disabled until the redirect. */
   const [created, setCreated] = useState(false);
+  // Something the agent typed or picked — leaving then asks first (a prefill from the thread is not).
+  const [touched, setTouched] = useState(false);
   const submittedRef = useRef(false);
   const [aiSuggestions, setAiSuggestions] = useState<{
     category?: string;
@@ -162,7 +174,11 @@ export const CreateTicketPage = () => {
         messageService.getThreadMessages(id),
       ]);
 
-      if (messageResult.status === 'rejected' || !messageResult.value.success || !messageResult.value.data) {
+      if (
+        messageResult.status === 'rejected' ||
+        !messageResult.value.success ||
+        !messageResult.value.data
+      ) {
         setThreadFailed(true);
         return;
       }
@@ -262,7 +278,11 @@ export const CreateTicketPage = () => {
   const fetchJiraStatus = async () => {
     try {
       const response = await integrationsService.getAll();
-      setHasJira((response.data ?? []).some((integration) => integration.type === 'jira' && integration.enabled));
+      setHasJira(
+        (response.data ?? []).some(
+          (integration) => integration.type === 'jira' && integration.enabled
+        )
+      );
     } catch (error) {
       logger.error('Failed to check Jira integration:', error);
       setHasJira(false);
@@ -271,9 +291,14 @@ export const CreateTicketPage = () => {
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files) return;
-    const { kept, notice } = pickUploadableFiles(Array.from(event.target.files));
+    const { kept, notice } = pickUploadableFiles([
+      ...selectedFiles,
+      ...Array.from(event.target.files),
+    ]);
+    event.target.value = '';
     setFileNotice(notice);
     setSelectedFiles(kept);
+    setTouched(true);
   };
 
   const handleRemoveFile = (index: number) => {
@@ -322,6 +347,15 @@ export const CreateTicketPage = () => {
     departmentKey !== null &&
     (messageId ? message !== null : departmentKey !== '') &&
     ownersLoaded;
+
+  // Why Create is off, said on hover (the alerts on the page explain the rarer reasons).
+  const blockedReason = !formData.title.trim()
+    ? 'Add a title'
+    : !hasContent(formData.description)
+      ? 'Describe the cause'
+      : departmentKey !== null && !ownersLoaded
+        ? 'Loading who can own it…'
+        : null;
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -407,10 +441,7 @@ export const CreateTicketPage = () => {
       // Navigate to the newly created ticket after a short delay
       setTimeout(
         () =>
-          navigate(
-            `/tickets/${ticketId}`,
-            Object.keys(notice).length > 0 ? { state: notice } : {}
-          ),
+          navigate(`/tickets/${ticketId}`, Object.keys(notice).length > 0 ? { state: notice } : {}),
         1500
       );
       setCreated(true);
@@ -426,6 +457,15 @@ export const CreateTicketPage = () => {
   return (
     <Layout>
       <div className="px-4 mx-auto space-y-4 w-full">
+        <CreateTicketBar
+          backLabel={messageId ? 'Thread' : 'Tickets'}
+          formId="create-ticket-form"
+          blockedReason={blockedReason}
+          canCreate={ready && !loading && !created}
+          loading={loading}
+          dirty={touched && !loading && !created}
+          onLeave={() => navigate(messageId ? '/threads' : '/tickets')}
+        />
         <div>
           <h1 className="font-display text-3xl font-bold">New ticket</h1>
           <p className="mt-2 text-muted-foreground">
@@ -435,34 +475,10 @@ export const CreateTicketPage = () => {
           </p>
         </div>
 
-        {message && (
-          <Card padding="sm" className="grid gap-1 bg-muted/30">
-            <p className="flex gap-2 items-center min-w-0 text-[13px]">
-              <Mail className="w-3.5 h-3.5 shrink-0 text-muted-foreground" aria-hidden />
-              <b className="truncate">{message.sender}</b>
-              <span className="text-xs text-muted-foreground">{message.channel}</span>
-            </p>
-            {message.subject && <p className="text-[13px] font-semibold">{message.subject}</p>}
-            <p className={`text-[13px] leading-relaxed text-muted-foreground whitespace-pre-line ${quoteOpen ? '' : 'line-clamp-2'}`}>
-              {message.content}
-            </p>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setQuoteOpen((open) => !open)}
-              className="justify-self-start px-0 h-auto text-primary"
-            >
-              {quoteOpen ? 'Show less' : 'Show the whole message'}
-            </Button>
-          </Card>
-        )}
+        {message && <CreateTicketQuote message={message} />}
 
         <Card>
-          <CardHeader>
-            <CardTitle>Ticket</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {threadFailed && (
               <Alert variant="danger" className="mb-4">
                 This thread could not be loaded, so a ticket cannot be created from it. Open the
@@ -471,19 +487,21 @@ export const CreateTicketPage = () => {
             )}
             {!messageId && departmentsFetched && departments.length === 0 && (
               <Alert variant="warning" className="mb-4">
-                A ticket with no thread is filed in one of your teams, and you are not in
-                any. Ask an administrator to add you to one, or create the ticket from a thread.
+                A ticket with no thread is filed in one of your teams, and you are not in any. Ask
+                an administrator to add you to one, or create the ticket from a thread.
               </Alert>
             )}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form id="create-ticket-form" onSubmit={handleSubmit} className="space-y-4">
               <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,28%)]">
                 <div className="space-y-4 min-w-0">
                   <Input
                     label="Title"
+                    placeholder="What broke, in a line"
                     value={formData.title}
-                    onChange={(event) =>
-                      setFormData((prev) => ({ ...prev, title: event.target.value }))
-                    }
+                    onChange={(event) => {
+                      setTouched(true);
+                      setFormData((prev) => ({ ...prev, title: event.target.value }));
+                    }}
                     required
                   />
 
@@ -492,23 +510,29 @@ export const CreateTicketPage = () => {
                       <label htmlFor="description" className="text-sm font-medium">
                         Cause or description
                       </label>
-                      <Button
-                        type="button"
-                        variant="outline"
+                      <Tooltip
+                        content={`Rewrites the description into what happened, who’s affected and the workaround${messageId ? ', using the thread' : ''}`}
                         size="sm"
-                        onClick={handleAIEnhance}
-                        disabled={!formData.description.trim() || enhancing || loading}
-                        className="gap-1"
                       >
-                        <Sparkles className="w-3 h-3" />
-                        {enhancing ? 'Enhancing...' : 'AI Enhance'}
-                      </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => void handleAIEnhance()}
+                          disabled={!formData.description.trim() || enhancing || loading}
+                          className="gap-1"
+                        >
+                          <Sparkles className="w-3 h-3" aria-hidden />
+                          {enhancing ? 'Enhancing…' : 'AI enhance'}
+                        </Button>
+                      </Tooltip>
                     </div>
                     <RichTextEditor
                       content={formData.description}
-                      onChange={(html: string) =>
-                        setFormData((prev) => ({ ...prev, description: html }))
-                      }
+                      onChange={(html: string) => {
+                        setTouched(true);
+                        setFormData((prev) => ({ ...prev, description: html }));
+                      }}
                       placeholder="What happened, as far as you know"
                       minHeight="200px"
                       // Always show the full editor here — no collapse toggle. The
@@ -518,7 +542,10 @@ export const CreateTicketPage = () => {
                   </div>
                   <TicketThreadPicker
                     chosen={chosenThreads}
-                    onChosenChange={setChosenThreads}
+                    onChosenChange={(next) => {
+                      setTouched(true);
+                      setChosenThreads(next);
+                    }}
                     fixed={
                       message
                         ? {
@@ -530,23 +557,28 @@ export const CreateTicketPage = () => {
                         : null
                     }
                   />
-                  {fileNotice && <Alert variant="warning">{fileNotice}</Alert>}
                   {error && <Alert variant="danger">{error}</Alert>}
                 </div>
-                <aside aria-label="Ticket settings" className="space-y-5 lg:pl-6 lg:border-l lg:border-border">
+                <aside
+                  aria-label="Ticket settings"
+                  className="space-y-5 lg:pl-6 lg:border-l lg:border-border"
+                >
                   <section className="space-y-3">
                     <h3 className="font-display text-[10.5px] font-semibold tracking-wider uppercase text-muted-foreground">
                       Where it goes
                     </h3>
                     <div className="grid gap-3">
                       {!teamsEnabled ? null : messageId ? (
-                        <Input
-                          label="Team"
-                          aria-label="Team"
-                          value={threadDepartmentName}
-                          readOnly
-                          disabled
-                        />
+                        <div className="space-y-1">
+                          <Input
+                            label="Team"
+                            aria-label="Team"
+                            value={threadDepartmentName}
+                            readOnly
+                            disabled
+                          />
+                          <p className="text-xs text-muted-foreground">Set by the thread.</p>
+                        </div>
                       ) : (
                         <Select
                           label="Team"
@@ -561,6 +593,7 @@ export const CreateTicketPage = () => {
                             // Another department, another set of people: the owner is chosen again.
                             setFormData((prev) => ({ ...prev, assigneeId: null }));
                           }}
+                          hint="One of your teams."
                         />
                       )}
                       <div className="space-y-1">
@@ -580,12 +613,18 @@ export const CreateTicketPage = () => {
                         {departmentKey !== null && !ownersLoaded && (
                           <p className="text-xs text-muted-foreground">Loading who can own it…</p>
                         )}
+                        {departmentKey !== null && ownersLoaded && owners.length === 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Nobody in this team can own tickets yet.
+                          </p>
+                        )}
                       </div>
                     </div>
                   </section>
                   <section className="space-y-3">
                     <h3 className="font-display text-[10.5px] font-semibold tracking-wider uppercase text-muted-foreground">
-                      More details <span className="font-normal normal-case tracking-normal">· optional</span>
+                      More details{' '}
+                      <span className="font-normal normal-case tracking-normal">· optional</span>
                     </h3>
                     <div>
                       <Select
@@ -663,63 +702,20 @@ export const CreateTicketPage = () => {
                     </div>
 
                     {hasJira && messageId && (
-                      <div className="flex gap-2 items-start p-4 rounded-lg border border-border bg-muted/30">
-                        <input
-                          type="checkbox"
-                          id="syncToJira"
-                          checked={formData.syncToJira}
-                          onChange={(event) =>
-                            setFormData((prev) => ({ ...prev, syncToJira: event.target.checked }))
-                          }
-                          className="mt-0.5 w-4 h-4 text-primary rounded border-border focus:ring-primary focus:ring-2"
-                        />
-                        <label htmlFor="syncToJira" className="flex-1 text-sm cursor-pointer">
-                          <span className="font-medium">Sync to Jira</span>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            Automatically create a Jira ticket when this ticket is created. Ticket will only
-                            sync if it has meaningful title/description and a category (or high/critical
-                            priority).
-                          </p>
-                        </label>
-                      </div>
+                      <CreateTicketJiraOption
+                        checked={formData.syncToJira}
+                        onChange={(syncToJira) => setFormData((prev) => ({ ...prev, syncToJira }))}
+                      />
                     )}
                   </section>
-                  <section className="space-y-3">
-                    <h3 className="font-display text-[10.5px] font-semibold tracking-wider uppercase text-muted-foreground">
-                      Files <span className="font-normal normal-case tracking-normal">· up to 5, 10 MB each</span>
-                    </h3>
-                    <NewTicketFiles
-                      files={selectedFiles}
-                      onRemove={handleRemoveFile}
-                      disabled={loading}
-                    />
-                      <label className="flex gap-1 items-center px-3 py-2 text-sm font-medium rounded-md border transition-colors cursor-pointer text-foreground bg-background border-border hover:bg-accent">
-                        <Paperclip className="w-4 h-4" />
-                        <span>Attach Files</span>
-                        <input
-                          type="file"
-                          multiple
-                          onChange={handleFileSelect}
-                          className="hidden"
-                          disabled={loading}
-                        />
-                      </label>
-                  </section>
+                  <CreateTicketFilesSection
+                    files={selectedFiles}
+                    notice={fileNotice}
+                    disabled={loading}
+                    onPick={handleFileSelect}
+                    onRemove={handleRemoveFile}
+                  />
                 </aside>
-              </div>
-              <div className="flex gap-2 justify-end items-center pt-2">
-                <div className="flex gap-2">
-                  <Button type="submit" isLoading={loading} disabled={!ready || loading || created}>
-                    Create ticket
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => navigate(messageId ? '/threads' : '/tickets')}
-                  >
-                    Cancel
-                  </Button>
-                </div>
               </div>
             </form>
           </CardContent>

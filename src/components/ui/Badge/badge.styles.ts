@@ -10,6 +10,14 @@ export const badgeVariants = cva(
         warning: 'bg-warning-muted text-warning cursor-pointer',
         danger: 'bg-destructive-muted text-destructive cursor-pointer',
         secondary: 'bg-secondary text-secondary-foreground cursor-pointer',
+        /** Soft primary: an open, live state (a thread still open). */
+        info: 'bg-primary-muted text-primary cursor-pointer',
+        /** Someone is still owed something (a customer not yet told of a fix). */
+        attention: 'bg-attention-muted text-attention cursor-pointer',
+        /** Internal-only (a note only the team sees). */
+        note: 'bg-note-muted text-note border border-note-line',
+        /** A quiet fact with no colour of its own (a thread's origin): border only. */
+        outline: 'border border-border bg-transparent text-muted-foreground',
       },
       size: {
         sm: 'px-2 py-0.5 text-xs',

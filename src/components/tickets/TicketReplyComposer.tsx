@@ -1,21 +1,24 @@
 import { InsertFieldMenu } from './InsertFieldMenu';
+import { TicketComposerTools, useInsertTemplate } from './ticketComposerTools';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Paperclip, X } from 'lucide-react';
+import { FileText, Paperclip, X } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
+import { Card } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { MenuItem } from '@/components/ui/Menu';
+import { COMPOSER_TOOL } from '@/components/messages/messageDetailConstants';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { TemplatePicker } from '@/components/shared/TemplatePicker';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
-import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
-import { formatDate } from '@/lib/utils';
+import { isBlankRichText } from '@/lib/stripHtml';
 import {
   isInFlight,
   nameTokensWithoutFallback,
   sameReplyText,
   ticketRepliesService,
-  type DeliveryOutcome,
   type Hold,
   type TicketReplies,
   type TicketReply,
@@ -23,6 +26,7 @@ import {
 import { ticketDraftsService } from '@/services/ticketDrafts.service';
 import type { TicketThread } from '@/services/ticketThreads.service';
 import { TicketDraftsReview, useDraftsWorkflow } from './TicketDraftsReview';
+import { TicketSentHistory, hasReviewedVersions, sentTo } from './TicketSentHistory';
 import {
   PlaceholderHints,
   TicketUpdateActions,
@@ -87,15 +91,6 @@ export const useTicketReplies = (ticketId: number) => {
 
 const plural = (count: number, one: string, many: string) => (count === 1 ? one : many);
 
-const OUTCOME_WORDS: Record<DeliveryOutcome, string> = {
-  pending: 'waiting to send',
-  sending: 'sending',
-  sent: 'sent',
-  refused: 'not sent',
-  failed: 'failed',
-  interrupted: 'stopped part-way',
-};
-
 type Confirm =
   | { kind: 'new'; resolve: boolean; ids: number[]; description: string; hold?: Hold }
   | { kind: 'again'; reply: TicketReply; ids: number[]; description: string }
@@ -104,8 +99,6 @@ type Confirm =
   | { kind: 'reviewed'; resolve: boolean; ids: number[]; description: string }
   | { kind: 'discard'; ids: number[]; description: string };
 
-/** Sent from reviewed drafts: the text shown is the base each thread's own version came from. */
-const hasReviewedVersions = (reply: TicketReply) => reply.deliveries.some((row) => row.hasOwnText);
 /** A re-send of such a reply carries the base text, not anyone's reviewed version — say so. */
 const originalOnly = (reply: TicketReply) =>
   hasReviewedVersions(reply)
@@ -164,6 +157,11 @@ export const TicketReplyComposer = ({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  /*
+    The agent's own text from before the first AI draft replaced it (null: nothing to undo). Kept
+    across a second Generate, so Undo always reaches their words — as the thread composer's.
+  */
+  const [beforeAi, setBeforeAi] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [sending, setSending] = useState(false);
@@ -175,6 +173,7 @@ export const TicketReplyComposer = ({
   currentTicket.current = ticketId;
   useEffect(() => {
     setDraft('');
+    setBeforeAi(null);
     setFiles([]);
     editorRef.current?.setContent('');
     setConfirm(null);
@@ -213,10 +212,6 @@ export const TicketReplyComposer = ({
   const sendingNotice = useSendingNotice(replies.replies, setNotice);
 
   const emailOf = new Map(threads.map((row) => [row.conversationId, row.requesterEmail]));
-  const sentTo = (reply: TicketReply) =>
-    new Set(
-      reply.deliveries.filter((row) => row.outcome === 'sent').map((row) => row.conversationId)
-    );
   const tooMany = selected.length > replies.maxThreads;
   // T-4: a name token with no fallback is refused for a customer with no name — say so first.
   const nameTokens = nameTokensWithoutFallback(draft);
@@ -230,7 +225,32 @@ export const TicketReplyComposer = ({
           return nameTokens.length > 0 && !known.customerName;
         });
   const blank = isBlankRichText(draft);
+  // Why Send is greyed out, said on hover — a disabled button alone does not explain itself.
+  const sendBlockedReason = composing
+    ? 'Wait for the draft to finish'
+    : sending
+      ? 'Sending…'
+      : locked
+        ? 'Nobody left to update'
+        : selected.length === 0
+          ? 'Tick at least one thread to send to'
+          : tooMany
+            ? `At most ${replies.maxThreads} threads at a time`
+            : blank
+              ? 'Write the update first'
+              : draftBusy
+                ? 'Wait for the drafts to finish'
+                : null;
+  const recipients = selected.map((id) => {
+    const named = (replies.names ?? []).find((row) => row.conversationId === id)?.customerName;
+    // An empty name is no name: fall back to the address.
+    return { id, name: [named, emailOf.get(id)].find(Boolean) ?? `Thread ${id}` };
+  });
 
+  const setEditor = (html: string) => {
+    setDraft(html);
+    editorRef.current?.setContent(html);
+  };
   const generate = useGenerateTicketUpdate({
     ticketId,
     currentTicket,
@@ -240,9 +260,24 @@ export const TicketReplyComposer = ({
     setError,
     setNotice,
     apply: (html) => {
-      setDraft(html);
-      editorRef.current?.setContent(html);
+      setBeforeAi((prev) => prev ?? draft);
+      setEditor(html);
     },
+  });
+  const undoAiDraft = () => {
+    if (beforeAi === null) return;
+    setEditor(beforeAi);
+    setBeforeAi(null);
+    setNotice(null);
+  };
+
+  const { insertTemplate, templateError } = useInsertTemplate({
+    ticketId,
+    currentTicket,
+    draft,
+    setEditor,
+    addFiles: (fetched) => setFiles((prev) => [...prev, ...fetched].slice(0, MAX_FILES)),
+    focus: () => editorRef.current?.focus(),
   });
 
   const askNew = (resolve: boolean) => {
@@ -319,6 +354,7 @@ export const TicketReplyComposer = ({
       // The typed text now lives in the drafts; leaving it in the box invites sending it twice.
       if ('content' in source) {
         setDraft('');
+        setBeforeAi(null);
         editorRef.current?.setContent('');
       }
       await drafts.refresh();
@@ -375,6 +411,7 @@ export const TicketReplyComposer = ({
       if (currentTicket.current !== startedOn) return;
       if (request.kind === 'new') {
         setDraft('');
+        setBeforeAi(null);
         setFiles([]);
         editorRef.current?.setContent('');
         setPreviewOpen(false);
@@ -413,12 +450,33 @@ export const TicketReplyComposer = ({
   };
 
   return (
-    <section className="space-y-3 pt-3 border-t border-border" aria-label="Reply to these threads">
-      <div>
-        <h4 className="text-sm font-medium">Send an update to the ticked threads</h4>
-        <p className="text-xs text-muted-foreground">
-          One update, sent to each customer separately in their own email thread.
-        </p>
+    <Card
+      padding="none"
+      role="region"
+      aria-label="Reply to these threads"
+      className="p-3.5 space-y-3 rounded-[10px] shadow-none"
+    >
+      <div className="flex flex-wrap gap-x-3 gap-y-1.5 justify-between items-start">
+        <div>
+          <h4 className="text-sm font-medium">Send an update to the ticked threads</h4>
+          <p className="text-xs text-muted-foreground">
+            One update, sent to each customer separately in their own email thread.
+          </p>
+        </div>
+        {recipients.length > 0 ? (
+          <div className="flex flex-wrap gap-1 items-center" aria-label="Sending to">
+            {recipients.slice(0, 3).map(({ id, name }) => (
+              <Badge key={id} variant="info" className="max-w-[160px] truncate">
+                {name}
+              </Badge>
+            ))}
+            {recipients.length > 3 && (
+              <span className="text-xs text-muted-foreground">+{recipients.length - 3}</span>
+            )}
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">Tick threads to send to</span>
+        )}
       </div>
       {locked && <Alert variant="info">{disabledReason}</Alert>}
       <RichTextEditor
@@ -429,8 +487,10 @@ export const TicketReplyComposer = ({
         minHeight="100px"
         initiallyHidden={false}
         editable={!sending && !composing && !locked}
-        translatable
       />
+      <div className="flex items-center">
+        <InsertFieldMenu disabled={busy || locked} editor={editorRef} />
+      </div>
       <PlaceholderHints unnamed={unnamed.length} />
       {previewOpen && (
         <TicketUpdatePreview
@@ -483,58 +543,64 @@ export const TicketReplyComposer = ({
           event.target.value = '';
         }}
       />
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={sending || locked || files.length >= MAX_FILES}
-        >
-          <Paperclip className="w-4 h-4 mr-1" aria-hidden />
-          Attach
-        </Button>
-        <InsertFieldMenu disabled={busy || locked} editor={editorRef} />
-        <TicketUpdateActions
-          count={selected.length}
-          composing={composing}
-          sending={sending}
-          aiDisabled={busy || locked}
-          previewDisabled={locked}
-          sendDisabled={busy || locked || blank || selected.length === 0 || tooMany}
-          previewOpen={previewOpen}
-          onGenerate={() => void generate()}
-          onTogglePreview={() => setPreviewOpen((open) => !open)}
-          onSend={() => askNew(false)}
-          onResolve={() => askNew(true)}
-          onHold={(hold) =>
-            void send({ kind: 'new', resolve: false, ids: selected, hold, description: '' })
-          }
-        />
-        {draftsUsable && (
-          <>
-            <Button
-              size="sm"
-              variant="outline"
-              type="button"
-              onClick={() => void makeDrafts({ content: draft.trim() })}
+      <TicketUpdateActions
+        count={selected.length}
+        composing={composing}
+        sending={sending}
+        aiDisabled={busy || locked}
+        previewDisabled={locked}
+        sendDisabled={sendBlockedReason !== null}
+        sendBlockedReason={sendBlockedReason}
+        previewOpen={previewOpen}
+        onGenerate={() => void generate()}
+        onTogglePreview={() => setPreviewOpen((open) => !open)}
+        onSend={() => askNew(false)}
+        onResolve={() => askNew(true)}
+        onHold={(hold) =>
+          void send({ kind: 'new', resolve: false, ids: selected, hold, description: '' })
+        }
+        onUndoDraft={beforeAi !== null ? undoAiDraft : undefined}
+        tools={
+          <TicketComposerTools
+            editor={editorRef}
+            onAttach={() => fileInputRef.current?.click()}
+            attachDisabled={sending || locked || files.length >= MAX_FILES}
+            disabled={busy || locked}
+            onInsertTemplate={(template) => void insertTemplate(template)}
+          />
+        }
+        moreItems={
+          draftsUsable ? (
+            <MenuItem
+              icon={<FileText className="w-3.5 h-3.5" />}
+              onSelect={() => void makeDrafts({ content: draft.trim() })}
               disabled={busy || blank || selected.length === 0 || tooMany}
             >
-              Make drafts
-            </Button>
+              Make a draft for each customer
+            </MenuItem>
+          ) : undefined
+        }
+        trailing={
+          draftsUsable ? (
             <TemplatePicker
               use="ticket"
-              label="Use template"
+              label="Draft per customer from template"
               onPick={(template) => void makeDrafts({ templateId: template.id })}
               disabled={busy || selected.length === 0 || tooMany}
+              triggerClassName={`${COMPOSER_TOOL} h-auto`}
             />
-          </>
-        )}
-      </div>
+          ) : undefined
+        }
+      />
       {tooMany && (
         <p className="text-xs text-destructive">
           One reply can go to at most {replies.maxThreads} threads — untick{' '}
           {selected.length - replies.maxThreads}.
+        </p>
+      )}
+      {templateError && (
+        <p role="alert" className="text-xs text-destructive">
+          {templateError}
         </p>
       )}
       {notice && <p className="text-sm text-muted-foreground">{notice}</p>}
@@ -578,126 +644,17 @@ export const TicketReplyComposer = ({
         />
       )}
 
-      {replies.replies.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium">Sent from this ticket</h4>
-          <ul className="space-y-2">
-            {replies.replies.map((reply) => {
-              const had = sentTo(reply);
-              const reached = threads.filter((row) => had.has(row.conversationId)).length;
-              const live = new Set(
-                reply.deliveries
-                  .filter((row) => isInFlight(row.outcome))
-                  .map((row) => row.conversationId)
-              );
-              /*
-                R6: the threads that should have it and do not — a delivery that failed, was
-                refused or stopped part-way, and a thread linked to the ticket AFTER this reply.
-                ⛔ Never a thread the agent left unticked on purpose (it has no delivery row and
-                was already on the ticket).
-              */
-              const tried = new Set(reply.deliveries.map((row) => row.conversationId));
-              const missing = threads
-                .filter(
-                  (row) =>
-                    tried.has(row.conversationId) ||
-                    new Date(row.addedAt).getTime() > new Date(reply.createdAt).getTime()
-                )
-                .map((row) => row.conversationId)
-                .filter((id) => !had.has(id) && !live.has(id) && !unreachable.has(id));
-              // "Send here": every other thread it has not reached that it can reach — one at a time.
-              const offered = new Set(missing);
-              const here =
-                reply.content === null
-                  ? []
-                  : threads
-                      .map((row) => row.conversationId)
-                      .filter(
-                        (id) =>
-                          !had.has(id) && !live.has(id) && !unreachable.has(id) && !offered.has(id)
-                      );
-              const problems = reply.deliveries.filter(
-                (row) =>
-                  row.outcome === 'failed' ||
-                  row.outcome === 'refused' ||
-                  row.outcome === 'interrupted'
-              );
-              return (
-                <li key={reply.id} className="p-3 rounded-lg border border-border space-y-1">
-                  {reply.content === null ? (
-                    <p className="text-sm text-muted-foreground">
-                      Sent only to threads in teams you cannot open.
-                    </p>
-                  ) : (
-                    <p className="text-sm line-clamp-2">{stripHtml(reply.content)}</p>
-                  )}
-                  {reply.content !== null && hasReviewedVersions(reply) && (
-                    <p className="text-xs text-muted-foreground">
-                      Each customer received their own reviewed version.
-                    </p>
-                  )}
-                  {reply.attachments.length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      <Paperclip className="inline w-3 h-3 mr-1 -mt-0.5" aria-hidden />
-                      {reply.attachments.map((file) => file.filename).join(', ')}
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    {reply.createdBy?.name ?? 'Someone'} · {formatDate(reply.createdAt)} · sent to{' '}
-                    {reached} of {threads.length}
-                    {live.size > 0 && ` · sending to ${live.size}…`}
-                    {reply.hiddenCount > 0 &&
-                      ` · ${reply.hiddenCount} more in teams you cannot open`}
-                  </p>
-                  {problems.map((row) => (
-                    <p key={row.conversationId} className="text-xs text-destructive">
-                      {emailOf.get(row.conversationId) ?? `Thread #${row.conversationId}`}:{' '}
-                      {OUTCOME_WORDS[row.outcome]}
-                      {row.reason && ` — ${row.reason}`}
-                    </p>
-                  ))}
-                  {/* A reply the agent cannot read is not theirs to send on (G1). */}
-                  {reply.content !== null && missing.length > 0 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => askAgain(reply, missing)}
-                      disabled={sending || missing.length > replies.maxThreads}
-                    >
-                      Send to the {missing.length}{' '}
-                      {plural(missing.length, 'thread that has', 'threads that have')} not had it
-                    </Button>
-                  )}
-                  {here.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1">
-                      <span className="text-xs text-muted-foreground">Not sent to:</span>
-                      {here.map((id) => (
-                        <Button
-                          key={id}
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => askHere(reply, id)}
-                          disabled={busy}
-                          aria-label={`Send this reply to ${emailOf.get(id) ?? `thread #${id}`}`}
-                          className="h-auto px-1.5 py-0.5 text-xs"
-                        >
-                          {emailOf.get(id) ?? `Thread #${id}`} · Send here
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-                  {missing.length > replies.maxThreads && (
-                    <p className="text-xs text-muted-foreground">
-                      More than {replies.maxThreads} threads have not had it — one send reaches at
-                      most {replies.maxThreads}; tick them in the list above and send it again.
-                    </p>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
+      <TicketSentHistory
+        replies={replies.replies}
+        threads={threads}
+        emailOf={emailOf}
+        unreachable={unreachable}
+        maxThreads={replies.maxThreads}
+        sending={sending}
+        busy={busy}
+        onAskAgain={askAgain}
+        onAskHere={askHere}
+      />
 
       <ConfirmDialog
         open={confirm !== null}
@@ -713,6 +670,6 @@ export const TicketReplyComposer = ({
         description={confirm?.description ?? ''}
         confirmText={confirmButton(confirm)}
       />
-    </section>
+    </Card>
   );
 };

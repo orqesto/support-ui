@@ -1,6 +1,7 @@
+import { TicketAddThreadsDialog } from './TicketAddThreadsDialog';
 import { TicketReachStrip } from './TicketReachStrip';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ExternalLink as ExternalLinkIcon, Mail, Plus } from 'lucide-react';
+import { Check, ExternalLink as ExternalLinkIcon, Mail, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -8,14 +9,6 @@ import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Tooltip } from '@/components/ui/Tooltip';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-} from '@/components/ui/Dialog';
-import { SearchInput } from '@/components/ui/SearchInput';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { usePermissions } from '@/hooks/usePermissions';
 import { getApiErrorMessage } from '@/lib/errorMessages';
@@ -26,11 +19,7 @@ import { formatDate } from '@/lib/utils';
 import { isInFlight } from '@/services/ticketReplies.service';
 import { ticketThreadsService, type TicketThread } from '@/services/ticketThreads.service';
 import { Permission } from '@/types/roles';
-import {
-  searchThreadCandidates,
-  THREAD_PICKER_LIMIT,
-  type ThreadCandidate,
-} from '@/services/threadCandidates.service';
+import { searchThreadCandidates, type ThreadCandidate } from '@/services/threadCandidates.service';
 import { TicketReplyComposer, useTicketReplies } from './TicketReplyComposer';
 
 /**
@@ -56,8 +45,11 @@ type Props = {
    * resolved/closed ticket only those still owed a reply, otherwise all of them.
    */
   ticketStatus?: string;
+  /** The ticket page draws the reach strip above the description, so it needs the list too. */
+  onThreadsChange?: (threads: TicketThread[]) => void;
+  /** Off where the page shows the strip itself. */
+  showReachStrip?: boolean;
 };
-
 
 const words = (status: string) => status.replace('_', ' ');
 const isDone = (status: string) => status === 'resolved' || status === 'closed';
@@ -66,7 +58,14 @@ const plural = (count: number, one: string, many: string) => (count === 1 ? one 
 /** The last send or resolve the page can undo — reopen only, never unsend. */
 type Undoable = { ids: number[]; outcome: 'resolved' | 'on_hold' };
 
-export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus }: Props) => {
+export const TicketThreads = ({
+  ticketId,
+  onCountChange,
+  fallback,
+  ticketStatus,
+  onThreadsChange,
+  showReachStrip = true,
+}: Props) => {
   const orgCode = useCurrentOrgCode();
   // Adding, removing, sending and resolving are support and above (MANAGE_TICKETS); viewing is not.
   const { hasPermission } = usePermissions();
@@ -76,6 +75,9 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
   const [threads, setThreads] = useState<TicketThread[]>([]);
   const [hiddenCount, setHiddenCount] = useState(0);
+  useEffect(() => {
+    onThreadsChange?.(threads);
+  }, [threads, onThreadsChange]);
   const [state, setState] = useState<'loading' | 'ready' | 'failed' | 'unavailable'>('loading');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -383,9 +385,10 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
 
   return (
     <div className="space-y-2">
-      <TicketReachStrip threads={threads} ticketDone={ticketDone} />
+      {showReachStrip && <TicketReachStrip threads={threads} ticketDone={ticketDone} />}
       <div className="flex items-center justify-between gap-2">
-        {owing > 0 ? (
+        {/* On the ticket page the reach strip above already says how many are owed. */}
+        {owing > 0 && showReachStrip ? (
           <Badge variant="warning" size="sm">
             {owing === 1
               ? '1 thread still needs a reply about this fix'
@@ -397,16 +400,21 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
           <span />
         )}
         {canManage && (
-          <div className="flex items-center gap-2">
+          <div className="flex gap-2 items-center whitespace-nowrap">
             {replyData && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setConfirmResolve(true)}
-                disabled={busy || resolvable.length === 0}
-              >
-                Resolve {resolvable.length} {plural(resolvable.length, 'thread', 'threads')}
-              </Button>
+              <Tooltip content="Resolve the ticked open threads — nothing is sent" size="sm">
+                <span className="inline-flex">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmResolve(true)}
+                    disabled={busy || resolvable.length === 0}
+                  >
+                    <Check className="mr-1 w-3 h-3" aria-hidden />
+                    Resolve {resolvable.length} {plural(resolvable.length, 'thread', 'threads')}
+                  </Button>
+                </span>
+              </Tooltip>
             )}
             <Button variant="outline" size="sm" onClick={openPicker} disabled={busy}>
               <Plus className="h-3 w-3 mr-1" aria-hidden />
@@ -445,142 +453,163 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
           {canManage ? ' yet — Add threads to link the reports this ticket explains.' : '.'}
         </p>
       ) : (
-        <ul className="space-y-2">
-          {threads.map((row) => (
-            <li
-              key={row.conversationId}
-              className="flex gap-3 items-start p-3 rounded-lg border transition-colors bg-muted border-border hover:bg-accent"
-            >
-              {/* A backend without ticket replies offers no reply box, so no boxes to tick. */}
-              {replyData && canManage && (
-                <Checkbox
-                  className="pt-1.5"
-                  checked={selected.has(row.conversationId)}
-                  onChange={(event) => toggle(row.conversationId, event.target.checked)}
-                  disabled={unreachable.has(row.conversationId)}
-                  aria-label={`Reply to ${row.requesterEmail}`}
-                />
-              )}
-              <div className="p-2 rounded bg-muted flex-shrink-0">
-                <Mail className="w-4 h-4 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0 space-y-1">
-                <div className="flex gap-2 items-center flex-wrap">
-                  <Badge variant="secondary" className="text-xs">
-                    {row.channel}
-                  </Badge>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {formatDate(row.createdAt)}
+        // One list with hairlines (Tickets v3): who · what · when and where it stands.
+        <ul
+          aria-label="Threads on this ticket"
+          className="overflow-hidden rounded-[10px] border border-border bg-card"
+        >
+          {threads.map((row) => {
+            const threadUrl = `/threads?id=${getConvUrlId({ id: row.conversationId, publicId: row.publicId }, orgCode)}`;
+            const name = nameOf.get(row.conversationId);
+            return (
+              <li
+                key={row.conversationId}
+                className="grid grid-cols-[20px_18px_minmax(0,1fr)_auto] gap-2.5 items-start py-[11px] pr-2.5 pl-3 border-t border-border/60 first:border-t-0 transition-colors hover:bg-muted/40"
+              >
+                {/* A backend without ticket replies offers no reply box, so no boxes to tick. */}
+                {replyData && canManage ? (
+                  <Checkbox
+                    className="pt-0.5"
+                    checked={selected.has(row.conversationId)}
+                    onChange={(event) => toggle(row.conversationId, event.target.checked)}
+                    disabled={unreachable.has(row.conversationId)}
+                    aria-label={`Reply to ${row.requesterEmail}`}
+                  />
+                ) : (
+                  <span />
+                )}
+                <Tooltip content={row.channel} size="sm">
+                  <span className="grid mt-0.5 text-muted-foreground">
+                    <Mail className="w-3.5 h-3.5" aria-hidden />
+                    <span className="sr-only">{row.channel}</span>
                   </span>
-                  <span className="font-mono text-xs font-medium" aria-label="Case number">
-                    {row.publicId ?? `#${row.conversationId}`}
-                  </span>
-                  <Badge variant={isDone(row.status) ? 'success' : 'secondary'} size="sm">
-                    {words(row.status)}
-                  </Badge>
-                  {row.parkedAt && (
-                    <Tooltip
-                      content={row.parkedReason ? `On hold: ${row.parkedReason}` : 'On hold'}
-                      size="sm"
-                    >
-                      <Badge variant="warning" size="sm">
-                        on hold
-                        {row.parkedUntil &&
-                          ` until ${new Date(row.parkedUntil).toLocaleDateString()}`}
-                      </Badge>
-                    </Tooltip>
-                  )}
-                  {row.receivedUpdate && (
-                    <Badge variant="secondary" size="sm">
-                      updated
-                    </Badge>
-                  )}
-                  {row.isPrimary && (
-                    <span className="text-xs text-muted-foreground">ticket created from this</span>
-                  )}
-                </div>
-                <Link
-                  to={`/threads?id=${getConvUrlId({ id: row.conversationId, publicId: row.publicId }, orgCode)}`}
-                  className="block group"
-                >
-                  <p className="text-sm font-medium truncate">
-                    {nameOf.get(row.conversationId) ? (
-                      <>
-                        {nameOf.get(row.conversationId)}{' '}
-                        <span className="font-normal text-muted-foreground">
+                </Tooltip>
+                <div className="grid gap-[3px] min-w-0">
+                  <Link to={threadUrl} className="grid gap-[3px] min-w-0 group">
+                    <span className="flex gap-2 items-baseline min-w-0">
+                      <span className="text-[13.5px] font-semibold truncate">
+                        {name ?? row.requesterEmail}
+                      </span>
+                      {name && (
+                        <span className="flex-1 min-w-0 text-[12.5px] truncate text-muted-foreground">
                           {row.requesterEmail}
                         </span>
-                      </>
-                    ) : (
-                      row.requesterEmail
+                      )}
+                    </span>
+                    {row.subject && (
+                      <span className="text-[13px] truncate text-muted-foreground group-hover:text-primary transition-colors">
+                        {row.subject}
+                      </span>
                     )}
-                  </p>
-                  {row.subject && (
-                    <p className="text-sm truncate text-muted-foreground group-hover:text-primary transition-colors">
-                      {row.subject}
+                  </Link>
+                  <div className="flex flex-wrap gap-[5px] items-center mt-[3px]">
+                    <span
+                      className="font-mono text-[11px] text-muted-foreground"
+                      aria-label="Case number"
+                    >
+                      {row.publicId ?? `#${row.conversationId}`}
+                    </span>
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      {formatDate(row.createdAt)}
+                    </span>
+                    <Badge
+                      variant={
+                        isDone(row.status)
+                          ? 'success'
+                          : row.status === 'pending'
+                            ? 'secondary'
+                            : 'info'
+                      }
+                      size="sm"
+                    >
+                      {words(row.status)}
+                    </Badge>
+                    {row.parkedAt && (
+                      <Tooltip
+                        content={row.parkedReason ? `On hold: ${row.parkedReason}` : 'On hold'}
+                        size="sm"
+                      >
+                        <Badge variant="warning" size="sm">
+                          on hold
+                          {row.parkedUntil &&
+                            ` until ${new Date(row.parkedUntil).toLocaleDateString()}`}
+                        </Badge>
+                      </Tooltip>
+                    )}
+                    {row.receivedUpdate && (
+                      <Tooltip content="Already received an update from this ticket" size="sm">
+                        <Badge variant="secondary" size="sm">
+                          updated
+                        </Badge>
+                      </Tooltip>
+                    )}
+                    {/* D2 — nothing is sent for the agent. Only a TRUE owes: null means the ticket was
+                      closed without a resolve — not a fix, nothing to tell the customer. */}
+                    {row.owesReply === true && (
+                      <Badge variant="attention" size="sm">
+                        Fixed — reply to tell this customer
+                      </Badge>
+                    )}
+                    {row.isPrimary && (
+                      <Badge variant="outline" size="sm">
+                        ticket created from this
+                      </Badge>
+                    )}
+                  </div>
+                  {replyData && unreachable.has(row.conversationId) && (
+                    <p className="text-xs text-muted-foreground">
+                      A reply cannot reach this thread: {unreachable.get(row.conversationId)}
                     </p>
                   )}
-                </Link>
-                {/* D2 — nothing is sent for the agent. Only a TRUE owes: null means the ticket was
-                    closed without a resolve — not a fix, nothing to tell the customer. */}
-                {row.owesReply === true && (
-                  <Badge variant="warning" size="sm">
-                    Fixed — reply to tell this customer
-                  </Badge>
-                )}
-                {replyData && unreachable.has(row.conversationId) && (
-                  <p className="text-xs text-muted-foreground">
-                    A reply cannot reach this thread: {unreachable.get(row.conversationId)}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {canManage && !row.isPrimary && !row.receivedUpdate && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void remove(row.conversationId)}
-                    disabled={busy}
-                    aria-label={`Remove ${row.requesterEmail}’s thread from this ticket`}
-                  >
-                    Remove
-                  </Button>
-                )}
-                {canManage && !row.isPrimary && row.receivedUpdate && (
-                  <Tooltip
-                    content="This customer already received an update from this ticket, so the thread stays on it."
-                    size="sm"
-                  >
-                    <span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled
-                        aria-label={`${row.requesterEmail}’s thread received an update and cannot be removed`}
-                      >
-                        Remove
-                      </Button>
-                    </span>
+                </div>
+                <div className="flex items-center gap-0.5">
+                  {canManage && !row.isPrimary && !row.receivedUpdate && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void remove(row.conversationId)}
+                      disabled={busy}
+                      aria-label={`Remove ${row.requesterEmail}’s thread from this ticket`}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                  {canManage && !row.isPrimary && row.receivedUpdate && (
+                    <Tooltip
+                      content="This customer already received an update from this ticket, so the thread stays on it."
+                      size="sm"
+                    >
+                      <span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled
+                          aria-label={`${row.requesterEmail}’s thread received an update and cannot be removed`}
+                        >
+                          Remove
+                        </Button>
+                      </span>
+                    </Tooltip>
+                  )}
+                  {/* The icon opens the thread too, as the whole card did in the old list. */}
+                  <Tooltip content="Open thread" size="sm">
+                    <Link
+                      to={threadUrl}
+                      // A second way to the same thread for the mouse; keyboard and screen readers
+                      // already have the name/subject link beside it.
+                      tabIndex={-1}
+                      aria-hidden
+                      className="grid place-items-center w-8 h-8 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      <ExternalLinkIcon className="w-3.5 h-3.5" aria-hidden />
+                    </Link>
                   </Tooltip>
-                )}
-                {/* The icon opens the thread too, as the whole card did in the old list. */}
-                <Link
-                  to={`/threads?id=${getConvUrlId({ id: row.conversationId, publicId: row.publicId }, orgCode)}`}
-                  // A second way to the same thread for the mouse; keyboard and screen readers
-                  // already have the email/subject link beside it.
-                  tabIndex={-1}
-                  aria-hidden
-                >
-                  <ExternalLinkIcon
-                    className="w-3.5 h-3.5 text-muted-foreground mt-0.5"
-                    aria-hidden
-                  />
-                </Link>
-              </div>
-            </li>
-          ))}
+                </div>
+              </li>
+            );
+          })}
           {hiddenCount > 0 && (
-            <li className="text-xs text-muted-foreground">
+            <li className="py-[9px] px-3.5 text-xs border-t border-border/60 text-muted-foreground">
               + {hiddenCount} {hiddenCount === 1 ? 'thread' : 'threads'} in teams you cannot
               open.
             </li>
@@ -625,67 +654,25 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
         confirmText="Resolve"
       />
 
-      <Dialog
+      <TicketAddThreadsDialog
         open={pickerOpen}
-        onOpenChange={(open) => {
-          if (!open) cancelPendingSearch();
-          setPickerOpen(open);
+        onClose={() => {
+          cancelPendingSearch();
+          setPickerOpen(false);
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add threads to this ticket</DialogTitle>
-            <DialogClose
-              onClose={() => {
-                cancelPendingSearch();
-                setPickerOpen(false);
-              }}
-            />
-          </DialogHeader>
-          <div className="space-y-3">
-            <SearchInput
-              value={query}
-              onChange={(value: string) => {
-                setQuery(value);
-                // One search per pause, not per keystroke.
-                if (debounce.current) clearTimeout(debounce.current);
-                debounce.current = setTimeout(() => void search(value), 250);
-              }}
-              placeholder="Search any customer’s threads — name, address, subject"
-            />
-            {/* Inside the dialog: the page's own line is behind its overlay. */}
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            {candidates === null ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
-            ) : candidates.length === 0 && !capped && !error ? (
-              <p className="text-sm text-muted-foreground">
-                {query.trim() ? 'No thread matches that.' : 'No other threads to add.'}
-              </p>
-            ) : (
-              <ul className="space-y-1">
-                {candidates.map((row) => (
-                  <li key={row.id} className="flex items-center justify-between gap-2 text-sm">
-                    <span className="truncate">
-                      {row.sender}
-                      {row.subject && (
-                        <span className="text-muted-foreground"> · {row.subject}</span>
-                      )}
-                    </span>
-                    <Button size="sm" onClick={() => void add(row.id)} disabled={busy}>
-                      Add
-                    </Button>
-                  </li>
-                ))}
-                {capped && (
-                  <li className="text-xs text-muted-foreground">
-                    Showing the newest {THREAD_PICKER_LIMIT}. Search to find another thread.
-                  </li>
-                )}
-              </ul>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+        query={query}
+        onQueryChange={(value) => {
+          setQuery(value);
+          // One search per pause, not per keystroke.
+          if (debounce.current) clearTimeout(debounce.current);
+          debounce.current = setTimeout(() => void search(value), 250);
+        }}
+        error={error}
+        candidates={candidates}
+        capped={capped}
+        busy={busy}
+        onAdd={(id) => void add(id)}
+      />
     </div>
   );
 };

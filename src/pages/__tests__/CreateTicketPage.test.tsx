@@ -536,7 +536,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       Object.defineProperty(big, 'size', { value: 11 * 1024 * 1024 });
       await user.upload(input, [big, ...[1, 2, 3, 4, 5, 6].map(small)]);
       expect(
-        await screen.findByText(/files over 10 MB were left out; only the first 5/)
+        await screen.findByText(/big.pdf is over 10 MB and was left out; only the first 5/)
       ).toBeInTheDocument();
       await waitFor(() => expect(createButton()).toBeEnabled());
       await user.click(createButton());
