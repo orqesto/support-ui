@@ -9,12 +9,14 @@ import { zendeskImportService, type ZendeskRun } from '@/services/zendeskImport.
 type Props = {
   run: ZendeskRun;
   onAct: (action: () => Promise<unknown>, failure: string) => Promise<void>;
+  /** An earlier import shown for reference: its report only, no follow-up steps. */
+  readOnly?: boolean;
 };
 
 const num = (value: number | undefined): string => (value ?? 0).toLocaleString();
 
 /** What the import did, and the follow-up steps (attachments, run again). */
-export const ZendeskImportReport = ({ run, onAct }: Props) => {
+export const ZendeskImportReport = ({ run, onAct, readOnly = false }: Props) => {
   const report = run.report;
   if (!report) return null;
   const counts = report.counts;
@@ -39,6 +41,9 @@ export const ZendeskImportReport = ({ run, onAct }: Props) => {
           </li>
           {(counts.skipped_unchanged ?? 0) > 0 && (
             <li>{num(counts.skipped_unchanged)} unchanged since the last import</li>
+          )}
+          {(counts.skipped_deleted ?? 0) > 0 && (
+            <li>{num(counts.skipped_deleted)} deleted in Odly — skipped</li>
           )}
           {(counts.skipped_spam ?? 0) > 0 && (
             <li>{num(counts.skipped_spam)} closed as spam, skipped</li>
@@ -101,31 +106,33 @@ export const ZendeskImportReport = ({ run, onAct }: Props) => {
         </section>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        {run.status === 'applied' && (
+      {!readOnly && (
+        <div className="flex flex-wrap gap-2">
+          {run.status === 'applied' && (
+            <Button
+              variant="outline"
+              onClick={() =>
+                void onAct(
+                  () => zendeskImportService.attachments(run.id),
+                  'Could not start copying attachments'
+                )
+              }
+            >
+              <Paperclip className="mr-1 w-4 h-4" />
+              {files ? 'Copy attachments again' : 'Copy attachments from Zendesk'}
+            </Button>
+          )}
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={() =>
-              void onAct(
-                () => zendeskImportService.attachments(run.id),
-                'Could not start copying attachments'
-              )
+              void onAct(() => zendeskImportService.preview(run.id), 'Could not start the check')
             }
           >
-            <Paperclip className="mr-1 w-4 h-4" />
-            {files ? 'Copy attachments again' : 'Copy attachments from Zendesk'}
+            <RotateCcw className="mr-1 w-4 h-4" />
+            Check again
           </Button>
-        )}
-        <Button
-          variant="ghost"
-          onClick={() =>
-            void onAct(() => zendeskImportService.preview(run.id), 'Could not start the check')
-          }
-        >
-          <RotateCcw className="mr-1 w-4 h-4" />
-          Check again
-        </Button>
-      </div>
+        </div>
+      )}
     </div>
   );
 };

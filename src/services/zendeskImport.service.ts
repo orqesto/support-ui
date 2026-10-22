@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import { apiErrorMessage } from '@/lib/apiError';
+import { apiErrorMessage, apiErrorStatus } from '@/lib/apiError';
 import type { ApiResponse } from '@/types';
 
 /**
@@ -101,11 +101,18 @@ export const zendeskImportService = {
       })
     ),
 
-  uploadPart: async (runId: number, index: number, part: Blob): Promise<void> => {
+  uploadPart: async (
+    runId: number,
+    index: number,
+    part: Blob,
+    signal?: AbortSignal
+  ): Promise<void> => {
     await apiClient.put(`${BASE}/${runId}/parts/${index}`, part, {
       headers: { 'Content-Type': 'application/octet-stream' },
       // A part is up to 8 MB on a possibly slow uplink.
       timeout: 5 * 60_000,
+      // "Stop upload" aborts the part on the wire, not only the parts after it.
+      signal,
     });
   },
 
@@ -138,32 +145,117 @@ export const zendeskImportService = {
     await apiClient.delete(`${BASE}/${runId}`);
   },
 
-  conflictsCsv: async (runId: number): Promise<Blob> =>
-    (await apiClient.get<Blob>(`${BASE}/${runId}/conflicts.csv`, { responseType: 'blob' })).data,
+  conflictsCsv: async (runId: number): Promise<Blob> => {
+    try {
+      return (await apiClient.get<Blob>(`${BASE}/${runId}/conflicts.csv`, { responseType: 'blob' }))
+        .data;
+    } catch (error) {
+      throw await withBlobErrorBody(error);
+    }
+  },
 };
 
+/** `Blob.text()`, with a FileReader fallback for engines that lack it (jsdom among them). */
+const blobText = (blob: Blob): Promise<string> =>
+  typeof blob.text === 'function'
+    ? blob.text()
+    : new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+        reader.onerror = () => reject(reader.error ?? new Error('Could not read the response'));
+        reader.readAsText(blob);
+      });
+
 /**
- * Upload `file` in parts, each tried up to 3 times. `onProgress` receives the bytes sent so far.
- * Parts are sent one after another: the bottleneck is the uplink, and a failed part is re-sent alone.
+ * With `responseType: 'blob'` an error body arrives as a Blob, so the backend's reason
+ * (`{ success: false, error }`) is not on the error. Read it, and hand back an error that carries
+ * it the way every other call does. A 5xx keeps the masked message the interceptor chose.
+ */
+export const withBlobErrorBody = async (error: unknown): Promise<unknown> => {
+  const body = (error as { data?: unknown } | null | undefined)?.data;
+  if (!(body instanceof Blob)) return error;
+  const status = apiErrorStatus(error);
+  let reason: string | null = null;
+  try {
+    const parsed = JSON.parse(await blobText(body)) as { error?: unknown; message?: unknown };
+    const text = parsed.error ?? parsed.message;
+    reason = typeof text === 'string' && text.trim() ? text : null;
+  } catch {
+    reason = null;
+  }
+  if (!reason || (status !== undefined && status >= 500)) return error;
+  const readable = new Error(reason) as Error & { status?: number; data?: unknown };
+  readable.status = status;
+  readable.data = { success: false, error: reason };
+  return readable;
+};
+
+/** A user's "Stop upload" (axios `CanceledError`), as opposed to a failure. */
+export const isAbortError = (error: unknown, signal?: AbortSignal): boolean =>
+  Boolean(signal?.aborted) ||
+  (error as { name?: string; code?: string } | null | undefined)?.code === 'ERR_CANCELED' ||
+  (error as { name?: string } | null | undefined)?.name === 'CanceledError' ||
+  (error as { name?: string } | null | undefined)?.name === 'AbortError';
+
+/** Pause before re-sending a failed part: a blip on the uplink usually needs a moment. */
+export const PART_RETRY_DELAYS_MS = [1000, 4000];
+
+/**
+ * A 4xx is the server refusing this part (run deleted, upload already complete, too large):
+ * sending it again gets the same answer. 408 (timeout) and 429 (slow down) are the exceptions.
+ */
+const isRetryable = (error: unknown): boolean => {
+  const status = apiErrorStatus(error);
+  if (status === undefined || status === 0) return true;
+  if (status === 408 || status === 429) return true;
+  return status < 400 || status >= 500;
+};
+
+const wait = (ms: number, signal?: AbortSignal): Promise<void> =>
+  new Promise((resolve, reject) => {
+    if (ms <= 0) {
+      resolve();
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException('Upload cancelled', 'AbortError'));
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+
+/**
+ * Upload `file` in parts, each tried up to 3 times with a pause between tries (none after a 4xx).
+ * `onProgress` receives the bytes sent so far. Parts are sent one after another: the bottleneck
+ * is the uplink, and a failed part is re-sent alone. An abort through `signal` stops the part in
+ * flight and rejects with the abort itself (see `isAbortError`), never retried.
  */
 export const uploadZendeskExport = async (
   runId: number,
   file: Blob,
   onProgress: (sent: number) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  retryDelaysMs: number[] = PART_RETRY_DELAYS_MS
 ): Promise<void> => {
   const parts = Math.ceil(file.size / PART_BYTES);
   for (let index = 0; index < parts; index += 1) {
-    if (signal?.aborted) throw new Error('Upload cancelled');
+    if (signal?.aborted) throw new DOMException('Upload cancelled', 'AbortError');
     const part = file.slice(index * PART_BYTES, (index + 1) * PART_BYTES);
     let lastError: unknown;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    for (let attempt = 0; attempt <= retryDelaysMs.length; attempt += 1) {
       try {
-        await zendeskImportService.uploadPart(runId, index, part);
+        if (attempt > 0) await wait(retryDelaysMs[attempt - 1] ?? 0, signal);
+        await zendeskImportService.uploadPart(runId, index, part, signal);
         lastError = undefined;
         break;
       } catch (error) {
+        if (isAbortError(error, signal)) throw error;
         lastError = error;
+        if (!isRetryable(error)) break;
       }
     }
     // Thrown as an Error carrying the backend's own reason (a part refused, the run gone).

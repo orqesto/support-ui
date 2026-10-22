@@ -5,8 +5,12 @@ import type { ZendeskCounts, ZendeskRunStatus } from '@/services/zendeskImport.s
  * apart from the screen.
  *
  * The BE preview matches EVERY ticket, spam included, and counts a spam ticket twice: under its
- * kind (`new`, `messageId`, …) and again as `spam_<kind>`. With "import spam" off those tickets are
- * skipped, so they come off their kind here.
+ * kind (`new`, `messageId`, `mapped`, `skipped_unchanged`, …) and again as `spam_<kind>`. With
+ * "import spam" off, spam tickets that are NOT yet in Odly are skipped, so they come off their
+ * kind here. A ticket an earlier import already brought in (`mapped`) is updated even when Zendesk
+ * closed it as spam — the backend checks "already imported" before the spam skip — so `mapped` is
+ * never reduced, and spam that is mapped, unchanged or deleted in Odly is not "skipped as spam".
+ * Keys an older backend does not send count as 0.
  */
 export type PreviewSummary = {
   total: number;
@@ -19,6 +23,8 @@ export type PreviewSummary = {
   conflicts: number;
   skippedSpam: number;
   unchanged: number;
+  /** Already imported, but an agent deleted the Odly thread: skipped on purpose. */
+  deletedInOdly: number;
 };
 
 const count = (counts: ZendeskCounts, key: string): number => counts[key] ?? 0;
@@ -37,14 +43,21 @@ export const summarizePreview = (
     joined:
       minusSpam('messageId') +
       minusSpam('followup') +
-      minusSpam('mapped') +
+      count(counts, 'mapped') +
       (options.includeProbable ? probable : 0),
     probable,
     conflicts: minusSpam('conflict'),
     skippedSpam: options.includeSpam
       ? 0
-      : count(counts, 'spamClosed') - count(counts, 'spam_skipped_unchanged'),
+      : Math.max(
+          0,
+          count(counts, 'spamClosed') -
+            count(counts, 'spam_mapped') -
+            count(counts, 'spam_skipped_unchanged') -
+            count(counts, 'spam_skipped_deleted')
+        ),
     unchanged: count(counts, 'skipped_unchanged'),
+    deletedInOdly: count(counts, 'skipped_deleted'),
   };
 };
 

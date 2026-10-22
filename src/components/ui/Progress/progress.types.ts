@@ -9,4 +9,6 @@ export type ProgressProps = {
   variant?: VariantProps<typeof progressBarVariants>['variant'];
   size?: VariantProps<typeof progressContainerVariants>['size'];
   rounded?: VariantProps<typeof progressBarVariants>['rounded'];
+  /** Accessible name of the bar ("Upload progress"). A progressbar without one is unnamed to a screen reader. */
+  'aria-label'?: string;
 };
