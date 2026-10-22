@@ -26,7 +26,6 @@ import { SourceRowBadges } from '@/components/settings/integrations/SourceRowBad
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Select } from '@/components/ui/Select';
 import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
 import { integrationsService } from '@/services/integrations.service';
 import { useKbRangeDialogStore } from '@/stores/kbRangeDialogStore';
@@ -35,6 +34,9 @@ import {
   KB_RANGE_MENU_LABEL,
 } from '@/components/settings/integrations/kbRangeCopy';
 import { logger } from '@/lib/logger';
+import { Label } from '@/components/ui/Label';
+import { DateRangePicker, formatRangeLabel, type DateRangeValue } from '@/components/ui/DateRangePicker';
+import { countLookbackDays, imapEarliestDay, importRangePatch, importRangeValue } from '@/lib/importRange';
 
 type EmailConfig = {
   host: string;
@@ -47,6 +49,8 @@ type EmailConfig = {
   maxResults?: number;
   lookbackDays?: number;
   bulkImportDays?: number;
+  /** The import start day (YYYY-MM-DD); wins over bulkImportDays on the server. */
+  bulkImportSince?: string | null;
   bulkImportMaxResults?: number;
   smtp?: {
     host: string;
@@ -71,6 +75,14 @@ const defaultConfig: EmailConfig = {
   bulkImportMaxResults: 500,
 };
 
+
+const IMPORT_RANGE_OPTIONS = [
+  { value: '7', label: 'Last 7 days' },
+  { value: '30', label: 'Last 30 days' },
+  { value: '90', label: 'Last 90 days' },
+  { value: '0', label: 'All time (may take long)' },
+];
+
 export const EmailIntegrationCard = ({
   integrations,
   onRefresh,
@@ -94,7 +106,8 @@ export const EmailIntegrationCard = ({
     password: config.password,
     secure: config.secure,
     searchCriteria: config.searchCriteria,
-    lookbackDays: config.lookbackDays,
+    // A Custom since day counts from that day, as the import will read (and keys the result).
+    lookbackDays: countLookbackDays(config),
     // Editing an existing source: the form holds the MASKED password it was seeded with,
     // so the backend needs the id to substitute the stored secret before dialling.
     ...(editingId !== null ? { integrationId: editingId } : {}),
@@ -113,7 +126,7 @@ export const EmailIntegrationCard = ({
     name: string;
     currentDays: number;
   } | null>(null);
-  const [bulkImportDaysInput, setBulkImportDaysInput] = useState<string>('7');
+  const [importRange, setImportRange] = useState<DateRangeValue>({ kind: 'preset', value: '7' });
   const [editDepts, setEditDepts] = useState<number | null>(null);
   const [editAliases, setEditAliases] = useState<number | null>(null);
   const [editAckReply, setEditAckReply] = useState<number | null>(null);
@@ -172,12 +185,10 @@ export const EmailIntegrationCard = ({
 
     setSaving(true);
     try {
-      const days = parseInt(bulkImportDaysInput) || 0;
-
       await integrationsService.update(editBulkImport.id, {
         type: 'email',
         config: {
-          email: { bulkImportDays: days },
+          email: importRangePatch(importRange),
         },
       });
 
@@ -187,7 +198,7 @@ export const EmailIntegrationCard = ({
       onShowAlert({
         open: true,
         title: 'Sync Range Updated',
-        description: `Will sync emails from ${days === 0 ? 'all time' : `last ${days} days`} on next polling cycle.`,
+        description: `Will sync emails from ${formatRangeLabel(importRange, IMPORT_RANGE_OPTIONS).toLowerCase()} on next polling cycle.`,
         variant: 'success',
       });
     } catch (error) {
@@ -427,7 +438,8 @@ export const EmailIntegrationCard = ({
                             name: integration.name,
                             currentDays,
                           });
-                          setBulkImportDaysInput('7');
+                          // The saved range, not a fixed 7: the dialog shows what is set.
+                          setImportRange(importRangeValue(emailConfig, 7));
                         }}
                         title={
                           integration.isKnowledgeBase
@@ -645,17 +657,17 @@ export const EmailIntegrationCard = ({
             </p>
 
             <div className="mb-4">
-              <Select
-                label="Fetch emails from:"
-                value={bulkImportDaysInput}
-                onChange={(value) => setBulkImportDaysInput(value)}
-                options={[
-                  { value: '7', label: 'Last 7 days' },
-                  { value: '30', label: 'Last 30 days' },
-                  { value: '90', label: 'Last 90 days' },
-                  { value: '0', label: 'All time (may take long)' },
-                ]}
-              />
+              <Label className="mb-1">Fetch emails from:</Label>
+              <div>
+                <DateRangePicker
+                  ariaLabel="Fetch emails from"
+                  minDay={imapEarliestDay()}
+                  mode="single"
+                  presets={IMPORT_RANGE_OPTIONS}
+                  value={importRange}
+                  onChange={setImportRange}
+                />
+              </div>
               <p className="mt-2 text-xs text-muted-foreground">
                 How far back to fetch emails on first connect. After the initial sync, normal
                 incremental polling resumes.

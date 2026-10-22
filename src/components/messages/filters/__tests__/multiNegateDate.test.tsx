@@ -19,7 +19,7 @@ import {
   EMPTY_DYNAMIC_OPTIONS,
 } from '../filterSchema';
 import { clearPatch, tokenText, tokensOf } from '../filterTokens';
-import { startOfDayIso } from '../receivedRange';
+import { endOfDayIso, startOfDayIso } from '../receivedRange';
 import type { FilterState } from '@/stores/messagesStore';
 
 afterEach(cleanup);
@@ -226,15 +226,38 @@ describe('Received — a bucket or a window, never both', () => {
   });
 
   it('picking a date drops the bucket, and sends an instant rather than a day', () => {
-    const { onFilterPatch, input } = setup({ ageRange: 'lt24h' } as FilterState);
-    fireEvent.mouseDown(input);
-    fireEvent.click(screen.getByText('Received'));
-    fireEvent.change(screen.getByLabelText('From'), { target: { value: '2026-08-01' } });
-    expect(onFilterPatch.mock.calls[0][0]).toStrictEqual({
-      ageRange: 'all',
-      receivedFrom: startOfDayIso('2026-08-01'),
-      receivedTo: undefined,
-    });
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 7, 20)); // the calendar opens on August 2026
+    try {
+      const { onFilterPatch, input } = setup({ ageRange: 'lt24h' } as FilterState);
+      fireEvent.mouseDown(input);
+      fireEvent.click(screen.getByText('Received'));
+      fireEvent.click(screen.getByRole('button', { name: '1 August 2026' }));
+      expect(onFilterPatch.mock.calls[0][0]).toStrictEqual({
+        ageRange: 'all',
+        receivedFrom: startOfDayIso('2026-08-01'),
+        receivedTo: undefined,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a second day completes the range — in order — with the end day whole', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 7, 20));
+    try {
+      const { onFilterPatch, input } = setup({ receivedFrom: startOfDayIso('2026-08-09') } as FilterState);
+      fireEvent.mouseDown(input);
+      fireEvent.click(screen.getByText('Received'));
+      fireEvent.click(screen.getByRole('button', { name: '3 August 2026' }));
+      expect(onFilterPatch.mock.calls[0][0]).toMatchObject({
+        receivedFrom: startOfDayIso('2026-08-03'),
+        receivedTo: endOfDayIso('2026-08-09'),
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('clears all three when the token goes', () => {

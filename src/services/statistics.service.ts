@@ -1,3 +1,4 @@
+import { periodParams, periodQueryString, type ReportPeriod } from '@/lib/reportPeriod';
 import { apiClient } from '@/lib/api-client';
 import { slaService, type SLASummary } from './sla.service';
 
@@ -244,9 +245,9 @@ export type TokenUsageData = {
   }>;
 };
 
-/** Build the `days` (+ optional `channel`) query string for statistics endpoints. */
-const statsQuery = (days: number, channel?: string): string =>
-  channel && channel !== 'all' ? `days=${days}&channel=${channel}` : `days=${days}`;
+/** Build the period (`days` or `from`/`to`) + optional `channel` query string for statistics endpoints. */
+const statsQuery = (period: ReportPeriod, channel?: string): string =>
+  channel && channel !== 'all' ? `${periodQueryString(period)}&channel=${channel}` : periodQueryString(period);
 
 export const statisticsService = {
   /**
@@ -254,16 +255,16 @@ export const statisticsService = {
    * them the backend answered its 90-day, all-channel default under a filter bar that said
    * otherwise (FE audit 2026-09-29, D-H2).
    */
-  getAll: async (days = 90, channel?: string): Promise<ApiResponse<StatisticsData>> => {
+  getAll: async (period: ReportPeriod = { days: 90 }, channel?: string): Promise<ApiResponse<StatisticsData>> => {
     const response = await apiClient.get<{ success: boolean; data: StatisticsData }>(
-      `/api/statistics?${statsQuery(days, channel)}`
+      `/api/statistics?${statsQuery(period, channel)}`
     );
     return { success: response.data.success, data: response.data.data };
   },
 
-  getTeamStats: async (days = 30, channel?: string): Promise<ApiResponse<UserStatEntry[]>> => {
+  getTeamStats: async (period: ReportPeriod = { days: 30 }, channel?: string): Promise<ApiResponse<UserStatEntry[]>> => {
     const response = await apiClient.get<{ success: boolean; data: UserStatEntry[] }>(
-      `/api/statistics/team?${statsQuery(days, channel)}`
+      `/api/statistics/team?${statsQuery(period, channel)}`
     );
     return { success: response.data.success, data: response.data.data };
   },
@@ -275,30 +276,30 @@ export const statisticsService = {
     return { success: response.data.success, data: response.data.data };
   },
 
-  getMessageStats: async (days = 30, channel?: string): Promise<ApiResponse<MessageStatsData>> => {
+  getMessageStats: async (period: ReportPeriod = { days: 30 }, channel?: string): Promise<ApiResponse<MessageStatsData>> => {
     const response = await apiClient.get<{ success: boolean; data: MessageStatsData }>(
-      `/api/statistics/messages?${statsQuery(days, channel)}`
+      `/api/statistics/messages?${statsQuery(period, channel)}`
     );
     return { success: response.data.success, data: response.data.data };
   },
 
-  getAIStats: async (days = 30, channel?: string): Promise<ApiResponse<AIStatsData>> => {
+  getAIStats: async (period: ReportPeriod = { days: 30 }, channel?: string): Promise<ApiResponse<AIStatsData>> => {
     const response = await apiClient.get<{ success: boolean; data: AIStatsData }>(
-      `/api/statistics/ai?${statsQuery(days, channel)}`
+      `/api/statistics/ai?${statsQuery(period, channel)}`
     );
     return { success: response.data.success, data: response.data.data };
   },
 
-  getLabelStats: async (days = 30, channel?: string): Promise<ApiResponse<LabelStatEntry[]>> => {
+  getLabelStats: async (period: ReportPeriod = { days: 30 }, channel?: string): Promise<ApiResponse<LabelStatEntry[]>> => {
     const response = await apiClient.get<{ success: boolean; data: LabelStatEntry[] }>(
-      `/api/statistics/labels?${statsQuery(days, channel)}`
+      `/api/statistics/labels?${statsQuery(period, channel)}`
     );
     return { success: response.data.success, data: response.data.data };
   },
 
-  getSpeedToLead: async (days = 30, channel?: string): Promise<ApiResponse<SpeedToLeadData>> => {
+  getSpeedToLead: async (period: ReportPeriod = { days: 30 }, channel?: string): Promise<ApiResponse<SpeedToLeadData>> => {
     const response = await apiClient.get<{ success: boolean; data: SpeedToLeadData }>(
-      `/api/statistics/speed-to-lead?${statsQuery(days, channel)}`
+      `/api/statistics/speed-to-lead?${statsQuery(period, channel)}`
     );
     return { success: response.data.success, data: response.data.data };
   },
@@ -306,9 +307,12 @@ export const statisticsService = {
   // KPI row (getSummary takes {days} and returns raw; the hook needs (days)=>{success,data}).
   // SLA summary is not channel-filtered on the BE, so `channel` is accepted (for a
   // uniform fetchFn signature) but ignored.
-  getSlaSummary: async (days = 30, _channel?: string): Promise<ApiResponse<SLASummary>> => {
+  getSlaSummary: async (
+    period: ReportPeriod = { days: 30 },
+    _channel?: string
+  ): Promise<ApiResponse<SLASummary>> => {
     void _channel;
-    const data = await slaService.getSummary({ days });
+    const data = await slaService.getSummary(periodParams(period));
     return { success: true, data };
   },
 
@@ -316,12 +320,12 @@ export const statisticsService = {
   // fetchFn signature (useStatisticsFetch) but ignored. Optional feature/provider
   // filters drill into a single bucket over the same window.
   getTokenUsage: async (
-    days = 30,
+    period: ReportPeriod = { days: 30 },
     _channel?: string,
     filters?: { feature?: string; provider?: string }
   ): Promise<ApiResponse<TokenUsageData>> => {
     void _channel;
-    const params = new URLSearchParams({ days: String(days) });
+    const params = new URLSearchParams(periodQueryString(period));
     if (filters?.feature) params.set('feature', filters.feature);
     if (filters?.provider) params.set('provider', filters.provider);
     const response = await apiClient.get<{ success: boolean; data: TokenUsageData }>(

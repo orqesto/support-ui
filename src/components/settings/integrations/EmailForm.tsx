@@ -14,6 +14,9 @@ import {
   portError,
 } from '@/utils/mailboxValidation';
 import type { Department } from '@/services/department.service';
+import { DateRangePicker } from '@/components/ui/DateRangePicker';
+import { imapEarliestDay } from '@/lib/importRange';
+import { Label } from '@/components/ui/Label';
 
 type EmailConfig = {
   host: string;
@@ -26,6 +29,8 @@ type EmailConfig = {
   maxResults?: number;
   lookbackDays?: number;
   bulkImportDays?: number;
+  /** The import start day (YYYY-MM-DD, the calendar); wins over the day counts on the server. */
+  bulkImportSince?: string | null;
   bulkImportMaxResults?: number;
   smtp?: {
     host: string;
@@ -264,17 +269,29 @@ export const EmailForm = ({
           </div>
 
           <div>
-            <Select
-              label="Time Range"
-              value={(config.lookbackDays ?? 30).toString()}
-              onChange={(value) => onConfigChange({ ...config, lookbackDays: parseInt(value) })}
-              options={lookbackOptions.map((opt) => ({
-                value: opt.value.toString(),
-                label: opt.label,
-              }))}
-            />
+            <Label className="mb-1">Time Range</Label>
+            <div>
+              <DateRangePicker
+                ariaLabel="Time Range"
+                minDay={imapEarliestDay()}
+                mode="single"
+                presets={lookbackOptions.map((opt) => ({ value: opt.value.toString(), label: opt.label }))}
+                value={
+                  config.bulkImportSince
+                    ? { kind: 'since', since: config.bulkImportSince }
+                    : { kind: 'preset', value: (config.lookbackDays ?? 30).toString() }
+                }
+                onChange={(next) =>
+                  onConfigChange(
+                    next.kind === 'preset'
+                      ? { ...config, lookbackDays: parseInt(next.value), bulkImportSince: null }
+                      : { ...config, bulkImportSince: next.kind === 'since' ? next.since : next.from }
+                  )
+                }
+              />
+            </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              How far back in time (combines with filter)
+              How far back in time (combines with filter) — a period, or Custom… to start from a day
             </p>
           </div>
 

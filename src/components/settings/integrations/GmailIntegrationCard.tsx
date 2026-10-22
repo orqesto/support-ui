@@ -34,6 +34,7 @@ import { logger } from '@/lib/logger';
 import { gmailOAuthService } from '@/services/gmail-oauth.service';
 import { integrationsService } from '@/services/integrations.service';
 import { useKbRangeDialogStore } from '@/stores/kbRangeDialogStore';
+import { formatRangeLabel } from '@/components/ui/DateRangePicker';
 import {
   KB_MINING_DEFERRED_LINE,
   KB_RANGE_MENU_LABEL,
@@ -79,6 +80,7 @@ export const GmailIntegrationCard = ({
     id: number;
     name: string;
     currentDays: number;
+    currentSince?: string | null;
   } | null>(null);
   const [showMenu, setShowMenu] = useState<number | null>(null);
   const [editDepts, setEditDepts] = useState<number | null>(null);
@@ -430,9 +432,10 @@ export const GmailIntegrationCard = ({
                           })()}
                           {(() => {
                             const gmailConfig = (
-                              integration.config as { gmail?: { bulkImportDays?: number } }
+                              integration.config as { gmail?: { bulkImportDays?: number; bulkImportSince?: string | null } }
                             ).gmail;
                             const bulkDays = gmailConfig?.bulkImportDays ?? 30;
+                            if (gmailConfig?.bulkImportSince) return <span className="ml-2 text-muted-foreground">📅 Bulk: {formatRangeLabel({ kind: 'since', since: gmailConfig.bulkImportSince }, [])}</span>;
                             return bulkDays === 0 ? (
                               <span className="ml-2 font-medium text-warning">
                                 ⚠️ Bulk: All time
@@ -474,7 +477,7 @@ export const GmailIntegrationCard = ({
                                 <SourceMenuItem
                                   icon={Calendar}
                                   label={integration.isKnowledgeBase ? KB_RANGE_MENU_LABEL : 'Initial Sync Range'}
-                                  onClick={() => { if (integration.isKnowledgeBase) { useKbRangeDialogStore.getState().open(integration.id); setShowMenu(null); return; } const gmailConfig = ( integration.config as { gmail?: { bulkImportDays?: number } } ).gmail; const bulkDays = gmailConfig?.bulkImportDays ?? 30; setEditBulkImport({ id: integration.id, name: integration.name, currentDays: bulkDays, }); setShowMenu(null); }}
+                                  onClick={() => { if (integration.isKnowledgeBase) { useKbRangeDialogStore.getState().open(integration.id); setShowMenu(null); return; } const gmailConfig = ( integration.config as { gmail?: { bulkImportDays?: number; bulkImportSince?: string | null } } ).gmail; const bulkDays = gmailConfig?.bulkImportDays ?? 30; setEditBulkImport({ id: integration.id, name: integration.name, currentDays: bulkDays, currentSince: gmailConfig?.bulkImportSince ?? null, }); setShowMenu(null); }}
                                 />
                                 <SourceMenuItem
                                   icon={Hash}

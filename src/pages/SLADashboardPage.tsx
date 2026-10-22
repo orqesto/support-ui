@@ -6,8 +6,14 @@ import { SLAByPriorityTable, SLA_DEFAULT_DAYS } from '@/components/sla/SLAByPrio
 import { SLATrendChart } from '@/components/sla/SLATrendChart';
 import { SLABreachList } from '@/components/sla/SLABreachList';
 import { Layout } from '@/components/layout/Layout';
-import { Button } from '@/components/ui/Button';
-import { cn } from '@/lib/utils';
+import { DateRangePicker } from '@/components/ui/DateRangePicker';
+import {
+  dayPresets,
+  periodFromSearch,
+  periodToPickerValue,
+  pickerValueToPeriod,
+  type ReportPeriod,
+} from '@/lib/reportPeriod';
 
 const DAYS_OPTIONS = [
   { label: '7 days', value: 7 },
@@ -22,11 +28,11 @@ export const SLADashboardPage = () => {
   // number was computed over. Only a period this page can actually select is honoured —
   // anything else would leave the selector showing no active button while the charts
   // displayed a window nobody could see or change.
-  const requested = Number(searchParams.get('days'));
-  const initialDays = DAYS_OPTIONS.some((opt) => opt.value === requested)
-    ? requested
-    : SLA_DEFAULT_DAYS;
-  const [days, setDays] = useState<number>(initialDays);
+  // A custom range (?from=&to=) is honoured too: the picker shows it.
+  const [period, setPeriod] = useState<ReportPeriod>(() =>
+    periodFromSearch(searchParams, SLA_DEFAULT_DAYS, DAYS_OPTIONS.map((opt) => opt.value))
+  );
+  const { days } = period;
 
   return (
     <Layout>
@@ -40,44 +46,32 @@ export const SLADashboardPage = () => {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Period:</span>
-            <div className="flex rounded-md border border-border overflow-hidden">
-              {DAYS_OPTIONS.map((opt) => (
-                <Button
-                  key={opt.value}
-                  type="button"
-                  variant={days === opt.value ? 'primary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setDays(opt.value)}
-                  className={cn(
-                    'rounded-none px-3 h-auto py-1.5 font-medium',
-                    days === opt.value
-                      ? ''
-                      : 'text-muted-foreground hover:bg-muted'
-                  )}
-                >
-                  {opt.label}
-                </Button>
-              ))}
-            </div>
+            <DateRangePicker
+              ariaLabel="Period"
+              presets={dayPresets(DAYS_OPTIONS.map((opt) => ({ days: opt.value, label: opt.label })))}
+              value={periodToPickerValue(period)}
+              onChange={(next) => setPeriod(pickerValueToPeriod(next))}
+              maxSpanDays={365}
+            />
           </div>
         </div>
 
         <div className="space-y-6">
           <div className="animate-in fade-in duration-500">
-            <SLAOverviewCards days={days} />
+            <SLAOverviewCards days={days} period={period} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in duration-500 delay-100">
-            <SLAByChannelChart days={days} />
-            <SLAByPriorityTable days={days} />
+            <SLAByChannelChart days={days} period={period} />
+            <SLAByPriorityTable days={days} period={period} />
           </div>
 
           <div className="animate-in fade-in duration-500 delay-200">
-            <SLATrendChart days={days} />
+            <SLATrendChart days={days} period={period} />
           </div>
 
           <div className="animate-in fade-in duration-500 delay-300">
-            <SLABreachList days={days} />
+            <SLABreachList days={days} period={period} />
           </div>
         </div>
       </div>

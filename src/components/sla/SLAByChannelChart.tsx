@@ -14,15 +14,18 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { slaService } from '@/services/sla.service';
 import { SLA_DEFAULT_DAYS } from './SLAByPriorityTable';
+import { periodKey, periodParams, type ReportPeriod } from '@/lib/reportPeriod';
 
 type SLAByChannelChartProps = {
   days?: number;
+  /** A custom window (the date picker); wins over `days`. */
+  period?: ReportPeriod;
 };
 
-export const SLAByChannelChart = ({ days = SLA_DEFAULT_DAYS }: SLAByChannelChartProps) => {
+export const SLAByChannelChart = ({ days = SLA_DEFAULT_DAYS, period }: SLAByChannelChartProps) => {
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['sla-statistics', { days }],
-    queryFn: () => slaService.getStatistics({ days }),
+    queryKey: ['sla-statistics', { window: period ? periodKey(period) : days }],
+    queryFn: () => slaService.getStatistics(period ? periodParams(period) : { days }),
   });
 
   if (isLoading) {

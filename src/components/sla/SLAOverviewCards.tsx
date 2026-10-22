@@ -4,15 +4,18 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { slaService } from '@/services/sla.service';
 import { SLA_DEFAULT_DAYS } from './SLAByPriorityTable';
+import { periodKey, periodParams, type ReportPeriod } from '@/lib/reportPeriod';
 
 type SLAOverviewCardsProps = {
   days?: number;
+  /** A custom window (the date picker); wins over `days`. */
+  period?: ReportPeriod;
 };
 
-export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS }: SLAOverviewCardsProps) => {
+export const SLAOverviewCards = ({ days = SLA_DEFAULT_DAYS, period }: SLAOverviewCardsProps) => {
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['sla-summary', { days }],
-    queryFn: () => slaService.getSummary({ days }),
+    queryKey: ['sla-summary', { window: period ? periodKey(period) : days }],
+    queryFn: () => slaService.getSummary(period ? periodParams(period) : { days }),
     refetchInterval: 60000,
     refetchIntervalInBackground: false,
   });

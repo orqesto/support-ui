@@ -4,12 +4,15 @@ import { SLAByChannelChart } from '@/components/sla/SLAByChannelChart';
 import { SLAByPriorityTable } from '@/components/sla/SLAByPriorityTable';
 import { SLATrendChart } from '@/components/sla/SLATrendChart';
 import { SLABreachList } from '@/components/sla/SLABreachList';
+import type { ReportPeriod } from '@/lib/reportPeriod';
 import { StatisticsMessagesTab } from '@/components/statistics/StatisticsMessagesTab';
 import { SpeedToLeadTab } from '@/components/statistics/SpeedToLeadTab';
 import type { MessageStatsData, LabelStatEntry, SpeedToLeadData } from '@/services/statistics.service';
 
 interface Props {
   days: number;
+  /** The page's window when it is a custom range: the SLA sections must read the same one. */
+  period?: ReportPeriod;
   msgStats: MessageStatsData | null;
   msgLoading: boolean;
   labelStats: LabelStatEntry[] | null;
@@ -32,6 +35,7 @@ const SECTIONS = [
  */
 export function PerformanceTab({
   days,
+  period,
   msgStats,
   msgLoading,
   labelStats,
@@ -68,13 +72,13 @@ export function PerformanceTab({
         <h2 className="font-display flex items-center gap-2 text-lg font-semibold">
           <Clock className="w-5 h-5 text-muted-foreground" />SLA
         </h2>
-        <SLAOverviewCards days={days} />
+        <SLAOverviewCards days={days} period={period} />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <SLAByChannelChart days={days} />
-          <SLAByPriorityTable days={days} />
+          <SLAByChannelChart days={days} period={period} />
+          <SLAByPriorityTable days={days} period={period} />
         </div>
-        <SLATrendChart days={days} />
-        <SLABreachList days={days} />
+        <SLATrendChart days={days} period={period} />
+        <SLABreachList days={days} period={period} />
       </section>
 
       <section id="response" className="space-y-4 scroll-mt-20 border-t pt-8">

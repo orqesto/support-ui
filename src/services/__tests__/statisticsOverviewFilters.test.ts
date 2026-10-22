@@ -18,13 +18,22 @@ describe('statisticsService.getAll', () => {
   });
 
   it('sends the window and the channel', async () => {
-    await statisticsService.getAll(7, 'telegram');
+    await statisticsService.getAll({ days: 7 }, 'telegram');
     expect(get).toHaveBeenCalledWith('/api/statistics?days=7&channel=telegram');
   });
 
   it('"all" channels sends only the window', async () => {
-    await statisticsService.getAll(30, 'all');
+    await statisticsService.getAll({ days: 30 }, 'all');
     expect(get).toHaveBeenCalledWith('/api/statistics?days=30');
+  });
+
+  it('a custom range sends from/to — the first and last instant of its local days — not days', async () => {
+    await statisticsService.getAll({ days: 7, fromDay: '2026-10-03', toDay: '2026-10-09' }, 'email');
+    const from = new Date(2026, 9, 3).toISOString();
+    const to = new Date(2026, 9, 9, 23, 59, 59, 999).toISOString();
+    expect(get).toHaveBeenCalledWith(
+      `/api/statistics?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&channel=email`
+    );
   });
 
   it("CONTROL: with no arguments it names the backend's own default window", async () => {

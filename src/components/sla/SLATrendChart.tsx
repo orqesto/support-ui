@@ -5,15 +5,18 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { slaService } from '@/services/sla.service';
 import { SLA_DEFAULT_DAYS } from './SLAByPriorityTable';
+import { periodKey, periodParams, type ReportPeriod } from '@/lib/reportPeriod';
 
 type SLATrendChartProps = {
   days?: number;
+  /** A custom window (the date picker); wins over `days`. */
+  period?: ReportPeriod;
 };
 
-export const SLATrendChart = ({ days = SLA_DEFAULT_DAYS }: SLATrendChartProps) => {
+export const SLATrendChart = ({ days = SLA_DEFAULT_DAYS, period }: SLATrendChartProps) => {
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['sla-trends', { days, interval: 'day' }],
-    queryFn: () => slaService.getTrends({ days, interval: 'day' }),
+    queryKey: ['sla-trends', { window: period ? periodKey(period) : days, interval: 'day' }],
+    queryFn: () => slaService.getTrends({ ...(period ? periodParams(period) : { days }), interval: 'day' }),
   });
 
   if (isLoading) {
