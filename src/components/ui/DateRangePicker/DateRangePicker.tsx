@@ -24,6 +24,8 @@ type DateRangePickerProps = {
   onChange: (value: DateRangeValue) => void;
   /** The latest day that can be picked, `YYYY-MM-DD`; default today. */
   maxDay?: string;
+  /** The earliest day that can be picked, `YYYY-MM-DD` (e.g. how far back an import reaches). */
+  minDay?: string;
   /** The longest range accepted, in days (a report's server limit is 365). */
   maxSpanDays?: number;
   /** Shown on the trigger when nothing is chosen (a preset value no preset matches, e.g. ''). */
@@ -48,6 +50,7 @@ export const DateRangePicker = ({
   value,
   onChange,
   maxDay,
+  minDay,
   maxSpanDays,
   placeholder,
   onClear,
@@ -146,6 +149,7 @@ export const DateRangePicker = ({
             from={selectedFrom}
             to={selectedTo}
             maxDay={latest}
+            minDay={minDay}
             onPick={pick}
           />
           <p className="px-3 pb-2 text-xs text-muted-foreground">

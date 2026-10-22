@@ -39,6 +39,13 @@ export const Popover = ({
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
+  const closeToTrigger = () => {
+    onOpenChange(false);
+    const target = rootRef.current?.querySelector<HTMLElement>('button, [tabindex]:not([tabindex="-1"])');
+    window.setTimeout(() => target?.focus({ preventScroll: true }));
+  };
+
+
   useLayoutEffect(() => {
     if (!open || !rootRef.current) {
       setPos(null);
@@ -73,6 +80,22 @@ export const Popover = ({
     };
   }, [open, align, width]);
 
+  // Keyboard: opening moves the focus into the panel (it is portalled to the end of <body>, so Tab
+  // from the trigger would never reach it), and Escape closes it from the trigger or the panel.
+  useEffect(() => {
+    if (!open) return undefined;
+    panelRef.current?.querySelector<HTMLElement>('button:not([disabled]), [href], input, [tabindex]:not([tabindex="-1"])')?.focus({ preventScroll: true });
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.stopPropagation();
+      closeToTrigger();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+    // closeToTrigger reads only refs and onOpenChange.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   useEffect(() => {
     if (!open) return undefined;
     const onPointerDown = (event: MouseEvent) => {
@@ -83,12 +106,6 @@ export const Popover = ({
     document.addEventListener('mousedown', onPointerDown);
     return () => document.removeEventListener('mousedown', onPointerDown);
   }, [open, onOpenChange]);
-
-  const closeToTrigger = () => {
-    onOpenChange(false);
-    const target = rootRef.current?.querySelector<HTMLElement>('button, [tabindex]:not([tabindex="-1"])');
-    window.setTimeout(() => target?.focus({ preventScroll: true }));
-  };
 
   return (
     <div ref={rootRef} className={cn('inline-block', className)}>
@@ -107,12 +124,6 @@ export const Popover = ({
               visibility: pos ? 'visible' : 'hidden',
             }}
             className="z-50 rounded-md border border-border bg-popover text-popover-foreground shadow-md"
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                event.stopPropagation();
-                closeToTrigger();
-              }
-            }}
           >
             {children}
           </div>,

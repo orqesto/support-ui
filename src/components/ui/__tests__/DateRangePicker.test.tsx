@@ -121,4 +121,22 @@ describe('DateRangePicker', () => {
     fireEvent.keyDown(screen.getByRole('dialog', { name: 'Period' }), { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: 'Period' })).not.toBeInTheDocument();
   });
+
+  it('days before minDay cannot be picked (IMAP reads at most 365 days back)', () => {
+    setup({ minDay: '2026-10-05' });
+    open();
+    fireEvent.click(screen.getByRole('button', { name: 'Custom…' }));
+    expect(day('4 October 2026')).toBeDisabled();
+    expect(day('5 October 2026')).not.toBeDisabled();
+  });
+
+  it('keyboard: opening moves the focus into the panel, and Escape on the trigger closes it', () => {
+    setup();
+    open();
+    const panel = screen.getByRole('dialog', { name: 'Period' });
+    expect(panel.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(screen.getByRole('button', { name: /last 30 days/i, expanded: true }), { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Period' })).not.toBeInTheDocument();
+  });
 });
+

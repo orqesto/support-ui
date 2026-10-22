@@ -22,6 +22,8 @@ type MonthCalendarProps = {
   to?: string;
   /** Days after it cannot be picked (`YYYY-MM-DD`). */
   maxDay?: string;
+  /** Days before it cannot be picked (`YYYY-MM-DD`). */
+  minDay?: string;
   onPick: (day: string) => void;
 };
 
@@ -32,7 +34,7 @@ const WEEK_STARTS_ON = 1; // Monday
  * ("9 October 2026"), pressed when it is a chosen end, marked when it lies between them. Day
  * strings compare as text: `YYYY-MM-DD` sorts in date order.
  */
-export const MonthCalendar = ({ month, onMonthChange, from, to, maxDay, onPick }: MonthCalendarProps) => {
+export const MonthCalendar = ({ month, onMonthChange, from, to, maxDay, minDay, onPick }: MonthCalendarProps) => {
   const first = startOfWeek(startOfMonth(month), { weekStartsOn: WEEK_STARTS_ON });
   const last = endOfWeek(endOfMonth(month), { weekStartsOn: WEEK_STARTS_ON });
   const days: Date[] = [];
@@ -70,7 +72,7 @@ export const MonthCalendar = ({ month, onMonthChange, from, to, maxDay, onPick }
               size="sm"
               aria-label={format(date, 'd MMMM yyyy')}
               aria-pressed={isEnd}
-              disabled={!!maxDay && day > maxDay}
+              disabled={(!!maxDay && day > maxDay) || (!!minDay && day < minDay)}
               onClick={() => onPick(day)}
               className={cn(
                 'h-8 w-full px-0 text-sm',

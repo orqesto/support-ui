@@ -15,6 +15,7 @@ import {
 } from '@/utils/mailboxValidation';
 import type { Department } from '@/services/department.service';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
+import { imapEarliestDay } from '@/lib/importRange';
 import { Label } from '@/components/ui/Label';
 
 type EmailConfig = {
@@ -272,6 +273,7 @@ export const EmailForm = ({
             <div>
               <DateRangePicker
                 ariaLabel="Time Range"
+                minDay={imapEarliestDay()}
                 mode="single"
                 presets={lookbackOptions.map((opt) => ({ value: opt.value.toString(), label: opt.label }))}
                 value={

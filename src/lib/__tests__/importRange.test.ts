@@ -37,3 +37,23 @@ describe('importRangeDays — the estimate reaches as far as the import', () => 
     expect(importRangeDays({ kind: 'preset', value: '0' }, now)).toBe(0);
   });
 });
+
+describe('countLookbackDays — the IMAP form check counts what the import will read (final review)', () => {
+  it('a since day sends the days back to it', async () => {
+    const { countLookbackDays } = await import('../importRange');
+    const now = new Date('2026-10-22T07:00:00Z');
+    expect(countLookbackDays({ lookbackDays: 30, bulkImportSince: '2026-10-03' }, now)).toBe(19);
+  });
+  it('no since day → the lookback as set', async () => {
+    const { countLookbackDays } = await import('../importRange');
+    expect(countLookbackDays({ lookbackDays: 90 })).toBe(90);
+    expect(countLookbackDays({})).toBeUndefined();
+  });
+});
+
+describe('imapEarliestDay (final review: IMAP cut a since day older than 365 days silently)', () => {
+  it('is 364 days before today, so today plus 364 earlier days are pickable', async () => {
+    const { imapEarliestDay } = await import('../importRange');
+    expect(imapEarliestDay(new Date(2026, 9, 22, 10))).toBe('2025-10-23');
+  });
+});

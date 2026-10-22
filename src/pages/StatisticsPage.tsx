@@ -357,6 +357,7 @@ export const StatisticsPage = () => {
         {activeTab === 'performance' && (
           <PerformanceTab
             days={days}
+            period={period}
             msgStats={msgStats}
             msgLoading={msgLoading}
             labelStats={labelStats}

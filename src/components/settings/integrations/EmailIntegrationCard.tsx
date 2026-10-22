@@ -36,7 +36,7 @@ import {
 import { logger } from '@/lib/logger';
 import { Label } from '@/components/ui/Label';
 import { DateRangePicker, formatRangeLabel, type DateRangeValue } from '@/components/ui/DateRangePicker';
-import { importRangePatch, importRangeValue } from '@/lib/importRange';
+import { countLookbackDays, imapEarliestDay, importRangePatch, importRangeValue } from '@/lib/importRange';
 
 type EmailConfig = {
   host: string;
@@ -106,7 +106,8 @@ export const EmailIntegrationCard = ({
     password: config.password,
     secure: config.secure,
     searchCriteria: config.searchCriteria,
-    lookbackDays: config.lookbackDays,
+    // A Custom since day counts from that day, as the import will read (and keys the result).
+    lookbackDays: countLookbackDays(config),
     // Editing an existing source: the form holds the MASKED password it was seeded with,
     // so the backend needs the id to substitute the stored secret before dialling.
     ...(editingId !== null ? { integrationId: editingId } : {}),
@@ -660,6 +661,7 @@ export const EmailIntegrationCard = ({
               <div>
                 <DateRangePicker
                   ariaLabel="Fetch emails from"
+                  minDay={imapEarliestDay()}
                   mode="single"
                   presets={IMPORT_RANGE_OPTIONS}
                   value={importRange}

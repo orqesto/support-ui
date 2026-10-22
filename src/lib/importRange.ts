@@ -40,3 +40,22 @@ export const importRangeDays = (value: DateRangeValue, now: Date = new Date()): 
   const [year, month, day] = since.split('-').map(Number);
   return Math.max(1, Math.floor((now.getTime() - Date.UTC(year, month - 1, day)) / DAY_MS));
 };
+
+/**
+ * The lookback an IMAP "Check Messages Count" sends: the days back to a since day when one is set
+ * (the import reads from it), else the form's lookback — so the count is for what will be read.
+ */
+export const countLookbackDays = (
+  cfg: { lookbackDays?: number; bulkImportSince?: string | null },
+  now: Date = new Date()
+): number | undefined =>
+  cfg.bulkImportSince ? importRangeDays({ kind: 'since', since: cfg.bulkImportSince }, now) : cfg.lookbackDays;
+
+/** IMAP reads at most 365 days back (imapHistoryWindows): an older since day would be cut silently. */
+export const IMAP_MAX_IMPORT_DAYS = 365;
+
+/** The earliest since day an IMAP import can honour, `YYYY-MM-DD`. */
+export const imapEarliestDay = (now: Date = new Date()): string => {
+  const earliest = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (IMAP_MAX_IMPORT_DAYS - 1));
+  return `${earliest.getFullYear()}-${String(earliest.getMonth() + 1).padStart(2, '0')}-${String(earliest.getDate()).padStart(2, '0')}`;
+};
