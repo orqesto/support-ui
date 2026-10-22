@@ -162,3 +162,24 @@ export const viewIsActive = (view: SavedView, filters: FilterState): boolean =>
     const got = (filters as Record<string, unknown>)[key];
     return String(want) === String(got);
   });
+
+/**
+ * A name for a view holding just this search, or null if none is free.
+ *
+ * Saving replaces a view of the same NAME, so the name must not be one an unrelated view already
+ * has: bookmarking the search "urgent" must not overwrite a carefully built "urgent" view. The
+ * search's own view (only `search`, same text) may be reused — saving it again is a no-op.
+ */
+export const nameForSearchView = (text: string, views: SavedView[]): string | null => {
+  const isThisSearch = (view: SavedView) =>
+    Object.keys(view.filters).length === 1 && view.filters.search === text;
+  const taken = (name: string) => views.some((view) => view.name === name && !isThisSearch(view));
+  const candidates = [text, `Search: ${text}`].map((name) => name.slice(0, 60));
+  const free = candidates.find((candidate) => !taken(candidate));
+  if (free) return free;
+  for (let index = 2; index < 100; index += 1) {
+    const numbered = `${candidates[1].slice(0, 54)} (${index})`;
+    if (!taken(numbered)) return numbered;
+  }
+  return null;
+};

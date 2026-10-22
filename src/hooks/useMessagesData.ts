@@ -6,7 +6,7 @@ import { negateApiParam } from './negateApiParam';
 import { searchIsTheOnlyFilter } from '@/hooks/searchIsTheOnlyFilter';
 import { logger } from '@/lib/logger';
 import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
-import { messageService, type MessageThread } from '@/services/message.service';
+import { messageService, type MessageThread, type SearchReading } from '@/services/message.service';
 import { readAppliesTo } from '@/components/messages/filters/filterSchema';
 import { messagesCacheKey, useMessagesStore } from '@/stores/messagesStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -18,6 +18,8 @@ type MessagesDataReturn = {
   refreshing: boolean;
   /** A read for a DIFFERENT search than the rows on screen is in flight — the rows are stale. */
   searching: boolean;
+  /** How the backend read the search on screen (e.g. as one phrase); null when unknown. */
+  searchReading: SearchReading | null;
   setRefreshing: Dispatch<SetStateAction<boolean>>;
   messagesPagination: {
     page: number;
@@ -55,6 +57,7 @@ export const useMessagesData = ({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [searchReading, setSearchReading] = useState<SearchReading | null>(null);
   /** The search the rows on screen answer. A read for another one shades the list. */
   const shownSearchRef = useRef('');
   /** Aborts the in-flight list read once a newer one replaces it. */
@@ -125,6 +128,9 @@ export const useMessagesData = ({
       if (!force) {
         const cached = getCached(cacheKey);
         if (cached) {
+          // A read still in flight was asked for OTHER parameters (typing on, then back to a
+          // search already seen). Left running it would land after this and overwrite it.
+          inFlightAbortRef.current?.abort();
           setThreadsLocal(cached.threads);
           setMessagesPagination(cached.pagination);
           // Restore the notice with the rows it describes. Without this, paging back
@@ -134,6 +140,7 @@ export const useMessagesData = ({
           setLoading(false);
           shownSearchRef.current = currentFilters.search?.trim() ?? '';
           setSearching(false);
+          setSearchReading(null);
           return;
         }
       }
@@ -431,6 +438,13 @@ export const useMessagesData = ({
           setMessagesPagination(response.pagination);
           hasLoadedRef.current = true;
           shownSearchRef.current = requestedSearch;
+          // Defensive: an older backend sends no `search`, and a malformed one must not render.
+          const reading = response.search;
+          setSearchReading(
+            reading && Array.isArray(reading.terms) && typeof reading.asPhrase === 'boolean'
+              ? reading
+              : null
+          );
 
           if (
             page > 1 &&
@@ -446,9 +460,14 @@ export const useMessagesData = ({
       } finally {
         setLoading(false);
         setRefreshing(false);
-        setSearching(false);
-        if (inFlightAbortRef.current === abort) inFlightAbortRef.current = null;
-        messagesFetchingRef.current = false;
+        // Only the LATEST read settles the shared state. A forced read (refresh, read-state
+        // change) starts beside an unforced one; when the older finishes first it must not
+        // drop the shade or free the slot while the newer is still on its way.
+        if (inFlightAbortRef.current === abort) {
+          inFlightAbortRef.current = null;
+          setSearching(false);
+          messagesFetchingRef.current = false;
+        }
         // A request arrived while this one was in flight and was held rather than
         // dropped. Issue it now that the slot is free — it was built from newer
         // parameters, so its answer supersedes the one just applied.
@@ -547,6 +566,7 @@ export const useMessagesData = ({
     loading,
     refreshing,
     searching,
+    searchReading,
     setRefreshing,
     messagesPagination,
     fetchMessages,

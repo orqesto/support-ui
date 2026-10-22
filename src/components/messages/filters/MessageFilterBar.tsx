@@ -9,7 +9,13 @@ import { SurfaceCount } from './SurfaceCount';
 import { RECEIVED_KEYS, buildFilterDefs } from './filterSchema';
 import { clearPatch, tokensOf } from './filterTokens';
 import { useFilterOptions } from './useFilterOptions';
-import { BUILT_IN_VIEWS, viewAppliesTo, viewIsActive, type SavedView } from './savedViews';
+import {
+  BUILT_IN_VIEWS,
+  nameForSearchView,
+  viewAppliesTo,
+  viewIsActive,
+  type SavedView,
+} from './savedViews';
 import { useRecentSearches } from './useRecentSearches';
 import { useSavedViews } from './useSavedViews';
 import type { FilterState } from '@/stores/messagesStore';
@@ -29,6 +35,7 @@ export const MessageFilterBar = ({
   activeFilterCount,
   clearableFilterCount = activeFilterCount,
   isKanban = false,
+  liveSearch = true,
   onFilterChange,
   onFilterPatch,
   onCommitSearch,
@@ -40,6 +47,8 @@ export const MessageFilterBar = ({
   activeFilterCount: number;
   clearableFilterCount?: number;
   isKanban?: boolean;
+  /** Search as you type — on for the thread list only (see FilterTokenBar). */
+  liveSearch?: boolean;
   onFilterChange: (key: string, value: string | boolean) => void;
   /** A several-key write. Applying a view, the date range and clearing a negated filter
    *  all move more than one field, and each should be one change to the list. */
@@ -66,6 +75,15 @@ export const MessageFilterBar = ({
     removeView,
   } = useSavedViews();
   const recentSearches = useRecentSearches();
+
+  // A view of just this search — applying it MERGES, so other filters stay as set.
+  const saveSearchAsView = useCallback(
+    (text: string) => {
+      const name = nameForSearchView(text, userViews);
+      if (name) void saveView(name, { search: text });
+    },
+    [userViews, saveView]
+  );
   const [namingView, setNamingView] = useState(false);
   const [viewName, setViewName] = useState('');
 
@@ -201,8 +219,8 @@ export const MessageFilterBar = ({
             onSearchSettled={recentSearches.record}
             onRemoveRecent={recentSearches.remove}
             onClearRecent={recentSearches.clear}
-            // A view of just this search — applying it MERGES, so other filters stay as set.
-            onSaveSearchAsView={(text) => void saveView(text.slice(0, 60), { search: text })}
+            onSaveSearchAsView={saveSearchAsView}
+            liveSearch={liveSearch}
           />
         </div>
 
@@ -314,7 +332,11 @@ export const MessageFilterBar = ({
         resultCount={total}
         onFilterChange={onFilterChange}
         onFilterPatch={onFilterPatch}
-        onCommitSearch={onCommitSearch}
+        // The sheet commits on an explicit pick, so each one is a settled search.
+        onCommitSearch={(text) => {
+          onCommitSearch(text);
+          recentSearches.record(text);
+        }}
         onClearAll={onClearFilters}
       />
     </div>

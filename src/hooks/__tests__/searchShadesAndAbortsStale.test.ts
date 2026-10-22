@@ -113,4 +113,44 @@ describe('search reload', () => {
       await refresh;
     });
   });
+
+  it('a search answered from the cache aborts the read still in flight', async () => {
+    const { result } = await firstLoad();
+    setSearch('invoice');
+    await waitFor(() => expect(pending).toHaveLength(2));
+    act(() => {
+      pending[1].settle();
+    });
+    await waitFor(() => expect(result.current.searching).toBe(false));
+
+    setSearch('invoices');
+    await waitFor(() => expect(pending).toHaveLength(3));
+    // Back to a search already answered: served from the cache, so nothing new goes out…
+    setSearch('invoice');
+    // …and the 'invoices' read is aborted, or it would land later and overwrite these rows.
+    await waitFor(() => expect(pending[2].signal?.aborted).toBe(true));
+    expect(pending).toHaveLength(3);
+  });
+
+  it('a forced read beside a search keeps the shade until the LATEST read lands', async () => {
+    const { result } = await firstLoad();
+    setSearch('invoice');
+    await waitFor(() => expect(pending).toHaveLength(2));
+    act(() => {
+      void result.current.fetchMessages(1, true);
+    });
+    await waitFor(() => expect(pending).toHaveLength(3));
+    // The older read finishes first: the newer one is still on its way, so still shaded.
+    act(() => {
+      pending[1].settle();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.searching).toBe(true);
+    act(() => {
+      pending[2].settle();
+    });
+    await waitFor(() => expect(result.current.searching).toBe(false));
+  });
 });
