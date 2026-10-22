@@ -297,6 +297,9 @@ export type Ticket = {
   updatedAt: string;
   metadata?: Record<string, unknown> | null;
   labels?: { id: number; name: string; color: string }[];
+  /** List only. Optional: a backend older than the counts sends neither (show "—", not 0). */
+  threadCount?: number;
+  owedCount?: number;
 };
 
 export type Category = {

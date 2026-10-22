@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Ticket, RefreshCw, Send } from 'lucide-react';
+import { RefreshCw, Send } from 'lucide-react';
 import { TicketDeleteDialog, TicketSyncAllDialog } from '@/components/tickets/TicketsJiraDialogs';
 import { TicketsViewToggle } from '@/components/tickets/TicketsViewToggle';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
@@ -15,13 +15,15 @@ import { buildTicketFilterKeys } from '@/components/tickets/list/ticketFilterKey
 import { viewFiltersOf } from '@/components/tickets/list/ticketViews';
 import { useTicketFilterSources } from '@/components/tickets/list/useTicketFilterSources';
 import { useTicketViews } from '@/components/tickets/list/useTicketViews';
-import { TicketListItem } from '@/components/tickets/TicketListItem';
+import { TicketTable, type TicketDensity, type TicketLayout } from '@/components/tickets/list/TicketTable';
+import { MenuItem, MenuSeparator } from '@/components/ui/Menu';
+import { assignmentService } from '@/services/assignment.service';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { NewTicketButton } from '@/components/tickets/NewTicketButton';
 import { TicketsKanbanView } from '@/components/tickets/TicketsKanbanView';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
-import { Card, CardContent } from '@/components/ui/Card';
 import { Drawer } from '@/components/ui/Drawer';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -34,6 +36,7 @@ import { ticketApiFilters } from '@/components/tickets/list/ticketFilters';
 import type { Ticket as TicketType, TicketsDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
+import { toast } from '@/lib/toast';
 
 export const TicketsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -79,6 +82,7 @@ export const TicketsPage = () => {
   const sorting = useTicketsStore((state) => state.sorting);
   const setFiltersStore = useTicketsStore((state) => state.setFilters);
   const clearFiltersStore = useTicketsStore((state) => state.clearFilters);
+  const setSortingStore = useTicketsStore((state) => state.setSorting);
   const setTicketsCache = useTicketsStore((state) => state.setTickets);
   const getCached = useTicketsStore((state) => state.getCached);
   const clearCache = useTicketsStore((state) => state.clearCache);
@@ -379,6 +383,84 @@ export const TicketsPage = () => {
     }
   };
 
+  const readPref = <T extends string>(key: string, allowed: readonly T[], fallback: T): T => {
+    try {
+      const stored = localStorage.getItem(key);
+      return stored && (allowed as readonly string[]).includes(stored) ? (stored as T) : fallback;
+    } catch {
+      return fallback;
+    }
+  };
+  const [density, setDensity] = useState<TicketDensity>(() => readPref('tickets_density', ['table', 'cards'], 'table'));
+  const [layout, setLayout] = useState<TicketLayout>(() => readPref('tickets_layout', ['list', 'split'], 'list'));
+  const [group, setGroup] = useState(() => readPref('tickets_group', ['1', '0'], '0') === '1');
+  /** A per-browser convenience: kept when storage works, harmless when it does not. */
+  const setPref = <T extends string>(key: string, value: T, apply: (value: T) => void) => {
+    apply(value);
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // Private mode or blocked storage — the choice still applies for this visit.
+    }
+  };
+  // Split shows the list and the ticket side by side; below 1100 px there is no room for both.
+  const splitAvailable = useMediaQuery('(min-width: 1100px)');
+
+  const openTicket = (ticket: TicketType) => {
+    setSelectedTicket(ticket);
+    setSearchParams((params) => {
+      params.set('id', ticket.id.toString());
+      return params;
+    });
+  };
+
+  const handleAssign = async (ticketId: number, userId: number | null) => {
+    try {
+      await assignmentService.assignTicket(ticketId, userId);
+      toast.success(
+        userId === null
+          ? `#${ticketId} unassigned`
+          : userId === currentUserId
+            ? `#${ticketId} claimed — assigned to you`
+            : `#${ticketId} re-assigned`
+      );
+      clearCache();
+      await fetchTickets(pagination.page, true);
+    } catch (error) {
+      logger.error('Failed to assign ticket:', error);
+      toast.error('Could not change who owns this ticket');
+    }
+  };
+
+  const copyLink = (ticketId: number) => {
+    const url = `${window.location.origin}/tickets?id=${ticketId}`;
+    navigator.clipboard
+      .writeText(url)
+      .then(() => toast.success('Link copied'))
+      .catch(() => toast.error('Could not copy the link'));
+  };
+
+  const rowMenu = (ticket: TicketType) => {
+    const manage = hasPermission(Permission.MANAGE_TICKETS);
+    return (
+      <>
+        <MenuItem onSelect={() => openTicket(ticket)}>Open</MenuItem>
+        <MenuItem onSelect={() => copyLink(ticket.id)}>Copy link</MenuItem>
+        {manage && jiraIntegrations.length > 0 && !ticket.externalId && (
+          <MenuItem onSelect={() => void handlePushToJira(ticket.id)}>Push to Jira</MenuItem>
+        )}
+        {manage && (
+          <>
+            <MenuSeparator />
+            <MenuItem danger onSelect={() => handleDeleteClick(ticket)}>
+              Delete ticket…
+            </MenuItem>
+          </>
+        )}
+      </>
+    );
+  };
+
   const filterKeys = buildTicketFilterKeys({ ...filterSources, jiraOn: jiraIntegrations.length > 0 });
 
   return (
@@ -466,46 +548,33 @@ export const TicketsPage = () => {
               setSearchParams((params) => { params.set('id', ticket.id.toString()); return params; });
             }}
           />
-        ) : loading ? (
-          <div className="space-y-4">
-            {Array.from({ length: 5 }).map((_, idx) => (
-              // Index key is safe: array is immutable (recreated from text split), no reordering
-              // eslint-disable-next-line react/no-array-index-key
-              <Card key={`ticket-skeleton-${idx}`} className="animate-pulse">
-                <CardContent className="p-6">
-                  <div className="mb-4 w-3/4 h-4 bg-muted rounded" />
-                  <div className="w-1/2 h-4 bg-muted rounded" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : tickets.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <Ticket className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
-              <h3 className="font-display mb-2 text-lg font-semibold">No tickets found</h3>
-              <p className="mb-4 text-muted-foreground">
-                Create one for a cause, or from a thread — and link the threads it explains.
-              </p>
-              <NewTicketButton />
-            </CardContent>
-          </Card>
         ) : (
-          <div className="grid gap-4">
-            {tickets.map((ticket) => (
-              <TicketListItem
-                key={ticket.id}
-                ticket={ticket}
-                isSyncing={syncing === ticket.id}
-                onOpen={(ticket) => {
-                  setSelectedTicket(ticket);
-                  setSearchParams((params) => { params.set('id', ticket.id.toString()); return params; });
-                }}
-                onPushToJira={handlePushToJira}
-                onDelete={handleDeleteClick}
-              />
-            ))}
-          </div>
+          <TicketTable
+            tickets={tickets}
+            total={pagination.total}
+            loading={loading}
+            filters={filters}
+            sorting={sorting}
+            keys={filterKeys}
+            density={density}
+            group={group}
+            layout={layout}
+            splitAvailable={splitAvailable}
+            canManage={hasPermission(Permission.MANAGE_TICKETS)}
+            assignees={filterSources.assignees}
+            currentUserId={currentUserId}
+            currentId={selectedTicket?.id ?? null}
+            onOpen={openTicket}
+            onAssign={(ticketId, userId) => void handleAssign(ticketId, userId)}
+            onRowMenu={rowMenu}
+            onFilters={setFiltersStore}
+            onSort={setSortingStore}
+            onDensity={(next) => setPref('tickets_density', next, setDensity)}
+            onGroup={(next) => setPref('tickets_group', next ? '1' : '0', () => setGroup(next))}
+            onLayout={(next) => setPref('tickets_layout', next, setLayout)}
+            onClearFilters={clearFilters}
+            emptyAction={<NewTicketButton />}
+          />
         )}
 
         {/* Pagination */}
