@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { MessagesSquare, RefreshCw, Send } from 'lucide-react';
+import { ArrowUp, MessagesSquare, RefreshCw, Send } from 'lucide-react';
 import { TicketDeleteDialog, TicketSyncAllDialog } from '@/components/tickets/TicketsJiraDialogs';
 import { TicketsViewToggle } from '@/components/tickets/TicketsViewToggle';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
@@ -18,6 +18,8 @@ import { useTicketViews } from '@/components/tickets/list/useTicketViews';
 import { TicketTable } from '@/components/tickets/list/TicketTable';
 import { TicketRowMenuItems } from '@/components/tickets/list/TicketRowMenuItems';
 import { useTicketListPrefs } from '@/components/tickets/list/useTicketListPrefs';
+import { useTicketJiraActions } from '@/components/tickets/list/useTicketJiraActions';
+import { useNewTicketsBar } from '@/components/tickets/list/useNewTicketsBar';
 import { TicketPanel } from '@/components/tickets/list/TicketPanel';
 import { useTicketKeys } from '@/components/tickets/list/useTicketKeys';
 import { assignmentService } from '@/services/assignment.service';
@@ -64,11 +66,8 @@ export const TicketsPage = () => {
   }, [displayMode]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [syncing, setSyncing] = useState<number | null>(null);
-  const [isSyncingAll, setIsSyncingAll] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ticketToDelete, setTicketToDelete] = useState<TicketType | null>(null);
-  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
   const [jiraIntegrations, setJiraIntegrations] = useState<JiraIntegration[]>([]);
   const [selectedJiraId, setSelectedJiraId] = useState<number | undefined>(undefined);
 
@@ -174,7 +173,16 @@ export const TicketsPage = () => {
     });
   }, [fetchTickets]);
 
+  const newTickets = useNewTicketsBar(ticketApiFilters(filters, currentUserId), sorting);
+
   useTicketsRealtime({
+    onTicketCreated:
+      displayMode === 'list'
+        ? (ticketId) => {
+            newTickets.onCreated(ticketId);
+            setCountsKey((key) => key + 1);
+          }
+        : undefined,
     paginationPage: pagination.page,
     selectedTicket,
     setSelectedTicket,
@@ -216,145 +224,22 @@ export const TicketsPage = () => {
     setRefreshing(false);
   };
 
-  const handlePushToJira = async (ticketId: number) => {
-    // Check if user has permission to manage tickets
-    if (!hasPermission(Permission.MANAGE_TICKETS)) {
-      setAlertDialog({
-        open: true,
-        title: 'Permission Denied',
-        description: 'You do not have permission to push tickets to Jira.',
-        variant: 'warning',
-      });
-      return;
-    }
-
-    if (jiraIntegrations.length === 0) {
-      setAlertDialog({
-        open: true,
-        title: 'No Jira Integration',
-        description: 'No Jira integrations configured. Please add a Jira integration in Settings.',
-        variant: 'warning',
-      });
-      return;
-    }
-
-    if (jiraIntegrations.length > 1 && !selectedJiraId) {
-      setAlertDialog({
-        open: true,
-        title: 'Select Jira Instance',
-        description: 'Please select a Jira instance first.',
-        variant: 'info',
-      });
-      return;
-    }
-
-    setSyncing(ticketId);
-    try {
-      const response = await ticketService.pushToJira(ticketId, selectedJiraId);
-      if (response.success) {
-        setAlertDialog({
-          open: true,
-          title: 'Success',
-          description: `Ticket pushed to Jira: ${response.data?.jiraKey}`,
-          variant: 'success',
-        });
-        clearCache(); // Clear all cached data
-        fetchTickets(1, true).catch((error) => {
-          logger.error('Failed to fetch tickets:', error);
-        });
-      } else {
-        setAlertDialog({
-          open: true,
-          title: 'Push Failed',
-          description: `Failed to push to Jira: ${response.error ?? 'Unknown error'}`,
-          variant: 'error',
-        });
-      }
-    } catch (error) {
-      logger.error('Failed to push to Jira:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setAlertDialog({
-        open: true,
-        title: 'Push Failed',
-        description: `Failed to push ticket to Jira: ${errorMessage}`,
-        variant: 'error',
-      });
-    } finally {
-      setSyncing(null);
-    }
-  };
-
-  const handleSyncAll = () => {
-    // Check if user has permission to manage tickets
-    if (!hasPermission(Permission.MANAGE_TICKETS)) {
-      setAlertDialog({
-        open: true,
-        title: 'Permission Denied',
-        description: 'You do not have permission to sync tickets to Jira.',
-        variant: 'warning',
-      });
-      return;
-    }
-
-    if (jiraIntegrations.length === 0) {
-      setAlertDialog({
-        open: true,
-        title: 'No Jira Integration',
-        description: 'No Jira integrations configured. Please add a Jira integration in Settings.',
-        variant: 'warning',
-      });
-      return;
-    }
-
-    if (jiraIntegrations.length > 1 && !selectedJiraId) {
-      setAlertDialog({
-        open: true,
-        title: 'Select Jira Instance',
-        description: 'Please select a Jira instance first.',
-        variant: 'info',
-      });
-      return;
-    }
-
-    setSyncDialogOpen(true);
-  };
-
-  const confirmSyncAll = async () => {
-    setSyncDialogOpen(false);
-    setIsSyncingAll(true);
-    try {
-      const response = await ticketService.syncAllToJira(selectedJiraId);
-      if (response.success) {
-        setAlertDialog({
-          open: true,
-          title: 'Sync Complete',
-          description: response.message ?? 'Sync completed',
-          variant: 'success',
-        });
-        fetchTickets(1, true).catch((error) => {
-          logger.error('Failed to fetch tickets:', error);
-        });
-      } else {
-        setAlertDialog({
-          open: true,
-          title: 'Sync Failed',
-          description: `Sync failed: ${response.error ?? 'Unknown error'}`,
-          variant: 'error',
-        });
-      }
-    } catch (error) {
-      logger.error('Failed to sync tickets:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setAlertDialog({
-        open: true,
-        title: 'Sync Failed',
-        description: `Failed to sync tickets to Jira: ${errorMessage}`,
-        variant: 'error',
-      });
-    } finally {
-      setIsSyncingAll(false);
-    }
-  };
+  const {
+    syncing,
+    isSyncingAll,
+    syncDialogOpen,
+    setSyncDialogOpen,
+    handlePushToJira,
+    handleSyncAll,
+    confirmSyncAll,
+  } = useTicketJiraActions({
+    canManage: hasPermission(Permission.MANAGE_TICKETS),
+    jiraIntegrations,
+    selectedJiraId,
+    setAlertDialog,
+    clearCache,
+    fetchTickets,
+  });
 
   const handleDeleteClick = (ticket: TicketType) => {
     setTicketToDelete(ticket);
@@ -613,6 +498,24 @@ export const TicketsPage = () => {
 
           {/* Display mode toggle */}
           <TicketsViewToggle displayMode={displayMode} onModeChange={setDisplayMode} />
+
+          {displayMode === 'list' && newTickets.count > 0 && (
+            <div className="flex justify-center">
+              <Button
+                size="sm"
+                className="rounded-full shadow-lg"
+                onClick={() => {
+                  newTickets.reset();
+                  clearCache();
+                  void fetchTickets(1, true);
+                  window.scrollTo({ top: 0 });
+                }}
+              >
+                <ArrowUp className="mr-1.5 w-3.5 h-3.5" />
+                {newTickets.count} new {newTickets.count === 1 ? 'ticket' : 'tickets'} — show
+              </Button>
+            </div>
+          )}
 
           {displayMode === 'kanban' ? (
             <TicketsKanbanView
