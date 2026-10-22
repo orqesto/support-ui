@@ -46,13 +46,19 @@ export const TicketCard = ({
       <PriorityIcon priority={ticket.priority} />
       <span className="font-mono text-[11.5px] text-muted-foreground shrink-0">#{ticket.id}</span>
       <span className="flex-1 min-w-0 text-sm font-semibold truncate">{ticket.title}</span>
-      <span className="font-mono text-[11.5px] text-muted-foreground whitespace-nowrap">{formatAge(ticket.updatedAt)}</span>
+      <span className="font-mono text-[11.5px] text-muted-foreground whitespace-nowrap">
+        {formatAge(ticket.updatedAt)}
+      </span>
     </div>
-    <div className="text-[13px] text-muted-foreground truncate">{plainText(ticket.description)}</div>
+    <div className="text-[13px] text-muted-foreground truncate">
+      {plainText(ticket.description)}
+    </div>
     <div className="flex flex-wrap gap-x-2 gap-y-1 items-center pt-1.5 mt-0.5 text-xs border-t border-border/60 text-muted-foreground">
       <StatusDot status={ticket.status} />
       {ticket.categoryName && <span className="max-w-[140px] truncate">{ticket.categoryName}</span>}
-      {ticket.labels?.map((label) => <LabelChip key={label.id} name={label.name} color={label.color} />)}
+      {ticket.labels?.map((label) => (
+        <LabelChip key={label.id} name={label.name} color={label.color} />
+      ))}
       <ThreadCount count={ticket.threadCount} />
       {(ticket.owedCount ?? 0) > 0 && <OwedCell count={ticket.owedCount} />}
       {ticket.externalId && (

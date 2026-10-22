@@ -29,12 +29,16 @@ export const useTicketFilterSources = (): Sources => {
       .catch((error) => logger.error('Failed to load assignees for the ticket filter:', error));
     categoryService
       .getAll()
-      .then((res) => patch({ categories: (res.data ?? []).map((cat) => ({ id: cat.id, name: cat.name })) }))
+      .then((res) =>
+        patch({ categories: (res.data ?? []).map((cat) => ({ id: cat.id, name: cat.name })) })
+      )
       .catch((error) => logger.error('Failed to load categories for the ticket filter:', error));
     labelService
       .getLabels()
       .then((labels) =>
-        patch({ labels: labels.map((label) => ({ id: label.id, name: label.name, color: label.color })) })
+        patch({
+          labels: labels.map((label) => ({ id: label.id, name: label.name, color: label.color })),
+        })
       )
       .catch((error) => logger.error('Failed to load labels for the ticket filter:', error));
     return () => {

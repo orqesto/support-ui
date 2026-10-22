@@ -3,7 +3,12 @@ import { logger } from '@/lib/logger';
 import { ticketService } from '@/services/ticket.service';
 import { ticketSavedViewsService } from '@/services/ticketSavedViews.service';
 import { ticketApiFilters } from './ticketFilters';
-import { BUILT_IN_TICKET_VIEWS, filtersOfView, type TicketView, type TicketViewFilters } from './ticketViews';
+import {
+  BUILT_IN_TICKET_VIEWS,
+  filtersOfView,
+  type TicketView,
+  type TicketViewFilters,
+} from './ticketViews';
 
 /**
  * The tickets list's views — the built-ins, then the agent's own from the server — and how many
@@ -19,7 +24,8 @@ export const useTicketViews = (currentUserId: number | null, refreshKey: number)
     ticketSavedViewsService
       .list()
       .then((rows) => {
-        if (live) setSaved(rows.map((row) => ({ id: row.id, name: row.name, filters: row.filters })));
+        if (live)
+          setSaved(rows.map((row) => ({ id: row.id, name: row.name, filters: row.filters })));
       })
       .catch((error) => logger.error('Failed to load saved ticket views:', error));
     return () => {

@@ -1,4 +1,13 @@
-import { ChevronDown, Columns2, Filter, LayoutList, List, MessagesSquare, Rows3, Square } from 'lucide-react';
+import {
+  ChevronDown,
+  Columns2,
+  Filter,
+  LayoutList,
+  List,
+  MessagesSquare,
+  Rows3,
+  Square,
+} from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -38,7 +47,9 @@ export type TicketTableProps = Omit<TicketRowProps, 'ticket' | 'current'> & {
   emptyAction: ReactNode;
 };
 
-const SORT_OF: Partial<Record<keyof TicketFilters, { sortBy: TicketSortBy; label: string; order: 'asc' | 'desc' }>> = {
+const SORT_OF: Partial<
+  Record<keyof TicketFilters, { sortBy: TicketSortBy; label: string; order: 'asc' | 'desc' }>
+> = {
   priority: { sortBy: 'priority', label: 'Highest priority first', order: 'desc' },
   threads: { sortBy: 'threads', label: 'Most threads first', order: 'desc' },
   owes: { sortBy: 'owed', label: 'Most owed first', order: 'desc' },
@@ -94,7 +105,10 @@ const ColumnHeader = ({
     >
       <MenuLabel>{label}</MenuLabel>
       {sort && (
-        <MenuItem checked={!!sorted} onSelect={() => onSort({ sortBy: sort.sortBy, sortOrder: sort.order })}>
+        <MenuItem
+          checked={!!sorted}
+          onSelect={() => onSort({ sortBy: sort.sortBy, sortOrder: sort.order })}
+        >
           {sort.label}
         </MenuItem>
       )}
@@ -110,12 +124,17 @@ const ColumnHeader = ({
                 checked={on}
                 icon={
                   option.dot ? (
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: option.dot }} />
+                    <span
+                      className="w-2 h-2 rounded-full"
+                      style={{ backgroundColor: option.dot }}
+                    />
                   ) : undefined
                 }
                 // From a column, picking the active value again turns the filter off.
                 onSelect={() =>
-                  onFilters(on ? withoutFilter(filters, field) : { ...filters, [field]: option.value })
+                  onFilters(
+                    on ? withoutFilter(filters, field) : { ...filters, [field]: option.value }
+                  )
                 }
               >
                 {option.label}
@@ -151,7 +170,9 @@ export const TicketTable = (props: TicketTableProps) => {
     emptyAction,
   } = props;
   // Closed is collapsed until opened: done work, rarely what someone came for.
-  const [collapsed, setCollapsed] = useState<Partial<Record<TicketStatus, boolean>>>({ closed: true });
+  const [collapsed, setCollapsed] = useState<Partial<Record<TicketStatus, boolean>>>({
+    closed: true,
+  });
   // The split pane is too narrow for columns, so it always shows cards.
   const cards = density === 'cards' || layout === 'split';
   const Row = cards ? TicketCard : TicketRow;
@@ -186,7 +207,10 @@ export const TicketTable = (props: TicketTableProps) => {
 
   const caption = (
     <div className="flex flex-wrap gap-2.5 items-center px-3 py-1.5 rounded-t-lg border border-b-0 min-h-[38px] border-border bg-muted/40 text-[12.5px] text-muted-foreground">
-      <span className="inline-flex gap-1.5 items-center font-semibold text-success" title="The list updates by itself">
+      <span
+        className="inline-flex gap-1.5 items-center font-semibold text-success"
+        title="The list updates by itself"
+      >
         <span className="w-[7px] h-[7px] rounded-full bg-success animate-pulse" />
         Live
       </span>
@@ -211,20 +235,56 @@ export const TicketTable = (props: TicketTableProps) => {
         <LayoutList className="mr-1.5 w-3.5 h-3.5" />
         Group by status
       </Button>
-      <span role="group" aria-label="Row density" className="flex gap-0.5 p-0.5 rounded-lg border border-border bg-muted">
-        <Button variant="ghost" size="sm" aria-label="Table rows" aria-pressed={density === 'table'} onClick={() => onDensity('table')} className="p-0 w-7 h-6">
+      <span
+        role="group"
+        aria-label="Row density"
+        className="flex gap-0.5 p-0.5 rounded-lg border border-border bg-muted"
+      >
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Table rows"
+          aria-pressed={density === 'table'}
+          onClick={() => onDensity('table')}
+          className="p-0 w-7 h-6"
+        >
           <Rows3 className="w-3.5 h-3.5" />
         </Button>
-        <Button variant="ghost" size="sm" aria-label="Card rows" aria-pressed={density === 'cards'} onClick={() => onDensity('cards')} className="p-0 w-7 h-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Card rows"
+          aria-pressed={density === 'cards'}
+          onClick={() => onDensity('cards')}
+          className="p-0 w-7 h-6"
+        >
           <List className="w-3.5 h-3.5" />
         </Button>
       </span>
       {splitAvailable && (
-        <span role="group" aria-label="Layout" className="flex gap-0.5 p-0.5 rounded-lg border border-border bg-muted">
-          <Button variant="ghost" size="sm" aria-label="Full-width list" aria-pressed={layout === 'list'} onClick={() => onLayout('list')} className="p-0 w-7 h-6">
+        <span
+          role="group"
+          aria-label="Layout"
+          className="flex gap-0.5 p-0.5 rounded-lg border border-border bg-muted"
+        >
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Full-width list"
+            aria-pressed={layout === 'list'}
+            onClick={() => onLayout('list')}
+            className="p-0 w-7 h-6"
+          >
             <Square className="w-3.5 h-3.5" />
           </Button>
-          <Button variant="ghost" size="sm" aria-label="Split layout" aria-pressed={layout === 'split'} onClick={() => onLayout('split')} className="p-0 w-7 h-6">
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Split layout"
+            aria-pressed={layout === 'split'}
+            onClick={() => onLayout('split')}
+            className="p-0 w-7 h-6"
+          >
             <Columns2 className="w-3.5 h-3.5" />
           </Button>
         </span>
@@ -238,7 +298,10 @@ export const TicketTable = (props: TicketTableProps) => {
         {caption}
         <div className="rounded-b-lg border border-border bg-card">
           {Array.from({ length: 6 }, (_, idx) => (
-            <div key={`skel-${String(idx)}`} className="grid grid-cols-[2fr_1fr_1fr] gap-4 px-4 py-3.5 border-t border-border/60 first:border-t-0">
+            <div
+              key={`skel-${String(idx)}`}
+              className="grid grid-cols-[2fr_1fr_1fr] gap-4 px-4 py-3.5 border-t border-border/60 first:border-t-0"
+            >
               <span className="h-2.5 rounded bg-muted animate-pulse" />
               <span className="h-2.5 rounded bg-muted animate-pulse" />
               <span className="h-2.5 rounded bg-muted animate-pulse" />
@@ -255,7 +318,9 @@ export const TicketTable = (props: TicketTableProps) => {
         {caption}
         <div className="grid gap-2.5 justify-items-center px-5 py-14 text-center rounded-b-lg border border-border bg-card text-[13.5px] text-muted-foreground">
           <MessagesSquare className="w-6 h-6" />
-          <b className="text-[15px] text-foreground">{filtered ? 'No tickets match these filters' : 'No tickets yet'}</b>
+          <b className="text-[15px] text-foreground">
+            {filtered ? 'No tickets match these filters' : 'No tickets yet'}
+          </b>
           <span>
             {filtered
               ? 'Clear a filter or pick another view.'
@@ -292,9 +357,13 @@ export const TicketTable = (props: TicketTableProps) => {
                 cards ? '' : 'border-t border-border bg-muted/40 first:border-t-0'
               }`}
             >
-              <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${open ? '' : '-rotate-90'}`} />
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${open ? '' : '-rotate-90'}`}
+              />
               <StatusDot status={status} />{' '}
-              <span className="font-mono font-medium text-muted-foreground">{sectionRows.length}</span>{' '}
+              <span className="font-mono font-medium text-muted-foreground">
+                {sectionRows.length}
+              </span>{' '}
               {owed > 0 && (
                 <Badge size="sm" variant="danger" className="cursor-default">
                   {owed} owed
@@ -315,10 +384,17 @@ export const TicketTable = (props: TicketTableProps) => {
           {body}
         </div>
       ) : (
-        <div role="table" aria-label="Tickets" className="overflow-hidden rounded-b-lg border border-border bg-card">
+        <div
+          role="table"
+          aria-label="Tickets"
+          className="overflow-hidden rounded-b-lg border border-border bg-card"
+        >
           <div role="row" className={`${TICKET_GRID} h-8 border-b border-border/60`}>
             <span role="columnheader">{header('priority', 'P')}</span>
-            <span role="columnheader" className="font-display text-[10.5px] font-semibold tracking-wider uppercase text-muted-foreground">
+            <span
+              role="columnheader"
+              className="font-display text-[10.5px] font-semibold tracking-wider uppercase text-muted-foreground"
+            >
               Ticket
             </span>
             <span role="columnheader" className={HIDE_BELOW_XL}>

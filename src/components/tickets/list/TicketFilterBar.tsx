@@ -86,7 +86,10 @@ export const TicketFilterBar = ({
                     className="flex gap-1.5 items-center px-2 h-auto font-semibold rounded-none hover:bg-accent max-w-[240px]"
                   >
                     {option?.dot && (
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: option.dot }} />
+                      <span
+                        className="w-2 h-2 rounded-full shrink-0"
+                        style={{ backgroundColor: option.dot }}
+                      />
                     )}
                     <span className="truncate">{option?.label ?? value}</span>
                   </Button>
@@ -132,7 +135,11 @@ export const TicketFilterBar = ({
       >
         {picking ? (
           <>
-            <MenuItem keepOpen icon={<ChevronLeft className="w-3.5 h-3.5" />} onSelect={() => setPicking(null)}>
+            <MenuItem
+              keepOpen
+              icon={<ChevronLeft className="w-3.5 h-3.5" />}
+              onSelect={() => setPicking(null)}
+            >
               <b>{picking.label}</b>
             </MenuItem>
             <MenuSeparator />

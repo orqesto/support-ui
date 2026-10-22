@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { RefreshCw, Send } from 'lucide-react';
+import { MessagesSquare, RefreshCw, Send } from 'lucide-react';
 import { TicketDeleteDialog, TicketSyncAllDialog } from '@/components/tickets/TicketsJiraDialogs';
 import { TicketsViewToggle } from '@/components/tickets/TicketsViewToggle';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useTicketsUrlSync } from '@/hooks/useTicketsUrlSync';
 import { useTicketsRealtime } from '@/hooks/useTicketsRealtime';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { TicketDetail } from '@/components/tickets/TicketDetail';
@@ -15,8 +15,11 @@ import { buildTicketFilterKeys } from '@/components/tickets/list/ticketFilterKey
 import { viewFiltersOf } from '@/components/tickets/list/ticketViews';
 import { useTicketFilterSources } from '@/components/tickets/list/useTicketFilterSources';
 import { useTicketViews } from '@/components/tickets/list/useTicketViews';
-import { TicketTable, type TicketDensity, type TicketLayout } from '@/components/tickets/list/TicketTable';
-import { MenuItem, MenuSeparator } from '@/components/ui/Menu';
+import { TicketTable } from '@/components/tickets/list/TicketTable';
+import { TicketRowMenuItems } from '@/components/tickets/list/TicketRowMenuItems';
+import { useTicketListPrefs } from '@/components/tickets/list/useTicketListPrefs';
+import { TicketPanel } from '@/components/tickets/list/TicketPanel';
+import { useTicketKeys } from '@/components/tickets/list/useTicketKeys';
 import { assignmentService } from '@/services/assignment.service';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { NewTicketButton } from '@/components/tickets/NewTicketButton';
@@ -40,6 +43,7 @@ import { toast } from '@/lib/toast';
 
 export const TicketsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [displayMode, setDisplayMode] = useState<TicketsDisplayMode>(() => {
     const mode = searchParams.get('mode');
     if (mode === 'kanban') return 'kanban';
@@ -383,26 +387,7 @@ export const TicketsPage = () => {
     }
   };
 
-  const readPref = <T extends string>(key: string, allowed: readonly T[], fallback: T): T => {
-    try {
-      const stored = localStorage.getItem(key);
-      return stored && (allowed as readonly string[]).includes(stored) ? (stored as T) : fallback;
-    } catch {
-      return fallback;
-    }
-  };
-  const [density, setDensity] = useState<TicketDensity>(() => readPref('tickets_density', ['table', 'cards'], 'table'));
-  const [layout, setLayout] = useState<TicketLayout>(() => readPref('tickets_layout', ['list', 'split'], 'list'));
-  const [group, setGroup] = useState(() => readPref('tickets_group', ['1', '0'], '0') === '1');
-  /** A per-browser convenience: kept when storage works, harmless when it does not. */
-  const setPref = <T extends string>(key: string, value: T, apply: (value: T) => void) => {
-    apply(value);
-    try {
-      localStorage.setItem(key, value);
-    } catch {
-      // Private mode or blocked storage — the choice still applies for this visit.
-    }
-  };
+  const { density, layout, group, setDensity, setLayout, setGroup } = useTicketListPrefs();
   // Split shows the list and the ticket side by side; below 1100 px there is no room for both.
   const splitAvailable = useMediaQuery('(min-width: 1100px)');
 
@@ -440,153 +425,259 @@ export const TicketsPage = () => {
       .catch(() => toast.error('Could not copy the link'));
   };
 
-  const rowMenu = (ticket: TicketType) => {
-    const manage = hasPermission(Permission.MANAGE_TICKETS);
-    return (
-      <>
-        <MenuItem onSelect={() => openTicket(ticket)}>Open</MenuItem>
-        <MenuItem onSelect={() => copyLink(ticket.id)}>Copy link</MenuItem>
-        {manage && jiraIntegrations.length > 0 && !ticket.externalId && (
-          <MenuItem onSelect={() => void handlePushToJira(ticket.id)}>Push to Jira</MenuItem>
-        )}
-        {manage && (
-          <>
-            <MenuSeparator />
-            <MenuItem danger onSelect={() => handleDeleteClick(ticket)}>
-              Delete ticket…
-            </MenuItem>
-          </>
-        )}
-      </>
-    );
-  };
+  const rowMenu = (ticket: TicketType) => (
+    <TicketRowMenuItems
+      ticket={ticket}
+      canManage={hasPermission(Permission.MANAGE_TICKETS)}
+      jiraOn={jiraIntegrations.length > 0}
+      onOpen={openTicket}
+      onCopyLink={copyLink}
+      onPushToJira={(ticketId) => void handlePushToJira(ticketId)}
+      onDelete={handleDeleteClick}
+    />
+  );
 
-  const filterKeys = buildTicketFilterKeys({ ...filterSources, jiraOn: jiraIntegrations.length > 0 });
+  const filterKeys = buildTicketFilterKeys({
+    ...filterSources,
+    jiraOn: jiraIntegrations.length > 0,
+  });
+
+  const closeTicket = () => {
+    setSearchParams((params) => {
+      params.delete('id');
+      return params;
+    });
+    setSelectedTicket(null);
+    // Back to the row the agent came from, so J/K in the list carries on from there.
+    const back = selectedTicket?.id;
+    if (back !== undefined) {
+      setTimeout(() => {
+        document
+          .querySelector<HTMLElement>(`[data-ticket-row="${back}"]`)
+          ?.focus({ preventScroll: true });
+      });
+    }
+  };
+  const openIndex = selectedTicket
+    ? tickets.findIndex((ticket) => ticket.id === selectedTicket.id)
+    : -1;
+  const prevTicket = openIndex > 0 ? tickets[openIndex - 1] : null;
+  const nextTicket =
+    openIndex >= 0 && openIndex < tickets.length - 1 ? tickets[openIndex + 1] : null;
+  const goTo = (ticketId: number) => {
+    const target = tickets.find((ticket) => ticket.id === ticketId);
+    if (target) openTicket(target);
+  };
+  const splitOn = layout === 'split' && splitAvailable && displayMode === 'list';
+
+  useTicketKeys({
+    open: !!selectedTicket,
+    onNext: () => nextTicket && openTicket(nextTicket),
+    onPrev: () => prevTicket && openTicket(prevTicket),
+    onClose: closeTicket,
+    onSlash: () => document.querySelector<HTMLInputElement>('[data-ticket-search] input')?.focus(),
+  });
+
+  const ticketPanel = selectedTicket ? (
+    <TicketPanel
+      ticketId={selectedTicket.id}
+      prevId={prevTicket?.id ?? null}
+      nextId={nextTicket?.id ?? null}
+      onGo={goTo}
+      onClose={closeTicket}
+      onFullPage={() => navigate(`/tickets/${selectedTicket.id}`)}
+      onCopyLink={() => copyLink(selectedTicket.id)}
+    >
+      <TicketDetail
+        // One mount per ticket, as MessageDetail is: state (labels, pickers, in-flight writes)
+        // from the ticket you left must not show — or act — on the next one.
+        key={selectedTicket.id}
+        ticket={selectedTicket}
+        onPushToJira={
+          hasPermission(Permission.MANAGE_TICKETS)
+            ? async () => {
+                await handlePushToJira(selectedTicket.id);
+                // Refresh to get updated ticket data
+                await fetchTickets();
+                setSelectedTicket(null);
+              }
+            : undefined
+        }
+        onDelete={
+          hasPermission(Permission.MANAGE_TICKETS)
+            ? () => {
+                setTicketToDelete(selectedTicket);
+                setSelectedTicket(null);
+                setDeleteDialogOpen(true);
+              }
+            : undefined
+        }
+        onRefresh={async () => {
+          // Clear cache to force fresh data
+          clearCache();
+
+          // Refresh the detail view
+          const response = await ticketService.getById(selectedTicket.id);
+          if (response.success && response.data) {
+            setSelectedTicket(response.data);
+          }
+
+          // Refresh the list to show updated assignee
+          await fetchTickets(pagination.page, true);
+        }}
+        isPushingToJira={syncing === selectedTicket.id}
+      />
+    </TicketPanel>
+  ) : null;
 
   return (
     <Layout>
-      <div className="px-4 mx-auto space-y-4 w-full">
-        {/* Header */}
-        <div className="mb-6">
-          <PageHeader
-            title="Tickets"
-            description="Manage and track support tickets"
-            actions={
-              <>
-                {jiraIntegrations.length > 1 && (
-                  <Select
-                    value={selectedJiraId?.toString() ?? ''}
-                    onChange={(value) => setSelectedJiraId(value ? Number(value) : undefined)}
-                    options={[
-                      { value: '', label: 'All Jira' },
-                      ...jiraIntegrations.map((jira) => ({
-                        value: jira.id.toString(),
-                        label: jira.name,
-                      })),
-                    ]}
-                    size="sm"
-                    aria-label="Jira integration"
-                    className="w-40"
-                  />
-                )}
-                {jiraIntegrations.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSyncAll}
-                    disabled={
-                      !hasPermission(Permission.MANAGE_TICKETS) ||
-                      isSyncingAll ||
-                      (jiraIntegrations.length > 1 && !selectedJiraId)
-                    }
-                    isLoading={isSyncingAll}
-                  >
-                    <Send className="mr-2 w-4 h-4" />
-                    Sync to Jira
+      <div
+        className={
+          splitOn ? 'grid grid-cols-[minmax(400px,40%)_minmax(0,1fr)] gap-4 px-4 w-full' : ''
+        }
+      >
+        <div className={splitOn ? 'space-y-4 min-w-0' : 'px-4 mx-auto space-y-4 w-full'}>
+          {/* Header */}
+          <div className="mb-6">
+            <PageHeader
+              title="Tickets"
+              description="Manage and track support tickets"
+              actions={
+                <>
+                  {jiraIntegrations.length > 1 && (
+                    <Select
+                      value={selectedJiraId?.toString() ?? ''}
+                      onChange={(value) => setSelectedJiraId(value ? Number(value) : undefined)}
+                      options={[
+                        { value: '', label: 'All Jira' },
+                        ...jiraIntegrations.map((jira) => ({
+                          value: jira.id.toString(),
+                          label: jira.name,
+                        })),
+                      ]}
+                      size="sm"
+                      aria-label="Jira integration"
+                      className="w-40"
+                    />
+                  )}
+                  {jiraIntegrations.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSyncAll}
+                      disabled={
+                        !hasPermission(Permission.MANAGE_TICKETS) ||
+                        isSyncingAll ||
+                        (jiraIntegrations.length > 1 && !selectedJiraId)
+                      }
+                      isLoading={isSyncingAll}
+                    >
+                      <Send className="mr-2 w-4 h-4" />
+                      Sync to Jira
+                    </Button>
+                  )}
+                  <NewTicketButton variant="outline" />
+                  <Button onClick={handleRefresh} disabled={refreshing}>
+                    <RefreshCw className={`mr-2 w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    Refresh
                   </Button>
-                )}
-                <NewTicketButton variant="outline" />
-                <Button onClick={handleRefresh} disabled={refreshing}>
-                  <RefreshCw className={`mr-2 w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                  Refresh
-                </Button>
-              </>
+                </>
+              }
+            />
+          </div>
+
+          {/* Views and filters — the Messages pattern */}
+          <TicketViewPills
+            filters={filters}
+            views={views}
+            counts={counts}
+            onApply={(next) => {
+              setPendingSearch('');
+              setFiltersStore(next);
+            }}
+            onSave={(name) => saveView(name, viewFiltersOf(filters))}
+            onDelete={(view) =>
+              void deleteView(view).catch((error) => logger.error('Failed to delete view:', error))
             }
           />
-        </div>
-
-        {/* Views and filters — the Messages pattern */}
-        <TicketViewPills
-          filters={filters}
-          views={views}
-          counts={counts}
-          onApply={(next) => {
-            setPendingSearch('');
-            setFiltersStore(next);
-          }}
-          onSave={(name) => saveView(name, viewFiltersOf(filters))}
-          onDelete={(view) => void deleteView(view).catch((error) => logger.error('Failed to delete view:', error))}
-        />
-        <TicketFilterBar
-          filters={filters}
-          keys={filterKeys}
-          search={pendingSearch}
-          onChange={setFiltersStore}
-          onSearchChange={(value) => handleFilterChange('search', value)}
-          onSearch={handleSearch}
-          onClear={clearFilters}
-        />
-
-        {/* Display mode toggle */}
-        <TicketsViewToggle displayMode={displayMode} onModeChange={setDisplayMode} />
-
-        {displayMode === 'kanban' ? (
-          <TicketsKanbanView
+          <TicketFilterBar
             filters={filters}
-            onOpen={(ticket) => {
-              setSelectedTicket(ticket);
-              setSearchParams((params) => { params.set('id', ticket.id.toString()); return params; });
-            }}
-          />
-        ) : (
-          <TicketTable
-            tickets={tickets}
-            total={pagination.total}
-            loading={loading}
-            filters={filters}
-            sorting={sorting}
             keys={filterKeys}
-            density={density}
-            group={group}
-            layout={layout}
-            splitAvailable={splitAvailable}
-            canManage={hasPermission(Permission.MANAGE_TICKETS)}
-            assignees={filterSources.assignees}
-            currentUserId={currentUserId}
-            currentId={selectedTicket?.id ?? null}
-            onOpen={openTicket}
-            onAssign={(ticketId, userId) => void handleAssign(ticketId, userId)}
-            onRowMenu={rowMenu}
-            onFilters={setFiltersStore}
-            onSort={setSortingStore}
-            onDensity={(next) => setPref('tickets_density', next, setDensity)}
-            onGroup={(next) => setPref('tickets_group', next ? '1' : '0', () => setGroup(next))}
-            onLayout={(next) => setPref('tickets_layout', next, setLayout)}
-            onClearFilters={clearFilters}
-            emptyAction={<NewTicketButton />}
+            search={pendingSearch}
+            onChange={setFiltersStore}
+            onSearchChange={(value) => handleFilterChange('search', value)}
+            onSearch={handleSearch}
+            onClear={clearFilters}
           />
-        )}
 
-        {/* Pagination */}
-        {!loading && tickets.length > 0 && displayMode !== 'kanban' && (
-          <Pagination
-            currentPage={pagination.page}
-            totalPages={pagination.totalPages}
-            total={pagination.total}
-            limit={pagination.limit}
-            onPageChange={handlePageChange}
-            loading={loading}
-          />
+          {/* Display mode toggle */}
+          <TicketsViewToggle displayMode={displayMode} onModeChange={setDisplayMode} />
+
+          {displayMode === 'kanban' ? (
+            <TicketsKanbanView
+              filters={filters}
+              onOpen={(ticket) => {
+                setSelectedTicket(ticket);
+                setSearchParams((params) => {
+                  params.set('id', ticket.id.toString());
+                  return params;
+                });
+              }}
+            />
+          ) : (
+            <TicketTable
+              tickets={tickets}
+              total={pagination.total}
+              loading={loading}
+              filters={filters}
+              sorting={sorting}
+              keys={filterKeys}
+              density={density}
+              group={group}
+              layout={layout}
+              splitAvailable={splitAvailable}
+              canManage={hasPermission(Permission.MANAGE_TICKETS)}
+              assignees={filterSources.assignees}
+              currentUserId={currentUserId}
+              currentId={selectedTicket?.id ?? null}
+              onOpen={openTicket}
+              onAssign={(ticketId, userId) => void handleAssign(ticketId, userId)}
+              onRowMenu={rowMenu}
+              onFilters={setFiltersStore}
+              onSort={setSortingStore}
+              onDensity={setDensity}
+              onGroup={setGroup}
+              onLayout={setLayout}
+              onClearFilters={clearFilters}
+              emptyAction={<NewTicketButton />}
+            />
+          )}
+
+          {/* Pagination */}
+          {!loading && tickets.length > 0 && displayMode !== 'kanban' && (
+            <Pagination
+              currentPage={pagination.page}
+              totalPages={pagination.totalPages}
+              total={pagination.total}
+              limit={pagination.limit}
+              onPageChange={handlePageChange}
+              loading={loading}
+            />
+          )}
+        </div>
+        {splitOn && (
+          <aside
+            aria-label="Open ticket"
+            className="sticky top-4 self-start h-[calc(100vh-6rem)] overflow-hidden rounded-lg border border-border bg-card"
+          >
+            {ticketPanel ?? (
+              <div className="grid place-content-center justify-items-center gap-2 h-full text-[13.5px] text-muted-foreground">
+                <MessagesSquare className="w-6 h-6" />
+                Select a ticket to read it here.
+              </div>
+            )}
+          </aside>
         )}
       </div>
 
@@ -606,55 +697,17 @@ export const TicketsPage = () => {
         onConfirm={confirmSyncAll}
       />
 
-      {/* Ticket Detail Drawer */}
-      {selectedTicket && (
+      {/* The open ticket: a side sheet over the list, unless the split pane shows it */}
+      {selectedTicket && !splitOn && (
         <Drawer
-          open={!!selectedTicket}
-          onClose={() => {
-            setSearchParams((params) => { params.delete('id'); return params; });
-            setSelectedTicket(null);
-          }}
-          title="Ticket Details"
+          open
+          onClose={closeTicket}
+          title={`Ticket #${selectedTicket.id}`}
+          size="sheet"
+          bodyClassName="p-0"
+          header={null}
         >
-          <TicketDetail
-            // One mount per ticket, as MessageDetail is: state (labels, pickers, in-flight writes)
-            // from the ticket you left must not show — or act — on the next one.
-            key={selectedTicket.id}
-            ticket={selectedTicket}
-            onPushToJira={
-              hasPermission(Permission.MANAGE_TICKETS)
-                ? async () => {
-                    await handlePushToJira(selectedTicket.id);
-                    // Refresh to get updated ticket data
-                    await fetchTickets();
-                    setSelectedTicket(null);
-                  }
-                : undefined
-            }
-            onDelete={
-              hasPermission(Permission.MANAGE_TICKETS)
-                ? () => {
-                    setTicketToDelete(selectedTicket);
-                    setSelectedTicket(null);
-                    setDeleteDialogOpen(true);
-                  }
-                : undefined
-            }
-            onRefresh={async () => {
-              // Clear cache to force fresh data
-              clearCache();
-
-              // Refresh the detail view
-              const response = await ticketService.getById(selectedTicket.id);
-              if (response.success && response.data) {
-                setSelectedTicket(response.data);
-              }
-
-              // Refresh the list to show updated assignee
-              await fetchTickets(pagination.page, true);
-            }}
-            isPushingToJira={syncing === selectedTicket.id}
-          />
+          {ticketPanel}
         </Drawer>
       )}
 

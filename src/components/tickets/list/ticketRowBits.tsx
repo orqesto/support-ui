@@ -46,7 +46,12 @@ export const PriorityIcon = ({ priority }: { priority: TicketPriority }) => {
   const label = PRIORITY_LABELS[priority];
   if (priority === 'critical') {
     return (
-      <svg viewBox="0 0 16 16" className="w-3.5 h-3.5 text-destructive" role="img" aria-label={label}>
+      <svg
+        viewBox="0 0 16 16"
+        className="w-3.5 h-3.5 text-destructive"
+        role="img"
+        aria-label={label}
+      >
         <rect x="1" y="1" width="14" height="14" rx="3.5" fill="currentColor" />
         <path d="M8 4.5v4.2M8 11.2v.1" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
       </svg>
@@ -105,7 +110,11 @@ export const ThreadCount = ({ count }: { count: number | undefined }) =>
   );
 
 export const LabelChip = ({ name, color }: { name: string; color: string }) => (
-  <Badge size="sm" variant="secondary" className="gap-1.5 font-medium whitespace-nowrap cursor-default">
+  <Badge
+    size="sm"
+    variant="secondary"
+    className="gap-1.5 font-medium whitespace-nowrap cursor-default"
+  >
     <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color }} />
     {name}
   </Badge>

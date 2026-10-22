@@ -30,6 +30,8 @@ export const drawerContentVariants = cva(
         lg: 'max-w-2xl w-full',
         xl: 'max-w-4xl w-full',
         full: 'max-w-full w-full',
+        /** A wide reading sheet: most of the screen, all of it on small ones. */
+        sheet: 'w-full max-w-full min-[1100px]:max-w-[min(1120px,88vw)]',
       },
     },
     defaultVariants: {

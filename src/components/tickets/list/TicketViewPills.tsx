@@ -1,7 +1,13 @@
 import { Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import type { TicketFilters } from '@/stores/ticketsStore';
@@ -34,7 +40,8 @@ export const TicketViewPills = ({
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
   const current = activeView(filters, views);
-  const custom = !current && (Object.keys(viewFiltersOf(filters)).length > 0 || !!filters.search?.trim());
+  const custom =
+    !current && (Object.keys(viewFiltersOf(filters)).length > 0 || !!filters.search?.trim());
 
   const save = async () => {
     const trimmed = name.trim();
@@ -55,7 +62,10 @@ export const TicketViewPills = ({
         const on = current === view;
         const count = counts[view.name];
         return (
-          <span key={view.id ?? view.name} className="inline-flex relative items-center shrink-0 group/view">
+          <span
+            key={view.id ?? view.name}
+            className="inline-flex relative items-center shrink-0 group/view"
+          >
             <Button
               variant="ghost"
               aria-pressed={on}
@@ -67,7 +77,9 @@ export const TicketViewPills = ({
               }`}
             >
               {view.name}
-              {count !== undefined && <span className="font-mono text-[11px] opacity-75">{count}</span>}
+              {count !== undefined && (
+                <span className="font-mono text-[11px] opacity-75">{count}</span>
+              )}
             </Button>
             {!view.builtIn && (
               <Button

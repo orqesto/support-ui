@@ -13,7 +13,14 @@ const PRIORITIES: readonly TicketPriority[] = ['low', 'medium', 'high', 'critica
 const OWES: readonly TicketOwesFilter[] = ['yes', 'none'];
 const THREADS: readonly TicketThreadsFilter[] = ['0', '1', '2-5', '6+'];
 const UPDATED: readonly TicketUpdatedFilter[] = ['1h', '24h', '7d', 'old'];
-const SORTS: readonly TicketSortBy[] = ['createdAt', 'updatedAt', 'priority', 'status', 'threads', 'owed'];
+const SORTS: readonly TicketSortBy[] = [
+  'createdAt',
+  'updatedAt',
+  'priority',
+  'status',
+  'threads',
+  'owed',
+];
 const LINKED = ['synced_to_jira', 'not_synced'] as const;
 
 const oneOf = <T extends string>(values: readonly T[], raw: string | null): T | undefined =>

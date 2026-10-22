@@ -4,8 +4,18 @@ import { Menu } from '@/components/ui/Menu';
 import type { Ticket } from '@/types';
 import type { TicketRowProps } from './ticketRowShared';
 
-export const RowMenu = ({ ticket, onRowMenu }: { ticket: Ticket; onRowMenu: TicketRowProps['onRowMenu'] }) => (
-  <span onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} role="presentation">
+export const RowMenu = ({
+  ticket,
+  onRowMenu,
+}: {
+  ticket: Ticket;
+  onRowMenu: TicketRowProps['onRowMenu'];
+}) => (
+  <span
+    onClick={(event) => event.stopPropagation()}
+    onKeyDown={(event) => event.stopPropagation()}
+    role="presentation"
+  >
     <Menu
       ariaLabel={`Actions for #${ticket.id}`}
       align="end"

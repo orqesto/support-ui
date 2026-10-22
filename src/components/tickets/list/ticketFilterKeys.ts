@@ -10,7 +10,13 @@ export const STATUS_LABELS: Record<TicketStatus, string> = {
 };
 
 /** Lane, group and menu order. */
-export const STATUS_ORDER: TicketStatus[] = ['open', 'in_progress', 'pending', 'resolved', 'closed'];
+export const STATUS_ORDER: TicketStatus[] = [
+  'open',
+  'in_progress',
+  'pending',
+  'resolved',
+  'closed',
+];
 
 export const PRIORITY_LABELS: Record<TicketPriority, string> = {
   critical: 'Critical',
@@ -73,7 +79,11 @@ export const buildTicketFilterKeys = ({
     {
       field: 'labelId',
       label: 'Label',
-      options: labels.map((label) => ({ value: String(label.id), label: label.name, dot: label.color })),
+      options: labels.map((label) => ({
+        value: String(label.id),
+        label: label.name,
+        dot: label.color,
+      })),
     },
   ];
   if (jiraOn) {
@@ -125,13 +135,19 @@ export const buildTicketFilterKeys = ({
 };
 
 /** The value a filter field holds, or undefined when it is not set. */
-export const filterValue = (filters: TicketFilters, field: keyof TicketFilters): string | undefined => {
+export const filterValue = (
+  filters: TicketFilters,
+  field: keyof TicketFilters
+): string | undefined => {
   const value = filters[field];
   return value && value !== 'all' ? value : undefined;
 };
 
 /** `filters` with one field cleared back to its default. */
-export const withoutFilter = (filters: TicketFilters, field: keyof TicketFilters): TicketFilters => {
+export const withoutFilter = (
+  filters: TicketFilters,
+  field: keyof TicketFilters
+): TicketFilters => {
   const next: Record<string, unknown> = { ...filters };
   const fallback = defaultFilters[field];
   if (fallback === undefined) delete next[field];

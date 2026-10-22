@@ -49,7 +49,10 @@ export const Menu = ({
       const rect = rootRef.current.getBoundingClientRect();
       const visibleWidth = document.documentElement.clientWidth;
       const wanted = align === 'end' ? rect.right - width : rect.left;
-      const left = Math.max(EDGE_MARGIN_PX, Math.min(wanted, visibleWidth - width - EDGE_MARGIN_PX));
+      const left = Math.max(
+        EDGE_MARGIN_PX,
+        Math.min(wanted, visibleWidth - width - EDGE_MARGIN_PX)
+      );
       const height = panelRef.current?.offsetHeight ?? 0;
       const below = document.documentElement.clientHeight - rect.bottom - 4;
       // Flip above when it does not fit below and there is more room above.
@@ -141,9 +144,13 @@ export const MenuItem = ({
       )}
     >
       {checkable && (
-        <span className="w-3.5 shrink-0 text-primary">{checked && <Check className="w-3.5 h-3.5" />}</span>
+        <span className="w-3.5 shrink-0 text-primary">
+          {checked && <Check className="w-3.5 h-3.5" />}
+        </span>
       )}
-      {icon && <span className="grid place-items-center shrink-0 text-muted-foreground">{icon}</span>}
+      {icon && (
+        <span className="grid place-items-center shrink-0 text-muted-foreground">{icon}</span>
+      )}
       <span className="flex-1 min-w-0 truncate">{children}</span>
       {hint && <span className="ml-auto text-xs text-muted-foreground shrink-0">{hint}</span>}
     </Button>

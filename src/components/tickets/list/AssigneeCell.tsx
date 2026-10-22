@@ -26,7 +26,8 @@ export const AssigneeCell = ({
   onAssign,
   compact,
 }: AssigneeCellProps) => {
-  const name = ticket.assigneeName ?? assignees.find((user) => user.id === ticket.assigneeId)?.name ?? '';
+  const name =
+    ticket.assigneeName ?? assignees.find((user) => user.id === ticket.assigneeId)?.name ?? '';
   const mine = ticket.assigneeId !== null && ticket.assigneeId === currentUserId;
   const stop = (event: { stopPropagation: () => void }) => event.stopPropagation();
 
@@ -103,7 +104,10 @@ export const AssigneeCell = ({
           </MenuItem>
         ))}
         <MenuSeparator />
-        <MenuItem icon={<UserMinus className="w-3.5 h-3.5" />} onSelect={() => onAssign(ticket.id, null)}>
+        <MenuItem
+          icon={<UserMinus className="w-3.5 h-3.5" />}
+          onSelect={() => onAssign(ticket.id, null)}
+        >
           Unassign
         </MenuItem>
       </Menu>
