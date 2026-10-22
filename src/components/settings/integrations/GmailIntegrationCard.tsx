@@ -31,6 +31,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
 import { detectBrowser, getPopupUnblockInstructions } from '@/lib/browserDetect';
 import { logger } from '@/lib/logger';
+import { sinceDay } from '@/lib/importRange';
 import { gmailOAuthService } from '@/services/gmail-oauth.service';
 import { integrationsService } from '@/services/integrations.service';
 import { useKbRangeDialogStore } from '@/stores/kbRangeDialogStore';
@@ -101,7 +102,6 @@ export const GmailIntegrationCard = ({
 
   // Centralized create-form department picker state (load + default + selection).
   const deptPicker = useCreateSourceDepartments();
-
   const gmailIntegrations = integrations.filter(
     (integ) =>
       integ.type === 'gmail' &&
@@ -144,7 +144,6 @@ export const GmailIntegrationCard = ({
     }
 
     if (abortRef.current) return;
-
     await new Promise((resolve) => setTimeout(resolve, 100));
 
     resetForm();
@@ -433,15 +432,14 @@ export const GmailIntegrationCard = ({
                             const gmailConfig = (
                               integration.config as { gmail?: { bulkImportDays?: number; bulkImportSince?: string | null } }
                             ).gmail;
-                            const bulkDays = gmailConfig?.bulkImportDays ?? 30;
-                            if (gmailConfig?.bulkImportSince) return <span className="ml-2 text-muted-foreground">📅 Bulk: {formatRangeLabel({ kind: 'since', since: gmailConfig.bulkImportSince }, [])}</span>;
-                            return bulkDays === 0 ? (
+                            if (gmailConfig?.bulkImportSince) return <span className="ml-2 text-muted-foreground">📅 Bulk: {formatRangeLabel({ kind: 'since', since: sinceDay(gmailConfig.bulkImportSince) ?? gmailConfig.bulkImportSince }, [])}</span>;
+                            return (gmailConfig?.bulkImportDays ?? 30) === 0 ? (
                               <span className="ml-2 font-medium text-warning">
                                 ⚠️ Bulk: All time
                               </span>
                             ) : (
                               <span className="ml-2 text-muted-foreground">
-                                📅 Bulk: {bulkDays}d
+                                📅 Bulk: {gmailConfig?.bulkImportDays ?? 30}d
                               </span>
                             );
                           })()}

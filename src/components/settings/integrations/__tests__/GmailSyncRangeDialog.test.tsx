@@ -54,7 +54,10 @@ describe('GmailSyncRangeDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: '3 October 2026' }));
     fireEvent.click(screen.getByRole('button', { name: /update/i }));
     await waitFor(() =>
-      expect(update).toHaveBeenCalledWith(5, { type: 'gmail', config: { gmail: { bulkImportSince: '2026-10-03' } } })
+      expect(update).toHaveBeenCalledWith(5, {
+        type: 'gmail',
+        config: { gmail: { bulkImportSince: new Date(2026, 9, 3).toISOString() } },
+      })
     );
   });
 });
