@@ -30,15 +30,24 @@ const MODE_HELP: Record<KbAutoRemoveMode, string> = {
 };
 
 /**
- * approveCaptures does not wait for a run: switching it on approves the answers already waiting,
- * and each new saved answer is approved as soon as it is checked.
+ * approveCaptures does not wait for a run: switching it on approves the answers already waiting
+ * (bounded per run; the rest follow), and each new saved answer is approved as soon as it is checked.
  */
 const CAPTURES_AUTO_HELP =
-  'Approves the waiting answers that pass right away, and each new saved answer as soon as it is checked. Every approval is listed under Changed automatically, where you can send it back for review.';
+  'Right away, approves the waiting answers that pass — a limited number per run, the rest follow — and each new saved answer as soon as it is checked. Every approval is listed under Changed automatically, where you can send it back for review.';
 
-/** Lowering the bar while Automatic starts no run: newly passing answers wait for their next check. */
-const CAPTURES_LOWER_BAR =
-  'Answers that now pass the lower bar are approved at their next check — tonight at the latest. Every approval is listed under Changed automatically, where you can send it back for review.';
+const SEND_BACK =
+  'Every approval is listed under Changed automatically, where you can send it back for review.';
+
+/**
+ * Lowering the bar while Automatic starts no run: newly passing answers wait for their next check.
+ * Answers saved earlier are checked only by the nightly run, so while that is blocked
+ * (`backlogBlockedBy`) the text must not promise tonight.
+ */
+const capturesLowerBar = (backlogBlocked: boolean): string =>
+  backlogBlocked
+    ? `Answers that now pass the lower bar are approved at their next check — for answers saved earlier, only once the nightly check is switched on (see the notice above). ${SEND_BACK}`
+    : `Answers that now pass the lower bar are approved at their next check — tonight at the latest. ${SEND_BACK}`;
 
 const modeHelp = (action: KbAutoActionKey, mode: KbAutoRemoveMode): string =>
   action === 'approveCaptures' && mode === 'auto' ? CAPTURES_AUTO_HELP : MODE_HELP[mode];
@@ -230,7 +239,7 @@ export const KbAutoActionRow = ({
             ? `At ${percent}% the next run removes ${entries(wouldAct)} now. Entries a person approved are never removed, and every removed entry can be restored for 90 days.`
             : action === 'approveCaptures'
               ? loweringBar
-                ? CAPTURES_LOWER_BAR
+                ? capturesLowerBar(backlogBlocked !== null)
                 : CAPTURES_AUTO_HELP
               : `"${label}" acts on its own from the next run. Everything it changes is listed under Changed automatically in the Knowledge Base, with an undo.`
         }

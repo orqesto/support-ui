@@ -176,7 +176,9 @@ export const KBTableView = ({
                     {entry.title}
                   </div>
                   <div className="text-sm text-muted-foreground line-clamp-1">{entry.content}</div>
-                  <KbAutoChangeKind entry={entry} autoRestore={autoRestore} />
+                  <div className="mt-1">
+                    <KbAutoChangeKind entry={entry} autoRestore={autoRestore} />
+                  </div>
                 </td>
                 <td className="hidden px-3 py-3 text-center md:table-cell">
                   {kbSourceConversationId(entry) !== null ? (

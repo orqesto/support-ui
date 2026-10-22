@@ -19,9 +19,9 @@ export const AUTO_UNDO_TITLE: Record<KbAutoUndo, string> = {
   restore: 'Restore — puts the entry back as it was before it was removed',
   undo_clean: 'Undo clean-up — puts the original text back',
   release_hold: 'Use it again — the AI uses this answer again',
-  // Un-approve IS a reject (PATCH …/reject): worded as every other reject button.
   return_to_review:
     'Send back for review — not used in answers until someone approves it; it waits under Needs your decision.',
+  // Un-approve IS a reject (PATCH …/reject): worded as every other reject button.
   unapprove: `Un-approve — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`,
 };
 
@@ -64,9 +64,10 @@ const runUndo = async (entry: KBEntry, undo: KbAutoUndo): Promise<string> => {
     try {
       await kbAutoActionsService.returnApprovedCapture(entry.id);
     } catch (err) {
-      // 409: someone already sent it back. Plain words, never the raw server text.
+      // 409: it is no longer an automatic approval (sent back, or a person decided on it).
+      // Plain words, never the raw server text.
       if (apiErrorStatus(err) === 409)
-        throw new Error('This answer was already sent back for review.');
+        throw new Error('This answer changed since: it was sent back, or a person decided on it.');
       throw err;
     }
     return 'Sent back for review';

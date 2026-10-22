@@ -303,7 +303,7 @@ describe('knowledge base → Changed automatically', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Send back for review' })[0]);
     await waitFor(() => expect(state.toastError).toHaveBeenCalled());
     expect(state.toastError.mock.calls[0][1]).toEqual({
-      description: 'This answer was already sent back for review.',
+      description: 'This answer changed since: it was sent back, or a person decided on it.',
     });
     await waitFor(() => expect(state.getAllCalls.length).toBeGreaterThan(callsBefore));
   });

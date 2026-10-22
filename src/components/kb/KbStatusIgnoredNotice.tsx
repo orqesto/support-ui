@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/Alert';
 import { AUTO_ACTIONS_HREF } from '@/components/kb/autoActions/kbAutoActionCopy';
+import { useAutoActionsAvailable } from '@/hooks/useAutoActionsAvailable';
 
 export const KB_STATUS_IGNORED_NOTICE = 'This server cannot filter by this yet.';
 
@@ -48,7 +49,7 @@ const FALLBACK: Record<KbDecisionFilterStatus, { text: string; to: string; label
     label: 'Open Automatic actions',
   },
   auto_changed: {
-    text: 'Automatically removed entries are listed on the Automatic actions page.',
+    text: 'Automatic changes are listed on the Automatic actions page.',
     to: AUTO_ACTIONS_HREF,
     label: 'Open Automatic actions',
   },
@@ -59,8 +60,29 @@ const FALLBACK: Record<KbDecisionFilterStatus, { text: string; to: string; label
  * whole knowledge base, which must not pass for the filtered list. Each filter links to where an
  * older backend still lists its rows, so the person can still decide.
  */
+/**
+ * Without the Automatic actions routes (a backend before that release) its Settings › AI section
+ * is hidden, so a link there would land on another section with no explanation: say so instead.
+ */
+const AUTO_ACTIONS_NOT_YET =
+  'The Automatic actions page, where these are listed, arrives with the next backend release.';
+
+const AUTO_STATUSES: readonly KbDecisionFilterStatus[] = ['auto_removed', 'auto_changed'];
+
 export const KbStatusIgnoredNotice = ({ status }: { status: KbDecisionFilterStatus }) => {
+  const needsAutoActions = AUTO_STATUSES.includes(status);
+  const autoActionsAvailable = useAutoActionsAvailable(needsAutoActions);
   const fallback = FALLBACK[status];
+  if (needsAutoActions && !autoActionsAvailable) {
+    return (
+      <Alert variant="warning">
+        <p className="font-medium">{KB_STATUS_IGNORED_NOTICE}</p>
+        <p className="mt-1 text-sm">
+          It would show every entry, so no list is shown here. {AUTO_ACTIONS_NOT_YET}
+        </p>
+      </Alert>
+    );
+  }
   return (
     <Alert variant="warning">
       <p className="font-medium">{KB_STATUS_IGNORED_NOTICE}</p>

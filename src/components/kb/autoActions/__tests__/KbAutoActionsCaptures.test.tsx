@@ -222,7 +222,7 @@ describe('Automatic actions — approve answers people saved', () => {
 
 describe('Automatic actions — approve answers people saved: what Automatic means', () => {
   const autoText =
-    'Approves the waiting answers that pass right away, and each new saved answer as soon as it is checked. Every approval is listed under Changed automatically, where you can send it back for review.';
+    'Right away, approves the waiting answers that pass — a limited number per run, the rest follow — and each new saved answer as soon as it is checked. Every approval is listed under Changed automatically, where you can send it back for review.';
 
   it('says when saved answers are approved, in the help and the confirm; other actions keep theirs', async () => {
     wireCaptures(withCaptures({ gate: gateOpen }));
@@ -291,7 +291,7 @@ describe('Automatic actions — approve answers people saved: lowering the bar',
     fireEvent.change(within(captures).getByRole('slider'), { target: { value: '80' } });
     fireEvent.click(within(captures).getByRole('button', { name: 'Save' }));
     expect(within(dialog()).getByText(lowerText)).toBeInTheDocument();
-    expect(within(dialog()).queryByText(/right away/)).toBeNull();
+    expect(within(dialog()).queryByText(/right away/i)).toBeNull();
   });
 
   it('CONTROL: switching Automatic on still says "right away"', async () => {
@@ -300,7 +300,27 @@ describe('Automatic actions — approve answers people saved: lowering the bar',
     const captures = await screen.findByTestId('kb-auto-row-approveCaptures');
     fireEvent.click(within(captures).getByRole('button', { name: 'Automatic' }));
     fireEvent.click(within(captures).getByRole('button', { name: 'Save' }));
-    expect(within(dialog()).getByText(/right away/)).toBeInTheDocument();
+    expect(within(dialog()).getByText(/right away/i)).toBeInTheDocument();
     expect(within(dialog()).queryByText(lowerText)).toBeNull();
+  });
+});
+
+describe('Automatic actions — approve answers people saved: lowering the bar while the nightly check is off', () => {
+  it('does not promise tonight when the nightly check of earlier answers is blocked', async () => {
+    wireCaptures(
+      withCaptures({
+        mode: 'auto',
+        gate: gateOpen,
+        backlogBlockedBy: ['kb.quality_review_enabled'],
+      })
+    );
+    renderPage();
+    const captures = await screen.findByTestId('kb-auto-row-approveCaptures');
+    fireEvent.change(within(captures).getByRole('slider'), { target: { value: '80' } });
+    fireEvent.click(within(captures).getByRole('button', { name: 'Save' }));
+    expect(within(dialog()).queryByText(/tonight/)).toBeNull();
+    expect(
+      within(dialog()).getByText(/only once the nightly check is switched on/)
+    ).toBeInTheDocument();
   });
 });
