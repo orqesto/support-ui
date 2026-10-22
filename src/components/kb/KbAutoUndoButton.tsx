@@ -1,7 +1,9 @@
 import { RotateCcw } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import type { KBEntry } from '@/services/kb.service';
 import {
+  AUTO_CHANGE_KIND_LABELS,
   AUTO_UNDO_LABEL,
   AUTO_UNDO_TITLE,
   autoUndoOf,
@@ -35,5 +37,21 @@ export const KbAutoUndoButton = ({
       <RotateCcw className="mr-1 w-4 h-4" aria-hidden="true" />
       {AUTO_UNDO_LABEL[kind]}
     </Button>
+  );
+};
+
+/** Which automatic change a "Changed automatically" row is. Nothing on any other list. */
+export const KbAutoChangeKind = ({
+  entry,
+  autoRestore,
+}: {
+  entry: KBEntry;
+  autoRestore?: KbAutoRestore;
+}) => {
+  if (!autoRestore || !entry.autoChange) return null;
+  return (
+    <Badge variant="secondary" className="shrink-0">
+      {AUTO_CHANGE_KIND_LABELS[entry.autoChange.action]}
+    </Badge>
   );
 };

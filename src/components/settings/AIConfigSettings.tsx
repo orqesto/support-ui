@@ -9,19 +9,23 @@ import { LearningEvidenceCard } from './LearningEvidenceCard';
 import { LearningSuggestionsSettings } from './LearningSuggestionsSettings';
 import { LearningTrustSettings } from './LearningTrustSettings';
 import { PromptsSettings } from './PromptsSettings';
+import { KbAutoActionsPanel } from '@/components/kb/autoActions/KbAutoActionsPanel';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Tabs } from '@/components/ui/Tabs';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useAutoActionsAvailable } from '@/hooks/useAutoActionsAvailable';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { apiClient } from '@/lib/api-client';
 import { SUGGESTION_DOMAIN_PERMISSIONS } from '@/lib/learningSuggestionPermissions';
+import { Permission } from '@/types/roles';
 
 type AISection =
   | 'prompts'
   | 'auto-reply'
   | 'lead-qualification'
   | 'learning'
+  | 'automatic-actions'
   | 'learning-trust';
 
 type SectionDef = {
@@ -31,6 +35,11 @@ type SectionDef = {
   adminOnly?: boolean;
   /** Visible to anyone who can act on at least one suggestion domain, not just admins. */
   needsAnyLearningPermission?: boolean;
+  /**
+   * Visible to a KB manager (MANAGE_KNOWLEDGE_BASE), and only once the backend has answered that
+   * the Automatic actions routes exist: the FE reaches production on merge, the backend on a tag.
+   */
+  needsKbAutoActions?: boolean;
 };
 
 const ALL_SECTIONS: SectionDef[] = [
@@ -43,6 +52,9 @@ const ALL_SECTIONS: SectionDef[] = [
   // Not adminOnly: a moderator may act on suggestions in the domains they already manage
   // (see lib/learningSuggestionPermissions.ts). Gated below on holding ANY of those permissions.
   { id: 'learning', label: 'Learning activity', description: 'What the learning engine found and changed. Each suggestion is decided where it applies.', needsAnyLearningPermission: true },
+  // Was the page /knowledge-base/automatic (and a sidebar item) until 2026-10-22; that address
+  // redirects here.
+  { id: 'automatic-actions', label: 'Automatic actions', description: 'What the learning engine may change by itself — Off, Shadow or Automatic per action', needsKbAutoActions: true },
   { id: 'learning-trust', label: 'Learning Trust', description: 'Control how aggressively the engine auto-acts', adminOnly: true },
 ];
 
@@ -57,13 +69,16 @@ type AIConfigSettingsProps = {
 const DEFAULT_AI_SECTION: AISection = 'prompts';
 
 export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
-  const { isOrgAdmin, hasAnyPermission } = usePermissions();
+  const { isOrgAdmin, hasAnyPermission, hasPermission } = usePermissions();
   const { data: backendVersion } = useBackendVersion();
   // When no billing provider is configured, plans are assigned by an admin, not
   // purchased — so the paywall drops the "Upgrade to Enterprise" / pricing CTA
   // and just states the feature isn't in the current plan.
   const billingEnabled = backendVersion?.billingEnabled ?? false;
   const canReviewSuggestions = hasAnyPermission(Object.values(SUGGESTION_DOMAIN_PERMISSIONS));
+  const autoActionsAvailable = useAutoActionsAvailable(
+    hasPermission(Permission.MANAGE_KNOWLEDGE_BASE)
+  );
   const sections = useMemo(
     () =>
       ALL_SECTIONS.filter((sect) => {
@@ -71,9 +86,11 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
         // Learning activity: visible to anyone who can act on at least one domain. An admin always
         // qualifies (they hold every permission); a moderator qualifies through routing/spam/etc.
         if (sect.needsAnyLearningPermission) return isOrgAdmin || canReviewSuggestions;
+        // The hook answers false without MANAGE_KNOWLEDGE_BASE (and never asks the backend).
+        if (sect.needsKbAutoActions) return autoActionsAvailable;
         return true;
       }),
-    [isOrgAdmin, canReviewSuggestions]
+    [isOrgAdmin, canReviewSuggestions, autoActionsAvailable]
   );
   // Section is valid only when it's in the VISIBLE list (after the filter above). Without that
   // check, someone deep-linking to `#ai/learning` without the permission for any suggestion
@@ -153,6 +170,7 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
             <LearningNotificationsInbox />
           </div>
         )}
+        {active === 'automatic-actions' && <KbAutoActionsPanel />}
         {active === 'learning-trust' && <LearningTrustSettings />}
         {active === 'lead-qualification' && (
           hasLeadQualification === false ? (

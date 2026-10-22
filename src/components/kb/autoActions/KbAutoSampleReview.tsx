@@ -30,6 +30,7 @@ import {
   type KbAutoSampleItem,
 } from '@/services/kbAutoActions.service';
 import { kbQualityService } from '@/services/kbQuality.service';
+import { savedByLine } from './kbAutoActionCopy';
 import { formatPercent, preview } from './kbAutoFormat';
 
 type Props = {
@@ -165,6 +166,7 @@ export const KbAutoSampleReview = ({ action, onDone }: Props) => {
   }
 
   const item = index < items.length ? items[index] : null;
+  const savedBy = item ? savedByLine(item.capturedVia, item.capturedByName) : null;
   if (!item) {
     return (
       <div className="space-y-2">
@@ -215,6 +217,7 @@ export const KbAutoSampleReview = ({ action, onDone }: Props) => {
           <p className="font-medium whitespace-pre-wrap">{preview(item.question, 400)}</p>
           <p className="whitespace-pre-wrap text-muted-foreground">{preview(item.answer, 600)}</p>
           {item.note && <p className="text-xs italic text-muted-foreground">{item.note}</p>}
+          {savedBy && <p className="text-xs text-muted-foreground">{savedBy}</p>}
         </CardContent>
       </Card>
       <div className="flex flex-wrap gap-2">

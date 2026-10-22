@@ -20,7 +20,7 @@ import {
   type KbAutoGateRefusal,
   type KbAutoRemoveMode,
 } from '@/services/kbAutoActions.service';
-import { ACTION_LABELS, blockedByLine, gateLine } from './kbAutoActionCopy';
+import { ACTION_LABELS, backlogBlockedLine, blockedByLine, gateLine } from './kbAutoActionCopy';
 import { KbAutoSampleReview } from './KbAutoSampleReview';
 
 const MODE_HELP: Record<KbAutoRemoveMode, string> = {
@@ -28,6 +28,29 @@ const MODE_HELP: Record<KbAutoRemoveMode, string> = {
   shadow: 'Shows what it would do, and changes nothing.',
   auto: 'Acts on its own from the next run.',
 };
+
+/**
+ * approveCaptures does not wait for a run: switching it on approves the answers already waiting
+ * (bounded per run; the rest follow), and each new saved answer is approved as soon as it is checked.
+ */
+const CAPTURES_AUTO_HELP =
+  'Right away, approves the waiting answers that pass — a limited number per run, the rest follow — and each new saved answer as soon as it is checked. Every approval is listed under Changed automatically, where you can send it back for review.';
+
+const SEND_BACK =
+  'Every approval is listed under Changed automatically, where you can send it back for review.';
+
+/**
+ * Lowering the bar while Automatic starts no run: newly passing answers wait for their next check.
+ * Answers saved earlier are checked only by the nightly run, so while that is blocked
+ * (`backlogBlockedBy`) the text must not promise tonight.
+ */
+const capturesLowerBar = (backlogBlocked: boolean): string =>
+  backlogBlocked
+    ? `Answers that now pass the lower bar are approved at their next check — for answers saved earlier, only once the nightly check is switched on (see the notice above). ${SEND_BACK}`
+    : `Answers that now pass the lower bar are approved at their next check — tonight at the latest. ${SEND_BACK}`;
+
+const modeHelp = (action: KbAutoActionKey, mode: KbAutoRemoveMode): string =>
+  action === 'approveCaptures' && mode === 'auto' ? CAPTURES_AUTO_HELP : MODE_HELP[mode];
 
 const entries = (count: number) => `${count} ${count === 1 ? 'entry' : 'entries'}`;
 
@@ -59,6 +82,9 @@ export const KbAutoActionRow = ({
   const [saving, setSaving] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [refusal, setRefusal] = useState<KbAutoGateRefusal | null>(null);
+  // The save that switched approveCaptures on started a run over the answers already waiting.
+  // Only a backend that says so (`startedRuns`) shows the line; it stays until the next save.
+  const [applyingNow, setApplyingNow] = useState(false);
 
   // A fresh overview (after a save, or a rating) resets the draft to what is saved.
   useEffect(() => {
@@ -69,9 +95,13 @@ export const KbAutoActionRow = ({
 
   const dirty = mode !== state.mode || (scored && percent !== savedPercent);
   const wouldAct = wouldActAt ? wouldActAt(percent) : state.wouldAct;
+  // Without a per-percent preview the count is the server's, at the SAVED bar: say so while the
+  // slider shows an unsaved value, so the number is not read as belonging to it.
+  const atSavedBar = !wouldActAt && scored && percent !== savedPercent;
   const locked = !state.gate.allowed && !canOverrideGate && state.mode !== 'auto';
   const showGate = refusal !== null || (state.mode !== 'auto' && !state.gate.allowed);
   const blocked = blockedByLine(state.blockedBy);
+  const backlogBlocked = backlogBlockedLine(state.backlogBlockedBy);
 
   const segments: Segment<KbAutoRemoveMode>[] = [
     { value: 'off', label: 'Off' },
@@ -81,12 +111,14 @@ export const KbAutoActionRow = ({
 
   const save = async () => {
     setConfirming(false);
+    setApplyingNow(false);
     setSaving(true);
     setRefusal(null);
     try {
-      await kbAutoActionsService.patchSettings({
+      const result = await kbAutoActionsService.patchSettings({
         [action]: scored ? { mode, threshold: percent / 100 } : { mode },
       });
+      setApplyingNow(action === 'approveCaptures' && result.startedRuns?.[action] === true);
       toast.success('Saved');
       onChanged();
     } catch (err) {
@@ -129,6 +161,11 @@ export const KbAutoActionRow = ({
               <AlertDescription>{blocked}</AlertDescription>
             </Alert>
           )}
+          {backlogBlocked && (
+            <Alert variant="info">
+              <AlertDescription>{backlogBlocked}</AlertDescription>
+            </Alert>
+          )}
           <SegmentedControl
             ariaLabel={`Mode: ${label}`}
             value={mode}
@@ -137,7 +174,7 @@ export const KbAutoActionRow = ({
             }}
             segments={canEdit ? segments : segments.filter((seg) => seg.value === mode)}
           />
-          <p className="text-muted-foreground">{MODE_HELP[mode]}</p>
+          <p className="text-muted-foreground">{modeHelp(action, mode)}</p>
           {showGate && (
             <p className="text-muted-foreground">
               {gateLine(refusal ?? state.gate)}
@@ -174,8 +211,10 @@ export const KbAutoActionRow = ({
                 : wouldAct === 1
                   ? 'answer'
                   : 'answers'}
+              {atSavedBar ? ' at the saved bar' : ''}
             </span>
           </p>
+          {applyingNow && <p role="status">Approving the waiting answers now.</p>}
           <p className="text-muted-foreground">{agreementLine}</p>
           {canEdit ? (
             <Button size="sm" onClick={onSave} disabled={!dirty || saving} isLoading={saving}>
@@ -198,7 +237,11 @@ export const KbAutoActionRow = ({
         description={
           action === 'remove'
             ? `At ${percent}% the next run removes ${entries(wouldAct)} now. Entries a person approved are never removed, and every removed entry can be restored for 90 days.`
-            : `"${label}" acts on its own from the next run. Everything it changes is listed under Changed automatically in the Knowledge Base, with an undo.`
+            : action === 'approveCaptures'
+              ? loweringBar
+                ? capturesLowerBar(backlogBlocked !== null)
+                : CAPTURES_AUTO_HELP
+              : `"${label}" acts on its own from the next run. Everything it changes is listed under Changed automatically in the Knowledge Base, with an undo.`
         }
         confirmText={turningOn ? 'Turn on' : 'Lower the bar'}
       />

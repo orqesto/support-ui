@@ -16,6 +16,8 @@ const state = vi.hoisted(() => ({
   getAllCalls: [] as Array<{ status?: string }>,
   restore: vi.fn(() => Promise.resolve()),
   approve: vi.fn(() => Promise.resolve({ success: true })),
+  /** Whether this backend has the Automatic actions routes (false ⇒ the overview answers 404). */
+  hasAutoActions: true,
 }));
 
 const removedEntry = {
@@ -61,7 +63,18 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
   };
 });
 vi.mock('@/services/kbAutoActions.service', () => ({
-  kbAutoActionsService: { restore: state.restore },
+  kbAutoActionsService: {
+    restore: state.restore,
+    getOverview: () =>
+      state.hasAutoActions
+        ? Promise.resolve({})
+        : Promise.reject(
+            Object.assign(new Error('Request failed'), {
+              status: 404,
+              data: '<pre>Cannot GET</pre>',
+            })
+          ),
+  },
 }));
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -93,6 +106,7 @@ vi.mock('@/hooks/useDepartments', () => ({
 }));
 
 const { KnowledgeBasePage } = await import('../KnowledgeBasePage');
+const { resetAutoActionsAvailability } = await import('@/hooks/useAutoActionsAvailable');
 
 const renderPage = (url = '/knowledge-base') =>
   render(
@@ -110,6 +124,8 @@ afterEach(() => {
   state.getAllCalls.length = 0;
   state.restore.mockClear();
   state.approve.mockClear();
+  state.hasAutoActions = true;
+  resetAutoActionsAvailability();
 });
 
 describe('knowledge base → Removed automatically', () => {
@@ -188,10 +204,19 @@ describe('knowledge base → Removed automatically', () => {
     state.autoRemovedStatus = false;
     renderPage('/knowledge-base?status=auto_removed');
     expect(await screen.findByText('This server cannot filter by this yet.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open Automatic actions' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'Open Automatic actions' })).toHaveAttribute(
       'href',
-      '/knowledge-base/automatic'
+      '/settings#ai/automatic-actions'
     );
     expect(screen.queryByText('Where do I send a return to Example Shop?')).toBeNull();
+  });
+
+  it('a backend without the Automatic actions routes says it arrives with the next release, with no link', async () => {
+    state.autoRemovedStatus = false;
+    state.hasAutoActions = false;
+    renderPage('/knowledge-base?status=auto_removed');
+    expect(await screen.findByText('This server cannot filter by this yet.')).toBeInTheDocument();
+    expect(await screen.findByText(/arrives with the next backend release/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Open Automatic actions' })).toBeNull();
   });
 });

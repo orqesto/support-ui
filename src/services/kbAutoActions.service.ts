@@ -17,8 +17,17 @@ export type KbAutoActionsSettings = {
   remove: { mode: KbAutoRemoveMode; threshold: number };
 };
 
-/** The four automatic actions the backend runs for the knowledge base. */
-export const KB_AUTO_ACTION_KEYS = ['remove', 'approveMined', 'hold', 'cleanPersonalData'] as const;
+/**
+ * The automatic actions the backend runs for the knowledge base. `approveCaptures` (approve answers
+ * people saved) arrives with a newer backend; an older one simply does not send it.
+ */
+export const KB_AUTO_ACTION_KEYS = [
+  'remove',
+  'approveMined',
+  'hold',
+  'cleanPersonalData',
+  'approveCaptures',
+] as const;
 export type KbAutoActionKey = (typeof KB_AUTO_ACTION_KEYS)[number];
 
 export type KbAutoGate = {
@@ -44,6 +53,11 @@ export type KbAutoActionOverview = {
   actedLast90d: number;
   /** Feature-flag keys that stop the action from acting at all. */
   blockedBy: string[];
+  /**
+   * approveCaptures only: feature-flag keys that stop the NIGHTLY check of answers saved earlier
+   * (new ones are still checked when they are saved). Absent on other actions and older backends.
+   */
+  backlogBlockedBy?: string[];
 };
 
 export type KbAutoActionPatch = Partial<
@@ -114,7 +128,16 @@ export type KbAutoSampleItem = {
   confidence: number | null;
   approved: boolean;
   personApproved: boolean;
+  /** approveCaptures: how the person saved it (Resolve & Save, or Save to KB). Null otherwise. */
+  capturedVia: KbCapturedVia | null;
+  /** approveCaptures: who saved it, when the backend could name them. */
+  capturedByName: string | null;
 };
+
+export type KbCapturedVia = 'resolve' | 'manual_promote';
+
+/** Which background runs a settings save started (null: a backend that does not say). */
+export type KbAutoStartedRuns = Partial<Record<KbAutoActionKey, boolean>> | null;
 
 export type KbAutoSample = { items: KbAutoSampleItem[]; poolLimited: boolean };
 
@@ -211,8 +234,25 @@ const normaliseAction = (value: unknown): KbAutoActionOverview => {
     gate: normaliseGate(raw.gate),
     wouldAct: num(raw.wouldAct),
     actedLast90d: num(raw.actedLast90d),
-    blockedBy: arr(raw.blockedBy).filter((flag): flag is string => typeof flag === 'string'),
+    blockedBy: flags(raw.blockedBy),
+    ...(Array.isArray(raw.backlogBlockedBy)
+      ? { backlogBlockedBy: flags(raw.backlogBlockedBy) }
+      : {}),
   };
+};
+
+const flags = (value: unknown): string[] =>
+  arr(value).filter((flag): flag is string => typeof flag === 'string');
+
+const capturedViaOf = (value: unknown): KbCapturedVia | null =>
+  value === 'resolve' || value === 'manual_promote' ? value : null;
+
+const startedRunsOf = (value: unknown): KbAutoStartedRuns => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const raw = value as Obj;
+  return Object.fromEntries(
+    KB_AUTO_ACTION_KEYS.filter((key) => typeof raw[key] === 'boolean').map((key) => [key, raw[key]])
+  );
 };
 
 /** Null when the backend sent no known action: the page then stays the remove-only page. */
@@ -319,6 +359,8 @@ export const normaliseSample = (value: unknown): KbAutoSample => {
         confidence: numOrNull(item.confidence),
         approved: item.approved === true,
         personApproved: item.personApproved === true,
+        capturedVia: capturedViaOf(item.capturedVia),
+        capturedByName: strOrNull(item.capturedByName),
       })),
     poolLimited: raw.poolLimited === true,
   };
@@ -433,15 +475,21 @@ export const kbAutoActionsService = {
   },
 
   /** Saves only the actions given. A switch into Automatic may answer 409 (see `gateRefusal`). */
-  async patchSettings(
-    patch: KbAutoActionPatch
-  ): Promise<{ settings: KbAutoActionsSettings; startedRun: boolean }> {
+  async patchSettings(patch: KbAutoActionPatch): Promise<{
+    settings: KbAutoActionsSettings;
+    startedRun: boolean;
+    startedRuns: KbAutoStartedRuns;
+  }> {
     const response = await apiClient.patch<Envelope>(
       '/api/knowledge-base/auto-actions/settings',
       patch
     );
     const data = asObj(response.data?.data);
-    return { settings: normaliseSettings(data.settings), startedRun: data.startedRun === true };
+    return {
+      settings: normaliseSettings(data.settings),
+      startedRun: data.startedRun === true,
+      startedRuns: startedRunsOf(data.startedRuns),
+    };
   },
 
   /** The gate's refusal carried by a 409 `AUTOMATION_NEEDS_SAMPLE`, or null for any other error. */
@@ -478,5 +526,12 @@ export const kbAutoActionsService = {
 
   async restore(entryId: number): Promise<void> {
     await apiClient.post(`/api/knowledge-base/auto-actions/removed/${entryId}/restore`, {});
+  },
+  /** Puts a saved answer the system approved by itself back to waiting for a reviewer. */
+  async returnApprovedCapture(entryId: number): Promise<void> {
+    await apiClient.post(
+      `/api/knowledge-base/auto-actions/approved-captures/${entryId}/return`,
+      {}
+    );
   },
 };

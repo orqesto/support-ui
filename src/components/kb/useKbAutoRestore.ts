@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
-import { apiErrorMessage } from '@/lib/apiError';
+import { apiErrorMessage, apiErrorStatus } from '@/lib/apiError';
 import { toast } from '@/lib/toast';
 import type { KbFilterStatus } from '@/components/kb/KbStatusFilter';
 import { kbAutoActionsService } from '@/services/kbAutoActions.service';
-import { kbService, type KBEntry, type KbAutoUndo } from '@/services/kb.service';
+import { kbService, type KBEntry, type KbAutoChange, type KbAutoUndo } from '@/services/kb.service';
 import { kbQualityService } from '@/services/kbQuality.service';
 import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 
@@ -13,13 +13,25 @@ export const AUTO_UNDO_LABEL: Record<KbAutoUndo, string> = {
   undo_clean: 'Undo clean-up',
   release_hold: 'Use it again',
   unapprove: 'Un-approve',
+  return_to_review: 'Send back for review',
 };
 export const AUTO_UNDO_TITLE: Record<KbAutoUndo, string> = {
   restore: 'Restore — puts the entry back as it was before it was removed',
   undo_clean: 'Undo clean-up — puts the original text back',
   release_hold: 'Use it again — the AI uses this answer again',
+  return_to_review:
+    'Send back for review — not used in answers until someone approves it; it waits under Needs your decision.',
   // Un-approve IS a reject (PATCH …/reject): worded as every other reject button.
   unapprove: `Un-approve — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`,
+};
+
+/** What each automatic change is called on its row. */
+export const AUTO_CHANGE_KIND_LABELS: Record<KbAutoChange['action'], string> = {
+  remove: 'Removed automatically',
+  hold: 'Set aside automatically',
+  cleanPersonalData: 'Personal details removed automatically',
+  approveMined: 'Approved automatically (learned from mail)',
+  approveCaptures: 'Approved automatically (saved by a person)',
 };
 
 export type KbAutoRestore = {
@@ -47,6 +59,18 @@ const runUndo = async (entry: KBEntry, undo: KbAutoUndo): Promise<string> => {
   if (undo === 'restore') {
     await kbAutoActionsService.restore(entry.id);
     return 'Restored';
+  }
+  if (undo === 'return_to_review') {
+    try {
+      await kbAutoActionsService.returnApprovedCapture(entry.id);
+    } catch (err) {
+      // 409: it is no longer an automatic approval (sent back, or a person decided on it).
+      // Plain words, never the raw server text.
+      if (apiErrorStatus(err) === 409)
+        throw new Error('This answer changed since: it was sent back, or a person decided on it.');
+      throw err;
+    }
+    return 'Sent back for review';
   }
   if (undo === 'unapprove') {
     await kbService.reject(entry.id);
