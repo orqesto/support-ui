@@ -289,7 +289,7 @@ describe('IngestionCard — Gmail', () => {
   it('units plus burst at or above 15,000 is said and blocked', () => {
     wrap(<IngestionCard ingestion={{ ...SETTING, ...GMAIL }} />);
     fireEvent.change(screen.getByLabelText('Gmail burst units'), { target: { value: '3000' } });
-    expect(screen.getByText(/must stay below 15,000/)).toBeTruthy();
+    expect(screen.getAllByText(/must stay below 15,000/)).toHaveLength(2);
     expect(save()).toBeDisabled();
   });
 

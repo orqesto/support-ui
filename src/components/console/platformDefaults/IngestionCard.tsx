@@ -153,7 +153,7 @@ export const IngestionCard = ({ ingestion }: { ingestion: IngestionSettings | un
   const paced = typed('pacedUnitsPerMinute');
   const burst = typed('burstUnits');
   if (paced !== null && burst !== null && paced + burst >= GMAIL_UNIT_LIMIT)
-    crossErrors.burstUnits = `Units per minute plus burst must stay below ${GMAIL_UNIT_LIMIT.toLocaleString('en-US')}.`;
+    crossErrors.burstUnits = crossErrors.pacedUnitsPerMinute = `Units per minute plus burst must stay below ${GMAIL_UNIT_LIMIT.toLocaleString('en-US')}.`;
   if (Object.keys(crossErrors).length > 0) invalid = true;
   const serverError = save.isError ? getApiErrorMessage(save.error) : undefined;
   const nothingChanged = Object.keys(changed).length === 0;

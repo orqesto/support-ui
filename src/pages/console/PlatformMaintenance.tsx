@@ -230,8 +230,18 @@ const RepairRow = ({
           {error}
         </Alert>
       )}
-      {checked && <RepairResultView title="Check (nothing changed)" result={checked} />}
-      {applied && <RepairResultView title="Applied" result={applied} />}
+      {checked &&
+        (repair.pagedByEventId ? (
+          <LostAttachmentsView title="Check (nothing changed)" result={checked} />
+        ) : (
+          <RepairResultView title="Check (nothing changed)" result={checked} />
+        ))}
+      {applied &&
+        (repair.pagedByEventId ? (
+          <LostAttachmentsView title="Applied" result={applied} />
+        ) : (
+          <RepairResultView title="Applied" result={applied} />
+        ))}
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
@@ -293,6 +303,54 @@ export const formatValue = (value: unknown): string => {
 };
 
 /** The backend's answer as it came: each top-level count, nested counts on one line. */
+type LostAttachmentsResult = {
+  scanned?: number;
+  eventsWithLoss?: number;
+  partsLost?: number;
+  byMailbox?: Array<{ messageSourceId: number; name?: string; partsLost: number }>;
+  unrecoverable?: { events?: number; parts?: number };
+  truncated?: boolean;
+  applied?: boolean;
+};
+
+/** The lost-attachments repair, in plain words (no backend keys). */
+const LostAttachmentsView = ({ title, result }: { title: string; result: RepairResult }) => {
+  const data = result as LostAttachmentsResult;
+  const lost = data.partsLost ?? 0;
+  const lostEvents = data.eventsWithLoss ?? 0;
+  const gone = data.unrecoverable;
+  return (
+    <div className="p-3 mt-2 space-y-1 text-sm rounded-md bg-muted/40">
+      <p className="mb-1 font-medium text-foreground">{title}</p>
+      <p>Checked {data.scanned ?? 0} messages.</p>
+      <p>
+        {lost} attachment(s) in {lostEvents} message(s) were lost{' '}
+        {data.applied
+          ? 'and were queued; each mailbox check fetches them a few at a time.'
+          : 'and can be fetched again.'}
+      </p>
+      {(data.byMailbox ?? []).length > 0 && (
+        <ul className="space-y-0.5" data-testid="by-mailbox">
+          {(data.byMailbox ?? []).map((box) => (
+            <li key={box.messageSourceId}>
+              {box.name ?? `Mailbox ${box.messageSourceId}`}: {box.partsLost} attachment(s) lost
+            </li>
+          ))}
+        </ul>
+      )}
+      {gone && (gone.parts ?? 0) > 0 && (
+        <p>
+          {gone.parts} attachment(s) in {gone.events ?? 0} message(s) can&rsquo;t be fetched again
+          because those messages aren&rsquo;t linked to a mailbox.
+        </p>
+      )}
+      {data.truncated === true && (
+        <p className="text-warning">More messages remain — check the next batch.</p>
+      )}
+    </div>
+  );
+};
+
 const RepairResultView = ({ title, result }: { title: string; result: RepairResult }) => {
   const rows = Object.entries(result).filter(
     ([key, value]) => key !== 'success' && value !== undefined && formatValue(value) !== ''
@@ -308,17 +366,6 @@ const RepairResultView = ({ title, result }: { title: string; result: RepairResu
           </div>
         ))}
       </dl>
-      {Array.isArray(result.byMailbox) && (
-        <ul className="mt-2 space-y-0.5" data-testid="by-mailbox">
-          {(
-            result.byMailbox as Array<{ messageSourceId: number; name?: string; partsLost: number }>
-          ).map((box) => (
-            <li key={box.messageSourceId}>
-              {box.name ?? `Mailbox ${box.messageSourceId}`}: {box.partsLost} attachment(s) lost
-            </li>
-          ))}
-        </ul>
-      )}
       {moreRemains(result) && (
         <p className="mt-2 text-warning">
           {typeof result.nextAfterEventId === 'number'
