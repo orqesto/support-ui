@@ -1,5 +1,5 @@
 /**
- * Settings › Teams: every team with an on/off switch, a rename field and "Add team"; the plan
+ * Settings › Teams: every team with an on/off switch, a rename field; the plan
  * limit's 403 message shown as the backend wrote it; and the "Use teams" switch, whose OFF is a
  * one-way merge the dialog says plainly, with the preview's counts.
  */
@@ -50,7 +50,7 @@ vi.mock('@/services/department.service', async (importOriginal) => ({
   },
 }));
 
-const { TeamsSettings, slugFromName } = await import('../TeamsSettings');
+const { TeamsSettings } = await import('../TeamsSettings');
 
 const team = (id: number, name: string, extra: Partial<Department> = {}): Department => ({
   id,
@@ -111,19 +111,16 @@ describe('TeamsSettings — teams on', () => {
       'aria-checked',
       'false'
     );
-    expect(screen.getByRole('button', { name: /Add team/ })).toBeTruthy();
+    // Creating teams is hidden until team presets exist (a new team would get no routing rules).
+    expect(screen.queryByRole('button', { name: /Add team/ })).toBeNull();
+    expect(screen.queryByLabelText('New team')).toBeNull();
   });
 
-  it('Add team sends the name and a slug derived from it', async () => {
-    svc.create.mockResolvedValue(team(9, 'Billing team'));
+  it('has no create control and never calls create', async () => {
     renderPage();
-    fireEvent.change(await screen.findByLabelText('New team'), {
-      target: { value: 'Billing team' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Add team/ }));
-    await waitFor(() =>
-      expect(svc.create).toHaveBeenCalledWith({ name: 'Billing team', slug: 'billing-team' })
-    );
+    await screen.findByLabelText('Name of Support team');
+    expect(screen.queryByRole('button', { name: /Add team/ })).toBeNull();
+    expect(svc.create).not.toHaveBeenCalled();
   });
 
   it('a plan limit refusal (403) is shown exactly as the backend wrote it', async () => {
@@ -146,22 +143,6 @@ describe('TeamsSettings — teams on', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
     await waitFor(() => expect(svc.update).toHaveBeenCalledWith(2, { name: 'Help desk' }));
-  });
-
-  it('teams switched off by someone else meanwhile (409) shows the server message', async () => {
-    svc.create.mockRejectedValue(
-      refused(
-        409,
-        'Teams are switched off for this workspace. Switch teams on in Settings → Teams first.',
-        'TEAMS_SWITCHED_OFF'
-      )
-    );
-    renderPage();
-    fireEvent.change(await screen.findByLabelText('New team'), {
-      target: { value: 'Billing team' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Add team/ }));
-    expect(await screen.findByText(/Teams are switched off for this workspace/)).toBeTruthy();
   });
 
   it('switching one team off asks where its work goes (the default team preselected), then sends it', async () => {
@@ -270,14 +251,6 @@ describe('TeamsSettings — the "Use teams" switch', () => {
   });
 });
 
-describe('slugFromName', () => {
-  it('lowercases, dashes and strips accents; never collides with a taken slug', () => {
-    expect(slugFromName('Kundenservice Ö', [])).toBe('kundenservice-o');
-    expect(slugFromName('Support team', ['support-team'])).toBe('support-team-2');
-    expect(slugFromName('!!!', [])).toBe('team');
-  });
-});
-
 describe('TeamsSettings — a switch-off still running on the server', () => {
   const openAndConfirm = async () => {
     svc.previewTeamsOff.mockResolvedValue({
@@ -368,7 +341,7 @@ describe('TeamsSettings — a switch-off that did not finish', () => {
     svc.setTeamsMode.mockResolvedValue({ teamsEnabled: false });
     renderPage();
     expect(await screen.findByText('Switching teams off didn’t finish')).toBeTruthy();
-    expect(screen.getByText(/you cannot add a team or switch one on/)).toBeTruthy();
+    expect(screen.getByText(/you cannot switch a team on/)).toBeTruthy();
     expect(screen.getByRole('switch', { name: 'Use teams' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Finish switching off' }));
     await waitFor(() => expect(svc.setTeamsMode).toHaveBeenCalledWith(false));
