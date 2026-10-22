@@ -527,4 +527,11 @@ export const kbAutoActionsService = {
   async restore(entryId: number): Promise<void> {
     await apiClient.post(`/api/knowledge-base/auto-actions/removed/${entryId}/restore`, {});
   },
+  /** Puts a saved answer the system approved by itself back to waiting for a reviewer. */
+  async returnApprovedCapture(entryId: number): Promise<void> {
+    await apiClient.post(
+      `/api/knowledge-base/auto-actions/approved-captures/${entryId}/return`,
+      {}
+    );
+  },
 };

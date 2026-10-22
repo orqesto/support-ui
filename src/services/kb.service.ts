@@ -57,17 +57,34 @@ export const normalisePendingDecision = (value: unknown): KbPendingDecision | nu
 };
 
 /** How a change the system made by itself is undone (BE `autoChange.undo`). */
-export type KbAutoUndo = 'restore' | 'undo_clean' | 'release_hold' | 'unapprove';
-const AUTO_UNDOS: readonly KbAutoUndo[] = ['restore', 'undo_clean', 'release_hold', 'unapprove'];
+export type KbAutoUndo =
+  | 'restore'
+  | 'undo_clean'
+  | 'release_hold'
+  | 'unapprove'
+  | 'return_to_review';
+const AUTO_UNDOS: readonly KbAutoUndo[] = [
+  'restore',
+  'undo_clean',
+  'release_hold',
+  'unapprove',
+  'return_to_review',
+];
 export type KbAutoChange = {
-  action: 'remove' | 'hold' | 'cleanPersonalData' | 'approveMined';
+  action: 'remove' | 'hold' | 'cleanPersonalData' | 'approveMined' | 'approveCaptures';
   /** May be null: then the row shows no date. */
   at: string | null;
   confidence: number | null;
   undo: KbAutoUndo;
   suggestionId: number | null;
 };
-const AUTO_ACTIONS: readonly string[] = ['remove', 'hold', 'cleanPersonalData', 'approveMined'];
+const AUTO_ACTIONS: readonly string[] = [
+  'remove',
+  'hold',
+  'cleanPersonalData',
+  'approveMined',
+  'approveCaptures',
+];
 
 /** Absent on an older backend ⇒ null (no undo is offered); an undo this app cannot run ⇒ null. */
 export const normaliseAutoChange = (value: unknown): KbAutoChange | null => {

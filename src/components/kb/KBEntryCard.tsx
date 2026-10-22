@@ -28,7 +28,7 @@ import {
 } from '@/lib/kbConsolidation';
 
 import { RESTORE_AUTO_TITLE } from './KbStatusFilter';
-import { KbAutoUndoButton } from './KbAutoUndoButton';
+import { KbAutoChangeKind, KbAutoUndoButton } from './KbAutoUndoButton';
 import { autoUndoOf, type KbAutoRestore } from './useKbAutoRestore';
 
 const getTypeIcon = (type: string) => {
@@ -109,7 +109,8 @@ export const KBEntryCard = ({
           <KBStatusBadge entry={entry} className="shrink-0" />
         </div>
 
-        <div className="mb-2">
+        <div className="mb-2 flex flex-wrap gap-1">
+          <KbAutoChangeKind entry={entry} autoRestore={autoRestore} />
           <KbPendingDecisionBadge
             decision={entry.pendingDecision}
             others={entry.otherPendingDecisions}

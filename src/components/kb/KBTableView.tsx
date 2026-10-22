@@ -29,7 +29,7 @@ import {
 } from '@/lib/kbConsolidation';
 
 import { RESTORE_AUTO_TITLE } from './KbStatusFilter';
-import { KbAutoUndoButton } from './KbAutoUndoButton';
+import { KbAutoChangeKind, KbAutoUndoButton } from './KbAutoUndoButton';
 import { autoUndoOf, type KbAutoRestore } from './useKbAutoRestore';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 
@@ -176,6 +176,7 @@ export const KBTableView = ({
                     {entry.title}
                   </div>
                   <div className="text-sm text-muted-foreground line-clamp-1">{entry.content}</div>
+                  <KbAutoChangeKind entry={entry} autoRestore={autoRestore} />
                 </td>
                 <td className="hidden px-3 py-3 text-center md:table-cell">
                   {kbSourceConversationId(entry) !== null ? (

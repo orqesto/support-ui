@@ -105,6 +105,26 @@ describe('kbService.getAll filters.decisionStatuses', () => {
 });
 
 describe('normaliseAutoChange', () => {
+  it('keeps a saved answer approved automatically, which is sent back for review', () => {
+    expect(
+      normaliseAutoChange({
+        action: 'approveCaptures',
+        at: '2026-10-20T02:00:00.000Z',
+        confidence: 0.95,
+        undo: 'return_to_review',
+        suggestionId: 12,
+      })
+    ).toEqual({
+      action: 'approveCaptures',
+      at: '2026-10-20T02:00:00.000Z',
+      confidence: 0.95,
+      undo: 'return_to_review',
+      suggestionId: 12,
+    });
+  });
+  it('an action this app does not know ⇒ null', () => {
+    expect(normaliseAutoChange({ action: 'archive', undo: 'restore' })).toBeNull();
+  });
   it('absent or an undo this app cannot run ⇒ null (no button, never a guess)', () => {
     expect(normaliseAutoChange(undefined)).toBeNull();
     expect(normaliseAutoChange({ action: 'remove', undo: 'something_new' })).toBeNull();

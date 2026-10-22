@@ -14,8 +14,10 @@ const state = vi.hoisted(() => ({
   autoChangedStatus: true,
   canReview: true,
   autoEntries: [] as unknown[],
+  returnedEntries: [] as unknown[],
+  toastError: vi.fn(),
   getAllCalls: [] as Array<{ status?: string; search?: string }>,
-  post: vi.fn((..._args: unknown[]) => Promise.resolve({ data: {} })),
+  post: vi.fn((..._args: unknown[]) => Promise.resolve({ data: {} as unknown })),
   patch: vi.fn((..._args: unknown[]) => Promise.resolve({ data: { data: {} } })),
 }));
 
@@ -76,6 +78,11 @@ const minedEntry = autoRow(62, 'Mined answer', {
   undo: 'unapprove',
   suggestionId: null,
 });
+const capturedEntry = autoRow(63, 'Saved answer', {
+  action: 'approveCaptures',
+  undo: 'return_to_review',
+  suggestionId: 15,
+});
 const expiredCapture = {
   ...base,
   id: 70,
@@ -91,6 +98,7 @@ const expiredCapture = {
   },
 };
 
+vi.mock('@/lib/toast', () => ({ toast: { success: vi.fn(), error: state.toastError } }));
 vi.mock('@/lib/api-client', async (importOriginal) => {
   const actual = await importOriginal<typeof ApiClientModule>();
   return {
@@ -118,7 +126,7 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
               ? state.autoEntries
               : [cleanedEntry]
             : status === 'needs_decision'
-              ? [expiredCapture]
+              ? [expiredCapture, ...state.returnedEntries]
               : status === 'suggested_change'
                 ? params.search
                   ? [mergeEntry]
@@ -187,6 +195,9 @@ afterEach(() => {
   state.autoChangedStatus = true;
   state.canReview = true;
   state.autoEntries = [];
+  state.returnedEntries = [];
+  state.toastError.mockClear();
+  state.post.mockImplementation(() => Promise.resolve({ data: {} }));
   state.getAllCalls.length = 0;
   state.post.mockClear();
   state.patch.mockClear();
@@ -237,6 +248,64 @@ describe('knowledge base → Changed automatically', () => {
     expect(state[verb as 'post' | 'patch'].mock.calls[0][0]).toBe(url);
     const other = state[verb === 'post' ? 'patch' : 'post'];
     expect(other).not.toHaveBeenCalled();
+  });
+
+  it('every row says which automatic change it was', async () => {
+    state.autoEntries = [removedEntry, heldEntry, cleanedEntry, minedEntry, capturedEntry];
+    renderPage('/knowledge-base?status=auto_changed');
+    await screen.findAllByText(capturedEntry.title);
+    for (const label of [
+      'Removed automatically',
+      'Set aside automatically',
+      'Personal details removed automatically',
+      'Approved automatically (learned from mail)',
+      'Approved automatically (saved by a person)',
+    ])
+      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+  });
+
+  it('"Send back for review" calls the return route, not reject; the answer then waits under Needs your decision', async () => {
+    state.autoEntries = [capturedEntry, minedEntry];
+    state.post.mockImplementation((url: unknown) => {
+      if (String(url).endsWith('/approved-captures/63/return')) {
+        state.autoEntries = [minedEntry];
+        state.returnedEntries = [{ ...base, id: 63, title: 'Saved answer', approved: false }];
+      }
+      return Promise.resolve({ data: {} });
+    });
+    renderPage('/knowledge-base?status=auto_changed');
+    await screen.findAllByText(capturedEntry.title);
+    fireEvent.click(screen.getAllByRole('button', { name: 'Send back for review' })[0]);
+    await waitFor(() =>
+      expect(state.post).toHaveBeenCalledWith(
+        '/api/knowledge-base/auto-actions/approved-captures/63/return',
+        {}
+      )
+    );
+    expect(state.patch).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByText(capturedEntry.title)).toBeNull());
+    // The mined approval keeps its own undo.
+    expect(screen.getAllByRole('button', { name: 'Un-approve' }).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Needs your decision' }));
+    expect((await screen.findAllByText('Saved answer')).length).toBeGreaterThan(0);
+  });
+
+  it('a 409 (already sent back) shows a plain message and refreshes the list', async () => {
+    state.autoEntries = [capturedEntry];
+    state.post.mockImplementation(() =>
+      Promise.reject(
+        Object.assign(new Error('Request failed with status code 409'), { status: 409 })
+      )
+    );
+    renderPage('/knowledge-base?status=auto_changed');
+    await screen.findAllByText(capturedEntry.title);
+    const callsBefore = state.getAllCalls.length;
+    fireEvent.click(screen.getAllByRole('button', { name: 'Send back for review' })[0]);
+    await waitFor(() => expect(state.toastError).toHaveBeenCalled());
+    expect(state.toastError.mock.calls[0][1]).toEqual({
+      description: 'This answer was already sent back for review.',
+    });
+    await waitFor(() => expect(state.getAllCalls.length).toBeGreaterThan(callsBefore));
   });
 
   it('an older backend (no autoChangedStatus) falls back to "Removed automatically"', async () => {
