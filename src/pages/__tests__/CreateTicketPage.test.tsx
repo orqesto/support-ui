@@ -111,7 +111,7 @@ const renderPage = (entry = '/tickets/create') =>
     </ThemeProvider>
   );
 
-const createButton = () => screen.getByRole('button', { name: 'Create Ticket' });
+const createButton = () => screen.getByRole('button', { name: 'Create ticket' });
 
 const fill = async (user: ReturnType<typeof userEvent.setup>) => {
   await user.type(screen.getByLabelText('Title'), 'Carrier outage');

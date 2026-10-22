@@ -1,0 +1,49 @@
+import { Braces, ChevronDown } from 'lucide-react';
+import type { RefObject } from 'react';
+import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
+import { Button } from '@/components/ui/Button';
+import { Menu, MenuItem, MenuLabel, MenuNote } from '@/components/ui/Menu';
+
+/** The merge fields the server fills per customer at send time (replyPlaceholders.ts, BE). */
+const FIELDS: Array<{ token: string; means: string }> = [
+  { token: '{first_name}', means: 'Customer’s first name — “there” if unknown' },
+  { token: '{customer_name}', means: 'Full name — add a fallback: {customer_name|there}' },
+  { token: '{ticket_id}', means: 'This ticket’s number' },
+  { token: '{thread_id}', means: 'The customer’s own thread reference' },
+  { token: '{agent_name}', means: 'Your name' },
+];
+
+export const InsertFieldMenu = ({
+  onInsert,
+  editor,
+  disabled,
+}: {
+  onInsert?: (token: string) => void;
+  /** Or insert straight into a rich-text editor, at its caret. */
+  editor?: RefObject<RichTextEditorHandle | null>;
+  disabled?: boolean;
+}) => {
+  const insert = (token: string) =>
+    onInsert ? onInsert(token) : editor?.current?.insertText(token);
+  return (
+    <Menu
+      ariaLabel="Insert a field"
+      width={340}
+      trigger={({ toggle }) => (
+        <Button size="sm" variant="outline" type="button" onClick={toggle} disabled={disabled}>
+          <Braces className="mr-1 w-4 h-4" aria-hidden />
+          Insert field
+          <ChevronDown className="ml-1 w-3.5 h-3.5" aria-hidden />
+        </Button>
+      )}
+    >
+      <MenuLabel>Insert a field</MenuLabel>
+      {FIELDS.map((field) => (
+        <MenuItem key={field.token} onSelect={() => insert(field.token)} hint={field.means}>
+          <span className="font-mono text-xs">{field.token}</span>
+        </MenuItem>
+      ))}
+      <MenuNote>Add a fallback for unknown names: {'{customer_name|there}'}</MenuNote>
+    </Menu>
+  );
+};

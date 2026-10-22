@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
-import { Paperclip, Sparkles } from 'lucide-react';
+import { Mail, Paperclip, Sparkles } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { NewTicketFiles, pickUploadableFiles } from '@/components/tickets/NewTicketFiles';
@@ -65,6 +65,7 @@ export const CreateTicketPage = () => {
   const [threadMessageIds, setThreadMessageIds] = useState<number[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
+  const [quoteOpen, setQuoteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** The thread the ticket is created from could not be read: Create cannot go ahead. */
   const [threadFailed, setThreadFailed] = useState(false);
@@ -430,7 +431,7 @@ export const CreateTicketPage = () => {
     <Layout>
       <div className="px-4 mx-auto space-y-4 w-full">
         <div>
-          <h1 className="font-display text-3xl font-bold">Create Ticket</h1>
+          <h1 className="font-display text-3xl font-bold">New ticket</h1>
           <p className="mt-2 text-muted-foreground">
             {messageId
               ? 'Turn this thread into a ticket — add other threads it explains if you like.'
@@ -439,33 +440,31 @@ export const CreateTicketPage = () => {
         </div>
 
         {message && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Original Message</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-sm">
-                <strong>From:</strong> {message.sender}
-              </p>
-              <p className="text-sm">
-                <strong>Channel:</strong> {message.channel}
-              </p>
-              {message.subject && (
-                <p className="text-sm">
-                  <strong>Subject:</strong> {message.subject}
-                </p>
-              )}
-              <p className="text-sm">
-                <strong>Content:</strong>
-              </p>
-              <p className="text-sm text-muted-foreground">{message.content}</p>
-            </CardContent>
+          <Card padding="sm" className="grid gap-1 bg-muted/30">
+            <p className="flex gap-2 items-center min-w-0 text-[13px]">
+              <Mail className="w-3.5 h-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              <b className="truncate">{message.sender}</b>
+              <span className="text-xs text-muted-foreground">{message.channel}</span>
+            </p>
+            {message.subject && <p className="text-[13px] font-semibold">{message.subject}</p>}
+            <p className={`text-[13px] leading-relaxed text-muted-foreground whitespace-pre-line ${quoteOpen ? '' : 'line-clamp-2'}`}>
+              {message.content}
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setQuoteOpen((open) => !open)}
+              className="justify-self-start px-0 h-auto text-primary"
+            >
+              {quoteOpen ? 'Show less' : 'Show the whole message'}
+            </Button>
           </Card>
         )}
 
         <Card>
           <CardHeader>
-            <CardTitle>Ticket Details</CardTitle>
+            <CardTitle>Ticket</CardTitle>
           </CardHeader>
           <CardContent>
             {threadFailed && (
@@ -481,230 +480,241 @@ export const CreateTicketPage = () => {
               </Alert>
             )}
             <form onSubmit={handleSubmit} className="space-y-4">
-              <Input
-                label="Title"
-                value={formData.title}
-                onChange={(event) =>
-                  setFormData((prev) => ({ ...prev, title: event.target.value }))
-                }
-                required
-              />
-
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <label htmlFor="description" className="text-sm font-medium">
-                    Cause or description
-                  </label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAIEnhance}
-                    disabled={!formData.description.trim() || enhancing || loading}
-                    className="gap-1"
-                  >
-                    <Sparkles className="w-3 h-3" />
-                    {enhancing ? 'Enhancing...' : 'AI Enhance'}
-                  </Button>
-                </div>
-                <RichTextEditor
-                  content={formData.description}
-                  onChange={(html: string) =>
-                    setFormData((prev) => ({ ...prev, description: html }))
-                  }
-                  placeholder="What happened, as far as you know"
-                  minHeight="200px"
-                  // Always show the full editor here — no collapse toggle. The
-                  // description is the ticket's core field, not an optional add-on.
-                  initiallyHidden={false}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {messageId ? (
+              <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,28%)]">
+                <div className="space-y-4 min-w-0">
                   <Input
-                    label="Department"
-                    aria-label="Department"
-                    value={threadDepartmentName}
-                    readOnly
-                    disabled
-                  />
-                ) : (
-                  <Select
-                    label="Department"
-                    aria-label="Department"
-                    value={departmentKey ?? ''}
-                    options={departments.map((dept) => ({
-                      value: String(dept.id),
-                      label: dept.name,
-                    }))}
-                    onChange={(value) => {
-                      setPickedDepartmentId(value);
-                      // Another department, another set of people: the owner is chosen again.
-                      setFormData((prev) => ({ ...prev, assigneeId: null }));
-                    }}
-                  />
-                )}
-                <div className="space-y-1">
-                  <Select
-                    label="Owner"
-                    aria-label="Owner"
-                    value={ownerValue}
-                    options={[{ value: '', label: 'Unassigned' }, ...owners]}
-                    onChange={(value) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        assigneeId: value ? Number.parseInt(value, 10) : null,
-                      }))
-                    }
-                    searchable
-                  />
-                  {departmentKey !== null && !ownersLoaded && (
-                    <p className="text-xs text-muted-foreground">Loading who can own it…</p>
-                  )}
-                </div>
-              </div>
-
-              <TicketThreadPicker
-                chosen={chosenThreads}
-                onChosenChange={setChosenThreads}
-                fixed={
-                  message
-                    ? {
-                        id: message.id,
-                        publicId: message.publicId ?? null,
-                        subject: message.subject ?? null,
-                        sender: message.sender ?? '',
-                      }
-                    : null
-                }
-              />
-
-              <p className="pt-2 text-sm font-medium text-muted-foreground">
-                More details (optional)
-              </p>
-
-              <div>
-                <Select
-                  label="Priority"
-                  value={formData.priority}
-                  onChange={(value) =>
-                    setFormData((prev) => ({ ...prev, priority: value as TicketPriority }))
-                  }
-                  options={[
-                    { value: 'low', label: 'Low' },
-                    { value: 'medium', label: 'Medium' },
-                    { value: 'high', label: 'High' },
-                    { value: 'critical', label: 'Critical' },
-                  ]}
-                  placeholder="Select priority"
-                />
-                {aiSuggestions.priority && (
-                  <p className="mt-1 text-xs text-ai">
-                    ✨ AI suggested: {aiSuggestions.priority}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <Select
-                  label="Category"
-                  value={formData.categoryId}
-                  onChange={async (value) => {
-                    if (value === '__new__' && suggestedNewCategory) {
-                      setCreatingCategory(true);
-                      try {
-                        const newCat = await settingsService.createCategory({
-                          name: suggestedNewCategory,
-                        });
-                        setCategories((prev) => [...prev, newCat]);
-                        setFormData((prev) => ({ ...prev, categoryId: String(newCat.id) }));
-                        setSuggestedNewCategory(null);
-                      } catch {
-                        setAlertDialog({
-                          open: true,
-                          title: 'Error',
-                          description: 'Failed to create category.',
-                          variant: 'error',
-                        });
-                      } finally {
-                        setCreatingCategory(false);
-                      }
-                    } else {
-                      setFormData((prev) => ({ ...prev, categoryId: value }));
-                    }
-                  }}
-                  options={[
-                    ...categories.map((cat) => ({
-                      value: String(cat.id),
-                      label: cat.name,
-                    })),
-                    ...(suggestedNewCategory
-                      ? [{ value: '__new__', label: `✨ Create "${suggestedNewCategory}"` }]
-                      : []),
-                  ]}
-                  placeholder="Select a category"
-                  // No category is a valid state: the × returns to it (emits '' as the old empty option did).
-                  clearable
-                  searchable
-                  disabled={creatingCategory}
-                />
-                {aiSuggestions.category && !formData.categoryId && (
-                  <p className="mt-1 text-xs text-ai">
-                    ✨ AI suggested: {aiSuggestions.category}
-                    {suggestedNewCategory
-                      ? ' — not in your list yet, select above to create it'
-                      : ''}
-                  </p>
-                )}
-              </div>
-
-              {hasJira && messageId && (
-                <div className="flex gap-2 items-start p-4 rounded-lg border border-border bg-muted/30">
-                  <input
-                    type="checkbox"
-                    id="syncToJira"
-                    checked={formData.syncToJira}
+                    label="Title"
+                    value={formData.title}
                     onChange={(event) =>
-                      setFormData((prev) => ({ ...prev, syncToJira: event.target.checked }))
+                      setFormData((prev) => ({ ...prev, title: event.target.value }))
                     }
-                    className="mt-0.5 w-4 h-4 text-primary rounded border-border focus:ring-primary focus:ring-2"
+                    required
                   />
-                  <label htmlFor="syncToJira" className="flex-1 text-sm cursor-pointer">
-                    <span className="font-medium">Sync to Jira</span>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Automatically create a Jira ticket when this ticket is created. Ticket will only
-                      sync if it has meaningful title/description and a category (or high/critical
-                      priority).
-                    </p>
-                  </label>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label htmlFor="description" className="text-sm font-medium">
+                        Cause or description
+                      </label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAIEnhance}
+                        disabled={!formData.description.trim() || enhancing || loading}
+                        className="gap-1"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        {enhancing ? 'Enhancing...' : 'AI Enhance'}
+                      </Button>
+                    </div>
+                    <RichTextEditor
+                      content={formData.description}
+                      onChange={(html: string) =>
+                        setFormData((prev) => ({ ...prev, description: html }))
+                      }
+                      placeholder="What happened, as far as you know"
+                      minHeight="200px"
+                      // Always show the full editor here — no collapse toggle. The
+                      // description is the ticket's core field, not an optional add-on.
+                      initiallyHidden={false}
+                    />
+                  </div>
+                  <TicketThreadPicker
+                    chosen={chosenThreads}
+                    onChosenChange={setChosenThreads}
+                    fixed={
+                      message
+                        ? {
+                            id: message.id,
+                            publicId: message.publicId ?? null,
+                            subject: message.subject ?? null,
+                            sender: message.sender ?? '',
+                          }
+                        : null
+                    }
+                  />
+                  {fileNotice && <Alert variant="warning">{fileNotice}</Alert>}
+                  {error && <Alert variant="danger">{error}</Alert>}
                 </div>
-              )}
+                <aside aria-label="Ticket settings" className="space-y-5 lg:pl-6 lg:border-l lg:border-border">
+                  <section className="space-y-3">
+                    <h3 className="font-display text-[10.5px] font-semibold tracking-wider uppercase text-muted-foreground">
+                      Where it goes
+                    </h3>
+                    <div className="grid gap-3">
+                      {messageId ? (
+                        <Input
+                          label="Department"
+                          aria-label="Department"
+                          value={threadDepartmentName}
+                          readOnly
+                          disabled
+                        />
+                      ) : (
+                        <Select
+                          label="Department"
+                          aria-label="Department"
+                          value={departmentKey ?? ''}
+                          options={departments.map((dept) => ({
+                            value: String(dept.id),
+                            label: dept.name,
+                          }))}
+                          onChange={(value) => {
+                            setPickedDepartmentId(value);
+                            // Another department, another set of people: the owner is chosen again.
+                            setFormData((prev) => ({ ...prev, assigneeId: null }));
+                          }}
+                        />
+                      )}
+                      <div className="space-y-1">
+                        <Select
+                          label="Owner"
+                          aria-label="Owner"
+                          value={ownerValue}
+                          options={[{ value: '', label: 'Unassigned' }, ...owners]}
+                          onChange={(value) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              assigneeId: value ? Number.parseInt(value, 10) : null,
+                            }))
+                          }
+                          searchable
+                        />
+                        {departmentKey !== null && !ownersLoaded && (
+                          <p className="text-xs text-muted-foreground">Loading who can own it…</p>
+                        )}
+                      </div>
+                    </div>
+                  </section>
+                  <section className="space-y-3">
+                    <h3 className="font-display text-[10.5px] font-semibold tracking-wider uppercase text-muted-foreground">
+                      More details <span className="font-normal normal-case tracking-normal">· optional</span>
+                    </h3>
+                    <div>
+                      <Select
+                        label="Priority"
+                        value={formData.priority}
+                        onChange={(value) =>
+                          setFormData((prev) => ({ ...prev, priority: value as TicketPriority }))
+                        }
+                        options={[
+                          { value: 'low', label: 'Low' },
+                          { value: 'medium', label: 'Medium' },
+                          { value: 'high', label: 'High' },
+                          { value: 'critical', label: 'Critical' },
+                        ]}
+                        placeholder="Select priority"
+                      />
+                      {aiSuggestions.priority && (
+                        <p className="mt-1 text-xs text-ai">
+                          ✨ AI suggested: {aiSuggestions.priority}
+                        </p>
+                      )}
+                    </div>
 
-              <NewTicketFiles
-                files={selectedFiles}
-                onRemove={handleRemoveFile}
-                disabled={loading}
-              />
+                    <div>
+                      <Select
+                        label="Category"
+                        value={formData.categoryId}
+                        onChange={async (value) => {
+                          if (value === '__new__' && suggestedNewCategory) {
+                            setCreatingCategory(true);
+                            try {
+                              const newCat = await settingsService.createCategory({
+                                name: suggestedNewCategory,
+                              });
+                              setCategories((prev) => [...prev, newCat]);
+                              setFormData((prev) => ({ ...prev, categoryId: String(newCat.id) }));
+                              setSuggestedNewCategory(null);
+                            } catch {
+                              setAlertDialog({
+                                open: true,
+                                title: 'Error',
+                                description: 'Failed to create category.',
+                                variant: 'error',
+                              });
+                            } finally {
+                              setCreatingCategory(false);
+                            }
+                          } else {
+                            setFormData((prev) => ({ ...prev, categoryId: value }));
+                          }
+                        }}
+                        options={[
+                          ...categories.map((cat) => ({
+                            value: String(cat.id),
+                            label: cat.name,
+                          })),
+                          ...(suggestedNewCategory
+                            ? [{ value: '__new__', label: `✨ Create "${suggestedNewCategory}"` }]
+                            : []),
+                        ]}
+                        placeholder="Select a category"
+                        // No category is a valid state: the × returns to it (emits '' as the old empty option did).
+                        clearable
+                        searchable
+                        disabled={creatingCategory}
+                      />
+                      {aiSuggestions.category && !formData.categoryId && (
+                        <p className="mt-1 text-xs text-ai">
+                          ✨ AI suggested: {aiSuggestions.category}
+                          {suggestedNewCategory
+                            ? ' — not in your list yet, select above to create it'
+                            : ''}
+                        </p>
+                      )}
+                    </div>
 
-              {fileNotice && <Alert variant="warning">{fileNotice}</Alert>}
-              {error && <Alert variant="danger">{error}</Alert>}
-
-              <div className="flex gap-2 justify-between items-center pt-4">
-                <label className="flex gap-1 items-center px-3 py-2 text-sm font-medium rounded-md border transition-colors cursor-pointer text-foreground bg-background border-border hover:bg-accent">
-                  <Paperclip className="w-4 h-4" />
-                  <span>Attach Files</span>
-                  <input
-                    type="file"
-                    multiple
-                    onChange={handleFileSelect}
-                    className="hidden"
-                    disabled={loading}
-                  />
-                </label>
+                    {hasJira && messageId && (
+                      <div className="flex gap-2 items-start p-4 rounded-lg border border-border bg-muted/30">
+                        <input
+                          type="checkbox"
+                          id="syncToJira"
+                          checked={formData.syncToJira}
+                          onChange={(event) =>
+                            setFormData((prev) => ({ ...prev, syncToJira: event.target.checked }))
+                          }
+                          className="mt-0.5 w-4 h-4 text-primary rounded border-border focus:ring-primary focus:ring-2"
+                        />
+                        <label htmlFor="syncToJira" className="flex-1 text-sm cursor-pointer">
+                          <span className="font-medium">Sync to Jira</span>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Automatically create a Jira ticket when this ticket is created. Ticket will only
+                            sync if it has meaningful title/description and a category (or high/critical
+                            priority).
+                          </p>
+                        </label>
+                      </div>
+                    )}
+                  </section>
+                  <section className="space-y-3">
+                    <h3 className="font-display text-[10.5px] font-semibold tracking-wider uppercase text-muted-foreground">
+                      Files <span className="font-normal normal-case tracking-normal">· up to 5, 10 MB each</span>
+                    </h3>
+                    <NewTicketFiles
+                      files={selectedFiles}
+                      onRemove={handleRemoveFile}
+                      disabled={loading}
+                    />
+                      <label className="flex gap-1 items-center px-3 py-2 text-sm font-medium rounded-md border transition-colors cursor-pointer text-foreground bg-background border-border hover:bg-accent">
+                        <Paperclip className="w-4 h-4" />
+                        <span>Attach Files</span>
+                        <input
+                          type="file"
+                          multiple
+                          onChange={handleFileSelect}
+                          className="hidden"
+                          disabled={loading}
+                        />
+                      </label>
+                  </section>
+                </aside>
+              </div>
+              <div className="flex gap-2 justify-end items-center pt-2">
                 <div className="flex gap-2">
                   <Button type="submit" isLoading={loading} disabled={!ready || loading || created}>
-                    Create Ticket
+                    Create ticket
                   </Button>
                   <Button
                     type="button"

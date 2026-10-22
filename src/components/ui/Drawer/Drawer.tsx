@@ -9,6 +9,8 @@ export const Drawer = ({
   title,
   children,
   footer,
+  header,
+  bodyClassName = 'p-6',
   side = 'right',
   size = 'lg',
   blur = 'none',
@@ -25,21 +27,27 @@ export const Drawer = ({
       />
 
       <div className={getDrawerContentClasses(side, size)}>
-        <div className="flex justify-between items-center p-4 border-b border-border bg-muted">
-          <h2 className="font-display text-lg font-semibold">{title}</h2>
-          <Button
-            aria-label="Close"
-            title="Close"
-            variant="outline"
-            size="sm"
-            onClick={onClose}
-            className="p-0 w-8 h-8"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        </div>
+        {header !== undefined ? (
+          header
+        ) : (
+          <div className="flex justify-between items-center p-4 border-b border-border bg-muted">
+            <h2 className="font-display text-lg font-semibold">{title}</h2>
+            <Button
+              aria-label="Close"
+              title="Close"
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              className="p-0 w-8 h-8"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
 
-        <div className="relative overflow-y-auto overflow-x-hidden flex-1 p-6">{children}</div>
+        <div className={`relative overflow-y-auto overflow-x-hidden flex-1 ${bodyClassName}`}>
+          {children}
+        </div>
 
         {footer && <div className="p-4 border-t border-border bg-muted">{footer}</div>}
       </div>

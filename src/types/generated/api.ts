@@ -60,6 +60,8 @@ export interface components {
                 name: string;
                 color: string;
             }[];
+            threadCount: number;
+            owedCount: number;
         };
         ContactNote: {
             id: number;

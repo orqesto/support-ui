@@ -20,6 +20,9 @@ interface Options {
   setSelectedJiraId: (id: number | undefined) => void;
   clearCache: () => void;
   fetchTickets: (page?: number, force?: boolean) => Promise<void>;
+  /** When given, a created ticket is handed here instead of refetching the list (the list holds
+   *  new tickets behind a "show" bar rather than shifting under the agent). */
+  onTicketCreated?: (ticketId: number) => void;
 }
 
 export function useTicketsRealtime({
@@ -30,10 +33,13 @@ export function useTicketsRealtime({
   setSelectedJiraId,
   clearCache,
   fetchTickets,
+  onTicketCreated,
 }: Options) {
   const { hasPermission, user } = usePermissions();
   const fetchTicketsRef = useRef(fetchTickets);
   fetchTicketsRef.current = fetchTickets;
+  const onTicketCreatedRef = useRef(onTicketCreated);
+  onTicketCreatedRef.current = onTicketCreated;
 
   // Fetch Jira integrations
   useEffect(() => {
@@ -85,7 +91,12 @@ export function useTicketsRealtime({
       }
     };
 
-    const handleTicketCreated = (_data: unknown) => {
+    const handleTicketCreated = (data: unknown) => {
+      const created = (data as { ticketId?: number } | null)?.ticketId;
+      if (onTicketCreatedRef.current && typeof created === 'number') {
+        onTicketCreatedRef.current(created);
+        return;
+      }
       clearCache();
       fetchTicketsRef.current(paginationPageRef.current, true).catch((error) => {
         logger.error('Failed to fetch tickets after creation:', error);

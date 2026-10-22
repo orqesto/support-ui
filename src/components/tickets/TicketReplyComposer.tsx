@@ -1,3 +1,4 @@
+import { InsertFieldMenu } from './InsertFieldMenu';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Paperclip, X } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
@@ -493,6 +494,7 @@ export const TicketReplyComposer = ({
           <Paperclip className="w-4 h-4 mr-1" aria-hidden />
           Attach
         </Button>
+        <InsertFieldMenu disabled={busy || locked} editor={editorRef} />
         <TicketUpdateActions
           count={selected.length}
           composing={composing}
