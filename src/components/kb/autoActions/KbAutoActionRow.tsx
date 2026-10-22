@@ -29,6 +29,16 @@ const MODE_HELP: Record<KbAutoRemoveMode, string> = {
   auto: 'Acts on its own from the next run.',
 };
 
+/**
+ * approveCaptures does not wait for a run: switching it on approves the answers already waiting,
+ * and each new saved answer is approved as soon as it is checked.
+ */
+const CAPTURES_AUTO_HELP =
+  'Approves the waiting answers that pass right away, and each new saved answer as soon as it is checked. Every approval is listed under Changed automatically, where you can send it back for review.';
+
+const modeHelp = (action: KbAutoActionKey, mode: KbAutoRemoveMode): string =>
+  action === 'approveCaptures' && mode === 'auto' ? CAPTURES_AUTO_HELP : MODE_HELP[mode];
+
 const entries = (count: number) => `${count} ${count === 1 ? 'entry' : 'entries'}`;
 
 type Props = {
@@ -72,6 +82,9 @@ export const KbAutoActionRow = ({
 
   const dirty = mode !== state.mode || (scored && percent !== savedPercent);
   const wouldAct = wouldActAt ? wouldActAt(percent) : state.wouldAct;
+  // Without a per-percent preview the count is the server's, at the SAVED bar: say so while the
+  // slider shows an unsaved value, so the number is not read as belonging to it.
+  const atSavedBar = !wouldActAt && scored && percent !== savedPercent;
   const locked = !state.gate.allowed && !canOverrideGate && state.mode !== 'auto';
   const showGate = refusal !== null || (state.mode !== 'auto' && !state.gate.allowed);
   const blocked = blockedByLine(state.blockedBy);
@@ -85,6 +98,7 @@ export const KbAutoActionRow = ({
 
   const save = async () => {
     setConfirming(false);
+    setApplyingNow(false);
     setSaving(true);
     setRefusal(null);
     try {
@@ -147,7 +161,7 @@ export const KbAutoActionRow = ({
             }}
             segments={canEdit ? segments : segments.filter((seg) => seg.value === mode)}
           />
-          <p className="text-muted-foreground">{MODE_HELP[mode]}</p>
+          <p className="text-muted-foreground">{modeHelp(action, mode)}</p>
           {showGate && (
             <p className="text-muted-foreground">
               {gateLine(refusal ?? state.gate)}
@@ -184,6 +198,7 @@ export const KbAutoActionRow = ({
                 : wouldAct === 1
                   ? 'answer'
                   : 'answers'}
+              {atSavedBar ? ' at the saved bar' : ''}
             </span>
           </p>
           {applyingNow && <p role="status">Approving the waiting answers now.</p>}
@@ -209,7 +224,9 @@ export const KbAutoActionRow = ({
         description={
           action === 'remove'
             ? `At ${percent}% the next run removes ${entries(wouldAct)} now. Entries a person approved are never removed, and every removed entry can be restored for 90 days.`
-            : `"${label}" acts on its own from the next run. Everything it changes is listed under Changed automatically in the Knowledge Base, with an undo.`
+            : action === 'approveCaptures'
+              ? CAPTURES_AUTO_HELP
+              : `"${label}" acts on its own from the next run. Everything it changes is listed under Changed automatically in the Knowledge Base, with an undo.`
         }
         confirmText={turningOn ? 'Turn on' : 'Lower the bar'}
       />

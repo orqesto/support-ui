@@ -219,3 +219,63 @@ describe('Automatic actions — approve answers people saved', () => {
     expect(screen.queryByText(/Approving the waiting answers now/)).not.toBeInTheDocument();
   });
 });
+
+describe('Automatic actions — approve answers people saved: what Automatic means', () => {
+  const autoText =
+    'Approves the waiting answers that pass right away, and each new saved answer as soon as it is checked. Every approval is listed under Changed automatically, where you can send it back for review.';
+
+  it('says when saved answers are approved, in the help and the confirm; other actions keep theirs', async () => {
+    wireCaptures(withCaptures({ gate: gateOpen }));
+    renderPage();
+    const captures = await screen.findByTestId('kb-auto-row-approveCaptures');
+    fireEvent.click(within(captures).getByRole('button', { name: 'Automatic' }));
+    expect(within(captures).getByText(autoText)).toBeInTheDocument();
+    expect(within(captures).queryByText('Acts on its own from the next run.')).toBeNull();
+    fireEvent.click(within(captures).getByRole('button', { name: 'Save' }));
+    expect(within(dialog()).getByText(autoText)).toBeInTheDocument();
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Cancel' }));
+    // Control: another action keeps the generic text.
+    const hold = row('hold');
+    fireEvent.click(within(hold).getByRole('button', { name: 'Automatic' }));
+    expect(within(hold).getByText('Acts on its own from the next run.')).toBeInTheDocument();
+    fireEvent.click(within(hold).getByRole('button', { name: 'Save' }));
+    expect(within(dialog()).getByText(/acts on its own from the next run/)).toBeInTheDocument();
+    expect(within(dialog()).queryByText(autoText)).toBeNull();
+  });
+
+  it('a failed save takes the applying-now line away', async () => {
+    wireCaptures(withCaptures({ gate: gateOpen }));
+    api.patch.mockImplementationOnce(() =>
+      ok({ settings: {}, startedRun: false, startedRuns: { approveCaptures: true } })
+    );
+    api.patch.mockImplementationOnce(() => Promise.reject(new Error('Network down')));
+    renderPage();
+    const captures = await screen.findByTestId('kb-auto-row-approveCaptures');
+    fireEvent.click(within(captures).getByRole('button', { name: 'Automatic' }));
+    fireEvent.click(within(captures).getByRole('button', { name: 'Save' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Turn on' }));
+    await within(row('approveCaptures')).findByText(/Approving the waiting answers now/);
+    // The refreshed overview still says Shadow, so the draft is Automatic again after the reset.
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(2));
+    fireEvent.click(within(row('approveCaptures')).getByRole('button', { name: 'Automatic' }));
+    fireEvent.click(within(row('approveCaptures')).getByRole('button', { name: 'Save' }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Turn on' }));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.queryByText(/Approving the waiting answers now/)).not.toBeInTheDocument()
+    );
+  });
+
+  it('an unsaved bar change says the count is at the saved bar; remove follows the slider', async () => {
+    renderPage();
+    const captures = await screen.findByTestId('kb-auto-row-approveCaptures');
+    expect(within(captures).getByText('Would act on 12 answers')).toBeInTheDocument();
+    fireEvent.change(within(captures).getByRole('slider'), { target: { value: '80' } });
+    expect(
+      within(captures).getByText('Would act on 12 answers at the saved bar')
+    ).toBeInTheDocument();
+    // Control: remove counts at the slider's own value, with no suffix.
+    fireEvent.change(within(row('remove')).getByRole('slider'), { target: { value: '80' } });
+    expect(within(row('remove')).queryByText(/at the saved bar/)).toBeNull();
+  });
+});
