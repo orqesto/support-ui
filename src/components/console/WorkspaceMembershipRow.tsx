@@ -99,9 +99,9 @@ export const WorkspaceMembershipRow = ({
       await organizationService.setMemberDepartments(orgId, userId, Array.from(nextSet));
       setSelectedDeptIds(nextSet);
       onChanged();
-      toast.success(`Departments updated in ${orgName}`);
+      toast.success(`Teams updated in ${orgName}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not update departments');
+      toast.error(error instanceof Error ? error.message : 'Could not update teams');
     } finally {
       setSavingDeptId(null);
     }
@@ -168,7 +168,7 @@ export const WorkspaceMembershipRow = ({
           aria-expanded={deptOpen}
         >
           <Building2 className="mr-2 w-4 h-4" />
-          {deptOpen ? 'Hide departments' : 'Departments'}
+          {deptOpen ? 'Hide teams' : 'Teams'}
         </Button>
         {deptOpen && (
           <div className="pt-2">
@@ -178,13 +178,13 @@ export const WorkspaceMembershipRow = ({
               </div>
             ) : deptQuery.isError ? (
               <div className="flex gap-3 justify-between items-center text-sm text-destructive">
-                <span>Couldn&apos;t load departments.</span>
+                <span>Couldn&apos;t load teams.</span>
                 <Button variant="secondary" size="sm" onClick={() => void deptQuery.refetch()}>
                   Retry
                 </Button>
               </div>
             ) : departments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">This workspace has no departments.</p>
+              <p className="text-sm text-muted-foreground">This workspace has no teams.</p>
             ) : (
               <>
                 <ul className="space-y-2">

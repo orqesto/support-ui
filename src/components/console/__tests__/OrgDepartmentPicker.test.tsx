@@ -13,10 +13,10 @@ const withDepartments = (data: Array<{ id: number; name: string }>, isLoading = 
   mockHook.mockReturnValue({ data, isLoading });
 
 /** The department Select inside the opened disclosure. */
-const picker = (): HTMLElement => screen.getByRole('combobox', { name: 'Acme — departments' });
+const picker = (): HTMLElement => screen.getByRole('combobox', { name: 'Acme — teams' });
 
 /** The picker is collapsed by default, so open it before asserting on its contents. */
-const disclosure = (): HTMLElement => screen.getByRole('button', { name: /departments/i });
+const disclosure = (): HTMLElement => screen.getByRole('button', { name: /teams/i });
 
 const renderOpen = (ui: React.ReactElement) => {
   const result = render(ui);
@@ -47,7 +47,7 @@ describe('OrgDepartmentPicker — collapsed by default', () => {
 
     expect(screen.queryByRole('combobox')).toBeNull();
     // The workspace is still named while collapsed — the label IS the disclosure.
-    expect(disclosure()).toHaveTextContent(/Acme — departments/);
+    expect(disclosure()).toHaveTextContent(/Acme — teams/);
     expect(disclosure()).toHaveAttribute('aria-expanded', 'false');
   });
 
@@ -159,7 +159,7 @@ describe('OrgDepartmentPicker', () => {
       <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[]} onChange={vi.fn()} />
     );
 
-    expect(screen.getByText(/loading departments/i)).toBeInTheDocument();
+    expect(screen.getByText(/loading teams/i)).toBeInTheDocument();
     expect(screen.queryByRole('combobox')).toBeNull();
   });
 

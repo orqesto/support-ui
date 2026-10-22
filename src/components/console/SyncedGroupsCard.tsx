@@ -293,8 +293,8 @@ const SyncedGroupRow = ({
                   <p className="mt-1 text-xs text-muted-foreground">
                     Members get this role in this workspace.
                     {selectedOrgRole === 'org_admin'
-                      ? ' Workspace admins get every department.'
-                      : ' Leave departments empty for the role default.'}
+                      ? ' Workspace admins get every team.'
+                      : ' Leave teams empty for the role default.'}
                     {noWorkspaceSelected ? ' Choose one to map.' : ''}
                   </p>
                 </>

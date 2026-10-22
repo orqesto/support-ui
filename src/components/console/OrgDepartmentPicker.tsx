@@ -65,7 +65,7 @@ export const OrgDepartmentPicker = ({
         className="gap-1 items-center p-0 h-auto text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-primary"
       >
         {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-        {orgLabel} — departments
+        {orgLabel} — teams
         {selected.length > 0 && (
           <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium rounded bg-primary/10 text-primary">
             {selected.length}
@@ -75,16 +75,16 @@ export const OrgDepartmentPicker = ({
       {open && (
         <div id={panelId}>
           {query.isLoading ? (
-            <p className="text-xs text-muted-foreground">Loading departments…</p>
+            <p className="text-xs text-muted-foreground">Loading teams…</p>
           ) : departments.length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              No departments in this workspace — members get the role default.
+              No teams in this workspace — members get the role default.
             </p>
           ) : (
             <Select
               multi
-              aria-label={`${orgLabel} — departments`}
-              placeholder="Role default (no departments)"
+              aria-label={`${orgLabel} — teams`}
+              placeholder="Role default (no teams)"
               options={departments.map((dept) => ({ value: String(dept.id), label: dept.name }))}
               value={selected.map(String)}
               onChange={handleChange}

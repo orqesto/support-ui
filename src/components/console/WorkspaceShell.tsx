@@ -1,3 +1,4 @@
+import { consumeKeepWorkspaceOnExit } from '@/lib/workspaceHandoff';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Boxes, Building2, Settings, ShieldAlert, Users } from 'lucide-react';
@@ -77,6 +78,9 @@ export const WorkspaceShell = () => {
     const restoreTo = contextRef.current.selected;
     return () => {
       const { selected, viewing } = contextRef.current;
+      if (consumeKeepWorkspaceOnExit()) {
+        return;
+      }
       if (restoreTo !== null && restoreTo !== viewing && selected === viewing) {
         setSelectedOrganization(restoreTo);
       }
@@ -226,14 +230,14 @@ export const WorkspaceShell = () => {
             </NavLink>
           </NavTip>
           {isAdmin && (
-            <NavTip label="Departments">
+            <NavTip label="Teams">
               <NavLink
                 to={`${basePath}/departments`}
-                aria-label={collapsed ? 'Departments' : undefined}
+                aria-label={collapsed ? 'Teams' : undefined}
                 className={navLinkClass}
               >
                 <Boxes className="flex-shrink-0 w-4 h-4" />
-                {!collapsed && <span className="truncate">Departments</span>}
+                {!collapsed && <span className="truncate">Teams</span>}
               </NavLink>
             </NavTip>
           )}

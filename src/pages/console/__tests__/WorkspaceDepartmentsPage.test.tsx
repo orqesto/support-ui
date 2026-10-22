@@ -66,6 +66,7 @@ vi.mock('@/hooks/usePermissions', () => ({
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 const { WorkspaceDepartmentsPage } = await import('../WorkspaceDepartmentsPage');
+const { consumeKeepWorkspaceOnExit } = await import('@/lib/workspaceHandoff');
 
 const renderPage = () =>
   render(
@@ -88,15 +89,35 @@ beforeEach(() => {
 });
 
 describe('WorkspaceDepartmentsPage', () => {
+  it('links to the in-app Settings › Teams tab and keeps this workspace as the context', async () => {
+    renderPage();
+    await screen.findByText('Teams');
+    expect(screen.getByText(/Workspace admins manage teams themselves in/)).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: 'Settings › Teams' });
+    expect(link).toHaveAttribute('href', '/settings#teams');
+    expect(consumeKeepWorkspaceOnExit()).toBe(false);
+    fireEvent.click(link);
+    expect(consumeKeepWorkspaceOnExit()).toBe(true);
+    expect(consumeKeepWorkspaceOnExit()).toBe(false);
+  });
+
+  it('states the plan rule truthfully: Free has one team, paid plans no limit', async () => {
+    renderPage();
+    await screen.findByText('Teams');
+    expect(
+      screen.getByText(/Free plan includes one team; paid plans have no team limit/)
+    ).toBeInTheDocument();
+  });
+
   it('lists departments with the budget, over-budget banner, and per-row actions', async () => {
     renderPage();
     // Loads for the org in the route param.
-    expect(await screen.findByText('Departments')).toBeInTheDocument();
+    expect(await screen.findByText('Teams')).toBeInTheDocument();
     expect(listWorkspaceDepartments).toHaveBeenCalledWith(5);
 
     // Budget badge + over-budget banner (3 active of 2).
     expect(screen.getByText('3 of 2 active')).toBeInTheDocument();
-    expect(screen.getByText(/more active departments than its plan allows/i)).toBeInTheDocument();
+    expect(screen.getByText(/more active teams than its plan allows/i)).toBeInTheDocument();
 
     // The default department is locked on; an inactive one offers Activate.
     expect(screen.getByText('Support')).toBeInTheDocument();
@@ -109,14 +130,14 @@ describe('WorkspaceDepartmentsPage', () => {
 
   it('activates an inactive department via the endpoint (org, dept, no override)', async () => {
     renderPage();
-    await screen.findByText('Departments');
+    await screen.findByText('Teams');
     fireEvent.click(screen.getByRole('button', { name: /^activate$/i }));
     await waitFor(() => expect(activateWorkspaceDepartment).toHaveBeenCalledWith(5, 4, false));
   });
 
   it('opening deactivate on a non-empty department requires picking a merge target', async () => {
     renderPage();
-    await screen.findByText('Departments');
+    await screen.findByText('Teams');
     // Sales is non-empty → its Deactivate opens the merge dialog with a target picker.
     const deactivateButtons = screen.getAllByRole('button', { name: 'Deactivate' });
     fireEvent.click(deactivateButtons[0]); // Sales (first active non-default)

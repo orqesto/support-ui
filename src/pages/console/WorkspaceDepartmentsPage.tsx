@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { DeactivateDepartmentDialog } from '@/components/console/DeactivateDepartmentDialog';
 import { Alert } from '@/components/ui/Alert';
@@ -10,6 +10,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { usePermissions } from '@/hooks/usePermissions';
 import { kbMovedSuffix } from '@/lib/kbEntriesMove';
+import { keepWorkspaceOnExit } from '@/lib/workspaceHandoff';
 import {
   platformService,
   type WorkspaceDepartmentRow,
@@ -55,7 +56,7 @@ export const WorkspaceDepartmentsPage = () => {
     try {
       setView(await platformService.listWorkspaceDepartments(numericOrgId));
     } catch (err) {
-      setError(messageOf(err, 'Could not load departments'));
+      setError(messageOf(err, 'Could not load teams'));
     } finally {
       setLoading(false);
     }
@@ -76,7 +77,7 @@ export const WorkspaceDepartmentsPage = () => {
       if (statusOf(err) === 403 && !override) {
         setOverrideFor(dept);
       } else {
-        toast.error(messageOf(err, 'Could not activate department'));
+        toast.error(messageOf(err, 'Could not activate team'));
       }
     } finally {
       setBusyId(null);
@@ -106,7 +107,7 @@ export const WorkspaceDepartmentsPage = () => {
       }
       setDeactivateFor(null);
     } catch (err) {
-      toast.error(messageOf(err, 'Could not deactivate department'));
+      toast.error(messageOf(err, 'Could not deactivate team'));
     } finally {
       setBusyId(null);
     }
@@ -115,7 +116,7 @@ export const WorkspaceDepartmentsPage = () => {
   if (!isAdmin) {
     return (
       <Alert variant="warning" className="max-w-xl">
-        Managing a workspace’s department budget is available to platform administrators only.
+        Managing a workspace’s team budget is available to platform administrators only.
       </Alert>
     );
   }
@@ -132,7 +133,7 @@ export const WorkspaceDepartmentsPage = () => {
     return (
       <Alert variant="danger" className="max-w-xl">
         <div className="space-y-3">
-          <p>{error ?? 'Could not load departments'}</p>
+          <p>{error ?? 'Could not load teams'}</p>
           <Button variant="secondary" onClick={() => void load()}>
             Retry
           </Button>
@@ -152,7 +153,7 @@ export const WorkspaceDepartmentsPage = () => {
     <div className="space-y-6">
       <header className="space-y-1">
         <div className="flex flex-wrap gap-3 items-center">
-          <h1 className="font-display text-xl font-semibold text-foreground">Departments</h1>
+          <h1 className="font-display text-xl font-semibold text-foreground">Teams</h1>
           <Badge variant={overBudget ? 'warning' : 'success'}>
             {unlimited
               ? `${budget.activeCount} active · unlimited`
@@ -160,12 +161,24 @@ export const WorkspaceDepartmentsPage = () => {
           </Badge>
         </div>
         <p className="text-sm text-muted-foreground">
-          Each plan includes a number of active departments. Deactivating a department with data
-          reroutes it into another one — nothing is lost.
+          The Free plan includes one team; paid plans have no team limit. Deactivating a team with
+          data reroutes it into another one — nothing is lost — and you can activate a team beyond
+          the limit with an override.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Workspace admins manage teams themselves in{' '}
+          <Link
+            to="/settings#teams"
+            onClick={keepWorkspaceOnExit}
+            className="underline text-foreground"
+          >
+            Settings › Teams
+          </Link>
+          .
         </p>
         {overBudget && (
           <Alert variant="warning" className="mt-2">
-            This workspace has more active departments than its plan allows ({budget.activeCount} of{' '}
+            This workspace has more active teams than its plan allows ({budget.activeCount} of{' '}
             {budget.limit}). Deactivate one (merging its data into another) to come within budget.
           </Alert>
         )}
@@ -224,7 +237,7 @@ export const WorkspaceDepartmentsPage = () => {
         title="Activate beyond the plan budget?"
         description={
           overrideFor
-            ? `“${overrideFor.name}” would exceed this workspace's plan budget of ${budget.limit} active department(s). As a platform admin you can activate it anyway.`
+            ? `“${overrideFor.name}” would exceed this workspace's plan budget of ${budget.limit} active team(s). As a platform admin you can activate it anyway.`
             : ''
         }
         confirmText="Activate anyway"

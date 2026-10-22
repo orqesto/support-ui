@@ -279,7 +279,7 @@ export const GroupEditor = ({
           )}
           {orgRole === 'org_admin' && selectedOrgIds.length > 0 && (
             <p className="text-xs text-muted-foreground">
-              Workspace admins get every department — department mapping doesn&apos;t apply.
+              Workspace admins get every team — team mapping doesn&apos;t apply.
             </p>
           )}
         </div>

@@ -116,7 +116,7 @@ export const GlobalAdminMembershipsCard = () => {
         open={confirming}
         onOpenChange={setConfirming}
         title="Remove these memberships?"
-        description={`This removes ${rows?.length ?? 0} membership${(rows?.length ?? 0) === 1 ? '' : 's'} and the department links that go with them, across workspaces. It does NOT change anyone's platform role — an account SCIM refuses is refused for being a platform admin, which only a role change resolves.`}
+        description={`This removes ${rows?.length ?? 0} membership${(rows?.length ?? 0) === 1 ? '' : 's'} and the team links that go with them, across workspaces. It does NOT change anyone's platform role — an account SCIM refuses is refused for being a platform admin, which only a role change resolves.`}
         confirmText={removing ? 'Removing…' : 'Remove'}
         onConfirm={() => {
           if (!removing) void remove();
