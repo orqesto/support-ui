@@ -132,6 +132,10 @@ const RepairRow = ({
   const [applied, setApplied] = useState<RepairResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // A paged repair that stopped at its limit: where the next run continues.
+  const [cursor, setCursor] = useState<number | null>(null);
+  // Where the last Check started: Apply must write that same batch, not the one after it.
+  const [checkedFrom, setCheckedFrom] = useState<number | null>(null);
 
   const needsWorkspace = repair.scope === 'workspace' && !organizationId;
   const target = repair.scope === 'workspace' ? organizationId : null;
@@ -146,12 +150,19 @@ const RepairRow = ({
     try {
       const body: Record<string, unknown> = apply ? { apply: true } : {};
       if (apply && repair.scope === 'platform') body.organizationIds = platformIds;
+      const from = apply ? checkedFrom : cursor;
+      if (repair.pagedByEventId && from !== null) body.afterEventId = from;
+      if (!apply) setCheckedFrom(from);
       const result = await maintenanceService.runRepair(
         repair.path,
         repair.method ?? 'post',
         body,
         target
       );
+      if (repair.pagedByEventId) {
+        const next = result.nextAfterEventId;
+        setCursor(moreRemains(result) && typeof next === 'number' ? next : null);
+      }
       // An Apply spends its Check: the next Apply needs a fresh one.
       if (apply) {
         setApplied(result);
@@ -199,7 +210,7 @@ const RepairRow = ({
             disabled={(!allowed && !repair.checkOnly) || needsWorkspace || busy !== null}
             onClick={() => void run(false)}
           >
-            Check
+            {cursor !== null ? 'Check next batch' : 'Check'}
           </Button>
           {!repair.checkOnly && (
             <Button
@@ -219,8 +230,18 @@ const RepairRow = ({
           {error}
         </Alert>
       )}
-      {checked && <RepairResultView title="Check (nothing changed)" result={checked} />}
-      {applied && <RepairResultView title="Applied" result={applied} />}
+      {checked &&
+        (repair.pagedByEventId ? (
+          <LostAttachmentsView title="Check (nothing changed)" result={checked} />
+        ) : (
+          <RepairResultView title="Check (nothing changed)" result={checked} />
+        ))}
+      {applied &&
+        (repair.pagedByEventId ? (
+          <LostAttachmentsView title="Applied" result={applied} />
+        ) : (
+          <RepairResultView title="Applied" result={applied} />
+        ))}
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
@@ -281,6 +302,62 @@ export const formatValue = (value: unknown): string => {
   return String(value);
 };
 
+const plural = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? '' : 's'}`;
+
+type LostAttachmentsResult = {
+  scanned?: number;
+  eventsWithLoss?: number;
+  partsLost?: number;
+  byMailbox?: Array<{ messageSourceId: number; name?: string; partsLost: number }>;
+  unrecoverable?: { events?: number; parts?: number };
+  truncated?: boolean;
+  applied?: boolean;
+};
+
+/** The lost-attachments repair, in plain words (no backend keys). */
+const LostAttachmentsView = ({ title, result }: { title: string; result: RepairResult }) => {
+  const data = result as LostAttachmentsResult;
+  const lost = data.partsLost ?? 0;
+  const lostEvents = data.eventsWithLoss ?? 0;
+  const gone = data.unrecoverable;
+  return (
+    <div className="p-3 mt-2 space-y-1 text-sm rounded-md bg-muted/40">
+      <p className="mb-1 font-medium text-foreground">{title}</p>
+      <p>Checked {plural(data.scanned ?? 0, 'message')}.</p>
+      {lost === 0 ? (
+        <p>No lost attachments found.</p>
+      ) : (
+        <p>
+          {plural(lost, 'attachment')} in {plural(lostEvents, 'message')}{' '}
+          {lost === 1 ? 'was' : 'were'} lost and{' '}
+          {data.applied
+            ? `${lost === 1 ? 'was' : 'were'} queued; each mailbox check fetches ${lost === 1 ? 'it' : 'them'} a few at a time.`
+            : 'can be fetched again.'}
+        </p>
+      )}
+      {(data.byMailbox ?? []).length > 0 && (
+        <ul className="space-y-0.5" data-testid="by-mailbox">
+          {(data.byMailbox ?? []).map((box) => (
+            <li key={box.messageSourceId}>
+              {box.name ?? `Mailbox ${box.messageSourceId}`}: {plural(box.partsLost, 'attachment')}{' '}
+              lost
+            </li>
+          ))}
+        </ul>
+      )}
+      {gone && (gone.parts ?? 0) > 0 && (
+        <p>
+          {plural(gone.parts ?? 0, 'attachment')} in {plural(gone.events ?? 0, 'message')}{' '}
+          can&rsquo;t be fetched again because those messages aren&rsquo;t linked to a mailbox.
+        </p>
+      )}
+      {data.truncated === true && (
+        <p className="text-warning">More messages remain — check the next batch.</p>
+      )}
+    </div>
+  );
+};
+
 /** The backend's answer as it came: each top-level count, nested counts on one line. */
 const RepairResultView = ({ title, result }: { title: string; result: RepairResult }) => {
   const rows = Object.entries(result).filter(
@@ -297,7 +374,13 @@ const RepairResultView = ({ title, result }: { title: string; result: RepairResu
           </div>
         ))}
       </dl>
-      {moreRemains(result) && <p className="mt-2 text-warning">More remain — run it again.</p>}
+      {moreRemains(result) && (
+        <p className="mt-2 text-warning">
+          {typeof result.nextAfterEventId === 'number'
+            ? 'More remain — use “Check next batch” to continue where this stopped.'
+            : 'More remain — run it again.'}
+        </p>
+      )}
     </div>
   );
 };

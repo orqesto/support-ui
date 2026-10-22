@@ -201,6 +201,18 @@ export type IngestionSettings = {
   importResumeAtUnits?: BoundedField;
   /** Seconds between two emails of one ticket reply (`tickets.reply_send_gap`, 2026-10-19). */
   ticketReplyGapSeconds?: BoundedField;
+  /** Failed attachment downloads retried per mailbox check; 0 = off. */
+  attachmentRefetchPerRun?: BoundedField;
+  /** Gmail quota units spent per minute, steady state (Google's limit is 15,000). */
+  pacedUnitsPerMinute?: BoundedField;
+  /** Gmail quota units that may be spent at once; paced + burst must stay below 15,000. */
+  burstUnits?: BoundedField;
+  /** Seconds Gmail calls wait after Google refuses one. */
+  cooldownSeconds?: BoundedField;
+  /** Parallel Gmail fetches while importing. */
+  bulkFetchMax?: BoundedField;
+  /** Parallel Gmail fetches while checking for new mail. */
+  pollFetchMax?: BoundedField;
 };
 /** PUT /settings/ingestion — a PARTIAL body: only the fields sent are saved (at least one). */
 export type PlatformIngestionInput = Partial<Record<keyof IngestionSettings, number>>;
@@ -455,6 +467,12 @@ export const INGESTION_FIELDS = [
   'importPauseAtUnits',
   'importResumeAtUnits',
   'ticketReplyGapSeconds',
+  'attachmentRefetchPerRun',
+  'pacedUnitsPerMinute',
+  'burstUnits',
+  'cooldownSeconds',
+  'bulkFetchMax',
+  'pollFetchMax',
 ] as const;
 
 /**
