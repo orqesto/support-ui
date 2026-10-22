@@ -103,7 +103,7 @@ export const ConsoleAiBudget = () => {
         description={
           data?.active
             ? `${data.name} · ${data.month} · resets ${new Date(data.resetsAt).toLocaleDateString()}`
-            : 'The monthly AI budget of this organisation'
+            : 'The AI budget of this organisation, per billing period'
         }
       />
       {body}

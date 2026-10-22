@@ -33,7 +33,7 @@ const sections = [
   { id: 'business-hours' as OrgSection, label: 'Business Hours', description: 'Working calendar used for open-hours response times' },
   { id: 'open-conversations' as OrgSection, label: 'Open Threads', description: 'How old an email may be and still count as open work' },
   { id: 'security' as OrgSection, label: 'Authentication', description: 'Workspace two-factor authentication policy' },
-  { id: 'ai-usage' as OrgSection, label: 'AI usage', description: 'Monthly AI budget and bulk processing' },
+  { id: 'ai-usage' as OrgSection, label: 'AI usage', description: 'AI budget per billing period and bulk processing' },
 ];
 
 // Workspace-wide policy sub-sections — admin-only (org_admin+/global), hidden from

@@ -37,7 +37,10 @@ const FILTERS: Array<{ value: Filter; label: string }> = [
 export const groupPath = (key: string) =>
   `/console/platform/ai-spend/groups/${encodeURIComponent(key)}`;
 
-/** A small bar: bulk then live mail, as a share of the budget. */
+/**
+ * A small bar: bulk then live mail, as a share of the budget. Kept by design (T8): the list shows
+ * money only — money is the budget's unit; tokens are the admin's secondary figure on a group page.
+ */
 const GroupBar = ({ group }: { group: GroupSummary }) => {
   const size = group.budget && group.budget > 0 ? group.budget : 0;
   const bulk = size ? Math.min(100, (group.spend.bulk / size) * 100) : 0;
@@ -217,13 +220,13 @@ export const PlatformBudgets = () => {
       className="flex flex-col gap-4 pt-6 mt-2 border-t border-border"
     >
       <h2 id="platform-budgets-title" className="font-display text-lg font-semibold">
-        Monthly budgets
+        AI budgets
       </h2>
       {isLoading ? (
         <ConsoleLoading />
       ) : error || !data ? (
         <Alert variant="danger">
-          {getApiErrorMessage(error) ?? 'Could not read the monthly budgets.'}
+          {getApiErrorMessage(error) ?? 'Could not read the AI budgets.'}
         </Alert>
       ) : !data.available ? (
         <p className="text-sm text-muted-foreground">Budgets need the latest server update.</p>

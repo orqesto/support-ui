@@ -464,7 +464,9 @@ export const PlatformAiSpend = () => {
                         <th className="px-3 py-2 font-medium">Token limits · today / month</th>
                       )}
                       <th className="px-3 py-2 font-medium">
-                        AI calls / month (plan)
+                        {/* Before Apply the plan's monthly AI-call cap still refuses work; after
+                            it the calls are a count only, never a limit. */}
+                        {legacyLimits ? 'AI calls / month (plan)' : 'AI calls (count)'}
                         {capMonth && (
                           <span className="ml-1 font-normal text-muted-foreground">
                             · {formatMonth(capMonth)}
@@ -559,8 +561,8 @@ export const PlatformAiSpend = () => {
               <CardContent padding="none">
                 <p className="px-3 py-2 text-xs border-b text-muted-foreground border-border">
                   By model · what the tier columns above are made of. A model with no
-                  published rate is listed here with its tokens rather than priced at a
-                  guess. Platform-key usage takes the tier rates under Platform defaults;
+                  published rate is flagged here with its tokens; the AI budgets count it at
+                  the highest known rate, so it is never free. Platform-key usage takes the tier rates under Platform defaults;
                   a workspace&apos;s own-key usage takes the cost rates on its AI provider
                   (Settings › Integrations › AI Providers).
                 </p>
@@ -634,7 +636,7 @@ export const PlatformAiSpend = () => {
           }
         />
       )}
-      {/* The monthly AI budgets: groups, the switch-over, requests, settings. */}
+      {/* The AI budgets (per billing period): groups, the switch-over, requests, settings. */}
       <PlatformBudgets />
       {legacyLimits && usage && (
         <section aria-labelledby="legacy-limits-title" className="flex flex-col gap-4">

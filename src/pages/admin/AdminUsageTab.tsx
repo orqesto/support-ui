@@ -38,7 +38,7 @@ import { Select, type Option } from '@/components/ui/Select';
 import { Label } from '@/components/ui/Label';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Pagination } from '@/components/ui/Pagination';
-import { loadAiStatus } from '@/components/subscription/aiStatus';
+import { useBudgetState } from '@/hooks/useBudgets';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 import { OrgLimitOverridesSection } from './OrgLimitOverridesSection';
@@ -95,12 +95,11 @@ export const AdminUsageTab = () => {
   }, []);
 
   // Before the money budgets are applied the old monthly AI-call cap still refuses work, so the
-  // AI-call column keeps its limit (platform-wide switch; the answer for this session's workspace).
-  const [budgetsActive, setBudgetsActive] = useState(false);
-
-  useEffect(() => {
-    void loadAiStatus().then((ai) => setBudgetsActive(ai?.active === true));
-  }, []);
+  // AI-call column keeps its limit. Read from the PLATFORM budget state (activatedAt), not the
+  // workspace-scoped /api/usage/current: a global admin without a workspace gets a 400 there and
+  // would keep the stale AI-call warnings after Apply. Unknown (old backend, error) = not active.
+  const budgetState = useBudgetState().data;
+  const budgetsActive = budgetState?.available === true && budgetState.state.active;
 
   useEffect(() => {
     const init = async () => {

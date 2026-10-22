@@ -62,7 +62,15 @@ export const PlatformBudgetGroup = () => {
   else
     body = (
       <>
-        <BudgetRequestsCard requests={detail.requests} groupKey={key} />
+        <BudgetRequestsCard
+          requests={detail.requests}
+          groupKey={key}
+          organisation={
+            detail.kind === 'alliance'
+              ? { allianceId: detail.id, separate: detail.mode?.current === 'separate' }
+              : undefined
+          }
+        />
         <BudgetGroupView
           detail={detail}
           canEdit={detail.canEdit}

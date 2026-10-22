@@ -19,6 +19,7 @@ import { BudgetBar } from './BudgetBar';
 import { BulkBar } from './BulkBar';
 import { BulkLimitField, FieldLabel } from './BulkLimitField';
 import { ExtraBox } from './ExtraBox';
+import { SeparateGroupExtra } from './SeparateGroupExtra';
 import { RequestExtraBox, type RequestTarget } from './RequestExtraBox';
 import { StatusText } from './StatusText';
 import { WorkspaceRows, panelIdFor } from './WorkspaceRows';
@@ -502,6 +503,13 @@ export const BudgetGroupView = ({
                 : "Change it on the workspace's row."}{' '}
               The figures above are the sum of the workspaces.
             </p>
+          )}
+          {separate && detail.groupExtra && (
+            <SeparateGroupExtra
+              extra={detail.groupExtra}
+              busy={busy}
+              onEnd={canEdit.grant ? onEndExtra : undefined}
+            />
           )}
           {detail.kind === 'alliance' &&
             !separate &&
