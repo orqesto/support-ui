@@ -1,6 +1,17 @@
 import type { ReactNode } from 'react';
-import { GitBranch, Link as LinkIcon, Lock, MoreHorizontal, Send, Trash2 } from 'lucide-react';
+import {
+  GitBranch,
+  Hash,
+  Link as LinkIcon,
+  Lock,
+  MoreHorizontal,
+  Send,
+  Trash2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { logger } from '@/lib/logger';
+import { toast } from '@/lib/toast';
+import { useTicketDisplayId } from './TicketRef';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { Card } from '@/components/ui/Card';
 import { ExternalLink } from '@/components/ui/ExternalLink';
@@ -89,12 +100,15 @@ export const JiraSection = ({
 export const TicketMoreMenu = ({
   linkCopied,
   onCopyLink,
+  copyIdOf,
   onMove,
   onPushToJira,
   onDelete,
 }: {
   linkCopied: boolean;
   onCopyLink: () => void;
+  /** The ticket whose shown id "Copy ID" copies (`ACME-SUP-T-42`); absent: no item. */
+  copyIdOf?: { id: number; reference?: string | null };
   onMove?: () => void;
   onPushToJira?: () => void;
   onDelete?: () => void;
@@ -121,6 +135,7 @@ export const TicketMoreMenu = ({
     <MenuItem icon={<LinkIcon className="w-3.5 h-3.5" />} onSelect={onCopyLink}>
       {linkCopied ? 'Link copied' : 'Copy link'}
     </MenuItem>
+    {copyIdOf && <CopyTicketIdItem ticket={copyIdOf} />}
     {onMove && (
       <MenuItem icon={<GitBranch className="w-3.5 h-3.5" />} onSelect={onMove}>
         Move team…
@@ -141,3 +156,22 @@ export const TicketMoreMenu = ({
     )}
   </Menu>
 );
+
+/** "Copy ID" — the shown id, with the workspace code (read only when the ticket has a number). */
+const CopyTicketIdItem = ({ ticket }: { ticket: { id: number; reference?: string | null } }) => {
+  const shownId = useTicketDisplayId(ticket);
+  return (
+    <MenuItem
+      icon={<Hash className="w-3.5 h-3.5" />}
+      onSelect={() => {
+        navigator.clipboard
+          .writeText(shownId)
+          .then(() => toast.success(`Copied ${shownId}`))
+          // The browser refused the clipboard (no backend involved): log it, as Copy link does.
+          .catch((err: unknown) => logger.error('Failed to copy the ticket ID:', err));
+      }}
+    >
+      Copy ID
+    </MenuItem>
+  );
+};

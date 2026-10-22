@@ -16,6 +16,7 @@ import type { Ticket } from '@/types';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
+import { TicketRef } from '@/components/tickets/TicketRef';
 
 export const TicketDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -176,7 +177,7 @@ export const TicketDetailPage = () => {
                     </Button>
                   </Tooltip>
                   <span>/</span>
-                  <span className="font-mono">#{ticket.id}</span>
+                  <TicketRef ticket={ticket} />
                   <span className="flex-1" />
                   <Tooltip content="Copy link">
                     <Button

@@ -4,6 +4,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { Menu, MenuItem, MenuLabel, MenuNote, MenuSeparator } from '@/components/ui/Menu';
 import type { Ticket } from '@/types';
 import { Avatar } from './ticketRowBits';
+import { TicketRef } from '@/components/tickets/TicketRef';
 
 export type AssigneeCellProps = {
   ticket: Ticket;
@@ -75,7 +76,9 @@ export const AssigneeCell = ({
             </Button>
           )}
         >
-          <MenuLabel>Assign #{ticket.id} to</MenuLabel>
+          <MenuLabel>
+            Assign <TicketRef ticket={ticket} /> to
+          </MenuLabel>
           {assignees.map((user) => (
             <MenuItem
               key={user.id}
@@ -145,7 +148,9 @@ export const AssigneeCell = ({
           </Tooltip>
         )}
       >
-        <MenuLabel>Assign #{ticket.id} to</MenuLabel>
+        <MenuLabel>
+          Assign <TicketRef ticket={ticket} /> to
+        </MenuLabel>
         {assignees.map((user) => (
           <MenuItem
             key={user.id}

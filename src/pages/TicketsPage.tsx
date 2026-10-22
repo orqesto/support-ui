@@ -26,6 +26,8 @@ import { assignmentService } from '@/services/assignment.service';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { NewTicketButton } from '@/components/tickets/NewTicketButton';
 import { TicketsKanbanView } from '@/components/tickets/TicketsKanbanView';
+import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
+import { ticketDisplayId } from '@/lib/ticketReference';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -93,6 +95,7 @@ export const TicketsPage = () => {
 
   const { hasPermission, hasAnyPermission } = usePermissions();
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
+  const orgCode = useCurrentOrgCode();
   // Bumped by a realtime ticket event or a change made here, so the pill counts follow the list.
   const [countsKey, setCountsKey] = useState(0);
   const filterSources = useTicketFilterSources();
@@ -291,12 +294,16 @@ export const TicketsPage = () => {
   const handleAssign = async (ticketId: number, userId: number | null) => {
     try {
       await assignmentService.assignTicket(ticketId, userId);
+      const shown = ticketDisplayId(
+        { id: ticketId, reference: tickets.find((tick) => tick.id === ticketId)?.reference },
+        orgCode
+      );
       toast.success(
         userId === null
-          ? `#${ticketId} unassigned`
+          ? `${shown} unassigned`
           : userId === currentUserId
-            ? `#${ticketId} claimed — assigned to you`
-            : `#${ticketId} re-assigned`
+            ? `${shown} claimed — assigned to you`
+            : `${shown} re-assigned`
       );
       clearCache();
       await fetchTickets(pagination.page, true);
@@ -411,6 +418,7 @@ export const TicketsPage = () => {
       renderChrome={(more, body) => (
         <TicketPanel
           ticketId={selectedTicket.id}
+          label={ticketDisplayId(selectedTicket, orgCode)}
           prevId={prevTicket?.id ?? null}
           nextId={nextTicket?.id ?? null}
           onGo={goTo}
@@ -627,7 +635,7 @@ export const TicketsPage = () => {
         <Drawer
           open
           onClose={closeTicket}
-          title={`Ticket #${selectedTicket.id}`}
+          title={`Ticket ${ticketDisplayId(selectedTicket, orgCode)}`}
           size="sheet"
           bodyClassName="p-0"
           header={null}

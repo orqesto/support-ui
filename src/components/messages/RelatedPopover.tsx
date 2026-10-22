@@ -43,13 +43,18 @@ import { createTicketLabel, priorityLabel, statusLabel } from './messageDetailCo
 import { bareStatusLabel } from './inboxCardHelpers';
 import { useIsPhone } from './useIsPhone';
 import { useModalLayer } from '@/hooks/useModalLayer';
+import { TicketRef } from '@/components/tickets/TicketRef';
+import { ticketDisplayId } from '@/lib/ticketReference';
 
-/** The prompt a fixed incident owes THIS customer (D2) — one sentence, every owed ticket named. */
-export const owesReplySentence = (ticketIds: number[]): string | null => {
-  if (ticketIds.length === 0) return null;
-  return ticketIds.length === 1
-    ? `Ticket #${ticketIds[0]} is fixed — reply to tell this customer.`
-    : `Tickets ${ticketIds.map((id) => `#${id}`).join(', ')} are fixed — reply to tell this customer.`;
+/**
+ * The prompt a fixed incident owes THIS customer (D2) — one sentence, every owed ticket named by
+ * its shown id (`ACME-SUP-T-42`, `#21` before it has a number; `ticketDisplayId`).
+ */
+export const owesReplySentence = (shownIds: string[]): string | null => {
+  if (shownIds.length === 0) return null;
+  return shownIds.length === 1
+    ? `Ticket ${shownIds[0]} is fixed — reply to tell this customer.`
+    : `Tickets ${shownIds.join(', ')} are fixed — reply to tell this customer.`;
 };
 
 /**
@@ -412,7 +417,11 @@ export const TicketsSection = ({
       // The service announces the change: the header reloads its tickets from that.
       await ticketThreadsService.removeThread(ticketId, conversationId);
       // Said out loud: "Remove" could read as deleting the ticket, or this thread.
-      toast.success(`Removed from ticket #${ticketId} — the ticket and this thread are both kept`);
+      const shown = ticketDisplayId(
+        { id: ticketId, reference: rows.find((row) => row.ticketId === ticketId)?.reference },
+        orgCode
+      );
+      toast.success(`Removed from ticket ${shown} — the ticket and this thread are both kept`);
       setFocusAfter({ ticketId, index, removed: true });
       onRemoved?.({ ticketId, conversationId });
     } catch (err) {
@@ -506,7 +515,11 @@ export const TicketsSection = ({
       {rows.map((row, index) => {
         const threads = threadsByTicket[row.ticketId];
         const listed = index < THREAD_LIST_CAP;
-        const owes = owesReplySentence(row.owesReply === true ? [row.ticketId] : []);
+        const owes = owesReplySentence(
+          row.owesReply === true
+            ? [ticketDisplayId({ id: row.ticketId, reference: row.reference }, orgCode)]
+            : []
+        );
         // Status · priority. The route sends no assignee, so the card names none (v4 drew one).
         const facts = [
           { key: 'status', text: row.status ? statusLabel(row.status) : '' },
@@ -520,10 +533,11 @@ export const TicketsSection = ({
           >
             <article className={REL_TICKET_CARD}>
               <div className="flex items-center gap-2">
-                {/* #id — the same number the ticket page and the list show. */}
-                <span className="font-mono text-[11.5px] text-muted-foreground">
-                  #{row.ticketId}
-                </span>
+                {/* The same id the ticket page and the list show (ACME-SUP-T-42, or #id). */}
+                <TicketRef
+                  ticket={{ id: row.ticketId, reference: row.reference }}
+                  className="text-[11.5px] text-muted-foreground"
+                />
                 {row.externalId && <span className={REL_JIRA_TAG}>Jira {row.externalId}</span>}
               </div>
               <b className="text-[13px] font-semibold leading-[1.35]">{row.title}</b>

@@ -13,6 +13,7 @@ import {
   spineTone,
 } from './ticketRowBits';
 import type { TicketRowProps } from './ticketRowShared';
+import { TicketRef } from '@/components/tickets/TicketRef';
 
 /**
  * One ticket as a card — the Messages card: a coloured spine, the title line with its age, a
@@ -44,7 +45,7 @@ export const TicketCard = ({
     <span className={`absolute inset-y-0 left-0 w-[3px] ${SPINE_CLASS[spineTone(ticket)]}`} />
     <div className="flex gap-2 items-center min-w-0">
       <PriorityIcon priority={ticket.priority} />
-      <span className="font-mono text-[11.5px] text-muted-foreground shrink-0">#{ticket.id}</span>
+      <TicketRef ticket={ticket} className="text-[11.5px] text-muted-foreground shrink-0" />
       <span className="flex-1 min-w-0 text-sm font-semibold truncate">{ticket.title}</span>
       <span className="font-mono text-[11.5px] text-muted-foreground whitespace-nowrap">
         {formatAge(ticket.updatedAt)}

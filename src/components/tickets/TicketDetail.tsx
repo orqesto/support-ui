@@ -41,6 +41,7 @@ import { Permission } from '@/types/roles';
 import type { Ticket, TicketStatus, TicketPriority, Message, Category } from '@/types';
 import { logger } from '@/lib/logger';
 import { allowedStatusOptions } from '@/lib/ticketStatus';
+import { TicketRef } from '@/components/tickets/TicketRef';
 
 type TicketDetailProps = {
   ticket: Ticket;
@@ -384,6 +385,7 @@ export const TicketDetail = ({
     <TicketMoreMenu
       linkCopied={linkCopied}
       onCopyLink={handleCopyLink}
+      copyIdOf={ticket.reference ? ticket : undefined}
       onMove={hasManageTickets && teamsEnabled ? () => setMoveDeptOpen(true) : undefined}
       onPushToJira={jiraOn && !ticket.externalId ? onPushToJira : undefined}
       onDelete={onDelete}
@@ -407,7 +409,7 @@ export const TicketDetail = ({
               <div className="flex flex-wrap gap-2 items-center text-[12.5px] text-muted-foreground">
                 <StatusDot status={localStatus} />
                 <span>·</span>
-                <span className="font-mono text-xs">#{ticket.id}</span>
+                <TicketRef ticket={ticket} className="text-xs" />
                 {ticket.categoryName && (
                   <>
                     <span>·</span>
