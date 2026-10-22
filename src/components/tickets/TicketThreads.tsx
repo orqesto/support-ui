@@ -1,3 +1,4 @@
+import { TicketReachStrip } from './TicketReachStrip';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ExternalLink as ExternalLinkIcon, Mail, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -382,6 +383,7 @@ export const TicketThreads = ({ ticketId, onCountChange, fallback, ticketStatus 
 
   return (
     <div className="space-y-2">
+      <TicketReachStrip threads={threads} ticketDone={ticketDone} />
       <div className="flex items-center justify-between gap-2">
         {owing > 0 ? (
           <Badge variant="warning" size="sm">
