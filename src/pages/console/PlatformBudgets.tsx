@@ -207,7 +207,7 @@ const GroupList = ({ state }: { state: BudgetState }) => {
 };
 
 /**
- * The monthly AI budgets on Platform → AI Spend, under the spend charts. An older backend (no
+ * The AI budgets (per billing period) on Platform → AI Spend, under the spend charts. An older backend (no
  * budget API) gets one line; before Apply, the switch-over panel; after it, the group list.
  * The group calls are never made before the budgets are switched on (they answer 409 then).
  */

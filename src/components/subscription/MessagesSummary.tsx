@@ -19,9 +19,10 @@ export const messagesSummary = (
  * Where a workspace's AI runs, when it is not part of the messages:
  * - `own_key`: the workspace's own AI key (and Free on an older backend: Free's own-key model);
  * - `starter`: Free on our key, on its one-time starter allowance;
- * - `not_in_plan`: a paid plan without AI and no own key — NOT "runs on your own key".
+ * - `not_in_plan`: a paid plan without AI and no own key — NOT "runs on your own key";
+ * - `ai_off`: Free in own-key mode with no provider enabled — no AI runs (not "starter").
  */
-export type AiSource = 'included' | 'own_key' | 'starter' | 'not_in_plan';
+export type AiSource = 'included' | 'own_key' | 'starter' | 'not_in_plan' | 'ai_off';
 
 const aiSourceSentence = (source: AiSource, limit: number): string => {
   const covers = `your plan covers ${limit.toLocaleString()} messages.`;
@@ -34,6 +35,8 @@ const aiSourceSentence = (source: AiSource, limit: number): string => {
       return ` AI runs on a starter allowance on us until you add your own AI key; ${covers}`;
     case 'not_in_plan':
       return ` AI is not included in your plan: upgrade, or connect your own AI key; ${covers}`;
+    case 'ai_off':
+      return ` AI is off: add your own AI key to run it; ${covers}`;
   }
 };
 
@@ -43,14 +46,22 @@ export const aiSourceOf = ({
   ownKey,
   notInPlan,
   hasStarterAllowance,
+  ourAiOff = false,
+  starterPaused = false,
 }: {
   planName: string;
   ownKey: boolean;
   notInPlan: boolean;
   hasStarterAllowance: boolean;
+  /** Platform AI is switched off for the workspace (own-key mode); unknown = false. */
+  ourAiOff?: boolean;
+  /** The allowance was in use and is now used up (paused, reason free_allowance_used). */
+  starterPaused?: boolean;
 }): AiSource => {
   if (ownKey) return 'own_key';
-  if (hasStarterAllowance) return 'starter';
+  // The allowance runs only on our AI: in own-key mode with no provider, no AI runs at all.
+  if (hasStarterAllowance && (!ourAiOff || starterPaused)) return 'starter';
+  if (hasStarterAllowance) return 'ai_off';
   if (planName !== 'free' && !notInPlan) return 'included';
   return planName === 'free' ? 'own_key' : 'not_in_plan';
 };

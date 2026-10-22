@@ -448,4 +448,16 @@ describe('Subscription page: Free AI starter allowance', () => {
     );
     expect(screen.queryByTestId('starter-allowance-line')).not.toBeInTheDocument();
   });
+
+  it('own-key mode with no provider (review finding 4): "AI is off", no starter line', async () => {
+    load(starter(), 'active', true, { platform: { active: false }, enabled: [] });
+    render(<SubscriptionPage />);
+    await waitFor(() =>
+      expect(screen.getByTestId('messages-summary')).toHaveTextContent(
+        'AI is off: add your own AI key to run it'
+      )
+    );
+    expect(screen.getByTestId('messages-summary')).not.toHaveTextContent(/starter allowance/);
+    expect(screen.queryByTestId('starter-allowance-line')).not.toBeInTheDocument();
+  });
 });

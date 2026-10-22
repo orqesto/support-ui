@@ -166,7 +166,7 @@ export const PlatformAiSpend = () => {
 
   const usage = data?.usage;
   /**
-   * The old daily/monthly token limits enforce until the monthly budgets are switched on (a
+   * The old daily/monthly token limits enforce until the AI budgets are switched on (a
    * backend without the budget API, or one before Apply), so until then the admin keeps the
    * controls that raise a cap stopping work. Once the budgets are active they are not shown.
    */

@@ -2,9 +2,28 @@ import { Bot, Check, KeyRound } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
 import {
+  FREE_AI_ALLOWANCE_USED,
   starterAllowanceLine,
   type StarterAllowance,
 } from '@/components/subscription/starterAllowance';
+
+/**
+ * Why a switch of the AI mode was refused. "Your free AI allowance is used" ONLY when the refusal
+ * code says so: a generic `managed_ai_not_entitled` on Free can also be a failed allowance read
+ * (the backend fails closed), so it keeps the generic sentence.
+ */
+export const modeSwitchErrorText = (code: string | undefined, fallback: string | undefined) => {
+  switch (code) {
+    case FREE_AI_ALLOWANCE_USED:
+      return 'Your free AI allowance is used. Connect your own provider, or upgrade your plan.';
+    case 'managed_ai_not_entitled':
+      return 'Managed AI is not available on your current plan. Upgrade your plan, or connect your own provider.';
+    case 'managed_ai_requires_verified_admin':
+      return 'This workspace has no admin with a verified email. One of its admins must verify their email before managed AI can be enabled.';
+    default:
+      return fallback ?? 'Failed to change AI mode.';
+  }
+};
 
 type AiMode = 'byo' | 'managed';
 

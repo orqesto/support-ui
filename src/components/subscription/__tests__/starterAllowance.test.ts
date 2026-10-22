@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AI_REFUSAL_CODES,
+  aiRefusalText,
   FREE_AI_ALLOWANCE_USED,
   isStarterPaused,
   isFreeAiAllowanceUsedError,
@@ -44,12 +45,13 @@ describe('parseStarterAllowance', () => {
   });
 
   it('a microsPerMessage a later backend sends wins (block or ai block)', () => {
+    // 5,000, not the derived 4,000 (400,000 / 100): the test fails if the sent value is ignored.
     expect(
-      parseStarterAllowance({ starterAllowance: block({ microsPerMessage: 4_000 }) })
-    ).toMatchObject({ microsPerMessage: 4_000 });
+      parseStarterAllowance({ starterAllowance: block({ microsPerMessage: 5_000 }) })
+    ).toMatchObject({ microsPerMessage: 5_000 });
     expect(
-      parseStarterAllowance({ microsPerMessage: 4_000, starterAllowance: block() })
-    ).toMatchObject({ microsPerMessage: 4_000 });
+      parseStarterAllowance({ microsPerMessage: 5_000, starterAllowance: block() })
+    ).toMatchObject({ microsPerMessage: 5_000 });
   });
 
   it('a missing `exhausted` is derived from what is left', () => {
@@ -84,6 +86,12 @@ describe('starterAllowanceLine', () => {
     expect(starterAllowanceLine(allowance({ microsPerMessage: undefined }), false)).toBe(
       'AI starter allowance: about 63% left.'
     );
+  });
+
+  it('under half a message left: "less than 1", never "about 0"', () => {
+    expect(
+      starterAllowanceLine(allowance({ remainingMicros: 1_000, usedMicros: 399_000 }), false)
+    ).toBe('AI starter allowance: less than 1 of 100 messages left.');
   });
 
   it('used up', () => {
@@ -127,4 +135,37 @@ describe('AI_REFUSAL_CODES', () => {
       'FREE_AI_ALLOWANCE_USED',
     ]);
   });
+});
+
+describe('aiRefusalText', () => {
+  const refused = (code: string, error = 'Server sentence.') => ({ data: { code, error } });
+
+  it('not an AI refusal (no code, other code) ⇒ undefined: the caller keeps its own text', () => {
+    expect(aiRefusalText({ data: { error: 'x' } }, false)).toBeUndefined();
+    expect(aiRefusalText(refused('AI_DRAFTS_OFF'), false)).toBeUndefined();
+    expect(aiRefusalText(new Error('x'), true)).toBeUndefined();
+  });
+
+  it('FREE_AI_ALLOWANCE_USED: agent "ask your admin"; admin the server sentence', () => {
+    expect(aiRefusalText(refused('FREE_AI_ALLOWANCE_USED'), false)).toBe(
+      'Your free AI allowance is used — ask your admin to add your own AI key to keep AI running.'
+    );
+    expect(aiRefusalText(refused('FREE_AI_ALLOWANCE_USED'), true)).toBe('Server sentence.');
+  });
+
+  it('AI_NOT_IN_PLAN: an agent is asked to go to an admin', () => {
+    expect(aiRefusalText(refused('AI_NOT_IN_PLAN'), false)).toMatch(/Ask your admin/);
+  });
+
+  it.each(['AI_BUDGET_PAUSED', 'AI_PAUSED', 'AI_USAGE_LIMIT_EXCEEDED'])(
+    '%s: an agent never reads buying or upgrade wording',
+    (code) => {
+      const text = aiRefusalText(
+        refused(code, 'Used up. Buying more messages or upgrading adds to it.'),
+        false
+      );
+      expect(text).toMatch(/Ask your admin/);
+      expect(text).not.toMatch(/Buying|upgrad/i);
+    }
+  );
 });

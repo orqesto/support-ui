@@ -1,6 +1,9 @@
 import { Bot } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
-import { AiProviderModeSwitch } from '@/components/settings/AiProviderModeSwitch';
+import {
+  AiProviderModeSwitch,
+  modeSwitchErrorText,
+} from '@/components/settings/AiProviderModeSwitch';
 import { loadAiStatus } from '@/components/subscription/aiStatus';
 import type { StarterAllowance } from '@/components/subscription/starterAllowance';
 import { AIProviderHealthCheck } from '@/components/settings/AIProviderHealthCheck';
@@ -165,14 +168,7 @@ export const AIProvidersSettings = ({
       // apiClient rejects with an Error carrying `.data` (the 403 body incl. `code`).
       const err = error as { data?: { code?: string; message?: string }; message?: string };
       const code = err.data?.code;
-      const description =
-        code === 'managed_ai_not_entitled'
-          ? starter
-            ? 'Your free AI allowance is used. Connect your own provider, or upgrade your plan.'
-            : 'Managed AI is not available on your current plan. Upgrade your plan, or connect your own provider.'
-          : code === 'managed_ai_requires_verified_admin'
-            ? 'This workspace has no admin with a verified email. One of its admins must verify their email before managed AI can be enabled.'
-            : (err.data?.message ?? err.message ?? 'Failed to change AI mode.');
+      const description = modeSwitchErrorText(code, err.data?.message ?? err.message);
       setAlertDialog({ open: true, title: 'Could not switch AI mode', description, variant: 'error' });
     } finally {
       setModeSaving(false);

@@ -374,6 +374,41 @@ describe('ComposerAiActions — the editor is the only input', () => {
       expect(refreshAiDrafts).toHaveBeenCalled();
     });
 
+    // Free starter allowance used up (release review finding 1): the backend sends the code on
+    // polish and generate; the status may be 402 or 429. Agents read the allowance sentence.
+    it.each([
+      ['generate', '', 402],
+      ['generate', '', 429],
+      ['polish', '<p>mine</p>', 402],
+      ['polish', '<p>mine</p>', 429],
+    ])('%s refused with FREE_AI_ALLOWANCE_USED (%s, %i): "ask your admin", not "try again"', async (_mode, initial, status) => {
+      composeReply.mockRejectedValue(
+        await apiError(status, {
+          code: 'FREE_AI_ALLOWANCE_USED',
+          error: 'Your free AI allowance is used. Add your own AI key to keep AI running.',
+        })
+      );
+      render(<Host initial={initial} />);
+      pressDraft();
+      const alert = (await screen.findByRole('alert')).textContent ?? '';
+      expect(alert).toMatch(/Your free AI allowance is used — ask your admin/);
+      expect(alert).not.toMatch(/AI limit reached|try again/i);
+    });
+
+    it('a budget refusal (AI_BUDGET_PAUSED) never offers buying to an agent', async () => {
+      composeReply.mockRejectedValue(
+        await apiError(402, {
+          code: 'AI_BUDGET_PAUSED',
+          error: "This period's AI messages are used up. Buying more messages or upgrading adds to it.",
+        })
+      );
+      render(<Host initial="" />);
+      pressDraft();
+      const alert = (await screen.findByRole('alert')).textContent ?? '';
+      expect(alert).toMatch(/Ask your admin/);
+      expect(alert).not.toMatch(/Buying|upgrad/i);
+    });
+
     it('an empty response says so and leaves the editor alone', async () => {
       composeReply.mockResolvedValue({ data: { text: null } });
       render(<Host initial="<p>mine</p>" />);

@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
-import { AiProviderModeSwitch } from '@/components/settings/AiProviderModeSwitch';
+import { AiProviderModeSwitch, modeSwitchErrorText } from '@/components/settings/AiProviderModeSwitch';
 
 afterEach(cleanup);
 
@@ -140,5 +140,24 @@ describe('AiProviderModeSwitch', () => {
       );
       expect(screen.getByText(/Included in your plan/)).toBeInTheDocument();
     });
+  });
+});
+
+describe('modeSwitchErrorText (review finding 5)', () => {
+  it('"allowance is used" only for the FREE_AI_ALLOWANCE_USED code', () => {
+    expect(modeSwitchErrorText('FREE_AI_ALLOWANCE_USED', undefined)).toMatch(
+      /free AI allowance is used/
+    );
+  });
+
+  it('a generic not-entitled refusal (also a failed allowance read) keeps the generic text', () => {
+    const text = modeSwitchErrorText('managed_ai_not_entitled', undefined);
+    expect(text).toMatch(/not available on your current plan/);
+    expect(text).not.toMatch(/allowance/);
+  });
+
+  it('unknown codes fall back to the server message', () => {
+    expect(modeSwitchErrorText('something_else', 'Server says no.')).toBe('Server says no.');
+    expect(modeSwitchErrorText(undefined, undefined)).toBe('Failed to change AI mode.');
   });
 });

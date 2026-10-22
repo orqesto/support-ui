@@ -29,6 +29,7 @@ import { messageService } from '@/services/message.service';
 import { ticketService } from '@/services/ticket.service';
 import { ticketThreadsService } from '@/services/ticketThreads.service';
 import { useAuthStore } from '@/stores/authStore';
+import { useAiRefusalText } from '@/components/subscription/useAiRefusalText';
 import { useMessagesStore } from '@/stores/messagesStore';
 import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Message, Category, TicketPriority, ApiResponse } from '@/types';
@@ -61,6 +62,7 @@ export const CreateTicketPage = () => {
   const navigate = useNavigate();
   const messageId = searchParams.get('messageId');
   const user = useAuthStore((state) => state.user);
+  const refusalText = useAiRefusalText();
   const userId = user?.id;
   // A ticket with no thread is filed in one of the creator's teams (an administrator may pick
   // any); from a thread it is the thread's team. Teams off: the default team, no field.
@@ -333,7 +335,9 @@ export const CreateTicketPage = () => {
       setAlertDialog({
         open: true,
         title: 'Enhancement Failed',
-        description: 'Failed to enhance ticket description. Please try again.',
+        // An AI refusal (enhance-ticket answers 429 FREE_AI_ALLOWANCE_USED) is not "try again".
+        description:
+          refusalText(error) ?? 'Failed to enhance ticket description. Please try again.',
         variant: 'error',
       });
     } finally {

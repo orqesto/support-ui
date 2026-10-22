@@ -14,7 +14,7 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import type { MigrationBasis, MigrationOverrides, MigrationRow } from '@/services/budgets.service';
 
 /**
- * Before the switch: the dry run of the monthly budgets (what each group would get, from what),
+ * Before the switch: the dry run of the AI budgets (what each group would get, from what),
  * editable per group, and Apply. Until Apply the old daily limits stay in force.
  */
 

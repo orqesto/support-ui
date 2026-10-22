@@ -14,13 +14,13 @@ import { useScopeStore } from '@/stores/scopeStore';
 import { useDepartmentContextStore } from '@/stores/departmentContextStore';
 import { useSubscriptionGateStore } from '@/stores/subscriptionGateStore';
 import { AI_REFUSAL_CODES } from '@/components/subscription/starterAllowance';
+import { isDatabasePauseCode, useDatabaseStatusStore } from '@/stores/databaseStatusStore';
 
 /** 402 codes that are a step-level or AI refusal, never the app-wide subscription gate. */
 const NOT_A_SUBSCRIPTION_GATE: ReadonlySet<string> = new Set([
   'MANAGED_DB_NOT_ENTITLED',
   ...AI_REFUSAL_CODES,
 ]);
-import { isDatabasePauseCode, useDatabaseStatusStore } from '@/stores/databaseStatusStore';
 
 declare module 'axios' {
   interface AxiosRequestConfig {

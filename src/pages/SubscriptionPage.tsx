@@ -25,7 +25,8 @@ import { billingDateLine } from '@/components/subscription/billingDateLine';
 import { FreePlanActiveCard } from '@/components/subscription/FreePlanActiveCard';
 import { MessagePackOfferCard } from '@/components/subscription/MessagePackOfferCard';
 import { AiPausedBanner } from '@/components/subscription/AiPausedBanner';
-import { loadAiStatus, loadOwnKey, type AiStatus } from '@/components/subscription/aiStatus';
+import { loadAiKeyState, loadAiStatus, type AiStatus } from '@/components/subscription/aiStatus';
+import { isStarterPaused } from '@/components/subscription/starterAllowance';
 import { PlanLimitsCard } from '@/components/subscription/PlanLimitsCard';
 import {
   MessagesSummary,
@@ -143,6 +144,7 @@ export const SubscriptionPage = () => {
   // `ai` of /api/usage/current: the AI-paused banner and the own-key line. Optional (older backend).
   // From the provider settings (`platform.active === false` ⇒ own key). null = unknown ⇒ no wording.
   const [ownKey, setOwnKey] = useState(false);
+  const [ourAiOff, setOurAiOff] = useState(false);
   const [aiStatus, setAiStatus] = useState<AiStatus | undefined>(undefined);
   const [subscriptionDetails, setSubscriptionDetails] = useState<SubscriptionDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -242,7 +244,9 @@ export const SubscriptionPage = () => {
       setSubscriptionDetails(subRes.data.data);
       // Their own tries: the page is complete without the AI block and the provider settings.
       setAiStatus(await loadAiStatus());
-      setOwnKey(await loadOwnKey());
+      const keyState = await loadAiKeyState();
+      setOwnKey(keyState.ownKey);
+      setOurAiOff(keyState.ourAiOff);
     } catch (error) {
       logger.error('Failed to load subscription:', error);
     } finally {
@@ -325,6 +329,8 @@ export const SubscriptionPage = () => {
     ownKey,
     notInPlan: aiStatus?.reason === 'not_in_plan',
     hasStarterAllowance: Boolean(aiStatus?.starterAllowance),
+    ourAiOff,
+    starterPaused: isStarterPaused(aiStatus),
   });
   const aiIncluded = aiSource === 'included';
   const isAdmin = !!user && isOrgAdminOrHigher(user.role, user.organizationRole);
@@ -504,7 +510,7 @@ export const SubscriptionPage = () => {
               period={dashboard.period}
               aiSource={aiSource}
             />
-            <StarterAllowanceLine ai={aiStatus} isAdmin={isAdmin} ownKey={ownKey} />
+            <StarterAllowanceLine ai={aiStatus} isAdmin={isAdmin} inUse={aiSource === 'starter'} />
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <UsageTile title="Users" icon={Users} item={usage.users} />
               <UsageTile title="Integrations" icon={Plug} item={usage.integrations} />
