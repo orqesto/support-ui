@@ -1,4 +1,4 @@
-import { Search } from 'lucide-react';
+import { Bookmark, History, Search, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FilterMenu } from './FilterMenu';
 import { FilterToken } from './FilterToken';
@@ -10,6 +10,8 @@ import {
   type FilterDef,
   type FilterKey,
 } from './filterSchema';
+import { Button } from '@/components/ui/Button';
+import type { RecentSearch } from '@/services/recentSearch.service';
 import type { FilterState } from '@/stores/messagesStore';
 
 /** Search as you type: this long after the last keystroke, the typed text is searched. */
@@ -35,6 +37,11 @@ export const FilterTokenBar = ({
   onFilterChange,
   onFilterPatch,
   onCommitSearch,
+  recent = [],
+  onSearchSettled,
+  onRemoveRecent,
+  onClearRecent,
+  onSaveSearchAsView,
 }: {
   defs: FilterDef[];
   filters: FilterState;
@@ -45,6 +52,17 @@ export const FilterTokenBar = ({
    *  for a state nobody asked for. */
   onFilterPatch: (patch: Partial<FilterState>) => void;
   onCommitSearch: (text: string) => void;
+  /** The person's recent searches, offered when the bar opens empty. */
+  recent?: RecentSearch[];
+  /**
+   * A search the person has SETTLED on — Enter, a recent entry, or a click away from a live
+   * search. Not every live search: those include each pause on the way ("inv", "invoi").
+   */
+  onSearchSettled?: (text: string) => void;
+  onRemoveRecent?: (entry: RecentSearch) => void;
+  onClearRecent?: () => void;
+  /** Keep a recent search as a saved view (a pill). */
+  onSaveSearchAsView?: (text: string) => void;
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -61,18 +79,25 @@ export const FilterTokenBar = ({
    * typing which turns out to be a FILTER (`stat…` → Status) or is abandoned with Escape puts
    * the list back; `live` is whether the typed text has been searched yet.
    */
-  const liveRef = useRef<{ before: string | null; live: boolean }>({ before: null, live: false });
+  const liveRef = useRef<{ before: string | null; live: boolean; term: string }>({
+    before: null,
+    live: false,
+    term: '',
+  });
   // Through refs: both are new on every render, and the debounce must not restart on a render.
   const commitSearchRef = useRef(onCommitSearch);
   commitSearchRef.current = onCommitSearch;
   const committedSearchRef = useRef(filters.search ?? '');
   committedSearchRef.current = filters.search ?? '';
+  const settledRef = useRef(onSearchSettled);
+  settledRef.current = onSearchSettled;
 
   /** Typing is over. `keep` = the live search stands; otherwise the earlier search returns. */
   const endTyping = useCallback((keep: boolean) => {
-    const { before, live } = liveRef.current;
+    const { before, live, term } = liveRef.current;
     if (!keep && live && before !== null) commitSearchRef.current(before);
-    liveRef.current = { before: null, live: false };
+    if (keep && live && term) settledRef.current?.(term);
+    liveRef.current = { before: null, live: false, term: '' };
   }, []);
 
   const tokens = useMemo(() => tokensOf(defs, filters, isKanban), [defs, filters, isKanban]);
@@ -105,10 +130,12 @@ export const FilterTokenBar = ({
       if (term.length >= LIVE_SEARCH_MIN_LENGTH) {
         commitSearchRef.current(term);
         liveRef.current.live = true;
+        liveRef.current.term = term;
       } else if (liveRef.current.live) {
         // Erased below the minimum: show what was there before typing, not the stale prefix.
         commitSearchRef.current(liveRef.current.before ?? '');
         liveRef.current.live = false;
+        liveRef.current.term = '';
       }
     }, LIVE_SEARCH_DELAY_MS);
     return () => window.clearTimeout(timer);
@@ -213,8 +240,10 @@ export const FilterTokenBar = ({
       const suggestion = suggestions[index];
       if (!suggestion) return;
       if (suggestion.kind === 'free') {
-        endTyping(true);
+        // Settled here, below — not again by endTyping for the live search it confirms.
+        liveRef.current = { before: null, live: false, term: '' };
         onCommitSearch(suggestion.query);
+        onSearchSettled?.(suggestion.query);
         close();
         return;
       }
@@ -232,7 +261,7 @@ export const FilterTokenBar = ({
       setPanelKey(suggestion.def.key);
       setQuery('');
     },
-    [suggestions, onCommitSearch, onFilterChange, setValue, close, endTyping]
+    [suggestions, onCommitSearch, onSearchSettled, onFilterChange, setValue, close, endTyping]
   );
 
   const removeToken = useCallback(
@@ -321,6 +350,63 @@ export const FilterTokenBar = ({
 
       {open && (
         <div className="overflow-hidden absolute right-0 left-0 top-[52px] z-30 rounded-lg border shadow-lg max-w-[460px] bg-card border-border">
+          {!query.trim() && !panelKey && recent.length > 0 && (
+            <section aria-label="Recent searches" className="py-1.5 border-b border-border">
+              <div className="flex justify-between items-center px-3 pb-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Recent
+                </span>
+                {onClearRecent && (
+                  <Button
+                    variant="ghost"
+                    onClick={onClearRecent}
+                    className="px-1.5 h-6 text-[12px] text-muted-foreground"
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+              <ul>
+                {recent.map((entry) => (
+                  <li key={entry.id} className="flex items-center gap-0.5 px-1.5 group/recent">
+                    <Button
+                      variant="ghost"
+                      // Running it again IS the update: the search re-runs on current mail.
+                      onClick={() => {
+                        onCommitSearch(entry.query);
+                        onSearchSettled?.(entry.query);
+                        close();
+                      }}
+                      className="flex-1 justify-start gap-2 px-1.5 h-8 min-w-0 text-[13px] font-normal"
+                    >
+                      <History className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="truncate">{entry.query}</span>
+                    </Button>
+                    {onSaveSearchAsView && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => onSaveSearchAsView(entry.query)}
+                        aria-label={`Save “${entry.query}” as a view`}
+                        className="p-0 w-7 h-7 text-muted-foreground"
+                      >
+                        <Bookmark className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                    {onRemoveRecent && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => onRemoveRecent(entry)}
+                        aria-label={`Remove “${entry.query}” from recent searches`}
+                        className="p-0 w-7 h-7 text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <FilterMenu
             defs={defs}
             filters={filters}
