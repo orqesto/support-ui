@@ -1,9 +1,10 @@
 import { Lock } from 'lucide-react';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { formatAge } from '@/lib/utils';
 import { AssigneeCell } from './AssigneeCell';
 import { RowMenu } from './RowMenu';
 import { LabelChip, OwedCell, PriorityIcon, StatusDot, ThreadCount } from './ticketRowBits';
-import { HIDE_BELOW_MD, HIDE_BELOW_XL, TICKET_GRID, type TicketRowProps } from './ticketRowShared';
+import { HIDE_BELOW_MD, TICKET_GRID, type TicketRowProps } from './ticketRowShared';
 
 /** One ticket as a table row — scan by column. */
 export const TicketRow = ({
@@ -43,17 +44,17 @@ export const TicketRow = ({
           </span>
         )}
         {ticket.externalId && (
-          <span
-            className="hidden gap-1 items-center font-mono text-[11px] text-muted-foreground shrink-0 xl:inline-flex"
-            title="Synced to Jira — edit it there"
+          <Tooltip
+            content="Synced to Jira — edit it there"
+            size="sm"
+            className="hidden xl:inline-flex"
           >
-            <Lock className="w-3 h-3" />
-            {ticket.externalId}
-          </span>
+            <span className="inline-flex gap-1 items-center font-mono text-[11px] text-muted-foreground shrink-0">
+              <Lock className="w-3 h-3" />
+              {ticket.externalId}
+            </span>
+          </Tooltip>
         )}
-      </span>
-      <span className={`${HIDE_BELOW_XL} min-w-0 text-[13px] text-muted-foreground`}>
-        <span className="truncate">{ticket.categoryName ?? '—'}</span>
       </span>
       <span className="flex items-center">
         <ThreadCount count={ticket.threadCount} />
@@ -75,9 +76,10 @@ export const TicketRow = ({
       </span>
       <span
         className={`${HIDE_BELOW_MD} justify-end font-mono text-[11.5px] text-muted-foreground whitespace-nowrap`}
-        title={`Updated ${new Date(ticket.updatedAt).toLocaleString()}`}
       >
-        {formatAge(ticket.updatedAt)}
+        <Tooltip content={`Updated ${new Date(ticket.updatedAt).toLocaleString()}`} size="sm">
+          {formatAge(ticket.updatedAt)}
+        </Tooltip>
       </span>
       <span className="flex justify-end items-center">
         <RowMenu ticket={ticket} onRowMenu={onRowMenu} />

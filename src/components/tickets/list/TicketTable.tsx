@@ -12,13 +12,15 @@ import { useState, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from '@/components/ui/Menu';
+import { Select } from '@/components/ui/Select';
+import { Tooltip } from '@/components/ui/Tooltip';
 import type { TicketFilters, TicketSortBy, TicketSorting } from '@/stores/ticketsStore';
 import type { Ticket, TicketStatus } from '@/types';
 import { TicketCard } from './TicketCard';
 import { TicketRow } from './TicketRow';
 import { STATUS_ORDER, filterValue, withoutFilter, type TicketFilterKey } from './ticketFilterKeys';
 import { StatusDot } from './ticketRowBits';
-import { HIDE_BELOW_MD, HIDE_BELOW_XL, TICKET_GRID, type TicketRowProps } from './ticketRowShared';
+import { HIDE_BELOW_MD, TICKET_GRID, type TicketRowProps } from './ticketRowShared';
 import { viewFiltersOf } from './ticketViews';
 
 export type TicketDensity = 'table' | 'cards';
@@ -57,6 +59,14 @@ const SORT_OF: Partial<
   status: { sortBy: 'status', label: 'Status order', order: 'asc' },
 };
 
+/** The card view has no column headers to sort from, so it offers the same orders in one select. */
+const CARD_SORTS: { key: string; sortBy: TicketSortBy; label: string; order: 'asc' | 'desc' }[] = [
+  { key: 'createdAt', sortBy: 'createdAt', label: 'Newest first', order: 'desc' },
+  ...Object.values(SORT_OF).map((sort) => ({ key: sort.sortBy, ...sort })),
+];
+const sortKeyOf = (sorting: TicketSorting) =>
+  CARD_SORTS.some((option) => option.key === sorting.sortBy) ? sorting.sortBy : 'createdAt';
+
 /** A column header that filters (and, where it can, sorts) by its own column. */
 const ColumnHeader = ({
   label,
@@ -93,13 +103,18 @@ const ColumnHeader = ({
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label={`${label}: filter${sort ? ' and sort' : ''}${filtered ? ' (filtered)' : ''}`}
-          className={`gap-1 px-1.5 -mx-1.5 h-[22px] font-display text-[10.5px] font-semibold tracking-wider uppercase rounded ${
+          className={`group/th gap-1 px-1.5 -mx-1.5 h-[22px] font-display text-[10.5px] font-semibold tracking-wider uppercase rounded ${
             filtered ? 'text-primary' : sorted ? 'text-foreground' : 'text-muted-foreground'
           }`}
         >
           {label}
           {sorted && <ChevronDown className="w-3 h-3" />}
-          <Filter className={`w-3 h-3 ${filtered ? 'opacity-100' : 'opacity-40'}`} />
+          {/* Shown on hover / focus only, or for good while the column is filtered (as the design). */}
+          {field !== 'priority' && (
+            <Filter
+              className={`w-3 h-3 ${filtered ? 'opacity-100' : 'opacity-0 group-hover/th:opacity-70 group-focus-visible/th:opacity-70'}`}
+            />
+          )}
         </Button>
       )}
     >
@@ -207,13 +222,12 @@ export const TicketTable = (props: TicketTableProps) => {
 
   const caption = (
     <div className="flex flex-wrap gap-2.5 items-center px-3 py-1.5 rounded-t-lg border border-b-0 min-h-[38px] border-border bg-muted/40 text-[12.5px] text-muted-foreground">
-      <span
-        className="inline-flex gap-1.5 items-center font-semibold text-success"
-        title="The list updates by itself"
-      >
-        <span className="w-[7px] h-[7px] rounded-full bg-success animate-pulse" />
-        Live
-      </span>
+      <Tooltip content="The list updates by itself" size="sm">
+        <span className="inline-flex gap-1.5 items-center font-semibold text-success">
+          <span className="w-[7px] h-[7px] rounded-full bg-success animate-pulse" />
+          Live
+        </span>
+      </Tooltip>
       <span>
         {loading ? (
           'Loading…'
@@ -225,41 +239,61 @@ export const TicketTable = (props: TicketTableProps) => {
         )}
       </span>
       <span className="flex-1" />
-      <Button
-        variant="ghost"
-        size="sm"
-        aria-pressed={group}
-        onClick={() => onGroup(!group)}
-        className={group ? 'text-primary bg-primary/10' : ''}
-      >
-        <LayoutList className="mr-1.5 w-3.5 h-3.5" />
-        Group by status
-      </Button>
+      {density === 'cards' && (
+        <span className="w-[200px]">
+          <Select
+            size="sm"
+            aria-label="Sort tickets"
+            options={CARD_SORTS.map((option) => ({ value: option.key, label: option.label }))}
+            value={sortKeyOf(sorting)}
+            onChange={(value) => {
+              const pick = CARD_SORTS.find((option) => option.key === value);
+              if (pick) onSort({ sortBy: pick.sortBy, sortOrder: pick.order });
+            }}
+          />
+        </span>
+      )}
+      <Tooltip content="Group rows into status sections" size="sm">
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-pressed={group}
+          onClick={() => onGroup(!group)}
+          className={group ? 'text-primary bg-primary/10' : ''}
+        >
+          <LayoutList className="mr-1.5 w-3.5 h-3.5" />
+          Group by status
+        </Button>
+      </Tooltip>
       <span
         role="group"
         aria-label="Row density"
         className="flex gap-0.5 p-0.5 rounded-lg border border-border bg-muted"
       >
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label="Table rows"
-          aria-pressed={density === 'table'}
-          onClick={() => onDensity('table')}
-          className="p-0 w-7 h-6"
-        >
-          <Rows3 className="w-3.5 h-3.5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-label="Card rows"
-          aria-pressed={density === 'cards'}
-          onClick={() => onDensity('cards')}
-          className="p-0 w-7 h-6"
-        >
-          <List className="w-3.5 h-3.5" />
-        </Button>
+        <Tooltip content="Table — scan by column" size="sm">
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Table rows"
+            aria-pressed={density === 'table'}
+            onClick={() => onDensity('table')}
+            className="p-0 w-7 h-6"
+          >
+            <Rows3 className="w-3.5 h-3.5" />
+          </Button>
+        </Tooltip>
+        <Tooltip content="Cards — two lines per ticket" size="sm">
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Card rows"
+            aria-pressed={density === 'cards'}
+            onClick={() => onDensity('cards')}
+            className="p-0 w-7 h-6"
+          >
+            <List className="w-3.5 h-3.5" />
+          </Button>
+        </Tooltip>
       </span>
       {splitAvailable && (
         <span
@@ -267,26 +301,30 @@ export const TicketTable = (props: TicketTableProps) => {
           aria-label="Layout"
           className="flex gap-0.5 p-0.5 rounded-lg border border-border bg-muted"
         >
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label="Full-width list"
-            aria-pressed={layout === 'list'}
-            onClick={() => onLayout('list')}
-            className="p-0 w-7 h-6"
-          >
-            <Square className="w-3.5 h-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label="Split layout"
-            aria-pressed={layout === 'split'}
-            onClick={() => onLayout('split')}
-            className="p-0 w-7 h-6"
-          >
-            <Columns2 className="w-3.5 h-3.5" />
-          </Button>
+          <Tooltip content="Full-width list — ticket opens on the right" size="sm">
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Full-width list"
+              aria-pressed={layout === 'list'}
+              onClick={() => onLayout('list')}
+              className="p-0 w-7 h-6"
+            >
+              <Square className="w-3.5 h-3.5" />
+            </Button>
+          </Tooltip>
+          <Tooltip content="Split — list left, ticket right (1100 px and wider)" size="sm">
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Split layout"
+              aria-pressed={layout === 'split'}
+              onClick={() => onLayout('split')}
+              className="p-0 w-7 h-6"
+            >
+              <Columns2 className="w-3.5 h-3.5" />
+            </Button>
+          </Tooltip>
         </span>
       )}
     </div>
@@ -396,9 +434,6 @@ export const TicketTable = (props: TicketTableProps) => {
               className="font-display text-[10.5px] font-semibold tracking-wider uppercase text-muted-foreground"
             >
               Ticket
-            </span>
-            <span role="columnheader" className={HIDE_BELOW_XL}>
-              {header('categoryId', 'Category')}
             </span>
             <span role="columnheader">{header('threads', 'Threads')}</span>
             <span role="columnheader">{header('owes', 'Owed')}</span>

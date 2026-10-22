@@ -6,7 +6,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'fs';
 import ts from 'typescript';
-import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { Label } from '@/services/settings.service';
 import type { Ticket } from '@/types';
@@ -38,7 +38,8 @@ vi.mock('@/services/settings.service', () => ({
   labelService: {
     getTicketLabels: (id: number) => getTicketLabels(id),
     getLabels: () => getLabels(),
-    assignLabelToTicket: (ticketId: number, labelId: number) => assignLabelToTicket(ticketId, labelId),
+    assignLabelToTicket: (ticketId: number, labelId: number) =>
+      assignLabelToTicket(ticketId, labelId),
     removeLabelFromTicket: (ticketId: number, labelId: number) =>
       removeLabelFromTicket(ticketId, labelId),
     createLabel: (body: { name: string; color: string }) => createLabel(body),
@@ -50,11 +51,17 @@ vi.mock('@/services/category.service', () => ({
 vi.mock('@/services/message.service', () => ({
   messageService: { getAll: () => Promise.resolve({ data: [] }) },
 }));
-vi.mock('@/services/ticket.service', () => ({ ticketService: { update: () => Promise.resolve() } }));
+vi.mock('@/services/ticket.service', () => ({
+  ticketService: { update: () => Promise.resolve() },
+}));
 const perms = { all: true, denied: new Set<string>() };
 vi.mock('@/hooks/usePermissions', () => ({
-  usePermissions: () => ({ hasPermission: (permission: string) => perms.all && !perms.denied.has(permission) }),
+  usePermissions: () => ({
+    hasPermission: (permission: string) => perms.all && !perms.denied.has(permission),
+  }),
 }));
+// The sidebar names the ticket's department from the cached list; no query client here.
+vi.mock('@/hooks/useDepartments', () => ({ useDepartmentById: () => undefined }));
 vi.mock('@/lib/logger', () => ({ logger: { error: () => {}, info: () => {} } }));
 vi.mock('@/components/admin/AssignmentSelect', () => ({ AssignmentSelect: () => null }));
 vi.mock('@/components/shared/RichTextEditor', () => ({ default: () => null }));
@@ -118,7 +125,9 @@ describe('TicketDetail — label picker', () => {
   it('support manages tickets but may not read categories: no picker, no request, the ticket’s own category shown', async () => {
     perms.denied.add('view_categories');
     renderDetail({ ...ticket, categoryId: 5, categoryName: 'Customs' });
-    expect(await screen.findByText('Customs')).toBeInTheDocument();
+    // In the sidebar's Category field (the meta line above the title names it too).
+    const sidebar = await screen.findByRole('complementary', { name: 'Ticket properties' });
+    expect(await within(sidebar).findByText('Customs')).toBeInTheDocument();
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(screen.queryByRole('combobox', { name: 'Category' })).toBeNull();
     expect(getCategories).not.toHaveBeenCalled();
@@ -143,7 +152,9 @@ describe('TicketDetail — label picker', () => {
     expect(removeLabelFromTicket).not.toHaveBeenCalled();
     expect(screen.getByRole('combobox', { name: 'Labels' })).toBeTruthy();
     // The chip row picks it up.
-    await waitFor(() => expect(screen.getByTitle('Remove Billing')).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Remove Billing' })).toBeTruthy()
+    );
   });
 
   it('a workspace with no labels yet says so, not "No matches."', async () => {
@@ -151,7 +162,9 @@ describe('TicketDetail — label picker', () => {
     getLabels.mockResolvedValue([]);
     renderDetail();
     await openPicker();
-    expect(await screen.findByText('No labels yet — type a name to create one.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('No labels yet — type a name to create one.')
+    ).toBeInTheDocument();
   });
 
   it('while labels are still loading it says so, and a failed load says that — never "No labels yet"', async () => {
@@ -202,23 +215,36 @@ describe('TicketDetail — label picker', () => {
         <TicketDetail key={42} ticket={ticket} showFullPageButton={false} />
       </MemoryRouter>
     );
-    await screen.findByTitle('Remove Bug');
+    await screen.findByRole('button', { name: 'Remove Bug' });
     rerender(
       <MemoryRouter>
         <TicketDetail key={43} ticket={{ ...ticket, id: 43 }} showFullPageButton={false} />
       </MemoryRouter>
     );
-    expect(screen.queryByTitle('Remove Bug')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove Bug' })).toBeNull();
   });
 
   it('every page that renders TicketDetail keys it by the ticket id', () => {
     for (const file of ['src/pages/TicketsPage.tsx', 'src/pages/TicketDetailPage.tsx']) {
-      const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+      const source = ts.createSourceFile(
+        file,
+        readFileSync(file, 'utf8'),
+        ts.ScriptTarget.Latest,
+        true,
+        ts.ScriptKind.TSX
+      );
       const keys: string[] = [];
       const visit = (node: ts.Node) => {
-        if ((ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) && node.tagName.getText(source) === 'TicketDetail') {
-          const key = node.attributes.properties.find((prop) => ts.isJsxAttribute(prop) && prop.name.getText(source) === 'key');
-          keys.push(key && ts.isJsxAttribute(key) && key.initializer ? key.initializer.getText(source) : '');
+        if (
+          (ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) &&
+          node.tagName.getText(source) === 'TicketDetail'
+        ) {
+          const key = node.attributes.properties.find(
+            (prop) => ts.isJsxAttribute(prop) && prop.name.getText(source) === 'key'
+          );
+          keys.push(
+            key && ts.isJsxAttribute(key) && key.initializer ? key.initializer.getText(source) : ''
+          );
         }
         ts.forEachChild(node, visit);
       };
@@ -249,28 +275,28 @@ describe('TicketDetail — label picker', () => {
 
   it('unticking an assigned label removes it', async () => {
     renderDetail();
-    await screen.findByTitle('Remove Bug');
+    await screen.findByRole('button', { name: 'Remove Bug' });
     await openPicker();
 
     fireEvent.click(screen.getByRole('option', { name: 'Bug' }));
 
     await waitFor(() => expect(removeLabelFromTicket).toHaveBeenCalledWith(42, 1));
     expect(assignLabelToTicket).not.toHaveBeenCalled();
-    await waitFor(() => expect(screen.queryByTitle('Remove Bug')).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Remove Bug' })).toBeNull());
   });
 
   it('an applied label the panel does not list never reads as unticked', async () => {
     // Applied to the ticket, absent from the label list (e.g. scoped elsewhere) — listed FIRST.
     getTicketLabels.mockResolvedValue([label(9, 'Legacy', '#999999'), BUG]);
     renderDetail();
-    await screen.findByTitle('Remove Bug');
+    await screen.findByRole('button', { name: 'Remove Bug' });
     await openPicker();
 
     fireEvent.click(screen.getByRole('option', { name: 'Bug' }));
 
     await waitFor(() => expect(removeLabelFromTicket).toHaveBeenCalledWith(42, 1));
     expect(removeLabelFromTicket).toHaveBeenCalledTimes(1);
-    expect(screen.getByTitle('Remove Legacy')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove Legacy' })).toBeTruthy();
   });
 
   it('"Create" makes the trimmed label, assigns it to the ticket and closes the panel', async () => {
@@ -286,6 +312,6 @@ describe('TicketDetail — label picker', () => {
     await waitFor(() => expect(assignLabelToTicket).toHaveBeenCalledWith(42, 3));
     expect(createLabel).toHaveBeenCalledWith(expect.objectContaining({ name: 'Refund' }));
     await waitFor(() => expect(screen.queryByRole('combobox', { name: 'Labels' })).toBeNull());
-    expect(screen.getByTitle('Remove Refund')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Remove Refund' })).toBeTruthy();
   });
 });

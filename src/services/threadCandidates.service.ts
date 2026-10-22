@@ -6,6 +6,8 @@ export type ThreadCandidate = {
   publicId: string | null;
   subject: string | null;
   sender: string;
+  /** The thread's lifecycle, for the picker's badge; absent from an older backend. */
+  status?: string | null;
 };
 
 /** A picker lists at most this many threads; a full page says so, so "none" is never a cap. */
@@ -47,6 +49,7 @@ export const searchThreadCandidates = async (
         publicId: row.publicId ?? null,
         subject: row.subject ?? null,
         sender: row.sender ?? '',
+        status: row.status ?? null,
       })),
   };
 };

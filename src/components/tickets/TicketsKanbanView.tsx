@@ -12,93 +12,37 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import {
-  Ticket,
-  Loader2,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Hourglass,
-  RotateCcw,
-  User,
-  GripVertical,
-} from 'lucide-react';
+import { Lock, RotateCcw } from 'lucide-react';
+import { AssigneeCell } from '@/components/tickets/list/AssigneeCell';
+import { STATUS_LABELS } from '@/components/tickets/list/ticketFilterKeys';
 import { ticketApiFilters } from '@/components/tickets/list/ticketFilters';
+import {
+  OwedCell,
+  PriorityIcon,
+  STATUS_DOT,
+  ThreadCount,
+} from '@/components/tickets/list/ticketRowBits';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { ticketService } from '@/services/ticket.service';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { formatAge } from '@/lib/utils';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { logger } from '@/lib/logger';
+import { toast } from '@/lib/toast';
 import { canTransition } from '@/lib/ticketStatus';
 import { useAuthStore } from '@/stores/authStore';
 import type { TicketFilters } from '@/stores/ticketsStore';
 import type { Ticket as TicketType, TicketStatus } from '@/types';
 
 type KanbanColumnDef = {
-  id: string;
-  status: string;
+  id: TicketStatus;
+  status: TicketStatus;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  accentColor: string;
-  iconClass: string;
-  emptyText: string;
 };
 
-const COLUMNS: KanbanColumnDef[] = [
-  {
-    id: 'open',
-    status: 'open',
-    label: 'Open',
-    icon: Ticket,
-    accentColor: '#3b82f6',
-    iconClass: 'text-primary',
-    emptyText: 'No open tickets',
-  },
-  {
-    id: 'in_progress',
-    status: 'in_progress',
-    label: 'In Progress',
-    icon: Loader2,
-    accentColor: '#f59e0b',
-    iconClass: 'text-warning',
-    emptyText: 'No tickets in progress',
-  },
-  {
-    id: 'pending',
-    status: 'pending',
-    label: 'Pending',
-    icon: Hourglass,
-    accentColor: '#8b5cf6',
-    iconClass: 'text-muted-foreground',
-    emptyText: 'No pending tickets',
-  },
-  {
-    id: 'resolved',
-    status: 'resolved',
-    label: 'Resolved',
-    icon: CheckCircle2,
-    accentColor: '#22c55e',
-    iconClass: 'text-success',
-    emptyText: 'No resolved tickets',
-  },
-  {
-    id: 'closed',
-    status: 'closed',
-    label: 'Closed',
-    icon: XCircle,
-    accentColor: '#9ca3af',
-    iconClass: 'text-faint-foreground',
-    emptyText: 'No closed tickets',
-  },
-];
-
-const PRIORITY_VARIANT = {
-  critical: 'danger',
-  high: 'warning',
-  medium: 'secondary',
-  low: 'default',
-} as const;
+// The lanes are the statuses, labelled and dotted as everywhere else (STATUS_LABELS / STATUS_DOT).
+const COLUMNS: KanbanColumnDef[] = (
+  ['open', 'in_progress', 'pending', 'resolved', 'closed'] as const
+).map((status) => ({ id: status, status, label: STATUS_LABELS[status] }));
 
 const PAGE_SIZE = 20;
 
@@ -119,33 +63,50 @@ type TicketRuntimeExtras = {
 };
 type TicketWithExtras = TicketType & TicketRuntimeExtras;
 
-// Shared card content used by both draggable cards and the drag overlay ghost
-function TicketCardContent({ ticket }: { ticket: TicketType }) {
-  const priorityVariant =
-    PRIORITY_VARIANT[ticket.priority as keyof typeof PRIORITY_VARIANT] ?? 'default';
-  const ticketWithExtras = ticket as TicketWithExtras;
+/** What a card needs to show its owner and offer Claim / re-assign, as the list rows do. */
+type AssignProps = {
+  canManage: boolean;
+  assignees: Array<{ id: number; name: string }>;
+  currentUserId: number | null;
+  onAssign: (ticketId: number, userId: number | null) => void;
+};
 
+// A card as the design's board: #id + priority · title · threads, owed · owner (or Claim).
+function TicketCardContent({ ticket, assign }: { ticket: TicketType; assign?: AssignProps }) {
+  const jiraKey = (ticket as TicketWithExtras).jiraKey ?? ticket.externalId ?? null;
   return (
-    <div className="space-y-1.5">
-      <p className="text-sm font-semibold leading-snug line-clamp-2 pr-5">{ticket.title}</p>
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <span className="font-mono">#{ticket.id}</span>
-        <span>·</span>
-        <Clock className="w-3 h-3" />
-        <span className="font-mono">{formatAge(ticket.createdAt)}</span>
-      </div>
-      <div className="flex gap-1 items-center flex-wrap">
-        <Badge variant={priorityVariant} className="h-4 px-1 text-[10px]">
-          {ticket.priority}
-        </Badge>
-        {ticketWithExtras.assignee && (
-          <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-            <User className="w-2.5 h-2.5" />
-            {ticketWithExtras.assignee.name ?? ticketWithExtras.assignee.email}
-          </span>
+    <div className="grid gap-1.5">
+      <div className="flex gap-1.5 items-center">
+        <span className="font-mono text-[11.5px] text-muted-foreground">#{ticket.id}</span>
+        <PriorityIcon priority={ticket.priority} />
+        <span className="flex-1" />
+        {jiraKey && (
+          <Tooltip
+            content={`Linked to Jira issue ${jiraKey} — Jira can change its status too`}
+            size="sm"
+          >
+            <span className="inline-flex gap-1 items-center font-mono text-[10.5px] text-muted-foreground">
+              <Lock className="w-3 h-3" aria-hidden />
+              {jiraKey}
+            </span>
+          </Tooltip>
         )}
-        {ticketWithExtras.jiraKey && (
-          <span className="text-[10px] font-mono text-foreground">{ticketWithExtras.jiraKey}</span>
+      </div>
+      <p className="text-[13px] font-semibold leading-snug line-clamp-2">{ticket.title}</p>
+      <div className="flex gap-2 items-center">
+        <ThreadCount count={ticket.threadCount} />
+        {ticket.owedCount ? <OwedCell count={ticket.owedCount} /> : null}
+        <span className="flex-1" />
+        {assign && (
+          <AssigneeCell
+            ticket={ticket}
+            canManage={assign.canManage}
+            assignees={assign.assignees}
+            currentUserId={assign.currentUserId}
+            onAssign={assign.onAssign}
+            compact
+            keepActionLabel
+          />
         )}
       </div>
     </div>
@@ -156,10 +117,12 @@ function TicketKanbanCard({
   ticket,
   colId,
   onOpen,
+  assign,
 }: {
   ticket: TicketType;
   colId: string;
   onOpen: (t: TicketType) => void;
+  assign: AssignProps;
 }) {
   // When using DragOverlay, do NOT apply transform to the original card.
   // The overlay handles the floating visual; the original becomes a semi-transparent placeholder.
@@ -169,80 +132,96 @@ function TicketKanbanCard({
   });
 
   return (
+    // distance:8 activation means a short press still opens the card without starting a drag.
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      className={`min-w-[240px] xl:min-w-0 shrink-0 xl:shrink relative rounded-md border bg-card shadow-sm transition-all cursor-grab active:cursor-grabbing touch-manipulation select-none ${isDragging ? 'opacity-30' : 'hover:shadow-md hover:border-primary/40'}`}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ticket #${ticket.id}`}
+      onClick={() => onOpen(ticket)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' && event.target === event.currentTarget) onOpen(ticket);
+      }}
+      className={`min-w-[240px] xl:min-w-0 shrink-0 xl:shrink p-3 rounded-[10px] border border-border bg-card cursor-grab active:cursor-grabbing touch-manipulation select-none outline-none focus-visible:ring-2 focus-visible:ring-primary transition-[opacity,border-color] ${isDragging ? 'opacity-30' : 'hover:border-primary/40'}`}
     >
-      {/* Grip hint — always visible, stronger on hover */}
-      <GripVertical className="absolute top-2 right-2 w-3.5 h-3.5 text-muted-foreground/30 hover:text-muted-foreground/70 pointer-events-none" />
-
-      {/* distance:8 activation means short taps still fire onClick without starting a drag */}
-      <Button
-        aria-label="Open ticket"
-        type="button"
-        variant="ghost"
-        onClick={() => onOpen(ticket)}
-        className="w-full text-left justify-start p-3 h-auto rounded-none font-normal hover:bg-transparent"
-      >
-        <TicketCardContent ticket={ticket} />
-      </Button>
+      <TicketCardContent ticket={ticket} assign={assign} />
     </div>
   );
 }
+
+/** While a card is dragged, each lane says whether it can take it (`null`: nothing dragged). */
+type DropState = 'from' | 'allowed' | 'blocked' | null;
 
 type KanbanColumnProps = {
   col: KanbanColumnDef;
   state: ColumnState;
   activeTicketId: number | null;
+  drop: DropState;
+  assign: AssignProps;
   onLoadMore: () => void;
   onOpen: (ticket: TicketType) => void;
 };
 
-const KanbanColumn = ({ col, state, activeTicketId, onLoadMore, onOpen }: KanbanColumnProps) => {
+const KanbanColumn = ({
+  col,
+  state,
+  activeTicketId,
+  drop,
+  assign,
+  onLoadMore,
+  onOpen,
+}: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id: col.id });
-  const Icon = col.icon;
 
   return (
-    <div
+    <section
       ref={setNodeRef}
-      className={`flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden xl:min-w-[240px] xl:max-w-[300px] xl:flex-1 transition-colors ${isOver ? 'bg-muted/60' : 'bg-muted/30'}`}
-      style={{ borderTopColor: col.accentColor }}
+      aria-label={col.label}
+      className={`flex flex-col min-w-0 rounded-[12px] border border-border transition-[background-color,opacity,box-shadow] ${
+        drop === 'blocked'
+          ? 'opacity-50 bg-muted/30'
+          : drop === 'allowed'
+            ? `ring-2 ring-primary/40 ${isOver ? 'bg-primary/10' : 'bg-muted/30'}`
+            : 'bg-muted/30'
+      }`}
     >
-      {/* Column header */}
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b bg-background">
-        <Icon className={`w-4 h-4 shrink-0 ${col.iconClass}`} />
-        <span className="flex-1 text-sm font-semibold">{col.label}</span>
+      <header className="flex gap-2 items-center px-3 pt-2.5 pb-1.5 text-[12.5px]">
+        <span className={`w-2 h-2 rounded-full shrink-0 ${STATUS_DOT[col.status]}`} aria-hidden />
+        <span className="font-semibold">{col.label}</span>
         {!state.loading && (
-          <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5">
-            {state.total}
-          </span>
+          <span className="font-mono text-xs text-muted-foreground">{state.total}</span>
         )}
-      </div>
+        <span className="flex-1" />
+        {drop === 'blocked' && (
+          <span className="text-[11px] text-muted-foreground">Can’t move here</span>
+        )}
+      </header>
 
-      {/* Cards */}
-      <div className="flex flex-row overflow-x-auto gap-2 p-2 xl:flex-col xl:overflow-x-hidden xl:overflow-y-auto xl:flex-1 xl:max-h-[calc(100vh-280px)]">
+      <div className="flex flex-row overflow-x-auto gap-2 px-2 pb-2 xl:flex-col xl:overflow-x-hidden xl:overflow-y-auto xl:flex-1 xl:max-h-[calc(100vh-240px)]">
         {state.loading && state.tickets.length === 0 ? (
           Array.from({ length: 3 }, (_, idx) => (
             <div
               key={idx}
-              className="min-w-[240px] xl:min-w-0 p-3 space-y-2 rounded-md border animate-pulse bg-card shrink-0"
+              className="min-w-[240px] xl:min-w-0 p-3 space-y-2 rounded-[10px] border border-border animate-pulse bg-card shrink-0"
             >
               <div className="w-3/4 h-3 rounded bg-muted" />
               <div className="w-1/2 h-3 rounded bg-muted" />
             </div>
           ))
         ) : state.tickets.length === 0 ? (
-          <div
-            className={`py-4 px-3 flex-1 rounded-md transition-colors ${isOver ? 'bg-muted/40 border-2 border-dashed border-border' : ''}`}
-          >
-            <p className="text-xs text-muted-foreground xl:text-center">{col.emptyText}</p>
-          </div>
+          <p className="px-1 py-1 text-xs text-muted-foreground">No tickets</p>
         ) : (
           <>
             {state.tickets.map((ticket) => (
-              <TicketKanbanCard key={ticket.id} ticket={ticket} colId={col.id} onOpen={onOpen} />
+              <TicketKanbanCard
+                key={ticket.id}
+                ticket={ticket}
+                colId={col.id}
+                onOpen={onOpen}
+                assign={assign}
+              />
             ))}
             {/* Drop target padding so there's always somewhere to drop at the bottom */}
             {activeTicketId !== null && <div className="min-h-[60px] shrink-0" />}
@@ -262,11 +241,11 @@ const KanbanColumn = ({ col, state, activeTicketId, onLoadMore, onOpen }: Kanban
           </>
         )}
       </div>
-    </div>
+    </section>
   );
 };
 
-type TicketsKanbanViewProps = {
+type TicketsKanbanViewProps = AssignProps & {
   filters: TicketFilters;
   onOpen: (ticket: TicketType) => void;
 };
@@ -279,7 +258,14 @@ const initialColStates = (): Record<string, ColumnState> =>
     ])
   );
 
-export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) => {
+export const TicketsKanbanView = ({
+  filters,
+  onOpen,
+  canManage,
+  assignees,
+  currentUserId: assigneeSelf,
+  onAssign,
+}: TicketsKanbanViewProps) => {
   // Memoize to avoid rebuilding on every parent re-render (colStates updates, etc.)
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
   // The board's columns ARE the statuses, so a status filter never applies here.
@@ -293,6 +279,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
 
   const [colStates, setColStates] = useState<Record<string, ColumnState>>(initialColStates);
   const [activeTicket, setActiveTicket] = useState<TicketType | null>(null);
+  const [dragFrom, setDragFrom] = useState<string | null>(null);
 
   // Refs to avoid stale closures in loadMore
   const colStatesRef = useRef(colStates);
@@ -388,6 +375,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const ticketId = event.active.id as number;
     const colId = event.active.data.current?.colId as string;
+    setDragFrom(colId);
     const ticket = colStatesRef.current[colId]?.tickets.find((tk) => tk.id === ticketId);
     setActiveTicket(ticket ?? null);
   }, []);
@@ -395,6 +383,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveTicket(null);
+    setDragFrom(null);
 
     if (!over) return;
 
@@ -407,7 +396,8 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
     // Validate transition is allowed before doing anything — shared with the status
     // dropdown and mirrored from the backend contract (see @/lib/ticketStatus).
     if (!canTransition(fromColId as TicketStatus, toColId as TicketStatus)) {
-      logger.warn(`Invalid ticket transition: ${fromColId} → ${toColId}`);
+      const label = (id: string) => COLUMNS.find((column) => column.id === id)?.label ?? id;
+      toast.error(`${label(fromColId)} can’t move to ${label(toColId)}`);
       return;
     }
 
@@ -417,7 +407,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
     const ticket = colStatesRef.current[fromColId]?.tickets.find((tk) => tk.id === ticketId);
     if (!ticket) return;
 
-    const movedTicket: TicketType = { ...ticket, status: toCol.status as TicketStatus };
+    const movedTicket: TicketType = { ...ticket, status: toCol.status };
 
     // Capture original index before optimistic move so rollback restores the card
     // to its original position rather than prepending at index 0.
@@ -441,7 +431,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
     }));
 
     try {
-      await ticketService.update(ticketId, { status: toCol.status as TicketStatus });
+      await ticketService.update(ticketId, { status: toCol.status });
     } catch (err) {
       logger.error(`Failed to move ticket ${ticketId} to ${toColId}:`, err);
       // Rollback: restore card at its original position
@@ -465,14 +455,42 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
     }
   }, []);
 
+  // The page assigns; the board shows the new owner at once (its lanes are its own lists).
+  const assign: AssignProps = {
+    canManage,
+    assignees,
+    currentUserId: assigneeSelf,
+    onAssign: (ticketId, userId) => {
+      onAssign(ticketId, userId);
+      const name = assignees.find((user) => user.id === userId)?.name ?? null;
+      setColStates((prev) =>
+        Object.fromEntries(
+          Object.entries(prev).map(([id, col]) => [
+            id,
+            {
+              ...col,
+              tickets: col.tickets.map((tk) =>
+                tk.id === ticketId ? { ...tk, assigneeId: userId, assigneeName: name } : tk
+              ),
+            },
+          ])
+        )
+      );
+    },
+  };
+
   return (
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
       onDragEnd={(event) => void handleDragEnd(event)}
+      onDragCancel={() => {
+        setActiveTicket(null);
+        setDragFrom(null);
+      }}
     >
-      <div className="flex flex-col gap-4 xl:flex-row xl:gap-3 xl:overflow-x-auto xl:pb-4">
+      <div className="grid gap-3 xl:grid-cols-5">
         {COLUMNS.map((col) => (
           <KanbanColumn
             key={col.id}
@@ -481,6 +499,16 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
               colStates[col.id] ?? { tickets: [], total: 0, loading: true, hasMore: false, page: 1 }
             }
             activeTicketId={activeTicket?.id ?? null}
+            drop={
+              dragFrom === null
+                ? null
+                : dragFrom === col.id
+                  ? 'from'
+                  : canTransition(dragFrom as TicketStatus, col.id)
+                    ? 'allowed'
+                    : 'blocked'
+            }
+            assign={assign}
             onLoadMore={() => loadMore(col.id)}
             onOpen={onOpen}
           />
@@ -489,7 +517,7 @@ export const TicketsKanbanView = ({ filters, onOpen }: TicketsKanbanViewProps) =
 
       <DragOverlay dropAnimation={null}>
         {activeTicket ? (
-          <div className="min-w-[240px] rounded-md border bg-card p-3 shadow-xl rotate-1 opacity-95 cursor-grabbing">
+          <div className="min-w-[240px] rounded-[10px] border border-border bg-card p-3 shadow-xl rotate-1 opacity-95 cursor-grabbing">
             <TicketCardContent ticket={activeTicket} />
           </div>
         ) : null}

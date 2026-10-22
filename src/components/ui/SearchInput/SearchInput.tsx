@@ -15,9 +15,12 @@ export const SearchInput = ({
   placeholder = 'Search...',
   className,
   size = 'md',
+  bare = false,
   onSearch,
   showSearchButton = false,
   onBlur,
+  leadingIcon = false,
+  ariaLabel,
 }: SearchInputProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const wasFocusedRef = useRef(false);
@@ -69,6 +72,15 @@ export const SearchInput = ({
 
   return (
     <div className={cn('relative', className)}>
+      {leadingIcon && (
+        <Search
+          aria-hidden
+          className={cn(
+            getSearchIconClasses(size),
+            'absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground'
+          )}
+        />
+      )}
       <input
         ref={inputRef}
         type="text"
@@ -83,7 +95,8 @@ export const SearchInput = ({
           wasFocusedRef.current = false;
           onBlur?.();
         }}
-        className={getSearchInputClasses(size)}
+        aria-label={ariaLabel}
+        className={cn(getSearchInputClasses(size, bare), leadingIcon && 'pl-9')}
       />
 
       <div className="flex absolute right-2 top-1/2 gap-1 items-center -translate-y-1/2">

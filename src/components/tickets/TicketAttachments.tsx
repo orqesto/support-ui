@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Paperclip, Download, File, Trash2, Eye, Plus } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Paperclip, Download, File as FileIcon, Trash2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Dialog, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/Dialog';
+import { Card } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { apiClient } from '@/lib/api-client';
 import {
   getSocket,
@@ -19,13 +21,18 @@ import { toast } from '@/lib/toast';
 
 type TicketAttachmentsProps = {
   ticketId: number;
+  /** For the Files tab's count. */
+  onCountChange?: (count: number) => void;
 };
 
-export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
+export const TicketAttachments = ({ ticketId, onCountChange }: TicketAttachmentsProps) => {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  useEffect(() => {
+    onCountChange?.(attachments.length);
+  }, [attachments, onCountChange]);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [attachmentToDelete, setAttachmentToDelete] = useState<{ id: number; name: string } | null>(
@@ -122,42 +129,26 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
 
   const isImage = (mimeType: string) => mimeType.startsWith('image/');
 
+  // Where the file came from, as the design's Files list says it ("On the ticket", a comment…).
   const getAttachmentSource = (attachment: Attachment) => {
-    // If URL is external (Jira URL), it came from Jira originally
-    if (attachment.url.startsWith('http')) {
-      return 'Jira';
-    }
-    // If local file with email- prefix, came from email
-    if (attachment.url.includes('email-')) {
-      return 'Email';
-    }
-    // Otherwise, uploaded via app
-    return 'Uploaded';
+    // An external URL is a Jira-hosted file.
+    if (attachment.url.startsWith('http')) return 'From Jira';
+    // A local file with the email- prefix came in with the customer's email.
+    if (attachment.url.includes('email-')) return 'From the email';
+    return attachment.commentId ? 'On a comment' : 'On the ticket';
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) {
-      setSelectedFiles(Array.from(event.target.files));
-    }
-  };
-
-  const handleUpload = async () => {
-    if (selectedFiles.length === 0) {
-      return;
-    }
-
+  // A pick uploads at once — the design's "Add files" has no second Upload step.
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (picked.length === 0) return;
     try {
       setIsUploading(true);
       const formData = new FormData();
-
-      selectedFiles.forEach((file) => {
-        formData.append('files', file);
-      });
-
+      picked.forEach((file) => formData.append('files', file));
       await apiClient.post(`/api/tickets/${ticketId}/attachments`, formData);
-
-      setSelectedFiles([]);
-      await fetchAttachments(); // Refresh list
+      await fetchAttachments();
     } catch (error) {
       logger.error('Failed to upload attachments:', error);
       toast.failure('upload attachments', error);
@@ -209,195 +200,135 @@ export const TicketAttachments = ({ ticketId }: TicketAttachmentsProps) => {
     }
   };
 
-  if (isLoading) {
-    return <p className="py-4 text-sm text-center text-muted-foreground">Loading attachments…</p>;
-  }
-
-  if (attachments.length === 0 && selectedFiles.length === 0) {
-    return (
-      <div className="py-4 text-center">
-        <p className="text-sm text-muted-foreground mb-3">No attachments yet.</p>
-        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border cursor-pointer text-foreground bg-input border-border hover:bg-accent">
-          <Paperclip className="w-3.5 h-3.5" />
-          Add Files
-          <input type="file" multiple onChange={handleFileSelect} className="hidden" />
-        </label>
-      </div>
-    );
-  }
+  const iconButton = 'p-0 w-7 h-7 text-muted-foreground hover:text-foreground';
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="font-display flex gap-2 items-center text-base font-semibold">
-          <Paperclip className="w-4 h-4" />
-          Attachments
-          <span className="ml-1 px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground rounded-full">
-            {attachments.length}
-          </span>
-        </h3>
-
-        {/* Upload Actions */}
-        <div className="flex gap-2 items-center">
-          <label
-            className="p-2 text-muted-foreground rounded cursor-pointer hover:bg-accent"
-            title="Add attachment"
-          >
-            <Plus className="w-4 h-4" />
-            <input type="file" multiple onChange={handleFileSelect} className="hidden" />
-          </label>
-        </div>
+    <div className="space-y-2">
+      <div className="flex gap-2 items-center">
+        <span className="text-xs text-muted-foreground">Files on the ticket and its comments.</span>
+        <span className="flex-1" />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fileInputRef.current?.click()}
+          isLoading={isUploading}
+          disabled={isUploading}
+        >
+          <Paperclip className="mr-1 w-3 h-3" aria-hidden />
+          Add files
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          onChange={(event) => void handleFileSelect(event)}
+          className="hidden"
+          aria-label="Add files to the ticket"
+        />
       </div>
 
-      {/* Upload Progress */}
-      {selectedFiles.length > 0 && (
-        <div className="p-3 mb-3 bg-primary-muted rounded-md border border-primary-line">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-foreground">{selectedFiles.length} file(s) selected</span>
-            <Button
-              onClick={handleUpload}
-              disabled={isUploading}
-              className="px-3 py-1 text-sm font-medium text-primary-foreground bg-primary rounded hover:bg-primary/90 disabled:opacity-50"
-            >
-              {isUploading ? 'Uploading...' : 'Upload'}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Table */}
-      {attachments.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full">
-            <thead className="bg-muted border-b border-border">
-              <tr>
-                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-left text-muted-foreground uppercase">
-                  Name
-                </th>
-                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-left text-muted-foreground uppercase">
-                  Size
-                </th>
-                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-left text-muted-foreground uppercase">
-                  Date added
-                </th>
-                <th className="font-display px-4 py-2 text-xs font-medium tracking-[0.09em] text-right text-muted-foreground uppercase">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-card divide-y divide-border">
-              {attachments.map((attachment) => (
-                <tr key={attachment.id} className="hover:bg-accent">
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2 items-center">
-                      {isImage(attachment.mimeType) && imageBlobUrls[attachment.id] ? (
-                        <img
-                          src={imageBlobUrls[attachment.id]}
-                          alt={attachment.originalFilename}
-                          className="object-cover w-10 h-10 rounded"
-                        />
-                      ) : (
-                        <File className="w-10 h-10 text-muted-foreground" />
-                      )}
-                      <div>
-                        <p className="text-sm font-medium text-foreground">
-                          {attachment.originalFilename}
-                        </p>
-                        <span className="text-xs text-muted-foreground">
-                          {getAttachmentSource(attachment)}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="font-mono px-4 py-3 text-sm text-muted-foreground">
-                    {formatFileSize(attachment.size)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">
-                    {new Date(attachment.createdAt).toLocaleString('en-US', {
+      <Card padding="none" className="overflow-hidden rounded-[10px] shadow-none">
+        {isLoading ? (
+          <p className="py-6 text-sm text-center text-muted-foreground">Loading files…</p>
+        ) : attachments.length === 0 ? (
+          <p className="py-6 text-sm text-center text-muted-foreground">No files on this ticket.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {attachments.map((attachment) => (
+              <li
+                key={attachment.id}
+                className="grid grid-cols-[28px_minmax(0,1fr)_auto] gap-2.5 items-center px-3 py-2"
+              >
+                {isImage(attachment.mimeType) && imageBlobUrls[attachment.id] ? (
+                  <img
+                    src={imageBlobUrls[attachment.id]}
+                    alt=""
+                    className="object-cover w-7 h-7 rounded"
+                  />
+                ) : (
+                  <FileIcon
+                    className="justify-self-center w-4 h-4 text-muted-foreground"
+                    aria-hidden
+                  />
+                )}
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium truncate text-foreground">
+                    {attachment.originalFilename}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {getAttachmentSource(attachment)} ·{' '}
+                    <span className="font-mono">{formatFileSize(attachment.size)}</span> ·{' '}
+                    {new Date(attachment.createdAt).toLocaleDateString(undefined, {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                      hour12: true,
                     })}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2 justify-end items-center">
-                      {isPreviewable(attachment.mimeType) && (
-                        <Button
-                          onClick={() => setPreviewAttachment(attachment)}
-                          className="p-1.5 text-muted-foreground hover:bg-accent rounded"
-                          title="Preview"
-                          aria-label="Preview"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                      )}
+                  </p>
+                </div>
+                <div className="flex gap-0.5 items-center">
+                  {isPreviewable(attachment.mimeType) && (
+                    <Tooltip content="Preview" size="sm">
                       <Button
-                        onClick={() => void handleDownload(attachment)}
-                        className="p-1.5 text-muted-foreground hover:bg-accent rounded"
-                        title="Download"
-                        aria-label="Download"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPreviewAttachment(attachment)}
+                        aria-label="Preview"
+                        className={iconButton}
                       >
-                        <Download className="w-4 h-4" />
+                        <Eye className="w-3.5 h-3.5" />
                       </Button>
+                    </Tooltip>
+                  )}
+                  <Tooltip content="Download" size="sm">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleDownload(attachment)}
+                      aria-label="Download"
+                      className={iconButton}
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </Button>
+                  </Tooltip>
+                  {/* Jira-hosted files are deleted in Jira; local uploads and email files here. */}
+                  {!attachment.url.startsWith('http') && (
+                    <Tooltip content="Delete" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          handleDeleteClick(attachment.id, attachment.originalFilename)
+                        }
+                        aria-label="Delete"
+                        className={`${iconButton} hover:text-destructive`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </Tooltip>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
-                      {/* Only show delete for non-Jira attachments (local uploads and email) */}
-                      {!attachment.url.startsWith('http') && (
-                        <Button
-                          variant="ghost"
-                          onClick={() =>
-                            handleDeleteClick(attachment.id, attachment.originalFilename)
-                          }
-                          className="p-1.5 text-destructive hover:bg-destructive-muted rounded transition-colors"
-                          title="Delete"
-                          aria-label="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogHeader>
-          <DialogTitle>Delete Attachment</DialogTitle>
-          <DialogClose onClose={() => setDeleteDialogOpen(false)} />
-        </DialogHeader>
-        <div className="p-6">
-          <p className="mb-4 text-sm text-muted-foreground">
-            Are you sure you want to delete &quot;{attachmentToDelete?.name}&quot;?
-            {attachmentToDelete &&
-              attachments.find((att) => att.id === attachmentToDelete.id)?.externalId && (
-                <span className="block mt-2 font-medium text-destructive">
-                  This will also delete the file from Jira.
-                </span>
-              )}
-          </p>
-          <div className="flex gap-3 justify-end">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setDeleteDialogOpen(false);
-                setAttachmentToDelete(null);
-              }}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteConfirm}>
-              Delete
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) setAttachmentToDelete(null);
+        }}
+        onConfirm={() => void handleDeleteConfirm()}
+        title={`Delete “${attachmentToDelete?.name ?? 'this file'}”?`}
+        description={
+          attachmentToDelete &&
+          attachments.find((att) => att.id === attachmentToDelete.id)?.externalId
+            ? 'It is also deleted from Jira. This can’t be undone.'
+            : 'This can’t be undone.'
+        }
+        confirmText="Delete"
+      />
 
       <AttachmentPreviewDialog
         attachment={previewAttachment}

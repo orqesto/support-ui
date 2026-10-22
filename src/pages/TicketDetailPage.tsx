@@ -1,25 +1,21 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Link2, Loader2 } from 'lucide-react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { ScrollButtons } from '@/components/shared/ScrollButtons';
 import { TicketDetail } from '@/components/tickets/TicketDetail';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
-import {
-  Dialog,
-  DialogHeader,
-  DialogTitle,
-  DialogContent,
-  DialogFooter,
-  DialogClose,
-} from '@/components/ui/Dialog';
+import { Card } from '@/components/ui/Card';
+import { TicketDeleteDialog } from '@/components/tickets/TicketsJiraDialogs';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { usePermissions } from '@/hooks/usePermissions';
 import { ticketService } from '@/services/ticket.service';
 import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Ticket } from '@/types';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
+import { toast } from '@/lib/toast';
 
 export const TicketDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -89,6 +85,13 @@ export const TicketDetailPage = () => {
     navigate('/tickets');
   };
 
+  const handleCopyLink = () => {
+    navigator.clipboard
+      .writeText(`${window.location.origin}/tickets?id=${ticket?.id ?? ''}`)
+      .then(() => toast.success('Link copied'))
+      .catch((error: unknown) => toast.failure('copy the link', error));
+  };
+
   const handleDeleteClick = () => {
     setDeleteDialogOpen(true);
   };
@@ -140,14 +143,6 @@ export const TicketDetailPage = () => {
       <ScrollButtons bottomTarget="[data-ticket-actions]" />
       <Layout>
         <div className="px-4 mx-auto space-y-4 w-full">
-          <div className="flex gap-2 items-center">
-            <Button onClick={handleBack} variant="outline" size="sm">
-              <ArrowLeft className="mr-2 w-4 h-4" />
-              Back
-            </Button>
-            <h1 className="font-display text-2xl font-bold">Ticket Details</h1>
-          </div>
-
           {threadsNotLinked && (
             <Alert variant="warning">
               The ticket was created, but its threads could not be linked — add them here.
@@ -159,55 +154,59 @@ export const TicketDetailPage = () => {
             </Alert>
           )}
 
-          <div className="p-6 rounded-lg border bg-card">
-            <TicketDetail
-              key={ticket.id}
-              ticket={ticket}
-              // Deleting needs DELETE_TICKETS or MANAGE_ORGANIZATION, as the route (and the list's
-              // Delete): support and moderators manage tickets but were offered a Delete it refused.
-              onDelete={
-                hasAnyPermission([Permission.DELETE_TICKETS, Permission.MANAGE_ORGANIZATION])
-                  ? handleDeleteClick
-                  : undefined
-              }
-              onRefresh={refreshTicket}
-            />
-          </div>
+          <TicketDetail
+            key={ticket.id}
+            ticket={ticket}
+            // Deleting needs DELETE_TICKETS or MANAGE_ORGANIZATION, as the route (and the list's
+            // Delete): support and moderators manage tickets but were offered a Delete it refused.
+            onDelete={
+              hasAnyPermission([Permission.DELETE_TICKETS, Permission.MANAGE_ORGANIZATION])
+                ? handleDeleteClick
+                : undefined
+            }
+            onRefresh={refreshTicket}
+            renderChrome={(more, body) => (
+              // overflow-clip, not hidden: the tab bar and the sidebar stick to the page's scroll.
+              <Card padding="none" className="overflow-clip bg-background">
+                <div className="flex gap-1 items-center px-2 h-[46px] border-b border-border bg-card text-[12.5px] text-muted-foreground">
+                  <Tooltip content="Back to tickets" size="sm">
+                    <Button variant="ghost" size="sm" onClick={handleBack}>
+                      <ArrowLeft className="mr-1.5 w-4 h-4" />
+                      Tickets
+                    </Button>
+                  </Tooltip>
+                  <span>/</span>
+                  <span className="font-mono">#{ticket.id}</span>
+                  <span className="flex-1" />
+                  <Tooltip content="Copy link">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Copy link"
+                      onClick={handleCopyLink}
+                      className="p-0 w-8 h-8"
+                    >
+                      <Link2 className="w-4 h-4" />
+                    </Button>
+                  </Tooltip>
+                  {more}
+                </div>
+                {body}
+              </Card>
+            )}
+          />
         </div>
       </Layout>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogHeader>
-          <DialogTitle>Delete Ticket</DialogTitle>
-          <DialogClose onClose={() => setDeleteDialogOpen(false)} />
-        </DialogHeader>
-        <DialogContent>
-          <p>Are you sure you want to delete this ticket? This action cannot be undone.</p>
-          {ticket && (
-            <div className="p-3 mt-3 bg-muted rounded-md border border-border">
-              <p className="text-sm font-semibold text-foreground">
-                {ticket.title}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Status: <span className="font-medium">{ticket.status}</span> | Priority:{' '}
-                <span className="font-medium">{ticket.priority}</span>
-              </p>
-            </div>
-          )}
-          {deleteError && (
-            <p className="mt-2 text-sm text-destructive">{deleteError}</p>
-          )}
-        </DialogContent>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={handleDeleteConfirm} isLoading={deleting}>
-            Delete
-          </Button>
-        </DialogFooter>
-      </Dialog>
+      <TicketDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        ticketToDelete={ticket}
+        deleting={deleting}
+        error={deleteError}
+        onCancel={() => setDeleteDialogOpen(false)}
+        onConfirm={() => void handleDeleteConfirm()}
+      />
     </>
   );
 };

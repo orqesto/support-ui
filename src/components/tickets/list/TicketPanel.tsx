@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronUp, Link2, Maximize2, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Kbd } from '@/components/ui/Kbd';
 import { Tooltip } from '@/components/ui/Tooltip';
 
 type TicketPanelProps = {
@@ -12,6 +13,8 @@ type TicketPanelProps = {
   onClose: () => void;
   onFullPage: () => void;
   onCopyLink: () => void;
+  /** The ticket's ⋯ menu, at the right end of the bar. */
+  more?: ReactNode;
   children: ReactNode;
 };
 
@@ -28,7 +31,18 @@ const IconAction = ({
   disabled?: boolean;
   children: ReactNode;
 }) => (
-  <Tooltip content={kbd ? `${label} (${kbd})` : label}>
+  <Tooltip
+    content={
+      kbd ? (
+        <span className="inline-flex gap-1.5 items-center">
+          {label}
+          <Kbd tone="tooltip">{kbd}</Kbd>
+        </span>
+      ) : (
+        label
+      )
+    }
+  >
     <Button
       variant="ghost"
       size="sm"
@@ -54,6 +68,7 @@ export const TicketPanel = ({
   onClose,
   onFullPage,
   onCopyLink,
+  more,
   children,
 }: TicketPanelProps) => (
   <div role="region" aria-label={`Ticket #${ticketId}`} className="flex flex-col h-full min-h-0">
@@ -85,7 +100,8 @@ export const TicketPanel = ({
       <IconAction label="Open full page" onClick={onFullPage}>
         <Maximize2 className="w-4 h-4" />
       </IconAction>
+      {more}
     </div>
-    <div className="overflow-y-auto flex-1 p-5 min-h-0">{children}</div>
+    <div className="overflow-y-auto flex-1 min-h-0 bg-background">{children}</div>
   </div>
 );

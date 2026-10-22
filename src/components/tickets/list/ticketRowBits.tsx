@@ -1,5 +1,6 @@
 import { MessagesSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
+import { Tooltip } from '@/components/ui/Tooltip';
 import type { Ticket, TicketPriority, TicketStatus } from '@/types';
 import { PRIORITY_LABELS, STATUS_LABELS } from './ticketFilterKeys';
 
@@ -18,16 +19,16 @@ export const spineTone = (ticket: Ticket): SpineTone => {
 
 export const SPINE_CLASS: Record<SpineTone, string> = {
   danger: 'bg-destructive',
-  att: 'bg-pink-600 dark:bg-pink-400',
+  att: 'bg-attention',
   ok: 'bg-success',
   blue: 'bg-primary',
   calm: 'bg-muted-foreground/50',
 };
 
-const STATUS_DOT: Record<TicketStatus, string> = {
-  pending: 'bg-purple-600 dark:bg-purple-400',
+export const STATUS_DOT: Record<TicketStatus, string> = {
+  pending: 'bg-pending',
   open: 'bg-primary',
-  in_progress: 'bg-amber-500',
+  in_progress: 'bg-caution-solid',
   resolved: 'bg-success',
   closed: 'bg-muted-foreground/60',
 };
@@ -42,7 +43,13 @@ export const StatusDot = ({ status }: { status: TicketStatus }) => (
 const BARS: Record<Exclude<TicketPriority, 'critical'>, number> = { high: 3, medium: 2, low: 1 };
 
 /** Signal bars, or a filled alert square for critical. */
-export const PriorityIcon = ({ priority }: { priority: TicketPriority }) => {
+export const PriorityIcon = ({ priority }: { priority: TicketPriority }) => (
+  <Tooltip content={PRIORITY_LABELS[priority]} size="sm">
+    <PriorityGlyph priority={priority} />
+  </Tooltip>
+);
+
+const PriorityGlyph = ({ priority }: { priority: TicketPriority }) => {
   const label = PRIORITY_LABELS[priority];
   if (priority === 'critical') {
     return (
@@ -84,14 +91,18 @@ export const PriorityIcon = ({ priority }: { priority: TicketPriority }) => {
 /** "N owed" when customers are still owed the fix; a dash otherwise or when unknown. */
 export const OwedCell = ({ count }: { count: number | undefined }) =>
   count ? (
-    <Badge
+    <Tooltip
+      content={`${count} ${count === 1 ? 'customer hasn’t' : 'customers haven’t'} been told it’s fixed`}
       size="sm"
-      variant="danger"
-      className="font-semibold whitespace-nowrap cursor-default"
-      title={`${count} ${count === 1 ? 'customer hasn’t' : 'customers haven’t'} been told it’s fixed`}
     >
-      {count} owed
-    </Badge>
+      <Badge
+        size="sm"
+        variant="attention"
+        className="font-semibold whitespace-nowrap cursor-default"
+      >
+        {count} owed
+      </Badge>
+    </Tooltip>
   ) : (
     <span className="text-muted-foreground/70">—</span>
   );
@@ -100,13 +111,12 @@ export const ThreadCount = ({ count }: { count: number | undefined }) =>
   count === undefined ? (
     <span className="text-muted-foreground/70">—</span>
   ) : (
-    <span
-      className="inline-flex gap-1 items-center font-mono text-xs text-muted-foreground"
-      title={`${count} ${count === 1 ? 'thread' : 'threads'}`}
-    >
-      <MessagesSquare className="w-3.5 h-3.5" />
-      {count}
-    </span>
+    <Tooltip content={`${count} ${count === 1 ? 'thread' : 'threads'}`} size="sm">
+      <span className="inline-flex gap-1 items-center font-mono text-xs text-muted-foreground">
+        <MessagesSquare className="w-3.5 h-3.5" />
+        {count}
+      </span>
+    </Tooltip>
   );
 
 export const LabelChip = ({ name, color }: { name: string; color: string }) => (

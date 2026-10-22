@@ -1,5 +1,6 @@
 import { Plus, UserMinus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { Menu, MenuItem, MenuLabel, MenuNote, MenuSeparator } from '@/components/ui/Menu';
 import type { Ticket } from '@/types';
 import { Avatar } from './ticketRowBits';
@@ -12,6 +13,8 @@ export type AssigneeCellProps = {
   onAssign: (ticketId: number, userId: number | null) => void;
   /** Avatar only — the narrow layouts. */
   compact?: boolean;
+  /** With `compact`: still say "Claim" / "Assign" (kanban cards) — only the owner's name goes. */
+  keepActionLabel?: boolean;
 };
 
 /**
@@ -25,6 +28,7 @@ export const AssigneeCell = ({
   currentUserId,
   onAssign,
   compact,
+  keepActionLabel = false,
 }: AssigneeCellProps) => {
   const name =
     ticket.assigneeName ?? assignees.find((user) => user.id === ticket.assigneeId)?.name ?? '';
@@ -67,7 +71,7 @@ export const AssigneeCell = ({
               className="gap-1 px-2 h-6 text-[11.5px] font-semibold rounded-md border border-dashed border-muted-foreground/60 text-muted-foreground hover:border-solid hover:border-primary hover:text-primary"
             >
               <Plus className="w-3 h-3" />
-              {!compact && 'Assign'}
+              {(!compact || keepActionLabel) && 'Assign'}
             </Button>
           )}
         >
@@ -92,20 +96,22 @@ export const AssigneeCell = ({
 
   if (ticket.assigneeId === null) {
     return (
-      <Button
-        variant="ghost"
-        size="sm"
-        aria-label={`Claim #${ticket.id}`}
-        disabled={currentUserId === null}
-        onClick={(event) => {
-          stop(event);
-          if (currentUserId !== null) onAssign(ticket.id, currentUserId);
-        }}
-        className="gap-1 px-2 h-6 text-[11.5px] font-semibold rounded-md border border-dashed border-muted-foreground/60 text-muted-foreground hover:border-solid hover:border-primary hover:text-primary"
-      >
-        <Plus className="w-3 h-3" />
-        {!compact && 'Claim'}
-      </Button>
+      <Tooltip content="Assign to yourself" size="sm">
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label={`Claim #${ticket.id}`}
+          disabled={currentUserId === null}
+          onClick={(event) => {
+            stop(event);
+            if (currentUserId !== null) onAssign(ticket.id, currentUserId);
+          }}
+          className="gap-1 px-2 h-6 text-[11.5px] font-semibold rounded-md border border-dashed border-muted-foreground/60 text-muted-foreground hover:border-solid hover:border-primary hover:text-primary"
+        >
+          <Plus className="w-3 h-3" />
+          {(!compact || keepActionLabel) && 'Claim'}
+        </Button>
+      </Tooltip>
     );
   }
 
@@ -116,22 +122,27 @@ export const AssigneeCell = ({
         ariaLabel={`Assign #${ticket.id}`}
         align="end"
         width={270}
-        trigger={({ toggle }) => (
-          <Button
-            variant="ghost"
-            aria-label={`Re-assign #${ticket.id}`}
-            aria-haspopup="menu"
-            onClick={toggle}
-            className="gap-1.5 justify-start px-0.5 pr-2 h-auto min-w-0 font-normal rounded-full text-[12.5px]"
+        trigger={({ open, toggle }) => (
+          <Tooltip
+            content={open ? null : `Assigned to ${mine ? 'you' : name} · click to re-assign`}
+            size="sm"
           >
-            <Avatar id={assigneeId} name={name} />
-            {!compact && (
-              <span className="truncate">
-                {name}
-                {mine && <span className="text-muted-foreground"> (you)</span>}
-              </span>
-            )}
-          </Button>
+            <Button
+              variant="ghost"
+              aria-label={`Re-assign #${ticket.id}`}
+              aria-haspopup="menu"
+              onClick={toggle}
+              className="gap-1.5 justify-start px-0.5 pr-2 h-auto min-w-0 font-normal rounded-full text-[12.5px]"
+            >
+              <Avatar id={assigneeId} name={name} />
+              {!compact && (
+                <span className="truncate">
+                  {name}
+                  {mine && <span className="text-muted-foreground"> (you)</span>}
+                </span>
+              )}
+            </Button>
+          </Tooltip>
         )}
       >
         <MenuLabel>Assign #{ticket.id} to</MenuLabel>

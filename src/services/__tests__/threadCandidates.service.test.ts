@@ -43,8 +43,8 @@ describe('searchThreadCandidates', () => {
     });
     const { candidates, capped } = await searchThreadCandidates('');
     expect(candidates).toEqual([
-      { id: 1, publicId: 'SUP-1', subject: 'Subject 1', sender: 'ada@example.com' },
-      { id: 2, publicId: 'SUP-2', subject: 'Subject 2', sender: 'bob@example.com' },
+      { id: 1, publicId: 'SUP-1', subject: 'Subject 1', sender: 'ada@example.com', status: null },
+      { id: 2, publicId: 'SUP-2', subject: 'Subject 2', sender: 'bob@example.com', status: null },
     ]);
     expect(capped).toBe(false);
   });

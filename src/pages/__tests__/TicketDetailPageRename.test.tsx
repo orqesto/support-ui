@@ -62,6 +62,8 @@ vi.mock('@/hooks/usePermissions', () => ({
       permissions.some((permission) => perms.held.includes(permission)),
   }),
 }));
+// The sidebar names the ticket's department from the cached list; no query client here.
+vi.mock('@/hooks/useDepartments', () => ({ useDepartmentById: () => undefined }));
 vi.mock('@/lib/logger', () => ({ logger: { error: () => {}, info: () => {} } }));
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -138,23 +140,29 @@ describe('TicketDetailPage — rename', () => {
     expect(screen.queryByRole('heading', { name: 'Parcel stuck — carrier delay' })).toBeNull();
   });
 
+  // Delete lives in the ticket's ⋯ menu (Tickets v3).
+  const deleteOffered = async () => {
+    fireEvent.click(await screen.findByRole('button', { name: 'More actions' }));
+    return screen.queryByRole('menuitem', { name: 'Delete ticket…' });
+  };
+
   it('Delete is offered only to a role the route lets delete (DELETE_TICKETS or MANAGE_ORGANIZATION)', async () => {
     renderPage();
-    expect(await screen.findByRole('button', { name: 'Delete' })).toBeInTheDocument();
+    expect(await deleteOffered()).toBeInTheDocument();
     cleanup();
 
     // Support and moderators manage tickets but may not delete them (the server answers 403).
     perms.held = ['manage_tickets'];
     renderPage();
     expect(await screen.findByRole('heading', { name: 'Parcel stuck' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(await deleteOffered()).toBeNull();
     cleanup();
 
     // An associate (staging 2026-10-19: saw Delete, which the server refuses).
     perms.held = [];
     renderPage();
     expect(await screen.findByRole('heading', { name: 'Parcel stuck' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    expect(await deleteOffered()).toBeNull();
   });
 
   it('opened by New ticket after its threads failed to link: says so, and only then', async () => {

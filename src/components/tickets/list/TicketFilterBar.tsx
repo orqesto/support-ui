@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Filter, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, Search, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from '@/components/ui/Menu';
@@ -63,14 +63,16 @@ export const TicketFilterBar = ({
 
   return (
     <div className="flex flex-wrap gap-2 items-center">
-      <div className="flex flex-wrap flex-1 gap-1.5 items-center min-w-0 basis-[380px]">
+      {/* One field: the filter chips sit inside the search box, before the text (as the design). */}
+      <div className="flex flex-wrap flex-1 gap-[5px] items-center min-w-0 basis-[380px] min-h-[38px] py-1 pl-2.5 pr-1.5 rounded-[9px] border border-border bg-card focus-within:border-primary focus-within:ring-[3px] focus-within:ring-primary/15">
+        <Search className="w-3.5 h-3.5 shrink-0 text-muted-foreground" aria-hidden />
         {active.map((key) => {
           const value = filterValue(filters, key.field);
           const option = key.options.find((opt) => opt.value === value);
           return (
             <span
               key={key.field}
-              className="flex overflow-hidden items-stretch h-7 rounded-md border shrink-0 max-w-full text-[12.5px] border-border bg-card dark:bg-accent"
+              className="flex overflow-hidden items-stretch h-[26px] rounded-[7px] border shrink-0 max-w-full text-[12.5px] border-border bg-card dark:bg-accent"
             >
               <span className="flex items-center px-2 font-medium border-r text-muted-foreground border-border bg-muted dark:bg-input">
                 {key.label}
@@ -115,6 +117,8 @@ export const TicketFilterBar = ({
             onSearch={onSearch}
             placeholder={active.length ? 'Search…' : 'Search by ID, title or description'}
             className="flex-1"
+            size="sm"
+            bare
           />
         </span>
       </div>

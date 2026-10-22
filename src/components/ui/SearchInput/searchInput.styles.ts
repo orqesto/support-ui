@@ -9,9 +9,15 @@ export const searchInputVariants = cva(
         md: 'px-3 py-2 pr-9 text-sm h-10',
         lg: 'px-4 py-3 pr-10 text-base h-12',
       },
+      /** No box of its own: the field sits inside a container that draws the border (chip field). */
+      bare: {
+        true: 'border-0 bg-transparent rounded-none pl-1 focus:ring-0',
+        false: '',
+      },
     },
     defaultVariants: {
       size: 'md',
+      bare: false,
     },
   }
 );
@@ -47,8 +53,10 @@ export const searchButtonVariants = cva(
 
 export type SearchInputVariantsType = VariantProps<typeof searchInputVariants>;
 
-export const getSearchInputClasses = (size?: SearchInputVariantsType['size']) =>
-  searchInputVariants({ size });
+export const getSearchInputClasses = (
+  size?: SearchInputVariantsType['size'],
+  bare?: SearchInputVariantsType['bare']
+) => searchInputVariants({ size, bare });
 
 export const getSearchIconClasses = (size?: SearchInputVariantsType['size']) =>
   searchIconVariants({ size });
