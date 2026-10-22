@@ -16,6 +16,13 @@ import {
   zendeskImportService,
 } from '@/services/zendeskImport.service';
 import { chooseOption } from '@/test/chooseOption';
+import {
+  apiError,
+  appliedRun,
+  previewedRun,
+  routeGet,
+  uploadingRun,
+} from './zendeskImportFixtures';
 
 const get = vi.fn();
 const post = vi.fn();
@@ -44,70 +51,6 @@ afterEach(() => {
   vi.clearAllMocks();
   vi.useRealTimers();
 });
-
-/** An error shaped the way the api-client interceptor rejects (status + body on the Error). */
-const apiError = (status: number, body: unknown, message = 'Request failed') =>
-  Object.assign(new Error(message), { status, data: body });
-
-const previewedRun = {
-  id: 5,
-  status: 'previewed',
-  fileName: 'export.json.zip',
-  fileSize: 1000,
-  source: 'acme',
-  options: {
-    includeSpam: false,
-    includeProbable: false,
-    groupDepartments: {},
-    defaultDepartmentId: null,
-    defaultSourceId: null,
-  },
-  preview: {
-    subdomain: 'acme',
-    tickets: 110,
-    unreadableLines: 0,
-    notTickets: 0,
-    // A re-import: 5 tickets already imported (2 of them spam), 4 unchanged spam, 1 whose thread
-    // an agent deleted.
-    counts: {
-      new: 70,
-      spam_new: 40,
-      spamClosed: 46,
-      messageId: 20,
-      followup: 8,
-      conflict: 2,
-      mapped: 5,
-      spam_mapped: 2,
-      skipped_unchanged: 4,
-      spam_skipped_unchanged: 4,
-      skipped_deleted: 1,
-    },
-    conflicts: [{ ticketId: 1, conversationIds: [3, 4] }],
-    conflictsListed: 1,
-    groups: { Orders: 60, Info: 40 },
-    toAddresses: { 'orders@shop.example': { count: 60, ours: true } },
-    assignees: {
-      'kurt@shop.example': { count: 30, odlyUserId: 9 },
-      'nobody@shop.example': { count: 3, odlyUserId: null },
-    },
-  },
-  report: null,
-  progress: null,
-  error: null,
-  partsUploaded: 1,
-  createdAt: '2026-10-22T10:00:00Z',
-  updatedAt: '2026-10-22T10:00:00Z',
-  finishedAt: null,
-};
-
-const routeGet = (runs: unknown[]) => (url: string) => {
-  if (url === '/api/imports/zendesk/runs')
-    return Promise.resolve({ data: { success: true, data: runs } });
-  if (url.startsWith('/api/departments'))
-    return Promise.resolve({ data: { success: true, data: [{ id: 1, name: 'Support' }] } });
-  if (url === '/api/integrations') return Promise.resolve({ data: { success: true, data: [] } });
-  return Promise.resolve({ data: { success: true, data: runs[0] } });
-};
 
 describe('summarizePreview', () => {
   it('takes spam off its kind when spam is skipped — the backend counts it twice', () => {
@@ -330,31 +273,6 @@ describe('ZendeskImportSettings', () => {
   });
 });
 
-const uploadingRun = {
-  ...previewedRun,
-  id: 7,
-  status: 'uploading',
-  fileName: 'newer-export.json.zip',
-  preview: null,
-  report: null,
-  partsUploaded: 2,
-};
-
-const appliedRun = {
-  ...previewedRun,
-  id: 4,
-  status: 'applied',
-  fileName: 'first-export.json.zip',
-  report: {
-    tickets: 110,
-    counts: { created: 12, messageId: 3, eventsAdded: 40, eventsMatched: 5, notesAdded: 2 },
-    conflicts: [],
-    failures: [],
-    unmatchedAssignees: {},
-    reconciled: 0,
-  },
-};
-
 describe('ZendeskImportSettings — runs that are not simply "previewed"', () => {
   it('an upload abandoned before a reload is shown with Delete, and the last import stays visible', async () => {
     get.mockImplementation(routeGet([uploadingRun, appliedRun]));
@@ -365,7 +283,7 @@ describe('ZendeskImportSettings — runs that are not simply "previewed"', () =>
       await screen.findByText(/This upload stopped before it finished \(2 parts sent\)/)
     ).toBeTruthy();
     expect(screen.getByText('Upload stopped')).toBeTruthy();
-    expect(screen.getByText(/Last import: first-export\.json\.zip/)).toBeTruthy();
+    expect(screen.getByText(/Earlier import \(.+\): first-export\.json\.zip/)).toBeTruthy();
     expect(screen.getByText(/12 new threads, 3 threads updated/)).toBeTruthy();
     // The earlier run's report is for reference: no follow-up steps that would act on it.
     expect(screen.queryByRole('button', { name: /Check again/ })).toBeNull();
@@ -491,6 +409,8 @@ describe('ZendeskImportSettings — runs that are not simply "previewed"', () =>
       await vi.advanceTimersByTimeAsync(3000);
     });
     expect(await screen.findByText(/This import is no longer there/)).toBeTruthy();
+    // The run is gone: no Stop that would only fail.
+    expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull();
     const polls = () =>
       get.mock.calls.filter((call) => call[0] === '/api/imports/zendesk/runs/5').length;
     expect(polls()).toBe(1);
