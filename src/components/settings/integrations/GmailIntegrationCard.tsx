@@ -11,7 +11,6 @@ import {
   AtSign,
   Hash,
   RefreshCw,
-  MessageCircleReply,
 } from 'lucide-react';
 import { AckReplyEditor } from '@/components/settings/integrations/AckReplyEditor';
 import { GmailRowCount } from '@/components/settings/integrations/GmailCountReview';
@@ -132,8 +131,7 @@ export const GmailIntegrationCard = ({
         onShowAlert({
           open: true,
           title: 'Team assignment failed',
-          description:
-            'The Gmail account was connected, but team assignment failed. Edit teams from the source list.',
+          description: 'The Gmail account was connected, but team assignment failed. Edit teams from the source list.',
           variant: 'warning',
         });
       }
@@ -501,7 +499,7 @@ export const GmailIntegrationCard = ({
                                   onClick={() => { setEditAliases(integration.id); setShowMenu(null); }}
                                 />
                                 <SourceMenuItem
-                                  icon={deptPicker.teamsEnabled ? Building2 : MessageCircleReply}
+                                  icon={Building2}
                                   label={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply on/off'}
                                   onClick={() => { setEditDepts(integration.id); setShowMenu(null); }}
                                 />
