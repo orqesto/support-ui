@@ -13,6 +13,10 @@ const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 vi.mock('@/lib/api-client', () => ({ apiClient: api }));
 vi.mock('@/lib/logger', () => ({ logger: { error: () => {}, info: () => {} } }));
 
+vi.mock('@/hooks/useCurrentWorkspace', () => ({
+  useCurrentWorkspace: () => ({ id: 1, name: 'Acme Workspace', code: 'acme' }),
+}));
+
 const { TeamsOffDialog } = await import('../TeamsOffDialog');
 
 const zeroMoves = {
@@ -103,6 +107,11 @@ const renderDialog = () => {
   return { onDone, onInterrupted };
 };
 
+const typeName = (dialog: HTMLElement, text = 'Acme Workspace') =>
+  fireEvent.change(within(dialog).getByLabelText(/To confirm, type the workspace name/), {
+    target: { value: text },
+  });
+
 const routeGet = (preview: unknown, mode: unknown) =>
   api.get.mockImplementation((url: string) =>
     Promise.resolve({ data: url.endsWith('/preview') ? preview : mode })
@@ -145,6 +154,7 @@ describe('TeamsOffDialog — raw backend preview through the service', () => {
     expect(within(dialog).getByText(/1 label and 1 category with the same name/)).toBeTruthy();
     expect(within(dialog).getByText(/2 people are added to General team/)).toBeTruthy();
     expect(within(dialog).getByText(/Lead qualification will run on General team/)).toBeTruthy();
+    typeName(dialog);
     expect(within(dialog).getByRole('button', { name: 'Switch teams off' })).not.toBeDisabled();
   });
 
@@ -200,6 +210,7 @@ describe('TeamsOffDialog — #6 an error that left the switch-off interrupted', 
     const handlers = renderDialog();
     const dialog = await screen.findByRole('dialog');
     await within(dialog).findByText(/1 team will be merged/);
+    typeName(dialog);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Switch teams off' }));
     return { ...handlers, dialog };
   };
@@ -248,5 +259,76 @@ describe('TeamsOffDialog — #6 an error that left the switch-off interrupted', 
       )
     ).toBeTruthy();
     expect(onInterrupted).not.toHaveBeenCalled();
+  });
+});
+
+describe('TeamsOffDialog — type the workspace name to confirm', () => {
+  const ok = { success: true, data: { enabled: true, switching: false, interrupted: false } };
+  const open = async () => {
+    routeGet(rawPreview(), ok);
+    api.put.mockResolvedValue({ data: { success: true, data: { enabled: false } } });
+    const handlers = renderDialog();
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByText(/1 team will be merged/);
+    return { ...handlers, dialog };
+  };
+  const button = (dialog: HTMLElement) =>
+    within(dialog).getByRole('button', { name: 'Switch teams off' });
+
+  it('shows the name in bold and keeps the button disabled until it matches', async () => {
+    const { dialog } = await open();
+    expect(within(dialog).getByText('Acme Workspace').tagName).toBe('STRONG');
+    expect(button(dialog)).toBeDisabled();
+    typeName(dialog, 'Acme Workspac');
+    expect(button(dialog)).toBeDisabled();
+    typeName(dialog, 'Acme Workspace');
+    expect(button(dialog)).not.toBeDisabled();
+  });
+
+  it('matches ignoring surrounding whitespace and letter case', async () => {
+    const { dialog } = await open();
+    typeName(dialog, '  acme WORKSPACE  ');
+    expect(button(dialog)).not.toBeDisabled();
+  });
+
+  it('Enter submits only when the button is enabled', async () => {
+    const { dialog, onDone } = await open();
+    const input = within(dialog).getByLabelText(/To confirm, type the workspace name/);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(api.put).not.toHaveBeenCalled();
+    typeName(dialog);
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(api.put).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+  });
+
+  it('a blocker keeps it disabled even with the right name', async () => {
+    routeGet(
+      rawPreview([
+        { kind: 'ticketingIntegration', teamId: 2, teamName: 'S', integrationName: 'J' },
+      ]),
+      ok
+    );
+    renderDialog();
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByText(/Teams can’t be switched off yet/);
+    typeName(dialog);
+    expect(button(dialog)).toBeDisabled();
+  });
+
+  it('the typed text is cleared when the dialog is reopened', async () => {
+    routeGet(rawPreview(), ok);
+    const props = { onClose: vi.fn(), onDone: vi.fn(() => Promise.resolve()) };
+    const view = render(<TeamsOffDialog open {...props} />);
+    let dialog = await screen.findByRole('dialog');
+    await within(dialog).findByText(/1 team will be merged/);
+    typeName(dialog);
+    expect(button(dialog)).not.toBeDisabled();
+    view.rerender(<TeamsOffDialog open={false} {...props} />);
+    view.rerender(<TeamsOffDialog open {...props} />);
+    dialog = await screen.findByRole('dialog');
+    await within(dialog).findByText(/1 team will be merged/);
+    expect(within(dialog).getByLabelText(/To confirm, type the workspace name/)).toHaveValue('');
+    expect(button(dialog)).toBeDisabled();
   });
 });

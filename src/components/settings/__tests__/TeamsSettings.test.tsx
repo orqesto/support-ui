@@ -13,6 +13,9 @@ vi.mock('@/stores/authStore', async () => {
   const useAuthStore = create(() => ({ user: null, selectedOrganizationId: 1 }));
   return { useAuthStore };
 });
+vi.mock('@/hooks/useCurrentWorkspace', () => ({
+  useCurrentWorkspace: () => ({ id: 1, name: 'Acme Workspace', code: 'acme' }),
+}));
 vi.mock('@/lib/toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('@/lib/logger', () => ({ logger: { error: () => {}, info: () => {} } }));
 
@@ -62,6 +65,11 @@ const team = (id: number, name: string, extra: Partial<Department> = {}): Depart
   isDefault: false,
   ...extra,
 });
+
+const typeName = (dialog: HTMLElement) =>
+  fireEvent.change(within(dialog).getByLabelText(/To confirm, type the workspace name/), {
+    target: { value: 'Acme Workspace' },
+  });
 
 const renderPage = () =>
   render(
@@ -209,6 +217,8 @@ describe('TeamsSettings — the "Use teams" switch', () => {
     ).toBeTruthy();
     expect(svc.setTeamsMode).not.toHaveBeenCalled();
 
+    typeName(dialog);
+
     fireEvent.click(within(dialog).getByRole('button', { name: 'Switch teams off' }));
     await waitFor(() => expect(svc.setTeamsMode).toHaveBeenCalledWith(false));
   });
@@ -269,6 +279,7 @@ describe('TeamsSettings — a switch-off still running on the server', () => {
     fireEvent.click(await screen.findByRole('switch', { name: 'Use teams' }));
     const dialog = await screen.findByRole('dialog');
     await within(dialog).findByText(/1 team will be merged/);
+    typeName(dialog);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Switch teams off' }));
     return dialog;
   };
@@ -344,6 +355,8 @@ describe('TeamsSettings — a switch-off that did not finish', () => {
     expect(screen.getByText(/you cannot switch a team on/)).toBeTruthy();
     expect(screen.getByRole('switch', { name: 'Use teams' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Finish switching off' }));
+    // Finish only completes a switch already confirmed: no dialog, no typed name.
+    expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => expect(svc.setTeamsMode).toHaveBeenCalledWith(false));
     await waitFor(() => expect(screen.queryByText('Switching teams off didn’t finish')).toBeNull());
   });
@@ -384,6 +397,7 @@ describe('TeamsSettings — a switch-off that did not finish', () => {
     fireEvent.click(await screen.findByRole('switch', { name: 'Use teams' }));
     const dialog = await screen.findByRole('dialog');
     await within(dialog).findByText(/1 team will be merged/);
+    typeName(dialog);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Switch teams off' }));
     expect(await screen.findByText('Switching teams off didn’t finish')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Finish switching off' })).toBeTruthy();
@@ -461,6 +475,7 @@ describe('TeamsSettings — what stops a switch-off', () => {
         /2 labels and 1 category with the same name as one in General team are merged into it/
       )
     ).toBeTruthy();
+    typeName(dialog);
     expect(within(dialog).getByRole('button', { name: 'Switch teams off' })).not.toBeDisabled();
   });
 
@@ -477,6 +492,7 @@ describe('TeamsSettings — what stops a switch-off', () => {
     fireEvent.click(await screen.findByRole('switch', { name: 'Use teams' }));
     const dialog = await screen.findByRole('dialog');
     await within(dialog).findByText(/1 team will be merged/);
+    typeName(dialog);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Switch teams off' }));
     expect(
       await within(dialog).findByText(
