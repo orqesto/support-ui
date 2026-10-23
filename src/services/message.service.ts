@@ -209,10 +209,11 @@ export const normalizeSearchReading = (raw: unknown): SearchReading | null => {
 
 /**
  * Where a listed thread matched the typed search (backend threadSearchMatch.ts). `snippet` only for
- * a body match: PLAIN TEXT around the hit, shown in place of the latest-message preview.
+ * a body or note match: PLAIN TEXT around the hit, shown in place of the latest-message preview.
+ * `note`: no message holds a typed word — an internal note on the thread does.
  */
 export type SearchMatch = {
-  field: 'reference' | 'subject' | 'people' | 'body';
+  field: 'reference' | 'subject' | 'people' | 'body' | 'note';
   snippet?: string;
 };
 
@@ -221,6 +222,7 @@ const SEARCH_MATCH_FIELDS: readonly SearchMatch['field'][] = [
   'subject',
   'people',
   'body',
+  'note',
 ];
 
 /** Absent (an older backend), null (no search) and anything malformed all read as null. */

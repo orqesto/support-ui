@@ -9,6 +9,13 @@ describe('normalizeSearchMatch', () => {
     });
   });
 
+  it('keeps a note match with its snippet', () => {
+    expect(normalizeSearchMatch({ field: 'note', snippet: 'called back' })).toEqual({
+      field: 'note',
+      snippet: 'called back',
+    });
+  });
+
   it('keeps a field match without a snippet, and drops a blank one', () => {
     expect(normalizeSearchMatch({ field: 'subject' })).toEqual({ field: 'subject' });
     expect(normalizeSearchMatch({ field: 'body', snippet: '  ' })).toEqual({ field: 'body' });

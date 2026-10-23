@@ -526,11 +526,20 @@ export const MessageListItem = ({
     </>
   );
 
-  // A search that matched only inside a message quotes THAT passage, not the latest message —
-  // otherwise the row gives no hint why it is listed.
+  // A search that matched only inside a message — or only in an internal note — quotes THAT
+  // passage, not the latest message; otherwise the row gives no hint why it is listed.
+  const matchField = thread.searchMatch?.field;
   const bodySnippet =
-    thread.searchMatch?.field === 'body' ? (thread.searchMatch.snippet ?? null) : null;
+    matchField === 'body' || matchField === 'note' ? (thread.searchMatch?.snippet ?? null) : null;
+  const inNote = matchField === 'note' && bodySnippet !== null;
   const preview = bodySnippet ?? previewText(thread.latestIncomingMessage?.content ?? msg.content);
+  // A note is matched anywhere, like the subject (backend threadSearch.ts' linked text).
+  const previewNode = (
+    <>
+      {inNote && <span className="font-medium text-foreground/80">Note: </span>}
+      <Highlight text={preview} terms={highlightTerms} mode={inNote ? 'anywhere' : undefined} />
+    </>
+  );
 
   const rowProps = {
     role: 'button' as const,
@@ -613,9 +622,7 @@ export const MessageListItem = ({
               <Highlight text={msg.subject} terms={highlightTerms} mode="anywhere" />
             </span>
           )}
-          <span className="text-muted-foreground truncate flex-1 min-w-0">
-            <Highlight text={preview} terms={highlightTerms} />
-          </span>
+          <span className="text-muted-foreground truncate flex-1 min-w-0">{previewNode}</span>
           {!narrow && (
             <span className="hidden md:flex gap-2 items-center self-center ml-auto shrink-0">
               {ticketRef}
@@ -724,7 +731,7 @@ export const MessageListItem = ({
             bodySnippet ? 'line-clamp-2' : 'line-clamp-1'
           )}
         >
-          <Highlight text={preview} terms={highlightTerms} />
+          {previewNode}
         </p>
 
         {/* Sig row — signals, then the reference footer, then the assignee.
