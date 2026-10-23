@@ -48,6 +48,20 @@ describe('useThreadViewCounts — a pill counts the list it opens', () => {
     expect(getThreads).toHaveBeenCalledWith(threadApiFilters(requests[1].filters, false), 1, 1);
   });
 
+  it('does not re-ask while the refresh key is unchanged — a re-read of the same rows', async () => {
+    getThreads.mockResolvedValue({ success: true, data: [], pagination: { total: 3 } });
+    const requests = [{ key: 'x', filters: filters() }];
+    const { rerender } = renderHook((props: { at: string }) => useThreadViewCounts(requests, props.at), {
+      initialProps: { at: 'rows-a' },
+    });
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+    rerender({ at: 'rows-a' });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(getThreads).toHaveBeenCalledTimes(1);
+    rerender({ at: 'rows-b' });
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
+  });
+
   it('a count the server could not give is unknown, not zero', async () => {
     getThreads.mockResolvedValue({ success: false, data: [], pagination: { total: 0 } });
     const { result } = renderHook(() => useThreadViewCounts([{ key: 'x', filters: filters() }], 0));

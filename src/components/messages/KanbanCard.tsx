@@ -20,7 +20,7 @@ import { useDepartments } from '@/hooks/useDepartments';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { useAuthStore } from '@/stores/authStore';
-import { getChannelIcon, formatConvId, getConvUrlId } from '@/lib/messageHelpers';
+import { getChannelIcon, formatConvId, getConvUrlId, parseSender } from '@/lib/messageHelpers';
 import { cn, formatAge, safeCssColor } from '@/lib/utils';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { DepartmentBadge } from './DepartmentBadge';
@@ -162,7 +162,11 @@ export const KanbanCard = ({
   const needsRouting = msg.status === 'needs_routing';
   const suspicionBadge = getSuspicionBadge(msg);
 
-  const customer = thread.sender || msg.sender;
+  // The sender's name, as the list's rows and cards show it (Messages list v4); a bare address
+  // when there is no name. The full `Name <addr>` stays for the accessible names below.
+  const fullSender = thread.sender || msg.sender;
+  const parsedSender = parseSender(fullSender);
+  const customer = parsedSender.name ?? parsedSender.address;
   const signalMessage = thread.latestIncomingMessage ?? msg;
   const spine = getSpine(signalMessage, thread);
   const aiState = getAiState(signalMessage, thread, aiDraftsOff);
@@ -240,7 +244,7 @@ export const KanbanCard = ({
       }}
       {...longPress}
       {...(selectableId !== null ? { [SELECT_ID_ATTRIBUTE]: selectableId } : {})}
-      aria-label={`Open thread from ${customer}${msg.subject ? `: ${msg.subject}` : ''}`}
+      aria-label={`Open thread from ${fullSender}${msg.subject ? `: ${msg.subject}` : ''}`}
       className={cn(
         'relative w-full text-left rounded-md border bg-card pl-3.5 pr-3 py-2 shadow-sm hover:shadow-md hover:border-primary/40 transition-all space-y-1 overflow-hidden cursor-pointer',
         SELECT_GROUP_CLASS,
@@ -279,7 +283,7 @@ export const KanbanCard = ({
         >
           <Checkbox
             checked={selected === true}
-            aria-label={`Select thread from ${customer}`}
+            aria-label={`Select thread from ${fullSender}`}
             onChange={(event) =>
               isRangeClick(event.nativeEvent)
                 ? onToggleSelected(selectableId, { range: true })

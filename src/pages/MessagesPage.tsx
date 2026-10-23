@@ -1036,6 +1036,32 @@ export const MessagesPage = () => {
   };
   // Needs us: the list it opens (its own filters, nothing else). Spam: its lane is merged with
   // the spam log, which the scope counts cannot see, so it is counted the way its list is read.
+  /**
+   * When the view counts re-ask. NOT on every list re-read: socket events and read toggles
+   * re-read the list into a new array with the same rows, and each re-read asked ≥5 more
+   * `getThreads` (searches included) for counts that could not have changed (review of #712).
+   * Only what can move a count does: which rows, their status, assignee, park, team, priority,
+   * activity, and the list total.
+   */
+  const countsRefreshKey = useMemo(
+    () =>
+      `${messagesPagination.total}#` +
+      threads
+        .map((thread) => {
+          const msg = thread.latestMessage;
+          return [
+            thread.threadId,
+            msg?.status,
+            msg?.assigneeId,
+            msg?.parkedAt,
+            msg?.departmentId,
+            msg?.priority,
+            String(thread.lastMessageAt),
+          ].join('|');
+        })
+        .join(';'),
+    [threads, messagesPagination.total]
+  );
   const laneCounts = useThreadViewCounts(
     useMemo(
       () => [
@@ -1052,7 +1078,7 @@ export const MessagesPage = () => {
       ],
       [filters]
     ),
-    threads,
+    countsRefreshKey,
     displayMode === 'threads'
   );
   const triageCounts: Partial<Record<TriageId, number | undefined>> = {
@@ -1241,7 +1267,7 @@ export const MessagesPage = () => {
                         onAll={() => void clearFilters()}
                       />
                     ),
-                    countViews: { refreshKey: threads },
+                    countViews: { refreshKey: countsRefreshKey },
                     trailingViews: (
                       <TriageMenu
                         active={activeTriage}
@@ -1353,17 +1379,20 @@ export const MessagesPage = () => {
                 <SearchReadingNotice reading={searchReading} />
                 <LoadingOverlay active={searching && !loading} label="Searching…">
                   {loading ? (
-                    <div className={compactRows ? 'space-y-0' : 'space-y-2'}>
+                    // Messages list v4 `.skel`: grey-bar rows inside the list's own card, split by
+                    // hairlines — the shape the rows will take, not five separate cards.
+                    <Card className="overflow-hidden" aria-busy="true" aria-label="Loading threads">
                       {[0, 1, 2, 3, 4].map((idx) => (
-                        <Card key={idx} className="animate-pulse">
-                          <CardContent className="py-3 px-4 space-y-2">
-                            <div className="w-2/5 h-2.5 bg-muted rounded" />
-                            <div className="w-3/4 h-2.5 bg-muted rounded" />
-                            <div className="w-1/2 h-2.5 bg-muted rounded" />
-                          </CardContent>
-                        </Card>
+                        <div
+                          key={idx}
+                          className="grid gap-2 py-3 px-4 border-t border-hair first:border-t-0 animate-pulse"
+                        >
+                          <div className="w-2/5 h-2.5 bg-muted rounded" />
+                          <div className="w-3/4 h-2.5 bg-muted rounded" />
+                          <div className="w-1/2 h-2.5 bg-muted rounded" />
+                        </div>
                       ))}
-                    </div>
+                    </Card>
                   ) : threads.length === 0 ? (
                     <Card>
                       {/* Messages list v4 `.empty`: one line that says what is empty, and where
