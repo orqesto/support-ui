@@ -1,5 +1,6 @@
 import { Plus, SlidersHorizontal, Search, X } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { ViewPill } from '@/components/list/ViewPill';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { FilterSheet } from './FilterSheet';
@@ -21,6 +22,7 @@ import { useSavedViews } from './useSavedViews';
 import type { FilterState } from '@/stores/messagesStore';
 import { useLeadsHidden } from '@/hooks/useLeadsHidden';
 import { normalizeAiState } from '@/hooks/useMessagesUrlSync';
+import { useThreadViewCounts } from '@/hooks/useThreadViewCounts';
 
 /**
  * The inbox filter surface — a token bar on desktop, a drawer on mobile.
@@ -29,6 +31,14 @@ import { normalizeAiState } from '@/hooks/useMessagesUrlSync';
  * through the same `onFilterChange`, so URL sync, the query layer and the store are
  * untouched; only the way you reach a filter changed.
  */
+/** What applying a view writes. A view saved before "AI Suggested" was retired still names it. */
+const viewPatch = (view: SavedView): Partial<FilterState> => {
+  const raw = (view.filters as { aiState?: string }).aiState;
+  return raw === undefined
+    ? view.filters
+    : { ...view.filters, aiState: normalizeAiState(raw) ?? 'all' };
+};
+
 export const MessageFilterBar = ({
   filters,
   pagination,
@@ -41,6 +51,9 @@ export const MessageFilterBar = ({
   onCommitSearch,
   onClearFilters,
   showCount = true,
+  leadingViews,
+  countViews,
+  trailingViews,
 }: {
   filters: FilterState;
   pagination: { page: number; limit: number; total: number };
@@ -60,6 +73,16 @@ export const MessageFilterBar = ({
    * list v2 the count sits in the page header beside the view switch (`SurfaceCount`).
    */
   showCount?: boolean;
+  /** Views drawn before the saved ones (the thread list's Needs us · All). */
+  leadingViews?: ReactNode;
+  /**
+   * Put a count on each view: the rows the list shows once it is clicked (views MERGE, so that
+   * is the current filters with the view's applied). `refreshKey` re-counts when the list is
+   * re-read. The thread list only — the board has its own counts.
+   */
+  countViews?: { refreshKey: unknown };
+  /** Drawn after the saved views (the thread list's Triage menu). */
+  trailingViews?: ReactNode;
 }) => {
   const dynamic = useFilterOptions();
   const leadsHidden = useLeadsHidden();
@@ -105,17 +128,19 @@ export const MessageFilterBar = ({
    * `defs` skipped the assignee half of Mine on first paint.
    */
   const applyView = useCallback(
-    (view: SavedView) => {
-      // A view saved before "AI Suggested" was retired still names it — apply what it meant.
-      const raw = (view.filters as { aiState?: string }).aiState;
-      onFilterPatch(
-        raw === undefined
-          ? view.filters
-          : { ...view.filters, aiState: normalizeAiState(raw) ?? 'all' }
-      );
-    },
+    (view: SavedView) => onFilterPatch(viewPatch(view)),
     [onFilterPatch]
   );
+
+  // Each view's count is the total of the list its click lands on — the same patch, merged.
+  const countRequests = useMemo(
+    () =>
+      countViews
+        ? views.map((view) => ({ key: view.name, filters: { ...filters, ...viewPatch(view) } }))
+        : [],
+    [countViews, views, filters]
+  );
+  const viewCounts = useThreadViewCounts(countRequests, countViews?.refreshKey, !!countViews);
 
   /** Clicking a lit pill removes exactly that view's filters and leaves the rest. */
   const unapplyView = useCallback(
@@ -169,21 +194,16 @@ export const MessageFilterBar = ({
     const on = viewIsActive(view, filters);
     return (
       <span key={view.name} className="inline-flex relative items-center shrink-0 group/view">
-        <Button
-          variant="ghost"
-          aria-pressed={on}
+        <ViewPill
+          on={on}
+          count={countViews ? viewCounts[view.name] : undefined}
           // A lit pill toggles OFF. `viewIsActive` is an exact match, so when it
           // is lit the active filters ARE the view — clearing everything and
           // clearing "just the view" are the same set.
           onClick={() => (on ? unapplyView(view) : applyView(view))}
-          className={`h-[30px] px-[11px] rounded-lg border text-[12.5px] ${
-            on
-              ? 'bg-primary border-primary text-primary-foreground font-semibold hover:bg-primary hover:text-primary-foreground'
-              : 'bg-card border-border text-muted-foreground font-medium hover:text-foreground hover:border-border-strong'
-          }`}
         >
           {view.name}
-        </Button>
+        </ViewPill>
         {!view.builtIn && (
           <Button
             variant="ghost"
@@ -253,7 +273,9 @@ export const MessageFilterBar = ({
 
         {/* ── the views, Save as view, Clear all ── */}
         <div className="flex gap-1.5 items-center max-md:overflow-x-auto max-md:w-full max-md:-mx-3 max-md:px-3 md:flex-wrap md:min-h-[40px] [scrollbar-width:none]">
+          {leadingViews}
           {viewPills}
+          {trailingViews}
           {namingView ? (
             <span className="flex gap-1 items-center shrink-0">
               <span className="w-[140px]">

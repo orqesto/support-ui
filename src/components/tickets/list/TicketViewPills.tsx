@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
+import { ViewPill } from '@/components/list/ViewPill';
 import { Label } from '@/components/ui/Label';
 import type { TicketFilters } from '@/stores/ticketsStore';
 import { activeView, filtersOfView, viewFiltersOf, type TicketView } from './ticketViews';
@@ -71,21 +72,9 @@ export const TicketViewPills = ({
             key={view.id ?? view.name}
             className="inline-flex relative items-center shrink-0 group/view"
           >
-            <Button
-              variant="ghost"
-              aria-pressed={on}
-              onClick={() => onApply(filtersOfView(view.filters))}
-              className={`h-[30px] px-3 gap-2 rounded-full border text-[12.5px] ${
-                on
-                  ? 'bg-primary border-primary text-primary-foreground font-semibold hover:bg-primary hover:text-primary-foreground'
-                  : 'bg-card border-border text-muted-foreground font-medium hover:text-foreground'
-              }`}
-            >
+            <ViewPill on={on} count={count} onClick={() => onApply(filtersOfView(view.filters))}>
               {view.name}
-              {count !== undefined && (
-                <span className="font-mono text-[11px] opacity-75">{count}</span>
-              )}
-            </Button>
+            </ViewPill>
             {!view.builtIn && (
               <Button
                 variant="ghost"

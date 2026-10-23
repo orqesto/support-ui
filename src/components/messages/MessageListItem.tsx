@@ -52,7 +52,11 @@ import {
   getSuspicionBadge,
   getStatusBadge,
   hasAttachments,
+  deriveWorkflowStatus,
 } from './inboxCardHelpers';
+import { PriorityIcon } from '@/components/tickets/list/ticketRowBits';
+import { envelopeBadge, eventEnvelope } from '@/lib/messageEnvelope';
+import { THREAD_TABLE_GRID, ThreadStatusCell } from './list/threadTableParts';
 
 type MessageListItemProps = {
   thread: MessageThread;
@@ -311,8 +315,15 @@ export const MessageListItem = ({
     lens chips above already say it) and the labels (decoration at that height). Precedence is
     the card's, so the two at most that fit are the same two the card leads with.
   */
+  // Copied / not a recipient / a colleague's mail (metadata.envelope, from 2026-10-20).
+  const envelope = envelopeBadge(eventEnvelope(signalMessage.metadata));
   const signals = (
     <>
+      {envelope && (
+        <Tooltip content={envelope.title} size="sm">
+          <span className={`${chipClass} bg-muted text-muted-foreground`}>{envelope.label}</span>
+        </Tooltip>
+      )}
       <MessageSignalBadges message={signalMessage} size="sm" mode="card" />
 
       {/*
@@ -360,7 +371,8 @@ export const MessageListItem = ({
         </span>
       )}
 
-      {priorityBadge && (
+      {/* The table has a priority column of its own. */}
+      {!compact && priorityBadge && (
         <span className={`${chipClass} ${priorityBadge.className}`}>{priorityBadge.label}</span>
       )}
 
@@ -459,6 +471,33 @@ export const MessageListItem = ({
     </Button>
   );
 
+  // Ticket · messages · attachments: beside the subject in the table, in the footer on the card.
+  const ticketRef = chip && (
+    <Tooltip content={chip.tooltip} size="sm">
+      <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/70 shrink-0">
+        <Ticket className="w-3 h-3" />
+        {chip.label}
+      </span>
+    </Tooltip>
+  );
+  const countRef = thread.messageCount > 1 && (
+    <Tooltip content={`${thread.messageCount} messages in thread`} size="sm">
+      <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/70 shrink-0">
+        <MessagesSquare className="w-3 h-3" />
+        {thread.messageCount}
+      </span>
+    </Tooltip>
+  );
+  const attachCount = msg.attachmentCount ?? signalMessage.attachmentCount ?? 0;
+  const attachRef = hasAttachments(signalMessage) && (
+    <Tooltip content={`${attachCount} attachment(s)`} size="sm">
+      <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/70 shrink-0">
+        <Paperclip className="w-3 h-3" />
+        {attachCount}
+      </span>
+    </Tooltip>
+  );
+
   const refs: ReactNode = (
     <>
       {copyRef}
@@ -469,33 +508,9 @@ export const MessageListItem = ({
           </span>
         </Tooltip>
       )}
-      {chip && (
-        <Tooltip content={chip.tooltip} size="sm">
-          <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/70">
-            <Ticket className="w-3 h-3" />
-            {chip.label}
-          </span>
-        </Tooltip>
-      )}
-      {thread.messageCount > 1 && (
-        <Tooltip content={`${thread.messageCount} messages in thread`} size="sm">
-          <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/70">
-            <MessagesSquare className="w-3 h-3" />
-            {thread.messageCount}
-          </span>
-        </Tooltip>
-      )}
-      {hasAttachments(signalMessage) && (
-        <Tooltip
-          content={`${msg.attachmentCount ?? signalMessage.attachmentCount ?? 0} attachment(s)`}
-          size="sm"
-        >
-          <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/70">
-            <Paperclip className="w-3 h-3" />
-            {msg.attachmentCount ?? signalMessage.attachmentCount ?? 0}
-          </span>
-        </Tooltip>
-      )}
+      {ticketRef}
+      {countRef}
+      {attachRef}
     </>
   );
 
@@ -516,15 +531,35 @@ export const MessageListItem = ({
   };
 
   if (compact) {
+    /*
+      Messages list v4 table row (v3 `.row.rowt`): P · From · Subject (+ ticket, messages,
+      attachments) · Signals · Status · Assignee · Updated, on the header's grid. Narrow — the
+      split pane, or below md — is the design's two-line form: from · updated / subject / priority,
+      status, two signals · assignee.
+    */
+    const two = (cls: string) =>
+      narrow
+        ? cls
+        : cls
+            .split(' ')
+            .map((token) => `max-md:${token}`)
+            .join(' ');
+    const wide = (cls: string) => (narrow ? 'hidden' : `hidden ${cls}`);
+    const status = deriveWorkflowStatus({
+      status: msg.status,
+      parkedAt: msg.parkedAt,
+      lastReplyFromClient: msg.lastReplyFromClient ?? thread.lastReplyFromClient,
+    });
     return (
       <div
         {...rowProps}
+        data-thread-row
         className={cn(
-          'relative grid items-center gap-x-3 py-2 pl-4 pr-11 border-t border-hair first:border-t-0 cursor-pointer outline-none group transition-colors',
+          'relative grid items-center gap-x-3.5 py-[7px] pl-4 pr-11 min-h-[42px] border-t border-hair first:border-t-0 cursor-pointer outline-none group transition-colors',
           'hover:bg-raised focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
           narrow
-            ? 'grid-cols-[minmax(0,1fr)_auto_36px] gap-y-[3px]'
-            : 'grid-cols-[160px_minmax(0,1fr)_minmax(0,170px)_auto_36px] min-[1100px]:grid-cols-[190px_minmax(0,1fr)_minmax(0,230px)_auto_36px]',
+            ? 'grid-cols-[minmax(0,1fr)_auto] gap-y-1 py-2.5'
+            : `max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-y-1 max-md:py-2.5 ${THREAD_TABLE_GRID}`,
           (selected === true || current) && 'bg-primary-muted hover:bg-primary-muted',
           current && 'shadow-[inset_3px_0_0_hsl(var(--primary))]',
           SELECT_GROUP_CLASS,
@@ -533,11 +568,14 @@ export const MessageListItem = ({
       >
         {spineBar}
         {selectBox}
+        <div className={cn(wide('md:grid'), 'place-items-center')}>
+          {msg.priority && <PriorityIcon priority={msg.priority} />}
+        </div>
         <div className="flex items-center gap-[7px] min-w-0">
-          {/* The department as a square in its own colour; a dashed amber outline while it
-              still needs routing. The chip's words are in the tooltip. */}
+          {/* The team as a square in its own colour; a dashed amber outline while it still
+              needs routing. The words are in the tooltip. */}
           {needsRouting ? (
-            <Tooltip content="Needs routing" size="sm">
+            <Tooltip content="Needs routing — open it to choose a team" size="sm">
               <span className="w-2 h-2 rounded-[2px] border-[1.5px] border-dashed border-warning shrink-0" />
             </Tooltip>
           ) : primaryDept ? (
@@ -554,33 +592,65 @@ export const MessageListItem = ({
         </div>
         <div
           className={cn(
-            'flex items-baseline gap-2 min-w-0 overflow-hidden whitespace-nowrap',
-            narrow && 'col-span-full row-start-2'
+            'flex items-baseline gap-2 min-w-0 overflow-hidden whitespace-nowrap text-[13px]',
+            two('col-span-2 row-start-2')
           )}
         >
           {msg.subject && (
-            <span className="max-w-[55%] text-[13px] font-medium truncate shrink-0">
+            <span className="max-w-[55%] font-medium truncate shrink-0">
               <Highlight text={msg.subject} terms={highlightTerms} mode="anywhere" />
             </span>
           )}
-          <span className="text-[13px] text-muted-foreground truncate">
+          <span className="text-muted-foreground truncate flex-1 min-w-0">
             <Highlight text={preview} terms={highlightTerms} />
           </span>
+          {!narrow && (
+            <span className="hidden md:flex gap-2 items-center self-center ml-auto shrink-0">
+              {ticketRef}
+              {countRef}
+              {attachRef}
+            </span>
+          )}
         </div>
-        {!narrow && (
-          <div className="flex items-center gap-[5px] min-w-0 overflow-hidden [&>*:nth-child(n+3)]:hidden">
-            {signals}
-          </div>
-        )}
-        <div className="flex justify-end">
+        <div
+          className={cn(
+            wide('xl:flex'),
+            'items-center gap-[5px] min-w-0 overflow-hidden [&>*:nth-child(n+3)]:hidden'
+          )}
+        >
+          {signals}
+        </div>
+        <div className={wide('md:block')}>
+          <ThreadStatusCell status={isTriage ? null : status} />
+        </div>
+        <div className={cn(wide('md:flex'), 'justify-end')}>
           <RowAssignee thread={thread} />
         </div>
         <span
-          className="font-mono text-right whitespace-nowrap text-[11px] text-muted-foreground"
+          className={cn(
+            'font-mono text-right whitespace-nowrap text-[11px] text-muted-foreground',
+            two('col-start-2 row-start-1')
+          )}
           title={formatDate(activityAt)}
         >
           {formatAge(activityAt)}
         </span>
+        <div
+          className={cn(
+            'items-center gap-2 min-w-0',
+            narrow
+              ? 'flex col-span-2 row-start-3'
+              : 'hidden max-md:flex max-md:col-span-2 max-md:row-start-3'
+          )}
+        >
+          {msg.priority && <PriorityIcon priority={msg.priority} />}
+          <ThreadStatusCell status={isTriage ? null : status} />
+          <span className="flex gap-[5px] min-w-0 overflow-hidden [&>*:nth-child(n+3)]:hidden">
+            {signals}
+          </span>
+          <span className="flex-1" />
+          <RowAssignee thread={thread} />
+        </div>
       </div>
     );
   }

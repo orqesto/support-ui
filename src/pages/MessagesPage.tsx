@@ -3,9 +3,23 @@
 // this page is a separate refactor (see backlog #15 contact rework, which will
 // touch the same surface).
 /* eslint-disable max-lines */
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { Fragment, useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { ThreadTableHeader } from '@/components/messages/list/ThreadTableHeader';
+import { ThreadStatusCell } from '@/components/messages/list/threadTableParts';
+import { threadSections } from '@/components/messages/list/threadSections';
 import { useQueryClient } from '@tanstack/react-query';
-import { Inbox, Mail, PenSquare, RefreshCw } from 'lucide-react';
+import { Inbox, Mail, MoreHorizontal, PenSquare, RefreshCw } from 'lucide-react';
+import { NewItemsBar } from '@/components/list/NewItemsBar';
+import { Menu, MenuItem, MenuSeparator } from '@/components/ui/Menu';
+import { Tooltip } from '@/components/ui/Tooltip';
+import {
+  ThreadPrimaryViews,
+  TRIAGE_IDS,
+  TriageMenu,
+  type TriageId,
+} from '@/components/messages/list/ThreadViews';
+import { useNewThreadsBar } from '@/hooks/useNewThreadsBar';
+import { useThreadViewCounts } from '@/hooks/useThreadViewCounts';
 import { MessagesViewToggle } from '@/components/messages/MessagesViewToggle';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { usePhoneOpensMessageAsPage } from '@/hooks/usePhoneOpensMessageAsPage';
@@ -35,7 +49,7 @@ import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { similarResultsCache } from '@/components/messages/AiTabPanel';
 import { useSharedLinkWorkspace } from '@/hooks/useSharedLinkWorkspace';
 import { cn, formatDate } from '@/lib/utils';
-import { useMessagesStore, type FilterState } from '@/stores/messagesStore';
+import { defaultFilters, useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import { useDropTeamFilterWhenTeamsOff } from '@/hooks/useDropTeamFilterWhenTeamsOff';
 import type { Message, MessagesDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';
@@ -66,7 +80,6 @@ import { threadIdForMessage } from '@/components/messages/threadForMessage';
 import { ThreadBubble } from '@/components/messages/ThreadBubble';
 import { SPAM_LOG_CARD_COPY, spamLogTruncationNotice } from '@/lib/spamLogCardCopy';
 import { ContactsView } from '@/components/messages/ContactsView';
-import { QuickFilterChips } from '@/components/messages/QuickFilterChips';
 import { quickFilterWouldChange } from '@/components/messages/quickFilterPatch';
 import {
   MessagesKanbanView,
@@ -87,6 +100,9 @@ import { usePermissions } from '@/hooks/usePermissions';
 // ignores these, so arriving via a filter-bearing link (dashboard cards, or the
 // Notification Center's Spam/Suspicious queue rows → ?queue=spam) must force the
 // list ("threads") view — otherwise the click looks like a no-op on Kanban.
+const NOTIFY_TRIAGE_KEY = 'threads_notify_triage';
+const GROUP_KEY = 'threads_group';
+
 const LIST_ONLY_FILTER_PARAMS = [
   'status',
   'threadStatus',
@@ -783,13 +799,50 @@ export const MessagesPage = () => {
     return () => unsubscribeFromEvent('conv:status_changed', handleStatusChanged);
   }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
 
-  // #957 D1: new inbound mail (any channel) appears without a refresh — the same trio as above.
+  // Messages list v4: new threads wait behind "N new messages — show" on the list's first page
+  // instead of moving the rows under the cursor. The board, contacts and later pages keep the
+  // #957 D1 behaviour (re-read at once).
+  const newThreads = useNewThreadsBar({
+    filters,
+    sorting,
+    shownIds: useMemo(() => threads.map((thread) => thread.threadId), [threads]),
+  });
   const refreshOnNewMail = useCallback(() => {
+    bumpKanban();
+    if (displayMode === 'threads' && messagesPagination.page === 1) {
+      newThreads.probe();
+      return;
+    }
     clearCache();
     void fetchMessages(messagesPagination.page, true);
-    bumpKanban();
-  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
+  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban, displayMode, newThreads]);
   useConversationNewRefresh(refreshOnNewMail);
+
+  // Table only: status sections, as the tickets table offers (one design for both lists).
+  const [groupByStatus, setGroupByStatus] = useState(() => {
+    try {
+      return localStorage.getItem(GROUP_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  // "Notify me about new triage mail" (⋯ menu): a per-device choice, off by default. In-app only.
+  const [notifyTriage, setNotifyTriage] = useState(() => {
+    try {
+      return localStorage.getItem(NOTIFY_TRIAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const spamArrivals = arrivalCounts.spam_arrival ?? 0;
+  const seenSpamArrivals = useRef(spamArrivals);
+  useEffect(() => {
+    if (notifyTriage && spamArrivals > seenSpamArrivals.current) {
+      toast.info('New in Spam — check it from Triage');
+    }
+    seenSpamArrivals.current = spamArrivals;
+  }, [spamArrivals, notifyTriage]);
 
   // Refresh when a conversation's tab membership changes: approve/mark_suspicious/
   // move_to_spam (immediate, from the agent's own click) and bot_reply (deferred,
@@ -943,6 +996,56 @@ export const MessagesPage = () => {
   const compactRows = density === 'compact';
   // The header's action buttons drop their words where the column is narrow (split) or on a
   // phone; the tooltip and the accessible name keep them.
+  // ── Messages list v4 views ──
+  const needsUsOn = filters.lifecycle === 'needs_us' && (filters.columnId ?? 'all') === 'all';
+  const activeTriage = (TRIAGE_IDS as readonly string[]).includes(filters.columnId ?? '')
+    ? (filters.columnId as TriageId)
+    : null;
+  /** A triage lane opens with the other filters kept — the board's column, as the chips did. */
+  const triageFilters = (id: TriageId): FilterState => ({
+    ...filters,
+    columnId: id,
+    lifecycle: 'all',
+    queue: 'all',
+  });
+  const selectTriage = (id: TriageId | 'all') => {
+    const columnId = id === 'all' ? 'all' : id;
+    if (!quickFilterWouldChange(filters, columnId)) return;
+    if (id === 'spam') void clearArrivalKind('spam_arrival');
+    patchFilters(
+      id === 'all'
+        ? { ...filters, columnId: 'all', lifecycle: 'all', queue: 'all' }
+        : triageFilters(id)
+    );
+  };
+  // Needs us: the list it opens (its own filters, nothing else). Spam: its lane is merged with
+  // the spam log, which the scope counts cannot see, so it is counted the way its list is read.
+  const laneCounts = useThreadViewCounts(
+    useMemo(
+      () => [
+        { key: 'needs_us', filters: { ...defaultFilters, lifecycle: 'needs_us' as const } },
+        {
+          key: 'spam',
+          filters: {
+            ...filters,
+            columnId: 'spam',
+            lifecycle: 'all' as const,
+            queue: 'all' as const,
+          },
+        },
+      ],
+      [filters]
+    ),
+    threads,
+    displayMode === 'threads'
+  );
+  const triageCounts: Partial<Record<TriageId, number | undefined>> = {
+    not_analysed: listScope?.columnCounts?.not_analysed,
+    archived: listScope?.columnCounts?.archived,
+    no_lane: listScope?.columnCounts?.no_lane,
+    spam: laneCounts.spam,
+  };
+
   const actionLabel = split ? 'sr-only' : 'max-sm:sr-only';
 
   return (
@@ -1018,31 +1121,67 @@ export const MessagesPage = () => {
                       <span className={actionLabel}>Compose</span>
                     </Button>
                   </PermissionGuard>
-                  <PermissionGuard permission={Permission.MANAGE_MESSAGES}>
+                  {/* The list updates by itself (Live); a manual refresh stays, but quiet — as on
+                      the tickets list. Checking the mailboxes moved into ⋯ (Messages list v4). */}
+                  <Tooltip content="Refresh">
                     <Button
-                      onClick={handleSyncEmails}
+                      variant="ghost"
+                      aria-label="Refresh"
+                      onClick={handleRefresh}
                       disabled={refreshing}
-                      variant="outline"
-                      title="Sync new"
-                      className="h-8 px-3 gap-[7px] text-[13px]"
+                      className="p-0 w-8 h-8"
                     >
-                      {refreshing ? (
-                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Inbox className="h-3.5 w-3.5" />
-                      )}
-                      <span className={actionLabel}>Sync new</span>
+                      <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                     </Button>
-                  </PermissionGuard>
-                  <Button
-                    onClick={handleRefresh}
-                    disabled={refreshing}
-                    title="Refresh"
-                    className="h-8 px-3 gap-[7px] text-[13px]"
+                  </Tooltip>
+                  <Menu
+                    ariaLabel="More"
+                    align="end"
+                    width={300}
+                    trigger={({ open, toggle }) => (
+                      <Tooltip content="More">
+                        <Button
+                          variant="ghost"
+                          aria-label="More"
+                          aria-haspopup="menu"
+                          aria-expanded={open}
+                          onClick={toggle}
+                          className="p-0 w-8 h-8"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </Button>
+                      </Tooltip>
+                    )}
                   >
-                    <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-                    <span className={actionLabel}>Refresh</span>
-                  </Button>
+                    {hasPermission(Permission.MANAGE_MESSAGES) && (
+                      <>
+                        <MenuItem
+                          icon={<Inbox className="w-3.5 h-3.5" />}
+                          hint="otherwise every few minutes"
+                          disabled={refreshing}
+                          onSelect={() => void handleSyncEmails()}
+                        >
+                          Check mailboxes now
+                        </MenuItem>
+                        <MenuSeparator />
+                      </>
+                    )}
+                    <MenuItem
+                      checked={notifyTriage}
+                      hint="spam"
+                      onSelect={() => {
+                        const next = !notifyTriage;
+                        setNotifyTriage(next);
+                        try {
+                          localStorage.setItem(NOTIFY_TRIAGE_KEY, next ? '1' : '0');
+                        } catch {
+                          // Private window / blocked storage: the choice lasts this page only.
+                        }
+                      }}
+                    >
+                      Notify me about new triage mail
+                    </MenuItem>
+                  </Menu>
                 </>
               }
             />
@@ -1068,43 +1207,40 @@ export const MessagesPage = () => {
               // Owner, 2026-10-22: the list changes only on Enter or "Search threads for…" —
               // never while a long phrase is still being typed.
               liveSearch={false}
+              {...(displayMode === 'threads'
+                ? {
+                    leadingViews: (
+                      <ThreadPrimaryViews
+                        needsUsOn={needsUsOn}
+                        allOn={activeFilterCount === 0}
+                        needsUsCount={laneCounts.needs_us}
+                        onNeedsUs={() => patchFilters({ ...defaultFilters, lifecycle: 'needs_us' })}
+                        onAll={() => void clearFilters()}
+                      />
+                    ),
+                    countViews: { refreshKey: threads },
+                    trailingViews: (
+                      <TriageMenu
+                        active={activeTriage}
+                        counts={triageCounts}
+                        arrivals={{ spam: spamArrivals }}
+                        onSelect={selectTriage}
+                      />
+                    ),
+                  }
+                : {})}
             />
 
-            {/* One-click equivalents of the board's columns. List mode only: on the kanban the
-                columns themselves already are the filter. */}
-            {displayMode === 'threads' && (
-              <QuickFilterChips
-                // Counts come from the same scope read as the "hidden by the current view"
-                // line, so a chip and that sentence can never disagree. Undefined on an older
-                // backend — the chip then renders bare rather than claiming zero.
-                counts={listScope?.columnCounts}
-                value={filters.columnId ?? 'all'}
-                onChange={(columnId) => {
-                  // A second click on All must change nothing. It used to re-patch
-                  // `lifecycle`/`queue` to 'all' on every click, and those are not neutral on
-                  // the backend: `messageFilters` skips the default terminal/passive exclusion
-                  // while a SPECIFIC lifecycle or queue is set, and re-applies it for 'all'.
-                  // So clicking the already-lit chip re-imposed an exclusion a lens had lifted
-                  // and rows disappeared — on one workspace, 16 of 72.
-                  //
-                  // The guard is on the RESULTING state, not on which chip is lit. `All` also
-                  // renders lit whenever no column is selected, including while a dropdown is
-                  // still narrowing; skipping on "lit" alone would remove the only control that
-                  // clears those. Nothing is written only when nothing would change.
-                  if (!quickFilterWouldChange(filters, columnId)) return;
-
-                  // Selecting a column supersedes the dropdown filters it overlaps with —
-                  // leaving those set would show a chip while the request carried a different,
-                  // narrower predicate.
-                  patchFilters({
-                    ...filters,
-                    columnId,
-                    lifecycle: 'all',
-                    queue: 'all',
-                  });
-                }}
-              />
-            )}
+            <NewItemsBar
+              count={displayMode === 'threads' ? newThreads.count : 0}
+              noun={['message', 'messages']}
+              onShow={() => {
+                newThreads.reset();
+                clearCache();
+                void fetchMessages(1, true);
+                window.scrollTo({ top: 0 });
+              }}
+            />
 
             {displayMode === 'kanban' ? (
               <MessagesKanbanView
@@ -1170,8 +1306,15 @@ export const MessagesPage = () => {
                     (filters.status ?? 'all') !== 'all' ||
                     filters.showKBOnly === true
                   }
-                  hideAwaiting={filters.excludeAwaitingResponse ?? false}
-                  onHideAwaitingChange={(next) => updateFilter('excludeAwaitingResponse', next)}
+                  group={groupByStatus}
+                  onGroupChange={(next) => {
+                    setGroupByStatus(next);
+                    try {
+                      localStorage.setItem(GROUP_KEY, next ? '1' : '0');
+                    } catch {
+                      // Blocked storage: the choice lasts this page only.
+                    }
+                  }}
                   sortPreset={sortingToPreset(sorting)}
                   onSortChange={(value) => setSorting(presetToSorting(value))}
                   density={density}
@@ -1219,29 +1362,49 @@ export const MessagesPage = () => {
                       </CardContent>
                     </Card>
                   ) : compactRows ? (
-                    // Compact: one ruled panel, a hairline between rows.
+                    // Table (Messages list v4): column headers that filter and sort, a hairline
+                    // between rows, optionally split into status sections.
                     <Card padding="none" className="overflow-hidden">
-                      {threads.map((thread) => (
-                        <MessageListItem
-                          key={thread.threadId}
-                          thread={thread}
-                          density="compact"
-                          narrow={split}
-                          current={split && openThreadId === thread.threadId}
-                          onOpen={handleOpenThread}
-                          selected={
-                            thread.latestMessage
-                              ? bulkSelection.isSelected(thread.latestMessage.id)
-                              : false
-                          }
-                          onToggleSelected={toggleListRow}
-                          selectMode={selectMode}
-                          highlightTerms={highlightTermsFor(searchReading)}
-                          onReadChanged={() => {
-                            bumpKanban();
-                            void fetchMessages(messagesPagination.page, true);
-                          }}
+                      {!split && (
+                        <ThreadTableHeader
+                          filters={filters}
+                          sorting={sorting}
+                          onFilterPatch={handleFilterPatch}
+                          onSort={setSorting}
                         />
+                      )}
+                      {threadSections(threads, groupByStatus).map(({ thread, section }) => (
+                        <Fragment key={thread.threadId}>
+                          {section && (
+                            <div className="flex gap-2.5 items-center px-4 h-[34px] border-t first:border-t-0 border-border bg-raised text-[12.5px] font-semibold">
+                              <ThreadStatusCell status={section.status} />
+                              {!section.status && <span>Triage</span>}
+                              <span className="font-mono font-medium text-muted-foreground">
+                                {section.count}
+                              </span>
+                            </div>
+                          )}
+                          <MessageListItem
+                            key={thread.threadId}
+                            thread={thread}
+                            density="compact"
+                            narrow={split}
+                            current={split && openThreadId === thread.threadId}
+                            onOpen={handleOpenThread}
+                            selected={
+                              thread.latestMessage
+                                ? bulkSelection.isSelected(thread.latestMessage.id)
+                                : false
+                            }
+                            onToggleSelected={toggleListRow}
+                            selectMode={selectMode}
+                            highlightTerms={highlightTermsFor(searchReading)}
+                            onReadChanged={() => {
+                              bumpKanban();
+                              void fetchMessages(messagesPagination.page, true);
+                            }}
+                          />
+                        </Fragment>
                       ))}
                     </Card>
                   ) : (

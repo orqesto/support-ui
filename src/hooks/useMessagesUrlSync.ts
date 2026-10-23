@@ -40,6 +40,7 @@ export const VALID_LIFECYCLES = [
   'pending',
   'resolved',
   'closed',
+  'needs_us',
 ] as const;
 // Re-exported, NOT redeclared. A local copy of this list silently reset any queue value it
 // had not been taught about — the filter applied, then the next URL sync wiped it.
@@ -277,6 +278,12 @@ export const useMessagesUrlSync = ({
       const urlShowKBOnly = searchParams.get('showKBOnly');
       if (urlShowKBOnly === 'true') urlFilters.showKBOnly = true;
 
+      // A link that names no filter opens the thread list on "Needs us" (Threads v4, as the
+      // tickets list does); the board and contacts keep their own defaults.
+      const mode = searchParams.get('mode');
+      if (Object.keys(urlFilters).length === 0 && (!mode || mode === 'threads')) {
+        urlFilters.lifecycle = 'needs_us';
+      }
       setFilters({ ...defaultFilters, ...urlFilters });
 
       urlSyncedRef.current = true;

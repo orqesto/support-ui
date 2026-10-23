@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { ArrowUp, MessagesSquare, RefreshCw, Send } from 'lucide-react';
+import { MessagesSquare, RefreshCw, Send } from 'lucide-react';
+import { NewItemsBar } from '@/components/list/NewItemsBar';
 import { TicketDeleteDialog, TicketSyncAllDialog } from '@/components/tickets/TicketsJiraDialogs';
 import { TicketsViewToggle } from '@/components/tickets/TicketsViewToggle';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
@@ -525,22 +526,17 @@ export const TicketsPage = () => {
             onClear={clearFilters}
           />
 
-          {displayMode === 'list' && newTickets.count > 0 && (
-            <div className="flex justify-center">
-              <Button
-                size="sm"
-                className="rounded-full shadow-lg"
-                onClick={() => {
-                  newTickets.reset();
-                  clearCache();
-                  void fetchTickets(1, true);
-                  window.scrollTo({ top: 0 });
-                }}
-              >
-                <ArrowUp className="mr-1.5 w-3.5 h-3.5" />
-                {newTickets.count} new {newTickets.count === 1 ? 'ticket' : 'tickets'} — show
-              </Button>
-            </div>
+          {displayMode === 'list' && (
+            <NewItemsBar
+              count={newTickets.count}
+              noun={['ticket', 'tickets']}
+              onShow={() => {
+                newTickets.reset();
+                clearCache();
+                void fetchTickets(1, true);
+                window.scrollTo({ top: 0 });
+              }}
+            />
           )}
 
           {displayMode === 'kanban' ? (

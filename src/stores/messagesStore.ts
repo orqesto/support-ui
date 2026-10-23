@@ -42,7 +42,9 @@ export type LifecycleFilter =
   | 'replied'
   | 'pending'
   | 'resolved'
-  | 'closed';
+  | 'closed'
+  /** Open OR in progress — the list's default "Needs us" view (BE `lifecycle=needs_us`). */
+  | 'needs_us';
 
 // LIST-view non-lifecycle classification dropdown. Mutually exclusive with
 // `lifecycle` in the FE.

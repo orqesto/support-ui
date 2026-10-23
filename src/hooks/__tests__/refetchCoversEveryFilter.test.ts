@@ -23,10 +23,14 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const source = readFileSync(
-  resolve(dirname(fileURLToPath(import.meta.url)), '../useMessagesData.ts'),
-  'utf8'
-);
+const read = (file: string) =>
+  readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), file), 'utf8');
+/**
+ * The hook AND the request builder it calls (`threadApiFilters`, moved out of the hook so the
+ * view-pill counts send exactly the list's request). The builder's reads are the request's
+ * dependencies wherever the builder lives.
+ */
+const source = `${read('../useMessagesData.ts')}\n${read('../threadApiFilters.ts')}`;
 
 /** Filter fields the request builder reads out of the store. */
 const fieldsTheRequestDependsOn = (): Set<string> =>

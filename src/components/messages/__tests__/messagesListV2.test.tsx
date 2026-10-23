@@ -73,8 +73,10 @@ describe('compact rows', () => {
     expect(screen.getByText('marta@northwind.example')).toBeTruthy();
     expect(screen.getByText('Wrong size, need exchange')).toBeTruthy();
     expect(screen.getByText('I still have not got the label.')).toBeTruthy();
-    expect(screen.getByText('High')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Claim' })).toBeTruthy();
+    // The table's priority is the P column's icon (named for screen readers), not a chip.
+    expect(screen.getAllByRole('img', { name: 'High' }).length).toBeGreaterThan(0);
+    // The wide row's Assignee column and the two-line form's footer both carry it; CSS shows one.
+    expect(screen.getAllByRole('button', { name: 'Claim' }).length).toBeGreaterThan(0);
   });
 
   it('open the thread on click, like the card', () => {
@@ -129,8 +131,8 @@ const captionProps = {
   lensActive: false,
   arrivals: {},
   onReviewArrivals: () => {},
-  hideAwaiting: false,
-  onHideAwaitingChange: () => {},
+  group: false,
+  onGroupChange: () => {},
   sortPreset: 'newest',
   onSortChange: () => {},
   density: 'comfortable' as const,
@@ -158,7 +160,7 @@ describe('the list caption', () => {
         onLayoutChange={onLayoutChange}
       />
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Compact rows' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Table — scan by column' }));
     fireEvent.click(screen.getByRole('button', { name: 'Split view' }));
     expect(onDensityChange).toHaveBeenCalledWith('compact');
     expect(onLayoutChange).toHaveBeenCalledWith('split');

@@ -25,7 +25,8 @@ import { dirname, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const raw = readFileSync(
-  resolve(dirname(fileURLToPath(import.meta.url)), '../useMessagesData.ts'),
+  // The thread list's request builder (moved out of useMessagesData, unchanged).
+  resolve(dirname(fileURLToPath(import.meta.url)), '../threadApiFilters.ts'),
   'utf8'
 );
 

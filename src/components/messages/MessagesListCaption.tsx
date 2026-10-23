@@ -1,4 +1,6 @@
-import { AlignJustify, Columns2, LayoutList, StretchHorizontal } from 'lucide-react';
+import { AlignJustify, Check, Columns2, LayoutList, List, StretchHorizontal } from 'lucide-react';
+import { LiveBadge } from '@/components/list/LiveBadge';
+import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { Select } from '@/components/ui/Select';
 import { SegmentedControl, type Segment } from '@/components/ui/SegmentedControl';
@@ -9,9 +11,10 @@ import { ListScopeNotice, type ArrivalQueue } from './ListScopeNotice';
 import { SORT_PRESET_OPTIONS } from './sortPresets';
 import type { ListDensity, ListLayout } from './useListPresentation';
 
+// Messages list v3/v4: Table first (scan by column), then Cards (read each preview).
 const DENSITY_SEGMENTS: Segment<ListDensity>[] = [
-  { value: 'comfortable', label: 'Comfortable rows', icon: StretchHorizontal },
-  { value: 'compact', label: 'Compact rows', icon: AlignJustify },
+  { value: 'compact', label: 'Table — scan by column', icon: AlignJustify },
+  { value: 'comfortable', label: 'Cards — read each preview', icon: StretchHorizontal },
 ];
 
 const LAYOUT_SEGMENTS: Segment<ListLayout>[] = [
@@ -42,8 +45,9 @@ type Props = {
   lensActive: boolean;
   arrivals: Partial<Record<ArrivalQueue, number>>;
   onReviewArrivals: (queue: ArrivalQueue) => void;
-  hideAwaiting: boolean;
-  onHideAwaitingChange: (next: boolean) => void;
+  /** Table only: split the rows into status sections (as the tickets table). */
+  group: boolean;
+  onGroupChange: (next: boolean) => void;
   sortPreset: string;
   onSortChange: (preset: string) => void;
   density: ListDensity;
@@ -76,8 +80,8 @@ export const MessagesListCaption = ({
   lensActive,
   arrivals,
   onReviewArrivals,
-  hideAwaiting,
-  onHideAwaitingChange,
+  group,
+  onGroupChange,
   sortPreset,
   onSortChange,
   density,
@@ -94,6 +98,7 @@ export const MessagesListCaption = ({
     )}
     data-testid="messages-list-caption"
   >
+    <LiveBadge tip="The list updates by itself as mail arrives" />
     {/* Select every row on this page — the companion to filtering first and then acting.
         Only what is LOADED: claiming "all" would select rows the agent has not seen. */}
     <Checkbox
@@ -136,26 +141,31 @@ export const MessagesListCaption = ({
     )}
 
     <div className="hidden md:flex flex-wrap gap-2 items-center shrink-0">
-      <Checkbox
-        checked={hideAwaiting}
-        onChange={(ev) => onHideAwaitingChange(ev.target.checked)}
-        className="[&_label]:items-center [&_label]:text-[12.5px] [&_label]:text-muted-foreground [&_input]:mt-0"
-        label={
-          <span className="whitespace-nowrap">
-            Hide awaiting
-            <span className={cn(narrow ? 'hidden' : 'hidden 2xl:inline')}> response</span>
-          </span>
-        }
-      />
-      {/* List view only (kanban sorts per column, contacts has no sort). */}
-      <Select
-        aria-label="Sort"
-        size="sm"
-        value={sortPreset}
-        onChange={onSortChange}
-        options={SORT_PRESET_OPTIONS}
-        className="w-44"
-      />
+      {/* The table sorts from its column headers; the cards have none, so they keep the select. */}
+      {density === 'compact' ? (
+        <Button
+          variant="ghost"
+          aria-pressed={group}
+          title="Split the table into status sections"
+          onClick={() => onGroupChange(!group)}
+          className={cn(
+            'gap-1.5 h-7 px-2.5 text-[12.5px]',
+            group ? 'text-primary bg-primary-muted' : 'text-muted-foreground'
+          )}
+        >
+          {group ? <Check className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}
+          Group by status
+        </Button>
+      ) : (
+        <Select
+          aria-label="Sort"
+          size="sm"
+          value={sortPreset}
+          onChange={onSortChange}
+          options={SORT_PRESET_OPTIONS}
+          className="w-44"
+        />
+      )}
       <SegmentedControl
         ariaLabel="Row density"
         value={density}
@@ -174,7 +184,7 @@ export const MessagesListCaption = ({
       )}
     </div>
 
-    {/* Phone: Hide awaiting and Sort under one compact control, as a sheet. */}
+    {/* Phone: the table has no column headers there, so the sort stays a select. */}
     <div className="md:hidden flex gap-2 items-center w-full">
       <Select
         aria-label="Sort"
@@ -183,12 +193,6 @@ export const MessagesListCaption = ({
         onChange={onSortChange}
         options={SORT_PRESET_OPTIONS}
         className="flex-1"
-      />
-      <Checkbox
-        checked={hideAwaiting}
-        onChange={(ev) => onHideAwaitingChange(ev.target.checked)}
-        className="shrink-0 [&_label]:items-center [&_label]:text-[12.5px] [&_label]:text-muted-foreground [&_input]:mt-0"
-        label="Hide awaiting"
       />
     </div>
   </div>

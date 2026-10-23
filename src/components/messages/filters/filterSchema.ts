@@ -90,6 +90,8 @@ export type FilterDef = {
 };
 
 const LIFECYCLE: FilterOption[] = [
+  // Open OR in progress: the list's default view, so a token can name it.
+  { value: 'needs_us', label: 'Needs us' },
   { value: 'open', label: 'Open' },
   { value: 'in_progress', label: 'In Progress' },
   { value: 'awaiting', label: 'Pending' },
