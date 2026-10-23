@@ -32,6 +32,10 @@ describe('the spine says the work status', () => {
     expect(spineOf({ status: 'resolved' })).toBe('green');
   });
 
+  it('closed is calm, as its grey chip — never resolved green', () => {
+    expect(spineOf({ status: 'closed' })).toBe('calm');
+  });
+
   it('triage mail has no work status, so no edge', () => {
     expect(spineOf({ status: 'filtered' })).toBe('none');
   });

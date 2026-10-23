@@ -211,6 +211,25 @@ describe('saved views belong to the person, not the browser', () => {
     expect(await screen.findByText('VIP')).toBeTruthy();
   });
 
+  it('keeps Needs us in a view saved on top of it — the pill has no token to read it from', async () => {
+    service.save.mockResolvedValue({ id: 4, name: 'Hot', filters: {}, createdAt: '', updatedAt: '' });
+    setup({ lifecycle: 'needs_us', priority: 'critical' } as FilterState);
+    await waitFor(() => expect(service.list).toHaveBeenCalled());
+
+    nameAndSave('Hot');
+
+    expect(service.save).toHaveBeenCalledWith('Hot', { priority: 'critical', lifecycle: 'needs_us' });
+  });
+
+  it('never saves an empty view — it would match every state and stay lit forever', async () => {
+    setup({ lifecycle: 'needs_us' } as FilterState);
+    await waitFor(() => expect(service.list).toHaveBeenCalled());
+
+    nameAndSave('Nothing');
+
+    expect(service.save).not.toHaveBeenCalled();
+  });
+
   it('deletes one through the API', async () => {
     service.list.mockResolvedValue([
       { id: 3, name: 'VIP', filters: { priority: 'critical' }, createdAt: '', updatedAt: '' },

@@ -341,8 +341,9 @@ export const useMessagesUrlSync = ({
     if (filters.status && filters.status !== 'all') params.set('status', filters.status);
     if (filters.threadStatus && filters.threadStatus !== 'all')
       params.set('threadStatus', filters.threadStatus);
-    if (filters.lifecycle && filters.lifecycle !== 'all')
-      params.set('lifecycle', filters.lifecycle);
+    // "All" is written too: a link with no filter opens on Needs us, so an unwritten All came
+    // back from a reload (or a shared link) as Needs us, minus the pending and on-hold threads.
+    if (filters.lifecycle) params.set('lifecycle', filters.lifecycle);
     if (filters.queue && filters.queue !== 'all') params.set('queue', filters.queue);
     if (filters.columnId && filters.columnId !== 'all') params.set('column', filters.columnId);
     if (filters.read && filters.read !== 'all') params.set('read', filters.read);

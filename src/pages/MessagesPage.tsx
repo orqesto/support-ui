@@ -411,14 +411,35 @@ export const MessagesPage = () => {
    * are real conversations. A `spamlog_` row has none behind it and every bulk action refuses
    * it, so offering it would be an invitation to a guaranteed refusal.
    */
+  // Table only: status sections, as the tickets table offers (one design for both lists).
+  const [groupByStatus, setGroupByStatus] = useState(() => {
+    try {
+      return localStorage.getItem(GROUP_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  /**
+   * The rows in the order they are DRAWN. Grouped by status, the table sorts them into sections;
+   * shift-click ranges and J/K must walk that order, or a range picked between two Open rows
+   * also took the Pending and Resolved rows that sit between them in server order (review #712).
+   */
+  const drawnThreads = useMemo(
+    () =>
+      density === 'compact' && groupByStatus
+        ? threadSections(threads, true).map((row) => row.thread)
+        : threads,
+    [threads, density, groupByStatus]
+  );
   const listSelectableIds = useMemo(
     () =>
-      threads
+      drawnThreads
         .filter(
           (thread) => !thread.threadId.startsWith('spamlog_') && (thread.latestMessage?.id ?? 0) > 0
         )
         .map((thread) => thread.latestMessage!.id),
-    [threads]
+    [drawnThreads]
   );
   const listSelectedCount = listSelectableIds.filter((id) => bulkSelection.isSelected(id)).length;
 
@@ -571,10 +592,10 @@ export const MessagesPage = () => {
   // J/K from the detail rail — neighbourThread (detailShortcuts.ts) has the rules.
   const handleNavigate = useCallback(
     (direction: 'next' | 'prev') => {
-      const target = neighbourThread(threads, selectedThreadIdRef.current, direction);
+      const target = neighbourThread(drawnThreads, selectedThreadIdRef.current, direction);
       if (target) void handleOpenThread(target);
     },
-    [threads, handleOpenThread]
+    [drawnThreads, handleOpenThread]
   );
 
   const handleApprove = (message: Message) => {
@@ -806,6 +827,7 @@ export const MessagesPage = () => {
     filters,
     sorting,
     shownIds: useMemo(() => threads.map((thread) => thread.threadId), [threads]),
+    page: messagesPagination.page,
   });
   const refreshOnNewMail = useCallback(() => {
     bumpKanban();
@@ -817,15 +839,6 @@ export const MessagesPage = () => {
     void fetchMessages(messagesPagination.page, true);
   }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban, displayMode, newThreads]);
   useConversationNewRefresh(refreshOnNewMail);
-
-  // Table only: status sections, as the tickets table offers (one design for both lists).
-  const [groupByStatus, setGroupByStatus] = useState(() => {
-    try {
-      return localStorage.getItem(GROUP_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
 
   // "Notify me about new triage mail" (⋯ menu): a per-device choice, off by default. In-app only.
   const [notifyTriage, setNotifyTriage] = useState(() => {
@@ -883,7 +896,10 @@ export const MessagesPage = () => {
     (filters.departmentId && filters.departmentId !== 'all' ? 1 : 0) +
     // List-view Status(lifecycle)+Queue dropdowns are hidden in kanban (it drives
     // its own columns), so they only count toward the visible badge in list mode.
-    (!isKanban && filters.lifecycle && filters.lifecycle !== 'all' ? 1 : 0) +
+    // Needs us is the landing VIEW (its pill, no token), not a filter someone added.
+    (!isKanban && filters.lifecycle && filters.lifecycle !== 'all' && filters.lifecycle !== 'needs_us'
+      ? 1
+      : 0) +
     (!isKanban && filters.queue && filters.queue !== 'all' ? 1 : 0) +
     (!isKanban && filters.columnId && filters.columnId !== 'all' ? 1 : 0) +
     (!isKanban && filters.read && filters.read !== 'all' ? 1 : 0) +
@@ -910,7 +926,7 @@ export const MessagesPage = () => {
     (filters.departmentId && filters.departmentId !== 'all' ? 1 : 0) +
     (filters.status && filters.status !== 'all' ? 1 : 0) +
     (filters.threadStatus && filters.threadStatus !== 'all' ? 1 : 0) +
-    (filters.lifecycle && filters.lifecycle !== 'all' ? 1 : 0) +
+    (filters.lifecycle && filters.lifecycle !== 'all' && filters.lifecycle !== 'needs_us' ? 1 : 0) +
     (filters.queue && filters.queue !== 'all' ? 1 : 0) +
     (filters.columnId && filters.columnId !== 'all' ? 1 : 0) +
     (filters.read && filters.read !== 'all' ? 1 : 0) +

@@ -180,8 +180,14 @@ export const MessageFilterBar = ({
     // Only the inversions this view actually carries. Copying the whole `negate` CSV
     // would smuggle in an inversion for a filter the view does not set, and it would
     // apply the moment someone set that filter.
+    // Needs us has no token (its pill says it), so it is not in the loop above — keep it, or a
+    // view saved on top of it silently widens to every status.
+    if (filters.lifecycle === 'needs_us') snapshot.lifecycle = 'needs_us';
     const negated = tokens.filter((token) => token.negated).map((token) => token.def.key);
     if (negated.length > 0) snapshot.negate = negated.join(',');
+    // ⛔ Never an empty view: `{}` matches every filter state, so its pill would be lit forever
+    // and clicking it would do nothing (review of #721).
+    if (tokens.length === 0) return;
     void saveView(name, snapshot as Partial<FilterState>);
     setNamingView(false);
     setViewName('');

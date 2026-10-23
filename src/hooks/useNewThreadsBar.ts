@@ -26,14 +26,20 @@ export const useNewThreadsBar = ({
   filters,
   sorting,
   shownIds,
+  page,
 }: {
   filters: FilterState;
   sorting: SortingState;
   /** The thread ids the list is drawing now. */
   shownIds: string[];
+  /**
+   * The page on screen. Part of the key: a check that answers after the agent moved to page 2
+   * compared page 1's threads with page 2's ids and announced ~50 "new" (review of #712).
+   */
+  page: number;
 }) => {
   const [pending, setPending] = useState<string[]>([]);
-  const requestKey = JSON.stringify({ params: threadApiFilters(filters, false), sorting });
+  const requestKey = JSON.stringify({ params: threadApiFilters(filters, false), sorting, page });
   const latest = useRef({ filters, sorting, requestKey, shownIds });
   latest.current = { filters, sorting, requestKey, shownIds };
 
@@ -57,6 +63,14 @@ export const useNewThreadsBar = ({
     if (retryTimer.current) clearTimeout(retryTimer.current);
     retryTimer.current = null;
   }, []);
+  // Unmounted: a check still in flight must not schedule a retry for a page that is gone.
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   // A retry for a list nobody shows any more, or for an unmounted page, is dropped.
   useEffect(() => cancelRetry, [requestKey, cancelRetry]);
 
@@ -65,7 +79,7 @@ export const useNewThreadsBar = ({
       const asked = latest.current;
       const params = threadApiFilters(asked.filters, false);
       const retry = (error?: unknown) => {
-        if (latest.current.requestKey !== asked.requestKey) return;
+        if (!mounted.current || latest.current.requestKey !== asked.requestKey) return;
         if (attempt >= PROBE_RETRIES) {
           logger.error('Failed to check new threads against the list:', error);
           return;

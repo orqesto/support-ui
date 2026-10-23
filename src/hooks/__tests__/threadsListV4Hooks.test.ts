@@ -67,11 +67,12 @@ describe('useNewThreadsBar — arrivals wait instead of moving the rows', () => 
   it('counts only threads on page 1 that are not on screen, and forgets them once shown', async () => {
     getThreads.mockResolvedValue(page(['new-1', 'a', 'new-2', 'b']));
     const { result, rerender } = renderHook(
-      (props: { shown: string[] }) =>
+      (props: { shown: string[]; page?: number }) =>
         useNewThreadsBar({
           filters: filters({ lifecycle: 'needs_us' }),
           sorting,
           shownIds: props.shown,
+          page: props.page ?? 1,
         }),
       {
         initialProps: { shown: ['a', 'b'] },
@@ -97,10 +98,28 @@ describe('useNewThreadsBar — arrivals wait instead of moving the rows', () => 
   it('control: nothing new on page 1 ⇒ no bar', async () => {
     getThreads.mockResolvedValue(page(['a', 'b']));
     const { result } = renderHook(() =>
-      useNewThreadsBar({ filters: filters(), sorting, shownIds: ['a', 'b'] })
+      useNewThreadsBar({ filters: filters(), sorting, shownIds: ['a', 'b'], page: 1 })
     );
     act(() => result.current.probe());
     await waitFor(() => expect(getThreads).toHaveBeenCalled());
+    expect(result.current.count).toBe(0);
+  });
+
+  it('a check that answers after the page changed announces nothing', async () => {
+    let answer: (value: unknown) => void = () => undefined;
+    getThreads.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    const { result, rerender } = renderHook(
+      (props: { shown: string[]; at: number }) =>
+        useNewThreadsBar({ filters: filters(), sorting, shownIds: props.shown, page: props.at }),
+      { initialProps: { shown: ['a', 'b'], at: 1 } }
+    );
+    act(() => result.current.probe());
+    // The agent moves to page 2 while page 1's check is in flight.
+    rerender({ shown: ['c', 'd'], at: 2 });
+    await act(async () => {
+      answer(page(['a', 'b', 'new-1']));
+      await Promise.resolve();
+    });
     expect(result.current.count).toBe(0);
   });
 
@@ -111,7 +130,7 @@ describe('useNewThreadsBar — arrivals wait instead of moving the rows', () => 
         .mockRejectedValueOnce(new Error('A server error occurred.'))
         .mockResolvedValueOnce(page(['new-1', 'a']));
       const { result } = renderHook(() =>
-        useNewThreadsBar({ filters: filters(), sorting, shownIds: ['a'] })
+        useNewThreadsBar({ filters: filters(), sorting, shownIds: ['a'], page: 1 })
       );
       act(() => result.current.probe());
       await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
@@ -135,7 +154,7 @@ describe('useNewThreadsBar — arrivals wait instead of moving the rows', () => 
         .mockRejectedValueOnce(new Error('down'))
         .mockRejectedValueOnce(new Error('down'));
       const { result } = renderHook(() =>
-        useNewThreadsBar({ filters: filters(), sorting, shownIds: [] })
+        useNewThreadsBar({ filters: filters(), sorting, shownIds: [], page: 1 })
       );
       act(() => result.current.probe());
       await act(async () => {
