@@ -91,6 +91,12 @@ type MessageListItemProps = {
   highlightTerms?: readonly string[];
 };
 
+/** The table's From cell: the sender's name, else the bare address — never `addr <addr>`. */
+const senderShort = (sender: string | null | undefined): string => {
+  const { name, address } = parseSender(sender);
+  return name ?? address;
+};
+
 export const MessageListItem = ({
   thread,
   onOpen,
@@ -307,9 +313,9 @@ export const MessageListItem = ({
         )}
       >
         {/* The table's From column is the name alone (Messages list v4); the card keeps the
-            whole `Name <addr>` line. A bare address is its own name. */}
+            whole `Name <addr>` line. No name (or a name that IS the address) → the address. */}
         <Highlight
-          text={compact ? (parseSender(thread.sender).name ?? thread.sender) : thread.sender}
+          text={compact ? senderShort(thread.sender) : thread.sender}
           terms={highlightTerms}
           mode="anywhere"
         />

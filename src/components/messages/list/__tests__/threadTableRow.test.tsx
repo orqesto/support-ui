@@ -76,6 +76,11 @@ describe('thread table row', () => {
     expect(screen.getByText('ada@shop.example')).toBeInTheDocument();
   });
 
+  it('shows an address once when the name is the address', () => {
+    renderRow(row({ status: 'open', sender: 'ada@shop.example <ada@shop.example>' }));
+    expect(screen.getByText('ada@shop.example')).toBeInTheDocument();
+  });
+
   it('keeps the whole sender line on the card', () => {
     renderRow(row({ status: 'open' }), 'comfortable');
     expect(screen.getByText('Ada Lovelace <ada@shop.example>')).toBeInTheDocument();
