@@ -14,6 +14,7 @@ import { MenuItem, MenuLabel, MenuSeparator } from '@/components/ui/Menu';
 import { ColumnMenu } from '@/components/list/ColumnMenu';
 import { Select } from '@/components/ui/Select';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
 import type { TicketFilters, TicketSortBy, TicketSorting } from '@/stores/ticketsStore';
 import type { Ticket, TicketStatus } from '@/types';
 import { LiveBadge } from '@/components/list/LiveBadge';
@@ -188,6 +189,7 @@ export const TicketTable = (props: TicketTableProps) => {
       onOpen={props.onOpen}
       onAssign={props.onAssign}
       onRowMenu={props.onRowMenu}
+      highlightTerms={props.highlightTerms}
     />
   );
 
@@ -309,7 +311,8 @@ export const TicketTable = (props: TicketTableProps) => {
     </div>
   );
 
-  if (loading) {
+  // A first load shows the skeleton; a reload over rows (a new search, a filter) shades them.
+  if (loading && tickets.length === 0) {
     return (
       <div>
         {caption}
@@ -394,7 +397,7 @@ export const TicketTable = (props: TicketTableProps) => {
     : tickets.map(renderRow);
 
   return (
-    <div>
+    <LoadingOverlay active={loading} label={filtered ? 'Searching…' : 'Loading…'}>
       {caption}
       {cards ? (
         <div role="table" aria-label="Tickets" className="grid gap-2 pt-2">
@@ -430,6 +433,6 @@ export const TicketTable = (props: TicketTableProps) => {
           {body}
         </div>
       )}
-    </div>
+    </LoadingOverlay>
   );
 };

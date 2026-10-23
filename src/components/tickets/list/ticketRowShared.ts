@@ -12,6 +12,8 @@ export type TicketRowProps = {
   onAssign: (ticketId: number, userId: number | null) => void;
   /** The row's ⋯ menu items. */
   onRowMenu: (ticket: Ticket) => ReactNode;
+  /** The typed search's words as the backend read them: marked in the title and the match line. */
+  highlightTerms?: string[];
 };
 
 /**

@@ -13,6 +13,7 @@ import {
   spineTone,
 } from './ticketRowBits';
 import type { TicketRowProps } from './ticketRowShared';
+import { TicketTitle, ticketMatchLine } from './ticketSearchBits';
 import { TicketRef } from '@/components/tickets/TicketRef';
 
 /**
@@ -28,6 +29,7 @@ export const TicketCard = ({
   onOpen,
   onAssign,
   onRowMenu,
+  highlightTerms,
 }: TicketRowProps) => (
   <div
     role="row"
@@ -46,13 +48,15 @@ export const TicketCard = ({
     <div className="flex gap-2 items-center min-w-0">
       <PriorityIcon priority={ticket.priority} />
       <TicketRef ticket={ticket} className="text-[11.5px] text-muted-foreground shrink-0" />
-      <span className="flex-1 min-w-0 text-sm font-semibold truncate">{ticket.title}</span>
+      <span className="flex-1 min-w-0 text-sm font-semibold truncate">
+        <TicketTitle ticket={ticket} terms={highlightTerms} />
+      </span>
       <span className="font-mono text-[11.5px] text-muted-foreground whitespace-nowrap">
         {formatAge(ticket.updatedAt)}
       </span>
     </div>
     <div className="text-[13px] text-muted-foreground truncate">
-      {plainText(ticket.description)}
+      {ticketMatchLine(ticket, highlightTerms) ?? plainText(ticket.description)}
     </div>
     <div className="flex flex-wrap gap-x-2 gap-y-1 items-center pt-1.5 mt-0.5 text-xs border-t border-border/60 text-muted-foreground">
       <StatusDot status={ticket.status} />
