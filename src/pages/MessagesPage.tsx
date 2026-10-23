@@ -529,6 +529,12 @@ export const MessagesPage = () => {
     updateFilter('search', text);
   };
 
+  /** The All view: every filter cleared, lifecycle 'all' (the store's defaults). */
+  const showAll = async () => {
+    clearFiltersStore();
+    await fetchMessages(messagesPagination.page, true);
+  };
+
   const clearFilters = async () => {
     // The thread list's landing view is Needs us (it is not counted as a filter): "Clear all"
     // returns there, not to All — clearing must not silently widen the list (review of #724).
@@ -1283,7 +1289,9 @@ export const MessagesPage = () => {
                         allOn={primaryViewsOn(filters, activeFilterCount).all}
                         needsUsCount={laneCounts.needs_us}
                         onNeedsUs={() => patchFilters({ ...defaultFilters, lifecycle: 'needs_us' })}
-                        onAll={() => void clearFilters()}
+                        // ⛔ Not `clearFilters`: on the thread list that returns to Needs us
+                        // (#728), which made All a no-op. All clears to everything.
+                        onAll={() => void showAll()}
                       />
                     ),
                     countViews: { refreshKey: countsRefreshKey },
