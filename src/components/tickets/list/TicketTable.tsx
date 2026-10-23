@@ -396,12 +396,20 @@ export const TicketTable = (props: TicketTableProps) => {
       })
     : tickets.map(renderRow);
 
-  return (
+  // A reload over rows (a new search, a filter) shades the rows only: the caption's sort, density
+  // and layout controls and the column headers stay usable.
+  const shaded = (rowsBody: ReactNode) => (
     <LoadingOverlay active={loading} label={filtered ? 'Searching…' : 'Loading…'}>
+      {rowsBody}
+    </LoadingOverlay>
+  );
+
+  return (
+    <div>
       {caption}
       {cards ? (
         <div role="table" aria-label="Tickets" className="grid gap-2 pt-2">
-          {body}
+          {shaded(body)}
         </div>
       ) : (
         <div
@@ -430,9 +438,9 @@ export const TicketTable = (props: TicketTableProps) => {
             </span>
             <span role="columnheader" />
           </div>
-          {body}
+          {shaded(body)}
         </div>
       )}
-    </LoadingOverlay>
+    </div>
   );
 };

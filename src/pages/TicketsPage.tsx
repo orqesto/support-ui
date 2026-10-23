@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { MessagesSquare, RefreshCw, Send } from 'lucide-react';
 import { NewItemsBar } from '@/components/list/NewItemsBar';
 import { TicketDeleteDialog, TicketSyncAllDialog } from '@/components/tickets/TicketsJiraDialogs';
@@ -111,6 +111,16 @@ export const TicketsPage = () => {
   const [readings, setReadings] = useState<Record<string, SearchReading | null>>({});
   const searchText = filters.search?.trim() ?? '';
   const searchReading = searchText ? (readings[searchText] ?? null) : null;
+  // The search the rows on screen answer: while a new one loads — or after it failed — their
+  // "where it matched" lines belong to another search and are not shown.
+  const [rowsSearch, setRowsSearch] = useState('');
+  const shownTickets = useMemo(
+    () =>
+      rowsSearch === searchText
+        ? tickets
+        : tickets.map((ticket) => ({ ...ticket, searchMatch: undefined })),
+    [tickets, rowsSearch, searchText]
+  );
   const [pagination, setPagination] = useState<PaginationMeta>({
     page: PAGINATION.DEFAULT_PAGE,
     limit: PAGINATION.DEFAULT_LIMIT,
@@ -137,6 +147,7 @@ export const TicketsPage = () => {
         const cached = getCached(page);
         if (cached) {
           setTickets(cached.tickets);
+          setRowsSearch(filters.search?.trim() ?? '');
           setPagination(cached.pagination);
           setLoading(false); // ← FIX: Set loading to false on cache hit
           return;
@@ -162,6 +173,7 @@ export const TicketsPage = () => {
           setTicketsCache(response.data, response.pagination);
           // Update local state
           setTickets(response.data);
+          setRowsSearch(apiFilters.search?.trim() ?? '');
           const readSearch = apiFilters.search?.trim() ?? '';
           if (readSearch) setReadings((prev) => ({ ...prev, [readSearch]: response.search }));
           setPagination(response.pagination);
@@ -569,7 +581,7 @@ export const TicketsPage = () => {
               <SearchReadingNotice reading={searchReading} />
               <TicketTable
                 highlightTerms={highlightTermsFor(searchReading)}
-                tickets={tickets}
+                tickets={shownTickets}
                 total={pagination.total}
                 loading={loading}
                 filters={filters}
