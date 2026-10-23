@@ -5,6 +5,13 @@ import type { FilterState, SortingState } from '@/stores/messagesStore';
 import { threadApiFilters } from './threadApiFilters';
 
 const PAGE_SIZE = 50;
+/**
+ * A check that fails is asked again — twice, a few seconds apart. The event fires once per
+ * arrival, so one failed check (staging 2026-10-23: a server error the second the mail landed)
+ * otherwise hid the new mail until a reload: no bar, and the list does not re-read by itself.
+ */
+export const PROBE_RETRY_MS = 3_000;
+const PROBE_RETRIES = 2;
 
 /**
  * New threads wait behind a "N new messages — show" bar instead of shifting the list under the
@@ -45,27 +52,55 @@ export const useNewThreadsBar = ({
     });
   }, [shownKey]);
 
-  const probe = useCallback(() => {
-    const asked = latest.current;
-    const params = threadApiFilters(asked.filters, false);
-    messageService
-      .getThreads(
-        Object.keys(params).length > 0 ? params : undefined,
-        1,
-        PAGE_SIZE,
-        asked.sorting.sortOrder,
-        asked.sorting.sortBy
-      )
-      .then((response) => {
-        // The list changed while this was in flight: the answer is for a list nobody shows.
-        if (!response.success || latest.current.requestKey !== asked.requestKey) return;
-        const shown = new Set(latest.current.shownIds);
-        const fresh = response.data.map((thread) => thread.threadId).filter((id) => !shown.has(id));
-        if (fresh.length > 0)
-          setPending((prev) => [...prev, ...fresh.filter((id) => !prev.includes(id))]);
-      })
-      .catch((error) => logger.error('Failed to check new threads against the list:', error));
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelRetry = useCallback(() => {
+    if (retryTimer.current) clearTimeout(retryTimer.current);
+    retryTimer.current = null;
   }, []);
+  // A retry for a list nobody shows any more, or for an unmounted page, is dropped.
+  useEffect(() => cancelRetry, [requestKey, cancelRetry]);
+
+  const probe = useCallback(() => {
+    const check = (attempt: number) => {
+      const asked = latest.current;
+      const params = threadApiFilters(asked.filters, false);
+      const retry = (error?: unknown) => {
+        if (latest.current.requestKey !== asked.requestKey) return;
+        if (attempt >= PROBE_RETRIES) {
+          logger.error('Failed to check new threads against the list:', error);
+          return;
+        }
+        cancelRetry();
+        retryTimer.current = setTimeout(() => check(attempt + 1), PROBE_RETRY_MS);
+      };
+      messageService
+        .getThreads(
+          Object.keys(params).length > 0 ? params : undefined,
+          1,
+          PAGE_SIZE,
+          asked.sorting.sortOrder,
+          asked.sorting.sortBy
+        )
+        .then((response) => {
+          // The list changed while this was in flight: the answer is for a list nobody shows.
+          if (latest.current.requestKey !== asked.requestKey) return;
+          if (!response.success) {
+            retry(new Error('The thread list request did not succeed'));
+            return;
+          }
+          const shown = new Set(latest.current.shownIds);
+          const fresh = response.data
+            .map((thread) => thread.threadId)
+            .filter((id) => !shown.has(id));
+          if (fresh.length > 0)
+            setPending((prev) => [...prev, ...fresh.filter((id) => !prev.includes(id))]);
+        })
+        .catch(retry);
+    };
+    // A new arrival asks afresh; a retry still waiting for the last one is not needed.
+    cancelRetry();
+    check(0);
+  }, [cancelRetry]);
 
   const reset = useCallback(() => setPending([]), []);
 

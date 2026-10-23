@@ -18,7 +18,7 @@ vi.mock('@/lib/logger', () => ({
 vi.mock('../useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'all' }));
 
 const { useThreadViewCounts } = await import('../useThreadViewCounts');
-const { useNewThreadsBar } = await import('../useNewThreadsBar');
+const { useNewThreadsBar, PROBE_RETRY_MS } = await import('../useNewThreadsBar');
 const { threadApiFilters } = await import('../threadApiFilters');
 
 const filters = (over: Partial<FilterState> = {}): FilterState => ({ ...defaultFilters, ...over });
@@ -102,5 +102,50 @@ describe('useNewThreadsBar — arrivals wait instead of moving the rows', () => 
     act(() => result.current.probe());
     await waitFor(() => expect(getThreads).toHaveBeenCalled());
     expect(result.current.count).toBe(0);
+  });
+
+  it('a failed check is asked again, so one bad moment cannot hide new mail', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      getThreads
+        .mockRejectedValueOnce(new Error('A server error occurred.'))
+        .mockResolvedValueOnce(page(['new-1', 'a']));
+      const { result } = renderHook(() =>
+        useNewThreadsBar({ filters: filters(), sorting, shownIds: ['a'] })
+      );
+      act(() => result.current.probe());
+      await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+      expect(result.current.count).toBe(0);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(PROBE_RETRY_MS);
+      });
+      await waitFor(() => expect(result.current.count).toBe(1));
+      expect(getThreads).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('gives up after two retries and says so once', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    loggerError.mockReset();
+    try {
+      getThreads
+        .mockRejectedValueOnce(new Error('down'))
+        .mockRejectedValueOnce(new Error('down'))
+        .mockRejectedValueOnce(new Error('down'));
+      const { result } = renderHook(() =>
+        useNewThreadsBar({ filters: filters(), sorting, shownIds: [] })
+      );
+      act(() => result.current.probe());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(PROBE_RETRY_MS * 5);
+      });
+      expect(getThreads).toHaveBeenCalledTimes(3);
+      expect(loggerError).toHaveBeenCalledTimes(1);
+      expect(result.current.count).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
