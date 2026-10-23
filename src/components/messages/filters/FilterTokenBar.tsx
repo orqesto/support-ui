@@ -313,6 +313,9 @@ export const FilterTokenBar = ({
       event.preventDefault();
       setHighlighted((prev) => Math.max(prev - 1, 0));
     } else if (event.key === 'Enter') {
+      // The Enter that confirms a Japanese/Chinese composition is not a search: Enter is the only
+      // trigger now, so a half-composed word would be searched. Safari reports it as keyCode 229.
+      if (event.nativeEvent.isComposing || event.keyCode === 229) return;
       event.preventDefault();
       if (query.trim()) pickSuggestion(highlighted);
     }
