@@ -132,6 +132,8 @@ describe('Free wording', () => {
     expect(ONBOARDING_MANAGED_AI_TEXT).toMatch(/included in your 14-day trial/);
     expect(ONBOARDING_MANAGED_AI_TEXT).toMatch(/Free has a one-time starter allowance/);
     expect(ONBOARDING_MANAGED_AI_TEXT).not.toMatch(/Included in your plan/);
+    // A paid plan without our AI (managedAi false) does not keep it: no blanket "paid plans".
+    expect(ONBOARDING_MANAGED_AI_TEXT).not.toMatch(/paid plans keep it/);
   });
 });
 

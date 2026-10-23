@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
  * our AI and Free keeps a one-time starter allowance on us — never a flat "Included in your plan".
  */
 export const ONBOARDING_MANAGED_AI_TEXT =
-  'We provide the AI — no keys to manage, nothing to configure. It is included in your 14-day trial; after the trial, paid plans keep it, and Free has a one-time starter allowance of AI on us, then your own key. AI features turn on as soon as you finish setup.';
+  'We provide the AI — no keys to manage, nothing to configure. It is included in your 14-day trial; after the trial, plans that include our AI keep it, and Free has a one-time starter allowance of AI on us, then your own key. AI features turn on as soon as you finish setup.';
 
 type Props = {
   value: 'managed' | 'byo' | undefined;

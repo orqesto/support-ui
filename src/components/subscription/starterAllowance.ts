@@ -46,6 +46,11 @@ export type StarterAllowance = {
   exhausted: boolean;
   /** Money one message carries (micros); absent ⇒ the line shows a percentage. */
   microsPerMessage?: number;
+  /**
+   * The money-free shape a non-admin receives (audit A-F16: micros null, `usedPercent` 0–100).
+   * The micros then hold PERCENT (total 100), never money: the lines show a percentage only.
+   */
+  moneyFree?: boolean;
 };
 
 /** The refusal code of an AI call made after the allowance is used up. */
@@ -149,6 +154,18 @@ const parseAllowanceBlock = (
   if (!block || typeof block !== 'object') return undefined;
   const raw = block as Record<string, unknown>;
   const { totalMicros, usedMicros, remainingMicros } = raw;
+  // A non-admin's block: no amounts, the share used in percent. Kept as an allowance in percent
+  // (total 100) so "where AI runs" and the percentage line still work.
+  if (totalMicros === null && isCount(raw.usedPercent)) {
+    const used = Math.min(100, raw.usedPercent);
+    return {
+      totalMicros: 100,
+      usedMicros: used,
+      remainingMicros: 100 - used,
+      exhausted: typeof raw.exhausted === 'boolean' ? raw.exhausted : used >= 100,
+      moneyFree: true,
+    };
+  }
   if (!isCount(totalMicros) || totalMicros <= 0) return undefined;
   if (!isCount(usedMicros) || !isCount(remainingMicros)) return undefined;
   return {
@@ -173,6 +190,8 @@ export const parseStarterAllowance = (ai: unknown): StarterAllowance | undefined
   const block = (ai as { starterAllowance?: unknown }).starterAllowance;
   const parsed = parseAllowanceBlock(block);
   if (!parsed) return undefined;
+  // Percent only: no messages figure can be derived from it.
+  if (parsed.moneyFree) return parsed;
   const raw = block as Record<string, unknown>;
   const { totalMicros } = parsed;
   const sent = raw.microsPerMessage ?? (ai as { microsPerMessage?: unknown }).microsPerMessage;
@@ -186,7 +205,7 @@ export const parseStarterAllowance = (ai: unknown): StarterAllowance | undefined
  * read the money. Without microsPerMessage: "about 63% left".
  */
 export const starterAllowanceLine = (allowance: StarterAllowance, isAdmin: boolean): string => {
-  const money = isAdmin
+  const money = isAdmin && !allowance.moneyFree
     ? ` (${fmtMoney(allowance.exhausted ? 0 : allowance.remainingMicros)} of ${fmtMoney(allowance.totalMicros).replace(/^≈ /, '')} left)`
     : '';
   if (allowance.exhausted || allowance.remainingMicros <= 0) {
@@ -210,7 +229,7 @@ export const starterAllowanceLine = (allowance: StarterAllowance, isAdmin: boole
  * "Knowledge base and history import allowance: about 63% left." Admins also read the money.
  */
 export const kbAllowanceLine = (allowance: StarterAllowance, isAdmin: boolean): string => {
-  const money = isAdmin
+  const money = isAdmin && !allowance.moneyFree
     ? ` (${fmtMoney(allowance.exhausted ? 0 : allowance.remainingMicros)} of ${fmtMoney(allowance.totalMicros).replace(/^≈ /, '')} left)`
     : '';
   const label = 'AI allowance for the knowledge base and history import';

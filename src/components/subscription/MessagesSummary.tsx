@@ -54,6 +54,7 @@ export const aiSourceOf = ({
   ourAiOff = false,
   starterPaused = false,
   unavailableReason,
+  starterOnOurKey,
 }: {
   planName: string;
   ownKey: boolean;
@@ -65,11 +66,16 @@ export const aiSourceOf = ({
   starterPaused?: boolean;
   /** `ai.unavailableReason`: the workspace has no AI at all, and why. Absent on an older backend. */
   unavailableReason?: AiUnavailableReason;
+  /** `ai.starterOnOurKey`: the backend says whether the allowance is drawn on now. Wins when sent. */
+  starterOnOurKey?: boolean;
 }): AiSource => {
   if (ownKey) return 'own_key';
   // The API says no AI runs: never "AI included" (audit B3), on Free and paid plans alike.
   if (unavailableReason === 'admin_not_verified') return 'not_verified';
   if (unavailableReason === 'own_key_required') return 'ai_off';
+  if (hasStarterAllowance && starterOnOurKey !== undefined) {
+    return starterOnOurKey || starterPaused ? 'starter' : 'ai_off';
+  }
   // The allowance runs only on our AI: in own-key mode with no provider, no AI runs at all.
   if (hasStarterAllowance && (!ourAiOff || starterPaused)) return 'starter';
   if (hasStarterAllowance) return 'ai_off';
@@ -97,6 +103,7 @@ export const aiSourceFrom = (
     ourAiOff: keyState.ourAiOff,
     starterPaused: isStarterPaused(ai),
     unavailableReason: ai?.unavailableReason,
+    starterOnOurKey: ai?.starterOnOurKey,
   });
 
 /** The one line under the usage heading. AI is "included" only where the plan carries managed AI. */

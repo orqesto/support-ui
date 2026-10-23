@@ -122,8 +122,10 @@ export const normalizeUsage = (usage: OrgUsage): OrgUsage => {
     kbPaused: _kbPaused,
     kbMessage: _kbMessage,
     unavailableReason: _reason,
+    starterOnOurKey: _onOurKey,
     ...ai
   } = usage.ai;
+  const onOurKey = (usage.ai as { starterOnOurKey?: unknown }).starterOnOurKey;
   const starterAllowance = parseStarterAllowance(usage.ai);
   const kbStarterAllowance = parseKbStarterAllowance(usage.ai);
   const unavailableReason = parseUnavailableReason(usage.ai);
@@ -141,6 +143,7 @@ export const normalizeUsage = (usage: OrgUsage): OrgUsage => {
           }
         : {}),
       ...(unavailableReason ? { unavailableReason } : {}),
+      ...(typeof onOurKey === 'boolean' ? { starterOnOurKey: onOurKey } : {}),
     },
   };
 };

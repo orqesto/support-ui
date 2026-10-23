@@ -47,6 +47,11 @@ export type AiStatus = {
   kbMessage?: string | null;
   /** A Free workspace with no AI at all, and why (both allowances are then absent). */
   unavailableReason?: AiUnavailableReason;
+  /**
+   * Free: whether the allowances are drawn on now (on our key). Absent (older backend, not Free,
+   * not a boolean) ⇒ the provider settings decide, as before.
+   */
+  starterOnOurKey?: boolean;
 };
 
 /** The `ai` block of /api/usage/current; undefined when the call fails or the backend sends none. */
