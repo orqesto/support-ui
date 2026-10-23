@@ -6,6 +6,7 @@ import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
+import { queryClient } from '@/lib/queryClient';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
@@ -18,6 +19,14 @@ import { subscriptionService, type KeepChoice, type PlanFit } from '@/services/s
 
 /** Subscription statuses with no active plan — their plan card is offered again, not marked current. */
 const LAPSED_STATUSES = new Set(['expired', 'cancelled']);
+
+/** After a plan change: every cached read of the plan, its usage and limits is stale. */
+export const refreshAfterPlanChange = () =>
+  Promise.all(
+    [['usage-current'], ['plan-over-limit'], ['ai-providers'], ['workspace', 'ai-usage']].map((queryKey) =>
+      queryClient.invalidateQueries({ queryKey })
+    )
+  );
 
 export const PricingPage = () => {
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -97,7 +106,7 @@ export const PricingPage = () => {
       // and the webhook closes the loop on success.
       const response = await apiClient.post<{
         success: boolean;
-        data: { requiresCheckout?: boolean; checkoutUrl?: string };
+        data: { requiresCheckout?: boolean; checkoutUrl?: string; message?: string };
       }>('/api/subscriptions/upgrade', { planName: selectedPlan, ...(keep ? { keep } : {}) });
 
       const payload = response.data?.data;
@@ -108,8 +117,13 @@ export const PricingPage = () => {
         return;
       }
 
+      // Done here (a direct assign, or B4: a paid → paid change made on the live Stripe
+      // subscription, `requiresCheckout: false`, prorated). No redirect to wait for: the plan and
+      // usage are read again now.
+      void refreshAfterPlanChange();
       setCurrentPlanName(selectedPlan);
-      setAlertDialog({ open: true, title: 'Success!', description: `Successfully upgraded to ${selectedPlan} plan! Redirecting...`, variant: 'success', confirmAction: false });
+      const prorated = payload?.requiresCheckout === false && payload.message ? ` ${payload.message}` : '';
+      setAlertDialog({ open: true, title: 'Success!', description: `Successfully changed to the ${selectedPlan} plan.${prorated} Redirecting...`, variant: 'success', confirmAction: false });
       setTimeout(() => { navigate('/subscription'); }, 1500);
     } catch (error: unknown) {
       setAlertDialog({ open: true, title: 'Error', description: extractApiError(error, 'Failed to upgrade plan'), variant: 'error', confirmAction: false });

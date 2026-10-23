@@ -138,10 +138,11 @@ export const threadApiFilters = (
      * list NARROWER, not wider — `view=active` without the pin skip returns fewer rows
      * than `view=work_queue`. Requires BE >= the release carrying #634 and #635.
      *
-     * What this does NOT widen, deliberately: knowledge-base mail stays excluded unless
-     * it is live work (BE `NOT_ARCHIVED_KB`), and spam/suspicious keep their own chips.
-     * `ListScopeNotice` reports whatever remains hidden, so the list still says when it
-     * is a subset.
+     * KB-source threads: "All" means everything (owner decision 7, 2026-10-23) — the backend
+     * no longer applies `NOT_ARCHIVED_KB` here, so resolved and closed KB-source threads are
+     * in All, which is never smaller than Resolved. Spam/suspicious keep their own chips.
+     * `ListScopeNotice` reports whatever remains hidden, so the list still says when it is a
+     * subset.
      */
     apiFilters.view = 'active';
     if (threadStatus === 'all') {

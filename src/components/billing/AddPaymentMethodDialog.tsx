@@ -4,7 +4,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { CheckoutSessionForm } from '@/components/billing/CheckoutSessionForm';
-import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
+import { getApiErrorMessage, getErrorStatus, getErrorBody, SUBSCRIPTION_ALREADY_LIVE } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { formatMoneyExVat } from '@/lib/money';
 import {
@@ -66,7 +66,9 @@ export const AddPaymentMethodDialog = ({
         // 🪤 The status came off a hand-written cast; `getErrorStatus` is the reader
         // that knows the interceptor rebuilds the error without `.response`.
         setError(
-          getErrorStatus(err) === 409
+          // SUBSCRIPTION_ALREADY_LIVE (B4): getApiErrorMessage gives our pointer to Change plan /
+          // the billing portal; an older backend's bare 409 keeps the old sentence.
+          getErrorStatus(err) === 409 && getErrorBody(err)?.code !== SUBSCRIPTION_ALREADY_LIVE
             ? 'This workspace already has a payment method on file. Use Billing & Invoices to change it.'
             : (getApiErrorMessage(err) ??
               "We couldn't open the payment form right now. Please try again in a moment.")

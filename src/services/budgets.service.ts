@@ -1,5 +1,12 @@
 import { apiClient } from '@/lib/api-client';
 import { getErrorBody, getErrorStatus } from '@/lib/errorMessages';
+import {
+  parseKbStarterAllowance,
+  parseStarterAllowance,
+  parseUnavailableReason,
+  type AiUnavailableReason,
+  type StarterAllowance,
+} from '@/components/subscription/starterAllowance';
 
 /*
  * The AI budgets API (budgets follow the billing period). The types below are copied VERBATIM from the backend contract
@@ -172,8 +179,31 @@ export type GroupPage = { items: GroupSummary[]; total: number };
 /** GET /api/alliances/:allianceId/budget and GET /api/organizations/ai-usage before Apply. */
 export type BudgetsInactive = { active: false };
 
+/**
+ * A Free workspace's starter allowances on the AI-usage page (release audit D-L1). Absent on an
+ * older backend, null when not Free past its trial.
+ */
+export type FreeAllowanceView = {
+  onOurKey: boolean;
+  live: StarterAllowance;
+  kb: StarterAllowance;
+  /** Live AI on our key stopped: the live allowance is used. */
+  paused: boolean;
+  /** History import and KB building on our key stopped. */
+  kbPaused: boolean;
+};
+
+/** The plan's part of GET /api/organizations/ai-usage (newer backend); every field optional. */
+export type PlanPart = {
+  freeAllowance?: FreeAllowanceView;
+  unavailableReason?: AiUnavailableReason;
+};
+
+/** GET /api/organizations/ai-usage before Apply: newer backends add the plan's part and a line. */
+export type WorkspaceUsageInactive = BudgetsInactive & PlanPart & { status?: StatusLine };
+
 /** GET /api/organizations/ai-usage (once the budgets are switched on). */
-export type WorkspaceUsage = {
+export type WorkspaceUsage = PlanPart & {
   currency: BudgetCurrency;
   active: true;
   group: { key: string; kind: 'alliance' | 'workspace'; name: string };
@@ -341,6 +371,49 @@ const inactiveUnlessUsd = <T extends { active: boolean; currency?: unknown }>(
     ? { active: false }
     : payload;
 
+const isStatusLine = (value: unknown): value is StatusLine =>
+  !!value &&
+  typeof value === 'object' &&
+  ['ok', 'warn', 'bad'].includes((value as StatusLine).tone) &&
+  typeof (value as StatusLine).text === 'string';
+
+/** `freeAllowance` when it parses (both allowances and the flags); anything else ⇒ undefined. */
+export const parseFreeAllowanceView = (raw: unknown): FreeAllowanceView | undefined => {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const view = raw as Record<string, unknown>;
+  const live = parseStarterAllowance({ starterAllowance: view.live });
+  const kb = parseKbStarterAllowance({ kbStarterAllowance: view.kb });
+  if (!live || !kb || typeof view.onOurKey !== 'boolean') return undefined;
+  return { onOurKey: view.onOurKey, live, kb, paused: view.paused === true, kbPaused: view.kbPaused === true };
+};
+
+/**
+ * Keeps the plan's part of the payload only where it parses (version skew: an older backend sends
+ * none, and the page then renders as before). An inactive payload keeps its `status` line too.
+ */
+const withPlanPart = <T extends WorkspaceUsage | BudgetsInactive>(
+  payload: T
+): T | WorkspaceUsageInactive => {
+  const raw = payload as Record<string, unknown>;
+  const {
+    freeAllowance: _free,
+    unavailableReason: _reason,
+    ...rest
+  } = raw;
+  const freeAllowance = parseFreeAllowanceView(raw.freeAllowance);
+  const unavailableReason = parseUnavailableReason(raw);
+  const part = {
+    ...(freeAllowance ? { freeAllowance } : {}),
+    ...(unavailableReason ? { unavailableReason } : {}),
+  };
+  if (payload.active) return { ...(rest as T), ...part };
+  return {
+    active: false,
+    ...part,
+    ...(isStatusLine(raw.status) ? { status: raw.status } : {}),
+  };
+};
+
 export const budgetsService = {
   // ---- platform admin ----
   getState: async (): Promise<BudgetStateResult> => {
@@ -443,10 +516,12 @@ export const budgetsService = {
 
   // ---- workspace (the workspace is the X-Organization-Context) ----
   /** An old backend's answer (see isOldServerUsageAnswer) is `{ active: false }`, not an error. */
-  getMyAiUsage: async (): Promise<WorkspaceUsage | BudgetsInactive> => {
+  getMyAiUsage: async (): Promise<WorkspaceUsage | WorkspaceUsageInactive> => {
     try {
-      return inactiveUnlessUsd(
-        unwrap(await apiClient.get<Envelope<WorkspaceUsage | BudgetsInactive>>(usagePath))
+      return withPlanPart(
+        inactiveUnlessUsd(
+          unwrap(await apiClient.get<Envelope<WorkspaceUsage | BudgetsInactive>>(usagePath))
+        )
       );
     } catch (error) {
       if (isOldServerUsageAnswer(error)) return { active: false };

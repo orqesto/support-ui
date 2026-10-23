@@ -115,8 +115,8 @@ export const withFailedFields = (message: string, err: unknown): string => {
 export const getApiErrorMessage = (err: unknown): string | undefined => {
   const status = getErrorStatus(err);
   if (status !== undefined && status >= 500) return undefined;
-  // Our words for a refusal with a known code (plan limits, rate limit), before the server's.
-  const known = planLimitText(err) ?? rateLimitedText(err);
+  // Our words for a refusal with a known code (plan limits, rate limit, billing), before the server's.
+  const known = planLimitText(err) ?? rateLimitedText(err) ?? billingCodeText(err);
   if (known) return known;
   const body = getErrorBody(err);
   const message = body?.error ?? body?.message;
@@ -156,6 +156,23 @@ export const isAiNotConfiguredError = (err: unknown): boolean => {
 
 /** The translation service's no-provider sentinel (BE translationService NO_PROVIDER). */
 export const AI_PROVIDER_NOT_CONFIGURED = 'AI_PROVIDER_NOT_CONFIGURED';
+
+/** 409: the workspace already has the plan it asked for (a paid → paid change to the same plan). */
+export const ALREADY_ON_PLAN = 'ALREADY_ON_PLAN';
+/** 409: a checkout was asked for while a live subscription exists (it would bill twice). */
+export const SUBSCRIPTION_ALREADY_LIVE = 'SUBSCRIPTION_ALREADY_LIVE';
+
+export const ALREADY_ON_PLAN_TEXT = "You're already on this plan.";
+export const SUBSCRIPTION_ALREADY_LIVE_TEXT =
+  'This workspace already has an active subscription. To switch plans, use Subscription › Change plan; to change the card, open the billing portal from Subscription.';
+
+/** Our sentence for the billing refusals (B4), else undefined. */
+export const billingCodeText = (err: unknown): string | undefined => {
+  const code = getErrorBody(err)?.code;
+  if (code === ALREADY_ON_PLAN) return ALREADY_ON_PLAN_TEXT;
+  if (code === SUBSCRIPTION_ALREADY_LIVE) return SUBSCRIPTION_ALREADY_LIVE_TEXT;
+  return undefined;
+};
 
 /** 429 from the rate limiter; the body may carry `retryAfter` in seconds. */
 export const RATE_LIMITED = 'RATE_LIMITED';

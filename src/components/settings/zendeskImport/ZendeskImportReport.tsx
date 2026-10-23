@@ -1,5 +1,6 @@
 import { Download, Paperclip, RotateCcw } from 'lucide-react';
 import { downloadConflicts } from './ZendeskImportPreview';
+import { attachmentsStoppedText, canCopyAttachments } from './zendeskImportSummary';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { apiErrorMessage } from '@/lib/apiError';
@@ -103,12 +104,25 @@ export const ZendeskImportReport = ({ run, onAct, readOnly = false }: Props) => 
             {(files.tooLarge ?? 0) > 0 ? `, ${num(files.tooLarge)} too large` : ''}
             {(files.failed ?? 0) > 0 ? `, ${num(files.failed)} could not be downloaded` : ''}
           </p>
+          {attachmentsStoppedText(
+            report.attachments?.stoppedReason,
+            report.attachments?.stoppedMessage
+          ) && (
+            <div data-testid="attachments-stopped">
+              <Alert variant="warning">
+                {attachmentsStoppedText(
+                  report.attachments?.stoppedReason,
+                  report.attachments?.stoppedMessage
+                )}
+              </Alert>
+            </div>
+          )}
         </section>
       )}
 
       {!readOnly && (
         <div className="flex flex-wrap gap-2">
-          {run.status === 'applied' && (
+          {canCopyAttachments(run) && (
             <Button
               variant="outline"
               onClick={() =>

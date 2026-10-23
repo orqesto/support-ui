@@ -9,6 +9,7 @@ import {
   STATUS_BADGE,
   STATUS_LABEL,
   ZENDESK_AS_THREADS,
+  anotherRunBusyText,
 } from './zendeskImportSummary';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -176,7 +177,11 @@ export const ZendeskImportSettings = () => {
     } catch (error) {
       // 409 = the step cannot start yet (the previous one is still stopping, or the run moved
       // on). The run stays as it is and the admin tries again — a notice, not a failure.
-      if (apiErrorStatus(error) === 409) toast.warning(apiErrorMessage(error, failure));
+      // One writer per workspace: another import writing gets our sentence.
+      if (apiErrorStatus(error) === 409)
+        toast.warning(
+          anotherRunBusyText(apiErrorMessage(error, failure)) ?? apiErrorMessage(error, failure)
+        );
       else toast.error(apiErrorMessage(error, failure));
     }
   };
