@@ -184,15 +184,16 @@ export const MessagesListCaption = ({
       )}
     </div>
 
-    {/* Phone: the table has no column headers there, so the sort stays a select. */}
-    <div className="md:hidden flex gap-2 items-center w-full">
+    {/* Phone: the table has no column headers there, so the sort stays a select — on the
+        caption's own row, at the end (Messages list v4 mobile), not a full-width row below it. */}
+    <div className="md:hidden flex items-center ml-auto shrink-0">
       <Select
         aria-label="Sort"
         size="sm"
         value={sortPreset}
         onChange={onSortChange}
         options={SORT_PRESET_OPTIONS}
-        className="flex-1"
+        className="w-36"
       />
     </div>
   </div>

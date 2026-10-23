@@ -73,6 +73,9 @@ export const tokensOf = (
   visibleDefs(defs, isKanban, filters).flatMap((def) => {
     const value = filterValue(filters, def.key);
     if (value === undefined) return [];
+    // Needs us is a VIEW: its pill is lit and says it (Messages list v4), so the bar stays empty
+    // instead of repeating it as "Status: Needs us". "All" (or another status) replaces it.
+    if (def.key === 'lifecycle' && value === 'needs_us') return [];
     // One value carries its colour; a set of them has no single colour to show.
     const single = def.multi ? csvValues(value).length === 1 : true;
     return [

@@ -40,15 +40,20 @@ import { sentenceCase, statusLabel } from './messageDetailConstants';
 export const isSpamThread = (message: Message): boolean =>
   message.spamConfirmedAt ? true : (message.isSpam ?? getSpamCheck(message)?.isSpam === true);
 
-export type SpineColor = 'red' | 'amber' | 'blue' | 'none';
+export type SpineColor = 'red' | 'amber' | 'blue' | 'green' | 'calm' | 'none';
 
 /**
- * Status spine — 3px colored left border ranking urgency, independent of dept color.
- * Mirrors the spec md:
- *   - red    = SLA breached OR spam
- *   - amber  = SLA at-risk OR needs-review
- *   - blue   = we owe a reply (lastReplyFromClient === true)
- *   - none   = awaiting customer / no signal
+ * Status spine — the 3px left edge of a row, card and board card (Messages list v4 `spine()`):
+ *   - red    = SLA breached, or spam (kept from the inbox-card spec: a spam thread in a work view
+ *              must not look like ordinary work)
+ *   - amber  = SLA at risk
+ *   - blue   = open or in progress — work that is ours
+ *   - calm   = pending or on hold — waiting, not ours right now
+ *   - green  = resolved
+ *   - none   = triage mail (not analysed / archived), which has no work status
+ *
+ * The status is the THREAD's (`deriveWorkflowStatus` on its latest message, as the Status column
+ * reads it), so the edge and the Status cell never disagree.
  */
 export const getSpine = (message: Message, thread: MessageThread): SpineColor => {
   if (isSpamThread(message)) return 'red';
@@ -57,8 +62,15 @@ export const getSpine = (message: Message, thread: MessageThread): SpineColor =>
   if (slaTone === 'breach') return 'red';
   if (slaTone === 'risk') return 'amber';
 
-  if (message.needsHumanReview) return 'amber';
-  if (thread.lastReplyFromClient === true) return 'blue';
+  const statusMessage = thread.latestMessage ?? message;
+  const status = deriveWorkflowStatus({
+    status: statusMessage.status,
+    parkedAt: statusMessage.parkedAt,
+    lastReplyFromClient: statusMessage.lastReplyFromClient ?? thread.lastReplyFromClient,
+  });
+  if (status === 'resolved') return 'green';
+  if (status === 'open' || status === 'in_progress') return 'blue';
+  if (status === 'pending' || status === 'on_hold') return 'calm';
   return 'none';
 };
 
@@ -66,7 +78,9 @@ export const getSpine = (message: Message, thread: MessageThread): SpineColor =>
 export const SPINE_BG: Record<SpineColor, string> = {
   red: 'bg-destructive',
   amber: 'bg-warning',
-  blue: 'bg-foreground',
+  blue: 'bg-primary',
+  green: 'bg-success',
+  calm: 'bg-border-strong',
   none: 'bg-transparent',
 };
 

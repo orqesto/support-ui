@@ -8,7 +8,7 @@ import { ThreadTableHeader } from '@/components/messages/list/ThreadTableHeader'
 import { ThreadStatusCell } from '@/components/messages/list/threadTableParts';
 import { threadSections } from '@/components/messages/list/threadSections';
 import { useQueryClient } from '@tanstack/react-query';
-import { Inbox, Mail, MoreHorizontal, PenSquare, RefreshCw } from 'lucide-react';
+import { Inbox, MoreHorizontal, PenSquare, RefreshCw } from 'lucide-react';
 import { NewItemsBar } from '@/components/list/NewItemsBar';
 import { Menu, MenuItem, MenuSeparator } from '@/components/ui/Menu';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -1077,7 +1077,9 @@ export const MessagesPage = () => {
                 card, and the count its right end; both describe the surface, not a filter. */}
             <PageHeader
               title={<span className="text-xl max-sm:sr-only">Threads</span>}
-              className="sm:items-center"
+              // One row on a phone too (Messages list v4 mobile): the view tabs and the icon-only
+              // actions share it, instead of the actions dropping to a row of their own.
+              className="flex-row items-center justify-between"
               meta={
                 <>
                   <MessagesViewToggle
@@ -1343,18 +1345,16 @@ export const MessagesPage = () => {
                     </div>
                   ) : threads.length === 0 ? (
                     <Card>
-                      <CardContent className="p-12 text-center">
-                        <Mail className="mx-auto mb-4 w-12 h-12 text-muted-foreground" />
-                        <h3 className="font-display mb-2 text-lg font-semibold">
-                          No threads found
-                        </h3>
-                        <p className="text-muted-foreground">
-                          {activeFilterCount > 0
-                            ? 'No threads match your filters'
-                            : 'No threads available'}
+                      {/* Messages list v4 `.empty`: one line that says what is empty, and where
+                          the rest is when this view hides some. */}
+                      <CardContent className="px-5 py-12 text-center text-[13.5px] text-muted-foreground">
+                        <p>
+                          {activeFilterCount > 0 || (listScope?.hidden ?? 0) > 0
+                            ? 'No threads match this view.'
+                            : 'No threads yet.'}
                         </p>
                         {(listScope?.hidden ?? 0) > 0 && (
-                          <p className="mt-2 text-[12.5px] text-muted-foreground">
+                          <p className="mt-2.5 text-[12.5px]">
                             {listScope?.hidden.toLocaleString()} are outside this view — use{' '}
                             <b>Not shown</b> above to jump to them.
                           </p>
