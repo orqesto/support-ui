@@ -160,6 +160,16 @@ describe('ticket table while loading', () => {
     expect(screen.getByText('Reorder of the pallet labels')).toBeInTheDocument();
   });
 
+  it('shades the rows only: the caption and its controls stay outside the shade', () => {
+    render(<TicketTable {...props({ loading: true })} />);
+    const shade = document.querySelector('[aria-busy="true"]');
+    expect(shade).not.toBeNull();
+    expect(shade?.textContent).toContain('Reorder of the pallet labels');
+    // The caption ("Loading…" while it reloads) and its sort / density / layout controls.
+    expect(shade?.textContent).not.toContain('Loading…');
+    expect(screen.getByText('Loading…').closest('[aria-busy="true"]')).toBeNull();
+  });
+
   it('a first load (no rows yet) shows the skeleton, no shade (control)', () => {
     render(<TicketTable {...props({ loading: true, tickets: [] })} />);
     expect(screen.queryByLabelText('Searching…')).toBeNull();
