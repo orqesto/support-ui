@@ -70,6 +70,11 @@ vi.mock('@/services/message.service', () => ({
     markRead: vi.fn(() => Promise.resolve()),
     markUnread: vi.fn(() => Promise.resolve()),
     delete: mocks.del,
+    // The view pills' counts (useThreadViewCounts) fire on a timer; without this the count call
+    // logs a TypeError, and under a loaded full run it lands before the crash check below.
+    getThreads: vi.fn(() =>
+      Promise.resolve({ success: true, data: [], pagination: { page: 1, limit: 1, total: 0 } })
+    ),
   },
 }));
 vi.mock('@/lib/toast', () => ({
