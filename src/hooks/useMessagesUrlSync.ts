@@ -155,6 +155,7 @@ export const useMessagesUrlSync = ({
   onFetchError,
 }: UseMessagesUrlSyncProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const urlIsBare = searchParams.toString() === '';
   const orgCode = useCurrentOrgCode();
   // Read when the fetch ANSWERS, not when it started: on a cold load the fetch starts before the
   // workspace code has loaded, and the closure's `undefined` wrote the bare `INF-25` into the URL.
@@ -383,7 +384,10 @@ export const useMessagesUrlSync = ({
     if (filters.showKBOnly) params.set('showKBOnly', 'true');
 
     setSearchParams(params, { replace: true });
-  }, [filters, setSearchParams]);
+    // `urlIsBare`: a bare /threads (the sidebar link) while already here does not remount the page
+    // or change the filters, so the URL lost e.g. lifecycle=all and a reload opened Needs us
+    // (review of #724). Re-written once; then the URL is not bare and this settles.
+  }, [filters, setSearchParams, urlIsBare]);
 
   // Auto-open message from ?id= param. The param can be a numeric conv id
   // (legacy / unstamped) OR a publicId like 'SUP-42' (current). Pass the raw

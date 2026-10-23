@@ -221,13 +221,27 @@ describe('saved views belong to the person, not the browser', () => {
     expect(service.save).toHaveBeenCalledWith('Hot', { priority: 'critical', lifecycle: 'needs_us' });
   });
 
-  it('never saves an empty view — it would match every state and stay lit forever', async () => {
+  it('never offers to save an empty view — it would match every state and stay lit forever', async () => {
     setup({ lifecycle: 'needs_us' } as FilterState);
     await waitFor(() => expect(service.list).toHaveBeenCalled());
-
-    nameAndSave('Nothing');
-
+    expect(screen.queryByText('Save as view')).toBeNull();
     expect(service.save).not.toHaveBeenCalled();
+  });
+
+  it('offers no Save on a triage lane alone — there is no token a view could hold', async () => {
+    setup({ columnId: 'spam' } as FilterState);
+    await waitFor(() => expect(service.list).toHaveBeenCalled());
+    expect(screen.queryByText('Save as view')).toBeNull();
+  });
+
+  it('un-clicking a view saved on Needs us goes back to Needs us, not All', async () => {
+    service.list.mockResolvedValue([
+      { id: 5, name: 'Hot', filters: { priority: 'critical', lifecycle: 'needs_us' }, createdAt: '', updatedAt: '' },
+    ]);
+    const { patched } = setup({ priority: 'critical', lifecycle: 'needs_us' } as FilterState);
+    fireEvent.click(await screen.findByText('Hot'));
+    expect(patched()).not.toHaveProperty('lifecycle');
+    expect(patched()).toHaveProperty('priority');
   });
 
   it('deletes one through the API', async () => {

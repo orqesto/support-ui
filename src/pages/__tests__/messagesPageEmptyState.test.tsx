@@ -178,4 +178,13 @@ describe('MessagesPage — the empty list says what it is', () => {
     expect(screen.getByText('No threads yet.')).toBeInTheDocument();
     expect(screen.queryByText(/are outside this view/)).toBeNull();
   });
+
+  it('an empty Needs us says the VIEW is empty, not that there are no threads', () => {
+    useMessagesStore.setState({
+      listScope: { withoutLens: 0, hidden: 0 } as never,
+      filters: { ...defaults.filters, lifecycle: 'needs_us' },
+    });
+    renderPage();
+    expect(screen.getByText('No threads match this view.')).toBeInTheDocument();
+  });
 });

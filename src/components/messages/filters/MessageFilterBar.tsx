@@ -160,6 +160,9 @@ export const MessageFilterBar = ({
           patch[key] = 'all';
         }
       }
+      // A view saved on top of Needs us carries it; un-clicking the view goes back to Needs us,
+      // not All — Needs us is the landing view, not one of the view's own filters (review #724).
+      if (view.filters.lifecycle === 'needs_us' && patch.lifecycle !== undefined) delete patch.lifecycle;
       onFilterPatch(patch as Partial<FilterState>);
     },
     [defs, filters, onFilterPatch]
@@ -303,7 +306,9 @@ export const MessageFilterBar = ({
               </Button>
             </span>
           ) : (
-            activeFilterCount > 0 && (
+            // Only when there is something a view can hold: a triage lane alone counts as a
+            // filter but has no token, and saving it silently did nothing (review of #724).
+            tokens.length > 0 && (
               <Button
                 variant="ghost"
                 onClick={() => setNamingView(true)}

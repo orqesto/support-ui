@@ -3,7 +3,7 @@
 // this page is a separate refactor (see backlog #15 contact rework, which will
 // touch the same surface).
 /* eslint-disable max-lines */
-import { Fragment, useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { Fragment, useState, useCallback, useRef, useEffect, useMemo, useReducer } from 'react';
 import { ThreadTableHeader } from '@/components/messages/list/ThreadTableHeader';
 import { ThreadStatusCell } from '@/components/messages/list/threadTableParts';
 import { threadSections } from '@/components/messages/list/threadSections';
@@ -530,6 +530,12 @@ export const MessagesPage = () => {
   };
 
   const clearFilters = async () => {
+    // The thread list's landing view is Needs us (it is not counted as a filter): "Clear all"
+    // returns there, not to All — clearing must not silently widen the list (review of #724).
+    if (displayMode === 'threads') {
+      patchFilters({ ...defaultFilters, lifecycle: 'needs_us' });
+      return;
+    }
     clearFiltersStore();
     await fetchMessages(messagesPagination.page, true);
   };
@@ -830,7 +836,19 @@ export const MessagesPage = () => {
     shownIds: useMemo(() => threads.map((thread) => thread.threadId), [threads]),
     page: messagesPagination.page,
   });
+  /**
+   * View counts also follow the server's events, not only the visible rows: a thread resolved or
+   * assigned on page 3, or new mail held behind the bar, moves Needs us / Unassigned / Spam while
+   * page 1's rows stay the same (review of #726). One tick per event; the key below carries it.
+   */
+  const [countsTick, bumpCounts] = useReducer((tick: number) => tick + 1, 0);
+  useEffect(() => {
+    const events = ['conv:status_changed', 'conversation:updated', 'message:replied', 'conversation:routed'];
+    events.forEach((event) => subscribeToEvent(event, bumpCounts));
+    return () => events.forEach((event) => unsubscribeFromEvent(event, bumpCounts));
+  }, []);
   const refreshOnNewMail = useCallback(() => {
+    bumpCounts();
     bumpKanban();
     if (displayMode === 'threads' && messagesPagination.page === 1) {
       newThreads.probe();
@@ -1046,7 +1064,7 @@ export const MessagesPage = () => {
    */
   const countsRefreshKey = useMemo(
     () =>
-      `${messagesPagination.total}#` +
+      `${countsTick}#${messagesPagination.total}#` +
       threads
         .map((thread) => {
           const msg = thread.latestMessage;
@@ -1061,7 +1079,7 @@ export const MessagesPage = () => {
           ].join('|');
         })
         .join(';'),
-    [threads, messagesPagination.total]
+    [threads, messagesPagination.total, countsTick]
   );
   const laneCounts = useThreadViewCounts(
     useMemo(
@@ -1400,7 +1418,9 @@ export const MessagesPage = () => {
                           the rest is when this view hides some. */}
                       <CardContent className="px-5 py-12 text-center text-[13.5px] text-muted-foreground">
                         <p>
-                          {activeFilterCount > 0 || (listScope?.hidden ?? 0) > 0
+                          {activeFilterCount > 0 ||
+                          (listScope?.hidden ?? 0) > 0 ||
+                          filters.lifecycle === 'needs_us'
                             ? 'No threads match this view.'
                             : 'No threads yet.'}
                         </p>
