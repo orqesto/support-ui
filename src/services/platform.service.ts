@@ -330,6 +330,8 @@ export type AdminPlan = {
   isActive: boolean;
   stripePriceId: string | null;
   limits: PlanLimits;
+  /** The plan's feature flags (whole jsonb column). `managedAi` = AI on our key (BE #1112). */
+  features?: Record<string, unknown> | null;
 };
 
 /**
@@ -359,6 +361,8 @@ export type UpdatePlanInput = {
    * and archiving the old — an explicit act, not a side effect of editing a number.
    */
   syncStripePrice?: boolean;
+  /** Merged into the stored features server-side; only `managedAi` is edited here. */
+  features?: { managedAi?: boolean };
 };
 
 export type PlanType = 'base' | 'bundle' | 'enterprise';

@@ -1,7 +1,7 @@
 /**
  * In-app plan cards: Free names its starter allowance (owner decision 2026-10-22), an unlimited
- * history import reads "Unlimited", never "999,999 days" (T12), and managed AI goes by plan NAME
- * (kept by design: the backend's decideManagedEntitlement uses the same rule).
+ * history import reads "Unlimited", never "999,999 days" (T12), and managed AI goes by the plan's
+ * features.managedAi flag, falling back to the NAME rule without it (as the backend's planHasManagedAi).
  */
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -50,10 +50,16 @@ describe('plan cards', () => {
     expect(screen.getByText('365 days')).toBeInTheDocument();
   });
 
-  it('kept by design: managed AI by plan name, as the backend decides it', () => {
+  it('managed AI follows the plan flag features.managedAi, whatever the name', () => {
+    expect(planHasManagedAi({ name: 'free', features: { managedAi: true } })).toBe(true);
+    expect(planHasManagedAi({ name: 'pro', features: { managedAi: false } })).toBe(false);
+    expect(planHasManagedAi({ name: 'starter', features: { managedAi: true } })).toBe(true);
+  });
+
+  it('no flag (older backend): the name rule, every plan but free, as the backend falls back', () => {
     expect(planHasManagedAi({ name: 'free' })).toBe(false);
-    expect(planHasManagedAi({ name: 'admin' })).toBe(false);
-    expect(planHasManagedAi({ name: 'pro' })).toBe(true);
-    expect(planHasManagedAi({ name: 'starter' })).toBe(true);
+    expect(planHasManagedAi({ name: 'free', features: {} })).toBe(false);
+    expect(planHasManagedAi({ name: 'pro', features: null })).toBe(true);
+    expect(planHasManagedAi({ name: 'starter', features: { managedAi: 'yes' } })).toBe(true);
   });
 });

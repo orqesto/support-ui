@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { getErrorStatus } from '@/lib/errorMessages';
 import {
   normalizeBedrockDiscovery,
   type BedrockDiscovery,
@@ -692,6 +693,22 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
 
 const BASE = '/api/admin/platform/settings';
 
+/**
+ * GET /settings/free-starter (BE #1112): Free's one-time knowledge-base / history-import allowance
+ * on our key, in micros. `null` = a backend without the route (404) or a block we do not know.
+ */
+export type FreeStarterSettings = {
+  kbAllowanceMicros: { value: number; source: FieldSource; min: number; max: number };
+};
+
+export const normalizeFreeStarter = (raw: unknown): FreeStarterSettings | null => {
+  if (!isRecord(raw) || !isRecord(raw.kbAllowanceMicros)) return null;
+  const { value, source, min, max } = raw.kbAllowanceMicros;
+  if (!isFiniteNumber(value) || !isFiniteNumber(min) || !isFiniteNumber(max)) return null;
+  const known: FieldSource = source === 'db' || source === 'env' ? source : 'default';
+  return { kbAllowanceMicros: { value, source: known, min, max } };
+};
+
 export const platformSettingsService = {
   /** GET effective values + per-field source + secret status. */
   get: async (): Promise<PlatformSettings> => {
@@ -755,6 +772,22 @@ export const platformSettingsService = {
   /** PUT the hourly AI call limit / live reserve: a non-empty subset (`analysis-hourly`). */
   updateAnalysisHourly: async (input: PlatformAnalysisHourlyInput): Promise<void> => {
     await apiClient.put(`${BASE}/analysis-hourly`, input);
+  },
+
+  /** GET Free's KB starter allowance; null on a backend without the route (404). */
+  getFreeStarter: async (): Promise<FreeStarterSettings | null> => {
+    try {
+      const res = await apiClient.get<{ data: unknown }>(`${BASE}/free-starter`);
+      return normalizeFreeStarter(res.data.data);
+    } catch (error) {
+      if (getErrorStatus(error) === 404) return null;
+      throw error;
+    }
+  },
+
+  /** PUT Free's KB starter allowance: whole micros (0–100,000,000). */
+  updateFreeStarter: async (kbAllowanceMicros: number): Promise<void> => {
+    await apiClient.put(`${BASE}/free-starter`, { kbAllowanceMicros });
   },
 
   /** PUT the suggested-answer drafting settings (`drafts`): a non-empty subset. */

@@ -62,12 +62,15 @@ type EditDraft = {
   priceEuros: string;
   /** Every plan limit (limitFields.ts) — the editor used to offer only users, channels, messages. */
   limits: LimitDraft;
+  /** `features.managedAi`: the plan includes AI on our key (absent flag ⇒ the name rule). */
+  managedAi: boolean;
 };
 
 const draftFromPlan = (plan: AdminPlan): EditDraft => ({
   displayName: plan.displayName,
   priceEuros: (plan.price / 100).toString(),
   limits: draftFromLimits(plan.limits as Partial<Record<string, number>>),
+  managedAi: planHasManagedAi(plan),
 });
 
 const formatPrice = (plan: AdminPlan) => {
@@ -232,6 +235,10 @@ export const PlatformPlans = () => {
           displayName: draft.displayName.trim(),
           price: priceCents,
           limits: parsedLimits.limits,
+          // Only a change is sent (the server merges features; other flags are kept).
+          ...(draft.managedAi !== planHasManagedAi(editing)
+            ? { features: { managedAi: draft.managedAi } }
+            : {}),
         },
       });
       closeEdit();
@@ -440,6 +447,20 @@ export const PlatformPlans = () => {
                   )
                 }
               />
+              <div className="space-y-1">
+                <Toggle
+                  checked={draft.managedAi}
+                  onChange={() =>
+                    setDraft((current) =>
+                      current ? { ...current, managedAi: !current.managedAi } : current
+                    )
+                  }
+                  label="AI on our key"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Workspaces on this plan can use our AI without adding their own AI key.
+                </p>
+              </div>
               <LimitInputsGrid
                 idPrefix="edit-plan"
                 blankMeans="keep"

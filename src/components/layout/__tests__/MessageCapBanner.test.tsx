@@ -27,7 +27,10 @@ vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => canView }),
 }));
 
-let viewer: { role: string; organizationRole: string } = { role: 'user', organizationRole: 'support' };
+let viewer: { role: string; organizationRole: string } = {
+  role: 'user',
+  organizationRole: 'support',
+};
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: (selector: (state: unknown) => unknown) =>
     selector({ selectedOrganizationId: 4, user: viewer }),
@@ -166,7 +169,9 @@ describe('the AI-paused banner inside the app-level banner', () => {
       usage({ current: { messages: 10, users: 3, integrations: 2 }, ai: paused })
     );
     renderBanner();
-    expect(await screen.findByTestId('ai-paused-banner')).toHaveTextContent(/AI messages are used up/);
+    expect(await screen.findByTestId('ai-paused-banner')).toHaveTextContent(
+      /AI messages are used up/
+    );
     expect(screen.getByText(/Buy 1,000 messages/)).toHaveAttribute('href', '/subscription');
     expect(screen.getByText('Upgrade')).toHaveAttribute('href', '/pricing');
     expect(screen.queryByTestId('message-cap-banner')).not.toBeInTheDocument();
@@ -298,5 +303,56 @@ describe('Free starter allowance used up', () => {
     renderBanner();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.queryByTestId('ai-paused-banner')).not.toBeInTheDocument();
+  });
+});
+
+describe('the KB allowance and no-AI notices (BE #1112): admins only, beside the cap banner', () => {
+  const freeAi = (over: Record<string, unknown>) =>
+    usage({
+      ai: {
+        currency: 'USD',
+        active: true,
+        usedMicros: 0,
+        budgetMicros: null,
+        paused: false,
+        bulkPaused: true,
+        reason: null,
+        message: null,
+        resetsAt: null,
+        ...over,
+      },
+    });
+
+  it('an admin sees the KB banner, and the cap banner still shows', async () => {
+    viewer = { role: 'user', organizationRole: 'org_admin' };
+    getUsage.mockResolvedValue(freeAi({ kbPaused: true, kbMessage: 'KB allowance used.' }));
+    renderBanner();
+    expect(await screen.findByTestId('kb-paused-banner')).toHaveTextContent(
+      'KB allowance used. AI for new mail keeps running.'
+    );
+    expect(screen.getByTestId('message-cap-banner')).toBeInTheDocument();
+  });
+
+  it('an admin below the cap sees why there is no AI', async () => {
+    viewer = { role: 'user', organizationRole: 'org_admin' };
+    getUsage.mockResolvedValue({
+      ...freeAi({ unavailableReason: 'own_key_required' }),
+      current: { messages: 10, users: 1, integrations: 1 },
+    });
+    renderBanner();
+    expect(await screen.findByTestId('ai-unavailable-notice')).toHaveTextContent(
+      'Add your own AI key to use AI.'
+    );
+    expect(screen.queryByTestId('message-cap-banner')).not.toBeInTheDocument();
+  });
+
+  it('an agent sees neither in the global strip', async () => {
+    getUsage.mockResolvedValue(
+      freeAi({ kbPaused: true, kbMessage: 'x', unavailableReason: 'admin_not_verified' })
+    );
+    renderBanner();
+    expect(await screen.findByTestId('message-cap-banner')).toBeInTheDocument();
+    expect(screen.queryByTestId('kb-paused-banner')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ai-unavailable-notice')).not.toBeInTheDocument();
   });
 });

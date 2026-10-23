@@ -218,7 +218,9 @@ describe('before Apply: the migration panel', () => {
     renderPage();
     await screen.findByText(/Current limits stay in force until you switch/);
     fireEvent.click(screen.getByRole('button', { name: 'Show' }));
-    fireEvent.change(screen.getByLabelText(/^AI money per message/), { target: { value: '0.0016' } });
+    fireEvent.change(screen.getByLabelText(/^AI money per message/), {
+      target: { value: '0.0016' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
     await waitFor(() => expect(calls.updateSettings).toEqual([{ microsPerMessage: 1600 }]));
   });
@@ -270,6 +272,23 @@ describe('after Apply: the group list', () => {
     expect(screen.getAllByText('Organisation').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Workspace').length).toBeGreaterThan(0);
     expect(calls.listGroups?.[0]).toEqual({ sort: 'spend', page: 1, pageSize: 25 });
+  });
+
+  it('tokens are the secondary figure beside the money; null or absent ⇒ none (T8)', async () => {
+    groupPage = {
+      items: [
+        summary('a:7', 'Northwind', { tokens: { total: 1_250_000, bulk: 300_000 } }),
+        summary('w:12', 'Contoso Mail', { tokens: null }),
+        summary('w:13', 'Fabrikam'),
+      ],
+      total: 3,
+    };
+    renderPage();
+    expect(await screen.findByTestId('group-tokens-a:7')).toHaveTextContent(
+      '· 1.3M tokens, 300K bulk'
+    );
+    expect(screen.queryByTestId('group-tokens-w:12')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('group-tokens-w:13')).not.toBeInTheDocument();
   });
 
   it('search filters via the q query param; a filter chip and the sort go along', async () => {
@@ -411,7 +430,9 @@ describe('advanced settings', () => {
       state: baseState({ selfHosted: true, server: { ceiling: 500 * MLN, spend: 200 * MLN } }),
     };
     renderPage();
-    expect(await screen.findByText('≈ $200.00 of ≈ $500.00 this month, extra included')).toBeInTheDocument();
+    expect(
+      await screen.findByText('≈ $200.00 of ≈ $500.00 this month, extra included')
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Show' }));
     expect(screen.queryByLabelText(/^AI money per message/)).toBeNull();
     fireEvent.change(screen.getByLabelText(/Server ceiling/), { target: { value: '' } });

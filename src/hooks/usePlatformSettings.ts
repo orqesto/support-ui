@@ -17,6 +17,26 @@ import {
 import type { PlatformRoutingInput } from '@/services/routingSettings';
 
 const KEY = ['platform', 'settings'] as const;
+const FREE_STARTER_KEY = ['platform', 'settings', 'free-starter'] as const;
+
+/** Free's KB starter allowance (its own route); null on a backend without it. */
+export const usePlatformFreeStarter = () =>
+  useQuery({
+    queryKey: FREE_STARTER_KEY,
+    queryFn: () => platformSettingsService.getFreeStarter(),
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+export const useUpdatePlatformFreeStarter = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (kbAllowanceMicros: number) =>
+      platformSettingsService.updateFreeStarter(kbAllowanceMicros),
+    onSuccess: () => qc.invalidateQueries({ queryKey: FREE_STARTER_KEY }),
+    onError: (error: unknown) => toast.failure('save the free AI allowance', error),
+  });
+};
 const MODELS_KEY = ['platform', 'settings', 'ai-models'] as const;
 
 export const usePlatformSettings = () =>

@@ -64,6 +64,12 @@ export type GroupSummary = {
   ownKey: boolean;
   /** How many extra requests are open for the group (organisation-wide and its workspaces'). */
   requestCount: number;
+  /**
+   * The same spend in whole TOKENS (admins' secondary figure, T8), this period, not counting
+   * extra. Sent on the list page's items; null when it could not be read; absent on an older
+   * backend.
+   */
+  tokens?: TokenSpend | null;
 };
 
 export type WorkspaceRow = {

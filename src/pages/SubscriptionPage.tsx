@@ -25,6 +25,8 @@ import { billingDateLine } from '@/components/subscription/billingDateLine';
 import { FreePlanActiveCard } from '@/components/subscription/FreePlanActiveCard';
 import { MessagePackOfferCard } from '@/components/subscription/MessagePackOfferCard';
 import { AiPausedBanner } from '@/components/subscription/AiPausedBanner';
+import { AiUnavailableNotice } from '@/components/subscription/AiUnavailableNotice';
+import { KbPausedBanner } from '@/components/subscription/KbPausedBanner';
 import { loadAiKeyState, loadAiStatus, type AiStatus } from '@/components/subscription/aiStatus';
 import { isStarterPaused } from '@/components/subscription/starterAllowance';
 import { PlanLimitsCard } from '@/components/subscription/PlanLimitsCard';
@@ -504,6 +506,8 @@ export const SubscriptionPage = () => {
                 ) : undefined
               }
             />
+            <KbPausedBanner ai={aiStatus} isAdmin={isAdmin} />
+            <AiUnavailableNotice ai={aiStatus} isAdmin={isAdmin} />
             <MessagesSummary
               limit={usage.messages.limit}
               used={usage.messages.current}
