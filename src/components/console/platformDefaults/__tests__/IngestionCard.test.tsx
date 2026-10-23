@@ -241,7 +241,7 @@ const GMAIL = {
   pollFetchMax: { value: 8, source: 'default' as const, min: 1, max: 30 },
 };
 const GMAIL_LABELS = [
-  'Attachment refetch per check',
+  'Attachment refetch per check (Gmail and IMAP)',
   'Gmail units per minute',
   'Gmail burst units',
   'Gmail cooldown after a refusal (seconds)',
@@ -278,7 +278,7 @@ describe('IngestionCard — Gmail', () => {
 
   it('0 is allowed for the refetch (off)', async () => {
     wrap(<IngestionCard ingestion={{ ...SETTING, ...GMAIL }} />);
-    fireEvent.change(screen.getByLabelText('Attachment refetch per check'), {
+    fireEvent.change(screen.getByLabelText('Attachment refetch per check (Gmail and IMAP)'), {
       target: { value: '0' },
     });
     fireEvent.click(save());

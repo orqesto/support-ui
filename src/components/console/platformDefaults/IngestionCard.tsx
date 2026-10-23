@@ -62,12 +62,12 @@ const SEND_FIELDS: FieldDef[] = [
     hint: 'A reply sent from a ticket to many threads goes out one email at a time, this many seconds apart, so a mailbox never sends a burst. 0 = no gap.',
   },
 ];
-/** Gmail: attachment retry and the pacing that keeps a mailbox under Google's quota. */
+/** Attachment retry (Gmail and IMAP), then the pacing that keeps a Gmail mailbox under Google's quota. */
 const GMAIL_FIELDS: FieldDef[] = [
   {
     key: 'attachmentRefetchPerRun',
-    label: 'Attachment refetch per check',
-    hint: 'Attachments that failed to download are tried again, this many per mailbox check. 0 = off.',
+    label: 'Attachment refetch per check (Gmail and IMAP)',
+    hint: 'Attachments that failed to download or save are tried again, this many per mailbox check, for Gmail and IMAP mailboxes alike. 0 = off for both.',
   },
   {
     key: 'pacedUnitsPerMinute',
