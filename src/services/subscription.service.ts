@@ -1,6 +1,10 @@
 import { apiClient } from '@/lib/api-client';
 import type { AiStatus } from '@/components/subscription/aiStatus';
-import { parseStarterAllowance } from '@/components/subscription/starterAllowance';
+import {
+  parseKbStarterAllowance,
+  parseStarterAllowance,
+  parseUnavailableReason,
+} from '@/components/subscription/starterAllowance';
 
 /**
  * Effective on/off state of every feature for the current org (plan grant with
@@ -106,14 +110,39 @@ const getUsage = () =>
   apiClient.get<OrgUsage>('/api/usage/current').then((res) => normalizeUsage(res.data));
 
 /**
- * Version skew: `ai.starterAllowance` is new (Free starter allowance). Keep it only when it parses;
- * an older backend (no field) or a shape we do not know leaves it undefined.
+ * Version skew: `ai.starterAllowance`, `ai.kbStarterAllowance`, `ai.kbPaused`, `ai.kbMessage` and
+ * `ai.unavailableReason` are newer fields (Free starter allowances). Each is kept only when it
+ * parses; an older backend (no field) or a shape we do not know leaves it undefined.
  */
-const normalizeUsage = (usage: OrgUsage): OrgUsage => {
+export const normalizeUsage = (usage: OrgUsage): OrgUsage => {
   if (!usage?.ai || typeof usage.ai !== 'object') return usage;
-  const { starterAllowance: _raw, ...ai } = usage.ai;
+  const {
+    starterAllowance: _live,
+    kbStarterAllowance: _kb,
+    kbPaused: _kbPaused,
+    kbMessage: _kbMessage,
+    unavailableReason: _reason,
+    ...ai
+  } = usage.ai;
   const starterAllowance = parseStarterAllowance(usage.ai);
-  return { ...usage, ai: starterAllowance ? { ...ai, starterAllowance } : ai };
+  const kbStarterAllowance = parseKbStarterAllowance(usage.ai);
+  const unavailableReason = parseUnavailableReason(usage.ai);
+  const kbPaused = usage.ai.kbPaused === true;
+  return {
+    ...usage,
+    ai: {
+      ...ai,
+      ...(starterAllowance ? { starterAllowance } : {}),
+      ...(kbStarterAllowance ? { kbStarterAllowance } : {}),
+      ...(kbPaused
+        ? {
+            kbPaused,
+            kbMessage: typeof usage.ai.kbMessage === 'string' ? usage.ai.kbMessage : null,
+          }
+        : {}),
+      ...(unavailableReason ? { unavailableReason } : {}),
+    },
+  };
 };
 
 /**

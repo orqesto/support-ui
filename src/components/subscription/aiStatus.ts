@@ -1,7 +1,7 @@
 import { logger } from '@/lib/logger';
 import { aiService } from '@/services/ai.service';
 import { subscriptionService } from '@/services/subscription.service';
-import type { StarterAllowance } from './starterAllowance';
+import type { AiUnavailableReason, StarterAllowance } from './starterAllowance';
 
 /** Why the API says AI is stopped (`/api/usage/current` → `ai.reason`). */
 export type AiPauseReason =
@@ -22,7 +22,10 @@ export type AiStatus = {
   budgetMicros: number | null;
   /** Live AI is stopped. */
   paused: boolean;
-  /** Only history import / KB building are stopped. */
+  /**
+   * Only history import / KB building are stopped: the bulk share is used, the plan has no AI on
+   * our key, or `kbPaused`. Since BE #1112 a used-up LIVE allowance no longer sets it.
+   */
   bulkPaused: boolean;
   reason: AiPauseReason | null;
   /** The reason as a sentence, from the API. */
@@ -33,6 +36,17 @@ export type AiStatus = {
    * `parseStarterAllowance` in the service (null, absent or malformed ⇒ undefined).
    */
   starterAllowance?: StarterAllowance;
+  /**
+   * Free on our AI: the one-time knowledge-base / history-import allowance (BE #1112). Parsed by
+   * `parseKbStarterAllowance` in the service (null, absent or malformed ⇒ undefined).
+   */
+  kbStarterAllowance?: StarterAllowance;
+  /** The KB allowance is used up on our key; live mail still runs (never sets `paused`). */
+  kbPaused?: boolean;
+  /** The server's sentence for kbPaused (English; admins read it). */
+  kbMessage?: string | null;
+  /** A Free workspace with no AI at all, and why (both allowances are then absent). */
+  unavailableReason?: AiUnavailableReason;
 };
 
 /** The `ai` block of /api/usage/current; undefined when the call fails or the backend sends none. */

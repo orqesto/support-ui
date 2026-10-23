@@ -51,13 +51,18 @@ export function getFeatureLabel(key: string): string {
 }
 
 /**
- * Managed AI is part of the messages on paid plans only: Free runs on the workspace's own AI key
- * (with a one-time starter allowance on ours), and the internal admin plan is not sold.
- * Kept by design: plans carry no marker for it, so the NAME decides — the same rule as the
- * backend's `decideManagedEntitlement`. Pinned by pricingPlanCard.test.tsx.
+ * Does the plan include AI on our key (managed AI)? Its `features.managedAi` flag (BE #1112,
+ * migration 0197 backfills it on every plan; the console sets it per plan). A plan without the
+ * flag (older backend) falls back to the old name rule: every plan but 'free' — the same rule as
+ * the backend's `planHasManagedAi`. Pinned by pricingPlanCard.test.tsx.
  */
-export const planHasManagedAi = (plan: Pick<Plan, 'name'>): boolean =>
-  plan.name !== 'free' && plan.name !== 'admin';
+export const planHasManagedAi = (plan: {
+  name: string;
+  features?: Record<string, unknown> | null;
+}): boolean => {
+  const flag = plan.features?.managedAi;
+  return typeof flag === 'boolean' ? flag : plan.name !== 'free';
+};
 
 function PlanAiLines({ plan }: { plan: Plan }) {
   const managed = planHasManagedAi(plan);

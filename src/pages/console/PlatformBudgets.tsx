@@ -9,7 +9,7 @@ import { Progress } from '@/components/ui/Progress';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { StatusText } from '@/components/budget/StatusText';
-import { fmtMoney } from '@/components/budget/budget.rules';
+import { fmtMoney, fmtTokenCount } from '@/components/budget/budget.rules';
 import { useBudgetGroups, useBudgetState } from '@/hooks/useBudgets';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import type { BudgetState, GroupListParams, GroupSummary } from '@/services/budgets.service';
@@ -38,8 +38,8 @@ export const groupPath = (key: string) =>
   `/console/platform/ai-spend/groups/${encodeURIComponent(key)}`;
 
 /**
- * A small bar: bulk then live mail, as a share of the budget. Kept by design (T8): the list shows
- * money only — money is the budget's unit; tokens are the admin's secondary figure on a group page.
+ * A small bar: bulk then live mail, as a share of the budget, money first (the budget's unit) and
+ * the same spend in tokens as the secondary figure (T8, `tokens`; null or absent ⇒ none).
  */
 const GroupBar = ({ group }: { group: GroupSummary }) => {
   const size = group.budget && group.budget > 0 ? group.budget : 0;
@@ -54,6 +54,13 @@ const GroupBar = ({ group }: { group: GroupSummary }) => {
       <span className="font-mono text-xs text-muted-foreground">
         {fmtMoney(group.spend.total)} of {size ? fmtMoney(size) : 'no budget'}
         {group.spend.extra > 0 && ` · +${fmtMoney(group.spend.extra)} extra`}
+        {group.tokens && (
+          <span data-testid={`group-tokens-${group.key}`}>
+            {' '}
+            · {fmtTokenCount(group.tokens.total)} tokens
+            {group.tokens.bulk > 0 && `, ${fmtTokenCount(group.tokens.bulk)} bulk`}
+          </span>
+        )}
       </span>
     </div>
   );

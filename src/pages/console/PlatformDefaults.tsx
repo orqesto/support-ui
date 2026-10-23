@@ -7,6 +7,7 @@ import { KbCaptureCard } from '@/components/console/platformDefaults/KbCaptureCa
 import { AiDraftsCard } from '@/components/console/platformDefaults/AiDraftsCard';
 import { CustomApiHealthCard } from '@/components/console/platformDefaults/CustomApiHealthCard';
 import { AnalysisHourlyCard } from '@/components/console/platformDefaults/AnalysisHourlyCard';
+import { FreeStarterCard } from '@/components/console/platformDefaults/FreeStarterCard';
 import { IngestionCard } from '@/components/console/platformDefaults/IngestionCard';
 import { RoutingProposalsCard } from '@/components/console/platformDefaults/RoutingProposalsCard';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
@@ -49,6 +50,7 @@ export const PlatformDefaults = () => {
           <AiDraftsCard drafts={query.data.drafts} />
           <CustomApiHealthCard customApi={query.data.customApi} />
           <AnalysisHourlyCard analysisHourly={query.data.analysisHourly} />
+          <FreeStarterCard />
           <IngestionCard ingestion={query.data.ingestion} />
           <RoutingProposalsCard routing={query.data.routing} />
         </div>

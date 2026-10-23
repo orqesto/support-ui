@@ -22,6 +22,16 @@ import { getErrorBody } from '@/lib/errorMessages';
  *   `AI_NOT_IN_PLAN`, `AI_BUDGET_PAUSED`, `AI_PAUSED`; `AI_USAGE_LIMIT_EXCEEDED` was the old
  *   translation code (older backend, kept for one release).
  * An older backend sends no field: nothing new is shown.
+ *
+ * Two allowances (BE #1112, owner decision 2026-10-23 #1): the live-mail one above and a second,
+ * one-time allowance for knowledge-base processing and history import:
+ * - `ai.kbStarterAllowance`: the same shape or null (no messages figure: a percentage).
+ * - `ai.kbPaused` + `ai.kbMessage`: the KB allowance is used up on our key. History import and KB
+ *   building continue without our AI; live mail keeps its own allowance (`paused` stays false).
+ * - `ai.unavailableReason: 'admin_not_verified' | 'own_key_required' | null`: a Free workspace with
+ *   no AI at all; both allowances are then null (they are sent only while it runs on our AI).
+ * - Refusal codes `FREE_KB_ALLOWANCE_USED` (gate verdict) and `AI_ADMIN_NOT_VERIFIED` (403 from
+ *   translation and enhance-ticket). The words are ours (server sentences stay English, M7).
  */
 
 export type StarterAllowance = {
@@ -36,6 +46,12 @@ export type StarterAllowance = {
 /** The refusal code of an AI call made after the allowance is used up. */
 export const FREE_AI_ALLOWANCE_USED = 'FREE_AI_ALLOWANCE_USED';
 
+/** The refusal code of a bulk / knowledge-base AI call after the KB allowance is used up. */
+export const FREE_KB_ALLOWANCE_USED = 'FREE_KB_ALLOWANCE_USED';
+
+/** 403: a key-less Free workspace whose admins have not verified their email address. */
+export const AI_ADMIN_NOT_VERIFIED = 'AI_ADMIN_NOT_VERIFIED';
+
 /** `ai.reason` when the allowance is used up on our key. */
 export const FREE_ALLOWANCE_REASON = 'free_allowance_used';
 
@@ -48,6 +64,8 @@ export const STARTER_ALLOWANCE_MESSAGES = 100;
  */
 export const AI_REFUSAL_CODES: readonly string[] = [
   FREE_AI_ALLOWANCE_USED,
+  FREE_KB_ALLOWANCE_USED,
+  AI_ADMIN_NOT_VERIFIED,
   'AI_NOT_IN_PLAN',
   'AI_BUDGET_PAUSED',
   'AI_PAUSED',
@@ -66,6 +84,45 @@ export const STARTER_USED_ADMIN_TEXT =
 export const STARTER_USED_AGENT_TEXT =
   'Your free AI allowance is used — ask your admin to add your own AI key to keep AI running.';
 
+export const KB_USED_ADMIN_TEXT =
+  'Your free AI allowance for the knowledge base and history import is used. Add your own AI key to process more history. AI for new mail keeps running.';
+export const KB_USED_AGENT_TEXT =
+  'The free AI allowance for the knowledge base and history import is used. AI for new mail keeps running. Ask your admin to add your own AI key.';
+
+/** Why a Free workspace has no AI at all (`ai.unavailableReason`). */
+export type AiUnavailableReason = 'admin_not_verified' | 'own_key_required';
+
+export const ADMIN_NOT_VERIFIED_ADMIN_TEXT =
+  'Verify your email address to use the free AI allowance — or add your own AI key.';
+export const ADMIN_NOT_VERIFIED_AGENT_TEXT =
+  'AI is off until a workspace admin verifies their email address or adds an AI key.';
+export const OWN_KEY_REQUIRED_ADMIN_TEXT = 'Add your own AI key to use AI.';
+export const OWN_KEY_REQUIRED_AGENT_TEXT = 'AI is off until a workspace admin adds an AI key.';
+
+/** The sentence for `ai.unavailableReason`; undefined for no (or an unknown) reason. */
+export const unavailableText = (
+  reason: string | null | undefined,
+  isAdmin: boolean
+): string | undefined => {
+  switch (reason) {
+    case 'admin_not_verified':
+      return isAdmin ? ADMIN_NOT_VERIFIED_ADMIN_TEXT : ADMIN_NOT_VERIFIED_AGENT_TEXT;
+    case 'own_key_required':
+      return isAdmin ? OWN_KEY_REQUIRED_ADMIN_TEXT : OWN_KEY_REQUIRED_AGENT_TEXT;
+    default:
+      return undefined;
+  }
+};
+
+/** `ai.unavailableReason` when it is one we know; anything else (older backend) ⇒ undefined. */
+export const parseUnavailableReason = (ai: unknown): AiUnavailableReason | undefined => {
+  const value =
+    ai && typeof ai === 'object'
+      ? (ai as { unavailableReason?: unknown }).unavailableReason
+      : undefined;
+  return value === 'admin_not_verified' || value === 'own_key_required' ? value : undefined;
+};
+
 const isCount = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
@@ -73,24 +130,42 @@ const isCount = (value: unknown): value is number =>
  * The allowance from the `ai` block, or undefined when absent or malformed (an older backend, a
  * shape we do not know). Never throws.
  */
-export const parseStarterAllowance = (ai: unknown): StarterAllowance | undefined => {
-  if (!ai || typeof ai !== 'object') return undefined;
-  const block = (ai as { starterAllowance?: unknown }).starterAllowance;
+const parseAllowanceBlock = (
+  block: unknown
+): Omit<StarterAllowance, 'microsPerMessage'> | undefined => {
   if (!block || typeof block !== 'object') return undefined;
   const raw = block as Record<string, unknown>;
   const { totalMicros, usedMicros, remainingMicros } = raw;
   if (!isCount(totalMicros) || totalMicros <= 0) return undefined;
   if (!isCount(usedMicros) || !isCount(remainingMicros)) return undefined;
-  const sent = raw.microsPerMessage ?? (ai as { microsPerMessage?: unknown }).microsPerMessage;
-  // The response carries none today: the allowance is 100 messages, so one is a hundredth of it.
-  const perMessage = isCount(sent) && sent > 0 ? sent : totalMicros / STARTER_ALLOWANCE_MESSAGES;
   return {
     totalMicros,
     usedMicros,
     remainingMicros,
     exhausted: typeof raw.exhausted === 'boolean' ? raw.exhausted : remainingMicros <= 0,
-    microsPerMessage: perMessage,
   };
+};
+
+/**
+ * The knowledge-base allowance (`ai.kbStarterAllowance`), or undefined when null, absent or
+ * malformed. It carries no messages figure: its line shows a percentage.
+ */
+export const parseKbStarterAllowance = (ai: unknown): StarterAllowance | undefined => {
+  if (!ai || typeof ai !== 'object') return undefined;
+  return parseAllowanceBlock((ai as { kbStarterAllowance?: unknown }).kbStarterAllowance);
+};
+
+export const parseStarterAllowance = (ai: unknown): StarterAllowance | undefined => {
+  if (!ai || typeof ai !== 'object') return undefined;
+  const block = (ai as { starterAllowance?: unknown }).starterAllowance;
+  const parsed = parseAllowanceBlock(block);
+  if (!parsed) return undefined;
+  const raw = block as Record<string, unknown>;
+  const { totalMicros } = parsed;
+  const sent = raw.microsPerMessage ?? (ai as { microsPerMessage?: unknown }).microsPerMessage;
+  // The response carries none today: the allowance is 100 messages, so one is a hundredth of it.
+  const perMessage = isCount(sent) && sent > 0 ? sent : totalMicros / STARTER_ALLOWANCE_MESSAGES;
+  return { ...parsed, microsPerMessage: perMessage };
 };
 
 /**
@@ -116,6 +191,20 @@ export const starterAllowanceLine = (allowance: StarterAllowance, isAdmin: boole
   }
   const pct = Math.min(100, Math.round((allowance.remainingMicros / allowance.totalMicros) * 100));
   return `AI starter allowance: about ${pct}% left${money}.`;
+};
+
+/**
+ * "Knowledge base and history import allowance: about 63% left." Admins also read the money.
+ */
+export const kbAllowanceLine = (allowance: StarterAllowance, isAdmin: boolean): string => {
+  const money = isAdmin
+    ? ` (${fmtMoney(allowance.exhausted ? 0 : allowance.remainingMicros)} of ${fmtMoney(allowance.totalMicros).replace(/^≈ /, '')} left)`
+    : '';
+  const label = 'AI allowance for the knowledge base and history import';
+  if (allowance.exhausted || allowance.remainingMicros <= 0) return `${label}: used up${money}.`;
+  const pct = Math.min(100, Math.round((allowance.remainingMicros / allowance.totalMicros) * 100));
+  if (pct < 1) return `${label}: less than 1% left${money}.`;
+  return `${label}: about ${pct}% left${money}.`;
 };
 
 /** AI is paused because the allowance is used up on our key (never for an own-key Free workspace). */
@@ -148,6 +237,11 @@ export const aiRefusalText = (err: unknown, isAdmin: boolean): string | undefine
   switch (code) {
     case FREE_AI_ALLOWANCE_USED:
       return isAdmin ? (serverText ?? STARTER_USED_ADMIN_TEXT) : STARTER_USED_AGENT_TEXT;
+    // Our words for the two newer codes (M7: the server's sentences stay English).
+    case FREE_KB_ALLOWANCE_USED:
+      return isAdmin ? KB_USED_ADMIN_TEXT : KB_USED_AGENT_TEXT;
+    case AI_ADMIN_NOT_VERIFIED:
+      return isAdmin ? ADMIN_NOT_VERIFIED_ADMIN_TEXT : ADMIN_NOT_VERIFIED_AGENT_TEXT;
     case 'AI_NOT_IN_PLAN':
       return isAdmin
         ? (serverText ?? 'AI is not included in your plan. Upgrade, or connect your own AI key.')

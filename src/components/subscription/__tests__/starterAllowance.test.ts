@@ -128,11 +128,13 @@ describe('isStarterPaused', () => {
 describe('AI_REFUSAL_CODES', () => {
   it('carries every backend refusal code and the old translation code (one release)', () => {
     expect([...AI_REFUSAL_CODES].sort()).toEqual([
+      'AI_ADMIN_NOT_VERIFIED',
       'AI_BUDGET_PAUSED',
       'AI_NOT_IN_PLAN',
       'AI_PAUSED',
       'AI_USAGE_LIMIT_EXCEEDED',
       'FREE_AI_ALLOWANCE_USED',
+      'FREE_KB_ALLOWANCE_USED',
     ]);
   });
 });

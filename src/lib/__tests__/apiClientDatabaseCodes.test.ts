@@ -24,21 +24,30 @@ describe('api-client — database-related codes', () => {
   // would lock a brand-new signup out mid-setup.
   it('does not raise the subscription gate on 402 MANAGED_DB_NOT_ENTITLED', async () => {
     await expect(
-      handleResponseError(failure(402, { code: 'MANAGED_DB_NOT_ENTITLED', message: 'The managed database needs an active plan' }))
+      handleResponseError(
+        failure(402, {
+          code: 'MANAGED_DB_NOT_ENTITLED',
+          message: 'The managed database needs an active plan',
+        })
+      )
     ).rejects.toMatchObject({ status: 402 });
     expect(useSubscriptionGateStore.getState().gated).toBe(false);
   });
 
   it('still raises the gate on the subscription 402s', async () => {
     await expect(
-      handleResponseError(failure(402, { code: 'SUBSCRIPTION_TRIAL_EXPIRED', error: 'Your free trial has expired.' }))
+      handleResponseError(
+        failure(402, { code: 'SUBSCRIPTION_TRIAL_EXPIRED', error: 'Your free trial has expired.' })
+      )
     ).rejects.toMatchObject({ status: 402 });
     expect(useSubscriptionGateStore.getState().gated).toBe(true);
   });
 
   it('records a DB_* 503 as the workspace being paused, and ignores other 503s', async () => {
     await expect(
-      handleResponseError(failure(503, { code: 'DB_UNREACHABLE', error: 'The workspace database is not answering' }))
+      handleResponseError(
+        failure(503, { code: 'DB_UNREACHABLE', error: 'The workspace database is not answering' })
+      )
     ).rejects.toMatchObject({ status: 503 });
     expect(useDatabaseStatusStore.getState().paused).toBe('DB_UNREACHABLE');
     // …for the workspace it was seen on. After a switch the pause is not that workspace's.
@@ -46,7 +55,9 @@ describe('api-client — database-related codes', () => {
     expect(pauseForWorkspace(useDatabaseStatusStore.getState(), 6)).toBeNull();
 
     useDatabaseStatusStore.getState().clear();
-    await expect(handleResponseError(failure(503, { code: 'AI_NOT_CONFIGURED' }))).rejects.toBeDefined();
+    await expect(
+      handleResponseError(failure(503, { code: 'AI_NOT_CONFIGURED' }))
+    ).rejects.toBeDefined();
     expect(useDatabaseStatusStore.getState().paused).toBeNull();
   });
 
@@ -70,20 +81,20 @@ describe('api-client — database-related codes', () => {
 describe('api-client — AI refusals on 402', () => {
   it.each([
     'FREE_AI_ALLOWANCE_USED',
+    // BE #1112: the KB allowance used up, and (a 403 today) no verified admin on a key-less Free.
+    'FREE_KB_ALLOWANCE_USED',
+    'AI_ADMIN_NOT_VERIFIED',
     'AI_NOT_IN_PLAN',
     'AI_BUDGET_PAUSED',
     'AI_PAUSED',
     // Older backend's translation code, kept for one release.
     'AI_USAGE_LIMIT_EXCEEDED',
-  ])(
-    'does not raise the subscription gate on 402 %s',
-    async (code) => {
-      await expect(
-        handleResponseError(failure(402, { code, error: 'AI is paused.' }))
-      ).rejects.toMatchObject({ status: 402 });
-      expect(useSubscriptionGateStore.getState().gated).toBe(false);
-    }
-  );
+  ])('does not raise the subscription gate on 402 %s', async (code) => {
+    await expect(
+      handleResponseError(failure(402, { code, error: 'AI is paused.' }))
+    ).rejects.toMatchObject({ status: 402 });
+    expect(useSubscriptionGateStore.getState().gated).toBe(false);
+  });
 
   it('a 402 with no code still raises the gate', async () => {
     await expect(
