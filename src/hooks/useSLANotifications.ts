@@ -34,7 +34,7 @@ export type SLABreachNotification = {
   isRead: boolean;
 };
 
-type UserPrefs = {
+export type UserPrefs = {
   minSeverity: 'warning' | 'critical';
   notifyMessages: boolean;
   notifyTicketFirstResponse: boolean;
@@ -50,14 +50,19 @@ const DEFAULT_PREFS: UserPrefs = {
   onlyAssignedToMe: false,
 };
 
-const matchesPrefs = (
+export const matchesPrefs = (
   breach: Omit<SLABreachNotification, 'receivedAt'>,
   prefs: UserPrefs
 ): boolean => {
   if (prefs.minSeverity === 'critical' && breach.severity !== 'critical') return false;
-  if (breach.type === 'message' && !prefs.notifyMessages) return false;
+  // A thread breach arrives as `message` or (newer backend) `conversation`; a ticket breach by its
+  // kind, or as a plain `ticket` — muted only when both ticket kinds are off.
+  const isThread = breach.type === 'message' || breach.type === 'conversation';
+  if (isThread && !prefs.notifyMessages) return false;
   if (breach.type === 'ticket_first_response' && !prefs.notifyTicketFirstResponse) return false;
   if (breach.type === 'ticket_resolution' && !prefs.notifyTicketResolution) return false;
+  if (breach.type === 'ticket' && !prefs.notifyTicketFirstResponse && !prefs.notifyTicketResolution)
+    return false;
   return true;
 };
 
@@ -312,7 +317,8 @@ export const useSLANotifications = () => {
       if (!conversationIds?.length) return;
       const removedSet = new Set(conversationIds);
       const matches = (notif: SLABreachNotification) =>
-        notif.type === 'message' && removedSet.has(notif.entityId);
+        (notif.type === 'message' || notif.type === 'conversation') &&
+        removedSet.has(notif.entityId);
       setNotifications((prev) => {
         const gone = prev.filter(matches);
         if (gone.length === 0) return prev;
