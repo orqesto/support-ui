@@ -5,7 +5,7 @@
  * scrolls to that suggestion. All data invented.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
 import type * as LearningServiceModule from '@/services/learning.service';
 
@@ -185,7 +185,8 @@ describe('Learning activity', () => {
     rows.list = [conflict(9), row(5, 'propose_rule', { ruleId: 1, value: 'pallet label', ruleType: 'body_contains', departmentId: 1 })];
     renderAt('/settings?focus=5');
     await screen.findByRole('button', { name: /Decide in Routing Rules/ });
-    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    // The scroll runs in an effect after the rows render: wait for it, not just for the row.
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(1));
     expect(scrollIntoView.mock.contexts[0]).toBe(document.querySelector('[data-suggestion-id="5"]'));
   });
 
