@@ -44,6 +44,20 @@ import { TeamsOffDialog } from './TeamsOffDialog';
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const FALLBACK_COLOR = '#6366f1';
 
+/**
+ * A workspace with more teams than its plan includes (a downgrade or a trial that ended — owner
+ * decision 3, 2026-10-23): the existing teams keep working, no new one can be added.
+ */
+export const overTeamLimitText = (
+  limit: number | undefined,
+  activeTeams: number
+): string | undefined => {
+  if (limit === undefined || activeTeams <= limit) return undefined;
+  return limit === 1
+    ? 'Your workspace keeps its existing teams; Free includes 1 — upgrade to add more.'
+    : `Your workspace keeps its existing teams; your plan includes ${limit.toLocaleString()} — upgrade to add more.`;
+};
+
 const describeError = (err: unknown, fallback: string): string =>
   getApiErrorMessage(err) ?? fallback;
 
@@ -255,6 +269,11 @@ export const TeamsSettings = () => {
                 {!teamsEnabled && !planAllowsTeams && (
                   <p className="mt-1 text-xs text-warning" data-testid="teams-plan-limit">
                     Your plan includes one team. Upgrade to use teams.
+                  </p>
+                )}
+                {overTeamLimitText(planTeamLimit, activeTeams.length) && (
+                  <p className="mt-1 text-xs text-warning" data-testid="teams-over-limit">
+                    {overTeamLimitText(planTeamLimit, activeTeams.length)}
                   </p>
                 )}
               </div>

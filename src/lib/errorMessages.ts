@@ -115,6 +115,9 @@ export const withFailedFields = (message: string, err: unknown): string => {
 export const getApiErrorMessage = (err: unknown): string | undefined => {
   const status = getErrorStatus(err);
   if (status !== undefined && status >= 500) return undefined;
+  // Our words for a refusal with a known code (plan limits, rate limit), before the server's.
+  const known = planLimitText(err) ?? rateLimitedText(err);
+  if (known) return known;
   const body = getErrorBody(err);
   const message = body?.error ?? body?.message;
   if (typeof message !== 'string' || message.trim().length === 0) return undefined;
@@ -124,19 +127,120 @@ export const getApiErrorMessage = (err: unknown): string | undefined => {
 };
 
 /**
- * Shared user-facing copy for the "no AI/LLM provider configured" state.
- * Kept here so every AI trigger surfaces identical wording.
+ * Shared user-facing copy for the "no AI/LLM provider configured" state, for an ADMIN (who can
+ * connect one). Agents read AI_OFF_AGENT_MESSAGE: Settings is not theirs (audit B3, 2026-10-23).
  */
 export const AI_NOT_CONFIGURED_MESSAGE =
   'AI not configured — connect a provider in Settings.';
 
+/** The "no AI" sentence for a member who cannot change the AI settings. */
+export const AI_OFF_AGENT_MESSAGE =
+  'AI is off for this workspace. Ask a workspace admin to turn it on.';
+
+/** The "no AI" sentence for the viewer: admins are sent to Settings, agents to an admin. */
+export const aiNotConfiguredText = (isAdmin: boolean): string =>
+  isAdmin ? AI_NOT_CONFIGURED_MESSAGE : AI_OFF_AGENT_MESSAGE;
+
 /**
- * True when an error matches the BE's no-provider contract: an AI feature that
- * can't degrade returns HTTP 503 with body `{ code: 'AI_NOT_CONFIGURED', ... }`.
- * Reuse this in catch blocks so each AI trigger can show the same message.
+ * True when an error matches the BE's no-provider contract: an AI feature that can't degrade
+ * returns HTTP 503 with body `{ code: 'AI_NOT_CONFIGURED', ... }`. The translation service's own
+ * sentinel `AI_PROVIDER_NOT_CONFIGURED` counts too, as a code or as the bare message a path that
+ * does not map it lets through (audit B9) — it is never shown to a person as is.
  */
-export const isAiNotConfiguredError = (err: unknown): boolean =>
-  getErrorBody(err)?.code === 'AI_NOT_CONFIGURED';
+export const isAiNotConfiguredError = (err: unknown): boolean => {
+  const body = getErrorBody(err);
+  if (body?.code === 'AI_NOT_CONFIGURED' || body?.code === AI_PROVIDER_NOT_CONFIGURED) return true;
+  const text = [body?.error, body?.message, (err as { message?: unknown } | null)?.message];
+  return text.some((value) => typeof value === 'string' && value.includes(AI_PROVIDER_NOT_CONFIGURED));
+};
+
+/** The translation service's no-provider sentinel (BE translationService NO_PROVIDER). */
+export const AI_PROVIDER_NOT_CONFIGURED = 'AI_PROVIDER_NOT_CONFIGURED';
+
+/** 429 from the rate limiter; the body may carry `retryAfter` in seconds. */
+export const RATE_LIMITED = 'RATE_LIMITED';
+
+/** "Too many requests right now. Try again in 15 minutes." for a RATE_LIMITED refusal. */
+export const rateLimitedText = (err: unknown): string | undefined => {
+  const body = getErrorBody(err) as (ApiErrorBody & { retryAfter?: unknown }) | undefined;
+  if (body?.code !== RATE_LIMITED) return undefined;
+  const seconds = body.retryAfter;
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) {
+    return 'Too many requests right now. Wait a moment and try again.';
+  }
+  if (seconds < 60) return 'Too many requests right now. Try again in under a minute.';
+  const minutes = Math.ceil(seconds / 60);
+  return `Too many requests right now. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`;
+};
+
+/**
+ * Codes of a refusal at a plan limit (owner decision 3, 2026-10-23: what exists keeps working,
+ * nothing new is added above the limit). PLAN_TEAM_LIMIT is on the backend today; the user and
+ * channel codes are the ones a newer backend may send — an older one answers a 403 whose message
+ * starts "User limit reached" / "Integration limit reached", matched below.
+ */
+const PLAN_LIMIT_KIND: Record<string, 'team' | 'user' | 'channel'> = {
+  PLAN_TEAM_LIMIT: 'team',
+  PLAN_USER_LIMIT: 'user',
+  PLAN_SEAT_LIMIT: 'user',
+  PLAN_CHANNEL_LIMIT: 'channel',
+  PLAN_INTEGRATION_LIMIT: 'channel',
+};
+
+const PLAN_LIMIT_TEXT: Record<'team' | 'user' | 'channel', string> = {
+  team: "Your plan's team limit is reached. Your existing teams keep working; upgrade to add more.",
+  user: "Your plan's user limit is reached. Your existing users keep working; upgrade to add more.",
+  channel:
+    "Your plan's channel limit is reached. Your existing channels keep working; pause one or upgrade to add more.",
+};
+
+/** The plan-limit codes (a 402 with one of them is not the app-wide subscription gate). */
+export const PLAN_LIMIT_CODES: readonly string[] = Object.keys(PLAN_LIMIT_KIND);
+
+/** The limit an older backend's uncoded refusal names by its message, if any. */
+const limitKindOfMessage = (message: unknown): 'user' | 'channel' | undefined => {
+  if (typeof message !== 'string') return undefined;
+  if (/^user limit reached|reached its user limit/i.test(message)) return 'user';
+  if (/^integration limit reached/i.test(message)) return 'channel';
+  return undefined;
+};
+
+/**
+ * True for a refusal at a plan limit, coded or not. One add-member path answers an UNCODED 402
+ * "User limit reached …", which the api-client would otherwise take for "your subscription is not
+ * active" and lock the whole app.
+ */
+export const isPlanLimitBody = (body: { code?: unknown; error?: unknown; message?: unknown } | undefined) =>
+  !!body &&
+  ((typeof body.code === 'string' && PLAN_LIMIT_CODES.includes(body.code)) ||
+    (!body.code && limitKindOfMessage(body.error ?? body.message) !== undefined));
+
+const PLAN_LIMIT_KEEPS: Record<'team' | 'user' | 'channel', string> = {
+  team: 'Your existing teams keep working.',
+  user: 'Your existing users keep working.',
+  channel: 'Your existing channels keep working.',
+};
+
+/**
+ * The sentence for a plan-limit refusal; undefined for anything else. The server's own sentence
+ * names the plan and the numbers, so it is kept, and what decision 3 promises is added after it.
+ * With no server sentence, ours.
+ */
+export const planLimitText = (err: unknown): string | undefined => {
+  const body = getErrorBody(err);
+  const server = body?.error ?? body?.message;
+  const serverText = typeof server === 'string' && server.trim() ? server.trim() : undefined;
+  let kind = typeof body?.code === 'string' ? PLAN_LIMIT_KIND[body.code] : undefined;
+  if (!kind) {
+    const status = getErrorStatus(err);
+    // 403 from the invite and channel paths; one add-member path answers 402.
+    if (status !== 403 && status !== 402) return undefined;
+    kind = limitKindOfMessage(serverText);
+  }
+  if (!kind) return undefined;
+  if (!serverText) return PLAN_LIMIT_TEXT[kind];
+  return /keep/i.test(serverText) ? serverText : `${serverText} ${PLAN_LIMIT_KEEPS[kind]}`;
+};
 
 /**
  * The workspace switched AI drafts off. An admin's choice, not a fault — so it never reads as

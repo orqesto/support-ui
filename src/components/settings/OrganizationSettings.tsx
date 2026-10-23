@@ -116,7 +116,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
         {active === 'business-hours' && canManageOrgPolicy && <BusinessHoursSettings />}
         {active === 'open-conversations' && canManageOrgPolicy && <OpenConversationWindowSettings />}
         {active === 'security' && canManageOrgPolicy && <SecuritySettings />}
-        {active === 'ai-usage' && <WorkspaceAiUsage />}
+        {active === 'ai-usage' && canManageOrgPolicy && <WorkspaceAiUsage />}
       </Tabs>
     </div>
   );

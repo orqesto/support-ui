@@ -41,6 +41,25 @@ type Props = {
    * the trial; used up, the backend refuses managed, so the card says why instead.
    */
   starter?: StarterAllowance;
+  /**
+   * The workspace is on Free (plan read from the subscription). Free's "Use our AI" is a one-time
+   * starter allowance, never "Included in your plan" — also when the allowance block is absent
+   * (no verified admin, an older backend). Audit A-F4.
+   */
+  isFree?: boolean;
+  /** A switch to our AI was just refused with FREE_AI_ALLOWANCE_USED. */
+  allowanceUsed?: boolean;
+};
+
+/** The "Use our AI" card's sentence while it can be chosen (or is the current mode). */
+export const managedCardText = (starter: StarterAllowance | undefined, isFree: boolean): string => {
+  if (starter) {
+    return `We provide the AI from a one-time starter allowance on us — then connect your own provider or upgrade. ${starterAllowanceLine(starter, false)}`;
+  }
+  if (isFree) {
+    return 'On Free we provide the AI from a one-time starter allowance on us — then connect your own provider or upgrade.';
+  }
+  return 'We provide the AI — no keys to manage, nothing to configure. Included in your plan.';
 };
 
 /**
@@ -56,8 +75,10 @@ export const AiProviderModeSwitch = ({
   saving,
   onSelect,
   starter,
+  isFree = false,
+  allowanceUsed = false,
 }: Props) => {
-  const starterUsed = starter?.exhausted === true && mode !== 'managed';
+  const starterUsed = (starter?.exhausted === true || allowanceUsed) && mode !== 'managed';
   return (
     <div className="space-y-3">
       <div>
@@ -105,10 +126,8 @@ export const AiProviderModeSwitch = ({
                     <Check className="ml-auto h-4 w-4 text-muted-foreground" />
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {starter
-                    ? `We provide the AI from a one-time starter allowance on us — then connect your own provider or upgrade. ${starterAllowanceLine(starter, false)}`
-                    : 'We provide the AI — no keys to manage, nothing to configure. Included in your plan.'}
+                <p className="text-sm text-muted-foreground" data-testid="managed-ai-card-text">
+                  {managedCardText(starter, isFree)}
                 </p>
               </CardContent>
             </Card>

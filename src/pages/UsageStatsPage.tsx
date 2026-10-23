@@ -7,11 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 import { loadAiKeyState, loadAiStatus, type AiStatus } from '@/components/subscription/aiStatus';
-import { isStarterPaused } from '@/components/subscription/starterAllowance';
 import { StarterAllowanceLine } from '@/components/subscription/StarterAllowanceLine';
-import { aiSourceOf } from '@/components/subscription/MessagesSummary';
+import { aiSourceFrom } from '@/components/subscription/MessagesSummary';
 import { useAuthStore } from '@/stores/authStore';
 import { isOrgAdminOrHigher } from '@/types/roles';
+import { subscriptionService } from '@/services/subscription.service';
 import { usageRowsFrom, type RawUsage } from './usageStatsRows';
 
 type UsageModule = {
@@ -41,25 +41,21 @@ export const UsageStatsPage = () => {
         const usageRes = await apiClient.get<{ success: boolean; data: { usage: RawUsage } }>(
           '/api/subscriptions/usage'
         );
-        const ai = await loadAiStatus();
-        // Only for the starter-allowance line (an own-key Free workspace does not draw on it);
-        // read before the line can show, so it never flashes.
-        if (ai?.starterAllowance) {
-          const keyState = await loadAiKeyState();
-          // The allowance is Free-only, so the Subscription page's rule applies as is.
-          setStarterInUse(
-            aiSourceOf({
-              planName: 'free',
-              ownKey: keyState.ownKey,
-              notInPlan: false,
-              hasStarterAllowance: true,
-              ourAiOff: keyState.ourAiOff,
-              starterPaused: isStarterPaused(ai),
-            }) === 'starter'
-          );
-        }
+        const [ai, keyState, planName] = await Promise.all([
+          loadAiStatus(),
+          loadAiKeyState(),
+          subscriptionService.getPlanName(),
+        ]);
+        // The Subscription page's rule (audit A-F5): "AI included" only where it says so too. The
+        // starter allowance is sent on Free only, so it names the plan when the plan read fails; an
+        // unknown plan otherwise claims nothing.
+        const plan = planName ?? (ai?.starterAllowance ? 'free' : undefined);
+        const source = plan ? aiSourceFrom(plan, ai, keyState) : undefined;
+        setStarterInUse(source === 'starter');
         setAiStatus(ai);
-        setUsage(usageRowsFrom(usageRes.data.data.usage, ai?.active === true));
+        setUsage(
+          usageRowsFrom(usageRes.data.data.usage, ai?.active === true, source === 'included')
+        );
       } catch (error) {
         logger.error('Failed to load usage:', error);
       } finally {
@@ -76,14 +72,15 @@ export const UsageStatsPage = () => {
   const totalOverageCost = usage.reduce((sum, mod) => sum + mod.estimatedOverageCost, 0);
 
   const exportUsageData = () => {
+    // The cost column is money: admins only, as on screen.
     const csvData = [
-      ['Module', 'Used', 'Included', 'Overage', 'Overage Cost'],
+      ['Module', 'Used', 'Included', 'Overage', ...(isAdmin ? ['Overage Cost'] : [])],
       ...usage.map((mod) => [
         mod.displayName,
         mod.current.toString(),
         mod.included.toString(),
         mod.overage.toString(),
-        `€${(mod.estimatedOverageCost / 100).toFixed(2)}`,
+        ...(isAdmin ? [`€${(mod.estimatedOverageCost / 100).toFixed(2)}`] : []),
       ]),
     ];
 
@@ -158,15 +155,18 @@ export const UsageStatsPage = () => {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <p className="mb-1 text-sm text-foreground/70">Est. Overage Cost</p>
-              <p className="text-2xl font-bold text-destructive">
-                €{(totalOverageCost / 100).toFixed(2)}
-              </p>
-              <p className="mt-1 text-xs text-foreground/60">this billing period</p>
-            </CardContent>
-          </Card>
+          {/* Money is for admins only (audit A-F16): other members see the counts. */}
+          {isAdmin && (
+            <Card data-testid="usage-overage-cost">
+              <CardContent className="p-6">
+                <p className="mb-1 text-sm text-foreground/70">Est. Overage Cost</p>
+                <p className="text-2xl font-bold text-destructive">
+                  €{(totalOverageCost / 100).toFixed(2)}
+                </p>
+                <p className="mt-1 text-xs text-foreground/60">this billing period</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Usage alerts — modules >= 80% */}

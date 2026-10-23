@@ -12,11 +12,9 @@ import { logger } from '@/lib/logger';
 import { hasTemplatePlaceholders } from '@/lib/replyPlaceholders';
 import {
   AI_DRAFTS_OFF_MESSAGE,
-  AI_NOT_CONFIGURED_MESSAGE,
   getApiErrorMessage,
   getErrorStatus,
   isAiDraftsOffError,
-  isAiNotConfiguredError,
 } from '@/lib/errorMessages';
 import { useAiRefusalText } from '@/components/subscription/useAiRefusalText';
 import { messageService, type AiDraft } from '@/services/message.service';
@@ -153,8 +151,8 @@ export function ComposerAiActions({
   const describeError = (err: unknown): string => {
     const status = getErrorStatus(err);
     if (isAiDraftsOffError(err)) return AI_DRAFTS_OFF_MESSAGE;
-    if (isAiNotConfiguredError(err)) return AI_NOT_CONFIGURED_MESSAGE;
-    // An AI refusal (used-up starter allowance, not in plan, paused) — a 402 or a 429 with the code.
+    // An AI refusal (no provider, used-up starter allowance, not in plan, paused, rate limited) —
+    // in the viewer's words: an agent is never sent to Settings.
     const refusal = refusalText(err);
     if (refusal) return refusal;
     if (status === 429) return 'AI limit reached for now — try again shortly.';

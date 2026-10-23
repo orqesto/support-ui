@@ -10,11 +10,9 @@ import { editorHtmlToText } from '@/lib/editorText';
 import { logger } from '@/lib/logger';
 import {
   AI_DRAFTS_OFF_MESSAGE,
-  AI_NOT_CONFIGURED_MESSAGE,
   getApiErrorMessage,
   getErrorStatus,
   isAiDraftsOffError,
-  isAiNotConfiguredError,
 } from '@/lib/errorMessages';
 import { useAiRefusalText } from '@/components/subscription/useAiRefusalText';
 import { messageService } from '@/services/message.service';
@@ -130,9 +128,8 @@ export function ComposeNewAiDraft({
       if (isAiDraftsOffError(err)) {
         refreshAiDrafts();
         setError(AI_DRAFTS_OFF_MESSAGE);
-      } else if (isAiNotConfiguredError(err)) {
-        setError(AI_NOT_CONFIGURED_MESSAGE);
       } else if (refusalText(err) !== undefined) {
+        // No provider, a used-up allowance, a pause: in the viewer's words (agents never to Settings).
         setError(refusalText(err) ?? '');
       } else if (getErrorStatus(err) === 429) {
         setError('AI limit reached for now — try again shortly.');

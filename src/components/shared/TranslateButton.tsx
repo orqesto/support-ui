@@ -8,12 +8,13 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { toast } from '@/lib/toast';
 import {
   isAiDraftsOffError,
-  isAiNotConfiguredError,
   AI_DRAFTS_OFF_MESSAGE,
-  AI_NOT_CONFIGURED_MESSAGE,
 } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
-import { useAiRefusalText } from '@/components/subscription/useAiRefusalText';
+import {
+  useAiRefusalText,
+  useIsWorkspaceAdmin,
+} from '@/components/subscription/useAiRefusalText';
 
 type TranslateButtonProps = {
   messageId?: number;
@@ -66,6 +67,7 @@ export const TranslateButton = ({
   const { languages, fetchLanguages } = useSupportedLanguages();
   const { aiConfigured } = useAiConfigured();
   const refusalText = useAiRefusalText();
+  const isWorkspaceAdmin = useIsWorkspaceAdmin();
 
   // The panel closes itself on a pick (single select).
   const handleSelect = async (language: string) => {
@@ -97,10 +99,9 @@ export const TranslateButton = ({
       // catch and the api-client masks 5xx text — so surface from the raw error.
       if (isAiDraftsOffError(err)) {
         toast.error(AI_DRAFTS_OFF_MESSAGE);
-      } else if (isAiNotConfiguredError(err)) {
-        toast.error(AI_NOT_CONFIGURED_MESSAGE);
       } else if (refusalText(err) !== undefined) {
-        // An AI refusal (402 with a code): agents never read the server's buying sentence.
+        // No provider, or an AI refusal (402 with a code): agents never read the server's buying
+        // sentence, nor "connect a provider in Settings".
         toast.error(refusalText(err) ?? '');
       } else {
         toast.error(err instanceof Error ? err.message : 'Translation failed');
@@ -118,6 +119,10 @@ export const TranslateButton = ({
     languages.length > 0
       ? languages.map((lang) => ({ value: lang.code, label: lang.name }))
       : [{ value: 'en', label: 'English' }];
+
+  // No AI: an agent cannot connect a provider, so a greyed control pointing at Settings is a dead
+  // end for them — it is not shown (audit B3). Admins keep it, with the reason.
+  if (!aiConfigured && !isWorkspaceAdmin) return null;
 
   return (
     <div className="flex items-center gap-1">

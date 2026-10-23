@@ -22,12 +22,8 @@ import { useSupportedLanguages } from '@/hooks/useTranslation';
 import { Select } from '@/components/ui/Select';
 import { apiClient } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
-import {
-  isAiDraftsOffError,
-  isAiNotConfiguredError,
-  AI_DRAFTS_OFF_MESSAGE,
-  AI_NOT_CONFIGURED_MESSAGE,
-} from '@/lib/errorMessages';
+import { isAiDraftsOffError, AI_DRAFTS_OFF_MESSAGE } from '@/lib/errorMessages';
+import { useAiRefusalText } from '@/components/subscription/useAiRefusalText';
 import { logger } from '@/lib/logger';
 import { AnswerPreview } from '@/components/messages/AnswerPreview';
 import {
@@ -89,6 +85,7 @@ export const SimilarMessagesDialog = ({
   */
   const selectable = Boolean(onSelectAnswer);
   const [loading, setLoading] = useState(false);
+  const refusalText = useAiRefusalText();
   const [similarMessages, setSimilarMessages] = useState<SimilarMessage[]>(preloadedSources ?? []);
   const [expandedQuotes, setExpandedQuotes] = useState<Set<number>>(new Set());
   const [showEnglish, setShowEnglish] = useState<Record<number, boolean>>({});
@@ -227,11 +224,8 @@ export const SimilarMessagesDialog = ({
       toast.error(
         isAiDraftsOffError(error)
           ? AI_DRAFTS_OFF_MESSAGE
-          : isAiNotConfiguredError(error)
-          ? AI_NOT_CONFIGURED_MESSAGE
-          : error instanceof Error
-            ? error.message
-            : 'Translation failed'
+          : (refusalText(error) ??
+              (error instanceof Error ? error.message : 'Translation failed'))
       );
     } finally {
       setIsTranslating(false);

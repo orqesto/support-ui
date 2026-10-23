@@ -1,7 +1,7 @@
 import { Download } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSerialOptionSaves } from './useSerialOptionSaves';
-import { summarizePreview } from './zendeskImportSummary';
+import { ZENDESK_AS_THREADS, summarizePreview } from './zendeskImportSummary';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -269,7 +269,7 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
         onOpenChange={setConfirmApply}
         variant="info"
         title="Import these tickets?"
-        description={`${summary.created.toLocaleString()} new threads and ${summary.joined.toLocaleString()} updated ones. Nothing is sent to customers or agents. Importing the same account again later only adds what changed.`}
+        description={`${summary.created.toLocaleString()} new threads and ${summary.joined.toLocaleString()} updated ones. ${ZENDESK_AS_THREADS} Nothing is sent to customers or agents. Importing the same account again later only adds what changed.`}
         confirmText="Import"
         onConfirm={() =>
           void onAct(() => zendeskImportService.apply(run.id), 'Could not start the import')

@@ -25,11 +25,18 @@ describe('Usage Stats rows - after the budgets are applied, AI calls are a count
   });
 
   it('messages use the limit the backend sends (packs included) and say AI is included', () => {
-    expect(usageRowsFrom(raw(true), true)[1]).toMatchObject({
+    expect(usageRowsFrom(raw(true), true, true)[1]).toMatchObject({
       displayName: 'Messages (AI included)',
       included: 1500,
       overage: 0,
     });
+  });
+
+  it('"AI included" only when the Subscription page rule says so (Free, no AI: plain Messages)', () => {
+    // Audit A-F5: the platform key with budgets on is not enough — a Free workspace on its starter
+    // allowance, or one with no AI, is not "AI included".
+    expect(usageRowsFrom(raw(true), true, false)[1].displayName).toBe('Messages');
+    expect(usageRowsFrom(raw(true), true)[1].displayName).toBe('Messages');
   });
 });
 

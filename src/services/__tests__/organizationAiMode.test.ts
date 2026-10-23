@@ -74,3 +74,55 @@ describe('organizationService.setAiModeSelf', () => {
     });
   });
 });
+
+// Audit A-F1 (2026-10-23): Settings › AI reads the mode the workspace RUNS on. An unset choice is
+// resolved by the backend (`/api/ai/providers` → `platform.active`).
+describe('organizationService.getAiModeState', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const answer = (settings: unknown, platform: unknown) =>
+    get.mockImplementation((url: unknown) =>
+      String(url).includes('/api/ai/providers')
+        ? platform instanceof Error
+          ? Promise.reject(platform)
+          : Promise.resolve({ data: { success: true, data: { enabled: [], platform } } })
+        : Promise.resolve(orgWithSettings(settings))
+    );
+
+  it('nothing stored, the backend runs it on our AI: resolved managed, stored undefined', async () => {
+    answer({}, { active: true });
+    await expect(organizationService.getAiModeState()).resolves.toEqual({
+      resolved: 'managed',
+      stored: undefined,
+    });
+  });
+
+  it('nothing stored, not on our AI: resolved byo, stored undefined', async () => {
+    answer({}, { active: false });
+    await expect(organizationService.getAiModeState()).resolves.toEqual({
+      resolved: 'byo',
+      stored: undefined,
+    });
+  });
+
+  it('an older backend (no platform) or a failed read falls back to the stored choice', async () => {
+    answer({ aiMode: 'managed' }, undefined);
+    await expect(organizationService.getAiModeState()).resolves.toEqual({
+      resolved: 'managed',
+      stored: 'managed',
+    });
+    answer({ aiMode: 'byo' }, new Error('down'));
+    await expect(organizationService.getAiModeState()).resolves.toEqual({
+      resolved: 'byo',
+      stored: 'byo',
+    });
+  });
+
+  it('an unknown stored value reads as nothing stored', async () => {
+    answer({ aiMode: 'MANAGED' }, { active: false });
+    await expect(organizationService.getAiModeState()).resolves.toEqual({
+      resolved: 'byo',
+      stored: undefined,
+    });
+  });
+});

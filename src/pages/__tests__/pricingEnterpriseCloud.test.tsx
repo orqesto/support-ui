@@ -66,11 +66,16 @@ describe('PricingPage Enterprise Cloud', () => {
       screen.getByText('14-day free trial on any paid plan, up to 1,000 messages, no card.')
     ).toBeInTheDocument();
   });
-  it('Free card: no "AI included", its history line runs on your own AI key; Pro keeps both', async () => {
+  it('Free card: no "AI included", its history line uses the KB allowance first, then your own key; Pro keeps both', async () => {
     selfHosted = false;
     render(<PricingPage />);
     await screen.findByText('Free');
-    expect(screen.getByText(/of history import \(runs on your own AI key\)/)).toBeInTheDocument();
+    // Audit A-F12: the one-time knowledge-base allowance analyses history first.
+    expect(
+      screen.getByText(
+        /of history import \(analysed with the free knowledge-base allowance of AI on us first, then your own AI key\)/
+      )
+    ).toBeInTheDocument();
     // Pro and Enterprise Cloud carry AI; the Free card does not.
     expect(screen.getAllByText('AI included')).toHaveLength(2);
     expect(screen.getAllByText(/\(uses the plan's AI allowance\)/)).toHaveLength(1);

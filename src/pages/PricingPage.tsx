@@ -13,6 +13,7 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { BasePlanCard, EnterprisePlanCard, type Plan } from '@/components/pricing/PricingPlanCard';
 import { KeepActiveDialog } from '@/components/subscription/KeepActiveDialog';
 import { isOverPlan } from '@/components/subscription/keepActive';
+import { FREE_SWITCH_DESCRIPTION } from '@/components/subscription/starterAllowance';
 import { subscriptionService, type KeepChoice, type PlanFit } from '@/services/subscription.service';
 
 /** Subscription statuses with no active plan — their plan card is offered again, not marked current. */
@@ -79,7 +80,7 @@ export const PricingPage = () => {
         setKeepFit(fit);
         return;
       }
-      setAlertDialog({ open: true, title: 'Switch to Free', description: "Switch this workspace to the Free plan? Free's limits apply, with AI on your own key (and a starter allowance of AI on us). This change takes effect immediately.", variant: 'info', confirmAction: true });
+      setAlertDialog({ open: true, title: 'Switch to Free', description: FREE_SWITCH_DESCRIPTION, variant: 'info', confirmAction: true });
       return;
     }
     setAlertDialog({ open: true, title: 'Confirm Upgrade', description: `Are you sure you want to upgrade to the ${planName} plan? This change will take effect immediately.`, variant: 'info', confirmAction: true });

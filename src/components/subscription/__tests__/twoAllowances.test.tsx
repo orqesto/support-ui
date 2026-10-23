@@ -192,7 +192,7 @@ describe('AiUnavailableNotice: a Free workspace with no AI says why', () => {
       ADMIN_NOT_VERIFIED_ADMIN_TEXT
     );
     expect(ADMIN_NOT_VERIFIED_ADMIN_TEXT).toBe(
-      'Verify your email address to use the free AI allowance — or add your own AI key.'
+      'Verify your email address to turn on our AI for this workspace — or add your own AI key.'
     );
     expect(screen.getByText('AI settings')).toHaveAttribute('href', AI_KEY_SETTINGS_PATH);
     fireEvent.click(screen.getByRole('button', { name: 'Resend verification email' }));

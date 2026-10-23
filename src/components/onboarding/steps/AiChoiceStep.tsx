@@ -3,6 +3,13 @@ import { AIProvidersSettings } from '@/components/settings/AIProvidersSettings';
 import { Card, CardContent } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
 
+/**
+ * "Use our AI" in the wizard (audit A-F15): the 14-day trial comes first; after it a paid plan keeps
+ * our AI and Free keeps a one-time starter allowance on us — never a flat "Included in your plan".
+ */
+export const ONBOARDING_MANAGED_AI_TEXT =
+  'We provide the AI — no keys to manage, nothing to configure. It is included in your 14-day trial; after the trial, paid plans keep it, and Free has a one-time starter allowance of AI on us, then your own key. AI features turn on as soon as you finish setup.';
+
 type Props = {
   value: 'managed' | 'byo' | undefined;
   onChoose: (choice: 'managed' | 'byo') => void;
@@ -44,9 +51,8 @@ export const AiChoiceStep = ({ value, onChoose, managedAvailable }: Props) => (
                 <span className="font-medium text-foreground">Use our AI</span>
                 {value === 'managed' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
               </div>
-              <p className="text-sm text-muted-foreground">
-                We provide the AI — no keys to manage, nothing to configure. Included in your plan;
-                AI features turn on as soon as you finish setup.
+              <p className="text-sm text-muted-foreground" data-testid="onboarding-managed-text">
+                {ONBOARDING_MANAGED_AI_TEXT}
               </p>
             </CardContent>
           </Card>

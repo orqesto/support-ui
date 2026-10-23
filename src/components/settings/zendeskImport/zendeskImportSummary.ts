@@ -104,3 +104,10 @@ export const exportFileProblem = (file: { name: string; size: number }): string 
   if (file.size === 0) return 'The file is empty.';
   return null;
 };
+
+/**
+ * Where imported Zendesk tickets land (owner decision 5, 2026-10-23): each becomes a THREAD — in the
+ * threads list, not under Tickets.
+ */
+export const ZENDESK_AS_THREADS =
+  'Each Zendesk ticket is imported as a thread: you find them in the threads list, not under Tickets.';

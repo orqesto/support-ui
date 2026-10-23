@@ -28,14 +28,19 @@ import { AiPausedBanner } from '@/components/subscription/AiPausedBanner';
 import { AiUnavailableNotice } from '@/components/subscription/AiUnavailableNotice';
 import { KbPausedBanner } from '@/components/subscription/KbPausedBanner';
 import { loadAiKeyState, loadAiStatus, type AiStatus } from '@/components/subscription/aiStatus';
-import { isStarterPaused } from '@/components/subscription/starterAllowance';
 import { PlanLimitsCard } from '@/components/subscription/PlanLimitsCard';
 import {
   MessagesSummary,
   TRIAL_SENTENCE,
-  aiSourceOf,
+  aiSourceFrom,
 } from '@/components/subscription/MessagesSummary';
 import { StarterAllowanceLine } from '@/components/subscription/StarterAllowanceLine';
+import {
+  MOVES_TO_FREE_SENTENCE,
+  cancelConfirmText,
+  cancelledToast,
+} from '@/components/subscription/cancelCopy';
+import { PastDueCard } from '@/components/subscription/PastDueCard';
 import { describeUsagePeriod } from '@/components/subscription/usagePeriodCopy';
 import { useMessagePackReturn } from '@/components/subscription/useMessagePackReturn';
 import { UsageTile, type UsageItem } from '@/components/subscription/UsageTile';
@@ -196,9 +201,7 @@ export const SubscriptionPage = () => {
       // end date (Stripe's answer wins over our stored period end), so echoing
       // an optimistic guess here is how a customer gets told the wrong last day.
       await refresh();
-      toast.success(
-        `Subscription cancelled. You keep full access until ${formatAccessEnd(result.accessEndsAt)}.`
-      );
+      toast.success(cancelledToast(formatAccessEnd(result.accessEndsAt)));
     } catch (err) {
       logger.error('Failed to cancel subscription:', err);
       toast.failure('cancel the subscription', err);
@@ -326,14 +329,7 @@ export const SubscriptionPage = () => {
   const { plan, subscription } = subscriptionDetails;
   // Managed AI is in the messages only where the plan carries it: not Free, not a workspace on its
   // own key, not when the API says AI is not in the plan.
-  const aiSource = aiSourceOf({
-    planName: plan.name,
-    ownKey,
-    notInPlan: aiStatus?.reason === 'not_in_plan',
-    hasStarterAllowance: Boolean(aiStatus?.starterAllowance),
-    ourAiOff,
-    starterPaused: isStarterPaused(aiStatus),
-  });
+  const aiSource = aiSourceFrom(plan.name, aiStatus, { ownKey, ourAiOff });
   const aiIncluded = aiSource === 'included';
   const isAdmin = !!user && isOrgAdminOrHigher(user.role, user.organizationRole);
   // Before the budgets are applied the old monthly AI-call cap still refuses work: keep showing it.
@@ -363,6 +359,14 @@ export const SubscriptionPage = () => {
         {/* A scheduled cancellation is the single most important thing on this
             page once it exists — it changes when the product stops working, so
             it sits above the plan rather than inside the card grid below. */}
+        {subscription.status === 'past_due' && (
+          <PastDueCard
+            canManage={canManage}
+            loading={portalLoading}
+            onUpdatePayment={() => void handleOpenPortal()}
+          />
+        )}
+
         {subscription.cancelAt && (
           <Card className="border-warning/50">
             <CardContent className="flex flex-wrap gap-3 justify-between items-center p-4">
@@ -372,9 +376,9 @@ export const SubscriptionPage = () => {
                   <p className="font-medium">
                     {`Cancelled — your subscription ends on ${formatAccessEnd(subscription.cancelAt)}`}
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground" data-testid="cancel-moves-to-free">
                     Nothing changes until then: you keep every feature on your current plan for
-                    the period you have already paid for.
+                    the period you have already paid for. {MOVES_TO_FREE_SENTENCE}
                   </p>
                 </div>
               </div>
@@ -717,15 +721,15 @@ export const SubscriptionPage = () => {
           onConfirm={() => void handleCancel()}
           variant="danger"
           title="Cancel this subscription?"
-          description={
+          description={cancelConfirmText(
             subscription.currentPeriodEnd
-              ? `Your workspace keeps every feature until ${formatAccessEnd(
+              ? formatAccessEnd(
                   subscription.trialEndsAt && subscription.status === 'trialing'
                     ? subscription.trialEndsAt
                     : subscription.currentPeriodEnd
-                )}, and nothing is charged after that. You can undo this at any time before then.`
-              : 'Your workspace keeps every feature until the end of the period you have paid for. You can undo this at any time before then.'
-          }
+                )
+              : null
+          )}
           confirmText="Cancel subscription"
           cancelText="Keep it"
         />

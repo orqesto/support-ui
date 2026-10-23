@@ -1,5 +1,10 @@
 import { fmtMoney } from '@/components/budget/budget.rules';
-import { getErrorBody } from '@/lib/errorMessages';
+import {
+  aiNotConfiguredText,
+  getErrorBody,
+  isAiNotConfiguredError,
+  rateLimitedText,
+} from '@/lib/errorMessages';
 
 /*
  * Free AI starter allowance (owner decision 2026-10-22): a one-time allowance on our AI key for a
@@ -79,6 +84,13 @@ export const AI_KEY_SETTINGS_PATH = '/settings#integrations/ai-providers';
 /** The Free plan's AI line on in-app plan cards and the switch-to-Free dialog. */
 export const FREE_PLAN_AI_LINE = 'Your own AI key, with a starter allowance of AI on us';
 
+/**
+ * The switch-to-Free confirmation. The starter allowance is one-time: a workspace that used it does
+ * not get a new one, hence "any … left" (audit A-F13).
+ */
+export const FREE_SWITCH_DESCRIPTION =
+  "Switch this workspace to the Free plan? Free's limits apply, with AI on your own key (and any starter allowance of AI on us that is left). This change takes effect immediately.";
+
 export const STARTER_USED_ADMIN_TEXT =
   'Your free AI allowance is used — add your own AI key to keep AI running.';
 export const STARTER_USED_AGENT_TEXT =
@@ -89,11 +101,12 @@ export const KB_USED_ADMIN_TEXT =
 export const KB_USED_AGENT_TEXT =
   'The free AI allowance for the knowledge base and history import is used. AI for new mail keeps running. Ask your admin to add your own AI key.';
 
-/** Why a Free workspace has no AI at all (`ai.unavailableReason`). */
+/** Why a workspace has no AI at all (`ai.unavailableReason`; Free, and paid plans since decision 2). */
 export type AiUnavailableReason = 'admin_not_verified' | 'own_key_required';
 
+// Paid plans too (owner decision 2, 2026-10-23): no allowance is named, it reads on any plan.
 export const ADMIN_NOT_VERIFIED_ADMIN_TEXT =
-  'Verify your email address to use the free AI allowance — or add your own AI key.';
+  'Verify your email address to turn on our AI for this workspace — or add your own AI key.';
 export const ADMIN_NOT_VERIFIED_AGENT_TEXT =
   'AI is off until a workspace admin verifies their email address or adds an AI key.';
 export const OWN_KEY_REQUIRED_ADMIN_TEXT = 'Add your own AI key to use AI.';
@@ -223,6 +236,11 @@ export const isFreeAiAllowanceUsedError = (err: unknown): boolean =>
  * the caller keeps its own handling.
  */
 export const aiRefusalText = (err: unknown, isAdmin: boolean): string | undefined => {
+  // No provider at all (AI_NOT_CONFIGURED / AI_PROVIDER_NOT_CONFIGURED): admins are sent to
+  // Settings, agents to an admin (audit B3/B9). Too many requests: our words, with the wait.
+  if (isAiNotConfiguredError(err)) return aiNotConfiguredText(isAdmin);
+  const limited = rateLimitedText(err);
+  if (limited) return limited;
   const body = getErrorBody(err) as
     | { code?: unknown; error?: unknown; message?: unknown }
     | undefined;
