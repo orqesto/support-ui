@@ -20,7 +20,15 @@ export interface MaintenanceJobLastRun {
   durationMs?: number;
   error?: string;
   lastRanAt?: string;
+  /**
+   * A backlog job's standing after this tick (BE `MaintenanceJobLastRun.progress`, 2026-10-23),
+   * e.g. `{ done, workspacesLeft, rowsLeft, stamped }`. Absent on older backends and on jobs
+   * without a backlog.
+   */
+  progress?: MaintenanceJobProgress;
 }
+
+export type MaintenanceJobProgress = Record<string, number | boolean | string>;
 
 export interface MaintenanceJob {
   id: string;
@@ -57,6 +65,15 @@ const normaliseSchedule = (raw: unknown): MaintenanceJobSchedule => {
   return { kind: 'startup' };
 };
 
+const normaliseProgress = (raw: unknown): MaintenanceJobProgress | undefined => {
+  if (!isRecord(raw)) return undefined;
+  const entries = Object.entries(raw).filter(
+    (entry): entry is [string, number | boolean | string] =>
+      typeof entry[1] === 'number' || typeof entry[1] === 'boolean' || typeof entry[1] === 'string'
+  );
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+};
+
 const normaliseLastRun = (raw: unknown): MaintenanceJobLastRun | null => {
   if (!isRecord(raw) || typeof raw.at !== 'string') return null;
   const outcome = raw.outcome === 'failed' || raw.outcome === 'skipped' ? raw.outcome : 'ok';
@@ -66,6 +83,7 @@ const normaliseLastRun = (raw: unknown): MaintenanceJobLastRun | null => {
     durationMs: typeof raw.durationMs === 'number' ? raw.durationMs : undefined,
     error: typeof raw.error === 'string' ? raw.error : undefined,
     lastRanAt: typeof raw.lastRanAt === 'string' ? raw.lastRanAt : undefined,
+    progress: normaliseProgress(raw.progress),
   };
 };
 

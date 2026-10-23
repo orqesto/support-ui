@@ -21,8 +21,10 @@ import {
 } from '@/components/console/maintenance/repairCatalog';
 import { usePlatformWorkspaces } from '@/hooks/usePlatformAdmin';
 import { apiErrorMessage, isRouteAbsent } from '@/lib/apiError';
+import { formatAge } from '@/lib/utils';
 import maintenanceService, {
   type MaintenanceJob,
+  type MaintenanceJobProgress,
   type MaintenanceJobSchedule,
   type RepairResult,
 } from '@/services/maintenance.service';
@@ -57,6 +59,24 @@ const formatTime = (iso: string | null | undefined): string => {
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
 };
 
+const countOf = (count: number, noun: string): string =>
+  `${count.toLocaleString()} ${noun}${count === 1 ? '' : 's'}`;
+
+/**
+ * A backlog job's standing in words — generic over any job whose last run carries `progress`
+ * (`done`, `rowsLeft`, `workspacesLeft`). Null when the progress says nothing we can phrase.
+ */
+export const describeProgress = (progress: MaintenanceJobProgress | undefined): string | null => {
+  if (!progress) return null;
+  if (progress.done === true) return 'Done';
+  const { rowsLeft, workspacesLeft } = progress;
+  if (typeof rowsLeft !== 'number') return null;
+  const rows = `${countOf(rowsLeft, 'row')} left`;
+  return typeof workspacesLeft === 'number'
+    ? `${rows} in ${countOf(workspacesLeft, 'workspace')}`
+    : rows;
+};
+
 const OUTCOME_BADGE = {
   ok: { variant: 'success', label: 'OK' },
   failed: { variant: 'danger', label: 'Failed' },
@@ -79,6 +99,7 @@ const JobRow = ({
   pending: boolean;
 }) => {
   const outcome = job.lastRun ? OUTCOME_BADGE[job.lastRun.outcome] : null;
+  const progress = describeProgress(job.lastRun?.progress);
   return (
     <li className="py-3 border-b border-border last:border-b-0" data-testid={`job-${job.id}`}>
       <div className="flex flex-wrap gap-x-4 gap-y-2 justify-between items-start">
@@ -97,6 +118,11 @@ const JobRow = ({
               </Badge>
             )}
           </p>
+          {progress && job.lastRun && (
+            <p data-testid={`job-progress-${job.id}`}>
+              {progress} · updated {formatAge(job.lastRun.at)} ago
+            </p>
+          )}
           {job.lastRun?.outcome === 'failed' && job.lastRun.error && (
             <p className="text-destructive break-words">{job.lastRun.error}</p>
           )}

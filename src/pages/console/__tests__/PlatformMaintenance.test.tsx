@@ -113,6 +113,60 @@ describe('PlatformMaintenance — background jobs', () => {
     );
   });
 
+  const withProgress = (progress: unknown) => {
+    const base = state();
+    const threeMinutesAgo = new Date(Date.now() - 3 * 60_000).toISOString();
+    const backlogJob = {
+      id: 'backlogSweep',
+      label: 'Backlog sweep',
+      does: 'Works through a backlog.',
+      whenOff: 'The backlog waits.',
+      schedule: { kind: 'interval', minutes: 1 },
+      enabled: true,
+      lastRun: {
+        at: threeMinutesAgo,
+        outcome: 'ok',
+        durationMs: 10,
+        ...(progress ? { progress } : {}),
+      },
+      nextRunAt: null,
+    };
+    const response = {
+      data: { data: { ...base.data.data, jobs: [...base.data.data.jobs, backlogJob] } },
+    };
+    api.get.mockImplementation((url: string) =>
+      url === '/api/system/maintenance'
+        ? Promise.resolve(response)
+        : Promise.resolve({ data: { data: {} } })
+    );
+  };
+
+  it("shows a backlog job's rows and workspaces left, with when it was updated", async () => {
+    withProgress({ done: false, workspacesLeft: 2, rowsLeft: 1234, stamped: 500 });
+    renderPage();
+    const row = await screen.findByTestId('job-backlogSweep');
+    expect(within(row).getByTestId('job-progress-backlogSweep').textContent).toBe(
+      `${(1234).toLocaleString()} rows left in 2 workspaces · updated 3m ago`
+    );
+  });
+
+  it('shows Done once the backlog is finished', async () => {
+    withProgress({ done: true, workspacesLeft: 0, rowsLeft: 0, stamped: 0 });
+    renderPage();
+    const row = await screen.findByTestId('job-backlogSweep');
+    expect(within(row).getByTestId('job-progress-backlogSweep').textContent).toBe(
+      'Done · updated 3m ago'
+    );
+  });
+
+  it('shows no progress line when the last run carries none (older backends)', async () => {
+    withProgress(undefined);
+    renderPage();
+    const row = await screen.findByTestId('job-backlogSweep');
+    expect(within(row).queryByTestId('job-progress-backlogSweep')).toBeNull();
+    expect(within(row).queryByText(/rows? left|Done/)).toBeNull();
+  });
+
   it('describes schedules in words', () => {
     expect(describeSchedule({ kind: 'daily', hour: 0, minute: 15 })).toBe(
       'Daily at 00:15 (server time)'
