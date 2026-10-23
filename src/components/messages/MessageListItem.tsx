@@ -273,7 +273,8 @@ export const MessageListItem = ({
 
   // The open (split-pane) row is marked by its own 3px primary edge; a spine painted over it hid
   // that marker on almost every row once spines followed the status (review of #721).
-  const spineBar = current ? null : (
+  // …but a warning edge (breached / spam red, at-risk amber) stays even there.
+  const spineBar = current && spine !== 'red' && spine !== 'amber' ? null : (
     <span
       aria-hidden="true"
       className={`absolute left-0 top-0 bottom-0 w-[3px] ${SPINE_BG[spine]}`}

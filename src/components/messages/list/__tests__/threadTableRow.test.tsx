@@ -60,6 +60,21 @@ describe('thread table row', () => {
     expect(screen.queryByText('—')).toBeNull();
   });
 
+  it('the open row drops its plain spine so the current-row marker shows', () => {
+    render(
+      <MemoryRouter>
+        <MessageListItem
+          thread={row({ status: 'open', metadata: {} })}
+          onOpen={() => {}}
+          density="compact"
+          current
+        />
+      </MemoryRouter>
+    );
+    // An open thread with no warning: its blue spine yields to the current-row marker.
+    expect(document.querySelector('span[aria-hidden="true"].w-\\[3px\\]')).toBeNull();
+  });
+
   it('keeps the dash for not-analysed mail, which has no status', () => {
     renderRow(row({ status: 'filtered' }));
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
