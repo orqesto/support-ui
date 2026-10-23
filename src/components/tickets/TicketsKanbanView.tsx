@@ -304,6 +304,12 @@ export const TicketsKanbanView = ({
   const [colStates, setColStates] = useState<Record<string, ColumnState>>(initialColStates);
   // The typed search's words as the backend read them (every column answers the same search).
   const [terms, setTerms] = useState<string[]>([]);
+  // Recently updated first — unless a search is typed: then no sort is sent, and each column lists
+  // its best matches first, as the list does (backend ticketListSearch.ts ranks the default order).
+  const boardSortFor = (search: string | undefined) =>
+    search?.trim()
+      ? { sortBy: undefined, sortOrder: undefined }
+      : { sortBy: 'updatedAt' as const, sortOrder: 'desc' as const };
   const [activeTicket, setActiveTicket] = useState<TicketType | null>(null);
   const [dragFrom, setDragFrom] = useState<string | null>(null);
 
@@ -328,12 +334,13 @@ export const TicketsKanbanView = ({
     COLUMNS.forEach((col) => {
       void (async () => {
         try {
+          const boardSort = boardSortFor(sharedFiltersRef.current.search);
           const res = await ticketService.getAll(
             { ...sharedFiltersRef.current, status: col.status },
             1,
             PAGE_SIZE,
-            'updatedAt',
-            'desc'
+            boardSort.sortBy,
+            boardSort.sortOrder
           );
           if (cancelled || !res.success) return;
           setTerms(highlightTermsFor(res.search));
@@ -367,14 +374,15 @@ export const TicketsKanbanView = ({
     setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: true } }));
     const nextPage = colStatesRef.current[colId].page + 1;
     const filterSnapshot = { ...sharedFiltersRef.current, status: col.status };
+    const boardSort = boardSortFor(sharedFiltersRef.current.search);
     void (async () => {
       try {
         const res = await ticketService.getAll(
           filterSnapshot,
           nextPage,
           PAGE_SIZE,
-          'updatedAt',
-          'desc'
+          boardSort.sortBy,
+          boardSort.sortOrder
         );
         if (!res.success) return;
         setColStates((prev) => ({
