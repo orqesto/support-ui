@@ -56,6 +56,7 @@ const endpoint = (over: Partial<Endpoint> = {}): Endpoint => ({
   sourceEndpointId: null,
   sourceFieldPath: null,
   ownershipSourceEndpointId: null,
+  noMatchHint: null,
   recordFormatPrefix: null,
   recordFormatLength: null,
   recordFormatCharset: null,

@@ -104,6 +104,7 @@ const withNewEndpoint = (): Connection => ({
       sourceEndpointId: null,
       sourceFieldPath: null,
       ownershipSourceEndpointId: null,
+      noMatchHint: null,
       recordFormatPrefix: null,
       recordFormatLength: null,
       recordFormatCharset: null,

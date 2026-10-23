@@ -27,6 +27,9 @@ type FlexibleEndpointKey =
   | 'paginationStart'
   | 'paginationNextPath'
   | 'paginationMaxPages'
+  // 2026-10-21: what agents read when this lookup finds nothing (max 500, blank = null); absent
+  // from an older backend.
+  | 'noMatchHint'
   // 2026-10-14: absent from a backend before the lookups UX pass.
   | 'referenceLabel'
   | 'health';
@@ -34,13 +37,7 @@ type FlexibleConnectionKey = 'failureStatusPath' | 'failureStatusValues' | 'fail
 type GeneratedEndpoint = components['schemas']['CustomApiEndpoint'];
 type GeneratedConnection = components['schemas']['CustomApiConnection'];
 export type CustomApiEndpoint = Omit<GeneratedEndpoint, FlexibleEndpointKey> &
-  Partial<Pick<GeneratedEndpoint, FlexibleEndpointKey>> & {
-    /**
-     * 2026-10-21: what agents read when this lookup finds nothing (max 500, blank = null). Not in
-     * the generated contract yet, and absent from an older backend — so optional.
-     */
-    noMatchHint?: string | null;
-  };
+  Partial<Pick<GeneratedEndpoint, FlexibleEndpointKey>>;
 export type CustomApiConnection = Omit<GeneratedConnection, FlexibleConnectionKey | 'endpoints'> &
   Partial<Pick<GeneratedConnection, FlexibleConnectionKey>> & { endpoints: CustomApiEndpoint[] };
 

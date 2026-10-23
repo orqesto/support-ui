@@ -114,6 +114,7 @@ describe('Settings › Integrations › Custom APIs — every button goes to the
             sourceEndpointId: null,
             sourceFieldPath: null,
             ownershipSourceEndpointId: null,
+            noMatchHint: null,
             recordFormatPrefix: null,
             recordFormatLength: null,
             recordFormatCharset: null,

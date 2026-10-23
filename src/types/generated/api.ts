@@ -21,6 +21,8 @@ export interface components {
             sender: string;
             assigneeName?: string | null;
             departmentId: number | null;
+            publicId: string | null;
+            reference: string | null;
             externalId: string | null;
             externalUrl: string | null;
             createdAt: string;
@@ -48,6 +50,8 @@ export interface components {
             sender: string;
             assigneeName?: string | null;
             departmentId: number | null;
+            publicId: string | null;
+            reference: string | null;
             externalId: string | null;
             externalUrl: string | null;
             createdAt: string;
@@ -62,6 +66,11 @@ export interface components {
             }[];
             threadCount: number;
             owedCount: number;
+            searchMatch?: {
+                /** @enum {string} */
+                field: "reference" | "title" | "people" | "description" | "note" | "thread";
+                snippet?: string;
+            } | null;
         };
         ContactNote: {
             id: number;
@@ -183,6 +192,8 @@ export interface components {
             threadId: string | null;
             aiReplyCount: number;
             needsHumanReview: boolean;
+            /** @enum {string|null} */
+            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "other" | null;
             createdAt: string;
             metadata: {
                 [key: string]: unknown;
@@ -219,6 +230,8 @@ export interface components {
             threadId: string | null;
             aiReplyCount: number;
             needsHumanReview: boolean;
+            /** @enum {string|null} */
+            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "other" | null;
             createdAt: string;
             metadata: {
                 [key: string]: unknown;
@@ -274,7 +287,7 @@ export interface components {
             organizationId: number;
             kind: string;
             /** @enum {string} */
-            entityType: "message" | "ticket_first_response" | "ticket_resolution";
+            entityType: "message" | "ticket_first_response" | "ticket_resolution" | "conversation" | "ticket";
             entityId: number;
             assigneeId: number | null;
             departmentId: number | null;
@@ -291,6 +304,14 @@ export interface components {
                 actualMinutes?: number;
                 ageHours?: number;
                 escalated?: boolean;
+                actor?: {
+                    userId: number | null;
+                    label: string;
+                };
+                eventId?: number | null;
+                departmentName?: string | null;
+                holdReason?: string | null;
+                holdUntil?: string | null;
             };
             dismissedAt: string | null;
             createdAt: string;
@@ -340,6 +361,7 @@ export interface components {
             recordFormatLength: number | null;
             recordFormatCharset: string | null;
             referenceLabel: string | null;
+            noMatchHint: string | null;
             health: {
                 lastOkAt: string | null;
                 lastNoMatchAt: string | null;
@@ -484,6 +506,7 @@ export interface components {
             /** @enum {string} */
             agentReason?: "unreachable" | "timeout" | "auth" | "rate_limited" | "vendor_error" | "bad_config" | "unavailable";
             referenceLabel?: string | null;
+            noMatchHint?: string | null;
             searchedFor?: {
                 /** @enum {string} */
                 kind: "email";
@@ -541,6 +564,7 @@ export interface components {
                     };
                     ownershipFrom: string | null;
                     referenceLabel?: string;
+                    noMatchHint?: string;
                 }[];
             };
             updatedAt: string;
