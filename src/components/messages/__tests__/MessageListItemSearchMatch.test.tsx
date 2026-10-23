@@ -62,6 +62,22 @@ describe('MessageListItem — search match', () => {
     expect(marks(container)).toEqual(['courier']);
   });
 
+  it('quotes a note passage, labelled, words marked anywhere — as the backend matched them', () => {
+    const { container } = renderRow(
+      row({ field: 'note', snippet: 'Called back: the reorder ships Friday' }),
+      ['order']
+    );
+    expect(container.textContent).toContain('Note: Called back: the reorder ships Friday');
+    expect(container.textContent).not.toContain('Latest message text');
+    expect(marks(container)).toEqual(['order']);
+  });
+
+  it('a note match without a passage keeps the plain preview, unlabelled (control)', () => {
+    const { container } = renderRow(row({ field: 'note' }), ['order']);
+    expect(container.textContent).toContain('Latest message text');
+    expect(container.textContent).not.toContain('Note:');
+  });
+
   it('marks the words in the subject and the sender', () => {
     const { container } = renderRow(row({ field: 'subject' }), ['parcel', 'shop']);
     expect(marks(container)).toEqual(expect.arrayContaining(['parcel', 'shop']));
