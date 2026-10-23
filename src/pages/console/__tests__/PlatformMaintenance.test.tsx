@@ -159,6 +159,24 @@ describe('PlatformMaintenance — background jobs', () => {
     );
   });
 
+  it('shows In progress when rows left is unknown (null), with the workspaces left', async () => {
+    withProgress({ done: false, workspacesLeft: 3, rowsLeft: null, stamped: 200 });
+    renderPage();
+    const row = await screen.findByTestId('job-backlogSweep');
+    expect(within(row).getByTestId('job-progress-backlogSweep').textContent).toBe(
+      'In progress · 3 workspaces left · updated 3m ago'
+    );
+  });
+
+  it('shows plain In progress when neither count is known', async () => {
+    withProgress({ done: false });
+    renderPage();
+    const row = await screen.findByTestId('job-backlogSweep');
+    expect(within(row).getByTestId('job-progress-backlogSweep').textContent).toBe(
+      'In progress · updated 3m ago'
+    );
+  });
+
   it('shows no progress line when the last run carries none (older backends)', async () => {
     withProgress(undefined);
     renderPage();

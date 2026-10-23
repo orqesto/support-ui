@@ -64,13 +64,18 @@ const countOf = (count: number, noun: string): string =>
 
 /**
  * A backlog job's standing in words — generic over any job whose last run carries `progress`
- * (`done`, `rowsLeft`, `workspacesLeft`). Null when the progress says nothing we can phrase.
+ * (`done`, `rowsLeft`, `workspacesLeft`). Null only when there is no progress.
  */
 export const describeProgress = (progress: MaintenanceJobProgress | undefined): string | null => {
   if (!progress) return null;
   if (progress.done === true) return 'Done';
   const { rowsLeft, workspacesLeft } = progress;
-  if (typeof rowsLeft !== 'number') return null;
+  // rowsLeft null/missing = unknown (a tick that ran out of its time budget stops counting).
+  if (typeof rowsLeft !== 'number') {
+    return typeof workspacesLeft === 'number'
+      ? `In progress · ${countOf(workspacesLeft, 'workspace')} left`
+      : 'In progress';
+  }
   const rows = `${countOf(rowsLeft, 'row')} left`;
   return typeof workspacesLeft === 'number'
     ? `${rows} in ${countOf(workspacesLeft, 'workspace')}`
