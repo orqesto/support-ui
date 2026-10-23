@@ -1,7 +1,6 @@
 import {
   ChevronDown,
   Columns2,
-  Filter,
   LayoutList,
   List,
   MessagesSquare,
@@ -11,11 +10,13 @@ import {
 import { useState, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Menu, MenuItem, MenuLabel, MenuSeparator } from '@/components/ui/Menu';
+import { MenuItem, MenuLabel, MenuSeparator } from '@/components/ui/Menu';
+import { ColumnMenu } from '@/components/list/ColumnMenu';
 import { Select } from '@/components/ui/Select';
 import { Tooltip } from '@/components/ui/Tooltip';
 import type { TicketFilters, TicketSortBy, TicketSorting } from '@/stores/ticketsStore';
 import type { Ticket, TicketStatus } from '@/types';
+import { LiveBadge } from '@/components/list/LiveBadge';
 import { TicketCard } from './TicketCard';
 import { TicketRow } from './TicketRow';
 import { STATUS_ORDER, filterValue, withoutFilter, type TicketFilterKey } from './ticketFilterKeys';
@@ -92,31 +93,14 @@ const ColumnHeader = ({
   const filtered = filterValue(filters, field) !== undefined;
   const sorted = sort && sorting.sortBy === sort.sortBy;
   return (
-    <Menu
-      ariaLabel={`${label} column`}
-      align={alignEnd ? 'end' : 'start'}
-      width={260}
-      trigger={({ open, toggle }) => (
-        <Button
-          variant="ghost"
-          onClick={toggle}
-          aria-haspopup="menu"
-          aria-expanded={open}
-          aria-label={`${label}: filter${sort ? ' and sort' : ''}${filtered ? ' (filtered)' : ''}`}
-          className={`group/th gap-1 px-1.5 -mx-1.5 h-[22px] font-display text-[10.5px] font-semibold tracking-wider uppercase rounded ${
-            filtered ? 'text-primary' : sorted ? 'text-foreground' : 'text-muted-foreground'
-          }`}
-        >
-          {label}
-          {sorted && <ChevronDown className="w-3 h-3" />}
-          {/* Shown on hover / focus only, or for good while the column is filtered (as the design). */}
-          {field !== 'priority' && (
-            <Filter
-              className={`w-3 h-3 ${filtered ? 'opacity-100' : 'opacity-0 group-hover/th:opacity-70 group-focus-visible/th:opacity-70'}`}
-            />
-          )}
-        </Button>
-      )}
+    <ColumnMenu
+      label={label}
+      filtered={filtered}
+      sorted={!!sorted}
+      sortable={!!sort}
+      // Priority's title is one letter; a funnel beside it would be wider than the label.
+      showFilterIcon={field !== 'priority'}
+      alignEnd={alignEnd}
     >
       <MenuLabel>{label}</MenuLabel>
       {sort && (
@@ -158,7 +142,7 @@ const ColumnHeader = ({
           })}
         </>
       )}
-    </Menu>
+    </ColumnMenu>
   );
 };
 
@@ -222,12 +206,7 @@ export const TicketTable = (props: TicketTableProps) => {
 
   const caption = (
     <div className="flex flex-wrap gap-2.5 items-center px-3 py-1.5 rounded-t-lg border border-b-0 min-h-[38px] border-border bg-muted/40 text-[12.5px] text-muted-foreground">
-      <Tooltip content="The list updates by itself" size="sm">
-        <span className="inline-flex gap-1.5 items-center font-semibold text-success">
-          <span className="w-[7px] h-[7px] rounded-full bg-success animate-pulse" />
-          Live
-        </span>
-      </Tooltip>
+      <LiveBadge />
       <span>
         {loading ? (
           'Loading…'
