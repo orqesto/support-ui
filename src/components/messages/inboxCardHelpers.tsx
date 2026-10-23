@@ -49,7 +49,7 @@ export type SpineColor = 'red' | 'amber' | 'blue' | 'green' | 'calm' | 'none';
  *   - amber  = SLA at risk
  *   - blue   = open or in progress — work that is ours
  *   - calm   = pending or on hold — waiting, not ours right now
- *   - green  = resolved
+ *   - green  = resolved (closed is calm: its chip is grey, see closedStatusMeta)
  *   - none   = triage mail (not analysed / archived), which has no work status
  *
  * The status is the THREAD's (`deriveWorkflowStatus` on its latest message, as the Status column
@@ -63,6 +63,9 @@ export const getSpine = (message: Message, thread: MessageThread): SpineColor =>
   if (slaTone === 'risk') return 'amber';
 
   const statusMessage = thread.latestMessage ?? message;
+  // Closed (and not-customer-work) wears a grey chip, "never Resolved's green" (closedStatusMeta),
+  // so its edge is calm too — not the green `deriveWorkflowStatus`'s `resolved` would give it.
+  if (statusMessage.status === 'closed') return 'calm';
   const status = deriveWorkflowStatus({
     status: statusMessage.status,
     parkedAt: statusMessage.parkedAt,
@@ -80,7 +83,9 @@ export const SPINE_BG: Record<SpineColor, string> = {
   amber: 'bg-warning',
   blue: 'bg-primary',
   green: 'bg-success',
-  calm: 'bg-border-strong',
+  // The design's calm edge (#8A919E light / #6B7383 dark): --border-strong was nearly the card's
+  // own border in dark (staging 2026-10-23), so the Pending lane's edge did not show.
+  calm: 'bg-muted-foreground/60',
   none: 'bg-transparent',
 };
 

@@ -83,11 +83,10 @@ export const threadApiFilters = (
     apiFilters.processed = threadStatus;
   }
 
-  // Inbox toolbar checkbox: hide "waiting on customer" so the list shows
-  // only items needing agent attention.
-  if (currentFilters.excludeAwaitingResponse) {
-    apiFilters.excludeAwaitingResponse = 'true';
-  }
+  // ⛔ `excludeAwaitingResponse` is NOT sent. Its checkbox ("Hide awaiting") left with Threads v4
+  // (Needs us replaces it), but the value survives in persisted filters for anyone who had it on:
+  // sent, it narrowed the list with nothing on screen saying so and nothing able to clear it
+  // (review of #712).
 
   const searchIsTheWholeFilter = searchIsTheOnlyFilter({
     search: currentFilters.search,

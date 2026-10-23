@@ -271,7 +271,9 @@ export const MessageListItem = ({
     </div>
   );
 
-  const spineBar = (
+  // The open (split-pane) row is marked by its own 3px primary edge; a spine painted over it hid
+  // that marker on almost every row once spines followed the status (review of #721).
+  const spineBar = current ? null : (
     <span
       aria-hidden="true"
       className={`absolute left-0 top-0 bottom-0 w-[3px] ${SPINE_BG[spine]}`}
