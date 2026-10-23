@@ -1,8 +1,15 @@
 import { apiClient } from '@/lib/api-client';
 import { PAGINATION } from '@/lib/constants';
-import type { Ticket, CreateTicketRequest, UpdateTicketRequest, ApiResponse } from '@/types';
+import type {
+  Ticket,
+  CreateTicketRequest,
+  UpdateTicketRequest,
+  ApiResponse,
+  TicketSearchMatch,
+} from '@/types';
 import type { TicketListItem, TicketDetail } from '@/types/api';
 import type { TicketSortBy } from '@/stores/ticketsStore';
+import { normalizeSearchReading, type SearchReading } from '@/services/message.service';
 
 export type PaginationMeta = {
   page: number;
@@ -30,6 +37,26 @@ export type TicketsMetadata = {
 export type MetadataResponse = {
   success: boolean;
   data: TicketsMetadata;
+};
+
+const TICKET_MATCH_FIELDS: readonly TicketSearchMatch['field'][] = [
+  'reference',
+  'title',
+  'people',
+  'description',
+  'note',
+  'thread',
+];
+
+/** A ticket row's `searchMatch`: absent (an older backend), null (no search) or junk → null. */
+export const normalizeTicketSearchMatch = (raw: unknown): TicketSearchMatch | null => {
+  if (!raw || typeof raw !== 'object') return null;
+  const match = raw as { field?: unknown; snippet?: unknown };
+  if (!TICKET_MATCH_FIELDS.includes(match.field as TicketSearchMatch['field'])) return null;
+  const field = match.field as TicketSearchMatch['field'];
+  return typeof match.snippet === 'string' && match.snippet.trim() !== ''
+    ? { field, snippet: match.snippet }
+    : { field };
 };
 
 export const ticketService = {
@@ -66,10 +93,19 @@ export const ticketService = {
       params.append('sortOrder', sortOrder);
     }
 
-    const response = await apiClient.get<PaginatedResponse<TicketListItem[]>>(
-      `/api/tickets?${params.toString()}`
-    );
-    return response.data;
+    const response = await apiClient.get<
+      PaginatedResponse<TicketListItem[]> & { search?: unknown }
+    >(`/api/tickets?${params.toString()}`);
+    // `search`: how a typed search was read (null when none; absent from an older backend).
+    return {
+      ...response.data,
+      data: (response.data.data ?? []).map((ticket) => ({
+        ...ticket,
+        // Read off the raw row: a backend older than ticket search does not send it.
+        searchMatch: normalizeTicketSearchMatch((ticket as { searchMatch?: unknown }).searchMatch),
+      })),
+      search: normalizeSearchReading(response.data.search),
+    } as PaginatedResponse<TicketListItem[]> & { search: SearchReading | null };
   },
 
   getById: async (id: number) => {

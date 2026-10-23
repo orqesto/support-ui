@@ -5,6 +5,7 @@ import { AssigneeCell } from './AssigneeCell';
 import { RowMenu } from './RowMenu';
 import { LabelChip, OwedCell, PriorityIcon, StatusDot, ThreadCount } from './ticketRowBits';
 import { HIDE_BELOW_MD, TICKET_GRID, type TicketRowProps } from './ticketRowShared';
+import { TicketTitle, ticketMatchLine } from './ticketSearchBits';
 import { TicketRef } from '@/components/tickets/TicketRef';
 
 /** One ticket as a table row — scan by column. */
@@ -17,8 +18,10 @@ export const TicketRow = ({
   onOpen,
   onAssign,
   onRowMenu,
+  highlightTerms,
 }: TicketRowProps) => {
   const firstLabel = ticket.labels?.[0];
+  const matchLine = ticketMatchLine(ticket, highlightTerms);
   return (
     <div
       role="row"
@@ -36,25 +39,32 @@ export const TicketRow = ({
       <span className="flex items-center">
         <PriorityIcon priority={ticket.priority} />
       </span>
-      <span className="flex gap-2 items-center min-w-0">
-        <TicketRef ticket={ticket} className="text-[11.5px] text-muted-foreground shrink-0" />
-        <span className="font-semibold truncate text-[13.5px]">{ticket.title}</span>
-        {firstLabel && (
-          <span className="hidden lg:inline-flex">
-            <LabelChip name={firstLabel.name} color={firstLabel.color} />
+      <span className="flex flex-col min-w-0 py-1.5">
+        <span className="flex gap-2 items-center min-w-0">
+          <TicketRef ticket={ticket} className="text-[11.5px] text-muted-foreground shrink-0" />
+          <span className="font-semibold truncate text-[13.5px]">
+            <TicketTitle ticket={ticket} terms={highlightTerms} />
           </span>
-        )}
-        {ticket.externalId && (
-          <Tooltip
-            content="Synced to Jira — edit it there"
-            size="sm"
-            className="hidden xl:inline-flex"
-          >
-            <span className="inline-flex gap-1 items-center font-mono text-[11px] text-muted-foreground shrink-0">
-              <Lock className="w-3 h-3" />
-              {ticket.externalId}
+          {firstLabel && (
+            <span className="hidden lg:inline-flex">
+              <LabelChip name={firstLabel.name} color={firstLabel.color} />
             </span>
-          </Tooltip>
+          )}
+          {ticket.externalId && (
+            <Tooltip
+              content="Synced to Jira — edit it there"
+              size="sm"
+              className="hidden xl:inline-flex"
+            >
+              <span className="inline-flex gap-1 items-center font-mono text-[11px] text-muted-foreground shrink-0">
+                <Lock className="w-3 h-3" />
+                {ticket.externalId}
+              </span>
+            </Tooltip>
+          )}
+        </span>
+        {matchLine && (
+          <span className="text-[12px] text-muted-foreground truncate">{matchLine}</span>
         )}
       </span>
       <span className="flex items-center">

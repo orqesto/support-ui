@@ -317,6 +317,17 @@ export type Ticket = {
   /** List only. Optional: a backend older than the counts sends neither (show "—", not 0). */
   threadCount?: number;
   owedCount?: number;
+  /**
+   * List only, while a search is typed: where the ticket matched (backend ticketSearchMatch.ts) —
+   * its number, title, sender, or the first place holding a word with that PLAIN-TEXT passage
+   * (its description, its own notes, one of its threads).
+   */
+  searchMatch?: TicketSearchMatch | null;
+};
+
+export type TicketSearchMatch = {
+  field: 'reference' | 'title' | 'people' | 'description' | 'note' | 'thread';
+  snippet?: string;
 };
 
 export type Category = {

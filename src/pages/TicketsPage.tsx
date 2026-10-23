@@ -39,6 +39,9 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { PAGINATION } from '@/lib/constants';
 import { type JiraIntegration } from '@/services/integrations.service';
 import { ticketService, type PaginationMeta } from '@/services/ticket.service';
+import type { SearchReading } from '@/services/message.service';
+import { highlightTermsFor } from '@/lib/highlightTerms';
+import { SearchReadingNotice } from '@/components/messages/SearchReadingNotice';
 import { useTicketsStore } from '@/stores/ticketsStore';
 import { useAuthStore } from '@/stores/authStore';
 import { ticketApiFilters } from '@/components/tickets/list/ticketFilters';
@@ -103,6 +106,11 @@ export const TicketsPage = () => {
 
   // Local state for current view
   const [tickets, setTickets] = useState<TicketType[]>([]);
+  // How the backend read each typed search, by its text — a cached page of the same search keeps
+  // its marks (the words marked in the rows, the phrase / cut-short notice).
+  const [readings, setReadings] = useState<Record<string, SearchReading | null>>({});
+  const searchText = filters.search?.trim() ?? '';
+  const searchReading = searchText ? (readings[searchText] ?? null) : null;
   const [pagination, setPagination] = useState<PaginationMeta>({
     page: PAGINATION.DEFAULT_PAGE,
     limit: PAGINATION.DEFAULT_LIMIT,
@@ -154,6 +162,8 @@ export const TicketsPage = () => {
           setTicketsCache(response.data, response.pagination);
           // Update local state
           setTickets(response.data);
+          const readSearch = apiFilters.search?.trim() ?? '';
+          if (readSearch) setReadings((prev) => ({ ...prev, [readSearch]: response.search }));
           setPagination(response.pagination);
 
           // If current page exceeds total pages, reset to page 1
@@ -555,32 +565,36 @@ export const TicketsPage = () => {
               }}
             />
           ) : (
-            <TicketTable
-              tickets={tickets}
-              total={pagination.total}
-              loading={loading}
-              filters={filters}
-              sorting={sorting}
-              keys={filterKeys}
-              density={density}
-              group={group}
-              layout={layout}
-              splitAvailable={splitAvailable}
-              canManage={hasPermission(Permission.MANAGE_TICKETS)}
-              assignees={filterSources.assignees}
-              currentUserId={currentUserId}
-              currentId={selectedTicket?.id ?? null}
-              onOpen={openTicket}
-              onAssign={(ticketId, userId) => void handleAssign(ticketId, userId)}
-              onRowMenu={rowMenu}
-              onFilters={setFiltersStore}
-              onSort={setSortingStore}
-              onDensity={setDensity}
-              onGroup={setGroup}
-              onLayout={setLayout}
-              onClearFilters={clearFilters}
-              emptyAction={<NewTicketButton />}
-            />
+            <>
+              <SearchReadingNotice reading={searchReading} />
+              <TicketTable
+                highlightTerms={highlightTermsFor(searchReading)}
+                tickets={tickets}
+                total={pagination.total}
+                loading={loading}
+                filters={filters}
+                sorting={sorting}
+                keys={filterKeys}
+                density={density}
+                group={group}
+                layout={layout}
+                splitAvailable={splitAvailable}
+                canManage={hasPermission(Permission.MANAGE_TICKETS)}
+                assignees={filterSources.assignees}
+                currentUserId={currentUserId}
+                currentId={selectedTicket?.id ?? null}
+                onOpen={openTicket}
+                onAssign={(ticketId, userId) => void handleAssign(ticketId, userId)}
+                onRowMenu={rowMenu}
+                onFilters={setFiltersStore}
+                onSort={setSortingStore}
+                onDensity={setDensity}
+                onGroup={setGroup}
+                onLayout={setLayout}
+                onClearFilters={clearFilters}
+                emptyAction={<NewTicketButton />}
+              />
+            </>
           )}
 
           {/* Pagination */}

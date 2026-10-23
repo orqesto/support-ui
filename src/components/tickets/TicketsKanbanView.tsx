@@ -24,6 +24,8 @@ import {
 } from '@/components/tickets/list/ticketRowBits';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { ticketService } from '@/services/ticket.service';
+import { TicketTitle, ticketMatchLine } from '@/components/tickets/list/ticketSearchBits';
+import { highlightTermsFor } from '@/lib/highlightTerms';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { logger } from '@/lib/logger';
@@ -73,7 +75,17 @@ export type AssignProps = {
 };
 
 // A card as the design's board: #id + priority · title · threads, owed · owner (or Claim).
-function TicketCardContent({ ticket, assign }: { ticket: TicketType; assign?: AssignProps }) {
+function TicketCardContent({
+  ticket,
+  assign,
+  terms,
+}: {
+  ticket: TicketType;
+  assign?: AssignProps;
+  /** The typed search's words as the backend read them. */
+  terms?: string[];
+}) {
+  const matchLine = ticketMatchLine(ticket, terms);
   const jiraKey = (ticket as TicketWithExtras).jiraKey ?? ticket.externalId ?? null;
   return (
     <div className="grid gap-1.5">
@@ -93,7 +105,10 @@ function TicketCardContent({ ticket, assign }: { ticket: TicketType; assign?: As
           </Tooltip>
         )}
       </div>
-      <p className="text-[13px] font-semibold leading-snug line-clamp-2">{ticket.title}</p>
+      <p className="text-[13px] font-semibold leading-snug line-clamp-2">
+        <TicketTitle ticket={ticket} terms={terms} />
+      </p>
+      {matchLine && <p className="text-xs text-muted-foreground line-clamp-2">{matchLine}</p>}
       <div className="flex gap-2 items-center">
         <ThreadCount count={ticket.threadCount} />
         {ticket.owedCount ? <OwedCell count={ticket.owedCount} /> : null}
@@ -120,11 +135,13 @@ export function TicketKanbanCard({
   colId,
   onOpen,
   assign,
+  terms,
 }: {
   ticket: TicketType;
   colId: string;
   onOpen: (t: TicketType) => void;
   assign: AssignProps;
+  terms?: string[];
 }) {
   // When using DragOverlay, do NOT apply transform to the original card.
   // The overlay handles the floating visual; the original becomes a semi-transparent placeholder.
@@ -150,7 +167,7 @@ export function TicketKanbanCard({
       }}
       className={`min-w-[240px] xl:min-w-0 shrink-0 xl:shrink p-3 rounded-[10px] border border-border bg-card cursor-grab active:cursor-grabbing touch-manipulation select-none outline-none focus-visible:ring-2 focus-visible:ring-primary transition-[opacity,border-color] ${isDragging ? 'opacity-30' : 'hover:border-primary/40'}`}
     >
-      <TicketCardContent ticket={ticket} assign={assign} />
+      <TicketCardContent ticket={ticket} assign={assign} terms={terms} />
     </div>
   );
 }
@@ -166,6 +183,7 @@ type KanbanColumnProps = {
   assign: AssignProps;
   onLoadMore: () => void;
   onOpen: (ticket: TicketType) => void;
+  terms?: string[];
 };
 
 const KanbanColumn = ({
@@ -176,6 +194,7 @@ const KanbanColumn = ({
   assign,
   onLoadMore,
   onOpen,
+  terms,
 }: KanbanColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id: col.id });
 
@@ -225,6 +244,7 @@ const KanbanColumn = ({
                 colId={col.id}
                 onOpen={onOpen}
                 assign={assign}
+                terms={terms}
               />
             ))}
             {/* Drop target padding so there's always somewhere to drop at the bottom */}
@@ -282,6 +302,8 @@ export const TicketsKanbanView = ({
   const selectedDeptKey = useDepartmentContextKey();
 
   const [colStates, setColStates] = useState<Record<string, ColumnState>>(initialColStates);
+  // The typed search's words as the backend read them (every column answers the same search).
+  const [terms, setTerms] = useState<string[]>([]);
   const [activeTicket, setActiveTicket] = useState<TicketType | null>(null);
   const [dragFrom, setDragFrom] = useState<string | null>(null);
 
@@ -314,6 +336,7 @@ export const TicketsKanbanView = ({
             'desc'
           );
           if (cancelled || !res.success) return;
+          setTerms(highlightTermsFor(res.search));
           setColStates((prev) => ({
             ...prev,
             [col.id]: {
@@ -515,6 +538,7 @@ export const TicketsKanbanView = ({
             assign={assign}
             onLoadMore={() => loadMore(col.id)}
             onOpen={onOpen}
+            terms={terms}
           />
         ))}
       </div>
@@ -522,7 +546,7 @@ export const TicketsKanbanView = ({
       <DragOverlay dropAnimation={null}>
         {activeTicket ? (
           <div className="min-w-[240px] rounded-[10px] border border-border bg-card p-3 shadow-xl rotate-1 opacity-95 cursor-grabbing">
-            <TicketCardContent ticket={activeTicket} />
+            <TicketCardContent ticket={activeTicket} terms={terms} />
           </div>
         ) : null}
       </DragOverlay>
