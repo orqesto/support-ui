@@ -184,16 +184,17 @@ export const MessagesListCaption = ({
       )}
     </div>
 
-    {/* Phone: the table has no column headers there, so the sort stays a select — on the
-        caption's own row, at the end (Messages list v4 mobile), not a full-width row below it. */}
-    <div className="md:hidden flex items-center ml-auto shrink-0">
+    {/* Phone: the table has no column headers there, so the sort stays a select, on a row of
+        its own. ⛔ Not beside Not shown: on a 390px screen the select squeezed that chip until
+        its count disappeared (staging, 2026-10-23). */}
+    <div className="md:hidden flex gap-2 items-center w-full">
       <Select
         aria-label="Sort"
         size="sm"
         value={sortPreset}
         onChange={onSortChange}
         options={SORT_PRESET_OPTIONS}
-        className="w-36"
+        className="flex-1"
       />
     </div>
   </div>

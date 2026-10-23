@@ -1082,10 +1082,13 @@ export const MessagesPage = () => {
               className="flex-row items-center justify-between"
               meta={
                 <>
+                  {/* Text-only on a phone (Messages list v4 mobile): with the icons the tabs and
+                      the header actions did not fit one 390px row. */}
                   <MessagesViewToggle
                     displayMode={displayMode}
                     onModeChange={setDisplayMode}
                     size="md"
+                    className="max-sm:[&_svg]:hidden"
                   />
                   <SurfaceCount
                     className={cn(
@@ -1124,14 +1127,16 @@ export const MessagesPage = () => {
                     </Button>
                   </PermissionGuard>
                   {/* The list updates by itself (Live); a manual refresh stays, but quiet — as on
-                      the tickets list. Checking the mailboxes moved into ⋯ (Messages list v4). */}
+                      the tickets list. Checking the mailboxes moved into ⋯ (Messages list v4).
+                      Not on a phone: the header is one row there (tabs · compose · ⋯, as the
+                      design's mobile), and a third icon pushed Compose over the Kanban tab. */}
                   <Tooltip content="Refresh">
                     <Button
                       variant="ghost"
                       aria-label="Refresh"
                       onClick={handleRefresh}
                       disabled={refreshing}
-                      className="p-0 w-8 h-8"
+                      className="p-0 w-8 h-8 max-sm:hidden"
                     >
                       <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                     </Button>
