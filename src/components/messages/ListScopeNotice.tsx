@@ -290,10 +290,9 @@ export const ListScopeNotice = ({
       }
       data-testid="list-scope-notice"
     >
-      <EyeOff
-        className={isBoard || isCaption ? 'w-3.5 h-3.5 shrink-0' : 'w-4 h-4 shrink-0'}
-        aria-hidden="true"
-      />
+      {!isCaption && (
+        <EyeOff className={isBoard ? 'w-3.5 h-3.5 shrink-0' : 'w-4 h-4 shrink-0'} aria-hidden="true" />
+      )}
       {/**
        * ⛔ The board does NOT say "Showing N". `shown` there is the board query's total
        * across all nine lanes, while the screen renders only the columns the agent has
@@ -316,6 +315,23 @@ export const ListScopeNotice = ({
             {scope.withoutLens.toLocaleString()}
           </strong>{' '}
           — {scope.hidden.toLocaleString()} have none
+        </span>
+      ) : isCaption ? (
+        /**
+         * The list caption (Messages list v4): "24 of 550". The hidden count is the "Not shown"
+         * chip beside it — its own control, never part of this phrase — so the misreading the
+         * long sentence guards against (chips read as a breakdown of it) cannot happen here.
+         * The full sentence stays for screen readers.
+         */
+        <span className="truncate min-w-0">
+          <strong className="font-mono text-foreground">{shown.toLocaleString()}</strong> of{' '}
+          <strong className="font-mono text-foreground">
+            {scope.withoutLens.toLocaleString()}
+          </strong>
+          <span className="sr-only">
+            {' '}
+            — {scope.hidden.toLocaleString()} hidden by the current view
+          </span>
         </span>
       ) : (
         <span className="truncate min-w-0">

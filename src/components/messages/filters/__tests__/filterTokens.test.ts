@@ -142,3 +142,15 @@ describe('visibleDefs', () => {
     expect(inKanban).toContain('threadStatus');
   });
 });
+
+describe('Needs us is a view, not a token (Messages list v4)', () => {
+  it('leaves the bar empty while its pill says it', () => {
+    const filters = { lifecycle: 'needs_us' } as unknown as FilterState;
+    expect(tokensOf(defs, filters, false).map((token) => token.def.key)).not.toContain('lifecycle');
+  });
+
+  it('CONTROL: any other status is still a token', () => {
+    const filters = { lifecycle: 'resolved' } as unknown as FilterState;
+    expect(tokensOf(defs, filters, false).map((token) => token.def.key)).toContain('lifecycle');
+  });
+});

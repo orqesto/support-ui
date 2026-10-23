@@ -81,8 +81,9 @@ describe('thread table row', () => {
     expect(screen.getByText('ada@shop.example')).toBeInTheDocument();
   });
 
-  it('keeps the whole sender line on the card', () => {
+  it('names the sender without the address on the card too', () => {
     renderRow(row({ status: 'open' }), 'comfortable');
-    expect(screen.getByText('Ada Lovelace <ada@shop.example>')).toBeInTheDocument();
+    expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
+    expect(screen.queryByText(/<ada@shop\.example>/)).toBeNull();
   });
 });

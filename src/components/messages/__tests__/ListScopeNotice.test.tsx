@@ -408,6 +408,16 @@ describe('a chip is a destination, not a share of the hidden count', () => {
     expect(text).not.toContain('6 hidden by this view');
   });
 
+  it('says "N of M" in the list caption, the hidden count being the Not shown chip', () => {
+    render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} surface="caption" />);
+    const notice = screen.getByTestId('list-scope-notice');
+    expect(notice.textContent).toContain('53 of 72');
+    expect(notice.textContent).not.toContain('Showing');
+    // Screen readers still get the whole sentence; the chip carries the count on screen.
+    expect(notice.querySelector('.sr-only')?.textContent).toContain('19 hidden by the current view');
+    expect(screen.getByRole('button', { name: /Not shown/ })).toHaveTextContent('19');
+  });
+
   it('closes on Escape and on a click outside', () => {
     render(<ListScopeNotice scope={scope} shown={53} onJump={vi.fn()} />);
     openMenu();

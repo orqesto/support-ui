@@ -30,6 +30,8 @@ vi.mock('@/lib/messageHelpers', () => ({
   humanizeSignalFlag: vi.fn().mockReturnValue(''),
   // Added by the per-user read/unread triage work (MessageListItem:116).
   isTriageMessage: vi.fn().mockReturnValue(false),
+  // The From line is the sender's name on cards too (Messages list v4): a plain name, no address.
+  parseSender: (sender: string | null | undefined) => ({ name: sender ?? null, address: '' }),
   // Added by ffb9f3c (URL writers prefer publicId) — mock returns the raw id.
   formatConvId: (msg: { id: number; publicId?: string | null }) =>
     msg.publicId ?? `#${msg.id}`,
