@@ -25,7 +25,12 @@ const ticket = (id: number, status: TicketStatus, owedCount = 0): Ticket => ({
   owedCount,
 });
 
-const rows = [ticket(1, 'resolved', 2), ticket(2, 'open'), ticket(3, 'closed'), ticket(4, 'resolved', 1)];
+const rows = [
+  ticket(1, 'resolved', 2),
+  ticket(2, 'open'),
+  ticket(3, 'closed'),
+  ticket(4, 'resolved', 1),
+];
 
 const setup = (over: Partial<TicketTableProps> = {}) => {
   const props: TicketTableProps = {
@@ -83,9 +88,19 @@ describe('TicketTable', () => {
     expect(props.onFilters).toHaveBeenCalledWith(defaultFilters);
   });
 
+  it('pauses grouping while a search is typed: rows stay in best-match order, none collapsed', () => {
+    setup({ group: true, filters: { ...defaultFilters, search: 'pallet' } });
+    expect(screen.queryAllByRole('button', { name: /^(Open|Resolved|Closed) \d/ })).toEqual([]);
+    // The closed ticket is listed (its group would start collapsed), in the order given.
+    const titles = screen.getAllByText(/^Ticket \d$/).map((cell) => cell.textContent);
+    expect(titles).toEqual(['Ticket 1', 'Ticket 2', 'Ticket 3', 'Ticket 4']);
+  });
+
   it('groups by status in lane order, closed collapsed, with each group’s owed total', () => {
     setup({ group: true });
-    const headers = screen.getAllByRole('button', { name: /^(Open|In progress|Pending|Resolved|Closed) \d/ });
+    const headers = screen.getAllByRole('button', {
+      name: /^(Open|In progress|Pending|Resolved|Closed) \d/,
+    });
     expect(headers.map((head) => head.textContent?.replace(/\d.*$/, '').trim())).toEqual([
       'Open',
       'Resolved',

@@ -14,7 +14,8 @@ import type { Notification } from '@/types/api';
 export type SLABreachNotification = {
   id: number; // notifications.id from DB
   entityId: number; // message.id or ticket.id
-  type: 'message' | 'ticket_first_response' | 'ticket_resolution';
+  // `conversation` / `ticket`: the backend's newer entity types (see the generated API types).
+  type: 'message' | 'conversation' | 'ticket' | 'ticket_first_response' | 'ticket_resolution';
   organizationId: number;
   severity: 'warning' | 'critical';
   breachAmount: number;

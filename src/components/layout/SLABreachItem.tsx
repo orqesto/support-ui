@@ -16,7 +16,10 @@ import { formatBreachAmount } from '@/components/layout/notificationFormat';
 export const typeLabel = (type: SLABreachNotification['type']): string => {
   switch (type) {
     case 'message':
+    case 'conversation':
       return 'Thread SLA';
+    case 'ticket':
+      return 'Ticket SLA';
     case 'ticket_first_response':
       return 'Ticket — First Response';
     case 'ticket_resolution':
@@ -35,7 +38,7 @@ export const SLABreachItem = ({
 }) => {
   const isCritical = notification.severity === 'critical';
   const href =
-    notification.type === 'message'
+    notification.type === 'message' || notification.type === 'conversation'
       ? `/threads/${notification.entityId}`
       : `/tickets/${notification.entityId}`;
   return (

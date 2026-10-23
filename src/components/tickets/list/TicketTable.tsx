@@ -363,38 +363,43 @@ export const TicketTable = (props: TicketTableProps) => {
     rows: tickets.filter((ticket) => ticket.status === status),
   })).filter((section) => section.rows.length > 0);
 
-  const body = group
-    ? groups.map(({ status, rows: sectionRows }) => {
-        const open = !collapsed[status];
-        const owed = sectionRows.reduce((sum, ticket) => sum + (ticket.owedCount ?? 0), 0);
-        return (
-          <div key={status} role="rowgroup">
-            <Button
-              variant="ghost"
-              aria-expanded={open}
-              onClick={() => setCollapsed((prev) => ({ ...prev, [status]: open }))}
-              className={`flex gap-2 justify-start px-3.5 w-full h-9 font-semibold rounded-none text-[12.5px] ${
-                cards ? '' : 'border-t border-border bg-muted/40 first:border-t-0'
-              }`}
-            >
-              <ChevronDown
-                className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${open ? '' : '-rotate-90'}`}
-              />
-              <StatusDot status={status} />{' '}
-              <span className="font-mono font-medium text-muted-foreground">
-                {sectionRows.length}
-              </span>{' '}
-              {owed > 0 && (
-                <Badge size="sm" variant="danger" className="cursor-default">
-                  {owed} owed
-                </Badge>
+  // While a search is typed the list is in best-match order: grouping by status would move the
+  // best match under another status, so it pauses (the toggle keeps its setting).
+  const body =
+    group && !filters.search?.trim()
+      ? groups.map(({ status, rows: sectionRows }) => {
+          const open = !collapsed[status];
+          const owed = sectionRows.reduce((sum, ticket) => sum + (ticket.owedCount ?? 0), 0);
+          return (
+            <div key={status} role="rowgroup">
+              <Button
+                variant="ghost"
+                aria-expanded={open}
+                onClick={() => setCollapsed((prev) => ({ ...prev, [status]: open }))}
+                className={`flex gap-2 justify-start px-3.5 w-full h-9 font-semibold rounded-none text-[12.5px] ${
+                  cards ? '' : 'border-t border-border bg-muted/40 first:border-t-0'
+                }`}
+              >
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${open ? '' : '-rotate-90'}`}
+                />
+                <StatusDot status={status} />{' '}
+                <span className="font-mono font-medium text-muted-foreground">
+                  {sectionRows.length}
+                </span>{' '}
+                {owed > 0 && (
+                  <Badge size="sm" variant="danger" className="cursor-default">
+                    {owed} owed
+                  </Badge>
+                )}
+              </Button>
+              {open && (
+                <div className={cards ? 'grid gap-2' : ''}>{sectionRows.map(renderRow)}</div>
               )}
-            </Button>
-            {open && <div className={cards ? 'grid gap-2' : ''}>{sectionRows.map(renderRow)}</div>}
-          </div>
-        );
-      })
-    : tickets.map(renderRow);
+            </div>
+          );
+        })
+      : tickets.map(renderRow);
 
   // A reload over rows (a new search, a filter) shades the rows only: the caption's sort, density
   // and layout controls and the column headers stay usable.
