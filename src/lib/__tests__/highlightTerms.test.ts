@@ -56,6 +56,27 @@ describe('splitByTerms', () => {
     expect(highlightTermsFor(null)).toEqual([]);
   });
 
+  it('marks the whole typed text as one passage even where its first word would match alone', () => {
+    const anywhere = (text: string, terms: string[]) =>
+      splitByTerms(text, terms, 'anywhere')
+        .filter((part) => part.match)
+        .map((part) => part.text);
+    const reInvoice = highlightTermsFor({ terms: ['re', 'invoice'], asPhrase: false });
+    expect(anywhere('Fwd: re invoice', reInvoice)).toEqual(['re invoice']);
+    expect(
+      marked('hi there, hi', highlightTermsFor({ terms: ['hi', 'there'], asPhrase: false }))
+    ).toEqual(['hi there', 'hi']);
+    const order = highlightTermsFor({ terms: ['order', '123'], asPhrase: false });
+    expect(marked('order 123 shipped', order)).toEqual(['order 123']);
+    expect(anywhere('Re: order 123', order)).toEqual(['order 123']);
+    // In message text a phrase still starts at a word start, like its words.
+    expect(marked('reorder 123', order)).toEqual(['123']);
+  });
+
+  it('marks a short Chinese or Japanese term inside a sentence, as the backend matches it', () => {
+    expect(marked('注文書を送ってください', ['注文'])).toEqual(['注文']);
+  });
+
   it('matches a code or an address anywhere, digits and symbols included', () => {
     expect(marked('Order ORD-44178 shipped', ['4417'])).toEqual(['4417']);
     expect(marked('from anna@shop.example', ['shop.example'])).toEqual(['shop.example']);

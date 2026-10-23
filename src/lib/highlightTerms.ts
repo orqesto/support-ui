@@ -26,34 +26,51 @@ const LETTERS_ONLY = /^[\p{L}\p{M}\s]+$/u;
 const MIN_WORD_TERM_LENGTH = 3;
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const termSource = (term: string): string => escapeRegExp(term).replace(/\s+/g, '\\s+');
+/** The backend's WRITTEN_WITHOUT_SPACES: a short Chinese/Japanese/Thai term is matched anywhere. */
+const WRITTEN_WITHOUT_SPACES =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u;
 const isShortWord = (term: string): boolean =>
-  term.length < MIN_WORD_TERM_LENGTH && /^[\p{L}\p{M}]+$/u.test(term);
+  term.length < MIN_WORD_TERM_LENGTH &&
+  /^[\p{L}\p{M}]+$/u.test(term) &&
+  !WRITTEN_WITHOUT_SPACES.test(term);
 
 /** Built once per (mode, terms) — a list renders several fields per row with the same terms. */
 const patterns = new Map<string, RegExp | null>();
 const PATTERN_CACHE_MAX = 50;
 
 /**
- * Groups: 1 separator + 2 word-start term; 3 separator + 4 short whole word; 5 term anywhere.
+ * Groups: 1 separator + 2 phrase; 3 separator + 4 word-start term; 5 separator + 6 short whole
+ * word; 7 term anywhere. A phrase (a term of several words — the whole typed text) is tried
+ * FIRST: alternatives are tried in order at each position, so a phrase listed after its own first
+ * word (`re invoice` after `re`, `order 123` after `order`) never won there.
  * null when there is nothing to mark, or the pattern cannot be built.
  */
 const patternFor = (mode: HighlightMode, usable: string[]): RegExp | null => {
   const key = `${mode}\u0000${usable.join('\u0001')}`;
   const cached = patterns.get(key);
   if (cached !== undefined) return cached;
+  const phrases = usable.filter((term) => /\s/.test(term));
   const shortWords = usable.filter(isShortWord);
   const atWordStart =
     mode === 'wordStart'
       ? usable.filter(
           (term) =>
-            !isShortWord(term) && term.length >= MIN_WORD_TERM_LENGTH && LETTERS_ONLY.test(term)
+            !phrases.includes(term) &&
+            !isShortWord(term) &&
+            term.length >= MIN_WORD_TERM_LENGTH &&
+            LETTERS_ONLY.test(term)
         )
       : [];
   const anywhere = usable.filter(
-    (term) => !shortWords.includes(term) && !atWordStart.includes(term)
+    (term) => !phrases.includes(term) && !shortWords.includes(term) && !atWordStart.includes(term)
   );
   const NOT_LETTER = '[^\\p{L}\\p{M}]';
   const alternatives = [
+    phrases.length > 0
+      ? // `anywhere` may take the separator too (the trailing empty branch is "none"): a short
+        // word's alternative starts AT its separator, one character before the phrase would.
+        `(^|${NOT_LETTER}${mode === 'anywhere' ? '|' : ''})(${phrases.map(termSource).join('|')})`
+      : '(?!)()()',
     atWordStart.length > 0
       ? `(^|${NOT_LETTER})(${atWordStart.map(termSource).join('|')})`
       : '(?!)()()',
@@ -89,9 +106,16 @@ export const splitByTerms = (
   const parts: HighlightPart[] = [];
   let last = 0;
   for (const hit of text.matchAll(pattern)) {
-    const word = hit[2] ?? hit[4] ?? hit[5] ?? '';
+    const word = hit[2] ?? hit[4] ?? hit[6] ?? hit[7] ?? '';
     if (word.length === 0) continue;
-    const separator = hit[2] !== undefined ? hit[1] : hit[4] !== undefined ? hit[3] : '';
+    const separator =
+      hit[2] !== undefined
+        ? hit[1]
+        : hit[4] !== undefined
+          ? hit[3]
+          : hit[6] !== undefined
+            ? hit[5]
+            : '';
     const start = (hit.index ?? 0) + (separator ?? '').length;
     if (start > last) parts.push({ text: text.slice(last, start), match: false, start: last });
     parts.push({ text: word, match: true, start });

@@ -145,4 +145,15 @@ describe('FilterTokenBar search as you type', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onCommitSearch).toHaveBeenCalledWith('refund');
   });
+
+  it('the Enter that confirms a Japanese or Chinese composition does not search', () => {
+    const { input, type, onCommitSearch } = setup({} as FilterState, false);
+    type('ちゅうもん');
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 });
+    expect(onCommitSearch).not.toHaveBeenCalled();
+    // CONTROL: the next, plain Enter searches.
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onCommitSearch).toHaveBeenCalledTimes(1);
+  });
 });
