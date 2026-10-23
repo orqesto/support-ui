@@ -17,6 +17,18 @@ const NewBadge = ({ count }: { count: number }) => (
 );
 
 /**
+ * Which primary view is lit. Needs us is not counted as a filter (it has no token), so "no
+ * filters" alone would light All beside it — both pills lit on the landing page (#724 regression).
+ */
+export const primaryViewsOn = (
+  filters: { lifecycle?: string; columnId?: string },
+  activeFilterCount: number
+) => {
+  const needsUs = filters.lifecycle === 'needs_us' && (filters.columnId ?? 'all') === 'all';
+  return { needsUs, all: activeFilterCount === 0 && filters.lifecycle !== 'needs_us' };
+};
+
+/**
  * "Needs us" and "All" — the two views that REPLACE the filters (Messages list v4): Needs us is
  * open or in progress, All is everything in the work queue. The saved views after them merge.
  */

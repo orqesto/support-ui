@@ -17,6 +17,7 @@ import {
   TRIAGE_IDS,
   TriageMenu,
   type TriageId,
+  primaryViewsOn,
 } from '@/components/messages/list/ThreadViews';
 import { useNewThreadsBar } from '@/hooks/useNewThreadsBar';
 import { useThreadViewCounts } from '@/hooks/useThreadViewCounts';
@@ -1261,7 +1262,7 @@ export const MessagesPage = () => {
                     leadingViews: (
                       <ThreadPrimaryViews
                         needsUsOn={needsUsOn}
-                        allOn={activeFilterCount === 0}
+                        allOn={primaryViewsOn(filters, activeFilterCount).all}
                         needsUsCount={laneCounts.needs_us}
                         onNeedsUs={() => patchFilters({ ...defaultFilters, lifecycle: 'needs_us' })}
                         onAll={() => void clearFilters()}
