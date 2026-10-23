@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
  * design's two-line form instead. The header and every row use this one grid so they line up.
  */
 export const THREAD_TABLE_GRID =
-  'md:grid-cols-[18px_minmax(140px,180px)_minmax(0,1fr)_110px_96px_64px] xl:grid-cols-[18px_minmax(150px,200px)_minmax(0,1fr)_minmax(0,190px)_110px_96px_64px]';
+  'md:grid-cols-[18px_minmax(140px,180px)_minmax(0,1fr)_110px_96px_76px] xl:grid-cols-[18px_minmax(150px,200px)_minmax(0,1fr)_minmax(0,190px)_110px_96px_76px]';
 
 /** Status colours — the tickets table's dots, with on-hold hollow (the design's `.tst.hollow`). */
 const STATUS_DOT: Record<WorkflowStatus, string> = {
@@ -18,7 +18,10 @@ const STATUS_DOT: Record<WorkflowStatus, string> = {
   resolved: 'bg-success',
 };
 
-/** A thread's work status as a dot and its word; a dash for triage mail, which has none. */
+/**
+ * A thread's work status as a dot and its word; a dash for not-analysed and archived mail, which
+ * has none. Suspicious and spam threads keep theirs — the card shows it, and they sit in the queues.
+ */
 export const ThreadStatusCell = ({ status }: { status: WorkflowStatus | null }) =>
   status ? (
     <span className="inline-flex gap-1.5 items-center text-[12.5px] font-medium whitespace-nowrap">
