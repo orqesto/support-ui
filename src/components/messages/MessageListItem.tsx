@@ -21,7 +21,13 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
-import { getChannelIcon, formatConvId, getConvUrlId, isTriageMessage } from '@/lib/messageHelpers';
+import {
+  getChannelIcon,
+  formatConvId,
+  getConvUrlId,
+  isTriageMessage,
+  parseSender,
+} from '@/lib/messageHelpers';
 import { logger } from '@/lib/logger';
 import { SPAM_LOG_CARD_COPY } from '@/lib/spamLogCardCopy';
 import { Highlight } from '@/components/ui/Highlight';
@@ -300,7 +306,13 @@ export const MessageListItem = ({
           senderClass
         )}
       >
-        <Highlight text={thread.sender} terms={highlightTerms} mode="anywhere" />
+        {/* The table's From column is the name alone (Messages list v4); the card keeps the
+            whole `Name <addr>` line. A bare address is its own name. */}
+        <Highlight
+          text={compact ? (parseSender(thread.sender).name ?? thread.sender) : thread.sender}
+          terms={highlightTerms}
+          mode="anywhere"
+        />
       </p>
       {readToggle}
     </>
@@ -621,7 +633,7 @@ export const MessageListItem = ({
           {signals}
         </div>
         <div className={wide('md:block')}>
-          <ThreadStatusCell status={isTriage ? null : status} />
+          <ThreadStatusCell status={status} />
         </div>
         <div className={cn(wide('md:flex'), 'justify-end')}>
           <RowAssignee thread={thread} />
@@ -644,7 +656,7 @@ export const MessageListItem = ({
           )}
         >
           {msg.priority && <PriorityIcon priority={msg.priority} />}
-          <ThreadStatusCell status={isTriage ? null : status} />
+          <ThreadStatusCell status={status} />
           <span className="flex gap-[5px] min-w-0 overflow-hidden [&>*:nth-child(n+3)]:hidden">
             {signals}
           </span>
