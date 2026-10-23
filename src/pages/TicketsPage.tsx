@@ -5,6 +5,7 @@ import { TicketDeleteDialog, TicketSyncAllDialog } from '@/components/tickets/Ti
 import { TicketsViewToggle } from '@/components/tickets/TicketsViewToggle';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useTicketsUrlSync } from '@/hooks/useTicketsUrlSync';
+import { useSearchBoxText } from '@/components/tickets/list/useSearchBoxText';
 import { useTicketsRealtime } from '@/hooks/useTicketsRealtime';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
@@ -88,7 +89,7 @@ export const TicketsPage = () => {
 
   // Zustand stores
   const filters = useTicketsStore((state) => state.filters);
-  const [pendingSearch, setPendingSearch] = useState(filters.search ?? '');
+  const [pendingSearch, setPendingSearch] = useSearchBoxText(filters.search);
   const sorting = useTicketsStore((state) => state.sorting);
   const setFiltersStore = useTicketsStore((state) => state.setFilters);
   const clearFiltersStore = useTicketsStore((state) => state.clearFilters);
