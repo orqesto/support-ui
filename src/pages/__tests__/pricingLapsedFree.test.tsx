@@ -58,7 +58,7 @@ describe('PricingPage — a lapsed workspace can move itself to Free', () => {
     expect(buttons).toHaveLength(2); // Free and Pro — nothing marked current
     expect(screen.queryByRole('button', { name: 'Current Plan' })).not.toBeInTheDocument();
     fireEvent.click(buttons[0]);
-    expect(await screen.findByText(/Free's limits apply, with AI on your own key \(and a starter allowance of AI on us\)/)).toBeInTheDocument();
+    expect(await screen.findByText(/Free's limits apply, with AI on your own key \(and any starter allowance of AI on us that is left\)/)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: 'Switch to Free' }));
     expect(post).toHaveBeenCalledWith('/api/subscriptions/upgrade', { planName: 'free' });
   });

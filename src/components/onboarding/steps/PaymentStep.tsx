@@ -176,8 +176,9 @@ export const PaymentStep = ({
   if (alreadySubscribed) {
     return (
       <Alert variant="success">
-        A payment method is already on file for this workspace — nothing more to do here. You can
-        review or change it any time from Billing.
+        A payment method is already on file for this workspace — nothing more to do here. To switch
+        plans, use Subscription › Change plan; to change the card, open the billing portal from
+        Subscription.
       </Alert>
     );
   }

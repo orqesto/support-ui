@@ -41,6 +41,7 @@ import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
 import { InviteUserModal } from '@/components/modals/InviteUserModal';
 import { CreateUserModal } from '@/components/modals/CreateUserModal';
 import { UserSkillsModal } from '@/components/modals/UserSkillsModal';
+import { PlanOverLimitNote } from '@/components/subscription/PlanOverLimitNote';
 
 /** Match the console tables' page size so every user/workspace list paginates identically. */
 const PAGE_SIZE = 25;
@@ -586,6 +587,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
                 ? 'Loading...'
                 : `${userTotal ?? users.length} user${(userTotal ?? users.length) !== 1 ? 's' : ''}`}
             </p>
+            <PlanOverLimitNote kind="users" />
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
             <Button

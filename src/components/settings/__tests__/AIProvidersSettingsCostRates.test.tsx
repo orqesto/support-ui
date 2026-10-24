@@ -14,7 +14,9 @@ const rows = [
 ];
 
 vi.mock('@/services/organization.service', () => ({
-  organizationService: { getAiMode: () => Promise.resolve('byo') },
+  organizationService: {
+    getAiModeState: () => Promise.resolve({ resolved: 'byo', stored: 'byo' }),
+  },
 }));
 vi.mock('@/services/onboarding.service', () => ({
   onboardingService: { getStatus: () => Promise.resolve({ managedAiAvailable: false }) },

@@ -205,6 +205,41 @@ export const organizationService = {
   },
 
   /**
+   * The AI mode the workspace RUNS on, and the one it has stored (audit A-F1, 2026-10-23).
+   *
+   * A workspace with no stored choice is resolved by the backend (a verified, key-less Free or
+   * Starter workspace runs on our AI), so `settings.aiMode` alone read "own keys" for every such
+   * workspace while it ran on ours. The resolved mode is `/api/ai/providers` → `platform.active`
+   * (BE `describePlatformAI`, the same resolver the AI calls use).
+   *
+   * - `resolved`: 'managed' when `platform.active` is true, or the stored choice is 'managed';
+   *   otherwise 'byo'. An older backend without `platform` (or a failed read) falls back to the
+   *   stored choice, read closed as `getAiMode` does.
+   * - `stored`: the literal stored choice, or undefined when nothing (or something unknown) is
+   *   stored — then a click on "Bring your own keys" must still write it.
+   */
+  getAiModeState: async (): Promise<{
+    resolved: 'byo' | 'managed';
+    stored: 'byo' | 'managed' | undefined;
+  }> => {
+    const org = await organizationService.getCurrent();
+    const raw = ((org.settings ?? {}) as { aiMode?: unknown }).aiMode;
+    const stored = raw === 'managed' || raw === 'byo' ? raw : undefined;
+    let platformActive: boolean | undefined;
+    try {
+      const response = await apiClient.get<{ data?: { platform?: { active?: unknown } } }>(
+        '/api/ai/providers'
+      );
+      const active = response.data?.data?.platform?.active;
+      platformActive = typeof active === 'boolean' ? active : undefined;
+    } catch {
+      platformActive = undefined;
+    }
+    const resolved = platformActive === true || stored === 'managed' ? 'managed' : 'byo';
+    return { resolved, stored };
+  },
+
+  /**
    * Tenant-facing AI-mode switch (org_admin). Switching to BYO is always allowed; switching to
    * MANAGED is platform spend, so the BE requires the org to be entitled AND have a
    * verified-email admin — otherwise it returns 403 and the thrown error carries a `code` on

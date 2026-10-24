@@ -122,8 +122,10 @@ export const normalizeUsage = (usage: OrgUsage): OrgUsage => {
     kbPaused: _kbPaused,
     kbMessage: _kbMessage,
     unavailableReason: _reason,
+    starterOnOurKey: _onOurKey,
     ...ai
   } = usage.ai;
+  const onOurKey = (usage.ai as { starterOnOurKey?: unknown }).starterOnOurKey;
   const starterAllowance = parseStarterAllowance(usage.ai);
   const kbStarterAllowance = parseKbStarterAllowance(usage.ai);
   const unavailableReason = parseUnavailableReason(usage.ai);
@@ -141,6 +143,7 @@ export const normalizeUsage = (usage: OrgUsage): OrgUsage => {
           }
         : {}),
       ...(unavailableReason ? { unavailableReason } : {}),
+      ...(typeof onOurKey === 'boolean' ? { starterOnOurKey: onOurKey } : {}),
     },
   };
 };
@@ -363,7 +366,24 @@ const setActiveWithinPlan = (keep: KeepChoice) =>
     .put<{ success: boolean; data: unknown }>('/api/subscriptions/plan-fit/active', keep)
     .then((res) => res.data.data);
 
+/**
+ * The workspace's plan name (`/api/subscriptions/current` → `plan.name`), or undefined when it
+ * cannot be read (no subscription, a failed call, an unexpected shape). Never throws.
+ */
+const getPlanName = async (): Promise<string | undefined> => {
+  try {
+    const res = await apiClient.get<{ data?: { plan?: { name?: unknown } } }>(
+      '/api/subscriptions/current'
+    );
+    const name = res.data?.data?.plan?.name;
+    return typeof name === 'string' ? name : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 export const subscriptionService = {
+  getPlanName,
   getPlanFit,
   setActiveWithinPlan,
   getFeatures,

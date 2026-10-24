@@ -57,7 +57,10 @@ import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import { showRouteLearningNote } from '@/lib/routingCopy';
-import { isAiNotConfiguredError, AI_NOT_CONFIGURED_MESSAGE } from '@/lib/errorMessages';
+import {
+  useAiRefusalText,
+  useIsWorkspaceAdmin,
+} from '@/components/subscription/useAiRefusalText';
 import {
   LABEL,
   CHIP_SENTENCE,
@@ -234,6 +237,9 @@ export function MessageDetailHeader({
   // Phones get the header's icon actions (refresh, read toggle) in More (v4 mobile).
   const isPhone = useIsPhone();
   const { aiConfigured } = useAiConfigured();
+  // Agents cannot connect a provider: with no AI they get no dead AI item (audit B3).
+  const isWorkspaceAdmin = useIsWorkspaceAdmin();
+  const refusalText = useAiRefusalText();
   const orgCode = useCurrentOrgCode();
   const { data: allDepts = [] } = useDepartments();
   const queryClient = useQueryClient();
@@ -865,16 +871,13 @@ export function MessageDetailHeader({
     } catch (err) {
       logger.error('Failed to check contradiction:', err);
       toast.error(
-        isAiNotConfiguredError(err)
-          ? AI_NOT_CONFIGURED_MESSAGE
-          : err instanceof Error
-            ? err.message
-            : 'Failed to check for contradictions.'
+        refusalText(err) ??
+          (err instanceof Error ? err.message : 'Failed to check for contradictions.')
       );
     } finally {
       setCheckingContradiction(false);
     }
-  }, [message.id, onRefresh]);
+  }, [message.id, onRefresh, refusalText]);
 
   const handleManualRoute = useCallback(
     // Every route is learning evidence on the backend (spec 2026-10-14, D3) — no "+ rule" variant.
@@ -994,7 +997,8 @@ export function MessageDetailHeader({
         setMoreOpen(false);
       },
     },
-    message.externalThreadId && {
+    message.externalThreadId &&
+      (aiConfigured || isWorkspaceAdmin) && {
       label: checkingContradiction ? 'Checking…' : 'Check contradiction',
       icon: <AlertTriangle className="w-3 h-3" />,
       disabled: !aiConfigured,

@@ -16,6 +16,7 @@ import { languageName as languageNameOf } from '@/lib/languageName';
 import { stripGreetingName } from '@/lib/depersonalise';
 import { priorityLabel } from './messageDetailConstants';
 import { AnalysisDegradedHint, analysisInfoValue } from './AnalysisDegradedHint';
+import { useIsWorkspaceAdmin } from '@/components/subscription/useAiRefusalText';
 
 type Analysis = {
   isTicketWorthy?: boolean;
@@ -235,6 +236,7 @@ export function AiTabPanel({
   const suggestedAnswer = aiDraftsKnown && !aiDraftsOff ? storedSuggestion : undefined;
   const autoReply = message.metadata?.autoReply as AutoReply | undefined;
   const { aiConfigured } = useAiConfigured();
+  const isWorkspaceAdmin = useIsWorkspaceAdmin();
 
   const [similarResults, setSimilarResults] = useState<SimilarResult[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(true);
@@ -494,9 +496,10 @@ export function AiTabPanel({
           </div>
 
           {!aiConfigured && !aiDraftsOff && (
-            <p className="text-[10.5px] leading-snug text-warning">
-              Connect an AI provider in Settings to get suggested replies — showing similar messages
-              instead.
+            <p className="text-[10.5px] leading-snug text-warning" data-testid="ai-off-note">
+              {isWorkspaceAdmin
+                ? 'Connect an AI provider in Settings to get suggested replies — showing similar messages instead.'
+                : 'AI is off for this workspace, so there are no suggested replies — showing similar messages instead. Ask a workspace admin to turn AI on.'}
             </p>
           )}
 

@@ -1,6 +1,6 @@
 import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from './config';
-import { withFailedFields } from '@/lib/errorMessages';
+import { isPlanLimitBody, withFailedFields } from '@/lib/errorMessages';
 import { rateLimitRetryAfterMs } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
 import {
@@ -384,7 +384,8 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
     // Nor is an AI refusal (AI_REFUSAL_CODES: a used-up Free starter allowance, not in plan, budget
     // paused, …): AI pauses only — mail and agents keep working, so the whole app must not lock
     // behind "your subscription is not active".
-    if (!data?.code || !NOT_A_SUBSCRIPTION_GATE.has(data.code)) {
+    // Nor is a plan-limit refusal (a team, user or channel above the plan): the workspace works.
+    if ((!data?.code || !NOT_A_SUBSCRIPTION_GATE.has(data.code)) && !isPlanLimitBody(data)) {
       useSubscriptionGateStore
         .getState()
         .setGated(data?.error ?? data?.message ?? 'Your subscription is not active.', {

@@ -8,6 +8,8 @@ import {
   isBusy,
   STATUS_BADGE,
   STATUS_LABEL,
+  ZENDESK_AS_THREADS,
+  anotherRunBusyText,
 } from './zendeskImportSummary';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -175,7 +177,11 @@ export const ZendeskImportSettings = () => {
     } catch (error) {
       // 409 = the step cannot start yet (the previous one is still stopping, or the run moved
       // on). The run stays as it is and the admin tries again — a notice, not a failure.
-      if (apiErrorStatus(error) === 409) toast.warning(apiErrorMessage(error, failure));
+      // One writer per workspace: another import writing gets our sentence.
+      if (apiErrorStatus(error) === 409)
+        toast.warning(
+          anotherRunBusyText(apiErrorMessage(error, failure)) ?? apiErrorMessage(error, failure)
+        );
       else toast.error(apiErrorMessage(error, failure));
     }
   };
@@ -215,6 +221,9 @@ export const ZendeskImportSettings = () => {
             Account → Tools → Reports → Export; a CSV export has no conversations). You see what
             will happen before anything is written, and importing the same account again only adds
             what is new. No emails or notifications are sent.
+          </p>
+          <p className="text-muted-foreground" data-testid="zendesk-imported-as-threads">
+            {ZENDESK_AS_THREADS}
           </p>
           {canStartNew && !upload && (
             <>

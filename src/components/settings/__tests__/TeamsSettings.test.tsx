@@ -131,14 +131,16 @@ describe('TeamsSettings — teams on', () => {
     expect(svc.create).not.toHaveBeenCalled();
   });
 
-  it('a plan limit refusal (403) is shown exactly as the backend wrote it', async () => {
+  it("a plan limit refusal (403) keeps the backend's sentence and says existing teams keep working", async () => {
     svc.reactivate.mockRejectedValue(
       refused(403, 'Your plan includes one team. Upgrade to add another.', 'PLAN_TEAM_LIMIT')
     );
     renderPage();
     fireEvent.click(await screen.findByRole('switch', { name: 'Sales team on or off' }));
     expect(
-      await screen.findByText('Your plan includes one team. Upgrade to add another.')
+      await screen.findByText(
+        'Your plan includes one team. Upgrade to add another. Your existing teams keep working.'
+      )
     ).toBeTruthy();
     expect(svc.reactivate).toHaveBeenCalledWith(3);
   });

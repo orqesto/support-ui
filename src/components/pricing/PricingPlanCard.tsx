@@ -64,6 +64,19 @@ export const planHasManagedAi = (plan: {
   return typeof flag === 'boolean' ? flag : plan.name !== 'free';
 };
 
+/**
+ * Whose AI analyses the history import. Free (audit A-F12): the one-time knowledge-base allowance on
+ * us first, then the workspace's own key. No amount is named: the in-app money is the API's (USD,
+ * configurable per platform), so a fixed "€1" here would disagree with the allowance line.
+ */
+export const historyImportAiNote = (plan: { name: string }, managed: boolean): string => {
+  if (managed) return "(uses the plan's AI allowance)";
+  if (plan.name === 'free') {
+    return '(analysed with the free knowledge-base allowance of AI on us first, then your own AI key)';
+  }
+  return '(runs on your own AI key)';
+};
+
 function PlanAiLines({ plan }: { plan: Plan }) {
   const managed = planHasManagedAi(plan);
   const days = plan.limits.maxHistoryDays;
@@ -80,7 +93,7 @@ function PlanAiLines({ plan }: { plan: Plan }) {
               <strong>{days.toLocaleString()} days</strong> of history import
             </>
           )}{' '}
-          {managed ? "(uses the plan's AI allowance)" : '(runs on your own AI key)'}
+          {historyImportAiNote(plan, managed)}
         </p>
       ) : null}
     </>

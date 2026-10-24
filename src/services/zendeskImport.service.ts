@@ -58,6 +58,12 @@ export type ZendeskReport = {
   attachments?: {
     counts: ZendeskCounts;
     failures: Array<{ ticketId: number; attachmentId: number; error: string }>;
+    /**
+     * Copying stopped before the end (newer backend): the plan's storage is full, the step was
+     * stopped (platform pause, time budget) or failed. Absent ⇒ it finished.
+     */
+    stoppedReason?: 'storage_full' | 'stopped' | 'failed';
+    stoppedMessage?: string;
   };
 };
 

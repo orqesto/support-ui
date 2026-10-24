@@ -1,5 +1,10 @@
 import { fmtMoney } from '@/components/budget/budget.rules';
-import { getErrorBody } from '@/lib/errorMessages';
+import {
+  aiNotConfiguredText,
+  getErrorBody,
+  isAiNotConfiguredError,
+  rateLimitedText,
+} from '@/lib/errorMessages';
 
 /*
  * Free AI starter allowance (owner decision 2026-10-22): a one-time allowance on our AI key for a
@@ -41,6 +46,11 @@ export type StarterAllowance = {
   exhausted: boolean;
   /** Money one message carries (micros); absent ⇒ the line shows a percentage. */
   microsPerMessage?: number;
+  /**
+   * The money-free shape a non-admin receives (audit A-F16: micros null, `usedPercent` 0–100).
+   * The micros then hold PERCENT (total 100), never money: the lines show a percentage only.
+   */
+  moneyFree?: boolean;
 };
 
 /** The refusal code of an AI call made after the allowance is used up. */
@@ -79,6 +89,13 @@ export const AI_KEY_SETTINGS_PATH = '/settings#integrations/ai-providers';
 /** The Free plan's AI line on in-app plan cards and the switch-to-Free dialog. */
 export const FREE_PLAN_AI_LINE = 'Your own AI key, with a starter allowance of AI on us';
 
+/**
+ * The switch-to-Free confirmation. The starter allowance is one-time: a workspace that used it does
+ * not get a new one, hence "any … left" (audit A-F13).
+ */
+export const FREE_SWITCH_DESCRIPTION =
+  "Switch this workspace to the Free plan? Free's limits apply, with AI on your own key (and any starter allowance of AI on us that is left). This change takes effect immediately.";
+
 export const STARTER_USED_ADMIN_TEXT =
   'Your free AI allowance is used — add your own AI key to keep AI running.';
 export const STARTER_USED_AGENT_TEXT =
@@ -89,11 +106,12 @@ export const KB_USED_ADMIN_TEXT =
 export const KB_USED_AGENT_TEXT =
   'The free AI allowance for the knowledge base and history import is used. AI for new mail keeps running. Ask your admin to add your own AI key.';
 
-/** Why a Free workspace has no AI at all (`ai.unavailableReason`). */
+/** Why a workspace has no AI at all (`ai.unavailableReason`; Free, and paid plans since decision 2). */
 export type AiUnavailableReason = 'admin_not_verified' | 'own_key_required';
 
+// Paid plans too (owner decision 2, 2026-10-23): no allowance is named, it reads on any plan.
 export const ADMIN_NOT_VERIFIED_ADMIN_TEXT =
-  'Verify your email address to use the free AI allowance — or add your own AI key.';
+  'Verify your email address to turn on our AI for this workspace — or add your own AI key.';
 export const ADMIN_NOT_VERIFIED_AGENT_TEXT =
   'AI is off until a workspace admin verifies their email address or adds an AI key.';
 export const OWN_KEY_REQUIRED_ADMIN_TEXT = 'Add your own AI key to use AI.';
@@ -136,6 +154,18 @@ const parseAllowanceBlock = (
   if (!block || typeof block !== 'object') return undefined;
   const raw = block as Record<string, unknown>;
   const { totalMicros, usedMicros, remainingMicros } = raw;
+  // A non-admin's block: no amounts, the share used in percent. Kept as an allowance in percent
+  // (total 100) so "where AI runs" and the percentage line still work.
+  if (totalMicros === null && isCount(raw.usedPercent)) {
+    const used = Math.min(100, raw.usedPercent);
+    return {
+      totalMicros: 100,
+      usedMicros: used,
+      remainingMicros: 100 - used,
+      exhausted: typeof raw.exhausted === 'boolean' ? raw.exhausted : used >= 100,
+      moneyFree: true,
+    };
+  }
   if (!isCount(totalMicros) || totalMicros <= 0) return undefined;
   if (!isCount(usedMicros) || !isCount(remainingMicros)) return undefined;
   return {
@@ -160,6 +190,8 @@ export const parseStarterAllowance = (ai: unknown): StarterAllowance | undefined
   const block = (ai as { starterAllowance?: unknown }).starterAllowance;
   const parsed = parseAllowanceBlock(block);
   if (!parsed) return undefined;
+  // Percent only: no messages figure can be derived from it.
+  if (parsed.moneyFree) return parsed;
   const raw = block as Record<string, unknown>;
   const { totalMicros } = parsed;
   const sent = raw.microsPerMessage ?? (ai as { microsPerMessage?: unknown }).microsPerMessage;
@@ -173,7 +205,7 @@ export const parseStarterAllowance = (ai: unknown): StarterAllowance | undefined
  * read the money. Without microsPerMessage: "about 63% left".
  */
 export const starterAllowanceLine = (allowance: StarterAllowance, isAdmin: boolean): string => {
-  const money = isAdmin
+  const money = isAdmin && !allowance.moneyFree
     ? ` (${fmtMoney(allowance.exhausted ? 0 : allowance.remainingMicros)} of ${fmtMoney(allowance.totalMicros).replace(/^≈ /, '')} left)`
     : '';
   if (allowance.exhausted || allowance.remainingMicros <= 0) {
@@ -197,7 +229,7 @@ export const starterAllowanceLine = (allowance: StarterAllowance, isAdmin: boole
  * "Knowledge base and history import allowance: about 63% left." Admins also read the money.
  */
 export const kbAllowanceLine = (allowance: StarterAllowance, isAdmin: boolean): string => {
-  const money = isAdmin
+  const money = isAdmin && !allowance.moneyFree
     ? ` (${fmtMoney(allowance.exhausted ? 0 : allowance.remainingMicros)} of ${fmtMoney(allowance.totalMicros).replace(/^≈ /, '')} left)`
     : '';
   const label = 'AI allowance for the knowledge base and history import';
@@ -223,6 +255,11 @@ export const isFreeAiAllowanceUsedError = (err: unknown): boolean =>
  * the caller keeps its own handling.
  */
 export const aiRefusalText = (err: unknown, isAdmin: boolean): string | undefined => {
+  // No provider at all (AI_NOT_CONFIGURED / AI_PROVIDER_NOT_CONFIGURED): admins are sent to
+  // Settings, agents to an admin (audit B3/B9). Too many requests: our words, with the wait.
+  if (isAiNotConfiguredError(err)) return aiNotConfiguredText(isAdmin);
+  const limited = rateLimitedText(err);
+  if (limited) return limited;
   const body = getErrorBody(err) as
     | { code?: unknown; error?: unknown; message?: unknown }
     | undefined;

@@ -30,15 +30,21 @@ export type UsageRow = {
  * refuses work, so the row keeps its limit and overage. Once applied, AI calls are a statistic
  * only: no included, no overage, no percentage. Own AI key: the call allowance belongs to the
  * platform key, so there is nothing to measure those calls against in either state.
+ *
+ * `aiIncluded` is the Subscription page's AI-source rule (`aiSourceFrom(...) === 'included'`): the
+ * messages row says "AI included" only then — never on Free, own key, no AI or an unknown plan.
  */
-export const usageRowsFrom = (raw: RawUsage | undefined, budgetsActive = false): UsageRow[] => {
+export const usageRowsFrom = (
+  raw: RawUsage | undefined,
+  budgetsActive = false,
+  aiIncluded = false
+): UsageRow[] => {
   const ownKey = raw?.aiCalls?.appliesToThisWorkspace === false;
   const aiCurrent = raw?.aiCalls?.current ?? 0;
   const capApplies = !budgetsActive && !ownKey;
   const aiLimit = capApplies ? (raw?.aiCalls?.limit ?? 0) : 0;
   const msgCurrent = raw?.messages?.current ?? 0;
   const msgLimit = raw?.messages?.limit ?? 0;
-  const aiIncluded = budgetsActive && !ownKey;
   let aiName = 'AI Calls';
   if (budgetsActive) {
     aiName = ownKey ? 'AI calls (your own AI key; a count, no limit)' : 'AI calls (a count, no limit)';

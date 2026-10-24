@@ -11,7 +11,33 @@ import { StatusText } from '@/components/budget/StatusText';
 import { extraEndsText, fmtMoney } from '@/components/budget/budget.rules';
 import { useMyAiUsage, useRequestMyExtra, useUpdateMyBudget } from '@/hooks/useBudgets';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
-import type { WorkspaceBudgetUpdate } from '@/services/budgets.service';
+import type { FreeAllowanceView, WorkspaceBudgetUpdate } from '@/services/budgets.service';
+import { kbAllowanceLine, starterAllowanceLine } from '@/components/subscription/starterAllowance';
+
+/**
+ * A Free workspace's allowances (release audit D-L1): what is left, and whether AI stopped — so a
+ * paused Free workspace never reads as "own key, OK". Admin-only page: money is shown.
+ */
+export const FreeAllowanceLines = ({ view }: { view: FreeAllowanceView | undefined }) => {
+  if (!view) return null;
+  return (
+    <div className="flex flex-col gap-1 text-sm" data-testid="free-allowance">
+      {view.paused && (
+        <p className="font-medium text-destructive" data-testid="free-allowance-paused">
+          AI is paused: the free AI allowance for new mail is used. Add your own AI key or upgrade.
+        </p>
+      )}
+      {view.kbPaused && (
+        <p className="text-warning" data-testid="free-allowance-kb-paused">
+          The free AI allowance for the knowledge base and history import is used. AI for new mail
+          keeps running.
+        </p>
+      )}
+      <p className="text-muted-foreground">{starterAllowanceLine(view.live, true)}</p>
+      <p className="text-muted-foreground">{kbAllowanceLine(view.kb, true)}</p>
+    </div>
+  );
+};
 
 const NOT_ON = 'Budgets are not switched on yet.';
 
@@ -34,8 +60,18 @@ export const WorkspaceAiUsage = () => {
     usageQuery.error && [404, 409].includes(getErrorStatus(usageQuery.error) ?? 0);
 
   if (usageQuery.isLoading) return <ConsoleLoading />;
-  if (unavailable || (data && !data.active))
-    return <p className="text-sm text-muted-foreground">{NOT_ON}</p>;
+  if (unavailable) return <p className="text-sm text-muted-foreground">{NOT_ON}</p>;
+  if (data && !data.active)
+    return (
+      <div className="flex flex-col gap-3">
+        {/* Newer backend: the plan's line and the Free allowances before any budget (D-L1). */}
+        {data.status && (
+          <StatusText tone={data.status.tone} text={data.status.text} testId="my-status" />
+        )}
+        <FreeAllowanceLines view={data.freeAllowance} />
+        <p className="text-sm text-muted-foreground">{NOT_ON}</p>
+      </div>
+    );
   if (usageQuery.error || !data)
     return (
       <Alert variant="danger">
@@ -137,6 +173,7 @@ export const WorkspaceAiUsage = () => {
             </div>
           </div>
           <StatusText tone={data.status.tone} text={data.status.text} testId="my-status" />
+          <FreeAllowanceLines view={data.freeAllowance} />
           {data.bulkPaused && (
             <p className="text-sm text-muted-foreground" data-testid="bulk-paused-hint">
               Bulk work (knowledge base, imports, re-mines) is paused for this workspace. Live mail

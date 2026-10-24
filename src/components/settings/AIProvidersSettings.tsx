@@ -4,8 +4,9 @@ import {
   AiProviderModeSwitch,
   modeSwitchErrorText,
 } from '@/components/settings/AiProviderModeSwitch';
-import { loadAiStatus } from '@/components/subscription/aiStatus';
-import type { StarterAllowance } from '@/components/subscription/starterAllowance';
+import { loadAiStatus, type AiStatus } from '@/components/subscription/aiStatus';
+import { AiUnavailableNotice } from '@/components/subscription/AiUnavailableNotice';
+import { FREE_AI_ALLOWANCE_USED } from '@/components/subscription/starterAllowance';
 import { AIProviderHealthCheck } from '@/components/settings/AIProviderHealthCheck';
 import { AckReplyPerSourceList } from '@/components/settings/AckReplyPerSourceList';
 import { AINoProviderBanner } from '@/components/settings/AINoProviderBanner';
@@ -24,6 +25,7 @@ import { Button } from '@/components/ui/Button';
 import { aiService } from '@/services/ai.service';
 import { onboardingService } from '@/services/onboarding.service';
 import { organizationService } from '@/services/organization.service';
+import { subscriptionService } from '@/services/subscription.service';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { isAIProviderType, type AIModel, type AIProvider } from '@/types/aiProviders';
 import { logger } from '@/lib/logger';
@@ -47,11 +49,19 @@ export const AIProvidersSettings = ({
   const [showModels, setShowModels] = useState<Record<string, boolean>>({});
 
   // AI-mode switch (org_admin, Settings only — omitted in the onboarding wizard, which has
-  // its own intent-based AiChoiceStep). Reflects the org's live settings.aiMode.
+  // its own intent-based AiChoiceStep). Reflects the mode the workspace RUNS on (audit A-F1): an
+  // unset choice is resolved by the backend, often to our AI.
   const [aiMode, setAiMode] = useState<'byo' | 'managed'>('byo');
+  // The stored choice; undefined = none stored (then "Bring your own keys" still writes one).
+  const [storedMode, setStoredMode] = useState<'byo' | 'managed' | undefined>(undefined);
   const [managedAvailable, setManagedAvailable] = useState(false);
-  // Free only: the starter allowance decides whether "Use our AI" can be switched on.
-  const [starter, setStarter] = useState<StarterAllowance | undefined>(undefined);
+  // `ai` of /api/usage/current: the Free starter allowance decides whether "Use our AI" can be
+  // switched on; `unavailableReason` says why no AI runs (verify email, own key).
+  const [aiStatus, setAiStatus] = useState<AiStatus | undefined>(undefined);
+  const starter = aiStatus?.starterAllowance;
+  // The mode switch was refused with FREE_AI_ALLOWANCE_USED: the card says so from then on.
+  const [allowanceRefused, setAllowanceRefused] = useState(false);
+  const [isFree, setIsFree] = useState(false);
   const [modeSaving, setModeSaving] = useState(false);
 
   const [openaiModels, setOpenaiModels] = useState<AIModel[]>([]);
@@ -82,14 +92,16 @@ export const AIProvidersSettings = ({
 
   useEffect(() => {
     if (!showModeSwitch) return;
-    Promise.all([organizationService.getAiMode(), onboardingService.getStatus()])
+    Promise.all([organizationService.getAiModeState(), onboardingService.getStatus()])
       .then(([mode, status]) => {
-        setAiMode(mode);
+        setAiMode(mode.resolved);
+        setStoredMode(mode.stored);
         setManagedAvailable(status.managedAiAvailable ?? false);
       })
       .catch((error) => logger.error('Failed to load AI mode:', error));
-    // Its own try (loadAiStatus never throws): an older backend or a failure leaves it unknown.
-    void loadAiStatus().then((ai) => setStarter(ai?.starterAllowance));
+    // Their own tries (neither throws): an older backend or a failure leaves them unknown.
+    void loadAiStatus().then(setAiStatus);
+    void subscriptionService.getPlanName().then((name) => setIsFree(name === 'free'));
   }, [showModeSwitch]);
 
   const handleProviderDisabled = useCallback((data: unknown) => {
@@ -150,11 +162,15 @@ export const AIProvidersSettings = ({
   };
 
   const handleSelectMode = async (next: 'byo' | 'managed') => {
-    if (next === aiMode || modeSaving) return;
+    // Nothing stored yet: "Bring your own keys" is written even when it is what runs now, so a
+    // later email verification does not move the workspace onto our AI (audit A-F1).
+    const pinUnsetByo = next === 'byo' && storedMode === undefined;
+    if ((next === aiMode && !pinUnsetByo) || modeSaving) return;
     setModeSaving(true);
     try {
       await organizationService.setAiModeSelf(next);
       setAiMode(next);
+      setStoredMode(next);
       setAlertDialog({
         open: true,
         title: next === 'managed' ? 'Managed AI enabled' : 'Your own provider enabled',
@@ -168,6 +184,10 @@ export const AIProvidersSettings = ({
       // apiClient rejects with an Error carrying `.data` (the 403 body incl. `code`).
       const err = error as { data?: { code?: string; message?: string }; message?: string };
       const code = err.data?.code;
+      if (code === FREE_AI_ALLOWANCE_USED) {
+        setAllowanceRefused(true);
+        void loadAiStatus().then(setAiStatus);
+      }
       const description = modeSwitchErrorText(code, err.data?.message ?? err.message);
       setAlertDialog({ open: true, title: 'Could not switch AI mode', description, variant: 'error' });
     } finally {
@@ -411,8 +431,13 @@ export const AIProvidersSettings = ({
           saving={modeSaving}
           onSelect={handleSelectMode}
           starter={starter}
+          isFree={isFree}
+          allowanceUsed={allowanceRefused}
         />
       )}
+
+      {/* Why no AI runs (verify your email — with Resend — or add a key), on any plan. */}
+      {showModeSwitch && <AiUnavailableNotice ai={aiStatus} isAdmin />}
 
       {isManaged && (
         <>

@@ -92,7 +92,7 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
         ]
       : []),
     ...(canImport
-      ? [{ id: 'import' as ServiceSection, label: 'Import', description: 'Move your tickets over from Zendesk' }]
+      ? [{ id: 'import' as ServiceSection, label: 'Import', description: 'Move your Zendesk tickets over as threads' }]
       : []),
   ];
 

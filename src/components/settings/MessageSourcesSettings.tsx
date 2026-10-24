@@ -10,6 +10,7 @@ import { useGmailOAuthAvailability } from '@/hooks/useGmailOAuthAvailability';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
+import { PlanOverLimitNote } from '@/components/subscription/PlanOverLimitNote';
 
 export const MessageSourcesSettings = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
@@ -82,6 +83,7 @@ export const MessageSourcesSettings = () => {
             channel can also be mined for Knowledge Base content — enable that on the
             channel itself.
           </p>
+          <PlanOverLimitNote kind="mailboxes" />
         </div>
 
         <EmailIntegrationCard

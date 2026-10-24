@@ -119,4 +119,15 @@ describe('Usage Stats: starter allowance line', () => {
     await show();
     expect(screen.queryByTestId('starter-allowance-line')).not.toBeInTheDocument();
   });
+
+  it('money (overage cost) is for admins only (audit A-F16)', async () => {
+    ai = aiBlock(null);
+    await show();
+    await waitFor(() => expect(screen.getByText('Total Used')).toBeInTheDocument());
+    expect(screen.queryByTestId('usage-overage-cost')).not.toBeInTheDocument();
+    cleanup();
+    viewer = { role: 'user', organizationRole: 'org_admin' };
+    await show();
+    expect(await screen.findByTestId('usage-overage-cost')).toBeInTheDocument();
+  });
 });

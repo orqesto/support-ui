@@ -15,7 +15,13 @@ import { AIProvidersSettings } from '../AIProvidersSettings';
 const getAiMode = vi.fn();
 
 vi.mock('@/services/organization.service', () => ({
-  organizationService: { getAiMode: () => getAiMode() as unknown },
+  organizationService: {
+    // The page reads the RESOLVED mode (audit A-F1); the stored one is the same here.
+    getAiModeState: async () => {
+      const mode = (await getAiMode()) as string;
+      return { resolved: mode, stored: mode };
+    },
+  },
 }));
 vi.mock('@/services/onboarding.service', () => ({
   onboardingService: { getStatus: () => Promise.resolve({ managedAiAvailable: true }) },

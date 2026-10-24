@@ -104,3 +104,46 @@ export const exportFileProblem = (file: { name: string; size: number }): string 
   if (file.size === 0) return 'The file is empty.';
   return null;
 };
+
+/**
+ * Where imported Zendesk tickets land (owner decision 5, 2026-10-23): each becomes a THREAD — in the
+ * threads list, not under Tickets.
+ */
+export const ZENDESK_AS_THREADS =
+  'Each Zendesk ticket is imported as a thread: you find them in the threads list, not under Tickets.';
+
+/** What a stopped attachments copy says (BE `report.attachments.stoppedReason`). */
+export const attachmentsStoppedText = (
+  reason: 'storage_full' | 'stopped' | 'failed' | undefined,
+  message?: string
+): string | undefined => {
+  const again = 'Copy attachments again to continue: files already copied are skipped.';
+  switch (reason) {
+    case 'storage_full':
+      return `Copying attachments stopped: the workspace's storage is full. Free some room or upgrade your plan, then ${again.charAt(0).toLowerCase()}${again.slice(1)}`;
+    case 'stopped':
+      return `Copying attachments stopped before it finished${message ? ` (${message})` : ''}. ${again}`;
+    case 'failed':
+      return `Copying attachments failed before it finished${message ? ` (${message})` : ''}. ${again}`;
+    default:
+      return undefined;
+  }
+};
+
+/**
+ * "Copy attachments" can start (again) after an Apply finished on the run — also once that copy
+ * failed or was stopped (a full quota, a deploy, the time budget). A report is written only by
+ * Apply and Attachments, so a failed or cancelled run WITH a report had an Apply finish.
+ */
+export const canCopyAttachments = (run: { status: string; report: unknown }): boolean =>
+  run.status === 'applied' ||
+  ((run.status === 'failed' || run.status === 'cancelled') && run.report !== null);
+
+/**
+ * A step refused because another import of the workspace is writing (BE: one writer per
+ * workspace, 409 with no code — matched by its sentence). undefined for anything else.
+ */
+export const anotherRunBusyText = (message: string | undefined): string | undefined =>
+  message && /another zendesk import of this workspace is running/i.test(message)
+    ? 'Another Zendesk import of this workspace is writing right now. Wait for it to finish, or stop it, then start this step again.'
+    : undefined;
