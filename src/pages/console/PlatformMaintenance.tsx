@@ -343,6 +343,25 @@ type LostAttachmentsResult = {
   unrecoverable?: { events?: number; parts?: number };
   truncated?: boolean;
   applied?: boolean;
+  /**
+   * Parts given up after their attempts, put back for another try (BE fix/low-imports-inbox): on a
+   * check, how many would be. Absent on an older backend.
+   */
+  rearm?: { events?: number; parts?: number; truncated?: boolean };
+};
+
+/** "N given-up attachments re-armed for another try" — null when there is nothing to say. */
+const rearmLine = (
+  rearm: LostAttachmentsResult['rearm'],
+  applied: boolean | undefined
+): string | null => {
+  if (!rearm || typeof rearm.parts !== 'number') return null;
+  if (rearm.parts === 0 && rearm.truncated !== true) return null;
+  const noun = `${plural(rearm.parts, 'given-up attachment')}`;
+  const verb = applied
+    ? `${rearm.parts === 1 ? 'was' : 'were'} re-armed for another try`
+    : 'can be re-armed for another try';
+  return `${noun} ${verb}${rearm.truncated === true ? ' (more left: run again)' : ''}.`;
 };
 
 /** The lost-attachments repair, in plain words (no backend keys). */
@@ -381,6 +400,9 @@ const LostAttachmentsView = ({ title, result }: { title: string; result: RepairR
           {plural(gone.parts ?? 0, 'attachment')} in {plural(gone.events ?? 0, 'message')}{' '}
           can&rsquo;t be fetched again because those messages aren&rsquo;t linked to a mailbox.
         </p>
+      )}
+      {rearmLine(data.rearm, data.applied) && (
+        <p data-testid="rearm">{rearmLine(data.rearm, data.applied)}</p>
       )}
       {data.truncated === true && (
         <p className="text-warning">More messages remain — check the next batch.</p>

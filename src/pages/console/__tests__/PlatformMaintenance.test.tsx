@@ -557,6 +557,57 @@ describe('PlatformMaintenance — lost attachments repair', () => {
     ).toBeTruthy();
   });
 
+  const withRearm = (rearm: unknown, applied: boolean) => ({
+    data: {
+      data: {
+        scanned: 4,
+        eventsWithLoss: 0,
+        partsLost: 0,
+        byMailbox: [],
+        unrecoverable: { events: 0, parts: 0 },
+        nextAfterEventId: null,
+        truncated: false,
+        applied,
+        ...(rearm === undefined ? {} : { rearm }),
+      },
+    },
+  });
+
+  it('given-up attachments put back for another try are said, with "more left" when truncated', async () => {
+    api.post.mockResolvedValue(
+      withRearm({ events: 2, parts: 3, byMailbox: [], truncated: true }, false)
+    );
+    const row = await pick();
+    fireEvent.click(within(row).getByRole('button', { name: 'Check' }));
+    expect(
+      await within(row).findByText(
+        '3 given-up attachments can be re-armed for another try (more left: run again).'
+      )
+    ).toBeTruthy();
+  });
+
+  it('an applied re-arm says it was done; not truncated, no "more left"', async () => {
+    api.post.mockResolvedValue(
+      withRearm({ events: 1, parts: 1, byMailbox: [], truncated: false }, true)
+    );
+    const row = await pick();
+    fireEvent.click(within(row).getByRole('button', { name: 'Check' }));
+    expect(
+      await within(row).findByText('1 given-up attachment was re-armed for another try.')
+    ).toBeTruthy();
+  });
+
+  it('CONTROL — no rearm block (older backend) or nothing to re-arm: no line', async () => {
+    for (const rearm of [undefined, { events: 0, parts: 0, byMailbox: [], truncated: false }]) {
+      api.post.mockResolvedValue(withRearm(rearm, false));
+      const row = await pick();
+      fireEvent.click(within(row).getByRole('button', { name: 'Check' }));
+      await within(row).findByText(/No lost attachments found/);
+      expect(within(row).queryByTestId('rearm')).toBeNull();
+      cleanup();
+    }
+  });
+
   it('Apply right after the first batch sends no afterEventId', async () => {
     api.post.mockResolvedValue({
       data: {
