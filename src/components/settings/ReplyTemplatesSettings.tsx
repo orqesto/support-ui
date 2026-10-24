@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Edit2, Paperclip, Plus, Trash2, X } from 'lucide-react';
+import { Edit2, Paperclip, Plus, Trash2, Upload, X } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -14,7 +14,8 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
-import RichTextEditor from '@/components/shared/RichTextEditor';
+import { InsertFieldMenu } from '@/components/shared/InsertFieldMenu';
+import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { useDepartments } from '@/hooks/useDepartments';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -24,11 +25,13 @@ import { isBlankRichText } from '@/lib/stripHtml';
 import { useAuthStore } from '@/stores/authStore';
 import { Permission } from '@/types/roles';
 import {
+  MAX_TEMPLATE_NAME,
   replyTemplatesService,
   type ReplyTemplate,
   type ReplyTemplateAttachment,
   type TemplateUse,
 } from '@/services/replyTemplates.service';
+import { ZendeskMacroImportDialog } from './ZendeskMacroImportDialog';
 
 /**
  * Settings › Rules › Reply templates (owner, 2026-10-09; plan `REPLY-TEMPLATES-PLAN-2026-10-09.md`
@@ -37,8 +40,7 @@ import {
  * permission AND, for a department's template, membership).
  */
 
-/** The server's limits (build spec A3). */
-export const MAX_NAME = 120;
+/** The server's limit on files per template (build spec A3). */
 export const MAX_TEMPLATE_FILES = 10;
 
 export const USE_LABELS: Record<TemplateUse, string> = {
@@ -86,8 +88,10 @@ export const ReplyTemplatesSettings = () => {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [toArchive, setToArchive] = useState<ReplyTemplate | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bodyEditorRef = useRef<RichTextEditorHandle>(null);
 
   const load = useCallback(async () => {
     try {
@@ -146,7 +150,9 @@ export const ReplyTemplatesSettings = () => {
 
   const fileCount = form ? form.kept.length + form.added.length : 0;
   const nameError =
-    form && form.name.trim().length > MAX_NAME ? `At most ${MAX_NAME} characters.` : undefined;
+    form && form.name.trim().length > MAX_TEMPLATE_NAME
+      ? `At most ${MAX_TEMPLATE_NAME} characters.`
+      : undefined;
   const canSave =
     form !== null && form.name.trim().length > 0 && !nameError && !isBlankRichText(form.body);
 
@@ -223,16 +229,22 @@ export const ReplyTemplatesSettings = () => {
           </p>
         </div>
         {canCreate && (
-          <Button
-            size="sm"
-            onClick={() => {
-              setFormError(null);
-              setForm(emptyForm());
-            }}
-          >
-            <Plus className="mr-1 w-4 h-4" aria-hidden />
-            New template
-          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="mr-1 w-4 h-4" aria-hidden />
+              Import from Zendesk
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                setFormError(null);
+                setForm(emptyForm());
+              }}
+            >
+              <Plus className="mr-1 w-4 h-4" aria-hidden />
+              New template
+            </Button>
+          </div>
         )}
       </div>
 
@@ -329,8 +341,16 @@ export const ReplyTemplatesSettings = () => {
                 />
               )}
               <div className="space-y-1">
-                <Label>Text</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Text</Label>
+                  <InsertFieldMenu
+                    editor={bodyEditorRef}
+                    disabled={saving}
+                    ticketIdHint="The ticket’s number — in a thread reply, only when it is on a ticket"
+                  />
+                </div>
                 <RichTextEditor
+                  ref={bodyEditorRef}
                   content={form.body}
                   onChange={(html) => setForm((prev) => (prev ? { ...prev, body: html } : prev))}
                   placeholder="The reply…"
@@ -338,11 +358,6 @@ export const ReplyTemplatesSettings = () => {
                   initiallyHidden={false}
                   editable={!saving}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Greet each customer by name with {'{first_name|there}'} — “there” is used when the
-                  name is unknown. Also: {'{customer_name}'}, {'{ticket_id}'}, {'{thread_id}'},{' '}
-                  {'{agent_name}'}.
-                </p>
               </div>
               <div className="space-y-1">
                 <Label>Files</Label>
@@ -462,6 +477,13 @@ export const ReplyTemplatesSettings = () => {
         title={toArchive ? `Archive “${toArchive.name}”?` : ''}
         description="It leaves every Templates menu. Replies and drafts already written from it are not changed."
         confirmText="Archive"
+      />
+
+      <ZendeskMacroImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        existingNames={templates.map((template) => template.name)}
+        onImported={() => void load()}
       />
     </div>
   );

@@ -107,7 +107,7 @@ export const editorHtmlToText = (
   return tagged.split(itemTag).join('');
 };
 
-const escapeHtml = (text: string): string =>
+export const escapeHtml = (text: string): string =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 const BULLET = /^- (.*)$/s;

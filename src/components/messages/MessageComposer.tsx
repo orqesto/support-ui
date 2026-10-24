@@ -8,6 +8,7 @@ import { ComposerAiActions } from './ComposerAiActions';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { logger } from '@/lib/logger';
+import { InsertFieldMenu } from '@/components/shared/InsertFieldMenu';
 import { TemplatePicker } from '@/components/shared/TemplatePicker';
 import { replyTemplatesService, type ReplyTemplate } from '@/services/replyTemplates.service';
 import { RecipientFields, replyToLabel, type RecipientDraft } from './RecipientFields';
@@ -551,6 +552,14 @@ export function MessageComposer({
               onPick={(template) => void insertTemplate(template)}
               disabled={submitting}
               triggerClassName={`${IBTN} h-auto`}
+            />
+          )}
+          {composerMode === 'reply' && !atRest && (
+            <InsertFieldMenu
+              editor={richEditorRef}
+              disabled={submitting || aiBusy}
+              triggerClassName={`${IBTN} h-auto`}
+              ticketIdHint="Its ticket’s number — only when the thread is on a ticket"
             />
           )}
           {composerMode === 'reply' && (

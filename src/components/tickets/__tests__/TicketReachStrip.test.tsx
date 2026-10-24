@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { TicketThread } from '@/services/ticketThreads.service';
-import { InsertFieldMenu } from '../InsertFieldMenu';
+import { InsertFieldMenu } from '@/components/shared/InsertFieldMenu';
 import { TicketReachStrip } from '../TicketReachStrip';
 
 const thread = (id: number, over: Partial<TicketThread>): TicketThread =>
@@ -61,10 +61,20 @@ describe('InsertFieldMenu', () => {
   it('offers the five fields the server fills, with what each becomes', () => {
     render(<InsertFieldMenu onInsert={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /Insert field/ }));
-    for (const field of ['{first_name}', '{customer_name}', '{ticket_id}', '{thread_id}', '{agent_name}']) {
-      expect(screen.getByRole('menuitem', { name: (name) => name.includes(field) })).toBeInTheDocument();
+    for (const field of [
+      '{first_name}',
+      '{customer_name}',
+      '{ticket_id}',
+      '{thread_id}',
+      '{agent_name}',
+    ]) {
+      expect(
+        screen.getByRole('menuitem', { name: (name) => name.includes(field) })
+      ).toBeInTheDocument();
     }
-    expect(screen.getByText('Add a fallback for unknown names: {customer_name|there}')).toBeInTheDocument();
+    expect(
+      screen.getByText('Add a fallback for unknown names: {customer_name|there}')
+    ).toBeInTheDocument();
   });
 
   it('inserts the picked field', () => {
