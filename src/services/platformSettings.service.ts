@@ -167,13 +167,29 @@ export type PlatformSettings = {
   drafts?: DraftSettings;
 };
 
+/** Which pipeline writes an agent's AI draft (`ai.draft_pipeline`, BE 2026-10-23). */
+export const DRAFT_PIPELINE_MODES = ['single', 'legacy'] as const;
+export type DraftPipelineMode = (typeof DRAFT_PIPELINE_MODES)[number];
+/** GET `drafts.draftPipeline` — the mode in effect, where it comes from, and the modes offered. */
+export type DraftPipelineSetting = {
+  value: DraftPipelineMode;
+  /** `db` = switched in the console, `default` = never set (the server's built-in `single`). */
+  source: FieldSource;
+  options: DraftPipelineMode[];
+};
 /** GET `drafts` — each {value, source, min, max}; the similarity is a fraction, the timeout in ms. */
 export type DraftSettings = {
   kbOnlyDraftMinSimilarity: BoundedField;
   suggestionPipelineTimeoutMs: BoundedField;
+  /** Absent on a backend that predates the switch — the card then says so. */
+  draftPipeline?: DraftPipelineSetting;
 };
 /** PUT /settings/drafts — a non-empty subset; only the fields sent are saved. */
-export type PlatformDraftsInput = Partial<Record<keyof DraftSettings, number>>;
+export type PlatformDraftsInput = {
+  kbOnlyDraftMinSimilarity?: number;
+  suggestionPipelineTimeoutMs?: number;
+  draftPipeline?: DraftPipelineMode;
+};
 
 export type AnalysisHourlySettings = {
   callsPerHour: BoundedField;
@@ -523,13 +539,41 @@ const readBoundedNumber = (raw: unknown): BoundedField | undefined => {
   };
 };
 
-/** Both fields with numeric bounds (the timeout whole), or undefined ("this backend lacks it"). */
+const isDraftPipelineMode = (value: unknown): value is DraftPipelineMode =>
+  DRAFT_PIPELINE_MODES.includes(value as DraftPipelineMode);
+
+/**
+ * `drafts.draftPipeline` when the backend sends a mode this build knows, else undefined (an older
+ * backend, or a mode added later — the card then offers no switch rather than a wrong one). Only
+ * known modes are offered; an empty list falls back to every known mode.
+ */
+const readDraftPipeline = (raw: unknown): DraftPipelineSetting | undefined => {
+  if (!isRecord(raw) || !isDraftPipelineMode(raw.value)) return undefined;
+  const offered = Array.isArray(raw.options) ? raw.options.filter(isDraftPipelineMode) : [];
+  return {
+    value: raw.value,
+    source: FIELD_SOURCES.includes(raw.source as FieldSource)
+      ? (raw.source as FieldSource)
+      : 'default',
+    options: offered.length > 0 ? offered : [...DRAFT_PIPELINE_MODES],
+  };
+};
+
+/**
+ * Both numbers with numeric bounds (the timeout whole), or undefined ("this backend lacks it");
+ * the pipeline switch when the backend has it.
+ */
 export const normalizeDrafts = (raw: unknown): DraftSettings | undefined => {
   if (!isRecord(raw)) return undefined;
   const kbOnlyDraftMinSimilarity = readBoundedNumber(raw.kbOnlyDraftMinSimilarity);
   const suggestionPipelineTimeoutMs = readBounded(raw.suggestionPipelineTimeoutMs);
+  const draftPipeline = readDraftPipeline(raw.draftPipeline);
   return kbOnlyDraftMinSimilarity && suggestionPipelineTimeoutMs
-    ? { kbOnlyDraftMinSimilarity, suggestionPipelineTimeoutMs }
+    ? {
+        kbOnlyDraftMinSimilarity,
+        suggestionPipelineTimeoutMs,
+        ...(draftPipeline ? { draftPipeline } : {}),
+      }
     : undefined;
 };
 
