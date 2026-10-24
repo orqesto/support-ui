@@ -1,4 +1,4 @@
-import { InsertFieldMenu } from './InsertFieldMenu';
+import { InsertFieldMenu } from '@/components/shared/InsertFieldMenu';
 import { TicketComposerTools, useInsertTemplate } from './ticketComposerTools';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FileText, Paperclip, X } from 'lucide-react';

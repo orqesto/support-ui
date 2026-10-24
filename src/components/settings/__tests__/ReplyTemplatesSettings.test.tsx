@@ -3,7 +3,7 @@
  * "New template" needs MANAGE_REPLY_TEMPLATES; edit/archive show only on templates the server says
  * the caller may change (`canEdit`); a backend without templates shows no list.
  */
-import { forwardRef } from 'react';
+import { forwardRef, useImperativeHandle } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -40,16 +40,18 @@ vi.mock('@/stores/authStore', () => ({
 }));
 vi.mock('@/components/shared/RichTextEditor', () => ({
   default: forwardRef(
-    (
-      props: { content?: string; onChange?: (html: string) => void; placeholder?: string },
-      _ref
-    ) => (
-      <textarea
-        aria-label="Template text"
-        value={props.content ?? ''}
-        onChange={(event) => props.onChange?.(event.target.value)}
-      />
-    )
+    (props: { content?: string; onChange?: (html: string) => void; placeholder?: string }, ref) => {
+      useImperativeHandle(ref, () => ({
+        insertText: (text: string) => props.onChange?.(`${props.content ?? ''}${text}`),
+      }));
+      return (
+        <textarea
+          aria-label="Template text"
+          value={props.content ?? ''}
+          onChange={(event) => props.onChange?.(event.target.value)}
+        />
+      );
+    }
   ),
 }));
 // The other rule tabs are not under test here.
@@ -155,6 +157,17 @@ describe('ReplyTemplatesSettings', () => {
         []
       )
     );
+  });
+
+  it('Insert field puts a placeholder in the template text', async () => {
+    perms.granted.add(Permission.MANAGE_REPLY_TEMPLATES);
+    const user = userEvent.setup();
+    render(<ReplyTemplatesSettings />);
+    await user.click(await screen.findByRole('button', { name: /New template/ }));
+    await user.type(screen.getByLabelText('Template text'), 'Hi ');
+    await user.click(screen.getByRole('button', { name: /Insert field/ }));
+    await user.click(await screen.findByText('{agent_name}'));
+    expect(screen.getByLabelText('Template text')).toHaveValue('Hi {agent_name}');
   });
 
   it('a workspace admin may file a template under any team', async () => {

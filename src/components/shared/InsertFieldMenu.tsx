@@ -17,21 +17,32 @@ export const InsertFieldMenu = ({
   onInsert,
   editor,
   disabled,
+  triggerClassName,
 }: {
   onInsert?: (token: string) => void;
   /** Or insert straight into a rich-text editor, at its caret. */
   editor?: RefObject<RichTextEditorHandle | null>;
   disabled?: boolean;
+  /** A toolbar's own button style (the thread reply box); the trigger is then a ghost button. */
+  triggerClassName?: string;
 }) => {
   const insert = (token: string) =>
     onInsert ? onInsert(token) : editor?.current?.insertText(token);
+  const iconSize = triggerClassName ? 'w-3 h-3' : 'w-4 h-4';
   return (
     <Menu
       ariaLabel="Insert a field"
       width={340}
       trigger={({ toggle }) => (
-        <Button size="sm" variant="outline" type="button" onClick={toggle} disabled={disabled}>
-          <Braces className="mr-1 w-4 h-4" aria-hidden />
+        <Button
+          size="sm"
+          variant={triggerClassName ? 'ghost' : 'outline'}
+          type="button"
+          onClick={toggle}
+          disabled={disabled}
+          className={triggerClassName}
+        >
+          <Braces className={`mr-1 ${iconSize}`} aria-hidden />
           Insert field
           <ChevronDown className="ml-1 w-3.5 h-3.5" aria-hidden />
         </Button>

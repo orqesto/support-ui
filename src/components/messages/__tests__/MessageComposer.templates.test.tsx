@@ -23,7 +23,10 @@ vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ aiConfigur
 vi.mock('@/hooks/useAiDraftsOff', () => ({ useAiDraftsOff: () => ({ off: false }) }));
 vi.mock('@/components/shared/RichTextEditor', () => ({
   default: forwardRef((props: { content?: string; onChange?: (html: string) => void }, ref) => {
-    useImperativeHandle(ref, () => ({ focus: () => undefined }));
+    useImperativeHandle(ref, () => ({
+      focus: () => undefined,
+      insertText: (text: string) => props.onChange?.(`${props.content ?? ''}${text}`),
+    }));
     return (
       <textarea
         aria-label="Reply text"
@@ -86,6 +89,15 @@ beforeEach(() => {
 });
 
 describe('MessageComposer — reply templates', () => {
+  it('Insert field puts a placeholder in the reply, as the ticket reply box does', async () => {
+    list.mockResolvedValue({ unavailable: false, templates: [] });
+    const user = userEvent.setup();
+    render(<Host messageId={1} initial="Hi " />);
+    await user.click(screen.getByRole('button', { name: /Insert field/ }));
+    await user.click(await screen.findByText('{first_name}'));
+    await waitFor(() => expect(latest.composer).toBe('Hi {first_name}'));
+  });
+
   it('asks for the THREAD box’s templates', async () => {
     list.mockResolvedValue({ unavailable: false, templates: [template()] });
     render(<Host messageId={1} />);

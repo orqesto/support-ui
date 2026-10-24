@@ -14,7 +14,8 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
-import RichTextEditor from '@/components/shared/RichTextEditor';
+import { InsertFieldMenu } from '@/components/shared/InsertFieldMenu';
+import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { useDepartments } from '@/hooks/useDepartments';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -90,6 +91,7 @@ export const ReplyTemplatesSettings = () => {
   const [importOpen, setImportOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bodyEditorRef = useRef<RichTextEditorHandle>(null);
 
   const load = useCallback(async () => {
     try {
@@ -339,8 +341,12 @@ export const ReplyTemplatesSettings = () => {
                 />
               )}
               <div className="space-y-1">
-                <Label>Text</Label>
+                <div className="flex items-center justify-between gap-2">
+                  <Label>Text</Label>
+                  <InsertFieldMenu editor={bodyEditorRef} disabled={saving} />
+                </div>
                 <RichTextEditor
+                  ref={bodyEditorRef}
                   content={form.body}
                   onChange={(html) => setForm((prev) => (prev ? { ...prev, body: html } : prev))}
                   placeholder="The reply…"
@@ -348,11 +354,6 @@ export const ReplyTemplatesSettings = () => {
                   initiallyHidden={false}
                   editable={!saving}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Greet each customer by name with {'{first_name|there}'} — “there” is used when the
-                  name is unknown. Also: {'{customer_name}'}, {'{ticket_id}'}, {'{thread_id}'},{' '}
-                  {'{agent_name}'}.
-                </p>
               </div>
               <div className="space-y-1">
                 <Label>Files</Label>
