@@ -94,6 +94,10 @@ describe('MessageComposer — reply templates', () => {
     const user = userEvent.setup();
     render(<Host messageId={1} initial="Hi " />);
     await user.click(screen.getByRole('button', { name: /Insert field/ }));
+    // A thread may have no ticket: then {ticket_id} refuses the send, and the menu says so.
+    expect(
+      screen.getByText('Its ticket’s number — only when the thread is on a ticket')
+    ).toBeInTheDocument();
     await user.click(await screen.findByText('{first_name}'));
     await waitFor(() => expect(latest.composer).toBe('Hi {first_name}'));
   });

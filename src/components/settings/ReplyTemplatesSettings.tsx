@@ -343,7 +343,11 @@ export const ReplyTemplatesSettings = () => {
               <div className="space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <Label>Text</Label>
-                  <InsertFieldMenu editor={bodyEditorRef} disabled={saving} />
+                  <InsertFieldMenu
+                    editor={bodyEditorRef}
+                    disabled={saving}
+                    ticketIdHint="The ticket’s number — in a thread reply, only when it is on a ticket"
+                  />
                 </div>
                 <RichTextEditor
                   ref={bodyEditorRef}

@@ -13,8 +13,12 @@ import {
 } from '@/components/ui/Dialog';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
-import { parseZendeskMacros, type ZendeskMacro } from '@/lib/zendeskMacros';
-import { MAX_TEMPLATE_NAME, replyTemplatesService } from '@/services/replyTemplates.service';
+import { parseZendeskMacros, type ZendeskMacro, type ZendeskMacroFile } from '@/lib/zendeskMacros';
+import {
+  MAX_TEMPLATE_BODY,
+  MAX_TEMPLATE_NAME,
+  replyTemplatesService,
+} from '@/services/replyTemplates.service';
 
 /**
  * Settings › Reply templates › Import from Zendesk: upload a macros export, see what each macro
@@ -31,13 +35,14 @@ type Props = {
   onImported: () => void;
 };
 
-type Skip = 'no_text' | 'name_taken' | 'name_too_long' | 'inactive';
+type Skip = 'no_text' | 'name_taken' | 'name_too_long' | 'text_too_long' | 'inactive';
 type Outcome = { kind: 'created' } | { kind: 'exists' } | { kind: 'failed'; message: string };
 
 const SKIP_LABELS: Record<Skip, string> = {
   no_text: 'No reply text',
   name_taken: 'Name already used',
   name_too_long: `Name over ${MAX_TEMPLATE_NAME} characters`,
+  text_too_long: `Text over ${MAX_TEMPLATE_BODY.toLocaleString('en')} characters`,
   inactive: 'Inactive',
 };
 
@@ -52,6 +57,7 @@ const skipsOf = (
     if (!macro.body.trim()) return 'no_text';
     if (!macro.active && !includeInactive) return 'inactive';
     if (macro.title.length > MAX_TEMPLATE_NAME) return 'name_too_long';
+    if (macro.body.length > MAX_TEMPLATE_BODY) return 'text_too_long';
     const key = macro.title.toLowerCase();
     if (taken.has(key)) return 'name_taken';
     taken.add(key);
@@ -65,7 +71,8 @@ export const ZendeskMacroImportDialog = ({
   existingNames,
   onImported,
 }: Props) => {
-  const [macros, setMacros] = useState<ZendeskMacro[] | null>(null);
+  const [file, setFile] = useState<ZendeskMacroFile | null>(null);
+  const macros = file?.macros ?? null;
   const [fileError, setFileError] = useState<string | null>(null);
   const [includeInactive, setIncludeInactive] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -79,18 +86,18 @@ export const ZendeskMacroImportDialog = ({
     [...outcomes.values()].filter((outcome) => outcome.kind === kind).length;
 
   const reset = () => {
-    setMacros(null);
+    setFile(null);
     setFileError(null);
     setIncludeInactive(false);
     setOutcomes(new Map());
   };
 
-  const readFile = async (file: File) => {
+  const readFile = async (upload: File) => {
     reset();
     try {
-      const parsed = parseZendeskMacros(await file.text());
-      if (parsed.length === 0) throw new Error('This export holds no macros.');
-      setMacros(parsed);
+      const parsed = parseZendeskMacros(await upload.text());
+      if (parsed.macros.length === 0) throw new Error('This export holds no macros.');
+      setFile(parsed);
     } catch (err) {
       setFileError(err instanceof Error ? err.message : 'The file could not be read.');
     }
@@ -171,8 +178,8 @@ export const ZendeskMacroImportDialog = ({
             className="hidden"
             aria-label="Zendesk macros file"
             onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void readFile(file);
+              const upload = event.target.files?.[0];
+              if (upload) void readFile(upload);
               event.target.value = '';
             }}
           />
@@ -186,6 +193,13 @@ export const ZendeskMacroImportDialog = ({
             {macros ? 'Choose another file' : 'Choose file'}
           </Button>
           {fileError && <Alert variant="danger">{fileError}</Alert>}
+          {file?.morePages && (
+            <Alert variant="warning">
+              This file is one page of a longer list
+              {file.total !== null ? ` (${file.macros.length} of ${file.total} macros)` : ''}. The
+              rest is not in it — import each page’s file too.
+            </Alert>
+          )}
           {macros && (
             <>
               {inactiveCount > 0 && (

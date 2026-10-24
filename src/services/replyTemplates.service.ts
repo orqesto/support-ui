@@ -16,8 +16,9 @@ export type TemplateUse = 'thread' | 'ticket' | 'both';
 
 export const TEMPLATE_USES: readonly TemplateUse[] = ['thread', 'ticket', 'both'];
 
-/** The server's limit on a template name (build spec A3). */
+/** The server's limits on a template's name and body (build spec A3). */
 export const MAX_TEMPLATE_NAME = 120;
+export const MAX_TEMPLATE_BODY = 100_000;
 
 export type ReplyTemplateAttachment = {
   id: number;

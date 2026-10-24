@@ -1,4 +1,7 @@
 import DOMPurify from 'dompurify';
+import { normalizeEditorHtml } from '@/lib/editorSchema';
+import { escapeHtml } from '@/lib/editorText';
+import { isBlankRichText } from '@/lib/stripHtml';
 
 /**
  * Zendesk macros → reply templates. Reads the JSON Zendesk's API returns for
@@ -7,7 +10,12 @@ import DOMPurify from 'dompurify';
  *
  * Only the reply text is taken. A macro's other actions (status, priority, assignee, group, tags…)
  * have no template equivalent; they are listed per macro so the person importing sees what was
- * left behind. A Zendesk placeholder with no equivalent stays as written and is listed too.
+ * left behind. A Zendesk placeholder or Liquid tag with no equivalent stays as written and is
+ * listed too.
+ *
+ * ⛔ The body is put in the editor's own form (`normalizeEditorHtml`), as a template written by
+ * hand is: a ticket draft is made from the stored body directly, so HTML the editor would not hold
+ * (inline styles, images, forms) must not be stored in the first place.
  */
 
 export type ZendeskMacro = {
@@ -16,10 +24,18 @@ export type ZendeskMacro = {
   description: string | null;
   /** HTML with our placeholders; '' when the macro sets no reply text. */
   body: string;
-  /** Zendesk placeholders left as written, each once. */
+  /** Zendesk placeholders and Liquid tags left as written, each once. */
   unmappedFields: string[];
   /** Action fields other than the reply text, each once. */
   ignoredActions: string[];
+};
+
+export type ZendeskMacroFile = {
+  macros: ZendeskMacro[];
+  /** The export is one page of a longer list (`next_page` set): the rest is NOT in this file. */
+  morePages: boolean;
+  /** Zendesk's total for the whole list, when the file says. */
+  total: number | null;
 };
 
 type RawAction = { field?: unknown; value?: unknown };
@@ -44,9 +60,6 @@ const FIELD_MAP: Record<string, string> = {
 
 const REPLY_FIELDS = new Set(['comment_value_html', 'comment_value']);
 
-const escapeHtml = (text: string): string =>
-  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
 /** Plain `comment_value` text as paragraphs: a blank line splits them, a newline breaks a line. */
 const plainToHtml = (text: string): string =>
   text
@@ -59,7 +72,8 @@ const plainToHtml = (text: string): string =>
 /**
  * `{{ticket.requester.first_name}}`, also as `\{{…}}` (how Zendesk's editor sometimes stores it)
  * and with spaces inside the braces. A placeholder with a Liquid filter (`{{x | upcase}}`) is not
- * matched by the inner pattern and so stays as written — and is reported.
+ * matched by the inner pattern and so stays as written — and is reported. So is Liquid logic
+ * (`{% if … %}`), which would otherwise reach the customer as text.
  */
 const convertFields = (html: string): { body: string; unmapped: string[] } => {
   const unmapped = new Set<string>();
@@ -69,6 +83,7 @@ const convertFields = (html: string): { body: string; unmapped: string[] } => {
     unmapped.add(`{{${inner}}}`);
     return match;
   });
+  for (const [tag] of body.matchAll(/\{%[^%]{0,200}%\}/g)) unmapped.add(tag);
   return { body, unmapped: [...unmapped] };
 };
 
@@ -84,12 +99,13 @@ const toMacro = (raw: RawMacro): ZendeskMacro | null => {
       : typeof plain === 'string'
         ? plainToHtml(plain)
         : '';
-  const { body, unmapped } = convertFields(DOMPurify.sanitize(source));
+  const normalized = normalizeEditorHtml(DOMPurify.sanitize(source));
+  const { body, unmapped } = convertFields(normalized);
   return {
     title: title.trim(),
     active: raw.active !== false,
     description: typeof raw.description === 'string' && raw.description ? raw.description : null,
-    body,
+    body: isBlankRichText(body) ? '' : body,
     unmappedFields: unmapped,
     ignoredActions: [
       ...new Set(
@@ -105,14 +121,19 @@ const toMacro = (raw: RawMacro): ZendeskMacro | null => {
  * The macros in an export, in file order. Text after the last `}` is ignored (a saved API
  * response can carry a stray character after it). Throws when the file is not a macros export.
  */
-export const parseZendeskMacros = (text: string): ZendeskMacro[] => {
+export const parseZendeskMacros = (text: string): ZendeskMacroFile => {
   let data: unknown;
   try {
     data = JSON.parse(text.slice(0, text.lastIndexOf('}') + 1));
   } catch {
     throw new Error('This file is not valid JSON.');
   }
-  const wrapper = (data ?? {}) as { macros?: unknown; macro?: unknown };
+  const wrapper = (data ?? {}) as {
+    macros?: unknown;
+    macro?: unknown;
+    next_page?: unknown;
+    count?: unknown;
+  };
   const rows = Array.isArray(data)
     ? data
     : Array.isArray(wrapper.macros)
@@ -121,7 +142,11 @@ export const parseZendeskMacros = (text: string): ZendeskMacro[] => {
         ? [wrapper.macro]
         : null;
   if (!rows) throw new Error('No macros found — upload the JSON from Zendesk’s macros API.');
-  return rows
-    .map((row) => toMacro((row ?? {}) as RawMacro))
-    .filter((macro): macro is ZendeskMacro => macro !== null);
+  return {
+    macros: rows
+      .map((row) => toMacro((row ?? {}) as RawMacro))
+      .filter((macro): macro is ZendeskMacro => macro !== null),
+    morePages: typeof wrapper.next_page === 'string' && wrapper.next_page.length > 0,
+    total: typeof wrapper.count === 'number' ? wrapper.count : null,
+  };
 };

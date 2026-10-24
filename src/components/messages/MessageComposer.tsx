@@ -559,6 +559,7 @@ export function MessageComposer({
               editor={richEditorRef}
               disabled={submitting || aiBusy}
               triggerClassName={`${IBTN} h-auto`}
+              ticketIdHint="Its ticket’s number — only when the thread is on a ticket"
             />
           )}
           {composerMode === 'reply' && (

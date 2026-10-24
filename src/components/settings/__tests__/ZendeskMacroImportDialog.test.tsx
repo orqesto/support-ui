@@ -117,4 +117,23 @@ describe('ZendeskMacroImportDialog', () => {
     expect(await screen.findByText(/No macros found/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Import \d/ })).toBeNull();
   });
+
+  it('one page of a longer export says the rest is not in the file', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await user.upload(
+      screen.getByLabelText('Zendesk macros file'),
+      jsonFile(
+        JSON.stringify({
+          macros: [{ title: 'Order shipped', actions: reply('<p>Hi</p>') }],
+          next_page: 'https://example.zendesk.test/api/v2/macros.json?page=2',
+          count: 150,
+        }),
+        'page1.json'
+      )
+    );
+    expect(
+      await screen.findByText(/one page of a longer list \(1 of 150 macros\)/)
+    ).toBeInTheDocument();
+  });
 });

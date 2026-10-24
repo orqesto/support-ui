@@ -18,6 +18,7 @@ export const InsertFieldMenu = ({
   editor,
   disabled,
   triggerClassName,
+  ticketIdHint,
 }: {
   onInsert?: (token: string) => void;
   /** Or insert straight into a rich-text editor, at its caret. */
@@ -25,6 +26,11 @@ export const InsertFieldMenu = ({
   disabled?: boolean;
   /** A toolbar's own button style (the thread reply box); the trigger is then a ghost button. */
   triggerClassName?: string;
+  /**
+   * What `{ticket_id}` means where the menu is. Outside a ticket it is filled only when the thread
+   * is on one — otherwise the server refuses the send — so the box says so.
+   */
+  ticketIdHint?: string;
 }) => {
   const insert = (token: string) =>
     onInsert ? onInsert(token) : editor?.current?.insertText(token);
@@ -50,7 +56,11 @@ export const InsertFieldMenu = ({
     >
       <MenuLabel>Insert a field</MenuLabel>
       {FIELDS.map((field) => (
-        <MenuItem key={field.token} onSelect={() => insert(field.token)} hint={field.means}>
+        <MenuItem
+          key={field.token}
+          onSelect={() => insert(field.token)}
+          hint={field.token === '{ticket_id}' && ticketIdHint ? ticketIdHint : field.means}
+        >
           <span className="font-mono text-xs">{field.token}</span>
         </MenuItem>
       ))}
