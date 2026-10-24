@@ -27,7 +27,10 @@ vi.mock('@/lib/toast', () => ({
   },
 }));
 
-const { AiDraftsCard, AI_DRAFTS_NOT_DEPLOYED } = await import('../AiDraftsCard');
+const { AiDraftsCard, AI_DRAFTS_NOT_DEPLOYED, DRAFT_PIPELINE_NOT_DEPLOYED } = await import(
+  '../AiDraftsCard'
+);
+const { chooseOption } = await import('@/test/chooseOption');
 const { normalizeDrafts } = await import('@/services/platformSettings.service');
 
 const wrap = (node: ReactNode) =>
@@ -48,6 +51,15 @@ const SETTING = {
     max: 180_000,
   },
 };
+const WITH_PIPELINE = {
+  ...SETTING,
+  draftPipeline: {
+    value: 'single' as const,
+    source: 'default' as const,
+    options: ['single' as const, 'legacy' as const],
+  },
+};
+const pipeline = () => screen.getByRole('combobox', { name: 'Draft pipeline' });
 const similarity = () => screen.getByLabelText(/Similarity to draft from one KB entry/);
 const seconds = () => screen.getByLabelText(/Drafting time limit/);
 const save = () => screen.getByRole('button', { name: 'Save' });
@@ -173,5 +185,103 @@ describe('normalizeDrafts', () => {
         kbOnlyDraftMinSimilarity: { ...SETTING.kbOnlyDraftMinSimilarity, source: 'weird' },
       })?.kbOnlyDraftMinSimilarity.source
     ).toBe('default');
+  });
+});
+
+describe('AiDraftsCard — the draft pipeline switch (ai.draft_pipeline)', () => {
+  it('shows the pipeline in effect and that it is the built-in default', () => {
+    wrap(<AiDraftsCard drafts={WITH_PIPELINE} />);
+    expect(pipeline()).toBeInTheDocument();
+    expect(
+      screen.getByText(/Single pass: one draft over the top knowledge-base entries/)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/In effect: single-pass, the built-in default/)).toBeInTheDocument();
+  });
+
+  it('a pipeline switched in the console says so (source db)', () => {
+    wrap(
+      <AiDraftsCard
+        drafts={{
+          ...WITH_PIPELINE,
+          draftPipeline: { ...WITH_PIPELINE.draftPipeline, value: 'legacy', source: 'db' },
+        }}
+      />
+    );
+    expect(screen.getByText(/Legacy: a draft per knowledge-base entry/)).toBeInTheDocument();
+    expect(screen.getByText(/In effect: legacy, switched here/)).toBeInTheDocument();
+    expect(screen.getAllByText('Console').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('a change is confirmed first, then saved on its own with PUT /settings/drafts', async () => {
+    wrap(<AiDraftsCard drafts={WITH_PIPELINE} />);
+    await chooseOption(pipeline(), /Legacy/);
+    // Nothing is sent before the confirmation.
+    expect(puts).toHaveLength(0);
+    expect(screen.getByText('Switch the draft pipeline?')).toBeInTheDocument();
+    expect(screen.getByText(/written by the legacy pipeline/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Switch' }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toEqual({
+      url: '/api/admin/platform/settings/drafts',
+      body: { draftPipeline: 'legacy' },
+    });
+  });
+
+  it('the switch saves only the pipeline, never a number edited but not saved', async () => {
+    wrap(<AiDraftsCard drafts={WITH_PIPELINE} />);
+    fireEvent.change(similarity(), { target: { value: '0.9' } });
+    await chooseOption(pipeline(), /Legacy/);
+    fireEvent.click(screen.getByRole('button', { name: 'Switch' }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].body).toEqual({ draftPipeline: 'legacy' });
+  });
+
+  it('CONTROL — cancelling the confirmation saves nothing', async () => {
+    wrap(<AiDraftsCard drafts={WITH_PIPELINE} />);
+    await chooseOption(pipeline(), /Legacy/);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByText('Switch the draft pipeline?')).toBeNull());
+    expect(puts).toHaveLength(0);
+  });
+
+  it('CONTROL — picking the pipeline already in effect asks nothing and saves nothing', async () => {
+    wrap(<AiDraftsCard drafts={WITH_PIPELINE} />);
+    await chooseOption(pipeline(), /Single pass/);
+    expect(screen.queryByText('Switch the draft pipeline?')).toBeNull();
+    expect(puts).toHaveLength(0);
+  });
+
+  it('a backend without the switch: the numbers stay, the switch says it arrives later', () => {
+    wrap(<AiDraftsCard drafts={SETTING} />);
+    expect(similarity()).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Draft pipeline' })).toBeNull();
+    expect(screen.getByText(DRAFT_PIPELINE_NOT_DEPLOYED)).toBeInTheDocument();
+  });
+});
+
+describe('normalizeDrafts — draftPipeline', () => {
+  it('keeps the pipeline the backend sends', () => {
+    expect(normalizeDrafts(WITH_PIPELINE)).toEqual(WITH_PIPELINE);
+  });
+
+  it('an unknown mode drops the switch but keeps the numbers', () => {
+    const normalized = normalizeDrafts({
+      ...SETTING,
+      draftPipeline: { value: 'turbo', source: 'db', options: ['single', 'turbo'] },
+    });
+    expect(normalized).toEqual(SETTING);
+  });
+
+  it('unknown options are not offered; an unknown source reads as default', () => {
+    expect(
+      normalizeDrafts({
+        ...SETTING,
+        draftPipeline: { value: 'legacy', source: 'weird', options: ['legacy', 'turbo'] },
+      })?.draftPipeline
+    ).toEqual({ value: 'legacy', source: 'default', options: ['legacy'] });
+    expect(
+      normalizeDrafts({ ...SETTING, draftPipeline: { value: 'single', source: 'db' } })
+        ?.draftPipeline?.options
+    ).toEqual(['single', 'legacy']);
   });
 });
