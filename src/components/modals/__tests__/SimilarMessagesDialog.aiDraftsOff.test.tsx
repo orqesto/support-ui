@@ -75,6 +75,53 @@ describe('SimilarMessagesDialog — AI drafts off', () => {
   });
 });
 
+/*
+  Every reason the backend can send (BE NoSuggestionReason, suggestedAnswerService.ts) has its own
+  line — none falls back to the generic "No reply was drafted". 'no-ai-provider' is the exception:
+  it arrives with aiConfigured: false and shows the connect-a-provider banner instead.
+*/
+describe('SimilarMessagesDialog — every no-draft reason has its own text', () => {
+  it('a draft rejected as poorly grounded says the KB did not cover it, not "no reply was drafted"', async () => {
+    respond({ reason: 'poorly-grounded' });
+    renderDialog();
+    expect(
+      await screen.findByText(
+        /knowledge base didn't cover this well enough to write a reliable reply/i
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/No reply was drafted for this message\./i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/reset your password/i).length).toBeGreaterThan(0);
+  });
+
+  it.each([
+    'no-sources',
+    'sources-unusable',
+    'generation-empty',
+    'generation-failed',
+    'poorly-grounded',
+    'search-failed',
+    'ai-drafts-off',
+  ])('reason %s shows a specific line, not the generic fallback', async (reason) => {
+    respond({ reason });
+    renderDialog();
+    await screen.findAllByText(/reset your password/i);
+    expect(screen.queryByText(/No reply was drafted for this message\./i)).not.toBeInTheDocument();
+  });
+
+  it('CONTROL: an unknown reason still falls back to the generic line', async () => {
+    respond({ reason: 'some-future-reason' });
+    renderDialog();
+    expect(await screen.findByText(/No reply was drafted for this message\./i)).toBeInTheDocument();
+  });
+
+  it('no-ai-provider (aiConfigured false) shows the provider banner', async () => {
+    respond({ reason: 'no-ai-provider', aiConfigured: false });
+    renderDialog();
+    expect(await screen.findByText(/need a provider/i)).toBeInTheDocument();
+    expect(screen.queryByText(/No reply was drafted for this message\./i)).not.toBeInTheDocument();
+  });
+});
+
 describe('SimilarMessagesDialog — read-only without an answer handler', () => {
   it('no onSelectAnswer (no reply to put it in): the matches show, no "use" button', async () => {
     respond({ reason: 'no-sources' });

@@ -844,6 +844,8 @@ export const messageService = {
           | 'sources-unusable'
           | 'generation-empty'
           | 'generation-failed'
+          /** A draft was written but rejected: the KB entries did not support it well enough. */
+          | 'poorly-grounded'
           | 'search-failed'
           /** The workspace switched AI drafts off: search results only, by the admin's choice. */
           | 'ai-drafts-off';

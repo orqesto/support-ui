@@ -61,6 +61,9 @@ const NO_ANSWER_COPY: Record<string, string> = {
     'The assistant was asked but returned nothing. This is a fault on our side, not an empty knowledge base — try again, and report it if it keeps happening.',
   'generation-failed':
     'The assistant could not be reached, so no reply was drafted. The sources below are still valid — try again shortly.',
+  // A draft was written and rejected by the groundedness check: a KB gap the agent can close.
+  'poorly-grounded':
+    "No draft: the knowledge base didn't cover this well enough to write a reliable reply. Write it yourself, or add the answer to the knowledge base.",
   'search-failed': 'The search itself failed, so nothing below is a complete picture. Try again.',
   // An admin's choice, not a gap or a fault: the matches below are the whole answer by design.
   'ai-drafts-off':
