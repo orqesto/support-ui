@@ -25,7 +25,8 @@ vi.mock('@/lib/logger', () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: 
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
+const navigateTo = vi.fn();
+vi.mock('react-router-dom', () => ({ useNavigate: () => navigateTo }));
 vi.mock('@/hooks/useBackendVersion', () => ({ useBackendVersion: () => ({ data: undefined }) }));
 
 import { PricingPage } from '@/pages/PricingPage';
@@ -80,8 +81,9 @@ describe('PricingPage: paid → paid in place', () => {
     });
     await choosePro();
     expect(
-      await screen.findByText(/Successfully changed to the pro plan\. Plan changed\. The difference is prorated/)
+      await screen.findByText(/Successfully changed to the pro plan\. The difference is prorated on your next invoice\./)
     ).toBeInTheDocument();
+    expect(screen.queryByText(/scheduled cancellation/)).toBeNull();
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['usage-current'] }));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['workspace', 'ai-usage'] });
     expect(hrefSet).not.toHaveBeenCalled();
@@ -102,5 +104,27 @@ describe('PricingPage: paid → paid in place', () => {
     );
     await choosePro();
     expect(await screen.findByText("You're already on this plan.")).toBeInTheDocument();
+  });
+
+  it('cancellationRemoved: the success line says the scheduled cancellation was removed', async () => {
+    post.mockResolvedValue({
+      data: { success: true, data: { requiresCheckout: false, cancellationRemoved: true } },
+    });
+    await choosePro();
+    expect(
+      await screen.findByText(/Your scheduled cancellation was removed\. The difference is prorated/)
+    ).toBeInTheDocument();
+  });
+
+  it('409 SUBSCRIPTION_PAST_DUE: pay first, and the button goes to the payment card', async () => {
+    post.mockRejectedValue(
+      await apiError(409, { code: 'SUBSCRIPTION_PAST_DUE', error: 'Your last payment failed.' })
+    );
+    await choosePro();
+    expect(
+      await screen.findByText('Update your payment method first, then change plan.')
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Update payment method' }));
+    expect(navigateTo).toHaveBeenCalledWith('/subscription#payment');
   });
 });

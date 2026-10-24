@@ -162,7 +162,11 @@ export const ALREADY_ON_PLAN = 'ALREADY_ON_PLAN';
 /** 409: a checkout was asked for while a live subscription exists (it would bill twice). */
 export const SUBSCRIPTION_ALREADY_LIVE = 'SUBSCRIPTION_ALREADY_LIVE';
 
+/** 409: a plan change while the subscription is past_due (decision 12): pay first. */
+export const SUBSCRIPTION_PAST_DUE = 'SUBSCRIPTION_PAST_DUE';
+
 export const ALREADY_ON_PLAN_TEXT = "You're already on this plan.";
+export const SUBSCRIPTION_PAST_DUE_TEXT = 'Update your payment method first, then change plan.';
 export const SUBSCRIPTION_ALREADY_LIVE_TEXT =
   'This workspace already has an active subscription. To switch plans, use Subscription › Change plan; to change the card, open the billing portal from Subscription.';
 
@@ -171,6 +175,7 @@ export const billingCodeText = (err: unknown): string | undefined => {
   const code = getErrorBody(err)?.code;
   if (code === ALREADY_ON_PLAN) return ALREADY_ON_PLAN_TEXT;
   if (code === SUBSCRIPTION_ALREADY_LIVE) return SUBSCRIPTION_ALREADY_LIVE_TEXT;
+  if (code === SUBSCRIPTION_PAST_DUE) return SUBSCRIPTION_PAST_DUE_TEXT;
   return undefined;
 };
 

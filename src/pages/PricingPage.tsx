@@ -10,7 +10,7 @@ import { queryClient } from '@/lib/queryClient';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
-import { getApiErrorMessage } from '@/lib/errorMessages';
+import { SUBSCRIPTION_PAST_DUE, getApiErrorMessage, getErrorBody } from '@/lib/errorMessages';
 import { BasePlanCard, EnterprisePlanCard, type Plan } from '@/components/pricing/PricingPlanCard';
 import { KeepActiveDialog } from '@/components/subscription/KeepActiveDialog';
 import { isOverPlan } from '@/components/subscription/keepActive';
@@ -19,6 +19,23 @@ import { subscriptionService, type KeepChoice, type PlanFit } from '@/services/s
 
 /** Subscription statuses with no active plan — their plan card is offered again, not marked current. */
 const LAPSED_STATUSES = new Set(['expired', 'cancelled']);
+
+/** Where the payment card is: the Subscription page shows it while the plan is past_due. */
+export const PAYMENT_CARD_PATH = '/subscription#payment';
+
+/**
+ * The success sentence. An in-place change (`requiresCheckout: false`, B4) is prorated, and says
+ * when it removed a scheduled cancellation (`cancellationRemoved`).
+ */
+export const planChangedText = (
+  planName: string,
+  payload: { requiresCheckout?: boolean; cancellationRemoved?: boolean } | undefined
+): string => {
+  const inPlace = payload?.requiresCheckout === false;
+  const removed = inPlace && payload?.cancellationRemoved === true ? ' Your scheduled cancellation was removed.' : '';
+  const prorated = inPlace ? ' The difference is prorated on your next invoice.' : '';
+  return `Successfully changed to the ${planName} plan.${removed}${prorated} Redirecting...`;
+};
 
 /** After a plan change: every cached read of the plan, its usage and limits is stale. */
 export const refreshAfterPlanChange = () =>
@@ -37,6 +54,8 @@ export const PricingPage = () => {
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean; title: string; description: string;
     variant: 'success' | 'error' | 'warning' | 'info'; confirmAction?: boolean;
+    /** SUBSCRIPTION_PAST_DUE: the dialog's button opens the payment card on Subscription. */
+    toPayment?: boolean;
   }>({ open: false, title: '', description: '', variant: 'info', confirmAction: false });
 
   // Task #8: moving to Free over its limits — who and what stays active (the rest is paused).
@@ -106,7 +125,7 @@ export const PricingPage = () => {
       // and the webhook closes the loop on success.
       const response = await apiClient.post<{
         success: boolean;
-        data: { requiresCheckout?: boolean; checkoutUrl?: string; message?: string };
+        data: { requiresCheckout?: boolean; checkoutUrl?: string; cancellationRemoved?: boolean };
       }>('/api/subscriptions/upgrade', { planName: selectedPlan, ...(keep ? { keep } : {}) });
 
       const payload = response.data?.data;
@@ -122,11 +141,11 @@ export const PricingPage = () => {
       // usage are read again now.
       void refreshAfterPlanChange();
       setCurrentPlanName(selectedPlan);
-      const prorated = payload?.requiresCheckout === false && payload.message ? ` ${payload.message}` : '';
-      setAlertDialog({ open: true, title: 'Success!', description: `Successfully changed to the ${selectedPlan} plan.${prorated} Redirecting...`, variant: 'success', confirmAction: false });
+      setAlertDialog({ open: true, title: 'Success!', description: planChangedText(selectedPlan, payload), variant: 'success', confirmAction: false });
       setTimeout(() => { navigate('/subscription'); }, 1500);
     } catch (error: unknown) {
-      setAlertDialog({ open: true, title: 'Error', description: extractApiError(error, 'Failed to upgrade plan'), variant: 'error', confirmAction: false });
+      const toPayment = getErrorBody(error)?.code === SUBSCRIPTION_PAST_DUE;
+      setAlertDialog({ open: true, title: toPayment ? 'Payment needed' : 'Error', description: extractApiError(error, 'Failed to upgrade plan'), variant: 'error', confirmAction: false, toPayment });
     } finally {
       setUpgrading(null);
       setSelectedPlan(null);
@@ -208,8 +227,8 @@ export const PricingPage = () => {
         title={alertDialog.title}
         description={alertDialog.description}
         variant={alertDialog.variant}
-        onConfirm={alertDialog.confirmAction ? () => void confirmUpgrade() : undefined}
-        confirmText={alertDialog.confirmAction ? (selectedPlan === 'free' ? 'Switch to Free' : 'Upgrade') : 'OK'}
+        onConfirm={alertDialog.confirmAction ? () => void confirmUpgrade() : alertDialog.toPayment ? () => navigate(PAYMENT_CARD_PATH) : undefined}
+        confirmText={alertDialog.confirmAction ? (selectedPlan === 'free' ? 'Switch to Free' : 'Upgrade') : alertDialog.toPayment ? 'Update payment method' : 'OK'}
       />
 
       <KeepActiveDialog
