@@ -10,6 +10,7 @@
  * than one — so there is nothing to follow and guessing is exactly how a link opens the
  * wrong conversation.
  */
+import { StrictMode } from 'react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 
@@ -123,6 +124,30 @@ describe('useSharedLinkWorkspace', () => {
     });
     await waitFor(() => expect(setSelectedOrganization).toHaveBeenCalledWith(19));
     expect(locate).toHaveBeenCalledTimes(1);
+  });
+
+  it('an answer that comes after the page was left switches nothing', async () => {
+    let answer: (value: { data: unknown }) => void = () => undefined;
+    locate.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    const { unmount } = renderHook(() => useSharedLinkWorkspace('ORB-MKT-170'));
+    await waitFor(() => expect(locate).toHaveBeenCalledTimes(1));
+    unmount();
+    answer({
+      data: {
+        status: 'found',
+        organizationId: 19,
+        organizationSlug: 'zetatech-test',
+        publicId: 'MKT-170',
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(setSelectedOrganization).not.toHaveBeenCalled();
+    expect(toastInfo).not.toHaveBeenCalled();
+  });
+
+  it('StrictMode’s unmount-and-remount does not lose the answer', async () => {
+    renderHook(() => useSharedLinkWorkspace('ORB-MKT-170'), { wrapper: StrictMode });
+    await waitFor(() => expect(setSelectedOrganization).toHaveBeenCalledWith(19));
   });
 
   it('tells the caller a link it will not open: not a member, or no such workspace', async () => {
