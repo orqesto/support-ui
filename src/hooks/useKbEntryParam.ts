@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { KbFilterStatus } from '@/components/kb/KbStatusFilter';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
+import { useSharedLinkWorkspace } from '@/hooks/useSharedLinkWorkspace';
 import { logger } from '@/lib/logger';
 import { withPendingDecision } from '@/lib/kbDecisionLookup';
 import { kbService, type KBEntry } from '@/services/kb.service';
@@ -20,14 +21,6 @@ const KB_ENTRY_NOT_FOUND_ALERT: KbEntryAlert = {
   description: 'Could not find the requested knowledge base entry.',
   variant: 'error',
 };
-
-/** The alert for a link to another workspace's entry: its KB-… exists here too, as another entry. */
-const kbEntryOtherWorkspaceAlert = (code: string): KbEntryAlert => ({
-  open: true,
-  title: 'Entry in another workspace',
-  description: `This link is for an entry in the ${code} workspace. Switch to that workspace to open it.`,
-  variant: 'error',
-});
 
 /**
  * What a `?id=` names: the entry's public number — with the workspace code the address carries
@@ -73,8 +66,9 @@ const rowIdOf = async (publicId: string): Promise<number | null> => {
  * The Knowledge Base `?id=` deep link (e.g. /knowledge-base?id=ACM-KB-77): keeps the open entry
  * in the URL for sharing and refresh, like Messages and Tickets, under the number the page shows
  * and the search finds. A row-id link (how the other pages link) still opens the entry and is then
- * rewritten to the public number. A link carrying another workspace's code is refused rather than
- * resolved here. A reviewer's entry comes with the decision waiting on it (looked up in the list,
+ * rewritten to the public number. A link carrying another workspace's code is never resolved
+ * here: `useSharedLinkWorkspace` switches to that workspace (as for a thread link), and the entry
+ * opens once the code matches. A reviewer's entry comes with the decision waiting on it (looked up in the list,
  * which the detail route does not send), so every deep link can decide. An id that cannot be read
  * is dropped from the URL.
  */
@@ -105,19 +99,26 @@ export const useKbEntryParam = ({
     navigate({ search: params.toString(), hash: location.hash }, { replace });
   };
 
+  // Another workspace's link: switch there (the entry then opens below), or give up on it.
+  useSharedLinkWorkspace(searchParams.get('id'), (reason) => {
+    // Not a member: the toast already named the workspace.
+    if (reason === 'unresolvable') onNotFound(KB_ENTRY_NOT_FOUND_ALERT);
+    withId(null);
+  });
+
   useEffect(() => {
     const idParam = searchParams.get('id');
     if (!idParam) return;
     const param = parseKbEntryParam(idParam);
     if (!param) return;
-    if ('publicId' in param && param.workspaceCode) {
-      if (!workspaceCode) return; // the code loads; this runs again then
-      if (param.workspaceCode !== workspaceCode.toUpperCase()) {
-        onNotFound(kbEntryOtherWorkspaceAlert(param.workspaceCode));
-        withId(null);
-        return;
-      }
-    }
+    // ⛔ Never look up another workspace's KB-… here (this workspace has its own KB-… with that
+    // number). Wait: for the code to load, or for useSharedLinkWorkspace to switch or give up.
+    if (
+      'publicId' in param &&
+      param.workspaceCode &&
+      param.workspaceCode !== workspaceCode?.toUpperCase()
+    )
+      return;
     if (isEntry(selectedEntry, param)) {
       // Already showing it: only bring the address to the form it is shared in (the workspace
       // code can load after the entry did).
