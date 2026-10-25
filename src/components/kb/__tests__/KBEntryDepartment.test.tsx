@@ -233,3 +233,35 @@ describe('The drawer keeps the list row source for the editor', () => {
     expect(departmentSelect()).toBeNull();
   });
 });
+
+describe('The entry number in the drawer', () => {
+  it('shows the public number the list, the search and the address bar use', async () => {
+    detailAnswer = () => ({ ...brochure, publicId: 'KB-159' });
+    render(
+      withQuery(
+        <KBEntryDetail
+          entry={{ ...brochure, publicId: 'KB-159' }}
+          onClose={noop}
+          canReview
+          {...drawerHandlers}
+        />
+      )
+    );
+    expect(await screen.findByText('#KB-159')).toBeTruthy();
+  });
+
+  it('an entry without a public number shows its row number', async () => {
+    detailAnswer = () => ({ ...brochure, publicId: null });
+    render(
+      withQuery(
+        <KBEntryDetail
+          entry={{ ...brochure, publicId: null }}
+          onClose={noop}
+          canReview
+          {...drawerHandlers}
+        />
+      )
+    );
+    expect(await screen.findByText('#2212')).toBeTruthy();
+  });
+});

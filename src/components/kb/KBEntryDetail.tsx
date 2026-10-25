@@ -32,6 +32,7 @@ import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 import {
   isCaseRow,
   isMergedOriginal,
+  kbRef,
   mayRemoveCase,
   offersReviewActions,
 } from '@/lib/kbConsolidation';
@@ -209,7 +210,13 @@ export const KBEntryDetail = ({
           {/* Header */}
           <div className="flex-none p-6 border-b">
             <div className="flex gap-4 justify-between items-start mb-4">
-              <h2 className="font-display text-2xl font-semibold">{displayEntry.title}</h2>
+              <div className="min-w-0">
+                {/* The entry's own number — what the search box and the address bar name it by. */}
+                <p className="mb-1 font-mono text-xs text-muted-foreground">
+                  {kbRef(displayEntry.publicId, displayEntry.id)}
+                </p>
+                <h2 className="font-display text-2xl font-semibold">{displayEntry.title}</h2>
+              </div>
               <div className="flex gap-2">
                 {/* Shown next to the approve action: approving makes this entry
                   retrievable ground truth, so the reviewer must know when the
