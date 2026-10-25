@@ -236,18 +236,18 @@ describe('The drawer keeps the list row source for the editor', () => {
 
 describe('The entry number in the drawer', () => {
   it('shows the public number the list, the search and the address bar use', async () => {
-    detailAnswer = () => ({ ...brochure, publicId: 'KB-159' });
+    detailAnswer = () => ({ ...brochure, publicId: 'KB-77' });
     render(
       withQuery(
         <KBEntryDetail
-          entry={{ ...brochure, publicId: 'KB-159' }}
+          entry={{ ...brochure, publicId: 'KB-77' }}
           onClose={noop}
           canReview
           {...drawerHandlers}
         />
       )
     );
-    expect(await screen.findByText('#KB-159')).toBeTruthy();
+    expect(await screen.findByText('#KB-77')).toBeTruthy();
   });
 
   it('an entry without a public number shows its row number', async () => {

@@ -32,7 +32,7 @@ import { Permission } from '@/types/roles';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useUiFlags } from '@/hooks/useUiFlags';
 import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
-import { KB_ENTRY_NOT_FOUND_ALERT, useKbEntryParam } from '@/hooks/useKbEntryParam';
+import { useKbEntryParam } from '@/hooks/useKbEntryParam';
 import { useKbAutoChangedSupport } from '@/hooks/useKbAutoChangedSupport';
 import { CASE_ACTION_TITLES, LEFT_PAGE, runCaseAction } from '@/components/kb/runCaseAction';
 import { KbExportButton } from '@/components/kb/KbExportButton';
@@ -200,7 +200,7 @@ export const KnowledgeBasePage = () => {
     canReview,
     entries,
     filterStatus,
-    onNotFound: () => setAlertDialog(KB_ENTRY_NOT_FOUND_ALERT),
+    onNotFound: setAlertDialog,
   });
 
   const handleSearch = () => {

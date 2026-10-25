@@ -19,6 +19,8 @@ const unmerge = vi.fn<(...args: unknown[]) => unknown>();
 const approve = vi.fn<(...args: unknown[]) => unknown>();
 const unhide = vi.fn<(...args: unknown[]) => unknown>();
 const toastCalls: Array<{ kind: string; message: string }> = [];
+// useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
+vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/lib/toast', () => ({
   toast: Object.fromEntries(
     ['success', 'info', 'warning', 'error'].map((kind) => [
