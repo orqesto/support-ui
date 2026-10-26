@@ -5,13 +5,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { CustomApiLookupPanel } from '../CustomApiLookupPanel';
-import { RowFields } from '../customApiRowFields';
+import { RowFields, trackingOf } from '../customApiRowFields';
 import type * as LookupService from '@/services/customApiLookup.service';
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
 
 type CustomApiLookupResult = LookupService.CustomApiLookupResult;
 type RunnableLookup = LookupService.RunnableLookup;
+type LookupField = LookupService.LookupField;
 
 /**
  * A record in a customer's LIST opens in the typed-value lookup of the same connection and
@@ -103,6 +104,29 @@ beforeEach(() => {
   ]);
 });
 
+describe('which parcels a record names', () => {
+  const number = { path: 'trackings[].no', label: 'No', kind: 'plain', role: 'tracking_number' };
+  const link = { path: 'trackings[].link', label: 'Link', kind: 'plain', role: 'tracking_link' };
+
+  it('pairs numbers with links by position when there are as many of each', () => {
+    const row = { 'trackings[].no': ['A', 'B'], 'trackings[].link': ['https://a.test', null] };
+    expect(trackingOf(row, [number, link] as LookupField[])).toEqual([
+      { number: 'A', link: 'https://a.test' },
+      { number: 'B', link: null },
+    ]);
+  });
+
+  it('⛔ two DIFFERENT lists of unequal length: never guesses a link onto a number', () => {
+    const otherLink = { ...link, path: 'links[].url' };
+    const row = { 'trackings[].no': ['A', 'B'], 'links[].url': ['https://a.test'] };
+    expect(trackingOf(row, [number, otherLink] as LookupField[])).toEqual([
+      { number: 'A', link: null },
+      { number: 'B', link: null },
+      { number: null, link: 'https://a.test' },
+    ]);
+  });
+});
+
 describe('a web address in a card', () => {
   it('⛔ an address the browser cannot open stays as TEXT — a vendor value never vanishes', () => {
     rtlRender(
@@ -116,25 +140,44 @@ describe('a web address in a card', () => {
   });
 });
 
+const DETAIL_FIELDS = [
+  { path: 'order_id', label: 'Order', kind: 'plain', role: 'identifier' },
+  { path: 'tracking_no', label: 'Tracking number', kind: 'plain', role: 'tracking_number' },
+  { path: 'tracking', label: 'Tracking link', kind: 'plain', role: 'tracking_link' },
+] as CustomApiLookupResult['fields'];
+
+const opened = (
+  orderId: string,
+  parcel: string,
+  over: Partial<CustomApiLookupResult> = {}
+): CustomApiLookupResult =>
+  details({
+    status: 'ok',
+    rows: [
+      {
+        order_id: orderId,
+        tracking_no: parcel,
+        tracking: `https://track.example.com/?n=${parcel}`,
+      },
+    ],
+    fields: DETAIL_FIELDS,
+    ...over,
+  });
+
+const openOrder = async (orderId: string) => {
+  await userEvent.click(
+    await screen.findByRole('button', { name: `Show details of Order ${orderId}` })
+  );
+};
+
 describe('opening a listed order in its details lookup', () => {
   it('runs the details lookup for THAT order number and scrolls to its card', async () => {
     run.mockResolvedValueOnce([list(), details()]);
     render(<CustomApiLookupPanel conversationId={1} />);
     await pressLookUp();
 
-    run.mockResolvedValueOnce([
-      details({
-        status: 'ok',
-        rows: [{ order_id: '100002', tracking: 'https://track.example.com/?n=TRK-1' }],
-        fields: [
-          { path: 'order_id', label: 'Order', kind: 'plain', role: 'identifier' },
-          { path: 'tracking', label: 'Tracking link', kind: 'plain', role: 'tracking_link' },
-        ],
-      }),
-    ]);
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Show details of Order 100002' })
-    );
+    run.mockResolvedValueOnce([opened('100002', 'TRK-1')]);
+    await openOrder('100002');
 
     await waitFor(() =>
       expect(run).toHaveBeenLastCalledWith({
@@ -143,10 +186,58 @@ describe('opening a listed order in its details lookup', () => {
         parameter: '100002',
       })
     );
-    // The carrier's page opens in a new tab rather than being copied out by hand.
-    const link = await screen.findByRole('link', { name: 'https://track.example.com/?n=TRK-1' });
-    expect(link.getAttribute('target')).toBe('_blank');
+    // In the details card AND under the order's row in the list; each opens the carrier's page.
+    await waitFor(() => expect(screen.getAllByRole('link', { name: 'TRK-1' })).toHaveLength(2));
+    for (const link of screen.getAllByRole('link', { name: 'TRK-1' })) {
+      expect(link.getAttribute('href')).toBe('https://track.example.com/?n=TRK-1');
+      expect(link.getAttribute('target')).toBe('_blank');
+    }
     await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+  });
+
+  it('an opened order KEEPS its tracking in the list after the next one is opened', async () => {
+    run.mockResolvedValueOnce([list(), details()]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await pressLookUp();
+
+    run.mockResolvedValueOnce([opened('100002', 'TRK-2')]);
+    await openOrder('100002');
+    await waitFor(() => expect(screen.getAllByRole('link', { name: 'TRK-2' })).toHaveLength(2));
+
+    run.mockResolvedValueOnce([opened('100001', 'TRK-1')]);
+    await openOrder('100001');
+    await waitFor(() => expect(screen.getAllByRole('link', { name: 'TRK-1' })).toHaveLength(2));
+    // The details card moved on; the list row still says it.
+    expect(screen.getAllByRole('link', { name: 'TRK-2' })).toHaveLength(1);
+  });
+
+  it('⛔ a record the ownership check says is SOMEONE ELSE’S is not copied into the list', async () => {
+    run.mockResolvedValueOnce([list(), details()]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await pressLookUp();
+
+    run.mockResolvedValueOnce([opened('100002', 'TRK-9', { ownership: 'mismatch' })]);
+    await openOrder('100002');
+    // Only the details card itself, under its own "does NOT belong" flag.
+    await waitFor(() => expect(screen.getAllByRole('link', { name: 'TRK-9' })).toHaveLength(1));
+  });
+
+  it('a list that carries tracking itself shows it under each order without a click', async () => {
+    run.mockResolvedValueOnce([
+      {
+        ...list(),
+        rows: [{ order_id: '100001', status: 'Completed', parcel: 'TRK-5' }],
+        fields: [
+          ...(LIST_FIELDS ?? []),
+          { path: 'parcel', label: 'Tracking number', kind: 'plain', role: 'tracking_number' },
+        ],
+      } as CustomApiLookupResult,
+      details(),
+    ]);
+    render(<CustomApiLookupPanel conversationId={1} />);
+    await pressLookUp();
+
+    expect(await screen.findByTestId('record-tracking')).toHaveTextContent('Tracking: TRK-5');
   });
 
   it('CONTROL: no typed-value lookup of the same kind ⇒ the number is plain text', async () => {

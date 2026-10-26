@@ -308,6 +308,74 @@ const roleOf = (field: LookupField): string | null => {
   return typeof value === 'string' ? value : null;
 };
 
+/** One parcel: its number, its carrier page, or both. */
+export type TrackingItem = { number: string | null; link: string | null };
+
+/** A field's values on this row, one per item for a list field; none when the vendor left it empty. */
+const valuesOf = (row: Record<string, unknown>, field: LookupField | undefined): string[] => {
+  if (!field) return [];
+  if (listOf(field.path) !== null && Array.isArray(row[field.path]))
+    return renderItems(row, field).filter((item) => item !== MISSING);
+  const value = renderValue(row, field);
+  return value === MISSING ? [] : [value];
+};
+
+/**
+ * The parcels a record names, read ONLY off the admin's `tracking_number` / `tracking_link` tags.
+ * Numbers and links are paired by position when there are as many of each (one parcel each, or
+ * the same list); otherwise neither is guessed onto the other and both are listed as they are.
+ */
+export const trackingOf = (row: Record<string, unknown>, fields: LookupField[]): TrackingItem[] => {
+  const numberField = fields.find((field) => roleOf(field) === 'tracking_number');
+  const linkField = fields.find((field) => roleOf(field) === 'tracking_link');
+  const list = numberField && listOf(numberField.path);
+  /*
+    ⛔ ONE LIST ⇒ PAIRED ITEM BY ITEM, BEFORE anything empty is dropped. Dropping first let a parcel
+    with no link shift every later link onto the wrong number.
+  */
+  if (linkField && list && list === listOf(linkField.path)) {
+    const links = renderItems(row, linkField);
+    return renderItems(row, numberField)
+      .map((number, index) => ({
+        number: number === MISSING ? null : number,
+        link: (links[index] ?? MISSING) === MISSING ? null : links[index],
+      }))
+      .filter((item) => item.number !== null || item.link !== null);
+  }
+  const numbers = valuesOf(row, numberField);
+  const links = valuesOf(row, linkField);
+  if (numbers.length === links.length)
+    return numbers.map((number, index) => ({ number, link: links[index] }));
+  return [
+    ...numbers.map((number) => ({ number, link: null })),
+    ...links.map((link) => ({ number: null, link })),
+  ];
+};
+
+/** The record's own reference (its `identifier`-tagged value), or null when it has none. */
+export const referenceOf = (row: Record<string, unknown>, fields: LookupField[]): string | null => {
+  const field = fields.find(
+    (one) => roleOf(one) === 'identifier' && renderValue(row, one) !== MISSING
+  );
+  return field ? renderValue(row, field) : null;
+};
+
+/** A parcel number that opens its carrier page in a new tab; a lone link or number as it is. */
+const TrackingValue = ({ item }: { item: TrackingItem }) => {
+  if (item.link && isWebAddress(item.link))
+    return (
+      <ExternalLink
+        href={item.link}
+        size="sm"
+        showIcon={false}
+        className="inline break-all font-mono text-[11.5px]"
+      >
+        {item.number ?? item.link}
+      </ExternalLink>
+    );
+  return <span className="font-mono text-foreground break-all">{item.number ?? item.link}</span>;
+};
+
 /**
  * L2 P3 — an order laid out AS an order.
  *
@@ -326,12 +394,14 @@ const RecordCard = ({
   fields,
   category,
   onOpenRecord,
+  tracking = [],
   children,
 }: {
   row: Record<string, unknown>;
   fields: LookupField[];
   category: CustomApiCategory;
   onOpenRecord?: (reference: string) => void;
+  tracking?: TrackingItem[];
   children?: ReactNode;
 }) => {
   const present = (role: string): LookupField | undefined =>
@@ -343,7 +413,16 @@ const RecordCard = ({
   const total = present('total');
   /** The date and total line, in that order, with whichever of the two this row actually has. */
   const meta = [date, total].filter((field): field is LookupField => field !== undefined);
-  const headed = [identifier, status, ...meta].filter(Boolean);
+  /** The record's own tracking when it carries any; otherwise what its opened details said. */
+  const ownTracking = trackingOf(row, fields);
+  const shownTracking = ownTracking.length > 0 ? ownTracking : tracking;
+  const trackingFields =
+    ownTracking.length > 0
+      ? fields.filter(
+          (field) => roleOf(field) === 'tracking_number' || roleOf(field) === 'tracking_link'
+        )
+      : [];
+  const headed = [identifier, status, ...meta, ...trackingFields].filter(Boolean);
   const rest = fields.filter((field) => !headed.includes(field));
 
   return (
@@ -411,6 +490,21 @@ const RecordCard = ({
         </p>
       )}
 
+      {shownTracking.length > 0 && (
+        <p
+          className="text-[11.5px] text-faint-foreground break-words"
+          data-testid="record-tracking"
+        >
+          <span>Tracking: </span>
+          {shownTracking.map((item, index) => (
+            <span key={`${item.number ?? ''}|${item.link ?? ''}`}>
+              {index > 0 && ', '}
+              <TrackingValue item={item} />
+            </span>
+          ))}
+        </p>
+      )}
+
       {rest.length > 0 && <FieldGrid row={row} fields={rest} />}
       {children}
     </div>
@@ -431,6 +525,7 @@ export const RowFields = ({
   ownership,
   onUseInReply,
   onOpenRecord,
+  trackingFor,
 }: {
   row: Record<string, unknown>;
   fields: LookupField[];
@@ -447,6 +542,8 @@ export const RowFields = ({
   onUseInReply?: (note: string) => AddOutcome;
   /** Open this record, by its reference, in the lookup that shows one record in full. */
   onOpenRecord?: (reference: string) => void;
+  /** The parcels already read for a record, by its reference (from its opened details). */
+  trackingFor?: (reference: string) => TrackingItem[] | undefined;
 }) => {
   // No category, or no role the header can use ⇒ nothing to lay out. The grid is not a degraded
   // mode here, it is the correct rendering of a record nobody has described.
@@ -480,8 +577,15 @@ export const RowFields = ({
         {insert}
       </div>
     );
+  const reference = referenceOf(row, fields);
   return (
-    <RecordCard row={row} fields={fields} category={category} onOpenRecord={onOpenRecord}>
+    <RecordCard
+      row={row}
+      fields={fields}
+      category={category}
+      onOpenRecord={onOpenRecord}
+      tracking={reference === null ? undefined : trackingFor?.(reference)}
+    >
       {insert}
     </RecordCard>
   );

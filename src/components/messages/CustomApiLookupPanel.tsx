@@ -16,6 +16,7 @@ import type { AddOutcome } from './recordInsertOutcome';
 import type { CustomApiLookupResult, RunnableLookup } from '@/services/customApiLookup.service';
 import { relativeTime } from './messageDetailConstants';
 import { CustomApiResultCard } from './CustomApiResultCard';
+import { referenceOf, trackingOf, type TrackingItem } from './customApiRowFields';
 import {
   LOOKUPS_NOT_ON_SERVER,
   lookupListLine,
@@ -237,6 +238,31 @@ export const CustomApiLookupPanel = ({
   // Configuration only, the same cached query as the tab's badge — no vendor call (SC1).
   const options = useCustomApiLookupOptions(surface);
   const rootRef = useRef<HTMLDivElement>(null);
+  /**
+   * The parcels of every record opened in a details card on this thread, keyed
+   * `${detailsEndpointId}:${reference}` — so an order keeps its tracking under its row in the list
+   * after the details card moves on to another order. ⛔ Cleared with the customer: a different
+   * thread, or a different looked-up email, is a different person's orders. A record the
+   * ownership check said is someone else's is never copied into this customer's list.
+   */
+  const [openedTracking, setOpenedTracking] = useState<Record<string, TrackingItem[]>>({});
+  useEffect(() => {
+    setOpenedTracking({});
+  }, [conversationId, contactId, lookedUpAs]);
+  useEffect(() => {
+    const read = results.flatMap((result): [string, TrackingItem[]][] => {
+      const row = result.rows?.[0];
+      if (result.status !== 'ok' || result.rows?.length !== 1 || !row) return [];
+      if (result.ownership === 'mismatch') return [];
+      const fields = result.fields ?? [];
+      const reference = referenceOf(row, fields);
+      const items = trackingOf(row, fields);
+      return reference === null || items.length === 0
+        ? []
+        : [[`${result.endpointId}:${reference}`, items]];
+    });
+    if (read.length > 0) setOpenedTracking((known) => ({ ...known, ...Object.fromEntries(read) }));
+  }, [results]);
   const navigate = useNavigate();
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
@@ -520,6 +546,11 @@ export const CustomApiLookupPanel = ({
                 detailsId === null
                   ? undefined
                   : (reference) => void openRecord(detailsId, reference)
+              }
+              trackingFor={
+                detailsId === null
+                  ? undefined
+                  : (reference) => openedTracking[`${detailsId}:${reference}`]
               }
             />
           );

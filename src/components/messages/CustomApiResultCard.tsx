@@ -15,7 +15,12 @@ import {
   SHAPE_CHANGED_FOR_AGENTS,
   skippedText,
 } from './customApiLookupText';
-import { projectFields, RowFields, UNCONFIGURED_FIELD_PREVIEW } from './customApiRowFields';
+import {
+  projectFields,
+  RowFields,
+  UNCONFIGURED_FIELD_PREVIEW,
+  type TrackingItem,
+} from './customApiRowFields';
 import type { AddOutcome } from './recordInsertOutcome';
 
 /**
@@ -157,6 +162,8 @@ interface CardProps {
   onUseInReply?: (note: string) => AddOutcome;
   /** Open a listed record, by its reference, in the lookup that shows one record in full. */
   onOpenRecord?: (reference: string) => void;
+  /** The parcels already read for a listed record, by its reference. */
+  trackingFor?: (reference: string) => TrackingItem[] | undefined;
   /** The email the backend CONFIRMED this run used ("Look up another email"). */
   lookedUpAs?: string | null;
   /** A3: under an identity no-match, when the same connection has a typed-value lookup. */
@@ -179,6 +186,7 @@ export const CustomApiResultCard = ({
   onRunManual,
   onUseInReply,
   onOpenRecord,
+  trackingFor,
   lookedUpAs,
   referenceHint,
   typedValue,
@@ -395,6 +403,7 @@ export const CustomApiResultCard = ({
                 ownership={result.ownership}
                 onUseInReply={onUseInReply}
                 onOpenRecord={onOpenRecord}
+                trackingFor={trackingFor}
               />
             ))}
             {usingFallback && fallbackKeys.length > UNCONFIGURED_FIELD_PREVIEW && (
