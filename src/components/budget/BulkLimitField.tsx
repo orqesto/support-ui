@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Toggle } from '@/components/ui/Toggle';
 import { cn } from '@/lib/utils';
-import { fmtMoney } from './budget.rules';
+import { useMoney } from './tokenRate';
 
 export const FieldLabel = ({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) =>
   htmlFor ? (
@@ -40,36 +40,42 @@ export const BulkLimitField = ({
   /** Read-only when false: the switch is disabled. */
   canEdit?: boolean;
   onToggle: (on: boolean) => void;
-}) => (
-  <div className="flex flex-col gap-1.5">
-    <FieldLabel>Bulk processing (knowledge base, imports, re-mines)</FieldLabel>
-    <Toggle
-      checked={on}
-      onChange={onToggle}
-      disabled={!canEdit}
-      label="Limit it · drag the line on the bar"
-    />
-    {/* Same size either way, so switching never moves the layout; the warning for "off" is
+}) => {
+  const money = useMoney();
+  return (
+    <div className="flex flex-col gap-1.5">
+      <FieldLabel>Bulk processing (knowledge base, imports, re-mines)</FieldLabel>
+      <Toggle
+        checked={on}
+        onChange={onToggle}
+        disabled={!canEdit}
+        label="Limit it · drag the line on the bar"
+      />
+      {/* Same size either way, so switching never moves the layout; the warning for "off" is
         in the status line under the bar. */}
-    <span className="font-mono text-lg min-h-[1.75rem]">
-      {on ? `At most ${pct}% · ${fmtMoney(cap)} · counts bulk spend only` : 'No limit'}
-    </span>
-  </div>
-);
+      <span className="font-mono text-lg min-h-[1.75rem]">
+        {on ? `At most ${pct}% · ${money(cap)} · counts bulk spend only` : 'No limit'}
+      </span>
+    </div>
+  );
+};
 
 /** The bulk part of the legend. */
-export const BulkLegend = ({ on, used, cap }: { on: boolean; used: number; cap: number }) => (
-  <span>
-    <Swatch className="bg-pending" />
-    Bulk processing <span className="font-mono">{fmtMoney(used)}</span>
-    {on && (
-      <>
-        {' '}
-        of <span className="font-mono">{fmtMoney(cap)}</span>
-      </>
-    )}
-  </span>
-);
+export const BulkLegend = ({ on, used, cap }: { on: boolean; used: number; cap: number }) => {
+  const money = useMoney();
+  return (
+    <span>
+      <Swatch className="bg-pending" />
+      Bulk processing <span className="font-mono">{money(used)}</span>
+      {on && (
+        <>
+          {' '}
+          of <span className="font-mono">{money(cap)}</span>
+        </>
+      )}
+    </span>
+  );
+};
 
 /** The limit line in the legend, shown only while the bulk limit is on. */
 export const BulkLimitLegend = ({ on }: { on: boolean }) =>

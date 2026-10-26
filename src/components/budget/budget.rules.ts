@@ -129,3 +129,40 @@ export const extraLeft = (extra: ExtraView | null): number =>
 
 export const clampPct = (pct: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, pct));
+
+/**
+ * What one token cost in this budget this period, in micros (its spend ÷ its tokens), or null
+ * when there is no usage to go by. Budgets are kept in dollars; tokens are this price's view of
+ * them, so a token figure moves when the model mix does.
+ */
+export const microsPerToken = (
+  spendMicros: number,
+  tokens: number | null | undefined
+): number | null => (tokens && tokens > 0 && spendMicros > 0 ? spendMicros / tokens : null);
+
+/** Micros -> whole tokens at that price. */
+export const microsToTokens = (micros: number, rate: number): number => Math.round(micros / rate);
+
+/** Whole tokens -> micros at that price (at least one micro). */
+export const tokensToMicros = (tokens: number, rate: number): number =>
+  Math.max(1, Math.round(tokens * rate));
+
+/** "≈ $40.00 (9.6M tokens)"; just the money when there is no price to go by. */
+export const fmtMoneyTokens = (micros: number, rate: number | null): string =>
+  rate
+    ? `${fmtMoney(micros)} (${fmtTokenCount(microsToTokens(micros, rate))} tokens)`
+    : fmtMoney(micros);
+
+/**
+ * Tokens typed by a person: "10M", "2.5m", "500K", "1,200,000". '' = null (none); NaN = not a
+ * positive number.
+ */
+export const parseTokens = (text: string): number | null => {
+  const trimmed = text.trim().replace(/[,_\s]/g, '');
+  if (trimmed === '') return null;
+  const match = /^(\d+(?:\.\d+)?)([kKmMbB]?)$/.exec(trimmed);
+  if (!match) return Number.NaN;
+  const scale = { '': 1, k: 1e3, m: 1e6, b: 1e9 }[match[2].toLowerCase() as '' | 'k' | 'm' | 'b'];
+  const tokens = Math.round(Number(match[1]) * scale);
+  return tokens > 0 ? tokens : Number.NaN;
+};

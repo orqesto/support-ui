@@ -5,6 +5,7 @@ import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { EXTRA_MAX, EXTRA_MIN, EXTRA_STEP, MICROS_PER_USD, fmtMoney } from './budget.rules';
 import { FieldLabel } from './BulkLimitField';
+import { useMoney } from './tokenRate';
 
 /**
  * An organisation or workspace admin asks the platform admin for extra money for bulk work. Nothing
@@ -46,6 +47,7 @@ export const RequestExtraBox = ({
   busy,
   onRequest,
 }: RequestExtraBoxProps) => {
+  const money = useMoney();
   const [targetIndex, setTargetIndex] = useState(0);
   const target = targets?.[targetIndex];
   const startFor = (index: number) => atLeastMin(targets?.[index]?.suggestion ?? initialAmount);
@@ -91,9 +93,7 @@ export const RequestExtraBox = ({
           options={targets.map((item, index) => ({ value: String(index), label: item.label }))}
         />
       )}
-      <span className="font-mono text-lg">
-        {fmtMoney(amountMicros)}
-      </span>
+      <span className="font-mono text-lg">{money(amountMicros)}</span>
       <BarSlider
         value={amount}
         min={EXTRA_MIN}

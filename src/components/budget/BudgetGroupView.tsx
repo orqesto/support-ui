@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { BarMarker, BarSegment, BarSlider } from '@/components/ui/BarSlider';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Toggle } from '@/components/ui/Toggle';
 import { Select } from '@/components/ui/Select';
@@ -16,6 +15,7 @@ import type {
   WorkspaceRow,
 } from '@/services/budgets.service';
 import { BudgetBar } from './BudgetBar';
+import { BudgetField } from './BudgetField';
 import { BulkBar } from './BulkBar';
 import { BulkLimitField, FieldLabel } from './BulkLimitField';
 import { ExtraBox } from './ExtraBox';
@@ -27,14 +27,15 @@ import {
   ADVANCED_ANCHOR,
   MICROS_PER_USD,
   QUICK_EXTRA_END,
-  dollarsText,
   extraEndsText,
   extraLeft,
   fmtMoney,
+  fmtMoneyTokens,
   limitSliderTop,
-  parseDollars,
+  microsPerToken,
   type ExtraEndChoice,
 } from './budget.rules';
+import { TokenRateProvider, useMoney } from './tokenRate';
 
 /**
  * The body of one budget group (an organisation or a standalone workspace): budget, bulk limit,
@@ -112,7 +113,8 @@ export const ModeField = ({
           value={mode.next?.mode ?? mode.current}
           disabled={busy}
           onChange={(next: string) => {
-            if (next !== (mode.next?.mode ?? mode.current)) void onSetMode?.(next as OrganisationMode);
+            if (next !== (mode.next?.mode ?? mode.current))
+              void onSetMode?.(next as OrganisationMode);
           }}
           options={MODE_OPTIONS}
         />
@@ -124,116 +126,16 @@ export const ModeField = ({
       )}
       {mode.next && (
         <span className="text-sm text-warning" data-testid="budget-mode-next">
-          Changes to {mode.next.mode} on {new Date(mode.next.from).toLocaleDateString(undefined, { timeZone: 'UTC' })} (the
-          next reset). Choose {mode.current} again to cancel it.
+          Changes to {mode.next.mode} on{' '}
+          {new Date(mode.next.from).toLocaleDateString(undefined, { timeZone: 'UTC' })} (the next
+          reset). Choose {mode.current} again to cancel it.
         </span>
       )}
     </div>
   );
 };
 
-export const BudgetField = ({
-  detail,
-  canEdit,
-  plansAvailable,
-  busy,
-  onUpdate,
-}: {
-  detail: Pick<GroupDetail, 'key' | 'budget' | 'budgetSource'>;
-  canEdit: boolean;
-  plansAvailable: boolean;
-  busy?: boolean;
-  onUpdate?: (body: GroupUpdate) => void | Promise<boolean>;
-}) => {
-  const inputId = `budget-${detail.key}`;
-  const [draft, setDraft] = useState(() => dollarsText(detail.budget));
-  const [overriding, setOverriding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  if (!canEdit)
-    return (
-      <div className="flex flex-col gap-1.5">
-        <FieldLabel>Budget per billing period</FieldLabel>
-        <span className="font-mono text-lg" data-testid="budget-readonly">
-          {detail.budget === null
-            ? 'No budget set'
-            : `${fmtMoney(detail.budget)} / billing period`}
-        </span>
-      </div>
-    );
-
-  // The budget is not the group's own: hosted plans' sum, or the self-hosted standalone default.
-  const inherited = detail.budgetSource === 'plans' || detail.budgetSource === 'default';
-  if (inherited && !overriding)
-    return (
-      <div className="flex flex-col gap-1.5">
-        <FieldLabel>Budget per billing period</FieldLabel>
-        <div className="flex flex-wrap gap-2.5 items-center">
-          <span className="font-mono text-lg">
-            {`${detail.budgetSource === 'plans' ? 'From plans' : 'Default for standalone workspaces'}: ${
-              detail.budget === null ? '—' : fmtMoney(detail.budget)
-            }`}
-          </span>
-          <Button variant="outline" size="sm" onClick={() => setOverriding(true)}>
-            Override
-          </Button>
-        </div>
-      </div>
-    );
-
-  const save = () => {
-    const budget = parseDollars(draft);
-    if (Number.isNaN(budget)) {
-      setError('Type an amount in dollars above 0, or leave it empty for no budget.');
-      return;
-    }
-    setError(null);
-    void onUpdate?.({ budget });
-  };
-  const saved = dollarsText(detail.budget);
-  const changed = draft.trim() !== saved || (inherited && overriding);
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <FieldLabel htmlFor={inputId}>Budget per billing period</FieldLabel>
-      <div className="flex flex-wrap gap-2.5 items-center">
-        <Input
-          id={inputId}
-          type="number"
-          min={0}
-          step="0.01"
-          aria-label="Budget per billing period, dollars"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') save();
-          }}
-          className="w-28 font-mono text-lg"
-        />
-        <span className="text-sm text-muted-foreground">US dollars per billing period</span>
-        {changed && (
-          <Button size="sm" disabled={busy} onClick={save}>
-            Save budget
-          </Button>
-        )}
-        {plansAvailable && (detail.budgetSource === 'override' || overriding) && (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={busy}
-            onClick={() => {
-              setOverriding(false);
-              if (detail.budgetSource === 'override') void onUpdate?.({ budget: null });
-            }}
-          >
-            Use the plans
-          </Button>
-        )}
-      </div>
-      {error && <span className="text-sm text-destructive">{error}</span>}
-    </div>
-  );
-};
+export { BudgetField };
 
 const WorkspacePanel = ({
   row,
@@ -259,6 +161,7 @@ const WorkspacePanel = ({
   onEndExtra?: BudgetGroupViewProps['onEndExtra'];
   onClose: () => void;
 }) => {
+  const money = useMoney();
   const top = limitSliderTop({
     budget: detail.budget,
     groupSpend: detail.spend.total,
@@ -302,8 +205,8 @@ const WorkspacePanel = ({
                 {!limitOn
                   ? 'No own limit · only the organisation bulk limit applies'
                   : rowBudget
-                    ? `${fmtMoney(draft * MICROS_PER_USD)} · ${Math.round(((draft * MICROS_PER_USD) / rowBudget) * 100)}% of the budget`
-                    : fmtMoney(draft * MICROS_PER_USD)}
+                    ? `${money(draft * MICROS_PER_USD)} · ${Math.round(((draft * MICROS_PER_USD) / rowBudget) * 100)}% of the budget`
+                    : money(draft * MICROS_PER_USD)}
               </span>
               <BarSlider
                 value={draft}
@@ -343,7 +246,7 @@ const WorkspacePanel = ({
             </>
           ) : (
             <span className="font-mono text-lg">
-              {row.bulkLimit === null ? 'No own limit' : `At most ${fmtMoney(row.bulkLimit)}`}
+              {row.bulkLimit === null ? 'No own limit' : `At most ${money(row.bulkLimit)}`}
             </span>
           )}
           <span className="text-sm text-muted-foreground">
@@ -364,9 +267,9 @@ const WorkspacePanel = ({
           row.extra && (
             <div className="flex flex-col gap-1.5">
               <FieldLabel>Extra for bulk work</FieldLabel>
-              <span className="font-mono text-lg">{fmtMoney(row.extra.amountMicros)}</span>
+              <span className="font-mono text-lg">{money(row.extra.amountMicros)}</span>
               <span className="text-sm text-muted-foreground">
-                {fmtMoney(row.extra.usedMicros)} used · {extraEndsText(row.extra.endsAt)}
+                {money(row.extra.usedMicros)} used · {extraEndsText(row.extra.endsAt)}
               </span>
             </div>
           )
@@ -395,6 +298,8 @@ export const BudgetGroupView = ({
   onSetMode,
   workspacePath,
 }: BudgetGroupViewProps) => {
+  const tokenRate = microsPerToken(detail.spend.total, detail.tokens?.total);
+  const money = (micros: number) => fmtMoneyTokens(micros, tokenRate);
   // Only the platform admin gives extra, and the budget is never set from the organisation console
   // (its PUT takes no budget): there the platform admin, too, gets neither control.
   // A `separate` organisation (the default) has no budget, bulk line or extra of its own: the
@@ -450,240 +355,242 @@ export const BudgetGroupView = ({
   ];
 
   return (
-    <div className="flex flex-col gap-4">
-      <Card>
-        <CardContent className="flex flex-col gap-4 p-5 sm:p-6">
-          <div className="flex flex-wrap gap-x-8 gap-y-3 items-end">
-            <BudgetField
-              key={`${detail.key}-${detail.budget}-${detail.budgetSource}`}
-              detail={detail}
-              canEdit={canEdit.budget}
-              plansAvailable={plansAvailable}
-              busy={busy}
-              onUpdate={onUpdate}
+    <TokenRateProvider rate={tokenRate}>
+      <div className="flex flex-col gap-4">
+        <Card>
+          <CardContent className="flex flex-col gap-4 p-5 sm:p-6">
+            <div className="flex flex-wrap gap-x-8 gap-y-3 items-end">
+              <BudgetField
+                key={`${detail.key}-${detail.budget}-${detail.budgetSource}`}
+                detail={detail}
+                canEdit={canEdit.budget}
+                plansAvailable={plansAvailable}
+                busy={busy}
+                onUpdate={onUpdate}
+              />
+              <BulkLimitField
+                on={detail.bulkLimitOn}
+                pct={detail.bulkPct}
+                cap={cap}
+                canEdit={canEdit.bulk && !busy}
+                onToggle={(bulkLimitOn) => onUpdate?.({ bulkLimitOn })}
+              />
+            </div>
+            {detail.mode && (
+              <ModeField
+                mode={detail.mode}
+                canEdit={canEdit.mode && Boolean(onSetMode)}
+                busy={busy}
+                onSetMode={onSetMode}
+              />
+            )}
+            <BudgetBar
+              budget={detail.budget}
+              spend={detail.spend}
+              removedSpend={detail.removedSpend.total}
+              tokens={detail.tokens}
+              bulkLimitOn={detail.bulkLimitOn}
+              bulkPct={detail.bulkPct}
+              bulkPctMin={detail.bulkPctMin}
+              bulkPctMax={detail.bulkPctMax}
+              canEdit={canEdit.bulk}
+              onBulkPctChange={(bulkPct) => onUpdate?.({ bulkPct })}
             />
-            <BulkLimitField
-              on={detail.bulkLimitOn}
-              pct={detail.bulkPct}
-              cap={cap}
-              canEdit={canEdit.bulk && !busy}
-              onToggle={(bulkLimitOn) => onUpdate?.({ bulkLimitOn })}
+            <StatusText
+              tone={detail.status.tone}
+              text={detail.status.text}
+              testId="budget-group-status"
             />
-          </div>
-          {detail.mode && (
-            <ModeField
-              mode={detail.mode}
-              canEdit={canEdit.mode && Boolean(onSetMode)}
-              busy={busy}
-              onSetMode={onSetMode}
-            />
-          )}
-          <BudgetBar
-            budget={detail.budget}
-            spend={detail.spend}
-            removedSpend={detail.removedSpend.total}
-            tokens={detail.tokens}
-            bulkLimitOn={detail.bulkLimitOn}
-            bulkPct={detail.bulkPct}
-            bulkPctMin={detail.bulkPctMin}
-            bulkPctMax={detail.bulkPctMax}
-            canEdit={canEdit.bulk}
-            onBulkPctChange={(bulkPct) => onUpdate?.({ bulkPct })}
-          />
-          <StatusText
-            tone={detail.status.tone}
-            text={detail.status.text}
-            testId="budget-group-status"
-          />
-          {separate && (
-            <p className="text-sm text-muted-foreground" data-testid="budget-separate-note">
-              Each workspace has its own AI allowance.{' '}
-              {workspacePath
-                ? "To change one, click the workspace's name in the list to open its own budget page."
-                : "Change it on the workspace's row."}{' '}
-              The figures above are the sum of the workspaces.
-            </p>
-          )}
-          {separate && detail.groupExtra && (
-            <SeparateGroupExtra
-              extra={detail.groupExtra}
-              busy={busy}
-              onEnd={canEdit.grant ? onEndExtra : undefined}
-            />
-          )}
-          {detail.kind === 'alliance' &&
-            !separate &&
-            (canEdit.grant ? (
-              detail.groupExtra || groupExtraOpen ? (
-                <div className="flex flex-col gap-1.5 max-w-md">
-                  <ExtraBox
-                    key={`group-extra-${detail.key}`}
-                    title="Extra for the whole organisation (bulk work)"
-                    extra={detail.groupExtra}
-                    suggestion={suggestedForGroup}
-                    initialAmount={suggestedForGroup}
-                    busy={busy}
-                    onGive={(amountMicros, end) =>
-                      onGiveExtra?.(
-                        [{ allianceId: detail.id, organizationId: null }],
-                        amountMicros,
-                        end
-                      )
-                    }
-                    onEnd={() => detail.groupExtra && onEndExtra?.(detail.groupExtra.grantIds)}
-                  />
-                  <span className="text-sm text-muted-foreground">
-                    Any workspace&apos;s paused import uses it, after its own extra. No need to open
-                    a workspace.
-                  </span>
-                </div>
+            {separate && (
+              <p className="text-sm text-muted-foreground" data-testid="budget-separate-note">
+                Each workspace has its own AI allowance.{' '}
+                {workspacePath
+                  ? "To change one, click the workspace's name in the list to open its own budget page."
+                  : "Change it on the workspace's row."}{' '}
+                The figures above are the sum of the workspaces.
+              </p>
+            )}
+            {separate && detail.groupExtra && (
+              <SeparateGroupExtra
+                extra={detail.groupExtra}
+                busy={busy}
+                onEnd={canEdit.grant ? onEndExtra : undefined}
+              />
+            )}
+            {detail.kind === 'alliance' &&
+              !separate &&
+              (canEdit.grant ? (
+                detail.groupExtra || groupExtraOpen ? (
+                  <div className="flex flex-col gap-1.5 max-w-md">
+                    <ExtraBox
+                      key={`group-extra-${detail.key}`}
+                      title="Extra for the whole organisation (bulk work)"
+                      extra={detail.groupExtra}
+                      suggestion={suggestedForGroup}
+                      initialAmount={suggestedForGroup}
+                      busy={busy}
+                      onGive={(amountMicros, end) =>
+                        onGiveExtra?.(
+                          [{ allianceId: detail.id, organizationId: null }],
+                          amountMicros,
+                          end
+                        )
+                      }
+                      onEnd={() => detail.groupExtra && onEndExtra?.(detail.groupExtra.grantIds)}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      Any workspace&apos;s paused import uses it, after its own extra. No need to
+                      open a workspace.
+                    </span>
+                  </div>
+                ) : (
+                  <div>
+                    <Button variant="outline" size="sm" onClick={() => setGroupExtraOpen(true)}>
+                      Give extra to the whole organisation
+                    </Button>
+                  </div>
+                )
+              ) : (
+                detail.groupExtra && (
+                  <p className="text-sm text-muted-foreground">
+                    Extra for the whole organisation: {money(detail.groupExtra.amountMicros)},{' '}
+                    {money(extraLeft(detail.groupExtra))} left ·{' '}
+                    {extraEndsText(detail.groupExtra.endsAt)}
+                  </p>
+                )
+              ))}
+            {mode === 'organisation' &&
+              onRequestExtra &&
+              (requestOpen ? (
+                <RequestExtraBox
+                  targets={requestTargets}
+                  initialAmount={suggestedForGroup}
+                  busy={busy}
+                  onRequest={(amountMicros, reason, organizationId) =>
+                    onRequestExtra(organizationId, amountMicros, reason)
+                  }
+                />
               ) : (
                 <div>
-                  <Button variant="outline" size="sm" onClick={() => setGroupExtraOpen(true)}>
-                    Give extra to the whole organisation
+                  <Button variant="outline" size="sm" onClick={() => setRequestOpen(true)}>
+                    Request extra
                   </Button>
                 </div>
-              )
-            ) : (
-              detail.groupExtra && (
-                <p className="text-sm text-muted-foreground">
-                  Extra for the whole organisation: {fmtMoney(detail.groupExtra.amountMicros)},{' '}
-                  {fmtMoney(extraLeft(detail.groupExtra))} left ·{' '}
-                  {extraEndsText(detail.groupExtra.endsAt)}
-                </p>
-              )
-            ))}
-          {mode === 'organisation' &&
-            onRequestExtra &&
-            (requestOpen ? (
-              <RequestExtraBox
-                targets={requestTargets}
-                initialAmount={suggestedForGroup}
-                busy={busy}
-                onRequest={(amountMicros, reason, organizationId) =>
-                  onRequestExtra(organizationId, amountMicros, reason)
-                }
-              />
-            ) : (
-              <div>
-                <Button variant="outline" size="sm" onClick={() => setRequestOpen(true)}>
-                  Request extra
-                </Button>
-              </div>
-            ))}
-        </CardContent>
-      </Card>
+              ))}
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardContent className="flex flex-col gap-4 p-5 sm:p-6">
-          <div className="flex flex-wrap gap-2.5 justify-between items-center">
-            <h3 className="font-display text-base font-semibold">Workspaces</h3>
-            <SearchInput
-              placeholder="Search workspaces"
-              value={query}
-              onChange={setQuery}
-              className="w-full sm:w-56"
-            />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Bars compare workspaces with each other (the biggest one is full); the % is each
-            one&apos;s share of what the {mode === 'platform' ? 'group' : 'organisation'} used.
-          </p>
-          {canPick && (
-            <BulkBar
-              selected={pickedIds.length}
-              budget={bulkBarBudget}
-              top={limitSliderTop({
-                budget: detail.budget,
-                groupSpend: detail.spend.total,
-                limits: pickedRows.map((row) => row.bulkLimit),
-                spends: pickedRows.map((row) => row.spend.total),
-              })}
-              busy={busy}
-              selectable={list.length}
-              onSelectAll={() => setPicked(new Set(list.map((row) => row.organizationId)))}
-              onUnselectAll={() => setPicked(new Set())}
-              onSetLimit={(limit) => onSetLimits?.(pickedIds, limit)}
-              onRemoveLimit={() => onSetLimits?.(pickedIds, null)}
-              onGiveExtra={(amountMicros, end) =>
-                onGiveExtra?.(
-                  pickedIds.map((id) => targetOf(id)),
-                  amountMicros,
-                  end
-                )
-              }
-              withExtra={pickedRows.filter((row) => row.extra).length}
-              onEndExtra={() =>
-                onEndExtra?.(pickedRows.flatMap((row) => row.extra?.grantIds ?? []))
-              }
-              canLimit={canEdit.workspaceLimits}
-              canGrant={canEdit.grant}
-            />
-          )}
-          <WorkspaceRows
-            rows={visible}
-            groupTotal={detail.spend.total}
-            workspacePath={separate ? workspacePath : undefined}
-            openId={openId}
-            onToggleOpen={(id) => setOpenId((current) => (current === id ? null : id))}
-            busy={busy}
-            picked={canPick ? picked : undefined}
-            onTogglePick={
-              canPick
-                ? (id, on) =>
-                    setPicked((current) => {
-                      const next = new Set(current);
-                      if (on) next.add(id);
-                      else next.delete(id);
-                      return next;
-                    })
-                : undefined
-            }
-            renderPanel={(row) => (
-              <WorkspacePanel
-                key={row.organizationId}
-                row={row}
-                detail={detail}
-                canEdit={canEdit}
+        <Card>
+          <CardContent className="flex flex-col gap-4 p-5 sm:p-6">
+            <div className="flex flex-wrap gap-2.5 justify-between items-center">
+              <h3 className="font-display text-base font-semibold">Workspaces</h3>
+              <SearchInput
+                placeholder="Search workspaces"
+                value={query}
+                onChange={setQuery}
+                className="w-full sm:w-56"
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Bars compare workspaces with each other (the biggest one is full); the % is each
+              one&apos;s share of what the {mode === 'platform' ? 'group' : 'organisation'} used.
+            </p>
+            {canPick && (
+              <BulkBar
+                selected={pickedIds.length}
+                budget={bulkBarBudget}
+                top={limitSliderTop({
+                  budget: detail.budget,
+                  groupSpend: detail.spend.total,
+                  limits: pickedRows.map((row) => row.bulkLimit),
+                  spends: pickedRows.map((row) => row.spend.total),
+                })}
                 busy={busy}
-                target={targetOf(row.organizationId)}
-                onSetLimits={onSetLimits}
-                onGiveExtra={onGiveExtra}
-                onEndExtra={onEndExtra}
-                onClose={() => setOpenId(null)}
-                separate={separate}
+                selectable={list.length}
+                onSelectAll={() => setPicked(new Set(list.map((row) => row.organizationId)))}
+                onUnselectAll={() => setPicked(new Set())}
+                onSetLimit={(limit) => onSetLimits?.(pickedIds, limit)}
+                onRemoveLimit={() => onSetLimits?.(pickedIds, null)}
+                onGiveExtra={(amountMicros, end) =>
+                  onGiveExtra?.(
+                    pickedIds.map((id) => targetOf(id)),
+                    amountMicros,
+                    end
+                  )
+                }
+                withExtra={pickedRows.filter((row) => row.extra).length}
+                onEndExtra={() =>
+                  onEndExtra?.(pickedRows.flatMap((row) => row.extra?.grantIds ?? []))
+                }
+                canLimit={canEdit.workspaceLimits}
+                canGrant={canEdit.grant}
               />
             )}
-            onGiveSuggested={
-              canEdit.grant
-                ? (row) =>
-                    onGiveExtra?.(
-                      [targetOf(row.organizationId)],
-                      row.suggestedExtra,
-                      QUICK_EXTRA_END
-                    )
-                : undefined
-            }
-          />
-          <div className="flex flex-wrap gap-2.5 justify-between items-center">
-            {!needle && list.length > TOP_ROWS ? (
-              <Button variant="ghost" size="sm" onClick={() => setShowAll((all) => !all)}>
-                {showAll ? `Show top ${TOP_ROWS}` : `Show all ${list.length}`}
-              </Button>
-            ) : (
-              <span />
-            )}
-            {mode === 'platform' && (
-              <Link
-                to={`/console/platform/ai-spend#${ADVANCED_ANCHOR}`}
-                className="text-sm text-primary hover:underline"
-              >
-                Advanced
-              </Link>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+            <WorkspaceRows
+              rows={visible}
+              groupTotal={detail.spend.total}
+              workspacePath={separate ? workspacePath : undefined}
+              openId={openId}
+              onToggleOpen={(id) => setOpenId((current) => (current === id ? null : id))}
+              busy={busy}
+              picked={canPick ? picked : undefined}
+              onTogglePick={
+                canPick
+                  ? (id, on) =>
+                      setPicked((current) => {
+                        const next = new Set(current);
+                        if (on) next.add(id);
+                        else next.delete(id);
+                        return next;
+                      })
+                  : undefined
+              }
+              renderPanel={(row) => (
+                <WorkspacePanel
+                  key={row.organizationId}
+                  row={row}
+                  detail={detail}
+                  canEdit={canEdit}
+                  busy={busy}
+                  target={targetOf(row.organizationId)}
+                  onSetLimits={onSetLimits}
+                  onGiveExtra={onGiveExtra}
+                  onEndExtra={onEndExtra}
+                  onClose={() => setOpenId(null)}
+                  separate={separate}
+                />
+              )}
+              onGiveSuggested={
+                canEdit.grant
+                  ? (row) =>
+                      onGiveExtra?.(
+                        [targetOf(row.organizationId)],
+                        row.suggestedExtra,
+                        QUICK_EXTRA_END
+                      )
+                  : undefined
+              }
+            />
+            <div className="flex flex-wrap gap-2.5 justify-between items-center">
+              {!needle && list.length > TOP_ROWS ? (
+                <Button variant="ghost" size="sm" onClick={() => setShowAll((all) => !all)}>
+                  {showAll ? `Show top ${TOP_ROWS}` : `Show all ${list.length}`}
+                </Button>
+              ) : (
+                <span />
+              )}
+              {mode === 'platform' && (
+                <Link
+                  to={`/console/platform/ai-spend#${ADVANCED_ANCHOR}`}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Advanced
+                </Link>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </TokenRateProvider>
   );
 };

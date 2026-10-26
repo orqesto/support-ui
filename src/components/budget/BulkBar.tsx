@@ -14,6 +14,7 @@ import {
 } from './budget.rules';
 import { END_SEGMENTS, parseEnd } from './ExtraBox';
 import { FieldLabel } from './BulkLimitField';
+import { useMoney } from './tokenRate';
 
 /**
  * Select / select all / unselect all, and the actions for the selected workspaces (set the same
@@ -62,6 +63,7 @@ export const BulkBar = ({
   canGrant = true,
   busy = false,
 }: BulkBarProps) => {
+  const money = useMoney();
   const [limitDraft, setLimitDraft] = useState(5);
   const limit = Math.min(limitDraft, top);
   const [eachSuggested, setEachSuggested] = useState(true);
@@ -91,7 +93,7 @@ export const BulkBar = ({
             <div className="flex flex-col gap-1.5">
               <FieldLabel>Own bulk limit for each</FieldLabel>
               <span className="font-mono text-lg">
-                {fmtMoney(limit * MICROS_PER_USD)}
+                {money(limit * MICROS_PER_USD)}
                 {budget
                   ? ` · ${Math.round(((limit * MICROS_PER_USD) / budget) * 100)}% of the budget`
                   : ''}
@@ -108,7 +110,11 @@ export const BulkBar = ({
                 <BarSegment width={(limit / top) * 100} className="bg-pending" />
               </BarSlider>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" disabled={busy} onClick={() => onSetLimit(limit * MICROS_PER_USD)}>
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => onSetLimit(limit * MICROS_PER_USD)}
+                >
                   Set limit
                 </Button>
                 <Button variant="outline" size="sm" disabled={busy} onClick={onRemoveLimit}>
@@ -129,7 +135,7 @@ export const BulkBar = ({
                 label="Each gets what its import still needs"
               />
               <span className="font-mono text-lg">
-                {eachSuggested ? 'Suggested for each' : `${fmtMoney(extra * MICROS_PER_USD)}`}
+                {eachSuggested ? 'Suggested for each' : `${money(extra * MICROS_PER_USD)}`}
               </span>
               <BarSlider
                 value={extra}
@@ -156,7 +162,9 @@ export const BulkBar = ({
                 <Button
                   size="sm"
                   disabled={busy}
-                  onClick={() => onGiveExtra(eachSuggested ? 'suggested' : extra * MICROS_PER_USD, end)}
+                  onClick={() =>
+                    onGiveExtra(eachSuggested ? 'suggested' : extra * MICROS_PER_USD, end)
+                  }
                 >
                   Give extra
                 </Button>

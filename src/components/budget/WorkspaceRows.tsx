@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import type { WorkspaceRow } from '@/services/budgets.service';
 import { END_CHOICES, QUICK_EXTRA_END, fmtMoney, fmtTokenCount } from './budget.rules';
 import { TONE_CLASS } from './StatusText';
+import { useMoney } from './tokenRate';
 
 export type WorkspaceRowsProps = {
   rows: WorkspaceRow[];
@@ -48,6 +49,7 @@ export const WorkspaceRows = ({
   busy = false,
   workspacePath,
 }: WorkspaceRowsProps) => {
+  const money = useMoney();
   // Row bars are relative: the biggest workspace fills its bar.
   const biggest = Math.max(1, ...rows.map((row) => row.spend.total + (row.extra?.usedMicros ?? 0)));
   const onRowKey = (event: KeyboardEvent<HTMLDivElement>, id: number) => {
@@ -126,12 +128,15 @@ export const WorkspaceRows = ({
                   {fmtMoney(row.spend.total)}{' '}
                   <span className="text-muted-foreground">· {share}% of used</span>
                   {row.budget !== null && (
-                    <div className="text-muted-foreground">of its {fmtMoney(row.budget)}</div>
+                    <div className="text-muted-foreground">of its {money(row.budget)}</div>
                   )}
                   {row.bulkLimit !== null && (
-                    <div className="text-muted-foreground">limit {fmtMoney(row.bulkLimit)}</div>
+                    <div className="text-muted-foreground">limit {money(row.bulkLimit)}</div>
                   )}
-                  <div className="text-xs text-muted-foreground" data-testid={`budget-row-tokens-${id}`}>
+                  <div
+                    className="text-xs text-muted-foreground"
+                    data-testid={`budget-row-tokens-${id}`}
+                  >
                     {fmtTokenCount(row.tokens.total)} tokens
                   </div>
                 </div>
@@ -144,8 +149,8 @@ export const WorkspaceRows = ({
                   </span>
                   {row.liveSpike && (
                     <span className={cn('text-xs', TONE_CLASS.warn)}>
-                      Live mail today {fmtMoney(row.liveSpike.today)}, usually{' '}
-                      {fmtMoney(row.liveSpike.usual)}
+                      Live mail today {money(row.liveSpike.today)}, usually{' '}
+                      {money(row.liveSpike.usual)}
                     </span>
                   )}
                 </div>
@@ -159,7 +164,7 @@ export const WorkspaceRows = ({
                   disabled={busy}
                   onClick={() => onGiveSuggested(row)}
                 >
-                  Give {fmtMoney(row.suggestedExtra)} extra · {QUICK_EXTRA_LABEL}
+                  Give {money(row.suggestedExtra)} extra · {QUICK_EXTRA_LABEL}
                 </Button>
               </div>
             )}
