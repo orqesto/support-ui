@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
+import { ExternalLink } from '@/components/ui/ExternalLink';
 import { CustomApiRecordInsert } from './CustomApiRecordInsert';
 import {
   CATEGORY_RECORD_LABELS,
@@ -159,6 +160,32 @@ const listTitle = (list: string): string => {
   return last.replace(/\[\]/g, '').replace(/[_-]+/g, ' ').trim().toUpperCase();
 };
 
+const WEB_ADDRESS = /^https?:\/\/\S+$/i;
+
+/** One http(s) address the browser can open. ⛔ Parsed here, not only matched: `ExternalLink`
+ *  renders NOTHING for an address it cannot parse, and a vendor value must never vanish. */
+const isWebAddress = (text: string): boolean => {
+  if (!WEB_ADDRESS.test(text)) return false;
+  try {
+    return ['http:', 'https:'].includes(new URL(text).protocol);
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * A value as text — or, when it is one web address (a carrier's tracking page), a link that opens
+ * in a new tab, so an agent does not copy it out by hand.
+ */
+const FieldValue = ({ text }: { text: string }) =>
+  isWebAddress(text) ? (
+    <ExternalLink href={text} size="sm" showIcon={false} className="inline break-all text-[11px]">
+      {text}
+    </ExternalLink>
+  ) : (
+    <>{text}</>
+  );
+
 /**
  * Fields read from one list, one line per item: product, price, quantity together, instead of a
  * column of names and a separate column of prices an agent has to pair up by counting.
@@ -201,7 +228,7 @@ const ListGrid = ({
                 key={`${item}-${fields[column].path}`}
                 className="text-[11px] text-foreground break-words"
               >
-                {items[item] ?? '—'}
+                <FieldValue text={items[item] ?? '—'} />
               </p>
             ))
           )}
@@ -238,7 +265,9 @@ const FieldGrid = ({ row, fields }: { row: Record<string, unknown>; fields: Look
           return (
             <div key={field.path} className="contents">
               <p className={`${LABEL} text-muted-foreground`}>{field.label.toUpperCase()}</p>
-              <p className="text-[11px] text-foreground break-words">{renderValue(row, field)}</p>
+              <p className="text-[11px] text-foreground break-words">
+                <FieldValue text={renderValue(row, field)} />
+              </p>
             </div>
           );
         if (seen.has(list)) return null;
@@ -296,11 +325,13 @@ const RecordCard = ({
   row,
   fields,
   category,
+  onOpenRecord,
   children,
 }: {
   row: Record<string, unknown>;
   fields: LookupField[];
   category: CustomApiCategory;
+  onOpenRecord?: (reference: string) => void;
   children?: ReactNode;
 }) => {
   const present = (role: string): LookupField | undefined =>
@@ -331,9 +362,25 @@ const RecordCard = ({
           {CATEGORY_RECORD_LABELS[category]}
           {/* A real space, not only the margin: `Order137416` is what a screen reader would
               otherwise announce, and what a copy-paste would carry. */}
-          {identifier && (
-            <span className="ml-1 font-mono">{` ${renderValue(row, identifier)}`}</span>
-          )}
+          {identifier &&
+            (onOpenRecord ? (
+              <>
+                {' '}
+                {/* Opens this record in the lookup that shows ONE record in full (the order's
+                    details), so its tracking is a click away from the list. */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-1 h-auto p-0 font-mono text-[12px] font-medium text-primary hover:bg-transparent hover:underline"
+                  aria-label={`Show details of ${CATEGORY_RECORD_LABELS[category]} ${renderValue(row, identifier)}`}
+                  onClick={() => onOpenRecord(renderValue(row, identifier))}
+                >
+                  {renderValue(row, identifier)}
+                </Button>
+              </>
+            ) : (
+              <span className="ml-1 font-mono">{` ${renderValue(row, identifier)}`}</span>
+            ))}
         </p>
         {status && (
           /* The admin's word when they wrote one, the vendor's own value when they did not —
@@ -383,6 +430,7 @@ export const RowFields = ({
   lookupLabel = '',
   ownership,
   onUseInReply,
+  onOpenRecord,
 }: {
   row: Record<string, unknown>;
   fields: LookupField[];
@@ -397,6 +445,8 @@ export const RowFields = ({
    * render at all rather than rendering something that cannot work.
    */
   onUseInReply?: (note: string) => AddOutcome;
+  /** Open this record, by its reference, in the lookup that shows one record in full. */
+  onOpenRecord?: (reference: string) => void;
 }) => {
   // No category, or no role the header can use ⇒ nothing to lay out. The grid is not a degraded
   // mode here, it is the correct rendering of a record nobody has described.
@@ -431,7 +481,7 @@ export const RowFields = ({
       </div>
     );
   return (
-    <RecordCard row={row} fields={fields} category={category}>
+    <RecordCard row={row} fields={fields} category={category} onOpenRecord={onOpenRecord}>
       {insert}
     </RecordCard>
   );

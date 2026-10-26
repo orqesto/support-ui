@@ -145,7 +145,17 @@ export interface FieldPick {
    * ⚠️ Tolerated in both skew directions: an older backend stores an unknown role as `none`, and a
    * newer one sends a role this build may not list. Nothing here switches exhaustively on it.
    */
-  role: 'none' | 'identifier' | 'date' | 'status' | 'total' | 'currency' | 'customer_email';
+  role:
+    | 'none'
+    | 'identifier'
+    | 'date'
+    | 'status'
+    | 'total'
+    | 'currency'
+    | 'customer_email'
+    /** Read only by the reply picker; the only roles a list field may carry. */
+    | 'tracking_number'
+    | 'tracking_link';
   currencyPath?: string;
   currencyLiteral?: string;
 }

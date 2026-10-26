@@ -9,7 +9,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { chooseOption } from '@/test/chooseOption';
 import { EndpointWizard } from '../EndpointWizard';
-import { ROLE_OPTIONS, applyRole, fieldWithRole, roleOption } from '../fieldRoles';
+import { ROLE_OPTIONS, applyRole, fieldWithRole, roleOption, roleOptionsFor } from '../fieldRoles';
 import type * as Svc from '@/services/customApi.service';
 
 type Connection = Svc.CustomApiConnection;
@@ -190,6 +190,15 @@ describe('the rules — where an array-order bug would live', () => {
       // ⛔ RED: ship a role with no explanation and the admin sees what to do and never why.
       else expect(option.buys.length).toBeGreaterThan(20);
     }
+  });
+
+  it('a field read from a list may carry only the tracking roles — the backend refuses the rest', () => {
+    expect(roleOptionsFor('trackings[].tracking_no').map((option) => option.value)).toEqual([
+      'none',
+      'tracking_number',
+      'tracking_link',
+    ]);
+    expect(roleOptionsFor('tracking_number')).toEqual(ROLE_OPTIONS);
   });
 
   it("⛔ speaks the client's language, not the contract's", () => {

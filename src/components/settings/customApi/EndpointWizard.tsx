@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ROLE_OPTIONS, applyRole, roleOption } from './fieldRoles';
+import { applyRole, roleOption, roleOptionsFor } from './fieldRoles';
 import {
   CATEGORY_LABELS,
   CUSTOM_API_CATEGORIES,
@@ -777,19 +777,18 @@ export const EndpointWizard = ({
                           id={`role-${field.path}`}
                           label={`What is ${field.path}?`}
                           value={field.role}
-                          options={ROLE_OPTIONS.map((option) => ({
+                          options={roleOptionsFor(field.path).map((option) => ({
                             value: option.value,
                             label: option.label,
                           }))}
                           /*
                            * ⛔ A field read from a list (`products[].name`) has one value PER ITEM,
-                           * and every role needs ONE value — the backend refuses the save. Shown,
-                           * not tagged, so the control says so instead of failing at Save.
+                           * and most roles need ONE value — the backend refuses the save. Only the
+                           * tracking roles, which the reply picker quotes item by item, are offered.
                            */
-                          disabled={field.path.includes('[]') && field.role === 'none'}
                           hint={
                             field.path.includes('[]')
-                              ? 'One value per item in a list, so it is shown as a list.'
+                              ? 'One value per item in a list, so it is shown as a list. Only a tracking number or link can be tagged here.'
                               : undefined
                           }
                           onChange={(value) =>

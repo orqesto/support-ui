@@ -155,6 +155,8 @@ interface CardProps {
   onRunManual?: (endpointId: number, parameter: string) => void;
   /** L2 P4. Absent where there is no composer to add a note to (the records page). */
   onUseInReply?: (note: string) => AddOutcome;
+  /** Open a listed record, by its reference, in the lookup that shows one record in full. */
+  onOpenRecord?: (reference: string) => void;
   /** The email the backend CONFIRMED this run used ("Look up another email"). */
   lookedUpAs?: string | null;
   /** A3: under an identity no-match, when the same connection has a typed-value lookup. */
@@ -176,6 +178,7 @@ export const CustomApiResultCard = ({
   referenceInput,
   onRunManual,
   onUseInReply,
+  onOpenRecord,
   lookedUpAs,
   referenceHint,
   typedValue,
@@ -223,6 +226,7 @@ export const CustomApiResultCard = ({
     // v4 `.k-c`: one card per lookup; a failed one is edged in red so it is found at a glance.
     <div
       data-testid="lookup-card"
+      data-endpoint-id={result.endpointId}
       // `minmax(0,1fr)`: the card's one column may shrink to the screen, so its rows wrap or
       // truncate inside it instead of widening it (390 px, 2026-10-14).
       className={`grid grid-cols-[minmax(0,1fr)] gap-1.5 rounded-lg border bg-card px-[9px] py-2 ${
@@ -390,6 +394,7 @@ export const CustomApiResultCard = ({
                 lookupLabel={result.label}
                 ownership={result.ownership}
                 onUseInReply={onUseInReply}
+                onOpenRecord={onOpenRecord}
               />
             ))}
             {usingFallback && fallbackKeys.length > UNCONFIGURED_FIELD_PREVIEW && (
