@@ -9,13 +9,7 @@ import { ExtraBox } from '../ExtraBox';
 import { StatusText } from '../StatusText';
 import { WorkspaceRows } from '../WorkspaceRows';
 import { BudgetField, ModeField } from '../BudgetGroupView';
-import {
-  dollarsText,
-  extraEndsText,
-  fmtMoney,
-  fmtTokenCount,
-  parseDollars,
-} from '../budget.rules';
+import { dollarsText, extraEndsText, fmtMoney, fmtTokenCount, parseDollars } from '../budget.rules';
 
 /** One dollar in micros. */
 const USD = 1_000_000;
@@ -59,11 +53,13 @@ describe('formatting', () => {
 
   it('kept by design (M7): fmtMoney is en-US whatever the browser locale', () => {
     // A German browser: the default locale would write 1.234,50.
-    const spy = vi
-      .spyOn(Number.prototype, 'toLocaleString')
-      .mockImplementation(function (this: number, locale?: Intl.LocalesArgument, options?: Intl.NumberFormatOptions) {
-        return new Intl.NumberFormat(locale ?? 'de-DE', options).format(this);
-      });
+    const spy = vi.spyOn(Number.prototype, 'toLocaleString').mockImplementation(function (
+      this: number,
+      locale?: Intl.LocalesArgument,
+      options?: Intl.NumberFormatOptions
+    ) {
+      return new Intl.NumberFormat(locale ?? 'de-DE', options).format(this);
+    });
     try {
       expect(fmtMoney(1_234_500_000)).toBe('≈ $1,234.50');
     } finally {

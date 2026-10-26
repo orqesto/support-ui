@@ -220,9 +220,11 @@ describe('the group page', () => {
       'Each workspace has its own AI allowance'
     );
     expect(screen.getByTestId('budget-readonly')).toBeInTheDocument();
-    expect(screen.queryByRole('spinbutton', { name: 'Budget per billing period, dollars' })).toBeNull();
+    expect(screen.queryByLabelText(/^Budget per billing period, /)).toBeNull();
     expect(screen.getByRole('switch', { name: /Limit it/ })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'Give extra to the whole organisation' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Give extra to the whole organisation' })
+    ).toBeNull();
     // The rows keep their own controls.
     expect(screen.getByRole('checkbox', { name: 'Select Shop 1' })).toBeInTheDocument();
   });
@@ -233,7 +235,10 @@ describe('the group page', () => {
       canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true, mode: true },
     });
     renderGroup();
-    expect(await screen.findByRole('spinbutton', { name: 'Budget per billing period, dollars' })).toBeVisible();
+    // Tokens first while the period has usage to price them (owner, 2026-10-26).
+    expect(
+      await screen.findByRole('textbox', { name: 'Budget per billing period, tokens' })
+    ).toBeVisible();
     expect(screen.queryByTestId('budget-separate-note')).toBeNull();
     expect(screen.getByRole('switch', { name: /Limit it/ })).not.toBeDisabled();
     expect(
@@ -247,7 +252,7 @@ describe('the group page', () => {
       rows: [row(1, 30 * MLN, { budget: 50 * MLN })],
     });
     renderGroup();
-    expect(await screen.findByText('of its ≈ $50.00')).toBeInTheDocument();
+    expect(await screen.findByText(/^of its ≈ \$50\.00 \(.+ tokens\)$/)).toBeInTheDocument();
   });
 
   it('a separate organisation: a workspace name links to its own budget page; the panel shows no organisation marker', async () => {
@@ -376,7 +381,9 @@ describe('the group page', () => {
 
   it('one click on a paused row gives its suggested extra for 3 days', async () => {
     renderGroup();
-    fireEvent.click(await screen.findByRole('button', { name: 'Give ≈ $15.00 extra · 3 days' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: /^Give ≈ \$15\.00 \(.+ tokens\) extra · 3 days$/ })
+    );
     await waitFor(() =>
       expect(calls.giveExtra).toEqual([
         { targets: [{ allianceId: 7, organizationId: 3 }], amountMicros: 15 * MLN, end: 3 },
@@ -387,7 +394,9 @@ describe('the group page', () => {
   it('one-click give: a second click while the first is on its way sends nothing', async () => {
     giveHold = new Promise(() => {});
     renderGroup();
-    const give = await screen.findByRole('button', { name: 'Give ≈ $15.00 extra · 3 days' });
+    const give = await screen.findByRole('button', {
+      name: /^Give ≈ \$15\.00 \(.+ tokens\) extra · 3 days$/,
+    });
     fireEvent.click(give);
     await waitFor(() => expect(give).toBeDisabled());
     fireEvent.click(give);
@@ -436,18 +445,63 @@ describe('the group page', () => {
 
   it('a typed budget is saved in micros', async () => {
     renderGroup();
-    fireEvent.change(await screen.findByLabelText('Budget per billing period'), { target: { value: '120' } });
+    await chooseOption(await screen.findByLabelText('Budget unit'), 'US dollars');
+    fireEvent.change(screen.getByLabelText('Budget per billing period'), {
+      target: { value: '120' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Save budget' }));
     await waitFor(() => expect(calls.updateGroup).toEqual([['a:7', { budget: 120 * MLN }]]));
+  });
+
+  it("a budget typed in tokens is saved in micros at this period's price, with the dollars under it", async () => {
+    const shown = groupDetail();
+    const rate = shown.spend.total / shown.tokens.total;
+    renderGroup();
+    const field = await screen.findByRole('textbox', { name: 'Budget per billing period, tokens' });
+    fireEvent.change(field, { target: { value: '50M' } });
+    expect(screen.getByTestId('budget-other-unit')).toHaveTextContent(
+      /^≈ \$[\d,.]+ at this period's price per token$/
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save budget' }));
+    await waitFor(() =>
+      expect(calls.updateGroup).toEqual([['a:7', { budget: Math.round(50_000_000 * rate) }]])
+    );
+  });
+
+  it('with no usage this period there is no price: dollars only, and it says why', async () => {
+    detail = groupDetail({ tokens: { total: 0, bulk: 0 } });
+    renderGroup();
+    expect(await screen.findByLabelText('Budget per billing period')).toHaveAttribute(
+      'type',
+      'number'
+    );
+    expect(screen.queryByLabelText('Budget unit')).toBeNull();
+    expect(
+      screen.getByText('Tokens can be used once this period has AI usage to price them.')
+    ).toBeInTheDocument();
+  });
+
+  it('a budget typed in tokens that is not a number is refused, not saved', async () => {
+    renderGroup();
+    fireEvent.change(
+      await screen.findByRole('textbox', { name: 'Budget per billing period, tokens' }),
+      {
+        target: { value: 'lots' },
+      }
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save budget' }));
+    expect(await screen.findByText(/Type a number of tokens above 0/)).toBeInTheDocument();
+    expect(calls.updateGroup ?? []).toEqual([]);
   });
 
   it('hosted, from plans: shows the plan budget and an Override', async () => {
     stateResult = { available: true, state: state({ selfHosted: false }) };
     detail = groupDetail({ budget: 14_900_000, budgetSource: 'plans' });
     renderGroup();
-    expect(await screen.findByText('From plans: ≈ $14.90')).toBeInTheDocument();
+    expect(await screen.findByText(/^From plans: ≈ \$14\.90 \(.+ tokens\)$/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Budget per billing period')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Override' }));
+    await chooseOption(screen.getByLabelText('Budget unit'), 'US dollars');
     expect(screen.getByLabelText('Budget per billing period')).toHaveValue(14.9);
   });
 
@@ -460,10 +514,15 @@ describe('the group page', () => {
       budgetSource: 'default',
     });
     renderGroup();
-    expect(await screen.findByText('Default for standalone workspaces: ≈ $40.00')).toBeInTheDocument();
+    expect(
+      await screen.findByText(/^Default for standalone workspaces: ≈ \$40\.00 \(.+ tokens\)$/)
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText('Budget per billing period')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Override' }));
-    fireEvent.change(screen.getByLabelText('Budget per billing period'), { target: { value: '55' } });
+    await chooseOption(screen.getByLabelText('Budget unit'), 'US dollars');
+    fireEvent.change(screen.getByLabelText('Budget per billing period'), {
+      target: { value: '55' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Save budget' }));
     await waitFor(() => expect(calls.updateGroup).toEqual([['a:7', { budget: 55 * MLN }]]));
   });

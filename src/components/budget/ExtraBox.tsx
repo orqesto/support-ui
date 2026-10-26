@@ -15,6 +15,7 @@ import {
   type ExtraEndChoice,
 } from './budget.rules';
 import { FieldLabel } from './BulkLimitField';
+import { useMoney } from './tokenRate';
 
 export const END_SEGMENTS = END_CHOICES.map(({ value, label }) => ({
   value: String(value),
@@ -49,6 +50,7 @@ export const ExtraBox = ({
   onEnd,
   busy,
 }: ExtraBoxProps) => {
+  const money = useMoney();
   // The slider reaches at least the requested / suggested amount, so it is given exactly (the
   // backend has no upper bound; EXTRA_MAX is only the usual top of the slider).
   const ceil5 = (micros: number) => Math.ceil(micros / MICROS_PER_USD / 5) * 5;
@@ -64,9 +66,9 @@ export const ExtraBox = ({
       <div className="flex flex-col gap-1.5">
         <FieldLabel>{title}</FieldLabel>
         <div className="flex flex-wrap gap-2.5 items-baseline">
-          <span className="font-mono text-lg">{fmtMoney(extra.amountMicros)}</span>
+          <span className="font-mono text-lg">{money(extra.amountMicros)}</span>
           <span className="text-sm text-muted-foreground">
-            {fmtMoney(extra.usedMicros)} used · {extraEndsText(extra.endsAt)}
+            {money(extra.usedMicros)} used · {extraEndsText(extra.endsAt)}
           </span>
         </div>
         <span className="text-sm text-muted-foreground">
@@ -83,9 +85,7 @@ export const ExtraBox = ({
   return (
     <div className="flex flex-col gap-1.5">
       <FieldLabel>{title}</FieldLabel>
-      <span className="font-mono text-lg">
-        {fmtMoney(amountMicros)}
-      </span>
+      <span className="font-mono text-lg">{money(amountMicros)}</span>
       <BarSlider
         value={amount}
         min={EXTRA_MIN}
@@ -106,13 +106,13 @@ export const ExtraBox = ({
         />
         {suggestion !== undefined && (
           <Button variant="ghost" size="sm" onClick={() => setAmountMicros(atLeastMin(suggestion))}>
-            Suggested {fmtMoney(suggestion)}
+            Suggested {money(suggestion)}
           </Button>
         )}
       </div>
       <div>
         <Button size="sm" disabled={busy} onClick={() => onGive(amountMicros, end)}>
-          Give {fmtMoney(amountMicros)} · ends {grantEndsText(end)}
+          Give {money(amountMicros)} · ends {grantEndsText(end)}
         </Button>
       </div>
     </div>

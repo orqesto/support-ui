@@ -3,6 +3,7 @@ import { BarMarker, BarSegment, BarSlider } from '@/components/ui/BarSlider';
 import type { TokenSpend } from '@/services/budgets.service';
 import { clampPct, fmtMoney, fmtTokenCount } from './budget.rules';
 import { BulkLegend, BulkLimitLegend, Swatch } from './BulkLimitField';
+import { useMoney } from './tokenRate';
 
 export const BULK_PCT_DEBOUNCE_MS = 400;
 
@@ -48,6 +49,7 @@ export const BudgetBar = ({
   onBulkPctChange,
   ariaLabel = 'Bulk processing may use at most, percent of the budget',
 }: BudgetBarProps) => {
+  const money = useMoney();
   const [draft, setDraft] = useState(() => clampPct(bulkPct, bulkPctMin, bulkPctMax));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saved = useRef(clampPct(bulkPct, bulkPctMin, bulkPctMax));
@@ -115,12 +117,12 @@ export const BudgetBar = ({
         <BulkLegend on={bulkLimitOn && size > 0} used={spend.bulk} cap={cap} />
         <span>
           <Swatch className="bg-primary" />
-          Live mail <span className="font-mono">{fmtMoney(spend.live)}</span>
+          Live mail <span className="font-mono">{money(spend.live)}</span>
         </span>
         {size > 0 && (
           <span>
             <Swatch className="bg-muted border border-border" />
-            Free <span className="font-mono">{fmtMoney(Math.max(0, size - spend.total))}</span>
+            Free <span className="font-mono">{money(Math.max(0, size - spend.total))}</span>
           </span>
         )}
         <BulkLimitLegend on={bulkLimitOn && size > 0} />
@@ -128,12 +130,12 @@ export const BudgetBar = ({
           <span>
             <Swatch className="bg-warning" />
             Extra for bulk work, outside the budget{' '}
-            <span className="font-mono">{fmtMoney(spend.extra)}</span>
+            <span className="font-mono">{money(spend.extra)}</span>
           </span>
         )}
         {removedSpend > 0 && (
           <span>
-            Includes <span className="font-mono">{fmtMoney(removedSpend)}</span> spent by removed
+            Includes <span className="font-mono">{money(removedSpend)}</span> spent by removed
             workspaces
           </span>
         )}
