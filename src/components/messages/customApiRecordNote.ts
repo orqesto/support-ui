@@ -34,8 +34,19 @@ import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
  */
 export const DEFAULT_INSERT_ROLES = ['identifier', 'status', 'date'] as const;
 
-/** Roles that may be offered at all. `currency` is excluded: it renders WITH its total. */
-const OFFERABLE_ROLES = ['identifier', 'status', 'date', 'total', 'customer_email'];
+/**
+ * Roles that may be offered at all. `currency` is excluded: it renders WITH its total. The tracking
+ * roles may be read through a list (several parcels); `renderValue` joins their items.
+ */
+const OFFERABLE_ROLES = [
+  'identifier',
+  'status',
+  'date',
+  'total',
+  'tracking_number',
+  'tracking_link',
+  'customer_email',
+];
 
 const MISSING = '—';
 
@@ -49,8 +60,9 @@ const MISSING = '—';
  * or a customer typing into the vendor's own form — put in it.
  *
  * Three things keep that honest, and they are deliberate:
- *   1. only ROLE-TAGGED fields are offerable (a reference, a state name, a date, a total, the
- *      customer's own address) — never a free-text note or an unrecognised column;
+ *   1. only ROLE-TAGGED fields are offerable (a reference, a state name, a date, a total, a
+ *      tracking number or link, the customer's own address) — never a free-text note or an
+ *      unrecognised column;
  *   2. the agent reads the exact sentence before it is added, and adds it themselves;
  *   3. the value is FLATTENED here: newlines and angle brackets go, runs of space collapse. A
  *      value cannot then close the wrapper, forge a new section, or lay out a multi-line block

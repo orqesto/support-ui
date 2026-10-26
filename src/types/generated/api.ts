@@ -402,7 +402,7 @@ export interface components {
                  * @default none
                  * @enum {string}
                  */
-                role: "none" | "identifier" | "date" | "status" | "total" | "currency" | "customer_email";
+                role: "none" | "identifier" | "date" | "status" | "total" | "currency" | "customer_email" | "tracking_number" | "tracking_link";
                 currencyPath?: string;
                 currencyLiteral?: string;
             }[];
@@ -555,7 +555,7 @@ export interface components {
                     resultShape: "one" | "many";
                     checklist: {
                         /** @enum {string} */
-                        role: "identifier" | "date" | "status" | "total" | "currency" | "customer_email";
+                        role: "identifier" | "date" | "status" | "total" | "currency" | "customer_email" | "tracking_number" | "tracking_link";
                         label: string;
                         required: boolean;
                     }[];

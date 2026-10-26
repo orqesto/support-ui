@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { RotateCw, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
@@ -13,9 +13,10 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { conversationContactService } from '@/services/conversationContact.service';
 import type { AddOutcome } from './recordInsertOutcome';
-import type { CustomApiLookupResult } from '@/services/customApiLookup.service';
+import type { CustomApiLookupResult, RunnableLookup } from '@/services/customApiLookup.service';
 import { relativeTime } from './messageDetailConstants';
 import { CustomApiResultCard } from './CustomApiResultCard';
+import { referenceOf, trackingOf, type TrackingItem } from './customApiRowFields';
 import {
   LOOKUPS_NOT_ON_SERVER,
   lookupListLine,
@@ -236,6 +237,32 @@ export const CustomApiLookupPanel = ({
   const availability = useCustomApiLookupAvailabilityState(surface);
   // Configuration only, the same cached query as the tab's badge — no vendor call (SC1).
   const options = useCustomApiLookupOptions(surface);
+  const rootRef = useRef<HTMLDivElement>(null);
+  /**
+   * The parcels of every record opened in a details card on this thread, keyed
+   * `${detailsEndpointId}:${reference}` — so an order keeps its tracking under its row in the list
+   * after the details card moves on to another order. ⛔ Cleared with the customer: a different
+   * thread, or a different looked-up email, is a different person's orders. A record the
+   * ownership check said is someone else's is never copied into this customer's list.
+   */
+  const [openedTracking, setOpenedTracking] = useState<Record<string, TrackingItem[]>>({});
+  useEffect(() => {
+    setOpenedTracking({});
+  }, [conversationId, contactId, lookedUpAs]);
+  useEffect(() => {
+    const read = results.flatMap((result): [string, TrackingItem[]][] => {
+      const row = result.rows?.[0];
+      if (result.status !== 'ok' || result.rows?.length !== 1 || !row) return [];
+      if (result.ownership === 'mismatch') return [];
+      const fields = result.fields ?? [];
+      const reference = referenceOf(row, fields);
+      const items = trackingOf(row, fields);
+      return reference === null || items.length === 0
+        ? []
+        : [[`${result.endpointId}:${reference}`, items]];
+    });
+    if (read.length > 0) setOpenedTracking((known) => ({ ...known, ...Object.fromEntries(read) }));
+  }, [results]);
   const navigate = useNavigate();
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
@@ -296,11 +323,40 @@ export const CustomApiLookupPanel = ({
     return typedLookup ? referenceHintText(referenceNameOf(typedLookup.referenceLabel)) : null;
   };
 
+  /**
+   * A record in a LIST (a customer's orders) opens in the typed-value lookup of the same
+   * connection and category (the order's details) — the card that carries its tracking. Read off
+   * the options: only they say which lookup takes a typed value. Null when there is none on screen.
+   */
+  const detailsLookupFor = (result: CustomApiLookupResult): number | null => {
+    const sameKind = (option: RunnableLookup) =>
+      option.category === result.category && option.connectionName === result.connectionName;
+    const source = (options ?? []).find((option) => option.endpointId === result.endpointId);
+    if (!result.category || !source || source.parameterSource === 'manual') return null;
+    const details = (options ?? []).find(
+      (option) =>
+        option.parameterSource === 'manual' &&
+        sameKind(option) &&
+        results.some((other) => other.endpointId === option.endpointId)
+    );
+    return details?.endpointId ?? null;
+  };
+
+  /** Look the record up in its details card (one vendor call, ownership-checked), then show it. */
+  const openRecord = async (endpointId: number, reference: string) => {
+    if (loading) return;
+    await run({ endpointId, parameter: reference }, lookedUpAs ?? undefined);
+    rootRef.current
+      ?.querySelector(`[data-endpoint-id="${endpointId}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     // `data-lookup-root`: the composer's "Look up" button opens the Lookups tab, then scrolls this
     // into view, focuses it (tabIndex -1: reachable by script, not a Tab stop) and flashes it.
     // Harmless in the contact drawer.
     <div
+      ref={rootRef}
       data-lookup-root
       role="group"
       aria-label="Connected systems"
@@ -472,20 +528,33 @@ export const CustomApiLookupPanel = ({
 
         {results.length > 0 && <LookupSummary results={results} />}
 
-        {results.map((result) => (
-          <CustomApiResultCard
-            key={result.endpointId}
-            result={result}
-            busy={loading}
-            referenceInput="card"
-            lookedUpAs={lookedUpAs}
-            referenceHint={referenceHintFor(result)}
-            onRunManual={(endpointId, parameter) =>
-              run({ endpointId, parameter }, lookedUpAs ?? undefined)
-            }
-            onUseInReply={onUseInReply}
-          />
-        ))}
+        {results.map((result) => {
+          const detailsId = detailsLookupFor(result);
+          return (
+            <CustomApiResultCard
+              key={result.endpointId}
+              result={result}
+              busy={loading}
+              referenceInput="card"
+              lookedUpAs={lookedUpAs}
+              referenceHint={referenceHintFor(result)}
+              onRunManual={(endpointId, parameter) =>
+                run({ endpointId, parameter }, lookedUpAs ?? undefined)
+              }
+              onUseInReply={onUseInReply}
+              onOpenRecord={
+                detailsId === null
+                  ? undefined
+                  : (reference) => void openRecord(detailsId, reference)
+              }
+              trackingFor={
+                detailsId === null
+                  ? undefined
+                  : (reference) => openedTracking[`${detailsId}:${reference}`]
+              }
+            />
+          );
+        })}
       </div>
     </div>
   );

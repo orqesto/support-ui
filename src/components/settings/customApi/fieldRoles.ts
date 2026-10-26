@@ -68,7 +68,30 @@ export const ROLE_OPTIONS: RoleOption[] = [
     label: "The customer's own email address",
     buys: "Odly checks this field — and only this field — to confirm the record belongs to the customer who wrote in. Without it, Odly has to guess from any address in the record, which can flag a genuine record or accept someone else's.",
   },
+  {
+    value: 'tracking_number',
+    label: 'The parcel tracking number',
+    buys: 'Lets an agent add the tracking number to a reply with one tick, under “Use in reply”.',
+  },
+  {
+    value: 'tracking_link',
+    label: 'The parcel tracking link',
+    buys: 'Lets an agent add the carrier’s tracking link to a reply with one tick, under “Use in reply”.',
+  },
 ];
+
+/**
+ * The only roles a field read from a list may carry. Every other role needs ONE value (the
+ * ownership check, the stored summary, the status map) and the backend refuses it on a list; these
+ * feed only the reply picker, which quotes every item.
+ */
+const LIST_FIELD_ROLES: readonly FieldRole[] = ['none', 'tracking_number', 'tracking_link'];
+
+/** The roles an admin may pick for this path. */
+export const roleOptionsFor = (path: string): RoleOption[] =>
+  path.includes('[]')
+    ? ROLE_OPTIONS.filter((option) => LIST_FIELD_ROLES.includes(option.value))
+    : ROLE_OPTIONS;
 
 export const roleOption = (role: FieldRole): RoleOption =>
   ROLE_OPTIONS.find((option) => option.value === role) ?? ROLE_OPTIONS[0];

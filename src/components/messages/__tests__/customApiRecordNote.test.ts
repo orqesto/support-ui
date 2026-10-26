@@ -61,6 +61,40 @@ describe('what the agent is offered', () => {
     expect(offered).not.toContain('placed');
   });
 
+  it('offers a tracking number and link, every parcel joined, unticked by default', () => {
+    const fields = [
+      ...FIELDS,
+      field({ path: 'trackings[].no', label: 'Tracking number', role: 'tracking_number' }),
+      field({ path: 'trackings[].link', label: 'Tracking link', role: 'tracking_link' }),
+    ];
+    const row = {
+      ...ROW,
+      'trackings[].no': ['TRK-1', 'TRK-2'],
+      'trackings[].link': ['https://track.example.com/TRK-1', 'https://track.example.com/TRK-2'],
+    };
+    expect(offerableFields(row, fields).map((one) => one.path)).toEqual([
+      'order_id',
+      'status',
+      'placed',
+      'total',
+      'trackings[].no',
+      'trackings[].link',
+      'email',
+    ]);
+    expect(defaultSelection(row, fields)).toEqual(['order_id', 'status', 'placed']);
+    expect(
+      buildRecordNote({
+        row,
+        fields,
+        category: 'order',
+        selectedPaths: ['order_id', 'trackings[].no', 'trackings[].link'],
+        lookupLabel: 'Order details',
+      })
+    ).toBe(
+      'Order 137416 — Tracking number: TRK-1, TRK-2. Tracking link: https://track.example.com/TRK-1, https://track.example.com/TRK-2.'
+    );
+  });
+
   it('🔴 defaults to reference, status and date — and NOT the total or the email', () => {
     // Money in a reply is a commitment: an agent should have to choose it, not un-choose it.
     expect(defaultSelection(ROW, FIELDS)).toEqual(['order_id', 'status', 'placed']);
