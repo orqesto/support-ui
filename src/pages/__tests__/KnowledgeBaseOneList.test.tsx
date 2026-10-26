@@ -16,6 +16,8 @@ let listEntries: unknown[] = [];
 /** The rows of page 2 (null or empty ⇒ one page); page 1 always lists `listEntries`. */
 let secondPage: unknown[] | null = null;
 
+// useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
+vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
   return {

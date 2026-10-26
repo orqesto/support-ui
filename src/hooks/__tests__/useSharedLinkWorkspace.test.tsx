@@ -10,6 +10,7 @@
  * than one — so there is nothing to follow and guessing is exactly how a link opens the
  * wrong conversation.
  */
+import { StrictMode } from 'react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 
@@ -102,5 +103,60 @@ describe('useSharedLinkWorkspace', () => {
     rerender({ id: 'ORB-MKT-170' });
 
     expect(locate).toHaveBeenCalledTimes(1);
+  });
+
+  it('a workspace code that loads while the lookup is out does not lose its answer', async () => {
+    // A fresh page load: the code arrives from its own request, often after locate was sent.
+    orgCode.value = undefined;
+    let answer: (value: { data: unknown }) => void = () => undefined;
+    locate.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    const { rerender } = renderHook(() => useSharedLinkWorkspace('ORB-MKT-170'));
+    await waitFor(() => expect(locate).toHaveBeenCalledTimes(1));
+    orgCode.value = 'G';
+    rerender();
+    answer({
+      data: {
+        status: 'found',
+        organizationId: 19,
+        organizationSlug: 'zetatech-test',
+        publicId: 'MKT-170',
+      },
+    });
+    await waitFor(() => expect(setSelectedOrganization).toHaveBeenCalledWith(19));
+    expect(locate).toHaveBeenCalledTimes(1);
+  });
+
+  it('an answer that comes after the page was left switches nothing', async () => {
+    let answer: (value: { data: unknown }) => void = () => undefined;
+    locate.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    const { unmount } = renderHook(() => useSharedLinkWorkspace('ORB-MKT-170'));
+    await waitFor(() => expect(locate).toHaveBeenCalledTimes(1));
+    unmount();
+    answer({
+      data: {
+        status: 'found',
+        organizationId: 19,
+        organizationSlug: 'zetatech-test',
+        publicId: 'MKT-170',
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(setSelectedOrganization).not.toHaveBeenCalled();
+    expect(toastInfo).not.toHaveBeenCalled();
+  });
+
+  it('StrictMode’s unmount-and-remount does not lose the answer', async () => {
+    renderHook(() => useSharedLinkWorkspace('ORB-MKT-170'), { wrapper: StrictMode });
+    await waitFor(() => expect(setSelectedOrganization).toHaveBeenCalledWith(19));
+  });
+
+  it('tells the caller a link it will not open: not a member, or no such workspace', async () => {
+    const onRefused = vi.fn();
+    locate.mockResolvedValueOnce({ data: { status: 'not-a-member', organizationSlug: 'orbit' } });
+    renderHook(() => useSharedLinkWorkspace('ORB-MKT-170', onRefused));
+    await waitFor(() => expect(onRefused).toHaveBeenCalledWith('not-a-member'));
+    locate.mockRejectedValueOnce(new Error('404'));
+    renderHook(() => useSharedLinkWorkspace('ZZZ-MKT-1', onRefused));
+    await waitFor(() => expect(onRefused).toHaveBeenCalledWith('unresolvable'));
   });
 });

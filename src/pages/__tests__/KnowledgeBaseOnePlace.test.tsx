@@ -98,6 +98,8 @@ const expiredCapture = {
   },
 };
 
+// useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
+vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/lib/toast', () => ({ toast: { success: vi.fn(), error: state.toastError } }));
 vi.mock('@/lib/api-client', async (importOriginal) => {
   const actual = await importOriginal<typeof ApiClientModule>();

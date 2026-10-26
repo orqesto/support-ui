@@ -37,6 +37,8 @@ let answerPage: number | null = null;
 let lastPage = Number.POSITIVE_INFINITY;
 const hidden: number[] = [];
 
+// useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
+vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
   return {

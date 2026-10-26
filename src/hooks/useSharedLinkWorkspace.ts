@@ -24,12 +24,37 @@ const ORG_PREFIXED = /^([A-Z]+\d*)-([A-Z]+-[A-Z]*\d+)$/i;
  * department, so there is nothing to follow and guessing is precisely how a link opens the
  * wrong conversation. It keeps resolving in the current workspace, exactly as before.
  */
-export const useSharedLinkWorkspace = (idParam: string | null) => {
+export const useSharedLinkWorkspace = (
+  idParam: string | null,
+  /**
+   * The link will not be opened here: its workspace is one the caller is not in (already said
+   * in a toast), or no workspace carries its code. For a page whose own lookup would otherwise
+   * wait for a workspace switch that is not coming.
+   */
+  onRefused?: (reason: 'not-a-member' | 'unresolvable') => void
+) => {
   const { selectedOrganizationId, setSelectedOrganization } = useAuthStore();
   const orgCode = useCurrentOrgCode();
   // One attempt per id. Without this, the switch re-renders the page, the effect re-runs,
   // and the locate call repeats for the same link.
   const attemptedRef = useRef<string | null>(null);
+  const onRefusedRef = useRef(onRefused);
+  onRefusedRef.current = onRefused;
+  // The answer counts while the page still shows THIS link. Not tied to the effect's own run:
+  // the workspace code usually loads while locate is out, which re-runs the effect, and the
+  // once-per-link guard then never asks again — so dropping the answer lost the link.
+  const latestIdRef = useRef<string | null>(idParam);
+  latestIdRef.current = idParam;
+  // A page left before the answer came must not switch the workspace under the next one. Set on
+  // mount, not only cleared: StrictMode unmounts and remounts once, and the answer must survive it.
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+  const stillShown = (id: string) => mountedRef.current && latestIdRef.current === id;
 
   useEffect(() => {
     if (!idParam) return;
@@ -43,13 +68,11 @@ export const useSharedLinkWorkspace = (idParam: string | null) => {
     if (attemptedRef.current === idParam) return;
     attemptedRef.current = idParam;
 
-    let current = true;
-
     const land = async () => {
       try {
         const response = await sharedLinkService.locate(idParam);
         const data = response.data;
-        if (!current || !data) return;
+        if (!stillShown(idParam) || !data) return;
 
         if (data.status === 'not-a-member') {
           // Name it. The recipient can ask for access instead of staring at a 404 that
@@ -57,6 +80,7 @@ export const useSharedLinkWorkspace = (idParam: string | null) => {
           toast.error(
             `That link belongs to the "${data.organizationSlug}" workspace, which you do not have access to.`
           );
+          onRefusedRef.current?.('not-a-member');
           return;
         }
 
@@ -68,12 +92,10 @@ export const useSharedLinkWorkspace = (idParam: string | null) => {
         // A 404 here means the id names no workspace we can see. The page's own org-scoped
         // lookup still runs and reports not-found — no need to say it twice.
         logger.error('Could not locate the workspace for a shared link:', error);
+        if (stillShown(idParam)) onRefusedRef.current?.('unresolvable');
       }
     };
 
     void land();
-    return () => {
-      current = false;
-    };
   }, [idParam, orgCode, selectedOrganizationId, setSelectedOrganization]);
 };

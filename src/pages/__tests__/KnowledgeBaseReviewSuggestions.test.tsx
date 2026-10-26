@@ -11,6 +11,8 @@ import type * as KbServiceModule from '@/services/kb.service';
 let canManageKb = true;
 const getAllCalls: Array<{ status?: string }> = [];
 
+// useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
+vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
   return {

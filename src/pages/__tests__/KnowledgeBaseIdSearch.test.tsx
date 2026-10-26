@@ -12,6 +12,8 @@ let listEntries: unknown[] = [];
 /** undefined ⇒ the response has NO idMatch key at all (a backend that predates it). */
 let listIdMatch: unknown = undefined;
 
+// useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
+vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
   return {

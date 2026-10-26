@@ -32,7 +32,7 @@ import { Permission } from '@/types/roles';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useUiFlags } from '@/hooks/useUiFlags';
 import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
-import { KB_ENTRY_NOT_FOUND_ALERT, useKbEntryParam } from '@/hooks/useKbEntryParam';
+import { useKbEntryParam } from '@/hooks/useKbEntryParam';
 import { useKbAutoChangedSupport } from '@/hooks/useKbAutoChangedSupport';
 import { CASE_ACTION_TITLES, LEFT_PAGE, runCaseAction } from '@/components/kb/runCaseAction';
 import { KbExportButton } from '@/components/kb/KbExportButton';
@@ -194,13 +194,13 @@ export const KnowledgeBasePage = () => {
   const rereadPage = () => void fetchEntries(pagination.page);
   const bulk = useKbBulkDecisions(entries, rereadPage, bulkMode);
 
-  useKbEntryParam({
+  const { openEntry: handleOpenEntry, closeEntry: handleCloseEntry } = useKbEntryParam({
     selectedEntry,
     setSelectedEntry,
     canReview,
     entries,
     filterStatus,
-    onNotFound: () => setAlertDialog(KB_ENTRY_NOT_FOUND_ALERT),
+    onNotFound: setAlertDialog,
   });
 
   const handleSearch = () => {
@@ -393,24 +393,6 @@ export const KnowledgeBasePage = () => {
       description: 'KB entry updated successfully',
       variant: 'success',
     });
-  };
-
-  // Handle opening entry - update URL with ID
-  const handleOpenEntry = (entry: KBEntry) => {
-    setSelectedEntry(entry);
-    const params = new URLSearchParams(searchParams);
-    params.set('id', entry.id.toString());
-    // setSearchParams strips location.hash — go through navigate to keep the tab hash.
-    navigate({ search: params.toString(), hash: location.hash }, { replace: true });
-  };
-
-  // Handle closing entry - remove ID from URL
-  const handleCloseEntry = () => {
-    setSelectedEntry(null);
-    const params = new URLSearchParams(searchParams);
-    params.delete('id');
-    // setSearchParams strips location.hash — go through navigate to keep the tab hash.
-    navigate({ search: params.toString(), hash: location.hash });
   };
 
   // What a case action reads when its request ANSWERS, not when its confirm was clicked.
