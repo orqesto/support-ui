@@ -13,6 +13,7 @@ import { Toggle } from '@/components/ui/Toggle';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { GlobalAdminMembershipsCard } from '@/components/console/maintenance/GlobalAdminMembershipsCard';
 import { SyncCheckpointsCard } from '@/components/console/maintenance/SyncCheckpointsCard';
+import { TrustedAddressesCard } from '@/components/console/maintenance/TrustedAddressesCard';
 import {
   REPAIRS,
   REPAIRS_ELSEWHERE,
@@ -610,6 +611,15 @@ export const PlatformMaintenance = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Absent on a backend that predates the list. Remounted on a save so the box shows it. */}
+      {state.trustedAddresses && (
+        <TrustedAddressesCard
+          key={state.trustedAddresses.entries.join(',')}
+          state={state.trustedAddresses}
+          queryKey={MAINTENANCE_KEY}
+        />
+      )}
 
       {/* Platform-wide tools moved here from Console → System (2026-10-20). */}
       <SyncCheckpointsCard />
