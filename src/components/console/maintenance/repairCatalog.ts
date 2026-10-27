@@ -112,6 +112,13 @@ export const REPAIRS: RepairEntry[] = [
     checkOnly: true,
   },
   {
+    id: 'repair-cross-mailbox-copies',
+    label: 'Remove doubled customer emails',
+    does: 'An email two mailboxes of one team both stored shows twice in a thread: the second copy is removed (its files and links move to the first). Copies in another thread are only listed.',
+    path: 'repair-cross-mailbox-copies',
+    scope: 'workspace',
+  },
+  {
     id: 'repair-unvalidated-kb-documents',
     label: 'Reject unvalidated KB documents',
     does: 'Rejects KB documents filed without validation, and transaction records (deleted by the 90-day purge).',
