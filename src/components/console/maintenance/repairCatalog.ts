@@ -94,6 +94,24 @@ export const REPAIRS: RepairEntry[] = [
     scope: 'workspace',
   },
   {
+    id: 'mark-automatic-replies',
+    label: 'Mark automatic replies',
+    does: 'Finds acknowledgements and out-of-office replies our mailbox sent (by their Auto-Submitted / Precedence headers) that still count as our answer, and on Apply stops them counting — threads where nobody else answered move from Pending back to Needs us. Runs in the background, slowly: Check queues a dry run, then read the result in “Mark automatic replies: progress”. Apply needs a finished Check from the last hour.',
+    path: 'mark-automatic-replies',
+    scope: 'workspace',
+    caution:
+      'Apply only after the progress line shows the finished Check and its counts look right.',
+  },
+  {
+    id: 'mark-automatic-replies-status',
+    label: 'Mark automatic replies: progress',
+    does: 'The newest run in this workspace: queued, running (with its phase) or finished, with the counts and up to 10 example thread ids. Finished runs are kept for an hour.',
+    path: 'mark-automatic-replies',
+    scope: 'workspace',
+    method: 'get',
+    checkOnly: true,
+  },
+  {
     id: 'repair-cross-mailbox-copies',
     label: 'Remove doubled customer emails',
     does: 'An email two mailboxes of one team both stored shows twice in a thread: the second copy is removed (its files and links move to the first). Copies in another thread are only listed.',

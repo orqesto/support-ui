@@ -10,6 +10,7 @@ import { formatDate, formatWhen } from '@/lib/utils';
 import type { MessageEvent } from '@/types';
 import { useMessageHtml } from '@/hooks/useMessageHtml';
 import { useInView } from '@/hooks/useInView';
+import { OriginalHeadersButton } from './OriginalHeadersButton';
 import { ThreadAttachmentChip } from './ThreadAttachmentChip';
 import { ThreadBubble } from './ThreadBubble';
 import {
@@ -207,6 +208,8 @@ export function ThreadMessageItem({
             )}
             {when}
             {mergedFrom && <span className="text-muted-foreground">· {mergedFrom}</span>}
+            {/* Admins only (renders nothing otherwise): the stored headers, read-only. */}
+            <OriginalHeadersButton eventId={msg.id} />
           </div>
           {/* Who this particular reply went to. Per-message, not per-thread: a reply can be
               addressed differently from the message that opened the conversation. This is
@@ -279,6 +282,8 @@ export function ThreadMessageItem({
               Reply to this message
             </Button>
           )}
+          {/* Admins only (renders nothing otherwise): the stored headers, read-only. */}
+          <OriginalHeadersButton eventId={msg.id} />
         </div>
         {/* 2026-06-17: customer bubbles are no longer clickable. The previous implementation
             called `onMessageNavigate(msg.id)` with a `messageEvents.id`, and the BE's

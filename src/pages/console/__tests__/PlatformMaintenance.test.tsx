@@ -298,7 +298,8 @@ describe('PlatformMaintenance — repairs', () => {
     );
     for (const button of screen
       .getAllByRole('button', { name: /^(Check|Apply)$/ })
-      .filter((button) => !button.closest('[data-testid="repair-relayed-fusion-report"]'))) {
+      // Read-only reports stay usable with repairs off (the backend serves them either way).
+      .filter((button) => !button.closest('[data-read-only]'))) {
       expect(button).toBeDisabled();
     }
     const repairsSwitch = screen.getByText('Repairs switched off').closest('label') as HTMLElement;
