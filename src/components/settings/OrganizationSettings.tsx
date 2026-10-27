@@ -8,6 +8,7 @@ import { LabelsSettings } from './LabelsSettings';
 import { RoutingKeysSettings } from './RoutingKeysSettings';
 import { BusinessHoursSettings } from './BusinessHoursSettings';
 import { OpenConversationWindowSettings } from './OpenConversationWindowSettings';
+import { AutomaticReplySubjectsSettings } from './AutomaticReplySubjectsSettings';
 import { SLAConfigSettings } from './SLAConfigSettings';
 import { SecuritySettings } from './SecuritySettings';
 import { WorkspaceDetailsSettings } from './WorkspaceDetailsSettings';
@@ -21,6 +22,7 @@ type OrgSection =
   | 'sla-config'
   | 'business-hours'
   | 'open-conversations'
+  | 'automatic-replies'
   | 'security'
   | 'ai-usage';
 
@@ -32,6 +34,7 @@ const sections = [
   { id: 'sla-config' as OrgSection, label: 'SLA Thresholds', description: 'Response and resolution time targets' },
   { id: 'business-hours' as OrgSection, label: 'Business Hours', description: 'Working calendar used for open-hours response times' },
   { id: 'open-conversations' as OrgSection, label: 'Open Threads', description: 'How old an email may be and still count as open work' },
+  { id: 'automatic-replies' as OrgSection, label: 'Automatic Replies', description: 'Automatic helpdesk emails that do not count as your answer' },
   { id: 'security' as OrgSection, label: 'Authentication', description: 'Workspace two-factor authentication policy' },
   { id: 'ai-usage' as OrgSection, label: 'AI usage', description: 'AI budget per billing period and bulk processing' },
 ];
@@ -115,6 +118,8 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
         {active === 'sla-config' && canManageOrgPolicy && <SLAConfigSettings />}
         {active === 'business-hours' && canManageOrgPolicy && <BusinessHoursSettings />}
         {active === 'open-conversations' && canManageOrgPolicy && <OpenConversationWindowSettings />}
+        {/* Not admin-only: any member may read the list; the card itself offers editing to admins. */}
+        {active === 'automatic-replies' && <AutomaticReplySubjectsSettings />}
         {active === 'security' && canManageOrgPolicy && <SecuritySettings />}
         {active === 'ai-usage' && canManageOrgPolicy && <WorkspaceAiUsage />}
       </Tabs>

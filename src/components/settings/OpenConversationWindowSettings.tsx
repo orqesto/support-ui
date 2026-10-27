@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { Toggle } from '@/components/ui/Toggle';
 import { usePermissions } from '@/hooks/usePermissions';
-import { formatError, getErrorBody, getErrorStatus } from '@/lib/errorMessages';
+import { formatError, getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { organizationService, type OpenConversationWindow } from '@/services/organization.service';
+import { isRouteMissing } from './isRouteMissing';
 
 /** The backend's range (`MIN/MAX_OPEN_WINDOW_DAYS`); it refuses anything else with a 400. */
 const MIN_DAYS = 1;
@@ -31,22 +32,6 @@ const presetFor = (days: number): string =>
   PRESETS.some((preset) => Number(preset.value) === days) ? String(days) : CUSTOM;
 
 const plural = (count: number, unit: string) => `${count} ${count === 1 ? unit : `${unit}s`}`;
-
-/**
- * Is this the answer of a backend that does not have the route yet? Not only a 404: a release
- * without it matches the path against `/api/organizations/:id` instead, which answers an org admin
- * 403 "Global admin access required" (its `requireGlobalAdmin`) and a global admin 400 "Invalid
- * organization ID" (`getById`). Matched on the exact messages, so a real refusal still shows.
- */
-const isRouteMissing = (err: unknown): boolean => {
-  const status = getErrorStatus(err);
-  if (status === 404) return true;
-  const message = getErrorBody(err)?.error;
-  return (
-    (status === 403 && message === 'Global admin access required') ||
-    (status === 400 && message === 'Invalid organization ID')
-  );
-};
 
 /**
  * Open-conversation window — how old a customer's email may be and still count as waiting on the

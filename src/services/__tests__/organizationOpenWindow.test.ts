@@ -62,3 +62,32 @@ describe('organizationService open-conversation window', () => {
     expect(patch).toHaveBeenCalledWith('/api/organizations/open-conversation-window', { days: 0 });
   });
 });
+
+describe('organizationService automatic reply subjects', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('reads the subjects, keeping only strings', async () => {
+    get.mockResolvedValue(reply({ subjects: ['Thank you for contacting us', 7, null] }));
+    await expect(organizationService.getAutomaticReplySubjects()).resolves.toEqual([
+      'Thank you for contacting us',
+    ]);
+    expect(get).toHaveBeenCalledWith('/api/organizations/automatic-reply-subjects');
+  });
+
+  it('a reply without a subjects array is a fault, not an empty list', async () => {
+    get.mockResolvedValue(reply({}));
+    await expect(organizationService.getAutomaticReplySubjects()).rejects.toThrow(
+      'The server did not return the subjects'
+    );
+  });
+
+  it('saving sends { subjects } and resolves with what the server stored', async () => {
+    patch.mockResolvedValue(reply({ subjects: ['Ticket received'] }));
+    await expect(
+      organizationService.updateAutomaticReplySubjects(['Ticket received', 'ticket received'])
+    ).resolves.toEqual(['Ticket received']);
+    expect(patch).toHaveBeenCalledWith('/api/organizations/automatic-reply-subjects', {
+      subjects: ['Ticket received', 'ticket received'],
+    });
+  });
+});

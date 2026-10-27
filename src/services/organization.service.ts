@@ -129,6 +129,17 @@ const readOpenConversationWindow = (
   };
 };
 
+/** What `GET/PATCH /api/organizations/automatic-reply-subjects` answers (support-service). */
+type AutomaticReplySubjectsWire = { subjects?: unknown };
+
+/** Keeps only the strings: a reply without a `subjects` array is a fault, not an empty list. */
+const readAutomaticReplySubjects = (
+  data: AutomaticReplySubjectsWire | undefined
+): string[] | null => {
+  if (!data || !Array.isArray(data.subjects)) return null;
+  return data.subjects.filter((subject): subject is string => typeof subject === 'string');
+};
+
 export const organizationService = {
   /**
    * Every workspace, walked page by page.
@@ -553,6 +564,30 @@ export const organizationService = {
     const windowSetting = readOpenConversationWindow(response.data.data);
     if (!windowSetting) throw new Error('The server did not confirm the window');
     return windowSetting;
+  },
+
+  /**
+   * Subjects of a helpdesk's automatic emails ("Thank you for contacting us"): mail from such a
+   * helpdesk whose subject contains one of them (case-insensitive) is not counted as our answer.
+   */
+  getAutomaticReplySubjects: async (): Promise<string[]> => {
+    const response = await apiClient.get<ApiResponse<AutomaticReplySubjectsWire>>(
+      '/api/organizations/automatic-reply-subjects'
+    );
+    const subjects = readAutomaticReplySubjects(response.data.data);
+    if (!subjects) throw new Error('The server did not return the subjects');
+    return subjects;
+  },
+
+  /** Resolves with what the server STORED (trimmed, de-duplicated), not with what was sent. */
+  updateAutomaticReplySubjects: async (subjects: string[]): Promise<string[]> => {
+    const response = await apiClient.patch<ApiResponse<AutomaticReplySubjectsWire>>(
+      '/api/organizations/automatic-reply-subjects',
+      { subjects }
+    );
+    const stored = readAutomaticReplySubjects(response.data.data);
+    if (!stored) throw new Error('The server did not confirm the subjects');
+    return stored;
   },
 
   getSecuritySettings: async (): Promise<{ require2FA: boolean }> => {
