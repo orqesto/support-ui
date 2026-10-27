@@ -20,6 +20,15 @@ import type { TokenLimitAlert } from '@/hooks/useTokenLimitAlerts';
 
 // The hooks left real (dark mailboxes, KB review) read /api/notifications on mount; unmocked,
 // jsdom sends real requests that fail into whichever test is still waiting (audit pass 8).
+// Bell kinds are batched into one /by-kind request in the app; these suites assert the per-kind
+// call, so route each kind through it (the batcher has its own tests).
+vi.mock('@/services/notificationsByKind.service', async () => {
+  const { apiClient } = await import('@/lib/api-client');
+  return {
+    fetchNotificationsOfKind: (kind: string) =>
+      apiClient.get('/api/notifications', { params: { kind } }),
+  };
+});
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
     get: () => Promise.resolve({ data: { data: { notifications: [] } } }),

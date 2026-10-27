@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api-client';
-import { getSocket, releaseSocket, subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
+import {
+  getSocket,
+  releaseSocket,
+  subscribeToEvent,
+  unsubscribeFromEvent,
+} from '@/lib/socketManager';
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/types/api';
+import { fetchNotificationsOfKind } from '@/services/notificationsByKind.service';
 
 /**
  * "Your AI provider has stopped answering" — the one notification kind whose whole point
@@ -61,23 +67,21 @@ export const useAiProviderAlerts = () => {
   );
 
   const fetchAlerts = useCallback(() => {
-    apiClient
-      /**
-       * ⛔ Name the kind. The unfiltered call serves the newest 20 rows across ALL kinds, so
-       * this alert competes for slots with an SLA breach feed that never stops. Measured on
-       * the petro client box 2026-09-10: TraumaTeam held 165 notifications and the endpoint
-       * returned 20, and that window spanned ~28 h — so an AI provider being down drops off the
-       * bell in about a day and reaches the user on zero surfaces.
-       * `useIngestionGapAlerts` already fetches this way; this hook did not.
-       *
-       * The `.filter()` below stays: it is what keeps a backend that ignored `?kind=` from
-       * rendering every other kind as this one.
-       */
-      .get('/api/notifications', { params: { kind: AI_PROVIDER_DOWN_KIND } })
+    /**
+     * ⛔ Name the kind. The unfiltered call serves the newest 20 rows across ALL kinds, so
+     * this alert competes for slots with an SLA breach feed that never stops. Measured on
+     * the petro client box 2026-09-10: TraumaTeam held 165 notifications and the endpoint
+     * returned 20, and that window spanned ~28 h — so an AI provider being down drops off the
+     * bell in about a day and reaches the user on zero surfaces.
+     * `useIngestionGapAlerts` already fetches this way; this hook did not.
+     *
+     * The `.filter()` below stays: it is what keeps a backend that ignored `?kind=` from
+     * rendering every other kind as this one.
+     */
+    fetchNotificationsOfKind(AI_PROVIDER_DOWN_KIND)
       .then((res) => {
-        const payload = (
-          res.data as { data: { notifications: Notification[]; total: number } }
-        ).data;
+        const payload = (res.data as { data: { notifications: Notification[]; total: number } })
+          .data;
         setAlerts(
           payload.notifications
             .filter((row) => (row as { kind?: string }).kind === AI_PROVIDER_DOWN_KIND)

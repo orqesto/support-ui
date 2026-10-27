@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { apiClient } from '@/lib/api-client';
 import { KB_CONSOLIDATION_DECIDED_EVENT } from '@/lib/kbConsolidation';
 import {
   getSocket,
@@ -9,6 +8,7 @@ import {
 } from '@/lib/socketManager';
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/types/api';
+import { fetchNotificationsOfKind } from '@/services/notificationsByKind.service';
 
 /**
  * "Support saved this thread to the knowledge base — approve or reject it."
@@ -124,10 +124,9 @@ export const useKbReviewAlerts = () => {
 
   const fetchReviews = useCallback(() => {
     const requestId = ++reviewsRequest.current;
-    apiClient
-      // Name the kind: the unfiltered list is the newest 20 rows across ALL kinds, and an SLA
-      // feed would push a review off the bell within a day (see useStaleKbAlerts).
-      .get('/api/notifications', { params: { kind: KB_REVIEW_KIND } })
+    // Name the kind: the unfiltered list is the newest 20 rows across ALL kinds, and an SLA
+    // feed would push a review off the bell within a day (see useStaleKbAlerts).
+    fetchNotificationsOfKind(KB_REVIEW_KIND)
       .then((res) => {
         if (requestId !== reviewsRequest.current) return;
         const payload = (res.data as { data: { notifications: Notification[] } }).data;
@@ -143,8 +142,7 @@ export const useKbReviewAlerts = () => {
 
   const fetchConsolidations = useCallback(() => {
     const requestId = ++consolidationsRequest.current;
-    apiClient
-      .get('/api/notifications', { params: { kind: KB_CONSOLIDATION_KIND } })
+    fetchNotificationsOfKind(KB_CONSOLIDATION_KIND)
       .then((res) => {
         if (requestId !== consolidationsRequest.current) return;
         const payload = (res.data as { data: { notifications: Notification[] } }).data;

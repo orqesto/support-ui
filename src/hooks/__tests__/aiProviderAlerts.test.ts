@@ -25,6 +25,15 @@ type GetConfig = { params?: { kind?: string } };
 // argument cannot tell a kind-scoped request from the unfiltered one.
 const get = vi.fn<(url: string, config?: GetConfig) => Promise<unknown>>();
 const patch = vi.fn<(url: string) => Promise<unknown>>(() => Promise.resolve({ data: {} }));
+// Bell kinds are batched into one /by-kind request in the app; these suites assert the per-kind
+// call, so route each kind through it (the batcher has its own tests).
+vi.mock('@/services/notificationsByKind.service', async () => {
+  const { apiClient } = await import('@/lib/api-client');
+  return {
+    fetchNotificationsOfKind: (kind: string) =>
+      apiClient.get('/api/notifications', { params: { kind } }),
+  };
+});
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
     get: (url: string, config?: GetConfig) => get(url, config),
@@ -166,6 +175,8 @@ describe('useAiProviderAlerts', () => {
     //
     // Asserted at the REQUEST: a typo in `params` changes nothing observable in the resulting
     // list, so an outcome-only assertion would ship it green.
-    expect(get).toHaveBeenCalledWith('/api/notifications', { params: { kind: 'ai_provider_down' } });
+    expect(get).toHaveBeenCalledWith('/api/notifications', {
+      params: { kind: 'ai_provider_down' },
+    });
   });
 });

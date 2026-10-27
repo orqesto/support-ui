@@ -7,6 +7,15 @@ const get = vi.fn<(url: string, config?: Config) => Promise<unknown>>();
 const patch = vi.fn<(url: string, body?: unknown, config?: Config) => Promise<unknown>>(() =>
   Promise.resolve({ data: {} })
 );
+// Bell kinds are batched into one /by-kind request in the app; these suites assert the per-kind
+// call, so route each kind through it (the batcher has its own tests).
+vi.mock('@/services/notificationsByKind.service', async () => {
+  const { apiClient } = await import('@/lib/api-client');
+  return {
+    fetchNotificationsOfKind: (kind: string) =>
+      apiClient.get('/api/notifications', { params: { kind } }),
+  };
+});
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
     get: (url: string, config?: Config) => get(url, config),
@@ -83,7 +92,7 @@ const byKind = (rows: unknown[]) =>
       },
     })
   );
-const deferred = <T,>() => {
+const deferred = <T>() => {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((res) => {
     resolve = res;
@@ -369,8 +378,7 @@ describe('final review fixes (#957)', () => {
       Promise.resolve({
         data: {
           data: {
-            notifications:
-              config?.params?.kind === 'conversation_assigned' ? [assigned] : [],
+            notifications: config?.params?.kind === 'conversation_assigned' ? [assigned] : [],
             total: config?.params?.kind === 'conversation_assigned' ? 37 : 4,
             hasMore: true,
           },
@@ -414,7 +422,9 @@ describe('final review fixes (#957)', () => {
     await waitFor(() => expect(result.current.alerts).toHaveLength(1));
     const fresh = { ...unassigned, id: 8, isRead: false, createdAt: '2026-10-15T11:00:00Z' };
     const inFlight = deferred<unknown>();
-    get.mockImplementationOnce(() => inFlight.promise).mockImplementationOnce(() => inFlight.promise);
+    get
+      .mockImplementationOnce(() => inFlight.promise)
+      .mockImplementationOnce(() => inFlight.promise);
     act(() => result.current.refresh());
     byKind([assigned, fresh]); // what the server holds once the dismiss PATCH has answered (assigned stays)
     act(() => result.current.dismiss(1));

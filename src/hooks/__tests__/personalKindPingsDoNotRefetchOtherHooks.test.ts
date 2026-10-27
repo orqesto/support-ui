@@ -9,6 +9,15 @@ import { renderHook, waitFor, act } from '@testing-library/react';
  * their own kind still refetch.
  */
 const get = vi.fn<(url: string, config?: unknown) => Promise<unknown>>();
+// Bell kinds are batched into one /by-kind request in the app; these suites assert the per-kind
+// call, so route each kind through it (the batcher has its own tests).
+vi.mock('@/services/notificationsByKind.service', async () => {
+  const { apiClient } = await import('@/lib/api-client');
+  return {
+    fetchNotificationsOfKind: (kind: string) =>
+      apiClient.get('/api/notifications', { params: { kind } }),
+  };
+});
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
     get: (url: string, config?: unknown) => get(url, config),
@@ -39,9 +48,24 @@ const { useStaleKbAlerts, KB_DOCUMENT_STALE_KIND } = await import('../useStaleKb
 const { useIngestionGapAlerts, INGESTION_GAP_KIND } = await import('../useIngestionGapAlerts');
 
 const cases = [
-  ['useAiProviderAlerts', useAiProviderAlerts, AI_PROVIDER_DOWN_KIND, ['notification:new', 'notification:resolved']],
-  ['useUnansweredOutboundAlerts (one-sided)', useUnansweredOutboundAlerts, ONE_SIDED_OUTBOUND_KIND, ['notification:new', 'notification:resolved']],
-  ['useUnansweredOutboundAlerts (spam)', useUnansweredOutboundAlerts, CUSTOMER_REPLY_IN_SPAM_KIND, ['notification:new']],
+  [
+    'useAiProviderAlerts',
+    useAiProviderAlerts,
+    AI_PROVIDER_DOWN_KIND,
+    ['notification:new', 'notification:resolved'],
+  ],
+  [
+    'useUnansweredOutboundAlerts (one-sided)',
+    useUnansweredOutboundAlerts,
+    ONE_SIDED_OUTBOUND_KIND,
+    ['notification:new', 'notification:resolved'],
+  ],
+  [
+    'useUnansweredOutboundAlerts (spam)',
+    useUnansweredOutboundAlerts,
+    CUSTOMER_REPLY_IN_SPAM_KIND,
+    ['notification:new'],
+  ],
   ['useIngestionDarkAlerts', useIngestionDarkAlerts, INGESTION_DARK_KIND, ['notification:new']],
   ['useStaleKbAlerts', useStaleKbAlerts, KB_DOCUMENT_STALE_KIND, ['notification:new']],
   ['useIngestionGapAlerts', useIngestionGapAlerts, INGESTION_GAP_KIND, ['notification:new']],
@@ -54,21 +78,24 @@ beforeEach(() => {
 });
 
 describe.each(cases)('%s', (_name, useHook, ownKind, events) => {
-  it.each(events)('%s: another kind does not refetch; kind-less and its own kind do', async (event) => {
-    renderHook(() => useHook());
-    await waitFor(() => expect(get).toHaveBeenCalled());
-    await act(async () => {});
-    const baseline = get.mock.calls.length;
+  it.each(events)(
+    '%s: another kind does not refetch; kind-less and its own kind do',
+    async (event) => {
+      renderHook(() => useHook());
+      await waitFor(() => expect(get).toHaveBeenCalled());
+      await act(async () => {});
+      const baseline = get.mock.calls.length;
 
-    act(() => handlers.get(event)?.({ kind: 'new_unassigned_message', id: 9 }));
-    await act(async () => {});
-    expect(get).toHaveBeenCalledTimes(baseline);
+      act(() => handlers.get(event)?.({ kind: 'new_unassigned_message', id: 9 }));
+      await act(async () => {});
+      expect(get).toHaveBeenCalledTimes(baseline);
 
-    act(() => handlers.get(event)?.());
-    await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(baseline));
-    const afterKindless = get.mock.calls.length;
+      act(() => handlers.get(event)?.());
+      await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(baseline));
+      const afterKindless = get.mock.calls.length;
 
-    act(() => handlers.get(event)?.({ kind: ownKind, id: 9 }));
-    await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(afterKindless));
-  });
+      act(() => handlers.get(event)?.({ kind: ownKind, id: 9 }));
+      await waitFor(() => expect(get.mock.calls.length).toBeGreaterThan(afterKindless));
+    }
+  );
 });

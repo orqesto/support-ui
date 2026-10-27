@@ -12,6 +12,15 @@ const listOf = (notifications: unknown[]) => Promise.resolve({ data: { data: { n
 let getImpl: () => Promise<unknown> = () => listOf([]);
 let patchImpl: (url: string) => Promise<unknown> = () => Promise.resolve({ data: {} });
 const handlers = new Map<string, Set<(data: unknown) => void>>();
+// Bell kinds are batched into one /by-kind request in the app; these suites assert the per-kind
+// call, so route each kind through it (the batcher has its own tests).
+vi.mock('@/services/notificationsByKind.service', async () => {
+  const { apiClient } = await import('@/lib/api-client');
+  return {
+    fetchNotificationsOfKind: (kind: string) =>
+      apiClient.get('/api/notifications', { params: { kind } }),
+  };
+});
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
     get: () => {
