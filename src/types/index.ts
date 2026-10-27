@@ -1,4 +1,5 @@
 import type { WhatsAppWindow } from '@/components/messages/whatsappWindowState';
+import type { ReplyBlock } from '@/components/messages/replyBlockState';
 import type { GlobalRole, OrganizationRole, AllianceRole, PermissionOverrides } from './roles';
 
 export type Department = {
@@ -238,6 +239,12 @@ export type Message = {
    * means the rule does not apply, not that it is unknown.
    */
   whatsappWindow?: WhatsAppWindow | null;
+  /**
+   * The thread cannot be answered from Odly at all (today: Telegram conversations
+   * imported from Zendesk — the export never carried the customer's Telegram id).
+   * Present only when the composer must be blocked; absent means replyable.
+   */
+  replyBlock?: ReplyBlock | null;
   /**
    * Who a reply goes to when the agent types no recipient: the customer's Reply-To when they set
    * one, else the requester. Email detail responses only — absent on list rows and other channels.
