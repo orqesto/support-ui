@@ -13,6 +13,7 @@ import { useFilterOptions } from './useFilterOptions';
 import {
   BUILT_IN_VIEWS,
   nameForSearchView,
+  snapshotForMode,
   viewAppliesTo,
   viewIsActive,
   type SavedView,
@@ -191,7 +192,10 @@ export const MessageFilterBar = ({
     // ⛔ Never an empty view: `{}` matches every filter state, so its pill would be lit forever
     // and clicking it would do nothing (review of #721).
     if (tokens.length === 0) return;
-    void saveView(name, snapshot as Partial<FilterState>);
+    // Only what can act in this mode, or the board hides the view it just saved.
+    const forMode = snapshotForMode(snapshot, isKanban);
+    if (Object.keys(forMode).length === 0) return;
+    void saveView(name, forMode as Partial<FilterState>);
     setNamingView(false);
     setViewName('');
   };

@@ -183,3 +183,15 @@ export const nameForSearchView = (text: string, views: SavedView[]): string | nu
   }
   return null;
 };
+
+/**
+ * The filters a view saved in this mode should keep: only keys that can act here. On the board
+ * every column sets its own `lifecycle`, so a snapshot taken while "Needs us" was on carried
+ * `lifecycle: 'needs_us'` — and `viewAppliesTo` then hid the new view on the very board it was
+ * saved from (the save returned 200, no pill appeared; taco, 2026-10-27).
+ */
+export const snapshotForMode = (
+  snapshot: Record<string, unknown>,
+  isKanban: boolean
+): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(snapshot).filter(([key]) => keyAppliesInMode(key, isKanban)));
