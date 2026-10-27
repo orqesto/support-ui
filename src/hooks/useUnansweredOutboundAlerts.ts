@@ -8,6 +8,7 @@ import {
 } from '@/lib/socketManager';
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/types/api';
+import { fetchNotificationsOfKind } from '@/services/notificationsByKind.service';
 
 /**
  * Two kinds that both mean "a message did not reach the person who should have seen it".
@@ -133,7 +134,7 @@ export const useUnansweredOutboundAlerts = () => {
      */
     Promise.all(
       [ONE_SIDED_OUTBOUND_KIND, CUSTOMER_REPLY_IN_SPAM_KIND].map((kind) =>
-        apiClient.get('/api/notifications', { params: { kind } })
+        fetchNotificationsOfKind(kind)
       )
     )
       .then((responses) => {

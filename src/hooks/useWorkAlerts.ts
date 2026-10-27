@@ -10,6 +10,7 @@ import {
 } from '@/lib/socketManager';
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/types/api';
+import { fetchNotificationsOfKind } from '@/services/notificationsByKind.service';
 
 /**
  * #957 — the two notification kinds addressed to ONE person: "assigned to you" and "new unassigned
@@ -113,13 +114,12 @@ export const useWorkAlerts = () => {
     // Promise.all: a partial answer must not read as "nothing for you" — a failed poll keeps what is shown.
     requestSeq.current += 1;
     const seq = requestSeq.current;
-    Promise.all(KINDS.map((kind) => apiClient.get('/api/notifications', { params: { kind } })))
+    Promise.all(KINDS.map((kind) => fetchNotificationsOfKind(kind)))
       .then((responses) => {
         if (seq !== requestSeq.current) return;
         setServerTotal(
           responses.reduce(
-            (sum, res) =>
-              sum + ((res.data as { data?: { total?: number } }).data?.total ?? 0),
+            (sum, res) => sum + ((res.data as { data?: { total?: number } }).data?.total ?? 0),
             0
           )
         );

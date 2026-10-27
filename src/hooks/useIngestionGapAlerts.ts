@@ -8,6 +8,7 @@ import {
 } from '@/lib/socketManager';
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/types/api';
+import { fetchNotificationsOfKind } from '@/services/notificationsByKind.service';
 
 /**
  * "Mail may be missing" — the ONLY signal in the product that reports mail we do NOT have.
@@ -123,8 +124,7 @@ export const useIngestionGapAlerts = () => {
     // one alert about mail we do NOT have, and a silent one reproduces the exact fourteen-hour
     // blackout it exists to end. notificationsController takes `?kind=` (it applies to list,
     // counts and read-all), so ask for the one kind and the crowd-out cannot happen.
-    apiClient
-      .get('/api/notifications', { params: { kind: INGESTION_GAP_KIND } })
+    fetchNotificationsOfKind(INGESTION_GAP_KIND)
       .then((res) => {
         const payload = (res.data as { data: { notifications: Notification[]; total: number } })
           .data;

@@ -8,6 +8,7 @@ import {
 } from '@/lib/socketManager';
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/types/api';
+import { fetchNotificationsOfKind } from '@/services/notificationsByKind.service';
 
 /**
  * "Daily AI limit reached" — a workspace used its daily AI token allowance for KB processing or
@@ -173,8 +174,7 @@ export const useTokenLimitAlerts = () => {
 
   const fetchAlerts = useCallback(() => {
     const request = ++latest.current;
-    apiClient
-      .get('/api/notifications', { params: { kind: TOKEN_LIMIT_REACHED_KIND } })
+    fetchNotificationsOfKind(TOKEN_LIMIT_REACHED_KIND)
       .then((res) => {
         if (request !== latest.current) return;
         const payload = (res.data as { data: { notifications: Notification[] } }).data;

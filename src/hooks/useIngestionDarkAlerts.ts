@@ -8,6 +8,7 @@ import {
 } from '@/lib/socketManager';
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/types/api';
+import { fetchNotificationsOfKind } from '@/services/notificationsByKind.service';
 
 /**
  * "This mailbox has stopped being polled" — a fault happening RIGHT NOW.
@@ -97,8 +98,7 @@ export const useIngestionDarkAlerts = () => {
   );
 
   const fetchAlerts = useCallback(() => {
-    apiClient
-      .get('/api/notifications', { params: { kind: INGESTION_DARK_KIND } })
+    fetchNotificationsOfKind(INGESTION_DARK_KIND)
       .then((res) => {
         const payload = (res.data as { data: { notifications: Notification[]; total: number } })
           .data;

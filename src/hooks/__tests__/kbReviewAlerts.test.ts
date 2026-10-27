@@ -13,6 +13,15 @@ const get = vi.fn<(url: string, config?: GetConfig) => Promise<unknown>>();
 const acceptSuggestion = vi.fn<(id: number) => Promise<void>>();
 const declineSuggestion = vi.fn<(id: number) => Promise<void>>();
 
+// Bell kinds are batched into one /by-kind request in the app; these suites assert the per-kind
+// call, so route each kind through it (the batcher has its own tests).
+vi.mock('@/services/notificationsByKind.service', async () => {
+  const { apiClient } = await import('@/lib/api-client');
+  return {
+    fetchNotificationsOfKind: (kind: string) =>
+      apiClient.get('/api/notifications', { params: { kind } }),
+  };
+});
 vi.mock('@/lib/api-client', () => ({
   apiClient: { get: (url: string, config?: GetConfig) => get(url, config) },
 }));
