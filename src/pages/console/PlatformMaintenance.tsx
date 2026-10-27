@@ -219,7 +219,11 @@ const RepairRow = ({
     (repair.scope === 'platform' && platformIds.length === 0);
 
   return (
-    <li className="py-3 border-b border-border last:border-b-0" data-testid={`repair-${repair.id}`}>
+    <li
+      className="py-3 border-b border-border last:border-b-0"
+      data-testid={`repair-${repair.id}`}
+      data-read-only={repair.checkOnly ? '' : undefined}
+    >
       <div className="flex flex-wrap gap-3 justify-between items-start">
         <div className="min-w-0 flex-1 basis-64">
           <p className="font-medium text-foreground">

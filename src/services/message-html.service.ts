@@ -52,3 +52,34 @@ export const getMessageHtml = async (eventId: number): Promise<string | null> =>
     releaseSlot();
   }
 };
+
+/** One stored header line, as the mail carried it. */
+export type OriginalHeader = { name: string; value: string };
+export type OriginalHeaders = {
+  /** Which stored shape the headers came from; null when the message kept none. */
+  source: 'gmail' | 'imap' | null;
+  headers: OriginalHeader[];
+  truncated: boolean;
+};
+
+/**
+ * The stored ORIGINAL HEADERS of one message — workspace admins only (the BE answers 403
+ * otherwise). Read-only; answers "did this mail say it was automatic?" without a database shell.
+ *
+ * Normalised defensively (FE/BE version skew): an older backend without the route answers 404,
+ * which the caller shows as an error; a partial body never breaks the list.
+ */
+export const getMessageHeaders = async (eventId: number): Promise<OriginalHeaders> => {
+  const res = await apiClient.get<{ data: Partial<OriginalHeaders> | null }>(
+    `/api/messages/events/${eventId}/headers`
+  );
+  const data = res.data?.data ?? null;
+  const headers = Array.isArray(data?.headers)
+    ? data.headers.filter(
+        (header): header is OriginalHeader =>
+          !!header && typeof header.name === 'string' && typeof header.value === 'string'
+      )
+    : [];
+  const source = data?.source === 'gmail' || data?.source === 'imap' ? data.source : null;
+  return { source, headers, truncated: data?.truncated === true };
+};
