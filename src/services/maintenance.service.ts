@@ -41,9 +41,23 @@ export interface MaintenanceJob {
   nextRunAt: string | null;
 }
 
+/**
+ * Office addresses (IPs or CIDR ranges) that skip the traffic rate limits — login, 2FA and
+ * password-reset limits still apply (BE `security.trusted_addresses`, 2026-10-27). `null` when the
+ * backend predates the list.
+ */
+export interface TrustedAddressesState {
+  entries: string[];
+  /** The admin's own address as the server sees it. */
+  yourAddress: string | null;
+  /** A self-hosted box skips the traffic limits for everyone; the list then changes nothing. */
+  selfHosted: boolean;
+}
+
 export interface MaintenanceState {
   jobs: MaintenanceJob[];
   repairs: { allowed: boolean; source: 'default' | 'console' };
+  trustedAddresses: TrustedAddressesState | null;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -100,12 +114,22 @@ export const normaliseMaintenance = (raw: unknown): MaintenanceState => {
     nextRunAt: typeof job.nextRunAt === 'string' ? job.nextRunAt : null,
   }));
   const repairs = isRecord(data.repairs) ? data.repairs : {};
+  const trusted = isRecord(data.trustedAddresses) ? data.trustedAddresses : null;
   return {
     jobs: jobs.filter((job) => job.id !== ''),
     repairs: {
       allowed: repairs.allowed !== false,
       source: repairs.source === 'console' ? 'console' : 'default',
     },
+    trustedAddresses: trusted
+      ? {
+          entries: (Array.isArray(trusted.entries) ? trusted.entries : []).filter(
+            (entry): entry is string => typeof entry === 'string'
+          ),
+          yourAddress: typeof trusted.yourAddress === 'string' ? trusted.yourAddress : null,
+          selfHosted: trusted.selfHosted === true,
+        }
+      : null,
   };
 };
 
@@ -124,6 +148,18 @@ const maintenanceService = {
 
   setRepairsAllowed: async (allowed: boolean): Promise<void> => {
     await apiClient.patch('/api/system/maintenance/repairs', { allowed });
+  },
+
+  /** Replaces the whole trusted list; answers the saved list. */
+  setTrustedAddresses: async (entries: string[]): Promise<string[]> => {
+    const response = await apiClient.put<ApiResponse<{ entries?: unknown }>>(
+      '/api/system/maintenance/trusted-addresses',
+      { entries }
+    );
+    const saved = response.data.data?.entries;
+    return Array.isArray(saved)
+      ? saved.filter((entry): entry is string => typeof entry === 'string')
+      : entries;
   },
 
   /**
