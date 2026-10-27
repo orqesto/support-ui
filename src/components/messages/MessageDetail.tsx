@@ -70,6 +70,7 @@ import {
 } from '@/components/messages/sendErrorMessage';
 import { SendFailedBar } from './SendFailedBar';
 import { resolveComposerWindow } from '@/components/messages/whatsappWindowState';
+import { resolveReplyBlock } from '@/components/messages/replyBlockState';
 import { WhatsAppTemplatePicker } from '@/components/messages/WhatsAppTemplatePicker';
 import type { WhatsAppTemplate } from '@/components/messages/whatsappTemplates';
 import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
@@ -365,14 +366,19 @@ export function MessageDetail({
   }, [message.whatsappWindow]);
 
   const composerWindow = useMemo(
-    () => resolveComposerWindow(message.whatsappWindow, composerMode),
+    () => {
+      // A replyBlock (e.g. a Zendesk-imported Telegram thread) outranks the WhatsApp
+      // window: channels never overlap, and the block is unconditional, not a countdown.
+      const block = resolveReplyBlock(message.replyBlock, composerMode);
+      return block.blocked ? block : resolveComposerWindow(message.whatsappWindow, composerMode);
+    },
     // windowTick is a deliberate dependency: it is what makes the countdown advance and
     // the block engage when the window lapses with the view already open. ESLint calls it
     // "unnecessary" precisely BECAUSE the body does not reference it — the 60s tick is the
     // whole point, and removing it freezes the countdown on an open thread. Suppressed
     // rather than left as prose, so the next lint sweep cannot quietly "clean it up".
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
-    [message.whatsappWindow, composerMode, windowTick]
+    [message.whatsappWindow, message.replyBlock, composerMode, windowTick]
   );
 
   // ── Real-time reply events ─────────────────────────────────────────────────
