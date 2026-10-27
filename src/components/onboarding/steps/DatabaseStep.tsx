@@ -103,7 +103,7 @@ export const DatabaseStep = ({
               </div>
               <p className="text-sm text-muted-foreground">
                 Your data is read and written in a database you run. Odly keeps only sign-in,
-                billing and audit metadata.{managedAllowed ? '' : ' Required on the Free plan.'}
+                billing and audit metadata.
               </p>
             </CardContent>
           </Card>

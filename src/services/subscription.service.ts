@@ -382,8 +382,43 @@ const getPlanName = async (): Promise<string | undefined> => {
   }
 };
 
+/**
+ * The workspace's plan and subscription status (`/api/subscriptions/current`). `status` is
+ * `'none'` when the workspace has no subscription row. Empty when it cannot be read. Never throws.
+ */
+const getPlanState = async (): Promise<{
+  name?: string;
+  displayName?: string;
+  status?: string;
+}> => {
+  try {
+    const res = await apiClient.get<{
+      data?: {
+        plan?: { name?: unknown; displayName?: unknown };
+        subscription?: { status?: unknown };
+      };
+    }>('/api/subscriptions/current');
+    const data = res.data?.data;
+    const text = (value: unknown) => (typeof value === 'string' ? value : undefined);
+    return {
+      name: text(data?.plan?.name),
+      displayName: text(data?.plan?.displayName),
+      status: text(data?.subscription?.status),
+    };
+  } catch {
+    return {};
+  }
+};
+
+/** Put the workspace on Free — no card, no checkout (BE direct-assign; creates the row if none). */
+const chooseFree = async (): Promise<void> => {
+  await apiClient.post('/api/subscriptions/upgrade', { planName: 'free' });
+};
+
 export const subscriptionService = {
   getPlanName,
+  getPlanState,
+  chooseFree,
   getPlanFit,
   setActiveWithinPlan,
   getFeatures,

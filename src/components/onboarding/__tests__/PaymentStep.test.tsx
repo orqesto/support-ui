@@ -24,12 +24,23 @@ vi.mock('@stripe/stripe-js', () => ({
 
 const getPlans = vi.fn<() => Promise<SubscriptionPlan[]>>();
 const createWizardCheckoutSession = vi.fn<(planName: string) => Promise<unknown>>();
+const getPlanState =
+  vi.fn<() => Promise<{ name?: string; displayName?: string; status?: string }>>();
+const chooseFree = vi.fn<() => Promise<void>>();
 
 vi.mock('@/services/subscription.service', () => ({
   subscriptionService: {
     getPlans: () => getPlans(),
     createWizardCheckoutSession: (planName: string) => createWizardCheckoutSession(planName),
+    getPlanState: () => getPlanState(),
+    chooseFree: () => chooseFree(),
   },
+}));
+
+const refreshOnboarding = vi.fn<() => Promise<void>>();
+vi.mock('@/stores/onboardingStore', () => ({
+  useOnboardingStore: (pick: (store: { refresh: () => Promise<void> }) => unknown) =>
+    pick({ refresh: () => refreshOnboarding() }),
 }));
 
 const { PaymentStep } = await import('../steps/PaymentStep');
@@ -78,7 +89,13 @@ const CATALOG: SubscriptionPlan[] = [
       maxIntegrations: 25,
       maxStorageMb: 1048576,
     },
-    features: { aiAutoReply: true, advancedAnalytics: true, sso: true, scim: true, auditLogs: true },
+    features: {
+      aiAutoReply: true,
+      advancedAnalytics: true,
+      sso: true,
+      scim: true,
+      auditLogs: true,
+    },
   }),
   plan({
     name: 'self-hosted',
@@ -91,6 +108,8 @@ const CATALOG: SubscriptionPlan[] = [
 
 beforeEach(() => {
   getPlans.mockResolvedValue(CATALOG);
+  getPlanState.mockResolvedValue({ name: 'free', displayName: 'Free', status: 'active' });
+  chooseFree.mockResolvedValue(undefined);
   createWizardCheckoutSession.mockResolvedValue({
     clientSecret: 'cs_test_secret',
     publishableKey: 'pk_test_123',
@@ -113,11 +132,56 @@ describe('PaymentStep plan cards', () => {
     expect(screen.getByText('Enterprise Cloud')).toBeInTheDocument();
   });
 
-  it('does not offer Free — it is selectable at signup but never checkoutable', async () => {
+  it('offers Free first, selected, and opens no checkout for it', async () => {
     render(<PaymentStep initialPlan="pro" planWasPreselected={false} />);
 
-    await waitFor(() => expect(screen.getByText('Starter')).toBeInTheDocument());
-    expect(screen.queryByText('Free')).not.toBeInTheDocument();
+    const free = await screen.findByRole('button', { name: /Free forever · no card/ });
+    expect(free).toHaveAttribute('aria-pressed', 'true');
+    const cards = screen
+      .getAllByRole('button')
+      .filter((button) => button.hasAttribute('aria-pressed'));
+    expect(cards[0]).toBe(free);
+    expect(await screen.findByText(/You’re on Free — no card needed/)).toBeInTheDocument();
+    expect(createWizardCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it('picking a paid tier after Free opens its checkout', async () => {
+    render(<PaymentStep initialPlan="pro" planWasPreselected={false} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Starter/ }));
+    await waitFor(() => expect(createWizardCheckoutSession).toHaveBeenCalledWith('starter'));
+  });
+
+  it('puts a workspace with no plan on Free — the way out of "no active plan"', async () => {
+    getPlanState
+      .mockResolvedValueOnce({ status: 'expired', name: 'free' })
+      .mockResolvedValueOnce({ name: 'free', displayName: 'Free', status: 'active' });
+    render(<PaymentStep initialPlan="pro" planWasPreselected={false} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Start on Free' }));
+    await waitFor(() => expect(chooseFree).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/You’re on Free — no card needed/)).toBeInTheDocument();
+    // The wizard's Database/Finish gates read the store — they must see the new plan.
+    expect(refreshOnboarding).toHaveBeenCalled();
+  });
+
+  it('never downgrades a paid plan from the wizard', async () => {
+    getPlanState.mockResolvedValue({ name: 'pro', displayName: 'Pro', status: 'trialing' });
+    render(<PaymentStep initialPlan="pro" planWasPreselected={false} />);
+
+    expect(
+      await screen.findByText(/This workspace is on Pro\. To move to Free/)
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Start on Free' })).not.toBeInTheDocument();
+    expect(chooseFree).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the default paid tier when the catalog has no Free plan', async () => {
+    getPlans.mockResolvedValue(CATALOG.filter((entry) => entry.name !== 'free'));
+    render(<PaymentStep initialPlan="pro" planWasPreselected={false} />);
+
+    await waitFor(() => expect(createWizardCheckoutSession).toHaveBeenCalledWith('pro'));
+    expect(screen.queryByText(/Free forever/)).not.toBeInTheDocument();
   });
 
   it('shows the caps that make the tiers comparable', async () => {
@@ -157,7 +221,9 @@ describe('PaymentStep plan cards', () => {
   it('opens a checkout session for the tier that was picked', async () => {
     render(<PaymentStep initialPlan="enterprise-cloud" planWasPreselected />);
 
-    await waitFor(() => expect(createWizardCheckoutSession).toHaveBeenCalledWith('enterprise-cloud'));
+    await waitFor(() =>
+      expect(createWizardCheckoutSession).toHaveBeenCalledWith('enterprise-cloud')
+    );
   });
 });
 
