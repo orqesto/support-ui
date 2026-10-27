@@ -20,7 +20,8 @@ import {
   type WizardCheckoutSession,
 } from '@/services/subscription.service';
 import { SALES_CONTACT_URL } from '@/lib/config';
-import { PAID_PLANS, SALES_ASSISTED_PLAN } from '../wizardSteps';
+import { FREE_PLAN, PAID_PLANS, SALES_ASSISTED_PLAN } from '../wizardSteps';
+import { FreePlanPanel } from './FreePlanPanel';
 import { formatFeatureAdditions, planFeatureAdditions, planLimitLines } from '../planSummary';
 import { logger } from '@/lib/logger';
 import { formatMoneyExVat } from '@/lib/money';
@@ -90,7 +91,9 @@ export const PaymentStep = ({
   planWasPreselected,
   onPaidChange,
 }: PaymentStepProps) => {
-  const [chosenPlan, setChosenPlan] = useState(initialPlan);
+  // Free first unless a paid plan came from the marketing site; falls back to `initialPlan`
+  // once the catalog shows this deployment has no Free plan.
+  const [chosenPlan, setChosenPlan] = useState(planWasPreselected ? initialPlan : FREE_PLAN);
   // The FULL catalog: the sellable tiers are a slice of it, and the
   // sales-assisted tier is read from it too so its price is never hardcoded.
   const [catalog, setCatalog] = useState<SubscriptionPlan[] | null>(null);
@@ -109,17 +112,23 @@ export const PaymentStep = ({
     subscriptionService
       .getPlans()
       .then((all) => {
-        if (!cancelled) setCatalog(all);
+        if (cancelled) return;
+        setCatalog(all);
+        if (!all.some((plan) => plan.name === FREE_PLAN)) {
+          setChosenPlan((current) => (current === FREE_PLAN ? initialPlan : current));
+        }
       })
       .catch((err: unknown) => {
         // Non-fatal: fall back to checking out on the default plan.
         logger.error('Failed to load plans for the onboarding payment step:', err);
-        if (!cancelled) setCatalog([]);
+        if (cancelled) return;
+        setCatalog([]);
+        setChosenPlan((current) => (current === FREE_PLAN ? initialPlan : current));
       });
     return () => {
       cancelled = true;
     };
-  }, [planWasPreselected]);
+  }, [planWasPreselected, initialPlan]);
 
   // A Checkout session is bound to one plan, so switching plans needs a new one.
   // Keyed on chosenPlan rather than run-once for that reason; the provider below
@@ -129,6 +138,8 @@ export const PaymentStep = ({
     setSession(null);
     setError(null);
     setAlreadySubscribed(false);
+    // Free has no checkout — FreePlanPanel handles it.
+    if (chosenPlan === FREE_PLAN) return;
 
     subscriptionService
       .createWizardCheckoutSession(chosenPlan)
@@ -203,23 +214,26 @@ export const PaymentStep = ({
   const sellable = catalog?.filter((plan) => PAID_PLANS.includes(plan.name)) ?? null;
   const selectable = !planWasPreselected && sellable && sellable.length > 1;
   const salesAssisted = catalog?.find((plan) => plan.name === SALES_ASSISTED_PLAN);
+  const freePlan = catalog?.find((plan) => plan.name === FREE_PLAN);
+  // Free leads the row, so Starter's "adds ..." line is its delta over Free.
+  const cards = sellable && freePlan ? [freePlan, ...sellable] : sellable;
 
   return (
     <div className="space-y-4">
-      {selectable && (
+      {selectable && cards && (
         /* Tiers stack on narrow viewports; the grid tracks the catalog so a
            deploy missing a tier never renders a hole. */
         <div
           className={cn(
             'grid grid-cols-1 gap-3',
-            sellable.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'
+            cards.length === 2 && 'sm:grid-cols-2',
+            cards.length === 3 && 'sm:grid-cols-3',
+            cards.length >= 4 && 'sm:grid-cols-2 lg:grid-cols-4'
           )}
         >
-          {sellable.map((plan, index) => {
+          {cards.map((plan, index) => {
             const active = plan.name === chosenPlan;
-            const additions = formatFeatureAdditions(
-              planFeatureAdditions(plan, sellable[index - 1])
-            );
+            const additions = formatFeatureAdditions(planFeatureAdditions(plan, cards[index - 1]));
             return (
               /* Same selectable-card pattern as the AI and Storage steps. */
               <button
@@ -241,7 +255,9 @@ export const PaymentStep = ({
                       {active && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {`${formatMoneyExVat(plan.price, plan.currency)}/${plan.billingInterval}`}
+                      {plan.name === FREE_PLAN
+                        ? 'Free forever · no card'
+                        : `${formatMoneyExVat(plan.price, plan.currency)}/${plan.billingInterval}`}
                     </p>
                     <ul className="space-y-0.5 pt-2 text-xs text-muted-foreground">
                       {planLimitLines(plan).map((line) => (
@@ -269,8 +285,8 @@ export const PaymentStep = ({
                 {`${salesAssisted.displayName} · ${formatMoneyExVat(salesAssisted.price, salesAssisted.currency)}/${salesAssisted.billingInterval}`}
               </p>
               <p className="text-xs text-muted-foreground">
-                Run it on your own infrastructure, with your own AI keys and storage. Set up with
-                us — it is not bought online.
+                Run it on your own infrastructure, with your own AI keys and storage. Set up with us
+                — it is not bought online.
               </p>
             </div>
             <ExternalLink href={SALES_CONTACT_URL}>Talk to us</ExternalLink>
@@ -278,7 +294,9 @@ export const PaymentStep = ({
         </Card>
       )}
 
-      {error ? (
+      {chosenPlan === FREE_PLAN ? (
+        <FreePlanPanel />
+      ) : error ? (
         <Alert variant="warning">{error}</Alert>
       ) : !session || !stripePromise ? (
         <div className="flex justify-center py-12">
@@ -321,7 +339,12 @@ export const PaymentStep = ({
               : `Pay ${formatMoneyExVat(session.plan.price, session.plan.currency)} and save card`}
           </Button>
 
-          <Dialog open={formOpen} onOpenChange={setFormOpen} size="lg" dismissOnOverlayClick={false}>
+          <Dialog
+            open={formOpen}
+            onOpenChange={setFormOpen}
+            size="lg"
+            dismissOnOverlayClick={false}
+          >
             <DialogHeader>
               <DialogTitle>{`Start your ${session.plan.displayName} plan`}</DialogTitle>
               {/* `DialogClose` is opt-in, and this dialog also disables backdrop dismissal so a

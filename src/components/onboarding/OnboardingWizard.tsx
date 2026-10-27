@@ -32,6 +32,7 @@ import { useOnboardingStore } from '@/stores/onboardingStore';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { getApiErrorMessage, getErrorBody } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
+import { subscriptionService } from '@/services/subscription.service';
 
 type StepNumber = OnboardingState['currentStep'];
 
@@ -48,7 +49,7 @@ const STEP_TITLES: Record<number, string> = {
   4: 'Connect your message channels',
   5: 'Invite people',
   6: 'Add knowledge for your AI',
-  7: 'Add a payment method',
+  7: 'Choose your plan',
 };
 
 /**
@@ -124,6 +125,22 @@ export const OnboardingWizard = () => {
   // navigating to /dashboard (where the still-pending status would bounce them
   // right back into the wizard, an invisible loop).
   const [exitError, setExitError] = useState<string | null>(null);
+  // "Start on Free" at the Database step: a workspace with no plan is blocked there, and the
+  // Payment step (where the Free card lives) comes after it — so the way out must be here too.
+  const [startingFree, setStartingFree] = useState(false);
+  const handleStartFree = async () => {
+    setStartingFree(true);
+    setExitError(null);
+    try {
+      await subscriptionService.chooseFree();
+      await refreshOnboarding();
+    } catch (error) {
+      logger.error('Failed to start the Free plan from onboarding:', error);
+      setExitError(getApiErrorMessage(error) ?? "Couldn't start Free right now. Please try again.");
+    } finally {
+      setStartingFree(false);
+    }
+  };
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
 
   // Move focus to the step heading on each step change so keyboard/screen-reader
@@ -191,7 +208,7 @@ export const OnboardingWizard = () => {
         setDbChoice(undefined);
         setDbChoiceError(
           getApiErrorMessage(error) ??
-            'This workspace has no active plan — choose one (Free included) to use the managed database, or connect your own Postgres.'
+            'This workspace has no active plan — choose one in the Payment step (Free included) to use the managed database, or connect your own Postgres.'
         );
         return;
       }
@@ -258,7 +275,7 @@ export const OnboardingWizard = () => {
       setExitError(
         getErrorBody(error)?.code === 'MANAGED_DB_NOT_ENTITLED'
           ? (getApiErrorMessage(error) ??
-              'This workspace has no active plan — choose one (Free included), or connect your own Postgres in the Database step before finishing.')
+              'This workspace has no active plan — choose one in the Payment step (Free included), or connect your own Postgres in the Database step before finishing.')
           : "Couldn't finish setup right now. Please check your connection and try again."
       );
       setFinishing(false);
@@ -363,7 +380,7 @@ export const OnboardingWizard = () => {
           <div>
             <h1 className="font-display text-2xl font-semibold text-foreground">Set up your workspace</h1>
             <p className="text-sm text-muted-foreground">
-              A few quick steps. Finish setup to start your 14-day trial.
+              A few quick steps. Finish setup to start your 14-day trial of everything — then Free, no card needed.
             </p>
           </div>
           <div className="flex items-center gap-1">
@@ -437,8 +454,13 @@ export const OnboardingWizard = () => {
           <div className="flex flex-col items-end gap-1.5">
             {nextDisabled && (
               <p className="text-right text-xs text-muted-foreground" data-testid="database-step-required">
-                This workspace has no active plan — choose one (Free included) or connect your own Postgres to continue, or use “Finish later”.
+                This workspace has no active plan — start on Free (no card) or connect your own Postgres to continue, or use “Finish later”.
               </p>
+            )}
+            {nextDisabled && (
+              <Button variant="outline" onClick={() => void handleStartFree()} isLoading={startingFree}>
+                Start on Free
+              </Button>
             )}
             <Button disabled={nextDisabled} onClick={() => goTo((activeStep + 1) as StepNumber)}>
               {nextLabel}

@@ -35,6 +35,13 @@ export const PAYMENT_STEP_LABEL = 'Payment';
 export const PAID_PLANS = ['starter', 'pro', 'enterprise-cloud'];
 
 /**
+ * Free is shown FIRST in the payment step and selected unless a paid plan was carried from the
+ * marketing site (owner 2026-10-27: a new customer saw three prices and no Free). It never opens
+ * a checkout: choosing it keeps the workspace on Free, or puts a workspace with no plan on it.
+ */
+export const FREE_PLAN = 'free';
+
+/**
  * The one tier that is NOT sold self-serve: a single-tenant installation is not
  * something Checkout can provision, and it carries no Stripe price. Named here
  * so the payment step can show it as a "talk to us" card rather than silently
