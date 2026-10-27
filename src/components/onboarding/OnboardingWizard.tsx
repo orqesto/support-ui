@@ -380,7 +380,7 @@ export const OnboardingWizard = () => {
           <div>
             <h1 className="font-display text-2xl font-semibold text-foreground">Set up your workspace</h1>
             <p className="text-sm text-muted-foreground">
-              A few quick steps. Finish setup to start your 14-day trial.
+              A few quick steps. Finish setup to start your 14-day trial of everything — then Free, no card needed.
             </p>
           </div>
           <div className="flex items-center gap-1">

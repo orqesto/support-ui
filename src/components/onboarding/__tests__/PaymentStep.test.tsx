@@ -165,6 +165,17 @@ describe('PaymentStep plan cards', () => {
     expect(refreshOnboarding).toHaveBeenCalled();
   });
 
+  it('during the trial, says the workspace stays on Free when it ends', async () => {
+    getPlanState.mockResolvedValue({ name: 'free', displayName: 'Free', status: 'trialing' });
+    render(<PaymentStep initialPlan="pro" planWasPreselected={false} />);
+
+    expect(
+      await screen.findByText(/When it ends, the workspace stays on Free/)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/our AI up to a token allowance/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Start on Free' })).not.toBeInTheDocument();
+  });
+
   it('never downgrades a paid plan from the wizard', async () => {
     getPlanState.mockResolvedValue({ name: 'pro', displayName: 'Pro', status: 'trialing' });
     render(<PaymentStep initialPlan="pro" planWasPreselected={false} />);

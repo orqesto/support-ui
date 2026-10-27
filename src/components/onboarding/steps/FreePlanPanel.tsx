@@ -12,6 +12,10 @@ const LIVE_STATUSES = ['active', 'trialing', 'past_due'];
 
 type PlanState = { name?: string; displayName?: string; status?: string };
 
+// Owner 2026-10-27: Free's only limit is our AI tokens; after the allowance, their own AI key.
+const FREE_AI_NOTE =
+  'Free includes our AI up to a token allowance; after that, connect your own AI key.';
+
 /**
  * What the payment step shows when Free is the chosen card. Never opens a checkout.
  *
@@ -47,11 +51,22 @@ export const FreePlanPanel = () => {
 
   const live = state.status !== undefined && LIVE_STATUSES.includes(state.status);
 
+  // A new workspace runs a 14-day trial of everything on the Free row; when it ends unpaid,
+  // the nightly trial job moves it to Free (active) — never blocked (BE expireTrials, flag off).
+  if (state.status === 'trialing' && state.name === 'free') {
+    return (
+      <Alert variant="success">
+        Your 14-day trial of everything is running. When it ends, the workspace stays on Free — no
+        card needed. {FREE_AI_NOTE}
+      </Alert>
+    );
+  }
+
   if (live && state.name === 'free') {
     return (
       <Alert variant="success">
-        You&rsquo;re on Free — no card needed, for as long as you like. On Free, AI runs on your own
-        key, plus a one-time starter allowance. Upgrade any time from Subscription.
+        You&rsquo;re on Free — no card needed, for as long as you like. {FREE_AI_NOTE} Upgrade any
+        time from Subscription.
       </Alert>
     );
   }
@@ -83,7 +98,7 @@ export const FreePlanPanel = () => {
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
         This workspace has no plan yet. Start on Free — no card needed, and you can upgrade any time
-        from Subscription. On Free, AI runs on your own key, plus a one-time starter allowance.
+        from Subscription. {FREE_AI_NOTE}
       </p>
       {error && <Alert variant="warning">{error}</Alert>}
       <Button className="w-full" onClick={() => void start()} isLoading={starting}>
