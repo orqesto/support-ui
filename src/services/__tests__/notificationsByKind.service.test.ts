@@ -6,9 +6,8 @@ vi.mock('@/lib/api-client', () => ({
   apiClient: { get: (url: string, config?: GetConfig) => get(url, config) },
 }));
 
-const { fetchNotificationsOfKind, resetNotificationsByKindForTests } = await import(
-  '@/services/notificationsByKind.service'
-);
+const { fetchNotificationsOfKind, resetNotificationsByKindForTests, RETRY_BY_KIND_MS } =
+  await import('@/services/notificationsByKind.service');
 
 const page = (id: number) => ({ notifications: [{ id }], total: 1, hasMore: false });
 const byKindAnswer = (byKind: Record<string, unknown>) => ({
@@ -73,6 +72,22 @@ describe('fetchNotificationsOfKind', () => {
     expect(get.mock.calls.map(([url, config]) => [url, config?.params])).toEqual([
       ['/api/notifications', { kind: 'alpha' }],
     ]);
+  });
+
+  it('after a 404, by-kind is tried again once RETRY_BY_KIND_MS has passed', async () => {
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1_000_000);
+    get.mockRejectedValueOnce(Object.assign(new Error('Not Found'), { response: { status: 404 } }));
+    get.mockResolvedValueOnce({ data: { success: true, data: page(1) } });
+    await fetchNotificationsOfKind('alpha');
+    now.mockReturnValue(1_000_000 + RETRY_BY_KIND_MS - 1);
+    get.mockResolvedValueOnce({ data: { success: true, data: page(1) } });
+    await fetchNotificationsOfKind('alpha');
+    expect(get.mock.calls[2]?.[0]).toBe('/api/notifications'); // still per-kind
+    now.mockReturnValue(1_000_000 + RETRY_BY_KIND_MS);
+    get.mockResolvedValueOnce(byKindAnswer({ alpha: page(1) }));
+    await fetchNotificationsOfKind('alpha');
+    expect(get.mock.calls[3]?.[0]).toBe('/api/notifications/by-kind');
+    now.mockRestore();
   });
 
   it('any other failure rejects every caller and does NOT give up on by-kind', async () => {

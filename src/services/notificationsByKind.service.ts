@@ -9,7 +9,8 @@
  *
  * The answer keeps the axios shape the hooks already read (`res.data.data.notifications`).
  * A backend without the route (404/405 — a self-hosted server on an older release) gets the
- * per-kind requests instead, and is not asked again.
+ * per-kind requests instead; by-kind is tried again after RETRY_BY_KIND_MS, so one stray 404
+ * (a proxy hiccup, a deploy in progress) does not cost the saving until the next reload.
  */
 import { apiClient } from '@/lib/api-client';
 import { getErrorStatus } from '@/lib/errorMessages';
@@ -33,7 +34,10 @@ interface Waiter {
   reject: (error: unknown) => void;
 }
 
-let byKindSupported: boolean | undefined;
+/** After a 404/405, how long to use per-kind requests before trying by-kind again. */
+export const RETRY_BY_KIND_MS = 10 * 60_000;
+
+let perKindUntil = 0;
 let pending: Map<string, Waiter[]> | null = null;
 
 const perKind = (kind: string): Promise<NotificationsOfKindResponse> =>
@@ -51,7 +55,6 @@ const flushChunk = async (batch: Map<string, Waiter[]>, kinds: string[]) => {
     const res = await apiClient.get('/api/notifications/by-kind', {
       params: { kinds: kinds.join(',') },
     });
-    byKindSupported = true;
     const byKind = (res.data as { data?: { byKind?: Record<string, NotificationsOfKind> } }).data
       ?.byKind;
     for (const kind of kinds) {
@@ -68,7 +71,7 @@ const flushChunk = async (batch: Map<string, Waiter[]>, kinds: string[]) => {
   } catch (error) {
     const status = getErrorStatus(error);
     if (status === 404 || status === 405) {
-      byKindSupported = false;
+      perKindUntil = Date.now() + RETRY_BY_KIND_MS;
       for (const kind of kinds) settle(batch.get(kind)!, perKind(kind));
       return;
     }
@@ -88,7 +91,7 @@ const flush = () => {
 
 /** The newest notifications of one kind — batched with every other kind asked for this tick. */
 export const fetchNotificationsOfKind = (kind: string): Promise<NotificationsOfKindResponse> => {
-  if (byKindSupported === false) return perKind(kind);
+  if (Date.now() < perKindUntil) return perKind(kind);
   return new Promise((resolve, reject) => {
     if (!pending) {
       pending = new Map();
@@ -102,6 +105,6 @@ export const fetchNotificationsOfKind = (kind: string): Promise<NotificationsOfK
 
 /** Tests only: forget what the backend supports and drop a batch not yet sent. */
 export const resetNotificationsByKindForTests = (): void => {
-  byKindSupported = undefined;
+  perKindUntil = 0;
   pending = null;
 };
