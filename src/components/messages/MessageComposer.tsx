@@ -1,6 +1,7 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Send, Paperclip, BookOpen, FileText, Search, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/Button';
 import RichTextEditor, { extractImageFiles } from '@/components/shared/RichTextEditor';
@@ -470,7 +471,24 @@ export function MessageComposer({
               aiBusy ? 'pointer-events-none opacity-60' : ''
             }`}
           />
-        ) : (
+        ) : null}
+        {/* The agent's signature is appended by the server on send (email channels only, the
+            same ones that show addressing). Shown here, outside the editor, so it is always
+            visible, cannot be edited or deleted per reply, and never doubles when an AI draft
+            or KB answer replaces the text. Edited only in Settings › Profile. */}
+        {composerMode === 'reply' && recipientDraft && !atRest && user?.signature?.trim() && (
+          <div
+            data-testid="composer-signature"
+            className="px-3 pb-2 text-sm text-muted-foreground whitespace-pre-line select-none"
+          >
+            <div>--</div>
+            <div>{user.signature.trim()}</div>
+            <Link to="/settings#profile" className="text-xs underline hover:text-foreground">
+              Edit signature in Profile
+            </Link>
+          </div>
+        )}
+        {composerMode === 'note' && (
           <RichTextEditor
             key={`note-${restGeneration}`}
             ref={noteEditorRef}
