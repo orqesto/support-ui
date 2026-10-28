@@ -265,7 +265,11 @@ const MailRunDetails = ({
     <div className="space-y-2.5" data-testid="run-details">
       <div className="flex gap-2 justify-between items-center">
         <span className="text-xs font-medium">
-          {status === 'running' ? 'Checking since' : newest ? 'Last check' : 'Check at'}{' '}
+          {status === 'running'
+            ? 'Checking since'
+            : newest
+              ? 'Last check with new mail'
+              : 'Check at'}{' '}
           {formatRunTime(run.startedAt)}
         </span>
         <Badge size="sm" variant={RUN_STATUS_VARIANT[status]}>

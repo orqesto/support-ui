@@ -46,6 +46,7 @@ describe('normaliseImportProgress', () => {
       kbMiningFailuresTruncated: false,
       countCapped: false,
       runsUnavailable: false,
+      lastCheckAt: null,
     });
   });
 
@@ -61,6 +62,13 @@ describe('normaliseImportProgress', () => {
     expect(data.countCapped).toBe(true);
   });
 
+  it('keeps when the mailbox was last checked; anything but a string is "not known"', () => {
+    expect(normaliseImportProgress({ lastCheckAt: '2026-10-28T08:31:42.000Z' }).lastCheckAt).toBe(
+      '2026-10-28T08:31:42.000Z'
+    );
+    expect(normaliseImportProgress({ lastCheckAt: 12 }).lastCheckAt).toBeNull();
+  });
+
   it('null or garbage reads as untracked with nothing in it', () => {
     expect(normaliseImportProgress(null).runs).toEqual([]);
     expect(normaliseImportProgress({ runs: 'x' }).runs).toEqual([]);
@@ -68,7 +76,6 @@ describe('normaliseImportProgress', () => {
 });
 
 describe('summary', () => {
-
   it('drops entries without a source id and fills missing counts with 0', async () => {
     getImpl = () =>
       Promise.resolve({
