@@ -320,6 +320,13 @@ export type PlanLimits = {
   maxHistoryMessages?: number;
 };
 
+/** POST /api/admin/db-activity/cancel-long-reads: what was cancelled, oldest first. */
+export type CancelLongReadsResult = {
+  olderThanSeconds: number;
+  cancelled: number;
+  reads: Array<{ pid: number; seconds: number; cancelled: boolean; query: string | null }>;
+};
+
 /** A row from GET /api/admin/plans (the raw subscription_plans record). */
 export type AdminPlan = {
   id: number;
@@ -758,6 +765,18 @@ export const platformService = {
       if (apiErrorStatus(error) === 404) return null;
       throw error;
     }
+  },
+  /**
+   * POST /api/admin/db-activity/cancel-long-reads — cancel this app's plain SELECTs running longer
+   * than `olderThanSeconds` (server default 300, at least 60). Writes and other tools' sessions are
+   * never touched.
+   */
+  cancelLongReads: async (olderThanSeconds?: number): Promise<CancelLongReadsResult> => {
+    const res = await apiClient.post<{ data: CancelLongReadsResult }>(
+      `${ADMIN}/db-activity/cancel-long-reads`,
+      olderThanSeconds === undefined ? {} : { olderThanSeconds }
+    );
+    return res.data.data;
   },
   getQueueStatus: async (): Promise<QueueStatus> => {
     const res = await apiClient.get<{ data: QueueStatus }>(`${ADMIN}/queue-status`);

@@ -2,6 +2,7 @@ import { Database } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import type { DatabaseStatus } from '@/services/systemStatus';
+import { CancelLongReadsButton } from './CancelLongReadsButton';
 
 /** At this share of `max_connections` new connections are close to being refused. */
 const CONNECTIONS_WARN_PCT = 85;
@@ -118,6 +119,9 @@ export const DatabaseStatusPanel = ({
             </tbody>
           </table>
         </Card>
+      ) : null}
+      {database.longestQueries.length > 0 ? (
+        <CancelLongReadsButton longestSeconds={database.longestActiveSeconds} />
       ) : null}
     </div>
   );
