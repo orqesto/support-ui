@@ -1082,6 +1082,13 @@ export const MessagesPage = () => {
         .join(';'),
     [threads, messagesPagination.total, countsTick]
   );
+  /**
+   * Counts wait for the list. Fired beside it, every count ran twice: once on the empty or old
+   * rows, again when the list landed and moved `countsRefreshKey` (staging, 2026-10-28: the list
+   * plus 5 counts, then the same 5 again — 11 searches where 6 do). While the list is being read
+   * the pills keep the numbers they have; one round follows the answer.
+   */
+  const countsReady = !loading && !refreshing && !searching;
   const laneCounts = useThreadViewCounts(
     useMemo(
       () => [
@@ -1099,7 +1106,7 @@ export const MessagesPage = () => {
       [filters]
     ),
     countsRefreshKey,
-    displayMode === 'threads'
+    displayMode === 'threads' && countsReady
   );
   const triageCounts: Partial<Record<TriageId, number | undefined>> = {
     not_analysed: listScope?.columnCounts?.not_analysed,
@@ -1289,7 +1296,7 @@ export const MessagesPage = () => {
                         onAll={() => void showAll()}
                       />
                     ),
-                    countViews: { refreshKey: countsRefreshKey },
+                    countViews: { refreshKey: countsRefreshKey, enabled: countsReady },
                     trailingViews: (
                       <TriageMenu
                         active={activeTriage}

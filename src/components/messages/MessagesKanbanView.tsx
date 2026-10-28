@@ -779,6 +779,13 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
   // optimistically-moved card doesn't flash away and back.
   const prevFilterKeyRef = useRef(filterKey);
   const boardScopeLoadedRef = useRef(false);
+  // Which load each column last answered for (`filter|team|refresh`), so a tab opened later
+  // knows whether its columns are current. Set when a load starts; a cancelled one is redone by
+  // the run that cancelled it.
+  const loadGenRef = useRef('');
+  const colLoadedGenRef = useRef<Record<string, string>>({});
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
   const prevDeptKeyRef = useRef(selectedDeptKey);
   useEffect(() => {
     const scopeChanged =
@@ -788,7 +795,14 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     if (scopeChanged) setColStates(initialColStates);
     // Same scope ⇒ keep every loaded page (and so the scroll position); a new scope
     // starts again from page 1.
-    const cancels = COLUMNS.map((col) => loadColumn(col.id, !scopeChanged));
+    // Only the tab on screen. The other tab's columns are 4–5 full queries nobody is looking
+    // at; they load when their tab opens (the effect below). Its Triage total stays hidden
+    // until then — the unread badge beside it is still counted here.
+    loadGenRef.current = `${filterKey}|${selectedDeptKey}|${String(refreshKey)}`;
+    const cancels = COLUMNS.filter((col) => col.axis === activeTabRef.current).map((col) => {
+      colLoadedGenRef.current[col.id] = loadGenRef.current;
+      return loadColumn(col.id, !scopeChanged);
+    });
     // Same triggers as the columns themselves, so the unread badge can never drift
     // out of step with the totals beside it.
     cancels.push(loadTriageUnread());
@@ -809,6 +823,18 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     }
     return () => cancels.forEach((cancel) => cancel());
   }, [filterKey, refreshKey, selectedDeptKey, loadColumn, loadTriageUnread, loadBoardScope]);
+
+  // A tab opened: load its columns unless they already answered for the current scope/refresh.
+  useEffect(() => {
+    const stale = COLUMNS.filter(
+      (col) => col.axis === activeTab && colLoadedGenRef.current[col.id] !== loadGenRef.current
+    );
+    const cancels = stale.map((col) => {
+      colLoadedGenRef.current[col.id] = loadGenRef.current;
+      return loadColumn(col.id, true);
+    });
+    return () => cancels.forEach((cancel) => cancel());
+  }, [activeTab, loadColumn]);
 
   // When ONE column's sort changes, reload only that column (diff vs the previous
   // snapshot). Avoids refetching all seven columns on a single per-column change.
@@ -956,7 +982,9 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
         // the page's coalesced refresh, and this one used to ride on its own socket echo — so
         // without this a reopen landing in another column than the drop target, or the column
         // totals, would stay wrong for up to that window.
-        COLUMNS.forEach((col) => loadColumn(col.id, true));
+        COLUMNS.filter((col) => col.axis === activeTabRef.current).forEach((col) =>
+          loadColumn(col.id, true)
+        );
         loadTriageUnread();
       } catch (err) {
         logger.error(`Failed to move thread ${threadId} from ${fromColId} to ${toColId}:`, err);

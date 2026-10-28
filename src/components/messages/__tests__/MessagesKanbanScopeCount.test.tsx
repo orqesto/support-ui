@@ -5,7 +5,7 @@
  * every socket event refreshed every open board).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { defaultFilters } from '@/stores/messagesStore';
 import { messageService } from '@/services/message.service';
@@ -81,5 +81,46 @@ describe('Board scope count', () => {
     await waitFor(() => expect(columnCalls()).toBeGreaterThan(0));
     // Landed once now, so a third refresh does not ask again.
     expect(scopeCalls()).toBe(2);
+  });
+});
+
+/**
+ * The Triage tab's columns are 4 full queries; while the Board tab is on screen nobody sees them.
+ * They load when the tab opens, once per scope/refresh — the unread badge is still counted.
+ */
+describe('Board loads only the tab on screen', () => {
+  const TRIAGE = (filters: unknown) => {
+    const sent = (filters ?? {}) as Record<string, string>;
+    return ['not_analysed', 'archived', 'no_lane'].includes(sent.view) || sent.showSpam === 'true';
+  };
+  // Column reads, not the unread badge's `limit=1` counts.
+  const triageColumnCalls = () =>
+    getThreads.mock.calls.filter(([filters, , limit]) => TRIAGE(filters) && limit !== 1).length;
+  const triageUnreadCalls = () =>
+    getThreads.mock.calls.filter(([filters, , limit]) => TRIAGE(filters) && limit === 1).length;
+
+  it('the Board tab does not read the Triage columns; opening Triage does, once', async () => {
+    const view = render(renderBoard(0));
+    await waitFor(() => expect(scopeCalls()).toBe(1));
+    expect(triageColumnCalls()).toBe(0);
+    // Control: the badge's unread counts are still asked for.
+    expect(triageUnreadCalls()).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: /^Triage/ }));
+    await waitFor(() => expect(triageColumnCalls()).toBe(4));
+
+    // Back and forth with nothing changed: no second read.
+    fireEvent.click(screen.getByRole('button', { name: /^Board/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Triage/ }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(triageColumnCalls()).toBe(4);
+
+    // A refresh while on the Board leaves Triage stale → reopening it re-reads.
+    fireEvent.click(screen.getByRole('button', { name: /^Board/ }));
+    view.rerender(renderBoard(1));
+    await waitFor(() => expect(columnCalls()).toBeGreaterThan(0));
+    expect(triageColumnCalls()).toBe(4);
+    fireEvent.click(screen.getByRole('button', { name: /^Triage/ }));
+    await waitFor(() => expect(triageColumnCalls()).toBe(8));
   });
 });
