@@ -156,6 +156,16 @@ export const REPAIRS: RepairEntry[] = [
     checkOnly: true,
   },
   {
+    id: 'split-campaign-threads',
+    label: 'Split threads where several customers replied to one email',
+    does: 'Finds threads holding replies from several customers to one email you sent to many (a newsletter, a sale) and gives each of those customers a thread of their own. A supplier or colleague who joined the conversation stays. Check first: it changes nothing and lists the threads.',
+    path: 'split-campaign-threads',
+    scope: 'workspace',
+    pagedByEventId: true,
+    caution:
+      'Moves each listed customer’s messages, and our replies to them alone, into a new thread. Tickets, labels and the thread number stay on the original.',
+  },
+  {
     id: 'repair-lost-attachments',
     label: 'Find attachments lost to Gmail quota',
     does: 'Finds attachments Gmail refused to hand over when it was asked too fast, per mailbox. Apply records them so the next mailbox checks fetch them again. Check first: it changes nothing.',
