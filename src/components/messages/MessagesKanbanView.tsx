@@ -692,7 +692,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
    */
   const [boardScope, setBoardScope] = useState<{ scope: ListScope; shown: number } | null>(null);
 
-  const loadBoardScope = useCallback(() => {
+  const loadBoardScope = useCallback((onLoaded?: () => void) => {
     let cancelled = false;
     void (async () => {
       try {
@@ -719,6 +719,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
         setBoardScope(
           usable ? { scope: res.scope as ListScope, shown: res.pagination.total } : null
         );
+        onLoaded?.();
       } catch (err) {
         // Non-fatal: the notice is informational, the board is not. Clear it rather than
         // leaving a stale count describing the previous filter.
@@ -777,6 +778,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
   // the existing threads visible (loading flag only) until fresh data arrives, so an
   // optimistically-moved card doesn't flash away and back.
   const prevFilterKeyRef = useRef(filterKey);
+  const boardScopeLoadedRef = useRef(false);
   const prevDeptKeyRef = useRef(selectedDeptKey);
   useEffect(() => {
     const scopeChanged =
@@ -790,9 +792,21 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     // Same triggers as the columns themselves, so the unread badge can never drift
     // out of step with the totals beside it.
     cancels.push(loadTriageUnread());
-    // Same triggers again: a scope count describing the PREVIOUS filter is worse than
-    // none, because it reads as a fact about what is on screen now.
-    cancels.push(loadBoardScope());
+    // A scope count describing the PREVIOUS filter is worse than none, because it reads as a
+    // fact about what is on screen now — so it re-reads when the SCOPE changes. Not on a plain
+    // refresh: it is the single heaviest read on the board (an aggregate over the whole org,
+    // the top statement on a customer's database, 2026-10), and a card moving between lanes
+    // leaves the board's union — and so `hidden` — where it was.
+    // The flag is set only by an answer that landed, so a load cancelled by a quick re-run is
+    // retried on the next refresh instead of leaving the board without its scope.
+    if (scopeChanged) boardScopeLoadedRef.current = false;
+    if (!boardScopeLoadedRef.current) {
+      cancels.push(
+        loadBoardScope(() => {
+          boardScopeLoadedRef.current = true;
+        })
+      );
+    }
     return () => cancels.forEach((cancel) => cancel());
   }, [filterKey, refreshKey, selectedDeptKey, loadColumn, loadTriageUnread, loadBoardScope]);
 
@@ -938,6 +952,12 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
           // so the sidebar count doesn't lag behind the 60s auto-refetch interval.
           void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
         }
+        // The agent's OWN move: re-read the board in place now. Other people's changes wait for
+        // the page's coalesced refresh, and this one used to ride on its own socket echo — so
+        // without this a reopen landing in another column than the drop target, or the column
+        // totals, would stay wrong for up to that window.
+        COLUMNS.forEach((col) => loadColumn(col.id, true));
+        loadTriageUnread();
       } catch (err) {
         logger.error(`Failed to move thread ${threadId} from ${fromColId} to ${toColId}:`, err);
         // Surface the server reason (e.g. a 409 "cannot be reopened") — the optimistic
@@ -966,7 +986,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
         });
       }
     },
-    [queryClient]
+    [queryClient, loadColumn, loadTriageUnread]
   );
 
   /**

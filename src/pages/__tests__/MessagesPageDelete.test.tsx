@@ -227,6 +227,7 @@ vi.mock('@/components/messages/MessageDetail', () => ({
 
 import { MessagesPage } from '../MessagesPage';
 import { subscribeToEvent } from '@/lib/socketManager';
+import { SERVER_EVENT_REFRESH_MS } from '@/hooks/useCoalescedRefresh';
 
 beforeEach(() => {
   localStorage.setItem('messages_view_mode', 'threads');
@@ -472,12 +473,63 @@ describe('MessagesPage — the sidebar badge refreshes', () => {
 
   it('when another agent routes a thread (the conversation:routed ping)', async () => {
     renderPage();
+    // Every subscriber, as the socket would: the page listens to this event twice (the
+    // routing handler and the coalesced view-count re-read), and which one registered last
+    // is an accident of effect order.
     const routed = vi
       .mocked(subscribeToEvent)
       .mock.calls.filter(([event]) => event === 'conversation:routed')
-      .at(-1)?.[1] as (() => void) | undefined;
-    expect(routed).toBeDefined();
-    act(() => routed?.());
+      .map(([, handler]) => handler as () => void);
+    expect(routed.length).toBeGreaterThan(0);
+    act(() => routed.forEach((handler) => handler()));
     await waitFor(() => expect(badgeRefreshes()).toBe(1));
+  });
+});
+
+// Another agent's change arrives as a socket event. Every one used to re-read the list and the
+// whole board at once — per event, per open tab — which kept a customer's database at its ceiling
+// (2026-10). They now join one refresh per SERVER_EVENT_REFRESH_MS.
+describe('MessagesPage — other people\'s changes refresh the board once per window', () => {
+  const EVENTS = [
+    'conversation:updated',
+    'conv:status_changed',
+    'message:replied',
+    'conversation:routed',
+    'ticket:updated',
+  ];
+  const fire = (event: string) =>
+    vi
+      .mocked(subscribeToEvent)
+      .mock.calls.filter(([name]) => name === event)
+      .forEach(([, handler]) => (handler as () => void)());
+  const boardKey = () => Number(screen.getByTestId('board').dataset.refreshKey);
+
+  afterEach(() => vi.useRealTimers());
+
+  it('a burst of every event kind = ONE board refresh, after the window', () => {
+    localStorage.setItem('messages_view_mode', 'kanban');
+    renderPage();
+    vi.useFakeTimers();
+    const before = boardKey();
+    act(() => {
+      for (let round = 0; round < 3; round += 1) EVENTS.forEach(fire);
+    });
+    expect(boardKey()).toBe(before);
+    act(() => {
+      vi.advanceTimersByTime(SERVER_EVENT_REFRESH_MS);
+    });
+    expect(boardKey()).toBe(before + 1);
+  });
+
+  it.each(EVENTS)('%s alone still refreshes the board', (event) => {
+    localStorage.setItem('messages_view_mode', 'kanban');
+    renderPage();
+    vi.useFakeTimers();
+    const before = boardKey();
+    act(() => fire(event));
+    act(() => {
+      vi.advanceTimersByTime(SERVER_EVENT_REFRESH_MS);
+    });
+    expect(boardKey()).toBe(before + 1);
   });
 });

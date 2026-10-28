@@ -1,0 +1,49 @@
+import { useCallback, useEffect, useRef } from 'react';
+
+/**
+ * How long refreshes triggered by OTHER people's activity wait and join each other.
+ *
+ * Every org-wide socket event (`conversation:updated`, `conv:status_changed`, `message:replied`,
+ * `conversation:routed`, `ticket:updated`) used to re-read the list, the view counts and the whole
+ * board AT ONCE — per event, per open tab. The board alone is 13 filtered queries, so on a busy
+ * workspace each agent's board turned every event into a burst of full scans (a customer's
+ * workspace, 2026-10: the database sat at its ceiling all working day, the top statements being
+ * exactly these list and count reads). An agent's OWN action still refreshes immediately; only the
+ * echo of someone else's change waits up to this long.
+ */
+export const SERVER_EVENT_REFRESH_MS = 5000;
+
+/**
+ * Returns a trigger that runs `refresh` once, `windowMs` after the first call; calls inside that
+ * window join it.
+ *
+ * ⛔ COALESCED, not debounced — the same rule as `useConversationNewRefresh`. A trailing debounce
+ * restarts on every call, so a steady stream of events (an import, a busy inbox) would never
+ * refresh at all. Here a stream refreshes at most once per window.
+ */
+export const useCoalescedRefresh = (
+  refresh: () => void,
+  windowMs: number = SERVER_EVENT_REFRESH_MS
+): (() => void) => {
+  const refreshRef = useRef(refresh);
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
+
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) clearTimeout(timerRef.current);
+      timerRef.current = null;
+    },
+    []
+  );
+
+  return useCallback(() => {
+    if (timerRef.current !== null) return;
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      refreshRef.current();
+    }, windowMs);
+  }, [windowMs]);
+};
