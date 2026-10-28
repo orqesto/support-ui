@@ -91,17 +91,28 @@ export const AIProvidersSettings = ({
   }, []);
 
   useEffect(() => {
-    if (!showModeSwitch) return;
+    if (!showModeSwitch) return undefined;
+    // Answers that land after the panel is gone are dropped: setting state then reaches a torn-down
+    // page (CI 2026-10-28: "window is not defined" once the test environment was closed).
+    let cancelled = false;
     Promise.all([organizationService.getAiModeState(), onboardingService.getStatus()])
       .then(([mode, status]) => {
+        if (cancelled) return;
         setAiMode(mode.resolved);
         setStoredMode(mode.stored);
         setManagedAvailable(status.managedAiAvailable ?? false);
       })
       .catch((error) => logger.error('Failed to load AI mode:', error));
     // Their own tries (neither throws): an older backend or a failure leaves them unknown.
-    void loadAiStatus().then(setAiStatus);
-    void subscriptionService.getPlanName().then((name) => setIsFree(name === 'free'));
+    void loadAiStatus().then((aiStatus) => {
+      if (!cancelled) setAiStatus(aiStatus);
+    });
+    void subscriptionService.getPlanName().then((name) => {
+      if (!cancelled) setIsFree(name === 'free');
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [showModeSwitch]);
 
   const handleProviderDisabled = useCallback((data: unknown) => {
