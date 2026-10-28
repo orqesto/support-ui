@@ -17,7 +17,6 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -47,9 +46,9 @@ import { PlanOverLimitNote } from '@/components/subscription/PlanOverLimitNote';
 const PAGE_SIZE = 25;
 
 export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => {
-  // When embedded in the WorkspaceShell (which supplies its own chrome), render
-  // straight into it via a Fragment; standalone, wrap in the org-scoped Layout.
-  const Wrap = embedded ? Fragment : Layout;
+  // Both chromes are supplied from outside: WorkspaceShell when embedded, the app shell
+  // layout route (AppShellRoute) standalone.
+  const Wrap = Fragment;
   const navigate = useNavigate();
   const { orgId } = useParams<{ orgId: string }>();
   const { canManageUsers, isAdmin, hasPermission } = usePermissions();

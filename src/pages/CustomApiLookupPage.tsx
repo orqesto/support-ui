@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
 import { EndpointWizard } from '@/components/settings/customApi/EndpointWizard';
 import {
   CUSTOM_APIS_SETTINGS_PATH,
@@ -114,7 +113,7 @@ export const CustomApiLookupPage = () => {
   const back = () => navigate(CUSTOM_APIS_SETTINGS_PATH);
 
   return (
-    <Layout>
+    <>
       <div className="px-2 mx-auto space-y-4 w-full max-w-7xl">
         <Button variant="ghost" size="sm" onClick={back}>
           <ArrowLeft className="mr-1 w-4 h-4" />
@@ -156,6 +155,6 @@ export const CustomApiLookupPage = () => {
           </>
         )}
       </div>
-    </Layout>
+    </>
   );
 };

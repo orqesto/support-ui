@@ -230,6 +230,8 @@ export type QueueStatus = {
      */
     processes?: ProcessCpuReport;
   };
+  /** The in-memory embedding queue; `model.threads` from 2026-10-28 (readEmbeddingStatus). */
+  embeddingQueue?: unknown;
   scaling: unknown;
   workers: unknown;
   queues: QueueRow[];

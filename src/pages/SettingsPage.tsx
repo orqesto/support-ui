@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { AIConfigSettings } from '@/components/settings/AIConfigSettings';
 import { ConnectedServicesSettings } from '@/components/settings/ConnectedServicesSettings';
@@ -176,7 +175,7 @@ export const SettingsPage = () => {
   const activeTab = visibleTabs.find((tab) => tab.id === activeTabId);
 
   return (
-    <Layout>
+    <>
       <div className="px-2 mx-auto space-y-4 w-full">
         <div className="flex justify-between items-center">
           <div className="flex gap-3 items-center">
@@ -203,6 +202,6 @@ export const SettingsPage = () => {
           {activeTab?.render(ctx)}
         </Tabs>
       </div>
-    </Layout>
+    </>
   );
 };

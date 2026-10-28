@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Download } from 'lucide-react';
-import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -251,7 +250,7 @@ export const KbCasesPage = () => {
   const shownReport = report && reportScope === scopeKey ? report : null;
 
   return (
-    <Layout>
+    <>
       <div className="px-4 mx-auto space-y-4 w-full">
         <PageHeader
           title="Knowledge base cases"
@@ -396,6 +395,6 @@ export const KbCasesPage = () => {
           />
         )}
       </div>
-    </Layout>
+    </>
   );
 };

@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Layout } from '@/components/layout/Layout';
 import { MessageDetail } from '@/components/messages/MessageDetail';
 import { Button } from '@/components/ui/Button';
 import { messageService } from '@/services/message.service';
@@ -187,18 +186,18 @@ export const MessageDetailPage = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <>
         <div className="flex gap-2 justify-center items-center h-64 text-muted-foreground">
           <Loader2 className="w-5 h-5 animate-spin" />
           Loading thread...
         </div>
-      </Layout>
+      </>
     );
   }
 
   if (!message) {
     return (
-      <Layout>
+      <>
         <div className="flex flex-col gap-4 justify-center items-center h-64">
           <div className="text-muted-foreground">Thread not found</div>
           <Button onClick={handleBack} variant="outline">
@@ -206,12 +205,12 @@ export const MessageDetailPage = () => {
             Back to Threads
           </Button>
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       {/* Phones: the DOCUMENT scrolls, so below 640px nothing on the way
           down to the detail clips — `overflow-hidden` here would also stop the detail's sticky
           rows from sticking to the screen. The negative margins undo the shell's 8px padding
@@ -264,6 +263,6 @@ export const MessageDetailPage = () => {
         onCancel={() => setDeleteOpen(false)}
         onConfirm={() => void confirmDelete(message)}
       />
-    </Layout>
+    </>
   );
 };

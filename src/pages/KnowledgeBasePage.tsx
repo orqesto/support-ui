@@ -5,7 +5,6 @@ import { Tabs, type Tab } from '@/components/ui/Tabs';
 import { KBEntryCard } from '@/components/kb/KBEntryCard';
 import { KBEntryDetail } from '@/components/kb/KBEntryDetail';
 import { KBTableView } from '@/components/kb/KBTableView';
-import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfluenceCatalogSection } from '@/components/knowledge-base/ConfluenceCatalogSection';
 import { MessageSourceFilter, ALL_SOURCES } from '@/components/messages/MessageSourceFilter';
@@ -447,7 +446,7 @@ export const KnowledgeBasePage = () => {
   };
 
   return (
-    <Layout>
+    <>
       <div className="px-4 mx-auto space-y-4 w-full">
         {/* Header */}
         <div className="mb-6">
@@ -731,6 +730,6 @@ export const KnowledgeBasePage = () => {
           variant={alertDialog.variant}
         />
       </div>
-    </Layout>
+    </>
   );
 };

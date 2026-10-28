@@ -1,4 +1,9 @@
 import { apiClient } from '@/lib/api-client';
+import {
+  normalizeEmbeddingThreads,
+  type EmbeddingThreadsInput,
+  type EmbeddingThreadsSettings,
+} from './embeddingThreads';
 import { getErrorStatus } from '@/lib/errorMessages';
 import {
   normalizeBedrockDiscovery,
@@ -155,6 +160,11 @@ export type PlatformSettings = {
    */
   ingestion?: IngestionSettings;
   /**
+   * Threads of the local embedding child per process role (`ai.embeddings`, under `ingestion` in
+   * the response, 2026-10-28). Absent on an older backend.
+   */
+  embeddingThreads?: EmbeddingThreadsSettings;
+  /**
    * Hourly AI call limit of managed workspaces and the share kept for live mail
    * (`analysisHourly`, 2026-10-19). Absent on a backend that predates it — the card then says so.
    */
@@ -232,7 +242,8 @@ export type IngestionSettings = {
   pollFetchMax?: BoundedField;
 };
 /** PUT /settings/ingestion — a PARTIAL body: only the fields sent are saved (at least one). */
-export type PlatformIngestionInput = Partial<Record<keyof IngestionSettings, number>>;
+export type PlatformIngestionInput = Partial<Record<keyof IngestionSettings, number>> &
+  EmbeddingThreadsInput;
 
 /** PUT /settings/custom-api — both thresholds, whole numbers ≥ 1 (the whole value is replaced). */
 export type PlatformCustomApiInput = { noMatchStreak: number; okWindowDays: number };
@@ -676,6 +687,9 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
   const customApi = normalizeCustomApi(raw.customApi);
   const routing = normalizeRouting(raw.routing);
   const ingestion = normalizeIngestion(raw.ingestion);
+  const embeddingThreads = isRecord(raw.ingestion)
+    ? normalizeEmbeddingThreads(raw.ingestion.embeddingThreads)
+    : undefined;
   const analysisHourly = normalizeAnalysisHourly(raw.analysisHourly);
   const drafts = normalizeDrafts(raw.drafts);
   const provider = field(raw.ai.provider);
@@ -730,6 +744,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
     ...(customApi ? { customApi } : {}),
     ...(routing ? { routing } : {}),
     ...(ingestion ? { ingestion } : {}),
+    ...(embeddingThreads ? { embeddingThreads } : {}),
     ...(analysisHourly ? { analysisHourly } : {}),
     ...(drafts ? { drafts } : {}),
   };

@@ -8,7 +8,6 @@ import { useTicketsUrlSync } from '@/hooks/useTicketsUrlSync';
 import { useSearchBoxText } from '@/components/tickets/list/useSearchBoxText';
 import { useTicketsRealtime } from '@/hooks/useTicketsRealtime';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { TicketDetail } from '@/components/tickets/TicketDetail';
 import { TicketFilterBar } from '@/components/tickets/list/TicketFilterBar';
@@ -458,7 +457,7 @@ export const TicketsPage = () => {
   ) : null;
 
   return (
-    <Layout>
+    <>
       <div
         className={
           splitOn ? 'grid grid-cols-[minmax(400px,40%)_minmax(0,1fr)] gap-4 px-4 w-full' : ''
@@ -675,6 +674,6 @@ export const TicketsPage = () => {
         description={alertDialog.description}
         variant={alertDialog.variant}
       />
-    </Layout>
+    </>
   );
 };

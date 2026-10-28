@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Link2, Loader2 } from 'lucide-react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
 import { ScrollButtons } from '@/components/shared/ScrollButtons';
 import { TicketDetail } from '@/components/tickets/TicketDetail';
 import { Alert } from '@/components/ui/Alert';
@@ -116,18 +115,18 @@ export const TicketDetailPage = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <>
         <div className="flex justify-center items-center h-64 gap-2 text-muted-foreground">
           <Loader2 className="w-5 h-5 animate-spin" />
           Loading ticket...
         </div>
-      </Layout>
+      </>
     );
   }
 
   if (!ticket) {
     return (
-      <Layout>
+      <>
         <div className="flex flex-col gap-4 justify-center items-center h-64">
           <div className="text-muted-foreground">{fetchError ?? 'Ticket not found'}</div>
           <Button onClick={handleBack} variant="outline">
@@ -135,14 +134,14 @@ export const TicketDetailPage = () => {
             Back to Tickets
           </Button>
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
     <>
       <ScrollButtons bottomTarget="[data-ticket-actions]" />
-      <Layout>
+      <>
         <div className="px-4 mx-auto space-y-4 w-full">
           {threadsNotLinked && (
             <Alert variant="warning">
@@ -197,7 +196,7 @@ export const TicketDetailPage = () => {
             )}
           />
         </div>
-      </Layout>
+      </>
 
       <TicketDeleteDialog
         open={deleteDialogOpen}

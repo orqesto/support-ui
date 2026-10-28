@@ -54,12 +54,6 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-// Mock Layout to avoid complex sidebar/nav dependencies
-vi.mock('@/components/layout/Layout', () => ({
-  Layout: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="layout">{children}</div>
-  ),
-}));
 
 // Mock MessageDetail to isolate the page-level test
 vi.mock('@/components/messages/MessageDetail', () => ({
@@ -98,8 +92,8 @@ describe('MessageDetailSmoke', () => {
         </MemoryRouter>
       </QueryClientProvider>
     );
-    // The layout wrapper is always present
-    expect(screen.getByTestId('layout')).toBeTruthy();
+    // The page itself renders (the app shell now comes from the layout route, not the page)
+    expect(document.body.textContent?.trim()).not.toBe('');
   });
 
   it('renders the page without crashing for a valid message id', () => {
@@ -112,8 +106,8 @@ describe('MessageDetailSmoke', () => {
         </MemoryRouter>
       </QueryClientProvider>
     );
-    // Layout renders regardless of loading state
-    expect(screen.getByTestId('layout')).toBeTruthy();
+    // The page renders content regardless of loading state
+    expect(document.body.textContent?.trim()).not.toBe('');
   });
 
   it('shows loading text while fetching message', () => {

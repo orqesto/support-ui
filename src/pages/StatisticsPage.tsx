@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useStatisticsFetch } from '@/hooks/useStatisticsFetch';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { BarChart3, Users, Activity, RefreshCw, Cpu, Coins } from 'lucide-react';
-import { Layout } from '@/components/layout/Layout';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
@@ -224,7 +223,7 @@ export const StatisticsPage = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <>
         <div className="px-4 mx-auto space-y-4 w-full">
           <div className="animate-pulse">
             <div className="mb-4 w-1/4 h-8 rounded bg-muted" />
@@ -236,17 +235,17 @@ export const StatisticsPage = () => {
             </div>
           </div>
         </div>
-      </Layout>
+      </>
     );
   }
 
   if (!stats) {
     return (
-      <Layout>
+      <>
         <div className="px-4 py-12 mx-auto w-full text-center">
           <p className="text-muted-foreground">No statistics available</p>
         </div>
-      </Layout>
+      </>
     );
   }
 
@@ -264,7 +263,7 @@ export const StatisticsPage = () => {
   ];
 
   return (
-    <Layout>
+    <>
       <div className="px-4 mx-auto space-y-6 w-full pb-10">
         {/* Header */}
         <div className="flex flex-wrap justify-between items-start gap-3">
@@ -389,6 +388,6 @@ export const StatisticsPage = () => {
           </div>
         )}
       </div>
-    </Layout>
+    </>
   );
 };

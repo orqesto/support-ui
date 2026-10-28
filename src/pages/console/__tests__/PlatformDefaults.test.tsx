@@ -60,6 +60,11 @@ const noopMutation = { mutate: vi.fn(), isPending: false };
 vi.mock('@/hooks/useBackendVersion', () => ({
   useBackendVersion: () => ({ data: { bedrockInstanceProfile: false }, isLoading: false }),
 }));
+// The embedding-threads card reads the live value from queue-status; no backend here.
+vi.mock('@/hooks/usePlatformAdmin', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  usePlatformQueueStatus: () => ({ data: undefined }),
+}));
 vi.mock('@/hooks/usePlatformSettings', () => ({
   usePlatformSettings: () => ({
     isLoading: false,
@@ -98,8 +103,8 @@ describe('PlatformDefaults', () => {
   it('shows the knowledge-base capture setting (absent from this backend: says so)', () => {
     render(<PlatformDefaults />);
     expect(screen.getByText('Rewrite captured questions with AI')).toBeInTheDocument();
-    // Cards that say so on this backend: knowledge base, AI drafts, custom API health, mail import, hourly AI calls, Free KB allowance, routing proposals.
-    expect(screen.getAllByText(/arrive?s? with the next backend release/)).toHaveLength(7);
+    // Cards that say so on this backend: knowledge base, AI drafts, custom API health, mail import, embedding threads, hourly AI calls, Free KB allowance, routing proposals.
+    expect(screen.getAllByText(/arrive?s? with the next backend release/)).toHaveLength(8);
     // The AI drafts card, absent from this backend: no inputs (FE ahead of BE must not white-screen).
     expect(screen.getByText('AI drafts')).toBeInTheDocument();
     expect(screen.queryByLabelText(/Similarity to draft from one KB entry/)).toBeNull();
