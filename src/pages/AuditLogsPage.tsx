@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FileText, RefreshCw, X } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import { Layout } from '@/components/layout/Layout';
 import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
@@ -203,7 +202,7 @@ export const AuditLogsPage = () => {
       .join(' → ');
 
   return (
-    <Layout>
+    <>
       <PermissionGuard permission={Permission.VIEW_AUDIT_LOGS}>
         <div className="px-4 mx-auto w-full flex flex-col gap-6 h-full">
           {/* Header */}
@@ -511,6 +510,6 @@ export const AuditLogsPage = () => {
           </Card>
         </div>
       </PermissionGuard>
-    </Layout>
+    </>
   );
 };

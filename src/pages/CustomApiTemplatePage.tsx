@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
 import { TemplateGuide } from '@/components/settings/customApi/TemplateGuide';
 import { CUSTOM_APIS_SETTINGS_PATH } from '@/components/settings/customApi/lookupPaths';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
@@ -87,7 +86,7 @@ export const CustomApiTemplatePage = () => {
     );
 
   return (
-    <Layout>
+    <>
       <div className="px-2 mx-auto space-y-4 w-full max-w-7xl">
         <Button variant="ghost" size="sm" onClick={() => back()}>
           <ArrowLeft className="mr-1 w-4 h-4" />
@@ -132,6 +131,6 @@ export const CustomApiTemplatePage = () => {
           </ul>
         )}
       </div>
-    </Layout>
+    </>
   );
 };

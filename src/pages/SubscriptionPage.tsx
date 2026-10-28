@@ -16,7 +16,6 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -302,17 +301,17 @@ export const SubscriptionPage = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <>
         <div className="flex justify-center items-center h-64">
           <div className="text-muted-foreground">Loading subscription...</div>
         </div>
-      </Layout>
+      </>
     );
   }
 
   if (!dashboard || !subscriptionDetails) {
     return (
-      <Layout>
+      <>
         <div className="p-6 mx-auto max-w-4xl">
           <Card>
             <CardContent className="p-6 text-center">
@@ -325,7 +324,7 @@ export const SubscriptionPage = () => {
             </CardContent>
           </Card>
         </div>
-      </Layout>
+      </>
     );
   }
 
@@ -343,7 +342,7 @@ export const SubscriptionPage = () => {
   const { usage } = dashboard;
 
   return (
-    <Layout>
+    <>
       <div className="px-4 mx-auto space-y-6 w-full">
         {/* Header */}
         <div className="flex justify-between items-center">
@@ -737,6 +736,6 @@ export const SubscriptionPage = () => {
           cancelText="Keep it"
         />
       </div>
-    </Layout>
+    </>
   );
 };

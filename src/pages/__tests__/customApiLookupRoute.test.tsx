@@ -17,6 +17,12 @@ vi.mock('@/pages/CustomApiLookupPage', () => ({
 }));
 vi.mock('@/pages/LoginPage', () => ({ LoginPage: () => <p>login page</p> }));
 vi.mock('@/pages/NotFoundPage', () => ({ default: () => <p>not found page</p> }));
+// The app shell's own hooks are out of scope here; the stand-in marks where the shell sits.
+vi.mock('@/components/layout/Layout', () => ({
+  Layout: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="app-shell">{children}</div>
+  ),
+}));
 vi.mock('@/hooks/useRolePermissionMatrix', () => ({ useRolePermissionMatrix: () => {} }));
 
 const at = (path: string) => window.history.pushState({}, '', path);
@@ -44,6 +50,10 @@ describe('the custom-API lookup editor route', () => {
     at(customApiLookupPath(1, 5));
     render(<App />);
     expect(await screen.findByText('lookup editor page')).toBeTruthy();
+    // ...inside the one app shell the layout route mounts.
+    expect(screen.getByTestId('app-shell').contains(screen.getByText('lookup editor page'))).toBe(
+      true
+    );
   });
 
   it('serves `new` too — the address “Add a lookup” goes to', async () => {

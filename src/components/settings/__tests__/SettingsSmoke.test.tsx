@@ -20,12 +20,6 @@ vi.mock('@/stores/authStore', () => ({
   ),
 }));
 
-// Mock Layout to avoid sidebar/nav complexity
-vi.mock('@/components/layout/Layout', () => ({
-  Layout: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="layout">{children}</div>
-  ),
-}));
 
 // Mock Tabs to render a simplified nav
 vi.mock('@/components/ui/Tabs', () => ({
@@ -122,7 +116,7 @@ describe('SettingsSmoke', () => {
         <SettingsPage />
       </MemoryRouter>
     );
-    expect(screen.getByTestId('layout')).toBeTruthy();
+    expect(document.body.textContent?.trim()).not.toBe('');
   });
 
   it('renders the settings title', () => {

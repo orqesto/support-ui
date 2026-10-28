@@ -1,9 +1,13 @@
 import {
+  createContext,
+  useContext,
+  useRef,
   useState,
   useMemo,
   useEffect,
   useCallback,
   type CSSProperties,
+  type RefObject,
   type ReactNode,
 } from 'react';
 import {
@@ -268,7 +272,33 @@ const getPageTitle = (pathname: string, navItems: typeof allNavigation): string 
   return match?.name ?? 'Dashboard';
 };
 
-export const Layout = ({ children }: LayoutProps) => {
+// True below the one app shell the layout route mounts (`AppShellRoute`). A page that still
+// wraps itself in <Layout> then renders only its content instead of a second shell, so the
+// shell — its data hooks and the socket room — survives navigation.
+const InsideAppShell = createContext(false);
+
+export const Layout = ({ children }: LayoutProps) =>
+  useContext(InsideAppShell) ? (
+    <>{children}</>
+  ) : (
+    <InsideAppShell.Provider value>
+      <LayoutShell>{children}</LayoutShell>
+    </InsideAppShell.Provider>
+  );
+
+// The shell persists across navigation, so its scroll pane would keep the previous page's
+// offset; a new page starts at the top, as it did when every page mounted its own shell.
+// Rendered BEFORE the page so this effect runs first and a page that scrolls on mount (a
+// deep-linked settings item) still wins.
+const ScrollPaneReset = ({ pane }: { pane: RefObject<HTMLElement> }) => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (pane.current) pane.current.scrollTop = 0;
+  }, [pane, pathname]);
+  return null;
+};
+
+const LayoutShell = ({ children }: LayoutProps) => {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
@@ -470,6 +500,8 @@ export const Layout = ({ children }: LayoutProps) => {
     logout();
     navigate('/login');
   };
+
+  const mainRef = useRef<HTMLElement>(null);
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -713,7 +745,10 @@ export const Layout = ({ children }: LayoutProps) => {
             Scoped to `lg` so mobile keeps scrolling the document, which is what the
             fixed mobile header and `pt-16` are built around.
           */}
-          <main className="flex flex-col flex-1 p-2 pt-16 w-full max-w-full lg:min-h-0 lg:overflow-y-auto lg:overflow-x-hidden lg:p-4 lg:pt-4 bg-background">
+          <main
+            ref={mainRef}
+            className="flex flex-col flex-1 p-2 pt-16 w-full max-w-full lg:min-h-0 lg:overflow-y-auto lg:overflow-x-hidden lg:p-4 lg:pt-4 bg-background">
+            <ScrollPaneReset pane={mainRef} />
             <WorkspaceBanner />
             <LicenseExpiryBanner />
             <ResumeSetupBanner />

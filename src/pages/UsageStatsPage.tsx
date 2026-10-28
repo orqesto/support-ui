@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Download, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
@@ -96,16 +95,16 @@ export const UsageStatsPage = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <>
         <div className="flex justify-center items-center h-64">
           <div className="text-muted-foreground">Loading usage statistics...</div>
         </div>
-      </Layout>
+      </>
     );
   }
 
   return (
-    <Layout>
+    <>
       <div className="px-4 mx-auto space-y-4 w-full">
         {/* Header */}
         <div className="flex justify-between items-center">
@@ -213,6 +212,6 @@ export const UsageStatsPage = () => {
           </CardContent>
         </Card>
       </div>
-    </Layout>
+    </>
   );
 };

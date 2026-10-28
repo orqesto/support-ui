@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
 import { CustomApiResultCard } from '@/components/messages/CustomApiResultCard';
 import {
   CONTACT_NOT_VISIBLE,
@@ -472,7 +471,7 @@ export const CustomerRecordsPage = () => {
   const heading = contact?.displayName ?? contact?.primaryEmail ?? 'Customer';
 
   return (
-    <Layout>
+    <>
       <div className="p-4 space-y-4 max-w-4xl">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
@@ -673,6 +672,6 @@ export const CustomerRecordsPage = () => {
           </>
         )}
       </div>
-    </Layout>
+    </>
   );
 };

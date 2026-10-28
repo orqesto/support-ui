@@ -1,7 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, ChevronRight, Lock } from 'lucide-react';
-import { Layout } from '@/components/layout/Layout';
 import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
 import { PermissionOverridesSection } from '@/components/shared/PermissionOverridesSection';
 import { Button } from '@/components/ui/Button';
@@ -50,7 +49,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
   const navigate = useNavigate();
   // Inside the per-workspace console shell the chrome is supplied by WorkspaceShell,
   // which also owns the org context this form's calls run against.
-  const Wrap = embedded ? Fragment : Layout;
+  const Wrap = Fragment;
   const { isAdmin, canManageUsers } = usePermissions();
   const currentUser = useAuthStore((state) => state.user);
 

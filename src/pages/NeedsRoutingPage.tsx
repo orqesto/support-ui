@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { GitBranch, RefreshCw, ArrowRight, AlertCircle, Ban } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Pagination } from '@/components/ui/Pagination';
@@ -213,7 +212,7 @@ export const NeedsRoutingPage = () => {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
-    <Layout>
+    <>
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <div>
@@ -523,6 +522,6 @@ export const NeedsRoutingPage = () => {
           </>
         )}
       </div>
-    </Layout>
+    </>
   );
 };

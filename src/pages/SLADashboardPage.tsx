@@ -5,7 +5,6 @@ import { SLAByChannelChart } from '@/components/sla/SLAByChannelChart';
 import { SLAByPriorityTable, SLA_DEFAULT_DAYS } from '@/components/sla/SLAByPriorityTable';
 import { SLATrendChart } from '@/components/sla/SLATrendChart';
 import { SLABreachList } from '@/components/sla/SLABreachList';
-import { Layout } from '@/components/layout/Layout';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import {
   dayPresets,
@@ -35,7 +34,7 @@ export const SLADashboardPage = () => {
   const { days } = period;
 
   return (
-    <Layout>
+    <>
       <div className="p-6 mx-auto">
         <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
           <div>
@@ -75,6 +74,6 @@ export const SLADashboardPage = () => {
           </div>
         </div>
       </div>
-    </Layout>
+    </>
   );
 };

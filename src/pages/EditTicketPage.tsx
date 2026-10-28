@@ -2,7 +2,6 @@ import { useState, useEffect, type FormEvent } from 'react';
 import DOMPurify from 'dompurify';
 import { AlertCircle, ExternalLink, AlertTriangle } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
@@ -194,11 +193,11 @@ export const EditTicketPage = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <>
         <div className="flex justify-center items-center h-64">
           <div className="w-8 h-8 rounded-full border-4 animate-spin border-primary border-t-transparent" />
         </div>
-      </Layout>
+      </>
     );
   }
 
@@ -213,7 +212,7 @@ export const EditTicketPage = () => {
   })();
 
   return (
-    <Layout>
+    <>
       <div className="px-4 pb-6 mx-auto space-y-4 w-full">
         <div>
           <h1 className="font-display text-3xl font-bold">Edit Ticket</h1>
@@ -412,6 +411,6 @@ export const EditTicketPage = () => {
         description={alertDialog.description}
         variant={alertDialog.variant}
       />
-    </Layout>
+    </>
   );
 };

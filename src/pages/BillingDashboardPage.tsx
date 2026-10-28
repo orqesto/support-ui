@@ -2,10 +2,9 @@ import { ActiveSubscriptionsTable } from '@/components/billing/ActiveSubscriptio
 import { AgingReport } from '@/components/billing/AgingReport';
 import { AnomalyAlertsList } from '@/components/billing/AnomalyAlertsList';
 import { BillingOverviewCards } from '@/components/billing/BillingOverviewCards';
-import { Layout } from '@/components/layout/Layout';
 
 export const BillingDashboardPage = () => (
-  <Layout>
+  <>
     <div className="p-6 mx-auto">
       <div className="mb-6">
         <h1 className="font-display text-3xl font-bold text-foreground">Billing Intelligence</h1>
@@ -26,5 +25,5 @@ export const BillingDashboardPage = () => (
         </div>
       </div>
     </div>
-  </Layout>
+  </>
 );

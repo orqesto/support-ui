@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Check, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -161,11 +160,11 @@ export const PricingPage = () => {
   const enterprisePlans = selfHosted ? [] : enterpriseAll.filter((plan) => plan.name === 'enterprise-cloud');
 
   if (loading) {
-    return <Layout><div className="flex justify-center items-center h-64"><div className="text-muted-foreground">Loading pricing...</div></div></Layout>;
+    return <><div className="flex justify-center items-center h-64"><div className="text-muted-foreground">Loading pricing...</div></div></>;
   }
 
   return (
-    <Layout>
+    <>
       <div className="p-6 w-full space-y-12">
         <Button variant="ghost" size="sm" onClick={() => navigate('/subscription')}><ArrowLeft className="mr-2 w-4 h-4" />Back</Button>
         <div className="text-center">
@@ -243,6 +242,6 @@ export const PricingPage = () => {
           setSelectedPlan(null);
         }}
       />
-    </Layout>
+    </>
   );
 };

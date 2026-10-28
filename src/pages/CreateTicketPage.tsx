@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Layout } from '@/components/layout/Layout';
 import {
   CreateTicketBar,
   CreateTicketFilesSection,
@@ -459,7 +458,7 @@ export const CreateTicketPage = () => {
   };
 
   return (
-    <Layout>
+    <>
       <div className="px-4 mx-auto space-y-4 w-full">
         <CreateTicketBar
           backLabel={messageId ? 'Thread' : 'Tickets'}
@@ -734,6 +733,6 @@ export const CreateTicketPage = () => {
         description={alertDialog.description}
         variant={alertDialog.variant}
       />
-    </Layout>
+    </>
   );
 };

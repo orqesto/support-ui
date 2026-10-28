@@ -26,7 +26,6 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { usePhoneOpensMessageAsPage } from '@/hooks/usePhoneOpensMessageAsPage';
 import { buildContactsApiFilters } from '@/components/messages/contactsApiFilters';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
-import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Badge } from '@/components/ui/Badge';
@@ -1165,7 +1164,7 @@ export const MessagesPage = () => {
   const actionLabel = split ? 'sr-only' : 'max-sm:sr-only';
 
   return (
-    <Layout>
+    <>
       <div className="flex overflow-hidden flex-1 min-h-0">
         {/* ── List panel ─────────────────────────────────── */}
         {/* Kanban fills the viewport from xl up (no page scroll; the lanes scroll
@@ -1764,6 +1763,6 @@ export const MessagesPage = () => {
       />
 
       <ComposeNewModal open={composeOpen} onClose={() => setComposeOpen(false)} />
-    </Layout>
+    </>
   );
 };

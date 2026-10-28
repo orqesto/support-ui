@@ -236,12 +236,11 @@ export const releaseSocket = () => {
   connectionCount = Math.max(0, connectionCount - 1);
   logger.info(`📊 Active connections: ${connectionCount}`);
 
-  // Debounce disconnect so the socket survives the no-subscriber gap between unmounting one
-  // page and mounting the next. Today every page renders its own <Layout> (which owns the
-  // socket hooks), so EVERY navigation drops the refcount to 0; a lazy route's Suspense
-  // fallback (no Layout) can exceed a 1s window and cause a real disconnect→reconnect churn.
-  // 5s comfortably spans a navigation + chunk load. The proper fix is a persistent <Layout>
-  // shell mounted once above the router <Outlet> so the refcount never hits 0 on navigation.
+  // Debounce disconnect so the socket survives a no-subscriber gap. Between app pages there is
+  // none any more: the app shell (<Layout> in AppShellRoute) stays mounted above the router
+  // <Outlet>, so the refcount never hits 0 on those clicks. The gap remains when moving between
+  // the app shell and the console shells (AdminShell/WorkspaceShell), where a lazy chunk's
+  // Suspense fallback can outlast a 1s window — 5s spans a navigation + chunk load.
   const DISCONNECT_DEBOUNCE_MS = 5000;
   if (connectionCount <= 0 && socket) {
     logger.info(`⏳ Scheduling disconnect in ${DISCONNECT_DEBOUNCE_MS / 1000}s...`);
