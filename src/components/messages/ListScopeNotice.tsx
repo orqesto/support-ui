@@ -29,6 +29,7 @@
 import { ChevronDown, EyeOff } from 'lucide-react';
 import { useCallback, useId, useRef, useState } from 'react';
 import { useClickOutside } from '@/hooks/useClickOutside';
+import { formatTotal } from '@/lib/listTotals';
 import type { ListScope } from '@/services/message.service';
 import type { FilterState } from '@/stores/messagesStore';
 
@@ -36,6 +37,8 @@ type Props = {
   scope: ListScope | null;
   /** `pagination.total` — how many the current lens matched. */
   shown: number;
+  /** `shown` is a lower bound (`pagination.totalCapped`): rendered `10,000+`. */
+  shownCapped?: boolean;
   /**
    * Applies the lens that shows a hidden category.
    *
@@ -192,6 +195,7 @@ const REASONS: Array<{
 export const ListScopeNotice = ({
   scope,
   shown,
+  shownCapped = false,
   onJump,
   surface = 'list',
   lensActive,
@@ -291,7 +295,10 @@ export const ListScopeNotice = ({
       data-testid="list-scope-notice"
     >
       {!isCaption && (
-        <EyeOff className={isBoard ? 'w-3.5 h-3.5 shrink-0' : 'w-4 h-4 shrink-0'} aria-hidden="true" />
+        <EyeOff
+          className={isBoard ? 'w-3.5 h-3.5 shrink-0' : 'w-4 h-4 shrink-0'}
+          aria-hidden="true"
+        />
       )}
       {/**
        * ⛔ The board does NOT say "Showing N". `shown` there is the board query's total
@@ -324,7 +331,8 @@ export const ListScopeNotice = ({
          * The full sentence stays for screen readers.
          */
         <span className="truncate min-w-0">
-          <strong className="font-mono text-foreground">{shown.toLocaleString()}</strong> of{' '}
+          <strong className="font-mono text-foreground">{formatTotal(shown, shownCapped)}</strong>{' '}
+          of{' '}
           <strong className="font-mono text-foreground">
             {scope.withoutLens.toLocaleString()}
           </strong>
@@ -335,7 +343,9 @@ export const ListScopeNotice = ({
         </span>
       ) : (
         <span className="truncate min-w-0">
-          Showing <strong className="font-mono text-foreground">{shown.toLocaleString()}</strong> of{' '}
+          Showing{' '}
+          <strong className="font-mono text-foreground">{formatTotal(shown, shownCapped)}</strong>{' '}
+          of{' '}
           <strong className="font-mono text-foreground">
             {scope.withoutLens.toLocaleString()}
           </strong>{' '}

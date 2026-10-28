@@ -19,7 +19,12 @@ const answer = (search: SearchReading | null) =>
     scope: null,
     search,
   }) as unknown as Response;
-const cutShort: SearchReading = { terms: ['nvoic'], asPhrase: false, cutShort: ['nvoic'] };
+const cutShort: SearchReading = {
+  terms: ['nvoic'],
+  asPhrase: false,
+  cutShort: ['nvoic'],
+  timedOut: false,
+};
 
 const setSearch = (search: string) =>
   act(() => {
@@ -50,7 +55,7 @@ describe('search reading', () => {
           answer(
             filters?.search === 'nvoic'
               ? cutShort
-              : { terms: ['invoice'], asPhrase: false, cutShort: [] }
+              : { terms: ['invoice'], asPhrase: false, cutShort: [], timedOut: false }
           )
         )
       );
@@ -62,6 +67,30 @@ describe('search reading', () => {
     setSearch('nvoic'); // back to a search already answered: from the cache
     await waitFor(() => expect(result.current.searchReading?.cutShort).toEqual(['nvoic']));
     expect(calls.mock.calls.length).toBe(before); // CONTROL: it really was the cache
+  });
+
+  it('a search that ran out of time is said, and NOT cached: asking again goes to the server', async () => {
+    const timedOut: SearchReading = { ...cutShort, cutShort: [], timedOut: true };
+    const calls = vi
+      .spyOn(messageService, 'getThreads')
+      .mockImplementation((filters) =>
+        Promise.resolve(
+          answer(
+            filters?.search === 'nvoic'
+              ? timedOut
+              : { terms: ['invoice'], asPhrase: false, cutShort: [], timedOut: false }
+          )
+        )
+      );
+    const { result } = renderHook(() => useMessagesData({ urlSyncedRef: { current: true } }));
+    await waitFor(() => expect(result.current.listTimedOut).toBe(true));
+    expect(result.current.searchReading?.timedOut).toBe(true);
+    setSearch('invoice');
+    await waitFor(() => expect(result.current.searchReading?.terms).toEqual(['invoice']));
+    expect(result.current.listTimedOut).toBe(false);
+    const before = calls.mock.calls.length;
+    setSearch('nvoic'); // the timed-out search again: must be asked again, not replayed
+    await waitFor(() => expect(calls.mock.calls.length).toBe(before + 1));
   });
 
   it('clears the notice while a different search is on its way', async () => {

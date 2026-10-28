@@ -10,6 +10,7 @@ describe('normalizeSearchReading', () => {
       terms: ['nvoic'],
       asPhrase: false,
       cutShort: ['nvoic'],
+      timedOut: false,
     });
   });
 
@@ -26,6 +27,6 @@ describe('normalizeSearchReading', () => {
   it('drops non-string entries rather than rendering them', () => {
     expect(
       normalizeSearchReading({ terms: ['a', 1], asPhrase: false, cutShort: ['b', null, 42] })
-    ).toEqual({ terms: ['a'], asPhrase: false, cutShort: ['b'] });
+    ).toEqual({ terms: ['a'], asPhrase: false, cutShort: ['b'], timedOut: false });
   });
 });

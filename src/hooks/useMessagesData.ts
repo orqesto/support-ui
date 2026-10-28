@@ -1,7 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { logger } from '@/lib/logger';
 import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
-import { messageService, type MessageThread, type SearchReading } from '@/services/message.service';
+import {
+  messageService,
+  type MessageThread,
+  type PaginationMeta,
+  type SearchReading,
+} from '@/services/message.service';
 import { messagesCacheKey, useMessagesStore } from '@/stores/messagesStore';
 import { useAuthStore } from '@/stores/authStore';
 import { threadApiFilters } from './threadApiFilters';
@@ -15,14 +20,10 @@ type MessagesDataReturn = {
   searching: boolean;
   /** How the backend read the search on screen (e.g. as one phrase); null when unknown. */
   searchReading: SearchReading | null;
+  /** The list ran out of time and was stopped (backend search plan step 3½): not "empty". */
+  listTimedOut: boolean;
   setRefreshing: Dispatch<SetStateAction<boolean>>;
-  messagesPagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasMore: boolean;
-  };
+  messagesPagination: PaginationMeta;
   fetchMessages: (page?: number, force?: boolean) => Promise<void>;
   handlePageChange: (page: number) => Promise<void>;
   handleRefresh: () => Promise<void>;
@@ -53,11 +54,12 @@ export const useMessagesData = ({
   const [refreshing, setRefreshing] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchReading, setSearchReading] = useState<SearchReading | null>(null);
+  const [listTimedOut, setListTimedOut] = useState(false);
   /** The search the rows on screen answer. A read for another one shades the list. */
   const shownSearchRef = useRef('');
   /** Aborts the in-flight list read once a newer one replaces it. */
   const inFlightAbortRef = useRef<AbortController | null>(null);
-  const [messagesPagination, setMessagesPagination] = useState({
+  const [messagesPagination, setMessagesPagination] = useState<PaginationMeta>({
     page: 1,
     limit: DEFAULT_LIMIT,
     total: 0,
@@ -81,9 +83,7 @@ export const useMessagesData = ({
    * runs after an await, by which time that value is exactly what has changed — so
    * calling the closure re-sends the request the retry exists to replace.
    */
-  const fetchMessagesRef = useRef<((page?: number, force?: boolean) => Promise<void>) | null>(
-    null
-  );
+  const fetchMessagesRef = useRef<((page?: number, force?: boolean) => Promise<void>) | null>(null);
   // After the first successful fetch, subsequent refetches keep the list
   // visible — flipping `loading` would swap the rows for skeleton cards on
   // every filter change, which reads as a blink.
@@ -137,6 +137,8 @@ export const useMessagesData = ({
           setSearching(false);
           // The reading cached WITH these rows — a cut-short answer must still say so.
           setSearchReading(cached.searchReading);
+          // A timed-out answer is never cached (below), so a cached page did finish.
+          setListTimedOut(false);
           return;
         }
       }
@@ -197,19 +199,27 @@ export const useMessagesData = ({
           DEFAULT_LIMIT,
           currentSorting.sortOrder,
           currentSorting.sortBy,
-          { signal: abort.signal }
+          { signal: abort.signal, allowTimedOut: true }
         );
 
         if (response.success && response.data) {
+          // The list ran out of time (backend search plan step 3½). NOT cached: the same
+          // search or filter later must ask again, not replay "took too long".
+          const timedOut = response.timedOut === true || response.search?.timedOut === true;
+          setListTimedOut(timedOut);
           // `scope` is absent on a stale bundle/older backend and null when the count
           // could not be taken. Both mean "no information" — never a zeroed object.
-          setMessages(
-            response.data,
-            response.pagination,
-            response.scope ?? null,
-            cacheKey,
-            response.search
-          );
+          if (timedOut) {
+            setListScope(response.scope ?? null);
+          } else {
+            setMessages(
+              response.data,
+              response.pagination,
+              response.scope ?? null,
+              cacheKey,
+              response.search
+            );
+          }
           setThreadsLocal(response.data);
           setMessagesPagination(response.pagination);
           hasLoadedRef.current = true;
@@ -321,7 +331,6 @@ export const useMessagesData = ({
     isKanban,
   ]);
 
-
   const handlePageChange = async (page: number) => {
     await fetchMessages(page);
   };
@@ -338,6 +347,7 @@ export const useMessagesData = ({
     refreshing,
     searching,
     searchReading,
+    listTimedOut,
     setRefreshing,
     messagesPagination,
     fetchMessages,
