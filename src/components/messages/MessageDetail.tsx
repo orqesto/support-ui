@@ -51,6 +51,7 @@ import { PromoteToKbDialog } from './PromoteToKbDialog';
 import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useThreadMessageRefresh } from '@/hooks/useThreadMessageRefresh';
 import { useIsPhone } from './useIsPhone';
 import { Permission } from '@/types/roles';
 import { ThreadMessageItem } from './ThreadMessageItem';
@@ -380,6 +381,12 @@ export function MessageDetail({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
     [message.whatsappWindow, message.replyBlock, composerMode, windowTick]
   );
+
+  // A customer's new message or the bot's answer on this thread: refetch THIS thread only.
+  // ⛔ Not onRefresh: on MessagesPage that reloads the message, the whole list and every board
+  // column — per message, for every agent with the thread open. The list already refreshes on
+  // its own (`conversation:new`, coalesced).
+  useThreadMessageRefresh(message.id, () => setThreadRefreshKey((key) => key + 1));
 
   // ── Real-time reply events ─────────────────────────────────────────────────
   useEffect(() => {
