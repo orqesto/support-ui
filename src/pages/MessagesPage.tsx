@@ -93,6 +93,7 @@ import { useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
 import { NOTIFICATION_COUNTS_KEY, useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { useConversationNewRefresh } from '@/hooks/useConversationNewRefresh';
+import { useCoalescedRefresh } from '@/hooks/useCoalescedRefresh';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -789,16 +790,21 @@ export const MessagesPage = () => {
     await fetchMessages(1, true).catch((err) => logger.error('Failed to fetch messages:', err));
   };
 
+  // Someone else's change, echoed by the server: the list and the board re-read once per window,
+  // not once per event — see SERVER_EVENT_REFRESH_MS. The agent's own actions call bumpKanban /
+  // fetchMessages directly and stay immediate.
+  const refreshFromServerEvent = useCoalescedRefresh(() => {
+    clearCache();
+    void fetchMessages(messagesPagination.page, true);
+    bumpKanban();
+  });
+
   // Refresh thread list + kanban when any linked ticket status changes
   useEffect(() => {
-    const handleTicketUpdated = () => {
-      clearCache();
-      void fetchMessages(messagesPagination.page, true);
-      bumpKanban();
-    };
+    const handleTicketUpdated = refreshFromServerEvent;
     subscribeToEvent('ticket:updated', handleTicketUpdated);
     return () => unsubscribeFromEvent('ticket:updated', handleTicketUpdated);
-  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
+  }, [refreshFromServerEvent]);
 
   // Refresh when ANOTHER agent re-routes a conversation. Without this, agents
   // viewing the inbox/kanban in another tab see stale data: a conv they had in
@@ -808,30 +814,24 @@ export const MessagesPage = () => {
   // columns all need to re-fetch to pick up the new dept assignment.
   useEffect(() => {
     const handleConversationRouted = () => {
-      clearCache();
-      void fetchMessages(messagesPagination.page, true);
-      bumpKanban();
+      refreshFromServerEvent();
       // The routed conv left the needs_routing queue — refresh the sidebar badge
       // too (this handler's contract, but it was previously only refreshing list+kanban).
       void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
     };
     subscribeToEvent('conversation:routed', handleConversationRouted);
     return () => unsubscribeFromEvent('conversation:routed', handleConversationRouted);
-  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban, queryClient]);
+  }, [refreshFromServerEvent, queryClient]);
 
   // Refresh on server-side conv status transitions (resurface on customer
   // follow-up to resolved/closed conv, awaiting_response → client_replied on
   // inbound). Without this the row stays in the wrong column until manual
   // refresh. Same shape as the conversation:routed handler above.
   useEffect(() => {
-    const handleStatusChanged = () => {
-      clearCache();
-      void fetchMessages(messagesPagination.page, true);
-      bumpKanban();
-    };
+    const handleStatusChanged = refreshFromServerEvent;
     subscribeToEvent('conv:status_changed', handleStatusChanged);
     return () => unsubscribeFromEvent('conv:status_changed', handleStatusChanged);
-  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
+  }, [refreshFromServerEvent]);
 
   // Messages list v4: new threads wait behind "N new messages — show" on the list's first page
   // instead of moving the rows under the cursor. The board, contacts and later pages keep the
@@ -848,11 +848,13 @@ export const MessagesPage = () => {
    * page 1's rows stay the same (review of #726). One tick per event; the key below carries it.
    */
   const [countsTick, bumpCounts] = useReducer((tick: number) => tick + 1, 0);
+  // Other people's changes: one count re-read per window, not one per event.
+  const refreshCountsFromEvent = useCoalescedRefresh(bumpCounts);
   useEffect(() => {
     const events = ['conv:status_changed', 'conversation:updated', 'message:replied', 'conversation:routed'];
-    events.forEach((event) => subscribeToEvent(event, bumpCounts));
-    return () => events.forEach((event) => unsubscribeFromEvent(event, bumpCounts));
-  }, []);
+    events.forEach((event) => subscribeToEvent(event, refreshCountsFromEvent));
+    return () => events.forEach((event) => unsubscribeFromEvent(event, refreshCountsFromEvent));
+  }, [refreshCountsFromEvent]);
   const refreshOnNewMail = useCallback(() => {
     bumpCounts();
     bumpKanban();
@@ -890,14 +892,10 @@ export const MessagesPage = () => {
   // downstream status transition (→ awaiting_response after auto-reply) only
   // becomes visible after a manual refresh.
   useEffect(() => {
-    const handleConversationUpdated = () => {
-      clearCache();
-      void fetchMessages(messagesPagination.page, true);
-      bumpKanban();
-    };
+    const handleConversationUpdated = refreshFromServerEvent;
     subscribeToEvent('conversation:updated', handleConversationUpdated);
     return () => unsubscribeFromEvent('conversation:updated', handleConversationUpdated);
-  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
+  }, [refreshFromServerEvent]);
 
   // Refresh when ANY agent replies (org-wide 'message:replied'). An agent reply
   // flips lastReplyFromClient=false → the conv derives to Pending and leaves the
@@ -906,14 +904,10 @@ export const MessagesPage = () => {
   // see the card stuck in its old column until a manual refresh. Same trio as the
   // handlers above.
   useEffect(() => {
-    const handleMessageReplied = () => {
-      clearCache();
-      void fetchMessages(messagesPagination.page, true);
-      bumpKanban();
-    };
+    const handleMessageReplied = refreshFromServerEvent;
     subscribeToEvent('message:replied', handleMessageReplied);
     return () => unsubscribeFromEvent('message:replied', handleMessageReplied);
-  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
+  }, [refreshFromServerEvent]);
 
   // Visible badge count: kanban-hidden filters (status/sla) excluded
   const activeFilterCount =

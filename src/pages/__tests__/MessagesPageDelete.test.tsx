@@ -472,12 +472,15 @@ describe('MessagesPage — the sidebar badge refreshes', () => {
 
   it('when another agent routes a thread (the conversation:routed ping)', async () => {
     renderPage();
+    // Every subscriber, as the socket would: the page listens to this event twice (the
+    // routing handler and the coalesced view-count re-read), and which one registered last
+    // is an accident of effect order.
     const routed = vi
       .mocked(subscribeToEvent)
       .mock.calls.filter(([event]) => event === 'conversation:routed')
-      .at(-1)?.[1] as (() => void) | undefined;
-    expect(routed).toBeDefined();
-    act(() => routed?.());
+      .map(([, handler]) => handler as () => void);
+    expect(routed.length).toBeGreaterThan(0);
+    act(() => routed.forEach((handler) => handler()));
     await waitFor(() => expect(badgeRefreshes()).toBe(1));
   });
 });
