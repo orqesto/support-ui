@@ -438,3 +438,29 @@ describe('ZendeskImportSettings — runs that are not simply "previewed"', () =>
     expect(screen.queryByText(/no longer there/)).toBeNull();
   });
 });
+
+describe('ZendeskImportSettings — an agent with no Odly account under that address', () => {
+  it('is mapped to a chosen Odly person; an agent matched by email gets no picker', async () => {
+    get.mockImplementation(routeGet([previewedRun]));
+    put.mockImplementation((_url: string, body: unknown) =>
+      Promise.resolve({
+        data: {
+          success: true,
+          data: { ...previewedRun, options: { ...previewedRun.options, ...(body as object) } },
+        },
+      })
+    );
+    render(<ZendeskImportSettings />);
+
+    await chooseOption(
+      await screen.findByRole('combobox', { name: 'Odly person for nobody@shop.example' }),
+      /Nora Body/
+    );
+    expect(put).toHaveBeenLastCalledWith('/api/imports/zendesk/runs/5/options', {
+      agentUsers: { 'nobody@shop.example': 21 },
+    });
+    // CONTROL: kurt@ has an Odly account by that address — nothing to choose.
+    expect(screen.queryByRole('combobox', { name: 'Odly person for kurt@shop.example' })).toBeNull();
+  });
+});
+

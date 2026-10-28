@@ -16,6 +16,7 @@ export const previewedRun = {
     groupDepartments: {},
     defaultDepartmentId: null,
     defaultSourceId: null,
+    agentUsers: {},
   },
   preview: {
     subdomain: 'acme',
@@ -61,6 +62,16 @@ export const routeGet = (runs: unknown[]) => (url: string) => {
   if (url.startsWith('/api/departments'))
     return Promise.resolve({ data: { success: true, data: [{ id: 1, name: 'Support' }] } });
   if (url === '/api/integrations') return Promise.resolve({ data: { success: true, data: [] } });
+  if (url.startsWith('/api/users'))
+    return Promise.resolve({
+      data: {
+        success: true,
+        data: {
+          users: [{ id: 21, email: 'nobody@team.example', firstName: 'Nora', lastName: 'Body' }],
+          pagination: { page: 1, limit: 100, total: 1, totalPages: 1, hasMore: false },
+        },
+      },
+    });
   return Promise.resolve({ data: { success: true, data: runs[0] } });
 };
 
