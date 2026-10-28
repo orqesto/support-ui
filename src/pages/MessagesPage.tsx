@@ -102,6 +102,16 @@ import { usePermissions } from '@/hooks/usePermissions';
 // ignores these, so arriving via a filter-bearing link (dashboard cards, or the
 // Notification Center's Spam/Suspicious queue rows → ?queue=spam) must force the
 // list ("threads") view — otherwise the click looks like a no-op on Kanban.
+/**
+ * Where a bulk action's cards land on the board, for the actions that move them. The rest
+ * (assign, ticket, read state) leave the card in its lane, so the board waits for the re-read.
+ */
+const BULK_TARGET_COLUMN: Partial<Record<BulkAction, string>> = {
+  resolve: 'resolved',
+  resolve_kb: 'resolved',
+  spam: 'spam',
+};
+
 const NOTIFY_TRIAGE_KEY = 'threads_notify_triage';
 const GROUP_KEY = 'threads_group';
 
@@ -382,6 +392,11 @@ export const MessagesPage = () => {
     async (values: BulkConfirmValues) => {
       if (!bulkAction) return;
       setBulkRunning(true);
+      // The board moves the cards NOW, not when the server answers: a bulk resolve of 60 threads
+      // can take minutes on a busy database, and the cards sat in place the whole time (or for
+      // good, when the request timed out). The re-read after the run confirms or corrects it.
+      const movesTo = BULK_TARGET_COLUMN[bulkAction];
+      if (movesTo !== undefined) kanbanRef.current?.optimisticMoveMany(bulkSelection.selectedIds, movesTo);
       try {
         const response = await bulkService.run(bulkAction, bulkSelection.selectedIds, {
           title: values.title,
@@ -390,6 +405,7 @@ export const MessagesPage = () => {
         });
         if (!response.success) {
           toast.error('The bulk action could not be run');
+          if (movesTo !== undefined) bumpKanban();
           return;
         }
         if (!response.data) {
@@ -407,6 +423,8 @@ export const MessagesPage = () => {
         void fetchMessages(messagesPagination.page, true);
       } catch (err) {
         toast.error(getApiErrorMessage(err) ?? 'The bulk action could not be run');
+        // The cards were moved ahead of the answer; put the board back to what the server holds.
+        if (movesTo !== undefined) bumpKanban();
       } finally {
         setBulkRunning(false);
       }
