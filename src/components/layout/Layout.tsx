@@ -683,7 +683,11 @@ const LayoutShell = ({ children }: LayoutProps) => {
                     entries={processingSummary}
                     onOpen={openProcessingPanels}
                   />
-                  <NotificationCenter sla={slaNotifications} learning={learningNotifications} />
+                  {/* ONE bell: the header's copy below serves narrow screens. Both used to mount,
+                      one hidden by CSS, so every alert hook ran and refetched twice. */}
+                  {isDesktop ? (
+                    <NotificationCenter sla={slaNotifications} learning={learningNotifications} />
+                  ) : null}
                   <ThemeToggle />
                 </div>
               </div>
@@ -727,7 +731,9 @@ const LayoutShell = ({ children }: LayoutProps) => {
             </div>
             <div className="flex gap-1 items-center">
               <ProcessingIndicator entries={processingSummary} onOpen={openProcessingPanels} />
-              <NotificationCenter sla={slaNotifications} learning={learningNotifications} />
+              {isDesktop ? null : (
+                <NotificationCenter sla={slaNotifications} learning={learningNotifications} />
+              )}
               <ThemeToggle />
             </div>
           </header>

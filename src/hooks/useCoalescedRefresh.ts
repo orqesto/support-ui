@@ -31,18 +31,35 @@ export const useCoalescedRefresh = (
   }, [refresh]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
+  /**
+   * A window closed while the tab was hidden: nobody could see the refresh, so it waits for the
+   * tab to come back and then runs ONCE — however many windows closed meanwhile. A background tab
+   * on a busy workspace otherwise paid the full re-read (the board's lanes and counts) every window,
+   * for every agent who left one open.
+   */
+  const pendingWhileHiddenRef = useRef(false);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || !pendingWhileHiddenRef.current) return;
+      pendingWhileHiddenRef.current = false;
+      refreshRef.current();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
       if (timerRef.current !== null) clearTimeout(timerRef.current);
       timerRef.current = null;
-    },
-    []
-  );
+    };
+  }, []);
 
   return useCallback(() => {
     if (timerRef.current !== null) return;
     timerRef.current = setTimeout(() => {
       timerRef.current = null;
+      if (document.visibilityState === 'hidden') {
+        pendingWhileHiddenRef.current = true;
+        return;
+      }
       refreshRef.current();
     }, windowMs);
   }, [windowMs]);
