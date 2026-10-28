@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { invalidateSharedFetch } from '@/lib/sharedFetch';
 
 /**
  * Availability of user-facing surfaces — whether a screen is finished enough to show.
@@ -97,7 +98,8 @@ const setFlag = (input: {
       ...(isGlobalScope(input.organizationId) ? {} : { organizationId: input.organizationId }),
       ...(input.notes ? { notes: input.notes } : {}),
     })
-    .then(() => undefined);
+    // Every tab's held flags are now stale; the next read asks again (see sharedFetch).
+    .then(() => invalidateSharedFetch());
 
 /**
  * Remove the override so the flag falls back to the layer below.
@@ -111,7 +113,7 @@ const clearFlag = (key: string, organizationId?: number | null): Promise<void> =
     .delete(`/api/admin/platform/feature-flags/${encodeURIComponent(key)}`, {
       params: isGlobalScope(organizationId) ? undefined : { organizationId },
     })
-    .then(() => undefined);
+    .then(() => invalidateSharedFetch());
 
 export const featureFlagAdminService = { listAdmin, setFlag, clearFlag };
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { invalidateSharedFetch } from '@/lib/sharedFetch';
 import {
   AlertCircle,
   CheckCircle,
@@ -197,6 +198,8 @@ export const SubscriptionPage = () => {
     setCancelling(true);
     try {
       const result = await subscriptionService.cancelSubscription();
+      // The plan's features change with it; the held answer is stale.
+      invalidateSharedFetch();
       // Refetch rather than patching local state: the backend decides the real
       // end date (Stripe's answer wins over our stored period end), so echoing
       // an optimistic guess here is how a customer gets told the wrong last day.

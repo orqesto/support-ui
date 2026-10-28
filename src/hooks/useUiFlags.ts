@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { featureFlagsService, type UiFeatureFlags } from '@/services/featureFlags.service';
+import { peekSharedFetch, sharedFetch } from '@/lib/sharedFetch';
 import { useAuthStore } from '@/stores/authStore';
+
+/** Plan features and UI flags change on a plan or flag change, not per click; see sharedFetch. */
+const SHARED_TTL_MS = 60_000;
 
 type UiFlagState = {
   flags: UiFeatureFlags;
@@ -39,7 +43,11 @@ export const useUiFlags = () => {
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const user = useAuthStore((state) => state.user);
 
-  const [state, setState] = useState<UiFlagState>({ flags: {}, loading: true });
+  const cacheKey = `ui-flags:${selectedOrganizationId ?? ''}:${user?.organizationId ?? ''}`;
+  const [state, setState] = useState<UiFlagState>(() => {
+    const held = peekSharedFetch<UiFlagState['flags']>(cacheKey, SHARED_TTL_MS);
+    return held ? { flags: held, loading: false } : { flags: {}, loading: true };
+  });
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -48,10 +56,18 @@ export const useUiFlags = () => {
     }
 
     let cancelled = false;
+    const held = peekSharedFetch<UiFlagState['flags']>(cacheKey, SHARED_TTL_MS);
+    if (held) {
+      setState({ flags: held, loading: false });
+      return;
+    }
     setState((prev) => ({ ...prev, loading: true }));
 
-    featureFlagsService
-      .getUiFlags()
+    sharedFetch(
+      cacheKey,
+      () => featureFlagsService.getUiFlags(),
+      SHARED_TTL_MS
+    )
       .then((flags) => {
         if (!cancelled) setState({ flags, loading: false });
       })
@@ -64,7 +80,7 @@ export const useUiFlags = () => {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, selectedOrganizationId, user?.organizationId]);
+  }, [isAuthenticated, cacheKey]);
 
   const isSurfaceEnabled = (key: string) => state.flags[key] === true;
   // Staff preview. Global admin is the same signal the rest of the app uses for

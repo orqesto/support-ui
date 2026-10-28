@@ -8,7 +8,11 @@ import {
   releaseSocket,
 } from '@/lib/socketManager';
 import { apiClient } from '@/lib/api-client';
+import { invalidateSharedFetch, sharedFetch } from '@/lib/sharedFetch';
 import { useAuthStore } from '@/stores/authStore';
+
+/** The signed-in user's own preferences: one key, cleared on sign-out with the rest. */
+const NOTIFICATION_PREFS_KEY = 'notification-preferences:me';
 import type { Notification } from '@/types/api';
 
 export type SLABreachNotification = {
@@ -192,7 +196,10 @@ export const useSLANotifications = () => {
       prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: value };
       apiClient
         .put('/api/users/me/notification-preferences', { onlyAssignedToMe: value })
-        .then(() => fetchNotifications())
+        .then(() => {
+          invalidateSharedFetch(NOTIFICATION_PREFS_KEY);
+          fetchNotifications();
+        })
         .catch(() => {
           // Roll back to last server-confirmed state, not the negation of the argument
           setOnlyAssignedToMeState(previousValue);
@@ -204,8 +211,12 @@ export const useSLANotifications = () => {
 
   // Load user preferences
   useEffect(() => {
-    apiClient
-      .get('/api/users/me/notification-preferences')
+    // Shared and held for a minute: Layout mounts this on every navigation (see sharedFetch).
+    sharedFetch(
+      NOTIFICATION_PREFS_KEY,
+      () => apiClient.get('/api/users/me/notification-preferences'),
+      60_000
+    )
       .then((res) => {
         const data = (res.data as { data?: Partial<UserPrefs> }).data;
         if (data) {
