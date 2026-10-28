@@ -410,6 +410,8 @@ export const MessagesPage = () => {
         }
         if (!response.data) {
           toast.error('The bulk action returned nothing to report');
+          // Outcome unknown: show what the server holds rather than the cards moved ahead of it.
+          if (movesTo !== undefined) bumpKanban();
           return;
         }
         const outcome = describeResult(bulkAction, response.data, orgCode);

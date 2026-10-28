@@ -755,7 +755,8 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
         const next: Record<string, ColumnState> = {};
         for (const [colId, state] of Object.entries(prev)) {
           const leaving = state.threads.filter(isMoved);
-          if (leaving.length === 0 || colId === targetColId) {
+          // The target column too: a card already there goes back on top, patched, as one did.
+          if (leaving.length === 0) {
             next[colId] = state;
             continue;
           }
