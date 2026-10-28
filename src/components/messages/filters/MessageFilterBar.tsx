@@ -81,7 +81,8 @@ export const MessageFilterBar = ({
    * is the current filters with the view's applied). `refreshKey` re-counts when the list is
    * re-read. The thread list only — the board has its own counts.
    */
-  countViews?: { refreshKey: unknown };
+  /** `enabled: false` holds the counts (and their numbers) while the list is being read. */
+  countViews?: { refreshKey: unknown; enabled?: boolean };
   /** Drawn after the saved views (the thread list's Triage menu). */
   trailingViews?: ReactNode;
 }) => {
@@ -141,7 +142,11 @@ export const MessageFilterBar = ({
         : [],
     [countViews, views, filters]
   );
-  const viewCounts = useThreadViewCounts(countRequests, countViews?.refreshKey, !!countViews);
+  const viewCounts = useThreadViewCounts(
+    countRequests,
+    countViews?.refreshKey,
+    !!countViews && countViews.enabled !== false
+  );
 
   /** Clicking a lit pill removes exactly that view's filters and leaves the rest. */
   const unapplyView = useCallback(

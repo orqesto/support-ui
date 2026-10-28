@@ -62,6 +62,25 @@ describe('useThreadViewCounts — a pill counts the list it opens', () => {
     await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
   });
 
+  it('held while disabled (the list is being read), then ONE round', async () => {
+    getThreads.mockResolvedValue({ success: true, data: [], pagination: { total: 3 } });
+    const requests = [
+      { key: 'a', filters: filters() },
+      { key: 'b', filters: filters({ assigneeId: 'me' }) },
+    ];
+    const { rerender, result } = renderHook(
+      (props: { at: string; on: boolean }) => useThreadViewCounts(requests, props.at, props.on),
+      { initialProps: { at: 'empty', on: false } }
+    );
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(getThreads).not.toHaveBeenCalled();
+    // The list landed: new rows AND enabled in the same render.
+    rerender({ at: 'rows', on: true });
+    await waitFor(() => expect(result.current).toEqual({ a: 3, b: 3 }));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(getThreads).toHaveBeenCalledTimes(2);
+  });
+
   it('a count the server could not give is unknown, not zero', async () => {
     getThreads.mockResolvedValue({ success: false, data: [], pagination: { total: 0 } });
     const { result } = renderHook(() => useThreadViewCounts([{ key: 'x', filters: filters() }], 0));
