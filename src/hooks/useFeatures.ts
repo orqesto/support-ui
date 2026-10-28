@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { subscriptionService } from '@/services/subscription.service';
+import { peekSharedFetch, sharedFetch } from '@/lib/sharedFetch';
 import { useAuthStore } from '@/stores/authStore';
+
+/** Plan features and UI flags change on a plan or flag change, not per click; see sharedFetch. */
+const SHARED_TTL_MS = 60_000;
 
 type FeatureState = {
   features: Record<string, boolean>;
@@ -12,7 +16,11 @@ export const useFeatures = () => {
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const user = useAuthStore((state) => state.user);
 
-  const [state, setState] = useState<FeatureState>({ features: {}, loading: true });
+  const cacheKey = `features:${selectedOrganizationId ?? ''}:${user?.organizationId ?? ''}`;
+  const [state, setState] = useState<FeatureState>(() => {
+    const held = peekSharedFetch<FeatureState['features']>(cacheKey, SHARED_TTL_MS);
+    return held ? { features: held, loading: false } : { features: {}, loading: true };
+  });
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -21,10 +29,18 @@ export const useFeatures = () => {
     }
 
     let cancelled = false;
+    const held = peekSharedFetch<FeatureState['features']>(cacheKey, SHARED_TTL_MS);
+    if (held) {
+      setState({ features: held, loading: false });
+      return;
+    }
     setState((prev) => ({ ...prev, loading: true }));
 
-    subscriptionService
-      .getFeatures()
+    sharedFetch(
+      cacheKey,
+      () => subscriptionService.getFeatures(),
+      SHARED_TTL_MS
+    )
       .then((features) => {
         if (!cancelled) {
           setState({ features, loading: false });
@@ -39,7 +55,7 @@ export const useFeatures = () => {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, selectedOrganizationId, user?.organizationId]);
+  }, [isAuthenticated, cacheKey]);
 
   return {
     hasFeature: (key: string) => state.features[key] === true,

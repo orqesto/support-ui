@@ -521,6 +521,30 @@ describe('MessagesPage — other people\'s changes refresh the board once per wi
     expect(boardKey()).toBe(before + 1);
   });
 
+  it('new mail AND a state change in one window = ONE board refresh, not two', () => {
+    localStorage.setItem('messages_view_mode', 'kanban');
+    renderPage();
+    vi.useFakeTimers();
+    const before = boardKey();
+    act(() => {
+      fire('conversation:new');
+      fire('conversation:updated');
+    });
+    // Long enough for both the 1 s new-mail delay and the shared window behind it.
+    act(() => {
+      vi.advanceTimersByTime(SERVER_EVENT_REFRESH_MS + 2000);
+    });
+    expect(boardKey()).toBe(before + 1);
+    // Control: new mail on its own still refreshes the board.
+    act(() => {
+      fire('conversation:new');
+    });
+    act(() => {
+      vi.advanceTimersByTime(SERVER_EVENT_REFRESH_MS + 2000);
+    });
+    expect(boardKey()).toBe(before + 2);
+  });
+
   it.each(EVENTS)('%s alone still refreshes the board', (event) => {
     localStorage.setItem('messages_view_mode', 'kanban');
     renderPage();

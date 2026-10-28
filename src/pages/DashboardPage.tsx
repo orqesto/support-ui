@@ -9,6 +9,7 @@ import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { useSystemHealth } from '@/hooks/useSystemHealth';
 import { useTelegramProcessing } from '@/hooks/useTelegramProcessing';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
+import { useCoalescedRefresh } from '@/hooks/useCoalescedRefresh';
 import { ingestionService } from '@/services/ingestion.service';
 import { documentationService } from '@/services/documentation.service';
 import { kbService } from '@/services/kb.service';
@@ -74,6 +75,9 @@ const UNKNOWN_STATS: DashboardStats = {
   kbDocuments: null,
   kbDocumentation: null,
 };
+
+/** Live dashboard numbers refresh at most this often while mail keeps arriving. */
+const DASHBOARD_STATS_REFRESH_MS = 30_000;
 
 /** What a tile shows for a count it does not know. */
 export const UNKNOWN_COUNT = '—';
@@ -334,17 +338,19 @@ export const DashboardPage = () => {
     });
   }, [fetchStats]);
 
+  // `stats:update` arrives on every ingest pass, and each one re-ran all ~18 dashboard requests
+  // (11 thread counts among them) at once. One refresh per window instead, however many arrive.
+  const refreshStatsFromEvent = useCoalescedRefresh(() => {
+    fetchStats().catch((error) => {
+      logger.error('Failed to refresh stats on WS update:', error);
+    });
+  }, DASHBOARD_STATS_REFRESH_MS);
   useEffect(() => {
-    const handleStatsUpdate = (_updatedStats: unknown) => {
-      fetchStats().catch((error) => {
-        logger.error('Failed to refresh stats on WS update:', error);
-      });
-    };
-    subscribeToEvent('stats:update', handleStatsUpdate);
+    subscribeToEvent('stats:update', refreshStatsFromEvent);
     return () => {
-      unsubscribeFromEvent('stats:update', handleStatsUpdate);
+      unsubscribeFromEvent('stats:update', refreshStatsFromEvent);
     };
-  }, [fetchStats]);
+  }, [refreshStatsFromEvent]);
 
   useEffect(
     () => () => {

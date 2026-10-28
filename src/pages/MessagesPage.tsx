@@ -821,11 +821,29 @@ export const MessagesPage = () => {
   // Someone else's change, echoed by the server: the list and the board re-read once per window,
   // not once per event — see SERVER_EVENT_REFRESH_MS. The agent's own actions call bumpKanban /
   // fetchMessages directly and stay immediate.
-  const refreshFromServerEvent = useCoalescedRefresh(() => {
-    clearCache();
-    void fetchMessages(messagesPagination.page, true);
-    bumpKanban();
+  //
+  // ONE window for every server event, new mail included. New mail used to have its own 1 s
+  // window, so one email that also changed a thread's state cost two full re-reads (list, counts,
+  // board) a few seconds apart. Now the window remembers what arrived: any state change re-reads
+  // everything (which shows the new mail too); new mail alone takes its lighter path (the "N new"
+  // bar on the list's first page).
+  const pendingEventsRef = useRef({ newMail: false, changed: false });
+  const refreshOnNewMailRef = useRef<() => void>(() => undefined);
+  const flushServerEvents = useCoalescedRefresh(() => {
+    const pending = pendingEventsRef.current;
+    pendingEventsRef.current = { newMail: false, changed: false };
+    if (pending.changed) {
+      clearCache();
+      void fetchMessages(messagesPagination.page, true);
+      bumpKanban();
+    } else if (pending.newMail) {
+      refreshOnNewMailRef.current();
+    }
   });
+  const refreshFromServerEvent = useCallback(() => {
+    pendingEventsRef.current.changed = true;
+    flushServerEvents();
+  }, [flushServerEvents]);
 
   // Refresh thread list + kanban when any linked ticket status changes
   useEffect(() => {
@@ -886,7 +904,12 @@ export const MessagesPage = () => {
     clearCache();
     void fetchMessages(messagesPagination.page, true);
   }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban, displayMode, newThreads]);
-  useConversationNewRefresh(refreshOnNewMail);
+  refreshOnNewMailRef.current = refreshOnNewMail;
+  const noteNewMail = useCallback(() => {
+    pendingEventsRef.current.newMail = true;
+    flushServerEvents();
+  }, [flushServerEvents]);
+  useConversationNewRefresh(noteNewMail);
 
   // "Notify me about new triage mail" (⋯ menu): a per-device choice, off by default. In-app only.
   const [notifyTriage, setNotifyTriage] = useState(() => {

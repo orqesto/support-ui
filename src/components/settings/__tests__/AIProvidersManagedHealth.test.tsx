@@ -29,6 +29,10 @@ vi.mock('@/services/onboarding.service', () => ({
 vi.mock('@/services/integrations.service', () => ({
   integrationsService: { getAll: () => Promise.resolve({ data: [] }), test: vi.fn() },
 }));
+// Without this the panel's plan lookup made a real request that settled after the file ended.
+vi.mock('@/services/subscription.service', () => ({
+  subscriptionService: { getPlanName: vi.fn(() => Promise.resolve('pro')) },
+}));
 vi.mock('@/services/ai.service', () => ({
   aiService: { getModels: () => Promise.resolve({ success: false }) },
 }));

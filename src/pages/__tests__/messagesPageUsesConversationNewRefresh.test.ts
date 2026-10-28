@@ -5,7 +5,12 @@ describe('MessagesPage mounts the conversation:new refresh (#957 D1, invariant p
   const source = readFileSync('src/pages/MessagesPage.tsx', 'utf8');
   it('imports and calls useConversationNewRefresh with the refetch trio', () => {
     expect(source).toMatch(/from '@\/hooks\/useConversationNewRefresh'/);
-    expect(source).toMatch(/\buseConversationNewRefresh\(refreshOnNewMail\)/);
+    // New mail joins the page's one server-event window (see flushServerEvents), which ends in
+    // refreshOnNewMail when nothing else changed.
+    expect(source).toMatch(/\buseConversationNewRefresh\(noteNewMail\)/);
+    expect(source).toMatch(/const noteNewMail = useCallback\(\(\) => \{\s*pendingEventsRef\.current\.newMail = true;\s*flushServerEvents\(\);/);
+    expect(source).toMatch(/else if \(pending\.newMail\) \{\s*refreshOnNewMailRef\.current\(\);/);
+    expect(source).toMatch(/refreshOnNewMailRef\.current = refreshOnNewMail;/);
     const handler = source.match(
       /const refreshOnNewMail = useCallback\(\(\) => \{([\s\S]*?)\n {2}\}, \[/
     );
@@ -21,7 +26,7 @@ describe('MessagesPage mounts the conversation:new refresh (#957 D1, invariant p
   });
   it('CONTROL: the pattern does not match a file without the call', () => {
     expect(readFileSync('src/hooks/useConversationNewRefresh.ts', 'utf8')).not.toMatch(
-      /\buseConversationNewRefresh\(refreshOnNewMail\)/
+      /\buseConversationNewRefresh\(noteNewMail\)/
     );
   });
 });
