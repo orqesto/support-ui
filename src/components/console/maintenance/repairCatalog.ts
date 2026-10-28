@@ -43,6 +43,13 @@ export const REPAIRS: RepairEntry[] = [
     scope: 'workspace',
   },
   {
+    id: 'repair-zendesk-closed-replies',
+    label: 'Reopen threads a Zendesk import closed after a customer reply',
+    does: 'Reopens threads a Zendesk import marked solved or closed although the customer had written after the ticket’s last Zendesk message — mail Zendesk never saw. Threads someone resolved in Odly, and threads we answered afterwards, are left alone.',
+    path: 'repair-zendesk-closed-replies',
+    scope: 'workspace',
+  },
+  {
     id: 'repair-buried-conversations',
     label: 'Reopen threads a sweep closed while a customer waited',
     does: 'Reopens threads the KB before-cutoff sweep resolved while the customer was still waiting.',

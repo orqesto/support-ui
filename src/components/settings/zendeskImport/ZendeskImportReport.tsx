@@ -55,6 +55,12 @@ export const ZendeskImportReport = ({ run, onAct, readOnly = false }: Props) => 
               changed them in Odly after Zendesk did
             </li>
           )}
+          {(counts.customerMailKept ?? 0) > 0 && (
+            <li>
+              {num(counts.customerMailKept)} threads keep their Odly status — the customer wrote
+              after the ticket’s last Zendesk message, so Zendesk’s status is out of date
+            </li>
+          )}
         </ul>
       </section>
 
