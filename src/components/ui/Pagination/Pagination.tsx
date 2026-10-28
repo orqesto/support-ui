@@ -8,6 +8,7 @@ export const Pagination = ({
   currentPage,
   totalPages,
   total,
+  totalCapped = false,
   limit,
   onPageChange,
   loading = false,
@@ -27,7 +28,10 @@ export const Pagination = ({
       let node: HTMLElement | null = rootRef.current?.parentElement ?? null;
       while (node) {
         const overflowY = getComputedStyle(node).overflowY;
-        if ((overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight) {
+        if (
+          (overflowY === 'auto' || overflowY === 'scroll') &&
+          node.scrollHeight > node.clientHeight
+        ) {
           node.scrollTop = 0;
         }
         node = node.parentElement;
@@ -83,7 +87,11 @@ export const Pagination = ({
       <div className="flex flex-wrap justify-center sm:justify-start items-center text-sm text-muted-foreground w-full sm:w-auto">
         Showing <span className="mx-1 font-medium">{startItem}</span> to{' '}
         <span className="mx-1 font-medium">{endItem}</span> of{' '}
-        <span className="mx-1 font-medium">{total}</span> results
+        <span className="mx-1 font-medium">
+          {total.toLocaleString()}
+          {totalCapped ? '+' : ''}
+        </span>{' '}
+        results
       </div>
 
       {/* Pagination buttons */}

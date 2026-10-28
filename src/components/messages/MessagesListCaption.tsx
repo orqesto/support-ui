@@ -40,6 +40,8 @@ type Props = {
   /** The scope read behind "Showing N of M" — null renders no sentence, never "0 hidden". */
   scope: ListScope | null;
   shown: number;
+  /** `shown` is a lower bound (`pagination.totalCapped`). */
+  shownCapped?: boolean;
   loading: boolean;
   onScopeJump: (next: Partial<FilterState>, needsListView?: boolean) => void;
   lensActive: boolean;
@@ -75,6 +77,7 @@ export const MessagesListCaption = ({
   onSelectPage,
   scope,
   shown,
+  shownCapped = false,
   loading,
   onScopeJump,
   lensActive,
@@ -131,6 +134,7 @@ export const MessagesListCaption = ({
         surface="caption"
         scope={scope}
         shown={shown}
+        shownCapped={shownCapped}
         onJump={onScopeJump}
         arrivals={arrivals}
         onReviewArrivals={onReviewArrivals}

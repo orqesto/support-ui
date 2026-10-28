@@ -373,6 +373,7 @@ export const MessagesPage = () => {
     refreshing,
     searching,
     searchReading,
+    listTimedOut,
     setRefreshing,
     messagesPagination,
     fetchMessages,
@@ -960,7 +961,10 @@ export const MessagesPage = () => {
     // List-view Status(lifecycle)+Queue dropdowns are hidden in kanban (it drives
     // its own columns), so they only count toward the visible badge in list mode.
     // Needs us is the landing VIEW (its pill, no token), not a filter someone added.
-    (!isKanban && filters.lifecycle && filters.lifecycle !== 'all' && filters.lifecycle !== 'needs_us'
+    (!isKanban &&
+    filters.lifecycle &&
+    filters.lifecycle !== 'all' &&
+    filters.lifecycle !== 'needs_us'
       ? 1
       : 0) +
     (!isKanban && filters.queue && filters.queue !== 'all' ? 1 : 0) +
@@ -1405,6 +1409,7 @@ export const MessagesPage = () => {
                   }
                   scope={listScope}
                   shown={pagination.total}
+                  shownCapped={pagination.totalCapped}
                   loading={loading}
                   onScopeJump={handleScopeJump}
                   arrivals={{
@@ -1448,7 +1453,7 @@ export const MessagesPage = () => {
 
                 {/* A search reloads with the previous rows still drawn. Shaded, so they do not
                     read as the answer to the new search while it is on its way. */}
-                <SearchReadingNotice reading={searchReading} />
+                <SearchReadingNotice reading={searchReading} listTimedOut={listTimedOut} />
                 <LoadingOverlay active={searching && !loading} label="Searching…">
                   {loading ? (
                     // Messages list v4 `.skel`: grey-bar rows inside the list's own card, split by
@@ -1471,11 +1476,14 @@ export const MessagesPage = () => {
                           the rest is when this view hides some. */}
                       <CardContent className="px-5 py-12 text-center text-[13.5px] text-muted-foreground">
                         <p>
-                          {activeFilterCount > 0 ||
-                          (listScope?.hidden ?? 0) > 0 ||
-                          filters.lifecycle === 'needs_us'
-                            ? 'No threads match this view.'
-                            : 'No threads yet.'}
+                          {listTimedOut
+                            ? // Stopped, not empty: the notice above says why.
+                              'Not loaded — it took too long.'
+                            : activeFilterCount > 0 ||
+                                (listScope?.hidden ?? 0) > 0 ||
+                                filters.lifecycle === 'needs_us'
+                              ? 'No threads match this view.'
+                              : 'No threads yet.'}
                         </p>
                         {(listScope?.hidden ?? 0) > 0 && (
                           <p className="mt-2.5 text-[12.5px]">
@@ -1565,6 +1573,7 @@ export const MessagesPage = () => {
                 currentPage={pagination.page}
                 totalPages={pagination.totalPages}
                 total={pagination.total}
+                totalCapped={pagination.totalCapped}
                 limit={pagination.limit}
                 onPageChange={handlePageChange}
                 loading={loading}

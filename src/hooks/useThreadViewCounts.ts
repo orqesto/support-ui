@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
+import { exactTotal } from '@/lib/listTotals';
 import { messageService } from '@/services/message.service';
 import type { FilterState } from '@/stores/messagesStore';
 import { threadApiFilters } from './threadApiFilters';
@@ -54,7 +55,8 @@ export const useThreadViewCounts = (
               1,
               1
             );
-            return [key, response.success ? response.pagination.total : undefined] as const;
+            // A capped or cut-short total is not a count to print on a pill: show none.
+            return [key, response.success ? exactTotal(response.pagination) : undefined] as const;
           } catch (error) {
             logger.error(`Failed to count the "${key}" view:`, error);
             return [key, undefined] as const;

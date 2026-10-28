@@ -8,21 +8,44 @@ afterEach(cleanup);
 describe('SearchReadingNotice', () => {
   it('warns that results may be incomplete when search inside words was cut short', () => {
     render(
-      <SearchReadingNotice reading={{ terms: ['nvoic'], asPhrase: false, cutShort: ['nvoic'] }} />
+      <SearchReadingNotice
+        reading={{ terms: ['nvoic'], asPhrase: false, cutShort: ['nvoic'], timedOut: false }}
+      />
     );
     expect(screen.getByText(/Results may be incomplete/)).toBeTruthy();
     expect(screen.getByText(/“nvoic”/)).toBeTruthy();
   });
 
   it('says a long search was matched as one phrase', () => {
-    render(<SearchReadingNotice reading={{ terms: ['a b c'], asPhrase: true, cutShort: [] }} />);
+    render(
+      <SearchReadingNotice
+        reading={{ terms: ['a b c'], asPhrase: true, cutShort: [], timedOut: false }}
+      />
+    );
     expect(screen.getByText(/Searched as one exact phrase/)).toBeTruthy();
     expect(screen.queryByText(/Results may be incomplete/)).toBeNull();
   });
 
+  it('a search that ran out of time says so — never reads as "no match"', () => {
+    render(
+      <SearchReadingNotice
+        reading={{ terms: ['the'], asPhrase: false, cutShort: [], timedOut: true }}
+      />
+    );
+    expect(screen.getByText(/This search took too long/)).toBeTruthy();
+    expect(screen.getByText(/does not mean nothing matches/)).toBeTruthy();
+  });
+
+  it('a plain list that ran out of time says so', () => {
+    render(<SearchReadingNotice reading={null} listTimedOut />);
+    expect(screen.getByText(/This list took too long to load/)).toBeTruthy();
+  });
+
   it('CONTROL: says nothing for an ordinary search, or no reading', () => {
     const { container } = render(
-      <SearchReadingNotice reading={{ terms: ['invoice'], asPhrase: false, cutShort: [] }} />
+      <SearchReadingNotice
+        reading={{ terms: ['invoice'], asPhrase: false, cutShort: [], timedOut: false }}
+      />
     );
     expect(container.textContent).toBe('');
     cleanup();

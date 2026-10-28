@@ -116,7 +116,31 @@ export type PaginationMeta = {
   total: number;
   totalPages: number;
   hasMore: boolean;
+  /**
+   * The thread list (backend search plan step 3½): `total` is "at least this many": a typed
+   * search counts to 10,000, and a count that ran out of time reports what is known. Show it
+   * as `10,000+` (`formatTotal`). Absent on other lists and older backends.
+   */
+  totalCapped?: boolean;
+  /** The count did not finish: `total` is only what the page proved. Never show it as a count. */
+  countTimedOut?: boolean;
 };
+
+/**
+ * The thread list ran out of time (backend search plan step 3½): the page or the count was
+ * stopped. `getThreads` throws it for every caller except the thread list, which says so on
+ * screen (`allowTimedOut`). A board column, a counter, merge candidates or the new-threads probe
+ * must never read an unfinished answer as "empty" or as a number: their error paths keep what
+ * they showed, or show nothing.
+ */
+export { exactTotal, formatTotal } from '@/lib/listTotals';
+
+export class ListTimedOutError extends Error {
+  constructor() {
+    super('The thread list took too long and was stopped. Try again, or narrow it with a filter.');
+    this.name = 'ListTimedOutError';
+  }
+}
 
 export type PaginatedResponse<T> = {
   success: boolean;
@@ -188,6 +212,11 @@ export type SearchReading = {
    * matches for them may be missing. Always an array once normalised.
    */
   cutShort: string[];
+  /**
+   * The list itself ran out of time while searching: no rows came back, and that is NOT "no
+   * match". False on an older backend.
+   */
+  timedOut: boolean;
 };
 
 /**
@@ -196,7 +225,12 @@ export type SearchReading = {
  */
 export const normalizeSearchReading = (raw: unknown): SearchReading | null => {
   if (!raw || typeof raw !== 'object') return null;
-  const reading = raw as { terms?: unknown; asPhrase?: unknown; cutShort?: unknown };
+  const reading = raw as {
+    terms?: unknown;
+    asPhrase?: unknown;
+    cutShort?: unknown;
+    timedOut?: unknown;
+  };
   if (!Array.isArray(reading.terms) || typeof reading.asPhrase !== 'boolean') return null;
   return {
     terms: reading.terms.filter((term): term is string => typeof term === 'string'),
@@ -204,6 +238,7 @@ export const normalizeSearchReading = (raw: unknown): SearchReading | null => {
     cutShort: Array.isArray(reading.cutShort)
       ? reading.cutShort.filter((term): term is string => typeof term === 'string')
       : [],
+    timedOut: reading.timedOut === true,
   };
 };
 
@@ -238,6 +273,11 @@ export const normalizeSearchMatch = (raw: unknown): SearchMatch | null => {
 
 export type ThreadsResponse = PaginatedResponse<MessageThread[]> & {
   scope?: ListScope | null;
+  /**
+   * The list ran out of time and was stopped (backend search plan step 3½): the rows are NOT
+   * "nothing matches". Absent on an older backend.
+   */
+  timedOut?: boolean;
   /** Normalised in `getThreads` — never the raw wire shape. */
   search: SearchReading | null;
 };
@@ -382,7 +422,8 @@ export const messageService = {
       | 'priority_sla'
       | 'last_client_reply'
       | 'last_our_reply' = 'time',
-    options?: { signal?: AbortSignal }
+    /** `allowTimedOut`: the thread list only — it shows the "took too long" notice itself. */
+    options?: { signal?: AbortSignal; allowTimedOut?: boolean }
   ): Promise<ThreadsResponse> => {
     const response = await fetchThreads<Omit<ThreadsResponse, 'search'> & { search?: unknown }>({
       filters: cleanFilters(filters),
@@ -394,6 +435,12 @@ export const messageService = {
     });
     // Normalised HERE, so no caller can read the raw shape (CLAUDE.md: version skew).
     const rows: unknown = response.data;
+    const search = normalizeSearchReading(response.search);
+    const unfinished =
+      response.timedOut === true ||
+      search?.timedOut === true ||
+      response.pagination?.countTimedOut === true;
+    if (unfinished && !options?.allowTimedOut) throw new ListTimedOutError();
     return {
       ...response,
       ...(Array.isArray(rows)
@@ -404,7 +451,7 @@ export const messageService = {
             })) as unknown as ThreadsResponse['data'],
           }
         : {}),
-      search: normalizeSearchReading(response.search),
+      search,
     };
   },
 

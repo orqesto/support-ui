@@ -31,6 +31,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { NOTIFICATION_COUNTS_KEY, useNotificationCounts } from '@/hooks/useNotificationCounts';
+import { exactTotal, formatTotal } from '@/lib/listTotals';
 import { messageService, type ListScope, type MessageThread } from '@/services/message.service';
 import { ListScopeNotice } from './ListScopeNotice';
 import { type FilterState, type SortingState } from '@/stores/messagesStore';
@@ -60,6 +61,8 @@ const PAGE_SIZE = 20;
 type ColumnState = {
   threads: MessageThread[];
   total: number;
+  /** `total` is a lower bound (a typed search counts to 10,000): shown as `10,000+`. */
+  totalCapped?: boolean;
   loading: boolean;
   hasMore: boolean;
   page: number;
@@ -256,7 +259,7 @@ const KanbanColumn = ({
         )}
         {!state.loading && (
           <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">
-            {state.total}
+            {formatTotal(state.total, state.totalCapped)}
           </span>
         )}
         {/* Per-column sort — each column sorts independently. Compact chip select
@@ -603,6 +606,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
               results.flatMap((res) => res.data.filter((thread) => thread.latestMessage !== null))
             ),
             total: last.pagination.total,
+            totalCapped: last.pagination.totalCapped === true,
             loading: false,
             hasMore: last.pagination.page < last.pagination.totalPages,
             // Rows can leave the column between loads; never claim a page past the end,
@@ -648,10 +652,12 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
               1,
               1
             );
-            return res.success ? res.pagination.total : 0;
+            // A capped or cut-short count is not a number to add up: keep the previous badge.
+            return res.success ? exactTotal(res.pagination) : 0;
           })
         );
-        if (!cancelled) setTriageUnread(totals.reduce((sum, num) => sum + num, 0));
+        if (totals.some((num) => num === undefined)) return;
+        if (!cancelled) setTriageUnread(totals.reduce<number>((sum, num) => sum + (num ?? 0), 0));
       } catch (err) {
         // Non-fatal: the badge is informational. Leave the previous value rather
         // than flashing 0, which would read as "nothing unread" — the one wrong
@@ -696,7 +702,11 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
    *
    * The cost is one aggregate per filter change, which was already being paid.
    */
-  const [boardScope, setBoardScope] = useState<{ scope: ListScope; shown: number } | null>(null);
+  const [boardScope, setBoardScope] = useState<{
+    scope: ListScope;
+    shown: number;
+    shownCapped?: boolean;
+  } | null>(null);
 
   const loadBoardScope = useCallback((onLoaded?: () => void) => {
     let cancelled = false;
@@ -723,7 +733,13 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
          */
         const usable = res.scope?.hiddenBecause.orphanOutgoing !== undefined;
         setBoardScope(
-          usable ? { scope: res.scope as ListScope, shown: res.pagination.total } : null
+          usable
+            ? {
+                scope: res.scope as ListScope,
+                shown: res.pagination.total,
+                shownCapped: res.pagination.totalCapped === true,
+              }
+            : null
         );
         onLoaded?.();
       } catch (err) {
@@ -915,6 +931,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
               ...res.data.filter((thread) => thread.latestMessage !== null),
             ]),
             total: res.pagination.total,
+            totalCapped: res.pagination.totalCapped === true,
             loading: false,
             hasMore: res.pagination.page < res.pagination.totalPages,
             page: res.pagination.page,
@@ -1187,6 +1204,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
                 <ListScopeNotice
                   scope={boardScope.scope}
                   shown={boardScope.shown}
+                  shownCapped={boardScope.shownCapped}
                   surface="board"
                   onJump={onScopeJump}
                 />

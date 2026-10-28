@@ -31,6 +31,11 @@ describe('getThreads', () => {
       null,
       null,
     ]);
-    expect(response.search).toEqual({ terms: ['parcel'], asPhrase: false, cutShort: [] });
+    expect(response.search).toEqual({
+      terms: ['parcel'],
+      asPhrase: false,
+      cutShort: [],
+      timedOut: false,
+    });
   });
 });
