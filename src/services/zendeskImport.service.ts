@@ -29,6 +29,11 @@ export type ZendeskImportOptions = {
   groupDepartments: Record<string, number>;
   defaultDepartmentId: number | null;
   defaultSourceId: number | null;
+  /**
+   * Zendesk agent email (lower-cased) → Odly user id, for an agent whose Zendesk address is not the
+   * one their Odly account has. Absent from a server that predates it.
+   */
+  agentUsers: Record<string, number>;
 };
 
 /** Counts keyed as the BE writes them (`new`, `messageId`, `skipped_spam`, `spam_new`, …). */
@@ -97,6 +102,8 @@ const unwrap = <T>(res: { data: ApiResponse<T> }): T => {
 const normalizeRun = (run: ZendeskRun): ZendeskRun => ({
   ...run,
   progress: typeof run.progress?.done === 'number' ? run.progress : null,
+  // A server without agent choices sends no `agentUsers`.
+  options: run.options ? { ...run.options, agentUsers: run.options.agentUsers ?? {} } : run.options,
 });
 
 /** Upload part size. The BE accepts up to 16 MB per part. */

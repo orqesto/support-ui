@@ -13,6 +13,7 @@ import { apiErrorMessage } from '@/lib/apiError';
 import { toast } from '@/lib/toast';
 import { departmentService } from '@/services/department.service';
 import { integrationsService } from '@/services/integrations.service';
+import { userService } from '@/services/user.service';
 import { zendeskImportService, type ZendeskRun } from '@/services/zendeskImport.service';
 import type { Department } from '@/types';
 
@@ -49,6 +50,7 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
   const preview = run.preview;
   const [departments, setDepartments] = useState<Department[]>([]);
   const [mailboxes, setMailboxes] = useState<Array<{ value: string; label: string }>>([]);
+  const [people, setPeople] = useState<Array<{ value: string; label: string }>>([]);
   const [confirmApply, setConfirmApply] = useState(false);
   const { save, saving } = useSerialOptionSaves(run, onRunChange);
   /**
@@ -75,6 +77,17 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
         )
       )
       .catch(() => setMailboxes([]));
+    userService
+      .getAllPages()
+      .then((res) =>
+        setPeople(
+          res.data.map((user) => ({
+            value: String(user.id),
+            label: `${[user.firstName, user.lastName].filter(Boolean).join(' ')} (${user.email})`,
+          }))
+        )
+      )
+      .catch(() => setPeople([]));
   }, []);
 
   const options = run.options;
@@ -233,10 +246,38 @@ export const ZendeskImportPreview = ({ run, onRunChange, onAct }: Props) => {
           />
         </div>
         {unmatched.length > 0 && (
-          <Alert variant="info">
-            No Odly account for {unmatched.map(([email]) => email).join(', ')} — their tickets come
-            in unassigned. Invite them first if they should keep their tickets.
-          </Alert>
+          <div className="space-y-2">
+            <Label>Odly person for each Zendesk agent</Label>
+            <p className="text-muted-foreground">
+              No Odly account has these Zendesk addresses. Choose who each one is in Odly, or their
+              tickets come in unassigned. Tickets already in Odly get the person only where nobody
+              has worked on the thread in Odly.
+            </p>
+            {unmatched.map(([email, info]) => (
+              <div key={email} className="grid grid-cols-1 gap-2 items-center sm:grid-cols-2">
+                <span>
+                  {email} <Badge variant="secondary">{info.count.toLocaleString()}</Badge>
+                </span>
+                <Select
+                  size="sm"
+                  options={people}
+                  value={options.agentUsers[email] ? String(options.agentUsers[email]) : ''}
+                  aria-label={`Odly person for ${email}`}
+                  placeholder="Unassigned"
+                  clearable
+                  disabled={saving}
+                  onChange={(value: string) =>
+                    void save((current) => {
+                      const next = { ...current.agentUsers };
+                      if (value) next[email] = Number(value);
+                      else delete next[email];
+                      return { agentUsers: next };
+                    })
+                  }
+                />
+              </div>
+            ))}
+          </div>
         )}
         {notOurs.length > 0 && (
           <p className="text-muted-foreground">
