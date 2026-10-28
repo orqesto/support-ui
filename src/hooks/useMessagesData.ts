@@ -33,12 +33,13 @@ type MessagesDataReturn = {
 interface UseMessagesDataProps {
   urlSyncedRef: MutableRefObject<boolean>;
   /**
-   * On the kanban board, `lifecycle` / `queue` / `read` are dropped from this query.
+   * On the kanban board this list is NOT read.
    *
-   * Each column requests `{ ...shared, ...col.fixedFilters }` and hard-sets its own
-   * lifecycle, so those three cannot move a card there. This query still runs — it feeds
-   * the header's "1–17 of 17" — and honouring a filter the board ignores made the two
-   * disagree: the number said 7 while seventeen cards sat on screen.
+   * Each column reads its own lanes (`MessagesKanbanView`), and the header's "1–17 of 17" is the
+   * board's own total (`onTotalChange`). Reading the list as well cost the page's heaviest search
+   * (50 rows) on every board load and every server event, for rows nothing on the board drew
+   * (staging, 2026-10-28: 10 searches per Threads click, this one of them). Switching back to the
+   * list reads it: `isKanban` is a dependency of the fetch effect.
    */
   isKanban?: boolean;
 }
@@ -115,6 +116,13 @@ export const useMessagesData = ({
        * was previously stored against whatever the filters had become, so the board's
        * `queue`-stripped result landed under a key that named the queue.
        */
+      if (isKanban) {
+        // An older list read still in flight must not land on the board's state.
+        inFlightAbortRef.current?.abort();
+        setLoading(false);
+        setSearching(false);
+        return;
+      }
       const snapshot = useMessagesStore.getState();
       const currentFilters = snapshot.filters;
       const currentSorting = snapshot.sorting;
