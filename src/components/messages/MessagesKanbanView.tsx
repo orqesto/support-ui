@@ -386,6 +386,12 @@ export type MessagesKanbanHandle = {
    * the destination column, so no server round-trip is needed to render correctly.
    */
   optimisticMove: (threadId: string, targetColId: string | null) => void;
+  /**
+   * The same for a bulk run: every loaded card whose conversation is in `conversationIds` moves
+   * at once, before the server answers. A bulk resolve of 60 threads used to leave all 60 cards in
+   * place until its response came back — minutes on a busy database, or never if it timed out.
+   */
+  optimisticMoveMany: (conversationIds: number[], targetColId: string | null) => void;
 };
 
 // Column-implied conversation state, so a moved card's spine/direction (which read
@@ -739,38 +745,62 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
   // refetch (unlike bumpKanban), so the acting agent sees the card jump the instant
   // their reply/resolve/close succeeds. The next authoritative reload (if any) simply
   // confirms the same placement, so there's no visible second jump.
-  const optimisticMove = useCallback((threadId: string, targetColId: string | null) => {
-    setColStates((prev) => {
-      let moved: MessageThread | undefined;
-      const next: Record<string, ColumnState> = {};
-      for (const [colId, state] of Object.entries(prev)) {
-        const idx = state.threads.findIndex((thr) => thr.threadId === threadId);
-        if (idx >= 0) {
-          moved = state.threads[idx];
+  // Pull every card matching `isMoved` out of whichever column holds it and drop it into the
+  // destination column, all in local state. One card (the acting agent's reply/resolve) or many
+  // (a bulk run). No refetch: the next authoritative reload confirms the same placement.
+  const moveCards = useCallback(
+    (isMoved: (thread: MessageThread) => boolean, targetColId: string | null) => {
+      setColStates((prev) => {
+        const moved: MessageThread[] = [];
+        const next: Record<string, ColumnState> = {};
+        for (const [colId, state] of Object.entries(prev)) {
+          const leaving = state.threads.filter(isMoved);
+          // The target column too: a card already there goes back on top, patched, as one did.
+          if (leaving.length === 0) {
+            next[colId] = state;
+            continue;
+          }
+          moved.push(...leaving);
           next[colId] = {
             ...state,
-            threads: state.threads.filter((thr) => thr.threadId !== threadId),
-            total: Math.max(0, state.total - 1),
+            threads: state.threads.filter((thr) => !isMoved(thr)),
+            total: Math.max(0, state.total - leaving.length),
           };
-        } else {
-          next[colId] = state;
         }
-      }
-      // Card isn't on the loaded board (off-page / different filter) — nothing to do.
-      if (!moved) return prev;
-      if (targetColId && next[targetColId]) {
-        const patched: MessageThread = { ...moved, ...COL_STATE_PATCH[targetColId] };
-        next[targetColId] = {
-          ...next[targetColId],
-          threads: [patched, ...next[targetColId].threads],
-          total: next[targetColId].total + 1,
-        };
-      }
-      return next;
-    });
-  }, []);
+        // No card on the loaded board (off-page / different filter) — nothing to do.
+        if (moved.length === 0) return prev;
+        if (targetColId && next[targetColId]) {
+          const patched = moved.map((thr) => ({ ...thr, ...COL_STATE_PATCH[targetColId] }));
+          next[targetColId] = {
+            ...next[targetColId],
+            threads: uniqueThreads([...patched, ...next[targetColId].threads]),
+            total: next[targetColId].total + moved.length,
+          };
+        }
+        return next;
+      });
+    },
+    []
+  );
 
-  useImperativeHandle(ref, () => ({ optimisticMove }), [optimisticMove]);
+  const optimisticMove = useCallback(
+    (threadId: string, targetColId: string | null) =>
+      moveCards((thr) => thr.threadId === threadId, targetColId),
+    [moveCards]
+  );
+
+  const optimisticMoveMany = useCallback(
+    (conversationIds: number[], targetColId: string | null) => {
+      const ids = new Set(conversationIds);
+      moveCards((thr) => ids.has(thr.latestMessage?.id ?? -1), targetColId);
+    },
+    [moveCards]
+  );
+
+  useImperativeHandle(ref, () => ({ optimisticMove, optimisticMoveMany }), [
+    optimisticMove,
+    optimisticMoveMany,
+  ]);
 
   // Fetch all columns in parallel when shared filters / refresh / dept change.
   // A filter/dept change invalidates the current rows → wipe to skeletons first. A
