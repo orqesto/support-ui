@@ -581,3 +581,32 @@ describe('the detailed run says whether it is the latest', () => {
     expect(screen.getByTestId('run-details').textContent).toMatch(/Last check /);
   });
 });
+
+// A mailbox whose checks find nothing new (quiet, or a sync that lists nothing) showed only its
+// last check WITH mail — days old — and read as a stopped sync while it was polled every 5 minutes.
+describe('the panel says when the mailbox was last checked', () => {
+  it('shows the last check beside the last check that found mail', async () => {
+    views.set(
+      5,
+      untracked({
+        runs: [makeRun({ id: 'r', found: 2, startedAt: '2026-10-05T08:55:00.000Z' })],
+        lastCheckAt: '2026-10-05T10:26:00.000Z',
+      })
+    );
+    render(ui([]));
+    act(() => useProcessingPanelStore.getState().open(5, 'manual', 'r'));
+    await settle();
+    expect(screen.getByTestId('mailbox-last-check').textContent).toMatch(
+      /Checked for new mail at /
+    );
+    expect(screen.getByTestId('run-details').textContent).toMatch(/Last check with new mail /);
+  });
+
+  it('CONTROL: a backend that does not send it shows no such line', async () => {
+    views.set(5, untracked({ runs: [makeRun({ id: 'r', found: 2 })] }));
+    render(ui([]));
+    act(() => useProcessingPanelStore.getState().open(5, 'manual', 'r'));
+    await settle();
+    expect(screen.queryByTestId('mailbox-last-check')).toBeNull();
+  });
+});

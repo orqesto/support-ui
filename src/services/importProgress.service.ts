@@ -193,6 +193,12 @@ export type RunsFields = {
   countCapped: boolean;
   /** The runs could not be read this time (the import progress still could). */
   runsUnavailable: boolean;
+  /**
+   * When the mailbox was last CHECKED, whether or not the check found mail. The runs record only
+   * checks that did work, so their newest start is not this. Null: never checked, or a backend
+   * that does not send it yet.
+   */
+  lastCheckAt?: string | null;
 };
 
 /** A Gmail or IMAP import's listing and stage progress (what ImportProgressPanel draws). */
@@ -345,6 +351,7 @@ export const normaliseImportProgress = (raw: unknown): ImportProgress => {
     kbMiningFailuresTruncated: data.kbMiningFailuresTruncated === true,
     countCapped: data.countCapped === true,
     runsUnavailable: data.runsUnavailable === true,
+    lastCheckAt: typeof data.lastCheckAt === 'string' ? data.lastCheckAt : null,
   };
   return data.tracked === true
     ? ({

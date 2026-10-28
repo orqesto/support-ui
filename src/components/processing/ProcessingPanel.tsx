@@ -728,6 +728,15 @@ export const ProcessingPanel = ({
 
           {kbPaused && <p className="text-xs text-muted-foreground">{kbPaused}</p>}
 
+          {data?.lastCheckAt && (
+            // The runs below record only checks that found something; this says the mailbox is
+            // still being checked when nothing new arrived (a quiet mailbox and a stopped sync
+            // otherwise read the same).
+            <p className="text-xs text-muted-foreground" data-testid="mailbox-last-check">
+              Checked for new mail at {formatRunTime(data.lastCheckAt)}
+            </p>
+          )}
+
           {data === null ? (
             <p className="flex gap-2 items-center text-xs text-muted-foreground">
               <Loader2 className="w-3 h-3 animate-spin" />
