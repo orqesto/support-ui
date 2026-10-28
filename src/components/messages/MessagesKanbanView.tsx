@@ -952,6 +952,12 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
           // so the sidebar count doesn't lag behind the 60s auto-refetch interval.
           void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
         }
+        // The agent's OWN move: re-read the board in place now. Other people's changes wait for
+        // the page's coalesced refresh, and this one used to ride on its own socket echo — so
+        // without this a reopen landing in another column than the drop target, or the column
+        // totals, would stay wrong for up to that window.
+        COLUMNS.forEach((col) => loadColumn(col.id, true));
+        loadTriageUnread();
       } catch (err) {
         logger.error(`Failed to move thread ${threadId} from ${fromColId} to ${toColId}:`, err);
         // Surface the server reason (e.g. a 409 "cannot be reopened") — the optimistic
@@ -980,7 +986,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
         });
       }
     },
-    [queryClient]
+    [queryClient, loadColumn, loadTriageUnread]
   );
 
   /**

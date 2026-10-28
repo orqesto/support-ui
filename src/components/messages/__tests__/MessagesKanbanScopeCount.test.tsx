@@ -1,0 +1,85 @@
+/**
+ * The board's scope count (`view=board&scope=1`) is the heaviest read on the board — an aggregate
+ * over the whole org. It answers "what does this FILTER leave out", so it re-reads when the scope
+ * changes, not on every refresh (a customer's database, 2026-10: it was the top statement while
+ * every socket event refreshed every open board).
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { defaultFilters } from '@/stores/messagesStore';
+import { messageService } from '@/services/message.service';
+import { MessagesKanbanView } from '../MessagesKanbanView';
+
+vi.mock('@/services/message.service', () => ({
+  messageService: { getThreads: vi.fn(), classify: vi.fn(), reopen: vi.fn() },
+}));
+vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'dept' }));
+vi.mock('@/hooks/useNotificationCounts', () => ({
+  NOTIFICATION_COUNTS_KEY: ['notification-counts'],
+  useNotificationCounts: () => ({ counts: {}, clearKind: vi.fn() }),
+}));
+vi.mock('@/components/ui/Select', () => ({ Select: () => null }));
+vi.mock('../KanbanCard', () => ({ KanbanCard: () => null }));
+
+const getThreads = vi.mocked(messageService.getThreads);
+const scopeCalls = () =>
+  getThreads.mock.calls.filter(([filters]) => {
+    const sent = (filters ?? {});
+    return sent.view === 'board' && 'scope' in sent;
+  }).length;
+const columnCalls = () =>
+  getThreads.mock.calls.filter(([filters]) => !('scope' in (filters ?? {}))).length;
+
+beforeEach(() => {
+  getThreads.mockReset();
+  getThreads.mockImplementation((_filters, page = 1, limit = 20) =>
+    Promise.resolve({
+      success: true,
+      data: [],
+      pagination: { page, limit, total: 0, totalPages: 1 },
+    } as never)
+  );
+});
+
+const renderBoard = (refreshKey: number, filters = defaultFilters) => (
+  <QueryClientProvider client={new QueryClient()}>
+    <MessagesKanbanView
+      filters={filters}
+      onOpen={() => {}}
+      refreshKey={refreshKey}
+      onScopeJump={() => {}}
+    />
+  </QueryClientProvider>
+);
+
+describe('Board scope count', () => {
+  it('is read once on load, NOT again on a refresh — while the columns are', async () => {
+    const view = render(renderBoard(0));
+    await waitFor(() => expect(scopeCalls()).toBe(1));
+    const columnsBefore = columnCalls();
+
+    view.rerender(renderBoard(1));
+    // Control: the refresh did reach the board — its columns were re-read.
+    await waitFor(() => expect(columnCalls()).toBeGreaterThan(columnsBefore));
+    expect(scopeCalls()).toBe(1);
+  });
+
+  it('is read again when the filter changes', async () => {
+    const view = render(renderBoard(0));
+    await waitFor(() => expect(scopeCalls()).toBe(1));
+    view.rerender(renderBoard(0, { ...defaultFilters, search: 'refund' } as never));
+    await waitFor(() => expect(scopeCalls()).toBe(2));
+  });
+
+  it('a load cancelled before it answered is retried on the next refresh', async () => {
+    const view = render(renderBoard(0));
+    // Re-render before the first answer lands: its cleanup cancels the scope load.
+    view.rerender(renderBoard(1));
+    await waitFor(() => expect(scopeCalls()).toBe(2));
+    view.rerender(renderBoard(2));
+    await waitFor(() => expect(columnCalls()).toBeGreaterThan(0));
+    // Landed once now, so a third refresh does not ask again.
+    expect(scopeCalls()).toBe(2);
+  });
+});

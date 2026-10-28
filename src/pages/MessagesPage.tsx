@@ -184,7 +184,15 @@ export const MessagesPage = () => {
   const [bulkRunning, setBulkRunning] = useState(false);
   /** What the board says it is holding — see the `pagination` prop on MessageFilterBar. */
   const [boardTotal, setBoardTotal] = useState(0);
-  const bumpKanban = useCallback(() => setKanbanRefreshKey((key) => key + 1), []);
+  // View counts (Needs us / Unassigned / …) re-read on this tick. Declared here because an agent's
+  // own action bumps it together with the board, below.
+  const [countsTick, bumpCounts] = useReducer((tick: number) => tick + 1, 0);
+  // The agent's own action: the board AND the view counts re-read now. They used to ride on the
+  // action's socket echo, which is now coalesced (see refreshFromServerEvent).
+  const bumpKanban = useCallback(() => {
+    setKanbanRefreshKey((key) => key + 1);
+    bumpCounts();
+  }, []);
 
   // Imperative handle to the Kanban view for optimistic single-card moves, plus the
   // threadId of the currently-open conversation (captured on open) so we know which
@@ -845,18 +853,11 @@ export const MessagesPage = () => {
   /**
    * View counts also follow the server's events, not only the visible rows: a thread resolved or
    * assigned on page 3, or new mail held behind the bar, moves Needs us / Unassigned / Spam while
-   * page 1's rows stay the same (review of #726). One tick per event; the key below carries it.
+   * page 1's rows stay the same (review of #726). One tick per refresh; the key below carries it.
    */
-  const [countsTick, bumpCounts] = useReducer((tick: number) => tick + 1, 0);
-  // Other people's changes: one count re-read per window, not one per event.
-  const refreshCountsFromEvent = useCoalescedRefresh(bumpCounts);
-  useEffect(() => {
-    const events = ['conv:status_changed', 'conversation:updated', 'message:replied', 'conversation:routed'];
-    events.forEach((event) => subscribeToEvent(event, refreshCountsFromEvent));
-    return () => events.forEach((event) => unsubscribeFromEvent(event, refreshCountsFromEvent));
-  }, [refreshCountsFromEvent]);
+  // Those events (status change, update, reply, routing) are handled by refreshFromServerEvent,
+  // whose bumpKanban bumps the counts too — one coalesced re-read per window, not one per event.
   const refreshOnNewMail = useCallback(() => {
-    bumpCounts();
     bumpKanban();
     if (displayMode === 'threads' && messagesPagination.page === 1) {
       newThreads.probe();
