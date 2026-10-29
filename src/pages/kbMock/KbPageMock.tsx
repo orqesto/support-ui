@@ -19,7 +19,7 @@ import { kbMockPairs } from './kbMockPairs';
 
 type View = 'questions' | 'live' | 'activity';
 
-const FILTERS = ['Everything', 'Department', 'Source', 'Language'] as const;
+const MORE_FILTERS = ['Status: Everything', 'Source: All', 'Language: All'] as const;
 
 const fmt = (iso: string) =>
   new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', {
@@ -96,8 +96,10 @@ const QuestionCard = ({ index }: { index: number }) => {
         </div>
         <div className="pt-3 space-y-2 border-t">
           <div className="flex flex-wrap gap-2 items-center">
-            <Kbd>3</Kbd>
-            <span className="text-sm font-medium text-foreground">Depends on</span>
+            <Button variant="outline">
+              <Kbd className="mr-2">3</Kbd>
+              Depends on
+            </Button>
             <input
               key={pair.id}
               type="text"
@@ -106,7 +108,6 @@ const QuestionCard = ({ index }: { index: number }) => {
               aria-label="Depends on"
               className="w-full sm:w-auto sm:flex-1 px-3 h-10 text-sm rounded-md border min-w-[10rem] border-input bg-background"
             />
-            <Button className="h-auto py-2 whitespace-normal">Save as depends</Button>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
             <Button variant="outline">
@@ -119,7 +120,10 @@ const QuestionCard = ({ index }: { index: number }) => {
               aria-label="Both wrong, the right answer"
               className="w-full sm:w-auto sm:flex-1 px-3 h-10 text-sm rounded-md border min-w-[10rem] border-input bg-background"
             />
+          </div>
+          <div className="flex flex-wrap gap-2 justify-between items-center pt-1">
             <Button variant="ghost">Skip / not sure</Button>
+            <Button disabled>Save answer</Button>
           </div>
         </div>
         <p className="hidden text-xs text-muted-foreground md:block">
@@ -143,11 +147,14 @@ const EmptyState = () => (
   </Card>
 );
 
+// Spec D12: the findings strip counts what is wrong with the entries, each chip opens that list.
 const FINDINGS = [
-  { label: 'Duplicates merged', n: 18 },
-  { label: 'Out-of-date removed', n: 9 },
-  { label: 'Wording tidied', n: 14 },
-  { label: 'Conflicts found', n: 2 },
+  { reason: 'raw_email', label: 'raw emails', n: 7 },
+  { reason: 'awaiting_review', label: 'awaiting review', n: 12 },
+  { reason: 'customer_specific', label: 'customer-specific', n: 5 },
+  { reason: 'unclassified', label: 'could not classify', n: 3 },
+  { reason: 'no_language', label: 'no clear language', n: 4 },
+  { reason: 'detached', label: 'detached', n: 2 },
 ];
 
 const ACTIVITY = [
@@ -191,7 +198,8 @@ const RateTheEngine = () => (
       <div className="h-full bg-primary" style={{ width: '70%' }} />
     </div>
     <p className="text-xs text-muted-foreground">
-      14 of 20 ratings so far, 93 % good. The engine acts alone after 20 ratings at 90 % or better.
+      14 of 20 ratings so far, 93 % good. After 20 ratings at 90 % or better, you can switch this
+      action to Automatic.
     </p>
   </div>
 );
@@ -225,9 +233,11 @@ const ActivityPanel = ({
       </button>
       <div className="flex flex-wrap gap-2">
         {FINDINGS.map((finding) => (
-          <Badge key={finding.label} variant="secondary">
-            {finding.n} {finding.label.toLowerCase()}
-          </Badge>
+          <a key={finding.reason} href={`/knowledge-base?finding=${finding.reason}`}>
+            <Badge variant="secondary">
+              {finding.n} {finding.label}
+            </Badge>
+          </a>
         ))}
       </div>
       {open && (
@@ -260,6 +270,7 @@ const ActivityPanel = ({
 export const KbPageMock = () => {
   const [params] = useSearchParams();
   const empty = params.get('empty') === '1';
+  const [moreOpen, setMoreOpen] = useState(params.get('more') === 'open');
   const [view, setView] = useState<View>('questions');
   const [activityOpen, setActivityOpen] = useState(params.get('activity') === 'open');
   const count = empty ? 0 : kbMockPairs.length;
@@ -269,7 +280,6 @@ export const KbPageMock = () => {
       <PageHeader
         title={`Questions for you (${count})`}
         description="Where two answers disagree, the engine asks you. Everything else it does by itself."
-        actions={<Button variant="outline">Settings</Button>}
       />
       <div className="flex flex-wrap gap-3 items-center">
         <SegmentedControl<View>
@@ -286,17 +296,33 @@ export const KbPageMock = () => {
           <SearchInput value="" onChange={() => undefined} placeholder="Search questions" />
         </div>
         <Button variant="outline" size="sm">
+          Team
+          <ChevronDown className="ml-1 w-4 h-4" />
+        </Button>
+        <Button variant="outline" size="sm">
+          Type
+          <ChevronDown className="ml-1 w-4 h-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          aria-expanded={moreOpen}
+          onClick={() => setMoreOpen((isOpen) => !isOpen)}
+        >
           <Filter className="mr-1 w-4 h-4" />
           More filters
         </Button>
       </div>
-      <div className="flex flex-wrap gap-2" aria-label="Filters">
-        {FILTERS.map((label, idx) => (
-          <Badge key={label} variant={idx === 0 ? 'info' : 'secondary'}>
-            {label}
-          </Badge>
-        ))}
-      </div>
+      {moreOpen && (
+        <div className="flex flex-wrap gap-2" aria-label="More filters">
+          {MORE_FILTERS.map((label) => (
+            <Badge key={label} variant="secondary">
+              {label}
+            </Badge>
+          ))}
+          <Badge variant="secondary">Settings</Badge>
+        </div>
+      )}
       {empty ? <EmptyState /> : <QuestionCard index={0} />}
       <ActivityPanel
         open={activityOpen}
