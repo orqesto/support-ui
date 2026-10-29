@@ -5,6 +5,8 @@ import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { ResizeHandle } from '@/components/ui/ResizeHandle';
+import { useComposerHeight } from './useComposerHeight';
 import RichTextEditor, { extractImageFiles } from '@/components/shared/RichTextEditor';
 import { ComposerAiActions } from './ComposerAiActions';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
@@ -327,6 +329,15 @@ export function MessageComposer({
   };
   // The editor's height on a phone: 96px (a note 134px) open, the desktop 44px otherwise.
   const editorMinHeight = isPhone ? (composerMode === 'note' ? '134px' : '96px') : '44px';
+  // The editor's height, dragged on the box's top edge (useComposerHeight).
+  const sizing = useComposerHeight({
+    rootRef,
+    composerMode,
+    isPhone,
+    atRest,
+    remountKey: restGeneration,
+    defaultMinHeight: editorMinHeight,
+  });
   // The collapsed editor as the pill's one-line input.
   const restEditorClass = atRest
     ? 'flex-1 min-w-0 h-10 sm:h-8 py-0 px-3 text-base sm:text-sm rounded-full'
@@ -419,6 +430,9 @@ export function MessageComposer({
         if (images.length) addImageFiles(images);
       }}
     >
+      {/* Drag to make the reply / note editor taller or shorter; double-click (or Home) for the
+          default. Open box on a desktop only: the folded one-line box has nothing to size. */}
+      {sizing.handle && <ResizeHandle {...sizing.handle} className="-mt-[7px] mb-1" />}
       {/* v3: the two things this box can do, as tabs — the mode used to be reachable only from
           the Notes tab or the N key, so nothing on screen said a note was an option here. The
           key hint sits on the right, built from the same context the shortcuts read. */}
@@ -526,8 +540,8 @@ export function MessageComposer({
             onSubmit={aiBusy ? undefined : onSend}
             onImageFiles={addImageFiles}
             placeholder={replyPlaceholder}
-            minHeight={editorMinHeight}
-            maxHeight="160px"
+            minHeight={sizing.editorMinHeight}
+            maxHeight={sizing.editorMaxHeight}
             transparent
             locked={aiBusy}
             className={`rounded-none border-0 shadow-none ${restEditorClass} ${
@@ -571,8 +585,8 @@ export function MessageComposer({
             onSubmit={onSend}
             onImageFiles={addImageFiles}
             placeholder="Internal note — only visible to your colleagues…"
-            minHeight={editorMinHeight}
-            maxHeight="160px"
+            minHeight={sizing.editorMinHeight}
+            maxHeight={sizing.editorMaxHeight}
             transparent
             className={`rounded-none border-0 shadow-none ${restEditorClass}`}
           />
