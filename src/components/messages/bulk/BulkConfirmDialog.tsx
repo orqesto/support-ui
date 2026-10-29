@@ -28,6 +28,9 @@ import {
   type BulkPreview,
 } from './bulkActions';
 
+/** The picker's "Nobody (unassign)" option. */
+const UNASSIGN = 'unassign';
+
 export type BulkConfirmValues = {
   title?: string;
   trainFilter?: boolean;
@@ -55,11 +58,14 @@ export const BulkConfirmDialog = ({
 }: Props) => {
   const [title, setTitle] = useState('');
   const [trainFilter, setTrainFilter] = useState(false);
-  const [assigneeId, setAssigneeId] = useState<number | null>(null);
+  // A person's id, `UNASSIGN` (clear the assignee), or null while nothing is chosen.
+  const [assigneeId, setAssigneeId] = useState<number | typeof UNASSIGN | null>(null);
   const [assignable, setAssignable] = useState<AssignableUser[]>([]);
   // An empty list meant three different things — still loading, nobody to assign, the request
   // failed — and all three rendered as a picker holding only its placeholder, with no word why.
-  const [assignableState, setAssignableState] = useState<'loading' | 'loaded' | 'failed'>('loading');
+  const [assignableState, setAssignableState] = useState<'loading' | 'loaded' | 'failed'>(
+    'loading'
+  );
 
   // Fresh every time it opens: a title typed for one ticket must not survive into the next one,
   // and "teach the filter" is a decision per run, never a sticky preference.
@@ -104,7 +110,9 @@ export const BulkConfirmDialog = ({
   const needsTitle = NEEDS_INPUT[action] === 'title';
   const needsAssignee = NEEDS_INPUT[action] === 'assignee';
   // ⛔ An assign run with nobody chosen would CLEAR the assignee on every selected thread.
-  // Nothing in the flow says that is what the agent meant, so it cannot be the default.
+  // Nothing in the flow says that is what the agent meant, so it cannot be the default — clearing
+  // is its own option ("Nobody (unassign)"), picked like a person.
+  const unassigning = needsAssignee && assigneeId === UNASSIGN;
   const canRun =
     eligible > 0 &&
     (!needsTitle || title.trim().length > 0) &&
@@ -121,7 +129,7 @@ export const BulkConfirmDialog = ({
           <p className="text-sm text-foreground">
             {eligible === 0
               ? 'None of the selected threads can take this action.'
-              : `This will ${ACTION_PHRASE[action]} ${describeScope(eligible, selectedCount)}.`}
+              : `This will ${unassigning ? 'unassign' : ACTION_PHRASE[action]} ${describeScope(eligible, selectedCount)}.`}
           </p>
 
           {refusals.length > 0 && (
@@ -153,7 +161,8 @@ export const BulkConfirmDialog = ({
                 maxLength={500}
               />
               <p className="text-xs text-muted-foreground">
-                One ticket will cover {eligible === 1 ? 'this thread' : `these ${eligible} threads`}.
+                One ticket will cover {eligible === 1 ? 'this thread' : `these ${eligible} threads`}
+                .
               </p>
               {alsoInTicket > 0 && (
                 <p className="text-xs text-muted-foreground">
@@ -175,11 +184,18 @@ export const BulkConfirmDialog = ({
                 className="w-full"
                 placeholder="Choose a person…"
                 value={assigneeId !== null ? String(assigneeId) : ''}
-                onChange={(value) => setAssigneeId(value ? Number(value) : null)}
-                options={assignable.map((user) => ({
-                  value: String(user.id),
-                  label: `${user.firstName} ${user.lastName}`,
-                }))}
+                onChange={(value) =>
+                  setAssigneeId(value === UNASSIGN ? UNASSIGN : value ? Number(value) : null)
+                }
+                options={[
+                  // Clearing needs no list of people, so it is offered even when that list is
+                  // empty or failed to load.
+                  { value: UNASSIGN, label: 'Nobody (unassign)' },
+                  ...assignable.map((user) => ({
+                    value: String(user.id),
+                    label: `${user.firstName} ${user.lastName}`,
+                  })),
+                ]}
               />
               {assignableState === 'loaded' && assignable.length === 0 && (
                 <p className="text-xs text-muted-foreground">
@@ -217,11 +233,18 @@ export const BulkConfirmDialog = ({
           </Button>
           <Button
             onClick={() =>
-              onConfirm({ title: title.trim() || undefined, trainFilter, assigneeId })
+              onConfirm({
+                title: title.trim() || undefined,
+                trainFilter,
+                // The bulk API clears the assignee on null (`assigneeId: null`).
+                assigneeId: assigneeId === UNASSIGN ? null : assigneeId,
+              })
             }
             disabled={!canRun || running}
           >
-            {running ? 'Working…' : `${ACTION_LABEL[action]}${eligible > 0 ? ` ${eligible}` : ''}`}
+            {running
+              ? 'Working…'
+              : `${unassigning ? 'Unassign' : ACTION_LABEL[action]}${eligible > 0 ? ` ${eligible}` : ''}`}
           </Button>
         </DialogFooter>
       </DialogContent>
