@@ -300,7 +300,9 @@ describe('C2 — the composer Look up button', () => {
     expect(lookUp.className.split(/\s+/)).toContain('hidden');
     fireEvent.click(screen.getByTestId('rich-text-editor'));
     expect(screen.getByTestId('message-composer').getAttribute('data-phone-state')).toBe('open');
-    expect(screen.getByRole('button', { name: LOOK_UP }).className.split(/\s+/)).not.toContain('hidden');
+    expect(screen.getByRole('button', { name: LOOK_UP }).className.split(/\s+/)).not.toContain(
+      'hidden'
+    );
     scrollTo.mockRestore();
   });
 
@@ -479,8 +481,7 @@ describe('R and N on a phone, with another tab open', () => {
 // ─── The reply editor's AI draft hint ──────────────────────────────────────────
 
 describe('the reply editor says what AI draft does with what is typed', () => {
-  const HINT =
-    'Reply as Dana… or type the facts and press AI draft — empty drafts from the knowledge base.';
+  const HINT = 'Reply as Dana… or type the facts and press AI draft.';
 
   it('desktop, AI drafts on: the placeholder explains typed facts vs an empty editor', () => {
     renderDetail();
