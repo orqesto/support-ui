@@ -158,7 +158,8 @@ const tree = (
   </QueryClientProvider>
 );
 
-const LOOK_UP = 'Look up this customer in connected systems';
+// The composer's Look up button, by its accessible name (its hover text is a design-system tooltip).
+const LOOK_UP = 'Look up';
 const RING = 'ring-[3px]';
 const panel = () => screen.getByTestId('panel-tabs');
 
@@ -213,7 +214,7 @@ describe('MessageDetail Look up — seek and flash', () => {
     const root = addLookupRoot();
     const focus = vi.spyOn(root, 'focus');
     render(tree(client()));
-    fireEvent.click(await screen.findByTitle(LOOK_UP));
+    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
     flushFrame();
     expect(scrollIntoView).toHaveBeenCalledTimes(1);
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', behavior: 'smooth' });
@@ -225,9 +226,9 @@ describe('MessageDetail Look up — seek and flash', () => {
   it('a second press before the first frame runs cancels the first seek (one scroll, not two)', async () => {
     addLookupRoot();
     render(tree(client()));
-    fireEvent.click(await screen.findByTitle(LOOK_UP));
+    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
     const firstFrame = raf.mock.results.at(-1)?.value as number;
-    fireEvent.click(screen.getByTitle(LOOK_UP));
+    fireEvent.click(screen.getByRole('button', { name: LOOK_UP }));
     expect(caf).toHaveBeenCalledWith(firstFrame);
     flushFrame();
     expect(scrollIntoView).toHaveBeenCalledTimes(1);
@@ -236,7 +237,7 @@ describe('MessageDetail Look up — seek and flash', () => {
   it('a second press clears the first removal timer: the new ring outlives the first deadline', async () => {
     const root = addLookupRoot();
     render(tree(client()));
-    const button = await screen.findByTitle(LOOK_UP);
+    const button = await screen.findByRole('button', { name: LOOK_UP });
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     fireEvent.click(button);
     flushFrame();
@@ -244,7 +245,7 @@ describe('MessageDetail Look up — seek and flash', () => {
     act(() => {
       vi.advanceTimersByTime(600);
     });
-    fireEvent.click(screen.getByTitle(LOOK_UP));
+    fireEvent.click(screen.getByRole('button', { name: LOOK_UP }));
     flushFrame();
     expect(root).toHaveClass(RING);
     // Past press 1's deadline (1200 ms), before press 2's (1800 ms).
@@ -262,7 +263,7 @@ describe('MessageDetail Look up — seek and flash', () => {
     const root = addLookupRoot();
     const queryClient = client();
     const { rerender } = render(tree(queryClient));
-    fireEvent.click(await screen.findByTitle(LOOK_UP));
+    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
     flushFrame();
     expect(root).toHaveClass(RING);
     rerender(tree(queryClient, { id: 202 } as Partial<Message>));
@@ -273,7 +274,7 @@ describe('MessageDetail Look up — seek and flash', () => {
     addLookupRoot();
     const queryClient = client();
     const { rerender } = render(tree(queryClient));
-    fireEvent.click(await screen.findByTitle(LOOK_UP));
+    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
     rerender(tree(queryClient, { id: 202 } as Partial<Message>));
     flushFrame();
     expect(scrollIntoView).not.toHaveBeenCalled();
@@ -283,7 +284,7 @@ describe('MessageDetail Look up — seek and flash', () => {
     const root = addLookupRoot();
     const focus = vi.spyOn(root, 'focus');
     const { unmount } = render(tree(client()));
-    fireEvent.click(await screen.findByTitle(LOOK_UP));
+    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
     unmount();
     flushFrame();
     expect(scrollIntoView).not.toHaveBeenCalled();
@@ -294,7 +295,7 @@ describe('MessageDetail Look up — seek and flash', () => {
   it('unmount mid-flash takes the ring off', async () => {
     const root = addLookupRoot();
     const { unmount } = render(tree(client()));
-    fireEvent.click(await screen.findByTitle(LOOK_UP));
+    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
     flushFrame();
     expect(root).toHaveClass(RING);
     unmount();
@@ -303,7 +304,7 @@ describe('MessageDetail Look up — seek and flash', () => {
 
   it('gives up after 10 frames when the lookup block never renders', async () => {
     render(tree(client()));
-    fireEvent.click(await screen.findByTitle(LOOK_UP));
+    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
     raf.mockClear();
     for (let index = 0; index < 40 && frames.size > 0; index += 1) flushFrame();
     expect(frames.size).toBe(0);
@@ -319,7 +320,7 @@ describe('MessageDetail Look up — seek and flash', () => {
     media.wide = true;
     rerender(tree(queryClient, {}, { isFullPage: true }));
     expect(panel()).toHaveAttribute('data-variant', 'sidebar');
-    fireEvent.click(await screen.findByTitle(LOOK_UP));
+    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
     expect(panel()).toHaveAttribute('data-tab', 'lookups');
     expect(panel()).toHaveAttribute('data-open', 'false');
   });
@@ -328,11 +329,11 @@ describe('MessageDetail Look up — seek and flash', () => {
     media.wide = true;
     const queryClient = client();
     const { rerender } = render(tree(queryClient, {}, { isFullPage: true }));
-    await screen.findByTitle(LOOK_UP);
+    await screen.findByRole('button', { name: LOOK_UP });
     media.wide = false;
     rerender(tree(queryClient, {}, { isFullPage: true }));
     expect(panel()).toHaveAttribute('data-variant', 'rail');
-    fireEvent.click(screen.getByTitle(LOOK_UP));
+    fireEvent.click(screen.getByRole('button', { name: LOOK_UP }));
     expect(panel()).toHaveAttribute('data-open', 'true');
   });
 });

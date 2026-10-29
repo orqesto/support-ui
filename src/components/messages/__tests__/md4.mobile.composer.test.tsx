@@ -47,8 +47,8 @@ describe('M7 — the composer on a phone', () => {
     expect(classOf(box)).toContain('env(safe-area-inset-bottom)');
     expect(classOf(within(box).getByRole('group', { name: 'Composer mode' }))).toContain('hidden');
     expect(within(box).queryByRole('button', { name: 'Edit recipients' })).toBeNull();
-    expect(classOf(within(box).getByTitle('Attach files'))).toContain('hidden');
-    expect(classOf(within(box).getByTitle('Search knowledge base'))).toContain('hidden');
+    expect(classOf(within(box).getByTestId('composer-attach'))).toContain('hidden');
+    expect(classOf(within(box).getByRole('button', { name: 'KB' }))).toContain('hidden');
     expect(classOf(within(box).getByRole('button', { name: /AI draft/ }).parentElement)).toContain(
       '[&>button]:!h-10'
     );
@@ -69,7 +69,7 @@ describe('M7 — the composer on a phone', () => {
       'hidden'
     );
     expect(within(box).getByRole('button', { name: 'Edit recipients' })).toBeTruthy();
-    expect(classOf(within(box).getByTitle('Attach files'))).not.toContain('hidden');
+    expect(classOf(within(box).getByTestId('composer-attach'))).not.toContain('hidden');
     expect(screen.getByTestId('rich-text-editor').getAttribute('data-min-height')).toBe('96px');
     cleanup();
     renderDetail();

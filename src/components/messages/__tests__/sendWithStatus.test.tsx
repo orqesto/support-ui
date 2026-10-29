@@ -4,7 +4,17 @@
  */
 import { renderDetail, svc } from './md4.mobile.utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { createRef } from 'react';
+import type { Message } from '@/types';
+import { MessageComposer } from '../MessageComposer';
+import { readSendAction } from '../ComposerSendButton';
+import { toast } from '@/lib/toast';
+
+vi.mock('@/lib/toast', () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn(), warning: vi.fn() },
+}));
 
 const type = (text: string) =>
   fireEvent.change(screen.getByTestId('rich-text-editor'), { target: { value: text } });
@@ -106,17 +116,20 @@ describe('Send ▾ on an active thread', () => {
     expect(svc.message.close).not.toHaveBeenCalled();
   });
 
-  it('the reply is out but resolving fails: the box says so, not "send failed"', async () => {
+  it('the reply is out but resolving fails: a toast says so — not the "Send failed" bar', async () => {
     svc.message.close = vi.fn().mockRejectedValue(new Error('500'));
     renderDetail();
     type('<p>Done.</p>');
     pick('Send and resolve');
-    expect(
-      await screen.findByText('Sent — but resolving failed. Resolve it from the row below.')
-    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'Reply sent — but resolving failed. Resolve it from the Resolve row.'
+      )
+    );
+    expect(screen.queryByText(/Send failed/)).toBeNull();
   });
 
-  it('the last choice becomes the face — and Ctrl+Enter-style sends use it', async () => {
+  it('a menu pick becomes the face, and pressing the face sends with it', async () => {
     renderDetail();
     type('<p>Done.</p>');
     pick('Send and resolve');
@@ -125,6 +138,49 @@ describe('Send ▾ on an active thread', () => {
     type('<p>One more thing.</p>');
     fireEvent.click(screen.getByRole('button', { name: 'SEND & RESOLVE' }));
     await waitFor(() => expect(svc.message.close).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe('Send ▾ — what is remembered', () => {
+  it('cancelling the hold dialog does not make hold the face', async () => {
+    renderDetail();
+    type('<p>Hi.</p>');
+    pick('Send and put on hold');
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(window.localStorage.getItem('odly.sendAction.7')).toBeNull();
+    expect(screen.getByRole('button', { name: 'SEND' })).toBeInTheDocument();
+  });
+
+  it('CONTROL: a confirmed hold IS remembered', async () => {
+    renderDetail();
+    type('<p>Hi.</p>');
+    pick('Send and put on hold');
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Reason'), { target: { value: 'Courier' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send and put on hold' }));
+    await waitFor(() => expect(svc.message.setStatus).toHaveBeenCalled());
+    expect(window.localStorage.getItem('odly.sendAction.7')).toBe('hold');
+  });
+
+  it('pressing the fallback face on an unreviewed thread keeps the stored choice', async () => {
+    window.localStorage.setItem('odly.sendAction.7', 'resolve');
+    renderDetail({ status: 'open', lastReplyFromClient: false });
+    type('<p>Hello.</p>');
+    fireEvent.click(screen.getByRole('button', { name: 'SEND' }));
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalled());
+    expect(window.localStorage.getItem('odly.sendAction.7')).toBe('resolve');
+    expect(svc.message.close).not.toHaveBeenCalled();
+  });
+
+  it('a stored value that is not a choice ("constructor", "toString") reads as plain Send', () => {
+    window.localStorage.setItem('odly.sendAction.7', 'constructor');
+    expect(readSendAction(7)).toBe('send');
+    window.localStorage.setItem('odly.sendAction.7', 'toString');
+    expect(readSendAction(7)).toBe('send');
+    // CONTROL: a real choice reads back.
+    window.localStorage.setItem('odly.sendAction.7', 'resolve_kb');
+    expect(readSendAction(7)).toBe('resolve_kb');
   });
 });
 
@@ -166,5 +222,72 @@ describe('the Resolve row and the header while writing', () => {
     type('<p>Hello.</p>');
     expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
     expect(screen.getByTestId('header-chips').className).toMatch(/(^|\s)hidden(\s|$)/);
+  });
+});
+
+describe('the Resolve row when sending is blocked', () => {
+  const composerWith = (sendBlockedReason: string | null) =>
+    render(
+      <MemoryRouter>
+        <MessageComposer
+          message={{ id: 5, channel: 'whatsapp' } as unknown as Message}
+          composer="<p>A typed reply.</p>"
+          setComposer={vi.fn()}
+          composerMode="reply"
+          setComposerMode={vi.fn()}
+          submitting={false}
+          onSend={vi.fn()}
+          richEditorRef={createRef()}
+          noteEditorRef={createRef()}
+          onOpenSimilarMessages={vi.fn()}
+          selectedFiles={[]}
+          onFilesChange={vi.fn()}
+          sendBlockedReason={sendBlockedReason}
+          decisions={<div data-testid="decisions-row" />}
+        />
+      </MemoryRouter>
+    );
+
+  it('a typed reply on a shut WhatsApp window keeps the Resolve row (Send is off too)', () => {
+    composerWith('The 24-hour window is closed.');
+    expect(screen.getByTestId('decisions-row')).toBeInTheDocument();
+  });
+
+  it('CONTROL: a typed reply that can be sent hides it', () => {
+    composerWith(null);
+    expect(screen.queryByTestId('decisions-row')).toBeNull();
+  });
+});
+
+describe('the header tucks only on a thread with room to scroll', () => {
+  const scrollThread = (scrollHeight: number) => {
+    const scroller = screen.getByTestId('thread-scroller');
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: scrollHeight });
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 300 });
+    fireEvent.wheel(scroller);
+    scroller.scrollTop = 60;
+    fireEvent.scroll(scroller);
+  };
+
+  it('a long thread: scrolling down tucks the header', () => {
+    renderDetail();
+    scrollThread(2000);
+    expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
+  });
+
+  it('a short thread (would fit once tucked): scrolling down leaves it', () => {
+    renderDetail();
+    scrollThread(400);
+    expect(screen.getByTestId('detail-top-row')).not.toHaveAttribute('data-compact');
+  });
+
+  it('the thread jumping on its own (no wheel, touch or key) does not tuck it', () => {
+    renderDetail();
+    const scroller = screen.getByTestId('thread-scroller');
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 2000 });
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 300 });
+    scroller.scrollTop = 1700;
+    fireEvent.scroll(scroller);
+    expect(screen.getByTestId('detail-top-row')).not.toHaveAttribute('data-compact');
   });
 });

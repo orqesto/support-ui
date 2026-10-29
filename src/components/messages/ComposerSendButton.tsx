@@ -1,6 +1,7 @@
 import { BookOpen, CheckCircle2, ChevronDown, Clock, Send } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Menu, MenuItem, MenuLabel } from '@/components/ui/Menu';
+import { Tooltip } from '@/components/ui/Tooltip';
 
 /**
  * What happens to the conversation after a reply goes out (2026-10-29, as Zendesk's submit-as).
@@ -35,12 +36,14 @@ const SEGMENT =
 
 /**
  * The reply's Send as a split button: the face sends with the agent's last choice, the chevron
- * picks another — picking one sends at once and becomes the new face.
+ * picks another — picking one sends at once and becomes the new face. Ctrl+Enter is always a
+ * plain Send (MessageDetail): a keystroke never resolves or saves to the KB.
  */
 export function ComposerSendButton({
   action,
   actions,
   onSend,
+  onPick,
   disabled,
   submitting,
   title,
@@ -48,14 +51,17 @@ export function ComposerSendButton({
   action: SendAction;
   /** Offered in this state; the face falls back to plain Send when its action is not. */
   actions: SendAction[];
+  /** The face: sends with what it shows, and remembers nothing. */
   onSend: (action: SendAction) => void;
+  /** A menu pick: the agent's choice — sends with it, and it becomes the face. */
+  onPick: (action: SendAction) => void;
   disabled: boolean;
   submitting: boolean;
   title?: string;
 }) {
   const face = actions.includes(action) ? action : 'send';
-  return (
-    <span className="inline-flex items-stretch rounded-[7px] overflow-hidden" title={title}>
+  const button = (
+    <span className="inline-flex items-stretch rounded-[7px] overflow-hidden">
       <Button
         variant="ghost"
         onClick={() => onSend(face)}
@@ -89,7 +95,7 @@ export function ComposerSendButton({
               key={option}
               icon={ICON[option]}
               checked={option === face}
-              onSelect={() => onSend(option)}
+              onSelect={() => onPick(option)}
             >
               {SEND_ACTION_LABEL[option]}
             </MenuItem>
@@ -97,6 +103,14 @@ export function ComposerSendButton({
         </Menu>
       )}
     </span>
+  );
+  // Why Send is off (blank box, channel window shut), on hover over the whole control.
+  return title ? (
+    <Tooltip content={title} size="sm">
+      {button}
+    </Tooltip>
+  ) : (
+    button
   );
 }
 
@@ -106,7 +120,8 @@ const storageKey = (userId: number | string | undefined) => `odly.sendAction.${u
 export const readSendAction = (userId: number | string | undefined): SendAction => {
   try {
     const stored = window.localStorage.getItem(storageKey(userId));
-    return stored && stored in FACE ? (stored as SendAction) : 'send';
+    // Own keys only: `in` would accept 'constructor', 'toString'…
+    return stored && Object.hasOwn(FACE, stored) ? (stored as SendAction) : 'send';
   } catch {
     return 'send';
   }

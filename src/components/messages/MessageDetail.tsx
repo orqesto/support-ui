@@ -580,14 +580,16 @@ export function MessageDetail({
     track.top = top;
     const now = Date.now();
     if (now < track.settleUntil || now > track.intentUntil) return;
-    const tuck = top <= 4 ? false : delta > 6 ? true : delta < -6 ? false : null;
+    const el = event.currentTarget;
+    // Only a thread with room to spare tucks: on one that scrolls by less than the rows tucking
+    // hides, tucking made it fit, the browser reset the scroll to the top inside the settle
+    // window, and no scroll ever came to bring the header back.
+    const roomy = el.scrollHeight - el.clientHeight > 240;
+    const tuck = top <= 4 ? false : delta > 6 && roomy ? true : delta < -6 ? false : null;
     if (tuck === null) return;
     track.settleUntil = now + 300;
     setHeaderTucked(tuck);
   }, []);
-  useEffect(() => {
-    setHeaderTucked(false);
-  }, [message.id]);
 
   // Ownership prompt on Send (owner decision 2026-09-07). The workspace setting rides on the
   // organization payload every member may read; cached, one read per session.
@@ -780,11 +782,15 @@ export function MessageDetail({
             if (after.action !== 'hold') onResolve?.();
           } catch (err) {
             // The reply IS out — only the status step failed; say so instead of a send failure.
+            // A toast, not the send-failure bar: that bar is titled "Send failed", and the reply
+            // DID go out.
             logger.error('Sent, but the status change failed:', err);
-            setSendFailedError(
+            // With the server's own reason when it gave one (errorShape rule).
+            const reason = getApiErrorMessage(err);
+            toast.error(
               after.action === 'hold'
-                ? 'Sent — but putting it on hold failed. Use the status menu above.'
-                : 'Sent — but resolving failed. Resolve it from the row below.'
+                ? `Reply sent — but putting it on hold failed${reason ? `: ${reason}` : ''}. Put it on hold from the status menu.`
+                : `Reply sent — but resolving failed${reason ? `: ${reason}` : ''}. Resolve it from the Resolve row.`
             );
           }
         }
@@ -853,11 +859,10 @@ export function MessageDetail({
   // Resolving is offered where the Resolve row offers it with KB (an active thread); hold always.
   const sendActions: SendAction[] =
     resolveMode === 'active' ? ['send', 'resolve', 'resolve_kb', 'hold'] : ['send', 'hold'];
+  // Sends with an action WITHOUT remembering it: the Send ▾ face, which already shows the choice.
   const handleSendWith = useCallback(
     (action: SendAction) => {
       if (isBlankRichText(composer)) return;
-      setSendAction(action);
-      writeSendAction(currentUserId ?? undefined, action);
       // On hold needs its reason and recheck date first — asked BEFORE anything is sent.
       if (action === 'hold') {
         setSendHoldOpen(true);
@@ -866,7 +871,23 @@ export function MessageDetail({
       afterSendRef.current = { action };
       void handleSend();
     },
-    [composer, currentUserId, handleSend]
+    [composer, handleSend]
+  );
+  const rememberSendAction = useCallback(
+    (action: SendAction) => {
+      setSendAction(action);
+      writeSendAction(currentUserId ?? undefined, action);
+    },
+    [currentUserId]
+  );
+  // A Send ▾ menu pick: the agent's choice. Remembered as the face — On hold only once its dialog
+  // is confirmed, so a cancelled hold does not turn every later Send into a hold dialog.
+  const handleSendPick = useCallback(
+    (action: SendAction) => {
+      if (action !== 'hold') rememberSendAction(action);
+      handleSendWith(action);
+    },
+    [handleSendWith, rememberSendAction]
   );
 
   const handleOpenTemplates = useCallback(async () => {
@@ -1605,15 +1626,14 @@ export function MessageDetail({
             composerMode={composerMode}
             setComposerMode={setComposerMode}
             submitting={submitting}
-            // Ctrl+Enter and the folded box's round Send act as the Send ▾ face does.
-            onSend={() =>
-              composerMode === 'reply'
-                ? handleSendWith(sendActions.includes(sendAction) ? sendAction : 'send')
-                : void handleSend()
-            }
+            // Ctrl+Enter (and the folded box's round Send) is always a plain Send: a keystroke never
+            // resolves or saves to the KB — that takes the Send ▾ button, as resolving takes its
+            // dialog (openResolveDialog). Notes post as before.
+            onSend={() => (composerMode === 'reply' ? handleSendWith('send') : void handleSend())}
             sendActions={sendActions}
             sendAction={sendAction}
             onSendWith={handleSendWith}
+            onSendPick={handleSendPick}
             onOpenChange={setComposerOpen}
             richEditorRef={richEditorRef}
             noteEditorRef={noteEditorRef}
@@ -1720,6 +1740,7 @@ export function MessageDetail({
         busy={submitting}
         onConfirm={(hold) => {
           setSendHoldOpen(false);
+          rememberSendAction('hold');
           afterSendRef.current = { action: 'hold', hold };
           void handleSend();
         }}

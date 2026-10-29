@@ -4,6 +4,7 @@ import { Send, Paperclip, BookOpen, FileText, Search, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/Button';
+import { Tooltip } from '@/components/ui/Tooltip';
 import RichTextEditor, { extractImageFiles } from '@/components/shared/RichTextEditor';
 import { ComposerAiActions } from './ComposerAiActions';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
@@ -89,7 +90,10 @@ export type MessageComposerProps = {
    */
   sendActions?: SendAction[];
   sendAction?: SendAction;
+  /** The Send ▾ face: send with what it shows. */
   onSendWith?: (action: SendAction) => void;
+  /** A Send ▾ menu pick: the agent's choice — send with it and remember it. */
+  onSendPick?: (action: SendAction) => void;
   /** Told when the box opens or folds, so the host can shrink its header while a reply is written. */
   onOpenChange?: (open: boolean) => void;
 };
@@ -163,6 +167,7 @@ export function MessageComposer({
   sendActions,
   sendAction = 'send',
   onSendWith,
+  onSendPick,
   onOpenChange,
 }: MessageComposerProps) {
   const user = useAuthStore((store) => store.user);
@@ -233,6 +238,24 @@ export function MessageComposer({
     and the phone composer never folds away mid-request. The ref feeds the document listener.
   */
   const [aiBusy, setAiBusy] = useState(false);
+  // One gate for both Send buttons. Text is required even with files attached (no
+  // attachment-only sends); the channel block outranks the blank-text hint — if the window is
+  // shut, filling the box in changes nothing and saying so would mislead.
+  const sendDisabled =
+    isBlankRichText(composer) || submitting || aiBusy || Boolean(sendBlockedReason);
+  const sendTitle =
+    sendBlockedReason ??
+    (isBlankRichText(composer) ? 'Add a message — attachments alone can’t be sent' : undefined);
+  // An open tool's name on hover — the design-system tooltip, not the browser's title (repo rule);
+  // none on the folded pill, where the tools are hidden.
+  const withTip = (content: string, node: React.ReactNode) =>
+    atRest ? (
+      node
+    ) : (
+      <Tooltip content={content} size="sm">
+        {node}
+      </Tooltip>
+    );
   const aiActiveRef = useRef(false);
   /*
     Open on a press inside, fold on a press outside — decided by where the press BEGAN.
@@ -617,77 +640,67 @@ export function MessageComposer({
               ticketIdHint="Its ticket’s number — only when the thread is on a ticket"
             />
           )}
-          <label
-            className={`${IBTN} cursor-pointer max-sm:w-9 max-sm:justify-center max-sm:px-0 ${atRest ? 'hidden' : ''}`}
-            title="Attach files"
-          >
-            <Paperclip className="w-3 h-3 max-sm:w-4 max-sm:h-4" />
-            {/* Icon only on a phone (v4 mobile); the name stays for screen readers. */}
-            {isPhone || !wideTools ? <span className="sr-only">Attach</span> : 'Attach'}
-            <input
-              type="file"
-              multiple
-              onChange={handleFileSelect}
-              className="hidden"
-              disabled={submitting}
-            />
-          </label>
+          {withTip(
+            'Attach files',
+            <label
+              className={`${IBTN} cursor-pointer max-sm:w-9 max-sm:justify-center max-sm:px-0 ${atRest ? 'hidden' : ''}`}
+              data-testid="composer-attach"
+            >
+              <Paperclip className="w-3 h-3 max-sm:w-4 max-sm:h-4" />
+              {/* Icon only on a phone (v4 mobile); the name stays for screen readers. */}
+              {isPhone || !wideTools ? <span className="sr-only">Attach</span> : 'Attach'}
+              <input
+                type="file"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+                disabled={submitting}
+              />
+            </label>
+          )}
           {composerMode === 'reply' && !atRest && <span aria-hidden className={TOOL_DIVIDER} />}
-          {composerMode === 'reply' && (
-            <Button
-              variant="ghost"
-              onClick={onOpenSimilarMessages}
-              className={`${IBTN} h-auto ${atRest ? 'hidden' : ''}`}
-              title="Search knowledge base"
-            >
-              <BookOpen className="w-3 h-3" />
-              {isPhone || !wideTools ? <span className="sr-only">KB</span> : 'KB'}
-            </Button>
-          )}
-          {composerMode === 'reply' && onLookUp && (
-            <Button
-              variant="ghost"
-              onClick={onLookUp}
-              className={`${IBTN} h-auto ${atRest ? 'hidden' : ''}`}
-              title="Look up this customer in connected systems"
-            >
-              <Search className="w-3 h-3" />
-              {isPhone || !wideTools ? <span className="sr-only">Look up</span> : 'Look up'}
-            </Button>
-          )}
+          {composerMode === 'reply' &&
+            withTip(
+              'Search knowledge base',
+              <Button
+                variant="ghost"
+                onClick={onOpenSimilarMessages}
+                className={`${IBTN} h-auto ${atRest ? 'hidden' : ''}`}
+              >
+                <BookOpen className="w-3 h-3" />
+                {isPhone || !wideTools ? <span className="sr-only">KB</span> : 'KB'}
+              </Button>
+            )}
+          {composerMode === 'reply' &&
+            onLookUp &&
+            withTip(
+              'Look up this customer in connected systems',
+              <Button
+                variant="ghost"
+                onClick={onLookUp}
+                className={`${IBTN} h-auto ${atRest ? 'hidden' : ''}`}
+              >
+                <Search className="w-3 h-3" />
+                {isPhone || !wideTools ? <span className="sr-only">Look up</span> : 'Look up'}
+              </Button>
+            )}
           <span className={`flex-1 ${atRest ? 'hidden' : ''}`} />
-          {composerMode === 'reply' && !atRest && onSendWith && sendActions ? (
+          {composerMode === 'reply' && !atRest && onSendWith && onSendPick && sendActions ? (
             <ComposerSendButton
               action={sendAction}
               actions={sendActions}
               onSend={onSendWith}
+              onPick={onSendPick}
               submitting={submitting}
-              disabled={
-                isBlankRichText(composer) || submitting || aiBusy || Boolean(sendBlockedReason)
-              }
-              title={
-                sendBlockedReason ??
-                (isBlankRichText(composer)
-                  ? 'Add a message — attachments alone can’t be sent'
-                  : undefined)
-              }
+              disabled={sendDisabled}
+              title={sendTitle}
             />
           ) : (
             <Button
               variant="ghost"
               onClick={onSend}
-              // Require text even when files are attached — no attachment-only sends.
-              disabled={
-                isBlankRichText(composer) || submitting || aiBusy || Boolean(sendBlockedReason)
-              }
-              title={
-                // The channel block outranks the blank-text hint: if the window is shut,
-                // filling the box in changes nothing and saying so would mislead.
-                sendBlockedReason ??
-                (isBlankRichText(composer)
-                  ? 'Add a message — attachments alone can’t be sent'
-                  : undefined)
-              }
+              disabled={sendDisabled}
+              title={sendTitle}
               className={`flex items-center gap-1 px-[13px] py-[5px] h-auto rounded-[7px] font-display text-[10.5px] font-semibold uppercase tracking-[0.07em] transition-colors disabled:opacity-50 ${
                 composerMode === 'note'
                   ? 'bg-note hover:bg-note/90 text-note-foreground'
@@ -743,8 +756,9 @@ export function MessageComposer({
       )}
       {/* While a reply is typed, Send ▾ carries the resolve choices: the row returns when the
           box is empty again (owner, 2026-10-29). Text only: an address alone (Reply to this
-          message) leaves Send disabled, so hiding the row then left no way to resolve. */}
-      {isBlankRichText(composer) ? decisions : null}
+          message) leaves Send disabled, so hiding the row then left no way to resolve — as does a
+          channel block (WhatsApp's 24-hour window), which disables Send ▾ too. */}
+      {isBlankRichText(composer) || sendBlockedReason ? decisions : null}
     </div>
   );
 }

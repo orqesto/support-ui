@@ -57,9 +57,9 @@ describe('phone toolbar and Send classes', () => {
     setViewport(true);
     render(<MessageComposer {...props({ onLookUp: vi.fn() })} />);
     openIt();
-    expect(classOf(within(composer()).getByTitle('Attach files'))).toContain('max-sm:h-9');
-    expect(classOf(within(composer()).getByTitle('Search knowledge base'))).toContain('max-sm:h-9');
-    expect(classOf(within(composer()).getByTitle('Search knowledge base'))).toContain(
+    expect(classOf(within(composer()).getByTestId('composer-attach'))).toContain('max-sm:h-9');
+    expect(classOf(within(composer()).getByRole('button', { name: 'KB' }))).toContain('max-sm:h-9');
+    expect(classOf(within(composer()).getByRole('button', { name: 'KB' }))).toContain(
       'rounded-[7px]'
     );
     const toolbar = classOf(tools());
@@ -91,7 +91,7 @@ describe('phone toolbar and Send classes', () => {
     // Folded while empty on a desktop too (2026-10-29): press into it first.
     tap(editor());
     expect(composer().getAttribute('data-state')).toBe('open');
-    expect(within(composer()).getByTitle('Attach files').textContent).toBe('Attach');
+    expect(within(composer()).getByTestId('composer-attach').textContent).toBe('Attach');
     expect(screen.getByText('Attach')).toBeInTheDocument();
     expect(classOf(spacer()).split(/\s+/)).toContain('flex-1');
     expect(classOf(spacer()).split(/\s+/)).not.toContain('hidden');
