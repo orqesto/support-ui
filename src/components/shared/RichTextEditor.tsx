@@ -513,7 +513,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
           </div>
         )}
 
-        <div style={maxHeight ? { maxHeight, overflowY: 'auto' } : undefined}>
+        {/* data-editor-scroll: the box a host measures to resize the editor (reply box handle). */}
+        <div data-editor-scroll style={maxHeight ? { maxHeight, overflowY: 'auto' } : undefined}>
           <EditorContent editor={editor} className="rich-text-editor" style={{ minHeight }} />
         </div>
       </div>
