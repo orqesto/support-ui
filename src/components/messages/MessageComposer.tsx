@@ -220,7 +220,9 @@ export function MessageComposer({
   const replyAs = `Reply as ${user?.firstName ?? 'you'}…`;
   const replyPlaceholder =
     aiConfigured && !aiDraftsOff && !atRest
-      ? `${replyAs} or type the facts and press AI draft — empty drafts from the knowledge base.`
+      ? // One line in the slide-over's 44px editor: the longer hint wrapped and its second line was
+        // cut off. "Empty = from the knowledge base" is on the AI draft button's own hover.
+        `${replyAs} or type the facts and press AI draft.`
       : replyAs;
   const openComposer = () => {
     if (!open) setOpen(true);
