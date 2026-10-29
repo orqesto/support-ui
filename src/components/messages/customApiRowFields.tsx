@@ -255,12 +255,24 @@ const ListGrid = ({
  */
 const FieldGrid = ({ row, fields }: { row: Record<string, unknown>; fields: LookupField[] }) => {
   const seen = new Set<string>();
+  /*
+    ⛔ THE ONE EXCEPTION TO "NOTHING IS EVER DROPPED": a tracking-tagged field with no value. An
+    order not yet shipped has no parcel, and that is its normal state, not missing data — a
+    "TRACKING —" line on every unshipped order is noise (owner, 2026-10-29: show it only when it
+    exists). A list read for tracking (`trackings[]`) goes with its tracking fields: its carrier
+    alone, with no parcel to belong to, says nothing either.
+  */
+  const isEmptyTracking = (group: LookupField[]): boolean => {
+    const tracking = group.filter((field) => TRACKING_ROLES.includes(roleOf(field) ?? ''));
+    return tracking.length > 0 && tracking.every((field) => valuesOf(row, field).length === 0);
+  };
   return (
     // `minmax(0,1fr)`, not `1fr`: a plain `1fr` track is at least as wide as its longest unbroken
     // value, which widened the card past a phone screen (2026-10-14).
     <div className="grid grid-cols-[88px_minmax(0,1fr)] gap-x-3 gap-y-0.5">
       {fields.map((field) => {
         const list = listOf(field.path);
+        if (list === null && isEmptyTracking([field])) return null;
         if (list === null)
           return (
             <div key={field.path} className="contents">
@@ -273,6 +285,7 @@ const FieldGrid = ({ row, fields }: { row: Record<string, unknown>; fields: Look
         if (seen.has(list)) return null;
         seen.add(list);
         const group = fields.filter((other) => listOf(other.path) === list);
+        if (isEmptyTracking(group)) return null;
         return (
           <ListGrid
             /*
@@ -307,6 +320,9 @@ const roleOf = (field: LookupField): string | null => {
   const value = (field as { role?: unknown }).role;
   return typeof value === 'string' ? value : null;
 };
+
+/** The roles that name a parcel. A field tagged with one is hidden while it has no value. */
+const TRACKING_ROLES: readonly string[] = ['tracking_number', 'tracking_link'];
 
 /** One parcel: its number, its carrier page, or both. */
 export type TrackingItem = { number: string | null; link: string | null };
@@ -387,7 +403,8 @@ const TrackingValue = ({ item }: { item: TrackingItem }) => {
  * ⛔ NOTHING IS EVER DROPPED. The header takes a role field only when that field HAS a value on
  * this row; everything else — unroled fields, and a role field whose value is missing — falls
  * through to the same grid as before, where it still reads `STATUS —`. So the card can only ever
- * re-arrange what the plain list already showed, never hide part of it.
+ * re-arrange what the plain list already showed, never hide part of it — with ONE exception, a
+ * tracking field with no value (see `FieldGrid`).
  */
 const RecordCard = ({
   row,
