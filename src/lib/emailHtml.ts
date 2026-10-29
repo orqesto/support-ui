@@ -215,6 +215,13 @@ function emailPurifier(): ReturnType<typeof createDOMPurify> {
       node.setAttribute('rel', 'noopener noreferrer');
     }
 
+    // Every email image is fetched through OUR backend's image proxy. Without lazy loading,
+    // opening a long newsletter or order thread asked the backend for all of them at once.
+    if (node.tagName === 'IMG') {
+      node.setAttribute('loading', 'lazy');
+      node.setAttribute('decoding', 'async');
+    }
+
     if (node.hasAttribute('class')) {
       const prefixed = context
         ? prefixClasses(node.getAttribute('class') ?? '', context.eventId)

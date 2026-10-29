@@ -58,3 +58,38 @@ describe('useCoalescedRefresh', () => {
     expect(second).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('useCoalescedRefresh — a hidden tab waits', () => {
+  const setVisibility = (state: 'visible' | 'hidden') => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state });
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    setVisibility('visible');
+    vi.useRealTimers();
+  });
+
+  it('refreshes nothing while hidden, then ONCE when the tab comes back', () => {
+    const refresh = vi.fn();
+    const { result } = renderHook(() => useCoalescedRefresh(refresh, 1000));
+    setVisibility('hidden');
+    act(() => {
+      for (let window = 0; window < 5; window += 1) {
+        result.current();
+        vi.advanceTimersByTime(1000);
+      }
+    });
+    expect(refresh).not.toHaveBeenCalled();
+    act(() => setVisibility('visible'));
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('CONTROL — coming back with nothing missed refreshes nothing', () => {
+    const refresh = vi.fn();
+    renderHook(() => useCoalescedRefresh(refresh, 1000));
+    act(() => setVisibility('hidden'));
+    act(() => setVisibility('visible'));
+    expect(refresh).not.toHaveBeenCalled();
+  });
+});
