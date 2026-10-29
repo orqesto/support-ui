@@ -140,6 +140,7 @@ export const TicketsPage = () => {
     `${countsKey}:${selectedDeptKey}`
   );
 
+  const listReadInFlight = useRef<string | null>(null);
   const fetchTickets = useCallback(
     async (page = 1, force = false) => {
       // Check cache first
@@ -154,12 +155,18 @@ export const TicketsPage = () => {
         }
       }
 
+      const apiFilters = ticketApiFilters(filters, currentUserId);
+      // The same read already on its way answers this one too. On open the page asked for the same
+      // list twice in the same millisecond (staging, 2026-10-29): 4–5 s each on a 25,000-ticket
+      // workspace, in the queue with everything else the page loads. A forced read still goes.
+      const readKey = JSON.stringify([apiFilters, page, sorting, selectedDeptKey]);
+      if (!force && listReadInFlight.current === readKey) return;
+      listReadInFlight.current = readKey;
+
       setLoading(true);
       // A forced fetch means something changed (realtime, a write here): the pill counts follow.
       if (force) setCountsKey((key) => key + 1);
       try {
-        const apiFilters = ticketApiFilters(filters, currentUserId);
-
         const response = await ticketService.getAll(
           Object.keys(apiFilters).length > 0 ? apiFilters : undefined,
           page,
@@ -188,6 +195,7 @@ export const TicketsPage = () => {
       } catch (error) {
         logger.error('Failed to fetch tickets:', error);
       } finally {
+        if (listReadInFlight.current === readKey) listReadInFlight.current = null;
         setLoading(false);
       }
     },
