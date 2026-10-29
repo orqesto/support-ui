@@ -32,7 +32,13 @@ import { Checkbox } from '@/components/ui/Checkbox';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { NOTIFICATION_COUNTS_KEY, useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { exactTotal, formatTotal } from '@/lib/listTotals';
-import { messageService, type ListScope, type MessageThread } from '@/services/message.service';
+import {
+  messageService,
+  type ListScope,
+  type MessageThread,
+  type PaginationMeta,
+  type ThreadsResponse,
+} from '@/services/message.service';
 import { ListScopeNotice } from './ListScopeNotice';
 import { type FilterState, type SortingState } from '@/stores/messagesStore';
 import { Select } from '@/components/ui/Select';
@@ -454,6 +460,20 @@ const HIDEABLE_COLS = new Set(['on_hold', 'resolved']);
  */
 const countsTowardTriageBadge = (col: { id: string; axis: string }): boolean =>
   col.axis === 'triage' && col.id !== 'no_lane';
+
+// See loadBoardScope: an answer without `orphanOutgoing` comes from a backend that predates
+// `view=board` and describes some other lens, so it is no answer at all.
+const boardScopeFrom = (answer: { scope?: ListScope | null; pagination: PaginationMeta }) =>
+  answer.scope?.hiddenBecause.orphanOutgoing !== undefined
+    ? {
+        scope: answer.scope,
+        shown: answer.pagination.total,
+        shownCapped: answer.pagination.totalCapped === true,
+      }
+    : null;
+
+// The board read's count id for the scope; column ids never start with `__`.
+const BOARD_SCOPE_COUNT = '__board';
 const HIDDEN_COLS_KEY = 'kanban_hidden_cols';
 
 const loadHiddenCols = (): Set<string> => {
@@ -571,6 +591,26 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
   // already loaded, not just page 1. Reloading page 1 alone replaced the column with 20
   // rows, which threw away each "Load more" page and jumped the scroll back to the top
   // on every mark-as-read. One larger request can't stand in: the API caps `limit` at 50.
+  // One column's pages, as loaded — by its own requests or by the board read.
+  const applyColumnPages = useCallback((colId: string, results: ThreadsResponse[]) => {
+    const last = results[results.length - 1];
+    setColStates((prev) => ({
+      ...prev,
+      [colId]: {
+        threads: uniqueThreads(
+          results.flatMap((res) => res.data.filter((thread) => thread.latestMessage !== null))
+        ),
+        total: last.pagination.total,
+        totalCapped: last.pagination.totalCapped === true,
+        loading: false,
+        hasMore: last.pagination.page < last.pagination.totalPages,
+        // Rows can leave the column between loads; never claim a page past the end,
+        // or the next "Load more" would ask for one that does not exist.
+        page: Math.max(1, Math.min(last.pagination.page, last.pagination.totalPages)),
+      },
+    }));
+  }, []);
+
   const loadColumn = useCallback((colId: string, keepDepth = false) => {
     const col = COLUMNS.find((kanbanCol) => kanbanCol.id === colId);
     if (!col) return () => {};
@@ -598,22 +638,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
           setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: false } }));
           return;
         }
-        const last = results[results.length - 1];
-        setColStates((prev) => ({
-          ...prev,
-          [colId]: {
-            threads: uniqueThreads(
-              results.flatMap((res) => res.data.filter((thread) => thread.latestMessage !== null))
-            ),
-            total: last.pagination.total,
-            totalCapped: last.pagination.totalCapped === true,
-            loading: false,
-            hasMore: last.pagination.page < last.pagination.totalPages,
-            // Rows can leave the column between loads; never claim a page past the end,
-            // or the next "Load more" would ask for one that does not exist.
-            page: Math.max(1, Math.min(last.pagination.page, last.pagination.totalPages)),
-          },
-        }));
+        applyColumnPages(colId, results);
       } catch (err) {
         if (!cancelled) {
           logger.error(`Failed to fetch kanban column ${colId}:`, err);
@@ -624,7 +649,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applyColumnPages]);
 
   // Server-side UNREAD count across the triage queues, for the Triage tab badge.
   // One count request per triage column with `limit=1` — we only read
@@ -731,16 +756,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
          * presence is the signal that the answer means what we think. `scope` absent or
          * null already means "no information"; so does an old shape.
          */
-        const usable = res.scope?.hiddenBecause.orphanOutgoing !== undefined;
-        setBoardScope(
-          usable
-            ? {
-                scope: res.scope as ListScope,
-                shown: res.pagination.total,
-                shownCapped: res.pagination.totalCapped === true,
-              }
-            : null
-        );
+        setBoardScope(boardScopeFrom(res));
         onLoaded?.();
       } catch (err) {
         // Non-fatal: the notice is informational, the board is not. Clear it rather than
@@ -755,6 +771,111 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
       cancelled = true;
     };
   }, []);
+
+  /**
+   * The columns, the unread badge and (when asked) the scope in ONE request
+   * (`POST /threads/board`), where the board used to send one search per column, one per unread
+   * badge and one for the scope: nine on every refresh. Each entry is listed by the same backend
+   * code as its own search, so what lands here is what those requests answered.
+   *
+   * A backend without the route (it ships on a tag, this repo on merge) answers `null`, and the
+   * board reads itself the old way — `loadColumn`, `loadTriageUnread`, `loadBoardScope`.
+   */
+  const loadBoard = useCallback(
+    ({
+      colIds,
+      keepDepth,
+      unread,
+      scope,
+      onScopeLoaded,
+    }: {
+      colIds: string[];
+      keepDepth: boolean;
+      unread: boolean;
+      scope: boolean;
+      onScopeLoaded?: () => void;
+    }) => {
+      let cancelled = false;
+      let fallbackCancels: Array<() => void> = [];
+      const columns = COLUMNS.filter((col) => colIds.includes(col.id));
+      const triageCols = unread ? COLUMNS.filter(countsTowardTriageBadge) : [];
+      setColStates((prev) => {
+        const next = { ...prev };
+        for (const col of columns) next[col.id] = { ...prev[col.id], loading: true };
+        return next;
+      });
+      void (async () => {
+        try {
+          const answer = await messageService.getThreadBoard({
+            filters: sharedFiltersRef.current,
+            columns: columns.map((col) => {
+              const sort = colSortRef.current[col.id] ?? { sortBy: 'time', sortOrder: 'desc' };
+              return {
+                id: col.id,
+                filters: col.fixedFilters,
+                sortOrder: sort.sortOrder,
+                ...(sort.sortBy !== 'time' ? { sortBy: sort.sortBy } : {}),
+                limit: PAGE_SIZE,
+                pages: keepDepth ? Math.max(1, colStatesRef.current[col.id]?.page ?? 1) : 1,
+              };
+            }),
+            counts: [
+              ...triageCols.map((col) => ({
+                id: col.id,
+                filters: { ...col.fixedFilters, read: 'unread' },
+              })),
+              ...(scope ? [{ id: BOARD_SCOPE_COUNT, filters: { view: 'board', scope: '1' } }] : []),
+            ],
+          });
+          if (cancelled) return;
+          if (!answer) {
+            fallbackCancels = [
+              ...columns.map((col) => loadColumn(col.id, keepDepth)),
+              ...(unread ? [loadTriageUnread()] : []),
+              ...(scope ? [loadBoardScope(onScopeLoaded)] : []),
+            ];
+            return;
+          }
+          for (const col of columns) {
+            const pages = answer.columns[col.id];
+            if (pages && pages.length > 0) applyColumnPages(col.id, pages);
+            // Keep what is on screen rather than half a column; just stop "Loading…".
+            else setColStates((prev) => ({ ...prev, [col.id]: { ...prev[col.id], loading: false } }));
+          }
+          if (unread) {
+            // A count that failed, was capped or cut short is not a number to add up: keep the
+            // previous badge, as loadTriageUnread does.
+            const totals = triageCols.map((col) => {
+              const count = answer.counts[col.id];
+              return count ? exactTotal(count.pagination) : undefined;
+            });
+            if (!totals.some((num) => num === undefined)) {
+              setTriageUnread(totals.reduce<number>((sum, num) => sum + (num ?? 0), 0));
+            }
+          }
+          if (scope) {
+            const count = answer.counts[BOARD_SCOPE_COUNT];
+            setBoardScope(count ? boardScopeFrom(count) : null);
+            if (count) onScopeLoaded?.();
+          }
+        } catch (err) {
+          if (cancelled) return;
+          logger.error('Failed to fetch the kanban board:', err);
+          setColStates((prev) => {
+            const next = { ...prev };
+            for (const col of columns) next[col.id] = { ...prev[col.id], loading: false };
+            return next;
+          });
+          if (scope) setBoardScope(null);
+        }
+      })();
+      return () => {
+        cancelled = true;
+        fallbackCancels.forEach((cancel) => cancel());
+      };
+    },
+    [applyColumnPages, loadColumn, loadTriageUnread, loadBoardScope]
+  );
 
   // Optimistic single-card move — pull the card out of whichever column currently
   // holds it and drop it into the destination column, all in local state. No column
@@ -845,13 +966,10 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     // at; they load when their tab opens (the effect below). Its Triage total stays hidden
     // until then — the unread badge beside it is still counted here.
     loadGenRef.current = `${filterKey}|${selectedDeptKey}|${String(refreshKey)}`;
-    const cancels = COLUMNS.filter((col) => col.axis === activeTabRef.current).map((col) => {
+    const colIds = COLUMNS.filter((col) => col.axis === activeTabRef.current).map((col) => {
       colLoadedGenRef.current[col.id] = loadGenRef.current;
-      return loadColumn(col.id, !scopeChanged);
+      return col.id;
     });
-    // Same triggers as the columns themselves, so the unread badge can never drift
-    // out of step with the totals beside it.
-    cancels.push(loadTriageUnread());
     // A scope count describing the PREVIOUS filter is worse than none, because it reads as a
     // fact about what is on screen now — so it re-reads when the SCOPE changes. Not on a plain
     // refresh: it is the single heaviest read on the board (an aggregate over the whole org,
@@ -860,27 +978,33 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     // The flag is set only by an answer that landed, so a load cancelled by a quick re-run is
     // retried on the next refresh instead of leaving the board without its scope.
     if (scopeChanged) boardScopeLoadedRef.current = false;
-    if (!boardScopeLoadedRef.current) {
-      cancels.push(
-        loadBoardScope(() => {
-          boardScopeLoadedRef.current = true;
-        })
-      );
-    }
-    return () => cancels.forEach((cancel) => cancel());
-  }, [filterKey, refreshKey, selectedDeptKey, loadColumn, loadTriageUnread, loadBoardScope]);
+    // Same triggers as the columns themselves, so the unread badge can never drift
+    // out of step with the totals beside it.
+    return loadBoard({
+      colIds,
+      keepDepth: !scopeChanged,
+      unread: true,
+      scope: !boardScopeLoadedRef.current,
+      onScopeLoaded: () => {
+        boardScopeLoadedRef.current = true;
+      },
+    });
+  }, [filterKey, refreshKey, selectedDeptKey, loadBoard]);
 
   // A tab opened: load its columns unless they already answered for the current scope/refresh.
   useEffect(() => {
     const stale = COLUMNS.filter(
       (col) => col.axis === activeTab && colLoadedGenRef.current[col.id] !== loadGenRef.current
     );
-    const cancels = stale.map((col) => {
-      colLoadedGenRef.current[col.id] = loadGenRef.current;
-      return loadColumn(col.id, true);
+    if (stale.length === 0) return undefined;
+    for (const col of stale) colLoadedGenRef.current[col.id] = loadGenRef.current;
+    return loadBoard({
+      colIds: stale.map((col) => col.id),
+      keepDepth: true,
+      unread: false,
+      scope: false,
     });
-    return () => cancels.forEach((cancel) => cancel());
-  }, [activeTab, loadColumn]);
+  }, [activeTab, loadBoard]);
 
   // When ONE column's sort changes, reload only that column (diff vs the previous
   // snapshot). Avoids refetching all seven columns on a single per-column change.
@@ -1029,10 +1153,12 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
         // the page's coalesced refresh, and this one used to ride on its own socket echo — so
         // without this a reopen landing in another column than the drop target, or the column
         // totals, would stay wrong for up to that window.
-        COLUMNS.filter((col) => col.axis === activeTabRef.current).forEach((col) =>
-          loadColumn(col.id, true)
-        );
-        loadTriageUnread();
+        loadBoard({
+          colIds: COLUMNS.filter((col) => col.axis === activeTabRef.current).map((col) => col.id),
+          keepDepth: true,
+          unread: true,
+          scope: false,
+        });
       } catch (err) {
         logger.error(`Failed to move thread ${threadId} from ${fromColId} to ${toColId}:`, err);
         // Surface the server reason (e.g. a 409 "cannot be reopened") — the optimistic
@@ -1061,7 +1187,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
         });
       }
     },
-    [queryClient, loadColumn, loadTriageUnread]
+    [queryClient, loadBoard]
   );
 
   /**

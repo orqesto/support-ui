@@ -12,7 +12,7 @@ import { messageService } from '@/services/message.service';
 import { MessagesKanbanView } from '../MessagesKanbanView';
 
 vi.mock('@/services/message.service', () => ({
-  messageService: { getThreads: vi.fn(), classify: vi.fn(), reopen: vi.fn() },
+  messageService: { getThreads: vi.fn(), getThreadBoard: vi.fn(), classify: vi.fn(), reopen: vi.fn() },
 }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'dept' }));
 vi.mock('@/hooks/useNotificationCounts', () => ({
@@ -73,8 +73,18 @@ describe('Board scope count', () => {
   });
 
   it('a load cancelled before it answered is retried on the next refresh', async () => {
+    // The first scope read never answers, so the refresh below cancels it in flight.
+    const answer = getThreads.getMockImplementation();
+    let held = false;
+    getThreads.mockImplementation((filters, ...rest) => {
+      if (!held && filters?.view === 'board') {
+        held = true;
+        return new Promise(() => {});
+      }
+      return answer!(filters, ...rest);
+    });
     const view = render(renderBoard(0));
-    // Re-render before the first answer lands: its cleanup cancels the scope load.
+    await waitFor(() => expect(scopeCalls()).toBe(1));
     view.rerender(renderBoard(1));
     await waitFor(() => expect(scopeCalls()).toBe(2));
     view.rerender(renderBoard(2));

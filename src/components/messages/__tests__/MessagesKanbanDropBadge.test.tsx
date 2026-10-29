@@ -32,7 +32,12 @@ vi.mock('@dnd-kit/core', async (importOriginal) => {
   };
 });
 vi.mock('@/services/message.service', () => ({
-  messageService: { getThreads: vi.fn(), classify: vi.fn(), reopen: vi.fn() },
+  messageService: {
+    getThreads: vi.fn(),
+    getThreadBoard: vi.fn(),
+    classify: vi.fn(),
+    reopen: vi.fn(),
+  },
 }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'dept' }));
 vi.mock('@/components/ui/Select', () => ({ Select: () => null }));
