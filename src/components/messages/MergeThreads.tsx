@@ -124,14 +124,20 @@ export const MergePickerDialog = ({
       setSearching(true);
       setError(null);
       try {
-        const res = await messageService.getThreads({ search: term, lifecycle: 'all' }, 1, 25);
+        // Same channel asked of the backend: filtering after the 25-row page showed short
+        // pages (fewer than 25 while more same-channel threads matched).
+        const res = await messageService.getThreads(
+          { search: term, lifecycle: 'all', channel: message.channel },
+          1,
+          25
+        );
         if (seq !== searchSeq.current) return;
         setCandidates(
           (res.data ?? [])
             // The customer from the thread row; spam-log rows (no conversation) dropped.
             .map(threadRowMessage)
             .filter((row): row is Message => !!row && row.id !== message.id)
-            // Same channel only: the backend refuses the rest, so do not offer them.
+            // Same channel only (asked above; kept as a guard): the backend refuses the rest.
             .filter((row) => row.channel === message.channel)
         );
       } catch (err) {

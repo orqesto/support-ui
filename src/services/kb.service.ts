@@ -255,6 +255,8 @@ export type PaginatedResponse<T> = {
     pagination: PaginationMeta;
     /** Absent on a backend that predates it; normalised to null by `kbService.getAll`. */
     idMatch?: KbIdMatch | null;
+    /** How a typed search was read (backend on the search engine); absent on an older one. */
+    search?: { terms: string[]; asPhrase: boolean } | null;
     /**
      * What the server applied. `status` is NOT proof: every backend echoes the requested status,
      * and an older one returns the unfiltered list for a status it does not know.

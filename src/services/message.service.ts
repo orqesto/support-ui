@@ -72,6 +72,7 @@ export type ReceivedAddresses = {
 
 import type { WhatsAppTemplate } from '@/components/messages/whatsappTemplates';
 import type { MessageListItem, MessageDetail } from '@/types/api';
+import { postOrGet } from '@/services/searchPost';
 
 // Strip undefined/null values so URLSearchParams never sends "?status=undefined"
 const cleanFilters = (filters?: Record<string, string>): Record<string, string> =>
@@ -542,10 +543,17 @@ export const messageService = {
       params.append('sortOrder', sortOrder);
     }
 
-    const response = await apiClient.get<PaginatedResponse<MessageListItem[]>>(
-      `/api/messages?${params.toString()}`
+    // The filters, a typed search among them, in a POST body (searchPost.ts).
+    return postOrGet<PaginatedResponse<MessageListItem[]>>(
+      'messages',
+      () =>
+        apiClient.post<PaginatedResponse<MessageListItem[]>>(
+          '/api/messages/search',
+          Object.fromEntries(params)
+        ),
+      () =>
+        apiClient.get<PaginatedResponse<MessageListItem[]>>(`/api/messages?${params.toString()}`)
     );
-    return response.data;
   },
 
   // Accepts numeric `id` OR publicId (`SUP-42`). The BE's resolveConvIdFromParam
@@ -1235,9 +1243,20 @@ export const messageService = {
       page: page.toString(),
       limit: limit.toString(),
     });
-    const response = await apiClient.get<PaginatedResponse<MessageContact[]>>(
-      `/api/messages/contacts?${params.toString()}`
+    // The filters, a typed search among them, in a POST body (searchPost.ts).
+    const data = await postOrGet<PaginatedResponse<MessageContact[]>>(
+      'contacts',
+      () =>
+        apiClient.post<PaginatedResponse<MessageContact[]>>(
+          '/api/messages/contacts/search',
+          Object.fromEntries(params)
+        ),
+      () =>
+        apiClient.get<PaginatedResponse<MessageContact[]>>(
+          `/api/messages/contacts?${params.toString()}`
+        )
     );
+    const response = { data };
     // Version skew: a backend without the note summary sends neither field.
     const rows = response.data.data;
     if (Array.isArray(rows)) {

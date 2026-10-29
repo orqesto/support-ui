@@ -147,7 +147,11 @@ describe('H4 — the Merged chip and Same conversation', () => {
     expect(
       await within(dialog).findByText('Could not search threads just now.')
     ).toBeInTheDocument();
-    expect(svc.getThreads).toHaveBeenLastCalledWith({ search: 'foo', lifecycle: 'all' }, 1, 25);
+    expect(svc.getThreads).toHaveBeenLastCalledWith(
+      { search: 'foo', lifecycle: 'all', channel: 'email' },
+      1,
+      25
+    );
     // Under the error: no row from the earlier search, nothing to Choose.
     expect(within(dialog).queryByText('Acme order')).toBeNull();
     expect(within(dialog).queryByRole('button', { name: 'Choose' })).toBeNull();

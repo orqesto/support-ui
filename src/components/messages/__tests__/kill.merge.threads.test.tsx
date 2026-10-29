@@ -99,7 +99,13 @@ describe('MergePickerDialog — opening', () => {
     expect(mocks.getThreads).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'open picker' }));
     await waitFor(() => expect(mocks.getThreads).toHaveBeenCalledTimes(1));
-    expect(mocks.getThreads).toHaveBeenCalledWith({ search: 'acme.io', lifecycle: 'all' }, 1, 25);
+    // The thread's own channel is asked of the backend, so the 25 are all offerable — filtering
+    // after the page showed fewer than 25 while more same-channel threads matched.
+    expect(mocks.getThreads).toHaveBeenCalledWith(
+      { search: 'acme.io', lifecycle: 'all', channel: 'email' },
+      1,
+      25
+    );
     expect(within(picker()).getByDisplayValue('acme.io')).toBeInTheDocument();
   });
 

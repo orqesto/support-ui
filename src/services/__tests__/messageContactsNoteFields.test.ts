@@ -12,7 +12,8 @@ describe('messageService.getContacts — note fields', () => {
       authorFirstName: null,
       authorLastName: null,
     };
-    const get = vi.spyOn(apiClient, 'get').mockResolvedValue({
+    // The list posts its filters (searchPost.ts).
+    const get = vi.spyOn(apiClient, 'post').mockResolvedValue({
       data: {
         success: true,
         data: [
