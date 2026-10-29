@@ -16,7 +16,7 @@ import { kbService } from '@/services/kb.service';
 import { messageService } from '@/services/message.service';
 import { SLA_DEFAULT_DAYS } from '@/components/sla/SLAByPriorityTable';
 import { slaService } from '@/services/sla.service';
-import { ticketService } from '@/services/ticket.service';
+import { fetchTicketViewCounts, ticketService } from '@/services/ticket.service';
 import { useMessagesStore } from '@/stores/messagesStore';
 import { logger } from '@/lib/logger';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -103,6 +103,102 @@ const pageTotal = async (
   return res?.success && typeof res.pagination?.total === 'number' ? res.pagination.total : null;
 };
 
+/**
+ * The tiles' thread and ticket counts. Each group is ONE request — the board's counts
+ * (`POST /threads/board`) and `POST /tickets/counts` — read exactly as one list read each. The
+ * dashboard sent ten thread searches and three ticket lists for them: 40 requests per open on a
+ * 130,000-thread workspace (staging, 2026-10-29), every one 1.2–2 s in the queue that made.
+ */
+const THREAD_COUNTS = [
+  { id: 'slaBreach', what: 'SLA breaches', filters: { view: 'work_queue', slaBreached: 'true' } },
+  { id: 'slaAtRisk', what: 'SLA at risk', filters: { view: 'work_queue', slaAtRisk: 'true' } },
+  { id: 'resolvedExclKB', what: 'resolved', filters: { view: 'resolved', excludeKB: 'true' } },
+  { id: 'closedExclKB', what: 'closed', filters: { view: 'active', processed: 'closed' } },
+  { id: 'active', what: 'active', filters: { view: 'inbox', excludeNotAnalysed: 'true' } },
+  {
+    id: 'clientReplied',
+    what: 'client replied',
+    filters: { view: 'client_replied', excludeNotAnalysed: 'true' },
+  },
+  {
+    id: 'awaiting',
+    what: 'awaiting response',
+    filters: { view: 'awaiting_response', excludeNotAnalysed: 'true' },
+  },
+  { id: 'suspicious', what: 'suspicious', filters: { view: 'suspicious' } },
+  { id: 'notAnalysed', what: 'not analysed', filters: { view: 'not_analysed' } },
+  { id: 'resolved', what: 'resolved messages', filters: { view: 'resolved' } },
+] as const;
+type ThreadCountId = (typeof THREAD_COUNTS)[number]['id'];
+
+const TICKET_COUNTS = [
+  { id: 'open', what: 'open tickets', filters: { status: 'open' } },
+  { id: 'inProgress', what: 'in-progress tickets', filters: { status: 'in_progress' } },
+  { id: 'pending', what: 'pending tickets', filters: { status: 'pending' } },
+] as const;
+type TicketCountId = (typeof TICKET_COUNTS)[number]['id'];
+
+const nothingKnown = <K extends string>(ids: readonly { id: K }[]) =>
+  Object.fromEntries(ids.map(({ id }) => [id, null])) as Record<K, Count>;
+
+/**
+ * Every thread tile's total in one board request. A backend without the route (`null`) gets one
+ * search per tile, as before; a failed request leaves every thread tile unknown rather than
+ * sending the ten searches it replaced.
+ */
+const threadTotals = async (): Promise<Record<ThreadCountId, Count>> => {
+  try {
+    const board = await messageService.getThreadBoard({
+      filters: {},
+      columns: [],
+      counts: THREAD_COUNTS.map(({ id, filters }) => ({ id, filters: { ...filters } })),
+    });
+    if (board) {
+      return Object.fromEntries(
+        THREAD_COUNTS.map(({ id }) => [id, board.counts[id]?.pagination.total ?? null])
+      ) as Record<ThreadCountId, Count>;
+    }
+  } catch (error) {
+    logger.warn('Dashboard: thread counts could not be loaded', error);
+    return nothingKnown(THREAD_COUNTS);
+  }
+  const each = await Promise.all(
+    THREAD_COUNTS.map(({ filters, what }) =>
+      pageTotal(messageService.getThreads({ ...filters }, 1, 1), what)
+    )
+  );
+  return Object.fromEntries(THREAD_COUNTS.map(({ id }, at) => [id, each[at]])) as Record<
+    ThreadCountId,
+    Count
+  >;
+};
+
+/** The ticket tiles' totals in one request, falling back to one list read each the same way. */
+const ticketTotals = async (): Promise<Record<TicketCountId, Count>> => {
+  try {
+    const counts = await fetchTicketViewCounts(
+      TICKET_COUNTS.map(({ id, filters }) => ({ id, filters: { ...filters } }))
+    );
+    if (counts) {
+      return Object.fromEntries(
+        TICKET_COUNTS.map(({ id }) => [id, typeof counts[id] === 'number' ? counts[id] : null])
+      ) as Record<TicketCountId, Count>;
+    }
+  } catch (error) {
+    logger.warn('Dashboard: ticket counts could not be loaded', error);
+    return nothingKnown(TICKET_COUNTS);
+  }
+  const each = await Promise.all(
+    TICKET_COUNTS.map(({ filters, what }) =>
+      pageTotal(ticketService.getAll({ ...filters }, 1, 1), what)
+    )
+  );
+  return Object.fromEntries(TICKET_COUNTS.map(({ id }, at) => [id, each[at]])) as Record<
+    TicketCountId,
+    Count
+  >;
+};
+
 const kbTotal = async (
   request: Promise<{ success: boolean; data?: { pagination?: { total: number | string } } }>,
   what: string
@@ -180,71 +276,37 @@ export const DashboardPage = () => {
     try {
       // Each request settles on its own: one failure (a 403 for this role, a timeout) leaves
       // ITS tile unknown and every other tile true. A shared `Promise.all` rejected them all.
-      const [
-        slaBreachRes,
-        slaAtRiskRes,
-        slaSummary,
-        resolvedExclKBRes,
-        closedExclKBRes,
-        activeRes,
-        clientRepliedRes,
-        awaitingRes,
-        suspiciousRes,
-        notAnalysedRes,
-        resolvedRes,
-        openTicketsRes,
-        inProgressTicketsRes,
-        pendingTicketsRes,
-        kbQARes,
-        kbDocRes,
-        docStatsRes,
-      ] = await Promise.all([
-        pageTotal(messageService.getThreads({ view: 'work_queue', slaBreached: 'true' }, 1, 1), 'SLA breaches'),
-        pageTotal(messageService.getThreads({ view: 'work_queue', slaAtRisk: 'true' }, 1, 1), 'SLA at risk'),
-        slaService.getSummary().catch(() => null),
-        pageTotal(messageService.getThreads({ view: 'resolved', excludeKB: 'true' }, 1, 1), 'resolved'),
-        pageTotal(messageService.getThreads({ view: 'active', processed: 'closed' }, 1, 1), 'closed'),
-        pageTotal(messageService.getThreads({ view: 'inbox', excludeNotAnalysed: 'true' }, 1, 1), 'active'),
-        pageTotal(
-          messageService.getThreads({ view: 'client_replied', excludeNotAnalysed: 'true' }, 1, 1),
-          'client replied'
-        ),
-        pageTotal(
-          messageService.getThreads({ view: 'awaiting_response', excludeNotAnalysed: 'true' }, 1, 1),
-          'awaiting response'
-        ),
-        pageTotal(messageService.getThreads({ view: 'suspicious' }, 1, 1), 'suspicious'),
-        pageTotal(messageService.getThreads({ view: 'not_analysed' }, 1, 1), 'not analysed'),
-        pageTotal(messageService.getThreads({ view: 'resolved' }, 1, 1), 'resolved messages'),
-        pageTotal(ticketService.getAll({ status: 'open' }, 1, 1), 'open tickets'),
-        pageTotal(ticketService.getAll({ status: 'in_progress' }, 1, 1), 'in-progress tickets'),
-        pageTotal(ticketService.getAll({ status: 'pending' }, 1, 1), 'pending tickets'),
-        kbTotal(kbService.getAll({ type: 'qa_pair', limit: 1 }), 'KB Q&A'),
-        kbTotal(kbService.getAll({ type: 'document', limit: 1 }), 'KB documents'),
-        canReadDocumentationStats
-          ? settled(documentationService.getStats(), 'documentation stats').then((res) =>
-              res && typeof res.totalDocs === 'number' ? res.totalDocs : null
-            )
-          : Promise.resolve(null),
-      ]);
+      const [threadCounts, slaSummary, ticketCounts, kbQARes, kbDocRes, docStatsRes] =
+        await Promise.all([
+          threadTotals(),
+          slaService.getSummary().catch(() => null),
+          ticketTotals(),
+          kbTotal(kbService.getAll({ type: 'qa_pair', limit: 1 }), 'KB Q&A'),
+          kbTotal(kbService.getAll({ type: 'document', limit: 1 }), 'KB documents'),
+          canReadDocumentationStats
+            ? settled(documentationService.getStats(), 'documentation stats').then((res) =>
+                res && typeof res.totalDocs === 'number' ? res.totalDocs : null
+              )
+            : Promise.resolve(null),
+        ]);
 
       if (gen !== fetchGenRef.current) return; // newer fetch already in flight — discard stale response
       setStats({
-        slaBreachCount: slaBreachRes,
-        slaAtRiskCount: slaAtRiskRes,
+        slaBreachCount: threadCounts.slaBreach,
+        slaAtRiskCount: threadCounts.slaAtRisk,
         avgFirstResponseMins: slaSummary?.messages.avgResponseTime ?? null,
         avgFirstResponsePeriodDays: slaSummary?.messages.avgResponsePeriodDays ?? null,
-        resolvedExclKB: resolvedExclKBRes,
-        closedExclKB: closedExclKBRes,
-        activeMessages: activeRes,
-        clientReplied: clientRepliedRes,
-        awaitingResponse: awaitingRes,
-        suspiciousMessages: suspiciousRes,
-        notAnalysed: notAnalysedRes,
-        resolvedMessages: resolvedRes,
-        openTickets: openTicketsRes,
-        inProgressTickets: inProgressTicketsRes,
-        pendingTickets: pendingTicketsRes,
+        resolvedExclKB: threadCounts.resolvedExclKB,
+        closedExclKB: threadCounts.closedExclKB,
+        activeMessages: threadCounts.active,
+        clientReplied: threadCounts.clientReplied,
+        awaitingResponse: threadCounts.awaiting,
+        suspiciousMessages: threadCounts.suspicious,
+        notAnalysed: threadCounts.notAnalysed,
+        resolvedMessages: threadCounts.resolved,
+        openTickets: ticketCounts.open,
+        inProgressTickets: ticketCounts.inProgress,
+        pendingTickets: ticketCounts.pending,
         kbQAPairs: kbQARes,
         kbDocuments: kbDocRes,
         kbDocumentation: docStatsRes,

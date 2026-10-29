@@ -27,13 +27,19 @@ vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('@/services/message.service', () => ({
-  messageService: { getThreads, getMessageSourcesForFilter },
+  // A backend without POST /threads/board: one search per tile, which these tests read.
+  messageService: {
+    getThreads,
+    getMessageSourcesForFilter,
+    getThreadBoard: () => Promise.resolve(null),
+  },
 }));
 vi.mock('@/services/sla.service', () => ({
   slaService: { getSummary: () => Promise.resolve(null) },
 }));
 vi.mock('@/services/ticket.service', () => ({
   ticketService: { getAll: () => Promise.resolve(page(0)) },
+  fetchTicketViewCounts: () => Promise.resolve(null),
 }));
 vi.mock('@/services/kb.service', () => ({
   kbService: {

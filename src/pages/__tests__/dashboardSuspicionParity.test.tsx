@@ -38,12 +38,16 @@ vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('@/services/message.service', () => ({ messageService: { getThreads } }));
+// A backend without POST /threads/board and /tickets/counts: one request per tile, as these tests read.
+vi.mock('@/services/message.service', () => ({
+  messageService: { getThreads, getThreadBoard: () => Promise.resolve(null) },
+}));
 vi.mock('@/services/sla.service', () => ({
   slaService: { getSummary: () => Promise.resolve(null) },
 }));
 vi.mock('@/services/ticket.service', () => ({
   ticketService: { getAll: () => Promise.resolve({ success: true, pagination: { total: 0 } }) },
+  fetchTicketViewCounts: () => Promise.resolve(null),
 }));
 vi.mock('@/services/kb.service', () => ({
   kbService: { getAll: () => Promise.resolve({ success: true, pagination: { total: 0 } }) },
