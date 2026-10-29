@@ -42,6 +42,17 @@ describe('ListScopeNotice', () => {
     expect(notice.textContent).toContain('3,009');
   });
 
+  it('a scope counted to the cap still shows, every number "at least" (+)', () => {
+    const capped: ListScope = { ...kangtao, withoutLens: 10000, hidden: 9000, capped: true };
+    render(<ListScopeNotice scope={capped} shown={25} onJump={vi.fn()} />);
+    const notice = screen.getByTestId('list-scope-notice');
+    expect(notice.textContent).toContain(`${(10000).toLocaleString()}+`);
+    expect(notice.textContent).toContain(`${(9000).toLocaleString()}+`);
+    // The jump menu is still there.
+    openMenu();
+    expect(screen.getAllByText(`${(2935).toLocaleString()}+`).length).toBeGreaterThan(0);
+  });
+
   it('renders NOTHING when scope is null, because null is not zero', () => {
     // `null` means the count could not be taken — not requested, or the aggregate
     // failed. Rendering "0 hidden" for an unknown is a confident false reassurance,
@@ -414,7 +425,9 @@ describe('a chip is a destination, not a share of the hidden count', () => {
     expect(notice.textContent).toContain('53 of 72');
     expect(notice.textContent).not.toContain('Showing');
     // Screen readers still get the whole sentence; the chip carries the count on screen.
-    expect(notice.querySelector('.sr-only')?.textContent).toContain('19 hidden by the current view');
+    expect(notice.querySelector('.sr-only')?.textContent).toContain(
+      '19 hidden by the current view'
+    );
     expect(screen.getByRole('button', { name: /Not shown/ })).toHaveTextContent('19');
   });
 

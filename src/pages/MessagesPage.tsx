@@ -42,7 +42,7 @@ import { SearchReadingNotice } from '@/components/messages/SearchReadingNotice';
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
-import { hiddenKnown, type Count } from '@/lib/listTotals';
+import { formatTotal, type Count } from '@/lib/listTotals';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { highlightTermsFor } from '@/lib/highlightTerms';
 import { getConvUrlId } from '@/lib/messageHelpers';
@@ -1156,9 +1156,12 @@ export const MessagesPage = () => {
     countsRefreshKey,
     displayMode === 'threads' && countsReady
   );
-  // A searching scope counted to the backend's cap: every chip number is then "at least".
-  const scopeCount = (count: number | undefined): Count | undefined =>
-    count === undefined ? undefined : listScope?.capped ? { atLeast: count } : count;
+  // A searching scope counted to the backend's cap: every chip number is then "at least" — and a 0
+  // among the rows counted says nothing about the rest, so it shows no number (never "0+").
+  const scopeCount = (count: number | undefined): Count | undefined => {
+    if (count === undefined || !listScope?.capped) return count;
+    return count > 0 ? { atLeast: count } : undefined;
+  };
   const triageCounts: Partial<Record<TriageId, Count | undefined>> = {
     not_analysed: scopeCount(listScope?.columnCounts?.not_analysed),
     archived: scopeCount(listScope?.columnCounts?.archived),
@@ -1484,15 +1487,15 @@ export const MessagesPage = () => {
                             ? // Stopped, not empty: the notice above says why.
                               'Not loaded — it took too long.'
                             : activeFilterCount > 0 ||
-                                hiddenKnown(listScope) > 0 ||
+                                (listScope?.hidden ?? 0) > 0 ||
                                 filters.lifecycle === 'needs_us'
                               ? 'No threads match this view.'
                               : 'No threads yet.'}
                         </p>
-                        {hiddenKnown(listScope) > 0 && (
+                        {listScope && listScope.hidden > 0 && (
                           <p className="mt-2.5 text-[12.5px]">
-                            {hiddenKnown(listScope).toLocaleString()} are outside this view — use{' '}
-                            <b>Not shown</b> above to jump to them.
+                            {formatTotal(listScope.hidden, listScope.capped)} are outside this view
+                            — use <b>Not shown</b> above to jump to them.
                           </p>
                         )}
                       </CardContent>

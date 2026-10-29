@@ -27,15 +27,6 @@ export const counterTotal = (pagination: TotalMeta | undefined): Count | undefin
   return pagination.totalCapped ? { atLeast: pagination.total } : pagination.total;
 };
 
-/**
- * How many rows a list scope says are hidden, as far as it is worth saying: a searching scope the
- * backend counted to its cap (`capped`) holds lower bounds only, so "N hidden" and "24 of 550"
- * would be invented arithmetic — 0, and the hidden-rows notices stay silent.
- */
-export const hiddenKnown = (
-  scope: { hidden: number; capped?: boolean } | null | undefined
-): number => (scope && !scope.capped ? scope.hidden : 0);
-
 /** A counter's text: `42`, or `10,000+`. */
 export const formatCount = (count: Count): string =>
   typeof count === 'number' ? String(count) : formatTotal(count.atLeast, true);

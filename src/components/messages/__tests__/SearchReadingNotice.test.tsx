@@ -71,7 +71,7 @@ describe('SearchReadingNotice', () => {
         }}
       />
     );
-    expect(screen.getByText(/best matches are shown first among the newest 500/)).toBeTruthy();
+    expect(screen.getByText(/ranked among the newest 500/)).toBeTruthy();
   });
 
   it('CONTROL: says nothing for an ordinary search, or no reading', () => {

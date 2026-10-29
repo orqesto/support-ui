@@ -13,8 +13,9 @@ import type { SearchReading } from '@/services/message.service';
  * - timedOut (backend search plan step 3½): the list itself ran out of time and came back
  *   empty. That is "not finished", never "no match". `listTimedOut` is the same for a list with
  *   no search typed.
- * - rankedWithin (step 3½d): so many threads matched that the best matches were put first among
- *   the newest N only; older ones follow newest first. Nothing is missing — only the order.
+ * - rankedWithin (step 3½d): so many threads matched that subject and address matches were put
+ *   first among the newest N only (the exact text and ticket numbers still first wherever they
+ *   are); older ones follow newest first. Nothing is missing — only the order.
  */
 export const SearchReadingNotice = ({
   reading,
@@ -57,9 +58,9 @@ export const SearchReadingNotice = ({
       )}
       {reading.rankedWithin !== null && (
         <Alert variant="info">
-          Many threads match. The best matches are shown first among the newest{' '}
-          {reading.rankedWithin.toLocaleString()}; older matches follow, newest first. Add a word to
-          narrow it.
+          Many threads match. The exact text and ticket numbers come first; other best matches are
+          ranked among the newest {reading.rankedWithin.toLocaleString()}, and older matches follow,
+          newest first. Add a word to narrow it.
         </Alert>
       )}
     </>

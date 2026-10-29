@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { Select } from '@/components/ui/Select';
 import { SegmentedControl, type Segment } from '@/components/ui/SegmentedControl';
-import { hiddenKnown } from '@/lib/listTotals';
 import type { ListScope } from '@/services/message.service';
 import type { FilterState } from '@/stores/messagesStore';
 import { cn } from '@/lib/utils';
@@ -130,7 +129,7 @@ export const MessagesListCaption = ({
         version of the silence this fixes, so the sentence has to survive an empty result. */}
     {loading ? (
       <span className="flex-1 min-w-0">Loading…</span>
-    ) : scope && hiddenKnown(scope) > 0 ? (
+    ) : scope && scope.hidden > 0 ? (
       <ListScopeNotice
         surface="caption"
         scope={scope}

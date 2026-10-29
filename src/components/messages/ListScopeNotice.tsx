@@ -29,7 +29,7 @@
 import { ChevronDown, EyeOff } from 'lucide-react';
 import { useCallback, useId, useRef, useState } from 'react';
 import { useClickOutside } from '@/hooks/useClickOutside';
-import { formatTotal, hiddenKnown } from '@/lib/listTotals';
+import { formatTotal } from '@/lib/listTotals';
 import type { ListScope } from '@/services/message.service';
 import type { FilterState } from '@/stores/messagesStore';
 
@@ -219,9 +219,11 @@ export const ListScopeNotice = ({
 
   // No information, or nothing hidden. In both cases the honest thing is silence:
   // the pagination line already states the count, and inventing a reassurance here
-  // would be the same species of claim the component was written to stop. A scope counted to
-  // its cap (`capped`) holds lower bounds only — no sentence can be built from them either.
-  if (!scope || hiddenKnown(scope) <= 0) return null;
+  // would be the same species of claim the component was written to stop.
+  if (!scope || scope.hidden <= 0) return null;
+  // A searching scope counted to the backend's cap (`capped`): every number is "at least" —
+  // shown with a "+", never as exact (search plan step 3½d).
+  const count = (value: number) => formatTotal(value, scope.capped);
 
   const isBoard = surface === 'board';
   const isCaption = surface === 'caption';
@@ -316,13 +318,10 @@ export const ListScopeNotice = ({
         <span className="truncate min-w-0">
           This board has a lane for{' '}
           <strong className="font-mono text-foreground">
-            {(scope.withoutLens - scope.hidden).toLocaleString()}
+            {count(scope.withoutLens - scope.hidden)}
           </strong>{' '}
-          of{' '}
-          <strong className="font-mono text-foreground">
-            {scope.withoutLens.toLocaleString()}
-          </strong>{' '}
-          — {scope.hidden.toLocaleString()} have none
+          of <strong className="font-mono text-foreground">{count(scope.withoutLens)}</strong> —{' '}
+          {count(scope.hidden)} have none
         </span>
       ) : isCaption ? (
         /**
@@ -333,24 +332,15 @@ export const ListScopeNotice = ({
          */
         <span className="truncate min-w-0">
           <strong className="font-mono text-foreground">{formatTotal(shown, shownCapped)}</strong>{' '}
-          of{' '}
-          <strong className="font-mono text-foreground">
-            {scope.withoutLens.toLocaleString()}
-          </strong>
-          <span className="sr-only">
-            {' '}
-            — {scope.hidden.toLocaleString()} hidden by the current view
-          </span>
+          of <strong className="font-mono text-foreground">{count(scope.withoutLens)}</strong>
+          <span className="sr-only"> — {count(scope.hidden)} hidden by the current view</span>
         </span>
       ) : (
         <span className="truncate min-w-0">
           Showing{' '}
           <strong className="font-mono text-foreground">{formatTotal(shown, shownCapped)}</strong>{' '}
-          of{' '}
-          <strong className="font-mono text-foreground">
-            {scope.withoutLens.toLocaleString()}
-          </strong>{' '}
-          — {scope.hidden.toLocaleString()} hidden by the current view
+          of <strong className="font-mono text-foreground">{count(scope.withoutLens)}</strong> —{' '}
+          {count(scope.hidden)} hidden by the current view
         </span>
       )}
       {hasMenu && (
@@ -374,9 +364,7 @@ export const ListScopeNotice = ({
               leaving the misleading badge as the only number visible. Reported exactly that
               way from the board.
             */}
-            <b className="font-mono font-semibold text-foreground">
-              {scope.hidden.toLocaleString()}
-            </b>
+            <b className="font-mono font-semibold text-foreground">{count(scope.hidden)}</b>
             {newTotal > 0 && (
               <span className={NEW_BADGE_CLASS} aria-label={`${newTotal} new in hidden queues`}>
                 {formatNew(newTotal)}
@@ -431,7 +419,7 @@ export const ListScopeNotice = ({
                       <span className={NEW_BADGE_CLASS}>{formatNew(newFor(reason.key))}</span>
                     )}
                     <span className="font-mono ml-auto font-semibold text-muted-foreground">
-                      {reason.count.toLocaleString()}
+                      {count(reason.count)}
                     </span>
                   </button>
                 ) : (
@@ -443,9 +431,7 @@ export const ListScopeNotice = ({
                     className="flex items-center gap-2 px-2 py-1.5 text-[13px] text-muted-foreground"
                   >
                     <span className="truncate">{reason.label}</span>
-                    <span className="font-mono ml-auto font-semibold">
-                      {reason.count.toLocaleString()}
-                    </span>
+                    <span className="font-mono ml-auto font-semibold">{count(reason.count)}</span>
                   </div>
                 )
               )}
@@ -472,9 +458,7 @@ export const ListScopeNotice = ({
                     <span className="shrink-0 text-[11px] text-muted-foreground/70">
                       clear the view
                     </span>
-                    <span className="font-mono ml-auto font-semibold">
-                      {reason.count.toLocaleString()}
-                    </span>
+                    <span className="font-mono ml-auto font-semibold">{count(reason.count)}</span>
                   </button>
                 ) : (
                   <div
@@ -483,9 +467,7 @@ export const ListScopeNotice = ({
                     className="flex items-center gap-2 px-2 py-1.5 mt-1 border-t border-border text-[12.5px] text-muted-foreground"
                   >
                     <span className="truncate">{reason.label}</span>
-                    <span className="font-mono ml-auto font-semibold">
-                      {reason.count.toLocaleString()}
-                    </span>
+                    <span className="font-mono ml-auto font-semibold">{count(reason.count)}</span>
                   </div>
                 )
               )}
@@ -511,7 +493,7 @@ export const ListScopeNotice = ({
                   {destinations.length > 1 && (
                     <span className="block mt-0.5">
                       Each figure is the size of its whole bucket, so they will not add up to{' '}
-                      {scope.hidden.toLocaleString()}.
+                      {count(scope.hidden)}.
                     </span>
                   )}
                 </div>
