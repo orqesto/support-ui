@@ -24,6 +24,7 @@ const cutShort: SearchReading = {
   asPhrase: false,
   cutShort: ['nvoic'],
   timedOut: false,
+  rankedWithin: null,
 };
 
 const setSearch = (search: string) =>
@@ -55,7 +56,13 @@ describe('search reading', () => {
           answer(
             filters?.search === 'nvoic'
               ? cutShort
-              : { terms: ['invoice'], asPhrase: false, cutShort: [], timedOut: false }
+              : {
+                  terms: ['invoice'],
+                  asPhrase: false,
+                  cutShort: [],
+                  timedOut: false,
+                  rankedWithin: null,
+                }
           )
         )
       );
@@ -70,7 +77,12 @@ describe('search reading', () => {
   });
 
   it('a search that ran out of time is said, and NOT cached: asking again goes to the server', async () => {
-    const timedOut: SearchReading = { ...cutShort, cutShort: [], timedOut: true };
+    const timedOut: SearchReading = {
+      ...cutShort,
+      cutShort: [],
+      timedOut: true,
+      rankedWithin: null,
+    };
     const calls = vi
       .spyOn(messageService, 'getThreads')
       .mockImplementation((filters) =>
@@ -78,7 +90,13 @@ describe('search reading', () => {
           answer(
             filters?.search === 'nvoic'
               ? timedOut
-              : { terms: ['invoice'], asPhrase: false, cutShort: [], timedOut: false }
+              : {
+                  terms: ['invoice'],
+                  asPhrase: false,
+                  cutShort: [],
+                  timedOut: false,
+                  rankedWithin: null,
+                }
           )
         )
       );

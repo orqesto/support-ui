@@ -9,7 +9,13 @@ describe('SearchReadingNotice', () => {
   it('warns that results may be incomplete when search inside words was cut short', () => {
     render(
       <SearchReadingNotice
-        reading={{ terms: ['nvoic'], asPhrase: false, cutShort: ['nvoic'], timedOut: false }}
+        reading={{
+          terms: ['nvoic'],
+          asPhrase: false,
+          cutShort: ['nvoic'],
+          timedOut: false,
+          rankedWithin: null,
+        }}
       />
     );
     expect(screen.getByText(/Results may be incomplete/)).toBeTruthy();
@@ -19,7 +25,13 @@ describe('SearchReadingNotice', () => {
   it('says a long search was matched as one phrase', () => {
     render(
       <SearchReadingNotice
-        reading={{ terms: ['a b c'], asPhrase: true, cutShort: [], timedOut: false }}
+        reading={{
+          terms: ['a b c'],
+          asPhrase: true,
+          cutShort: [],
+          timedOut: false,
+          rankedWithin: null,
+        }}
       />
     );
     expect(screen.getByText(/Searched as one exact phrase/)).toBeTruthy();
@@ -29,7 +41,13 @@ describe('SearchReadingNotice', () => {
   it('a search that ran out of time says so — never reads as "no match"', () => {
     render(
       <SearchReadingNotice
-        reading={{ terms: ['the'], asPhrase: false, cutShort: [], timedOut: true }}
+        reading={{
+          terms: ['the'],
+          asPhrase: false,
+          cutShort: [],
+          timedOut: true,
+          rankedWithin: null,
+        }}
       />
     );
     expect(screen.getByText(/This search took too long/)).toBeTruthy();
@@ -41,10 +59,31 @@ describe('SearchReadingNotice', () => {
     expect(screen.getByText(/This list took too long to load/)).toBeTruthy();
   });
 
+  it('says the best matches were ranked among the newest N only', () => {
+    render(
+      <SearchReadingNotice
+        reading={{
+          terms: ['you'],
+          asPhrase: false,
+          cutShort: [],
+          timedOut: false,
+          rankedWithin: 500,
+        }}
+      />
+    );
+    expect(screen.getByText(/best matches are shown first among the newest 500/)).toBeTruthy();
+  });
+
   it('CONTROL: says nothing for an ordinary search, or no reading', () => {
     const { container } = render(
       <SearchReadingNotice
-        reading={{ terms: ['invoice'], asPhrase: false, cutShort: [], timedOut: false }}
+        reading={{
+          terms: ['invoice'],
+          asPhrase: false,
+          cutShort: [],
+          timedOut: false,
+          rankedWithin: null,
+        }}
       />
     );
     expect(container.textContent).toBe('');

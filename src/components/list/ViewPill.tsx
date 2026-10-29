@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
+import { formatCount, type Count } from '@/lib/listTotals';
 import { cn } from '@/lib/utils';
 
 type ViewPillProps = {
   /** Lit: the list is showing this view. */
   on: boolean;
-  /** Rows in the view; nothing is drawn while it is unknown (never a guessed 0). */
-  count?: number;
+  /** Rows in the view (`10,000+` when counted to a cap); nothing while unknown (never a guessed 0). */
+  count?: Count;
   onClick: () => void;
   children: ReactNode;
   /** After the count: a "2 new" badge, a menu chevron. */
@@ -46,7 +47,9 @@ export const ViewPill = ({
     )}
   >
     {children}
-    {count !== undefined && <span className="font-mono text-[11px] opacity-75">{count}</span>}
+    {count !== undefined && (
+      <span className="font-mono text-[11px] opacity-75">{formatCount(count)}</span>
+    )}
     {after}
   </Button>
 );
