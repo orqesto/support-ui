@@ -17,6 +17,11 @@ const KbCasesPage = lazy(() =>
   import('./KbCasesPage').then((mod) => ({ default: mod.KbCasesPage }))
 );
 
+// DEV only: the F0 page mock for owner review (deleted in F7).
+const KbPageMock = lazy(() =>
+  import('./kbMock/KbPageMock').then((mod) => ({ default: mod.KbPageMock }))
+);
+
 const Fallback = () => (
   <div className="flex min-h-[60vh] items-center justify-center" role="status" aria-busy="true">
     <Spinner />
@@ -57,3 +62,22 @@ export const kbSubRoutes = (wrap: (page: JSX.Element) => ReactElement) => [
     element={<Navigate to={AUTO_ACTIONS_HREF} replace />}
   />,
 ];
+
+/**
+ * DEV only: the F0 page mock, OUTSIDE the sign-in gate and the app shell so it can be opened and
+ * screenshotted without a login. Renders nothing in a production build. Deleted in F7.
+ */
+export const kbMockRoutes = () =>
+  import.meta.env.DEV
+    ? [
+        <Route
+          key="kb-mock"
+          path="/knowledge-base/mock"
+          element={
+            <Suspense fallback={<Fallback />}>
+              <KbPageMock />
+            </Suspense>
+          }
+        />,
+      ]
+    : [];

@@ -29,7 +29,7 @@ import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { userService } from './services/user.service';
 import { useAuthStore } from './stores/authStore';
 import { Permission } from './types/roles';
-import { kbSubRoutes } from './pages/kbConsolidationRoutes';
+import { kbMockRoutes, kbSubRoutes } from './pages/kbConsolidationRoutes';
 import {
   CUSTOM_API_LOOKUP_ROUTE,
   CUSTOM_API_TEMPLATE_ROUTE,
@@ -274,6 +274,7 @@ const AppRoutes = () => {
       {/* Preview / demo of the tracking page with mock data (no conv id / token).
           Useful for design review, screenshots, customer-facing demos. */}
       <Route path="/track/:orgSlug/:deptSlug" element={<TrackingPage />} />
+      {kbMockRoutes()}
       {/* The app shell: ONE <Layout> for every page below, so it survives navigation. */}
       <Route
         element={
