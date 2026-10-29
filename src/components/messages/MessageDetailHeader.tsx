@@ -22,6 +22,7 @@ import {
   Ticket as TicketIcon,
   GitMerge,
   ChevronLeft,
+  Info,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
@@ -1122,6 +1123,10 @@ export function MessageDetailHeader({
     </>
   );
 
+  const nearMissText = nearMissSentence(
+    nearMissDepts.map((deptId) => allDepts.find((entry) => entry.id === deptId)?.name)
+  );
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -1574,32 +1579,43 @@ export function MessageDetailHeader({
         message.status !== 'resolved' &&
         message.status !== 'closed' && (
           <div className="px-3.5 pb-[9px] max-sm:px-4 max-sm:pt-2.5 max-sm:pb-0 max-sm:bg-card">
-            <div className="flex flex-wrap items-center gap-2 px-[9px] py-1.5 rounded-lg border border-primary-line bg-primary-muted">
+            {/* One line (owner, 2026-10-29): the sentence wrapped to four lines and the buttons
+                to two more rows, ~120px of the conversation's room. The sentence is now the ⓘ's
+                hover (and read out to screen readers); the buttons name just the team. */}
+            <div className="flex flex-wrap items-center gap-1.5 px-[9px] py-1 rounded-lg border border-primary-line bg-primary-muted">
               <span className={`${LABEL} text-primary`}>Also matched</span>
-              <span className="flex-1 min-w-[150px] text-[12px] text-muted-foreground">
-                {nearMissSentence(
-                  nearMissDepts.map((deptId) => allDepts.find((entry) => entry.id === deptId)?.name)
-                )}
-              </span>
+              {/* Opens to the right: centred under the ⓘ, the sentence ran past the panel's left
+                  edge and was cut off. */}
+              <Tooltip content={nearMissText} side="right" size="sm">
+                <span
+                  tabIndex={0}
+                  className="inline-flex items-center text-primary/70 hover:text-primary"
+                >
+                  <Info className="w-3.5 h-3.5" aria-hidden />
+                  <span className="sr-only">{nearMissText}</span>
+                </span>
+              </Tooltip>
               {nearMissDepts.map((deptId) => {
                 const dept = allDepts.find((entry) => entry.id === deptId);
                 if (!dept) return null;
                 const busy = routingTo === deptId;
                 return (
-                  <Button
-                    key={deptId}
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void handleManualRoute(deptId)}
-                    disabled={busy}
-                    title={`Move this thread to ${dept.name}`}
-                    className="h-[27px] px-[11px] rounded-[7px] border border-border bg-card text-[12px] font-normal text-foreground hover:border-border-strong hover:bg-card disabled:opacity-50"
-                  >
-                    {busy ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}
-                  </Button>
+                  <Tooltip key={deptId} content={`Move this thread to ${dept.name}`} size="sm">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleManualRoute(deptId)}
+                      disabled={busy}
+                      aria-label={busy ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}
+                      className="h-[23px] px-2 rounded-md border border-border bg-card text-[11.5px] font-normal text-foreground hover:border-border-strong hover:bg-card disabled:opacity-50"
+                    >
+                      {busy ? `${dept.name}…` : `${dept.name} →`}
+                    </Button>
+                  </Tooltip>
                 );
               })}
+              <span className="flex-1" />
               <Tooltip content="Dismiss" side="bottom" size="sm">
                 <button
                   type="button"

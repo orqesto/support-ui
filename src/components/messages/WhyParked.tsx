@@ -43,15 +43,21 @@ export const WhyParked = ({
       </>
     ) : (
       <>
-        Closest match was <span className="font-medium text-foreground">{closest?.name}</span> at{' '}
-        {closest ? closest.similarity.toFixed(2) : '—'}, just under the {data.weakBar} bar — so
+        Closest match was{' '}
+        {/* In the tooltip the name takes the tooltip's colour: text-foreground is dark on its
+            dark background, and the name vanished. */}
+        <span className={asIcon ? 'font-medium' : 'font-medium text-foreground'}>
+          {closest?.name}
+        </span>{' '}
+        at {closest ? closest.similarity.toFixed(2) : '—'}, just under the {data.weakBar} bar — so
         nothing was chosen.
       </>
     );
 
   if (asIcon) {
     return (
-      <Tooltip content={<span data-testid="why-parked">{sentence}</span>} size="sm">
+      // Opens to the right: centred above the ⓘ, the sentence ran past the panel's left edge.
+      <Tooltip content={<span data-testid="why-parked">{sentence}</span>} side="right" size="sm">
         <span
           tabIndex={0}
           aria-label="Why it needs routing"
