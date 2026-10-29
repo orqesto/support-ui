@@ -472,6 +472,9 @@ const boardScopeFrom = (answer: { scope?: ListScope | null; pagination: Paginati
       }
     : null;
 
+// Pages per column the board read takes (support-service threadBoardController).
+const BOARD_MAX_PAGES = 10;
+
 // The board read's count id for the scope; column ids never start with `__`.
 const BOARD_SCOPE_COUNT = '__board';
 const HIDDEN_COLS_KEY = 'kanban_hidden_cols';
@@ -796,8 +799,17 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
       onScopeLoaded?: () => void;
     }) => {
       let cancelled = false;
-      let fallbackCancels: Array<() => void> = [];
-      const columns = COLUMNS.filter((col) => colIds.includes(col.id));
+      const pagesOf = (colId: string) =>
+        keepDepth ? Math.max(1, colStatesRef.current[colId]?.page ?? 1) : 1;
+      // A column deeper than the board read takes (BOARD_MAX_PAGES, "Load more" has no limit)
+      // is read on its own, as before — one such column must not make the whole board a 400.
+      const deep = COLUMNS.filter(
+        (col) => colIds.includes(col.id) && pagesOf(col.id) > BOARD_MAX_PAGES
+      );
+      let fallbackCancels: Array<() => void> = deep.map((col) => loadColumn(col.id, keepDepth));
+      const columns = COLUMNS.filter(
+        (col) => colIds.includes(col.id) && pagesOf(col.id) <= BOARD_MAX_PAGES
+      );
       const triageCols = unread ? COLUMNS.filter(countsTowardTriageBadge) : [];
       setColStates((prev) => {
         const next = { ...prev };
@@ -816,7 +828,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
                 sortOrder: sort.sortOrder,
                 ...(sort.sortBy !== 'time' ? { sortBy: sort.sortBy } : {}),
                 limit: PAGE_SIZE,
-                pages: keepDepth ? Math.max(1, colStatesRef.current[col.id]?.page ?? 1) : 1,
+                pages: pagesOf(col.id),
               };
             }),
             counts: [
@@ -830,6 +842,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
           if (cancelled) return;
           if (!answer) {
             fallbackCancels = [
+              ...fallbackCancels,
               ...columns.map((col) => loadColumn(col.id, keepDepth)),
               ...(unread ? [loadTriageUnread()] : []),
               ...(scope ? [loadBoardScope(onScopeLoaded)] : []),

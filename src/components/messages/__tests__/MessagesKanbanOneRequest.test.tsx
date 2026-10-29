@@ -4,7 +4,7 @@
  * refresh. A backend without the route answers `null` and the board reads itself the old way.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { defaultFilters } from '@/stores/messagesStore';
 import {
@@ -43,7 +43,7 @@ const page = (colId: string, total: number, pageNo = 1): ThreadsResponse =>
   ({
     success: true,
     data: [{ threadId: `${colId}-${pageNo}`, latestMessage: { id: 1 } }],
-    pagination: { page: pageNo, limit: 20, total, totalPages: 3 },
+    pagination: { page: pageNo, limit: 20, total, totalPages: 50 },
     search: null,
   }) as unknown as ThreadsResponse;
 
@@ -140,6 +140,33 @@ describe('Board in one request', () => {
     expect(await screen.findByText('12')).toBeInTheDocument();
     expect(screen.queryByText('11')).not.toBeInTheDocument();
     expect(getThreads).not.toHaveBeenCalled();
+  });
+
+  it('a column deeper than the board read takes is read on its own; the rest stays one request', async () => {
+    getThreads.mockImplementation((_filters, pageNo = 1) =>
+      Promise.resolve({
+        success: true,
+        data: [{ threadId: `deep-${pageNo}`, latestMessage: { id: 1 } }],
+        pagination: { page: pageNo, limit: 20, total: 1000, totalPages: 50 },
+      } as never)
+    );
+    const view = render(renderBoard(0));
+    await screen.findByText('11');
+    // "Load more" on Open ten times: 11 pages, one past what the board read takes.
+    for (let clicks = 0; clicks < 10; clicks += 1) {
+      const before = getThreads.mock.calls.length;
+      fireEvent.click(screen.getAllByRole('button', { name: /load more/i })[0]);
+      await waitFor(() => expect(getThreads.mock.calls.length).toBe(before + 1));
+    }
+    getThreads.mockClear();
+    view.rerender(renderBoard(1));
+    await waitFor(() => expect(getThreadBoard).toHaveBeenCalledTimes(2));
+    const [refresh] = getThreadBoard.mock.calls[1];
+    expect(refresh.columns.map((col) => col.id)).not.toContain('open');
+    // CONTROL: the other columns are still in the one request.
+    expect(refresh.columns.map((col) => col.id)).toContain('in_progress');
+    // Open re-reads its own 11 pages, as before the board read existed.
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(11));
   });
 
   it('CONTROL: a backend without the route is read one search per column, as before', async () => {
