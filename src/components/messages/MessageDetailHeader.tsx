@@ -1567,8 +1567,10 @@ export function MessageDetailHeader({
 
       {/* Re-route banner — runner-up depts from the routing engine.
           Lets an agent move the conversation to a near-miss dept in one click. */}
+      {/* Tucked with the other rows while a reply is written or the thread is read (compact). */}
       {nearMissDepts.length > 0 &&
         !nearMissDismissed &&
+        !compact &&
         message.status !== 'resolved' &&
         message.status !== 'closed' && (
           <div className="px-3.5 pb-[9px] max-sm:px-4 max-sm:pt-2.5 max-sm:pb-0 max-sm:bg-card">
