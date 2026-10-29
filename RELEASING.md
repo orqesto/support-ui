@@ -6,7 +6,7 @@ verified-against: FE main 2a09b7d
 status: corrected
 -->
 
-> 📌 **`main` IS production here** — a push to it deploys `app.odly.ai` immediately, with no
+> 📌 **`main` IS production here** — a push to it deploys `hub.odly.ai` immediately, with no
 > tag gate, unlike `BE-service`. So the branch a pull request targets decides whether it goes
 > to users or to QA. See **[Where a PR goes](#where-a-pr-goes)** first.
 
@@ -18,7 +18,7 @@ exactly what ships to prod.
 ```
 npm run ship:rc        # new version  → deploys to staging.odly.ai   (test here)
 npm run ship:staging   # re-deploy staging, SAME version             (iterate on fixes)
-npm run ship:prod      # release that exact version to production    (app.odly.ai)
+npm run ship:prod      # release that exact version to production    (hub.odly.ai)
 ```
 
 ## Where a PR goes
@@ -66,7 +66,7 @@ candidate QA is looking at. Use the deploy workflow's `workflow_dispatch` with
    ```bash
    npm run ship:prod          # asks y/N, then releases + verifies prod is serving it
    ```
-   Merges `staging` → `main` and releases the version you tested to **https://app.odly.ai**.
+   Merges `staging` → `main` and releases the version you tested to **https://hub.odly.ai**.
 
 ## Cheat sheet
 | Command | When | Bumps version? |
@@ -89,7 +89,7 @@ candidate QA is looking at. Use the deploy workflow's `workflow_dispatch` with
   That is why the workflow holds a single `deploy-frontend` concurrency group: `ship:prod`
   alone pushes `main` and then `staging` seconds apart, which is two runs against one box.
 - **Prod:** the **FE** deploys on push to `main` (no tag) → `/var/www/frontend` at
-  `app.odly.ai`. The **BE** deploys on the `vX.Y.Z` tag `ship:prod` creates.
+  `hub.odly.ai`. The **BE** deploys on the `vX.Y.Z` tag `ship:prod` creates.
 - `ship:prod` / `ship:hotfix` **block until prod actually serves the new build** (the FE
   check greps the deployed bundle for the release commit sha), so a failed deploy surfaces.
 - Guards: won't run with uncommitted tracked changes; `--ff-only` pulls; confirm prompt

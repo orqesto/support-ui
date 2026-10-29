@@ -22,7 +22,7 @@ Ship a change through **staging → production** with three commands (see
 ```bash
 npm run ship:rc        # new version → deploys to staging.odly.ai (test here)
 npm run ship:staging   # re-deploy staging, SAME version (iterate on fixes)
-npm run ship:prod      # release that exact version to production (app.odly.ai)
+npm run ship:prod      # release that exact version to production (hub.odly.ai)
 ```
 
 Base pull requests on **`staging`** — `main` is production here and deploys on merge.
