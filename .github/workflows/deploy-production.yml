@@ -102,7 +102,7 @@ jobs:
             # (verification env). Prod stays OFF until end-to-end sign-off. See AllianceConsoleRoute.
             echo "VITE_ALLIANCE_CONSOLE=true" >> $GITHUB_OUTPUT
           else
-            echo "VITE_API_URL=https://app.odly.ai" >> $GITHUB_OUTPUT
+            echo "VITE_API_URL=https://hub.odly.ai" >> $GITHUB_OUTPUT
             echo "VITE_APP_URL=https://odly.ai" >> $GITHUB_OUTPUT
             echo "DEPLOY_PATH=/var/www/frontend" >> $GITHUB_OUTPUT
             echo "NGINX_CONF=app.odly.ai" >> $GITHUB_OUTPUT

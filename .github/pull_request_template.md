@@ -1,7 +1,7 @@
 <!--
 BASE THIS ON `staging`, NOT `main`.
 
-`main` is production: merging there deploys app.odly.ai immediately. `staging` is the
+`main` is production: merging there deploys hub.odly.ai immediately. `staging` is the
 gate — it deploys staging.odly.ai, where the change is checked against the staging
 backend before `ship:prod` promotes it. GitHub defaults the base to `main`, so this has
 to be changed by hand on every PR.

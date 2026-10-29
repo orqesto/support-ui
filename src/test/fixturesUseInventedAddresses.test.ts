@@ -86,6 +86,7 @@ const ADDRESS = /[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)/g;
 const ALLOWED_HOSTS = new Set([
   'odly.ai',
   'app.odly.ai',
+  'hub.odly.ai',
   'staging.odly.ai',
   'www.w3.org',
   'fonts.googleapis.com',
