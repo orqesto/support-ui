@@ -42,6 +42,7 @@ import { SearchReadingNotice } from '@/components/messages/SearchReadingNotice';
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
+import { hiddenKnown, type Count } from '@/lib/listTotals';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { highlightTermsFor } from '@/lib/highlightTerms';
 import { getConvUrlId } from '@/lib/messageHelpers';
@@ -396,7 +397,8 @@ export const MessagesPage = () => {
       // can take minutes on a busy database, and the cards sat in place the whole time (or for
       // good, when the request timed out). The re-read after the run confirms or corrects it.
       const movesTo = BULK_TARGET_COLUMN[bulkAction];
-      if (movesTo !== undefined) kanbanRef.current?.optimisticMoveMany(bulkSelection.selectedIds, movesTo);
+      if (movesTo !== undefined)
+        kanbanRef.current?.optimisticMoveMany(bulkSelection.selectedIds, movesTo);
       try {
         const response = await bulkService.run(bulkAction, bulkSelection.selectedIds, {
           title: values.title,
@@ -1154,10 +1156,13 @@ export const MessagesPage = () => {
     countsRefreshKey,
     displayMode === 'threads' && countsReady
   );
-  const triageCounts: Partial<Record<TriageId, number | undefined>> = {
-    not_analysed: listScope?.columnCounts?.not_analysed,
-    archived: listScope?.columnCounts?.archived,
-    no_lane: listScope?.columnCounts?.no_lane,
+  // A searching scope counted to the backend's cap: every chip number is then "at least".
+  const scopeCount = (count: number | undefined): Count | undefined =>
+    count === undefined ? undefined : listScope?.capped ? { atLeast: count } : count;
+  const triageCounts: Partial<Record<TriageId, Count | undefined>> = {
+    not_analysed: scopeCount(listScope?.columnCounts?.not_analysed),
+    archived: scopeCount(listScope?.columnCounts?.archived),
+    no_lane: scopeCount(listScope?.columnCounts?.no_lane),
     spam: laneCounts.spam,
   };
 
@@ -1479,14 +1484,14 @@ export const MessagesPage = () => {
                             ? // Stopped, not empty: the notice above says why.
                               'Not loaded — it took too long.'
                             : activeFilterCount > 0 ||
-                                (listScope?.hidden ?? 0) > 0 ||
+                                hiddenKnown(listScope) > 0 ||
                                 filters.lifecycle === 'needs_us'
                               ? 'No threads match this view.'
                               : 'No threads yet.'}
                         </p>
-                        {(listScope?.hidden ?? 0) > 0 && (
+                        {hiddenKnown(listScope) > 0 && (
                           <p className="mt-2.5 text-[12.5px]">
-                            {listScope?.hidden.toLocaleString()} are outside this view — use{' '}
+                            {hiddenKnown(listScope).toLocaleString()} are outside this view — use{' '}
                             <b>Not shown</b> above to jump to them.
                           </p>
                         )}

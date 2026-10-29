@@ -29,7 +29,7 @@
 import { ChevronDown, EyeOff } from 'lucide-react';
 import { useCallback, useId, useRef, useState } from 'react';
 import { useClickOutside } from '@/hooks/useClickOutside';
-import { formatTotal } from '@/lib/listTotals';
+import { formatTotal, hiddenKnown } from '@/lib/listTotals';
 import type { ListScope } from '@/services/message.service';
 import type { FilterState } from '@/stores/messagesStore';
 
@@ -219,8 +219,9 @@ export const ListScopeNotice = ({
 
   // No information, or nothing hidden. In both cases the honest thing is silence:
   // the pagination line already states the count, and inventing a reassurance here
-  // would be the same species of claim the component was written to stop.
-  if (!scope || scope.hidden <= 0) return null;
+  // would be the same species of claim the component was written to stop. A scope counted to
+  // its cap (`capped`) holds lower bounds only — no sentence can be built from them either.
+  if (!scope || hiddenKnown(scope) <= 0) return null;
 
   const isBoard = surface === 'board';
   const isCaption = surface === 'caption';

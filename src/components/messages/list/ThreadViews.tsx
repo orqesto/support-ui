@@ -2,6 +2,7 @@ import { ChevronDown, X } from 'lucide-react';
 import { ViewPill } from '@/components/list/ViewPill';
 import { Menu, MenuItem, MenuLabel, MenuSeparator } from '@/components/ui/Menu';
 import { COLUMNS } from '@/components/messages/kanbanColumns';
+import { formatCount, sumCounts, type Count } from '@/lib/listTotals';
 
 /** The triage lanes (not the work queue), in the design's order: Messages list v4 `TRI`. */
 export const TRIAGE_IDS = ['not_analysed', 'archived', 'spam', 'no_lane'] as const;
@@ -41,7 +42,7 @@ export const ThreadPrimaryViews = ({
 }: {
   needsUsOn: boolean;
   allOn: boolean;
-  needsUsCount?: number;
+  needsUsCount?: Count;
   onNeedsUs: () => void;
   onAll: () => void;
 }) => (
@@ -76,15 +77,12 @@ export const TriageMenu = ({
 }: {
   /** The triage lane on screen, or null when the list is the work queue. */
   active: TriageId | null;
-  counts: Partial<Record<TriageId, number | undefined>>;
+  counts: Partial<Record<TriageId, Count | undefined>>;
   arrivals: Partial<Record<TriageId, number>>;
   /** A lane, or 'all' to go back to the work queue. */
   onSelect: (id: TriageId | 'all') => void;
 }) => {
-  const total = TRIAGE_IDS.reduce<number | undefined>((sum, id) => {
-    const count = counts[id];
-    return sum === undefined || count === undefined ? undefined : sum + count;
-  }, 0);
+  const total = sumCounts(TRIAGE_IDS.map((id) => counts[id]));
   const fresh = TRIAGE_IDS.reduce((sum, id) => sum + (arrivals[id] ?? 0), 0);
   return (
     <Menu
@@ -110,7 +108,12 @@ export const TriageMenu = ({
     >
       <MenuLabel>Not in the work queue</MenuLabel>
       {TRIAGE_IDS.map((id) => (
-        <MenuItem key={id} checked={active === id} onSelect={() => onSelect(id)} hint={counts[id]}>
+        <MenuItem
+          key={id}
+          checked={active === id}
+          onSelect={() => onSelect(id)}
+          hint={counts[id] === undefined ? undefined : formatCount(counts[id])}
+        >
           <span className="flex gap-2 items-center">
             {labelOf(id)}
             {(arrivals[id] ?? 0) > 0 && <NewBadge count={arrivals[id] ?? 0} />}

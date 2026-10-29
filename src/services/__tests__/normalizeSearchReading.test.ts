@@ -11,7 +11,19 @@ describe('normalizeSearchReading', () => {
       asPhrase: false,
       cutShort: ['nvoic'],
       timedOut: false,
+      rankedWithin: null,
     });
+  });
+
+  it('reads the rank window a walked search reports, and nothing else as one', () => {
+    expect(
+      normalizeSearchReading({ terms: ['you'], asPhrase: false, rankedWithin: 500 })?.rankedWithin
+    ).toBe(500);
+    // An older backend (absent) or a malformed value: no window.
+    expect(normalizeSearchReading({ terms: ['you'], asPhrase: false })?.rankedWithin).toBeNull();
+    expect(
+      normalizeSearchReading({ terms: ['you'], asPhrase: false, rankedWithin: '500' })?.rankedWithin
+    ).toBeNull();
   });
 
   it('reads a backend without cutShort as nothing cut short', () => {
@@ -27,6 +39,12 @@ describe('normalizeSearchReading', () => {
   it('drops non-string entries rather than rendering them', () => {
     expect(
       normalizeSearchReading({ terms: ['a', 1], asPhrase: false, cutShort: ['b', null, 42] })
-    ).toEqual({ terms: ['a'], asPhrase: false, cutShort: ['b'], timedOut: false });
+    ).toEqual({
+      terms: ['a'],
+      asPhrase: false,
+      cutShort: ['b'],
+      timedOut: false,
+      rankedWithin: null,
+    });
   });
 });

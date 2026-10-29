@@ -185,6 +185,12 @@ export type ListScope = {
    * claim an empty queue over rows that exist.
    */
   columnCounts?: Record<string, number>;
+  /**
+   * A searching scope the backend stopped counting at its cap (search plan step 3½d): EVERY
+   * number here is "at least", never exact — chips show `10,000+`, hidden-rows sentences stay
+   * silent (`hiddenKnown`). Absent on an older backend, which never caps: exact.
+   */
+  capped?: boolean;
   hiddenBecause: {
     terminal: number;
     spam: number;
@@ -217,6 +223,12 @@ export type SearchReading = {
    * match". False on an older backend.
    */
   timedOut: boolean;
+  /**
+   * Many threads matched, so the backend walked them newest first and put the best matches
+   * (subject, address, exact text, ticket number) first among the newest N only (backend
+   * walk.ts). null otherwise, and on an older backend.
+   */
+  rankedWithin: number | null;
 };
 
 /**
@@ -230,6 +242,7 @@ export const normalizeSearchReading = (raw: unknown): SearchReading | null => {
     asPhrase?: unknown;
     cutShort?: unknown;
     timedOut?: unknown;
+    rankedWithin?: unknown;
   };
   if (!Array.isArray(reading.terms) || typeof reading.asPhrase !== 'boolean') return null;
   return {
@@ -239,6 +252,10 @@ export const normalizeSearchReading = (raw: unknown): SearchReading | null => {
       ? reading.cutShort.filter((term): term is string => typeof term === 'string')
       : [],
     timedOut: reading.timedOut === true,
+    rankedWithin:
+      typeof reading.rankedWithin === 'number' && reading.rankedWithin > 0
+        ? reading.rankedWithin
+        : null,
   };
 };
 

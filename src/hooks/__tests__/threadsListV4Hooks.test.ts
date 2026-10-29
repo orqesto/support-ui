@@ -51,9 +51,12 @@ describe('useThreadViewCounts — a pill counts the list it opens', () => {
   it('does not re-ask while the refresh key is unchanged — a re-read of the same rows', async () => {
     getThreads.mockResolvedValue({ success: true, data: [], pagination: { total: 3 } });
     const requests = [{ key: 'x', filters: filters() }];
-    const { rerender } = renderHook((props: { at: string }) => useThreadViewCounts(requests, props.at), {
-      initialProps: { at: 'rows-a' },
-    });
+    const { rerender } = renderHook(
+      (props: { at: string }) => useThreadViewCounts(requests, props.at),
+      {
+        initialProps: { at: 'rows-a' },
+      }
+    );
     await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
     rerender({ at: 'rows-a' });
     await new Promise((resolve) => setTimeout(resolve, 400));
@@ -87,6 +90,33 @@ describe('useThreadViewCounts — a pill counts the list it opens', () => {
     await waitFor(() => expect(getThreads).toHaveBeenCalled());
     await waitFor(() => expect('x' in result.current).toBe(true));
     expect(result.current.x).toBeUndefined();
+  });
+
+  it('a search counted to the cap is "at least"; one cut short by the time limit is unknown', async () => {
+    // The two counts are asked in request order.
+    getThreads
+      .mockResolvedValueOnce({
+        success: true,
+        data: [],
+        pagination: { total: 10000, totalCapped: true, countTimedOut: false },
+      })
+      .mockResolvedValueOnce({
+        success: true,
+        data: [],
+        pagination: { total: 26, totalCapped: true, countTimedOut: true },
+      });
+    const { result } = renderHook(() =>
+      useThreadViewCounts(
+        [
+          { key: 'capped', filters: filters() },
+          { key: 'cut', filters: filters({ assigneeId: 'me' }) },
+        ],
+        0
+      )
+    );
+    await waitFor(() => expect('cut' in result.current).toBe(true));
+    expect(result.current.capped).toEqual({ atLeast: 10000 });
+    expect(result.current.cut).toBeUndefined();
   });
 });
 

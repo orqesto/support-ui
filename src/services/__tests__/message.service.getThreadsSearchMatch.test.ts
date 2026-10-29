@@ -36,6 +36,7 @@ describe('getThreads', () => {
       asPhrase: false,
       cutShort: [],
       timedOut: false,
+      rankedWithin: null,
     });
   });
 });

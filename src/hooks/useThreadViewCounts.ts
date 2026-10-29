@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
-import { exactTotal } from '@/lib/listTotals';
+import { counterTotal, type Count } from '@/lib/listTotals';
 import { messageService } from '@/services/message.service';
 import type { FilterState } from '@/stores/messagesStore';
 import { threadApiFilters } from './threadApiFilters';
@@ -21,17 +21,18 @@ const COUNT_DEBOUNCE_MS = 250;
  * names; this one cannot, so a pill never says 12 over a list of 9 (team scope included: the
  * request carries the same department header as the list).
  *
- * `undefined` while a count is unknown (loading, failed) — the pill then shows no number rather
- * than a wrong one.
+ * `undefined` while a count is unknown (loading, failed, cut short by the time limit) — the pill
+ * then shows no number rather than a wrong one. A search counted to the backend's cap comes back
+ * `{ atLeast }` and the pill says `10,000+` (owner 2026-10-29).
  */
 export const useThreadViewCounts = (
   requests: ThreadCountRequest[],
   /** Bumped whenever the list itself is re-read (new mail, a refresh), so the counts follow. */
   refreshKey: unknown,
   enabled = true
-): Record<string, number | undefined> => {
+): Record<string, Count | undefined> => {
   const deptKey = useDepartmentContextKey();
-  const [counts, setCounts] = useState<Record<string, number | undefined>>({});
+  const [counts, setCounts] = useState<Record<string, Count | undefined>>({});
   // The requests as API parameters — what is actually asked, and what decides re-asking.
   const asked = useMemo(
     () =>
@@ -55,8 +56,8 @@ export const useThreadViewCounts = (
               1,
               1
             );
-            // A capped or cut-short total is not a count to print on a pill: show none.
-            return [key, response.success ? exactTotal(response.pagination) : undefined] as const;
+            // A cut-short total is not a count to print on a pill; a capped one is "at least".
+            return [key, response.success ? counterTotal(response.pagination) : undefined] as const;
           } catch (error) {
             logger.error(`Failed to count the "${key}" view:`, error);
             return [key, undefined] as const;
