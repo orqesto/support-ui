@@ -80,6 +80,8 @@ import { toast } from '@/lib/toast';
 import { dismissContradictionWithFeedback } from './dismissContradiction';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { HoldDialog } from '@/components/shared/HoldDialog';
+import { readSendAction, writeSendAction, type SendAction } from './ComposerSendButton';
 import {
   toGhostOption,
   answerToEditorHtml,
@@ -542,6 +544,46 @@ export function MessageDetail({
   // ── Notes / activity / attachments / lead state ────────────────────────────
   const user = useAuthStore((store) => store.user);
   const currentUserId = user?.id ?? null;
+  /*
+    Send ▾ (2026-10-29, as Zendesk's submit-as): what happens to the conversation once the reply
+    is out. The face is the agent's last choice on this browser. The after-send step rides in a
+    ref so the assign-on-reply prompt, which sends later, still runs it.
+  */
+  const [sendAction, setSendAction] = useState<SendAction>(() =>
+    readSendAction(currentUserId ?? undefined)
+  );
+  const afterSendRef = useRef<{ action: SendAction; hold?: { reason: string; until: Date } }>({
+    action: 'send',
+  });
+  const [sendHoldOpen, setSendHoldOpen] = useState(false);
+  // While the reply box is open the header keeps only its title row and tabs.
+  const [composerOpen, setComposerOpen] = useState(false);
+  /*
+    Reading (owner, 2026-10-29): scrolling DOWN the thread tucks the header's sender, status and
+    meta rows away; scrolling up brings them back. Only the reader's own scrolling counts — the
+    thread's own jump to the newest message on open must not tuck it — and each change settles
+    briefly, because the header changing height moves the scroll position itself.
+  */
+  const [headerTucked, setHeaderTucked] = useState(false);
+  const scrollTrackRef = useRef({ top: 0, intentUntil: 0, settleUntil: 0 });
+  const markScrollIntent = useCallback(() => {
+    scrollTrackRef.current.intentUntil = Date.now() + 800;
+  }, []);
+  const handleThreadScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    const track = scrollTrackRef.current;
+    const top = event.currentTarget.scrollTop;
+    const delta = top - track.top;
+    track.top = top;
+    const now = Date.now();
+    if (now < track.settleUntil || now > track.intentUntil) return;
+    const tuck = top <= 4 ? false : delta > 6 ? true : delta < -6 ? false : null;
+    if (tuck === null) return;
+    track.settleUntil = now + 300;
+    setHeaderTucked(tuck);
+  }, []);
+  useEffect(() => {
+    setHeaderTucked(false);
+  }, [message.id]);
 
   // Ownership prompt on Send (owner decision 2026-09-07). The workspace setting rides on the
   // organization payload every member may read; cached, one read per session.
@@ -717,6 +759,27 @@ export function MessageDetail({
         // A sent reply (not an internal note) flips the conversation to Pending —
         // move the board card optimistically before the heavier onRefresh reconcile.
         if (composerMode !== 'note') onReplied?.();
+        const after = afterSendRef.current;
+        afterSendRef.current = { action: 'send' };
+        if (composerMode !== 'note' && after.action !== 'send') {
+          try {
+            if (after.action === 'resolve') await messageService.close(message.id);
+            else if (after.action === 'resolve_kb') await messageService.resolve(message.id);
+            else if (after.action === 'hold' && after.hold) {
+              await messageService.setStatus(message.id, 'pending', after.hold);
+              onOptimisticMove?.('on_hold');
+            }
+            if (after.action !== 'hold') onResolve?.();
+          } catch (err) {
+            // The reply IS out — only the status step failed; say so instead of a send failure.
+            logger.error('Sent, but the status change failed:', err);
+            setSendFailedError(
+              after.action === 'hold'
+                ? 'Sent — but putting it on hold failed. Use the status menu above.'
+                : 'Sent — but resolving failed. Resolve it from the row below.'
+            );
+          }
+        }
         onRefresh?.();
       } catch (err) {
         // Keep the token so a retry of THIS send reuses it and the BE dedups the duplicate.
@@ -736,8 +799,10 @@ export function MessageDetail({
       composer,
       composerMode,
       message.id,
+      onOptimisticMove,
       onRefresh,
       onReplied,
+      onResolve,
       recipientDraft,
       selectedFiles,
       supportsRecipients,
@@ -774,6 +839,25 @@ export function MessageDetail({
     message.assigneeName,
     performSend,
   ]);
+
+  // Resolving is offered where the Resolve row offers it with KB (an active thread); hold always.
+  const sendActions: SendAction[] =
+    resolveMode === 'active' ? ['send', 'resolve', 'resolve_kb', 'hold'] : ['send', 'hold'];
+  const handleSendWith = useCallback(
+    (action: SendAction) => {
+      if (isBlankRichText(composer)) return;
+      setSendAction(action);
+      writeSendAction(currentUserId ?? undefined, action);
+      // On hold needs its reason and recheck date first — asked BEFORE anything is sent.
+      if (action === 'hold') {
+        setSendHoldOpen(true);
+        return;
+      }
+      afterSendRef.current = { action };
+      void handleSend();
+    },
+    [composer, currentUserId, handleSend]
+  );
 
   const handleOpenTemplates = useCallback(async () => {
     setTemplateError(null);
@@ -1321,6 +1405,7 @@ export function MessageDetail({
           isRead={readState}
           onToggleRead={handleToggleRead}
           metaTarget={twoColumn ? sideMetaEl : undefined}
+          compact={(composerOpen || headerTucked) && !isPhone}
           merges={mergeContext.merges}
           onReloadMerges={mergeContext.reloadMerges}
           onMergeChange={mergeContext.applyMergeChange}
@@ -1380,6 +1465,11 @@ export function MessageDetail({
           (ZET-SUP-1358). Wide content is contained per-bubble in ThreadBubble. */}
         <div
           data-testid="thread-scroller"
+          onScroll={handleThreadScroll}
+          onWheel={markScrollIntent}
+          onTouchMove={markScrollIntent}
+          onKeyDown={markScrollIntent}
+          onPointerDown={markScrollIntent}
           className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background max-sm:flex-none ${panelOpen && !twoColumn ? 'hidden' : ''}`}
         >
           {/* v3: the thread is the canvas; bubbles are the cards on it. */}
@@ -1499,7 +1589,16 @@ export function MessageDetail({
             composerMode={composerMode}
             setComposerMode={setComposerMode}
             submitting={submitting}
-            onSend={() => void handleSend()}
+            // Ctrl+Enter and the folded box's round Send act as the Send ▾ face does.
+            onSend={() =>
+              composerMode === 'reply'
+                ? handleSendWith(sendActions.includes(sendAction) ? sendAction : 'send')
+                : void handleSend()
+            }
+            sendActions={sendActions}
+            sendAction={sendAction}
+            onSendWith={handleSendWith}
+            onOpenChange={setComposerOpen}
             richEditorRef={richEditorRef}
             noteEditorRef={noteEditorRef}
             onOpenSimilarMessages={() => setSimilarOpen(true)}
@@ -1594,6 +1693,20 @@ export function MessageDetail({
           onClose?.();
         }}
         onKeepUnreadAndClose={() => onClose?.()}
+      />
+
+      <HoldDialog
+        open={sendHoldOpen}
+        onOpenChange={setSendHoldOpen}
+        title="Send and put on hold"
+        description="The reply goes out, then the thread leaves the active list until the recheck date. Say why, so whoever picks it up knows what it is waiting for."
+        confirmText="Send and put on hold"
+        busy={submitting}
+        onConfirm={(hold) => {
+          setSendHoldOpen(false);
+          afterSendRef.current = { action: 'hold', hold };
+          void handleSend();
+        }}
       />
 
       <ConfirmDialog

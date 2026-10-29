@@ -38,6 +38,8 @@ type Props = {
   disabled?: boolean;
   /** Classes for the trigger, so it can match the toolbar it sits in. */
   triggerClassName?: string;
+  /** Icon only (a narrow reply toolbar); the label stays for screen readers and on hover. */
+  iconOnly?: boolean;
 };
 
 /**
@@ -51,6 +53,7 @@ export const TemplatePicker = ({
   label = 'Templates',
   disabled = false,
   triggerClassName,
+  iconOnly = false,
 }: Props) => {
   const templates = useReplyTemplates(use);
   if (!templates || templates.length === 0) return null;
@@ -76,9 +79,10 @@ export const TemplatePicker = ({
           onClick={toggle}
           disabled={disabled}
           className={triggerClassName}
+          title={iconOnly ? label : undefined}
         >
-          <FileText className="w-3 h-3 mr-1" aria-hidden />
-          {label}
+          <FileText className={iconOnly ? 'w-3 h-3' : 'w-3 h-3 mr-1'} aria-hidden />
+          {iconOnly ? <span className="sr-only">{label}</span> : label}
         </Button>
       )}
     />

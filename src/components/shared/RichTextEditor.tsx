@@ -294,7 +294,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
             setTimeout(() => editor.commands.focus(), 0);
           }}
         >
-          <span>{placeholder}</span>
+          {/* One left-aligned line: a wrapped, centred hint took two lines of the reply box. */}
+          <span className="min-w-0 truncate text-left">{placeholder}</span>
           <ChevronDown className="h-4 w-4 shrink-0" />
         </button>
       );

@@ -20,6 +20,7 @@ import { useIsPhone } from './useIsPhone';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
+import { ComposerSendButton, type SendAction } from './ComposerSendButton';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,15 @@ export type MessageComposerProps = {
   onLookUp?: (() => void) | null;
   /** Hidden but kept mounted (v4 mobile: a phone shows the composer under Thread / Notes only). */
   hidden?: boolean;
+  /**
+   * Send-and-then (2026-10-29): the reply's Send becomes a split button offering these. Absent,
+   * a plain Send. `sendAction` is the face — the agent's last choice.
+   */
+  sendActions?: SendAction[];
+  sendAction?: SendAction;
+  onSendWith?: (action: SendAction) => void;
+  /** Told when the box opens or folds, so the host can shrink its header while a reply is written. */
+  onOpenChange?: (open: boolean) => void;
 };
 
 /*
@@ -150,6 +160,10 @@ export function MessageComposer({
   shortcutHint,
   decisions,
   hidden = false,
+  sendActions,
+  sendAction = 'send',
+  onSendWith,
+  onOpenChange,
 }: MessageComposerProps) {
   const user = useAuthStore((store) => store.user);
   const [isDragging, setIsDragging] = useState(false);
@@ -165,6 +179,21 @@ export function MessageComposer({
   */
   const isPhone = useIsPhone();
   const rootRef = useRef<HTMLDivElement>(null);
+  /*
+    The tools keep their names only where the box is wide enough for all of them and Send on ONE
+    row (a full-page thread); in the slide-over they are icons, named on hover and for screen
+    readers. Measured on the box itself — the slide-over is narrow on any window size.
+  */
+  const [wideTools, setWideTools] = useState(true);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => {
+      setWideTools(entry.contentRect.width >= 780);
+    });
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, []);
   const [open, setOpen] = useState(false);
   // Bumped on each close so the editor remounts in its collapsed one-line form.
   const [restGeneration, setRestGeneration] = useState(0);
@@ -175,6 +204,9 @@ export function MessageComposer({
     !recipientDraft?.cc.trim() &&
     !recipientDraft?.bcc.trim();
   const atRest = !open;
+  useEffect(() => {
+    onOpenChange?.(!atRest);
+  }, [atRest, onOpenChange]);
   // Says what AI draft does with what is typed — before, only the button's hover title did, and a
   // phone has no hover. Only where the button is offered (the same conditions ComposerAiActions
   // uses), and not in the one-line pill at rest on a phone, where it would be cut off.
@@ -562,7 +594,7 @@ export function MessageComposer({
               // While an AI draft is being written the editor holds the agent's note: translating
               // it then made the draft land on changed text and be refused.
               disabled={submitting || aiBusy}
-              label={isPhone ? undefined : 'Translate'}
+              label={isPhone || !wideTools ? undefined : 'Translate'}
               buttonClassName={`${IBTN} !w-auto !h-auto max-sm:!w-9 max-sm:justify-center max-sm:!px-0`}
             />
           )}
@@ -573,6 +605,7 @@ export function MessageComposer({
               onPick={(template) => void insertTemplate(template)}
               disabled={submitting}
               triggerClassName={`${IBTN} h-auto`}
+              iconOnly={isPhone || !wideTools}
             />
           )}
           {composerMode === 'reply' && !atRest && (
@@ -580,6 +613,7 @@ export function MessageComposer({
               editor={richEditorRef}
               disabled={submitting || aiBusy}
               triggerClassName={`${IBTN} h-auto`}
+              iconOnly={isPhone || !wideTools}
               ticketIdHint="Its ticket’s number — only when the thread is on a ticket"
             />
           )}
@@ -589,7 +623,7 @@ export function MessageComposer({
           >
             <Paperclip className="w-3 h-3 max-sm:w-4 max-sm:h-4" />
             {/* Icon only on a phone (v4 mobile); the name stays for screen readers. */}
-            {isPhone ? <span className="sr-only">Attach</span> : 'Attach'}
+            {isPhone || !wideTools ? <span className="sr-only">Attach</span> : 'Attach'}
             <input
               type="file"
               multiple
@@ -607,7 +641,7 @@ export function MessageComposer({
               title="Search knowledge base"
             >
               <BookOpen className="w-3 h-3" />
-              KB
+              {isPhone || !wideTools ? <span className="sr-only">KB</span> : 'KB'}
             </Button>
           )}
           {composerMode === 'reply' && onLookUp && (
@@ -618,45 +652,63 @@ export function MessageComposer({
               title="Look up this customer in connected systems"
             >
               <Search className="w-3 h-3" />
-              Look up
+              {isPhone || !wideTools ? <span className="sr-only">Look up</span> : 'Look up'}
             </Button>
           )}
           <span className={`flex-1 ${atRest ? 'hidden' : ''}`} />
-          <Button
-            variant="ghost"
-            onClick={onSend}
-            // Require text even when files are attached — no attachment-only sends.
-            disabled={
-              isBlankRichText(composer) || submitting || aiBusy || Boolean(sendBlockedReason)
-            }
-            title={
-              // The channel block outranks the blank-text hint: if the window is shut,
-              // filling the box in changes nothing and saying so would mislead.
-              sendBlockedReason ??
-              (isBlankRichText(composer)
-                ? 'Add a message — attachments alone can’t be sent'
-                : undefined)
-            }
-            className={`flex items-center gap-1 px-[13px] py-[5px] h-auto rounded-[7px] font-display text-[10.5px] font-semibold uppercase tracking-[0.07em] transition-colors disabled:opacity-50 ${
-              composerMode === 'note'
-                ? 'bg-note hover:bg-note/90 text-note-foreground'
-                : 'bg-primary text-primary-foreground hover:bg-primary/90'
-            } ${atRest ? '!w-10 !h-10 sm:!w-8 sm:!h-8 !p-0 !rounded-full justify-center flex-none' : 'max-sm:h-9 max-sm:px-3.5'}`}
-          >
-            <Send className={atRest ? 'w-4 h-4 sm:w-3.5 sm:h-3.5' : 'w-2.5 h-2.5'} />
-            {/* The round Send at rest keeps its name for screen readers. */}
-            {atRest ? (
-              <span className="sr-only">
-                {composerMode === 'note' ? 'POST NOTE' : submitting ? 'SENDING…' : 'SEND'}
-              </span>
-            ) : composerMode === 'note' ? (
-              'POST NOTE'
-            ) : submitting ? (
-              'SENDING…'
-            ) : (
-              'SEND'
-            )}
-          </Button>
+          {composerMode === 'reply' && !atRest && onSendWith && sendActions ? (
+            <ComposerSendButton
+              action={sendAction}
+              actions={sendActions}
+              onSend={onSendWith}
+              submitting={submitting}
+              disabled={
+                isBlankRichText(composer) || submitting || aiBusy || Boolean(sendBlockedReason)
+              }
+              title={
+                sendBlockedReason ??
+                (isBlankRichText(composer)
+                  ? 'Add a message — attachments alone can’t be sent'
+                  : undefined)
+              }
+            />
+          ) : (
+            <Button
+              variant="ghost"
+              onClick={onSend}
+              // Require text even when files are attached — no attachment-only sends.
+              disabled={
+                isBlankRichText(composer) || submitting || aiBusy || Boolean(sendBlockedReason)
+              }
+              title={
+                // The channel block outranks the blank-text hint: if the window is shut,
+                // filling the box in changes nothing and saying so would mislead.
+                sendBlockedReason ??
+                (isBlankRichText(composer)
+                  ? 'Add a message — attachments alone can’t be sent'
+                  : undefined)
+              }
+              className={`flex items-center gap-1 px-[13px] py-[5px] h-auto rounded-[7px] font-display text-[10.5px] font-semibold uppercase tracking-[0.07em] transition-colors disabled:opacity-50 ${
+                composerMode === 'note'
+                  ? 'bg-note hover:bg-note/90 text-note-foreground'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
+              } ${atRest ? '!w-10 !h-10 sm:!w-8 sm:!h-8 !p-0 !rounded-full justify-center flex-none' : 'max-sm:h-9 max-sm:px-3.5'}`}
+            >
+              <Send className={atRest ? 'w-4 h-4 sm:w-3.5 sm:h-3.5' : 'w-2.5 h-2.5'} />
+              {/* The round Send at rest keeps its name for screen readers. */}
+              {atRest ? (
+                <span className="sr-only">
+                  {composerMode === 'note' ? 'POST NOTE' : submitting ? 'SENDING…' : 'SEND'}
+                </span>
+              ) : composerMode === 'note' ? (
+                'POST NOTE'
+              ) : submitting ? (
+                'SENDING…'
+              ) : (
+                'SEND'
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -689,7 +741,9 @@ export function MessageComposer({
           ))}
         </div>
       )}
-      {decisions}
+      {/* While a reply is typed, Send ▾ carries the resolve choices: the row returns when the
+          box is empty again (owner, 2026-10-29). */}
+      {draftEmpty ? decisions : null}
     </div>
   );
 }

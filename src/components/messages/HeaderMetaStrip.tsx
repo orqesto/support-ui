@@ -222,7 +222,7 @@ export function HeaderMetaStrip({
               )}
             </Button>
           )}
-          {needsRouting && <WhyParked conversationId={message.id} />}
+          {needsRouting && <WhyParked conversationId={message.id} asIcon={!rows && !card} />}
         </div>
       )}
 

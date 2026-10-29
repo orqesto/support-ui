@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import { Info } from 'lucide-react';
 import { routingDecisionService } from '@/services/routingDecision.service';
+import { Tooltip } from '@/components/ui/Tooltip';
 
 /**
  * One line under the "Needs routing" mark saying what the router actually saw.
@@ -12,7 +14,17 @@ import { routingDecisionService } from '@/services/routingDecision.service';
  * Renders nothing while loading, on error, or when no decision is stored. A parked thread
  * with no explanation is the status quo; a wrong explanation would be worse than none.
  */
-export const WhyParked = ({ conversationId }: { conversationId: number | string }) => {
+export const WhyParked = ({
+  conversationId,
+  asIcon = false,
+}: {
+  conversationId: number | string;
+  /**
+   * An ⓘ beside the mark with the sentence on hover/focus (the thread header, 2026-10-29: as a
+   * line it took two rows of the conversation's room). The line form stays for the sidebar.
+   */
+  asIcon?: boolean;
+}) => {
   const { data } = useQuery({
     queryKey: ['routing-decision', conversationId],
     queryFn: () => routingDecisionService.get(conversationId),
@@ -22,21 +34,38 @@ export const WhyParked = ({ conversationId }: { conversationId: number | string 
 
   if (!data || data.verdict === 'routed') return null;
 
-  if (data.verdict === 'nothing_scored') {
-    return (
-      <p data-testid="why-parked" className="min-w-0 text-xs text-muted-foreground">
+  const closest = data.closest;
+  const sentence =
+    data.verdict === 'nothing_scored' ? (
+      <>
         No routing rule came close to this thread — routing it by hand will not help the next one.
         Consider creating a rule from it.
-      </p>
+      </>
+    ) : (
+      <>
+        Closest match was <span className="font-medium text-foreground">{closest?.name}</span> at{' '}
+        {closest ? closest.similarity.toFixed(2) : '—'}, just under the {data.weakBar} bar — so
+        nothing was chosen.
+      </>
+    );
+
+  if (asIcon) {
+    return (
+      <Tooltip content={<span data-testid="why-parked">{sentence}</span>} size="sm">
+        <span
+          tabIndex={0}
+          aria-label="Why it needs routing"
+          className="inline-flex flex-shrink-0 items-center text-muted-foreground hover:text-foreground"
+        >
+          <Info className="w-3.5 h-3.5" />
+        </span>
+      </Tooltip>
     );
   }
 
-  const closest = data.closest;
   return (
     <p data-testid="why-parked" className="min-w-0 text-xs text-muted-foreground">
-      Closest match was <span className="font-medium text-foreground">{closest?.name}</span> at{' '}
-      {closest ? closest.similarity.toFixed(2) : '—'}, just under the {data.weakBar} bar — so
-      nothing was chosen.
+      {sentence}
     </p>
   );
 };

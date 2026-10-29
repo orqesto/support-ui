@@ -19,6 +19,7 @@ export const InsertFieldMenu = ({
   disabled,
   triggerClassName,
   ticketIdHint,
+  iconOnly = false,
 }: {
   onInsert?: (token: string) => void;
   /** Or insert straight into a rich-text editor, at its caret. */
@@ -31,6 +32,8 @@ export const InsertFieldMenu = ({
    * is on one — otherwise the server refuses the send — so the box says so.
    */
   ticketIdHint?: string;
+  /** Icon only (a narrow reply toolbar); the name stays for screen readers and on hover. */
+  iconOnly?: boolean;
 }) => {
   const insert = (token: string) =>
     onInsert ? onInsert(token) : editor?.current?.insertText(token);
@@ -47,10 +50,11 @@ export const InsertFieldMenu = ({
           onClick={toggle}
           disabled={disabled}
           className={triggerClassName}
+          title={iconOnly ? 'Insert field' : undefined}
         >
-          <Braces className={`mr-1 ${iconSize}`} aria-hidden />
-          Insert field
-          <ChevronDown className="ml-1 w-3.5 h-3.5" aria-hidden />
+          <Braces className={iconOnly ? iconSize : `mr-1 ${iconSize}`} aria-hidden />
+          {iconOnly ? <span className="sr-only">Insert field</span> : 'Insert field'}
+          {!iconOnly && <ChevronDown className="ml-1 w-3.5 h-3.5" aria-hidden />}
         </Button>
       )}
     >
