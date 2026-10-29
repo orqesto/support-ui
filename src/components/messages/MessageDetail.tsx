@@ -552,6 +552,10 @@ export function MessageDetail({
   const [sendAction, setSendAction] = useState<SendAction>(() =>
     readSendAction(currentUserId ?? undefined)
   );
+  // The signed-in agent can arrive after the first render: read their choice once they do.
+  useEffect(() => {
+    setSendAction(readSendAction(currentUserId ?? undefined));
+  }, [currentUserId]);
   const afterSendRef = useRef<{ action: SendAction; hold?: { reason: string; until: Date } }>({
     action: 'send',
   });
@@ -718,6 +722,12 @@ export function MessageDetail({
       // Undefined unless the agent actually addressed this reply somewhere, which
       // the BE reads as "the requester and nobody else".
       const recipients = supportsRecipients ? draftToRecipients(recipientDraft) : undefined;
+      // Send ▾: "Send, resolve & save to KB" rides on the reply itself — the server resolves and
+      // captures the Q&A in the reply's own transaction, and reverts both if delivery fails.
+      // The other choices run after the reply is out.
+      const after = afterSendRef.current;
+      afterSendRef.current = { action: 'send' };
+      const resolveInSend = composerMode !== 'note' && after.action === 'resolve_kb';
       try {
         if (composerMode === 'note') {
           // The composer is the rich-text editor; a note is plain text (noteText.ts).
@@ -727,7 +737,7 @@ export function MessageDetail({
             message.id,
             composer,
             selectedFiles,
-            false,
+            resolveInSend,
             aiSource !== null,
             aiSource ?? undefined,
             idempotencyKey,
@@ -739,7 +749,7 @@ export function MessageDetail({
           await messageService.reply(
             message.id,
             composer,
-            false,
+            resolveInSend,
             aiSource !== null,
             aiSource ?? undefined,
             idempotencyKey,
@@ -759,12 +769,10 @@ export function MessageDetail({
         // A sent reply (not an internal note) flips the conversation to Pending —
         // move the board card optimistically before the heavier onRefresh reconcile.
         if (composerMode !== 'note') onReplied?.();
-        const after = afterSendRef.current;
-        afterSendRef.current = { action: 'send' };
-        if (composerMode !== 'note' && after.action !== 'send') {
+        if (resolveInSend) onResolve?.();
+        else if (composerMode !== 'note' && after.action !== 'send') {
           try {
             if (after.action === 'resolve') await messageService.close(message.id);
-            else if (after.action === 'resolve_kb') await messageService.resolve(message.id);
             else if (after.action === 'hold' && after.hold) {
               await messageService.setStatus(message.id, 'pending', after.hold);
               onOptimisticMove?.('on_hold');
@@ -782,7 +790,9 @@ export function MessageDetail({
         }
         onRefresh?.();
       } catch (err) {
-        // Keep the token so a retry of THIS send reuses it and the BE dedups the duplicate.
+        // Keep the token so a retry of THIS send reuses it and the BE dedups the duplicate —
+        // and its Send ▾ choice, so Retry resolves / holds as the agent asked.
+        afterSendRef.current = after;
         logger.error('Failed to send:', err);
         // Surface the server's own explanation for client errors — see
         // resolveSendFailureMessage for why "please try again" is wrong for some of them.
@@ -1575,7 +1585,13 @@ export function MessageDetail({
 
         {/* Phone: the resolve row between the thread and the composer, Thread tab only (M6) — and,
             as on desktop, only while the composer is on Reply: a note is not an answer. */}
-        {isPhone && isActive && !panelOpen && composerMode === 'reply' && decisionsFor('phone')}
+        {/* Hidden while a reply is typed, as on desktop: Send ▾ carries the resolve choices. */}
+        {isPhone &&
+          isActive &&
+          !panelOpen &&
+          composerMode === 'reply' &&
+          isBlankRichText(composer) &&
+          decisionsFor('phone')}
 
         {/* Composer — shown for active conversations. On a phone, only under the Thread or Notes
             tab (M7) — hidden, not unmounted, so a draft and its AI undo survive a tab visit. */}

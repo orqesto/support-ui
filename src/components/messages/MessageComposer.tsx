@@ -742,8 +742,9 @@ export function MessageComposer({
         </div>
       )}
       {/* While a reply is typed, Send ▾ carries the resolve choices: the row returns when the
-          box is empty again (owner, 2026-10-29). */}
-      {draftEmpty ? decisions : null}
+          box is empty again (owner, 2026-10-29). Text only: an address alone (Reply to this
+          message) leaves Send disabled, so hiding the row then left no way to resolve. */}
+      {isBlankRichText(composer) ? decisions : null}
     </div>
   );
 }
