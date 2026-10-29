@@ -17,12 +17,14 @@ vi.mock('@/services/assignment.service', () => ({
 
 import { BulkConfirmDialog } from '../BulkConfirmDialog';
 import { networkError } from '@/test/apiError';
-import { listOptions } from '@/test/chooseOption';
+import { chooseOption, listOptions } from '@/test/chooseOption';
 
 const EMPTY = /No one in this workspace can be assigned threads/;
 const FAILED = /Could not load the people you can assign/;
 
-const renderAssign = () =>
+const renderAssign = (
+  onConfirm: (values: { assigneeId?: number | null }) => void = () => undefined
+) =>
   render(
     <BulkConfirmDialog
       open
@@ -31,9 +33,11 @@ const renderAssign = () =>
       selectedCount={2}
       running={false}
       onOpenChange={() => undefined}
-      onConfirm={() => undefined}
+      onConfirm={onConfirm}
     />
   );
+const assignButton = () =>
+  screen.getByRole<HTMLButtonElement>('button', { name: /^(Assign|Unassign) 2$/ });
 
 beforeEach(() => {
   answer = () => Promise.resolve([]);
@@ -60,8 +64,44 @@ describe('bulk Assign picker', () => {
   it('says neither when there are people to pick (control)', async () => {
     answer = () => Promise.resolve([{ id: 7, firstName: 'Ada', lastName: 'Agent' }]);
     renderAssign();
-    expect(await listOptions(screen.getByLabelText('Assign to'))).toEqual(['Ada Agent']);
+    expect(await listOptions(screen.getByLabelText('Assign to'))).toEqual([
+      'Nobody (unassign)',
+      'Ada Agent',
+    ]);
     expect(screen.queryByText(EMPTY)).toBeNull();
     expect(screen.queryByText(FAILED)).toBeNull();
+  });
+
+  it('unassigns on "Nobody": the run sends a null assignee and says it will unassign', async () => {
+    answer = () => Promise.resolve([{ id: 7, firstName: 'Ada', lastName: 'Agent' }]);
+    const onConfirm = vi.fn();
+    renderAssign(onConfirm);
+    await screen.findByText(/This will/);
+    // Nothing chosen: no run (it would clear every assignee without being asked to).
+    expect(assignButton().disabled).toBe(true);
+    await chooseOption(screen.getByLabelText('Assign to'), 'Nobody (unassign)');
+    expect(screen.getByText(/This will unassign/)).toBeTruthy();
+    expect(assignButton().textContent).toBe('Unassign 2');
+    expect(assignButton().disabled).toBe(false);
+    assignButton().click();
+    expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ assigneeId: null }));
+  });
+
+  it('CONTROL: a person still sends their id', async () => {
+    answer = () => Promise.resolve([{ id: 7, firstName: 'Ada', lastName: 'Agent' }]);
+    const onConfirm = vi.fn();
+    renderAssign(onConfirm);
+    await chooseOption(screen.getByLabelText('Assign to'), 'Ada Agent');
+    expect(screen.queryByText(/This will unassign/)).toBeNull();
+    assignButton().click();
+    expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ assigneeId: 7 }));
+  });
+
+  it('offers "Nobody" even when the people could not be loaded', async () => {
+    const failure = await networkError();
+    answer = () => Promise.reject(failure as Error);
+    renderAssign();
+    expect(await screen.findByText(FAILED)).toBeTruthy();
+    expect(await listOptions(screen.getByLabelText('Assign to'))).toEqual(['Nobody (unassign)']);
   });
 });
