@@ -105,6 +105,12 @@ export const useMessagesData = ({
   // issued nothing, leaving the previous workspace's rows on screen.
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
 
+  // The lens the scope count on screen was asked for (see `askScope` below). Department and
+  // workspace are read through a ref so `fetchMessages` keeps its identity: effects key on it.
+  const scopeAnsweredForRef = useRef<string | null>(null);
+  const lensIdentityRef = useRef('');
+  lensIdentityRef.current = `${selectedDeptKey}|${String(selectedOrganizationId)}`;
+
   const fetchMessages = useCallback(
     async (page = 1, force = false) => {
       /**
@@ -199,7 +205,17 @@ export const useMessagesData = ({
         // the slowest of the endpoint's three queries. The board fetches per column and
         // the dashboard fires ten `(…, 1, 1)` counter calls — none of them render this,
         // and all of them would pay for it. `isKanban` is the only discriminator here.
-        if (!isKanban) apiFilters.scope = '1';
+        //
+        // ⛔ And only when the QUESTION changed — the filters, department or workspace — or
+        // nothing is on screen to keep. It was asked on every read: every refresh and every
+        // page. On a 130,000-thread workspace it took 9.8–13.8 s cold (staging, 2026-10-29),
+        // and the list refreshes every few seconds per open tab on a busy one. A refresh or
+        // another page keeps the count it has, as the board does: a thread moving lanes
+        // shifts it by one at most, and the next filter change asks again.
+        const scopeKey = JSON.stringify([apiFilters, lensIdentityRef.current]);
+        const askScope =
+          !isKanban && (scopeAnsweredForRef.current !== scopeKey || snapshot.listScope === null);
+        if (askScope) apiFilters.scope = '1';
 
         const response = await messageService.getThreads(
           Object.keys(apiFilters).length > 0 ? apiFilters : undefined,
@@ -217,16 +233,14 @@ export const useMessagesData = ({
           setListTimedOut(timedOut);
           // `scope` is absent on a stale bundle/older backend and null when the count
           // could not be taken. Both mean "no information" — never a zeroed object.
+          // Not asked this time: the count on screen still describes this lens.
+          const scope = askScope ? (response.scope ?? null) : snapshot.listScope;
+          // Only an answer that landed settles the question; a null is asked again next read.
+          if (askScope && response.scope) scopeAnsweredForRef.current = scopeKey;
           if (timedOut) {
-            setListScope(response.scope ?? null);
+            setListScope(scope);
           } else {
-            setMessages(
-              response.data,
-              response.pagination,
-              response.scope ?? null,
-              cacheKey,
-              response.search
-            );
+            setMessages(response.data, response.pagination, scope, cacheKey, response.search);
           }
           setThreadsLocal(response.data);
           setMessagesPagination(response.pagination);
