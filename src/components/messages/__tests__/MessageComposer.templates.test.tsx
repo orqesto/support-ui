@@ -6,10 +6,18 @@
  */
 import { forwardRef, useImperativeHandle, useState } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Message } from '@/types';
 import type { ReplyTemplate } from '@/services/replyTemplates.service';
+
+// The reply box folds to one line while empty (every screen size since 2026-10-29): open it the
+// way an agent does, by pressing into it.
+const renderOpen = (ui: Parameters<typeof render>[0]) => {
+  const result = render(ui);
+  fireEvent.click(screen.getByTestId('composer-field'));
+  return result;
+};
 
 const list = vi.fn();
 const downloadAttachment = vi.fn();
@@ -92,7 +100,7 @@ describe('MessageComposer — reply templates', () => {
   it('Insert field puts a placeholder in the reply, as the ticket reply box does', async () => {
     list.mockResolvedValue({ unavailable: false, templates: [] });
     const user = userEvent.setup();
-    render(<Host messageId={1} initial="Hi " />);
+    renderOpen(<Host messageId={1} initial="Hi " />);
     await user.click(screen.getByRole('button', { name: /Insert field/ }));
     // A thread may have no ticket: then {ticket_id} refuses the send, and the menu says so.
     expect(
@@ -104,14 +112,14 @@ describe('MessageComposer — reply templates', () => {
 
   it('asks for the THREAD box’s templates', async () => {
     list.mockResolvedValue({ unavailable: false, templates: [template()] });
-    render(<Host messageId={1} />);
+    renderOpen(<Host messageId={1} />);
     expect(await screen.findByRole('button', { name: 'Templates' })).toBeInTheDocument();
     expect(list).toHaveBeenCalledWith('thread');
   });
 
   it('an older backend (404 ⇒ unavailable) shows no Templates menu', async () => {
     list.mockResolvedValue({ unavailable: true });
-    render(<Host messageId={1} />);
+    renderOpen(<Host messageId={1} />);
     await waitFor(() => expect(list).toHaveBeenCalled());
     await Promise.resolve();
     expect(screen.queryByRole('button', { name: 'Templates' })).toBeNull();
@@ -119,7 +127,7 @@ describe('MessageComposer — reply templates', () => {
 
   it('no templates for this box ⇒ no menu (a menu that opens empty is a dead control)', async () => {
     list.mockResolvedValue({ unavailable: false, templates: [] });
-    render(<Host messageId={1} />);
+    renderOpen(<Host messageId={1} />);
     await waitFor(() => expect(list).toHaveBeenCalled());
     await Promise.resolve();
     expect(screen.queryByRole('button', { name: 'Templates' })).toBeNull();
@@ -127,7 +135,7 @@ describe('MessageComposer — reply templates', () => {
 
   it('a blank box gets the body in place; placeholders stay as tokens', async () => {
     list.mockResolvedValue({ unavailable: false, templates: [template()] });
-    render(<Host messageId={1} initial="<p></p>" />);
+    renderOpen(<Host messageId={1} initial="<p></p>" />);
     await pick('Refund approved');
     await waitFor(() =>
       expect(latest.composer).toBe('<p>Hi {first_name|there}, your refund is on its way.</p>')
@@ -136,7 +144,7 @@ describe('MessageComposer — reply templates', () => {
 
   it('text already written is kept and the body goes after it', async () => {
     list.mockResolvedValue({ unavailable: false, templates: [template()] });
-    render(<Host messageId={1} initial="<p>Thanks for waiting.</p>" />);
+    renderOpen(<Host messageId={1} initial="<p>Thanks for waiting.</p>" />);
     await pick('Refund approved');
     await waitFor(() =>
       expect(latest.composer).toBe(
@@ -152,7 +160,7 @@ describe('MessageComposer — reply templates', () => {
       templates: [template({ attachments: [attachment] })],
     });
     downloadAttachment.mockResolvedValue(new File(['pdf'], 'policy.pdf'));
-    render(<Host messageId={1} />);
+    renderOpen(<Host messageId={1} />);
     await pick('Refund approved');
     await waitFor(() => expect(latest.files.map((file) => file.name)).toEqual(['policy.pdf']));
     expect(downloadAttachment).toHaveBeenCalledWith(1, attachment);
@@ -171,7 +179,7 @@ describe('MessageComposer — reply templates', () => {
         ? Promise.reject(new Error('gone'))
         : Promise.resolve(new File(['pdf'], 'policy.pdf'))
     );
-    render(<Host messageId={1} />);
+    renderOpen(<Host messageId={1} />);
     await pick('Refund approved');
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Could not attach form.pdf from “Refund approved”.'
@@ -191,7 +199,7 @@ describe('MessageComposer — reply templates', () => {
         release = resolve;
       })
     );
-    const { rerender } = render(<Host messageId={1} />);
+    const { rerender } = renderOpen(<Host messageId={1} />);
     await pick('Refund approved');
     await waitFor(() => expect(downloadAttachment).toHaveBeenCalled());
     rerender(<Host messageId={2} />);

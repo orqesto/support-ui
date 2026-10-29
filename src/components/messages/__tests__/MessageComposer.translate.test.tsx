@@ -9,6 +9,14 @@ import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/re
 import type { Message } from '@/types';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 
+// The reply box folds to one line while empty (every screen size since 2026-10-29): open it the
+// way an agent does, by pressing into it.
+const renderOpen = (ui: Parameters<typeof render>[0]) => {
+  const result = render(ui);
+  fireEvent.click(screen.getByTestId('composer-field'));
+  return result;
+};
+
 type Translated = { translated: { content: string; language: string } };
 const translateText = vi.fn<(text: string, language: string) => Promise<Translated>>();
 const phone = vi.hoisted(() => ({ on: false }));
@@ -94,7 +102,7 @@ afterEach(() => {
 
 describe('MessageComposer — Translate in the tool row', () => {
   it('a labelled Translate sits in the tool row, and only there', () => {
-    render(<Host initial="<p>Hello</p>" />);
+    renderOpen(<Host initial="<p>Hello</p>" />);
     const buttons = screen.getAllByRole('button', { name: 'Translate' });
     expect(buttons).toHaveLength(1);
     expect(tools()).toContainElement(buttons[0]);
@@ -105,7 +113,7 @@ describe('MessageComposer — Translate in the tool row', () => {
     translateText.mockResolvedValue({
       translated: { content: 'Setze es [[a0]]hier[[/a0]] zurück.', language: 'de' },
     });
-    render(<Host initial='<p>Reset it <a href="https://help.example/reset">here</a>.</p>' />);
+    renderOpen(<Host initial='<p>Reset it <a href="https://help.example/reset">here</a>.</p>' />);
     fireEvent.click(screen.getByRole('button', { name: 'Translate' }));
     fireEvent.click(await screen.findByText('German'));
     await waitFor(() => expect(composerNow).toContain('Setze'));
@@ -114,7 +122,7 @@ describe('MessageComposer — Translate in the tool row', () => {
   });
 
   it('an empty reply sends nothing to translate', async () => {
-    render(<Host initial="" />);
+    renderOpen(<Host initial="" />);
     fireEvent.click(screen.getByRole('button', { name: 'Translate' }));
     fireEvent.click(await screen.findByText('German'));
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -123,7 +131,7 @@ describe('MessageComposer — Translate in the tool row', () => {
 
   it('phone: icon only (the name stays for screen readers)', () => {
     phone.on = true;
-    render(<Host initial="<p>Hello</p>" />);
+    renderOpen(<Host initial="<p>Hello</p>" />);
     // At rest the phone shows only AI draft; a reply already in the box opens the full tool row.
     const button = screen.getByRole('button', { name: 'Translate' });
     expect(button).not.toHaveTextContent('Translate');

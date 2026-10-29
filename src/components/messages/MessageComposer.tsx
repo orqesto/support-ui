@@ -116,11 +116,14 @@ const isTextEntry = (target: EventTarget): boolean => {
 
 // v3 ".ibtn" — shared with Compose new message (messageDetailConstants).
 const IBTN = COMPOSER_TOOL;
+// Between the toolbar's three groups — write (AI draft, Translate), insert (Templates, Insert
+// field, Attach), find (KB, Look up) — so the row reads as three tools, not nine, on one line.
+const TOOL_DIVIDER = 'w-px h-4 bg-border mx-0.5 max-sm:hidden';
 // The open toolbar on a phone: tools wrap, 6px apart; the AI draft button is tool-sized too.
 const PHONE_TOOLS = 'max-sm:gap-1.5 max-sm:[&_button]:min-h-9';
 // At rest on a phone: only the AI draft button — the off note, undo and messages wait for open.
 const AI_AT_REST =
-  '[&>span]:hidden [&>div]:hidden [&>p]:hidden [&>button:not([data-ai-draft])]:hidden [&>button]:!h-10 [&>button]:!rounded-full [&>button]:!px-3.5 [&>button]:!text-[13px]';
+  '[&>span]:hidden [&>div]:hidden [&>p]:hidden [&>button:not([data-ai-draft])]:hidden [&>button]:!h-10 sm:[&>button]:!h-8 [&>button]:!rounded-full [&>button]:!px-3.5 [&>button]:!text-[13px]';
 
 export function MessageComposer({
   message,
@@ -152,7 +155,8 @@ export function MessageComposer({
   const [isDragging, setIsDragging] = useState(false);
 
   /*
-    v4 mobile (M7): at rest a phone's composer is one 24px-radius pill — a one-line input, AI draft
+    v4 mobile (M7), every screen size since 2026-10-29 (an open empty box took over half a laptop
+    window from the conversation): at rest the composer is one 24px-radius pill — a one-line input, AI draft
     and a round Send. Pressing into it, focusing it or typing opens the full editor; an outside
     press closes it again, but only while there is nothing in it (no text, file or address) — a
     draft is never folded away. Opened on CLICK rather than pointerdown: the open composer is
@@ -161,7 +165,7 @@ export function MessageComposer({
   */
   const isPhone = useIsPhone();
   const rootRef = useRef<HTMLDivElement>(null);
-  const [phoneOpen, setPhoneOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   // Bumped on each close so the editor remounts in its collapsed one-line form.
   const [restGeneration, setRestGeneration] = useState(0);
   const draftEmpty =
@@ -170,7 +174,7 @@ export function MessageComposer({
     !recipientDraft?.to.trim() &&
     !recipientDraft?.cc.trim() &&
     !recipientDraft?.bcc.trim();
-  const atRest = isPhone && !phoneOpen;
+  const atRest = !open;
   // Says what AI draft does with what is typed — before, only the button's hover title did, and a
   // phone has no hover. Only where the button is offered (the same conditions ComposerAiActions
   // uses), and not in the one-line pill at rest on a phone, where it would be cut off.
@@ -179,19 +183,19 @@ export function MessageComposer({
   const replyAs = `Reply as ${user?.firstName ?? 'you'}…`;
   const replyPlaceholder =
     aiConfigured && !aiDraftsOff && !atRest
-      ? `${replyAs} Or type the facts (order number, what you decided) and press AI draft. Leave it empty to draft from the knowledge base.`
+      ? `${replyAs} or type the facts and press AI draft — empty drafts from the knowledge base.`
       : replyAs;
-  const openOnPhone = () => {
-    if (isPhone && !phoneOpen) setPhoneOpen(true);
+  const openComposer = () => {
+    if (!open) setOpen(true);
   };
   // Text or an address arriving from elsewhere (a KB answer, "Reply to this message") opens it.
   useEffect(() => {
-    if (isPhone && !draftEmpty) setPhoneOpen(true);
-  }, [isPhone, draftEmpty]);
+    if (!draftEmpty) setOpen(true);
+  }, [draftEmpty]);
   const draftEmptyRef = useRef(draftEmpty);
   draftEmptyRef.current = draftEmpty;
-  const phoneOpenRef = useRef(phoneOpen);
-  phoneOpenRef.current = phoneOpen;
+  const openRef = useRef(open);
+  openRef.current = open;
   /*
     An AI draft is being written: the editor is locked (the draft is about to replace its content)
     and the phone composer never folds away mid-request. The ref feeds the document listener.
@@ -212,7 +216,6 @@ export function MessageComposer({
     click's propagation cannot leave a stale record for the next one.
   */
   useEffect(() => {
-    if (!isPhone) return;
     type Press = 'composer' | 'keep' | 'outside';
     let pointerPress: Press | null = null;
     let clickPress: Press | null = null;
@@ -236,13 +239,13 @@ export function MessageComposer({
       const press = clickPress;
       clickPress = null;
       if (press === 'composer') {
-        if (!phoneOpenRef.current) setPhoneOpen(true);
+        if (!openRef.current) setOpen(true);
         return;
       }
-      if (press !== 'outside' || !phoneOpenRef.current) return;
+      if (press !== 'outside' || !openRef.current) return;
       // A draft is never folded away — nor an AI request in flight.
       if (!draftEmptyRef.current || aiActiveRef.current) return;
-      setPhoneOpen(false);
+      setOpen(false);
       setRestGeneration((gen) => gen + 1);
     };
     document.addEventListener('pointerdown', onPointerDown, true);
@@ -255,7 +258,7 @@ export function MessageComposer({
       document.removeEventListener('click', onClickCapture, true);
       document.removeEventListener('click', onClick);
     };
-  }, [isPhone]);
+  }, []);
   /*
     Focus opens it only when it lands where text is typed. Chrome Android focuses a button on
     the PRESS, so opening on any focus grew the composer between press and release and the tap
@@ -263,12 +266,14 @@ export function MessageComposer({
     open it through the click path above instead.
   */
   const onComposerFocus = (event: React.FocusEvent<HTMLDivElement>) => {
-    if (isTextEntry(event.target)) openOnPhone();
+    if (isTextEntry(event.target)) openComposer();
   };
-  // The editor's height on a phone: 96px (a note 134px) open, the desktop 52px otherwise.
-  const editorMinHeight = isPhone ? (composerMode === 'note' ? '134px' : '96px') : '52px';
+  // The editor's height on a phone: 96px (a note 134px) open, the desktop 44px otherwise.
+  const editorMinHeight = isPhone ? (composerMode === 'note' ? '134px' : '96px') : '44px';
   // The collapsed editor as the pill's one-line input.
-  const restEditorClass = atRest ? 'flex-1 min-w-0 h-10 py-0 px-3 text-base rounded-full' : '';
+  const restEditorClass = atRest
+    ? 'flex-1 min-w-0 h-10 sm:h-8 py-0 px-3 text-base sm:text-sm rounded-full'
+    : '';
 
   /*
     Reply templates (2026-10-09): the body goes into the editor — in place of a blank draft, after
@@ -327,9 +332,10 @@ export function MessageComposer({
     <div
       ref={rootRef}
       data-testid="message-composer"
+      data-state={atRest ? 'rest' : 'open'}
       data-phone-state={isPhone ? (atRest ? 'rest' : 'open') : undefined}
       onFocus={onComposerFocus}
-      onInput={openOnPhone}
+      onInput={openComposer}
       // v4 mobile: sticky to the bottom of the screen with a top shadow, clear of the home bar.
       className={`flex-shrink-0 px-3.5 pt-[9px] pb-[11px] border-t border-border bg-card max-sm:sticky max-sm:bottom-0 max-sm:z-[6] max-sm:px-2.5 max-sm:pt-2 max-sm:pb-[calc(10px+env(safe-area-inset-bottom))] max-sm:shadow-[0_-8px_20px_-14px_rgb(0_0_0/0.35)] ${hidden ? 'hidden' : ''}`}
       onDragOver={(event) => {
@@ -360,7 +366,7 @@ export function MessageComposer({
           the Notes tab or the N key, so nothing on screen said a note was an option here. The
           key hint sits on the right, built from the same context the shortcuts read. */}
       <div
-        className={`flex items-center gap-[15px] mb-2 ${atRest ? 'hidden' : ''}`}
+        className={`flex items-center gap-[15px] mb-1.5 ${atRest ? 'hidden' : ''}`}
         role="group"
         aria-label="Composer mode"
       >
@@ -376,7 +382,7 @@ export function MessageComposer({
                 0
               );
             }}
-            className={`pb-[5px] border-b-2 ${LABEL} tracking-[0.1em] transition-colors ${
+            className={`pb-1 border-b-2 ${LABEL} tracking-[0.1em] transition-colors ${
               composerMode === mode
                 ? mode === 'note'
                   ? 'border-note text-note'
@@ -387,11 +393,11 @@ export function MessageComposer({
             {mode === 'reply' ? 'Reply' : 'Internal note'}
           </button>
         ))}
-        {shortcutHint && (
-          <span className="ml-auto font-mono text-[10px] text-muted-foreground hidden sm:inline">
-            {shortcutHint}
-          </span>
-        )}
+        {/* The send key joined the R/N/E hint here so the toolbar fits on one row with Send. */}
+        <span className="ml-auto font-mono text-[10px] text-muted-foreground hidden sm:inline">
+          {shortcutHint ? `${shortcutHint} · ` : ''}
+          {SEND_SHORTCUT} {composerMode === 'note' ? 'post' : 'send'}
+        </span>
       </div>
 
       {/* WhatsApp 24-hour window. Shown ABOVE the input so the agent reads it before
@@ -464,7 +470,7 @@ export function MessageComposer({
             onImageFiles={addImageFiles}
             placeholder={replyPlaceholder}
             minHeight={editorMinHeight}
-            maxHeight="180px"
+            maxHeight="160px"
             transparent
             locked={aiBusy}
             className={`rounded-none border-0 shadow-none ${restEditorClass} ${
@@ -477,13 +483,24 @@ export function MessageComposer({
             visible, cannot be edited or deleted per reply, and never doubles when an AI draft
             or KB answer replaces the text. Edited only in Settings › Profile. */}
         {composerMode === 'reply' && recipientDraft && !atRest && user?.signature?.trim() && (
+          // One line (2026-10-29): the full block took four lines of the conversation's room. The
+          // whole signature is in the hover title and goes out in full on send.
           <div
             data-testid="composer-signature"
-            className="px-3 pb-2 text-sm text-muted-foreground whitespace-pre-line select-none"
+            className="flex items-baseline gap-2 px-3 pb-1.5 text-xs text-muted-foreground select-none"
+            title={user.signature.trim()}
           >
-            <div>--</div>
-            <div>{user.signature.trim()}</div>
-            <Link to="/settings#profile" className="text-xs underline hover:text-foreground">
+            <span className="truncate min-w-0">
+              --{' '}
+              {user.signature
+                .trim()
+                .split(/\s*\n\s*/)
+                .join(' · ')}
+            </span>
+            <Link
+              to="/settings#profile"
+              className="flex-none text-[11px] underline hover:text-foreground"
+            >
               Edit signature in Profile
             </Link>
           </div>
@@ -498,7 +515,7 @@ export function MessageComposer({
             onImageFiles={addImageFiles}
             placeholder="Internal note — only visible to your colleagues…"
             minHeight={editorMinHeight}
-            maxHeight="180px"
+            maxHeight="160px"
             transparent
             className={`rounded-none border-0 shadow-none ${restEditorClass}`}
           />
@@ -507,25 +524,10 @@ export function MessageComposer({
         {/* Toolbar */}
         <div
           data-testid="composer-tools"
-          className={`flex flex-wrap items-center gap-[7px] px-[9px] py-1.5 border-t ${composerMode === 'note' ? 'border-note-line' : 'border-hair'} ${
+          className={`flex flex-wrap items-center gap-[5px] px-[9px] py-1.5 border-t ${composerMode === 'note' ? 'border-note-line' : 'border-hair'} ${
             atRest ? '!flex-nowrap !gap-1 !p-0 !border-0 flex-none' : PHONE_TOOLS
           }`}
         >
-          <label
-            className={`${IBTN} cursor-pointer max-sm:w-9 max-sm:justify-center max-sm:px-0 ${atRest ? 'hidden' : ''}`}
-            title="Attach files"
-          >
-            <Paperclip className="w-3 h-3 max-sm:w-4 max-sm:h-4" />
-            {/* Icon only on a phone (v4 mobile); the name stays for screen readers. */}
-            {isPhone ? <span className="sr-only">Attach</span> : 'Attach'}
-            <input
-              type="file"
-              multiple
-              onChange={handleFileSelect}
-              className="hidden"
-              disabled={submitting}
-            />
-          </label>
           {composerMode === 'reply' && (
             // `contents`: no box of its own, so the toolbar lays the AI controls out as before. At
             // rest on a phone only the AI draft button shows, pill-sized.
@@ -564,6 +566,7 @@ export function MessageComposer({
               buttonClassName={`${IBTN} !w-auto !h-auto max-sm:!w-9 max-sm:justify-center max-sm:!px-0`}
             />
           )}
+          {composerMode === 'reply' && !atRest && <span aria-hidden className={TOOL_DIVIDER} />}
           {composerMode === 'reply' && !atRest && (
             <TemplatePicker
               use="thread"
@@ -580,6 +583,22 @@ export function MessageComposer({
               ticketIdHint="Its ticket’s number — only when the thread is on a ticket"
             />
           )}
+          <label
+            className={`${IBTN} cursor-pointer max-sm:w-9 max-sm:justify-center max-sm:px-0 ${atRest ? 'hidden' : ''}`}
+            title="Attach files"
+          >
+            <Paperclip className="w-3 h-3 max-sm:w-4 max-sm:h-4" />
+            {/* Icon only on a phone (v4 mobile); the name stays for screen readers. */}
+            {isPhone ? <span className="sr-only">Attach</span> : 'Attach'}
+            <input
+              type="file"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+              disabled={submitting}
+            />
+          </label>
+          {composerMode === 'reply' && !atRest && <span aria-hidden className={TOOL_DIVIDER} />}
           {composerMode === 'reply' && (
             <Button
               variant="ghost"
@@ -603,9 +622,6 @@ export function MessageComposer({
             </Button>
           )}
           <span className={`flex-1 ${atRest ? 'hidden' : ''}`} />
-          <span className="font-mono text-[10.5px] text-muted-foreground hidden sm:inline">
-            {SEND_SHORTCUT} {composerMode === 'note' ? 'post' : 'send'}
-          </span>
           <Button
             variant="ghost"
             onClick={onSend}
@@ -625,9 +641,9 @@ export function MessageComposer({
               composerMode === 'note'
                 ? 'bg-note hover:bg-note/90 text-note-foreground'
                 : 'bg-primary text-primary-foreground hover:bg-primary/90'
-            } ${atRest ? '!w-10 !h-10 !p-0 !rounded-full justify-center flex-none' : 'max-sm:h-9 max-sm:px-3.5'}`}
+            } ${atRest ? '!w-10 !h-10 sm:!w-8 sm:!h-8 !p-0 !rounded-full justify-center flex-none' : 'max-sm:h-9 max-sm:px-3.5'}`}
           >
-            <Send className={atRest ? 'w-4 h-4' : 'w-2.5 h-2.5'} />
+            <Send className={atRest ? 'w-4 h-4 sm:w-3.5 sm:h-3.5' : 'w-2.5 h-2.5'} />
             {/* The round Send at rest keeps its name for screen readers. */}
             {atRest ? (
               <span className="sr-only">

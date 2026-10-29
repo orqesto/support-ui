@@ -4,7 +4,7 @@
  * Not on an internal note, not on a channel without addressing, not when the profile has none.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { Message, User } from '@/types';
 import { useAuthStore } from '@/stores/authStore';
@@ -36,7 +36,7 @@ const message = {
 const renderComposer = ({
   mode = 'reply' as 'reply' | 'note',
   withAddressing = true,
-}: { mode?: 'reply' | 'note'; withAddressing?: boolean } = {}) =>
+}: { mode?: 'reply' | 'note'; withAddressing?: boolean } = {}) => {
   render(
     <MemoryRouter>
       <MessageComposer
@@ -58,6 +58,9 @@ const renderComposer = ({
       />
     </MemoryRouter>
   );
+  // The empty box rests folded (every screen size since 2026-10-29): press into it to open.
+  fireEvent.click(screen.getByTestId('composer-field'));
+};
 
 const signedInWith = (signature: string | null) =>
   useAuthStore.setState({ user: { id: 7, role: 'user', signature } as User });
@@ -70,9 +73,9 @@ describe('reply box signature', () => {
     const block = screen.getByTestId('composer-signature');
     expect(block.textContent).toContain('Alex Example');
     expect(block.textContent).toContain('Support, Example Ltd');
-    expect(screen.getByRole('link', { name: 'Edit signature in Profile' }).getAttribute('href')).toBe(
-      '/settings#profile'
-    );
+    expect(
+      screen.getByRole('link', { name: 'Edit signature in Profile' }).getAttribute('href')
+    ).toBe('/settings#profile');
   });
 
   it('is not shown on an internal note', () => {

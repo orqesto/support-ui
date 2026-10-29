@@ -98,12 +98,15 @@ describe('M7 — folding the phone composer collapses the editor again', () => {
     }
   );
 
-  it('CONTROL desktop: an outside press leaves the expanded editor expanded', async () => {
+  it('desktop folds the same way (2026-10-29): an outside press while empty → one line', async () => {
     setViewport(false);
     render(<MessageComposer {...props('reply')} />);
-    await tap(within(box()).getByRole('button', { name: /^Reply as Dana… Or type the facts/ }));
+    expect(surface()).toBeNull();
+    await tap(within(box()).getByRole('button', { name: 'Reply as Dana…' }));
+    expect(box().getAttribute('data-state')).toBe('open');
     expect(surface()).not.toBeNull();
     await tap(document.body);
-    expect(surface()).not.toBeNull();
+    expect(box().getAttribute('data-state')).toBe('rest');
+    expect(surface()).toBeNull();
   });
 });

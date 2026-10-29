@@ -479,10 +479,12 @@ describe('R and N on a phone, with another tab open', () => {
 
 describe('the reply editor says what AI draft does with what is typed', () => {
   const HINT =
-    'Reply as Dana… Or type the facts (order number, what you decided) and press AI draft. Leave it empty to draft from the knowledge base.';
+    'Reply as Dana… or type the facts and press AI draft — empty drafts from the knowledge base.';
 
   it('desktop, AI drafts on: the placeholder explains typed facts vs an empty editor', () => {
     renderDetail();
+    // Folded to one line while empty (2026-10-29); the full hint shows once it is open.
+    fireEvent.click(screen.getByTestId('composer-field'));
     expect(screen.getByPlaceholderText(HINT)).toBeInTheDocument();
   });
 

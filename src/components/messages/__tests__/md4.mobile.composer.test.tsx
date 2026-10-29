@@ -135,12 +135,15 @@ describe('M7 — the composer on a phone', () => {
     expect(cls).toContain('max-sm:[&_.ProseMirror]:text-base');
   });
 
-  it('CONTROL desktop: no pill state, 52px editor, tabs showing, shown under any tab', () => {
+  it('desktop: no phone state; folded while empty, open = 44px editor and tabs; folds on an outside press', () => {
     setViewport(false);
     renderDetail();
     const box = composer();
     expect(box.getAttribute('data-phone-state')).toBeNull();
-    expect(screen.getByTestId('rich-text-editor').getAttribute('data-min-height')).toBe('52px');
+    expect(box.getAttribute('data-state')).toBe('rest');
+    fireEvent.click(screen.getByTestId('composer-field'));
+    expect(box.getAttribute('data-state')).toBe('open');
+    expect(screen.getByTestId('rich-text-editor').getAttribute('data-min-height')).toBe('44px');
     expect(classOf(within(box).getByRole('group', { name: 'Composer mode' }))).not.toContain(
       'hidden'
     );
@@ -148,7 +151,7 @@ describe('M7 — the composer on a phone', () => {
     fireEvent.click(screen.getByRole('button', { name: 'open AI tab' }));
     expect(classOf(composer())).not.toMatch(/(^|\s)hidden(\s|$)/);
     fireEvent.click(document.body);
-    expect(composer().getAttribute('data-phone-state')).toBeNull();
+    expect(composer().getAttribute('data-state')).toBe('rest');
   });
 });
 
