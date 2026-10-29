@@ -7,7 +7,7 @@
    endpoint here without paying it. */
 import { normaliseReceivedAtOptions, type ReceivedAtOption } from './receivedAtOption';
 import type { LatestNotePreview } from '@/components/contacts/ContactNotesIndicator';
-import { fetchThreads } from './threadsQuery';
+import { fetchThreadBoard, fetchThreads, type ThreadBoardRequest } from './threadsQuery';
 import { normaliseThreadPage, threadPageQuery, type ThreadPageRequest } from './threadPage';
 import { apiClient } from '@/lib/api-client';
 import { getErrorStatus } from '@/lib/errorMessages';
@@ -282,6 +282,37 @@ export type ThreadsResponse = PaginatedResponse<MessageThread[]> & {
   search: SearchReading | null;
 };
 
+type RawThreadsBody = Omit<ThreadsResponse, 'search'> & { search?: unknown };
+
+/** One list answer as every caller reads it — normalised, and refused when it did not finish. */
+const readThreadsBody = (response: RawThreadsBody, allowTimedOut: boolean): ThreadsResponse => {
+  // Normalised HERE, so no caller can read the raw shape (CLAUDE.md: version skew).
+  const rows: unknown = response.data;
+  const search = normalizeSearchReading(response.search);
+  const unfinished =
+    response.timedOut === true ||
+    search?.timedOut === true ||
+    response.pagination?.countTimedOut === true;
+  if (unfinished && !allowTimedOut) throw new ListTimedOutError();
+  return {
+    ...response,
+    ...(Array.isArray(rows)
+      ? {
+          data: rows.map((row: MessageThread & { searchMatch?: unknown }) => ({
+            ...row,
+            searchMatch: normalizeSearchMatch(row.searchMatch),
+          })) as unknown as ThreadsResponse['data'],
+        }
+      : {}),
+    search,
+  };
+};
+
+export type ThreadBoardAnswer = {
+  columns: Record<string, ThreadsResponse[] | null>;
+  counts: Record<string, { pagination: PaginationMeta; scope: ListScope | null } | null>;
+};
+
 export type MessagesMetadata = {
   total: number;
   totalPages: number;
@@ -425,7 +456,7 @@ export const messageService = {
     /** `allowTimedOut`: the thread list only — it shows the "took too long" notice itself. */
     options?: { signal?: AbortSignal; allowTimedOut?: boolean }
   ): Promise<ThreadsResponse> => {
-    const response = await fetchThreads<Omit<ThreadsResponse, 'search'> & { search?: unknown }>({
+    const response = await fetchThreads<RawThreadsBody>({
       filters: cleanFilters(filters),
       page,
       limit,
@@ -433,26 +464,49 @@ export const messageService = {
       sortBy,
       signal: options?.signal,
     });
-    // Normalised HERE, so no caller can read the raw shape (CLAUDE.md: version skew).
-    const rows: unknown = response.data;
-    const search = normalizeSearchReading(response.search);
-    const unfinished =
-      response.timedOut === true ||
-      search?.timedOut === true ||
-      response.pagination?.countTimedOut === true;
-    if (unfinished && !options?.allowTimedOut) throw new ListTimedOutError();
-    return {
-      ...response,
-      ...(Array.isArray(rows)
-        ? {
-            data: rows.map((row: MessageThread & { searchMatch?: unknown }) => ({
-              ...row,
-              searchMatch: normalizeSearchMatch(row.searchMatch),
-            })) as unknown as ThreadsResponse['data'],
-          }
-        : {}),
-      search,
+    return readThreadsBody(response, options?.allowTimedOut === true);
+  },
+
+  /**
+   * The whole kanban board in one request (`POST /threads/board`): each column's pages and each
+   * count, read exactly as `getThreads` reads one list. `null` from a backend without the route —
+   * read the board one search per column then. An entry that failed, or did not finish in time,
+   * is `null`: the board keeps what it shows for it, as when its own request failed.
+   */
+  getThreadBoard: async (request: ThreadBoardRequest): Promise<ThreadBoardAnswer | null> => {
+    const clean = {
+      filters: cleanFilters(request.filters),
+      columns: request.columns.map((col) => ({ ...col, filters: cleanFilters(col.filters) })),
+      counts: request.counts.map((count) => ({ ...count, filters: cleanFilters(count.filters) })),
     };
+    const response = await fetchThreadBoard<{
+      columns: Record<string, RawThreadsBody[] | null>;
+      counts: Record<string, Pick<RawThreadsBody, 'pagination' | 'scope'> | null>;
+    }>(clean);
+    if (response === null) return null;
+    const settle = <T>(read: () => T): T | null => {
+      try {
+        return read();
+      } catch (err) {
+        if (err instanceof ListTimedOutError) return null;
+        throw err;
+      }
+    };
+    const columns: ThreadBoardAnswer['columns'] = {};
+    for (const col of request.columns) {
+      const pages = response.columns?.[col.id];
+      const read = pages?.map((page) => settle(() => readThreadsBody(page, false)));
+      columns[col.id] = read?.every((page): page is ThreadsResponse => page !== null) ? read : null;
+    }
+    const counts: ThreadBoardAnswer['counts'] = {};
+    for (const count of request.counts) {
+      const answer = response.counts?.[count.id];
+      counts[count.id] =
+        answer && answer.pagination?.countTimedOut !== true
+          ? { pagination: answer.pagination, scope: answer.scope ?? null }
+          : null;
+    }
+    return { columns, counts };
   },
 
   getAll: async (

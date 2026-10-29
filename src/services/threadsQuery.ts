@@ -91,3 +91,49 @@ export const fetchThreads = async <T>({
   });
   return response.data;
 };
+
+/**
+ * Whether this backend has `POST /api/messages/threads/board` — latched like the search route.
+ * The board then falls back to one search per column, as it did before the route existed.
+ */
+let threadBoardSupported: boolean | null = null;
+
+/** Test seam, as `resetThreadsSearchSupport`. */
+export const resetThreadBoardSupport = (): void => {
+  threadBoardSupported = null;
+};
+
+export type ThreadBoardRequest = {
+  /** Filters every column and count shares. */
+  filters: Record<string, string>;
+  columns: Array<{
+    id: string;
+    filters: Record<string, string>;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    limit: number;
+    /** Every page the column has open, so a refresh keeps "Load more" and the scroll. */
+    pages: number;
+  }>;
+  /** Count only: the answer carries the pagination (and `scope` when asked), never rows. */
+  counts: Array<{ id: string; filters: Record<string, string> }>;
+};
+
+/**
+ * The whole board in one request. `null` when the backend predates the route (it deploys on a
+ * tag, this repo on merge): the caller then reads the board the old way.
+ */
+export const fetchThreadBoard = async <T>(request: ThreadBoardRequest): Promise<T | null> => {
+  if (threadBoardSupported === false) return null;
+  try {
+    const response = await apiClient.post<T>('/api/messages/threads/board', request);
+    threadBoardSupported = true;
+    return response.data;
+  } catch (err) {
+    // Only a MISSING route falls back; anything else is a real failure (see fetchThreads).
+    const status = getErrorStatus(err);
+    if (status !== 404 && status !== 405) throw err;
+    threadBoardSupported = false;
+    return null;
+  }
+};
