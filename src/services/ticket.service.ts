@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { getErrorStatus } from '@/lib/errorMessages';
 import { PAGINATION } from '@/lib/constants';
 import type {
   Ticket,
@@ -37,6 +38,45 @@ export type TicketsMetadata = {
 export type MetadataResponse = {
   success: boolean;
   data: TicketsMetadata;
+};
+
+/**
+ * Whether this backend has `POST /api/tickets/counts`. `null` until the first attempt, then
+ * latched: the backend deploys on a tag and this repo on merge, so an older one answers 404 and
+ * the list counts its views one request each, as it did before the route existed.
+ */
+let viewCountsSupported: boolean | null = null;
+
+/** Test seam. */
+export const resetTicketViewCountsSupport = (): void => {
+  viewCountsSupported = null;
+};
+
+/** Each view's total by id; `null` for a view the server could not count. */
+export type TicketViewCounts = Record<string, number | null>;
+
+/**
+ * Every view's total in ONE request. `null` when the backend predates the route — the caller then
+ * counts each view with `getMetadata`. Anything but a missing route is a real failure and throws.
+ */
+export const fetchTicketViewCounts = async (
+  views: Array<{ id: string; filters: Record<string, string> }>
+): Promise<TicketViewCounts | null> => {
+  if (viewCountsSupported === false) return null;
+  try {
+    const response = await apiClient.post<{ success: boolean; data: { counts: TicketViewCounts } }>(
+      '/api/tickets/counts',
+      { views }
+    );
+    viewCountsSupported = true;
+    // Tolerate a differently shaped answer: no counts yet beats a crashed tab row.
+    return response.data?.data?.counts ?? {};
+  } catch (err) {
+    const status = getErrorStatus(err);
+    if (status !== 404 && status !== 405) throw err;
+    viewCountsSupported = false;
+    return null;
+  }
 };
 
 const TICKET_MATCH_FIELDS: readonly TicketSearchMatch['field'][] = [
