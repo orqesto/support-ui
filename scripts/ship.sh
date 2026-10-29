@@ -15,7 +15,7 @@
 # (FE: push main · BE: tag vX.Y.Z → :X.Y.Z + :latest). So what you test on staging is
 # what you release. Prod deploy per repo differs; both go through ./scripts/release-*.sh.
 #
-# prod/hotfix BLOCK on verify_prod() until app.odly.ai actually serves the new build.
+# prod/hotfix BLOCK on verify_prod() until hub.odly.ai actually serves the new build.
 #
 set -euo pipefail
 
@@ -30,7 +30,7 @@ cd "$(git rev-parse --show-toplevel)"
 
 TARGET="${1:-}"
 LEVEL="${2:-patch}"
-PROD_URL="https://app.odly.ai"
+PROD_URL="https://hub.odly.ai"
 
 die(){ echo "❌ $*" >&2; exit 1; }
 # Only block on uncommitted changes to *tracked* files; untracked files (e.g. local

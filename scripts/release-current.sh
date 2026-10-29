@@ -8,4 +8,4 @@
 set -e
 VERSION=$(node -p "require('./package.json').version")
 git push origin main
-echo "Released fe v$VERSION — push-to-main auto-deploys app.odly.ai."
+echo "Released fe v$VERSION — push-to-main auto-deploys hub.odly.ai."

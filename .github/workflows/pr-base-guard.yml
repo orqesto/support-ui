@@ -1,6 +1,6 @@
 # A pull request into `main` is a production deploy.
 #
-# `main` deploys app.odly.ai on push, so merging a PR based on it puts the change in front of
+# `main` deploys hub.odly.ai on push, so merging a PR based on it puts the change in front of
 # users with no QA step. `staging` is the gate. GitHub defaults every PR's base to `main`, so
 # the correct base has to be chosen by hand every time — and within an hour of that convention
 # being written down, two of three PRs went straight to production anyway.
@@ -51,7 +51,7 @@ jobs:
               ;;
           esac
 
-          echo "::error::This PR targets 'main', which IS production here — merging deploys app.odly.ai immediately."
+          echo "::error::This PR targets 'main', which IS production here — merging deploys hub.odly.ai immediately."
           echo ""
           echo "  Retarget it to 'staging'. On the PR page: Edit (beside the title) → base: staging."
           echo ""
