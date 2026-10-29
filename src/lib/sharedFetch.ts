@@ -46,3 +46,8 @@ export const invalidateSharedFetch = (key?: string): void => {
   if (key === undefined) entries.clear();
   else entries.delete(key);
 };
+
+/** Forget every answer whose key starts with `prefix` — one lookup across all its scopes. */
+export const invalidateSharedFetchPrefix = (prefix: string): void => {
+  for (const key of [...entries.keys()]) if (key.startsWith(prefix)) entries.delete(key);
+};

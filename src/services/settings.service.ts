@@ -1,5 +1,6 @@
 import type { AxiosResponse } from 'axios';
 import { apiClient } from '@/lib/api-client';
+import { scopedLookup } from '@/lib/scopedLookup';
 import type { ApiResponse } from '@/types';
 
 // Types
@@ -329,10 +330,12 @@ export type Label = {
 // org-wide, admin-only). Omit on update to leave the current departments unchanged.
 type LabelWritePayload = { name?: string; color?: string; departmentIds?: number[] };
 
-const getLabels = async (): Promise<Label[]> => {
-  const response: AxiosResponse<ApiResponse<Label[]>> = await apiClient.get('/api/labels');
-  return response.data.data as Label[];
-};
+// Shared for a minute per scope; a write under /api/labels clears it (see scopedLookup).
+const getLabels = async (): Promise<Label[]> =>
+  scopedLookup('labels', async () => {
+    const response: AxiosResponse<ApiResponse<Label[]>> = await apiClient.get('/api/labels');
+    return response.data.data as Label[];
+  });
 
 const createLabel = async (
   data: { name: string; color: string; departmentIds?: number[] }

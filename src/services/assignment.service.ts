@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { scopedLookup } from '@/lib/scopedLookup';
 import type { ApiResponse } from '@/types';
 
 export type AssignableUser = {
@@ -26,11 +27,21 @@ export const assignmentService = {
     if (departmentId !== undefined) {
       params.departmentId = String(departmentId);
     }
-    const response = await apiClient.get<ApiResponse<AssignableUser[]>>(
-      '/api/assignments/assignable-users',
-      { params }
+    // Shared for a minute per scope and filter; a write under /api/users or /api/departments
+    // clears it (see scopedLookup).
+    return scopedLookup(
+      'assignable-users',
+      async () => {
+        const response = await apiClient.get<ApiResponse<AssignableUser[]>>(
+          '/api/assignments/assignable-users',
+          { params }
+        );
+        return response.data.data ?? [];
+      },
+      params.skillKey,
+      params.skillValue,
+      params.departmentId
     );
-    return response.data.data ?? [];
   },
 
   async assignMessage(messageId: number, userId: number | null): Promise<void> {
