@@ -47,8 +47,8 @@ describe('M7 — the composer on a phone', () => {
     expect(classOf(box)).toContain('env(safe-area-inset-bottom)');
     expect(classOf(within(box).getByRole('group', { name: 'Composer mode' }))).toContain('hidden');
     expect(within(box).queryByRole('button', { name: 'Edit recipients' })).toBeNull();
-    expect(classOf(within(box).getByTitle('Attach files'))).toContain('hidden');
-    expect(classOf(within(box).getByTitle('Search knowledge base'))).toContain('hidden');
+    expect(classOf(within(box).getByTestId('composer-attach'))).toContain('hidden');
+    expect(classOf(within(box).getByRole('button', { name: 'KB' }))).toContain('hidden');
     expect(classOf(within(box).getByRole('button', { name: /AI draft/ }).parentElement)).toContain(
       '[&>button]:!h-10'
     );
@@ -69,7 +69,7 @@ describe('M7 — the composer on a phone', () => {
       'hidden'
     );
     expect(within(box).getByRole('button', { name: 'Edit recipients' })).toBeTruthy();
-    expect(classOf(within(box).getByTitle('Attach files'))).not.toContain('hidden');
+    expect(classOf(within(box).getByTestId('composer-attach'))).not.toContain('hidden');
     expect(screen.getByTestId('rich-text-editor').getAttribute('data-min-height')).toBe('96px');
     cleanup();
     renderDetail();
@@ -135,12 +135,15 @@ describe('M7 — the composer on a phone', () => {
     expect(cls).toContain('max-sm:[&_.ProseMirror]:text-base');
   });
 
-  it('CONTROL desktop: no pill state, 52px editor, tabs showing, shown under any tab', () => {
+  it('desktop: no phone state; folded while empty, open = 44px editor and tabs; folds on an outside press', () => {
     setViewport(false);
     renderDetail();
     const box = composer();
     expect(box.getAttribute('data-phone-state')).toBeNull();
-    expect(screen.getByTestId('rich-text-editor').getAttribute('data-min-height')).toBe('52px');
+    expect(box.getAttribute('data-state')).toBe('rest');
+    fireEvent.click(screen.getByTestId('composer-field'));
+    expect(box.getAttribute('data-state')).toBe('open');
+    expect(screen.getByTestId('rich-text-editor').getAttribute('data-min-height')).toBe('44px');
     expect(classOf(within(box).getByRole('group', { name: 'Composer mode' }))).not.toContain(
       'hidden'
     );
@@ -148,7 +151,7 @@ describe('M7 — the composer on a phone', () => {
     fireEvent.click(screen.getByRole('button', { name: 'open AI tab' }));
     expect(classOf(composer())).not.toMatch(/(^|\s)hidden(\s|$)/);
     fireEvent.click(document.body);
-    expect(composer().getAttribute('data-phone-state')).toBeNull();
+    expect(composer().getAttribute('data-state')).toBe('rest');
   });
 });
 

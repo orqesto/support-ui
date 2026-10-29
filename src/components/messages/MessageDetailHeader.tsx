@@ -57,10 +57,7 @@ import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import { showRouteLearningNote } from '@/lib/routingCopy';
-import {
-  useAiRefusalText,
-  useIsWorkspaceAdmin,
-} from '@/components/subscription/useAiRefusalText';
+import { useAiRefusalText, useIsWorkspaceAdmin } from '@/components/subscription/useAiRefusalText';
 import {
   LABEL,
   CHIP_SENTENCE,
@@ -136,6 +133,11 @@ export type MessageDetailHeaderProps = {
    * so its state and handlers stay here with the rest of the header's.
    */
   metaTarget?: HTMLElement | null; // undefined = inline; null = sidebar not mounted yet
+  /**
+   * While a reply is being written (2026-10-29): only the top row and a one-line subject, so the
+   * conversation keeps its room. The chips and meta rows come back when the reply box folds.
+   */
+  compact?: boolean;
   /**
    * What was merged into this thread, read by the host (MessageDetail's useThreadMergeContext)
    * so one open asks once. null = the backend could not say. Passed WITH `onReloadMerges`;
@@ -224,6 +226,7 @@ export function MessageDetailHeader({
   isRead,
   onToggleRead,
   metaTarget,
+  compact = false,
   merges: hostMerges,
   onReloadMerges,
   onMergeChange,
@@ -999,17 +1002,17 @@ export function MessageDetailHeader({
     },
     message.externalThreadId &&
       (aiConfigured || isWorkspaceAdmin) && {
-      label: checkingContradiction ? 'Checking…' : 'Check contradiction',
-      icon: <AlertTriangle className="w-3 h-3" />,
-      disabled: !aiConfigured,
-      tooltip: aiConfigured
-        ? undefined
-        : 'Contradiction check needs an AI provider — configure one in Settings.',
-      action: () => {
-        void handleCheckContradiction();
-        setMoreOpen(false);
+        label: checkingContradiction ? 'Checking…' : 'Check contradiction',
+        icon: <AlertTriangle className="w-3 h-3" />,
+        disabled: !aiConfigured,
+        tooltip: aiConfigured
+          ? undefined
+          : 'Contradiction check needs an AI provider — configure one in Settings.',
+        action: () => {
+          void handleCheckContradiction();
+          setMoreOpen(false);
+        },
       },
-    },
     !leadsHidden && {
       label: togglingLead ? 'Updating…' : message.isLead ? 'Unmark as lead' : 'Mark as lead',
       icon: <Target className="w-3 h-3" />,
@@ -1132,7 +1135,8 @@ export function MessageDetailHeader({
           under the app's own header on the full page; `--md-sticky-top` is set by MessageDetail. */}
       <div
         data-testid="detail-top-row"
-        className="flex items-center gap-[5px] px-3.5 pt-2.5 max-sm:sticky max-sm:top-[var(--md-sticky-top,0px)] max-sm:z-[7] max-sm:h-[52px] max-sm:gap-0 max-sm:px-1.5 max-sm:pt-0 max-sm:bg-card max-sm:border-b max-sm:border-border"
+        data-compact={compact || undefined}
+        className={`flex items-center gap-[5px] px-3.5 pt-2.5 ${compact ? 'pb-2.5' : 'pb-1.5'} max-sm:pb-0 max-sm:sticky max-sm:top-[var(--md-sticky-top,0px)] max-sm:z-[7] max-sm:h-[52px] max-sm:gap-0 max-sm:px-1.5 max-sm:pt-0 max-sm:bg-card max-sm:border-b max-sm:border-border`}
       >
         {isPhone && onClose && (
           <Button
@@ -1159,7 +1163,18 @@ export function MessageDetailHeader({
             {threadCount > 1 && ` · ${threadCount} msgs`}
           </span>
         </div>
-        <span className="flex-1 max-sm:hidden" />
+        {/* Desktop: the subject shares the id's line (owner, 2026-10-29) — one line, the full
+            subject on hover — instead of a row of its own. Phones keep it under the top row. */}
+        {isPhone ? (
+          <span className="flex-1 max-sm:hidden" />
+        ) : (
+          <h2
+            title={message.subject ?? undefined}
+            className="flex-1 min-w-0 truncate font-display text-[15px] font-semibold leading-[1.3] tracking-[-0.015em] text-foreground"
+          >
+            {message.subject ?? '(no subject)'}
+          </h2>
+        )}
         {showLabelPicker && (
           <button
             type="button"
@@ -1262,9 +1277,11 @@ export function MessageDetailHeader({
       </div>
 
       {/* Subject */}
-      <h2 className="font-display text-[16.5px] font-semibold leading-[1.3] tracking-[-0.015em] line-clamp-2 my-1.5 px-3.5 text-foreground max-sm:text-[17px] max-sm:leading-[1.32] max-sm:line-clamp-none max-sm:[text-wrap:pretty] max-sm:my-0 max-sm:px-4 max-sm:pt-3.5 max-sm:bg-card">
-        {message.subject ?? '(no subject)'}
-      </h2>
+      {isPhone && (
+        <h2 className="font-display font-semibold tracking-[-0.015em] text-foreground max-sm:text-[17px] max-sm:leading-[1.32] max-sm:line-clamp-none max-sm:[text-wrap:pretty] max-sm:my-0 max-sm:px-4 max-sm:pt-3.5 max-sm:bg-card">
+          {message.subject ?? '(no subject)'}
+        </h2>
+      )}
 
       {/* v4 mobile (M2): the sender as a collapsible card. Expanded it carries the addresses and
           the Dept / Assigned / Category / Labels rows — the SAME meta strip (and the same state
@@ -1301,7 +1318,7 @@ export function MessageDetailHeader({
       {/* Action chip row */}
       <div
         data-testid="header-chips"
-        className="flex items-center gap-[7px] flex-wrap px-3.5 pb-2.5 overflow-visible max-sm:gap-1.5 max-sm:px-4 max-sm:pt-2.5 max-sm:pb-0 max-sm:bg-card"
+        className={`${compact ? 'hidden' : 'flex'} items-center gap-[7px] flex-wrap px-3.5 pb-2.5 overflow-visible max-sm:gap-1.5 max-sm:px-4 max-sm:pt-2.5 max-sm:pb-0 max-sm:bg-card`}
       >
         {/* Identity: who wrote + which of OUR addresses they wrote to. A full-width group, so the
             state chips and the decisions always start their own line beneath it. The received-at
@@ -1550,8 +1567,10 @@ export function MessageDetailHeader({
 
       {/* Re-route banner — runner-up depts from the routing engine.
           Lets an agent move the conversation to a near-miss dept in one click. */}
+      {/* Tucked with the other rows while a reply is written or the thread is read (compact). */}
       {nearMissDepts.length > 0 &&
         !nearMissDismissed &&
+        !compact &&
         message.status !== 'resolved' &&
         message.status !== 'closed' && (
           <div className="px-3.5 pb-[9px] max-sm:px-4 max-sm:pt-2.5 max-sm:pb-0 max-sm:bg-card">
@@ -1624,7 +1643,7 @@ export function MessageDetailHeader({
           />,
           metaTarget
         )
-      ) : (
+      ) : compact ? null : (
         <HeaderMetaStrip
           message={message}
           categories={categories}

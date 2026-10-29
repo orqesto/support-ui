@@ -35,6 +35,8 @@ describe('MessageComposer — reply mode vs note mode', () => {
   it('a note has no recipients and posts; a reply addresses and sends', () => {
     setViewport(false);
     renderDetail();
+    // An empty box rests folded on every screen size: press into it to address a reply.
+    fireEvent.click(screen.getByTestId('composer-field'));
     const box = composer();
     expect(within(box).getByRole('button', { name: 'Edit recipients' })).toBeInTheDocument();
     expect(within(box).getByRole('button', { name: 'SEND' })).toBeInTheDocument();

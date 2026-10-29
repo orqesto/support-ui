@@ -48,17 +48,18 @@ const openIt = () => {
   tap(editor());
   expect(phoneState()).toBe('open');
 };
-/** The flex spacer: the span right before the "⌘↵ send" hint. */
-const spacer = () => within(tools()).getByText(/(⌘|Ctrl\+)↵/).previousElementSibling as HTMLElement;
+/** The flex spacer: the span right before Send, the toolbar's last button. */
+const spacer = () =>
+  within(tools()).getAllByRole('button').at(-1)?.previousElementSibling as HTMLElement;
 
 describe('phone toolbar and Send classes', () => {
   it('open: tool buttons are 36px, tools wrap 6px apart, Send is tool-sized', () => {
     setViewport(true);
     render(<MessageComposer {...props({ onLookUp: vi.fn() })} />);
     openIt();
-    expect(classOf(within(composer()).getByTitle('Attach files'))).toContain('max-sm:h-9');
-    expect(classOf(within(composer()).getByTitle('Search knowledge base'))).toContain('max-sm:h-9');
-    expect(classOf(within(composer()).getByTitle('Search knowledge base'))).toContain(
+    expect(classOf(within(composer()).getByTestId('composer-attach'))).toContain('max-sm:h-9');
+    expect(classOf(within(composer()).getByRole('button', { name: 'KB' }))).toContain('max-sm:h-9');
+    expect(classOf(within(composer()).getByRole('button', { name: 'KB' }))).toContain(
       'rounded-[7px]'
     );
     const toolbar = classOf(tools());
@@ -87,7 +88,10 @@ describe('phone toolbar and Send classes', () => {
   it('desktop: Attach shows its word and the spacer pushes Send right', () => {
     setViewport(false);
     render(<MessageComposer {...props()} />);
-    expect(within(composer()).getByTitle('Attach files').textContent).toBe('Attach');
+    // Folded while empty on a desktop too (2026-10-29): press into it first.
+    tap(editor());
+    expect(composer().getAttribute('data-state')).toBe('open');
+    expect(within(composer()).getByTestId('composer-attach').textContent).toBe('Attach');
     expect(screen.getByText('Attach')).toBeInTheDocument();
     expect(classOf(spacer()).split(/\s+/)).toContain('flex-1');
     expect(classOf(spacer()).split(/\s+/)).not.toContain('hidden');

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FileText } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { Select } from '@/components/ui/Select';
 import { logger } from '@/lib/logger';
 import { replyTemplatesService, type ReplyTemplate } from '@/services/replyTemplates.service';
@@ -38,6 +39,8 @@ type Props = {
   disabled?: boolean;
   /** Classes for the trigger, so it can match the toolbar it sits in. */
   triggerClassName?: string;
+  /** Icon only (a narrow reply toolbar); the label stays for screen readers and on hover. */
+  iconOnly?: boolean;
 };
 
 /**
@@ -51,6 +54,7 @@ export const TemplatePicker = ({
   label = 'Templates',
   disabled = false,
   triggerClassName,
+  iconOnly = false,
 }: Props) => {
   const templates = useReplyTemplates(use);
   if (!templates || templates.length === 0) return null;
@@ -68,19 +72,29 @@ export const TemplatePicker = ({
         const template = templates.find((row) => String(row.id) === value);
         if (template) onPick(template);
       }}
-      trigger={({ toggle }) => (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={toggle}
-          disabled={disabled}
-          className={triggerClassName}
-        >
-          <FileText className="w-3 h-3 mr-1" aria-hidden />
-          {label}
-        </Button>
-      )}
+      trigger={({ toggle }) => {
+        const trigger = (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={toggle}
+            disabled={disabled}
+            className={triggerClassName}
+          >
+            <FileText className={iconOnly ? 'w-3 h-3' : 'w-3 h-3 mr-1'} aria-hidden />
+            {iconOnly ? <span className="sr-only">{label}</span> : label}
+          </Button>
+        );
+        // Icon only: its name on hover through the design-system tooltip.
+        return iconOnly ? (
+          <Tooltip content={label} size="sm">
+            {trigger}
+          </Tooltip>
+        ) : (
+          trigger
+        );
+      }}
     />
   );
 };

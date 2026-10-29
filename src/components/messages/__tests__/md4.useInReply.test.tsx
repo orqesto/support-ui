@@ -534,7 +534,7 @@ describe('A suggested answer never silently replaces what the agent wrote', () =
   it('the similar-messages dialog asks the same question over a reply being written', () => {
     renderDetail();
     fireEvent.change(editor(), { target: { value: '<p>Hi Ada</p>' } });
-    fireEvent.click(within(composer()).getByTitle('Search knowledge base'));
+    fireEvent.click(within(composer()).getByRole('button', { name: 'KB' }));
     fireEvent.click(screen.getByRole('button', { name: 'pick similar answer' }));
     expect(confirmDialog()).toHaveTextContent('Replace your reply with this answer?');
     expect(editor().value).toBe('<p>Hi Ada</p>');
