@@ -5,18 +5,21 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { answerKbQuestion } from '@/services/kbEngine.service';
-import type { KbQuestionChoiceKey } from '@/services/kbEngine.types';
+import type { KbQuestion, KbQuestionChoiceKey } from '@/services/kbEngine.types';
 import { KbQuestionCard, isTypingTarget } from './KbQuestionCard';
 import { useKbQuestions } from './useKbQuestions';
 
 /**
  * KB engine Stage 1 (F4): the Questions queue, one card at a time. j / k move next / previous;
- * 1–4 choose an answer (in the card). Skip is client-side: the card goes to the end for this
- * session. The next page loads when the queue runs low.
+ * 1–4 choose an answer (in the card). Skip is client-side: the card goes behind every not-skipped
+ * card for this session (later pages included). The next page loads when the queue runs low; a
+ * failed page is asked again only from its Retry.
  */
 
 export const ALREADY_DECIDED_TEXT = 'Already decided: someone already answered this question.';
 export const NOT_YOUR_TEAM_TEXT = "You can't decide questions for this team.";
+export const GONE_TEXT = 'No longer exists: this question was removed.';
+export const BACK_TO_SKIPPED_TEXT = 'Back to skipped questions.';
 
 /** Load the next page when this few cards are left ahead of the current one. */
 const LOW_WATER = 3;
@@ -29,14 +32,17 @@ export const KbQuestionQueue = ({
   departmentId,
   search,
   empty,
+  onDecided,
 }: {
   departmentId?: number;
   search: string;
   /** What an empty queue (no search) shows: "Nothing needs you". */
   empty: ReactNode;
+  /** A question left the open set (answered here, already decided, or gone): counts drop. */
+  onDecided?: (question: KbQuestion) => void;
 }) => {
   const queue = useKbQuestions({ departmentId, search });
-  const { items, loadMore, hasMore, remove, skip } = queue;
+  const { items, freshCount, loadMore, hasMore, remove, skip } = queue;
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,8 +60,9 @@ export const KbQuestionQueue = ({
   const position = current ? Math.min(index, items.length - 1) : 0;
 
   useEffect(() => {
-    if (hasMore && items.length - position <= LOW_WATER) loadMore();
-  }, [hasMore, items.length, position, loadMore]);
+    // Only not-skipped cards count: skipped ones come back after every page is in.
+    if (hasMore && freshCount - position <= LOW_WATER) loadMore();
+  }, [hasMore, freshCount, position, loadMore]);
 
   useEffect(
     () => () => {
@@ -97,17 +104,22 @@ export const KbQuestionQueue = ({
   const answer = useCallback(
     async (choice: KbQuestionChoiceKey, text?: string) => {
       if (!current) return;
+      const decided = (message: string, tone: Notice['tone']) => {
+        remove(current.suggestionId);
+        onDecided?.(current);
+        flash({ tone, text: message });
+      };
       setBusy(true);
       setError(null);
       try {
         await answerKbQuestion(current.suggestionId, choice, text);
-        remove(current.suggestionId);
-        flash({ tone: 'success', text: 'Saved. Here is the next question.' });
+        decided('Saved. Here is the next question.', 'success');
       } catch (err) {
         const status = getErrorStatus(err);
         if (status === 409) {
-          remove(current.suggestionId);
-          flash({ tone: 'info', text: ALREADY_DECIDED_TEXT });
+          decided(ALREADY_DECIDED_TEXT, 'info');
+        } else if (status === 404) {
+          decided(GONE_TEXT, 'info');
         } else if (status === 403) {
           setError(NOT_YOUR_TEAM_TEXT);
         } else {
@@ -117,7 +129,7 @@ export const KbQuestionQueue = ({
         setBusy(false);
       }
     },
-    [current, remove, flash]
+    [current, remove, flash, onDecided]
   );
 
   const onSkip = useCallback(() => {
@@ -142,7 +154,7 @@ export const KbQuestionQueue = ({
           <span role="status">{notice.text}</span>
         </Alert>
       )}
-      {queue.loading ? (
+      {queue.loading || (!current && queue.loadingMore) ? (
         <div className="flex justify-center p-8">
           <Spinner />
         </div>
@@ -154,16 +166,31 @@ export const KbQuestionQueue = ({
           </Button>
         </Alert>
       ) : current ? (
-        <KbQuestionCard
-          key={current.suggestionId}
-          question={current}
-          onAnswer={answer}
-          onSkip={onSkip}
-          busy={busy}
-          position={position + 1}
-          total={Math.max(queue.total, items.length)}
-          error={error}
-        />
+        <>
+          {position >= freshCount && (
+            <p className="text-sm text-muted-foreground" data-testid="kb-questions-back-to-skipped">
+              {BACK_TO_SKIPPED_TEXT}
+            </p>
+          )}
+          <KbQuestionCard
+            key={current.suggestionId}
+            question={current}
+            onAnswer={answer}
+            onSkip={onSkip}
+            busy={busy}
+            position={position + 1}
+            total={Math.max(queue.total, items.length)}
+            error={error}
+          />
+        </>
+      ) : queue.moreFailed ? (
+        <Card>
+          <CardContent className="p-8 text-center sm:p-12">
+            <p className="text-sm text-muted-foreground">
+              More questions wait, but they could not be loaded.
+            </p>
+          </CardContent>
+        </Card>
       ) : term ? (
         <Card>
           <CardContent className="p-8 text-center sm:p-12">
@@ -172,6 +199,14 @@ export const KbQuestionQueue = ({
         </Card>
       ) : (
         empty
+      )}
+      {queue.moreFailed && (
+        <p className="flex flex-wrap gap-2 items-center text-sm text-muted-foreground">
+          <span>Couldn't load more questions.</span>
+          <Button variant="outline" size="sm" onClick={queue.retryMore}>
+            Retry
+          </Button>
+        </p>
       )}
     </div>
   );

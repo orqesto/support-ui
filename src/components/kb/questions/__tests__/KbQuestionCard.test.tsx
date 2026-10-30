@@ -115,6 +115,9 @@ describe('KbQuestionCard', () => {
     const { onAnswer } = renderCard();
     fireEvent.keyDown(window, { key: '3' });
     const box = screen.getByRole('textbox', { name: 'The right answer' });
+    // The cursor is in the box at once, and the key did not type into it.
+    expect(box).toHaveFocus();
+    expect(box).toHaveValue('');
     expect(screen.getByText('Your answer goes live at once when you save it.')).toBeInTheDocument();
     expect(save()).toBeDisabled();
     fireEvent.change(box, { target: { value: '   ' } });

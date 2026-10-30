@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/Alert';
 import { Card, CardContent } from '@/components/ui/Card';
 import { AUTO_ACTIONS_HREF } from '@/components/kb/autoActions/kbAutoActionCopy';
-import type { KbEngineSummary } from '@/services/kbEngine.types';
+import type { KbEngineSummary, KbQuestion } from '@/services/kbEngine.types';
 import { KbQuestionQueue } from '@/components/kb/questions/KbQuestionQueue';
 
 /** The digest line (§8): what the engine did this week. */
@@ -86,28 +86,31 @@ export const KbEngineActivitySlot = ({
 
 /**
  * The Questions view: the count, the queue (or "Nothing needs you"), Engine activity collapsed.
- * The summary's count of 0 skips the queue's request; the queue itself is the authority otherwise.
+ * The queue always asks /questions: it is the authority on what is open, the summary only counts.
  */
 export const KbQuestionsView = ({
   openQuestions,
   search,
   departmentId,
   summary,
+  onDecided,
 }: {
   openQuestions: number | null;
   search: string;
   departmentId?: number;
   summary: KbEngineSummary | null;
+  onDecided?: (question: KbQuestion) => void;
 }) => (
   <>
     <h2 className="text-lg font-semibold font-display text-foreground">
       Questions for you{openQuestions !== null ? ` (${openQuestions})` : ''}
     </h2>
-    {openQuestions === 0 && !search.trim() ? (
-      <KbNothingNeedsYou />
-    ) : (
-      <KbQuestionQueue departmentId={departmentId} search={search} empty={<KbNothingNeedsYou />} />
-    )}
+    <KbQuestionQueue
+      departmentId={departmentId}
+      search={search}
+      empty={<KbNothingNeedsYou />}
+      onDecided={onDecided}
+    />
     <KbEngineActivitySlot summary={summary} expanded={false} />
   </>
 );

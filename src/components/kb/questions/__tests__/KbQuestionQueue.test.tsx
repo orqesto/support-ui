@@ -4,7 +4,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { KbQuestion, KbQuestionsPage, KbQuestionsParams } from '@/services/kbEngine.types';
-import { KbQuestionQueue, ALREADY_DECIDED_TEXT, NOT_YOUR_TEAM_TEXT } from '../KbQuestionQueue';
+import {
+  KbQuestionQueue,
+  ALREADY_DECIDED_TEXT,
+  BACK_TO_SKIPPED_TEXT,
+  GONE_TEXT,
+  NOT_YOUR_TEAM_TEXT,
+} from '../KbQuestionQueue';
 import { captureQuestion, mergeQuestion } from './kbQuestionFixtures';
 
 const state = vi.hoisted(() => ({
@@ -12,11 +18,14 @@ const state = vi.hoisted(() => ({
   calls: [] as KbQuestionsParams[],
   answers: [] as Array<{ id: number; choice: string; text?: string }>,
   answerError: null as Error | null,
+  /** When set, answers getKbQuestions instead of `pages`. */
+  respond: null as ((params: KbQuestionsParams) => Promise<KbQuestionsPage>) | null,
 }));
 
 vi.mock('@/services/kbEngine.service', () => ({
   getKbQuestions: (params: KbQuestionsParams) => {
     state.calls.push(params);
+    if (state.respond) return state.respond(params);
     const page = params.cursor
       ? state.pages.find((candidate) => candidate.items[0]?.suggestionId === Number(params.cursor))
       : state.pages[0];
@@ -41,10 +50,33 @@ const pageOf = (
   olderThan7d = 0
 ): KbQuestionsPage => ({ items, total, nextCursor, olderThan7d });
 
+const onDecided = vi.fn();
+const queueElement = (search = '', departmentId?: number) => (
+  <KbQuestionQueue
+    search={search}
+    departmentId={departmentId}
+    empty={<p>Nothing needs you</p>}
+    onDecided={onDecided}
+  />
+);
 const renderQueue = (search = '', departmentId?: number) =>
-  render(
-    <KbQuestionQueue search={search} departmentId={departmentId} empty={<p>Nothing needs you</p>} />
-  );
+  render(queueElement(search, departmentId));
+
+/** A promise the test settles by hand. */
+const deferred = <T,>() => {
+  let resolve: (value: T) => void = () => undefined;
+  let reject: (reason: Error) => void = () => undefined;
+  const promise = new Promise<T>((onResolve, onReject) => {
+    resolve = onResolve;
+    reject = onReject;
+  });
+  return { promise, resolve, reject };
+};
+
+const answerCurrent = (choiceIndex = 1) => {
+  fireEvent.click(choiceButtons()[choiceIndex]);
+  fireEvent.click(screen.getByRole('button', { name: 'Save answer' }));
+};
 
 const heading = () => screen.getByRole('heading', { level: 2 }).textContent ?? '';
 const choiceButtons = () =>
@@ -55,6 +87,8 @@ beforeEach(() => {
   state.calls = [];
   state.answers = [];
   state.answerError = null;
+  state.respond = null;
+  onDecided.mockReset();
 });
 afterEach(cleanup);
 
@@ -173,5 +207,138 @@ describe('KbQuestionQueue', () => {
     expect(
       await screen.findByText('No open question matches “nothing like this”.')
     ).toBeInTheDocument();
+  });
+
+  it('every decided question is reported: saved, 409 and 404 (404 moves on too)', async () => {
+    renderQueue();
+    await screen.findByText('Question 1 of 3');
+    answerCurrent();
+    await waitFor(() => expect(heading()).toContain('fee 2'));
+    expect(onDecided).toHaveBeenLastCalledWith(expect.objectContaining({ suggestionId: 1 }));
+
+    state.answerError = apiError(409, 'not pending');
+    answerCurrent();
+    await waitFor(() => expect(heading()).toContain('Opening hours'));
+    expect(onDecided).toHaveBeenLastCalledWith(expect.objectContaining({ suggestionId: 2 }));
+
+    state.answerError = apiError(404, 'Question not found');
+    answerCurrent();
+    expect(await screen.findByText(GONE_TEXT)).toBeInTheDocument();
+    expect(onDecided).toHaveBeenCalledTimes(3);
+    expect(screen.getByText('Nothing needs you')).toBeInTheDocument();
+
+    // 403 is not a decision: nothing is reported.
+    cleanup();
+    onDecided.mockReset();
+    state.answerError = apiError(403, 'Only a moderator');
+    renderQueue();
+    await screen.findByText('Question 1 of 3');
+    answerCurrent();
+    await screen.findByTestId('kb-question-error');
+    expect(onDecided).not.toHaveBeenCalled();
+  });
+
+  it('the over-7-days line drops when an old question is decided', async () => {
+    state.pages = [
+      pageOf(
+        [mergeQuestion(1, { openedAt: '2026-01-01T00:00:00Z' }), mergeQuestion(2)],
+        2,
+        null,
+        1
+      ),
+    ];
+    renderQueue();
+    expect(await screen.findByTestId('kb-questions-older')).toHaveTextContent(
+      '1 question open over 7 days'
+    );
+    answerCurrent();
+    await waitFor(() => expect(heading()).toContain('fee 2'));
+    expect(screen.queryByTestId('kb-questions-older')).toBeNull();
+  });
+
+  it('a failing next page is requested once, then only from Retry', async () => {
+    let failing = true;
+    state.respond = (params) => {
+      if (!params.cursor) return Promise.resolve(pageOf([mergeQuestion(1)], 2, '2'));
+      return failing
+        ? Promise.reject(new Error('down'))
+        : Promise.resolve(pageOf([mergeQuestion(2)], 2, null));
+    };
+    renderQueue();
+    await screen.findByText('Question 1 of 2');
+    const retry = await screen.findByRole('button', { name: 'Retry' });
+    expect(screen.getByText("Couldn't load more questions.")).toBeInTheDocument();
+    // Give a loop every chance to show itself.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(state.calls.filter((call) => call.cursor)).toHaveLength(1);
+
+    failing = false;
+    fireEvent.click(retry);
+    await waitFor(() => expect(state.calls.filter((call) => call.cursor)).toHaveLength(2));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull());
+    fireEvent.keyDown(window, { key: 'j' });
+    expect(heading()).toContain('fee 2');
+  });
+
+  it('a search change while a page is loading: the old page is ignored and paging continues', async () => {
+    const oldPage2 = deferred<KbQuestionsPage>();
+    state.respond = (params) => {
+      if (!params.search) {
+        return params.cursor
+          ? oldPage2.promise
+          : Promise.resolve(pageOf([mergeQuestion(1)], 2, '2'));
+      }
+      return Promise.resolve(
+        params.cursor ? pageOf([mergeQuestion(12)], 2, null) : pageOf([mergeQuestion(11)], 2, '12')
+      );
+    };
+    const view = renderQueue();
+    await screen.findByText('Question 1 of 2');
+    await waitFor(() => expect(state.calls).toHaveLength(2));
+
+    view.rerender(queueElement('fee'));
+    await waitFor(() => expect(heading()).toContain('fee 11'));
+    oldPage2.resolve(pageOf([mergeQuestion(99)], 2, null));
+    // The new query pages on: its own next page is asked for and lands.
+    await waitFor(() =>
+      expect(state.calls.some((call) => call.search === 'fee' && call.cursor === '12')).toBe(true)
+    );
+    fireEvent.keyDown(window, { key: 'j' });
+    await waitFor(() => expect(heading()).toContain('fee 12'));
+    fireEvent.keyDown(window, { key: 'j' });
+    expect(heading()).toContain('fee 12');
+    expect(screen.queryByText(/fee 99/)).toBeNull();
+  });
+
+  it('skip on the last card brings back the skipped ones; later pages go before them', async () => {
+    const page2 = deferred<KbQuestionsPage>();
+    state.respond = (params) =>
+      params.cursor ? page2.promise : Promise.resolve(pageOf([mergeQuestion(1)], 2, '2'));
+    renderQueue();
+    await screen.findByText('Question 1 of 2');
+    fireEvent.click(screen.getByRole('button', { name: 'Skip / not sure' }));
+    // Only the skipped card is loaded: it comes back, with the hint.
+    expect(heading()).toContain('fee 1');
+    expect(screen.getByText(BACK_TO_SKIPPED_TEXT)).toBeInTheDocument();
+    page2.resolve(pageOf([mergeQuestion(2)], 2, null));
+    // The new page lands before the skipped card.
+    await waitFor(() => expect(heading()).toContain('fee 2'));
+    expect(screen.queryByText(BACK_TO_SKIPPED_TEXT)).toBeNull();
+    fireEvent.keyDown(window, { key: 'j' });
+    expect(heading()).toContain('fee 1');
+    expect(screen.getByText(BACK_TO_SKIPPED_TEXT)).toBeInTheDocument();
+  });
+
+  it('no empty-state flash while the next page loads', async () => {
+    const page2 = deferred<KbQuestionsPage>();
+    state.respond = (params) =>
+      params.cursor ? page2.promise : Promise.resolve(pageOf([mergeQuestion(1)], 2, '2'));
+    renderQueue();
+    await screen.findByText('Question 1 of 2');
+    answerCurrent();
+    await waitFor(() => expect(screen.queryByTestId('kb-question-card')).toBeNull());
+    expect(screen.queryByText('Nothing needs you')).toBeNull();
+    page2.resolve(pageOf([mergeQuestion(2)], 2, null));
+    await waitFor(() => expect(heading()).toContain('fee 2'));
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { consolidationSwitchText, qualitySwitchText } from '@/components/kb/kbSwitchText';
 import { logger } from '@/lib/logger';
 import { kbConsolidationService } from '@/services/kbConsolidation.service';
@@ -28,6 +28,15 @@ export type KbEngineSummaryState = {
   nightlyOff: boolean;
 };
 
+export type KbEngineSummaryHook = KbEngineSummaryState & {
+  /**
+   * A question left the open set on this page (answered, already decided, or gone): the heading,
+   * the tab and the digest drop together, with no new request. `olderThan7d` drops too when that
+   * question was open over 7 days.
+   */
+  decrementOpen: (olderThan7d: boolean) => void;
+};
+
 /**
  * The KB engine at a glance for the page: the stored summary (open questions, the week, kill
  * switches) and whether nightly scoring can run at all. Reviewers only: both endpoints need
@@ -36,7 +45,7 @@ export type KbEngineSummaryState = {
 export const useKbEngineSummary = (
   canReview: boolean,
   departmentId: number | undefined
-): KbEngineSummaryState => {
+): KbEngineSummaryHook => {
   const [state, setState] = useState<KbEngineSummaryState>({
     summary: null,
     settled: false,
@@ -88,5 +97,24 @@ export const useKbEngineSummary = (
     };
   }, [canReview]);
 
-  return state;
+  const decrementOpen = useCallback((olderThan7d: boolean) => {
+    setState((prev) =>
+      prev.summary
+        ? {
+            ...prev,
+            summary: {
+              ...prev.summary,
+              questions: {
+                open: Math.max(0, prev.summary.questions.open - 1),
+                olderThan7d: olderThan7d
+                  ? Math.max(0, prev.summary.questions.olderThan7d - 1)
+                  : prev.summary.questions.olderThan7d,
+              },
+            },
+          }
+        : prev
+    );
+  }, []);
+
+  return { ...state, decrementOpen };
 };

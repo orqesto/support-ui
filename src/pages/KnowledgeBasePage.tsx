@@ -53,6 +53,7 @@ import {
   KbStillLearning,
 } from '@/components/kb/page/KbPageStates';
 import { useKbEngineSummary } from '@/components/kb/page/useKbEngineSummary';
+import { isOlderThan7d } from '@/components/kb/questions/useKbQuestions';
 import {
   kbPageViewFromSearch,
   kbPageViewIsExplicit,
@@ -578,6 +579,7 @@ const KnowledgeBaseViews = () => {
             search={searchQuery}
             departmentId={oneTeam}
             summary={engine.summary}
+            onDecided={(question) => engine.decrementOpen(isOlderThan7d(question))}
           />
         ) : view === 'activity' ? (
           <KbEngineActivitySlot summary={engine.summary} expanded />

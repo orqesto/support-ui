@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type * as KbServiceModule from '@/services/kb.service';
-import type { KbEngineSummary } from '@/services/kbEngine.types';
+import type { KbEngineSummary, KbQuestion } from '@/services/kbEngine.types';
 import type { KbConsolidationRunState } from '@/services/kbConsolidation.service';
 
 const state = vi.hoisted(() => ({
@@ -20,6 +20,7 @@ const state = vi.hoisted(() => ({
   departments: [] as { id: number; name: string; active?: boolean }[],
   teamsEnabled: undefined as boolean | undefined,
   getAllCalls: [] as Array<Record<string, unknown>>,
+  questions: [] as KbQuestion[],
 }));
 
 const summaryOf = (open: number, killedAll = false): KbEngineSummary => ({
@@ -78,7 +79,15 @@ vi.mock('@/services/kbEngine.service', () => ({
       : state.summaryFails || !state.summary
         ? Promise.reject(new Error('no summary'))
         : Promise.resolve(state.summary),
-  getKbQuestions: () => Promise.resolve({ items: [], total: 0, nextCursor: null, olderThan7d: 0 }),
+  getKbQuestions: () =>
+    Promise.resolve({
+      items: state.questions,
+      total: state.questions.length,
+      nextCursor: null,
+      olderThan7d: 0,
+    }),
+  answerKbQuestion: (id: number, choice: string) =>
+    Promise.resolve({ suggestionId: id, kind: 'merge', choice, result: {} }),
 }));
 vi.mock('@/services/kbConsolidation.service', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -188,10 +197,52 @@ beforeEach(() => {
   state.departments = [];
   state.teamsEnabled = undefined;
   state.getAllCalls.length = 0;
+  state.questions = [];
 });
 afterEach(cleanup);
 
 describe('Knowledge Base page: three views', () => {
+  it('answering a question drops the heading, the tab and the digest together', async () => {
+    state.questions = [
+      {
+        suggestionId: 7,
+        kind: 'entry_review',
+        departmentId: null,
+        prompt: 'Engine suggests removing this answer.',
+        answers: [
+          {
+            entryId: 70,
+            label: 'A',
+            question: 'Where is my parcel?',
+            answer: 'Look it up with the tracking link.',
+            evidence: { threads: 0, customers: 0, firstAt: null, lastAt: null, countries: [] },
+          },
+        ],
+        ruledOut: [],
+        guess: null,
+        usedInDraftsLast7d: null,
+        choices: [
+          { key: 'keep', label: 'Keep as it is', needsText: false },
+          { key: 'remove', label: 'Remove', needsText: false },
+        ],
+        openedAt: '2026-10-29T10:00:00Z',
+      },
+    ];
+    renderAt('/knowledge-base');
+    expect(
+      await screen.findByRole('heading', { name: 'Questions for you (2)' })
+    ).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /Remove/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save answer' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Questions for you (1)' })
+    ).toBeInTheDocument();
+    expect(pressedView()).toBe('Questions (1)');
+    expect(
+      screen.getByText('Engine did 41 things this week, 0 undone, 1 questions for you')
+    ).toBeInTheDocument();
+  });
+
   it('opens on Questions when there are open questions', async () => {
     renderAt('/knowledge-base');
     expect(

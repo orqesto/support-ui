@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Info } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -127,6 +127,7 @@ export const KbQuestionCard = ({
   const choices = useMemo(() => question.choices.slice(0, 4), [question.choices]);
   const chosen = choices.find((choice) => choice.key === selected) ?? null;
   const needsText = chosen?.needsText === true;
+  const textBox = useRef<HTMLTextAreaElement>(null);
   const canSave = !busy && chosen !== null && (!needsText || text.trim().length > 0);
 
   // 1–4 pick the choice in that place; ignored while typing. A layout effect: the keys work from
@@ -142,6 +143,11 @@ export const KbQuestionCard = ({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [choices, busy]);
+
+  // Picking a choice that needs text puts the cursor in the box: no extra click.
+  useEffect(() => {
+    if (needsText) textBox.current?.focus();
+  }, [needsText, selected]);
 
   const save = () => {
     if (!canSave || !chosen) return;
@@ -236,6 +242,7 @@ export const KbQuestionCard = ({
           {needsText && (
             <div className="space-y-1">
               <Textarea
+                ref={textBox}
                 aria-label="The right answer"
                 placeholder="Write the right answer"
                 value={text}
