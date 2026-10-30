@@ -7,11 +7,28 @@ import type { MessageEvent } from '@/types';
  * else such a message makes stale.
  */
 
-/** The newest event id on screen — where an incremental read starts. */
-export const maxEventId = (events: readonly { id: number }[]): number | null => {
-  let max: number | null = null;
-  for (const event of events) if (max === null || event.id > max) max = event.id;
-  return max;
+/** How many of the newest events on screen an incremental read asks for again. */
+export const CURSOR_LAG = 20;
+
+/**
+ * Where an incremental read starts (`afterEventId`; the server sends `id > afterEventId`).
+ *
+ * Not the newest id: ids are handed out when a save STARTS, so an event with a lower id can commit
+ * after one with a higher id — reading strictly after the newest would skip it until the next full
+ * read. Starting CURSOR_LAG events back re-reads those few; the ones already on screen are
+ * dropped by id (unseenEvents).
+ *
+ * null → do a full read: nothing is on screen, or the only row is the stand-in the endpoint sends
+ * for a thread with no events (it carries the CONVERSATION's id, not an event's).
+ */
+export const incrementalCursor = (
+  events: readonly { id: number }[],
+  conversationId: number
+): number | null => {
+  if (events.length === 0) return null;
+  if (events.length === 1 && events[0]?.id === conversationId) return null;
+  const ids = events.map((event) => event.id).sort((left, right) => right - left);
+  return ids[Math.min(CURSOR_LAG, ids.length) - 1] ?? null;
 };
 
 /** The incoming events not already on screen (a read can overlap one in flight). */

@@ -19,7 +19,7 @@ import {
   organizationService,
   type LeadQualificationFieldConfig,
 } from '@/services/organization.service';
-import { getSpamCheck, isTriageMessage } from '@/lib/messageHelpers';
+import { getSpamCheck, isOutgoingEvent, isTriageMessage } from '@/lib/messageHelpers';
 import {
   getSocket,
   releaseSocket,
@@ -44,7 +44,7 @@ import { useThreadMergeContext } from './useThreadMergeContext';
 import {
   eventAddsParticipant,
   eventMayCarryAttachments,
-  maxEventId,
+  incrementalCursor,
   unseenEvents,
 } from './threadNewEvents';
 import { MessageActionStrip } from './MessageActionStrip';
@@ -272,6 +272,7 @@ export function MessageDetail({
   // keys on threadRefreshKey (a full refresh) PLUS its own bump.
   const [panelsBump, setPanelsBump] = useState(0);
   const [attachmentsBump, setAttachmentsBump] = useState(0);
+  const [activityBump, setActivityBump] = useState(0);
   const [participantsBump, setParticipantsBump] = useState(0);
   const threadMessagesRef = useRef(threadMessages);
   threadMessagesRef.current = threadMessages;
@@ -279,7 +280,7 @@ export function MessageDetail({
 
   const pullNewEvents = useCallback(() => {
     const forId = message.id;
-    const after = maxEventId(threadMessagesRef.current);
+    const after = incrementalCursor(threadMessagesRef.current, forId);
     if (after === null) {
       setThreadRefreshKey((key) => key + 1);
       return;
@@ -313,6 +314,7 @@ export function MessageDetail({
           current ? { ...current, total: current.total + fresh.length } : current
         );
         if (fresh.some(eventMayCarryAttachments)) setAttachmentsBump((key) => key + 1);
+        if (fresh.some((event) => !isOutgoingEvent(event))) setActivityBump((key) => key + 1);
         if (
           message.channel === 'email' &&
           fresh.some((event) => eventAddsParticipant(event, participantsRef.current))
@@ -467,9 +469,10 @@ export function MessageDetail({
   // the side panels are re-read only when the new events can have changed them:
   //  - attachments: when a new event may carry files (an incoming message);
   //  - participants (Reply all): when a new event names someone not yet on the list;
-  //  - notes, activity and merges: never — `thread:message` is emitted only for a saved message
-  //    or bot reply, which adds no note and no merge; a status change it causes arrives as
-  //    `conv:status_changed` (useConversationStatusRefresh).
+  //  - activity: when a new event is incoming — the backend's save of a customer message writes
+  //    activity entries (auto-reopen, auto-route, auto-replied, "thanks" kept finished);
+  //  - notes and merges: never — `thread:message` is emitted only for a saved message or bot
+  //    reply, which adds no note and no merge.
   // A backend that ignores `afterEventId` answers the full window: it is applied as the full read
   // and every panel is re-read, as before. Cut short (`hasMore`) or failed → a full re-read.
   useThreadMessageRefresh(message.id, pullNewEvents);
@@ -702,23 +705,35 @@ export function MessageDetail({
   const [leadState, setLeadState] = useLeadState(message);
   const [leadFieldDefs, setLeadFieldDefs] = useState<LeadQualificationFieldConfig[]>([]);
 
-  // Fetch notes + activity alongside thread refreshes
+  // Fetch notes alongside thread refreshes
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      messageService.getNotes(message.id).catch(() => null),
-      messageService.getActivity(message.id).catch(() => [] as MessageActivityEntry[]),
-    ])
-      .then(([notesRes, activity]) => {
-        if (cancelled) return;
-        if (notesRes && notesRes.success && notesRes.data) setNotes(notesRes.data);
-        setMessageActivity(activity);
+    messageService
+      .getNotes(message.id)
+      .then((notesRes) => {
+        if (!cancelled && notesRes && notesRes.success && notesRes.data) setNotes(notesRes.data);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [message.id, threadRefreshKey, panelsBump]);
+
+  // …and the activity log — also after a live incoming message (activityBump): saving one can
+  // write activity (auto-reopen, auto-route, "thanks" kept finished) with no other signal.
+  useEffect(() => {
+    let cancelled = false;
+    messageService
+      .getActivity(message.id)
+      .catch(() => [] as MessageActivityEntry[])
+      .then((activity) => {
+        if (!cancelled) setMessageActivity(activity);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [message.id, threadRefreshKey, panelsBump, activityBump]);
 
   // Fetch attachments for the whole thread (used by the Files tab + thread item attachment chips)
   useEffect(() => {
@@ -897,6 +912,13 @@ export function MessageDetail({
         afterSendRef.current = after;
         // Should the server have delivered it after all, its echo must reload like anyone's.
         if (idempotencyKey) forgetOwnSend(idempotencyKey);
+        // …and the echo may already have come and been skipped as ours: the server emits it before
+        // it answers, so a reply delivered whose ANSWER was lost (a dropped connection, a 502 from
+        // the proxy) would never show. Re-read as the echo would have.
+        if (lastSendModeRef.current !== 'note') {
+          setThreadRefreshKey((key) => key + 1);
+          onRefresh?.();
+        }
         logger.error('Failed to send:', err);
         // Surface the server's own explanation for client errors — see
         // resolveSendFailureMessage for why "please try again" is wrong for some of them.
