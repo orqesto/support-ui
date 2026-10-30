@@ -160,10 +160,12 @@ describe('useThreadViewCounts — every pill in one board request', () => {
     expect(sent.counts.every((count) => count.id.length <= 40)).toBe(true);
   });
 
-  it('more pills than one request takes go in further requests of twelve', async () => {
-    getThreadBoard.mockImplementation((request: unknown) =>
-      answering((request as BoardRequest).counts.map(() => 1))(request)
-    );
+  it('more pills than one request takes go in further requests of twelve, sent together', async () => {
+    // Each pill's total is its own number, so a mix-up of pills within or across chunks shows.
+    getThreadBoard.mockImplementation((request: unknown) => {
+      const { counts } = request as BoardRequest;
+      return answering(counts.map((count) => Number(count.filters.assigneeId) * 10))(request);
+    });
     const requests = Array.from({ length: 14 }, (_, idx) => ({
       key: `view-${idx}`,
       filters: filters({ assigneeId: String(idx + 1) }),
@@ -172,7 +174,9 @@ describe('useThreadViewCounts — every pill in one board request', () => {
     await waitFor(() => expect('view-13' in result.current).toBe(true));
     expect(getThreadBoard).toHaveBeenCalledTimes(2);
     expect((getThreadBoard.mock.calls[0][0] as BoardRequest).counts).toHaveLength(12);
-    expect(Object.values(result.current).every((count) => count === 1)).toBe(true);
+    expect(result.current).toEqual(
+      Object.fromEntries(requests.map((request, idx) => [request.key, (idx + 1) * 10]))
+    );
   });
 
   it('a failed board request leaves the pills without a number — never zero, never a fallback storm', async () => {
@@ -181,6 +185,58 @@ describe('useThreadViewCounts — every pill in one board request', () => {
     await waitFor(() => expect('a' in result.current).toBe(true));
     expect(result.current.a).toBeUndefined();
     expect(getThreads).not.toHaveBeenCalled();
+  });
+
+  it('chunks are sent together: the second does not wait for the first', async () => {
+    let releaseFirst: () => void = () => {};
+    getThreadBoard
+      .mockImplementationOnce(
+        (request: unknown) =>
+          new Promise((resolve) => {
+            releaseFirst = () => resolve(answering(Array<number>(12).fill(1))(request));
+          })
+      )
+      .mockImplementationOnce(answering([2, 2]));
+    const requests = Array.from({ length: 14 }, (_, idx) => ({
+      key: `view-${idx}`,
+      filters: filters({ assigneeId: String(idx + 1) }),
+    }));
+    renderHook(() => useThreadViewCounts(requests, 0));
+    await waitFor(() => expect(getThreadBoard).toHaveBeenCalledTimes(2));
+    releaseFirst();
+  });
+
+  it('one chunk failing blanks only its own pills', async () => {
+    getThreadBoard
+      .mockRejectedValueOnce(new Error('429'))
+      .mockImplementationOnce(answering([5, 6]));
+    const requests = Array.from({ length: 14 }, (_, idx) => ({
+      key: `view-${idx}`,
+      filters: filters({ assigneeId: String(idx + 1) }),
+    }));
+    const { result } = renderHook(() => useThreadViewCounts(requests, 0));
+    await waitFor(() => expect('view-13' in result.current).toBe(true));
+    expect(result.current['view-0']).toBeUndefined();
+    expect(result.current['view-12']).toBe(5);
+    expect(result.current['view-13']).toBe(6);
+  });
+
+  it('a board entry the server could not count (null) is unknown, not zero', async () => {
+    getThreadBoard.mockResolvedValue({
+      columns: {},
+      counts: { v0: null, v1: { pagination: { total: 3 }, scope: null } },
+    });
+    const { result } = renderHook(() =>
+      useThreadViewCounts(
+        [
+          { key: 'a', filters: filters() },
+          { key: 'b', filters: filters({ assigneeId: 'me' }) },
+        ],
+        0
+      )
+    );
+    await waitFor(() => expect(result.current.b).toBe(3));
+    expect(result.current.a).toBeUndefined();
   });
 
   it('[control] a backend without the board route counts each pill with its list request', async () => {

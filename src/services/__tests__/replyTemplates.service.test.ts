@@ -44,6 +44,12 @@ describe('replyTemplatesService.list — shared by the pickers on one page', () 
     await apiClient.post('/api/reply-templates', {});
     await replyTemplatesService.list('ticket');
     expect(gets).toBe(2);
+    // An edit and a delete of one template clear it too.
+    await apiClient.put('/api/reply-templates/9', {});
+    await replyTemplatesService.list('ticket');
+    await apiClient.delete('/api/reply-templates/9');
+    await replyTemplatesService.list('ticket');
+    expect(gets).toBe(4);
   });
 });
 

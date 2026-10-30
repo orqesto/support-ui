@@ -42,33 +42,33 @@ const countOneByOne = (asked: AskedCount[]): Promise<CountEntry[]> =>
  * pagination the list request does — the threads page sent one list request per pill, five or
  * more on every open (staging, 2026-10-30). `null` from the board = a backend without the route.
  */
-const countViews = async (asked: AskedCount[]): Promise<CountEntry[]> => {
-  const entries: CountEntry[] = [];
-  for (let start = 0; start < asked.length; start += BOARD_COUNTS_PER_REQUEST) {
-    const chunk = asked.slice(start, start + BOARD_COUNTS_PER_REQUEST);
-    let board: Awaited<ReturnType<typeof messageService.getThreadBoard>>;
-    try {
-      board = await messageService.getThreadBoard({
-        filters: {},
-        columns: [],
-        // Ids by position: a view's name can be long or repeat across chunks; the board takes
-        // 1–40 characters, unique per request, and refuses the whole request otherwise.
-        counts: chunk.map(({ params }, idx) => ({ id: `v${idx}`, filters: params })),
-      });
-    } catch (error) {
-      logger.error('Failed to count the views:', error);
-      entries.push(...chunk.map(({ key }) => [key, undefined] as const));
-      continue;
-    }
-    if (board === null) {
-      entries.push(...(await countOneByOne(chunk)));
-      continue;
-    }
-    chunk.forEach(({ key }, idx) => {
-      entries.push([key, counterTotal(board.counts[`v${idx}`]?.pagination)] as const);
+const countChunk = async (chunk: AskedCount[]): Promise<CountEntry[]> => {
+  let board: Awaited<ReturnType<typeof messageService.getThreadBoard>>;
+  try {
+    board = await messageService.getThreadBoard({
+      filters: {},
+      columns: [],
+      // Ids by position: a view's name can be long or repeat across chunks; the board takes
+      // 1–40 characters, unique per request, and refuses the whole request otherwise.
+      counts: chunk.map(({ params }, idx) => ({ id: `v${idx}`, filters: params })),
     });
+  } catch (error) {
+    logger.error('Failed to count the views:', error);
+    return chunk.map(({ key }) => [key, undefined] as const);
   }
-  return entries;
+  if (board === null) return countOneByOne(chunk);
+  return chunk.map(
+    ({ key }, idx) => [key, counterTotal(board.counts[`v${idx}`]?.pagination)] as const
+  );
+};
+
+/** Chunks go out together, as the per-pill requests did: a second chunk does not wait for the first. */
+const countViews = async (asked: AskedCount[]): Promise<CountEntry[]> => {
+  const chunks: AskedCount[][] = [];
+  for (let start = 0; start < asked.length; start += BOARD_COUNTS_PER_REQUEST) {
+    chunks.push(asked.slice(start, start + BOARD_COUNTS_PER_REQUEST));
+  }
+  return (await Promise.all(chunks.map(countChunk))).flat();
 };
 
 /**
