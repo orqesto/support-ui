@@ -5,6 +5,8 @@ import {
   HOLD_LABEL,
   type WithSyncHold,
 } from '@/components/settings/integrations/syncHold';
+import { describeMarkImportedWarning } from '@/components/settings/integrations/markImported';
+import type { MarkImportedWarning } from '@/services/integrations.service';
 import { Badge } from '@/components/ui/Badge';
 import { Tooltip } from '@/components/ui/Tooltip';
 
@@ -33,7 +35,11 @@ import { Tooltip } from '@/components/ui/Tooltip';
 export const SourceRowBadges = ({
   source,
 }: {
-  source: { departmentId?: number | null; isKnowledgeBase?: boolean } & WithSyncHold;
+  source: {
+    departmentId?: number | null;
+    isKnowledgeBase?: boolean;
+    markImportedWarning?: MarkImportedWarning | null;
+  } & WithSyncHold;
 }) => (
   <>
     {typeof source.departmentId === 'number' && (
@@ -44,6 +50,13 @@ export const SourceRowBadges = ({
       <Tooltip content={describeHold(source.syncHold)}>
         <Badge variant={holdSeverity(source.syncHold.reason)}>
           {HOLD_LABEL[source.syncHold.reason] ?? HOLD_LABEL.unknown}
+        </Badge>
+      </Tooltip>
+    ) : null}
+    {source.markImportedWarning ? (
+      <Tooltip content={describeMarkImportedWarning(source.markImportedWarning)}>
+        <Badge variant={source.markImportedWarning.status === 'failed' ? 'warning' : 'secondary'}>
+          {source.markImportedWarning.status === 'failed' ? 'Not marked read' : 'No label'}
         </Badge>
       </Tooltip>
     ) : null}

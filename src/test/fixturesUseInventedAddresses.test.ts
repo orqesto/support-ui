@@ -90,6 +90,8 @@ const ALLOWED_HOSTS = new Set([
   'staging.odly.ai',
   'www.w3.org',
   'fonts.googleapis.com',
+  // Google OAuth scope URLs (the Gmail grant, support-service#1229).
+  'www.googleapis.com',
   't.me',
   'accounts.google.com',
   'login.microsoftonline.com',
