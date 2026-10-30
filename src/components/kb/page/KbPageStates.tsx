@@ -3,6 +3,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Card, CardContent } from '@/components/ui/Card';
 import { AUTO_ACTIONS_HREF } from '@/components/kb/autoActions/kbAutoActionCopy';
 import type { KbEngineSummary } from '@/services/kbEngine.types';
+import { KbQuestionQueue } from '@/components/kb/questions/KbQuestionQueue';
 
 /** The digest line (§8): what the engine did this week. */
 export const kbEngineDigest = (summary: KbEngineSummary): string =>
@@ -63,19 +64,6 @@ export const KbEngineOffNotice = ({
 };
 
 /**
- * F4 fills this with the question card and queue. Until then: the count, so the view is honest.
- */
-export const KbQuestionsSlot = ({ open, search }: { open: number; search: string }) => (
-  <Card data-testid="kb-questions-slot" data-search={search}>
-    <CardContent className="p-4 sm:p-6">
-      <p className="text-sm text-muted-foreground">
-        {open === 1 ? '1 question waits for you.' : `${open} questions wait for you.`}
-      </p>
-    </CardContent>
-  </Card>
-);
-
-/**
  * F5 fills this with the Engine activity panel (findings strip, changes, Rate the engine). Under
  * the card it starts collapsed; the Engine activity view shows it expanded.
  */
@@ -96,24 +84,29 @@ export const KbEngineActivitySlot = ({
   </Card>
 );
 
-/** The Questions view: the count, the queue (or "Nothing needs you"), Engine activity collapsed. */
+/**
+ * The Questions view: the count, the queue (or "Nothing needs you"), Engine activity collapsed.
+ * The summary's count of 0 skips the queue's request; the queue itself is the authority otherwise.
+ */
 export const KbQuestionsView = ({
   openQuestions,
   search,
+  departmentId,
   summary,
 }: {
   openQuestions: number | null;
   search: string;
+  departmentId?: number;
   summary: KbEngineSummary | null;
 }) => (
   <>
     <h2 className="text-lg font-semibold font-display text-foreground">
       Questions for you{openQuestions !== null ? ` (${openQuestions})` : ''}
     </h2>
-    {openQuestions === 0 ? (
+    {openQuestions === 0 && !search.trim() ? (
       <KbNothingNeedsYou />
     ) : (
-      <KbQuestionsSlot open={openQuestions ?? 0} search={search} />
+      <KbQuestionQueue departmentId={departmentId} search={search} empty={<KbNothingNeedsYou />} />
     )}
     <KbEngineActivitySlot summary={summary} expanded={false} />
   </>

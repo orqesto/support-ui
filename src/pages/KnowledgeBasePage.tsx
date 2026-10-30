@@ -576,6 +576,7 @@ const KnowledgeBaseViews = () => {
           <KbQuestionsView
             openQuestions={openQuestions}
             search={searchQuery}
+            departmentId={oneTeam}
             summary={engine.summary}
           />
         ) : view === 'activity' ? (

@@ -78,6 +78,7 @@ vi.mock('@/services/kbEngine.service', () => ({
       : state.summaryFails || !state.summary
         ? Promise.reject(new Error('no summary'))
         : Promise.resolve(state.summary),
+  getKbQuestions: () => Promise.resolve({ items: [], total: 0, nextCursor: null, olderThan7d: 0 }),
 }));
 vi.mock('@/services/kbConsolidation.service', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
