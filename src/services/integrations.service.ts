@@ -198,6 +198,16 @@ const HOLD_REASONS: readonly SyncHoldReason[] = [
  * ⛔ Undefined means "nothing to report", NOT "healthy" — the caller must render nothing,
  * because claiming a source is fine is a different claim from having no information.
  */
+/** A problem the last poll had writing to the mailbox (support-service#1229). */
+export type MarkImportedWarning = { status: 'failed' | 'label_unsupported'; error?: string };
+
+export const normalizeMarkImportedWarning = (raw: unknown): MarkImportedWarning | null => {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const { status, error } = raw as { status?: unknown; error?: unknown };
+  if (status !== 'failed' && status !== 'label_unsupported') return null;
+  return { status, ...(typeof error === 'string' ? { error } : {}) };
+};
+
 export const normalizeSyncHold = (raw: unknown): SyncHold | null => {
   if (raw === null || typeof raw !== 'object') return null;
 
@@ -262,6 +272,8 @@ export type BaseIntegration = {
   // Why this source is not currently syncing (email/gmail only). Absent on an older
   // backend — see normalizeSyncHold. Null means "polling normally".
   syncHold?: SyncHold | null;
+  // A mark-read / label problem from the last poll (support-service#1229). Absent on an older backend.
+  markImportedWarning?: MarkImportedWarning | null;
   // AI providers only: what this workspace pays the provider, USD per 1M tokens. Both set or
   // both null; null means "use the published list price". Absent on an older backend.
   inputCostPer1M?: number | null;
@@ -513,6 +525,9 @@ export const integrationsService = {
     const data = response.data.data.map((integration) => ({
       ...integration,
       syncHold: normalizeSyncHold((integration as { syncHold?: unknown }).syncHold),
+      markImportedWarning: normalizeMarkImportedWarning(
+        (integration as { markImportedWarning?: unknown }).markImportedWarning
+      ),
     }));
     return { success: response.data.success, data };
   },

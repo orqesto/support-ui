@@ -53,6 +53,7 @@ type EmailConfig = {
   /** The import start day (YYYY-MM-DD); wins over bulkImportDays on the server. */
   bulkImportSince?: string | null;
   bulkImportMaxResults?: number;
+  markImported?: { enabled: boolean; label?: string }; // support-service#1229
   smtp?: {
     host: string;
     port: number;

@@ -6,6 +6,11 @@ import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Select } from '@/components/ui/Select';
 import { detectImapConfig, deriveSmtpDefaults, isProviderSupported } from '@/utils/imapProviders';
 import { SourceKbToggle } from '@/components/settings/integrations/SourceKbToggle';
+import { MarkImportedControl } from '@/components/settings/integrations/MarkImportedControl';
+import {
+  readMarkImported,
+  type MarkImportedSetting,
+} from '@/components/settings/integrations/markImported';
 import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
 import {
   emailSourceErrors,
@@ -32,6 +37,8 @@ type EmailConfig = {
   /** The import start day (YYYY-MM-DD, the calendar); wins over the day counts on the server. */
   bulkImportSince?: string | null;
   bulkImportMaxResults?: number;
+  /** Mark imported mail read + label it in the mailbox (support-service#1229). */
+  markImported?: MarkImportedSetting;
   smtp?: {
     host: string;
     port: number;
@@ -418,6 +425,11 @@ export const EmailForm = ({
           onChange={(next) => onConfigChange({ ...config, isKnowledgeBase: next })}
         />
       )}
+
+      <MarkImportedControl
+        value={readMarkImported(config.markImported)}
+        onChange={(next) => onConfigChange({ ...config, markImported: next })}
+      />
 
       {/* Message Count Display */}
       {messageCount !== null && (

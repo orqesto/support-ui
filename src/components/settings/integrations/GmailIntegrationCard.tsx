@@ -22,7 +22,7 @@ import {
 } from '@/components/settings/integrations/SourceAliasEditor';
 import { SourceMenuItem } from '@/components/settings/integrations/SourceMenuItem';
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
-import { SourceKbStrip } from '@/components/settings/integrations/SourceKbStrip';
+import { GmailRowStrips } from '@/components/settings/integrations/GmailRowStrips';
 import { SourceRowBadges } from '@/components/settings/integrations/SourceRowBadges';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
@@ -535,7 +535,7 @@ export const GmailIntegrationCard = ({
                     onRefresh={onRefresh}
                     onShowAlert={onShowAlert}
                   />
-                  <SourceKbStrip source={integration} onShowAlert={onShowAlert} onRefresh={onRefresh} />
+                  <GmailRowStrips source={integration} onShowAlert={onShowAlert} onRefresh={onRefresh} />
                   {editAliases === integration.id && (
                     <SourceAliasEditor
                       sourceId={integration.id}
