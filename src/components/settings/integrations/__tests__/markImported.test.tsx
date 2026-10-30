@@ -136,6 +136,87 @@ describe('GmailMarkImportedStrip', () => {
     expect(toggle()).toBeEnabled();
   });
 
+  it('turning a stored "on" off saves enabled: false and keeps the label for next time', async () => {
+    render(
+      <GmailMarkImportedStrip
+        source={gmailSource({
+          grantedScopes: TODAY_GRANT,
+          markImported: { enabled: true, label: 'Odly' },
+        })}
+        {...props}
+      />
+    );
+    fireEvent.click(toggle());
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(update).toHaveBeenCalledWith(9, {
+        type: 'gmail',
+        config: { gmail: { markImported: { enabled: false, label: 'Odly' } } },
+      })
+    );
+  });
+
+  it('a refused save says "Not saved"', async () => {
+    update.mockRejectedValueOnce(new Error('boom'));
+    const onShowAlert = vi.fn();
+    render(
+      <GmailMarkImportedStrip
+        source={gmailSource({ grantedScopes: `${TODAY_GRANT} ${MODIFY}` })}
+        onRefresh={vi.fn(() => Promise.resolve())}
+        onShowAlert={onShowAlert}
+      />
+    );
+    fireEvent.click(toggle());
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(onShowAlert).toHaveBeenCalledWith(expect.objectContaining({ title: 'Not saved' }))
+    );
+  });
+
+  it('a save that landed but whose list refresh failed does NOT say "Not saved"', async () => {
+    const onShowAlert = vi.fn();
+    render(
+      <GmailMarkImportedStrip
+        source={gmailSource({ grantedScopes: `${TODAY_GRANT} ${MODIFY}` })}
+        onRefresh={vi.fn(() => Promise.reject(new Error('list down')))}
+        onShowAlert={onShowAlert}
+      />
+    );
+    fireEvent.click(toggle());
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(onShowAlert).toHaveBeenCalled());
+    expect(onShowAlert).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Saved', variant: 'warning' })
+    );
+    expect(onShowAlert).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Not saved' }));
+  });
+
+  it('follows the stored value when it changes (no stale Save that would write it back)', () => {
+    const grant = `${TODAY_GRANT} ${MODIFY}`;
+    const { rerender } = render(
+      <GmailMarkImportedStrip source={gmailSource({ grantedScopes: grant })} {...props} />
+    );
+    rerender(
+      <GmailMarkImportedStrip
+        source={gmailSource({
+          grantedScopes: grant,
+          markImported: { enabled: true, label: 'New' },
+        })}
+        {...props}
+      />
+    );
+    expect(toggle()).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByLabelText('Label')).toHaveValue('New');
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+  });
+
+  it('the switch is described by the note (why it is disabled)', () => {
+    render(
+      <GmailMarkImportedStrip source={gmailSource({ grantedScopes: TODAY_GRANT })} {...props} />
+    );
+    expect(toggle()).toHaveAccessibleDescription(/needs an extra gmail permission/i);
+  });
+
   it('no Save button until something changed', () => {
     render(
       <GmailMarkImportedStrip
