@@ -703,6 +703,26 @@ export const MessagesPage = () => {
 
   const refreshAbortRef = useRef<AbortController | null>(null);
 
+  /**
+   * Re-read ONLY the open thread after the backend changed its status (useConversationStatusRefresh).
+   * The list and board follow `conv:status_changed` on their own (the handler below), so this
+   * must not reload them a second time — that is why it is not handleRefreshMessage.
+   */
+  const rereadSelectedMessage = useCallback(async () => {
+    const openId = selectedMessage?.id;
+    if (openId === undefined) return;
+    try {
+      const response = await messageService.getById(openId);
+      if (response.success && response.data) {
+        const data: Message = response.data;
+        // Only if the agent is still on the same thread when the answer lands.
+        setSelectedMessage((current) => (current?.id === openId ? data : current));
+      }
+    } catch (error) {
+      logger.error('Failed to re-read the open thread after a status change:', error);
+    }
+  }, [selectedMessage?.id]);
+
   const handleRefreshMessage = useCallback(async () => {
     if (!selectedMessage) return;
     refreshAbortRef.current?.abort();
@@ -1030,6 +1050,7 @@ export const MessagesPage = () => {
         setSelectedMessage(null);
       }}
       onReplied={() => moveSelectedCard('awaiting')}
+      onStatusChanged={() => void rereadSelectedMessage()}
       // Only the threads view has one unambiguous order; in kanban "next" could mean
       // the next card in the column or across the board, so J/K stay off there.
       onNavigate={displayMode === 'threads' ? handleNavigate : undefined}
