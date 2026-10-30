@@ -1,4 +1,4 @@
-import type { KbQuestion } from '@/services/kbEngine.types';
+import type { KbQuestion } from './kbMockTypes';
 
 /** Real shop-policy conflicts; evidence counts and dates are invented. No customer data. F7 deletes this folder. */
 export const kbMockPairs: KbQuestion[] = [

@@ -39,7 +39,20 @@ export type KbPromoteOutcome = {
   partOfCase: number[];
 };
 
-export type KbPromoteResult = { ids: number[]; outcome: KbPromoteOutcome };
+/** A pair the backend would not save: the reply reports an action done for one customer. */
+export type KbPromoteRefusal = {
+  questionMessageId: number;
+  answerMessageId: number;
+  /** The server's plain-words reason; show it as is. */
+  reason: string;
+};
+
+export type KbPromoteResult = {
+  ids: number[];
+  outcome: KbPromoteOutcome;
+  /** Pairs refused by the one-customer veto; [] when none (and on a backend that has no veto). */
+  refused: KbPromoteRefusal[];
+};
 
 export const kbPromoteService = {
   /**
@@ -73,15 +86,18 @@ export const kbPromoteService = {
         knowledgeBaseIds: number[];
         pendingReview?: boolean;
         outcome?: Partial<KbPromoteOutcome>;
+        refused?: KbPromoteRefusal[];
       }>
     >(`/api/messages/${messageId}/kb-entries`, { pairs });
     const data = response.data.data;
     const ids = data?.knowledgeBaseIds ?? [];
     const outcome = data?.outcome;
+    const refused = Array.isArray(data?.refused) ? data.refused : [];
     if (!outcome) {
       const waiting = data?.pendingReview === true;
       return {
         ids,
+        refused,
         outcome: {
           approved: waiting ? 0 : ids.length,
           hidden: 0,
@@ -95,6 +111,7 @@ export const kbPromoteService = {
     }
     return {
       ids,
+      refused,
       outcome: {
         approved: outcome.approved ?? 0,
         hidden: outcome.hidden ?? 0,

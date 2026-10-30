@@ -3,16 +3,15 @@ import { apiErrorMessage, apiErrorStatus } from '@/lib/apiError';
 import { toast } from '@/lib/toast';
 import type { KbFilterStatus } from '@/components/kb/KbStatusFilter';
 import { kbAutoActionsService } from '@/services/kbAutoActions.service';
-import { kbService, type KBEntry, type KbAutoChange, type KbAutoUndo } from '@/services/kb.service';
+import type { KBEntry, KbAutoChange, KbAutoUndo } from '@/services/kb.service';
 import { kbQualityService } from '@/services/kbQuality.service';
-import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
 
 /** What each undo is called on a row of "Changed automatically". */
 export const AUTO_UNDO_LABEL: Record<KbAutoUndo, string> = {
   restore: 'Restore',
   undo_clean: 'Undo clean-up',
   release_hold: 'Use it again',
-  unapprove: 'Un-approve',
+  unapprove_mined: 'Un-approve',
   return_to_review: 'Send back for review',
 };
 export const AUTO_UNDO_TITLE: Record<KbAutoUndo, string> = {
@@ -21,8 +20,8 @@ export const AUTO_UNDO_TITLE: Record<KbAutoUndo, string> = {
   release_hold: 'Use it again — the AI uses this answer again',
   return_to_review:
     'Send back for review — not used in answers until someone approves it; it waits under Needs your decision.',
-  // Un-approve IS a reject (PATCH …/reject): worded as every other reject button.
-  unapprove: `Un-approve — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`,
+  // Un-approve puts it back to Not live yet; it is not hidden or rejected.
+  unapprove_mined: 'Un-approve — back to Not live yet; a person decides on it',
 };
 
 /** What each automatic change is called on its row. */
@@ -72,8 +71,16 @@ const runUndo = async (entry: KBEntry, undo: KbAutoUndo): Promise<string> => {
     }
     return 'Sent back for review';
   }
-  if (undo === 'unapprove') {
-    await kbService.reject(entry.id);
+  if (undo === 'unapprove_mined') {
+    try {
+      await kbAutoActionsService.unapproveMined(entry.id);
+    } catch (err) {
+      if (apiErrorStatus(err) === 409)
+        throw new Error(
+          'This answer changed since: a person or the engine edited it, or it was undone.'
+        );
+      throw err;
+    }
     return 'Un-approved';
   }
   if (suggestionId === null) throw new Error('This change cannot be undone from here.');

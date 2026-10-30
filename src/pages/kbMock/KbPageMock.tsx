@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Kbd } from '@/components/ui/Kbd';
 import { SearchInput } from '@/components/ui/SearchInput';
-import type { KbQuestionChoice } from '@/services/kbEngine.types';
+import type { KbQuestionChoice } from './kbMockTypes';
 import { kbMockPairs } from './kbMockPairs';
 
 /**

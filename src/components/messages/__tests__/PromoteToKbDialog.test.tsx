@@ -30,6 +30,7 @@ const promoteToKb = vi.fn<(id: number, pairs: KbQaPairInput[]) => Promise<KbProm
 /** What the service returns: the ids and the backend's truthful per-state `outcome`. */
 const promoted = (ids: number[], outcome: Partial<KbPromoteOutcome> = {}): KbPromoteResult => ({
   ids,
+  refused: [],
   outcome: {
     approved: 0,
     hidden: 0,

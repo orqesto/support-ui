@@ -75,7 +75,7 @@ const heldEntry = autoRow(
 );
 const minedEntry = autoRow(62, 'Mined answer', {
   action: 'approveMined',
-  undo: 'unapprove',
+  undo: 'unapprove_mined',
   suggestionId: null,
 });
 const capturedEntry = autoRow(63, 'Saved answer', {
@@ -240,7 +240,12 @@ describe('knowledge base → Changed automatically', () => {
   it.each([
     ['Restore', removedEntry, 'post', '/api/knowledge-base/auto-actions/removed/60/restore'],
     ['Use it again', heldEntry, 'post', '/api/learning/suggestions/88/decline'],
-    ['Un-approve', minedEntry, 'patch', '/api/knowledge-base/entries/62/reject'],
+    [
+      'Un-approve',
+      minedEntry,
+      'post',
+      '/api/knowledge-base/auto-actions/approved-mined/62/unapprove',
+    ],
   ])('"%s" calls exactly its own route', async (label, entry, verb, url) => {
     state.autoEntries = [entry];
     renderPage('/knowledge-base?status=auto_changed');

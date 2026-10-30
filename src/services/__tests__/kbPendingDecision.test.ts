@@ -120,6 +120,8 @@ describe('normaliseAutoChange', () => {
       confidence: 0.95,
       undo: 'return_to_review',
       suggestionId: 12,
+      undoVersion: null,
+      undoBlocked: null,
     });
   });
   it('an action this app does not know ⇒ null', () => {
@@ -138,6 +140,14 @@ describe('normaliseAutoChange', () => {
         undo: 'release_hold',
         suggestionId: 9,
       })
-    ).toEqual({ action: 'hold', at: null, confidence: 0.9, undo: 'release_hold', suggestionId: 9 });
+    ).toEqual({
+      action: 'hold',
+      at: null,
+      confidence: 0.9,
+      undo: 'release_hold',
+      suggestionId: 9,
+      undoVersion: null,
+      undoBlocked: null,
+    });
   });
 });

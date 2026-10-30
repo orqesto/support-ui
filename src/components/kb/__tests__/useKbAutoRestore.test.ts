@@ -49,11 +49,10 @@ describe('useKbAutoRestore', () => {
 });
 
 describe('Un-approve wording', () => {
-  it('says what a reject does, as every other reject button does', async () => {
+  it('says it goes back to Not live yet, not that it is rejected', async () => {
     const { AUTO_UNDO_TITLE } = await import('../useKbAutoRestore');
-    const { REJECTED_RETENTION_DAYS } = await import('@/lib/kbRejection');
-    expect(AUTO_UNDO_TITLE.unapprove).toBe(
-      `Un-approve — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`
+    expect(AUTO_UNDO_TITLE.unapprove_mined).toBe(
+      'Un-approve — back to Not live yet; a person decides on it'
     );
   });
 });
