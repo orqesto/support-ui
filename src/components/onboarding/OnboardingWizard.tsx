@@ -16,6 +16,7 @@ import {
   initialWizardPlan,
   PAID_PLANS,
   shouldShowPaymentStep,
+  channelRequiredToFinish,
 } from './wizardSteps';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -303,8 +304,9 @@ export const OnboardingWizard = () => {
   const isLastStep = activeStep >= stepLabels.length;
 
   // Finishing STARTS the 14-day trial, so require the org to be minimally usable
-  // first: an explicit AI choice, and at least one connected channel (else no mail
-  // can arrive). "Finish later" (header) stays the escape hatch — it doesn't start
+  // first: an explicit AI choice, and — on a paid plan — at least one connected channel
+  // (else no mail can arrive); Free may finish without one (channelRequiredToFinish).
+  // "Finish later" (header) stays the escape hatch — it doesn't start
   // the trial. The channel requirement is only enforced once we could verify it
   // (channelsKnown), so a failed check never traps the user on this screen.
   // Payment is optional: finishing without a card is a supported outcome (the org
@@ -316,7 +318,8 @@ export const OnboardingWizard = () => {
       : 'Finish setup';
 
   const missingAiChoice = !aiChoice;
-  const missingChannel = channelsKnown && !channelsConnected;
+  const missingChannel =
+    channelRequiredToFinish(showPaymentStep, cardAdded) && channelsKnown && !channelsConnected;
   const readyToFinish = !missingAiChoice && !missingChannel && !missingDatabase;
 
   // Reconcile against what already exists, once, on mount.

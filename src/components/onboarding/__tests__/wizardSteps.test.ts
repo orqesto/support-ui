@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildStepLabels,
+  channelRequiredToFinish,
   DEFAULT_WIZARD_PLAN,
   initialWizardPlan,
   shouldShowPaymentStep,
@@ -45,6 +46,22 @@ describe('initialWizardPlan', () => {
 
   it('ignores an unknown plan slug', () => {
     expect(initialWizardPlan('not-a-plan')).toBe(DEFAULT_WIZARD_PLAN);
+  });
+});
+
+describe('channelRequiredToFinish', () => {
+  it('lets a workspace with no card (it ends its trial on Free) finish without a channel', () => {
+    // Staging 2026-10-30: Free picked, Channels skipped → "Finish without a card" stayed
+    // disabled with "connect a channel", although that step offered "Skip this step".
+    expect(channelRequiredToFinish(true, false)).toBe(false);
+  });
+
+  it('keeps the rule once a card is on file (a paid plan)', () => {
+    expect(channelRequiredToFinish(true, true)).toBe(true);
+  });
+
+  it('keeps the rule where there is no billing, so no Free to fall back to', () => {
+    expect(channelRequiredToFinish(false, false)).toBe(true);
   });
 });
 

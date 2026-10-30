@@ -70,5 +70,17 @@ export const DEFAULT_WIZARD_PLAN = 'pro';
 export const initialWizardPlan = (selectedPlan: string | undefined): string =>
   selectedPlan && PAID_PLANS.includes(selectedPlan) ? selectedPlan : DEFAULT_WIZARD_PLAN;
 
+/**
+ * Whether finishing the wizard needs a connected channel.
+ *
+ * A workspace without a card on file ends its trial on Free, and Free may finish setup
+ * with no channel yet (owner, 2026-10-30): the Channels step says "Skip this step", and
+ * refusing at the last step contradicted it. The header's "no message sources" warning
+ * keeps prompting them afterwards. A card on file means a paid plan, which keeps the
+ * rule — as does a deployment with no billing, which has no Free to fall back to.
+ */
+export const channelRequiredToFinish = (billingEnabled: boolean, cardAdded: boolean): boolean =>
+  !billingEnabled || cardAdded;
+
 export const buildStepLabels = (includePayment: boolean): readonly string[] =>
   includePayment ? [...STEP_LABELS, PAYMENT_STEP_LABEL] : STEP_LABELS;
