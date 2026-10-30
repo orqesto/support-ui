@@ -4,6 +4,13 @@ import { logger } from '@/lib/logger';
 export * from './kbRangeTypes';
 import { kbHistoryRange } from './kbRangeApi';
 import { countGmailMessages, countImapMessages } from './mailboxCountApi';
+import {
+  markImportedOn,
+  normalizeMarkImportedWarning,
+  type MarkImportedWarning,
+} from './markImportedWarning';
+
+export { normalizeMarkImportedWarning, type MarkImportedWarning };
 
 // Integration-specific config types
 export type EmailConfig = {
@@ -198,31 +205,6 @@ const HOLD_REASONS: readonly SyncHoldReason[] = [
  * ⛔ Undefined means "nothing to report", NOT "healthy" — the caller must render nothing,
  * because claiming a source is fine is a different claim from having no information.
  */
-/** A problem the last poll had writing to the mailbox (support-service#1229). */
-export type MarkImportedWarning = { status: 'failed' | 'label_unsupported'; error?: string };
-
-export const normalizeMarkImportedWarning = (raw: unknown): MarkImportedWarning | null => {
-  if (typeof raw !== 'object' || raw === null) return null;
-  const { status, error } = raw as { status?: unknown; error?: unknown };
-  if (status !== 'failed' && status !== 'label_unsupported') return null;
-  return { status, ...(typeof error === 'string' ? { error } : {}) };
-};
-
-/** Whether the source's mark-imported setting is on (IMAP: `email`, Gmail: `gmail`). */
-const markImportedOn = (config: unknown): boolean => {
-  const sections = config as
-    | {
-        email?: { markImported?: { enabled?: unknown } };
-        gmail?: { markImported?: { enabled?: unknown } };
-      }
-    | null
-    | undefined;
-  return (
-    sections?.email?.markImported?.enabled === true ||
-    sections?.gmail?.markImported?.enabled === true
-  );
-};
-
 export const normalizeSyncHold = (raw: unknown): SyncHold | null => {
   if (raw === null || typeof raw !== 'object') return null;
 

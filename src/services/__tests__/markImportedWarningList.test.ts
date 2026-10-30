@@ -35,7 +35,7 @@ describe('integrationsService.getAll — mark-imported warning', () => {
       },
     });
     const { data } = await integrationsService.getAll();
-    expect(data.map((source) => source.markImportedWarning)).toEqual([
+    expect((data ?? []).map((source) => source.markImportedWarning)).toEqual([
       { status: 'failed', error: 'refused' },
       { status: 'failed', error: 'refused' },
     ]);
@@ -53,6 +53,6 @@ describe('integrationsService.getAll — mark-imported warning', () => {
       },
     });
     const { data } = await integrationsService.getAll();
-    expect(data.map((source) => source.markImportedWarning)).toEqual([null, null, null]);
+    expect((data ?? []).map((source) => source.markImportedWarning)).toEqual([null, null, null]);
   });
 });
