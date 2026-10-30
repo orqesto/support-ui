@@ -18,6 +18,19 @@ interface StorageStepProps {
 }
 
 /**
+ * Whether `GET /api/integrations/storage-config` describes the workspace's OWN bucket.
+ *
+ * The endpoint answers for every workspace: one with no storage of its own gets the
+ * platform's storage (`ownership: 'platform'`), and a stored row can also wire the managed
+ * bucket. Only `ownership: 'customer'` is a bucket the customer brought — treating any
+ * answer as BYO opened every new workspace on "Bring your own S3 bucket".
+ */
+export const isOwnStorage = (data: unknown): boolean =>
+  typeof data === 'object' &&
+  data !== null &&
+  (data as { ownership?: unknown }).ownership === 'customer';
+
+/**
  * Step — where attachments and KB documents are stored. Two choices, mirroring
  * the AI step: managed (default, nothing to configure) or bring-your-own S3. The
  * heavy config form only appears when BYO is chosen, so the default state is a
@@ -34,13 +47,13 @@ export const StorageStep = ({ onChoiceChange }: StorageStepProps) => {
 
   // On resume, reflect an existing BYO storage config: the choice itself isn't
   // persisted to onboarding state, but a saved config is the source of truth, so
-  // pre-select "bring your own" (revealing its form) when one already exists.
+  // pre-select "bring your own" (revealing its form) when the workspace has its own bucket.
   useEffect(() => {
     let cancelled = false;
     apiClient
       .get<{ success: boolean; data: unknown }>('/api/integrations/storage-config')
       .then((res) => {
-        if (!cancelled && res.data?.data) setChoice('byo');
+        if (!cancelled && isOwnStorage(res.data?.data)) setChoice('byo');
       })
       .catch((error: unknown) => {
         // Non-fatal: couldn't check existing config; leave the selection default.
