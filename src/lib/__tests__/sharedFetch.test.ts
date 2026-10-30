@@ -46,6 +46,29 @@ describe('sharedFetch', () => {
     expect(await sharedFetch('k', fetcher, 1000)).toBe(5);
   });
 
+  it('an answer still in flight when the key is invalidated is not kept (a write overtook it)', async () => {
+    let release: (value: string) => void = () => {};
+    const before = vi.fn(() => new Promise<string>((resolve) => (release = resolve)));
+    const pending = sharedFetch('k', before, 60_000);
+    invalidateSharedFetch('k'); // the user saved a change meanwhile
+    release('pre-write list');
+    await expect(pending).resolves.toBe('pre-write list'); // its own caller still gets it
+    const after = vi.fn(() => Promise.resolve('post-write list'));
+    await expect(sharedFetch('k', after, 60_000)).resolves.toBe('post-write list');
+    expect(after).toHaveBeenCalledTimes(1);
+  });
+
+  it('[control] the request that replaced it is kept', async () => {
+    let release: (value: string) => void = () => {};
+    void sharedFetch('k', () => new Promise<string>((resolve) => (release = resolve)), 60_000);
+    invalidateSharedFetch('k');
+    const fresh = vi.fn(() => Promise.resolve('fresh'));
+    await sharedFetch('k', fresh, 60_000);
+    release('stale'); // the old request lands after the new one
+    await Promise.resolve();
+    expect(peekSharedFetch('k', 60_000)).toBe('fresh');
+  });
+
   it('invalidating a key makes the next caller ask again', async () => {
     const fetcher = vi.fn(() => Promise.resolve(1));
     await sharedFetch('k', fetcher, 60_000);

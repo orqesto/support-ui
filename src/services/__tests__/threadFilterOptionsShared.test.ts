@@ -72,4 +72,17 @@ describe('message source options', () => {
     await getMessageSourceOptions();
     expect(probe.seen.count).toBe(2);
   });
+
+  it('a failed read is not kept: the next caller asks again', async () => {
+    let calls = 0;
+    handler = () => {
+      calls += 1;
+      return calls === 1
+        ? { status: 500, data: { success: false, error: 'boom' } }
+        : ok([{ id: 1, name: 'Help desk', type: 'email', active: true }]);
+    };
+    await expect(getMessageSourceOptions()).rejects.toBeTruthy();
+    expect(await getMessageSourceOptions()).toHaveLength(1);
+    expect(calls).toBe(2);
+  });
 });

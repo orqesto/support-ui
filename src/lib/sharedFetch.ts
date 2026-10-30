@@ -20,17 +20,22 @@ export const sharedFetch = <T>(key: string, fetcher: () => Promise<T>, ttlMs: nu
   const entry = entries.get(key);
   if (entry?.inFlight) return entry.inFlight as Promise<T>;
   if (entry && 'value' in entry && now - entry.at < ttlMs) return Promise.resolve(entry.value as T);
+  // The entry this request belongs to. An invalidation while it is in flight (the user saved a
+  // change) drops it from the map; the answer then goes to its callers but is not kept — kept,
+  // it would serve the pre-write answer for the whole TTL.
+  const pending: Entry = { at: now };
   const inFlight = fetcher().then(
     (value) => {
-      entries.set(key, { at: Date.now(), value });
+      if (entries.get(key) === pending) entries.set(key, { at: Date.now(), value });
       return value;
     },
     (error: unknown) => {
-      entries.delete(key);
+      if (entries.get(key) === pending) entries.delete(key);
       throw error;
     }
   );
-  entries.set(key, { at: now, inFlight });
+  pending.inFlight = inFlight;
+  entries.set(key, pending);
   return inFlight;
 };
 
