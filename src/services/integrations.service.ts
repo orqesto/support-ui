@@ -208,6 +208,21 @@ export const normalizeMarkImportedWarning = (raw: unknown): MarkImportedWarning 
   return { status, ...(typeof error === 'string' ? { error } : {}) };
 };
 
+/** Whether the source's mark-imported setting is on (IMAP: `email`, Gmail: `gmail`). */
+const markImportedOn = (config: unknown): boolean => {
+  const sections = config as
+    | {
+        email?: { markImported?: { enabled?: unknown } };
+        gmail?: { markImported?: { enabled?: unknown } };
+      }
+    | null
+    | undefined;
+  return (
+    sections?.email?.markImported?.enabled === true ||
+    sections?.gmail?.markImported?.enabled === true
+  );
+};
+
 export const normalizeSyncHold = (raw: unknown): SyncHold | null => {
   if (raw === null || typeof raw !== 'object') return null;
 
@@ -525,9 +540,12 @@ export const integrationsService = {
     const data = response.data.data.map((integration) => ({
       ...integration,
       syncHold: normalizeSyncHold((integration as { syncHold?: unknown }).syncHold),
-      markImportedWarning: normalizeMarkImportedWarning(
-        (integration as { markImportedWarning?: unknown }).markImportedWarning
-      ),
+      // A note from a poll before the setting was switched off would linger for up to 24 h.
+      markImportedWarning: markImportedOn(integration.config)
+        ? normalizeMarkImportedWarning(
+            (integration as { markImportedWarning?: unknown }).markImportedWarning
+          )
+        : null,
     }));
     return { success: response.data.success, data };
   },
