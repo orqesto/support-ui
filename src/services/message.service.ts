@@ -8,7 +8,12 @@
 import { normaliseReceivedAtOptions, type ReceivedAtOption } from './receivedAtOption';
 import type { LatestNotePreview } from '@/components/contacts/ContactNotesIndicator';
 import { fetchThreadBoard, fetchThreads, type ThreadBoardRequest } from './threadsQuery';
-import { normaliseThreadPage, threadPageQuery, type ThreadPageRequest } from './threadPage';
+import {
+  normaliseThreadNewEvents,
+  normaliseThreadPage,
+  threadPageQuery,
+  type ThreadPageRequest,
+} from './threadPage';
 import { apiClient } from '@/lib/api-client';
 import { getErrorStatus } from '@/lib/errorMessages';
 import { PAGINATION } from '@/lib/constants';
@@ -881,6 +886,23 @@ export const messageService = {
     );
     const rows = response.data.data ?? [];
     return { ...response.data, page: normaliseThreadPage(response.data.page, rows) };
+  },
+
+  /**
+   * The events saved after `afterEventId` (a live message on an open thread). `incremental: false`
+   * means the backend ignored the parameter and `data` is the latest window of `limit` events —
+   * use it as a plain read. See normaliseThreadNewEvents.
+   */
+  getThreadMessagesAfter: async (id: number, afterEventId: number, limit: number) => {
+    const response = await apiClient.get<ApiResponse<MessageEvent[]> & { page?: unknown }>(
+      `/api/messages/${id}/thread${threadPageQuery({ afterEventId, limit })}`
+    );
+    const rows = response.data.data ?? [];
+    return {
+      data: rows,
+      page: normaliseThreadPage(response.data.page, rows),
+      newEvents: normaliseThreadNewEvents(response.data),
+    };
   },
 
   getLinkedTicket: async (id: number) => {

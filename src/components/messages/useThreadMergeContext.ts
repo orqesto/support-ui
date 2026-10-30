@@ -60,7 +60,9 @@ export const withMergeChange = (
 export const useThreadMergeContext = (
   conversationId: number,
   isEmail: boolean,
-  refreshKey: number
+  refreshKey: number,
+  /** Re-reads the participants only — a live message that named someone new (MessageDetail). */
+  participantsRefreshKey = 0
 ) => {
   const orgCode = useCurrentOrgCode();
   const [merges, setMerges] = useState<ManualMerge[] | null>(null);
@@ -109,7 +111,7 @@ export const useThreadMergeContext = (
     return () => {
       cancelled = true;
     };
-  }, [conversationId, isEmail, refreshKey]);
+  }, [conversationId, isEmail, refreshKey, participantsRefreshKey]);
 
   /**
    * "from ODL-MKT-1" for a message that arrived through a merge, else null. A trail naming a

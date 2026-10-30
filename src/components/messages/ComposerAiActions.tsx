@@ -5,7 +5,6 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff, useRefreshAiDrafts } from '@/hooks/useAiDraftsOff';
 import { editorHtmlToText } from '@/lib/editorText';
-import { normalizeEditorHtml } from '@/lib/editorSchema';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { envelopeDraftHint, readEnvelope, type EnvelopeSummary } from '@/lib/messageEnvelope';
 import { logger } from '@/lib/logger';
@@ -195,6 +194,9 @@ export function ComposerAiActions({
         input = before;
         response = await request(mode, input);
       }
+      // The editor's schema (TipTap) is loaded with the editor, not with the inbox; by the time a
+      // draft is asked for, the composer has it — this resolves from the module cache.
+      const { normalizeEditorHtml } = await import('@/lib/editorSchema');
       if (!mounted.current) return;
       const text = response.data?.text;
       if (!text) {

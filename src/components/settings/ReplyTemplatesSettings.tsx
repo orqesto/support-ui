@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { InsertFieldMenu } from '@/components/shared/InsertFieldMenu';
-import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
+import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/LazyRichTextEditor';
 import { useDepartments } from '@/hooks/useDepartments';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { usePermissions } from '@/hooks/usePermissions';

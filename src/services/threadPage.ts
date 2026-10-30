@@ -14,7 +14,12 @@ export type ThreadPage = {
   earliestId: number | null;
 };
 
-export type ThreadPageRequest = { limit?: number; before?: number };
+export type ThreadPageRequest = {
+  limit?: number;
+  before?: number;
+  /** Only the events after this id (support-service incremental read); see threadNewEvents. */
+  afterEventId?: number;
+};
 
 const positiveInt = (value: unknown): number | null =>
   typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
@@ -40,6 +45,25 @@ export const threadPageQuery = (page?: ThreadPageRequest): string => {
   const params = new URLSearchParams();
   if (page?.limit) params.set('limit', String(page.limit));
   if (page?.before) params.set('before', String(page.before));
+  if (page?.afterEventId) params.set('afterEventId', String(page.afterEventId));
   const query = params.toString();
   return query ? `?${query}` : '';
+};
+
+/**
+ * What an `afterEventId` read answered. A backend that knows the parameter says
+ * `incremental: true` and sends only newer events (oldest first, capped), with `hasMore` when the
+ * cap cut it short. One that does not ignores the parameter and answers the latest window as for
+ * a plain read — that answer is still usable, as the whole window.
+ *
+ * Read from the envelope, or from its `page`, so either placement is tolerated.
+ */
+export type ThreadNewEvents = { incremental: true; hasMore: boolean } | { incremental: false };
+
+export const normaliseThreadNewEvents = (envelope: unknown): ThreadNewEvents => {
+  const top = (envelope ?? {}) as { incremental?: unknown; hasMore?: unknown; page?: unknown };
+  const page = (top.page ?? {}) as { incremental?: unknown; hasMore?: unknown };
+  if (top.incremental === true) return { incremental: true, hasMore: top.hasMore === true };
+  if (page.incremental === true) return { incremental: true, hasMore: page.hasMore === true };
+  return { incremental: false };
 };

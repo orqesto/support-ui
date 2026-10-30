@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { parseTypedAddresses } from './RecipientFields';
-import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
+import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/LazyRichTextEditor';
 import { messageService } from '@/services/message.service';
 import { integrationsService } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';

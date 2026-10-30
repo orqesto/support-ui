@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useDepartmentContextKey } from './useDepartmentContextKey';
 import { apiClient } from '@/lib/api-client';
 import {
@@ -34,6 +34,90 @@ type CountsMap = Partial<Record<ArrivalKind | QueueDepthKind, number>> & Record<
 // Kinds whose creation should live-refresh the badge counts. Other kinds (SLA) are
 // delivered on the same `notification:new` ping but don't move these badges.
 const ARRIVAL_KINDS = new Set<string>(['suspicious_arrival', 'spam_arrival']);
+
+type SharedSubscription = { holders: number; release: () => void };
+const sharedSubscriptions = new WeakMap<QueryClient, Map<string, SharedSubscription>>();
+
+/**
+ * Subscribe the counts query of one scope to the socket pings that change it — once per scope,
+ * ref-counted. The hook is mounted by the layout, the bell, the threads page and the board at the
+ * same time; each used to register its own handlers, so one ping invalidated the same query four
+ * times, and invalidateQueries cancels the refetch in flight and starts another each time — up to
+ * four GETs per event. Returns the release for this holder.
+ */
+const subscribeCountsRefresh = (
+  queryClient: QueryClient,
+  orgId: number | null,
+  deptKey: unknown
+): (() => void) => {
+  const scope = JSON.stringify([orgId, deptKey]);
+  let byScope = sharedSubscriptions.get(queryClient);
+  if (!byScope) {
+    byScope = new Map();
+    sharedSubscriptions.set(queryClient, byScope);
+  }
+  const existing = byScope.get(scope);
+  if (existing) {
+    existing.holders += 1;
+  } else {
+    byScope.set(scope, {
+      holders: 1,
+      release: listenForCountChanges(() => {
+        void queryClient
+          .invalidateQueries({ queryKey: [...NOTIFICATION_COUNTS_KEY, orgId, deptKey] })
+          .catch(() => {});
+      }),
+    });
+  }
+  return () => {
+    const entry = byScope.get(scope);
+    if (!entry) return;
+    entry.holders -= 1;
+    if (entry.holders > 0) return;
+    byScope.delete(scope);
+    entry.release();
+  };
+};
+
+const listenForCountChanges = (invalidate: () => void): (() => void) => {
+  getSocket();
+  const handleNew = (data: unknown) => {
+    const kind = (data as { kind?: string } | null)?.kind;
+    if (kind && ARRIVAL_KINDS.has(kind)) invalidate();
+  };
+  // A conversation was removed (deleted / routed out of needs_routing / reclassified)
+  // → its live queue counts (needs_routing depth, spam/suspicious arrivals) may drop.
+  // Without this the badge lingered until the 60s poll — the "I removed messages but
+  // the count didn't clear" symptom.
+  const handleRemoved = () => invalidate();
+  // A notification was marked read — from the notification panel OR (server-side)
+  // when its conversation is marked read. Arrival reads are SHARED: the server
+  // broadcasts them to the whole `org-<id>` room, so one agent handling a thread
+  // drops the badge for every agent, not just their own sessions. Without this,
+  // "Mark as read" cleared the per-thread dot but the count stuck until the 60s
+  // poll (client-reported).
+  const handleRead = () => invalidate();
+  // The mirror image: marking a thread unread restores its arrival notification for
+  // the team, so the badge has to come back just as promptly as it went away.
+  const handleUnread = () => invalidate();
+  // A colleague routed a conversation out of Needs Routing. The server pings the whole org
+  // room on every manual route, and no notification row changes, so none of the pings above
+  // fire: without this, other agents' Needs Routing badge waited for the 60s poll.
+  const handleRouted = () => invalidate();
+  subscribeToEvent('notification:new', handleNew);
+  subscribeToEvent('notification:removed', handleRemoved);
+  subscribeToEvent('notification:read', handleRead);
+  subscribeToEvent('notification:unread', handleUnread);
+  subscribeToEvent('conversation:routed', handleRouted);
+  return () => {
+    unsubscribeFromEvent('notification:new', handleNew);
+    unsubscribeFromEvent('notification:removed', handleRemoved);
+    unsubscribeFromEvent('notification:read', handleRead);
+    unsubscribeFromEvent('notification:unread', handleUnread);
+    unsubscribeFromEvent('conversation:routed', handleRouted);
+    releaseSocket();
+  };
+};
 
 /**
  * Per-kind UNREAD notification counts for the current org + department scope, used to
@@ -75,50 +159,12 @@ export const useNotificationCounts = () => {
 
   // Live refresh: when an arrival notification is created anywhere in the org, refetch
   // our own (dept-scoped) counts. The ping is content-free — the server does the scoping.
-  useEffect(() => {
-    getSocket();
-    const invalidate = (): void => {
-      void queryClient
-        .invalidateQueries({ queryKey: [...NOTIFICATION_COUNTS_KEY, orgId, deptKey] })
-        .catch(() => {});
-    };
-    const handleNew = (data: unknown) => {
-      const kind = (data as { kind?: string } | null)?.kind;
-      if (kind && ARRIVAL_KINDS.has(kind)) invalidate();
-    };
-    // A conversation was removed (deleted / routed out of needs_routing / reclassified)
-    // → its live queue counts (needs_routing depth, spam/suspicious arrivals) may drop.
-    // Without this the badge lingered until the 60s poll — the "I removed messages but
-    // the count didn't clear" symptom.
-    const handleRemoved = () => invalidate();
-    // A notification was marked read — from the notification panel OR (server-side)
-    // when its conversation is marked read. Arrival reads are SHARED: the server
-    // broadcasts them to the whole `org-<id>` room, so one agent handling a thread
-    // drops the badge for every agent, not just their own sessions. Without this,
-    // "Mark as read" cleared the per-thread dot but the count stuck until the 60s
-    // poll (client-reported).
-    const handleRead = () => invalidate();
-    // The mirror image: marking a thread unread restores its arrival notification for
-    // the team, so the badge has to come back just as promptly as it went away.
-    const handleUnread = () => invalidate();
-    // A colleague routed a conversation out of Needs Routing. The server pings the whole org
-    // room on every manual route, and no notification row changes, so none of the pings above
-    // fire: without this, other agents' Needs Routing badge waited for the 60s poll.
-    const handleRouted = () => invalidate();
-    subscribeToEvent('notification:new', handleNew);
-    subscribeToEvent('notification:removed', handleRemoved);
-    subscribeToEvent('notification:read', handleRead);
-    subscribeToEvent('notification:unread', handleUnread);
-    subscribeToEvent('conversation:routed', handleRouted);
-    return () => {
-      unsubscribeFromEvent('notification:new', handleNew);
-      unsubscribeFromEvent('notification:removed', handleRemoved);
-      unsubscribeFromEvent('notification:read', handleRead);
-      unsubscribeFromEvent('notification:unread', handleUnread);
-      unsubscribeFromEvent('conversation:routed', handleRouted);
-      releaseSocket();
-    };
-  }, [queryClient, orgId, deptKey]);
+  // ONE socket subscription per scope however many components mount this hook (see
+  // subscribeCountsRefresh): four consumers each invalidating used to cost four GETs per ping.
+  useEffect(
+    () => subscribeCountsRefresh(queryClient, orgId, deptKey),
+    [queryClient, orgId, deptKey]
+  );
 
   const clearKind = useCallback(
     async (kind: ArrivalKind): Promise<void> => {
