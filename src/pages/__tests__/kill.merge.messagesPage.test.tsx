@@ -72,6 +72,8 @@ vi.mock('@/services/message.service', () => ({
     delete: mocks.del,
     // The view pills' counts (useThreadViewCounts) fire on a timer; without this the count call
     // logs a TypeError, and under a loaded full run it lands before the crash check below.
+    // They ask the board first (null = no board, count per pill).
+    getThreadBoard: vi.fn(() => Promise.resolve(null)),
     getThreads: vi.fn(() =>
       Promise.resolve({ success: true, data: [], pagination: { page: 1, limit: 1, total: 0 } })
     ),
