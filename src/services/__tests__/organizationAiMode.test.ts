@@ -1,4 +1,5 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { invalidateSharedFetch } from '@/lib/sharedFetch';
 
 const get = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const patch = vi.fn<(...args: unknown[]) => Promise<unknown>>();
@@ -20,7 +21,11 @@ const orgWithSettings = (settings: unknown) => ({
 // read path must never *invent* managed — anything that isn't the literal 'managed'
 // string resolves to 'byo'. A misread here bills us for a workspace that never opted in.
 describe('organizationService.getAiMode', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // getCurrent is shared for a minute (scopedLookup); each test reads its own workspace.
+    invalidateSharedFetch();
+  });
 
   it("returns 'managed' only for the literal 'managed' setting", async () => {
     get.mockResolvedValue(orgWithSettings({ aiMode: 'managed' }));
@@ -42,7 +47,11 @@ describe('organizationService.getAiMode', () => {
 });
 
 describe('organizationService.setAiModeSelf', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // getCurrent is shared for a minute (scopedLookup); each test reads its own workspace.
+    invalidateSharedFetch();
+  });
 
   it('PATCHes the tenant-scoped route (not the global-admin /ai-mode)', async () => {
     patch.mockResolvedValue({ data: { success: true, data: { aiMode: 'managed' } } });
@@ -78,7 +87,11 @@ describe('organizationService.setAiModeSelf', () => {
 // Audit A-F1 (2026-10-23): Settings › AI reads the mode the workspace RUNS on. An unset choice is
 // resolved by the backend (`/api/ai/providers` → `platform.active`).
 describe('organizationService.getAiModeState', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // getCurrent is shared for a minute (scopedLookup); each test reads its own workspace.
+    invalidateSharedFetch();
+  });
 
   const answer = (settings: unknown, platform: unknown) =>
     get.mockImplementation((url: unknown) =>
@@ -111,6 +124,7 @@ describe('organizationService.getAiModeState', () => {
       resolved: 'managed',
       stored: 'managed',
     });
+    invalidateSharedFetch(); // a second workspace answer, not the shared one
     answer({ aiMode: 'byo' }, new Error('down'));
     await expect(organizationService.getAiModeState()).resolves.toEqual({
       resolved: 'byo',

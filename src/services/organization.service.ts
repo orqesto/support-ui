@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { scopedLookup } from '@/lib/scopedLookup';
 import type { ApiResponse, PaginationMeta } from '@/types';
 
 // Core org + member shapes are generated from the backend zod contract
@@ -198,13 +199,15 @@ export const organizationService = {
     };
   },
 
-  getCurrent: async () => {
-    const response = await apiClient.get<ApiResponse<Organization>>('/api/organizations/current');
-    if (!response.data.data) {
-      throw new Error('Workspace data not found');
-    }
-    return response.data.data;
-  },
+  // Shared for a minute per scope: every thread open asked again (see scopedLookup).
+  getCurrent: async () =>
+    scopedLookup('org-current', async () => {
+      const response = await apiClient.get<ApiResponse<Organization>>('/api/organizations/current');
+      if (!response.data.data) {
+        throw new Error('Workspace data not found');
+      }
+      return response.data.data;
+    }),
 
   /** The workspace's live AI mode: 'managed' = platform AI, 'byo' = tenant's own keys. */
   getAiMode: async (): Promise<'byo' | 'managed'> => {
@@ -414,18 +417,20 @@ export const organizationService = {
     return response.data;
   },
 
-  getLeadConfig: async (): Promise<OrgLeadConfig> => {
-    const response = await apiClient.get<ApiResponse<OrgLeadConfig>>(
-      '/api/organizations/lead-config'
-    );
-    return response.data.data ?? {
-      departments: ['sales'],
-      requiredContactFields: ['name', 'email'],
-      autoMarkNewSenders: false,
-      qualificationFields: [],
-      categories: [],
-    };
-  },
+  // Shared for a minute per scope; a write under /api/organizations clears it (see scopedLookup).
+  getLeadConfig: async (): Promise<OrgLeadConfig> =>
+    scopedLookup('lead-config', async () => {
+      const response = await apiClient.get<ApiResponse<OrgLeadConfig>>(
+        '/api/organizations/lead-config'
+      );
+      return response.data.data ?? {
+        departments: ['sales'],
+        requiredContactFields: ['name', 'email'],
+        autoMarkNewSenders: false,
+        qualificationFields: [],
+        categories: [],
+      };
+    }),
 
   updateLeadConfig: async (data: Partial<OrgLeadConfig>) => {
     // The two computed fields ride along on a config read back from GET; they are the

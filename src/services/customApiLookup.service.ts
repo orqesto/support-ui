@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { scopedLookup } from '@/lib/scopedLookup';
 import type { components } from '@/types/generated/api';
 
 /**
@@ -124,12 +125,19 @@ export const customApiLookupService = {
    * data comes back — so asking it on mount keeps SC1: nothing is LOOKED UP until the press.
    */
   async availability(surface: LookupSurface): Promise<boolean> {
-    const res = await apiClient.get<{ success: boolean; data?: { available?: boolean } }>(
-      '/api/custom-apis/lookup/availability',
-      { params: { surface } }
+    // Shared for a minute per scope and surface (see scopedLookup).
+    return scopedLookup(
+      'custom-api-availability',
+      async () => {
+        const res = await apiClient.get<{ success: boolean; data?: { available?: boolean } }>(
+          '/api/custom-apis/lookup/availability',
+          { params: { surface } }
+        );
+        // Fail CLOSED: a response without the flag is not a yes.
+        return res.data.data?.available === true;
+      },
+      surface
     );
-    // Fail CLOSED: a response without the flag is not a yes.
-    return res.data.data?.available === true;
   },
 
   /**
@@ -181,14 +189,21 @@ export const customApiLookupService = {
    * ⛔ NOT A LOOKUP: configuration is read on our own side, nothing reaches a vendor (SC1).
    */
   async lookupOptions(surface: LookupSurface): Promise<RunnableLookup[]> {
-    const res = await apiClient.get<{ success: boolean; data?: RunnableLookup[] }>(
-      '/api/custom-apis/lookup/options',
-      { params: { surface } }
+    // Shared for a minute per scope and surface (see scopedLookup).
+    return scopedLookup(
+      'custom-api-options',
+      async () => {
+        const res = await apiClient.get<{ success: boolean; data?: RunnableLookup[] }>(
+          '/api/custom-apis/lookup/options',
+          { params: { surface } }
+        );
+        // 2026-10-14 (D4): an older backend sends no reference name; null reads as "Reference".
+        return (res.data.data ?? []).map((option) => ({
+          ...option,
+          referenceLabel: typeof option.referenceLabel === 'string' ? option.referenceLabel : null,
+        }));
+      },
+      surface
     );
-    // 2026-10-14 (D4): an older backend sends no reference name; null reads as "Reference".
-    return (res.data.data ?? []).map((option) => ({
-      ...option,
-      referenceLabel: typeof option.referenceLabel === 'string' ? option.referenceLabel : null,
-    }));
   },
 };

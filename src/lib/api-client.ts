@@ -3,6 +3,7 @@ import { API_BASE_URL } from './config';
 import { isPlanLimitBody, withFailedFields } from '@/lib/errorMessages';
 import { rateLimitRetryAfterMs } from '@/lib/rateLimit';
 import { logger } from '@/lib/logger';
+import { clearScopedLookupsAfterWrite } from '@/lib/scopedLookup';
 import {
   isAccessTokenExpired,
   noteSessionIssued,
@@ -504,6 +505,7 @@ export const noteSessionFromResponse = (response: AxiosResponse): AxiosResponse 
   const expiresIn = body?.data?.auth?.expiresIn;
   if (typeof expiresIn === 'string') noteSessionIssued(expiresIn);
   clearDatabasePauseOnSuccess(response.config?.url);
+  clearScopedLookupsAfterWrite(response.config?.method, response.config?.url);
   return response;
 };
 
