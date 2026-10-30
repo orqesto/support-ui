@@ -109,7 +109,11 @@ const message = {
 } as unknown as Message;
 
 type ThreadMode = 'incremental' | 'legacy';
-const backend = { mode: 'incremental' as ThreadMode, events: [] as MessageEvent[] };
+const backend: { mode: ThreadMode; events: MessageEvent[]; replyAnswer: WireResponse } = {
+  mode: 'incremental' as ThreadMode,
+  events: [] as MessageEvent[],
+  replyAnswer: ok(null),
+};
 
 const answer = (request: WireRequest): WireResponse => {
   if (request.method === 'GET' && request.path === `/api/messages/${THREAD_ID}/thread`) {
@@ -135,6 +139,8 @@ const answer = (request: WireRequest): WireResponse => {
       },
     };
   }
+  if (request.method === 'POST' && request.path === `/api/messages/${THREAD_ID}/reply`)
+    return backend.replyAnswer;
   return ok([]);
 };
 
@@ -143,6 +149,7 @@ beforeEach(() => {
   useAuthStore.setState({ selectedOrganizationId: 1 });
   backend.mode = 'incremental';
   backend.events = [event(1), event(2), event(3)];
+  backend.replyAnswer = ok(null);
   bubbles.renders = 0;
   resetOwnSends();
   wire = installTransport(apiClient, answer);
@@ -185,7 +192,8 @@ const settle = async () => {
 
 const opened = async (props: Partial<React.ComponentProps<typeof MessageDetail>> = {}) => {
   renderDetail(props);
-  await waitFor(() => expect(screen.getAllByTestId('bubble')).toHaveLength(3));
+  const shown = backend.events.length;
+  await waitFor(() => expect(screen.getAllByTestId('bubble')).toHaveLength(shown));
   await settle();
 };
 
@@ -231,18 +239,19 @@ describe('our own send reloads once', () => {
 });
 
 describe('a new message on the open thread', () => {
-  it('a reply from our side costs ONE request: the events after the newest on screen', async () => {
+  it('a reply from our side costs ONE request: no files, no activity', async () => {
     await opened();
     const before = gets().length;
     backend.events = [...backend.events, event(4, { type: 'outbound', authorEmail: 'bot' })];
     await liveMessage();
     const made = gets().slice(before);
     expect(made.map((request) => request.path)).toEqual([`/api/messages/${THREAD_ID}/thread`]);
-    expect(made[0]?.params.afterEventId).toBe('3');
+    // Fewer than CURSOR_LAG events on screen: the read starts after the oldest.
+    expect(made[0]?.params.afterEventId).toBe('1');
     expect(screen.getAllByTestId('bubble')).toHaveLength(4);
   });
 
-  it("a customer's message costs TWO: the new events + the thread's files", async () => {
+  it("a customer's message costs THREE: the new events, the thread's files, its activity", async () => {
     await opened();
     const before = gets().length;
     backend.events = [...backend.events, event(4)];
@@ -252,8 +261,36 @@ describe('a new message on the open thread', () => {
         .slice(before)
         .map((request) => request.path)
         .sort()
-    ).toEqual([`/api/messages/${THREAD_ID}/attachments`, `/api/messages/${THREAD_ID}/thread`]);
+    ).toEqual([
+      `/api/messages/${THREAD_ID}/activity`,
+      `/api/messages/${THREAD_ID}/attachments`,
+      `/api/messages/${THREAD_ID}/thread`,
+    ]);
     expect(screen.getAllByTestId('bubble')).toHaveLength(4);
+  });
+
+  it('an event with a LOWER id that commits after a higher one still shows', async () => {
+    // 30 on screen, 28 not committed yet; the read starts CURSOR_LAG events back, not at 30.
+    backend.events = Array.from({ length: 30 }, (_, index) => event(index + 1)).filter(
+      (row) => row.id !== 28
+    );
+    await opened();
+    backend.events = [...backend.events, event(28)];
+    const before = threadReads().length;
+    await liveMessage();
+    expect(threadReads()[before]?.params.afterEventId).toBe('10');
+    expect(screen.getAllByTestId('bubble')).toHaveLength(30);
+  });
+
+  it("a thread with no events yet (the conversation's own stand-in row) reads in full", async () => {
+    backend.events = [event(THREAD_ID)];
+    await opened();
+    backend.events = [event(1)];
+    const before = threadReads().length;
+    await liveMessage();
+    expect(threadReads()[before]?.params.afterEventId).toBeUndefined();
+    expect(screen.getAllByTestId('bubble')).toHaveLength(1);
+    expect(screen.getByText('message 1')).toBeTruthy();
   });
 
   it('an event already on screen is not shown twice', async () => {
@@ -285,5 +322,23 @@ describe('typing in the composer', () => {
       fireEvent.change(field, { target: { value: `<p>${text}</p>` } });
     }
     expect(bubbles.renders - rendersBefore).toBe(0);
+  });
+});
+
+describe('a send whose answer is lost', () => {
+  it('re-reads the thread so a reply the server did deliver shows', async () => {
+    const onRefresh = vi.fn();
+    await opened({ onRefresh });
+    // Delivered (and echoed — skipped as ours), but the answer never arrives: a 502.
+    backend.replyAnswer = { status: 502, data: { success: false, error: 'Bad gateway' } };
+    backend.events = [...backend.events, event(4, { type: 'outbound', content: 'On its way' })];
+    fireEvent.change(screen.getByLabelText('reply text'), {
+      target: { value: '<p>On its way</p>' },
+    });
+    const reads = threadReads().length;
+    fireEvent.click(screen.getByRole('button', { name: 'send draft' }));
+    await waitFor(() => expect(screen.getAllByTestId('bubble')).toHaveLength(4));
+    expect(threadReads().length).toBe(reads + 1);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 });
