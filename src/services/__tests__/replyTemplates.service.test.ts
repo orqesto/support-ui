@@ -17,6 +17,36 @@ beforeEach(() => {
 });
 afterEach(() => wire.restore());
 
+describe('replyTemplatesService.list — shared by the pickers on one page', () => {
+  it('two reply boxes of the same kind ask once; Settings (all templates) always asks', async () => {
+    const asked: string[] = [];
+    handler = (request) => {
+      asked.push(`${request.method} ${request.path} ${JSON.stringify(request.params)}`);
+      return ok({ templates: [] });
+    };
+    await Promise.all([replyTemplatesService.list('ticket'), replyTemplatesService.list('ticket')]);
+    await replyTemplatesService.list('ticket');
+    expect(asked).toHaveLength(1);
+    // CONTROL: another box kind is another read, and the settings list is never shared.
+    await replyTemplatesService.list('thread');
+    await replyTemplatesService.list();
+    await replyTemplatesService.list();
+    expect(asked).toHaveLength(4);
+  });
+
+  it('a template write clears the shared read, so the next picker sees the change', async () => {
+    let gets = 0;
+    handler = (request) => {
+      if (request.method.toLowerCase() === 'get') gets += 1;
+      return ok({ templates: [], template: { id: 9, name: 'New', body: 'x' } });
+    };
+    await replyTemplatesService.list('ticket');
+    await apiClient.post('/api/reply-templates', {});
+    await replyTemplatesService.list('ticket');
+    expect(gets).toBe(2);
+  });
+});
+
 describe('replyTemplatesService', () => {
   it('an older backend (404) is "unavailable", not an error', async () => {
     expect(await replyTemplatesService.list('thread')).toEqual({ unavailable: true });

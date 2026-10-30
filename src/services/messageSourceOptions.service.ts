@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import { getErrorStatus } from '@/lib/errorMessages';
+import { scopedLookup } from '@/lib/scopedLookup';
 import { integrationsService } from '@/services/integrations.service';
 
 /** A mailbox or channel as a picker option (GET /api/integrations/message-sources). */
@@ -15,7 +16,7 @@ export type MessageSourceOption = { id: number; name: string; type: string; acti
  */
 const OLDER_BACKEND = [404, 400, 403];
 
-export const getMessageSourceOptions = async (): Promise<MessageSourceOption[]> => {
+const readMessageSourceOptions = async (): Promise<MessageSourceOption[]> => {
   try {
     const response = await apiClient.get<{ success: boolean; data: MessageSourceOption[] }>(
       '/api/integrations/message-sources'
@@ -38,3 +39,11 @@ export const getMessageSourceOptions = async (): Promise<MessageSourceOption[]> 
     }));
   }
 };
+
+/**
+ * Shared for a minute (scopedLookup): the threads page reads the options in its filter bar and
+ * again in the table header, which mounts once the list arrives. A write under
+ * /api/integrations clears it; a failed read is not kept.
+ */
+export const getMessageSourceOptions = (): Promise<MessageSourceOption[]> =>
+  scopedLookup('message-sources', readMessageSourceOptions);

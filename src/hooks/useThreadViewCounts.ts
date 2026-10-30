@@ -12,6 +12,65 @@ export type ThreadCountRequest = { key: string; filters: FilterState };
 /** Several pills change together (a filter edit); their counts are asked for once, a beat later. */
 const COUNT_DEBOUNCE_MS = 250;
 
+/** The board answers at most this many counts per request (backend MAX_COUNTS). */
+const BOARD_COUNTS_PER_REQUEST = 12;
+
+type AskedCount = { key: string; params: Record<string, string> };
+type CountEntry = readonly [string, Count | undefined];
+
+/** The old way, one list request per pill: a backend without the board route. */
+const countOneByOne = (asked: AskedCount[]): Promise<CountEntry[]> =>
+  Promise.all(
+    asked.map(async ({ key, params }) => {
+      try {
+        const response = await messageService.getThreads(
+          Object.keys(params).length > 0 ? params : undefined,
+          1,
+          1
+        );
+        // A cut-short total is not a count to print on a pill; a capped one is "at least".
+        return [key, response.success ? counterTotal(response.pagination) : undefined] as const;
+      } catch (error) {
+        logger.error(`Failed to count the "${key}" view:`, error);
+        return [key, undefined] as const;
+      }
+    })
+  );
+
+/**
+ * Every pill in one request (12 a request): the board's count-only entries answer with the same
+ * pagination the list request does — the threads page sent one list request per pill, five or
+ * more on every open (staging, 2026-10-30). `null` from the board = a backend without the route.
+ */
+const countViews = async (asked: AskedCount[]): Promise<CountEntry[]> => {
+  const entries: CountEntry[] = [];
+  for (let start = 0; start < asked.length; start += BOARD_COUNTS_PER_REQUEST) {
+    const chunk = asked.slice(start, start + BOARD_COUNTS_PER_REQUEST);
+    let board: Awaited<ReturnType<typeof messageService.getThreadBoard>>;
+    try {
+      board = await messageService.getThreadBoard({
+        filters: {},
+        columns: [],
+        // Ids by position: a view's name can be long or repeat across chunks; the board takes
+        // 1–40 characters, unique per request, and refuses the whole request otherwise.
+        counts: chunk.map(({ params }, idx) => ({ id: `v${idx}`, filters: params })),
+      });
+    } catch (error) {
+      logger.error('Failed to count the views:', error);
+      entries.push(...chunk.map(({ key }) => [key, undefined] as const));
+      continue;
+    }
+    if (board === null) {
+      entries.push(...(await countOneByOne(chunk)));
+      continue;
+    }
+    chunk.forEach(({ key }, idx) => {
+      entries.push([key, counterTotal(board.counts[`v${idx}`]?.pagination)] as const);
+    });
+  }
+  return entries;
+};
+
 /**
  * How many threads each view pill would show (Threads v4).
  *
@@ -48,22 +107,7 @@ export const useThreadViewCounts = (
     if (!enabled || asked.length === 0) return undefined;
     let cancelled = false;
     const timer = setTimeout(() => {
-      void Promise.all(
-        asked.map(async ({ key, params }) => {
-          try {
-            const response = await messageService.getThreads(
-              Object.keys(params).length > 0 ? params : undefined,
-              1,
-              1
-            );
-            // A cut-short total is not a count to print on a pill; a capped one is "at least".
-            return [key, response.success ? counterTotal(response.pagination) : undefined] as const;
-          } catch (error) {
-            logger.error(`Failed to count the "${key}" view:`, error);
-            return [key, undefined] as const;
-          }
-        })
-      ).then((entries) => {
+      void countViews(asked).then((entries) => {
         if (!cancelled) setCounts(Object.fromEntries(entries));
       });
     }, COUNT_DEBOUNCE_MS);
