@@ -12,6 +12,7 @@ import { normaliseThreadPage, threadPageQuery, type ThreadPageRequest } from './
 import { apiClient } from '@/lib/api-client';
 import { getErrorStatus } from '@/lib/errorMessages';
 import { PAGINATION } from '@/lib/constants';
+import { scopedLookup } from '@/lib/scopedLookup';
 import type { Message, MessageEvent, ApiResponse, ThreadStatus, TicketPriority } from '@/types';
 
 /** One address this workspace has received mail at. See `getReceivedAddresses`. */
@@ -713,10 +714,14 @@ export const messageService = {
       // `detailed=1` is opt-in on the backend and an older one ignores it, answering
       // with the plain `string[]` it always did. `normaliseReceivedAtOptions` accepts
       // both — see the note there on why that is not optional.
-      const response = await apiClient.get<ApiResponse<unknown>>(
-        '/api/messages/received-at-options?detailed=1'
-      );
-      return normaliseReceivedAtOptions(response.data.data);
+      // Shared for a minute: the filter bar and the table header both ask (scopedLookup). Only
+      // an answer is kept — a failure rejects inside, so the next caller asks again.
+      return await scopedLookup('received-at-options', async () => {
+        const response = await apiClient.get<ApiResponse<unknown>>(
+          '/api/messages/received-at-options?detailed=1'
+        );
+        return normaliseReceivedAtOptions(response.data.data);
+      });
     } catch {
       return [];
     }

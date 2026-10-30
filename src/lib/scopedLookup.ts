@@ -21,7 +21,10 @@ export type ScopedLookupName =
   | 'custom-api-availability'
   | 'categories'
   | 'labels'
-  | 'assignable-users';
+  | 'assignable-users'
+  | 'reply-templates'
+  | 'message-sources'
+  | 'received-at-options';
 
 const prefixOf = (name: ScopedLookupName) => `scoped:${name}|`;
 
@@ -61,6 +64,8 @@ const WRITE_CLEARS: Array<[RegExp, ScopedLookupName[]]> = [
   [/^\/api\/settings\/categories(\/|$)/, ['categories']],
   [/^\/api\/custom-apis(\/|$)/, ['custom-api-options', 'custom-api-availability']],
   [/^\/api\/(users|departments|teams|skills|user-skills)(\/|$)/, ['assignable-users']],
+  [/^\/api\/reply-templates(\/|$)/, ['reply-templates']],
+  [/^\/api\/integrations(\/|$)/, ['message-sources']],
 ];
 
 const READ_METHODS = new Set(['get', 'head', 'options']);

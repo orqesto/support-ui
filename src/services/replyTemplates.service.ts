@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import { getErrorStatus } from '@/lib/errorMessages';
+import { scopedLookup } from '@/lib/scopedLookup';
 import type { ApiResponse } from '@/types';
 
 /**
@@ -109,25 +110,35 @@ const templateOf = (data: unknown): ReplyTemplate => {
   return template;
 };
 
+/** One read of the templates — for one reply box (`use`), or all of them. */
+const readTemplates = async (use?: 'thread' | 'ticket'): Promise<ReplyTemplates> => {
+  try {
+    const res = await apiClient.get<ApiResponse<{ templates?: unknown[] }>>(
+      '/api/reply-templates',
+      { params: use ? { use } : undefined }
+    );
+    const rows = res.data.data?.templates;
+    return {
+      unavailable: false,
+      templates: (Array.isArray(rows) ? rows : [])
+        .map(toTemplate)
+        .filter((row): row is ReplyTemplate => row !== null),
+    };
+  } catch (error) {
+    if (getErrorStatus(error) === 404) return { unavailable: true };
+    throw error;
+  }
+};
+
 export const replyTemplatesService = {
-  /** The live templates the caller can see — for one reply box (`use`), or all of them. */
+  /**
+   * The live templates the caller can see — for one reply box (`use`), or all of them. A reply
+   * box's read is shared (scopedLookup): a ticket page mounts two pickers, and each asked.
+   * Settings reads all of them live; a template write clears the shared read.
+   */
   async list(use?: 'thread' | 'ticket'): Promise<ReplyTemplates> {
-    try {
-      const res = await apiClient.get<ApiResponse<{ templates?: unknown[] }>>(
-        '/api/reply-templates',
-        { params: use ? { use } : undefined }
-      );
-      const rows = res.data.data?.templates;
-      return {
-        unavailable: false,
-        templates: (Array.isArray(rows) ? rows : [])
-          .map(toTemplate)
-          .filter((row): row is ReplyTemplate => row !== null),
-      };
-    } catch (error) {
-      if (getErrorStatus(error) === 404) return { unavailable: true };
-      throw error;
-    }
+    if (use) return scopedLookup('reply-templates', () => readTemplates(use), use);
+    return readTemplates();
   },
 
   async create(input: TemplateInput, files: File[] = []): Promise<ReplyTemplate> {
