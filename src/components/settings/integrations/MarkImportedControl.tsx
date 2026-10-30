@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Toggle } from '@/components/ui/Toggle';
 import {
@@ -21,27 +22,31 @@ export const MarkImportedControl = ({
   disabled?: boolean;
   /** Why it is disabled, or anything else the reader needs next to it. */
   note?: string;
-}) => (
-  <div className="space-y-2">
-    <Toggle
-      checked={value.enabled}
-      disabled={disabled}
-      onChange={(enabled) => onChange({ ...value, enabled })}
-      label="Mark imported messages as read and label them in the mailbox"
-    />
-    <p className="text-xs text-muted-foreground">
-      {note ??
-        'Every message Odly imports from now on is marked read and gets this label, so people working in the mailbox can see what Odly already has.'}
-    </p>
-    {value.enabled && (
-      <Input
-        label="Label"
-        value={value.label ?? ''}
-        placeholder={DEFAULT_MARK_IMPORTED_LABEL}
-        maxLength={MARK_IMPORTED_LABEL_MAX}
+}) => {
+  const noteId = useId();
+  return (
+    <div className="space-y-2">
+      <Toggle
+        ariaDescribedBy={noteId}
+        checked={value.enabled}
         disabled={disabled}
-        onChange={(event) => onChange({ ...value, label: event.target.value })}
+        onChange={(enabled) => onChange({ ...value, enabled })}
+        label="Mark imported messages as read and label them in the mailbox"
       />
-    )}
-  </div>
-);
+      <p id={noteId} className="text-xs text-muted-foreground">
+        {note ??
+          'Every message Odly imports from now on is marked read and gets this label, so people working in the mailbox can see what Odly already has.'}
+      </p>
+      {value.enabled && (
+        <Input
+          label="Label"
+          value={value.label ?? ''}
+          placeholder={DEFAULT_MARK_IMPORTED_LABEL}
+          maxLength={MARK_IMPORTED_LABEL_MAX}
+          disabled={disabled}
+          onChange={(event) => onChange({ ...value, label: event.target.value })}
+        />
+      )}
+    </div>
+  );
+};

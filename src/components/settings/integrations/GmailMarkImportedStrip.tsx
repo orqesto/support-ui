@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { MarkImportedControl } from '@/components/settings/integrations/MarkImportedControl';
 import {
@@ -34,6 +34,14 @@ export const GmailMarkImportedStrip = ({
   );
   const [draft, setDraft] = useState<MarkImportedSetting>(stored);
   const [saving, setSaving] = useState(false);
+  // Follow the stored value when it changes under us (a save, another admin, any list refresh),
+  // so a stale draft never shows a Save button that would write the old value back.
+  useEffect(() => {
+    setDraft({
+      enabled: stored.enabled,
+      ...(stored.label !== undefined ? { label: stored.label } : {}),
+    });
+  }, [stored.enabled, stored.label]);
   const canModify = gmailCanModify(source.config);
   const changed =
     draft.enabled !== stored.enabled || (draft.label ?? '').trim() !== (stored.label ?? '').trim();
@@ -45,7 +53,6 @@ export const GmailMarkImportedStrip = ({
         type: 'gmail',
         config: { gmail: { markImported: toSavedMarkImported(draft) } },
       });
-      await onRefresh();
     } catch (error) {
       logger.error('Failed to save the mark-imported setting:', error);
       onShowAlert({
@@ -54,6 +61,21 @@ export const GmailMarkImportedStrip = ({
         description:
           getApiErrorMessage(error) ?? 'The setting could not be saved. Please try again.',
         variant: 'error',
+      });
+      setSaving(false);
+      return;
+    }
+    // Saved. A failed list refresh must not read as "Not saved" — the setting is stored.
+    try {
+      await onRefresh();
+    } catch (error) {
+      logger.error('Saved the mark-imported setting, but the list did not refresh:', error);
+      onShowAlert({
+        open: true,
+        title: 'Saved',
+        description:
+          'The setting is saved, but the list could not be refreshed. Reload the page to see it.',
+        variant: 'warning',
       });
     } finally {
       setSaving(false);

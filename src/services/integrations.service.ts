@@ -4,6 +4,13 @@ import { logger } from '@/lib/logger';
 export * from './kbRangeTypes';
 import { kbHistoryRange } from './kbRangeApi';
 import { countGmailMessages, countImapMessages } from './mailboxCountApi';
+import {
+  markImportedOn,
+  normalizeMarkImportedWarning,
+  type MarkImportedWarning,
+} from './markImportedWarning';
+
+export { normalizeMarkImportedWarning, type MarkImportedWarning };
 
 // Integration-specific config types
 export type EmailConfig = {
@@ -198,16 +205,6 @@ const HOLD_REASONS: readonly SyncHoldReason[] = [
  * ⛔ Undefined means "nothing to report", NOT "healthy" — the caller must render nothing,
  * because claiming a source is fine is a different claim from having no information.
  */
-/** A problem the last poll had writing to the mailbox (support-service#1229). */
-export type MarkImportedWarning = { status: 'failed' | 'label_unsupported'; error?: string };
-
-export const normalizeMarkImportedWarning = (raw: unknown): MarkImportedWarning | null => {
-  if (typeof raw !== 'object' || raw === null) return null;
-  const { status, error } = raw as { status?: unknown; error?: unknown };
-  if (status !== 'failed' && status !== 'label_unsupported') return null;
-  return { status, ...(typeof error === 'string' ? { error } : {}) };
-};
-
 export const normalizeSyncHold = (raw: unknown): SyncHold | null => {
   if (raw === null || typeof raw !== 'object') return null;
 
@@ -525,9 +522,12 @@ export const integrationsService = {
     const data = response.data.data.map((integration) => ({
       ...integration,
       syncHold: normalizeSyncHold((integration as { syncHold?: unknown }).syncHold),
-      markImportedWarning: normalizeMarkImportedWarning(
-        (integration as { markImportedWarning?: unknown }).markImportedWarning
-      ),
+      // A note from a poll before the setting was switched off would linger for up to 24 h.
+      markImportedWarning: markImportedOn(integration.config)
+        ? normalizeMarkImportedWarning(
+            (integration as { markImportedWarning?: unknown }).markImportedWarning
+          )
+        : null,
     }));
     return { success: response.data.success, data };
   },
