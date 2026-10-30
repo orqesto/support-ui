@@ -29,7 +29,6 @@ import {
 } from '@/services/kb.service';
 import { Permission } from '@/types/roles';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { useUiFlags } from '@/hooks/useUiFlags';
 import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
 import { useKbEntryParam } from '@/hooks/useKbEntryParam';
 import { useKbAutoChangedSupport } from '@/hooks/useKbAutoChangedSupport';
@@ -111,8 +110,6 @@ export const KnowledgeBasePage = () => {
   const [kbVersion, setKbVersion] = useState(0);
   const bumpKb = useCallback(() => setKbVersion((version) => version + 1), []);
   const [caseAction, setCaseAction] = useState<CaseAction | null>(null);
-  const { isSurfaceVisibleToMe } = useUiFlags();
-  const showCasesLink = canReview && isSurfaceVisibleToMe('ui.kb_cases');
 
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState<
@@ -461,15 +458,6 @@ export const KnowledgeBasePage = () => {
           />
           {canReview && (
             <div className="flex flex-wrap gap-2 mt-2">
-              {showCasesLink && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/knowledge-base/cases')}
-                >
-                  Cases report
-                </Button>
-              )}
               <KbAutoActionsButton />
               <KbReviewSuggestionsButton onPick={() => setFilterStatus('suggested_change')} />
             </div>

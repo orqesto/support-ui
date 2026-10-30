@@ -13,6 +13,7 @@ vi.mock('@/lib/api-client', () => ({ apiClient: api }));
 vi.mock('@/lib/toast', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
+vi.mock('@/components/kb/autoActions/KbRunNow', () => ({ KbRunNow: () => null }));
 vi.mock('@/components/kb/KbQualityCoverage', () => ({
   KbQualityCoverage: () => <div data-testid="quality-coverage" />,
 }));

@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { KbQualityCoverage } from '@/components/kb/KbQualityCoverage';
+import { KbRunNow } from '@/components/kb/autoActions/KbRunNow';
 import { KbAutoActionRow } from '@/components/kb/autoActions/KbAutoActionRow';
 import { ACTION_LABELS, WAITING_ROWS } from '@/components/kb/autoActions/kbAutoActionCopy';
 import { KbAutoRemovedList } from '@/components/kb/autoActions/KbAutoRemovedList';
@@ -163,6 +164,7 @@ export const KbAutoActionsPanel = () => {
           </Alert>
         )}
         <KbQualityCoverage reloadKey={refreshKey} />
+        {canEdit && <KbRunNow onRunEnded={refresh} />}
         <ul className="space-y-3" aria-label="Automatic actions">
           {KB_AUTO_ACTION_KEYS.map((key) => {
             const state = actions[key];

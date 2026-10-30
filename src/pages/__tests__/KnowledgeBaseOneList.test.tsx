@@ -95,7 +95,6 @@ vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => canReview, isOrgAdmin: true }),
 }));
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => ({ isSurfaceVisibleToMe: () => true }) }));
-vi.mock('@/components/kb/KbRunNow', () => ({ KbRunNow: () => null }));
 vi.mock('@/components/kb/KbExportButton', () => ({ KbExportButton: () => null }));
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({ data: [{ id: 3, name: 'Support' }] }),
@@ -135,6 +134,16 @@ afterEach(() => {
 });
 
 describe('Knowledge Base decision filters', () => {
+  it('KB page has no Cases report button', async () => {
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base']}>
+        <KnowledgeBasePage />
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(0));
+    expect(screen.queryByRole('button', { name: 'Cases report' })).toBeNull();
+  });
+
   it('approving a row under Needs your decision re-reads the list, so the decided row leaves it', async () => {
     listEntries = [
       entry({
@@ -175,9 +184,9 @@ describe('Knowledge Base decision filters', () => {
       </MemoryRouter>
     );
     expect(await screen.findByText(NOTICE)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open the cases report' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Open the Questions view' })).toHaveAttribute(
       'href',
-      '/knowledge-base/cases'
+      '/knowledge-base?view=questions'
     );
     expect(screen.queryByText('Unfiltered row from an older server')).toBeNull();
   });
@@ -185,7 +194,7 @@ describe('Knowledge Base decision filters', () => {
   it.each([
     // The review page lists no capture approvals: an older backend lists them as Pending entries.
     ['needs_decision', 'Show Pending entries', '/knowledge-base?status=pending'],
-    ['set_aside', 'Open the cases report', '/knowledge-base/cases'],
+    ['set_aside', 'Open the Questions view', '/knowledge-base?view=questions'],
   ])(
     'an older backend under %s links to where it still lists those rows',
     async (status, linkName, href) => {

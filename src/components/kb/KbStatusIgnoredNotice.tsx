@@ -24,8 +24,8 @@ export const isNewStatus = (status: string): status is KbDecisionFilterStatus =>
 
 /**
  * Where each decision filter's rows can still be found on an older backend: saved answers waiting
- * for approval are its Pending entries, and suggested merges and set-aside entries are listed by
- * the cases report.
+ * for approval are its Pending entries, and suggested merges and set-aside entries are listed in
+ * the Questions view.
  */
 const FALLBACK: Record<KbDecisionFilterStatus, { text: string; to: string; label: string }> = {
   needs_decision: {
@@ -34,14 +34,14 @@ const FALLBACK: Record<KbDecisionFilterStatus, { text: string; to: string; label
     label: 'Show Pending entries',
   },
   suggested_change: {
-    text: 'Suggested merges are listed in the cases report.',
-    to: '/knowledge-base/cases',
-    label: 'Open the cases report',
+    text: 'Suggested merges are listed under Questions.',
+    to: '/knowledge-base?view=questions',
+    label: 'Open the Questions view',
   },
   set_aside: {
-    text: 'Set-aside entries are listed in the cases report.',
-    to: '/knowledge-base/cases',
-    label: 'Open the cases report',
+    text: 'Set-aside entries are listed under Questions.',
+    to: '/knowledge-base?view=questions',
+    label: 'Open the Questions view',
   },
   auto_removed: {
     text: 'Automatically removed entries are listed on the Automatic actions page.',

@@ -64,7 +64,6 @@ vi.mock('@/components/messages/MessageSourceFilter', () => ({
 }));
 vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => '' }));
-let casesFlagVisible = false;
 let canManageKb = true;
 vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({
@@ -74,7 +73,7 @@ vi.mock('@/hooks/usePermissions', () => ({
 }));
 vi.mock('@/hooks/useUiFlags', () => ({
   useUiFlags: () => ({
-    isSurfaceVisibleToMe: (key: string) => key === 'ui.kb_cases' && casesFlagVisible,
+    isSurfaceVisibleToMe: () => false,
   }),
 }));
 
@@ -115,7 +114,6 @@ const tableRow = async (title: string) => {
 beforeEach(() => {
   vi.clearAllMocks();
   toastCalls.length = 0;
-  casesFlagVisible = false;
   canManageKb = true;
   getById.mockReturnValue(new Promise(() => {}));
   getAll.mockResolvedValue({
@@ -522,31 +520,6 @@ describe('KB page — a case opened by deep link only (H1)', () => {
     for (const name of [/Approve/, /Unhide/, /Restore/, /Edit/, /Delete/, /Reject/, /^Hide$/]) {
       expect(within(panel).queryByRole('button', { name })).not.toBeInTheDocument();
     }
-  });
-});
-
-describe('KB page — "Cases report" button (L2)', () => {
-  const button = () => screen.queryByRole('button', { name: 'Cases report' });
-
-  it('is absent while ui.kb_cases is not visible', async () => {
-    page();
-    await tableRow('Refunds');
-    expect(button()).not.toBeInTheDocument();
-  });
-
-  it('is present for a moderator once the flag is on, and leads to the report', async () => {
-    casesFlagVisible = true;
-    page();
-    await tableRow('Refunds');
-    expect(button()).toBeInTheDocument();
-  });
-
-  it('is absent without manage_knowledge_base, flag or not', async () => {
-    casesFlagVisible = true;
-    canManageKb = false;
-    page();
-    await tableRow('Refunds');
-    expect(button()).not.toBeInTheDocument();
   });
 });
 

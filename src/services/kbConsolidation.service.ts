@@ -559,27 +559,6 @@ export const kbConsolidationService = {
   },
 
   /**
-   * The entries behind a case or a set-aside finding, in the order asked. Ids the viewer may not
-   * see are dropped by the server. Null on a backend without the route (before the worklist).
-   */
-  async getWorkRows(ids: number[]): Promise<KbWorkRow[] | null> {
-    if (ids.length === 0) return [];
-    try {
-      const response = await apiClient.post<{ success: boolean; data: { rows?: unknown } }>(
-        '/api/knowledge-base/consolidation/entries/rows',
-        { ids: ids.slice(0, WORK_ROWS_MAX_IDS) }
-      );
-      const rows = response.data.data?.rows;
-      return Array.isArray(rows)
-        ? rows.map(normalizeWorkRow).filter((row): row is KbWorkRow => row !== null)
-        : [];
-    } catch (err) {
-      if (isRouteAbsent(err)) return null;
-      throw err;
-    }
-  },
-
-  /**
    * Take entries out of a live case (the case stays; each comes back on its own, pending).
    * A 403 / 409 is an answer (why not), not a failure.
    */
@@ -686,28 +665,5 @@ export const kbConsolidationService = {
       }
       throw err;
     }
-  },
-
-  /** The CSV goes through the API client so it carries the same auth as every other call. */
-  async downloadCasesCsv(query: KbCasesQuery): Promise<void> {
-    const params = casesParams(query);
-    delete params.page;
-    delete params.pageSize;
-    const response = await apiClient.get('/api/knowledge-base/consolidation/cases.csv', {
-      params,
-      responseType: 'blob',
-    });
-    const url = URL.createObjectURL(response.data as Blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    const scope =
-      query.departmentId !== undefined
-        ? `department-${query.departmentId}`
-        : query.departmentIds && query.departmentIds.length > 0
-          ? `departments-${query.departmentIds.join('-')}`
-          : 'all-departments';
-    anchor.download = `kb-cases-${scope}.csv`;
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 };

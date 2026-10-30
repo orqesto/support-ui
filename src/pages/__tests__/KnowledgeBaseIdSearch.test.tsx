@@ -55,7 +55,6 @@ vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => true, isOrgAdmin: true }),
 }));
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => ({ isSurfaceVisibleToMe: () => true }) }));
-vi.mock('@/components/kb/KbRunNow', () => ({ KbRunNow: () => null }));
 vi.mock('@/components/kb/KbExportButton', () => ({ KbExportButton: () => null }));
 vi.mock('@/components/kb/KbReviewSuggestionsButton', () => ({
   KbReviewSuggestionsButton: () => null,

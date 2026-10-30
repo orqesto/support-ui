@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type * as KbServiceModule from '@/services/kb.service';
-import type { KbCasesFindings } from '@/services/kbConsolidation.service';
 
 const getAllCalls: Array<Record<string, unknown>> = [];
 let total = 2;
@@ -123,7 +122,6 @@ vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => true, isOrgAdmin: true }),
 }));
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => ({ isSurfaceVisibleToMe: () => true }) }));
-vi.mock('@/components/kb/KbRunNow', () => ({ KbRunNow: () => null }));
 vi.mock('@/components/kb/KbExportButton', () => ({
   KbExportButton: ({ type }: { type: string }) => <div data-testid="kb-export">{type}</div>,
 }));
@@ -134,19 +132,7 @@ vi.mock('@/hooks/useDepartments', () => ({
 }));
 
 const { KnowledgeBasePage } = await import('../KnowledgeBasePage');
-const { KbCasesFindingsPanel } = await import('../KbCasesPage');
 const { kbFindingFromSearch, kbFindingHref, withoutKbFinding } = await import('@/lib/kbFinding');
-
-const findings = (overrides: Partial<KbCasesFindings> = {}): KbCasesFindings => ({
-  rawEmails: 48,
-  judgedCustomerSpecific: 0,
-  couldNotClassify: 0,
-  awaitingKbReview: 19,
-  noClearLanguage: 0,
-  detached: 0,
-  possibleDuplicates: [],
-  ...overrides,
-});
 
 const lastCall = () => getAllCalls[getAllCalls.length - 1];
 
@@ -161,33 +147,6 @@ beforeEach(() => {
   hidden.length = 0;
 });
 afterEach(cleanup);
-
-describe('KB cases findings link to their own lists', () => {
-  it('"clean up" and "KB review" open the finding, for the report team', () => {
-    render(
-      <MemoryRouter>
-        <KbCasesFindingsPanel findings={findings()} departmentId={3} />
-      </MemoryRouter>
-    );
-    expect(screen.getByRole('link', { name: 'clean up' }).getAttribute('href')).toBe(
-      '/knowledge-base?finding=raw_email&departmentId=3#qa_pair'
-    );
-    expect(screen.getByRole('link', { name: 'KB review' }).getAttribute('href')).toBe(
-      '/knowledge-base?finding=awaiting_review&departmentId=3#qa_pair'
-    );
-  });
-
-  it('without a team there is no list to open, so no link — never one to every entry', () => {
-    render(
-      <MemoryRouter>
-        <KbCasesFindingsPanel findings={findings()} />
-      </MemoryRouter>
-    );
-    expect(screen.getByText(/clean up/)).toBeTruthy();
-    expect(screen.queryByRole('link', { name: 'clean up' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'KB review' })).toBeNull();
-  });
-});
 
 describe('kbFinding URL helpers', () => {
   it('reads a finding only with a valid team, and removes both', () => {

@@ -1,24 +1,17 @@
 /**
- * KB consolidation #873 (FE audit L2): the two doors to the Cases report — the sidebar item
- * "KB Cases" and the KB page's "Cases report" button — open only for a knowledge-base moderator,
- * and only while `ui.kb_cases` is visible to them. The FE reaches production on merge, the
- * backend ships on a tag: an ungated door would lead to a page whose API does not exist yet.
- *
- * `isSurfaceVisibleToMe` is true for a GLOBAL admin even with the flag off (staff preview, see
- * useUiFlags) — so staff do see "KB Cases", marked as a preview. That is the flag design, not a
- * leak; this test drives the gate through that same function.
+ * KB Cases is removed (KB engine Stage 1, F1): no sidebar item for anyone, even a moderator with the
+ * old `ui.kb_cases` flag on or a global admin previewing; the old link lands on the Questions view.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 let flagVisible = false;
-let preview = false;
 let canManageKb = true;
 vi.mock('@/hooks/useUiFlags', () => ({
   useUiFlags: () => ({
     isSurfaceVisibleToMe: (key: string) => key === 'ui.kb_cases' && flagVisible,
-    isPreviewing: (key: string) => key === 'ui.kb_cases' && preview,
+    isPreviewing: () => false,
     loading: false,
   }),
 }));
@@ -78,6 +71,7 @@ vi.mock('@/stores/onboardingStore', () => ({
 }));
 
 const { Layout } = await import('../Layout');
+const { kbSubRoutes } = await import('@/pages/kbConsolidationRoutes');
 
 const renderLayout = () =>
   render(
@@ -92,34 +86,32 @@ const kbCasesLinks = () => screen.queryAllByRole('link', { name: /KB Cases/ });
 
 beforeEach(() => {
   flagVisible = false;
-  preview = false;
   canManageKb = true;
 });
 afterEach(cleanup);
 
-describe('sidebar "KB Cases" (L2)', () => {
-  it('is hidden while ui.kb_cases is not visible to the viewer', () => {
+describe('KB Cases is removed', () => {
+  it('sidebar has no KB Cases item', () => {
+    flagVisible = true;
+    canManageKb = true;
     renderLayout();
     expect(kbCasesLinks()).toHaveLength(0);
+    expect(document.querySelector('a[href="/knowledge-base/cases"]')).toBeNull();
   });
 
-  it('is shown to a moderator once the flag is on', () => {
-    flagVisible = true;
-    renderLayout();
-    expect(kbCasesLinks()[0]).toHaveAttribute('href', '/knowledge-base/cases');
-  });
-
-  it('is hidden from someone without manage_knowledge_base even with the flag on', () => {
-    flagVisible = true;
-    canManageKb = false;
-    renderLayout();
-    expect(kbCasesLinks()).toHaveLength(0);
-  });
-
-  it('staff preview (flag off, global admin): shown and marked as not launched', () => {
-    flagVisible = true;
-    preview = true;
-    renderLayout();
-    expect(kbCasesLinks()[0]).toHaveTextContent('KB CasesWIP');
+  it('/knowledge-base/cases redirects to the questions view', () => {
+    const Where = () => {
+      const location = useLocation();
+      return <p data-testid="where">{location.pathname + location.search}</p>;
+    };
+    render(
+      <MemoryRouter initialEntries={['/knowledge-base/cases']}>
+        <Routes>
+          {kbSubRoutes((page) => page)}
+          <Route path="*" element={<Where />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId('where')).toHaveTextContent('/knowledge-base?view=questions');
   });
 });
