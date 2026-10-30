@@ -108,7 +108,7 @@ beforeEach(() => {
 });
 
 /** Each kind is asked for by name: one request per kind (assigned, unassigned, recheck). */
-const KIND_COUNT = 3;
+const KIND_COUNT = 4;
 
 describe('work alert text (#957 §3.7, verbatim copy)', () => {
   it('assigned', () => {
@@ -137,6 +137,19 @@ describe('work alert text (#957 §3.7, verbatim copy)', () => {
     expect(workAlertTypeLabel('conversation_assigned')).toBe('Assigned to you');
     expect(workAlertTypeLabel('new_unassigned_message')).toBe('New unassigned');
     expect(workAlertTypeLabel('hold_recheck_due')).toBe('Recheck');
+    expect(workAlertTypeLabel('conversation_reopened')).toBe('Reopened');
+  });
+  it('a reopen reads "Customer replied — reopened from <status> — <subject>"', () => {
+    const reopened = {
+      id: 8,
+      kind: 'conversation_reopened',
+      entityType: 'conversation',
+      entityId: 6,
+      details: { subject: 'Where is my parcel', reopenedFrom: 'closed' },
+    };
+    expect(workAlertText(toWorkAlert(reopened as never))).toBe(
+      'Customer replied — reopened from closed — Where is my parcel'
+    );
   });
   it('a recheck reads "Recheck: <reason> — <subject>"; with no reason it says the hold ended', () => {
     const recheck = {
@@ -162,6 +175,7 @@ describe('useWorkAlerts', () => {
     await waitFor(() => expect(result.current.alerts).toHaveLength(2));
     expect(get.mock.calls.map(([, config]) => config?.params?.kind).sort()).toEqual([
       'conversation_assigned',
+      'conversation_reopened',
       'hold_recheck_due',
       'new_unassigned_message',
     ]);
@@ -234,6 +248,7 @@ describe('useWorkAlerts', () => {
     expect(result.current.alerts).toEqual([]);
     expect(patch.mock.calls.map(([url, , config]) => [url, config?.params?.kind]).sort()).toEqual([
       ['/api/notifications/dismiss-all', 'conversation_assigned'],
+      ['/api/notifications/dismiss-all', 'conversation_reopened'],
       ['/api/notifications/dismiss-all', 'hold_recheck_due'],
       ['/api/notifications/dismiss-all', 'new_unassigned_message'],
     ]);
@@ -247,6 +262,7 @@ describe('useWorkAlerts', () => {
     expect(result.current.unread).toBe(0);
     expect(patch.mock.calls.map(([url, , config]) => [url, config?.params?.kind]).sort()).toEqual([
       ['/api/notifications/read-all', 'conversation_assigned'],
+      ['/api/notifications/read-all', 'conversation_reopened'],
       ['/api/notifications/read-all', 'hold_recheck_due'],
       ['/api/notifications/read-all', 'new_unassigned_message'],
     ]);
@@ -388,7 +404,8 @@ describe('final review fixes (#957)', () => {
     const { result } = renderHook(() => useWorkAlerts());
     await waitFor(() => expect(result.current.alerts).toHaveLength(1));
     // 37 assigned + 4 unassigned + 4 rechecks.
-    expect(result.current.total).toBe(45);
+    // 37 + 4 for each of the other three kinds.
+    expect(result.current.total).toBe(49);
   });
 
   it('CONTROL: a total below the loaded rows (older backend) never undercounts', async () => {

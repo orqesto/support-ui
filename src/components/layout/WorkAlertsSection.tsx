@@ -1,9 +1,10 @@
 import type React from 'react';
-import { AlarmClock, UserCheck, Inbox, X } from 'lucide-react';
+import { AlarmClock, UserCheck, Inbox, RotateCcw, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import {
   CONVERSATION_ASSIGNED_KIND,
+  CUSTOMER_REOPENED_KIND,
   HOLD_RECHECK_KIND,
   type UseWorkAlertsResult,
   workAlertHref,
@@ -39,7 +40,9 @@ export const WorkAlertsSection = ({
             ? UserCheck
             : alert.kind === HOLD_RECHECK_KIND
               ? AlarmClock
-              : Inbox;
+              : alert.kind === CUSTOMER_REOPENED_KIND
+                ? RotateCcw
+                : Inbox;
         return (
           <div
             key={alert.id}

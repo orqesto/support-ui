@@ -62,6 +62,12 @@ describe('messageActivityTimeline — reopen entries written by the repairs', ()
         );
   });
 
+  it('a thank-you that kept the thread finished says so (owner 2026-10-30)', () => {
+    expect(auditEntryLabel('message.thanks_kept_finished', { status: 'closed' })).toBe(
+      'Customer said thanks — kept closed'
+    );
+  });
+
   it('a normal customer reopen keeps its words', () => {
     expect(auditEntryLabel('message.auto_reopen', { fromStatus: 'resolved' })).toBe(
       'Customer replied — reopened from resolved'
