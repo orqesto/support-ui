@@ -117,8 +117,8 @@ export const OnboardingWizard = () => {
   // "Next" instead of "Skip this step" once they've added KB docs / picked storage.
   const [kbHasDocs, setKbHasDocs] = useState(false);
   const [storageChosen, setStorageChosen] = useState(false);
-  // Whether a card was actually saved on the payment step — only changes the
-  // finish-button wording, never whether the user is allowed to finish.
+  // Whether a card was actually saved on the payment step — changes the finish-button wording,
+  // and makes the plan paid at once for the channel rule (channelRequiredToFinish).
   const [cardAdded, setCardAdded] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [skipConfirmOpen, setSkipConfirmOpen] = useState(false);
@@ -130,8 +130,10 @@ export const OnboardingWizard = () => {
   // "Start on Free" at the Database step: a workspace with no plan is blocked there, and the
   // Payment step (where the Free card lives) comes after it — so the way out must be here too.
   const [startingFree, setStartingFree] = useState(false);
-  // The workspace's plan, for the Finish gate: only a paid plan needs a channel. null until read.
-  const [planState, setPlanState] = useState<WizardPlanState | null>(null);
+  // The workspace's plan, for the Finish gate: only a paid plan needs a channel. undefined while the
+  // read is in flight (Finish waits for it, so a paid plan cannot slip through); a failed read gives
+  // `{}`, which does not gate — it must never trap the user.
+  const [planState, setPlanState] = useState<WizardPlanState | undefined>(undefined);
   useEffect(() => {
     if (!billingEnabled) return;
     let cancelled = false;
@@ -333,10 +335,11 @@ export const OnboardingWizard = () => {
 
   const missingAiChoice = !aiChoice;
   const missingChannel =
-    channelRequiredToFinish({ billingEnabled: showPaymentStep, cardAdded, plan: planState }) &&
+    channelRequiredToFinish({ billingEnabled: showPaymentStep, cardAdded, plan: planState ?? null }) &&
     channelsKnown &&
     !channelsConnected;
-  const readyToFinish = !missingAiChoice && !missingChannel && !missingDatabase;
+  const planPending = showPaymentStep && planState === undefined;
+  const readyToFinish = !missingAiChoice && !missingChannel && !missingDatabase && !planPending;
 
   // Reconcile against what already exists, once, on mount.
   //
@@ -488,7 +491,7 @@ export const OnboardingWizard = () => {
           </div>
         ) : (
           <div className="flex flex-col items-end gap-1.5">
-            {!readyToFinish && (
+            {(missingAiChoice || missingChannel || missingDatabase) && (
               <p className="text-right text-xs text-muted-foreground">
                 To start your trial, finish setup:{' '}
                 {missingAiChoice && (

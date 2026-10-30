@@ -74,6 +74,13 @@ describe('channelRequiredToFinish', () => {
     expect(gate({ name: 'free', status: 'trialing', cancellationRoute: 'local' }, true)).toBe(true);
   });
 
+  it('a lapsed Stripe subscription (dead id still stored) is not paid', () => {
+    // Review 2026-10-30: cancellationRoute 'stripe' means a Stripe id is stored, not that it is live;
+    // counting it blocked Finish after "Start on Free" until a reload.
+    expect(gate({ name: 'pro', status: 'expired', cancellationRoute: 'stripe' })).toBe(false);
+    expect(gate({ name: 'pro', status: 'cancelled', cancellationRoute: 'stripe' })).toBe(false);
+  });
+
   it('does not ask a workspace with no plan in force for a channel', () => {
     // Its way forward is Free (the Database step blocks it until then), and a plan read
     // taken before a move to Free must not keep blocking once it has moved.

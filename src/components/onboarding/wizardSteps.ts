@@ -82,9 +82,15 @@ export interface WizardPlanState {
  * paid), or a paid plan in force without one (assigned directly). A trial with no card
  * drops to Free when it ends (trialExpirationService), so it is not paid.
  */
-const isOnPaidPlan = (plan: WizardPlanState): boolean =>
-  plan.cancellationRoute === 'stripe' ||
-  ((plan.status === 'active' || plan.status === 'past_due') && plan.name !== FREE_PLAN);
+const isOnPaidPlan = (plan: WizardPlanState): boolean => {
+  // Only a plan in force can be paid. `cancellationRoute: 'stripe'` means a Stripe id is STORED,
+  // and a lapsed subscription keeps its dead id — so it counts only while the status is live.
+  const live = plan.status === 'trialing' || plan.status === 'active' || plan.status === 'past_due';
+  if (!live) return false;
+  return (
+    plan.cancellationRoute === 'stripe' || (plan.status !== 'trialing' && plan.name !== FREE_PLAN)
+  );
+};
 
 /**
  * Whether finishing the wizard needs a connected channel.

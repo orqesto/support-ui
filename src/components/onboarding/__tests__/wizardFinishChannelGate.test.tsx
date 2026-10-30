@@ -101,6 +101,19 @@ describe('wizard Finish gate — channel', () => {
     expect(await finishButton()).toBeDisabled();
   });
 
+  it('waits for the plan read: Finish stays off (with no "connect a channel") until it answers', async () => {
+    let answer: (plan: Record<string, string>) => void = () => {};
+    getPlanState.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    render(<OnboardingWizard />);
+
+    const button = await finishButton();
+    expect(button).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'connect a channel' })).not.toBeInTheDocument();
+
+    answer({ name: 'free', status: 'trialing', cancellationRoute: 'local' });
+    await vi.waitFor(() => expect(button).toBeEnabled());
+  });
+
   it('does not trap the user when the plan cannot be read', async () => {
     getPlanState.mockResolvedValue({});
     render(<OnboardingWizard />);
