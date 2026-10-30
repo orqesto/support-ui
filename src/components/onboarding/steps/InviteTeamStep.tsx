@@ -17,11 +17,11 @@ const UNLIMITED_SEATS = 999999;
 type AddedMember = { email: string; kind: 'invited' | 'created' };
 
 /**
- * Step 6 (last) — grow the team (optional). Two ways to add people, both capped
+ * Step 5 — grow the team (optional). Two ways to add people, both capped
  * by the plan's user limit (enforced on the backend for invites and direct
  * creation alike): invite by email, or create an account directly with a
  * password. Remaining seats are surfaced so the admin knows the plan ceiling
- * before they hit it. The footer shows "Finish setup".
+ * before they hit it. Not the last step — Knowledge (and Payment, with billing) follow.
  */
 export const InviteTeamStep = () => {
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
@@ -130,11 +130,6 @@ export const InviteTeamStep = () => {
           ))}
         </ul>
       )}
-
-      <p className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
-        This is the last step. Click <span className="font-medium text-foreground">Finish setup</span>{' '}
-        below when you&apos;re ready — you can add more people anytime from the Users page.
-      </p>
 
       <InviteUserModal
         isOpen={inviteOpen}
