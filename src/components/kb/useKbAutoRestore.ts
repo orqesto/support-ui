@@ -19,18 +19,18 @@ export const AUTO_UNDO_TITLE: Record<KbAutoUndo, string> = {
   undo_clean: 'Undo clean-up — puts the original text back',
   release_hold: 'Use it again — the AI uses this answer again',
   return_to_review:
-    'Send back for review — not used in answers until someone approves it; it waits under Needs your decision.',
+    'Send back for review — not used in answers until someone approves it; it waits under Question for you.',
   // Un-approve puts it back to Not live yet; it is not hidden or rejected.
   unapprove_mined: 'Un-approve — back to Not live yet; a person decides on it',
 };
 
 /** What each automatic change is called on its row. */
 export const AUTO_CHANGE_KIND_LABELS: Record<KbAutoChange['action'], string> = {
-  remove: 'Removed automatically',
-  hold: 'Set aside automatically',
-  cleanPersonalData: 'Personal details removed automatically',
-  approveMined: 'Approved automatically (learned from mail)',
-  approveCaptures: 'Approved automatically (saved by a person)',
+  remove: 'Removed by the engine',
+  hold: 'Set aside by the engine',
+  cleanPersonalData: 'Personal details removed by the engine',
+  approveMined: 'Made live by the engine (learned from mail)',
+  approveCaptures: 'Made live by the engine (saved by a person)',
 };
 
 export type KbAutoRestore = {

@@ -56,6 +56,7 @@ import { useKbEngineSummary } from '@/components/kb/page/useKbEngineSummary';
 import {
   kbPageViewFromSearch,
   kbPageViewIsExplicit,
+  liveDefaultStatus,
   kbSearchForView,
   type KbPageView,
 } from '@/components/kb/page/kbPageView';
@@ -135,7 +136,9 @@ const KnowledgeBaseViews = () => {
   const setView = (next: KbPageView) =>
     navigate({ search: kbSearchForView(searchParams, next), hash: location.hash });
 
-  const [filterStatus, setFilterStatus] = useKbStatusParam('live');
+  // Live answers shows live answers by default; other statuses come from More filters › Status.
+  const defaultStatus = liveDefaultStatus(searchParams);
+  const [filterStatus, setFilterStatus] = useKbStatusParam('live', defaultStatus);
   const [moreOpen, setMoreOpen] = useState(false);
   // Source filter — 'all' (no narrowing), 'none' (no mailbox) or a source id: kbSourceParam.
   const [filterSource, setFilterSource] = useState<string>(ALL_SOURCES);
@@ -273,7 +276,7 @@ const KnowledgeBaseViews = () => {
   };
 
   const moreFilterCount =
-    (filterStatus !== 'all' ? 1 : 0) +
+    (filterStatus !== defaultStatus ? 1 : 0) +
     (filterSource !== ALL_SOURCES ? 1 : 0) +
     (finding.filter ? 1 : 0);
   const activeFilterCount =

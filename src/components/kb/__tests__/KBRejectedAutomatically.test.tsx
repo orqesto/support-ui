@@ -35,25 +35,25 @@ const rejected = (over: Partial<KBEntry> = {}): KBEntry => ({
 describe('A rejected entry the backend retired itself', () => {
   it('says it is an automatic duplicate, next to its deletion date', () => {
     render(<KBStatusBadge entry={rejected()} />);
-    expect(screen.getByText(/^Rejected · deleted after /)).toBeTruthy();
+    expect(screen.getByText(/^Turned down · deleted after /)).toBeTruthy();
     expect(screen.getByText(NOTE)).toBeTruthy();
   });
 
   it('control: a reviewer’s reject has no such note', () => {
     render(<KBStatusBadge entry={rejected({ rejectedBy: 4, metadata: {} })} />);
-    expect(screen.getByText(/^Rejected · deleted after /)).toBeTruthy();
+    expect(screen.getByText(/^Turned down · deleted after /)).toBeTruthy();
     expect(screen.queryByText(NOTE)).toBeNull();
   });
 
   it('a person’s reject carrying a stale automatic reason is the person’s: no note', () => {
     render(<KBStatusBadge entry={rejected({ rejectedBy: 4 })} />);
-    expect(screen.getByText(/^Rejected · deleted after /)).toBeTruthy();
+    expect(screen.getByText(/^Turned down · deleted after /)).toBeTruthy();
     expect(screen.queryByText(NOTE)).toBeNull();
   });
 
   it('metadata absent (or another reason): no note, and nothing breaks', () => {
     render(<KBStatusBadge entry={rejected({ metadata: undefined })} />);
-    expect(screen.getByText(/^Rejected · deleted after /)).toBeTruthy();
+    expect(screen.getByText(/^Turned down · deleted after /)).toBeTruthy();
     expect(screen.queryByText(NOTE)).toBeNull();
     cleanup();
     render(<KBStatusBadge entry={rejected({ metadata: { rejectedReason: 'low_quality' } })} />);

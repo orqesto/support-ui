@@ -15,6 +15,7 @@ const state = vi.hoisted(() => ({
   total: 3,
   summary: null as KbEngineSummary | null,
   summaryFails: false,
+  summaryHangs: false,
   runState: null as KbConsolidationRunState | null,
   departments: [] as { id: number; name: string; active?: boolean }[],
   teamsEnabled: undefined as boolean | undefined,
@@ -72,9 +73,11 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
 });
 vi.mock('@/services/kbEngine.service', () => ({
   getEngineSummary: () =>
-    state.summaryFails || !state.summary
-      ? Promise.reject(new Error('no summary'))
-      : Promise.resolve(state.summary),
+    state.summaryHangs
+      ? new Promise<never>(() => undefined)
+      : state.summaryFails || !state.summary
+        ? Promise.reject(new Error('no summary'))
+        : Promise.resolve(state.summary),
 }));
 vi.mock('@/services/kbConsolidation.service', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -179,6 +182,7 @@ beforeEach(() => {
   state.total = 3;
   state.summary = summaryOf(2);
   state.summaryFails = false;
+  state.summaryHangs = false;
   state.runState = null;
   state.departments = [];
   state.teamsEnabled = undefined;
@@ -260,10 +264,8 @@ describe('Knowledge Base page: three views', () => {
     expect(screen.queryByText('source filter')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /More filters/ }));
     expect(screen.getByText('source filter')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Everything' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
+    // Live answers lists live answers unless another status is picked.
+    expect(screen.getByRole('button', { name: 'Live' })).toHaveAttribute('aria-pressed', 'true');
 
     cleanup();
     renderAt('/knowledge-base');
@@ -302,9 +304,31 @@ describe('Knowledge Base page: three views', () => {
     expect(pressedView()).toBe('Live answers');
   });
 
-  it('the list always sends the effective status, Everything included', async () => {
+  it('Live answers lists live answers by default; Everything is sent as status=all', async () => {
     renderAt('/knowledge-base?view=live');
+    await waitFor(() => expect(state.getAllCalls.at(-1)).toMatchObject({ status: 'approved' }));
+    // The default is not a filter: no count on "More filters", and the panel stays closed.
+    expect(screen.getByRole('button', { name: 'More filters' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'More filters' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Everything' }));
     await waitFor(() => expect(state.getAllCalls.at(-1)).toMatchObject({ status: 'all' }));
+    expect(screen.getByTestId('where')).toHaveTextContent('/knowledge-base?view=live&status=all');
+  });
+
+  it('a finding link lists every entry of its finding (status all), not only live ones', async () => {
+    renderAt('/knowledge-base?finding=raw_email&departmentId=3');
+    await waitFor(() =>
+      expect(state.getAllCalls.at(-1)).toMatchObject({ status: 'all', finding: 'raw_email' })
+    );
+  });
+
+  it('a bare URL whose summary does not answer opens Live answers after 2 s, not a spinner', async () => {
+    state.summaryHangs = true;
+    renderAt('/knowledge-base');
+    expect(state.getAllCalls).toHaveLength(0);
+    await waitFor(() => expect(pressedView()).toBe('Live answers'), { timeout: 3500 });
+    await waitFor(() => expect(state.getAllCalls.length).toBeGreaterThan(0));
+    expect(pressedView()).toBe('Live answers');
   });
 
   it('Documentation tab is gone from the KB page and present in Settings › AI', async () => {
@@ -343,7 +367,7 @@ describe('Knowledge Base page: three views', () => {
     renderAt('/knowledge-base');
     const notice = await screen.findByTestId('kb-engine-off');
     expect(notice).toHaveTextContent('The engine is switched off');
-    expect(within(notice).getByRole('link', { name: 'Automatic actions' })).toHaveAttribute(
+    expect(within(notice).getByRole('link', { name: 'Automatic actions →' })).toHaveAttribute(
       'href',
       '/settings#ai/automatic-actions'
     );
@@ -365,8 +389,12 @@ describe('Knowledge Base page: three views', () => {
     };
     renderAt('/knowledge-base');
     const notice = await screen.findByTestId('kb-engine-off');
-    expect(notice).toHaveTextContent('kb.quality_review_enabled');
-    expect(within(notice).getByRole('link', { name: 'Automatic actions' })).toBeInTheDocument();
+    // Agent words only: the flag and where to switch it are on the Automatic actions page.
+    expect(notice).toHaveTextContent(
+      "The engine's nightly check is off, so nothing is reviewed automatically. Automatic actions →"
+    );
+    expect(notice.textContent).not.toMatch(/kb\.|Console|Feature flags|platform admin/);
+    expect(within(notice).getByRole('link', { name: 'Automatic actions →' })).toBeInTheDocument();
   });
 
   it('no notice while the engine runs', async () => {

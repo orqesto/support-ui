@@ -13,6 +13,9 @@ import { AUTO_SUPERSEDED_NOTE, formatPurgeDate, isAutoSupersededReject } from '@
 import type { KBEntry } from '@/services/kb.service';
 
 /**
+ * Status words are the agent words of KB engine §8 (`KB_FILTER_STATUS_LABEL`): Live, Not live
+ * yet, Hidden, Turned down. KB rows only (card, table, drawer).
+ *
  * One entry's review state, the same on the card, the table and the detail drawer.
  *
  * ⛔ "Rejected" is checked BEFORE "Hidden". A rejected entry is also hidden, and labelling it
@@ -29,7 +32,7 @@ import type { KBEntry } from '@/services/kb.service';
  */
 export const KBStatusBadge = ({
   entry,
-  pendingLabel = 'Pending',
+  pendingLabel = 'Not live yet',
   className = '',
   withProvenance = true,
   compact = false,
@@ -69,13 +72,13 @@ export const KBStatusBadge = ({
           className={cls}
           title={
             purge
-              ? `Rejected — the AI never uses it. Deleted by the daily cleanup after ${purge} unless approved again.`
-              : 'Rejected — the AI never uses it.'
+              ? `Turned down — the AI never uses it. Deleted by the daily cleanup after ${purge} unless approved again.`
+              : 'Turned down — the AI never uses it.'
           }
         >
           {/* "after", not "on": the purge is a daily job and takes the row on its first run past
               the date, not at the stroke of it. */}
-          {purge && !compact ? `Rejected · deleted after ${purge}` : 'Rejected'}
+          {purge && !compact ? `Turned down · deleted after ${purge}` : 'Turned down'}
         </Badge>
         {purge && compact && (
           <span className="w-full text-xs text-muted-foreground">deleted after {purge}</span>
@@ -149,7 +152,7 @@ export const KBStatusBadge = ({
   if (entry.approved && isCaseRow(entry)) {
     return (
       <>
-        <Badge className={`bg-success text-success-foreground ${cls}`}>Approved</Badge>
+        <Badge className={`bg-success text-success-foreground ${cls}`}>Live</Badge>
         <Badge variant="secondary" className={cls} title="A merged case">
           Case
         </Badge>
@@ -160,8 +163,8 @@ export const KBStatusBadge = ({
   if (entry.approved) {
     return (
       <>
-        <Badge className={`bg-success text-success-foreground ${cls}`}>Approved</Badge>
-        {/* "Approved" alone hides whether anyone looked. */}
+        <Badge className={`bg-success text-success-foreground ${cls}`}>Live</Badge>
+        {/* "Live" alone hides whether anyone looked. */}
         {withProvenance && <KBApprovalBadge entry={entry} />}
       </>
     );

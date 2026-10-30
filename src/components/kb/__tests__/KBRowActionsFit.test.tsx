@@ -60,7 +60,7 @@ const renderPending = () => {
 describe('Knowledge Base list — a Pending row’s actions stay in their own column', () => {
   it('🔴 five actions fit the Actions column, and the row wraps rather than overflow', () => {
     const container = renderPending();
-    expect(screen.getByText('Pending')).toBeTruthy();
+    expect(screen.getByText('Not live yet')).toBeTruthy();
     const actions = screen.getByTestId('kb-row-actions');
     const buttons = actions.querySelectorAll(':scope > button');
     expect(buttons).toHaveLength(5);

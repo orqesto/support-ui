@@ -3,6 +3,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { KB_FILTER_STATUS_LABEL, type KbFilterStatus } from '@/components/kb/KbStatusFilter';
 import { useKbStatusParam } from '@/hooks/useKbStatusParam';
+import { liveDefaultStatus } from '@/components/kb/page/kbPageView';
 import { kbFindingFromSearch, withoutKbFinding } from '@/lib/kbFinding';
 import type { KbIdMatch } from '@/services/kb.service';
 
@@ -87,7 +88,7 @@ export const KbIdMatchHint = ({
 }) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [status] = useKbStatusParam('live');
+  const [status] = useKbStatusParam('live', liveDefaultStatus(searchParams));
   const finding = kbFindingFromSearch(searchParams) !== null;
   const hint = kbIdMatchHint(match, { status, tab, source, finding });
   if (!hint) return null;
@@ -100,8 +101,8 @@ export const KbIdMatchHint = ({
     const params = new URLSearchParams(
       clearFinding ? withoutKbFinding(searchParams) : searchParams
     );
-    if (nextStatus === 'all') params.delete('status');
-    else params.set('status', nextStatus);
+    // Always named: with no `?status=` Live answers lists only live answers.
+    params.set('status', nextStatus);
     // The hint is on Live answers; a question status alone would open the Questions view.
     params.set('view', 'live');
     navigate({ search: params.toString(), hash: nextTab }, { replace: !clearFinding });

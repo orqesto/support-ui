@@ -101,7 +101,12 @@ const expiredCapture = {
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
 // KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
 vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
-  useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: null }),
+  useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: false }),
+}));
+// No real network calls: "Automatic actions" asks the backend whether its routes exist.
+vi.mock('@/hooks/useAutoActionsAvailable', () => ({
+  useAutoActionsAvailable: () => false,
+  resetAutoActionsAvailability: () => undefined,
 }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/lib/toast', () => ({ toast: { success: vi.fn(), error: state.toastError } }));
@@ -268,11 +273,11 @@ describe('knowledge base → Changed automatically', () => {
     renderPage('/knowledge-base?status=auto_changed');
     await screen.findAllByText(capturedEntry.title);
     for (const label of [
-      'Removed automatically',
-      'Set aside automatically',
-      'Personal details removed automatically',
-      'Approved automatically (learned from mail)',
-      'Approved automatically (saved by a person)',
+      'Removed by the engine',
+      'Set aside by the engine',
+      'Personal details removed by the engine',
+      'Made live by the engine (learned from mail)',
+      'Made live by the engine (saved by a person)',
     ])
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
   });
@@ -336,7 +341,8 @@ describe('knowledge base → Changed automatically', () => {
 
 describe('knowledge base → the automatic status filter waits for the backend', () => {
   it('offers neither automatic status until a list answer says which one this backend has', async () => {
-    renderPage('/knowledge-base?status=approved');
+    // Live answers lists live entries by default; a named status opens More filters.
+    renderPage('/knowledge-base?view=live&status=pending');
     expect(screen.queryByRole('button', { name: 'Changed by the engine' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Removed by the engine' })).toBeNull();
     expect(
@@ -346,7 +352,8 @@ describe('knowledge base → the automatic status filter waits for the backend',
 
   it('an older backend: only "Removed automatically" ever appears, never "Changed automatically"', async () => {
     state.autoChangedStatus = false;
-    renderPage('/knowledge-base?status=approved');
+    // Live answers lists live entries by default; a named status opens More filters.
+    renderPage('/knowledge-base?view=live&status=pending');
     expect(
       await screen.findByRole('button', { name: 'Removed by the engine' })
     ).toBeInTheDocument();

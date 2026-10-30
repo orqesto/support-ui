@@ -2,7 +2,18 @@
  * KB engine Stage 1: the Knowledge Base page has three views. Which one a URL opens, so old links
  * (`?status=…`, `?finding=…`, the bell's and the cases page's) still land in the right place.
  */
+import type { KbFilterStatus } from '@/components/kb/KbStatusFilter';
+import { kbFindingFromSearch } from '@/lib/kbFinding';
+
 export type KbPageView = 'questions' | 'live' | 'activity';
+
+/**
+ * The status Live answers lists when the URL names none: live answers ('approved'), owner
+ * 2026-10-30. A finding link lists every entry of its finding ('all'): those are mostly not live.
+ * Any other status (Everything included) comes from More filters › Status and is in the URL.
+ */
+export const liveDefaultStatus = (search: URLSearchParams): KbFilterStatus =>
+  kbFindingFromSearch(search) ? 'all' : 'approved';
 
 export const KB_PAGE_VIEWS: readonly KbPageView[] = ['questions', 'live', 'activity'];
 

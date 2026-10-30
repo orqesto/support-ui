@@ -92,14 +92,14 @@ describe('KBStatusBadge — neutral states are readable', () => {
 });
 
 describe('KBStatusBadge — compact (the table) never makes a circle', () => {
-  it('rejected: "Rejected" alone on one line, the purge date under it and in the title', () => {
+  it('rejected: "Turned down" alone on one line, the purge date under it and in the title', () => {
     render(<KBStatusBadge entry={autoRejected} compact />);
     const purge = formatPurgeDate(autoRejected.rejectedAt)!;
-    const pill = screen.getByText('Rejected');
+    const pill = screen.getByText('Turned down');
     expect(pill).toHaveClass('whitespace-nowrap');
     expect(pill.getAttribute('title')).toContain(purge);
     expect(screen.getByText(`deleted after ${purge}`)).toBeInTheDocument();
-    expect(screen.queryByText(/^Rejected · deleted after/)).toBeNull();
+    expect(screen.queryByText(/^Turned down · deleted after/)).toBeNull();
   });
 
   it('automatic duplicate: short label on a rounded-md tag, full sentence in the title', () => {
@@ -150,7 +150,7 @@ describe('KBStatusBadge — compact (the table) never makes a circle', () => {
       'title',
       AUTO_SUPERSEDED_NOTE
     );
-    expect(screen.getByText('Rejected')).toHaveClass('whitespace-nowrap');
+    expect(screen.getByText('Turned down')).toHaveClass('whitespace-nowrap');
   });
 
   it('the KB table renders a waiting decision compact too ("Merge?", not a two-line pill)', () => {
@@ -185,7 +185,7 @@ describe('KBStatusBadge — compact (the table) never makes a circle', () => {
         <KBStatusBadge entry={merged} />
       </MemoryRouter>
     );
-    expect(screen.getByText(/^Rejected · deleted after /)).not.toHaveClass('whitespace-nowrap');
+    expect(screen.getByText(/^Turned down · deleted after /)).not.toHaveClass('whitespace-nowrap');
     expect(badgeOf(screen.getByRole('link', { name: 'merged into #KB-208' }))).toHaveClass(
       'rounded-full'
     );

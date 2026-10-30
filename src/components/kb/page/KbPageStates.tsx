@@ -36,25 +36,26 @@ export const KbStillLearning = () => (
 );
 
 /**
- * One line when the engine acts on nothing: every kill switch is on (an unreadable one counts as
- * on, server-side), or nightly scoring cannot run because of a feature flag (`nightlyOff`).
+ * One line, in agent words, when the engine acts on nothing: every kill switch is on (an
+ * unreadable one counts as on, server-side), or nightly scoring cannot run (`nightlyOff`). Which
+ * switch or flag is for admins: it is on the Automatic actions page the link opens.
  */
 export const KbEngineOffNotice = ({
   killed,
   nightlyOff,
 }: {
   killed: boolean;
-  nightlyOff: string | null;
+  nightlyOff: boolean;
 }) => {
   if (!killed && !nightlyOff) return null;
   return (
     <Alert variant="warning" className="py-2 text-sm">
       <span data-testid="kb-engine-off">
         {killed
-          ? 'The engine is switched off: it changes nothing by itself. '
-          : `The engine does not review entries at night. ${nightlyOff} `}
+          ? 'The engine is switched off, so it changes nothing by itself. '
+          : "The engine's nightly check is off, so nothing is reviewed automatically. "}
         <Link to={AUTO_ACTIONS_HREF} className="font-medium underline">
-          Automatic actions
+          Automatic actions →
         </Link>
       </span>
     </Alert>

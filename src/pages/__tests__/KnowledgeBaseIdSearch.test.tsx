@@ -15,7 +15,12 @@ let listIdMatch: unknown = undefined;
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
 // KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
 vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
-  useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: null }),
+  useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: false }),
+}));
+// No real network calls: "Automatic actions" asks the backend whether its routes exist.
+vi.mock('@/hooks/useAutoActionsAvailable', () => ({
+  useAutoActionsAvailable: () => false,
+  resetAutoActionsAvailability: () => undefined,
 }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/services/kb.service', async (importOriginal) => {

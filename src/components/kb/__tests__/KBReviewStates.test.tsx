@@ -46,7 +46,7 @@ describe('KB review states', () => {
     render(
       <KBStatusBadge entry={entry({ hidden: true, rejectedAt: '2026-09-19T09:00:00.000Z' })} />
     );
-    expect(screen.getByText(/Rejected · deleted after/)).toBeInTheDocument();
+    expect(screen.getByText(/Turned down · deleted after/)).toBeInTheDocument();
     expect(screen.queryByText('Hidden')).not.toBeInTheDocument();
   });
 

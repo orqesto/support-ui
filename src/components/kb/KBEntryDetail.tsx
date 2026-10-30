@@ -233,7 +233,7 @@ export const KBEntryDetail = ({
                 )}
                 <KBStatusBadge
                   entry={displayEntry}
-                  pendingLabel="Pending Review"
+                  pendingLabel="Not live yet"
                   withProvenance={false}
                 />
               </div>

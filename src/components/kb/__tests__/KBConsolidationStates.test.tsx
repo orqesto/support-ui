@@ -147,7 +147,7 @@ describe('KB list — consolidation states (F4)', () => {
         />
       </MemoryRouter>
     );
-    expect(screen.getByText('Approved')).toBeInTheDocument();
+    expect(screen.getByText('Live')).toBeInTheDocument();
     expect(screen.queryByText(/detached from case/)).not.toBeInTheDocument();
   });
 
@@ -553,7 +553,7 @@ describe('KB list — consolidation states (F4)', () => {
         'title',
         'Its source is no longer in the knowledge base, so it is not used.'
       );
-      expect(screen.queryByText('Approved')).not.toBeInTheDocument();
+      expect(screen.queryByText('Live')).not.toBeInTheDocument();
       expect(screen.queryByText('Case')).not.toBeInTheDocument();
       expect(screen.queryByText(/merged into/)).not.toBeInTheDocument();
     });

@@ -5,17 +5,27 @@ import { kbConsolidationService } from '@/services/kbConsolidation.service';
 import { getEngineSummary } from '@/services/kbEngine.service';
 import type { KbEngineSummary } from '@/services/kbEngine.types';
 
+/**
+ * How long a bare `/knowledge-base` waits for the open-question count before it opens Live
+ * answers anyway: a slow or hung summary must never leave the page on a spinner.
+ */
+export const KB_SUMMARY_WAIT_MS = 2000;
+
 export type KbEngineSummaryState = {
   /** null while loading or after a failure. */
   summary: KbEngineSummary | null;
-  /** The summary request answered (with data or an error): the page may choose its view. */
+  /**
+   * The page may choose its view: the summary answered (with data or an error), or it took
+   * longer than `KB_SUMMARY_WAIT_MS`. A summary that arrives later still fills the counts.
+   */
   settled: boolean;
   /**
-   * Why the engine does not score entries at night, from the feature flags the run state reports
-   * (`kb.consolidation_enabled`, `kb.quality_review_enabled`, a trial run); null when it does or
-   * when the backend did not say.
+   * The engine does not score entries at night: a feature flag the run state reports keeps it off
+   * (`kb.consolidation_enabled`, `kb.quality_review_enabled`, unreadable, or a trial run). False
+   * when it runs or when the backend did not say. The flag detail is for admins and stays on the
+   * Automatic actions page, never on this one.
    */
-  nightlyOff: string | null;
+  nightlyOff: boolean;
 };
 
 /**
@@ -30,13 +40,16 @@ export const useKbEngineSummary = (
   const [state, setState] = useState<KbEngineSummaryState>({
     summary: null,
     settled: false,
-    nightlyOff: null,
+    nightlyOff: false,
   });
 
   useEffect(() => {
     if (!canReview) return;
     let live = true;
     setState((prev) => ({ ...prev, settled: false }));
+    const waited = setTimeout(() => {
+      if (live) setState((prev) => ({ ...prev, settled: true }));
+    }, KB_SUMMARY_WAIT_MS);
     // Through a promise chain: anything that throws reads as "not known", never breaks the page.
     Promise.resolve()
       .then(() => getEngineSummary(departmentId))
@@ -49,6 +62,7 @@ export const useKbEngineSummary = (
       });
     return () => {
       live = false;
+      clearTimeout(waited);
     };
   }, [canReview, departmentId]);
 
@@ -61,8 +75,8 @@ export const useKbEngineSummary = (
         const switches = runState?.switches;
         // A trial run labels entries only: the quality review does not run either.
         const off =
-          qualitySwitchText(switches) ??
-          (switches?.dryRun?.on ? consolidationSwitchText(switches) : null);
+          qualitySwitchText(switches) !== null ||
+          (switches?.dryRun?.on === true && consolidationSwitchText(switches) !== null);
         if (live) setState((prev) => ({ ...prev, nightlyOff: off }));
       })
       .catch((error: unknown) => {

@@ -22,8 +22,14 @@ const toastCalls: Array<{ kind: string; message: string }> = [];
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
 // KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
 vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
-  useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: null }),
+  useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: false }),
 }));
+// No real network calls: "Automatic actions" asks the backend whether its routes exist.
+vi.mock('@/hooks/useAutoActionsAvailable', () => ({
+  useAutoActionsAvailable: () => false,
+  resetAutoActionsAvailability: () => undefined,
+}));
+vi.mock('@/components/kb/KbExportButton', () => ({ KbExportButton: () => null }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/lib/toast', () => ({
   toast: Object.fromEntries(
@@ -230,7 +236,7 @@ describe('KB page — unmerging a case (F4)', () => {
     expect(approve).not.toHaveBeenCalled();
     // Back to what it was before it was hidden: pending stays pending.
     const after = await tableRow('Detached one');
-    await waitFor(() => expect(within(after).getByText('Pending')).toBeInTheDocument());
+    await waitFor(() => expect(within(after).getByText('Not live yet')).toBeInTheDocument());
     expect(within(after).queryByText(/detached from case/)).not.toBeInTheDocument();
   });
 
