@@ -20,6 +20,10 @@ const approve = vi.fn<(...args: unknown[]) => unknown>();
 const unhide = vi.fn<(...args: unknown[]) => unknown>();
 const toastCalls: Array<{ kind: string; message: string }> = [];
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
+// KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
+vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
+  useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: null }),
+}));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/lib/toast', () => ({
   toast: Object.fromEntries(

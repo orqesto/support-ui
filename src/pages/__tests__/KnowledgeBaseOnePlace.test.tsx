@@ -99,6 +99,10 @@ const expiredCapture = {
 };
 
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
+// KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
+vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
+  useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: null }),
+}));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/lib/toast', () => ({ toast: { success: vi.fn(), error: state.toastError } }));
 vi.mock('@/lib/api-client', async (importOriginal) => {
@@ -216,8 +220,10 @@ describe('knowledge base → one place to decide', () => {
 
 describe('knowledge base → Changed automatically', () => {
   it('asks for status=auto_changed and says "in the last 90 days"', async () => {
-    renderPage('/knowledge-base');
-    const button = await screen.findByRole('button', { name: 'Changed automatically' });
+    renderPage('/knowledge-base?view=live');
+    // Status sits under "More filters" (KB engine Stage 1).
+    fireEvent.click(await screen.findByRole('button', { name: /More filters/ }));
+    const button = await screen.findByRole('button', { name: 'Changed by the engine' });
     expect(button.getAttribute('title')).toMatch(/in the last 90 days/);
     fireEvent.click(button);
     await waitFor(() =>
@@ -293,7 +299,7 @@ describe('knowledge base → Changed automatically', () => {
     await waitFor(() => expect(screen.queryByText(capturedEntry.title)).toBeNull());
     // The mined approval keeps its own undo.
     expect(screen.getAllByRole('button', { name: 'Un-approve' }).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole('button', { name: 'Needs your decision' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Question for you' }));
     expect((await screen.findAllByText('Saved answer')).length).toBeGreaterThan(0);
   });
 
@@ -322,19 +328,19 @@ describe('knowledge base → Changed automatically', () => {
       expect(state.getAllCalls.some((call) => call.status === 'auto_removed')).toBe(true)
     );
     expect(
-      await screen.findByRole('button', { name: 'Removed automatically' })
+      await screen.findByRole('button', { name: 'Removed by the engine' })
     ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Changed automatically' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Changed by the engine' })).toBeNull();
   });
 });
 
 describe('knowledge base → the automatic status filter waits for the backend', () => {
   it('offers neither automatic status until a list answer says which one this backend has', async () => {
     renderPage('/knowledge-base?status=approved');
-    expect(screen.queryByRole('button', { name: 'Changed automatically' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Removed automatically' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Changed by the engine' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Removed by the engine' })).toBeNull();
     expect(
-      await screen.findByRole('button', { name: 'Changed automatically' })
+      await screen.findByRole('button', { name: 'Changed by the engine' })
     ).toBeInTheDocument();
   });
 
@@ -342,9 +348,9 @@ describe('knowledge base → the automatic status filter waits for the backend',
     state.autoChangedStatus = false;
     renderPage('/knowledge-base?status=approved');
     expect(
-      await screen.findByRole('button', { name: 'Removed automatically' })
+      await screen.findByRole('button', { name: 'Removed by the engine' })
     ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Changed automatically' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Changed by the engine' })).toBeNull();
   });
 
   it('an older backend echoing an unapplied auto_changed gets the notice, not the unfiltered list', () => {
@@ -354,7 +360,7 @@ describe('knowledge base → the automatic status filter waits for the backend',
 
 describe('knowledge base → expired capture and non-reviewers', () => {
   it('an expired capture is approved and rejected through the ENTRY endpoints only', async () => {
-    renderPage('/knowledge-base?status=needs_decision');
+    renderPage('/knowledge-base?view=live&status=needs_decision');
     await screen.findAllByText('Expired capture');
     expect(screen.getAllByText('Expired — still waiting').length).toBeGreaterThan(0);
     fireEvent.click(screen.getAllByRole('button', { name: 'Approve' })[0]);

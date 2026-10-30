@@ -49,7 +49,7 @@ export const useKbFindingFilter = (departmentKey: string) => {
     // Every finding entry is a Q&A pair: another tab is a filter that hides them too.
     const otherFilters =
       (params.type !== undefined && params.type !== 'qa_pair') ||
-      params.status !== undefined ||
+      (params.status !== undefined && params.status !== 'all') ||
       (params.search ?? '') !== '' ||
       params.messageSourceId !== undefined;
     try {

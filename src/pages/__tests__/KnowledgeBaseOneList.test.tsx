@@ -17,6 +17,10 @@ let listEntries: unknown[] = [];
 let secondPage: unknown[] | null = null;
 
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
+// KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
+vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
+  useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: null }),
+}));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
@@ -152,7 +156,7 @@ describe('Knowledge Base decision filters', () => {
       }),
     ];
     render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live&status=needs_decision']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );
@@ -165,7 +169,7 @@ describe('Knowledge Base decision filters', () => {
 
   it('asks the server for the status in the URL and shows no notice when it applied it', async () => {
     render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live&status=needs_decision']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );
@@ -179,7 +183,7 @@ describe('Knowledge Base decision filters', () => {
     capable = false;
     listEntries = [entry({ id: 21, title: 'Unfiltered row from an older server' })];
     render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=suggested_change']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live&status=suggested_change']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );
@@ -200,7 +204,7 @@ describe('Knowledge Base decision filters', () => {
     async (status, linkName, href) => {
       capable = false;
       render(
-        <MemoryRouter initialEntries={[`/knowledge-base?status=${status}`]}>
+        <MemoryRouter initialEntries={[`/knowledge-base?view=live&status=${status}`]}>
           <KnowledgeBasePage />
         </MemoryRouter>
       );
@@ -213,7 +217,7 @@ describe('Knowledge Base decision filters', () => {
   it('the capability flag present: the rows show and no notice', async () => {
     listEntries = [entry({ id: 22, title: 'Filtered row from a new server' })];
     render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=suggested_change']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live&status=suggested_change']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );
@@ -241,7 +245,7 @@ describe('Knowledge Base decision filters', () => {
     // it: a new backend's previous answer already carries the flag.)
     const seen: boolean[] = [];
     const { container } = render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live&status=needs_decision']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );
@@ -252,7 +256,7 @@ describe('Knowledge Base decision filters', () => {
     observer.observe(container, { childList: true, subtree: true, characterData: true });
     await screen.findAllByText('No entries found');
     const before = getAllCalls.length;
-    fireEvent.click(screen.getByRole('button', { name: 'Set aside' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Skipped by the engine' }));
     await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(before));
     await screen.findAllByText('No entries found');
     await waitFor(() =>
@@ -266,7 +270,7 @@ describe('Knowledge Base decision filters', () => {
   it('a failed fetch does not blame the server', async () => {
     failList = true;
     render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live&status=needs_decision']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );
@@ -279,7 +283,7 @@ describe('Knowledge Base decision filters', () => {
     canReview = false;
     capable = false;
     render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live&status=needs_decision']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );
@@ -292,7 +296,7 @@ describe('Knowledge Base decision filters', () => {
     render(
       <MemoryRouter
         initialEntries={[
-          '/knowledge-base?status=needs_decision&finding=raw_email&departmentId=3#qa_pair',
+          '/knowledge-base?view=live&status=needs_decision&finding=raw_email&departmentId=3#qa_pair',
         ]}
       >
         <KnowledgeBasePage />
@@ -319,7 +323,7 @@ describe('Knowledge Base decision filters', () => {
       },
     ];
     render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live&status=needs_decision']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );
@@ -343,7 +347,7 @@ describe('Knowledge Base decision filters', () => {
       }),
     ];
     render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=suggested_change']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live&status=suggested_change']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );
@@ -369,7 +373,7 @@ describe('Knowledge Base decision filters', () => {
       },
     ];
     render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live&status=needs_decision']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );
@@ -387,7 +391,7 @@ describe('Knowledge Base decision filters', () => {
       }),
     ];
     render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=suggested_change']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live&status=suggested_change']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );
@@ -417,7 +421,7 @@ describe('Knowledge Base decision filters', () => {
     listEntries = [capture(40)];
     secondPage = [capture(41), capture(42)];
     render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live&status=needs_decision']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );
@@ -442,7 +446,7 @@ describe('Knowledge Base decision filters', () => {
       }),
     ];
     render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=suggested_change']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live&status=suggested_change']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );
@@ -472,7 +476,7 @@ describe('Knowledge Base decision filters', () => {
       }),
     ];
     render(
-      <MemoryRouter initialEntries={['/knowledge-base?status=needs_decision']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live&status=needs_decision']}>
         <KnowledgeBasePage />
       </MemoryRouter>
     );

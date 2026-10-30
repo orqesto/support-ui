@@ -353,7 +353,8 @@ export const kbService = {
     page?: number;
     limit?: number;
     search?: string;
-    status?: KbListStatus;
+    /** The effective status; the page sends 'all' too (the export then matches the list). */
+    status?: KbListStatus | 'all';
     /** A mailbox id, or 'none' for the entries that come from no mailbox. */
     messageSourceId?: number | 'none';
     /** Only the entries behind one finding of the KB cases report (needs `departmentId`). */

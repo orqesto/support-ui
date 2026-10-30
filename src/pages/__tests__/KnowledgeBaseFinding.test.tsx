@@ -37,6 +37,10 @@ let lastPage = Number.POSITIVE_INFINITY;
 const hidden: number[] = [];
 
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
+// KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
+vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
+  useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: null }),
+}));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
@@ -199,12 +203,13 @@ describe('Knowledge base list narrowed to a finding', () => {
     expect(screen.queryByText(/Entries awaiting a KB review/)).toBeNull();
   });
 
-  it('offers the export on the list tabs with the tab type, and not on the Documentation tab', async () => {
+  it('offers the export on the list with the type, and the old Documentation address leaves the page', async () => {
     renderAt('/knowledge-base#qa_pair');
     expect((await screen.findByTestId('kb-export')).textContent).toBe('qa_pair');
     cleanup();
+    // Documentation moved to Settings › AI: the old address redirects, no list and no export.
     renderAt('/knowledge-base#documentation');
-    await waitFor(() => expect(screen.getAllByText(/Knowledge Base/).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.queryByText(/Knowledge Base/)).toBeNull());
     expect(screen.queryByTestId('kb-export')).toBeNull();
   });
 
@@ -350,7 +355,7 @@ describe('Knowledge base list narrowed to a finding', () => {
 describe('Source filter: "No source" (F2)', () => {
   it('asks the backend for messageSourceId=none, counts as a filter, and Clear All drops it', async () => {
     render(
-      <MemoryRouter initialEntries={['/knowledge-base#all']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live#all']}>
         <Routes>
           <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
         </Routes>
@@ -358,6 +363,8 @@ describe('Source filter: "No source" (F2)', () => {
     );
     await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(0));
     expect(lastCall().messageSourceId).toBeUndefined();
+    // Source sits under "More filters" (KB engine Stage 1: at most five controls by default).
+    fireEvent.click(screen.getByRole('button', { name: /More filters/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'pick No source' }));
     await waitFor(() => expect(lastCall().messageSourceId).toBe('none'));
     fireEvent.click(screen.getByRole('button', { name: /Clear All/ }));
@@ -368,15 +375,16 @@ describe('Source filter: "No source" (F2)', () => {
 describe('Rejected tab (pass-5 F1)', () => {
   it("its tooltip holds for an automatic reject as well as a reviewer's", async () => {
     render(
-      <MemoryRouter initialEntries={['/knowledge-base#all']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live#all']}>
         <Routes>
           <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
         </Routes>
       </MemoryRouter>
     );
-    const tab = await screen.findByRole('button', { name: 'Rejected' });
+    fireEvent.click(await screen.findByRole('button', { name: /More filters/ }));
+    const tab = await screen.findByRole('button', { name: 'Turned down' });
     expect(tab.getAttribute('title')).toBe(
-      'Rejected by a reviewer or automatically — deleted 90 days after the reject; Approve restores one before then.'
+      'Turned down by a person or by the engine — deleted 90 days later; Approve restores one before then.'
     );
   });
 });

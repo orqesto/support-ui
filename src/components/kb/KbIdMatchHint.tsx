@@ -9,8 +9,8 @@ import type { KbIdMatch } from '@/services/kb.service';
 /** The list's type tabs that hold entries (the Documentation tab is settings). */
 export type KbListTab = 'all' | 'qa_pair' | 'document';
 const TAB_LABEL: Record<KbListTab, string> = {
-  all: 'All',
-  qa_pair: 'Q&A Pairs',
+  all: 'All types',
+  qa_pair: 'Q&A pairs',
   document: 'Documents',
 };
 
@@ -49,9 +49,9 @@ export const kbIdMatchHint = (
   const entrySource = match.messageSourceId === null ? 'none' : String(match.messageSourceId);
   const sourceHides = view.source !== 'all' && view.source !== entrySource;
   const text = statusHides
-    ? `${name} is in ${KB_FILTER_STATUS_LABEL[match.status]}`
+    ? `${name} is under “${KB_FILTER_STATUS_LABEL[match.status]}”`
     : tabHides
-      ? `${name} is in the ${TAB_LABEL[entryTab]} tab`
+      ? `${name} is under “${TAB_LABEL[entryTab]}”`
       : sourceHides
         ? `${name} is from another source`
         : view.finding
@@ -70,7 +70,7 @@ export const kbIdMatchHint = (
 };
 
 /**
- * "KB-134 is in Pending — Show KB-134": the hint above the list when the entry the search names
+ * "KB-134 is under “Not live yet” — Show KB-134": the hint above the list when the entry the search names
  * by number is hidden by this view's filters. Show is ONE navigation (the status lives in
  * `?status=`, the tab in the hash) that keeps the search, so the entry is then the first row.
  */
@@ -87,7 +87,7 @@ export const KbIdMatchHint = ({
 }) => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [status] = useKbStatusParam();
+  const [status] = useKbStatusParam('live');
   const finding = kbFindingFromSearch(searchParams) !== null;
   const hint = kbIdMatchHint(match, { status, tab, source, finding });
   if (!hint) return null;
@@ -102,6 +102,8 @@ export const KbIdMatchHint = ({
     );
     if (nextStatus === 'all') params.delete('status');
     else params.set('status', nextStatus);
+    // The hint is on Live answers; a question status alone would open the Questions view.
+    params.set('view', 'live');
     navigate({ search: params.toString(), hash: nextTab }, { replace: !clearFinding });
     if (clearSource) onClearSource();
   };

@@ -7,11 +7,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import type * as KbServiceModule from '@/services/kb.service';
+import { chooseOption } from '@/test/chooseOption';
 
 let canManageKb = true;
 const getAllCalls: Array<{ status?: string }> = [];
 
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
+// KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
+vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
+  useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: null }),
+}));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
@@ -65,7 +70,7 @@ const Probe = () => {
       <output data-testid="hash">{location.hash}</output>
       <button
         type="button"
-        onClick={() => navigate('/knowledge-base?status=needs_decision&keep=1')}
+        onClick={() => navigate('/knowledge-base?view=live&status=needs_decision&keep=1')}
       >
         probe: go
       </button>
@@ -98,54 +103,53 @@ afterEach(() => {
 });
 
 describe('knowledge base → review suggestions', () => {
-  it('"Review suggestions" filters this list to suggested changes instead of leaving the page', async () => {
-    renderPage();
-    fireEvent.click(await screen.findByRole('button', { name: 'Review suggestions' }));
-    await waitFor(() =>
-      expect(getAllCalls.some((call) => call.status === 'suggested_change')).toBe(true)
-    );
+  it('the Questions view replaces "Review suggestions": the tab opens it on this page', async () => {
+    renderPage('/knowledge-base?view=live');
+    fireEvent.click(await screen.findByRole('button', { name: /^Questions/ }));
+    await waitFor(() => expect(screen.getByTestId('search').textContent).toBe('?view=questions'));
+    expect(screen.queryByRole('button', { name: 'Review suggestions' })).toBeNull();
     expect(screen.queryByText('merges review page')).toBeNull();
   });
 
   it('a link to ?status= while the page is open refetches with it and shows it selected', async () => {
-    renderPage();
+    renderPage('/knowledge-base?view=live');
     fireEvent.click(await screen.findByRole('button', { name: 'probe: go' }));
     await waitFor(() =>
       expect(getAllCalls.some((call) => call.status === 'needs_decision')).toBe(true)
     );
-    expect(screen.getByRole('button', { name: 'Needs your decision' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Question for you' })).toBeInTheDocument();
   });
 
   it('picking a filter writes ?status= and keeps the other params', async () => {
-    renderPage();
+    renderPage('/knowledge-base?view=live');
     fireEvent.click(await screen.findByRole('button', { name: 'probe: go' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Set aside' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Skipped by the engine' }));
     await waitFor(() =>
-      expect(screen.getByTestId('search').textContent).toBe('?status=set_aside&keep=1')
+      expect(screen.getByTestId('search').textContent).toBe('?view=live&status=set_aside&keep=1')
     );
-    fireEvent.click(screen.getByText('All', { selector: 'button:not([title])' }));
-    await waitFor(() => expect(screen.getByTestId('search').textContent).toBe('?keep=1'));
+    fireEvent.click(screen.getByRole('button', { name: 'Everything' }));
+    await waitFor(() => expect(screen.getByTestId('search').textContent).toBe('?view=live&keep=1'));
   });
 
-  it('changing the tab keeps ?status=', async () => {
-    renderPage('/knowledge-base?status=needs_decision#all');
-    fireEvent.click(await screen.findByRole('button', { name: /Documents/ }));
+  it('changing the type keeps ?status=', async () => {
+    renderPage('/knowledge-base?view=live&status=needs_decision#all');
+    await chooseOption(await screen.findByRole('combobox', { name: 'Type' }), 'Documents');
     await waitFor(() => expect(screen.getByTestId('hash').textContent).toBe('#document'));
-    expect(screen.getByTestId('search').textContent).toBe('?status=needs_decision');
+    expect(screen.getByTestId('search').textContent).toBe('?view=live&status=needs_decision');
   });
 
   it('Clear All lands on the All tab without status', async () => {
     renderPage('/knowledge-base?status=set_aside&keep=1#document');
     fireEvent.click(await screen.findByRole('button', { name: /Clear All/ }));
     await waitFor(() => expect(screen.getByTestId('hash').textContent).toBe('#all'));
-    expect(screen.getByTestId('search').textContent).toBe('?keep=1');
+    expect(screen.getByTestId('search').textContent).toBe('?keep=1&view=live');
   });
 
   it('Clear All also drops a finding and its department', async () => {
     renderPage('/knowledge-base?finding=raw_email&departmentId=3&status=set_aside&keep=1#qa_pair');
     fireEvent.click(await screen.findByRole('button', { name: /Clear All/ }));
     await waitFor(() => expect(screen.getByTestId('hash').textContent).toBe('#all'));
-    expect(screen.getByTestId('search').textContent).toBe('?keep=1');
+    expect(screen.getByTestId('search').textContent).toBe('?keep=1&view=live');
   });
 
   it('is not offered to someone who may not manage the knowledge base', async () => {

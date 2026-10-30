@@ -14,32 +14,37 @@ export const KB_FILTER_STATUSES: readonly KbFilterStatus[] = [
   'rejected',
   'all',
 ];
-/** What the Status filter calls each status — anything naming a status on this page uses these. */
+/**
+ * What the page calls each status — the agent words (KB engine §8). Anything naming a status on
+ * this page uses these. The URL values (the keys) stay as they are: old links and the API use them.
+ */
 export const KB_FILTER_STATUS_LABEL: Record<KbFilterStatus, string> = {
-  needs_decision: 'Needs your decision',
-  suggested_change: 'Suggested change',
-  set_aside: 'Set aside',
-  auto_removed: 'Removed automatically',
-  auto_changed: 'Changed automatically',
-  approved: 'Approved',
-  pending: 'Pending',
+  approved: 'Live',
+  pending: 'Not live yet',
+  needs_decision: 'Question for you',
+  suggested_change: 'Engine suggests a change',
+  set_aside: 'Skipped by the engine',
+  auto_removed: 'Removed by the engine',
+  auto_changed: 'Changed by the engine',
   hidden: 'Hidden',
-  rejected: 'Rejected',
-  all: 'All',
+  rejected: 'Turned down',
+  all: 'Everything',
 };
-/** The Restore button's title on a "Removed automatically" row. */
-export const RESTORE_AUTO_TITLE = 'Restore — puts the entry back as it was before it was removed';
+/** The Restore button's title on a "Removed by the engine" row. */
+export const RESTORE_AUTO_TITLE =
+  'Restore — puts the entry back as it was before the engine removed it';
 const TITLE: Partial<Record<KbFilterStatus, string>> = {
+  approved: 'Entries the AI may use in drafts.',
+  pending: 'Entries the AI does not use yet.',
   needs_decision: 'Saved answers waiting for a reviewer to approve or reject them.',
-  suggested_change:
-    'Entries the nightly review proposes to merge, add to a case, rewrite or remove.',
-  set_aside: 'Entries the cases report leaves out, with the reason.',
+  suggested_change: 'Entries the engine proposes to merge, add to a case, rewrite or remove.',
+  set_aside: 'Entries the engine leaves out of its cases, with the reason.',
   auto_removed:
-    'Entries the nightly automatic removal took out — Restore puts one back as it was, for 90 days.',
+    'Entries the engine removed at night — Restore puts one back as it was, for 90 days.',
   auto_changed:
-    'Everything the system did by itself in the last 90 days — removed, held, cleaned of customer details or approved. Each row has its own undo.',
+    'Everything the engine did by itself in the last 90 days — removed, held, cleaned of customer details or made live. Each row has its own undo.',
   rejected:
-    'Rejected by a reviewer or automatically — deleted 90 days after the reject; Approve restores one before then.',
+    'Turned down by a person or by the engine — deleted 90 days later; Approve restores one before then.',
 };
 
 /**
@@ -58,7 +63,7 @@ export const KbStatusFilter = ({
   autoChanged?: boolean | null;
 }) => (
   <div className="flex flex-col gap-2">
-    <span className="text-xs font-semibold text-muted-foreground">Status:</span>
+    <span className="text-xs font-semibold text-muted-foreground">Status</span>
     <div className="flex flex-wrap gap-1 w-fit">
       {KB_FILTER_STATUSES.filter((status) => {
         if (autoChanged === null && (status === 'auto_changed' || status === 'auto_removed'))

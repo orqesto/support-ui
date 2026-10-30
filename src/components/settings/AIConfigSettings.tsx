@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BrainCog, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AutoReplyConfiguration } from './AutoReplyConfiguration';
 import { AiDraftsSettings } from './AiDraftsSettings';
+import { DocumentationSettings } from './DocumentationSettings';
+import { ConfluenceCatalogSection } from '@/components/knowledge-base/ConfluenceCatalogSection';
 import { LeadQualificationSection } from './LeadQualificationSection';
 import { LearningNotificationsInbox } from './LearningNotificationsInbox';
 import { LearningEvidenceCard } from './LearningEvidenceCard';
@@ -26,6 +28,7 @@ type AISection =
   | 'lead-qualification'
   | 'learning'
   | 'automatic-actions'
+  | 'documentation'
   | 'learning-trust';
 
 type SectionDef = {
@@ -55,6 +58,9 @@ const ALL_SECTIONS: SectionDef[] = [
   // Was the page /knowledge-base/automatic (and a sidebar item) until 2026-10-22; that address
   // redirects here.
   { id: 'automatic-actions', label: 'Automatic actions', description: 'What the learning engine may change by itself — Off, Shadow or Automatic per action', needsKbAutoActions: true },
+  // Was the Knowledge Base page's Documentation tab until KB engine Stage 1;
+  // `/knowledge-base#documentation` redirects here.
+  { id: 'documentation', label: 'Documentation', description: 'Documents and Confluence pages the AI answers from' },
   { id: 'learning-trust', label: 'Learning Trust', description: 'Control how aggressively the engine auto-acts', adminOnly: true },
 ];
 
@@ -110,6 +116,11 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
     variant: 'success' | 'error' | 'warning' | 'info';
   }>({ open: false, title: '', description: '', variant: 'info' });
   const navigate = useNavigate();
+  // Shared KB revision: the Confluence catalog and the Documentation list are separate
+  // components over an overlapping doc set, so a mutation in one bumps this to make the
+  // other re-fetch (Process adds a doc → list refreshes; Remove/Delete → both refresh).
+  const [kbVersion, setKbVersion] = useState(0);
+  const bumpKb = useCallback(() => setKbVersion((version) => version + 1), []);
 
   useEffect(() => {
     apiClient
@@ -171,6 +182,12 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
           </div>
         )}
         {active === 'automatic-actions' && <KbAutoActionsPanel />}
+        {active === 'documentation' && (
+          <div className="space-y-6">
+            <ConfluenceCatalogSection refreshSignal={kbVersion} onKbChange={bumpKb} />
+            <DocumentationSettings refreshSignal={kbVersion} onKbChange={bumpKb} />
+          </div>
+        )}
         {active === 'learning-trust' && <LearningTrustSettings />}
         {active === 'lead-qualification' && (
           hasLeadQualification === false ? (
