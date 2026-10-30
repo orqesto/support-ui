@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { postOrGet } from '@/services/searchPost';
 import { isRouteAbsent } from '@/lib/apiError';
 import { KB_SET_ASIDE_REASONS, type KbSetAsideReason } from '@/services/kbConsolidation.service';
 
@@ -340,23 +341,37 @@ export const kbService = {
     finding?: KbFinding;
     departmentId?: number;
   }) => {
-    const queryParams = new URLSearchParams();
-    if (params?.type) queryParams.set('type', params.type);
-    if (params?.page) queryParams.set('page', params.page.toString());
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.search) queryParams.set('search', params.search);
-    if (params?.status) queryParams.set('status', params.status);
-    if (params?.messageSourceId) queryParams.set('messageSourceId', String(params.messageSourceId));
+    // The filters, the typed search among them, go in a POST body (searchPost.ts); a finding
+    // link keeps `finding` in the query string, where the backend reads it.
+    const filters: Record<string, string | number> = {};
+    if (params?.type) filters.type = params.type;
+    if (params?.page) filters.page = params.page;
+    if (params?.limit) filters.limit = params.limit;
+    if (params?.search) filters.search = params.search;
+    if (params?.status) filters.status = params.status;
+    if (params?.messageSourceId) filters.messageSourceId = String(params.messageSourceId);
+    const findingParams = new URLSearchParams();
     if (params?.finding && params.departmentId) {
-      queryParams.set('finding', params.finding);
-      queryParams.set('departmentId', params.departmentId.toString());
+      findingParams.set('finding', params.finding);
+      findingParams.set('departmentId', params.departmentId.toString());
     }
-
-    const queryString = queryParams.toString();
-    const response = await apiClient.get<PaginatedResponse<KBEntry>>(
-      `/api/knowledge-base/entries${queryString ? `?${queryString}` : ''}`
+    const findingQuery = findingParams.toString();
+    const body = await postOrGet(
+      'kb-entries',
+      () =>
+        apiClient.post<PaginatedResponse<KBEntry>>(
+          `/api/knowledge-base/entries/search${findingQuery ? `?${findingQuery}` : ''}`,
+          filters
+        ),
+      () => {
+        const queryParams = new URLSearchParams(findingParams);
+        for (const [key, value] of Object.entries(filters)) queryParams.set(key, String(value));
+        const queryString = queryParams.toString();
+        return apiClient.get<PaginatedResponse<KBEntry>>(
+          `/api/knowledge-base/entries${queryString ? `?${queryString}` : ''}`
+        );
+      }
     );
-    const body = response.data;
     if (!Array.isArray(body?.data?.entries)) return body;
     return {
       ...body,

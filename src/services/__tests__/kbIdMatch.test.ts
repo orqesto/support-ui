@@ -6,7 +6,7 @@ import { kbService } from '@/services/kb.service';
 describe('kbService.getAll idMatch', () => {
   afterEach(() => vi.restoreAllMocks());
   const answer = (extra: Record<string, unknown>) =>
-    vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
       data: {
         success: true,
         data: {
