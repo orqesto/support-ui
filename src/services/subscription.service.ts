@@ -390,12 +390,14 @@ const getPlanState = async (): Promise<{
   name?: string;
   displayName?: string;
   status?: string;
+  /** `'stripe'` when a live Stripe subscription (a card) runs this plan; `'local'` otherwise. */
+  cancellationRoute?: string;
 }> => {
   try {
     const res = await apiClient.get<{
       data?: {
         plan?: { name?: unknown; displayName?: unknown };
-        subscription?: { status?: unknown };
+        subscription?: { status?: unknown; cancellationRoute?: unknown };
       };
     }>('/api/subscriptions/current');
     const data = res.data?.data;
@@ -404,6 +406,7 @@ const getPlanState = async (): Promise<{
       name: text(data?.plan?.name),
       displayName: text(data?.plan?.displayName),
       status: text(data?.subscription?.status),
+      cancellationRoute: text(data?.subscription?.cancellationRoute),
     };
   } catch {
     return {};

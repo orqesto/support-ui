@@ -50,18 +50,46 @@ describe('initialWizardPlan', () => {
 });
 
 describe('channelRequiredToFinish', () => {
-  it('lets a workspace with no card (it ends its trial on Free) finish without a channel', () => {
+  const gate = (plan: Parameters<typeof channelRequiredToFinish>[0]['plan'], cardAdded = false) =>
+    channelRequiredToFinish({ billingEnabled: true, cardAdded, plan });
+
+  it('lets a trial with no card (it ends on Free) finish without a channel', () => {
     // Staging 2026-10-30: Free picked, Channels skipped → "Finish without a card" stayed
     // disabled with "connect a channel", although that step offered "Skip this step".
-    expect(channelRequiredToFinish(true, false)).toBe(false);
+    expect(gate({ name: 'free', status: 'trialing', cancellationRoute: 'local' })).toBe(false);
+    // A paid tier picked on the marketing site, no card: still ends on Free.
+    expect(gate({ name: 'pro', status: 'trialing', cancellationRoute: 'local' })).toBe(false);
   });
 
-  it('keeps the rule once a card is on file (a paid plan)', () => {
-    expect(channelRequiredToFinish(true, true)).toBe(true);
+  it('lets a workspace already on Free finish without a channel', () => {
+    expect(gate({ name: 'free', status: 'active', cancellationRoute: 'local' })).toBe(false);
+  });
+
+  it('keeps the rule on a paid plan', () => {
+    // A trial with a card (live Stripe subscription) converts to paid.
+    expect(gate({ name: 'pro', status: 'trialing', cancellationRoute: 'stripe' })).toBe(true);
+    // A paid plan assigned directly, no Stripe.
+    expect(gate({ name: 'pro', status: 'active', cancellationRoute: 'local' })).toBe(true);
+    // A card added in this session, before the plan read catches up.
+    expect(gate({ name: 'free', status: 'trialing', cancellationRoute: 'local' }, true)).toBe(true);
+  });
+
+  it('does not ask a workspace with no plan in force for a channel', () => {
+    // Its way forward is Free (the Database step blocks it until then), and a plan read
+    // taken before a move to Free must not keep blocking once it has moved.
+    expect(gate({ name: 'free', status: 'expired' })).toBe(false);
+    expect(gate({ status: 'none' })).toBe(false);
+  });
+
+  it('does not trap the user when the plan cannot be read', () => {
+    expect(gate(null)).toBe(false);
+    expect(gate({})).toBe(false);
   });
 
   it('keeps the rule where there is no billing, so no Free to fall back to', () => {
-    expect(channelRequiredToFinish(false, false)).toBe(true);
+    expect(channelRequiredToFinish({ billingEnabled: false, cardAdded: false, plan: null })).toBe(
+      true
+    );
   });
 });
 

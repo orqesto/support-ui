@@ -70,17 +70,47 @@ export const DEFAULT_WIZARD_PLAN = 'pro';
 export const initialWizardPlan = (selectedPlan: string | undefined): string =>
   selectedPlan && PAID_PLANS.includes(selectedPlan) ? selectedPlan : DEFAULT_WIZARD_PLAN;
 
+/** The plan facts the Finish gate reads (`subscriptionService.getPlanState`). */
+export interface WizardPlanState {
+  name?: string;
+  status?: string;
+  cancellationRoute?: string;
+}
+
+/**
+ * True on a paid plan: a live Stripe subscription (a card — a trial with one converts to
+ * paid), or a paid plan in force without one (assigned directly). A trial with no card
+ * drops to Free when it ends (trialExpirationService), so it is not paid.
+ */
+const isOnPaidPlan = (plan: WizardPlanState): boolean =>
+  plan.cancellationRoute === 'stripe' ||
+  ((plan.status === 'active' || plan.status === 'past_due') && plan.name !== FREE_PLAN);
+
 /**
  * Whether finishing the wizard needs a connected channel.
  *
- * A workspace without a card on file ends its trial on Free, and Free may finish setup
+ * Only a paid plan needs one. Free — or a trial that will end on Free — may finish setup
  * with no channel yet (owner, 2026-10-30): the Channels step says "Skip this step", and
  * refusing at the last step contradicted it. The header's "no message sources" warning
- * keeps prompting them afterwards. A card on file means a paid plan, which keeps the
- * rule — as does a deployment with no billing, which has no Free to fall back to.
+ * keeps prompting them afterwards. A deployment with no billing keeps the rule: it has no
+ * Free to fall back to.
+ *
+ * Only paid states require it, so a plan read that is stale after a move to Free cannot
+ * block, and an unreadable plan (`null`) never traps the user on the last step. A card
+ * added in this session counts at once, before the plan read catches up.
  */
-export const channelRequiredToFinish = (billingEnabled: boolean, cardAdded: boolean): boolean =>
-  !billingEnabled || cardAdded;
+export const channelRequiredToFinish = ({
+  billingEnabled,
+  cardAdded,
+  plan,
+}: {
+  billingEnabled: boolean;
+  cardAdded: boolean;
+  plan: WizardPlanState | null;
+}): boolean => {
+  if (!billingEnabled || cardAdded) return true;
+  return plan !== null && isOnPaidPlan(plan);
+};
 
 export const buildStepLabels = (includePayment: boolean): readonly string[] =>
   includePayment ? [...STEP_LABELS, PAYMENT_STEP_LABEL] : STEP_LABELS;

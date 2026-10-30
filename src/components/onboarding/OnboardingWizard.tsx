@@ -17,6 +17,7 @@ import {
   PAID_PLANS,
   shouldShowPaymentStep,
   channelRequiredToFinish,
+  type WizardPlanState,
 } from './wizardSteps';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -129,6 +130,19 @@ export const OnboardingWizard = () => {
   // "Start on Free" at the Database step: a workspace with no plan is blocked there, and the
   // Payment step (where the Free card lives) comes after it — so the way out must be here too.
   const [startingFree, setStartingFree] = useState(false);
+  // The workspace's plan, for the Finish gate: only a paid plan needs a channel. null until read.
+  const [planState, setPlanState] = useState<WizardPlanState | null>(null);
+  useEffect(() => {
+    if (!billingEnabled) return;
+    let cancelled = false;
+    // getPlanState never throws; an unreadable plan stays null and does not gate.
+    void subscriptionService.getPlanState().then((plan) => {
+      if (!cancelled) setPlanState(plan);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [billingEnabled]);
   const handleStartFree = async () => {
     setStartingFree(true);
     setExitError(null);
@@ -319,7 +333,9 @@ export const OnboardingWizard = () => {
 
   const missingAiChoice = !aiChoice;
   const missingChannel =
-    channelRequiredToFinish(showPaymentStep, cardAdded) && channelsKnown && !channelsConnected;
+    channelRequiredToFinish({ billingEnabled: showPaymentStep, cardAdded, plan: planState }) &&
+    channelsKnown &&
+    !channelsConnected;
   const readyToFinish = !missingAiChoice && !missingChannel && !missingDatabase;
 
   // Reconcile against what already exists, once, on mount.
