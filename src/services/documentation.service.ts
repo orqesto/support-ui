@@ -46,22 +46,6 @@ export type DocumentationStats = {
   totalReferences: number;
 };
 
-export type SearchResult = {
-  id: number;
-  documentationId: number;
-  organizationId: number;
-  chunkIndex: number;
-  content: string;
-  tokenCount: number;
-  embedding: number[];
-  timesReferenced: number;
-  lastReferencedAt: string | null;
-  createdAt: string;
-  metadata: unknown;
-  similarity: number;
-  documentTitle: string;
-};
-
 export type DocumentationProgress = {
   stage: 'extracting' | 'chunking' | 'embedding' | 'saving' | 'complete' | 'unknown';
   percentage: number;
@@ -142,14 +126,6 @@ const setDepartments = async (id: number, departmentIds: number[]): Promise<void
   await apiClient.put(`/api/documentation/${id}/departments`, { departmentIds });
 };
 
-const searchDocumentation = async (query: string, limit?: number): Promise<SearchResult[]> => {
-  const response = await apiClient.post<SearchResult[]>('/api/documentation/search', {
-    query,
-    limit,
-  });
-  return response.data;
-};
-
 const getStats = async (): Promise<DocumentationStats> => {
   const response = await apiClient.get<DocumentationStats>('/api/documentation/stats');
   return response.data;
@@ -176,6 +152,5 @@ export const documentationService = {
   deleteDocumentation,
   toggleEnabled,
   setDepartments,
-  searchDocumentation,
   getStats,
 };

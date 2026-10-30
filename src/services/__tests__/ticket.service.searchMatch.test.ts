@@ -1,8 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 const get = vi.fn<(...args: unknown[]) => Promise<unknown>>();
+// The list posts its filters (searchPost.ts); the same answer either way.
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { get: (...args: unknown[]): Promise<unknown> => get(...args) },
+  apiClient: {
+    get: (...args: unknown[]): Promise<unknown> => get(...args),
+    post: (...args: unknown[]): Promise<unknown> => get(...args),
+  },
 }));
 
 const { normalizeTicketSearchMatch, ticketService } = await import('../ticket.service');

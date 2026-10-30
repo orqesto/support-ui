@@ -32,6 +32,7 @@ import { RESTORE_AUTO_TITLE } from './KbStatusFilter';
 import { KbAutoChangeKind, KbAutoUndoButton } from './KbAutoUndoButton';
 import { autoUndoOf, type KbAutoRestore } from './useKbAutoRestore';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
+import { Highlight } from '@/components/ui/Highlight';
 
 const getTypeIcon = (type: string) => {
   switch (type) {
@@ -71,6 +72,8 @@ type KBTableViewProps = {
   onReviewDecision?: (decision: KbPendingDecision) => void;
   /** Under "Removed automatically": a removed row's Restore undoes the automatic removal. */
   autoRestore?: KbAutoRestore;
+  /** The typed search's words (the list's `search.terms`), marked in the title and preview. */
+  searchTerms?: string[];
   /** Bulk selection: a leading checkbox column, only on rows `selectable` accepts. */
   selection?: {
     selected: ReadonlySet<number>;
@@ -92,6 +95,7 @@ export const KBTableView = ({
   onUnmerge,
   onReviewDecision,
   autoRestore,
+  searchTerms,
   selection,
 }: KBTableViewProps) => {
   // Teams off: no Team column (its badges are hidden).
@@ -173,9 +177,11 @@ export const KBTableView = ({
                     <span className="mr-2 font-mono text-xs text-muted-foreground">
                       {kbRef(entry.publicId, entry.id)}
                     </span>
-                    {entry.title}
+                    <Highlight text={entry.title} terms={searchTerms} mode="anywhere" />
                   </div>
-                  <div className="text-sm text-muted-foreground line-clamp-1">{entry.content}</div>
+                  <div className="text-sm text-muted-foreground line-clamp-1">
+                    <Highlight text={entry.content} terms={searchTerms} mode="anywhere" />
+                  </div>
                   <div className="mt-1">
                     <KbAutoChangeKind entry={entry} autoRestore={autoRestore} />
                   </div>

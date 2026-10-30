@@ -46,13 +46,6 @@ export type ContactListResponse = {
 };
 
 export const contactService = {
-  getList: async (search?: string, page = 1, limit = 50): Promise<ContactListResponse> => {
-    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-    if (search?.trim()) params.set('search', search.trim());
-    const res = await apiClient.get<ContactListResponse>(`/api/contacts?${params.toString()}`);
-    return res.data;
-  },
-
   /** CA-6: the records page is keyed on the contact ID in its URL, not on an email. */
   getById: async (id: number): Promise<ContactProfile> => {
     const res = await apiClient.get<ApiResponse<ContactProfile>>(`/api/contacts/${id}`);

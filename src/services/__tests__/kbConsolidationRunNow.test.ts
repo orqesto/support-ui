@@ -10,6 +10,7 @@ import type * as ApiClientModule from '@/lib/api-client';
 let getImpl: (url: string) => Promise<unknown> = () => Promise.resolve({ data: { data: {} } });
 const getUrls: string[] = [];
 let postImpl: () => Promise<unknown> = () => Promise.resolve({ data: { data: {} } });
+const postUrls: string[] = [];
 
 // Errors go through the REAL response interceptor, as in the app: it rejects with a plain Error
 // carrying `status`/`data`, not the AxiosError the transport raised (audit pass 3, HIGH-1/2).
@@ -22,7 +23,10 @@ vi.mock('@/lib/api-client', async (importOriginal) => {
         getUrls.push(url);
         return getImpl(url).catch((err: unknown) => actual.handleResponseError(err));
       },
-      post: () => postImpl().catch((err: unknown) => actual.handleResponseError(err)),
+      post: (url: string) => {
+        postUrls.push(url);
+        return postImpl().catch((err: unknown) => actual.handleResponseError(err));
+      },
     },
   };
 });
@@ -41,6 +45,7 @@ const httpError = (status: number, data: unknown) =>
 
 beforeEach(() => {
   getUrls.length = 0;
+  postUrls.length = 0;
   getImpl = () => Promise.resolve({ data: { data: {} } });
   postImpl = () => Promise.resolve({ data: { data: {} } });
 });
@@ -132,16 +137,17 @@ describe('kbConsolidationService run now', () => {
 
 describe('kbService.getAll with a finding', () => {
   it('sends the finding together with its department', async () => {
-    getImpl = () => Promise.resolve({ data: { data: { entries: [], pagination: {} } } });
+    postImpl = () => Promise.resolve({ data: { data: { entries: [], pagination: {} } } });
     await kbService.getAll({ type: 'qa_pair', finding: 'raw_email', departmentId: 3 });
-    const query = new URLSearchParams(getUrls[0].split('?')[1]);
+    // The finding stays in the query string, where the backend reads it; the filters go in the body.
+    const query = new URLSearchParams(postUrls[0].split('?')[1]);
     expect(query.get('finding')).toBe('raw_email');
     expect(query.get('departmentId')).toBe('3');
   });
 
   it('a finding without a department is not sent (the backend would refuse it)', async () => {
-    getImpl = () => Promise.resolve({ data: { data: { entries: [], pagination: {} } } });
+    postImpl = () => Promise.resolve({ data: { data: { entries: [], pagination: {} } } });
     await kbService.getAll({ type: 'qa_pair', finding: 'raw_email' });
-    expect(getUrls[0]).not.toContain('finding=');
+    expect(postUrls[0]).not.toContain('finding=');
   });
 });

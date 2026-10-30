@@ -75,6 +75,8 @@ export const KnowledgeBasePage = () => {
   const [loading, setLoading] = useState(true);
   // The entry the search names by number ("KB-134"), for the hint when this view's filters hide it.
   const [idMatch, setIdMatch] = useState<KbIdMatch | null>(null);
+  // The words the list marks: the search as the backend read it (absent on an older backend).
+  const [searchTerms, setSearchTerms] = useState<string[] | undefined>(undefined);
   // Whether the server applied the requested status (an older one echoes a new one, unapplied).
   const [appliedStatus, setAppliedStatus] = useState<{
     requested: KbFilterStatus;
@@ -154,6 +156,9 @@ export const KnowledgeBasePage = () => {
         if (!response) return; // overtaken by a newer request
         setEntries(response.data.entries);
         setIdMatch(response.data.idMatch ?? null);
+        setSearchTerms(
+          Array.isArray(response.data.search?.terms) ? response.data.search.terms : undefined
+        );
         setPagination(response.data.pagination);
         setAppliedStatus({
           requested: filterStatus,
@@ -630,6 +635,7 @@ export const KnowledgeBasePage = () => {
                     onUnmerge={handleUnmerge}
                     onReviewDecision={setDecision}
                     autoRestore={autoRestore}
+                    searchTerms={searchTerms}
                   />
                 ))
               )}
@@ -651,6 +657,7 @@ export const KnowledgeBasePage = () => {
               onUnmerge={handleUnmerge}
               onReviewDecision={setDecision}
               autoRestore={autoRestore}
+              searchTerms={searchTerms}
               selection={bulkMode ? bulk : undefined}
             />
 

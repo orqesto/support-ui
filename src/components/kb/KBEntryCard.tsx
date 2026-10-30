@@ -30,6 +30,7 @@ import {
 import { RESTORE_AUTO_TITLE } from './KbStatusFilter';
 import { KbAutoChangeKind, KbAutoUndoButton } from './KbAutoUndoButton';
 import { autoUndoOf, type KbAutoRestore } from './useKbAutoRestore';
+import { Highlight } from '@/components/ui/Highlight';
 
 const getTypeIcon = (type: string) => {
   switch (type) {
@@ -68,6 +69,8 @@ type KBEntryCardProps = {
   onReviewDecision?: (decision: KbPendingDecision) => void;
   /** Under "Removed automatically": a removed row's Restore undoes the automatic removal. */
   autoRestore?: KbAutoRestore;
+  /** The typed search's words (the list's `search.terms`), marked in the title and preview. */
+  searchTerms?: string[];
 };
 
 export const KBEntryCard = ({
@@ -82,6 +85,7 @@ export const KBEntryCard = ({
   onUnmerge,
   onReviewDecision,
   autoRestore,
+  searchTerms,
 }: KBEntryCardProps) => (
   <Card className="p-4">
     <div className="flex gap-3">
@@ -92,7 +96,9 @@ export const KBEntryCard = ({
       <div className="flex-1 min-w-0">
         {/* Header */}
         <div className="flex items-start justify-between gap-2 mb-2">
-          <h3 className="font-display font-medium text-sm truncate">{entry.title}</h3>
+          <h3 className="font-display font-medium text-sm truncate">
+            <Highlight text={entry.title} terms={searchTerms} mode="anywhere" />
+          </h3>
           {/* Approving an entry makes it retrievable ground truth for future AI
               answers, so a reviewer must be told when the "expert answer" they
               are about to bless was written by the model rather than a colleague. */}
@@ -119,7 +125,9 @@ export const KBEntryCard = ({
         </div>
 
         {/* Preview */}
-        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{entry.content}</p>
+        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+          <Highlight text={entry.content} terms={searchTerms} mode="anywhere" />
+        </p>
 
         {/* Metadata */}
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mb-3">

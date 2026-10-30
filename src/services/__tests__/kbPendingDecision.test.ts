@@ -52,7 +52,7 @@ describe('normaliseSetAsideReason', () => {
 describe('kbService.getAll filters.decisionStatuses', () => {
   afterEach(() => vi.restoreAllMocks());
   const answer = (filters: Record<string, unknown>) =>
-    vi.spyOn(apiClient, 'get').mockResolvedValueOnce({
+    vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
       data: {
         success: true,
         data: {

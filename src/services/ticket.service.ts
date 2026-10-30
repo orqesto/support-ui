@@ -11,6 +11,7 @@ import type {
 import type { TicketListItem, TicketDetail } from '@/types/api';
 import type { TicketSortBy } from '@/stores/ticketsStore';
 import { normalizeSearchReading, type SearchReading } from '@/services/message.service';
+import { postOrGet } from '@/services/searchPost';
 
 export type PaginationMeta = {
   page: number;
@@ -107,10 +108,12 @@ export const ticketService = {
       limit: limit.toString(),
     });
 
-    const response = await apiClient.get<MetadataResponse>(
-      `/api/tickets/metadata?${params.toString()}`
+    // The filters, a typed search among them, in a POST body (searchPost.ts).
+    return postOrGet<MetadataResponse>(
+      'ticketMetadata',
+      () => apiClient.post<MetadataResponse>('/api/tickets/metadata/search', Object.fromEntries(params)),
+      () => apiClient.get<MetadataResponse>(`/api/tickets/metadata?${params.toString()}`)
     );
-    return response.data;
   },
 
   getAll: async (
@@ -133,9 +136,21 @@ export const ticketService = {
       params.append('sortOrder', sortOrder);
     }
 
-    const response = await apiClient.get<
-      PaginatedResponse<TicketListItem[]> & { search?: unknown }
-    >(`/api/tickets?${params.toString()}`);
+    // The filters, a typed search among them, in a POST body (searchPost.ts).
+    const response = {
+      data: await postOrGet<PaginatedResponse<TicketListItem[]> & { search?: unknown }>(
+        'tickets',
+        () =>
+          apiClient.post<PaginatedResponse<TicketListItem[]> & { search?: unknown }>(
+            '/api/tickets/search',
+            Object.fromEntries(params)
+          ),
+        () =>
+          apiClient.get<PaginatedResponse<TicketListItem[]> & { search?: unknown }>(
+            `/api/tickets?${params.toString()}`
+          )
+      ),
+    };
     // `search`: how a typed search was read (null when none; absent from an older backend).
     return {
       ...response.data,
