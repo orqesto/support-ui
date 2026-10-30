@@ -86,7 +86,8 @@ const isOnPaidPlan = (plan: WizardPlanState): boolean => {
   // Only a plan in force can be paid. `cancellationRoute: 'stripe'` means a Stripe id is STORED,
   // and a lapsed subscription keeps its dead id — so it counts only while the status is live.
   const live = plan.status === 'trialing' || plan.status === 'active' || plan.status === 'past_due';
-  if (!live) return false;
+  // The internal admin plan is god mode (owner, 2026-10-30): it allows everything, this included.
+  if (!live || plan.name === 'admin') return false;
   return (
     plan.cancellationRoute === 'stripe' || (plan.status !== 'trialing' && plan.name !== FREE_PLAN)
   );
@@ -98,8 +99,8 @@ const isOnPaidPlan = (plan: WizardPlanState): boolean => {
  * Only a paid plan needs one. Free — or a trial that will end on Free — may finish setup
  * with no channel yet (owner, 2026-10-30): the Channels step says "Skip this step", and
  * refusing at the last step contradicted it. The header's "no message sources" warning
- * keeps prompting them afterwards. A deployment with no billing keeps the rule: it has no
- * Free to fall back to.
+ * keeps prompting them afterwards. The internal admin plan and a deployment with no billing
+ * (self-hosted) allow everything (owner, 2026-10-30), so neither needs one either.
  *
  * Only paid states require it, so a plan read that is stale after a move to Free cannot
  * block, and an unreadable plan (`null`) never traps the user on the last step. A card
@@ -114,7 +115,8 @@ export const channelRequiredToFinish = ({
   cardAdded: boolean;
   plan: WizardPlanState | null;
 }): boolean => {
-  if (!billingEnabled || cardAdded) return true;
+  if (!billingEnabled) return false;
+  if (cardAdded) return true;
   return plan !== null && isOnPaidPlan(plan);
 };
 

@@ -93,10 +93,18 @@ describe('channelRequiredToFinish', () => {
     expect(gate({})).toBe(false);
   });
 
-  it('keeps the rule where there is no billing, so no Free to fall back to', () => {
+  it('a deployment with no billing (self-hosted) allows finishing without a channel', () => {
+    // Owner 2026-10-30: self-hosted / god mode allows everything.
     expect(channelRequiredToFinish({ billingEnabled: false, cardAdded: false, plan: null })).toBe(
-      true
+      false
     );
+    expect(channelRequiredToFinish({ billingEnabled: false, cardAdded: true, plan: null })).toBe(
+      false
+    );
+  });
+
+  it('the internal admin plan (god mode) never needs a channel', () => {
+    expect(gate({ name: 'admin', status: 'active', cancellationRoute: 'local' })).toBe(false);
   });
 });
 
