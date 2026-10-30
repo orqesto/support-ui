@@ -10,6 +10,7 @@ import {
   MessageSquareReply,
   AtSign,
   Hash,
+  PauseCircle,
   RefreshCw,
 } from 'lucide-react';
 import { AckReplyEditor } from '@/components/settings/integrations/AckReplyEditor';
@@ -21,12 +22,14 @@ import {
   declaredAliases,
 } from '@/components/settings/integrations/SourceAliasEditor';
 import { SourceMenuItem } from '@/components/settings/integrations/SourceMenuItem';
+import { PauseSyncDialog, type PauseTarget } from '@/components/settings/integrations/PauseSyncDialog';
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
 import { SourceKbStrip } from '@/components/settings/integrations/SourceKbStrip';
 import { SourceRowBadges } from '@/components/settings/integrations/SourceRowBadges';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
 import { detectBrowser, getPopupUnblockInstructions } from '@/lib/browserDetect';
@@ -73,8 +76,8 @@ export const GmailIntegrationCard = ({
 
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
+  const [pauseTarget, setPauseTarget] = useState<PauseTarget | null>(null);
   const [pollingPagesInput, setPollingPagesInput] = useState<string>('50');
   const [maxResultsInput, setMaxResultsInput] = useState<string>('500');
   const [editBulkImport, setEditBulkImport] = useState<{
@@ -329,7 +332,6 @@ export const GmailIntegrationCard = ({
     if (!deleteConfirm) return;
 
     const { id, name } = deleteConfirm;
-    setDeleting(id);
     setDeleteConfirm(null);
 
     try {
@@ -352,8 +354,6 @@ export const GmailIntegrationCard = ({
         description: `Failed to delete ${name}. Check console for details.`,
         variant: 'error',
       });
-    } finally {
-      setDeleting(null);
     }
   };
 
@@ -506,6 +506,9 @@ export const GmailIntegrationCard = ({
                                   label="Auto-reply Template"
                                   onClick={() => { setEditAckReply(integration.id); setShowMenu(null); }}
                                 />
+                                {integration.enabled && (
+                                  <SourceMenuItem icon={PauseCircle} label="Pause syncing" onClick={() => { setPauseTarget({ id: integration.id, name: integration.name }); setShowMenu(null); }} />
+                                )}
                                 <Button
                                   variant="ghost"
                                   className="flex justify-start items-center px-3 py-2 w-full h-auto text-sm text-destructive hover:bg-accent"
@@ -660,6 +663,7 @@ export const GmailIntegrationCard = ({
             </p>
           )}
 
+          <PauseSyncDialog target={pauseTarget} onClose={() => setPauseTarget(null)} onPaused={onRefresh} onShowAlert={onShowAlert} />
           {/* Initial Sync Range Edit Modal */}
           {editBulkImport && (
             <GmailSyncRangeDialog
@@ -672,33 +676,14 @@ export const GmailIntegrationCard = ({
         </CardContent>
       </Card>
 
-      {deleteConfirm && (
-        <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
-          <div className="p-6 mx-4 w-full max-w-md rounded-lg shadow-xl bg-card">
-            <h3 className="font-display mb-2 text-lg font-semibold">Delete Integration?</h3>
-            <p className="mb-4 text-muted-foreground">
-              Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?
-            </p>
-            <p className="mb-6 text-sm text-destructive">This action cannot be undone.</p>
-            <div className="flex gap-3 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setDeleteConfirm(null)}
-                disabled={deleting === deleteConfirm.id}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDelete}
-                isLoading={deleting === deleteConfirm.id}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={deleteConfirm !== null}
+        onOpenChange={(open) => { if (!open) setDeleteConfirm(null); }}
+        onConfirm={() => void handleDelete()}
+        title="Delete Integration?"
+        description={`Are you sure you want to delete ${deleteConfirm?.name ?? 'this mailbox'}? This action cannot be undone.`}
+        confirmText="Delete"
+      />
     </>
   );
 };

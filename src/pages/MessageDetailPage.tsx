@@ -246,6 +246,7 @@ export const MessageDetailPage = () => {
               }}
               onReadChanged={() => fetchMessage(message.id)}
               onRefresh={() => fetchMessage(message.id)}
+              onStatusChanged={() => fetchMessage(message.id)}
               onApprove={handleApprove}
               onClassify={handleClassify}
               onReject={() => fetchMessage(message.id)}

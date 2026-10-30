@@ -52,6 +52,7 @@ import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useThreadMessageRefresh } from '@/hooks/useThreadMessageRefresh';
+import { useConversationStatusRefresh } from '@/hooks/useConversationStatusRefresh';
 import { useIsPhone } from './useIsPhone';
 import { Permission } from '@/types/roles';
 import { ThreadMessageItem } from './ThreadMessageItem';
@@ -124,6 +125,11 @@ export type MessageDetailProps = {
   onDelete?: () => void;
   onResolve?: () => void;
   onRefresh?: () => void;
+  /**
+   * Re-read THIS conversation after the backend changed its status on its own (a customer reply
+   * reopened it). Light on purpose — not onRefresh (useConversationStatusRefresh).
+   */
+  onStatusChanged?: () => void;
   /** Fired after the per-user read/unread state changes, so the board can refresh
    *  the triage unread indicator without closing the detail. */
   onReadChanged?: () => void;
@@ -166,6 +172,7 @@ export function MessageDetail({
   onDelete,
   onResolve,
   onRefresh,
+  onStatusChanged,
   onReadChanged,
   onRegisterRequestClose,
   isFullPage: isFullPageProp,
@@ -389,6 +396,8 @@ export function MessageDetail({
   // column — per message, for every agent with the thread open. The list already refreshes on
   // its own (`conversation:new`, coalesced).
   useThreadMessageRefresh(message.id, () => setThreadRefreshKey((key) => key + 1));
+  // The backend moved this thread's status (a customer reply reopened it): re-read the header.
+  useConversationStatusRefresh(message.id, onStatusChanged);
 
   // ── Real-time reply events ─────────────────────────────────────────────────
   useEffect(() => {
