@@ -1,5 +1,4 @@
 import { apiClient } from '@/lib/api-client';
-import { getErrorStatus } from '@/lib/errorMessages';
 import { PAGINATION } from '@/lib/constants';
 import type {
   Ticket,
@@ -11,7 +10,7 @@ import type {
 import type { TicketListItem, TicketDetail } from '@/types/api';
 import type { TicketSortBy } from '@/stores/ticketsStore';
 import { normalizeSearchReading, type SearchReading } from '@/services/message.service';
-import { postOrGet } from '@/services/searchPost';
+import { postOrGet, routeIsMissing } from '@/services/searchPost';
 
 export type PaginationMeta = {
   page: number;
@@ -67,14 +66,14 @@ export const fetchTicketViewCounts = async (
   try {
     const response = await apiClient.post<{ success: boolean; data: { counts: TicketViewCounts } }>(
       '/api/tickets/counts',
-      { views }
+      { views },
+      { readOnly: true }
     );
     viewCountsSupported = true;
     // Tolerate a differently shaped answer: no counts yet beats a crashed tab row.
     return response.data?.data?.counts ?? {};
   } catch (err) {
-    const status = getErrorStatus(err);
-    if (status !== 404 && status !== 405) throw err;
+    if (!routeIsMissing(err)) throw err;
     viewCountsSupported = false;
     return null;
   }
@@ -111,7 +110,10 @@ export const ticketService = {
     // The filters, a typed search among them, in a POST body (searchPost.ts).
     return postOrGet<MetadataResponse>(
       'ticketMetadata',
-      () => apiClient.post<MetadataResponse>('/api/tickets/metadata/search', Object.fromEntries(params)),
+      () =>
+        apiClient.post<MetadataResponse>('/api/tickets/metadata/search', Object.fromEntries(params), {
+          readOnly: true,
+        }),
       () => apiClient.get<MetadataResponse>(`/api/tickets/metadata?${params.toString()}`)
     );
   },
@@ -143,7 +145,8 @@ export const ticketService = {
         () =>
           apiClient.post<PaginatedResponse<TicketListItem[]> & { search?: unknown }>(
             '/api/tickets/search',
-            Object.fromEntries(params)
+            Object.fromEntries(params),
+            { readOnly: true }
           ),
         () =>
           apiClient.get<PaginatedResponse<TicketListItem[]> & { search?: unknown }>(

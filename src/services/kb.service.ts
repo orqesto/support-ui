@@ -361,7 +361,8 @@ export const kbService = {
       () =>
         apiClient.post<PaginatedResponse<KBEntry>>(
           `/api/knowledge-base/entries/search${findingQuery ? `?${findingQuery}` : ''}`,
-          filters
+          filters,
+          { readOnly: true }
         ),
       () => {
         const queryParams = new URLSearchParams(findingParams);

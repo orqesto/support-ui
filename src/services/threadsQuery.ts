@@ -9,7 +9,7 @@
  * is in none of those.
  */
 import { apiClient } from '@/lib/api-client';
-import { getErrorStatus } from '@/lib/errorMessages';
+import { routeIsMissing } from '@/services/searchPost';
 
 /**
  * Whether this backend has `POST /api/messages/threads/search`.
@@ -54,7 +54,7 @@ export const fetchThreads = async <T>({
           ...(sortOrder ? { sortOrder } : {}),
           ...(sortBy !== 'time' ? { sortBy } : {}),
         },
-        { signal }
+        { signal, readOnly: true }
       );
       threadsSearchSupported = true;
       return response.data;
@@ -62,8 +62,7 @@ export const fetchThreads = async <T>({
       // Only a MISSING route falls back. Anything else — a 400, a 500, a dropped
       // connection — is a real failure and must surface, or a broken query quietly
       // reruns as a different one and the agent is shown a plausible wrong list.
-      const status = getErrorStatus(err);
-      if (status !== 404 && status !== 405) throw err;
+      if (!routeIsMissing(err)) throw err;
       threadsSearchSupported = false;
     }
   }
@@ -126,13 +125,12 @@ export type ThreadBoardRequest = {
 export const fetchThreadBoard = async <T>(request: ThreadBoardRequest): Promise<T | null> => {
   if (threadBoardSupported === false) return null;
   try {
-    const response = await apiClient.post<T>('/api/messages/threads/board', request);
+    const response = await apiClient.post<T>('/api/messages/threads/board', request, { readOnly: true });
     threadBoardSupported = true;
     return response.data;
   } catch (err) {
     // Only a MISSING route falls back; anything else is a real failure (see fetchThreads).
-    const status = getErrorStatus(err);
-    if (status !== 404 && status !== 405) throw err;
+    if (!routeIsMissing(err)) throw err;
     threadBoardSupported = false;
     return null;
   }
