@@ -70,6 +70,15 @@ describe('handleResponseError on a 429', () => {
     expect(request).not.toHaveBeenCalled();
   });
 
+  it('a POST marked readOnly (a searched list, filters in its body) is retried like a GET', async () => {
+    const request = vi.spyOn(api.apiClient, 'request').mockResolvedValue({ data: 'later' });
+    const config = { method: 'post', url: '/api/tickets/search', readOnly: true };
+    const outcome = api.handleResponseError(limited(config, 1));
+    await vi.advanceTimersByTimeAsync(1_000);
+    await expect(outcome).resolves.toEqual({ data: 'later' });
+    expect(request).toHaveBeenCalledWith(expect.objectContaining({ url: '/api/tickets/search' }));
+  });
+
   it('a write is never replayed', async () => {
     const request = vi.spyOn(api.apiClient, 'request').mockResolvedValue({ data: 'later' });
     const outcome = api

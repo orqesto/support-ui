@@ -549,7 +549,8 @@ export const messageService = {
       () =>
         apiClient.post<PaginatedResponse<MessageListItem[]>>(
           '/api/messages/search',
-          Object.fromEntries(params)
+          Object.fromEntries(params),
+          { readOnly: true }
         ),
       () =>
         apiClient.get<PaginatedResponse<MessageListItem[]>>(`/api/messages?${params.toString()}`)
@@ -1249,7 +1250,8 @@ export const messageService = {
       () =>
         apiClient.post<PaginatedResponse<MessageContact[]>>(
           '/api/messages/contacts/search',
-          Object.fromEntries(params)
+          Object.fromEntries(params),
+          { readOnly: true }
         ),
       () =>
         apiClient.get<PaginatedResponse<MessageContact[]>>(

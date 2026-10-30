@@ -32,6 +32,12 @@ declare module 'axios' {
      * keeps the scope rules below.
      */
     organizationContext?: number;
+    /**
+     * A POST that only READS — a list or count whose filters travel in the body (searchPost.ts,
+     * the threads list, the board, ticket counts). A 429 retries it as it does a GET: replaying it
+     * changes nothing. Never set on a write.
+     */
+    readOnly?: boolean;
   }
 }
 
@@ -314,7 +320,8 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
 
   // 429 = the API limiter (1,000 requests a minute per address). A read that was refused is
   // retried ONCE, after the wait the server named, when that wait is short: a limiter window
-  // ends, and a list or a thread that asked a second too early should not stay empty for it.
+  // ends, and a list or a thread that asked a second too early should not stay empty for it. A
+  // read is a GET or a POST marked `readOnly` (the searched lists send their filters in a body).
   // Writes are never replayed — the user chooses to send again — and a retry that is refused
   // again is handed back as the error it is.
   if (isAxiosError(error) && error.response?.status === 429) {
@@ -322,7 +329,7 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
     const waitMs = rateLimitRetryAfterMs(error.response.data);
     if (
       original &&
-      (original.method ?? 'get').toLowerCase() === 'get' &&
+      ((original.method ?? 'get').toLowerCase() === 'get' || original.readOnly === true) &&
       !original._rateLimitRetry &&
       waitMs !== null
     ) {

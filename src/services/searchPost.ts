@@ -9,14 +9,31 @@
  * the backend ships on a tag, so a backend without the route falls back to the GET — on a 404
  * or 405 only; any other failure is a real one and surfaces.
  */
+import { isRouteAbsent } from '@/lib/apiError';
 import { getErrorStatus } from '@/lib/errorMessages';
+
+/**
+ * The backend has no such route: Express's own 404 page (not a JSON "not found" from a route that
+ * exists — `Workspace not found` is one) or a 405. Only this falls back to the GET; a 404 from a
+ * route that exists latched every later search of the page onto the GET, back in the request line
+ * (review of #774).
+ */
+export const routeIsMissing = (err: unknown): boolean =>
+  isRouteAbsent(err) || getErrorStatus(err) === 405;
 
 /** Per POST path: null until tried, then latched for this page load (a deploy reloads it). */
 const supported = new Map<string, boolean>();
+/**
+ * The first POST of a path while its support is unknown. Calls made meanwhile (the board's
+ * columns, the tickets list and its counts — sent together) wait for it instead of each trying
+ * the POST: against a backend without the route every one of them paid a 404 and then the GET.
+ */
+const probing = new Map<string, Promise<unknown>>();
 
 /** Test seam — module state, so a suite can start clean. */
 export const resetSearchPostSupport = (): void => {
   supported.clear();
+  probing.clear();
 };
 
 /**
@@ -29,15 +46,21 @@ export const postOrGet = async <T>(
   post: () => Promise<{ data: T }>,
   get: () => Promise<{ data: T }>
 ): Promise<T> => {
+  const pending = probing.get(route);
+  if (pending) await pending.catch(() => undefined);
   if (supported.get(route) !== false) {
+    const attempt = post();
+    const probe = !supported.has(route);
+    if (probe) probing.set(route, attempt);
     try {
-      const response = await post();
+      const response = await attempt;
       supported.set(route, true);
       return response.data;
     } catch (err) {
-      const status = getErrorStatus(err);
-      if (status !== 404 && status !== 405) throw err;
+      if (!routeIsMissing(err)) throw err;
       supported.set(route, false);
+    } finally {
+      if (probe && probing.get(route) === attempt) probing.delete(route);
     }
   }
   return (await get()).data;
