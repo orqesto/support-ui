@@ -32,7 +32,7 @@ import { useAiRefusalText } from '@/components/subscription/useAiRefusalText';
 import { useMessagesStore } from '@/stores/messagesStore';
 import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Message, Category, TicketPriority, ApiResponse } from '@/types';
-import RichTextEditor from '@/components/shared/RichTextEditor';
+import RichTextEditor from '@/components/shared/LazyRichTextEditor';
 import { logger } from '@/lib/logger';
 
 /** The text of the editor's HTML, to tell an empty description from a written one. */

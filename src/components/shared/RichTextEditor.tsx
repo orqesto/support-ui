@@ -20,8 +20,9 @@ import { editorExtensions } from '@/lib/editorSchema';
 import { shieldPlaceholders } from '@/lib/replyPlaceholders';
 import { cn } from '@/lib/utils';
 import { TranslateButton } from './TranslateButton';
+import { extractImageFiles } from './extractImageFiles';
 
-type RichTextEditorProps = {
+export type RichTextEditorProps = {
   content?: string;
   onChange?: (html: string) => void;
   onSubmit?: () => void;
@@ -52,26 +53,7 @@ type RichTextEditorProps = {
   locked?: boolean;
 };
 
-// Pull image files out of a clipboard/drag DataTransfer. Covers both dropped/
-// pasted File objects and clipboard `items` (how screenshots arrive on paste).
-export const extractImageFiles = (dt: DataTransfer | null): File[] => {
-  if (!dt) return [];
-  const out: File[] = [];
-  if (dt.files && dt.files.length) {
-    for (const file of Array.from(dt.files)) {
-      if (file.type.startsWith('image/')) out.push(file);
-    }
-  }
-  if (!out.length && dt.items) {
-    for (const item of Array.from(dt.items)) {
-      if (item.kind === 'file' && item.type.startsWith('image/')) {
-        const file = item.getAsFile();
-        if (file) out.push(file);
-      }
-    }
-  }
-  return out;
-};
+export { extractImageFiles };
 
 export type RichTextEditorHandle = {
   /** `'end'` puts the caret after the last character (text just appended); omitted, unchanged. */

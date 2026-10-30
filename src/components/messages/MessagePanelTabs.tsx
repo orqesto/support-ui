@@ -24,7 +24,7 @@ import type { LeadQualificationFieldConfig } from '@/services/organization.servi
 import type { Message, MessageEvent } from '@/types';
 import { logger } from '@/lib/logger';
 import { contactLookupKey } from '@/lib/messageHelpers';
-import RichTextEditor from '@/components/shared/RichTextEditor';
+import RichTextEditor from '@/components/shared/LazyRichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import DOMPurify from 'dompurify';
 import { LABEL, PHONE_CONTACT, relativeTime, type PanelTab } from './messageDetailConstants';

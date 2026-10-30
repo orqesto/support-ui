@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff, useRefreshAiDrafts } from '@/hooks/useAiDraftsOff';
-import { normalizeEditorHtml } from '@/lib/editorSchema';
 import { editorHtmlToText } from '@/lib/editorText';
 import { logger } from '@/lib/logger';
 import {
@@ -101,6 +100,8 @@ export function ComposeNewAiDraft({
     setBusyAndReport(true);
     try {
       const response = await messageService.composePolish(before);
+      // Loaded with the editor, not with the inbox (LazyRichTextEditor) — cached by now.
+      const { normalizeEditorHtml } = await import('@/lib/editorSchema');
       if (!mounted.current) return;
       const drafted = response.data?.text;
       if (!drafted) {

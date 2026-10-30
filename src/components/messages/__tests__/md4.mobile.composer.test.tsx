@@ -17,7 +17,7 @@ import {
   baseMessage,
 } from './md4.mobile.utils';
 import { createRef } from 'react';
-import { render, screen, cleanup, fireEvent, within, act } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, within, act, waitFor } from '@testing-library/react';
 import type { Message } from '@/types';
 import { MessageComposer } from '../MessageComposer';
 
@@ -352,9 +352,9 @@ describe('M7 — AI draft on a phone', () => {
       tap(screen.getByTestId('rich-text-editor'));
       expect(phoneState()).toBe('open');
       tap(within(composer()).getByRole('button', { name: /AI draft/ }));
-      await act(async () => {});
       const editor = () => screen.getByTestId<HTMLTextAreaElement>('rich-text-editor');
-      expect(editor().value).toContain('Your parcel ships today.');
+      // The editor schema is imported when the draft lands (LazyRichTextEditor), a few ticks later.
+      await waitFor(() => expect(editor().value).toContain('Your parcel ships today.'));
       tap(document.body);
       expect(phoneState()).toBe('open');
       expect(editor().value).toContain('Your parcel ships today.');

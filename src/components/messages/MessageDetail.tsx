@@ -27,6 +27,7 @@ import {
   unsubscribeFromEvent,
 } from '@/lib/socketManager';
 import { apiClient } from '@/lib/api-client';
+import { forgetOwnSend, isOwnSendEcho, rememberOwnSend } from '@/lib/ownSends';
 import { useAuthStore } from '@/stores/authStore';
 import { useQuery } from '@tanstack/react-query';
 import { AssignOnReplyDialog } from './AssignOnReplyDialog';
@@ -40,6 +41,12 @@ import { shouldShowHistoryBanner } from './historyBanner';
 import { MessageDetailHeader } from './MessageDetailHeader';
 import { MessageComposer } from './MessageComposer';
 import { useThreadMergeContext } from './useThreadMergeContext';
+import {
+  eventAddsParticipant,
+  eventMayCarryAttachments,
+  maxEventId,
+  unseenEvents,
+} from './threadNewEvents';
 import { MessageActionStrip } from './MessageActionStrip';
 import { ResolveDecisions } from './ResolveDecisions';
 import { MessageGhostBubble } from './MessageGhostBubble';
@@ -113,6 +120,8 @@ const THREAD_PAGE = 300;
 const holdsUnsentNote = (html: string, lastEditMode: 'reply' | 'note' | null) =>
   lastEditMode === 'note' && !isBlankRichText(html);
 const NOTE_IN_PROGRESS = 'Post or clear your internal note first';
+/** One empty list for every message without files, so the memoised item sees no change. */
+const NO_ATTACHMENTS: Attachment[] = [];
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -259,6 +268,64 @@ export function MessageDetail({
       });
   }, [message.id, threadPage, loadingEarlier]);
 
+  // Bumped by a live message's incremental read (see useThreadMessageRefresh below). Each panel
+  // keys on threadRefreshKey (a full refresh) PLUS its own bump.
+  const [panelsBump, setPanelsBump] = useState(0);
+  const [attachmentsBump, setAttachmentsBump] = useState(0);
+  const [participantsBump, setParticipantsBump] = useState(0);
+  const threadMessagesRef = useRef(threadMessages);
+  threadMessagesRef.current = threadMessages;
+  const participantsRef = useRef<string[]>([]);
+
+  const pullNewEvents = useCallback(() => {
+    const forId = message.id;
+    const after = maxEventId(threadMessagesRef.current);
+    if (after === null) {
+      setThreadRefreshKey((key) => key + 1);
+      return;
+    }
+    // The same limit as a full read: an older backend ignores afterEventId and answers this
+    // window, which is then applied as one.
+    const limit = Math.max(THREAD_PAGE, threadSize.current.loaded);
+    messageService
+      .getThreadMessagesAfter(forId, after, limit)
+      .then((res) => {
+        if (messageIdRef.current !== forId) return;
+        if (!res.newEvents.incremental) {
+          threadSize.current = { id: forId, loaded: res.data.length };
+          setThreadMessages(res.data);
+          setThreadPage(res.page);
+          setPanelsBump((key) => key + 1);
+          setAttachmentsBump((key) => key + 1);
+          setParticipantsBump((key) => key + 1);
+          return;
+        }
+        if (res.newEvents.hasMore) {
+          setThreadRefreshKey((key) => key + 1);
+          return;
+        }
+        const fresh = unseenEvents(threadMessagesRef.current, res.data);
+        if (fresh.length === 0) return;
+        threadMessagesRef.current = [...threadMessagesRef.current, ...fresh];
+        setThreadMessages((current) => [...current, ...unseenEvents(current, fresh)]);
+        threadSize.current = { id: forId, loaded: threadSize.current.loaded + fresh.length };
+        setThreadPage((current) =>
+          current ? { ...current, total: current.total + fresh.length } : current
+        );
+        if (fresh.some(eventMayCarryAttachments)) setAttachmentsBump((key) => key + 1);
+        if (
+          message.channel === 'email' &&
+          fresh.some((event) => eventAddsParticipant(event, participantsRef.current))
+        )
+          setParticipantsBump((key) => key + 1);
+      })
+      .catch((err: unknown) => {
+        if (messageIdRef.current !== forId) return;
+        logger.warn('Incremental thread read failed, re-reading the thread:', err);
+        setThreadRefreshKey((key) => key + 1);
+      });
+  }, [message.id, message.channel]);
+
   // ── Sorted thread ──────────────────────────────────────────────────────────
 
   const sortedThread = useMemo<MessageEvent[]>(() => {
@@ -395,7 +462,17 @@ export function MessageDetail({
   // ⛔ Not onRefresh: on MessagesPage that reloads the message, the whole list and every board
   // column — per message, for every agent with the thread open. The list already refreshes on
   // its own (`conversation:new`, coalesced).
-  useThreadMessageRefresh(message.id, () => setThreadRefreshKey((key) => key + 1));
+  //
+  // Only the events after the newest one on screen are read and appended (threadNewEvents.ts);
+  // the side panels are re-read only when the new events can have changed them:
+  //  - attachments: when a new event may carry files (an incoming message);
+  //  - participants (Reply all): when a new event names someone not yet on the list;
+  //  - notes, activity and merges: never — `thread:message` is emitted only for a saved message
+  //    or bot reply, which adds no note and no merge; a status change it causes arrives as
+  //    `conv:status_changed` (useConversationStatusRefresh).
+  // A backend that ignores `afterEventId` answers the full window: it is applied as the full read
+  // and every panel is re-read, as before. Cut short (`hasMore`) or failed → a full re-read.
+  useThreadMessageRefresh(message.id, pullNewEvents);
   // The backend moved this thread's status (a customer reply reopened it): re-read the header.
   useConversationStatusRefresh(message.id, onStatusChanged);
 
@@ -419,7 +496,9 @@ export function MessageDetail({
     };
     const handleReplied = (data: unknown) => {
       const event = data as { messageId: number };
-      if (event.messageId === message.id) {
+      // Our own send already re-read the thread and called onRefresh when the request returned;
+      // its echo would repeat both (ownSends.ts). Anyone else's reply reloads as before.
+      if (event.messageId === message.id && !isOwnSendEcho(data)) {
         setThreadRefreshKey((key) => key + 1);
         onRefreshRef.current?.();
       }
@@ -639,7 +718,7 @@ export function MessageDetail({
     return () => {
       cancelled = true;
     };
-  }, [message.id, threadRefreshKey]);
+  }, [message.id, threadRefreshKey, panelsBump]);
 
   // Fetch attachments for the whole thread (used by the Files tab + thread item attachment chips)
   useEffect(() => {
@@ -661,7 +740,7 @@ export function MessageDetail({
     return () => {
       cancelled = true;
     };
-  }, [message.id, threadRefreshKey]);
+  }, [message.id, threadRefreshKey, attachmentsBump]);
 
   // Lead config — fetched once
   useEffect(() => {
@@ -715,7 +794,13 @@ export function MessageDetail({
   const supportsRecipients = message.channel === 'email';
   const [recipientDraft, setRecipientDraft] = useState<RecipientDraft>(emptyRecipientDraft);
   // Merge labels on the timeline + everyone on the thread, for Reply all (owner, 2026-09-23).
-  const mergeContext = useThreadMergeContext(message.id, supportsRecipients, threadRefreshKey);
+  const mergeContext = useThreadMergeContext(
+    message.id,
+    supportsRecipients,
+    threadRefreshKey + panelsBump,
+    participantsBump
+  );
+  participantsRef.current = mergeContext.participants;
 
   const performSend = useCallback(
     async (assign?: ReplyAssignIntent) => {
@@ -730,6 +815,8 @@ export function MessageDetail({
         sendIdempotencyKeyRef.current = crypto.randomUUID();
       }
       const idempotencyKey = sendIdempotencyKeyRef.current ?? undefined;
+      // Before the request: the `message:replied` echo can beat the HTTP answer.
+      if (idempotencyKey) rememberOwnSend(idempotencyKey);
       // Undefined unless the agent actually addressed this reply somewhere, which
       // the BE reads as "the requester and nobody else".
       const recipients = supportsRecipients ? draftToRecipients(recipientDraft) : undefined;
@@ -808,6 +895,8 @@ export function MessageDetail({
         // Keep the token so a retry of THIS send reuses it and the BE dedups the duplicate —
         // and its Send ▾ choice, so Retry resolves / holds as the agent asked.
         afterSendRef.current = after;
+        // Should the server have delivered it after all, its echo must reload like anyone's.
+        if (idempotencyKey) forgetOwnSend(idempotencyKey);
         logger.error('Failed to send:', err);
         // Surface the server's own explanation for client errors — see
         // resolveSendFailureMessage for why "please try again" is wrong for some of them.
@@ -1093,6 +1182,20 @@ export function MessageDetail({
     return true;
   }, []);
 
+  const handleReplyToMessage = useCallback(
+    (addresses: string[]) => {
+      if (refuseReplyOverNote()) return;
+      setComposerMode('reply');
+      setRecipientDraft((draft) => ({ ...draft, to: addresses.join(', ') }));
+    },
+    [refuseReplyOverNote]
+  );
+  const handleOpenAttachment = useCallback((id: number) => {
+    setTab('attachments');
+    setPanelOpen(true);
+    setHighlightAttachmentId(id);
+  }, []);
+
   useDetailShortcuts(shortcutContext, {
     reply: () => {
       if (refuseReplyOverNote()) return;
@@ -1360,7 +1463,7 @@ export function MessageDetail({
       noteActivityLog={noteActivityLog}
       messageActivity={messageActivity}
       sortedThread={sortedThread}
-      threadRefreshKey={threadRefreshKey}
+      threadRefreshKey={threadRefreshKey + attachmentsBump}
       highlightAttachmentId={highlightAttachmentId}
       attachments={flatAttachments}
       currentUserId={currentUserId}
@@ -1567,24 +1670,14 @@ export function MessageDetail({
                   </div>
                 )}
                 {row.kind === 'message' ? (
+                  // Memoised, with stable props: typing in the composer re-renders this view
+                  // per keystroke and must not re-render every message on screen.
                   <ThreadMessageItem
                     msg={row.msg}
                     mergedFrom={mergeContext.mergedFromLabel(row.msg)}
-                    onReplyTo={
-                      supportsRecipients && isActive
-                        ? (addresses) => {
-                            if (refuseReplyOverNote()) return;
-                            setComposerMode('reply');
-                            setRecipientDraft((draft) => ({ ...draft, to: addresses.join(', ') }));
-                          }
-                        : undefined
-                    }
-                    attachments={attachmentsByMessageId.get(row.msg.id) ?? []}
-                    onOpenAttachment={(id) => {
-                      setTab('attachments');
-                      setPanelOpen(true);
-                      setHighlightAttachmentId(id);
-                    }}
+                    onReplyTo={supportsRecipients && isActive ? handleReplyToMessage : undefined}
+                    attachments={attachmentsByMessageId.get(row.msg.id) ?? NO_ATTACHMENTS}
+                    onOpenAttachment={handleOpenAttachment}
                   />
                 ) : (
                   <ThreadNoteItem note={row.note} />

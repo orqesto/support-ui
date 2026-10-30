@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Send, X, Paperclip, File } from 'lucide-react';
-import RichTextEditor from '@/components/shared/RichTextEditor';
+import RichTextEditor from '@/components/shared/LazyRichTextEditor';
 import { Button } from '@/components/ui/Button';
 
 type MessageReplyFormProps = {

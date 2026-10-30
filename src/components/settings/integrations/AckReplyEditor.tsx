@@ -18,7 +18,7 @@
 import { useRef, useState } from 'react';
 import { Save, X, AlertTriangle, Info } from 'lucide-react';
 import type { AlertState } from '@/components/settings/integrations/types';
-import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
+import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/LazyRichTextEditor';
 import { Button } from '@/components/ui/Button';
 import { integrationsService } from '@/services/integrations.service';
 

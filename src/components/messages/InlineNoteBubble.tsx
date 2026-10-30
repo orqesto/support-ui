@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { StickyNote, Pencil, Trash2 } from 'lucide-react';
 import DOMPurify from 'dompurify';
-import RichTextEditor from '@/components/shared/RichTextEditor';
+import RichTextEditor from '@/components/shared/LazyRichTextEditor';
 import { Button } from '@/components/ui/Button';
 import { messageService, type MessageNote } from '@/services/message.service';
 import { logger } from '@/lib/logger';

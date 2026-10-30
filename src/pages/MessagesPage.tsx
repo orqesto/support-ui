@@ -92,6 +92,7 @@ import { useMessagesData } from '@/hooks/useMessagesData';
 import { useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
 import { NOTIFICATION_COUNTS_KEY, useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
+import { isOwnSendEcho } from '@/lib/ownSends';
 import { useConversationNewRefresh } from '@/hooks/useConversationNewRefresh';
 import { useCoalescedRefresh } from '@/hooks/useCoalescedRefresh';
 import { logger } from '@/lib/logger';
@@ -970,7 +971,11 @@ export const MessagesPage = () => {
   // see the card stuck in its old column until a manual refresh. Same trio as the
   // handlers above.
   useEffect(() => {
-    const handleMessageReplied = refreshFromServerEvent;
+    // This tab's own reply already reloaded the list and board (handleRefreshMessage) — its echo
+    // must not schedule a third reload (ownSends.ts).
+    const handleMessageReplied = (data: unknown) => {
+      if (!isOwnSendEcho(data)) refreshFromServerEvent();
+    };
     subscribeToEvent('message:replied', handleMessageReplied);
     return () => unsubscribeFromEvent('message:replied', handleMessageReplied);
   }, [refreshFromServerEvent]);

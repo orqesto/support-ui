@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import { User } from 'lucide-react';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { Button } from '@/components/ui/Button';
@@ -34,7 +34,7 @@ type Props = {
   onReplyTo?: (addresses: string[]) => void;
 };
 
-export function ThreadMessageItem({
+function ThreadMessageItemView({
   msg,
   attachments = [],
   onOpenAttachment,
@@ -313,6 +313,13 @@ export function ThreadMessageItem({
     </div>
   );
 }
+
+/**
+ * Memoised: the thread view re-renders on every composer keystroke, and a thread holds up to 300
+ * of these. MessageDetail passes stable props (the event object, useCallback handlers, one shared
+ * empty attachment list), so a keystroke re-renders none of them.
+ */
+export const ThreadMessageItem = memo(ThreadMessageItemView);
 
 /**
  * v3 ".trbar": says what the agent is reading. A machine translation comes back as plain text,

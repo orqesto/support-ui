@@ -12,6 +12,14 @@ RUN npm install && npm install @rollup/rollup-linux-arm64-musl --save-optional 2
 # Copy source
 COPY . .
 
+# The API this image's app talks to. Empty (the default) = same-origin: the app calls /api and
+# opens its socket on the page's own origin, which nginx.conf proxies to the backend. Set it only
+# for an API on another origin (and add that origin to nginx.conf's connect-src).
+# An empty ENV still overrides .env.production (Vite lets the process env win over .env files),
+# which names the hosted API.
+ARG VITE_API_URL=
+ENV VITE_API_URL=$VITE_API_URL
+
 # Version info baked in at build time
 ARG VITE_GIT_SHA=dev
 ARG BUILD_TIME=unknown

@@ -2,7 +2,29 @@
  * Central configuration for API and app settings
  */
 
-export const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:3000';
+/**
+ * Where the API (and its socket) lives.
+ *
+ * VITE_API_URL set → that origin (the hosted builds: CI sets it per environment, a client's own
+ * build passes its own). Unset or EMPTY → the page's own origin: a self-hosted image serves the app
+ * and proxies /api and /socket.io from the same host (Dockerfile + nginx.conf), so nothing has to
+ * be baked in. `vite dev` keeps the local backend as before.
+ */
+export const resolveApiBaseUrl = (
+  configured: string | undefined,
+  isDev: boolean,
+  pageOrigin: string
+): string => {
+  const trimmed = configured?.trim();
+  if (trimmed) return trimmed;
+  return isDev ? 'http://localhost:3000' : pageOrigin;
+};
+
+export const API_BASE_URL = resolveApiBaseUrl(
+  import.meta.env.VITE_API_URL as string | undefined,
+  import.meta.env.DEV,
+  typeof window === 'undefined' ? '' : window.location.origin
+);
 
 /**
  * Alliance console (Phase 5 multi-workspace-identity feature) — hidden by default.

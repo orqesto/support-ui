@@ -4,7 +4,7 @@ export { PageSkeleton, TableSkeleton, DetailSkeleton } from './Skeletons';
 export { RuleEditor } from './RuleEditor';
 export type { RuleEditorColumn, RuleEditorProps } from './RuleEditor';
 export { FormattedKBContent } from './FormattedKBContent';
-export { default as RichTextEditor } from './RichTextEditor';
+export { default as RichTextEditor } from './LazyRichTextEditor';
 export { ScrollButtons } from './ScrollButtons';
 export { TranslateButton } from './TranslateButton';
 export { WebSocketDebug } from './WebSocketDebug';

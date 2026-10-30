@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { MenuItem } from '@/components/ui/Menu';
 import { COMPOSER_TOOL } from '@/components/messages/messageDetailConstants';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/RichTextEditor';
+import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/LazyRichTextEditor';
 import { TemplatePicker } from '@/components/shared/TemplatePicker';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';

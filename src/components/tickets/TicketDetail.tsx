@@ -6,7 +6,7 @@ addNoopenerHook(DOMPurify);
 import { Lock, Maximize2, Pencil } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
-import RichTextEditor from '@/components/shared/RichTextEditor';
+import RichTextEditor from '@/components/shared/LazyRichTextEditor';
 import { MoveDepartmentDialog } from './MoveDepartmentDialog';
 import { TicketPanelTabs } from './TicketPanelTabs';
 import { TicketReachStrip } from './TicketReachStrip';
