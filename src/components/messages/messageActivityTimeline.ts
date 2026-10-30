@@ -54,6 +54,7 @@ const ACTION_KIND: Record<string, ActivityKind> = {
   'message.create': 'in',
   'message.auto_client_replied': 'in',
   'message.auto_reopen': 'in',
+  'message.thanks_kept_finished': 'in',
   'message.reply': 'out',
   'message.compose_new': 'out',
 };
@@ -164,6 +165,11 @@ export function auditEntryLabel(action: string, details: Record<string, unknown>
   }
   if (action === 'message.category_change') {
     return details?.['to'] ? 'Category assigned' : 'Category removed';
+  }
+  // The customer only said thanks, so the thread stayed finished (owner 2026-10-30).
+  if (action === 'message.thanks_kept_finished') {
+    const status = details?.['status'] as string | undefined;
+    return `Customer said thanks — kept ${status ?? 'resolved'}`;
   }
   if (action === 'message.auto_reopen') {
     const from = details?.['fromStatus'] as string | undefined;
