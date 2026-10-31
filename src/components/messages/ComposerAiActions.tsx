@@ -5,6 +5,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff, useRefreshAiDrafts } from '@/hooks/useAiDraftsOff';
 import { editorHtmlToText } from '@/lib/editorText';
+import { SEARCH_CUT_SHORT_COPY, searchCutShort } from '@/lib/searchCutShort';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { envelopeDraftHint, readEnvelope, type EnvelopeSummary } from '@/lib/messageEnvelope';
 import { logger } from '@/lib/logger';
@@ -91,6 +92,8 @@ type Applied = {
   html: string;
   language?: string;
   groundedInKb?: boolean;
+  /** Part of its knowledge search was stopped at its time limit (searchCutShort.ts). */
+  searchCutShort?: boolean;
   /** Where the team stands on the email answered — only copied, not listed, a colleague's. */
   envelope?: EnvelopeSummary | null;
 };
@@ -220,6 +223,7 @@ export function ComposerAiActions({
         html,
         language: response.data?.language,
         groundedInKb: response.data?.groundedInKb,
+        searchCutShort: searchCutShort(response),
         envelope: readEnvelope(response.data?.envelope),
       });
       onApplied?.(composerAiSource(mode), {
@@ -380,6 +384,15 @@ export function ComposerAiActions({
               : 'Nothing in the knowledge base matched, so this acknowledges the question without answering it. Add the answer before sending.'}
           </p>
         )}
+      {/* Part of the knowledge search was skipped (time limit): the draft may lack information. */}
+      {applied?.searchCutShort && !busy && (
+        <p
+          className="basis-full order-last text-[11px] text-warning"
+          data-testid="ai-draft-search-cut"
+        >
+          {SEARCH_CUT_SHORT_COPY}
+        </p>
+      )}
       {/* Copied / not listed / a colleague's mail: the draft was written for that, say so. */}
       {applied && envelopeDraftHint(applied.envelope ?? null) && !busy && (
         <p
