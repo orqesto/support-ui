@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { consolidationSwitchText, qualitySwitchText } from '@/components/kb/kbSwitchText';
 import { logger } from '@/lib/logger';
 import { kbConsolidationService } from '@/services/kbConsolidation.service';
@@ -37,6 +37,8 @@ export type KbEngineSummaryHook = KbEngineSummaryState & {
   decrementOpen: (olderThan7d: boolean) => void;
   /** An undone answer: the question counts again. */
   incrementOpen: (olderThan7d: boolean) => void;
+  /** Read the summary again in place (after an Engine activity undo or rollback). */
+  reload: () => void;
 };
 
 /**
@@ -53,11 +55,18 @@ export const useKbEngineSummary = (
     settled: false,
     nightlyOff: false,
   });
+  // A reload keeps the counts on screen until the new ones arrive (no "settled" reset).
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => setReloadKey((key) => key + 1), []);
+  const shownFor = useRef<string | null>(null);
 
   useEffect(() => {
     if (!canReview) return;
     let live = true;
-    setState((prev) => ({ ...prev, settled: false }));
+    const scope = `${canReview}:${departmentId ?? ''}`;
+    const isReload = shownFor.current === scope;
+    shownFor.current = scope;
+    if (!isReload) setState((prev) => ({ ...prev, settled: false }));
     const waited = setTimeout(() => {
       if (live) setState((prev) => ({ ...prev, settled: true }));
     }, KB_SUMMARY_WAIT_MS);
@@ -69,13 +78,14 @@ export const useKbEngineSummary = (
       })
       .catch((error: unknown) => {
         logger.error('Failed to load the KB engine summary:', error);
-        if (live) setState((prev) => ({ ...prev, summary: null, settled: true }));
+        // A failed reload keeps the counts already shown.
+        if (live) setState((prev) => (isReload ? prev : { ...prev, summary: null, settled: true }));
       });
     return () => {
       live = false;
       clearTimeout(waited);
     };
-  }, [canReview, departmentId]);
+  }, [canReview, departmentId, reloadKey]);
 
   useEffect(() => {
     if (!canReview) return;
@@ -135,5 +145,5 @@ export const useKbEngineSummary = (
     );
   }, []);
 
-  return { ...state, decrementOpen, incrementOpen };
+  return { ...state, decrementOpen, incrementOpen, reload };
 };

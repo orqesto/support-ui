@@ -15,7 +15,7 @@ import type {
 } from '@/services/kbEngine.types';
 
 /**
- * KB engine Stage 1 (F4): one question, as the owner approved it in the F0 mock. The question;
+ * KB engine Stage 1 (F4): one question, as the owner approved it. The question;
  * its answers side by side (stacked on a phone) with their evidence; what the engine already ruled
  * out; the choices the backend offers for this kind, equal weight; Skip / not sure; ONE primary
  * "Save answer", disabled until an answer is chosen. Stage 1 shows no "Depends on" and no

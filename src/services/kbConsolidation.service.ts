@@ -240,54 +240,6 @@ export type KbWorkRow = {
 const positiveInt = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value > 0;
 
-const WORK_ROW_STATUSES: readonly KbWorkRowStatus[] = ['approved', 'pending', 'hidden', 'rejected'];
-const nullableString = (value: unknown): string | null =>
-  typeof value === 'string' ? value : null;
-const nullableId = (value: unknown): number | null => (positiveInt(value) ? value : null);
-
-/** Defensive: an older backend sends neither field, and a shape we cannot read claims nothing. */
-const readAutoCleaned = (raw: unknown): KbWorkRow['autoCleaned'] => {
-  if (!raw || typeof raw !== 'object') return null;
-  const data = raw as { suggestionId?: unknown; at?: unknown };
-  return positiveInt(data.suggestionId)
-    ? { suggestionId: data.suggestionId, at: typeof data.at === 'string' ? data.at : '' }
-    : null;
-};
-const readHeldForReview = (raw: unknown): KbWorkRow['heldForReview'] => {
-  if (!raw || typeof raw !== 'object') return null;
-  const data = raw as { suggestionId?: unknown };
-  return positiveInt(data.suggestionId) ? { suggestionId: data.suggestionId } : null;
-};
-
-/** A row with a status we cannot read is dropped from the list, never shown as "Pending". */
-export const normalizeWorkRow = (raw: unknown): KbWorkRow | null => {
-  const data = (raw ?? {}) as Record<string, unknown>;
-  if (!positiveInt(data.id)) return null;
-  if (!WORK_ROW_STATUSES.includes(data.status as KbWorkRowStatus)) return null;
-  return {
-    id: data.id,
-    publicId: nullableString(data.publicId),
-    title: nullableString(data.title),
-    question: nullableString(data.question),
-    answer: nullableString(data.answer),
-    status: data.status as KbWorkRowStatus,
-    caseId: nullableId(data.caseId),
-    casePublicId: nullableString(data.casePublicId),
-    conversationId: nullableId(data.conversationId),
-    conversationPublicId: nullableString(data.conversationPublicId),
-    canDecide: data.canDecide === true,
-    rejectedAt: nullableString(data.rejectedAt),
-    autoCleaned: readAutoCleaned(data.autoCleaned),
-    heldForReview: readHeldForReview(data.heldForReview),
-    ...(typeof data.sourceDeleted === 'boolean' ? { sourceDeleted: data.sourceDeleted } : {}),
-    ...(data.isCase === true ? { isCase: true } : {}),
-    ...(typeof data.canModerate === 'boolean' ? { canModerate: data.canModerate } : {}),
-    ...(typeof data.scopeKey === 'string' || data.scopeKey === null
-      ? { scopeKey: data.scopeKey }
-      : {}),
-  };
-};
-
 /** The rows route takes at most this many ids per call. */
 export const WORK_ROWS_MAX_IDS = 200;
 

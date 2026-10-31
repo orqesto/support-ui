@@ -20,7 +20,6 @@ export const undoBlockedText = (blocked: KbUndoBlock[]): string =>
 export const UNDO_REFUSAL_TEXT = {
   not_answered: 'This question was not answered here, so there is nothing to undo.',
   already_undone: 'This answer was already undone.',
-  nothing_to_undo: 'There is nothing to undo: this answer changed nothing.',
   other: 'This answer cannot be undone.',
 } as const;
 

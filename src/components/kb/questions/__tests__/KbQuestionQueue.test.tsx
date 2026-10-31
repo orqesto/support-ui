@@ -2,7 +2,7 @@
  * KB engine Stage 1, task F4: the Questions queue (one card at a time, keys, skip, errors, paging).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { KbQuestion, KbQuestionsPage, KbQuestionsParams } from '@/services/kbEngine.types';
 import {
   KbQuestionQueue,
@@ -448,13 +448,46 @@ describe('Undo after an answer (F4b)', () => {
     expect(await screen.findByTestId('kb-question-undo')).toBeInTheDocument();
   });
 
-  it('nothing to undo is a plain one-liner', async () => {
-    await answerKeep([]);
-    state.undoResult = { refused: 'nothing_to_undo', message: 'x' };
+  it('an answer that changed nothing: 200 with restored [] re-queues it and counts it again', async () => {
+    const undone = await answerKeep([]);
+    state.undoResult = { reopened: true, restored: [] };
+    fireEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(undone).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText('Question 1 of 2')).toBeInTheDocument();
+  });
+
+  it('an unknown refusal shows the server message, not a generic line', async () => {
+    await answerKeep(changedOne);
+    state.undoResult = { refused: 'other', message: 'The engine is rolling this back right now.' };
     fireEvent.click(await screen.findByRole('button', { name: 'Undo' }));
     expect(
-      await screen.findByText('There is nothing to undo: this answer changed nothing.')
+      await screen.findByText('The engine is rolling this back right now.')
     ).toBeInTheDocument();
+    expect(screen.queryByText('This answer cannot be undone.')).toBeNull();
+  });
+
+  it('a refusal is announced and stays past the 10 s strip timer until dismissed', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      await answerKeep(changedOne);
+      state.undoResult = { refused: 'already_undone', message: 'x' };
+      fireEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+      const text = await screen.findByText('This answer was already undone.');
+      const alert = text.closest('[role="alert"]') as HTMLElement;
+      expect(alert).not.toBeNull();
+      // Exactly one live region in the strip: the refusal itself, not nested in another.
+      const strip = screen.getByTestId('kb-question-undo');
+      expect(within(strip).getAllByRole('alert')).toHaveLength(1);
+      expect(alert.parentElement?.closest('[role="alert"],[role="status"]')).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(15000);
+      });
+      expect(screen.getByText('This answer was already undone.')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+      expect(screen.queryByTestId('kb-question-undo')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('403 says only the answerer or an admin can undo', async () => {

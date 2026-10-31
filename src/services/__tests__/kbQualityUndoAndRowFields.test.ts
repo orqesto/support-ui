@@ -20,7 +20,6 @@ vi.mock('@/lib/api-client', () => ({
 }));
 
 const { kbQualityService } = await import('../kbQuality.service');
-const { normalizeWorkRow } = await import('../kbConsolidation.service');
 
 afterEach(() => {
   calls.length = 0;
@@ -56,32 +55,5 @@ describe('kbQualityService.undo', () => {
   it('any other failure is thrown', async () => {
     postImpl = () => Promise.reject(refusal(500, 'boom'));
     await expect(kbQualityService.undo(501)).rejects.toThrow('boom');
-  });
-});
-
-describe('normalizeWorkRow — the review fields', () => {
-  const base = { id: 7, status: 'approved', canDecide: true };
-
-  it('reads them when sent', () => {
-    expect(
-      normalizeWorkRow({
-        ...base,
-        autoCleaned: { suggestionId: 501, at: '2026-10-09T02:00:00.000Z' },
-        heldForReview: { suggestionId: 601 },
-      })
-    ).toMatchObject({
-      autoCleaned: { suggestionId: 501, at: '2026-10-09T02:00:00.000Z' },
-      heldForReview: { suggestionId: 601 },
-    });
-  });
-
-  it('an older backend (neither field) or an unreadable shape claims nothing', () => {
-    expect(normalizeWorkRow(base)).toMatchObject({ autoCleaned: null, heldForReview: null });
-    expect(
-      normalizeWorkRow({ ...base, autoCleaned: { suggestionId: 'x' }, heldForReview: 5 })
-    ).toMatchObject({ autoCleaned: null, heldForReview: null });
-    expect(normalizeWorkRow({ ...base, autoCleaned: { suggestionId: 3 } })).toMatchObject({
-      autoCleaned: { suggestionId: 3, at: '' },
-    });
   });
 });

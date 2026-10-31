@@ -180,12 +180,18 @@ export const KbQuestionQueue = ({
     [current, remove, flash, onDecided]
   );
 
-  // "Done · Undo" for ~10 s after every saved answer.
+  // "Done · Undo" for ~10 s after every saved answer. The timer stands down while an undo is in
+  // flight and once it was refused: a refusal stays until the person dismisses it (or answers again).
   useEffect(() => {
-    if (!undoable) return;
+    if (!undoable || undoing || undoError) return;
     const timer = setTimeout(() => setUndoable(null), UNDO_MS);
     return () => clearTimeout(timer);
-  }, [undoable]);
+  }, [undoable, undoing, undoError]);
+
+  const dismissUndo = () => {
+    setUndoable(null);
+    setUndoError(null);
+  };
 
   const undo = async () => {
     if (!undoable) return;
@@ -200,6 +206,9 @@ export const KbQuestionQueue = ({
         setUndoable(null);
       } else if (result.refused === 'blocked') {
         setUndoError(undoBlockedText(result.blocked));
+      } else if (result.refused === 'other') {
+        // An unknown refusal: the server's own words say more than a generic line.
+        setUndoError(result.message || UNDO_REFUSAL_TEXT.other);
       } else {
         setUndoError(UNDO_REFUSAL_TEXT[result.refused]);
       }
@@ -232,14 +241,22 @@ export const KbQuestionQueue = ({
         </p>
       )}
       {undoable && (
-        <div data-testid="kb-question-undo">
-          <Alert variant="success" className="py-2 text-sm">
+        <div data-testid="kb-question-undo" className="space-y-2">
+          {/* Not a live region itself: the refusal below is the one thing announced. */}
+          <div className="flex items-center p-2 w-full text-sm rounded-lg border bg-success-muted border-success-line text-success">
             <span className="mr-2">Done.</span>
             <Button variant="outline" size="sm" onClick={() => void undo()} isLoading={undoing}>
               Undo
             </Button>
-            {undoError && <span className="ml-2 text-danger">{undoError}</span>}
-          </Alert>
+          </div>
+          {undoError && (
+            <Alert variant="danger" className="py-2 text-sm">
+              <span className="mr-2">{undoError}</span>
+              <Button variant="outline" size="sm" onClick={dismissUndo}>
+                Dismiss
+              </Button>
+            </Alert>
+          )}
         </div>
       )}
       {probeFailed && (

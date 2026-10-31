@@ -274,6 +274,6 @@ export type KbUndoResult =
   | { reopened: true; restored: Array<{ entryId: number; publicId: string | null }> }
   | { refused: 'blocked'; blocked: KbUndoBlock[]; message: string }
   | {
-      refused: 'not_answered' | 'already_undone' | 'nothing_to_undo' | 'other';
+      refused: 'not_answered' | 'already_undone' | 'other';
       message: string;
     };

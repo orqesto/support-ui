@@ -4,7 +4,6 @@
  * The Cases page is removed (KB engine Stage 1): `/knowledge-base/cases` lands on the Questions view.
  * The old merges review page is retired: `/knowledge-base/merges` sends old links to the list, which decides.
  */
-import type { ReactElement } from 'react';
 import { Navigate, Route } from 'react-router-dom';
 import { AUTO_ACTIONS_HREF } from '@/components/kb/autoActions/kbAutoActionCopy';
 
@@ -12,10 +11,10 @@ import { AUTO_ACTIONS_HREF } from '@/components/kb/autoActions/kbAutoActionCopy'
 export const KB_AUTO_ACTIONS_PATH = '/knowledge-base/automatic';
 
 /**
- * The KB sub-page routes, kept here so App.tsx stays inside its max-lines budget. `wrap` is App's
- * PrivateRoute (signed-in gate); each page's own route element adds the permission gate.
+ * The KB sub-page routes, kept here so App.tsx stays inside its max-lines budget. All are
+ * redirects now; the page each lands on carries its own sign-in and permission gates.
  */
-export const kbSubRoutes = (_wrap?: (page: JSX.Element) => ReactElement) => [
+export const kbSubRoutes = () => [
   // Removed: the old KB Cases link lands on the Questions view.
   <Route
     key="kb-cases"

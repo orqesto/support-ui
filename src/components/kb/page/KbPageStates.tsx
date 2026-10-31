@@ -73,8 +73,11 @@ export const KbQuestionsView = ({
   startAt,
   onLinkUsed,
   onUndone,
+  reloadKey = 0,
 }: {
   openQuestions: number | null;
+  /** A new value reads the queue again from the server (after an Engine activity change). */
+  reloadKey?: number;
   search: string;
   departmentId?: number;
   startAt?: number;
@@ -89,6 +92,7 @@ export const KbQuestionsView = ({
       Questions for you{openQuestions !== null ? ` (${openQuestions})` : ''}
     </h2>
     <KbQuestionQueue
+      key={reloadKey}
       departmentId={departmentId}
       search={search}
       empty={<KbNothingNeedsYou />}

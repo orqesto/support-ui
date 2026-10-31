@@ -14,7 +14,7 @@ describe('/knowledge-base/merges', () => {
     render(
       <MemoryRouter initialEntries={['/knowledge-base/merges?tab=quality']}>
         <Routes>
-          {kbSubRoutes((page) => page)}
+          {kbSubRoutes()}
           <Route path="/knowledge-base" element={<Where />} />
         </Routes>
       </MemoryRouter>

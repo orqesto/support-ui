@@ -151,10 +151,6 @@ export type KbListFilters = {
   search?: string;
 };
 
-/** The CSV export of exactly what the list shows. */
-export const kbExportHref = (filters: KbListFilters): string =>
-  `${KB}/export.csv?${kbExportQuery(filters)}`;
-
 /** The export's query string: the list's filters, and nothing it does not have. */
 const kbExportQuery = (filters: KbListFilters): string => {
   const query = new URLSearchParams();
@@ -192,11 +188,52 @@ export const getKbExportSize = async (filters: KbListFilters): Promise<KbExportS
   }
 };
 
+const isBlobLike = (value: unknown): value is Blob =>
+  typeof value === 'object' &&
+  value !== null &&
+  Object.prototype.toString.call(value) === '[object Blob]';
+
+/** A Blob's text; FileReader where the runtime's Blob has no `text()`. */
+const readBlobText = (blob: Blob): Promise<string> =>
+  typeof blob.text === 'function'
+    ? blob.text()
+    : new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+        reader.onerror = () => reject(reader.error ?? new Error('unreadable'));
+        reader.readAsText(blob);
+      });
+
+/**
+ * A failed `responseType: 'blob'` request carries the server's JSON envelope as a Blob: read it
+ * back into `data`, so the server's own message reaches the person instead of a generic line.
+ */
+const withBlobErrorBody = async (err: unknown): Promise<unknown> => {
+  // The api client's interceptor puts the body on `data`.
+  const failure = err as { data?: unknown } | null;
+  const body = failure?.data;
+  if (!failure || !isBlobLike(body)) return err;
+  try {
+    const parsed: unknown = JSON.parse(await readBlobText(body));
+    if (typeof parsed === 'object' && parsed !== null) {
+      failure.data = parsed;
+    }
+  } catch {
+    // Not JSON: keep the error as it was.
+  }
+  return err;
+};
+
 /** Download the CSV of exactly the filtered list, through the api client (auth + department). */
 export const downloadKbExport = async (filters: KbListFilters): Promise<void> => {
-  const response = await apiClient.get(`/api/knowledge-base/export.csv?${kbExportQuery(filters)}`, {
-    responseType: 'blob',
-  });
+  let response;
+  try {
+    response = await apiClient.get(`/api/knowledge-base/export.csv?${kbExportQuery(filters)}`, {
+      responseType: 'blob',
+    });
+  } catch (err) {
+    throw await withBlobErrorBody(err);
+  }
   const url = URL.createObjectURL(response.data as Blob);
   const anchor = document.createElement('a');
   anchor.href = url;
@@ -205,10 +242,9 @@ export const downloadKbExport = async (filters: KbListFilters): Promise<void> =>
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
-const UNDO_REFUSALS: Record<string, 'not_answered' | 'already_undone' | 'nothing_to_undo'> = {
+const UNDO_REFUSALS: Record<string, 'not_answered' | 'already_undone'> = {
   QUESTION_NOT_ANSWERED: 'not_answered',
   QUESTION_ALREADY_UNDONE: 'already_undone',
-  QUESTION_NOTHING_TO_UNDO: 'nothing_to_undo',
 };
 
 /**
@@ -217,11 +253,16 @@ const UNDO_REFUSALS: Record<string, 'not_answered' | 'already_undone' | 'nothing
  */
 export const undoKbQuestion = async (suggestionId: number): Promise<KbUndoResult> => {
   try {
-    const response = await apiClient.post<Envelope<{ reopened: true; restored: never[] }>>(
-      `${KB}/questions/${suggestionId}/undo`,
-      {}
-    );
-    return response.data.data;
+    const response = await apiClient.post<
+      Envelope<{
+        reopened?: boolean;
+        restored?: Array<{ entryId: number; publicId: string | null }>;
+      } | null>
+    >(`${KB}/questions/${suggestionId}/undo`, {});
+    // Any 200 means the question is open again — also when no entry needed restoring
+    // (`restored: []`, an answer that changed nothing).
+    const restored = response.data.data?.restored;
+    return { reopened: true, restored: Array.isArray(restored) ? restored : [] };
   } catch (err) {
     const failure = err as ErrorLike | null | undefined;
     if (failure?.status !== 409) throw err;

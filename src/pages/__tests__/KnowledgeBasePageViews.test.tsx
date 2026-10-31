@@ -4,9 +4,10 @@
  * filter controls, and its Documentation tab moved to Settings › AI.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type * as KbServiceModule from '@/services/kb.service';
+import type * as ActivityModule from '@/components/kb/activity/KbEngineActivity';
 import type { KbEngineSummary, KbQuestion } from '@/services/kbEngine.types';
 import type { KbConsolidationRunState } from '@/services/kbConsolidation.service';
 
@@ -16,6 +17,9 @@ const state = vi.hoisted(() => ({
   summary: null as KbEngineSummary | null,
   summaryFails: false,
   summaryHangs: false,
+  summaryLate: null as Promise<KbEngineSummary> | null,
+  summaryCalls: 0,
+  questionsCalls: 0,
   runState: null as KbConsolidationRunState | null,
   departments: [] as { id: number; name: string; active?: boolean }[],
   teamsEnabled: undefined as boolean | undefined,
@@ -73,22 +77,44 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
   };
 });
 vi.mock('@/services/kbEngine.service', () => ({
-  getEngineSummary: () =>
-    state.summaryHangs
-      ? new Promise<never>(() => undefined)
-      : state.summaryFails || !state.summary
-        ? Promise.reject(new Error('no summary'))
-        : Promise.resolve(state.summary),
-  getKbQuestions: () =>
-    Promise.resolve({
+  getEngineSummary: () => {
+    state.summaryCalls += 1;
+    return state.summaryLate && state.summaryCalls === 1
+      ? state.summaryLate
+      : state.summaryHangs
+        ? new Promise<never>(() => undefined)
+        : state.summaryFails || !state.summary
+          ? Promise.reject(new Error('no summary'))
+          : Promise.resolve(state.summary);
+  },
+  getKbQuestions: () => {
+    state.questionsCalls += 1;
+    return Promise.resolve({
       items: state.questions,
       total: state.questions.length,
       nextCursor: null,
       olderThan7d: 0,
-    }),
+    });
+  },
   answerKbQuestion: (id: number, choice: string) =>
     Promise.resolve({ suggestionId: id, kind: 'merge', choice, result: {} }),
 }));
+// The real Engine activity, plus a test button standing in for an undo or rollback inside it.
+vi.mock('@/components/kb/activity/KbEngineActivity', async (importOriginal) => {
+  const actual = await importOriginal<typeof ActivityModule>();
+  const Real = actual.KbEngineActivity;
+  return {
+    ...actual,
+    KbEngineActivity: (props: Parameters<typeof Real>[0]) => (
+      <>
+        <Real {...props} />
+        <button type="button" onClick={() => props.onChanged?.()}>
+          test: engine change undone
+        </button>
+      </>
+    ),
+  };
+});
 vi.mock('@/services/kbConsolidation.service', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
@@ -193,6 +219,9 @@ beforeEach(() => {
   state.summary = summaryOf(2);
   state.summaryFails = false;
   state.summaryHangs = false;
+  state.summaryLate = null;
+  state.summaryCalls = 0;
+  state.questionsCalls = 0;
   state.runState = null;
   state.departments = [];
   state.teamsEnabled = undefined;
@@ -381,6 +410,52 @@ describe('Knowledge Base page: three views', () => {
     await waitFor(() => expect(pressedView()).toBe('Live answers'), { timeout: 3500 });
     await waitFor(() => expect(state.getAllCalls.length).toBeGreaterThan(0));
     expect(pressedView()).toBe('Live answers');
+  });
+
+  const lateSummary = () => {
+    let arrive: (summary: KbEngineSummary) => void = () => undefined;
+    state.summaryLate = new Promise<KbEngineSummary>((resolve) => {
+      arrive = resolve;
+    });
+    return async (summary: KbEngineSummary) => {
+      await act(async () => {
+        arrive(summary);
+        await Promise.resolve();
+      });
+    };
+  };
+
+  it('a summary later than 2 s that shows open questions moves the untouched page to Questions', async () => {
+    const arrive = lateSummary();
+    renderAt('/knowledge-base');
+    await waitFor(() => expect(pressedView()).toBe('Live answers'), { timeout: 3500 });
+    await arrive(summaryOf(2));
+    await waitFor(() => expect(pressedView()).toBe('Questions (2)'));
+  });
+
+  it('a late summary does not move a page the person already used', async () => {
+    const arrive = lateSummary();
+    renderAt('/knowledge-base');
+    await waitFor(() => expect(pressedView()).toBe('Live answers'), { timeout: 3500 });
+    fireEvent.pointerDown(document.body);
+    await arrive(summaryOf(2));
+    await screen.findByText('Questions (2)');
+    expect(pressedView()).toBe('Live answers');
+  });
+
+  it('an undo or rollback in Engine activity re-reads the counts and the Questions queue', async () => {
+    renderAt('/knowledge-base');
+    await screen.findByRole('heading', { name: 'Questions for you (2)' });
+    await waitFor(() => expect(state.questionsCalls).toBeGreaterThan(0));
+    const summaries = state.summaryCalls;
+    const queues = state.questionsCalls;
+    state.summary = summaryOf(3);
+    fireEvent.click(screen.getByRole('button', { name: 'test: engine change undone' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Questions for you (3)' })
+    ).toBeInTheDocument();
+    expect(state.summaryCalls).toBe(summaries + 1);
+    await waitFor(() => expect(state.questionsCalls).toBeGreaterThan(queues));
   });
 
   it('Documentation tab is gone from the KB page and present in Settings › AI', async () => {

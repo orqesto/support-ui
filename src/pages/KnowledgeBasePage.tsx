@@ -55,14 +55,13 @@ import {
   KbStillLearning,
 } from '@/components/kb/page/KbPageStates';
 import { useKbEngineSummary } from '@/components/kb/page/useKbEngineSummary';
+import { useKbPageView } from '@/components/kb/page/useKbPageView';
 import { isOlderThan7d } from '@/components/kb/questions/useKbQuestions';
 import {
-  kbPageViewFromSearch,
   entryFailureAlert,
   kbExportFilters,
   kbQuestionFromSearch,
   kbQuestionsTeamFromSearch,
-  kbPageViewIsExplicit,
   liveDefaultStatus,
   kbSearchForView,
   type KbPageView,
@@ -127,19 +126,9 @@ const KnowledgeBaseViews = () => {
   const engine = useKbEngineSummary(canReview, questionsTeam);
   const openQuestions = engine.summary?.questions.open ?? null;
 
-  // Which view: the URL decides (`?view=`, or a legacy status / finding); a bare URL waits for the
-  // open-question count. Once chosen, a URL that names no view keeps the view (clearing a filter
-  // must not jump to another view).
-  const lastView = useRef<KbPageView | null>(null);
-  const view: KbPageView | null = !canReview
-    ? 'live'
-    : kbPageViewIsExplicit(searchParams)
-      ? kbPageViewFromSearch(searchParams, 0)
-      : (lastView.current ??
-        (engine.settled ? kbPageViewFromSearch(searchParams, openQuestions ?? 0) : null));
-  useEffect(() => {
-    if (view) lastView.current = view;
-  }, [view]);
+  // Which view: the URL decides; a bare URL waits for the open-question count (useKbPageView).
+  const view = useKbPageView(canReview, searchParams, engine);
+  const [questionsKey, setQuestionsKey] = useState(0);
   const setView = (next: KbPageView) =>
     navigate({ search: kbSearchForView(searchParams, next), hash: location.hash });
 
@@ -510,7 +499,12 @@ const KnowledgeBaseViews = () => {
       summary={engine.summary}
       defaultExpanded={expanded}
       teamId={oneTeam}
-      onChanged={() => listShown && rereadPage()}
+      onChanged={() => {
+        // An undo or rollback moves counts and questions too, not only the Live list.
+        engine.reload();
+        setQuestionsKey((key) => key + 1);
+        if (listShown) rereadPage();
+      }}
     />
   );
 
@@ -590,6 +584,7 @@ const KnowledgeBaseViews = () => {
             activity={engineActivity(false)}
             onDecided={(question) => engine.decrementOpen(isOlderThan7d(question))}
             onUndone={(question) => engine.incrementOpen(isOlderThan7d(question))}
+            reloadKey={questionsKey}
           />
         ) : view === 'activity' ? (
           engineActivity(true)
@@ -613,7 +608,7 @@ const KnowledgeBaseViews = () => {
                     Clear All
                   </Button>
                 )}
-                <KbExportButton filters={exportFilters} refreshKey={entries} />
+                <KbExportButton filters={exportFilters} />
               </div>
             </div>
           </>

@@ -107,7 +107,7 @@ describe('KB Cases is removed', () => {
     render(
       <MemoryRouter initialEntries={['/knowledge-base/cases']}>
         <Routes>
-          {kbSubRoutes((page) => page)}
+          {kbSubRoutes()}
           <Route path="*" element={<Where />} />
         </Routes>
       </MemoryRouter>

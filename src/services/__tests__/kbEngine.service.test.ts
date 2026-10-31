@@ -7,7 +7,6 @@ import {
   answerKbQuestion,
   getEngineSummary,
   getKbQuestions,
-  kbExportHref,
   listEntryVersions,
   restoreEntryVersion,
   undoKbQuestion,
@@ -148,6 +147,11 @@ describe('undoKbQuestion', () => {
   const refuse = (data: Record<string, unknown>) =>
     api.post.mockRejectedValue(Object.assign(new Error('conflict'), { status: 409, data }));
 
+  it('a 200 with no restored entries (or no reopened flag) is still a reopen', async () => {
+    api.post.mockResolvedValue({ data: { data: { restored: [] } } });
+    expect(await undoKbQuestion(9)).toEqual({ reopened: true, restored: [] });
+  });
+
   it('posts to the question and returns the restored entries', async () => {
     api.post.mockResolvedValue({
       data: { data: { reopened: true, restored: [{ entryId: 5, publicId: 'KB-5' }] } },
@@ -173,46 +177,14 @@ describe('undoKbQuestion', () => {
     expect(await undoKbQuestion(9)).toMatchObject({ refused: 'already_undone' });
     refuse({ error: 'x', code: 'SOMETHING_NEW' });
     expect(await undoKbQuestion(9)).toMatchObject({ refused: 'other' });
+    // Retired by the backend (undo always reopens): an unknown code, so the server's words show.
+    refuse({ error: 'Nothing to undo here.', code: 'QUESTION_NOTHING_TO_UNDO' });
+    expect(await undoKbQuestion(9)).toEqual({ refused: 'other', message: 'Nothing to undo here.' });
   });
 
   it('anything else throws', async () => {
     api.post.mockRejectedValue(Object.assign(new Error('boom'), { status: 500 }));
     await expect(undoKbQuestion(9)).rejects.toThrow('boom');
-  });
-});
-
-describe('kbExportHref carries every active list filter', () => {
-  it('sends status (all included), finding, teams, source, type and search', () => {
-    const href = kbExportHref({
-      status: 'set_aside',
-      finding: 'detached',
-      departmentId: 3,
-      departmentIds: [3, 5],
-      source: 9,
-      type: 'qa_pair',
-      search: ' refund ',
-    });
-    const [path, query] = href.split('?');
-    expect(path).toBe('/api/knowledge-base/export.csv');
-    expect(Object.fromEntries(new URLSearchParams(query))).toEqual({
-      status: 'set_aside',
-      finding: 'detached',
-      departmentId: '3',
-      departmentIds: '3,5',
-      messageSourceId: '9',
-      type: 'qa_pair',
-      search: 'refund',
-    });
-  });
-
-  it('always sends status, even for Everything; "none" source and a lone team are kept', () => {
-    expect(kbExportHref({ status: 'all' })).toBe('/api/knowledge-base/export.csv?status=all');
-    const query = new URLSearchParams(
-      kbExportHref({ status: 'all', source: 'none', departmentId: 2, type: 'all' }).split('?')[1]
-    );
-    expect(query.get('messageSourceId')).toBe('none');
-    expect(query.get('departmentIds')).toBe('2');
-    expect(query.has('type')).toBe(false);
   });
 });
 
