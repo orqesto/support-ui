@@ -25,6 +25,7 @@ import {
 import { UserDepartmentsField } from '@/components/users/UserDepartmentsField';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { UserRoutingSkillsCard } from '@/components/users/UserRoutingSkillsCard';
+import { userFullName } from '@/lib/userName';
 
 /**
  * Editing a member is a page, not a dialog.
@@ -608,7 +609,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
           await handleOrgChangeConfirm(newOrgId);
         }}
         title="Change Workspace"
-        description={`This will move ${user.firstName} ${user.lastName} from their current workspace to the selected workspace. This action cannot be undone.`}
+        description={`This will move ${userFullName(user)} from their current workspace to the selected workspace. This action cannot be undone.`}
         confirmText="Move User"
         cancelText="Cancel"
         variant="warning"

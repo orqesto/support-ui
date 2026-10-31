@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { assignmentService } from '@/services/assignment.service';
 import { approvalProvenance, type KBEntry } from '@/services/kb.service';
 import { useAuthStore } from '@/stores/authStore';
+import { userFullName } from '@/lib/userName';
 
 /**
  * Who approved a KB entry — and, more to the point, whether anyone did.
@@ -42,7 +43,7 @@ const useApproverName = (userId: number | null | undefined): string | null => {
         const match = users.find((user) => user.id === userId);
         // A deactivated reviewer is no longer assignable (BE #366 filters them out), so a
         // miss here is expected rather than an error — the neutral label covers it.
-        setName(match ? `${match.firstName} ${match.lastName}`.trim() : null);
+        setName(match ? userFullName(match) : null);
       })
       .catch((error) => {
         logger.warn('[KB] Could not resolve approver name', error);

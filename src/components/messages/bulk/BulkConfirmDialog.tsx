@@ -27,6 +27,7 @@ import {
   type BulkAction,
   type BulkPreview,
 } from './bulkActions';
+import { userFullName } from '@/lib/userName';
 
 /** The picker's "Nobody (unassign)" option. */
 const UNASSIGN = 'unassign';
@@ -193,7 +194,7 @@ export const BulkConfirmDialog = ({
                   { value: UNASSIGN, label: 'Nobody (unassign)' },
                   ...assignable.map((user) => ({
                     value: String(user.id),
-                    label: `${user.firstName} ${user.lastName}`,
+                    label: userFullName(user),
                   })),
                 ]}
               />

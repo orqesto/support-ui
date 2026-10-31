@@ -4,6 +4,7 @@ import { assignmentService } from '@/services/assignment.service';
 import { categoryService } from '@/services/category.service';
 import { labelService } from '@/services/settings.service';
 import type { TicketFilterSources } from './ticketFilterKeys';
+import { userFullName } from '@/lib/userName';
 
 type Sources = Omit<TicketFilterSources, 'jiraOn'>;
 
@@ -22,7 +23,7 @@ export const useTicketFilterSources = (): Sources => {
         patch({
           assignees: users.map((user) => ({
             id: user.id,
-            name: `${user.firstName} ${user.lastName}`.trim() || user.email,
+            name: userFullName(user) || user.email,
           })),
         })
       )

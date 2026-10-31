@@ -41,6 +41,7 @@ import { InviteUserModal } from '@/components/modals/InviteUserModal';
 import { CreateUserModal } from '@/components/modals/CreateUserModal';
 import { UserSkillsModal } from '@/components/modals/UserSkillsModal';
 import { PlanOverLimitNote } from '@/components/subscription/PlanOverLimitNote';
+import { userFullName } from '@/lib/userName';
 
 /** Match the console tables' page size so every user/workspace list paginates identically. */
 const PAGE_SIZE = 25;
@@ -273,9 +274,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
   const deleteIsAccount = deleteDialog.user
     ? rowCapabilities(deleteDialog.user).removeKind === 'account'
     : false;
-  const deleteName = deleteDialog.user
-    ? `${deleteDialog.user.firstName} ${deleteDialog.user.lastName}`.trim()
-    : 'this user';
+  const deleteName = deleteDialog.user ? userFullName(deleteDialog.user) : 'this user';
 
   const initials = (user: User) =>
     `${user.firstName?.charAt(0) ?? ''}${user.lastName?.charAt(0) ?? ''}`.toUpperCase();
