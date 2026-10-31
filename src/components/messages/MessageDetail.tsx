@@ -60,6 +60,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useThreadMessageRefresh } from '@/hooks/useThreadMessageRefresh';
 import { useConversationStatusRefresh } from '@/hooks/useConversationStatusRefresh';
+import { useSocketReconnected } from '@/hooks/useSocketReconnected';
 import { useIsPhone } from './useIsPhone';
 import { Permission } from '@/types/roles';
 import { ThreadMessageItem } from './ThreadMessageItem';
@@ -141,7 +142,7 @@ export type MessageDetailProps = {
   onStatusChanged?: () => void;
   /** Fired after the per-user read/unread state changes, so the board can refresh
    *  the triage unread indicator without closing the detail. */
-  onReadChanged?: () => void;
+  onReadChanged?: (isRead?: boolean) => void;
   /** Registers this panel's prompt-aware close handler with the parent, so that
    *  close gestures OUTSIDE the panel (e.g. the backdrop, or the full-page Back
    *  button) route through the same "Mark as read?" prompt as the header X.
@@ -199,6 +200,9 @@ export function MessageDetail({
   const [threadRefreshKey, setThreadRefreshKey] = useState(0);
   const onRefreshRef = useRef(onRefresh);
   onRefreshRef.current = onRefresh;
+  // The light re-read of THIS conversation's header (no list, no board) — see onStatusChanged.
+  const rereadHeaderRef = useRef(onStatusChanged ?? onRefresh);
+  rereadHeaderRef.current = onStatusChanged ?? onRefresh;
 
   // What the thread endpoint left out (threadPage.ts). A refresh re-reads as many events as are
   // on screen, so a window the agent expanded is not folded back by a new message arriving.
@@ -274,59 +278,85 @@ export function MessageDetail({
   const [attachmentsBump, setAttachmentsBump] = useState(0);
   const [activityBump, setActivityBump] = useState(0);
   const [participantsBump, setParticipantsBump] = useState(0);
+  // Our own note: only the notes change (a note writes no activity — its audit row is the note's).
+  const [notesBump, setNotesBump] = useState(0);
   const threadMessagesRef = useRef(threadMessages);
   threadMessagesRef.current = threadMessages;
   const participantsRef = useRef<string[]>([]);
 
-  const pullNewEvents = useCallback(() => {
-    const forId = message.id;
-    const after = incrementalCursor(threadMessagesRef.current, forId);
-    if (after === null) {
-      setThreadRefreshKey((key) => key + 1);
-      return;
-    }
-    // The same limit as a full read: an older backend ignores afterEventId and answers this
-    // window, which is then applied as one.
-    const limit = Math.max(THREAD_PAGE, threadSize.current.loaded);
-    messageService
-      .getThreadMessagesAfter(forId, after, limit)
-      .then((res) => {
-        if (messageIdRef.current !== forId) return;
-        if (!res.newEvents.incremental) {
-          threadSize.current = { id: forId, loaded: res.data.length };
-          setThreadMessages(res.data);
-          setThreadPage(res.page);
-          setPanelsBump((key) => key + 1);
-          setAttachmentsBump((key) => key + 1);
-          setParticipantsBump((key) => key + 1);
-          return;
-        }
-        if (res.newEvents.hasMore) {
-          setThreadRefreshKey((key) => key + 1);
-          return;
-        }
-        const fresh = unseenEvents(threadMessagesRef.current, res.data);
-        if (fresh.length === 0) return;
-        threadMessagesRef.current = [...threadMessagesRef.current, ...fresh];
-        setThreadMessages((current) => [...current, ...unseenEvents(current, fresh)]);
-        threadSize.current = { id: forId, loaded: threadSize.current.loaded + fresh.length };
-        setThreadPage((current) =>
-          current ? { ...current, total: current.total + fresh.length } : current
-        );
-        if (fresh.some(eventMayCarryAttachments)) setAttachmentsBump((key) => key + 1);
-        if (fresh.some((event) => !isOutgoingEvent(event))) setActivityBump((key) => key + 1);
-        if (
-          message.channel === 'email' &&
-          fresh.some((event) => eventAddsParticipant(event, participantsRef.current))
-        )
-          setParticipantsBump((key) => key + 1);
-      })
-      .catch((err: unknown) => {
-        if (messageIdRef.current !== forId) return;
-        logger.warn('Incremental thread read failed, re-reading the thread:', err);
+  /**
+   * `also` re-reads panels the new events alone cannot tell about: a reply writes its activity
+   * entry (`message.reply`), and an outgoing event carries no attachment metadata, so a reply
+   * sent with files — ours, or another agent's — says nothing about them on its own.
+   */
+  const pullNewEvents = useCallback(
+    (also?: { activity?: boolean; attachments?: boolean; participants?: boolean }) => {
+      const forId = message.id;
+      const bumpAlso = () => {
+        if (also?.activity) setActivityBump((key) => key + 1);
+        if (also?.attachments) setAttachmentsBump((key) => key + 1);
+        if (also?.participants) setParticipantsBump((key) => key + 1);
+      };
+      const after = incrementalCursor(threadMessagesRef.current, forId);
+      if (after === null) {
         setThreadRefreshKey((key) => key + 1);
-      });
-  }, [message.id, message.channel]);
+        return;
+      }
+      // The same limit as a full read: an older backend ignores afterEventId and answers this
+      // window, which is then applied as one.
+      const limit = Math.max(THREAD_PAGE, threadSize.current.loaded);
+      messageService
+        .getThreadMessagesAfter(forId, after, limit)
+        .then((res) => {
+          if (messageIdRef.current !== forId) return;
+          if (!res.newEvents.incremental) {
+            threadSize.current = { id: forId, loaded: res.data.length };
+            setThreadMessages(res.data);
+            setThreadPage(res.page);
+            setPanelsBump((key) => key + 1);
+            setAttachmentsBump((key) => key + 1);
+            setParticipantsBump((key) => key + 1);
+            if (also?.activity) setActivityBump((key) => key + 1);
+            return;
+          }
+          if (res.newEvents.hasMore) {
+            setThreadRefreshKey((key) => key + 1);
+            return;
+          }
+          const fresh = unseenEvents(threadMessagesRef.current, res.data);
+          if (fresh.length === 0) {
+            bumpAlso();
+            return;
+          }
+          threadMessagesRef.current = [...threadMessagesRef.current, ...fresh];
+          setThreadMessages((current) => [...current, ...unseenEvents(current, fresh)]);
+          threadSize.current = { id: forId, loaded: threadSize.current.loaded + fresh.length };
+          setThreadPage((current) =>
+            current ? { ...current, total: current.total + fresh.length } : current
+          );
+          if (also?.attachments || fresh.some(eventMayCarryAttachments))
+            setAttachmentsBump((key) => key + 1);
+          if (also?.activity || fresh.some((event) => !isOutgoingEvent(event)))
+            setActivityBump((key) => key + 1);
+          if (
+            also?.participants ||
+            (message.channel === 'email' &&
+              fresh.some((event) => eventAddsParticipant(event, participantsRef.current)))
+          )
+            setParticipantsBump((key) => key + 1);
+        })
+        .catch((err: unknown) => {
+          if (messageIdRef.current !== forId) return;
+          logger.warn('Incremental thread read failed, re-reading the thread:', err);
+          setThreadRefreshKey((key) => key + 1);
+        });
+    },
+    [message.id, message.channel]
+  );
+  const pullNewEventsRef = useRef(pullNewEvents);
+  pullNewEventsRef.current = pullNewEvents;
+  // useThreadMessageRefresh calls it bare: a live message adds only what its events say.
+  const pullLiveEvents = useCallback(() => pullNewEvents(), [pullNewEvents]);
 
   // ── Sorted thread ──────────────────────────────────────────────────────────
 
@@ -475,9 +505,20 @@ export function MessageDetail({
   //    reply, which adds no note and no merge.
   // A backend that ignores `afterEventId` answers the full window: it is applied as the full read
   // and every panel is re-read, as before. Cut short (`hasMore`) or failed → a full re-read.
-  useThreadMessageRefresh(message.id, pullNewEvents);
+  useThreadMessageRefresh(message.id, pullLiveEvents);
   // The backend moved this thread's status (a customer reply reopened it): re-read the header.
   useConversationStatusRefresh(message.id, onStatusChanged);
+  /*
+    The socket came back after a drop: whatever was said meanwhile (a customer's message, a
+    colleague's reply, a status change) never arrived. Read the events after the newest one on
+    screen and the header, once. The list re-reads itself (MessagesPage).
+  */
+  useSocketReconnected(
+    useCallback(() => {
+      pullNewEvents({ activity: true });
+      rereadHeaderRef.current?.();
+    }, [pullNewEvents])
+  );
 
   // ── Real-time reply events ─────────────────────────────────────────────────
   useEffect(() => {
@@ -499,11 +540,21 @@ export function MessageDetail({
     };
     const handleReplied = (data: unknown) => {
       const event = data as { messageId: number };
-      // Our own send already re-read the thread and called onRefresh when the request returned;
-      // its echo would repeat both (ownSends.ts). Anyone else's reply reloads as before.
+      // Our own send already read its events and the page when the request returned; its echo
+      // would repeat both (ownSends.ts).
+      //
+      // Someone else's reply: the events after the newest on screen, the reply's activity entry,
+      // its files (an outgoing event carries no attachment metadata) and, on email, whom it went
+      // to — plus this conversation's header. ⛔ Not onRefresh: on MessagesPage that also re-reads
+      // the list and the board, and the page already schedules its own coalesced list read for
+      // this very event. No notes or merges: a reply adds neither.
       if (event.messageId === message.id && !isOwnSendEcho(data)) {
-        setThreadRefreshKey((key) => key + 1);
-        onRefreshRef.current?.();
+        pullNewEventsRef.current({
+          activity: true,
+          attachments: true,
+          participants: message.channel === 'email',
+        });
+        rereadHeaderRef.current?.();
       }
     };
     subscribeToEvent('send-failed', handleSendFailed);
@@ -513,7 +564,7 @@ export function MessageDetail({
       unsubscribeFromEvent('message:replied', handleReplied);
       releaseSocket();
     };
-  }, [message.id]);
+  }, [message.id, message.channel]);
 
   // ── AI ghost state ─────────────────────────────────────────────────────────
   const [aiLoading, setAiLoading] = useState(false);
@@ -717,7 +768,7 @@ export function MessageDetail({
     return () => {
       cancelled = true;
     };
-  }, [message.id, threadRefreshKey, panelsBump]);
+  }, [message.id, threadRefreshKey, panelsBump, notesBump]);
 
   // …and the activity log — also after a live incoming message (activityBump): saving one can
   // write activity (auto-reopen, auto-route, "thanks" kept finished) with no other signal.
@@ -878,7 +929,23 @@ export function MessageDetail({
         setAiDraft(null);
         setSelectedFiles([]);
         setRecipientDraft(emptyRecipientDraft());
-        setThreadRefreshKey((key) => key + 1);
+        /*
+          Read only what the send changed — not the whole thread and every panel (6 GETs):
+           - a note: the notes. It adds no event and no activity entry (its audit row is the
+             note's own), and nothing on the list or the board shows it — so no onRefresh below.
+           - a reply: the events after the newest on screen (the reply itself), its activity entry
+             (`message.reply`, and any resolve / hold that rode with it), the files when files
+             were sent, and whom it went to when the agent addressed it.
+          A failed send keeps its full re-read (the catch below).
+        */
+        if (composerMode === 'note') setNotesBump((key) => key + 1);
+        else
+          pullNewEvents({
+            activity: true,
+            attachments: selectedFiles.length > 0,
+            // {} when nobody was addressed — "the requester and nobody else".
+            participants: recipients !== undefined && Object.keys(recipients).length > 0,
+          });
         // A sent reply (not an internal note) flips the conversation to Pending —
         // move the board card optimistically before the heavier onRefresh reconcile.
         if (composerMode !== 'note') onReplied?.();
@@ -905,7 +972,8 @@ export function MessageDetail({
             );
           }
         }
-        onRefresh?.();
+        // The reply moved the conversation (Pending, an assignee, a resolve): the page re-reads it.
+        if (composerMode !== 'note') onRefresh?.();
       } catch (err) {
         // Keep the token so a retry of THIS send reuses it and the BE dedups the duplicate —
         // and its Send ▾ choice, so Retry resolves / holds as the agent asked.
@@ -939,6 +1007,7 @@ export function MessageDetail({
       onRefresh,
       onReplied,
       onResolve,
+      pullNewEvents,
       recipientDraft,
       selectedFiles,
       supportsRecipients,
@@ -1092,7 +1161,7 @@ export function MessageDetail({
       try {
         if (next) await messageService.markRead(message.id);
         else await messageService.markUnread(message.id);
-        onReadChanged?.();
+        onReadChanged?.(next);
       } catch (err) {
         setReadState(!next);
         logger.error('Failed to update read state:', err);

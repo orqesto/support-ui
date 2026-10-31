@@ -14,18 +14,7 @@ import { Button } from './components/ui/Button';
 import { LoadingRing } from './components/ui/LoadingRing';
 import { AppShellRoute } from './components/layout/AppShellRoute';
 import { useBackendVersion } from './hooks/useBackendVersion';
-// Eager load critical routes
-import { DashboardPage } from './pages/DashboardPage';
-import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
-import { LoginPage } from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
-import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
-import { ResetPasswordPage } from './pages/ResetPasswordPage';
-import { SignupPage } from './pages/SignupPage';
-import { CreateWorkspacePage } from './pages/CreateWorkspacePage';
-import { SsoCallbackPage } from './pages/SsoCallbackPage';
-import { TrackingPage } from './pages/TrackingPage';
-import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { userService } from './services/user.service';
 import { useAuthStore } from './stores/authStore';
 import { Permission } from './types/roles';
@@ -36,6 +25,43 @@ import {
   CustomApiLookupRoute,
   CustomApiTemplateRoute,
 } from './pages/customApiRoutes';
+
+/*
+  Lazy too: the pages a signed-in agent does not land on — the dashboard, the sign-in / sign-up /
+  password / callback pages and the public tracking page. Each was in every visitor's first
+  download; now a visitor downloads the one they open. The public ones wait under the Suspense
+  around <Routes>; the dashboard under the app shell's own (AppShellRoute).
+*/
+const DashboardPage = lazy(() =>
+  import('./pages/DashboardPage').then((mod) => ({ default: mod.DashboardPage }))
+);
+const ForgotPasswordPage = lazy(() =>
+  import('./pages/ForgotPasswordPage').then((mod) => ({ default: mod.ForgotPasswordPage }))
+);
+const LoginPage = lazy(() =>
+  import('./pages/LoginPage').then((mod) => ({ default: mod.LoginPage }))
+);
+const OAuthCallbackPage = lazy(() =>
+  import('./pages/OAuthCallbackPage').then((mod) => ({ default: mod.OAuthCallbackPage }))
+);
+const ResetPasswordPage = lazy(() =>
+  import('./pages/ResetPasswordPage').then((mod) => ({ default: mod.ResetPasswordPage }))
+);
+const SignupPage = lazy(() =>
+  import('./pages/SignupPage').then((mod) => ({ default: mod.SignupPage }))
+);
+const CreateWorkspacePage = lazy(() =>
+  import('./pages/CreateWorkspacePage').then((mod) => ({ default: mod.CreateWorkspacePage }))
+);
+const SsoCallbackPage = lazy(() =>
+  import('./pages/SsoCallbackPage').then((mod) => ({ default: mod.SsoCallbackPage }))
+);
+const TrackingPage = lazy(() =>
+  import('./pages/TrackingPage').then((mod) => ({ default: mod.TrackingPage }))
+);
+const VerifyEmailPage = lazy(() =>
+  import('./pages/VerifyEmailPage').then((mod) => ({ default: mod.VerifyEmailPage }))
+);
 
 // Lazy load non-critical routes
 const MessagesPage = lazy(() =>
@@ -687,7 +713,10 @@ const AppRoutes = () => {
 const App = () => (
   <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
     <ErrorBoundary>
-      <AppRoutes />
+      {/* The lazy public pages (sign-in, tracking…) wait here; the app shell has its own. */}
+      <Suspense fallback={<LoadingFallback />}>
+        <AppRoutes />
+      </Suspense>
     </ErrorBoundary>
     <Toaster position="top-right" richColors closeButton />
   </BrowserRouter>

@@ -9,6 +9,10 @@
  *     one on screen and appends them, instead of the 300-event window plus notes, activity,
  *     attachments, merges and participants (~6 GETs per message per viewer).
  *  3. Typing in the composer does not re-render the messages on screen.
+ *  4. Our own send reads only what it changed: a reply its events and its activity entry (+ the
+ *     files when files went with it), a note only the notes — not the thread and every panel.
+ *  5. Another agent's reply and a socket that came back read the events after the newest on
+ *     screen and the header — not the page's list and board.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -19,6 +23,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { installTransport, ok, type WireRequest, type WireResponse } from '@/test/apiTransport';
 import { resetOwnSends } from '@/lib/ownSends';
 import type { Message, MessageEvent } from '@/types';
+import { SOCKET_RECONNECTED_EVENT } from '@/lib/socketEvents';
 
 const socket = vi.hoisted(() => ({
   listeners: new Map<string, Set<(data?: unknown) => void>>(),
@@ -56,14 +61,29 @@ vi.mock('../MessageComposer', () => ({
   MessageComposer: ({
     setComposer,
     onSend,
+    setComposerMode,
+    onFilesChange,
   }: {
     setComposer: (value: string) => void;
     onSend: () => void;
+    setComposerMode?: (mode: 'reply' | 'note') => void;
+    onFilesChange?: (files: File[]) => void;
   }) => (
     <div data-testid="composer">
       <textarea aria-label="reply text" onChange={(event) => setComposer(event.target.value)} />
       <button type="button" onClick={onSend}>
         send draft
+      </button>
+      <button type="button" onClick={() => setComposerMode?.('note')}>
+        note mode
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onFilesChange?.([new File(['x'], 'invoice.pdf', { type: 'application/pdf' })])
+        }
+      >
+        attach file
       </button>
     </div>
   ),
@@ -340,5 +360,102 @@ describe('a send whose answer is lost', () => {
     await waitFor(() => expect(screen.getAllByTestId('bubble')).toHaveLength(4));
     expect(threadReads().length).toBe(reads + 1);
     expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+});
+
+/** The GETs made after `before`, by path, sorted — what one action cost. */
+const pathsSince = (before: number) =>
+  gets()
+    .slice(before)
+    .map((request) => request.path)
+    .sort();
+const typeAndSend = async (text: string) => {
+  fireEvent.change(screen.getByLabelText('reply text'), { target: { value: `<p>${text}</p>` } });
+  fireEvent.click(screen.getByRole('button', { name: 'send draft' }));
+  await settle();
+};
+
+describe('our own send reads only what it changed', () => {
+  it('a reply: its events and its activity entry — not notes, files, merges or whom it went to', async () => {
+    const onRefresh = vi.fn();
+    await opened({ onRefresh });
+    const before = gets().length;
+    backend.events = [...backend.events, event(4, { type: 'outbound', content: 'On its way' })];
+    await typeAndSend('On its way');
+    expect(pathsSince(before)).toEqual([
+      `/api/messages/${THREAD_ID}/activity`,
+      `/api/messages/${THREAD_ID}/thread`,
+    ]);
+    expect(threadReads().at(-1)?.params.afterEventId).toBe('1');
+    expect(screen.getAllByTestId('bubble')).toHaveLength(4);
+    // The page re-reads the conversation it moved (Pending) — once.
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('a reply with files also reads the files', async () => {
+    await opened();
+    const before = gets().length;
+    fireEvent.click(screen.getByRole('button', { name: 'attach file' }));
+    await typeAndSend('Invoice attached');
+    expect(pathsSince(before)).toEqual([
+      `/api/messages/${THREAD_ID}/activity`,
+      `/api/messages/${THREAD_ID}/attachments`,
+      `/api/messages/${THREAD_ID}/thread`,
+    ]);
+  });
+
+  it('a note: the notes only, and the page is not asked to re-read', async () => {
+    const onRefresh = vi.fn();
+    await opened({ onRefresh });
+    fireEvent.click(screen.getByRole('button', { name: 'note mode' }));
+    await settle();
+    const before = gets().length;
+    await typeAndSend('Checked with the warehouse');
+    expect(wire.calls('POST', `/api/messages/${THREAD_ID}/notes`)).toHaveLength(1);
+    expect(pathsSince(before)).toEqual([`/api/messages/${THREAD_ID}/notes`]);
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("another agent's reply and a socket that came back", () => {
+  it("another agent's reply: its events, activity, files and recipients, and the header only", async () => {
+    const onRefresh = vi.fn();
+    const onStatusChanged = vi.fn();
+    await opened({ onRefresh, onStatusChanged });
+    const before = gets().length;
+    backend.events = [
+      ...backend.events,
+      event(4, { type: 'outbound', content: 'From a colleague' }),
+    ];
+    act(() => socket.emit('message:replied', { messageId: THREAD_ID, idempotencyKey: 'other' }));
+    await settle();
+    expect(pathsSince(before)).toEqual([
+      `/api/messages/${THREAD_ID}/activity`,
+      `/api/messages/${THREAD_ID}/attachments`,
+      `/api/messages/${THREAD_ID}/participants`,
+      `/api/messages/${THREAD_ID}/thread`,
+      // The header's own: a reply can retire its "tell the customer" ticket prompt.
+      `/api/messages/${THREAD_ID}/tickets`,
+    ]);
+    expect(threadReads().at(-1)?.params.afterEventId).toBe('1');
+    expect(screen.getAllByTestId('bubble')).toHaveLength(4);
+    expect(onStatusChanged).toHaveBeenCalledTimes(1);
+    // ⛔ Not the page's full refresh: it reads the list and the board on this event itself.
+    expect(onRefresh).not.toHaveBeenCalled();
+  });
+
+  it('a reconnect reads the events missed meanwhile and the header, once', async () => {
+    const onRefresh = vi.fn();
+    const onStatusChanged = vi.fn();
+    await opened({ onRefresh, onStatusChanged });
+    const before = gets().length;
+    backend.events = [...backend.events, event(4)];
+    act(() => socket.emit(SOCKET_RECONNECTED_EVENT));
+    await settle();
+    expect(threadReads().at(-1)?.params.afterEventId).toBe('1');
+    expect(pathsSince(before)).not.toContain(`/api/messages/${THREAD_ID}/notes`);
+    expect(screen.getAllByTestId('bubble')).toHaveLength(4);
+    expect(onStatusChanged).toHaveBeenCalledTimes(1);
+    expect(onRefresh).not.toHaveBeenCalled();
   });
 });

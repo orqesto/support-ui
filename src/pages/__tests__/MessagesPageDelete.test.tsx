@@ -338,7 +338,8 @@ describe('MessagesPage — slide-over More → Delete thread', () => {
   it('board: the deleted thread’s card leaves the board (no delete socket event would move it)', async () => {
     localStorage.setItem('messages_view_mode', 'kanban');
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: 'open card 12' }));
+    // The board is downloaded when first shown (lazy): wait for it.
+    fireEvent.click(await screen.findByRole('button', { name: 'open card 12' }));
     await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('12'));
     pressDelete();
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
@@ -350,7 +351,8 @@ describe('MessagesPage — slide-over More → Delete thread', () => {
   it('board: the open message changed without a click (Back): no LIVE card is taken; the board refetches', async () => {
     localStorage.setItem('messages_view_mode', 'kanban');
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: 'open card 12' }));
+    // The board is downloaded when first shown (lazy): wait for it.
+    fireEvent.click(await screen.findByRole('button', { name: 'open card 12' }));
     await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('12'));
     const keyBefore = Number(screen.getByTestId('board').dataset.refreshKey);
     act(() => mocks.setSelected?.(messageFor(11)));
@@ -366,7 +368,8 @@ describe('MessagesPage — slide-over More → Delete thread', () => {
   it('CONTROL board: Cancel leaves the card where it is', async () => {
     localStorage.setItem('messages_view_mode', 'kanban');
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: 'open card 12' }));
+    // The board is downloaded when first shown (lazy): wait for it.
+    fireEvent.click(await screen.findByRole('button', { name: 'open card 12' }));
     await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('12'));
     pressDelete();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -409,7 +412,8 @@ describe('MessagesPage — slide-over More → Delete thread', () => {
     it('board: a status change moves the card now open, not the deleted one', async () => {
       localStorage.setItem('messages_view_mode', 'kanban');
       renderPage();
-      fireEvent.click(screen.getByRole('button', { name: 'open card 12' }));
+      // The board is downloaded when first shown (lazy): wait for it.
+      fireEvent.click(await screen.findByRole('button', { name: 'open card 12' }));
       await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('12'));
       pressDelete();
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));

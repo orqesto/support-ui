@@ -3,6 +3,7 @@ import { API_BASE_URL } from './config';
 import { ensureFreshSession, isRateLimited, refreshRetryInMs } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 import { writeTabWorkspace } from '@/lib/tabWorkspace';
+import { SOCKET_RECONNECTED_EVENT } from '@/lib/socketEvents';
 
 type EventCallback = (data: unknown) => void;
 
@@ -92,8 +93,12 @@ export const getSocket = (): Socket => {
       attachBroadcastWrapper(event);
     }
 
+    // Per socket: its first connect is the start, every later one a reconnect (see below).
+    let connectedBefore = false;
     socket.on('connect', () => {
       logger.info('✅ WebSocket connected', socket?.id);
+      const reconnected = connectedBefore;
+      connectedBefore = true;
       // A handshake got through, so whatever was wrong with our credentials is fixed. Arm the
       // one-shot recovery again for the NEXT expiry — a socket that lives for hours will cross
       // more than one 15-minute access-token boundary.
@@ -102,6 +107,11 @@ export const getSocket = (): Socket => {
       for (const orgId of activeOrgRooms) {
         logger.info(`🏢 Re-joining organization room after connect: org-${orgId}`);
         socket?.emit('join-organization', orgId);
+      }
+      // Events sent while the socket was down never arrive: tell the views to re-read once.
+      // Local only — the server never sends this name.
+      if (reconnected) {
+        eventListeners.get(SOCKET_RECONNECTED_EVENT)?.forEach((listener) => listener(undefined));
       }
     });
 

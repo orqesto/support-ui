@@ -9,7 +9,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
 
 vi.mock('@/lib/socketManager', () => ({ forceDisconnect: vi.fn() }));
-vi.mock('@/components/messages/AiTabPanel', () => ({ similarResultsCache: { clear: vi.fn() } }));
+vi.mock('@/components/messages/similarResultsCache', () => ({
+  similarResultsCache: { clear: vi.fn() },
+}));
 vi.mock('@/stores/processingPanelStore', () => ({ logoutClearsProcessingPanels: vi.fn() }));
 
 const { useAuthStore } = await import('@/stores/authStore');
