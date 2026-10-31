@@ -28,6 +28,8 @@ type MessagesDataReturn = {
   handlePageChange: (page: number) => Promise<void>;
   handleRefresh: () => Promise<void>;
   clearCache: () => void;
+  /** Change one row in place (an edit the server accepted) without reading the page again. */
+  patchThread: (threadId: string, patch: Partial<MessageThread>) => void;
 };
 
 interface UseMessagesDataProps {
@@ -357,6 +359,23 @@ export const useMessagesData = ({
     await fetchMessages(page);
   };
 
+  /**
+   * Change one row in place — the agent's own edit the server already confirmed (a read toggle),
+   * so the list need not be read again for it. The cached pages hold the old row: dropped, so a
+   * page read later comes from the server.
+   */
+  const patchThread = useCallback(
+    (threadId: string, patch: Partial<MessageThread>) => {
+      setThreadsLocal((rows) =>
+        rows.some((row) => row.threadId === threadId)
+          ? rows.map((row) => (row.threadId === threadId ? { ...row, ...patch } : row))
+          : rows
+      );
+      clearCache();
+    },
+    [clearCache]
+  );
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchMessages(messagesPagination.page, true);
@@ -376,5 +395,6 @@ export const useMessagesData = ({
     handlePageChange,
     handleRefresh,
     clearCache,
+    patchThread,
   };
 };

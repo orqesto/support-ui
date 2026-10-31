@@ -16,6 +16,7 @@ import {
 import { optionSelected } from './FilterMenu';
 import { isRangeValue, rangeFromValue } from './receivedRange';
 import { DateRangeFields, NegateSwitch } from './ValueControls';
+import { OptionsLoadErrorNotice } from './OptionsLoadErrorNotice';
 import type { FilterState } from '@/stores/messagesStore';
 
 /**
@@ -172,6 +173,9 @@ export const FilterSheet = ({
             </div>
           )}
           <div className="overflow-y-auto flex-1">
+            {panelDef.loadError && panelOptions.length === 0 && (
+              <OptionsLoadErrorNotice error={panelDef.loadError} touch />
+            )}
             {panelSearchable && panelOptions.length === 0 && (
               <p className="px-4 py-4 text-[13px] text-center text-muted-foreground">
                 No address matches “{optionQuery.trim()}”.

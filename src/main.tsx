@@ -8,6 +8,7 @@ import './styles/tiptap.css';
 import App from './App.tsx';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { startSessionRenewal } from './lib/sessionRenewal';
+import { installStaleChunkReload } from './lib/lazyWithReload';
 
 // Force rel="noopener noreferrer" and target="_blank" on every anchor tag sanitized by DOMPurify.
 // Guard prevents duplicate registration on HMR reloads.
@@ -25,6 +26,9 @@ if (!DOMPurify.isSupported || !(DOMPurify as { _anchorHookRegistered?: boolean }
 // death with a 401. Started before render so a tab restored into an authenticated session
 // schedules immediately.
 startSessionRenewal();
+
+// A chunk the last deploy removed (Vite's preload): reload once for the new build.
+installStaleChunkReload();
 
 // The cache is emptied when the signed-in user or the selected workspace changes (E-H3).
 evictQueriesOnIdentityChange(queryClient);

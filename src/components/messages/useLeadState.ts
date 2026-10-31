@@ -1,4 +1,4 @@
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { messageService } from '@/services/message.service';
 import type { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
 import type { Message } from '@/types';
@@ -20,13 +20,19 @@ export const useLeadState = (
 ): [LeadState | null, Dispatch<SetStateAction<LeadState | null>>] => {
   const [leadState, setLeadState] = useState<LeadState | null>(null);
 
+  // Keyed on the lead state's CONTENT, not the metadata object: the full record replacing the
+  // list row's record (same thread, new object) must not read the thread again.
+  const ownStateKey = JSON.stringify(message.metadata?.leadState ?? null);
+  const metadataRef = useRef(message.metadata);
+  metadataRef.current = message.metadata;
+
   useEffect(() => {
     if (!message.isLead) {
       setLeadState(null);
       return;
     }
     let cancelled = false;
-    const ownState = message.metadata?.leadState as LeadState | undefined;
+    const ownState = metadataRef.current?.leadState as LeadState | undefined;
     if (ownState) setLeadState(ownState);
     messageService
       .getThreadMessages(message.id)
@@ -40,7 +46,7 @@ export const useLeadState = (
             return;
           }
         }
-        const fb = message.metadata?.leadState as LeadState | undefined;
+        const fb = metadataRef.current?.leadState as LeadState | undefined;
         setLeadState(fb ?? null);
       })
       .catch(() => {
@@ -51,7 +57,7 @@ export const useLeadState = (
     return () => {
       cancelled = true;
     };
-  }, [message.id, message.isLead, message.metadata]);
+  }, [message.id, message.isLead, ownStateKey]);
 
   return [leadState, setLeadState];
 };

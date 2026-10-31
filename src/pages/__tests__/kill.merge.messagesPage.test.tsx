@@ -321,7 +321,8 @@ describe('MessagesPage — slide-over delete, around the confirm', () => {
   it('board: another card opened while the confirm was up keeps its card for status moves', async () => {
     localStorage.setItem('messages_view_mode', 'kanban');
     renderPage();
-    fireEvent.click(screen.getByRole('button', { name: 'open card 12' }));
+    // The board is downloaded when first shown (lazy): wait for it.
+    fireEvent.click(await screen.findByRole('button', { name: 'open card 12' }));
     await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('12'));
     pressDelete();
     fireEvent.click(screen.getByRole('button', { name: 'open card 11' }));

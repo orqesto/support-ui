@@ -48,7 +48,7 @@ describe('received-at options', () => {
     expect(first[0]?.address).toBe('help@shop.example');
   });
 
-  it('a failed read is not kept: it reads as no options, and the next caller asks again', async () => {
+  it('a failed read is not kept: it rejects (the filter offers a retry), and the next caller asks again', async () => {
     let calls = 0;
     handler = () => {
       calls += 1;
@@ -56,9 +56,28 @@ describe('received-at options', () => {
         ? { status: 500, data: { success: false, error: 'boom' } }
         : ok([{ address: 'help@shop.example', ours: true, count: 3 }]);
     };
-    expect(await messageService.getReceivedAtOptions()).toEqual([]);
+    await expect(messageService.getReceivedAtOptions()).rejects.toMatchObject({ timedOut: false });
     expect((await messageService.getReceivedAtOptions())[0]?.address).toBe('help@shop.example');
     expect(calls).toBe(2);
+  });
+});
+
+describe('received-at options over the real api-client', () => {
+  it("the backend's timed-out read (503 timedOut) arrives as timed out, and is not kept", async () => {
+    let calls = 0;
+    handler = () => {
+      calls += 1;
+      return calls === 1
+        ? { status: 503, data: { success: false, timedOut: true, error: 'took too long' } }
+        : ok([{ address: 'help@shop.example', ours: true, count: 3 }]);
+    };
+    await expect(messageService.getReceivedAtOptions()).rejects.toMatchObject({ timedOut: true });
+    expect((await messageService.getReceivedAtOptions())[0]?.address).toBe('help@shop.example');
+  });
+
+  it('CONTROL: an absent route (older backend) is no options, no error', async () => {
+    handler = routeAbsent;
+    expect(await messageService.getReceivedAtOptions()).toEqual([]);
   });
 });
 

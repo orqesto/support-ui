@@ -1,7 +1,7 @@
 /* eslint-disable max-lines -- two layouts of one row (comfortable card, compact line) share
    every derived value; splitting them would duplicate the derivations, which is how two list
    rows end up disagreeing about the same thread. */
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Checkbox } from '@/components/ui/Checkbox';
 import {
   BookOpen,
@@ -67,8 +67,11 @@ import { THREAD_TABLE_GRID, ThreadStatusCell } from './list/threadTableParts';
 type MessageListItemProps = {
   thread: MessageThread;
   onOpen: (thread: MessageThread) => void;
-  /** Refresh the list after a read/unread toggle so server truth catches up. */
-  onReadChanged?: () => void;
+  /**
+   * After a read/unread toggle the server accepted: the new state and the row, so the list can
+   * patch the row instead of reading the page again.
+   */
+  onReadChanged?: (isRead: boolean, thread: MessageThread) => void;
   /** Bulk selection — same contract as the kanban card. Absent = no checkbox. */
   selected?: boolean;
   onToggleSelected?: ToggleSelected;
@@ -89,6 +92,8 @@ type MessageListItemProps = {
   narrow?: boolean;
   /** The typed search as the backend read it: marked in the sender, subject and preview. */
   highlightTerms?: readonly string[];
+  /** Opened, its full record still on the way: the row says it is busy (aria-busy). */
+  pending?: boolean;
 };
 
 /** The From line: the sender's name, else the bare address — never `addr <addr>`. */
@@ -97,7 +102,7 @@ const senderShort = (sender: string | null | undefined): string => {
   return name ?? address;
 };
 
-export const MessageListItem = ({
+const MessageListItemRow = ({
   thread,
   onOpen,
   onReadChanged,
@@ -108,6 +113,7 @@ export const MessageListItem = ({
   current = false,
   narrow = false,
   highlightTerms,
+  pending = false,
 }: MessageListItemProps) => {
   // Before any early return — hooks must run in the same order on every render.
   const { off: aiDraftsOff } = useAiDraftsOff();
@@ -179,7 +185,7 @@ export const MessageListItem = ({
     try {
       if (next) await messageService.markRead(msg.id);
       else await messageService.markUnread(msg.id);
-      onReadChanged?.();
+      onReadChanged?.(next, thread);
     } catch (err) {
       setOptimisticRead(!next);
       logger.error('Failed to toggle read state:', err);
@@ -556,6 +562,7 @@ export const MessageListItem = ({
     onClick: handleCardClick,
     onKeyDown: handleKeyDown,
     'aria-current': current ? ('true' as const) : undefined,
+    'aria-busy': pending ? true : undefined,
     ...longPress,
     ...(selectableId !== null ? { [SELECT_ID_ATTRIBUTE]: selectableId } : {}),
   };
@@ -592,6 +599,7 @@ export const MessageListItem = ({
             : `max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-y-1 max-md:py-2.5 ${THREAD_TABLE_GRID}`,
           (selected === true || current) && 'bg-primary-muted hover:bg-primary-muted',
           current && 'shadow-[inset_3px_0_0_hsl(var(--primary))]',
+          pending && 'opacity-80',
           SELECT_GROUP_CLASS,
           selectableId !== null && TOUCH_PRESS_GUARD_CLASS
         )}
@@ -689,6 +697,7 @@ export const MessageListItem = ({
       className={cn(
         'relative p-0 overflow-hidden transition-shadow hover:shadow-md cursor-pointer group',
         (selected === true || current) && 'bg-primary-muted border-primary-line',
+        pending && 'opacity-80',
         SELECT_GROUP_CLASS,
         selectableId !== null && TOUCH_PRESS_GUARD_CLASS
       )}
@@ -756,3 +765,10 @@ export const MessageListItem = ({
     </Card>
   );
 };
+
+/**
+ * Memoised: the page re-renders on every list read, count, toggle and keystroke in its bar, and
+ * fifty rows each re-deriving badges, spines and highlights on each of those is what made the
+ * list lag. The page passes stable callbacks; a row redraws when ITS props change.
+ */
+export const MessageListItem = memo(MessageListItemRow);

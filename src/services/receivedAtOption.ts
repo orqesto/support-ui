@@ -67,3 +67,32 @@ export const describeReceivedAt = (option: ReceivedAtOption): string | undefined
     ? `${option.conversations} · confirmed`
     : `${option.conversations}`;
 };
+
+/**
+ * The list could not be read — NOT "this workspace receives on nothing". A backend that bounds
+ * the read answers 503 `{ timedOut: true }` when it runs out of time (never cached there), and the
+ * filter must say so with a retry rather than vanish. An older backend never sends 503; its other
+ * failures land here too and get the same retry.
+ */
+export class ReceivedAtOptionsError extends Error {
+  constructor(readonly timedOut: boolean) {
+    super(timedOut ? 'The received-at list took too long to read' : 'The received-at list failed');
+    this.name = 'ReceivedAtOptionsError';
+  }
+}
+
+/** 401/403/404: the route is absent (an older backend) or not ours to read — no filter, no error. */
+const NOT_OFFERED = new Set([401, 403, 404]);
+
+/** Turns a failed read into "not offered" (null) or the error the filter shows. */
+export const receivedAtFailure = (error: unknown): ReceivedAtOptionsError | null => {
+  // The api-client rejects with `status` and the response body as `data` (errorShape).
+  const failed = error as
+    | { status?: unknown; data?: { timedOut?: unknown } | null }
+    | null
+    | undefined;
+  const status = Number(failed?.status);
+  if (NOT_OFFERED.has(status)) return null;
+  const body = failed?.data;
+  return new ReceivedAtOptionsError(status === 503 && body?.timedOut === true);
+};
