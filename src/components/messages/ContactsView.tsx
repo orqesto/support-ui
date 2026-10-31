@@ -23,6 +23,8 @@ import { listsEveryLifecycle } from './contactsApiFilters';
 import { Select } from '@/components/ui/Select';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Pagination } from '@/components/ui/Pagination';
+import { Alert } from '@/components/ui/Alert';
+import { formatTotal } from '@/lib/listTotals';
 import { formatAge, formatDate } from '@/lib/utils';
 import {
   messageService,
@@ -389,6 +391,8 @@ export function ContactsView({
     hasMore: false,
   });
   const [loading, setLoading] = useState(true);
+  // The page ran out of time (backend: no rows and `timedOut`): "not finished", not "no match".
+  const [timedOut, setTimedOut] = useState(false);
 
   const filtersKey = JSON.stringify(apiFilters);
   // BE `messageContactController.getContacts` is dept-scoped via X-Department-Context.
@@ -402,6 +406,7 @@ export function ContactsView({
         const response = await messageService.getContacts(apiFilters, page, 50);
         if (response.success && response.data) {
           setContacts(response.data);
+          setTimedOut(response.timedOut === true);
           setPagination(response.pagination);
           onPaginationChange?.(response.pagination);
         }
@@ -460,7 +465,9 @@ export function ContactsView({
           <h2 className="font-display text-base font-bold tracking-tight text-foreground">
             Contacts
           </h2>
-          <span className="text-xs text-muted-foreground tabular-nums">{pagination.total}</span>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {formatTotal(pagination.total, pagination.totalCapped)}
+          </span>
         </div>
         <div className="flex gap-1 items-center px-1 h-8 rounded-lg bg-muted">
           <span className="pl-2 pr-0.5 text-[11px] text-muted-foreground">Sort</span>
@@ -504,7 +511,24 @@ export function ContactsView({
             />
           ))}
 
-        {!loading && visible.length === 0 && (
+        {!loading && timedOut && (
+          <div className="p-4">
+            {apiFilters.search?.trim() ? (
+              <Alert variant="warning">
+                This search took too long and was stopped, so no contacts are shown. That does not
+                mean nobody matches. Add another word, or narrow it with a filter (team, status or
+                date).
+              </Alert>
+            ) : (
+              <Alert variant="warning">
+                This list took too long to load and was stopped. Refresh to try again, or narrow it
+                with a filter (team, status or date).
+              </Alert>
+            )}
+          </div>
+        )}
+
+        {!loading && !timedOut && visible.length === 0 && (
           <div className="grid place-items-center py-16 text-center">
             <div>
               <Mail className="mx-auto mb-3 w-7 h-7 text-muted-foreground" />
@@ -522,6 +546,7 @@ export function ContactsView({
             currentPage={pagination.page}
             totalPages={pagination.totalPages}
             total={pagination.total}
+            totalCapped={pagination.totalCapped}
             limit={pagination.limit}
             onPageChange={(page) => void fetchContacts(page)}
             loading={loading}
