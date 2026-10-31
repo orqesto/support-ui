@@ -263,3 +263,22 @@ export type KbRollbackResult = {
   truncated: boolean;
   nextAfterEntryId: number | null;
 };
+
+// ── Undo an answer (POST /questions/:suggestionId/undo) ─────────────────────────────────────
+
+export type KbUndoBlockReason =
+  | 'changed_after'
+  | 'gone'
+  | 'text_redacted'
+  | 'not_in_case'
+  | 'last_member';
+export type KbUndoBlock = { entryId: number; publicId: string | null; reason: KbUndoBlockReason };
+
+/** All or nothing: either the question is open again, or a 409 says why, as a value. */
+export type KbUndoResult =
+  | { reopened: true; restored: Array<{ entryId: number; publicId: string | null }> }
+  | { refused: 'blocked'; blocked: KbUndoBlock[]; message: string }
+  | {
+      refused: 'not_answered' | 'already_undone' | 'nothing_to_undo' | 'other';
+      message: string;
+    };

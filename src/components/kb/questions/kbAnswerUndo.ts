@@ -1,35 +1,26 @@
-import { restoreRefusalText } from '@/components/kb/activity/kbActivityCopy';
-import { kbConsolidationService } from '@/services/kbConsolidation.service';
-import { restoreEntryVersion } from '@/services/kbEngine.service';
-import type { KbAnswerChange, KbRestoreRefusal } from '@/services/kbEngine.types';
-import { getApiErrorMessage } from '@/lib/errorMessages';
+import { kbRef } from '@/lib/kbConsolidation';
+import type { KbUndoBlock, KbUndoBlockReason } from '@/services/kbEngine.types';
 
-export type UndoOutcome = { ok: true } | { ok: false; text: string };
-
-/**
- * Undo an answer from what it reported changing. An entry the answer created (a merge's case, no
- * earlier version) is undone by Unmerge, which brings the originals back first. Every other entry
- * is restored to the version it had before; one that is now inside a case (a merge or an attach)
- * is taken out of that case with the existing detach, then restored. A refusal is said in plain
- * words and stops the undo (nothing is overwritten).
- */
-export const undoAnswer = async (changed: KbAnswerChange[]): Promise<UndoOutcome> => {
-  try {
-    for (const change of changed.filter((item) => item.versionBefore === null)) {
-      await kbConsolidationService.unmerge(change.entryId);
-    }
-    for (const change of changed) {
-      if (change.versionBefore === null) continue;
-      let result = await restoreEntryVersion(change.entryId, change.versionBefore);
-      if ('refused' in result && result.refused === 'merged_into_case' && result.caseId) {
-        await kbConsolidationService.detachFromCase(result.caseId, [change.entryId]);
-        result = await restoreEntryVersion(change.entryId, change.versionBefore);
-      }
-      if ('refused' in result)
-        return { ok: false, text: restoreRefusalText(result as KbRestoreRefusal) };
-    }
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, text: getApiErrorMessage(err) ?? 'Could not undo. Try again.' };
-  }
+const REASON: Record<KbUndoBlockReason, string> = {
+  changed_after: 'was changed by someone after your answer',
+  gone: 'no longer exists',
+  text_redacted: 'had its text removed (personal data), so it cannot be put back',
+  not_in_case: 'is no longer in that case',
+  last_member: 'is the last entry of its case',
 };
+
+/** "#KB-12 was changed by someone after your answer." for each blocking entry. */
+export const undoBlockedText = (blocked: KbUndoBlock[]): string =>
+  `Nothing was undone. ${blocked
+    .map(
+      (block) =>
+        `${kbRef(block.publicId, block.entryId)} ${REASON[block.reason] ?? 'cannot be put back'}.`
+    )
+    .join(' ')}`;
+
+export const UNDO_REFUSAL_TEXT = {
+  not_answered: 'This question was not answered here, so there is nothing to undo.',
+  already_undone: 'This answer was already undone.',
+  nothing_to_undo: 'This answer changed nothing, so there is nothing to undo.',
+  other: 'This answer cannot be undone.',
+} as const;

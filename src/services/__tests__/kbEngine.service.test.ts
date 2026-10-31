@@ -10,6 +10,7 @@ import {
   kbExportHref,
   listEntryVersions,
   restoreEntryVersion,
+  undoKbQuestion,
   rollbackEngineWindow,
   searchKbCases,
 } from '../kbEngine.service';
@@ -140,6 +141,43 @@ describe('restore 409 returns refused', () => {
     await expect(restoreEntryVersion(7, 2)).rejects.toThrow('boom');
     api.post.mockRejectedValue(Object.assign(new Error('nope'), { status: 403 }));
     await expect(restoreEntryVersion(7, 2)).rejects.toThrow('nope');
+  });
+});
+
+describe('undoKbQuestion', () => {
+  const refuse = (data: Record<string, unknown>) =>
+    api.post.mockRejectedValue(Object.assign(new Error('conflict'), { status: 409, data }));
+
+  it('posts to the question and returns the restored entries', async () => {
+    api.post.mockResolvedValue({
+      data: { data: { reopened: true, restored: [{ entryId: 5, publicId: 'KB-5' }] } },
+    });
+    expect(await undoKbQuestion(9)).toEqual({
+      reopened: true,
+      restored: [{ entryId: 5, publicId: 'KB-5' }],
+    });
+    expect(api.post).toHaveBeenCalledWith('/api/knowledge-base/questions/9/undo', {});
+  });
+
+  it('409 refusals are values: blocked entries, already undone, and an unknown code', async () => {
+    refuse({
+      error: 'x',
+      code: 'UNDO_BLOCKED',
+      blocked: [{ entryId: 5, publicId: 'KB-5', reason: 'changed_after' }],
+    });
+    expect(await undoKbQuestion(9)).toMatchObject({
+      refused: 'blocked',
+      blocked: [{ entryId: 5, reason: 'changed_after' }],
+    });
+    refuse({ error: 'x', code: 'QUESTION_ALREADY_UNDONE' });
+    expect(await undoKbQuestion(9)).toMatchObject({ refused: 'already_undone' });
+    refuse({ error: 'x', code: 'SOMETHING_NEW' });
+    expect(await undoKbQuestion(9)).toMatchObject({ refused: 'other' });
+  });
+
+  it('anything else throws', async () => {
+    api.post.mockRejectedValue(Object.assign(new Error('boom'), { status: 500 }));
+    await expect(undoKbQuestion(9)).rejects.toThrow('boom');
   });
 });
 

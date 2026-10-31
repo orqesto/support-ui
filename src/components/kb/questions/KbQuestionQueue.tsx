@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
-import { answerKbQuestion, getKbQuestions } from '@/services/kbEngine.service';
+import { answerKbQuestion, getKbQuestions, undoKbQuestion } from '@/services/kbEngine.service';
 import type { KbAnswerChange, KbQuestion, KbQuestionChoiceKey } from '@/services/kbEngine.types';
-import { undoAnswer } from './kbAnswerUndo';
+import { UNDO_REFUSAL_TEXT, undoBlockedText } from './kbAnswerUndo';
 import { KbQuestionCard, ignoresCardKey } from './KbQuestionCard';
 import { useKbQuestions } from './useKbQuestions';
 
@@ -193,13 +193,24 @@ export const KbQuestionQueue = ({
   const undo = async () => {
     if (!undoable) return;
     setUndoing(true);
-    const outcome = await undoAnswer(undoable.changed);
-    setUndoing(false);
-    if (!outcome.ok) return setUndoError(outcome.text);
-    queue.reopen(undoable.question);
-    setIndex(0);
-    onUndone?.(undoable.question);
-    setUndoable(null);
+    setUndoError(null);
+    try {
+      const result = await undoKbQuestion(undoable.question.suggestionId);
+      if ('reopened' in result) {
+        queue.reopen(undoable.question);
+        setIndex(0);
+        onUndone?.(undoable.question);
+        setUndoable(null);
+      } else if (result.refused === 'blocked') {
+        setUndoError(undoBlockedText(result.blocked));
+      } else {
+        setUndoError(UNDO_REFUSAL_TEXT[result.refused]);
+      }
+    } catch (err) {
+      setUndoError(getApiErrorMessage(err) ?? 'Could not undo. Try again.');
+    } finally {
+      setUndoing(false);
+    }
   };
 
   const onSkip = useCallback(() => {

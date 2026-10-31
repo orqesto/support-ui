@@ -10,6 +10,8 @@ import type {
   KbQuestionsPage,
   KbQuestionsParams,
   KbRestoreResult,
+  KbUndoBlock,
+  KbUndoResult,
   KbRollbackRequest,
   KbRollbackResult,
 } from '@/services/kbEngine.types';
@@ -201,4 +203,34 @@ export const downloadKbExport = async (filters: KbListFilters): Promise<void> =>
   anchor.download = 'knowledge-base.csv';
   anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+const UNDO_REFUSALS: Record<string, 'not_answered' | 'already_undone' | 'nothing_to_undo'> = {
+  QUESTION_NOT_ANSWERED: 'not_answered',
+  QUESTION_ALREADY_UNDONE: 'already_undone',
+  QUESTION_NOTHING_TO_UNDO: 'nothing_to_undo',
+};
+
+/**
+ * Take an answer back, all or nothing. A 409 resolves to a refusal value (never thrown); any other
+ * failure throws.
+ */
+export const undoKbQuestion = async (suggestionId: number): Promise<KbUndoResult> => {
+  try {
+    const response = await apiClient.post<Envelope<{ reopened: true; restored: never[] }>>(
+      `${KB}/questions/${suggestionId}/undo`,
+      {}
+    );
+    return response.data.data;
+  } catch (err) {
+    const failure = err as ErrorLike | null | undefined;
+    if (failure?.status !== 409) throw err;
+    const body = failure.data ?? {};
+    const message = typeof body.error === 'string' ? body.error : 'This answer cannot be undone.';
+    if (body.code === 'UNDO_BLOCKED') {
+      const blocked = Array.isArray(body.blocked) ? (body.blocked as KbUndoBlock[]) : [];
+      return { refused: 'blocked', blocked, message };
+    }
+    return { refused: UNDO_REFUSALS[String(body.code)] ?? 'other', message };
+  }
 };
