@@ -1,3 +1,5 @@
+import { formatTotal } from '@/lib/listTotals';
+
 /**
  * How much of the open surface is on screen: a range on the list, the board's own total on
  * the kanban, the contact count on contacts.
@@ -12,7 +14,14 @@ export const SurfaceCount = ({
   noun,
   className,
 }: {
-  pagination: { page: number; limit: number; total: number };
+  /** `totalCapped` / `countTimedOut`: the total is a lower bound, or not counted (contacts). */
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalCapped?: boolean;
+    countTimedOut?: boolean;
+  };
   isKanban?: boolean;
   /** Contacts count people, not a range of rows ("12 contacts"). */
   noun?: string;
@@ -39,7 +48,10 @@ export const SurfaceCount = ({
       {total > 0 ? (
         noun ? (
           <>
-            <b className="font-mono font-semibold text-foreground/70">{total}</b> {noun}
+            <b className="font-mono font-semibold text-foreground/70">
+              {formatTotal(total, pagination.totalCapped)}
+            </b>{' '}
+            {noun}
           </>
         ) : hasRange ? (
           <>
@@ -53,6 +65,9 @@ export const SurfaceCount = ({
             <b className="font-mono font-semibold text-foreground/70">{total}</b> on this board
           </>
         )
+      ) : noun && pagination.countTimedOut ? (
+        // A count that did not finish is no number at all — never "No contacts".
+        `${noun[0].toUpperCase()}${noun.slice(1)} not counted`
       ) : (
         `No ${noun ?? 'threads'}`
       )}

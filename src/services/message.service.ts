@@ -156,6 +156,13 @@ export type PaginatedResponse<T> = {
 };
 
 /**
+ * The contacts list. `timedOut`: its page ran out of time (searching: 3 s) and came back with no
+ * rows — "not finished", never "no contacts". Its count may be a lower bound (`totalCapped`) or
+ * not finished (`countTimedOut`), as the thread list's. Absent on older backends.
+ */
+export type ContactsResponse = PaginatedResponse<MessageContact[]> & { timedOut?: boolean };
+
+/**
  * What the current lens is hiding. `/api/messages/threads` only computes it when asked
  * (`scope=1`), because the same endpoint doubles as a counter — the dashboard fires ten
  * calls reading only `pagination.total`, and the board one per column.
@@ -1265,25 +1272,26 @@ export const messageService = {
     return response.data;
   },
 
-  getContacts: async (filters?: Record<string, string>, page = 1, limit = 50) => {
+  getContacts: async (
+    filters?: Record<string, string>,
+    page = 1,
+    limit = 50
+  ): Promise<ContactsResponse> => {
     const params = new URLSearchParams({
       ...cleanFilters(filters),
       page: page.toString(),
       limit: limit.toString(),
     });
     // The filters, a typed search among them, in a POST body (searchPost.ts).
-    const data = await postOrGet<PaginatedResponse<MessageContact[]>>(
+    const data = await postOrGet<ContactsResponse>(
       'contacts',
       () =>
-        apiClient.post<PaginatedResponse<MessageContact[]>>(
+        apiClient.post<ContactsResponse>(
           '/api/messages/contacts/search',
           Object.fromEntries(params),
           { readOnly: true }
         ),
-      () =>
-        apiClient.get<PaginatedResponse<MessageContact[]>>(
-          `/api/messages/contacts?${params.toString()}`
-        )
+      () => apiClient.get<ContactsResponse>(`/api/messages/contacts?${params.toString()}`)
     );
     const response = { data };
     // Version skew: a backend without the note summary sends neither field.
