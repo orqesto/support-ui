@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, CalendarClock, Database } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Database, Timer } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -94,6 +94,94 @@ const RetentionSettingCard = () => {
   );
 };
 
+/** The backend's accepted range, in seconds (5,000–600,000 ms); 0 or empty = no limit. */
+const TIMEOUT_MIN_S = 5;
+const TIMEOUT_MAX_S = 600;
+
+/**
+ * The request statement timeout: how long one database query may run for a user request (API
+ * processes only; each picks a change up within a minute). Shown in seconds; stored in ms.
+ * Hidden on a backend that does not report it.
+ */
+const StatementTimeoutCard = () => {
+  const settings = usePlatformSettings();
+  const update = useUpdatePlatformDatabase();
+  const storedMs = settings.data?.database?.apiStatementTimeoutMs;
+  const [seconds, setSeconds] = useState<string>('');
+
+  useEffect(() => {
+    if (storedMs !== undefined) setSeconds(storedMs === 0 ? '' : String(storedMs / 1000));
+  }, [storedMs]);
+
+  if (storedMs === undefined) return null;
+
+  const trimmed = seconds.trim();
+  const parsed = trimmed === '' ? 0 : Number(trimmed);
+  const valid =
+    Number.isInteger(parsed) &&
+    (parsed === 0 || (parsed >= TIMEOUT_MIN_S && parsed <= TIMEOUT_MAX_S));
+  const nextMs = valid ? parsed * 1000 : null;
+  const dirty = nextMs !== null && nextMs !== storedMs;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex gap-2 items-center">
+          <Timer className="h-5 w-5" />
+          Query time limit
+        </CardTitle>
+        <CardDescription>
+          Longest a single database query may run for a user request. Off = no limit.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-48">
+            <Input
+              label="Seconds (empty or 0 = off)"
+              type="number"
+              min={0}
+              max={TIMEOUT_MAX_S}
+              value={seconds}
+              onChange={(event) => setSeconds(event.target.value)}
+              error={
+                valid
+                  ? undefined
+                  : `0 (off) or a whole number from ${TIMEOUT_MIN_S} to ${TIMEOUT_MAX_S}`
+              }
+            />
+          </div>
+          <Button
+            disabled={!dirty}
+            isLoading={update.isPending}
+            onClick={() => {
+              if (nextMs === null) return;
+              update.mutate(
+                { apiStatementTimeoutMs: nextMs },
+                {
+                  onSuccess: () =>
+                    toast.success(
+                      nextMs === 0
+                        ? 'Query time limit turned off'
+                        : `Query time limit set to ${nextMs / 1000} s — applies within a minute`
+                    ),
+                  onError: (error) =>
+                    toast.error(getApiErrorMessage(error) ?? 'Could not save the setting'),
+                }
+              );
+            }}
+          >
+            Save
+          </Button>
+          <span className="pb-2 text-xs text-muted-foreground">
+            {storedMs === 0 ? 'currently off' : `currently ${storedMs / 1000} s`}
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 /**
  * Platform console → Databases (BYODB Phase 2). Three things an operator needs in one place:
  * the retention window, every workspace with no active plan still on the managed database by
@@ -114,6 +202,7 @@ export const PlatformDatabases = () => {
       />
 
       <RetentionSettingCard />
+      <StatementTimeoutCard />
 
       <Card>
         <CardHeader>

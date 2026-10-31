@@ -4,7 +4,7 @@
  * One fetch site for all of them, so the desktop bar and the mobile sheet cannot drift
  * onto different option sets — they render from the same object.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
@@ -12,7 +12,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { assignmentService } from '@/services/assignment.service';
 import { getMessageSourceOptions } from '@/services/messageSourceOptions.service';
 import { labelService, type Label } from '@/services/settings.service';
-import { describeReceivedAt } from '@/services/receivedAtOption';
+import { ReceivedAtOptionsError, describeReceivedAt } from '@/services/receivedAtOption';
 import { messageService } from '@/services/message.service';
 import { logger } from '@/lib/logger';
 import { safeCssColor } from '@/lib/utils';
@@ -48,6 +48,10 @@ export const useFilterOptions = (): DynamicOptions => {
   const [sources, setSources] = useState<FilterOption[]>([]);
   const [labels, setLabels] = useState<FilterOption[]>([]);
   const [aliases, setAliases] = useState<FilterOption[]>([]);
+  // The list could not be read (timed out, failed): the filter stays and says so, with a retry.
+  const [aliasesFailed, setAliasesFailed] = useState<{ timedOut: boolean } | null>(null);
+  const [aliasesAttempt, setAliasesAttempt] = useState(0);
+  const retryAliases = useCallback(() => setAliasesAttempt((attempt) => attempt + 1), []);
   // The backend scopes both the source list and the alias list by department, so a
   // department switch has to refetch or the picker offers rows this scope cannot see.
   const departmentKey = useDepartmentContextKey();
@@ -103,6 +107,14 @@ export const useFilterOptions = (): DynamicOptions => {
         })
         .catch((err: unknown) => logger.error('Filter options: labels failed', err));
 
+    return () => {
+      cancelled = true;
+    };
+  }, [departmentKey, canViewLabels]);
+
+  // Its own effect so "Retry" asks for the addresses alone, not every option list again.
+  useEffect(() => {
+    let cancelled = false;
     // Addresses mail actually arrived at — derived from traffic, not configuration,
     // because configuration does not know: a source stores one address and nobody
     // registers its aliases. Below two the filter separates nothing, and an empty list
@@ -112,6 +124,7 @@ export const useFilterOptions = (): DynamicOptions => {
       .getReceivedAtOptions()
       .then((rows) => {
         if (cancelled) return;
+        setAliasesFailed(null);
         if (rows.length < 2) {
           setAliases([]);
           return;
@@ -130,12 +143,19 @@ export const useFilterOptions = (): DynamicOptions => {
           }))
         );
       })
-      .catch(() => setAliases([]));
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        // Absent route / no permission resolve to [] in the service; anything here is a read
+        // that failed — shown as such, not as an empty list.
+        logger.error('Filter options: received-at failed', err);
+        setAliases([]);
+        setAliasesFailed({ timedOut: err instanceof ReceivedAtOptionsError && err.timedOut });
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [departmentKey, canViewLabels]);
+  }, [departmentKey, aliasesAttempt]);
 
   // Teams off: no options, so the schema drops the Team filter entirely.
   const departmentOptions = useMemo<FilterOption[]>(
@@ -163,7 +183,15 @@ export const useFilterOptions = (): DynamicOptions => {
       sources,
       labels,
       aliases,
+      aliasesError: aliasesFailed
+        ? {
+            message: aliasesFailed.timedOut
+              ? "Couldn't load addresses — it took too long."
+              : "Couldn't load addresses.",
+            onRetry: retryAliases,
+          }
+        : undefined,
     }),
-    [assignees, departmentOptions, sources, labels, aliases]
+    [assignees, departmentOptions, sources, labels, aliases, aliasesFailed, retryAliases]
   );
 };

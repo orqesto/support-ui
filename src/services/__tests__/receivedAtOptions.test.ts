@@ -5,7 +5,7 @@ const get = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: (...args: unknown[]) => get(...args) } }));
 
 import { messageService } from '@/services/message.service';
-import { describeReceivedAt } from '@/services/receivedAtOption';
+import { ReceivedAtOptionsError, describeReceivedAt } from '@/services/receivedAtOption';
 
 /**
  * The alias list that populates the "Received at" filter.
@@ -57,6 +57,29 @@ describe('messageService.getReceivedAtOptions', () => {
 
   it('returns [] when the endpoint is not deployed yet', async () => {
     get.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
+    await expect(messageService.getReceivedAtOptions()).resolves.toEqual([]);
+  });
+
+  // The api-client rejects with `status` and the response body as `data`.
+  const refused = (status: number, data?: unknown) =>
+    Object.assign(new Error('refused'), { status, data });
+
+  it('a read the backend stopped (503 timedOut) rejects as timed out — not an empty list', async () => {
+    get.mockRejectedValue(refused(503, { success: false, timedOut: true }));
+    const read = messageService.getReceivedAtOptions();
+    await expect(read).rejects.toBeInstanceOf(ReceivedAtOptionsError);
+    await expect(read).rejects.toMatchObject({ timedOut: true });
+  });
+
+  it('any other failure rejects too, not timed out (an older backend never sends 503)', async () => {
+    get.mockRejectedValue(refused(500, { success: false }));
+    await expect(messageService.getReceivedAtOptions()).rejects.toMatchObject({ timedOut: false });
+    get.mockRejectedValue(new Error('Network Error'));
+    await expect(messageService.getReceivedAtOptions()).rejects.toMatchObject({ timedOut: false });
+  });
+
+  it('a refused permission is "not offered": []', async () => {
+    get.mockRejectedValue(refused(403));
     await expect(messageService.getReceivedAtOptions()).resolves.toEqual([]);
   });
 

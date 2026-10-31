@@ -5,7 +5,11 @@
    feature's own diff, which is how a 10-line change became 185 lines of reflow on this repo once
    already. Owed work, deliberately deferred rather than silently ignored; do not add a further
    endpoint here without paying it. */
-import { normaliseReceivedAtOptions, type ReceivedAtOption } from './receivedAtOption';
+import {
+  normaliseReceivedAtOptions,
+  receivedAtFailure,
+  type ReceivedAtOption,
+} from './receivedAtOption';
 import type { LatestNotePreview } from '@/components/contacts/ContactNotesIndicator';
 import { fetchThreadBoard, fetchThreads, type ThreadBoardRequest } from './threadsQuery';
 import {
@@ -720,6 +724,10 @@ export const messageService = {
    * deploys on merge while the backend ships on its own cadence, so this route
    * 404s in production during that window — and while it does, the filter must
    * simply not offer itself rather than break the filters bar around it.
+   *
+   * Any other failure — the backend's bounded read timing out (503 `timedOut`), a server
+   * error, no network — REJECTS with a `ReceivedAtOptionsError`: an empty list would read as
+   * "no addresses", and the filter shows "Couldn't load addresses — retry" instead.
    */
   getReceivedAtOptions: async (): Promise<ReceivedAtOption[]> => {
     try {
@@ -734,8 +742,10 @@ export const messageService = {
         );
         return normaliseReceivedAtOptions(response.data.data);
       });
-    } catch {
-      return [];
+    } catch (error) {
+      const failure = receivedAtFailure(error);
+      if (failure === null) return [];
+      throw failure;
     }
   },
 

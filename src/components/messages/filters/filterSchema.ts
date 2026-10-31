@@ -87,7 +87,14 @@ export type FilterDef = {
   options?: FilterOption[];
   /** A second choice that only applies once the parent has a value. */
   sub?: { key: 'linkedTicketStatus'; label: string; options: FilterOption[] };
+  /**
+   * The options could not be read. The filter is kept (not dropped as empty) and its panel
+   * says so with a retry — an empty picker would read as "there is nothing to filter by".
+   */
+  loadError?: OptionsLoadError;
 };
+
+export type OptionsLoadError = { message: string; onRetry: () => void };
 
 const LIFECYCLE: FilterOption[] = [
   // Open OR in progress: the list's default view, so a token can name it.
@@ -201,6 +208,8 @@ export type DynamicOptions = {
   labels: FilterOption[];
   /** Addresses of ours that mail actually arrived at. */
   aliases: FilterOption[];
+  /** The address list could not be read (timed out / failed): shown with a retry. */
+  aliasesError?: OptionsLoadError;
   /**
    * Lead qualification is not configured (`lead-config.configured === false`): the "Lead" AI
    * state is not offered. Absent/false ⇒ offered, as before.
@@ -292,6 +301,7 @@ export const buildFilterDefs = (dynamic: DynamicOptions): FilterDef[] => {
       group: 'Routing',
       kind: 'select',
       options: dynamic.aliases,
+      loadError: dynamic.aliases.length === 0 ? dynamic.aliasesError : undefined,
     },
     {
       key: 'departmentId',
@@ -335,7 +345,9 @@ export const buildFilterDefs = (dynamic: DynamicOptions): FilterDef[] => {
     { key: 'showKBOnly', label: 'From knowledge base', group: 'Flags', kind: 'flag' },
   ];
 
-  return defs.filter((def) => def.kind !== 'select' || (def.options?.length ?? 0) > 0);
+  return defs.filter(
+    (def) => def.kind !== 'select' || (def.options?.length ?? 0) > 0 || def.loadError !== undefined
+  );
 };
 
 /**
