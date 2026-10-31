@@ -217,7 +217,9 @@ export const KBEntryDetail = ({
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="flex flex-col h-full">
+        // On a phone the whole drawer scrolls (header, content, history, actions), so nothing
+        // sits behind the action footer; from sm up the content scrolls between them.
+        <div className="flex flex-col sm:h-full">
           {/* Header */}
           <div className="flex-none p-6 border-b">
             <div className="flex gap-4 justify-between items-start mb-4">
@@ -483,7 +485,7 @@ export const KBEntryDetail = ({
           </div>
 
           {/* Content */}
-          <div className="overflow-auto flex-1 p-6">
+          <div className="p-6 sm:overflow-auto sm:flex-1">
             <h3 className="font-display mb-3 text-lg font-semibold">Content</h3>
             <FormattedKBContent
               content={(() => {

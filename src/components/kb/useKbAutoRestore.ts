@@ -13,7 +13,7 @@ export const AUTO_UNDO_LABEL: Record<KbAutoUndo, string> = {
   restore: 'Restore',
   undo_clean: 'Undo clean-up',
   release_hold: 'Use it again',
-  unapprove_mined: 'Un-approve',
+  unapprove_mined: 'Send back to Not live yet',
   return_to_review: 'Send back for review',
 };
 export const AUTO_UNDO_TITLE: Record<KbAutoUndo, string> = {
@@ -22,8 +22,8 @@ export const AUTO_UNDO_TITLE: Record<KbAutoUndo, string> = {
   release_hold: 'Use it again — the AI uses this answer again',
   return_to_review:
     'Send back for review — not used in answers until someone approves it; it waits under Question for you.',
-  // Un-approve puts it back to Not live yet; it is not hidden or rejected.
-  unapprove_mined: 'Un-approve — back to Not live yet; a person decides on it',
+  // Back to Not live yet; it is not hidden or rejected.
+  unapprove_mined: 'Send back to Not live yet — a person decides on it',
 };
 
 /** What each automatic change is called on its row. */
@@ -43,13 +43,18 @@ export type KbAutoRestore = {
   pending: ReadonlySet<number>;
 };
 
-/** The undo a row offers, or null: none known, or the suggestion it runs through is missing. */
+/**
+ * The undo a row offers, or null: none known, or neither path exists. A clean-up or a hold runs
+ * through its suggestion, or through the version restore (the server reads the suggestion off the
+ * engine action and hands off); with neither, nothing is offered.
+ */
 export const autoUndoOf = (entry: KBEntry): KbAutoUndo | null => {
   const change = entry.autoChange;
   if (!change) return null;
   if (
     (change.undo === 'undo_clean' || change.undo === 'release_hold') &&
-    change.suggestionId === null
+    change.suggestionId === null &&
+    change.undoVersion === null
   )
     return null;
   return change.undo;
@@ -110,7 +115,7 @@ const runUndo = async (entry: KBEntry, undo: KbAutoUndo): Promise<string> => {
         );
       throw err;
     }
-    return 'Un-approved';
+    return 'Back to Not live yet';
   }
   if (suggestionId === null) throw new Error('This change cannot be undone from here.');
   if (undo === 'release_hold') {

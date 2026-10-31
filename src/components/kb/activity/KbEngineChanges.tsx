@@ -58,7 +58,7 @@ const textAt = (versions: KbEntryVersion[], index: number): string | null => {
   return null;
 };
 
-type BeforeAfter = { before: string; after: string } | 'none' | 'error';
+type BeforeAfter = { before: string; after: string } | 'none' | { error: string };
 
 /** Before / after of the engine's change, from the entry's versions. */
 export const beforeAfterOf = (versions: KbEntryVersion[], action: KbAutoChange['action']) => {
@@ -110,7 +110,7 @@ const ChangeRow = ({
       setShown(beforeAfterOf(await listEntryVersions(entry.id), change.action));
     } catch (error) {
       logger.error('Failed to read the entry versions:', error);
-      setShown('error');
+      setShown({ error: apiErrorMessage(error, 'Could not read its history. Try again.') });
     } finally {
       setLoading(false);
     }
@@ -158,15 +158,17 @@ const ChangeRow = ({
         >
           {shown ? 'Hide before / after' : 'Before / after'}
         </Button>
-        {shown === 'error' && (
-          <p className="text-xs text-destructive">Could not read its history. Try again.</p>
+        {shown && typeof shown === 'object' && 'error' in shown && (
+          <p className="text-xs text-destructive" data-testid="kb-before-after-error">
+            {shown.error}
+          </p>
         )}
         {shown === 'none' && (
           <p className="text-xs text-muted-foreground">
             No before / after: this change was made before the engine kept versions.
           </p>
         )}
-        {shown && typeof shown === 'object' && (
+        {shown && typeof shown === 'object' && 'before' in shown && (
           <dl className="grid gap-1 text-xs sm:grid-cols-2" data-testid="kb-engine-before-after">
             <div className="p-2 rounded border bg-muted/30">
               <dt className="font-medium text-muted-foreground">Before</dt>

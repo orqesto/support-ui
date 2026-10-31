@@ -48,11 +48,11 @@ describe('useKbAutoRestore', () => {
   });
 });
 
-describe('Un-approve wording', () => {
+describe('Send back to Not live yet wording', () => {
   it('says it goes back to Not live yet, not that it is rejected', async () => {
     const { AUTO_UNDO_TITLE } = await import('../useKbAutoRestore');
     expect(AUTO_UNDO_TITLE.unapprove_mined).toBe(
-      'Un-approve — back to Not live yet; a person decides on it'
+      'Send back to Not live yet — a person decides on it'
     );
   });
 });

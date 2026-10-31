@@ -252,7 +252,7 @@ describe('knowledge base → Changed automatically', () => {
     ['Restore', removedEntry, 'post', '/api/knowledge-base/auto-actions/removed/60/restore'],
     ['Use it again', heldEntry, 'post', '/api/learning/suggestions/88/decline'],
     [
-      'Un-approve',
+      'Send back to Not live yet',
       minedEntry,
       'post',
       '/api/knowledge-base/auto-actions/approved-mined/62/unapprove',
@@ -303,7 +303,7 @@ describe('knowledge base → Changed automatically', () => {
     expect(state.patch).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.queryByText(capturedEntry.title)).toBeNull());
     // The mined approval keeps its own undo.
-    expect(screen.getAllByRole('button', { name: 'Un-approve' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: 'Send back to Not live yet' }).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'Question for you' }));
     expect((await screen.findAllByText('Saved answer')).length).toBeGreaterThan(0);
   });

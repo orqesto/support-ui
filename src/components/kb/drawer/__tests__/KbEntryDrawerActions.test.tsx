@@ -15,6 +15,10 @@ vi.mock('@/lib/api-client', () => ({ apiClient: api }));
 vi.mock('@/lib/toast', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
+const viewer = vi.hoisted(() => ({ isOrgAdmin: true }));
+vi.mock('@/hooks/usePermissions', () => ({
+  usePermissions: () => ({ isOrgAdmin: viewer.isOrgAdmin }),
+}));
 vi.mock('@/services/assignment.service', () => ({
   assignmentService: {
     getAssignableUsers: () => Promise.resolve([{ id: 3, firstName: 'Robin', lastName: 'Example' }]),
@@ -100,6 +104,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  viewer.isOrgAdmin = true;
 });
 
 describe('KbEntryVersions', () => {
@@ -199,6 +204,39 @@ describe('KbEntryCaseActions', () => {
     renderActions({ canReview: false });
     expect(screen.queryByRole('button', { name: 'Move into a case' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Remove from case' })).toBeNull();
+  });
+
+  it('a team moderator sees no case actions for a scope they may not decide (server 403)', async () => {
+    viewer.isOrgAdmin = false;
+    api.get.mockImplementation((url: string) =>
+      url === '/api/knowledge-base/cases/search'
+        ? Promise.reject(
+            Object.assign(new Error('refused'), {
+              status: 403,
+              data: { error: 'You may not move entries of this scope' },
+            })
+          )
+        : Promise.reject(new Error(`unexpected ${url}`))
+    );
+    renderActions();
+    await waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith('/api/knowledge-base/cases/search', {
+        params: { scopeKey: 's:5', limit: 1 },
+      })
+    );
+    await waitFor(() => expect(api.get).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('button', { name: 'Move into a case' })).toBeNull();
+    cleanup();
+    // The same moderator on a scope they do decide: offered after the check answers.
+    api.get.mockImplementation(() => Promise.resolve(ok([])));
+    renderActions({ entry: entry({ messageSourceId: null, departmentId: 4 }) });
+    expect(await screen.findByRole('button', { name: 'Move into a case' })).toBeInTheDocument();
+  });
+
+  it('an org-level moderator is offered the actions without asking the server', () => {
+    renderActions();
+    expect(screen.getByRole('button', { name: 'Move into a case' })).toBeInTheDocument();
+    expect(api.get).not.toHaveBeenCalled();
   });
 
   it('Move into a case searches only the cases of the entry’s scope, then attaches', async () => {

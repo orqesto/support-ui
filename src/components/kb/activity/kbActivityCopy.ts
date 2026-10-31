@@ -2,6 +2,7 @@
  * KB engine Stage 1 (F5): the words of the Engine activity panel, the window rollback and the
  * entry's version history. Agent words (§8): the actor is always "Engine".
  */
+import { ACTION_LABELS } from '../autoActions/kbAutoActionCopy';
 import type {
   KbEngineFindingReason,
   KbEngineWeekAction,
@@ -23,14 +24,13 @@ export const FINDING_CHIP_LABEL: Record<KbEngineFindingReason, string> = {
   detached: 'detached',
 };
 
-/** The engine's actions, in agent words (the rollback's action picker, the switched-off line). */
+/**
+ * The engine's actions, in agent words: the Automatic actions page's own labels (one label set)
+ * plus the engine ending a hold it made. The rollback picker, the switched-off line, the skips.
+ */
 export const ENGINE_ACTION_LABEL: Record<KbEngineWeekAction, string> = {
-  remove: 'Removing entries',
-  hold: 'Setting answers aside',
-  cleanPersonalData: 'Removing personal details',
-  approveMined: 'Making learned answers live',
-  approveCaptures: 'Making saved answers live',
-  releaseHold: 'Using set-aside answers again',
+  ...ACTION_LABELS,
+  releaseHold: 'Use set-aside answers again',
 };
 
 /** The gate before an action may run alone (mirrors the server's MIN_RATED / MIN_AGREEMENT). */

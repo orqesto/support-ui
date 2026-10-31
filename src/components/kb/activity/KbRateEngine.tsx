@@ -3,6 +3,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Progress } from '@/components/ui/Progress';
 import { Spinner } from '@/components/ui/Spinner';
+import { apiErrorMessage } from '@/lib/apiError';
 import { logger } from '@/lib/logger';
 import {
   KB_AUTO_ACTION_KEYS,
@@ -94,15 +95,16 @@ export const KbRateEngine = () => {
   const [actions, setActions] = useState<Partial<
     Record<KbAutoActionKey, KbAutoActionOverview>
   > | null>(null);
-  const [failed, setFailed] = useState(false);
+  /** The backend's reason when the overview could not be read; null otherwise. */
+  const [failed, setFailed] = useState<string | null>(null);
 
   const read = useCallback(() => {
-    setFailed(false);
+    setFailed(null);
     kbAutoActionsService.getOverview().then(
       (overview) => setActions(overview.actions ?? {}),
       (error: unknown) => {
         logger.error('Failed to read the automatic actions overview:', error);
-        setFailed(true);
+        setFailed(apiErrorMessage(error, 'Could not read the ratings.'));
         setActions({});
       }
     );
@@ -131,9 +133,9 @@ export const KbRateEngine = () => {
         <div className="flex justify-center py-2">
           <Spinner />
         </div>
-      ) : failed ? (
+      ) : failed !== null ? (
         <Alert variant="warning" className="py-2 text-sm">
-          Could not read the ratings.{' '}
+          <span data-testid="kb-rate-error">{failed}</span>{' '}
           <Button variant="ghost" size="sm" onClick={read}>
             Retry
           </Button>

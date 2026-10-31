@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FolderInput, FolderOutput } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { apiErrorMessage } from '@/lib/apiError';
+import { usePermissions } from '@/hooks/usePermissions';
+import { apiErrorMessage, apiErrorStatus } from '@/lib/apiError';
 import { isCaseRow, kbRef } from '@/lib/kbConsolidation';
 import { toast } from '@/lib/toast';
 import type { KBEntry } from '@/services/kb.service';
 import { kbConsolidationService } from '@/services/kbConsolidation.service';
+import { searchKbCases } from '@/services/kbEngine.service';
 import { KbMoveToCaseDialog, type KbMoveTarget } from '../KbMoveToCaseDialog';
 import { ATTACH_REFUSED, DETACH_REFUSED, refusalText } from '../kbWorkRowModel';
 
@@ -37,9 +39,40 @@ const canJoin = (entry: KBEntry): boolean =>
   entryScopeKey(entry) !== null;
 
 /**
+ * May this viewer change what case an entry of this scope is in? The backend's rule
+ * (`canDecideScope`): an org-level moderator always; anyone else only for a scope whose teams they
+ * all moderate — a mailbox that serves every team (org-wide) or another team's mailbox is not
+ * theirs. The browser does not know which teams a mailbox serves, so for a team moderator the
+ * server is asked once: `GET /cases/search?scopeKey=` answers 403 for a scope they may not decide.
+ * null while asking. Any other failure leaves the buttons (the action's own refusal explains).
+ */
+export const useMayDecideScope = (
+  scopeKey: string | null | undefined,
+  enabled: boolean
+): boolean | null => {
+  const { isOrgAdmin } = usePermissions();
+  const asks = enabled && !isOrgAdmin && typeof scopeKey === 'string';
+  const [answer, setAnswer] = useState<{ key: string; may: boolean } | null>(null);
+  useEffect(() => {
+    if (!asks || typeof scopeKey !== 'string') return;
+    let live = true;
+    searchKbCases({ scopeKey, limit: 1 }).then(
+      () => live && setAnswer({ key: scopeKey, may: true }),
+      (err: unknown) => live && setAnswer({ key: scopeKey, may: apiErrorStatus(err) !== 403 })
+    );
+    return () => {
+      live = false;
+    };
+  }, [asks, scopeKey]);
+  if (!enabled) return false;
+  if (!asks) return true;
+  return answer?.key === scopeKey ? answer.may : null;
+};
+
+/**
  * D13 in the entry drawer: "Move into a case" (the case picker, then attach) and "Remove from
- * case" (detach; the case stays). Shown only to a Manage-KB reviewer; the server still checks the
- * entry's team and answers in plain words when it refuses.
+ * case" (detach; the case stays). Shown only to a Manage-KB reviewer who may decide the entry's
+ * scope (`useMayDecideScope`); the server still checks, and answers in plain words when it refuses.
  */
 export const KbEntryCaseActions = ({
   entry,
@@ -53,9 +86,10 @@ export const KbEntryCaseActions = ({
   const [moving, setMoving] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [busy, setBusy] = useState(false);
-  if (!canReview) return null;
   const inCase = caseOf(entry);
   const joinable = canJoin(entry);
+  const mayDecide = useMayDecideScope(entryScopeKey(entry), canReview && (!!inCase || joinable));
+  if (!canReview || mayDecide !== true) return null;
   if (!inCase && !joinable) return null;
 
   const attach = async (target: KbMoveTarget) => {

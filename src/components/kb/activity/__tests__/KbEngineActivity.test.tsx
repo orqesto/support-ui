@@ -162,6 +162,11 @@ const routeGet = (url: string, config?: { params?: Record<string, unknown> }) =>
   if (url === '/api/knowledge-base/auto-actions/sample')
     return Promise.resolve(ok({ items: [sampleItem], poolLimited: false, params: config }));
   if (url.endsWith('/versions')) return Promise.resolve(ok({ versions: [] }));
+  const detail = /^\/api\/knowledge-base\/entries\/(\d+)$/.exec(url);
+  if (detail && Number(detail[1]) !== 215)
+    return Promise.resolve(
+      ok({ id: Number(detail[1]), publicId: `KB-${Number(detail[1]) + 1000}` })
+    );
   return Promise.reject(Object.assign(new Error('unexpected'), { status: 404 }));
 };
 
@@ -311,7 +316,7 @@ describe('KbEngineActivity', () => {
     expect(listed.calls[0]).toMatchObject({ status: 'auto_changed', page: 1, limit: 10 });
     expect(within(row).getByText('Engine')).toBeInTheDocument();
     expect(within(row).getByText('Why: the engine was 94% sure')).toBeInTheDocument();
-    fireEvent.click(within(row).getByRole('button', { name: /^Un-approve:/ }));
+    fireEvent.click(within(row).getByRole('button', { name: /^Send back to Not live yet:/ }));
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith(
         '/api/knowledge-base/auto-actions/approved-mined/9/unapprove',
@@ -325,7 +330,7 @@ describe('KbEngineActivity', () => {
     listed.entries = [entry(9, change({ undoBlocked: 'changed_after' }))];
     renderActivity({ defaultExpanded: true });
     const row = await screen.findByTestId('kb-engine-change');
-    expect(within(row).getByRole('button', { name: /^Un-approve:/ })).toBeDisabled();
+    expect(within(row).getByRole('button', { name: /^Send back to Not live yet:/ })).toBeDisabled();
     expect(
       within(row).getByLabelText('Someone changed this entry after the engine — undo by hand.')
     ).toBeInTheDocument();
@@ -392,7 +397,7 @@ describe('KbEngineActivity', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
     const undo = within(screen.getByTestId('kb-engine-change')).getByRole('button', {
-      name: /^Un-approve:/,
+      name: /^Send back to Not live yet:/,
     });
     expect(undo).toBeEnabled();
     fireEvent.click(undo);
@@ -436,7 +441,9 @@ describe('KbEngineActivity', () => {
     expect(rollbackCalls()[0][1]).toMatchObject({ dryRun: true, departmentId: 1 });
     expect(result).toHaveTextContent('Rolling back would put 2 back and leave 3 as they are');
     expect(result).toHaveTextContent('A person changed it later');
-    expect(result).toHaveTextContent('Has an undo of its own (Removing entries)');
+    expect(result).toHaveTextContent(
+      'Has an undo of its own (Remove entries the review is sure are wrong)'
+    );
     expect(result).toHaveTextContent('It is merged into a case: undo the merge instead');
 
     fireEvent.click(within(result).getByRole('button', { name: 'Roll back' }));
@@ -485,6 +492,100 @@ describe('KbEngineActivity', () => {
     expect(screen.getByRole('button', { name: 'Check what would change' })).toBeDisabled();
   });
 
+  it('rollback skip links name the entry by its own number, else "entry <id>"', async () => {
+    api.post.mockResolvedValueOnce(
+      ok({
+        dryRun: true,
+        matched: 3,
+        processed: 3,
+        restored: 0,
+        entryIds: [11],
+        alreadyAtTarget: [],
+        skipped: [
+          { entryId: 13, reason: 'changed_after' },
+          { entryId: 215, reason: 'merged_into_case' },
+        ],
+        truncated: false,
+        nextAfterEntryId: null,
+      })
+    );
+    renderActivity({ defaultExpanded: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Roll back a period…' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Check what would change' }));
+    const result = await screen.findByTestId('kb-rollback-result');
+    expect(await within(result).findByRole('link', { name: '#KB-1013' })).toHaveAttribute(
+      'href',
+      '/knowledge-base?view=live&status=all&id=13'
+    );
+    // Its detail could not be read: no bare internal id passed off as its number.
+    expect(within(result).getByRole('link', { name: 'entry 215' })).toBeInTheDocument();
+    expect(within(result).queryByRole('link', { name: '#13' })).toBeNull();
+  });
+
+  it('Rate the engine shows the backend’s reason when the ratings cannot be read', async () => {
+    api.get.mockImplementation((url: string, config?: { params?: Record<string, unknown> }) =>
+      url === '/api/knowledge-base/auto-actions'
+        ? Promise.reject(
+            Object.assign(new Error('failed'), {
+              status: 503,
+              data: { error: 'Ratings are paused during maintenance' },
+            })
+          )
+        : routeGet(url, config)
+    );
+    renderActivity({ defaultExpanded: true });
+    expect(await screen.findByTestId('kb-rate-error')).toHaveTextContent(
+      'Ratings are paused during maintenance'
+    );
+  });
+
+  it('Before / after shows the backend’s reason when the history cannot be read', async () => {
+    listed.entries = [entry(9, change())];
+    api.get.mockImplementation((url: string, config?: { params?: Record<string, unknown> }) =>
+      url.endsWith('/versions')
+        ? Promise.reject(
+            Object.assign(new Error('failed'), {
+              status: 403,
+              data: { error: 'You cannot see this team’s history' },
+            })
+          )
+        : routeGet(url, config)
+    );
+    renderActivity({ defaultExpanded: true });
+    const row = await screen.findByTestId('kb-engine-change');
+    fireEvent.click(within(row).getByRole('button', { name: 'Before / after' }));
+    expect(await within(row).findByTestId('kb-before-after-error')).toHaveTextContent(
+      'You cannot see this team’s history'
+    );
+  });
+
+  it('a clean-up with a stored version but no suggestion still offers Undo, by version', async () => {
+    listed.entries = [
+      entry(
+        9,
+        change({
+          action: 'cleanPersonalData',
+          undo: 'undo_clean',
+          suggestionId: null,
+          undoVersion: 5,
+        })
+      ),
+      entry(
+        10,
+        change({ action: 'hold', undo: 'release_hold', suggestionId: null, undoVersion: null })
+      ),
+    ];
+    api.post.mockResolvedValueOnce(ok({ restoredTo: 5, newVersion: 7, via: 'undo_clean' }));
+    renderActivity({ defaultExpanded: true });
+    const rows = await screen.findAllByTestId('kb-engine-change');
+    // Neither a suggestion nor a version: nothing to offer.
+    expect(within(rows[1]).queryByRole('button', { name: /^Use it again:/ })).toBeNull();
+    fireEvent.click(within(rows[0]).getByRole('button', { name: /^Undo clean-up:/ }));
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/api/knowledge-base/entries/9/versions/5/restore', {})
+    );
+  });
+
   it('rollback hidden for agents', () => {
     renderActivity({ defaultExpanded: true, canRollback: false });
     expect(screen.queryByRole('button', { name: 'Roll back a period…' })).toBeNull();
@@ -497,7 +598,9 @@ describe('KbEngineActivity', () => {
       summary: summary({ killed: { all: false, actions: ['remove', 'hold'] } }),
     });
     expect(
-      screen.getByText('Switched off: Removing entries, Setting answers aside.')
+      screen.getByText(
+        'Switched off: Remove entries the review is sure are wrong, Set aside answers about one customer.'
+      )
     ).toBeInTheDocument();
   });
 });

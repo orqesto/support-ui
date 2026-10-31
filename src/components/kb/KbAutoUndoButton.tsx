@@ -15,7 +15,7 @@ import {
 
 /**
  * The undo of a change the system made by itself ("Changed automatically"): Restore / Undo
- * clean-up / Use it again / Un-approve, by the row's own `autoChange.undo` (by version when the change
+ * clean-up / Use it again / Send back to Not live yet, by the row's own `autoChange.undo` (by version when the change
  * has one: `runAutoUndo`). Disabled, with the reason, when someone changed the entry after the engine.
  * Nothing without an undo.
  */
