@@ -80,9 +80,7 @@ describe('KbExportButton', () => {
   it('disables the button when nothing is approved to export', async () => {
     useBackend(() => ok({ count: 0, cap: 10000, truncated: false }));
     render(<KbExportButton filters={{ status: 'approved', type: 'all' }} refreshKey={0} />);
-    expect(
-      await screen.findByRole('button', { name: 'Export to CSV (0)' })
-    ).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Export to CSV (0)' })).toBeDisabled();
   });
 
   it('says so when the cap cuts the file', async () => {
@@ -103,7 +101,9 @@ describe('KbExportButton', () => {
   it('reads the count again when the list changed', async () => {
     let count = 1;
     useBackend(() => ok({ count, cap: 10000, truncated: false }));
-    const view = render(<KbExportButton filters={{ status: 'approved', type: 'all' }} refreshKey={0} />);
+    const view = render(
+      <KbExportButton filters={{ status: 'approved', type: 'all' }} refreshKey={0} />
+    );
     await screen.findByRole('button', { name: 'Export to CSV (1)' });
     count = 2;
     view.rerender(<KbExportButton filters={{ status: 'approved', type: 'all' }} refreshKey={1} />);
@@ -117,9 +117,7 @@ describe('KbExportButton', () => {
         : { status: 500, data: { success: false, message: 'Export failed on the server' } }
     );
     render(<KbExportButton filters={{ status: 'approved', type: 'all' }} refreshKey={0} />);
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Export to CSV (4)' })
-    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Export to CSV (4)' }));
     expect(
       await screen.findByText(/Export failed on the server|Could not download the CSV/)
     ).toBeTruthy();

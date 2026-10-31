@@ -26,7 +26,7 @@ vi.mock('@/services/assignment.service', () => ({
 }));
 
 const { KbEntryVersions } = await import('../KbEntryVersions');
-const { KbEntryCaseActions } = await import('../KbEntryCaseActions');
+const { KbEntryCaseActions, resetMayDecideScopeCache } = await import('../KbEntryCaseActions');
 
 const ok = <T,>(data: T) => ({ data: { success: true, data } });
 
@@ -103,6 +103,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  resetMayDecideScopeCache();
   vi.clearAllMocks();
   viewer.isOrgAdmin = true;
 });
@@ -231,6 +232,22 @@ describe('KbEntryCaseActions', () => {
     api.get.mockImplementation(() => Promise.resolve(ok([])));
     renderActions({ entry: entry({ messageSourceId: null, departmentId: 4 }) });
     expect(await screen.findByRole('button', { name: 'Move into a case' })).toBeInTheDocument();
+  });
+
+  it('a team moderator opening several drawers of one scope asks the server once', async () => {
+    viewer.isOrgAdmin = false;
+    api.get.mockImplementation(() => Promise.resolve(ok([])));
+    renderActions();
+    expect(await screen.findByRole('button', { name: 'Move into a case' })).toBeInTheDocument();
+    cleanup();
+    renderActions({ entry: entry({ id: 78 }) });
+    expect(await screen.findByRole('button', { name: 'Move into a case' })).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledTimes(1);
+    cleanup();
+    // CONTROL: another scope is a new question.
+    renderActions({ entry: entry({ id: 79, messageSourceId: null, departmentId: 4 }) });
+    expect(await screen.findByRole('button', { name: 'Move into a case' })).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledTimes(2);
   });
 
   it('an org-level moderator is offered the actions without asking the server', () => {

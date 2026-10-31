@@ -19,6 +19,7 @@ import { useKbQuestions } from './useKbQuestions';
 export const ALREADY_DECIDED_TEXT = 'Already decided: someone already answered this question.';
 export const NOT_YOUR_TEAM_TEXT = "You can't decide questions for this team.";
 export const GONE_TEXT = 'No longer exists: this question was removed.';
+export const LINK_DECIDED_TEXT = 'Already decided: that question is no longer open.';
 export const BACK_TO_SKIPPED_TEXT = 'Back to skipped questions.';
 
 /** Load the next page when this few cards are left ahead of the current one. */
@@ -33,8 +34,11 @@ export const KbQuestionQueue = ({
   search,
   empty,
   onDecided,
+  startAt,
 }: {
   departmentId?: number;
+  /** A link's `?question=<suggestionId>`: the queue starts at that card, or says it is decided. */
+  startAt?: number;
   search: string;
   /** What an empty queue (no search) shows: "Nothing needs you". */
   empty: ReactNode;
@@ -87,6 +91,24 @@ export const KbQuestionQueue = ({
     },
     [busy, items.length]
   );
+
+  // Start at the linked question: page on until it is found. Not found once every page is in (or
+  // the next page failed): it was decided or never was yours, and the line says so, never an error.
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const { loading, loadingMore, moreFailed } = queue;
+  useEffect(() => {
+    if (!startAt || startedAt === startAt || loading || loadingMore) return;
+    const at = items.findIndex((item) => item.suggestionId === startAt);
+    if (at >= 0) {
+      setIndex(at);
+      setStartedAt(startAt);
+    } else if (hasMore && !moreFailed) {
+      loadMore();
+    } else {
+      setStartedAt(startAt);
+      flash({ tone: 'info', text: LINK_DECIDED_TEXT });
+    }
+  }, [startAt, startedAt, loading, loadingMore, moreFailed, items, hasMore, loadMore, flash]);
 
   // j / k from the moment the card is on screen (a layout effect, as in the card).
   useLayoutEffect(() => {

@@ -70,10 +70,12 @@ export const KbQuestionsView = ({
   departmentId,
   activity,
   onDecided,
+  startAt,
 }: {
   openQuestions: number | null;
   search: string;
   departmentId?: number;
+  startAt?: number;
   /** Engine activity, collapsed under the card. */
   activity: ReactNode;
   onDecided?: (question: KbQuestion) => void;
@@ -87,7 +89,16 @@ export const KbQuestionsView = ({
       search={search}
       empty={<KbNothingNeedsYou />}
       onDecided={onDecided}
+      startAt={startAt}
     />
     {activity}
   </>
 );
+
+/** The one-line "Already decided" a decide link leaves when its item is gone. */
+export const KbDecideNotice = ({ text }: { text: string | null }) =>
+  text ? (
+    <Alert variant="info" className="py-2 text-sm">
+      <span role="status">{text}</span>
+    </Alert>
+  ) : null;

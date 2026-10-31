@@ -9,6 +9,7 @@ import {
   ALREADY_DECIDED_TEXT,
   BACK_TO_SKIPPED_TEXT,
   GONE_TEXT,
+  LINK_DECIDED_TEXT,
   NOT_YOUR_TEAM_TEXT,
 } from '../KbQuestionQueue';
 import { captureQuestion, mergeQuestion } from './kbQuestionFixtures';
@@ -353,5 +354,35 @@ describe('KbQuestionQueue', () => {
     expect(screen.queryByText('Nothing needs you')).toBeNull();
     page2.resolve(pageOf([mergeQuestion(2)], 2, null));
     await waitFor(() => expect(heading()).toContain('fee 2'));
+  });
+});
+
+describe('a link names a question (?question=<suggestionId>)', () => {
+  const renderAtQuestion = (startAt: number) =>
+    render(<KbQuestionQueue search="" startAt={startAt} empty={<p>Nothing needs you</p>} />);
+
+  it('capture suggestion link opens its question card', async () => {
+    state.pages = [pageOf([mergeQuestion(1), mergeQuestion(2), captureQuestion(3)], 3)];
+    renderAtQuestion(3);
+    await screen.findByText('Question 3 of 3');
+    expect(screen.queryByText(LINK_DECIDED_TEXT)).toBeNull();
+  });
+
+  it('pages on until the linked question is found', async () => {
+    state.pages = [
+      pageOf([mergeQuestion(1), mergeQuestion(2)], 4, '3'),
+      pageOf([mergeQuestion(3), mergeQuestion(4)], 4, null),
+    ];
+    renderAtQuestion(4);
+    await screen.findByText('Question 4 of 4');
+    expect(heading()).toContain('fee 4');
+  });
+
+  it('decided or missing id shows "Already decided" on the view, and the queue still works', async () => {
+    state.pages = [pageOf([mergeQuestion(1), mergeQuestion(2)], 2)];
+    renderAtQuestion(99);
+    expect(await screen.findByText(LINK_DECIDED_TEXT)).toBeInTheDocument();
+    // CONTROL: the queue starts at its first card, with no error.
+    expect(screen.getByText('Question 1 of 2')).toBeInTheDocument();
   });
 });

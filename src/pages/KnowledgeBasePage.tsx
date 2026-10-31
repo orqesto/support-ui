@@ -14,7 +14,6 @@ import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { usePermissions } from '@/hooks/usePermissions';
 import { KbAutoActionsButton } from '@/components/kb/autoActions/KbAutoActionsButton';
 import { logger } from '@/lib/logger';
-import type { KbListFilters } from '@/services/kbEngine.service';
 import {
   kbService,
   kbSourceParam,
@@ -30,6 +29,7 @@ import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
 import { useKbEntryParam } from '@/hooks/useKbEntryParam';
 import { useKbAutoChangedSupport } from '@/hooks/useKbAutoChangedSupport';
 import { CASE_ACTION_TITLES, LEFT_PAGE, runCaseAction } from '@/components/kb/runCaseAction';
+import { useKbDecideLink } from '@/components/kb/page/useKbDecideLink';
 import { KbExportButton } from '@/components/kb/KbExportButton';
 import type { KbFilterStatus } from '@/components/kb/KbStatusFilter';
 import { withoutKbFinding } from '@/lib/kbFinding';
@@ -50,6 +50,7 @@ import { useKbTeams } from '@/components/kb/page/KbTeamFilter';
 import { KbEngineActivity } from '@/components/kb/activity/KbEngineActivity';
 import {
   KbEngineOffNotice,
+  KbDecideNotice,
   KbQuestionsView,
   KbStillLearning,
 } from '@/components/kb/page/KbPageStates';
@@ -57,6 +58,10 @@ import { useKbEngineSummary } from '@/components/kb/page/useKbEngineSummary';
 import { isOlderThan7d } from '@/components/kb/questions/useKbQuestions';
 import {
   kbPageViewFromSearch,
+  entryFailureAlert,
+  kbExportFilters,
+  kbQuestionFromSearch,
+  kbQuestionsTeamFromSearch,
   kbPageViewIsExplicit,
   liveDefaultStatus,
   kbSearchForView,
@@ -118,7 +123,8 @@ const KnowledgeBaseViews = () => {
   const selectedTeams = selectedDeptKey ? selectedDeptKey.split(',').map(Number) : [];
   // One team picked: the questions and the engine summary are read for it too.
   const oneTeam = selectedTeams.length === 1 ? selectedTeams[0] : undefined;
-  const engine = useKbEngineSummary(canReview, oneTeam);
+  const questionsTeam = oneTeam ?? kbQuestionsTeamFromSearch(searchParams); // an old link's ?departmentId= keeps its team
+  const engine = useKbEngineSummary(canReview, questionsTeam);
   const openQuestions = engine.summary?.questions.open ?? null;
 
   // Which view: the URL decides (`?view=`, or a legacy status / finding); a bare URL waits for the
@@ -234,25 +240,24 @@ const KnowledgeBaseViews = () => {
   const rereadPage = () => void fetchEntries(pagination.page);
   const bulk = useKbBulkDecisions(entries, rereadPage, bulkMode);
 
+  const decideLink = useKbDecideLink(setAlertDialog);
   const { openEntry: handleOpenEntry, closeEntry: handleCloseEntry } = useKbEntryParam({
     selectedEntry,
     setSelectedEntry,
     canReview,
     entries,
     filterStatus,
-    onNotFound: setAlertDialog,
+    onNotFound: decideLink.onNotFound,
   });
 
-  // The export is the list's own query: same status (incl. 'all'), finding, mailbox, type, search, teams.
-  const exportFilters: KbListFilters = {
+  const exportFilters = kbExportFilters({
     status: filterStatus,
-    finding: finding.filter?.finding,
-    departmentId: finding.filter?.departmentId,
-    departmentIds: selectedTeams.length ? selectedTeams : undefined,
+    finding: finding.filter,
+    teams: selectedTeams,
     source: kbSourceParam(filterSource),
     type: filterType,
     search: searchQuery,
-  };
+  });
 
   const handleSearch = () => {
     // Trigger actual search when button clicked or Enter pressed
@@ -316,15 +321,9 @@ const KnowledgeBaseViews = () => {
   // its pending decision changes — re-read the page instead of patching the row in place.
   const rereadAfterDecision = Boolean(finding.filter) || isNewStatus(filterStatus);
 
-  // The same words for every entry action that failed: "Failed to Hide", the error's own message.
   const reportFailure = (verb: string, title: string, error: unknown) => {
     logger.error(`Failed to ${verb} entry:`, error);
-    setAlertDialog({
-      open: true,
-      title: `Failed to ${title}`,
-      description: error instanceof Error ? error.message : `Failed to ${verb} KB entry`,
-      variant: 'error',
-    });
+    setAlertDialog(entryFailureAlert(verb, title, error));
   };
 
   const handleApprove = async (id: number) => {
@@ -561,6 +560,8 @@ const KnowledgeBaseViews = () => {
           />
         )}
 
+        <KbDecideNotice text={decideLink.notice} />
+
         {view === 'live' && moreShown && (
           <KbMoreFilters
             canReview={canReview}
@@ -583,7 +584,8 @@ const KnowledgeBaseViews = () => {
           <KbQuestionsView
             openQuestions={openQuestions}
             search={searchQuery}
-            departmentId={oneTeam}
+            departmentId={questionsTeam}
+            startAt={kbQuestionFromSearch(searchParams)}
             activity={engineActivity(false)}
             onDecided={(question) => engine.decrementOpen(isOlderThan7d(question))}
           />

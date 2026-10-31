@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { FolderInput, FolderOutput } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiErrorMessage, apiErrorStatus } from '@/lib/apiError';
 import { isCaseRow, kbRef } from '@/lib/kbConsolidation';
 import { toast } from '@/lib/toast';
 import type { KBEntry } from '@/services/kb.service';
+import { useAuthStore } from '@/stores/authStore';
 import { kbConsolidationService } from '@/services/kbConsolidation.service';
 import { searchKbCases } from '@/services/kbEngine.service';
 import { KbMoveToCaseDialog, type KbMoveTarget } from '../KbMoveToCaseDialog';
@@ -46,24 +48,48 @@ const canJoin = (entry: KBEntry): boolean =>
  * server is asked once: `GET /cases/search?scopeKey=` answers 403 for a scope they may not decide.
  * null while asking. Any other failure leaves the buttons (the action's own refusal explains).
  */
+/** The answer per scope for the page session: opening several drawers of a scope asks once. */
+const scopeAnswers = new Map<string, Promise<boolean>>();
+/** Tests start each case with no memory of the last one. */
+export const resetMayDecideScopeCache = (): void => scopeAnswers.clear();
+
+const askMayDecideScope = (scopeKey: string, memoKey: string): Promise<boolean> => {
+  const known = scopeAnswers.get(memoKey);
+  if (known) return known;
+  const asked = searchKbCases({ scopeKey, limit: 1 }).then(
+    () => true,
+    (err: unknown) => {
+      // Only a 403 is an answer; any other failure is asked again next time.
+      if (apiErrorStatus(err) === 403) return false;
+      scopeAnswers.delete(memoKey);
+      return true;
+    }
+  );
+  scopeAnswers.set(memoKey, asked);
+  return asked;
+};
+
 export const useMayDecideScope = (
   scopeKey: string | null | undefined,
   enabled: boolean
 ): boolean | null => {
   const { isOrgAdmin } = usePermissions();
+  // The answer belongs to the workspace and team context it was asked in.
+  const orgCode = useAuthStore((state) => state.selectedOrganizationId);
+  const deptKey = useDepartmentContextKey();
   const asks = enabled && !isOrgAdmin && typeof scopeKey === 'string';
   const [answer, setAnswer] = useState<{ key: string; may: boolean } | null>(null);
   useEffect(() => {
     if (!asks || typeof scopeKey !== 'string') return;
     let live = true;
-    searchKbCases({ scopeKey, limit: 1 }).then(
-      () => live && setAnswer({ key: scopeKey, may: true }),
-      (err: unknown) => live && setAnswer({ key: scopeKey, may: apiErrorStatus(err) !== 403 })
+    void askMayDecideScope(scopeKey, `${orgCode ?? ''}|${deptKey}|${scopeKey}`).then(
+      (may) => live && setAnswer({ key: scopeKey, may })
     );
     return () => {
       live = false;
     };
-  }, [asks, scopeKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asks, scopeKey, orgCode, deptKey]);
   if (!enabled) return false;
   if (!asks) return true;
   return answer?.key === scopeKey ? answer.may : null;

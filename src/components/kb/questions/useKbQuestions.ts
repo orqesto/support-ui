@@ -52,6 +52,8 @@ export const useKbQuestions = ({ departmentId, search }: UseKbQuestionsArgs): Us
   const [reloadKey, setReloadKey] = useState(0);
   // Every request carries the query generation; a newer query (team, search) makes it stale.
   const generation = useRef(0);
+  // The cursor being asked right now: two callers in one tick must not ask for it twice.
+  const asking = useRef<string | null>(null);
   const term = search?.trim() ?? '';
 
   useEffect(() => {
@@ -87,6 +89,8 @@ export const useKbQuestions = ({ departmentId, search }: UseKbQuestionsArgs): Us
 
   const fetchMore = useCallback(
     (cursor: string) => {
+      if (asking.current === cursor) return;
+      asking.current = cursor;
       const mine = generation.current;
       setLoadingMore(true);
       getKbQuestions({ departmentId, search: term || undefined, cursor, limit: PAGE_SIZE })
@@ -105,6 +109,7 @@ export const useKbQuestions = ({ departmentId, search }: UseKbQuestionsArgs): Us
           if (generation.current === mine) setFailedCursor(cursor);
         })
         .finally(() => {
+          if (asking.current === cursor) asking.current = null;
           if (generation.current === mine) setLoadingMore(false);
         });
     },
