@@ -266,12 +266,7 @@ export type KbRollbackResult = {
 
 // ── Undo an answer (POST /questions/:suggestionId/undo) ─────────────────────────────────────
 
-export type KbUndoBlockReason =
-  | 'changed_after'
-  | 'gone'
-  | 'text_redacted'
-  | 'not_in_case'
-  | 'last_member';
+export type KbUndoBlockReason = 'changed_after' | 'gone' | 'text_redacted' | 'not_in_case';
 export type KbUndoBlock = { entryId: number; publicId: string | null; reason: KbUndoBlockReason };
 
 /** All or nothing: either the question is open again, or a 409 says why, as a value. */

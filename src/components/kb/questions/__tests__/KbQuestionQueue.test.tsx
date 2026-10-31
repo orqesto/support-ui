@@ -23,6 +23,7 @@ const state = vi.hoisted(() => ({
     | Array<{ entryId: number; versionBefore: number | null; versionAfter: number | null }>
     | undefined,
   undoCalls: [] as number[],
+  undoThrows: null as Error | null,
   undoResult: { reopened: true, restored: [] } as unknown,
   /** When set, answers getKbQuestions instead of `pages`. */
   respond: null as ((params: KbQuestionsParams) => Promise<KbQuestionsPage>) | null,
@@ -51,7 +52,7 @@ vi.mock('@/services/kbEngine.service', () => ({
   },
   undoKbQuestion: (id: number) => {
     state.undoCalls.push(id);
-    return Promise.resolve(state.undoResult);
+    return state.undoThrows ? Promise.reject(state.undoThrows) : Promise.resolve(state.undoResult);
   },
 }));
 
@@ -431,6 +432,7 @@ describe('Undo after an answer (F4b)', () => {
     state.changed = changed;
     state.pages = [pageOf([mergeQuestion(1), mergeQuestion(2)], 2)];
     state.undoCalls = [];
+    state.undoThrows = null;
     state.undoResult = { reopened: true, restored: [{ entryId: 11, publicId: 'KB-11' }] };
     const undone = vi.fn();
     render(<KbQuestionQueue search="" empty={<p>Nothing needs you</p>} onUndone={undone} />);
@@ -441,13 +443,45 @@ describe('Undo after an answer (F4b)', () => {
   };
   const changedOne = [{ entryId: 11, versionBefore: 3, versionAfter: 4 }];
 
-  it('shows Done · Undo only when the answer changed something', async () => {
+  it('shows Done · Undo after every saved answer, even one that changed nothing', async () => {
     await answerKeep([]);
-    await screen.findByText('Saved. Here is the next question.');
-    expect(screen.queryByTestId('kb-question-undo')).toBeNull();
-    cleanup();
-    await answerKeep(changedOne);
     expect(await screen.findByTestId('kb-question-undo')).toBeInTheDocument();
+  });
+
+  it('nothing to undo is a plain one-liner', async () => {
+    await answerKeep([]);
+    state.undoResult = { refused: 'nothing_to_undo', message: 'x' };
+    fireEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    expect(
+      await screen.findByText('There is nothing to undo: this answer changed nothing.')
+    ).toBeInTheDocument();
+  });
+
+  it('403 says only the answerer or an admin can undo', async () => {
+    await answerKeep(changedOne);
+    state.undoThrows = Object.assign(new Error('Forbidden'), { status: 403 });
+    fireEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    expect(
+      await screen.findByText('Only the person who answered, or an admin, can undo this.')
+    ).toBeInTheDocument();
+  });
+
+  it('each remaining blocked reason has plain words', async () => {
+    await answerKeep(changedOne);
+    state.undoResult = {
+      refused: 'blocked',
+      message: 'x',
+      blocked: [
+        { entryId: 1, publicId: 'KB-1', reason: 'gone' },
+        { entryId: 2, publicId: 'KB-2', reason: 'text_redacted' },
+        { entryId: 3, publicId: 'KB-3', reason: 'not_in_case' },
+      ],
+    };
+    fireEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    expect(
+      await screen.findByText(/#KB-1 no longer exists\. #KB-2 had its text removed/)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/#KB-3 is no longer in that case/)).toBeInTheDocument();
   });
 
   it('200: one call, the question is back first and counted again', async () => {

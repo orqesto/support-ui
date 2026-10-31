@@ -5,8 +5,8 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { answerKbQuestion, getKbQuestions, undoKbQuestion } from '@/services/kbEngine.service';
-import type { KbAnswerChange, KbQuestion, KbQuestionChoiceKey } from '@/services/kbEngine.types';
-import { UNDO_REFUSAL_TEXT, undoBlockedText } from './kbAnswerUndo';
+import type { KbQuestion, KbQuestionChoiceKey } from '@/services/kbEngine.types';
+import { UNDO_FORBIDDEN_TEXT, UNDO_REFUSAL_TEXT, undoBlockedText } from './kbAnswerUndo';
 import { KbQuestionCard, ignoresCardKey } from './KbQuestionCard';
 import { useKbQuestions } from './useKbQuestions';
 
@@ -60,10 +60,7 @@ export const KbQuestionQueue = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
-  const [undoable, setUndoable] = useState<{
-    question: KbQuestion;
-    changed: KbAnswerChange[];
-  } | null>(null);
+  const [undoable, setUndoable] = useState<{ question: KbQuestion } | null>(null);
   const [undoError, setUndoError] = useState<string | null>(null);
   const [undoing, setUndoing] = useState(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -161,10 +158,10 @@ export const KbQuestionQueue = ({
       setBusy(true);
       setError(null);
       try {
-        const saved = await answerKbQuestion(current.suggestionId, choice, text);
+        await answerKbQuestion(current.suggestionId, choice, text);
         decided('Saved. Here is the next question.', 'success');
         setUndoError(null);
-        setUndoable(saved.changed?.length ? { question: current, changed: saved.changed } : null);
+        setUndoable({ question: current });
       } catch (err) {
         const status = getErrorStatus(err);
         if (status === 409) {
@@ -183,7 +180,7 @@ export const KbQuestionQueue = ({
     [current, remove, flash, onDecided]
   );
 
-  // "Done · Undo" for ~10 s after a saved answer that changed something.
+  // "Done · Undo" for ~10 s after every saved answer.
   useEffect(() => {
     if (!undoable) return;
     const timer = setTimeout(() => setUndoable(null), UNDO_MS);
@@ -207,7 +204,11 @@ export const KbQuestionQueue = ({
         setUndoError(UNDO_REFUSAL_TEXT[result.refused]);
       }
     } catch (err) {
-      setUndoError(getApiErrorMessage(err) ?? 'Could not undo. Try again.');
+      setUndoError(
+        getErrorStatus(err) === 403
+          ? UNDO_FORBIDDEN_TEXT
+          : (getApiErrorMessage(err) ?? 'Could not undo. Try again.')
+      );
     } finally {
       setUndoing(false);
     }
@@ -233,9 +234,7 @@ export const KbQuestionQueue = ({
       {undoable && (
         <div data-testid="kb-question-undo">
           <Alert variant="success" className="py-2 text-sm">
-            <span role="status" className="mr-2">
-              Done.
-            </span>
+            <span className="mr-2">Done.</span>
             <Button variant="outline" size="sm" onClick={() => void undo()} isLoading={undoing}>
               Undo
             </Button>
