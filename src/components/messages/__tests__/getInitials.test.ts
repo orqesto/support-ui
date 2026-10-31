@@ -15,4 +15,9 @@ describe('getInitials', () => {
     expect(getInitials(undefined)).toBe('?');
     expect(getInitials(null)).toBe('?');
   });
+  it('every <…> part is dropped, nested or unclosed — only the initials are left', () => {
+    expect(getInitials('Ann Lee <<script>ann@x.example>')).toBe('AL');
+    expect(getInitials('Ann Lee <ann@x.example')).toBe('AL');
+    expect(getInitials('<a><b>Bo Ray')).toBe('BR');
+  });
 });
