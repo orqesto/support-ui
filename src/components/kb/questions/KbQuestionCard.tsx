@@ -52,6 +52,19 @@ export const isTypingTarget = (target: EventTarget | null): boolean => {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
 };
 
+/**
+ * Something sits over the card and owns the keys: a dialog, a menu, a list box or the entry
+ * drawer. The card's single keys (1–4, j / k) must not act behind it.
+ */
+const OVERLAY_SELECTOR =
+  '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-drawer="open"]';
+export const overlayIsOpen = (): boolean =>
+  typeof document !== 'undefined' && document.querySelector(OVERLAY_SELECTOR) !== null;
+
+/** Should a single-key shortcut on the card ignore this key press? */
+export const ignoresCardKey = (event: KeyboardEvent): boolean =>
+  event.metaKey || event.ctrlKey || event.altKey || isTypingTarget(event.target) || overlayIsOpen();
+
 const EvidenceLine = ({ label, value }: { label: string; value: string }) => (
   <div className="flex gap-2 justify-between text-sm">
     <dt className="text-muted-foreground">{label}</dt>
@@ -134,7 +147,7 @@ export const KbQuestionCard = ({
   // the moment the card is on screen (a passive effect can attach after the first key press).
   useLayoutEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || isTypingTarget(event.target)) return;
+      if (ignoresCardKey(event)) return;
       const index = ['1', '2', '3', '4'].indexOf(event.key);
       if (index < 0 || index >= choices.length || busy) return;
       event.preventDefault();

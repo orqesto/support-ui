@@ -46,8 +46,8 @@ import { useKbFindingFilter } from '@/hooks/useKbFindingFilter';
 import { KbMoreFilters } from '@/components/kb/page/KbMoreFilters';
 import { KbPageToolbar, type KbListType } from '@/components/kb/page/KbPageToolbar';
 import { useKbTeams } from '@/components/kb/page/KbTeamFilter';
+import { KbEngineActivity } from '@/components/kb/activity/KbEngineActivity';
 import {
-  KbEngineActivitySlot,
   KbEngineOffNotice,
   KbQuestionsView,
   KbStillLearning,
@@ -83,7 +83,6 @@ const KnowledgeBaseViews = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Get active tab from URL hash, default to 'all'
   const hashTab = location.hash.replace('#', '') as FilterType;
   const activeTab: FilterType = VALID_FILTER_TYPES.includes(hashTab) ? hashTab : 'all';
   const [entries, setEntries] = useState<KBEntry[]>([]);
@@ -144,7 +143,6 @@ const KnowledgeBaseViews = () => {
   // Source filter — 'all' (no narrowing), 'none' (no mailbox) or a source id: kbSourceParam.
   const [filterSource, setFilterSource] = useState<string>(ALL_SOURCES);
 
-  // Handle tab change by updating URL hash via React Router
   const handleTabChange = (tabId: FilterType) => {
     navigate({ search: location.search, hash: tabId }, { replace: true });
   };
@@ -155,7 +153,6 @@ const KnowledgeBaseViews = () => {
   const [selectedEntry, setSelectedEntry] = useState<KBEntry | null>(null);
   const [caseAction, setCaseAction] = useState<CaseAction | null>(null);
 
-  // Alert dialog state
   const [alertDialog, setAlertDialog] = useState<
     Pick<AlertDialogProps, 'open' | 'title' | 'description' | 'variant'>
   >({ open: false, title: '', description: '', variant: 'info' });
@@ -509,6 +506,16 @@ const KnowledgeBaseViews = () => {
     }
   };
 
+  // Engine activity: collapsed under the card, expanded on its own tab (reads only when expanded).
+  const engineActivity = (expanded: boolean) => (
+    <KbEngineActivity
+      summary={engine.summary}
+      defaultExpanded={expanded}
+      teamId={oneTeam}
+      onChanged={() => listShown && rereadPage()}
+    />
+  );
+
   return (
     <>
       <div className="px-4 mx-auto space-y-4 w-full">
@@ -578,11 +585,11 @@ const KnowledgeBaseViews = () => {
             openQuestions={openQuestions}
             search={searchQuery}
             departmentId={oneTeam}
-            summary={engine.summary}
+            activity={engineActivity(false)}
             onDecided={(question) => engine.decrementOpen(isOlderThan7d(question))}
           />
         ) : view === 'activity' ? (
-          <KbEngineActivitySlot summary={engine.summary} expanded />
+          engineActivity(true)
         ) : (
           <>
             <KbFindingBanner {...finding.banner} total={loading ? null : pagination.total} />
@@ -705,7 +712,6 @@ const KnowledgeBaseViews = () => {
           onConfirm={handleDeleteConfirm}
         />
 
-        {/* Entry Detail Drawer */}
         <KBEntryDetail
           entry={selectedEntry}
           onClose={handleCloseEntry}
@@ -718,6 +724,7 @@ const KnowledgeBaseViews = () => {
           canReview={canReview}
           onUnmerge={handleUnmerge}
           onReviewDecision={setDecision}
+          onChanged={rereadPage}
         />
 
         <ConfirmDialog

@@ -24,14 +24,14 @@ export const isNewStatus = (status: string): status is KbDecisionFilterStatus =>
 
 /**
  * Where each decision filter's rows can still be found on an older backend: saved answers waiting
- * for approval are its Pending entries, and suggested merges and set-aside entries are listed in
+ * for approval are its Not live yet entries, and suggested merges and set-aside entries are listed in
  * the Questions view.
  */
 const FALLBACK: Record<KbDecisionFilterStatus, { text: string; to: string; label: string }> = {
   needs_decision: {
-    text: 'Saved answers waiting for approval are listed under Pending.',
+    text: 'Saved answers waiting for approval are listed under Not live yet.',
     to: '/knowledge-base?status=pending',
-    label: 'Show Pending entries',
+    label: 'Show Not live yet entries',
   },
   suggested_change: {
     text: 'Suggested merges are listed under Questions.',

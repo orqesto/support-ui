@@ -122,6 +122,19 @@ describe('KbQuestionQueue', () => {
     expect(heading()).toContain('fee 2');
   });
 
+  it('j/k do nothing while a dialog is open over the card', async () => {
+    renderQueue();
+    await screen.findByText('Question 1 of 3');
+    const overlay = document.createElement('div');
+    overlay.setAttribute('role', 'dialog');
+    document.body.appendChild(overlay);
+    fireEvent.keyDown(window, { key: 'j' });
+    expect(heading()).toContain('fee 1');
+    overlay.remove();
+    fireEvent.keyDown(window, { key: 'j' });
+    expect(heading()).toContain('fee 2');
+  });
+
   it('key 1 then Save answers with the first choice and shows the next card', async () => {
     renderQueue();
     await screen.findByText('Question 1 of 3');

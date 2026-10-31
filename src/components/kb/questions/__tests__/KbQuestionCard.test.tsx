@@ -111,6 +111,28 @@ describe('KbQuestionCard', () => {
     expect(onAnswer).toHaveBeenCalledWith('accept', undefined);
   });
 
+  it('keys do nothing while a dialog, menu or drawer is open over the card', () => {
+    renderCard();
+    const group = () => within(screen.getByRole('group', { name: 'Your answer' }));
+    const overlays: Array<[string, string]> = [
+      ['role', 'dialog'],
+      ['role', 'menu'],
+      ['role', 'listbox'],
+      ['data-drawer', 'open'],
+    ];
+    for (const [name, value] of overlays) {
+      const overlay = document.createElement('div');
+      overlay.setAttribute(name, value);
+      document.body.appendChild(overlay);
+      fireEvent.keyDown(window, { key: '1' });
+      expect(group().getAllByRole('button')[0]).toHaveAttribute('aria-pressed', 'false');
+      overlay.remove();
+    }
+    // Closed again: the key works.
+    fireEvent.keyDown(window, { key: '1' });
+    expect(group().getAllByRole('button')[0]).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('both wrong without text cannot submit; with text it sends the text and says it goes live', () => {
     const { onAnswer } = renderCard();
     fireEvent.keyDown(window, { key: '3' });

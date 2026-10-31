@@ -5,6 +5,8 @@ import type { KbFilterStatus } from '@/components/kb/KbStatusFilter';
 import { kbAutoActionsService } from '@/services/kbAutoActions.service';
 import type { KBEntry, KbAutoChange, KbAutoUndo } from '@/services/kb.service';
 import { kbQualityService } from '@/services/kbQuality.service';
+import { restoreEntryVersion } from '@/services/kbEngine.service';
+import { restoreRefusalText } from './activity/kbActivityCopy';
 
 /** What each undo is called on a row of "Changed automatically". */
 export const AUTO_UNDO_LABEL: Record<KbAutoUndo, string> = {
@@ -51,6 +53,33 @@ export const autoUndoOf = (entry: KBEntry): KbAutoUndo | null => {
   )
     return null;
   return change.undo;
+};
+
+/** Shown on a disabled Undo: someone changed the entry after the engine. */
+export const UNDO_BLOCKED_TEXT = 'Someone changed this entry after the engine — undo by hand.';
+
+/** The undo would be refused (someone changed the entry after the engine): shown disabled. */
+export const undoBlocked = (entry: KBEntry): boolean =>
+  entry.autoChange?.undoBlocked === 'changed_after';
+
+/** The undos that run by version first (the server hands off to the action's own undo). */
+const BY_VERSION: readonly KbAutoUndo[] = ['restore', 'undo_clean', 'release_hold'];
+
+/**
+ * Undo an automatic change. Where the change has an entry version (`undoVersion`), the version
+ * restore runs it: the server hands off to the action's own undo and refuses, naming them, when
+ * someone changed the entry after the engine. `unapprove_mined` (back to Not live yet, owner
+ * decision) and `return_to_review` always use their own route. A version restore that answers
+ * "use the action's own undo" falls back to it.
+ */
+export const runAutoUndo = async (entry: KBEntry, undo: KbAutoUndo): Promise<string> => {
+  const version = entry.autoChange?.undoVersion ?? null;
+  if (version !== null && BY_VERSION.includes(undo)) {
+    const result = await restoreEntryVersion(entry.id, version);
+    if (!result.refused) return 'Undone';
+    if (result.refused !== 'use_action_undo') throw new Error(restoreRefusalText(result));
+  }
+  return runUndo(entry, undo);
 };
 
 const runUndo = async (entry: KBEntry, undo: KbAutoUndo): Promise<string> => {
@@ -154,8 +183,12 @@ export const useKbAutoRestore = (
     );
   const undo = (entry: KBEntry) => {
     const kind = autoUndoOf(entry);
-    if (!kind) return;
-    run(entry.id, () => runUndo(entry, kind), `Could not ${AUTO_UNDO_LABEL[kind].toLowerCase()}`);
+    if (!kind || undoBlocked(entry)) return;
+    run(
+      entry.id,
+      () => runAutoUndo(entry, kind),
+      `Could not ${AUTO_UNDO_LABEL[kind].toLowerCase()}`
+    );
   };
   return { restore, undo, pending };
 };

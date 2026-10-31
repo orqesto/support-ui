@@ -202,7 +202,7 @@ describe('Knowledge Base decision filters', () => {
 
   it.each([
     // The review page lists no capture approvals: an older backend lists them as Pending entries.
-    ['needs_decision', 'Show Pending entries', '/knowledge-base?status=pending'],
+    ['needs_decision', 'Show Not live yet entries', '/knowledge-base?status=pending'],
     ['set_aside', 'Open the Questions view', '/knowledge-base?view=questions'],
   ])(
     'an older backend under %s links to where it still lists those rows',

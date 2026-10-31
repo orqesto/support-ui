@@ -6,7 +6,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { answerKbQuestion } from '@/services/kbEngine.service';
 import type { KbQuestion, KbQuestionChoiceKey } from '@/services/kbEngine.types';
-import { KbQuestionCard, isTypingTarget } from './KbQuestionCard';
+import { KbQuestionCard, ignoresCardKey } from './KbQuestionCard';
 import { useKbQuestions } from './useKbQuestions';
 
 /**
@@ -91,7 +91,7 @@ export const KbQuestionQueue = ({
   // j / k from the moment the card is on screen (a layout effect, as in the card).
   useLayoutEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey || isTypingTarget(event.target)) return;
+      if (ignoresCardKey(event)) return;
       if (event.key === 'j') move(1);
       else if (event.key === 'k') move(-1);
       else return;

@@ -237,69 +237,8 @@ export type KbWorkRow = {
   heldForReview?: { suggestionId: number } | null;
 };
 
-export type KbCasesQuery = {
-  /** The departments to report on; empty or absent = every department the viewer can see. */
-  departmentIds?: number[];
-  /** Older backend only (before the worklist): the ONE department it requires. */
-  departmentId?: number;
-  search?: string;
-  sort?: 'conversations' | 'lastSeen';
-  page?: number;
-  pageSize?: number;
-};
-
-/**
- * The report was refused for want of ONE department: a backend before the worklist, which knows
- * neither "all departments" nor a list. The page then falls back to a single department.
- */
-export class KbCasesNeedsDepartmentError extends Error {
-  constructor() {
-    super('This server reports on one team at a time.');
-    this.name = 'KbCasesNeedsDepartmentError';
-  }
-}
-
-const NEEDS_ONE_DEPARTMENT = /'?departmentId'? is required/;
-
 const positiveInt = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value > 0;
-
-/** Defensive: an older backend sends neither field; a newer one may send reasons we do not know. */
-export const normalizeCasesReport = (raw: KbCasesReport): KbCasesReport => {
-  const data = raw as Omit<KbCasesReport, 'setAside' | 'departmentIds' | 'unassignedScopes'> & {
-    setAside?: unknown;
-    departmentIds?: unknown;
-    unassignedScopes?: unknown;
-  };
-  const setAside = Array.isArray(data.setAside)
-    ? data.setAside.flatMap((item: unknown): KbSetAsideItem[] => {
-        const entry = (item ?? {}) as { entryId?: unknown; reason?: unknown };
-        if (!positiveInt(entry.entryId)) return [];
-        const reason = (KB_SET_ASIDE_REASONS as readonly unknown[]).includes(entry.reason)
-          ? (entry.reason as KbSetAsideReason)
-          : // A reason this app does not know yet is still an entry in no case: list it, under
-            // a reason that claims nothing, rather than drop it from the page.
-            'other';
-        return [{ entryId: entry.entryId, reason }];
-      })
-    : undefined;
-  const departmentIds = Array.isArray(data.departmentIds)
-    ? data.departmentIds.filter(positiveInt)
-    : undefined;
-  const {
-    setAside: _omitSetAside,
-    departmentIds: _omitDepartments,
-    unassignedScopes,
-    ...rest
-  } = data;
-  return {
-    ...rest,
-    // Only a real `true` widens what "all" means; anything else claims departments only.
-    unassignedScopes: unassignedScopes === true,
-    ...(setAside ? { setAside } : {}),
-    ...(departmentIds ? { departmentIds } : {}),
-  };
-};
 
 const WORK_ROW_STATUSES: readonly KbWorkRowStatus[] = ['approved', 'pending', 'hidden', 'rejected'];
 const nullableString = (value: unknown): string | null =>
@@ -364,18 +303,6 @@ export type KbDetachResult =
   | { outcome: 'detached'; detached: number[] | null }
   | { outcome: 'refused'; status: number; reason: string | null; message: string | null }
   | { outcome: 'unsupported' };
-
-const casesParams = (query: KbCasesQuery): Record<string, string> => {
-  const params: Record<string, string> = {};
-  if (query.departmentId !== undefined) params.departmentId = String(query.departmentId);
-  else if (query.departmentIds && query.departmentIds.length > 0)
-    params.departmentIds = query.departmentIds.join(',');
-  if (query.search?.trim()) params.search = query.search.trim();
-  if (query.sort) params.sort = query.sort;
-  if (query.page) params.page = String(query.page);
-  if (query.pageSize) params.pageSize = String(query.pageSize);
-  return params;
-};
 
 export type KbConsolidationLastRun = {
   trigger: 'manual' | 'nightly';
@@ -533,29 +460,6 @@ export const kbConsolidationService = {
       data: { caseId: number; restored: number };
     }>(`/api/knowledge-base/consolidation/cases/${caseId}/unmerge`);
     return response.data.data;
-  },
-
-  /**
-   * Throws `KbCasesNeedsDepartmentError` when a backend before the worklist refuses a request
-   * without ONE `departmentId` — the caller falls back to a single department.
-   */
-  async getCases(query: KbCasesQuery): Promise<KbCasesReport> {
-    try {
-      const response = await apiClient.get<{ success: boolean; data: KbCasesReport }>(
-        '/api/knowledge-base/consolidation/cases',
-        { params: casesParams(query) }
-      );
-      return normalizeCasesReport(response.data.data);
-    } catch (err) {
-      const body = getErrorBody(err);
-      if (
-        query.departmentId === undefined &&
-        getErrorStatus(err) === 400 &&
-        NEEDS_ONE_DEPARTMENT.test(String(body?.error ?? body?.message ?? ''))
-      )
-        throw new KbCasesNeedsDepartmentError();
-      throw err;
-    }
   },
 
   /**

@@ -2,12 +2,9 @@ import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/Alert';
 import { Card, CardContent } from '@/components/ui/Card';
 import { AUTO_ACTIONS_HREF } from '@/components/kb/autoActions/kbAutoActionCopy';
-import type { KbEngineSummary, KbQuestion } from '@/services/kbEngine.types';
+import type { ReactNode } from 'react';
+import type { KbQuestion } from '@/services/kbEngine.types';
 import { KbQuestionQueue } from '@/components/kb/questions/KbQuestionQueue';
-
-/** The digest line (§8): what the engine did this week. */
-export const kbEngineDigest = (summary: KbEngineSummary): string =>
-  `Engine did ${summary.week.actions} things this week, ${summary.week.undone} undone, ${summary.questions.open} questions for you`;
 
 /** Questions view with no open question. */
 export const KbNothingNeedsYou = () => (
@@ -64,27 +61,6 @@ export const KbEngineOffNotice = ({
 };
 
 /**
- * F5 fills this with the Engine activity panel (findings strip, changes, Rate the engine). Under
- * the card it starts collapsed; the Engine activity view shows it expanded.
- */
-export const KbEngineActivitySlot = ({
-  summary,
-  expanded,
-}: {
-  summary: KbEngineSummary | null;
-  expanded: boolean;
-}) => (
-  <Card data-testid="kb-engine-activity-slot" data-expanded={expanded}>
-    <CardContent className="p-4 space-y-1">
-      <p className="font-semibold text-foreground">Engine activity</p>
-      <p className="text-sm text-muted-foreground">
-        {summary ? kbEngineDigest(summary) : 'Engine activity is not available right now.'}
-      </p>
-    </CardContent>
-  </Card>
-);
-
-/**
  * The Questions view: the count, the queue (or "Nothing needs you"), Engine activity collapsed.
  * The queue always asks /questions: it is the authority on what is open, the summary only counts.
  */
@@ -92,13 +68,14 @@ export const KbQuestionsView = ({
   openQuestions,
   search,
   departmentId,
-  summary,
+  activity,
   onDecided,
 }: {
   openQuestions: number | null;
   search: string;
   departmentId?: number;
-  summary: KbEngineSummary | null;
+  /** Engine activity, collapsed under the card. */
+  activity: ReactNode;
   onDecided?: (question: KbQuestion) => void;
 }) => (
   <>
@@ -111,6 +88,6 @@ export const KbQuestionsView = ({
       empty={<KbNothingNeedsYou />}
       onDecided={onDecided}
     />
-    <KbEngineActivitySlot summary={summary} expanded={false} />
+    {activity}
   </>
 );
