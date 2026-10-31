@@ -299,9 +299,18 @@ export type ReasoningAdjustment = { field: string; stored: number | null; used: 
 /** Either or both: the retention window, the request statement timeout (0 = none, else 5,000–600,000 ms). */
 export type PlatformDatabaseInput = { retentionDays?: number; apiStatementTimeoutMs?: number };
 
-/** A non-negative whole number of ms, else undefined (absent, or a shape this build does not know). */
+const wholeMs = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
+
+/**
+ * The request statement timeout in ms, else undefined (absent, or a shape this build does not know).
+ * The backend sends it like its other console settings — `{ value, source, min, max, appliesTo }`
+ * (describeApiStatementTimeout) — and a bare number is tolerated too. Reading only the bare number
+ * hid the card on staging: the field was always "a shape this build does not know".
+ */
 export const normaliseStatementTimeoutMs = (raw: unknown): number | undefined =>
-  typeof raw === 'number' && Number.isInteger(raw) && raw >= 0 ? raw : undefined;
+  wholeMs(raw) ??
+  (raw && typeof raw === 'object' ? wholeMs((raw as { value?: unknown }).value) : undefined);
 
 export type ManagedAiInput = {
   provider?: AIProvider;

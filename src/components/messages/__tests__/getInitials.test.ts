@@ -10,4 +10,14 @@ describe('getInitials', () => {
     expect(getInitials('qwerty@gmail.com')).toBe('QG');
     expect(getInitials('')).toBe('?');
   });
+  // A record without the name (a list row's) took the whole page down via the header (2026-10-31).
+  it('a missing name is "?", not a crash', () => {
+    expect(getInitials(undefined)).toBe('?');
+    expect(getInitials(null)).toBe('?');
+  });
+  it('every <…> part is dropped, nested or unclosed — only the initials are left', () => {
+    expect(getInitials('Ann Lee <<script>ann@x.example>')).toBe('AL');
+    expect(getInitials('Ann Lee <ann@x.example')).toBe('AL');
+    expect(getInitials('<a><b>Bo Ray')).toBe('BR');
+  });
 });
