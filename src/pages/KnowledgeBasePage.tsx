@@ -589,6 +589,7 @@ const KnowledgeBaseViews = () => {
             onLinkUsed={decideLink.dropQuestion}
             activity={engineActivity(false)}
             onDecided={(question) => engine.decrementOpen(isOlderThan7d(question))}
+            onUndone={(question) => engine.incrementOpen(isOlderThan7d(question))}
           />
         ) : view === 'activity' ? (
           engineActivity(true)

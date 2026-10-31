@@ -79,6 +79,15 @@ export type KbQuestionAnswerResult = {
   choice: KbQuestionChoiceKey;
   /** The result of the decision of that kind (shape depends on the kind). */
   result: unknown;
+  /** The entries THIS answer changed, with the versions Undo restores to (absent on an older server). */
+  changed?: KbAnswerChange[];
+};
+
+/** `versionBefore` null: the answer created the entry (a merge's case), so its undo is Unmerge. */
+export type KbAnswerChange = {
+  entryId: number;
+  versionBefore: number | null;
+  versionAfter: number | null;
 };
 
 // ── Case search ("Move into a case") ────────────────────────────────────────────────────────
@@ -216,6 +225,8 @@ export type KbRollbackSkipReason =
 
 export type KbRollbackSkip = {
   entryId: number;
+  /** The entry's public number (#KB-n) from the rollback's own window read; null: gone or none. */
+  publicId?: string | null;
   reason: KbRollbackSkipReason;
   /** needs_own_undo: the action with its own undo (`auto:<action>`). */
   action?: string;
@@ -246,6 +257,8 @@ export type KbRollbackResult = {
   /** Of entryIds: already as before; actions only marked undone. */
   alreadyAtTarget: number[];
   skipped: KbRollbackSkip[];
+  /** Every entry handled by this call -> its public number (null: gone or none). */
+  publicIds?: Record<number, string | null>;
   /** More entries than this call handled: call again with afterEntryId = nextAfterEntryId. */
   truncated: boolean;
   nextAfterEntryId: number | null;

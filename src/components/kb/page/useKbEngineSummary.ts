@@ -35,6 +35,8 @@ export type KbEngineSummaryHook = KbEngineSummaryState & {
    * question was open over 7 days.
    */
   decrementOpen: (olderThan7d: boolean) => void;
+  /** An undone answer: the question counts again. */
+  incrementOpen: (olderThan7d: boolean) => void;
 };
 
 /**
@@ -116,5 +118,22 @@ export const useKbEngineSummary = (
     );
   }, []);
 
-  return { ...state, decrementOpen };
+  const incrementOpen = useCallback((olderThan7d: boolean) => {
+    setState((prev) =>
+      prev.summary
+        ? {
+            ...prev,
+            summary: {
+              ...prev.summary,
+              questions: {
+                open: prev.summary.questions.open + 1,
+                olderThan7d: prev.summary.questions.olderThan7d + (olderThan7d ? 1 : 0),
+              },
+            },
+          }
+        : prev
+    );
+  }, []);
+
+  return { ...state, decrementOpen, incrementOpen };
 };

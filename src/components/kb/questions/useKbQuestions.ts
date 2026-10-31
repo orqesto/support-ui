@@ -26,6 +26,8 @@ export type UseKbQuestions = {
   reload: () => void;
   /** Put a question first (the one a link named), replacing a copy of it. */
   pin: (question: KbQuestion) => void;
+  /** An undone answer: the question is open again, first in the queue, and counted again. */
+  reopen: (question: KbQuestion) => void;
   /** Decided (answered here, or already decided / gone): leaves the queue. */
   remove: (suggestionId: number) => void;
   /** Skip / not sure: client-side only, the card goes behind every not-skipped card. */
@@ -155,6 +157,15 @@ export const useKbQuestions = ({ departmentId, search }: UseKbQuestionsArgs): Us
     setFresh((current) => [question, ...current.filter((item) => !same(item))]);
   }, []);
 
+  const reopen = useCallback((question: KbQuestion) => {
+    setTotal((count) => count + 1);
+    if (isOlderThan7d(question)) setOlderThan7d((count) => count + 1);
+    setFresh((current) => [
+      question,
+      ...current.filter((item) => item.suggestionId !== question.suggestionId),
+    ]);
+  }, []);
+
   const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 
   const items = useMemo(() => [...fresh, ...skipped], [fresh, skipped]);
@@ -173,6 +184,7 @@ export const useKbQuestions = ({ departmentId, search }: UseKbQuestionsArgs): Us
     retryMore,
     reload,
     pin,
+    reopen,
     remove,
     skip,
   };

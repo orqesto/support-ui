@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { apiErrorMessage } from '@/lib/apiError';
 import { kbRef } from '@/lib/kbConsolidation';
-import { kbService } from '@/services/kb.service';
 import { rollbackEngineWindow } from '@/services/kbEngine.service';
 import {
   KB_ENGINE_WEEK_ACTIONS,
@@ -81,43 +80,8 @@ const groupSkips = (skipped: KbRollbackSkip[]): Array<[string, KbRollbackSkip[]]
   return [...groups.entries()];
 };
 
-/**
- * The entries' own numbers (#KB-n) for the links shown: the rollback result carries row ids only,
- * so each linked entry is read once (at most LINKS_SHOWN per reason). Until it answers, or when it
- * fails, the link says "entry <id>" — never a bare internal id dressed as a number.
- */
-const usePublicIds = (ids: number[]): Map<number, string> => {
-  const [known, setKnown] = useState<Map<number, string>>(new Map());
-  const key = ids.join(',');
-  useEffect(() => {
-    if (!key) return;
-    let live = true;
-    const wanted = key.split(',').map(Number);
-    void Promise.allSettled(wanted.map((id) => kbService.getById(id))).then((answers) => {
-      if (!live) return;
-      setKnown((prev) => {
-        const next = new Map(prev);
-        answers.forEach((answer, index) => {
-          if (answer.status !== 'fulfilled') return;
-          const publicId = answer.value?.data?.publicId ?? null;
-          if (publicId) next.set(wanted[index], kbRef(publicId, wanted[index]));
-        });
-        return next;
-      });
-    });
-    return () => {
-      live = false;
-    };
-  }, [key]);
-  return known;
-};
-
 const SkippedList = ({ skipped }: { skipped: KbRollbackSkip[] }) => {
   const groups = groupSkips(skipped);
-  const shownIds = groups.flatMap(([, items]) =>
-    items.slice(0, LINKS_SHOWN).map((skip) => skip.entryId)
-  );
-  const names = usePublicIds(shownIds);
   return (
     <ul className="space-y-1 text-sm" aria-label="Left as they are">
       {groups.map(([text, items]) => (
@@ -127,7 +91,7 @@ const SkippedList = ({ skipped }: { skipped: KbRollbackSkip[] }) => {
             <span key={skip.entryId}>
               {index > 0 && ', '}
               <Link to={entryHref(skip.entryId)} className="underline">
-                {names.get(skip.entryId) ?? `entry ${skip.entryId}`}
+                {skip.publicId ? kbRef(skip.publicId, skip.entryId) : `entry ${skip.entryId}`}
               </Link>
             </span>
           ))}

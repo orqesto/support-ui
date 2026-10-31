@@ -502,8 +502,8 @@ describe('KbEngineActivity', () => {
         entryIds: [11],
         alreadyAtTarget: [],
         skipped: [
-          { entryId: 13, reason: 'changed_after' },
-          { entryId: 215, reason: 'merged_into_case' },
+          { entryId: 13, publicId: 'KB-1013', reason: 'changed_after' },
+          { entryId: 215, publicId: null, reason: 'merged_into_case' },
         ],
         truncated: false,
         nextAfterEntryId: null,
@@ -517,7 +517,8 @@ describe('KbEngineActivity', () => {
       'href',
       '/knowledge-base?view=live&status=all&id=13'
     );
-    // Its detail could not be read: no bare internal id passed off as its number.
+    // No number in the result: no bare internal id passed off as one, and no per-entry read.
+    expect(api.get.mock.calls.some(([url]) => /entries\/\d+$/.test(String(url)))).toBe(false);
     expect(within(result).getByRole('link', { name: 'entry 215' })).toBeInTheDocument();
     expect(within(result).queryByRole('link', { name: '#13' })).toBeNull();
   });

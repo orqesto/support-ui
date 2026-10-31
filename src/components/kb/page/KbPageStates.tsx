@@ -72,12 +72,14 @@ export const KbQuestionsView = ({
   onDecided,
   startAt,
   onLinkUsed,
+  onUndone,
 }: {
   openQuestions: number | null;
   search: string;
   departmentId?: number;
   startAt?: number;
   onLinkUsed?: () => void;
+  onUndone?: (question: KbQuestion) => void;
   /** Engine activity, collapsed under the card. */
   activity: ReactNode;
   onDecided?: (question: KbQuestion) => void;
@@ -93,6 +95,7 @@ export const KbQuestionsView = ({
       onDecided={onDecided}
       startAt={startAt}
       onLinkUsed={onLinkUsed}
+      onUndone={onUndone}
     />
     {activity}
   </>

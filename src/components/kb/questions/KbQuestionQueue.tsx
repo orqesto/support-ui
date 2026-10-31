@@ -5,7 +5,8 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { answerKbQuestion, getKbQuestions } from '@/services/kbEngine.service';
-import type { KbQuestion, KbQuestionChoiceKey } from '@/services/kbEngine.types';
+import type { KbAnswerChange, KbQuestion, KbQuestionChoiceKey } from '@/services/kbEngine.types';
+import { undoAnswer } from './kbAnswerUndo';
 import { KbQuestionCard, ignoresCardKey } from './KbQuestionCard';
 import { useKbQuestions } from './useKbQuestions';
 
@@ -26,6 +27,8 @@ export const BACK_TO_SKIPPED_TEXT = 'Back to skipped questions.';
 const LOW_WATER = 3;
 /** How long the "Saved" / "Already decided" line stays. */
 const NOTICE_MS = 6000;
+/** How long "Done · Undo" stays after a saved answer. */
+const UNDO_MS = 10000;
 
 type Notice = { tone: 'success' | 'info'; text: string };
 
@@ -36,12 +39,15 @@ export const KbQuestionQueue = ({
   onDecided,
   startAt,
   onLinkUsed,
+  onUndone,
 }: {
   departmentId?: number;
   /** A link's `?question=<suggestionId>`: the queue starts at that card, or says it is decided. */
   startAt?: number;
   /** The link's question was looked up: the address no longer needs `?question=`. */
   onLinkUsed?: () => void;
+  /** An answer was undone: the question is open again (counts go back up). */
+  onUndone?: (question: KbQuestion) => void;
   search: string;
   /** What an empty queue (no search) shows: "Nothing needs you". */
   empty: ReactNode;
@@ -54,6 +60,12 @@ export const KbQuestionQueue = ({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [undoable, setUndoable] = useState<{
+    question: KbQuestion;
+    changed: KbAnswerChange[];
+  } | null>(null);
+  const [undoError, setUndoError] = useState<string | null>(null);
+  const [undoing, setUndoing] = useState(false);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // A new query starts at the first card.
@@ -149,8 +161,10 @@ export const KbQuestionQueue = ({
       setBusy(true);
       setError(null);
       try {
-        await answerKbQuestion(current.suggestionId, choice, text);
+        const saved = await answerKbQuestion(current.suggestionId, choice, text);
         decided('Saved. Here is the next question.', 'success');
+        setUndoError(null);
+        setUndoable(saved.changed?.length ? { question: current, changed: saved.changed } : null);
       } catch (err) {
         const status = getErrorStatus(err);
         if (status === 409) {
@@ -169,6 +183,25 @@ export const KbQuestionQueue = ({
     [current, remove, flash, onDecided]
   );
 
+  // "Done · Undo" for ~10 s after a saved answer that changed something.
+  useEffect(() => {
+    if (!undoable) return;
+    const timer = setTimeout(() => setUndoable(null), UNDO_MS);
+    return () => clearTimeout(timer);
+  }, [undoable]);
+
+  const undo = async () => {
+    if (!undoable) return;
+    setUndoing(true);
+    const outcome = await undoAnswer(undoable.changed);
+    setUndoing(false);
+    if (!outcome.ok) return setUndoError(outcome.text);
+    queue.reopen(undoable.question);
+    setIndex(0);
+    onUndone?.(undoable.question);
+    setUndoable(null);
+  };
+
   const onSkip = useCallback(() => {
     if (!current) return;
     setError(null);
@@ -185,6 +218,19 @@ export const KbQuestionQueue = ({
             ? '1 question open over 7 days'
             : `${queue.olderThan7d} questions open over 7 days`}
         </p>
+      )}
+      {undoable && (
+        <div data-testid="kb-question-undo">
+          <Alert variant="success" className="py-2 text-sm">
+            <span role="status" className="mr-2">
+              Done.
+            </span>
+            <Button variant="outline" size="sm" onClick={() => void undo()} isLoading={undoing}>
+              Undo
+            </Button>
+            {undoError && <span className="ml-2 text-danger">{undoError}</span>}
+          </Alert>
+        </div>
       )}
       {probeFailed && (
         <Alert variant="danger" className="text-sm">

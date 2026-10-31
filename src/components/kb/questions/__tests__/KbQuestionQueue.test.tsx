@@ -19,6 +19,13 @@ const state = vi.hoisted(() => ({
   calls: [] as KbQuestionsParams[],
   answers: [] as Array<{ id: number; choice: string; text?: string }>,
   answerError: null as Error | null,
+  changed: undefined as
+    | Array<{ entryId: number; versionBefore: number | null; versionAfter: number | null }>
+    | undefined,
+  restores: [] as Array<[number, number]>,
+  restoreResults: [] as unknown[],
+  unmerged: [] as number[],
+  detached: [] as Array<[number, number[]]>,
   /** When set, answers getKbQuestions instead of `pages`. */
   respond: null as ((params: KbQuestionsParams) => Promise<KbQuestionsPage>) | null,
 }));
@@ -36,7 +43,30 @@ vi.mock('@/services/kbEngine.service', () => ({
     state.answers.push({ id, choice, text });
     return state.answerError
       ? Promise.reject(state.answerError)
-      : Promise.resolve({ suggestionId: id, kind: 'merge', choice, result: {} });
+      : Promise.resolve({
+          suggestionId: id,
+          kind: 'merge',
+          choice,
+          result: {},
+          changed: state.changed,
+        });
+  },
+  restoreEntryVersion: (entryId: number, version: number) => {
+    state.restores.push([entryId, version]);
+    return Promise.resolve(state.restoreResults.shift() ?? { restoredTo: version, newVersion: 9 });
+  },
+}));
+
+vi.mock('@/services/kbConsolidation.service', () => ({
+  kbConsolidationService: {
+    unmerge: (caseId: number) => {
+      state.unmerged.push(caseId);
+      return Promise.resolve({ caseId, restored: 2 });
+    },
+    detachFromCase: (caseId: number, ids: number[]) => {
+      state.detached.push([caseId, ids]);
+      return Promise.resolve({});
+    },
   },
 }));
 
@@ -408,5 +438,81 @@ describe('a link names a question (?question=<suggestionId>)', () => {
     expect(await screen.findByText('The linked question could not be loaded.')).toBeInTheDocument();
     expect(screen.queryByText(LINK_DECIDED_TEXT)).toBeNull();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+});
+
+describe('Undo after an answer (F4b)', () => {
+  const answerKeep = async () => {
+    state.pages = [pageOf([mergeQuestion(1), mergeQuestion(2)], 2)];
+    state.restores = [];
+    state.restoreResults = [];
+    state.unmerged = [];
+    state.detached = [];
+    const undone = vi.fn();
+    render(<KbQuestionQueue search="" empty={<p>Nothing needs you</p>} onUndone={undone} />);
+    await screen.findByText('Question 1 of 2');
+    fireEvent.click(choiceButtons()[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Save answer' }));
+    return undone;
+  };
+
+  it('shows Done · Undo only when the answer changed something', async () => {
+    state.changed = [];
+    await answerKeep();
+    await screen.findByText('Saved. Here is the next question.');
+    expect(screen.queryByTestId('kb-question-undo')).toBeNull();
+    cleanup();
+    state.changed = [{ entryId: 11, versionBefore: 3, versionAfter: 4 }];
+    await answerKeep();
+    expect(await screen.findByTestId('kb-question-undo')).toBeInTheDocument();
+  });
+
+  it('Undo restores each entry to versionBefore and puts the question back, counted again', async () => {
+    state.changed = [
+      { entryId: 11, versionBefore: 3, versionAfter: 4 },
+      { entryId: 12, versionBefore: 7, versionAfter: 8 },
+    ];
+    const undone = await answerKeep();
+    fireEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(undone).toHaveBeenCalledTimes(1));
+    expect(state.restores).toEqual([
+      [11, 3],
+      [12, 7],
+    ]);
+    expect(await screen.findByText('Question 1 of 2')).toBeInTheDocument();
+  });
+
+  it('a merge is undone by Unmerge of its case, then the originals are restored', async () => {
+    state.changed = [
+      { entryId: 900, versionBefore: null, versionAfter: null },
+      { entryId: 11, versionBefore: 3, versionAfter: 4 },
+    ];
+    await answerKeep();
+    fireEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    await waitFor(() => expect(state.restores).toEqual([[11, 3]]));
+    expect(state.unmerged).toEqual([900]);
+  });
+
+  it('an entry now inside a case is detached with the existing action, then restored', async () => {
+    state.changed = [{ entryId: 11, versionBefore: 3, versionAfter: 4 }];
+    await answerKeep();
+    state.restoreResults = [{ refused: 'merged_into_case', caseId: 55, message: 'in a case' }];
+    fireEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    await waitFor(() =>
+      expect(state.restores).toEqual([
+        [11, 3],
+        [11, 3],
+      ])
+    );
+    expect(state.detached).toEqual([[55, [11]]]);
+  });
+
+  it('a refusal is said in plain words and the question does not come back', async () => {
+    state.changed = [{ entryId: 11, versionBefore: 3, versionAfter: 4 }];
+    const undone = await answerKeep();
+    state.restoreResults = [{ refused: 'text_redacted', message: 'x' }];
+    fireEvent.click(await screen.findByRole('button', { name: 'Undo' }));
+    expect(await screen.findByText(/Text removed \(personal data\)/)).toBeInTheDocument();
+    expect(undone).not.toHaveBeenCalled();
   });
 });
