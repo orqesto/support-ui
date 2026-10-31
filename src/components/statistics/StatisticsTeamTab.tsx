@@ -1,10 +1,7 @@
 import { Users, MessageSquare, Clock, Ticket, StickyNote, Globe } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import type { UserStatEntry } from '@/services/statistics.service';
-
-function fullName(entry: UserStatEntry): string {
-  return entry.lastName ? `${entry.firstName} ${entry.lastName}` : entry.firstName;
-}
+import { userFullName } from '@/lib/userName';
 
 function formatAvgReply(hours: number | null): string {
   if (hours === null) return '—';
@@ -65,7 +62,7 @@ export function StatisticsTeamTab({ teamData, teamLoading, teamError, teamDays }
                       const topLang = Object.entries(entry.stats.languageBreakdown ?? {}).sort(([, itemA], [, itemB]) => itemB - itemA)[0]?.[0] ?? '—';
                       return (
                         <tr key={entry.userId} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                          <td className="px-4 py-3"><div className="font-medium text-foreground">{fullName(entry)}</div></td>
+                          <td className="px-4 py-3"><div className="font-medium text-foreground">{userFullName(entry)}</div></td>
                           <td className="px-4 py-3 whitespace-nowrap"><span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground capitalize">{entry.orgRole.replaceAll('_', ' ')}</span></td>
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.messagesAssigned}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{entry.stats.messagesProcessed}</td>

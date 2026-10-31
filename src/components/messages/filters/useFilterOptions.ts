@@ -18,6 +18,7 @@ import { logger } from '@/lib/logger';
 import { safeCssColor } from '@/lib/utils';
 import { Permission } from '@/types/roles';
 import { EMPTY_DYNAMIC_OPTIONS, type DynamicOptions, type FilterOption } from './filterSchema';
+import { userFullName } from '@/lib/userName';
 
 /** Channel headings for the source list — a bare list of mailbox names is unreadable. */
 const CHANNEL_SECTION: Record<string, string> = {
@@ -64,7 +65,7 @@ export const useFilterOptions = (): DynamicOptions => {
           ...STATIC_ASSIGNEES,
           ...users.map((user) => ({
             value: String(user.id),
-            label: `${user.firstName} ${user.lastName}`.trim() || user.email,
+            label: userFullName(user) || user.email,
           })),
         ]);
       })

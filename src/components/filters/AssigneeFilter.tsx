@@ -3,6 +3,7 @@ import { Select } from '@/components/ui/Select';
 import { assignmentService, type AssignableUser } from '@/services/assignment.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
+import { userFullName } from '@/lib/userName';
 
 type AssigneeFilterProps = {
   value?: string;
@@ -58,7 +59,7 @@ export const AssigneeFilter = ({
       .filter((usr) => !currentUser || usr.id !== currentUser.id)
       .map((user) => ({
         value: String(user.id),
-        label: `${user.firstName} ${user.lastName}`,
+        label: userFullName(user),
       })),
   ];
 

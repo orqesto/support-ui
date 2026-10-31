@@ -16,6 +16,7 @@ import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Category, TicketPriority, TicketStatus, Ticket } from '@/types';
 import { logger } from '@/lib/logger';
 import { solidChip } from '@/lib/userColor';
+import { userFullName } from '@/lib/userName';
 
 export const EditTicketPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -347,7 +348,7 @@ export const EditTicketPage = () => {
                   { value: '', label: 'Unassigned' },
                   ...assignableUsers.map((user) => ({
                     value: String(user.id),
-                    label: `${user.firstName} ${user.lastName}`.trim(),
+                    label: userFullName(user),
                   })),
                 ]}
                 disabled={!!ticket?.externalId}
