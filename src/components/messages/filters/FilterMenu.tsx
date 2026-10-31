@@ -15,6 +15,7 @@ import {
 import { tokenText, type Suggestion } from './filterTokens';
 import { isRangeValue, rangeFromValue } from './receivedRange';
 import { DateRangeFields, NegateSwitch } from './ValueControls';
+import { OptionsLoadErrorNotice } from './OptionsLoadErrorNotice';
 import type { FilterState } from '@/stores/messagesStore';
 
 /**
@@ -178,6 +179,7 @@ const ValuePanel = ({
       )}
 
       <div className="overflow-y-auto p-1 max-h-[260px]">
+        {def.loadError && options.length === 0 && <OptionsLoadErrorNotice error={def.loadError} />}
         {searchable && options.length === 0 && (
           <p className="px-2 py-3 text-[11.5px] text-center text-muted-foreground">
             No address matches “{query.trim()}”.

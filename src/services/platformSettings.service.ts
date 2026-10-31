@@ -127,6 +127,12 @@ export type PlatformSettings = {
    */
   database?: {
     freeSharedRetentionDays: ResolvedField<number>;
+    /**
+     * The longest one database statement may run for a user request, in ms (Postgres
+     * `statement_timeout`, API processes only); 0 = no limit. Absent on an older backend — the
+     * console then does not offer it.
+     */
+    apiStatementTimeoutMs?: number;
   };
   /**
    * GPT-5 / o-series reasoning effort per AI feature + the reasoning headroom. Absent on a
@@ -290,7 +296,12 @@ export type PlatformReasoning = {
 
 export type ReasoningAdjustment = { field: string; stored: number | null; used: number | null };
 
-export type PlatformDatabaseInput = { retentionDays: number };
+/** Either or both: the retention window, the request statement timeout (0 = none, else 5,000–600,000 ms). */
+export type PlatformDatabaseInput = { retentionDays?: number; apiStatementTimeoutMs?: number };
+
+/** A non-negative whole number of ms, else undefined (absent, or a shape this build does not know). */
+export const normaliseStatementTimeoutMs = (raw: unknown): number | undefined =>
+  typeof raw === 'number' && Number.isInteger(raw) && raw >= 0 ? raw : undefined;
 
 export type ManagedAiInput = {
   provider?: AIProvider;
@@ -341,7 +352,7 @@ type RawPlatformSettings = {
   ai: Partial<PlatformSettings['ai']> & Pick<PlatformSettings['ai'], 'defaultModel'>;
   storage: Partial<PlatformSettings['storage']> & Pick<PlatformSettings['storage'], 'driver'>;
   secrets?: Partial<Record<PlatformSecretKey, SecretStatus>>;
-  database?: { freeSharedRetentionDays?: ResolvedField<number> };
+  database?: { freeSharedRetentionDays?: ResolvedField<number>; apiStatementTimeoutMs?: unknown };
   reasoning?: unknown;
   kb?: unknown;
   customApi?: unknown;
@@ -737,7 +748,18 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
     // Passed through only when the backend reports it: the card says so rather than
     // inventing a default the server may not be using.
     ...(raw.database?.freeSharedRetentionDays
-      ? { database: { freeSharedRetentionDays: raw.database.freeSharedRetentionDays } }
+      ? {
+          database: {
+            freeSharedRetentionDays: raw.database.freeSharedRetentionDays,
+            ...(normaliseStatementTimeoutMs(raw.database.apiStatementTimeoutMs) !== undefined
+              ? {
+                  apiStatementTimeoutMs: normaliseStatementTimeoutMs(
+                    raw.database.apiStatementTimeoutMs
+                  ),
+                }
+              : {}),
+          },
+        }
       : {}),
     ...(reasoning ? { reasoning } : {}),
     ...(kb ? { kb } : {}),

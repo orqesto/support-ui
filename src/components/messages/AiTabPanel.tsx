@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { similarResultsCache } from './similarResultsCache';
 import { BookOpen, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { Message } from '@/types';
@@ -163,24 +164,9 @@ type Props = {
   section?: 'suggested' | 'analysis';
 };
 
-// Session-scoped cache: survives remount (inbox → full page nav) but cleared on refresh.
-// Exposed via accessor functions only — callers must not mutate the Map directly.
-const _similarResultsCache = new Map<number, SimilarResult[]>();
+// The session cache lives in its own module (similarResultsCache.ts); re-exported for callers.
 const similarResultsInFlight = new Map<number, Promise<SimilarResult[]>>();
-
-export const similarResultsCache = {
-  has: (id: number) => _similarResultsCache.has(id),
-  get: (id: number) => _similarResultsCache.get(id),
-  set: (id: number, data: SimilarResult[]) => {
-    _similarResultsCache.set(id, data);
-  },
-  delete: (id: number) => {
-    _similarResultsCache.delete(id);
-  },
-  clear: () => {
-    _similarResultsCache.clear();
-  },
-};
+export { similarResultsCache };
 
 /** v4 `.k-sum-card`: the Summary and Reason cards. */
 const SUM_CARD = 'rounded-[9px] border border-border bg-card px-3 py-2.5';

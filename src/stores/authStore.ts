@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { forceDisconnect } from '@/lib/socketManager';
-import { similarResultsCache } from '@/components/messages/AiTabPanel';
+import { similarResultsCache } from '@/components/messages/similarResultsCache';
 import type { User } from '@/types';
 import { logoutClearsProcessingPanels } from '@/stores/processingPanelStore';
 import { pinTabWorkspace, readTabWorkspace, writeTabWorkspace } from '@/lib/tabWorkspace';

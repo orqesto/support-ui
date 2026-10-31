@@ -13,7 +13,7 @@ import { useMessagesStore } from '@/stores/messagesStore';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { toast } from '@/lib/toast';
 import { usePermissions } from '@/hooks/usePermissions';
-import { similarResultsCache } from '@/components/messages/AiTabPanel';
+import { similarResultsCache } from '@/components/messages/similarResultsCache';
 import { Permission } from '@/types/roles';
 import { formatConvId } from '@/lib/messageHelpers';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';

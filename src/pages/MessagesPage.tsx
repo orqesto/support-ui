@@ -3,7 +3,16 @@
 // this page is a separate refactor (see backlog #15 contact rework, which will
 // touch the same surface).
 /* eslint-disable max-lines */
-import { Fragment, useState, useCallback, useRef, useEffect, useMemo, useReducer } from 'react';
+import {
+  Fragment,
+  Suspense,
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useMemo,
+  useReducer,
+} from 'react';
 import { ThreadTableHeader } from '@/components/messages/list/ThreadTableHeader';
 import { ThreadStatusCell } from '@/components/messages/list/threadTableParts';
 import { threadSections } from '@/components/messages/list/threadSections';
@@ -47,7 +56,7 @@ import { messageService, type MessageThread } from '@/services/message.service';
 import { highlightTermsFor } from '@/lib/highlightTerms';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
-import { similarResultsCache } from '@/components/messages/AiTabPanel';
+import { similarResultsCache } from '@/components/messages/similarResultsCache';
 import { useSharedLinkWorkspace } from '@/hooks/useSharedLinkWorkspace';
 import { cn, formatDate } from '@/lib/utils';
 import { defaultFilters, useMessagesStore, type FilterState } from '@/stores/messagesStore';
@@ -67,25 +76,26 @@ import { useSelectionShortcuts } from '@/components/messages/bulk/selectionShort
 import type { ToggleSelected } from '@/components/messages/bulk/selectMode';
 import { bulkService } from '@/services/bulk.service';
 import { toast } from '@/lib/toast';
-import { ComposeNewModal } from '@/components/messages/ComposeNewModal';
 import { MessageFilterBar } from '@/components/messages/filters/MessageFilterBar';
 import { MessagesListCaption } from '@/components/messages/MessagesListCaption';
 import { SurfaceCount } from '@/components/messages/filters/SurfaceCount';
 import { useListPresentation } from '@/components/messages/useListPresentation';
 import { useSafeMediaQuery } from '@/components/messages/useIsPhone';
 import { MessageListItem } from '@/components/messages/MessageListItem';
-import { MessageDetail } from '@/components/messages/MessageDetail';
 import { DeleteMessageDialog } from '@/components/messages/DeleteMessageDialog';
 import { neighbourThread } from '@/components/messages/detailShortcuts';
 import { threadIdForMessage } from '@/components/messages/threadForMessage';
 import { ThreadBubble } from '@/components/messages/ThreadBubble';
 import { SPAM_LOG_CARD_COPY, spamLogTruncationNotice } from '@/lib/spamLogCardCopy';
-import { ContactsView } from '@/components/messages/ContactsView';
 import { quickFilterWouldChange } from '@/components/messages/quickFilterPatch';
+import type { MessagesKanbanHandle } from '@/components/messages/MessagesKanbanView';
 import {
-  MessagesKanbanView,
-  type MessagesKanbanHandle,
-} from '@/components/messages/MessagesKanbanView';
+  refreshForServerEvent,
+  type ServerChangeEvent,
+} from '@/components/messages/serverEventRefresh';
+import { Spinner } from '@/components/ui/Spinner';
+import { lazyWithReload } from '@/lib/lazyWithReload';
+import { useSocketReconnected } from '@/hooks/useSocketReconnected';
 import { sortingToPreset, presetToSorting } from '@/components/messages/sortPresets';
 import { scopeJumpUrl } from '@/hooks/scopeJumpUrl';
 import { useMessagesData } from '@/hooks/useMessagesData';
@@ -112,6 +122,43 @@ const BULK_TARGET_COLUMN: Partial<Record<BulkAction, string>> = {
   resolve_kb: 'resolved',
   spam: 'spam',
 };
+
+/*
+  Downloaded when first needed, not with the page: the thread view (with its editor, AI tab and
+  lookups), the board, the contacts view and the compose dialog are most of this page's code, and
+  an agent landing on the list needs none of them yet. The thread view is fetched ahead as soon as
+  a row is pointed at or focused, so opening one rarely waits for it.
+*/
+const loadMessageDetail = () => import('@/components/messages/MessageDetail');
+const MessageDetail = lazyWithReload(() =>
+  loadMessageDetail().then((mod) => ({ default: mod.MessageDetail }))
+);
+let detailPrefetch: Promise<unknown> | null = null;
+const prefetchMessageDetail = () => {
+  detailPrefetch ??= loadMessageDetail().catch(() => {
+    // A failed prefetch is retried by the next hover — or by the open itself.
+    detailPrefetch = null;
+  });
+};
+const MessagesKanbanView = lazyWithReload(() =>
+  import('@/components/messages/MessagesKanbanView').then((mod) => ({
+    default: mod.MessagesKanbanView,
+  }))
+);
+const ContactsView = lazyWithReload(() =>
+  import('@/components/messages/ContactsView').then((mod) => ({ default: mod.ContactsView }))
+);
+const ComposeNewModal = lazyWithReload(() =>
+  import('@/components/messages/ComposeNewModal').then((mod) => ({
+    default: mod.ComposeNewModal,
+  }))
+);
+/** Where a lazy view is still downloading: a spinner in the space the view will fill. */
+const ViewLoading = ({ className }: { className?: string }) => (
+  <div className={cn('grid place-items-center', className)} aria-busy="true">
+    <Spinner size={18} />
+  </div>
+);
 
 const NOTIFY_TRIAGE_KEY = 'threads_notify_triage';
 const GROUP_KEY = 'threads_group';
@@ -234,6 +281,12 @@ export const MessagesPage = () => {
   // body in a lightweight read-only preview instead of opening the pane.
   const [spamPreview, setSpamPreview] = useState<MessageThread | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
+  // The compose dialog is downloaded on its first open and stays mounted after (its draft state
+  // lives in it, as before).
+  const [composeMounted, setComposeMounted] = useState(false);
+  useEffect(() => {
+    if (composeOpen) setComposeMounted(true);
+  }, [composeOpen]);
 
   // On a phone the detail is a page, not this panel — see the hook. Declared before the
   // body-scroll lock so the lock can skip the phone, where locking the body is exactly what
@@ -381,6 +434,7 @@ export const MessagesPage = () => {
     handlePageChange,
     handleRefresh,
     clearCache,
+    patchThread,
   } = useMessagesData({ urlSyncedRef, isKanban });
 
   /**
@@ -578,51 +632,86 @@ export const MessagesPage = () => {
     await fetchMessages(messagesPagination.page, true);
   };
 
-  const handleOpenThread = useCallback(
-    async (thread: MessageThread) => {
-      if (thread.threadId.startsWith('spamlog_')) {
-        // spamLog rows carry the captured body in latestMessage.content — show
-        // it read-only rather than routing a synthetic row through MessageDetail.
-        setSpamPreview(thread);
-        return;
+  /*
+    Opening a thread is instant: the detail mounts from the row's own record and starts its reads
+    at once, while the full record (header fields the list does not carry — the reply block, the
+    WhatsApp window) is read beside them. It used to wait for that read before anything mounted.
+    Each open takes a number; an answer for an earlier open (J/K, or a click on A then B) is
+    dropped. Refs, so the callback is stable and the memoised rows do not redraw for it.
+  */
+  const openSeqRef = useRef(0);
+  const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
+  // The open record came from the row; its full record (reply block, Reply-To…) is on its way.
+  const [recordPendingId, setRecordPendingId] = useState<number | null>(null);
+  const searchParamsRef = useRef(searchParams);
+  searchParamsRef.current = searchParams;
+  const setSearchParamsRef = useRef(setSearchParams);
+  setSearchParamsRef.current = setSearchParams;
+  const orgCodeRef = useRef(orgCode);
+  orgCodeRef.current = orgCode;
+  const isPhoneRef = useRef(isPhone);
+  isPhoneRef.current = isPhone;
+  const handleOpenThread = useCallback(async (thread: MessageThread) => {
+    if (thread.threadId.startsWith('spamlog_')) {
+      // spamLog rows carry the captured body in latestMessage.content — show
+      // it read-only rather than routing a synthetic row through MessageDetail.
+      setSpamPreview(thread);
+      return;
+    }
+    // Preferred starting message: same one the list shows analysis badges for.
+    const rowMessage = thread.latestIncomingMessage ?? thread.latestMessage;
+    if (!thread.latestMessage?.id || !rowMessage) return;
+    const seq = ++openSeqRef.current;
+    // Remember which card this is so status actions can move it optimistically.
+    selectedThreadIdRef.current = thread.threadId;
+    const openedId = rowMessage.id;
+    const urlId = getConvUrlId(rowMessage, orgCodeRef.current);
+    fetchedMessageIdRef.current = urlId;
+    setSelectedMessage({
+      ...rowMessage,
+      lastReplyFromClient: rowMessage.lastReplyFromClient ?? thread.lastReplyFromClient,
+    });
+    const params = new URLSearchParams(searchParamsRef.current);
+    params.set('id', urlId);
+    setSearchParamsRef.current(params);
+    // A phone opens the thread as its own page, which reads the record itself.
+    if (isPhoneRef.current) return;
+    setPendingThreadId(thread.threadId);
+    setRecordPendingId(openedId);
+    try {
+      const res = await messageService.getById(openedId);
+      if (seq !== openSeqRef.current || !res.success || !res.data) return;
+      // Widen to the tolerant app Message type: `lastReplyFromClient` is not returned by
+      // getById, so it is optional here and falls back to the thread's value.
+      const full: Message = res.data;
+      // Only onto the record this open put up — not one the agent closed or replaced meanwhile.
+      setSelectedMessage((current) =>
+        current?.id === openedId
+          ? { ...full, lastReplyFromClient: full.lastReplyFromClient ?? thread.lastReplyFromClient }
+          : current
+      );
+      const fullUrlId = getConvUrlId(full, orgCodeRef.current);
+      if (fullUrlId !== urlId && searchParamsRef.current.get('id') === urlId) {
+        fetchedMessageIdRef.current = fullUrlId;
+        setSearchParamsRef.current(
+          (prev) => {
+            prev.set('id', fullUrlId);
+            return prev;
+          },
+          { replace: true }
+        );
       }
-      const anchorId = thread.latestMessage?.id;
-      if (!anchorId) return;
-      // Remember which card this is so status actions can move it optimistically.
-      selectedThreadIdRef.current = thread.threadId;
-      // Preferred starting message: same one the list shows analysis badges for
-      const preferredId = thread.latestIncomingMessage?.id ?? anchorId;
-      try {
-        const res = await messageService.getById(preferredId);
-        if (res.success && res.data) {
-          // Widen to the tolerant app Message type: `lastReplyFromClient` is not
-          // returned by getById, so it is optional here and falls back to the
-          // thread's value below.
-          const messageToShow: Message = res.data;
-          fetchedMessageIdRef.current = getConvUrlId(messageToShow, orgCode);
-          setSelectedMessage({
-            ...messageToShow,
-            lastReplyFromClient: messageToShow.lastReplyFromClient ?? thread.lastReplyFromClient,
-          });
-          const params = new URLSearchParams(searchParams);
-          params.set('id', getConvUrlId(messageToShow, orgCode));
-          setSearchParams(params);
-          return;
-        }
-      } catch (error) {
-        logger.error('Failed to fetch thread messages:', error);
+    } catch (error) {
+      // The row's record stays up; the detail's own reads do not depend on this one.
+      if (seq === openSeqRef.current) logger.error('Failed to fetch thread messages:', error);
+    } finally {
+      if (seq === openSeqRef.current) {
+        setPendingThreadId(null);
+        // Landed, or failed — the row's record is then all there is, as before.
+        setRecordPendingId(null);
       }
-      const fallback = thread.latestIncomingMessage ?? thread.latestMessage;
-      if (fallback) {
-        fetchedMessageIdRef.current = getConvUrlId(fallback, orgCode);
-        setSelectedMessage(fallback);
-        const params = new URLSearchParams(searchParams);
-        params.set('id', getConvUrlId(fallback, orgCode));
-        setSearchParams(params);
-      }
-    },
-    [searchParams, setSearchParams, fetchedMessageIdRef]
-  );
+    }
+  }, []);
 
   // A thread opened from a deep link / reload never went through `handleOpenThread`, so the ref
   // below was null: J/K had nothing to step from, and a status change could not move the card.
@@ -731,25 +820,25 @@ export const MessagesPage = () => {
     refreshAbortRef.current = abortController;
     try {
       clearCache();
+      // The open record and the list are read side by side, not one after the other: neither
+      // needs the other's answer.
+      const listRead = fetchMessages(messagesPagination.page, true);
+      // A reply or a header status change (park → on-hold, set-status, etc.)
+      // flips the derived workflow status (e.g. → Pending after an agent reply),
+      // which moves the card to a different Kanban column. The list refetch
+      // covers list mode; the Kanban view reloads its columns only when the
+      // refreshKey bumps, so bump it here too — otherwise the card stays in the
+      // old column until the agent manually changes a filter.
+      bumpKanban();
       const response = await messageService.getById(selectedMessage.id);
-      if (abortController.signal.aborted) return;
-      if (response.success && response.data) {
+      if (!abortController.signal.aborted && response.success && response.data) {
         const data: Message = response.data;
         setSelectedMessage({
           ...data,
           lastReplyFromClient: data.lastReplyFromClient ?? selectedMessage.lastReplyFromClient,
         });
       }
-      if (!abortController.signal.aborted) {
-        await fetchMessages(messagesPagination.page, true);
-        // A reply or a header status change (park → on-hold, set-status, etc.)
-        // flips the derived workflow status (e.g. → Pending after an agent reply),
-        // which moves the card to a different Kanban column. The list refetch above
-        // covers list mode; the Kanban view reloads its columns only when the
-        // refreshKey bumps, so bump it here too — otherwise the card stays in the
-        // old column until the agent manually changes a filter.
-        bumpKanban();
-      }
+      await listRead;
     } catch (error) {
       if (!abortController.signal.aborted) {
         logger.error('Failed to refresh message:', error);
@@ -850,27 +939,58 @@ export const MessagesPage = () => {
   // board) a few seconds apart. Now the window remembers what arrived: any state change re-reads
   // everything (which shows the new mail too); new mail alone takes its lighter path (the "N new"
   // bar on the list's first page).
-  const pendingEventsRef = useRef({ newMail: false, changed: false });
+  //
+  // What an event re-reads is decided from its payload (serverEventRefresh.ts): one that cannot
+  // have touched a row on screen, nor brought one into the page, re-reads only the view counts.
+  const pendingEventsRef = useRef({ newMail: false, changed: false, counts: false });
   const refreshOnNewMailRef = useRef<() => void>(() => undefined);
-  const flushServerEvents = useCoalescedRefresh(() => {
+  const applyServerEvents = useCallback(() => {
     const pending = pendingEventsRef.current;
-    pendingEventsRef.current = { newMail: false, changed: false };
+    pendingEventsRef.current = { newMail: false, changed: false, counts: false };
     if (pending.changed) {
       clearCache();
       void fetchMessages(messagesPagination.page, true);
       bumpKanban();
     } else if (pending.newMail) {
-      refreshOnNewMailRef.current();
+      refreshOnNewMailRef.current(); // its board re-read bumps the counts too
+    } else if (pending.counts) {
+      bumpCounts();
     }
+  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
+  const flushServerEvents = useCoalescedRefresh(applyServerEvents);
+  // Read at the event, so the rule sees the rows and filters on screen when it arrived.
+  const shownViewRef = useRef({
+    displayMode,
+    page: messagesPagination.page,
+    filters,
+    rows: threads,
   });
-  const refreshFromServerEvent = useCallback(() => {
-    pendingEventsRef.current.changed = true;
-    flushServerEvents();
-  }, [flushServerEvents]);
+  shownViewRef.current = { displayMode, page: messagesPagination.page, filters, rows: threads };
+  const refreshFromServerEvent = useCallback(
+    (event: ServerChangeEvent, payload?: unknown) => {
+      if (refreshForServerEvent(event, payload, shownViewRef.current) === 'list')
+        pendingEventsRef.current.changed = true;
+      else pendingEventsRef.current.counts = true;
+      flushServerEvents();
+    },
+    [flushServerEvents]
+  );
+  /*
+    The socket came back after a drop: every event sent meanwhile is lost. Re-read the list, the
+    counts and the board once, now — not a window later — or when the tab is next shown. The
+    open thread catches up on its own (MessageDetail).
+  */
+  useSocketReconnected(
+    useCallback(() => {
+      pendingEventsRef.current.changed = true;
+      if (document.visibilityState === 'hidden') flushServerEvents();
+      else applyServerEvents();
+    }, [applyServerEvents, flushServerEvents])
+  );
 
   // Refresh thread list + kanban when any linked ticket status changes
   useEffect(() => {
-    const handleTicketUpdated = refreshFromServerEvent;
+    const handleTicketUpdated = (data: unknown) => refreshFromServerEvent('ticket:updated', data);
     subscribeToEvent('ticket:updated', handleTicketUpdated);
     return () => unsubscribeFromEvent('ticket:updated', handleTicketUpdated);
   }, [refreshFromServerEvent]);
@@ -882,8 +1002,8 @@ export const MessagesPage = () => {
   // org-wide on every manualRouteMessage; the badge count, list, and kanban
   // columns all need to re-fetch to pick up the new dept assignment.
   useEffect(() => {
-    const handleConversationRouted = () => {
-      refreshFromServerEvent();
+    const handleConversationRouted = (data: unknown) => {
+      refreshFromServerEvent('conversation:routed', data);
       // The routed conv left the needs_routing queue — refresh the sidebar badge
       // too (this handler's contract, but it was previously only refreshing list+kanban).
       void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
@@ -897,7 +1017,8 @@ export const MessagesPage = () => {
   // inbound). Without this the row stays in the wrong column until manual
   // refresh. Same shape as the conversation:routed handler above.
   useEffect(() => {
-    const handleStatusChanged = refreshFromServerEvent;
+    const handleStatusChanged = (data: unknown) =>
+      refreshFromServerEvent('conv:status_changed', data);
     subscribeToEvent('conv:status_changed', handleStatusChanged);
     return () => unsubscribeFromEvent('conv:status_changed', handleStatusChanged);
   }, [refreshFromServerEvent]);
@@ -959,7 +1080,8 @@ export const MessagesPage = () => {
   // downstream status transition (→ awaiting_response after auto-reply) only
   // becomes visible after a manual refresh.
   useEffect(() => {
-    const handleConversationUpdated = refreshFromServerEvent;
+    const handleConversationUpdated = (data: unknown) =>
+      refreshFromServerEvent('conversation:updated', data);
     subscribeToEvent('conversation:updated', handleConversationUpdated);
     return () => unsubscribeFromEvent('conversation:updated', handleConversationUpdated);
   }, [refreshFromServerEvent]);
@@ -974,7 +1096,7 @@ export const MessagesPage = () => {
     // This tab's own reply already reloaded the list and board (handleRefreshMessage) — its echo
     // must not schedule a third reload (ownSends.ts).
     const handleMessageReplied = (data: unknown) => {
-      if (!isOwnSendEcho(data)) refreshFromServerEvent();
+      if (!isOwnSendEcho(data)) refreshFromServerEvent('message:replied', data);
     };
     subscribeToEvent('message:replied', handleMessageReplied);
     return () => unsubscribeFromEvent('message:replied', handleMessageReplied);
@@ -1038,65 +1160,100 @@ export const MessagesPage = () => {
     (filters.slaAtRisk ? 1 : 0) +
     (filters.hasAttachments ? 1 : 0);
 
+  /*
+    A read toggle the server accepted: the row is patched in place and only the view counts are
+    re-read — not the page of 50 rows and the board. Except under a Read / Unread filter, where the
+    row now leaves the view: there the list is read as before.
+  */
+  const readFilterRef = useRef(filters.read);
+  readFilterRef.current = filters.read;
+  const handleRowReadChanged = useCallback(
+    (isRead: boolean, thread: MessageThread) => {
+      if ((readFilterRef.current ?? 'all') !== 'all') {
+        bumpKanban();
+        void fetchMessages(messagesPagination.page, true);
+        return;
+      }
+      patchThread(thread.threadId, { isRead });
+      bumpCounts();
+    },
+    [bumpKanban, fetchMessages, messagesPagination.page, patchThread]
+  );
+  const highlightTerms = useMemo(() => highlightTermsFor(searchReading), [searchReading]);
+
   /**
    * The open thread's detail. One element, two homes: the slide-over over the list (list
    * layout, the board, contacts) or the pane beside it (split). The props are the same either
    * way — only where it is mounted differs.
    */
   const detail = selectedMessage ? (
-    <MessageDetail
-      key={selectedMessage.id}
-      message={selectedMessage}
-      onClose={() => {
-        const params = new URLSearchParams(searchParams);
-        params.delete('id');
-        setSearchParams(params);
-        selectedThreadIdRef.current = null;
-        setSelectedMessage(null);
-      }}
-      onReplied={() => moveSelectedCard('awaiting')}
-      onStatusChanged={() => void rereadSelectedMessage()}
-      // Only the threads view has one unambiguous order; in kanban "next" could mean
-      // the next card in the column or across the board, so J/K stay off there.
-      onNavigate={displayMode === 'threads' ? handleNavigate : undefined}
-      onOptimisticMove={(columnId) => moveSelectedCard(columnId)}
-      onApprove={() => handleApprove(selectedMessage)}
-      onReject={async () => {
-        await handleRejected();
-        setSelectedMessage(null);
-      }}
-      onReopen={async () => {
-        await handleReopen(selectedMessage);
-      }}
-      // The detail stays open until the delete succeeds: Cancel leaves it as it was,
-      // with focus back on More (the header's focus return waits for the dialog).
-      onDelete={canDelete ? () => handleDeleteClick(selectedMessage) : undefined}
-      onResolve={handleResolve}
-      onReadChanged={() => {
-        // Refresh the board so the triage unread dot updates, without
-        // tearing down the open detail panel.
-        bumpKanban();
-        void fetchMessages(messagesPagination.page, true);
-      }}
-      onRegisterRequestClose={(fn) => {
-        detailRequestCloseRef.current = fn;
-      }}
-      onRefresh={handleRefreshMessage}
-      onClassify={async (action, createDetectionRule, trainSpamFilter, confirm) => {
-        await messageService.classify(
-          selectedMessage.id,
-          action,
-          createDetectionRule,
-          trainSpamFilter,
-          confirm
-        );
-        clearCache();
-        bumpKanban();
-        void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
-        await fetchMessages(messagesPagination.page, true);
-        setSelectedMessage(null);
-      }}
-    />
+    <Suspense fallback={<ViewLoading className="flex-1" />}>
+      <MessageDetail
+        key={selectedMessage.id}
+        message={selectedMessage}
+        onClose={() => {
+          const params = new URLSearchParams(searchParams);
+          params.delete('id');
+          setSearchParams(params);
+          selectedThreadIdRef.current = null;
+          setSelectedMessage(null);
+        }}
+        onReplied={() => moveSelectedCard('awaiting')}
+        onStatusChanged={() => void rereadSelectedMessage()}
+        // Only the threads view has one unambiguous order; in kanban "next" could mean
+        // the next card in the column or across the board, so J/K stay off there.
+        onNavigate={displayMode === 'threads' ? handleNavigate : undefined}
+        recordPending={recordPendingId === selectedMessage.id}
+        onOptimisticMove={(columnId) => moveSelectedCard(columnId)}
+        onApprove={() => handleApprove(selectedMessage)}
+        onReject={async () => {
+          await handleRejected();
+          setSelectedMessage(null);
+        }}
+        onReopen={async () => {
+          await handleReopen(selectedMessage);
+        }}
+        // The detail stays open until the delete succeeds: Cancel leaves it as it was,
+        // with focus back on More (the header's focus return waits for the dialog).
+        onDelete={canDelete ? () => handleDeleteClick(selectedMessage) : undefined}
+        onResolve={handleResolve}
+        onReadChanged={(isRead) => {
+          // The board draws its own cards: it re-reads so the triage unread dot updates, without
+          // tearing down the open detail panel. On the list the open thread's row is patched.
+          const row =
+            isRead === undefined || isKanban
+              ? undefined
+              : threads.find(
+                  (thread) =>
+                    thread.latestMessage?.id === selectedMessage.id ||
+                    thread.latestIncomingMessage?.id === selectedMessage.id
+                );
+          if (row && isRead !== undefined) handleRowReadChanged(isRead, row);
+          else {
+            bumpKanban();
+            void fetchMessages(messagesPagination.page, true);
+          }
+        }}
+        onRegisterRequestClose={(fn) => {
+          detailRequestCloseRef.current = fn;
+        }}
+        onRefresh={handleRefreshMessage}
+        onClassify={async (action, createDetectionRule, trainSpamFilter, confirm) => {
+          await messageService.classify(
+            selectedMessage.id,
+            action,
+            createDetectionRule,
+            trainSpamFilter,
+            confirm
+          );
+          clearCache();
+          bumpKanban();
+          void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
+          await fetchMessages(messagesPagination.page, true);
+          setSelectedMessage(null);
+        }}
+      />
+    </Suspense>
   ) : null;
 
   /** The thread the split pane is reading, so its row can say so. */
@@ -1205,10 +1362,15 @@ export const MessagesPage = () => {
             lanes side by side (`xl:flex-row`). Between lg and xl the lanes STACK, and with
             this box already overflow-hidden the stack was clipped: on a 1276px window
             "Pending" started at 860px in an 806px viewport and nothing could scroll to it. */}
+        {/* Pointing at or focusing anything in the list fetches the thread view ahead. */}
         <div
           className={`flex-1 min-w-0 ${
             isKanban ? 'overflow-y-auto xl:overflow-hidden xl:flex xl:flex-col' : 'overflow-y-auto'
           }`}
+          onMouseOver={prefetchMessageDetail}
+          onFocus={prefetchMessageDetail}
+          // A fetch-ahead hint, not a control: the list's own rows and buttons are the controls.
+          role="presentation"
         >
           <div
             className={`px-3 sm:px-[18px] pt-3.5 mx-auto space-y-2.5 w-full ${
@@ -1398,32 +1560,36 @@ export const MessagesPage = () => {
             />
 
             {displayMode === 'kanban' ? (
-              <MessagesKanbanView
-                ref={kanbanRef}
-                filters={filters}
-                onOpen={handleOpenThread}
-                refreshKey={kanbanRefreshKey}
-                onScopeJump={handleScopeJump}
-                onTotalChange={setBoardTotal}
-                isSelected={bulkSelection.isSelected}
-                onToggleSelected={bulkSelection.toggle}
-                onToggleRange={bulkSelection.toggleRange}
-                selectMode={selectMode}
-                onSelectMany={bulkSelection.selectMany}
-                onDeselectMany={bulkSelection.deselectMany}
-              />
+              <Suspense fallback={<ViewLoading className="min-h-[50vh]" />}>
+                <MessagesKanbanView
+                  ref={kanbanRef}
+                  filters={filters}
+                  onOpen={handleOpenThread}
+                  refreshKey={kanbanRefreshKey}
+                  onScopeJump={handleScopeJump}
+                  onTotalChange={setBoardTotal}
+                  isSelected={bulkSelection.isSelected}
+                  onToggleSelected={bulkSelection.toggle}
+                  onToggleRange={bulkSelection.toggleRange}
+                  selectMode={selectMode}
+                  onSelectMany={bulkSelection.selectMany}
+                  onDeselectMany={bulkSelection.deselectMany}
+                />
+              </Suspense>
             ) : displayMode === 'contacts' ? (
-              <ContactsView
-                apiFilters={buildContactsApiFilters(filters)}
-                focusSender={searchParams.get('sender') ?? undefined}
-                onPaginationChange={setContactsPagination}
-                onOpenMessage={(msg) => {
-                  setSelectedMessage(msg);
-                  const params = new URLSearchParams(searchParams);
-                  params.set('id', getConvUrlId(msg, orgCode));
-                  setSearchParams(params);
-                }}
-              />
+              <Suspense fallback={<ViewLoading className="min-h-[50vh]" />}>
+                <ContactsView
+                  apiFilters={buildContactsApiFilters(filters)}
+                  focusSender={searchParams.get('sender') ?? undefined}
+                  onPaginationChange={setContactsPagination}
+                  onOpenMessage={(msg) => {
+                    setSelectedMessage(msg);
+                    const params = new URLSearchParams(searchParams);
+                    params.set('id', getConvUrlId(msg, orgCode));
+                    setSearchParams(params);
+                  }}
+                />
+              </Suspense>
             ) : (
               <div className="space-y-2">
                 {/* The caption: select this page · what the view hides · how the list is
@@ -1560,11 +1726,9 @@ export const MessagesPage = () => {
                             }
                             onToggleSelected={toggleListRow}
                             selectMode={selectMode}
-                            highlightTerms={highlightTermsFor(searchReading)}
-                            onReadChanged={() => {
-                              bumpKanban();
-                              void fetchMessages(messagesPagination.page, true);
-                            }}
+                            highlightTerms={highlightTerms}
+                            pending={pendingThreadId === thread.threadId}
+                            onReadChanged={handleRowReadChanged}
                           />
                         </Fragment>
                       ))}
@@ -1585,11 +1749,9 @@ export const MessagesPage = () => {
                           }
                           onToggleSelected={toggleListRow}
                           selectMode={selectMode}
-                          highlightTerms={highlightTermsFor(searchReading)}
-                          onReadChanged={() => {
-                            bumpKanban();
-                            void fetchMessages(messagesPagination.page, true);
-                          }}
+                          highlightTerms={highlightTerms}
+                          pending={pendingThreadId === thread.threadId}
+                          onReadChanged={handleRowReadChanged}
                         />
                       ))}
                     </div>
@@ -1793,7 +1955,11 @@ export const MessagesPage = () => {
         }}
       />
 
-      <ComposeNewModal open={composeOpen} onClose={() => setComposeOpen(false)} />
+      {composeMounted && (
+        <Suspense fallback={null}>
+          <ComposeNewModal open={composeOpen} onClose={() => setComposeOpen(false)} />
+        </Suspense>
+      )}
     </>
   );
 };
