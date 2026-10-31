@@ -43,6 +43,13 @@ export const REPAIRS: RepairEntry[] = [
     scope: 'workspace',
   },
   {
+    id: 'repair-routed-outreach',
+    label: 'Restore the clock on outreach someone moved out of Marketing',
+    does: 'Threads marked as unsolicited outreach that a person then routed out of Marketing to another team: clears the outreach mark, restarts the response clock and counts it against the rule that made the call. Threads still in Marketing, and outreach nobody routed, are left alone.',
+    path: 'repair-routed-outreach',
+    scope: 'workspace',
+  },
+  {
     id: 'repair-zendesk-closed-replies',
     label: 'Reopen threads a Zendesk import closed after a customer reply',
     does: 'Reopens threads a Zendesk import marked solved or closed although the customer had written after the ticket’s last Zendesk message — mail Zendesk never saw. Threads someone resolved in Odly, and threads we answered afterwards, are left alone.',
