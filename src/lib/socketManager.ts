@@ -42,10 +42,36 @@ const cancelSocketRecovery = () => {
   authRecoveryUsed = false;
 };
 
+/**
+ * The views' re-read after a reconnect (SOCKET_RECONNECTED_EVENT) is spread and rationed. A
+ * backend restart or deploy reconnects every agent's tab in the same second; each re-read is the
+ * list, the board, the counts and the open thread. So each tab waits a random 0–5 s first, and
+ * re-reads at most once per 30 s however often a flapping link reconnects.
+ */
+export const RECONNECT_RESYNC_JITTER_MS = 5_000;
+export const RECONNECT_RESYNC_MIN_INTERVAL_MS = 30_000;
+let lastReconnectResyncAt = Number.NEGATIVE_INFINITY;
+let reconnectResyncTimer: ReturnType<typeof setTimeout> | null = null;
+const scheduleReconnectResync = () => {
+  if (reconnectResyncTimer !== null) return;
+  if (Date.now() - lastReconnectResyncAt < RECONNECT_RESYNC_MIN_INTERVAL_MS) return;
+  lastReconnectResyncAt = Date.now();
+  reconnectResyncTimer = setTimeout(() => {
+    reconnectResyncTimer = null;
+    eventListeners.get(SOCKET_RECONNECTED_EVENT)?.forEach((listener) => listener(undefined));
+  }, Math.random() * RECONNECT_RESYNC_JITTER_MS);
+};
+const cancelReconnectResync = () => {
+  if (reconnectResyncTimer !== null) clearTimeout(reconnectResyncTimer);
+  reconnectResyncTimer = null;
+};
+
 /** Tear the socket down and send the user to the login screen. The terminal path only. */
 const endSessionAndRedirect = () => {
   cancelSocketRecovery();
   socket?.disconnect();
+  // A re-read pending for the socket torn down is not for the next one.
+  cancelReconnectResync();
   socket = null;
   connectionCount = 0;
   activeOrgRooms.clear();
@@ -108,11 +134,9 @@ export const getSocket = (): Socket => {
         logger.info(`🏢 Re-joining organization room after connect: org-${orgId}`);
         socket?.emit('join-organization', orgId);
       }
-      // Events sent while the socket was down never arrive: tell the views to re-read once.
-      // Local only — the server never sends this name.
-      if (reconnected) {
-        eventListeners.get(SOCKET_RECONNECTED_EVENT)?.forEach((listener) => listener(undefined));
-      }
+      // Events sent while the socket was down never arrive: tell the views to re-read once —
+      // spread and rationed (scheduleReconnectResync). Local only — the server never sends it.
+      if (reconnected) scheduleReconnectResync();
     });
 
     socket.on('disconnect', (reason) => {
@@ -259,6 +283,8 @@ export const releaseSocket = () => {
         logger.info('🔌 Disconnecting WebSocket (no active users)');
         cancelSocketRecovery();
         socket.disconnect();
+        // A re-read pending for the socket torn down is not for the next one.
+        cancelReconnectResync();
         socket = null;
         connectionCount = 0;
         activeOrgRooms.clear();
@@ -280,6 +306,8 @@ export const forceDisconnect = () => {
   if (socket) {
     logger.info('🔌 Force disconnecting WebSocket');
     socket.disconnect();
+    // A re-read pending for the socket torn down is not for the next one.
+    cancelReconnectResync();
     socket = null;
     connectionCount = 0;
     activeOrgRooms.clear();

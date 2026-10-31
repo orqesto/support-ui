@@ -6,7 +6,6 @@
 import {
   Fragment,
   Suspense,
-  lazy,
   useState,
   useCallback,
   useRef,
@@ -95,6 +94,7 @@ import {
   type ServerChangeEvent,
 } from '@/components/messages/serverEventRefresh';
 import { Spinner } from '@/components/ui/Spinner';
+import { lazyWithReload } from '@/lib/lazyWithReload';
 import { useSocketReconnected } from '@/hooks/useSocketReconnected';
 import { sortingToPreset, presetToSorting } from '@/components/messages/sortPresets';
 import { scopeJumpUrl } from '@/hooks/scopeJumpUrl';
@@ -130,7 +130,7 @@ const BULK_TARGET_COLUMN: Partial<Record<BulkAction, string>> = {
   a row is pointed at or focused, so opening one rarely waits for it.
 */
 const loadMessageDetail = () => import('@/components/messages/MessageDetail');
-const MessageDetail = lazy(() =>
+const MessageDetail = lazyWithReload(() =>
   loadMessageDetail().then((mod) => ({ default: mod.MessageDetail }))
 );
 let detailPrefetch: Promise<unknown> | null = null;
@@ -140,15 +140,15 @@ const prefetchMessageDetail = () => {
     detailPrefetch = null;
   });
 };
-const MessagesKanbanView = lazy(() =>
+const MessagesKanbanView = lazyWithReload(() =>
   import('@/components/messages/MessagesKanbanView').then((mod) => ({
     default: mod.MessagesKanbanView,
   }))
 );
-const ContactsView = lazy(() =>
+const ContactsView = lazyWithReload(() =>
   import('@/components/messages/ContactsView').then((mod) => ({ default: mod.ContactsView }))
 );
-const ComposeNewModal = lazy(() =>
+const ComposeNewModal = lazyWithReload(() =>
   import('@/components/messages/ComposeNewModal').then((mod) => ({
     default: mod.ComposeNewModal,
   }))
@@ -641,6 +641,8 @@ export const MessagesPage = () => {
   */
   const openSeqRef = useRef(0);
   const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
+  // The open record came from the row; its full record (reply block, Reply-To…) is on its way.
+  const [recordPendingId, setRecordPendingId] = useState<number | null>(null);
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;
   const setSearchParamsRef = useRef(setSearchParams);
@@ -675,6 +677,7 @@ export const MessagesPage = () => {
     // A phone opens the thread as its own page, which reads the record itself.
     if (isPhoneRef.current) return;
     setPendingThreadId(thread.threadId);
+    setRecordPendingId(openedId);
     try {
       const res = await messageService.getById(openedId);
       if (seq !== openSeqRef.current || !res.success || !res.data) return;
@@ -702,7 +705,11 @@ export const MessagesPage = () => {
       // The row's record stays up; the detail's own reads do not depend on this one.
       if (seq === openSeqRef.current) logger.error('Failed to fetch thread messages:', error);
     } finally {
-      if (seq === openSeqRef.current) setPendingThreadId(null);
+      if (seq === openSeqRef.current) {
+        setPendingThreadId(null);
+        // Landed, or failed — the row's record is then all there is, as before.
+        setRecordPendingId(null);
+      }
     }
   }, []);
 
@@ -1196,6 +1203,7 @@ export const MessagesPage = () => {
         // Only the threads view has one unambiguous order; in kanban "next" could mean
         // the next card in the column or across the board, so J/K stay off there.
         onNavigate={displayMode === 'threads' ? handleNavigate : undefined}
+        recordPending={recordPendingId === selectedMessage.id}
         onOptimisticMove={(columnId) => moveSelectedCard(columnId)}
         onApprove={() => handleApprove(selectedMessage)}
         onReject={async () => {

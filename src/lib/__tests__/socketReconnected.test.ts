@@ -42,18 +42,50 @@ beforeEach(async () => {
 afterEach(() => manager.forceDisconnect());
 
 describe('the socket coming back after a drop', () => {
-  it('is announced on every connect after the first — not on the first', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0.6);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+  // 0.6 × the 5 s jitter.
+  const JITTER = 3_000;
+
+  it('is announced after a reconnect — not on the first connect — after a random 0–5 s wait', () => {
     const resync = vi.fn();
     manager.getSocket();
     manager.subscribeToEvent(SOCKET_RECONNECTED_EVENT, resync);
     const [socket] = created;
 
     socket.fire('connect');
+    vi.advanceTimersByTime(10_000);
     expect(resync).not.toHaveBeenCalled();
     socket.fire('disconnect');
     socket.fire('connect');
+    vi.advanceTimersByTime(JITTER - 1);
+    expect(resync).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
     expect(resync).toHaveBeenCalledTimes(1);
+  });
+
+  it('a flapping link re-reads at most once per 30 s', () => {
+    const resync = vi.fn();
+    manager.getSocket();
+    manager.subscribeToEvent(SOCKET_RECONNECTED_EVENT, resync);
+    const [socket] = created;
     socket.fire('connect');
+    for (let flap = 0; flap < 10; flap += 1) {
+      socket.fire('connect');
+      vi.advanceTimersByTime(1_000);
+    }
+    vi.advanceTimersByTime(JITTER);
+    expect(resync).toHaveBeenCalledTimes(1);
+    // CONTROL: past the interval, a reconnect re-reads again.
+    vi.advanceTimersByTime(manager.RECONNECT_RESYNC_MIN_INTERVAL_MS);
+    socket.fire('connect');
+    vi.advanceTimersByTime(JITTER);
     expect(resync).toHaveBeenCalledTimes(2);
   });
 
@@ -65,6 +97,7 @@ describe('the socket coming back after a drop', () => {
     manager.getSocket();
     manager.subscribeToEvent(SOCKET_RECONNECTED_EVENT, resync);
     created[1].fire('connect');
+    vi.advanceTimersByTime(10_000);
     expect(resync).not.toHaveBeenCalled();
   });
 });

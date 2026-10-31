@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { lazyWithReload } from './lib/lazyWithReload';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AllianceConsoleRoute } from './components/auth/AllianceConsoleRoute';
@@ -32,115 +33,115 @@ import {
   download; now a visitor downloads the one they open. The public ones wait under the Suspense
   around <Routes>; the dashboard under the app shell's own (AppShellRoute).
 */
-const DashboardPage = lazy(() =>
+const DashboardPage = lazyWithReload(() =>
   import('./pages/DashboardPage').then((mod) => ({ default: mod.DashboardPage }))
 );
-const ForgotPasswordPage = lazy(() =>
+const ForgotPasswordPage = lazyWithReload(() =>
   import('./pages/ForgotPasswordPage').then((mod) => ({ default: mod.ForgotPasswordPage }))
 );
-const LoginPage = lazy(() =>
+const LoginPage = lazyWithReload(() =>
   import('./pages/LoginPage').then((mod) => ({ default: mod.LoginPage }))
 );
-const OAuthCallbackPage = lazy(() =>
+const OAuthCallbackPage = lazyWithReload(() =>
   import('./pages/OAuthCallbackPage').then((mod) => ({ default: mod.OAuthCallbackPage }))
 );
-const ResetPasswordPage = lazy(() =>
+const ResetPasswordPage = lazyWithReload(() =>
   import('./pages/ResetPasswordPage').then((mod) => ({ default: mod.ResetPasswordPage }))
 );
-const SignupPage = lazy(() =>
+const SignupPage = lazyWithReload(() =>
   import('./pages/SignupPage').then((mod) => ({ default: mod.SignupPage }))
 );
-const CreateWorkspacePage = lazy(() =>
+const CreateWorkspacePage = lazyWithReload(() =>
   import('./pages/CreateWorkspacePage').then((mod) => ({ default: mod.CreateWorkspacePage }))
 );
-const SsoCallbackPage = lazy(() =>
+const SsoCallbackPage = lazyWithReload(() =>
   import('./pages/SsoCallbackPage').then((mod) => ({ default: mod.SsoCallbackPage }))
 );
-const TrackingPage = lazy(() =>
+const TrackingPage = lazyWithReload(() =>
   import('./pages/TrackingPage').then((mod) => ({ default: mod.TrackingPage }))
 );
-const VerifyEmailPage = lazy(() =>
+const VerifyEmailPage = lazyWithReload(() =>
   import('./pages/VerifyEmailPage').then((mod) => ({ default: mod.VerifyEmailPage }))
 );
 
 // Lazy load non-critical routes
-const MessagesPage = lazy(() =>
+const MessagesPage = lazyWithReload(() =>
   import('./pages/MessagesPage').then((mod) => ({ default: mod.MessagesPage }))
 );
-const MessageDetailPage = lazy(() =>
+const MessageDetailPage = lazyWithReload(() =>
   import('./pages/MessageDetailPage').then((mod) => ({ default: mod.MessageDetailPage }))
 );
-const TicketsPage = lazy(() =>
+const TicketsPage = lazyWithReload(() =>
   import('./pages/TicketsPage').then((mod) => ({ default: mod.TicketsPage }))
 );
-const TicketDetailPage = lazy(() =>
+const TicketDetailPage = lazyWithReload(() =>
   import('./pages/TicketDetailPage').then((mod) => ({ default: mod.TicketDetailPage }))
 );
-const CreateTicketPage = lazy(() =>
+const CreateTicketPage = lazyWithReload(() =>
   import('./pages/CreateTicketPage').then((mod) => ({ default: mod.CreateTicketPage }))
 );
-const EditTicketPage = lazy(() =>
+const EditTicketPage = lazyWithReload(() =>
   import('./pages/EditTicketPage').then((mod) => ({ default: mod.EditTicketPage }))
 );
-const EditUserPage = lazy(() =>
+const EditUserPage = lazyWithReload(() =>
   import('./pages/EditUserPage').then((mod) => ({ default: mod.EditUserPage }))
 );
-const StatisticsPage = lazy(() =>
+const StatisticsPage = lazyWithReload(() =>
   import('./pages/StatisticsPage').then((mod) => ({ default: mod.StatisticsPage }))
 );
-const SettingsPage = lazy(() =>
+const SettingsPage = lazyWithReload(() =>
   import('./pages/SettingsPage').then((mod) => ({ default: mod.SettingsPage }))
 );
-const UsersPage = lazy(() =>
+const UsersPage = lazyWithReload(() =>
   import('./pages/UsersPage').then((mod) => ({ default: mod.UsersPage }))
 );
-const OrganizationPage = lazy(() =>
+const OrganizationPage = lazyWithReload(() =>
   import('./pages/OrganizationPage').then((mod) => ({ default: mod.OrganizationPage }))
 );
-const AuditLogsPage = lazy(() =>
+const AuditLogsPage = lazyWithReload(() =>
   import('./pages/AuditLogsPage').then((mod) => ({ default: mod.AuditLogsPage }))
 );
-const SubscriptionPage = lazy(() =>
+const SubscriptionPage = lazyWithReload(() =>
   import('./pages/SubscriptionPage').then((mod) => ({ default: mod.SubscriptionPage }))
 );
-const PricingPage = lazy(() =>
+const PricingPage = lazyWithReload(() =>
   import('./pages/PricingPage').then((mod) => ({ default: mod.PricingPage }))
 );
-const UsageStatsPage = lazy(() =>
+const UsageStatsPage = lazyWithReload(() =>
   import('./pages/UsageStatsPage').then((mod) => ({ default: mod.UsageStatsPage }))
 );
-const CustomerRecordsPage = lazy(() =>
+const CustomerRecordsPage = lazyWithReload(() =>
   import('./pages/CustomerRecordsPage').then((mod) => ({ default: mod.CustomerRecordsPage }))
 );
-const KnowledgeBasePage = lazy(() =>
+const KnowledgeBasePage = lazyWithReload(() =>
   import('./pages/KnowledgeBasePage').then((mod) => ({ default: mod.KnowledgeBasePage }))
 );
-const BillingDashboardPage = lazy(() =>
+const BillingDashboardPage = lazyWithReload(() =>
   import('./pages/BillingDashboardPage').then((mod) => ({ default: mod.BillingDashboardPage }))
 );
-const NeedsRoutingPage = lazy(() =>
+const NeedsRoutingPage = lazyWithReload(() =>
   import('./pages/NeedsRoutingPage').then((mod) => ({ default: mod.NeedsRoutingPage }))
 );
-const OnboardingPage = lazy(() =>
+const OnboardingPage = lazyWithReload(() =>
   import('./pages/OnboardingPage').then((mod) => ({ default: mod.OnboardingPage }))
 );
-const SLADashboardPage = lazy(() =>
+const SLADashboardPage = lazyWithReload(() =>
   import('./pages/SLADashboardPage').then((mod) => ({ default: mod.SLADashboardPage }))
 );
 // Alliance admin console (Phase 5) — org-agnostic shell above the org-switcher.
-const ConsolePage = lazy(() =>
+const ConsolePage = lazyWithReload(() =>
   import('./pages/ConsolePage').then((mod) => ({ default: mod.ConsolePage }))
 );
-const AdminShell = lazy(() =>
+const AdminShell = lazyWithReload(() =>
   import('./components/console/AdminShell').then((mod) => ({ default: mod.AdminShell }))
 );
 // Per-workspace management shell (B2) — a global admin manages ANY workspace's Users +
 // config in-console, reusing UsersPage/OrganizationPage embedded. TOP-LEVEL (sibling of
 // /console/platform) so the platform scope never drops X-Organization-Context here.
-const WorkspaceShell = lazy(() =>
+const WorkspaceShell = lazyWithReload(() =>
   import('./components/console/WorkspaceShell').then((mod) => ({ default: mod.WorkspaceShell }))
 );
-const WorkspaceDepartmentsPage = lazy(() =>
+const WorkspaceDepartmentsPage = lazyWithReload(() =>
   import('./pages/console/WorkspaceDepartmentsPage').then((mod) => ({
     default: mod.WorkspaceDepartmentsPage,
   }))

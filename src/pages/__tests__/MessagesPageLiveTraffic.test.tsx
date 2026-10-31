@@ -186,8 +186,14 @@ vi.mock('@/components/messages/RowAssignee', () => ({
 }));
 vi.mock('@/components/messages/MessagesKanbanView', () => ({ MessagesKanbanView: () => null }));
 vi.mock('@/components/messages/MessageDetail', () => ({
-  MessageDetail: ({ message }: { message: { id: number; subject?: string } }) => (
-    <div data-testid="detail-pane">
+  MessageDetail: ({
+    message,
+    recordPending,
+  }: {
+    message: { id: number; subject?: string };
+    recordPending?: boolean;
+  }) => (
+    <div data-testid="detail-pane" data-record-pending={String(Boolean(recordPending))}>
       {message.id}: {message.subject}
     </div>
   ),
@@ -250,9 +256,12 @@ describe('opening a thread', () => {
     renderPage();
     fireEvent.click(row(12));
     await screen.findByTestId('detail-pane');
+    // Until it lands the detail knows its record is only the row's (Send waits).
+    expect(screen.getByTestId('detail-pane').dataset.recordPending).toBe('true');
     await answer(12, 'Full record 12');
     expect(screen.getByTestId('detail-pane')).toHaveTextContent('12: Full record 12');
     expect(row(12)).not.toHaveAttribute('aria-busy');
+    expect(screen.getByTestId('detail-pane').dataset.recordPending).toBe('false');
   });
 
   it('an earlier, slower open never wins (click A, then B; A answers last)', async () => {

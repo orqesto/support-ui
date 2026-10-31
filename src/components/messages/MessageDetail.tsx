@@ -156,6 +156,11 @@ export type MessageDetailProps = {
    * where that list has an unambiguous order (the threads view) — omitted, J/K do nothing.
    */
   onNavigate?: (direction: 'next' | 'prev') => void;
+  /**
+   * The detail was opened from the list row and the full record (reply block, WhatsApp window,
+   * Reply-To) is still on its way: Send stays off and the To line is not guessed until it lands.
+   */
+  recordPending?: boolean;
   /** Fired after a customer reply is sent (not notes) — the conversation flips to
    *  "Pending" (awaiting the customer), letting the board move the card optimistically. */
   onReplied?: () => void;
@@ -190,6 +195,7 @@ export function MessageDetail({
   onOptimisticMove,
   onClassify,
   onNavigate,
+  recordPending = false,
 }: MessageDetailProps) {
   // Full-page view has its own Back bar; the slide-over derives it from onClose.
   const fullPage = isFullPageProp ?? !onClose;
@@ -509,15 +515,16 @@ export function MessageDetail({
   // The backend moved this thread's status (a customer reply reopened it): re-read the header.
   useConversationStatusRefresh(message.id, onStatusChanged);
   /*
-    The socket came back after a drop: whatever was said meanwhile (a customer's message, a
-    colleague's reply, a status change) never arrived. Read the events after the newest one on
-    screen and the header, once. The list re-reads itself (MessagesPage).
+    The socket came back after a drop: whatever was said meanwhile — a customer's message, a
+    colleague's reply or note, a merge, files — never arrived. Reconnects are rare (and spread and
+    rationed by the socket manager), so the thread and every panel are read again in full, and
+    the header. The list re-reads itself (MessagesPage).
   */
   useSocketReconnected(
     useCallback(() => {
-      pullNewEvents({ activity: true });
+      setThreadRefreshKey((key) => key + 1);
       rereadHeaderRef.current?.();
-    }, [pullNewEvents])
+    }, [])
   );
 
   // ── Real-time reply events ─────────────────────────────────────────────────
@@ -580,14 +587,19 @@ export function MessageDetail({
   );
   const [alternativeCount, setAlternativeCount] = useState(0);
 
-  // Reset ghost when message changes
+  // Reset the ghost when the STORED draft changes — keyed on its content, not on the metadata
+  // object: the full record replacing the row's (same thread, a new object) must not bring back
+  // a ghost the agent dismissed or used in the meantime.
+  const storedDraftKey = JSON.stringify(message.metadata?.suggestedAnswer ?? null);
+  const storedDraftRef = useRef(message.metadata?.suggestedAnswer);
+  storedDraftRef.current = message.metadata?.suggestedAnswer;
   useEffect(() => {
     setGhostOption(
       offerStoredDraft
-        ? toGhostOption(message.metadata?.suggestedAnswer as SuggestedAnswerMeta | undefined)
+        ? toGhostOption(storedDraftRef.current as SuggestedAnswerMeta | undefined)
         : null
     );
-  }, [message.id, message.metadata, offerStoredDraft]);
+  }, [message.id, storedDraftKey, offerStoredDraft]);
 
   // ── Similar messages dialog ────────────────────────────────────────────────
   const [similarOpen, setSimilarOpen] = useState(false);
@@ -1835,9 +1847,17 @@ export function MessageDetail({
             selectedFiles={selectedFiles}
             onFilesChange={setSelectedFiles}
             onAiSourceChange={handleAiSourceChange}
-            sendBlockedReason={composerWindow.blocked ? composerWindow.notice : null}
-            windowRemaining={composerWindow.remaining}
-            windowTone={composerWindow.tone}
+            sendBlockedReason={
+              // Until the full record lands the reply block / WhatsApp window are unknown: Send
+              // waits (a tooltip, no banner — `info` tone) rather than guess they are open.
+              recordPending
+                ? 'Loading the conversation…'
+                : composerWindow.blocked
+                  ? composerWindow.notice
+                  : null
+            }
+            windowRemaining={recordPending ? undefined : composerWindow.remaining}
+            windowTone={recordPending ? 'info' : composerWindow.tone}
             onUseTemplate={
               // Offered only on a blocked WhatsApp conversation — that is the one state in
               // which a billable template send is the right move rather than an expensive
@@ -1852,8 +1872,12 @@ export function MessageDetail({
               // Phones render it above the composer instead (M6).
               composerMode === 'reply' && !isPhone ? decisionsFor('inline') : null
             }
-            recipientDraft={supportsRecipients ? recipientDraft : undefined}
-            onRecipientDraftChange={supportsRecipients ? setRecipientDraft : undefined}
+            // Hidden until the full record lands: the To line would show the requester where the
+            // customer's Reply-To belongs. The draft itself is kept.
+            recipientDraft={supportsRecipients && !recordPending ? recipientDraft : undefined}
+            onRecipientDraftChange={
+              supportsRecipients && !recordPending ? setRecipientDraft : undefined
+            }
             participants={supportsRecipients ? mergeContext.participants : undefined}
           />
         )}

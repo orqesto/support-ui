@@ -63,13 +63,21 @@ vi.mock('../MessageComposer', () => ({
     onSend,
     setComposerMode,
     onFilesChange,
+    sendBlockedReason,
+    recipientDraft,
   }: {
+    sendBlockedReason?: string | null;
+    recipientDraft?: unknown;
     setComposer: (value: string) => void;
     onSend: () => void;
     setComposerMode?: (mode: 'reply' | 'note') => void;
     onFilesChange?: (files: File[]) => void;
   }) => (
-    <div data-testid="composer">
+    <div
+      data-testid="composer"
+      data-blocked={sendBlockedReason ?? ''}
+      data-recipients={recipientDraft ? 'shown' : 'hidden'}
+    >
       <textarea aria-label="reply text" onChange={(event) => setComposer(event.target.value)} />
       <button type="button" onClick={onSend}>
         send draft
@@ -444,7 +452,7 @@ describe("another agent's reply and a socket that came back", () => {
     expect(onRefresh).not.toHaveBeenCalled();
   });
 
-  it('a reconnect reads the events missed meanwhile and the header, once', async () => {
+  it('a reconnect re-reads the thread and every panel in full, and the header, once', async () => {
     const onRefresh = vi.fn();
     const onStatusChanged = vi.fn();
     await opened({ onRefresh, onStatusChanged });
@@ -452,10 +460,38 @@ describe("another agent's reply and a socket that came back", () => {
     backend.events = [...backend.events, event(4)];
     act(() => socket.emit(SOCKET_RECONNECTED_EVENT));
     await settle();
-    expect(threadReads().at(-1)?.params.afterEventId).toBe('1');
-    expect(pathsSince(before)).not.toContain(`/api/messages/${THREAD_ID}/notes`);
+    // A full read (no cursor), and the panels a merge, a colleague's note or files would change.
+    expect(threadReads().at(-1)?.params.afterEventId).toBeUndefined();
+    expect(pathsSince(before)).toEqual(
+      expect.arrayContaining([
+        `/api/messages/${THREAD_ID}/notes`,
+        `/api/messages/${THREAD_ID}/activity`,
+        `/api/messages/${THREAD_ID}/attachments`,
+        `/api/messages/${THREAD_ID}/participants`,
+      ])
+    );
     expect(screen.getAllByTestId('bubble')).toHaveLength(4);
     expect(onStatusChanged).toHaveBeenCalledTimes(1);
     expect(onRefresh).not.toHaveBeenCalled();
+  });
+});
+
+describe('opened from the list row, before the full record lands', () => {
+  it('Send waits and the To line is not guessed; both come back when the record lands', async () => {
+    const { rerender } = renderDetail({ recordPending: true });
+    const composer = await screen.findByTestId('composer');
+    expect(composer.dataset.blocked).toBe('Loading the conversation…');
+    expect(composer.dataset.recipients).toBe('hidden');
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    rerender(
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <MessageDetail message={{ ...message }} onClose={vi.fn()} recordPending={false} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    expect(screen.getByTestId('composer').dataset.blocked).toBe('');
+    expect(screen.getByTestId('composer').dataset.recipients).toBe('shown');
+    await settle();
   });
 });
