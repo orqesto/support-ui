@@ -7,12 +7,30 @@ import {
 } from '@/services/platformSettings.service';
 
 describe('normaliseStatementTimeoutMs (version skew)', () => {
+  // The shape the backend actually sends (describeApiStatementTimeout), as staging returned it on
+  // 2026-10-31: the card stayed hidden because only a bare number was read.
+  it("reads the backend's setting shape { value, source, min, max, appliesTo }", () => {
+    const wire = { value: 30_000, source: 'db', min: 5_000, max: 600_000, appliesTo: 'api' };
+    expect(normaliseStatementTimeoutMs(wire)).toBe(30_000);
+    expect(normaliseStatementTimeoutMs({ ...wire, value: 0, source: 'default' })).toBe(0);
+  });
+
   it('passes a whole non-negative number of ms', () => {
     expect(normaliseStatementTimeoutMs(30_000)).toBe(30_000);
     expect(normaliseStatementTimeoutMs(0)).toBe(0);
   });
   it('anything else — absent on an older backend, or an unknown shape — is undefined (no field)', () => {
-    for (const raw of [undefined, null, '30000', -1, 1.5, { ms: 30_000 }, Number.NaN]) {
+    for (const raw of [
+      undefined,
+      null,
+      '30000',
+      -1,
+      1.5,
+      { ms: 30_000 },
+      { value: '30000' },
+      { value: -1 },
+      Number.NaN,
+    ]) {
       expect(normaliseStatementTimeoutMs(raw)).toBeUndefined();
     }
   });
@@ -37,7 +55,16 @@ describe('the platform settings read and the database PATCH', () => {
   const retention = { value: 90, source: 'default' };
 
   it('carries the timeout when the backend sends it', async () => {
-    database = { freeSharedRetentionDays: retention, apiStatementTimeoutMs: 30_000 };
+    database = {
+      freeSharedRetentionDays: retention,
+      apiStatementTimeoutMs: {
+        value: 30_000,
+        source: 'db',
+        min: 5_000,
+        max: 600_000,
+        appliesTo: 'api',
+      },
+    };
     expect((await platformSettingsService.get()).database).toEqual({
       freeSharedRetentionDays: retention,
       apiStatementTimeoutMs: 30_000,
