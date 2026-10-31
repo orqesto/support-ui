@@ -241,49 +241,39 @@ const renderPage = () =>
 const row = (id: number) => document.querySelector(`[data-select-id="${id}"]`) as HTMLElement;
 
 describe('opening a thread', () => {
-  it('mounts the detail from the row at once — before the full record answers', async () => {
-    deferredGetById();
-    renderPage();
-    fireEvent.click(row(12));
-    expect(await screen.findByTestId('detail-pane')).toHaveTextContent('12: Subject 12');
-    expect(mocks.getById).toHaveBeenCalledWith(12);
-    // The row says its record is still on the way.
-    expect(row(12)).toHaveAttribute('aria-busy', 'true');
-  });
-
-  it('the full record replaces the row record when it lands, and the row is no longer busy', async () => {
+  // The detail mounts on the FULL record only: a list row carries no `sender` (nor the reply
+  // block, WhatsApp window, Reply-To), and the header read `sender` on mount — J on staging
+  // (2026-10-31) blanked the page when it mounted on the row's record.
+  it('waits for the full record — nothing mounts from the row; the row shows busy', async () => {
     const answer = deferredGetById();
     renderPage();
     fireEvent.click(row(12));
-    await screen.findByTestId('detail-pane');
-    // Until it lands the detail knows its record is only the row's (Send waits).
-    expect(screen.getByTestId('detail-pane').dataset.recordPending).toBe('true');
+    await waitFor(() => expect(mocks.getById).toHaveBeenCalledWith(12));
+    expect(screen.queryByTestId('detail-pane')).toBeNull();
+    expect(row(12)).toHaveAttribute('aria-busy', 'true');
     await answer(12, 'Full record 12');
-    expect(screen.getByTestId('detail-pane')).toHaveTextContent('12: Full record 12');
+    expect(await screen.findByTestId('detail-pane')).toHaveTextContent('12: Full record 12');
     expect(row(12)).not.toHaveAttribute('aria-busy');
-    expect(screen.getByTestId('detail-pane').dataset.recordPending).toBe('false');
   });
 
   it('an earlier, slower open never wins (click A, then B; A answers last)', async () => {
     const answer = deferredGetById();
     renderPage();
     fireEvent.click(row(11));
-    await screen.findByTestId('detail-pane');
     fireEvent.click(row(12));
-    await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('12'));
     await answer(12, 'Full record 12');
     await answer(11, 'Full record 11');
-    expect(screen.getByTestId('detail-pane')).toHaveTextContent('12: Full record 12');
+    expect(await screen.findByTestId('detail-pane')).toHaveTextContent('12: Full record 12');
     expect(row(12)).not.toHaveAttribute('aria-busy');
   });
+
   it("the earlier open's answer landing first neither shows it nor clears the new row's busy mark", async () => {
     const answer = deferredGetById();
     renderPage();
     fireEvent.click(row(11));
-    await screen.findByTestId('detail-pane');
     fireEvent.click(row(12));
     await answer(11, 'Full record 11');
-    expect(screen.getByTestId('detail-pane')).toHaveTextContent('12: Subject 12');
+    expect(screen.queryByTestId('detail-pane')).toBeNull();
     expect(row(12)).toHaveAttribute('aria-busy', 'true');
   });
 });
@@ -295,8 +285,8 @@ describe('the rows are memoised', () => {
     await waitFor(() => expect(mocks.rowRenders.get('conv_11')).toBeGreaterThan(0));
     mocks.rowRenders.clear();
     fireEvent.click(row(12));
-    await screen.findByTestId('detail-pane');
     await answer(12, 'Full record 12');
+    await screen.findByTestId('detail-pane');
     expect(mocks.rowRenders.get('conv_11') ?? 0).toBe(0);
     expect(mocks.rowRenders.get('conv_13') ?? 0).toBe(0);
     expect(mocks.rowRenders.get('conv_12')).toBeLessThanOrEqual(2);

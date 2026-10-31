@@ -339,8 +339,9 @@ export type InboxBadge = { label: string; icon: React.ReactNode; cls: string };
 
 // ─── Pure helper functions ────────────────────────────────────────────────────
 
-export function getInitials(name: string): string {
-  const parts = name
+export function getInitials(name: string | null | undefined): string {
+  // A record without the name (a list row's, an older backend's) must not take the page down.
+  const parts = (name ?? '')
     .replace(/<[^>]+>/g, '')
     .split(/[\s@.]+/)
     // Punctuation is not an initial: a display name arrives quoted (`"Joel @ ngrok" <…>`), and

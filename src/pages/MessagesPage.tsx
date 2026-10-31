@@ -641,8 +641,6 @@ export const MessagesPage = () => {
   */
   const openSeqRef = useRef(0);
   const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
-  // The open record came from the row; its full record (reply block, Reply-To…) is on its way.
-  const [recordPendingId, setRecordPendingId] = useState<number | null>(null);
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;
   const setSearchParamsRef = useRef(setSearchParams);
@@ -667,29 +665,33 @@ export const MessagesPage = () => {
     const openedId = rowMessage.id;
     const urlId = getConvUrlId(rowMessage, orgCodeRef.current);
     fetchedMessageIdRef.current = urlId;
-    setSelectedMessage({
-      ...rowMessage,
-      lastReplyFromClient: rowMessage.lastReplyFromClient ?? thread.lastReplyFromClient,
-    });
     const params = new URLSearchParams(searchParamsRef.current);
     params.set('id', urlId);
     setSearchParamsRef.current(params);
-    // A phone opens the thread as its own page, which reads the record itself.
-    if (isPhoneRef.current) return;
+    // A phone opens the thread as its own page, which reads the record itself; the row's record
+    // only carries it there.
+    if (isPhoneRef.current) {
+      setSelectedMessage({
+        ...rowMessage,
+        lastReplyFromClient: rowMessage.lastReplyFromClient ?? thread.lastReplyFromClient,
+      });
+      return;
+    }
+    // The detail mounts on the FULL record, never the row's: a list row carries no `sender`,
+    // reply block, WhatsApp window or Reply-To, and the header read `sender` on mount — J on
+    // staging 2026-10-31 blanked the page. The row shows busy meanwhile; the sequence number
+    // still stops a slower earlier open from winning.
     setPendingThreadId(thread.threadId);
-    setRecordPendingId(openedId);
     try {
       const res = await messageService.getById(openedId);
       if (seq !== openSeqRef.current || !res.success || !res.data) return;
       // Widen to the tolerant app Message type: `lastReplyFromClient` is not returned by
       // getById, so it is optional here and falls back to the thread's value.
       const full: Message = res.data;
-      // Only onto the record this open put up — not one the agent closed or replaced meanwhile.
-      setSelectedMessage((current) =>
-        current?.id === openedId
-          ? { ...full, lastReplyFromClient: full.lastReplyFromClient ?? thread.lastReplyFromClient }
-          : current
-      );
+      setSelectedMessage({
+        ...full,
+        lastReplyFromClient: full.lastReplyFromClient ?? thread.lastReplyFromClient,
+      });
       const fullUrlId = getConvUrlId(full, orgCodeRef.current);
       if (fullUrlId !== urlId && searchParamsRef.current.get('id') === urlId) {
         fetchedMessageIdRef.current = fullUrlId;
@@ -702,14 +704,9 @@ export const MessagesPage = () => {
         );
       }
     } catch (error) {
-      // The row's record stays up; the detail's own reads do not depend on this one.
       if (seq === openSeqRef.current) logger.error('Failed to fetch thread messages:', error);
     } finally {
-      if (seq === openSeqRef.current) {
-        setPendingThreadId(null);
-        // Landed, or failed — the row's record is then all there is, as before.
-        setRecordPendingId(null);
-      }
+      if (seq === openSeqRef.current) setPendingThreadId(null);
     }
   }, []);
 
@@ -1203,7 +1200,6 @@ export const MessagesPage = () => {
         // Only the threads view has one unambiguous order; in kanban "next" could mean
         // the next card in the column or across the board, so J/K stay off there.
         onNavigate={displayMode === 'threads' ? handleNavigate : undefined}
-        recordPending={recordPendingId === selectedMessage.id}
         onOptimisticMove={(columnId) => moveSelectedCard(columnId)}
         onApprove={() => handleApprove(selectedMessage)}
         onReject={async () => {
