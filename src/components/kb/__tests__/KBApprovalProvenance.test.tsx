@@ -66,7 +66,7 @@ describe('KBApprovalBadge', () => {
 describe('KBApprovalProvenance', () => {
   it('says plainly that nobody reviewed a score-approved entry', () => {
     render(<KBApprovalProvenance entry={entry({ approvedBy: null })} />);
-    expect(screen.getByText(/Auto-approved by quality score/)).toBeInTheDocument();
+    expect(screen.getByText(/Made live by the engine/)).toBeInTheDocument();
     expect(screen.getByText(/not reviewed by a person/)).toBeInTheDocument();
     expect(getAssignableUsers).not.toHaveBeenCalled();
   });

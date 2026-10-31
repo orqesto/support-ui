@@ -30,7 +30,7 @@ describe('Automatic actions lives in Settings › AI', () => {
     render(
       <MemoryRouter initialEntries={['/knowledge-base/automatic']}>
         <Routes>
-          {kbSubRoutes((page) => page)}
+          {kbSubRoutes()}
           <Route path="/settings" element={<Where />} />
         </Routes>
       </MemoryRouter>

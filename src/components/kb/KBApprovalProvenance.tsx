@@ -18,7 +18,7 @@ import { userFullName } from '@/lib/userName';
  */
 
 const AUTO_APPROVED_HINT =
-  'Approved automatically because its quality score cleared the threshold. No person has reviewed it.';
+  'Made live by the engine because its quality score cleared the bar. No person has reviewed it.';
 
 /** Resolve the approver's name. Falls back to a neutral label — never blocks the badge. */
 const useApproverName = (userId: number | null | undefined): string | null => {
@@ -102,7 +102,7 @@ export const KBApprovalProvenance = ({ entry }: { entry: KBEntry }) => {
       {provenance === 'unreviewed' ? (
         <div className="flex gap-2 items-center mt-1 font-medium">
           <Bot className="w-4 h-4 text-muted-foreground" />
-          <span>Auto-approved by quality score</span>
+          <span>Made live by the engine</span>
           <span className="font-normal text-muted-foreground">— not reviewed by a person</span>
         </div>
       ) : (

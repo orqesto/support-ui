@@ -13,6 +13,7 @@ vi.mock('@/lib/api-client', () => ({ apiClient: api }));
 vi.mock('@/lib/toast', () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
+vi.mock('@/components/kb/autoActions/KbRunNow', () => ({ KbRunNow: () => null }));
 vi.mock('@/components/kb/KbQualityCoverage', () => ({
   KbQualityCoverage: () => <div data-testid="quality-coverage" />,
 }));
@@ -132,7 +133,7 @@ describe('Automatic actions — approve answers people saved', () => {
   it('shows the real row with its bar, count and gate, in place of the waiting row', async () => {
     renderPage();
     const captures = await screen.findByTestId('kb-auto-row-approveCaptures');
-    expect(within(captures).getByText('Approve answers people saved')).toBeInTheDocument();
+    expect(within(captures).getByText('Make answers people saved live')).toBeInTheDocument();
     expect(within(captures).getByRole('slider')).toBeInTheDocument();
     expect(within(captures).getByText('Would act on 12 answers')).toBeInTheDocument();
     expect(within(captures).getByText('Rate 20 more to switch this on.')).toBeInTheDocument();
@@ -141,7 +142,7 @@ describe('Automatic actions — approve answers people saved', () => {
     expect(screen.getAllByText('Always waits for a person (coming later)')).toHaveLength(2);
     // The Changed automatically card counts it too (15 + 2).
     expect(screen.getByText(/you can still undo/)).toHaveTextContent(/^17 changes/);
-    expect(screen.getByText('Approve answers people saved: 2')).toBeInTheDocument();
+    expect(screen.getByText('Make answers people saved live: 2')).toBeInTheDocument();
   });
 
   it('a backend without the action keeps the waiting row, and the card does not list it', async () => {
@@ -150,7 +151,7 @@ describe('Automatic actions — approve answers people saved', () => {
     await screen.findByTestId('kb-auto-row-remove');
     expect(screen.queryByTestId('kb-auto-row-approveCaptures')).not.toBeInTheDocument();
     expect(screen.getByText('Approve saved answers')).toBeInTheDocument();
-    expect(screen.queryByText(/Approve answers people saved/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Make answers people saved live/)).not.toBeInTheDocument();
   });
 
   it('sample: shows who saved each answer, and Agree only records a rating', async () => {

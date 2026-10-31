@@ -66,7 +66,9 @@ export const promoteToastText = (ids: number[], outcome: KbPromoteOutcome): stri
   const itThem = (count: number) => (count === 1 ? 'it' : 'them');
   const parts: string[] = [];
   if (approved > 0)
-    parts.push(single ? 'Added to the knowledge base' : `${entries(approved)} added to the knowledge base`);
+    parts.push(
+      single ? 'Added to the knowledge base' : `${entries(approved)} added to the knowledge base`
+    );
   if (pendingReview > 0)
     parts.push(
       `${single ? 'Saved' : `${entries(pendingReview)} saved`} and sent for review — the AI uses ${itThem(pendingReview)} once a reviewer approves`
@@ -106,6 +108,11 @@ export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Pr
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pairs, setPairs] = useState<EditablePair[]>([]);
+  // B4a: pairs the backend would not save (a reply that reports something done for one
+  // customer). Shown in plain words with the server's reason — never dropped silently.
+  const [refused, setRefused] = useState<Array<{ key: string; question: string; reason: string }>>(
+    []
+  );
 
   useEffect(() => {
     if (!isOpen) return;
@@ -114,6 +121,7 @@ export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Pr
     setLoading(true);
     setLoadError(null);
     setPairs([]);
+    setRefused([]);
 
     kbPromoteService
       .candidates(messageId)
@@ -145,8 +153,9 @@ export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Pr
 
   const handleSave = async () => {
     setSaving(true);
+    setRefused([]);
     try {
-      const { ids, outcome } = await kbPromoteService.promote(
+      const result = await kbPromoteService.promote(
         messageId,
         kept.map((pair) => ({
           questionMessageId: pair.questionMessageId,
@@ -155,9 +164,37 @@ export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Pr
           answer: pair.answer.trim(),
         }))
       );
-      toast.success(promoteToastText(ids, outcome));
-      onPromoted?.(ids);
-      onClose();
+      const { ids, outcome } = result;
+      const notSaved = result.refused ?? [];
+      if (notSaved.length === 0) {
+        toast.success(promoteToastText(ids, outcome));
+        onPromoted?.(ids);
+        onClose();
+        return;
+      }
+      // Some pairs were refused: keep the dialog open so the agent sees which ones and why.
+      if (ids.length > 0) {
+        toast.success(promoteToastText(ids, outcome));
+        onPromoted?.(ids);
+      }
+      const refusedKeys = new Set(
+        notSaved.map((item) => `${item.questionMessageId}-${item.answerMessageId}`)
+      );
+      setRefused(
+        notSaved.map((item) => {
+          const key = `${item.questionMessageId}-${item.answerMessageId}`;
+          const pair = pairs.find(
+            (candidate) => `${candidate.questionMessageId}-${candidate.answerMessageId}` === key
+          );
+          return { key, question: pair?.question.trim() ?? '', reason: item.reason };
+        })
+      );
+      // What was saved is done; leave only the refused pairs in the dialog.
+      setPairs((current) =>
+        current.filter((pair) =>
+          refusedKeys.has(`${pair.questionMessageId}-${pair.answerMessageId}`)
+        )
+      );
     } catch (error) {
       toast.error(getApiErrorMessage(error) ?? 'Could not add to the knowledge base');
     } finally {
@@ -184,9 +221,20 @@ export const PromoteToKbDialog = ({ messageId, isOpen, onClose, onPromoted }: Pr
           </p>
         ) : (
           <div className="space-y-4">
+            {refused.length > 0 && (
+              <Alert variant="warning">
+                <ul className="space-y-1">
+                  {refused.map((item) => (
+                    <li key={item.key}>
+                      Not saved — {item.reason}
+                      {item.question ? `: “${item.question}”` : ''}
+                    </li>
+                  ))}
+                </ul>
+              </Alert>
+            )}
             <p className="text-sm text-muted-foreground">
-              Edit anything that should read differently. What you keep is saved as reviewed by
-              you.
+              Edit anything that should read differently. What you keep is saved as reviewed by you.
             </p>
 
             {pairs.map((pair, index) => (

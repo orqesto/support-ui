@@ -17,7 +17,9 @@ describe('suggestionHome', () => {
   });
 
   it('KB captures and KB quality reviews go to the one KB list', () => {
-    expect(home('kb_review', 'kb_review.capture')?.href).toBe('/knowledge-base?status=needs_decision');
+    expect(home('kb_review', 'kb_review.capture')?.href).toBe(
+      '/knowledge-base?status=needs_decision'
+    );
     for (const type of ['consolidate', 'attach', 'entry_review']) {
       expect(home('kb_quality', type)?.href).toBe('/knowledge-base?status=suggested_change');
     }
@@ -37,5 +39,30 @@ describe('suggestionHome', () => {
   it('names the feature for the "Decide in" link', () => {
     expect(suggestionHomeName(home('spam', 'promote')!)).toBe('Spam Rules');
     expect(suggestionHomeName(home('routing', 'propose_rule')!)).toBe('Routing Rules');
+  });
+
+  it('a capture or merge suggestion with an id opens its question card', () => {
+    expect(
+      suggestionHome({ domain: 'kb_review', suggestionType: 'kb_review.capture', id: 41 })?.href
+    ).toBe('/knowledge-base?view=questions&question=41');
+    expect(
+      suggestionHome({ domain: 'kb_quality', suggestionType: 'consolidate', id: 42 })?.href
+    ).toBe('/knowledge-base?view=questions&question=42');
+  });
+
+  it('an entry_review suggestion opens that entry in Live answers', () => {
+    expect(
+      suggestionHome({
+        domain: 'kb_quality',
+        suggestionType: 'entry_review',
+        id: 43,
+        payload: { entryId: 700 },
+      })?.href
+    ).toBe('/knowledge-base?view=live&entry=700');
+    // CONTROL: no usable entry id falls back to its question.
+    expect(
+      suggestionHome({ domain: 'kb_quality', suggestionType: 'entry_review', id: 43, payload: {} })
+        ?.href
+    ).toBe('/knowledge-base?view=questions&question=43');
   });
 });

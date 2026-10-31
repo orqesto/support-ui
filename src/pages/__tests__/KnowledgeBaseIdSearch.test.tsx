@@ -13,6 +13,15 @@ let listEntries: unknown[] = [];
 let listIdMatch: unknown = undefined;
 
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
+// KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
+vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
+  useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: false }),
+}));
+// No real network calls: "Automatic actions" asks the backend whether its routes exist.
+vi.mock('@/hooks/useAutoActionsAvailable', () => ({
+  useAutoActionsAvailable: () => false,
+  resetAutoActionsAvailability: () => undefined,
+}));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
@@ -55,7 +64,6 @@ vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => true, isOrgAdmin: true }),
 }));
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => ({ isSurfaceVisibleToMe: () => true }) }));
-vi.mock('@/components/kb/KbRunNow', () => ({ KbRunNow: () => null }));
 vi.mock('@/components/kb/KbExportButton', () => ({ KbExportButton: () => null }));
 vi.mock('@/components/kb/KbReviewSuggestionsButton', () => ({
   KbReviewSuggestionsButton: () => null,
@@ -133,12 +141,12 @@ describe('KB list rows show their own number', () => {
 });
 
 describe('the hint when the searched entry is hidden by this view', () => {
-  it('says "KB-134 is in Pending" and its button switches the status, keeping the search', async () => {
+  it('says "KB-134 is under Not live yet" and its button switches the status, keeping the search', async () => {
     listIdMatch = match();
     renderAt('/knowledge-base?status=approved');
     await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(0));
     search('KB-134');
-    expect(await screen.findByText('KB-134 is in Pending')).toBeInTheDocument();
+    expect(await screen.findByText('KB-134 is under “Not live yet”')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Show KB-134' }));
     await waitFor(() => expect(getAllCalls.at(-1)).toMatchObject({ status: 'pending' }));
     expect(getAllCalls.at(-1)).toMatchObject({ search: 'KB-134' });
@@ -148,14 +156,14 @@ describe('the hint when the searched entry is hidden by this view', () => {
     listEntries = [entry({ id: 11, publicId: 'KB-1340', title: 'Mentions 134' })];
     listIdMatch = match();
     renderAt('/knowledge-base?status=approved');
-    expect(await screen.findByText('KB-134 is in Pending')).toBeInTheDocument();
+    expect(await screen.findByText('KB-134 is under “Not live yet”')).toBeInTheDocument();
     expect(screen.getAllByText('Mentions 134').length).toBeGreaterThan(0);
   });
 
   it('names the tab when a type tab hides it, and switches the tab', async () => {
     listIdMatch = match({ status: 'approved' });
     renderAt('/knowledge-base?status=approved#document');
-    expect(await screen.findByText('KB-134 is in the Q&A Pairs tab')).toBeInTheDocument();
+    expect(await screen.findByText('KB-134 is under “Q&A pairs”')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Show KB-134' }));
     await waitFor(() => expect(getAllCalls.at(-1)).toMatchObject({ type: 'qa_pair' }));
     expect(getAllCalls.at(-1)).toMatchObject({ status: 'approved' });
@@ -170,7 +178,7 @@ describe('the hint when the searched entry is hidden by this view', () => {
     listEntries = [entry({ id: 12, publicId: 'KB-9', title: 'Some entry' })];
     renderAt('/knowledge-base?status=approved');
     expect((await screen.findAllByText('Some entry')).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/ is in /)).toBeNull();
+    expect(screen.queryByText(/ is (in|under) /)).toBeNull();
     expect(screen.queryByRole('button', { name: /^Show KB-/ })).toBeNull();
   });
 });
@@ -186,7 +194,7 @@ describe('kbIdMatchHint', () => {
         tab: 'document',
       }
     );
-    expect(hint?.text).toBe('KB-134 is in the All tab');
+    expect(hint?.text).toBe('KB-134 is under “All types”');
     expect(hint?.target).toMatchObject({ tab: 'all', status: 'all', clearSource: false });
   });
 
@@ -224,7 +232,7 @@ describe('kbIdMatchHint', () => {
         ...view,
         status: 'approved',
       })?.text
-    ).toBe('#42 is in Pending');
+    ).toBe('#42 is under “Not live yet”');
   });
 });
 

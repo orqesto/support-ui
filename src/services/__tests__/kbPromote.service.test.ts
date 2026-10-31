@@ -35,6 +35,7 @@ describe('kbPromoteService.promote — outcome', () => {
     });
     expect(await kbPromoteService.promote(7, [])).toEqual({
       ids: [5, 6],
+      refused: [],
       outcome: {
         approved: 0,
         hidden: 1,

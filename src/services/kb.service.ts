@@ -62,13 +62,13 @@ export type KbAutoUndo =
   | 'restore'
   | 'undo_clean'
   | 'release_hold'
-  | 'unapprove'
+  | 'unapprove_mined'
   | 'return_to_review';
 const AUTO_UNDOS: readonly KbAutoUndo[] = [
   'restore',
   'undo_clean',
   'release_hold',
-  'unapprove',
+  'unapprove_mined',
   'return_to_review',
 ];
 export type KbAutoChange = {
@@ -78,6 +78,10 @@ export type KbAutoChange = {
   confidence: number | null;
   undo: KbAutoUndo;
   suggestionId: number | null;
+  /** The version-restore Undo of this change, when it has one. */
+  undoVersion: number | null;
+  /** `changed_after`: someone changed the entry after the approval, so the undo would be refused. */
+  undoBlocked: 'changed_after' | null;
 };
 const AUTO_ACTIONS: readonly string[] = [
   'remove',
@@ -99,6 +103,8 @@ export const normaliseAutoChange = (value: unknown): KbAutoChange | null => {
     confidence: typeof raw.confidence === 'number' ? raw.confidence : null,
     undo: raw.undo as KbAutoUndo,
     suggestionId: typeof raw.suggestionId === 'number' ? raw.suggestionId : null,
+    undoVersion: typeof raw.undoVersion === 'number' ? raw.undoVersion : null,
+    undoBlocked: raw.undoBlocked === 'changed_after' ? 'changed_after' : null,
   };
 };
 
@@ -299,9 +305,22 @@ export const approvalProvenance = (entry: {
   return entry.approvedBy === null ? 'unreviewed' : 'reviewed';
 };
 
-/** The KB cases report findings a list can be narrowed to (BE `KB_FINDINGS`). */
-export type KbFinding = 'raw_email' | 'awaiting_review';
-export const KB_FINDINGS: readonly KbFinding[] = ['raw_email', 'awaiting_review'];
+/** The findings a list can be narrowed to: the six set-aside reasons (BE `KB_FINDINGS`). */
+export type KbFinding =
+  | 'raw_email'
+  | 'awaiting_review'
+  | 'customer_specific'
+  | 'unclassified'
+  | 'no_clear_language'
+  | 'detached';
+export const KB_FINDINGS: readonly KbFinding[] = [
+  'raw_email',
+  'awaiting_review',
+  'customer_specific',
+  'unclassified',
+  'no_clear_language',
+  'detached',
+];
 
 /**
  * The list's `messageSourceId` for a source filter value (MessageSourceFilter): 'all' ⇒ none,
@@ -312,7 +331,6 @@ export const kbSourceParam = (value: string): number | 'none' | undefined => {
   return value === 'none' ? 'none' : Number(value);
 };
 
-export type KbExportType = 'qa_pair' | 'document';
 export type KbExportSize = { count: number; cap: number; truncated: boolean };
 
 const DECISION_STATUSES: readonly string[] = ['needs_decision', 'suggested_change', 'set_aside'];
@@ -334,7 +352,8 @@ export const kbService = {
     page?: number;
     limit?: number;
     search?: string;
-    status?: KbListStatus;
+    /** The effective status; the page sends 'all' too (the export then matches the list). */
+    status?: KbListStatus | 'all';
     /** A mailbox id, or 'none' for the entries that come from no mailbox. */
     messageSourceId?: number | 'none';
     /** Only the entries behind one finding of the KB cases report (needs `departmentId`). */
@@ -441,40 +460,6 @@ export const kbService = {
       if (isRouteAbsent(err)) return { outcome: 'unsupported' };
       throw err;
     }
-  },
-
-  /**
-   * How many rows the CSV export holds for this type (the department comes with the request, as
-   * for the list). Null when the backend has no export yet, or answers something unreadable —
-   * never a guessed number.
-   */
-  getExportSize: async (type?: KbExportType): Promise<KbExportSize | null> => {
-    try {
-      const response = await apiClient.get<ApiResponse<Partial<KbExportSize> | null>>(
-        '/api/knowledge-base/export.csv',
-        { params: { count: 1, ...(type ? { type } : {}) } }
-      );
-      const data = response.data?.data;
-      if (!data || typeof data.count !== 'number' || typeof data.cap !== 'number') return null;
-      return { count: data.count, cap: data.cap, truncated: data.truncated === true };
-    } catch (err) {
-      if (isRouteAbsent(err)) return null;
-      throw err;
-    }
-  },
-
-  /** The CSV goes through the API client so it carries the same auth and department as the list. */
-  downloadExport: async (type?: KbExportType): Promise<void> => {
-    const response = await apiClient.get('/api/knowledge-base/export.csv', {
-      params: type ? { type } : undefined,
-      responseType: 'blob',
-    });
-    const url = URL.createObjectURL(response.data as Blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'knowledge-base.csv';
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 
   /**

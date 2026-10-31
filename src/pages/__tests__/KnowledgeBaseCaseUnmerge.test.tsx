@@ -20,6 +20,16 @@ const approve = vi.fn<(...args: unknown[]) => unknown>();
 const unhide = vi.fn<(...args: unknown[]) => unknown>();
 const toastCalls: Array<{ kind: string; message: string }> = [];
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
+// KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
+vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
+  useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: false }),
+}));
+// No real network calls: "Automatic actions" asks the backend whether its routes exist.
+vi.mock('@/hooks/useAutoActionsAvailable', () => ({
+  useAutoActionsAvailable: () => false,
+  resetAutoActionsAvailability: () => undefined,
+}));
+vi.mock('@/components/kb/KbExportButton', () => ({ KbExportButton: () => null }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/lib/toast', () => ({
   toast: Object.fromEntries(
@@ -64,7 +74,6 @@ vi.mock('@/components/messages/MessageSourceFilter', () => ({
 }));
 vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => '' }));
-let casesFlagVisible = false;
 let canManageKb = true;
 vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({
@@ -74,7 +83,7 @@ vi.mock('@/hooks/usePermissions', () => ({
 }));
 vi.mock('@/hooks/useUiFlags', () => ({
   useUiFlags: () => ({
-    isSurfaceVisibleToMe: (key: string) => key === 'ui.kb_cases' && casesFlagVisible,
+    isSurfaceVisibleToMe: () => false,
   }),
 }));
 
@@ -115,7 +124,6 @@ const tableRow = async (title: string) => {
 beforeEach(() => {
   vi.clearAllMocks();
   toastCalls.length = 0;
-  casesFlagVisible = false;
   canManageKb = true;
   getById.mockReturnValue(new Promise(() => {}));
   getAll.mockResolvedValue({
@@ -228,7 +236,7 @@ describe('KB page — unmerging a case (F4)', () => {
     expect(approve).not.toHaveBeenCalled();
     // Back to what it was before it was hidden: pending stays pending.
     const after = await tableRow('Detached one');
-    await waitFor(() => expect(within(after).getByText('Pending')).toBeInTheDocument());
+    await waitFor(() => expect(within(after).getByText('Not live yet')).toBeInTheDocument());
     expect(within(after).queryByText(/detached from case/)).not.toBeInTheDocument();
   });
 
@@ -522,31 +530,6 @@ describe('KB page — a case opened by deep link only (H1)', () => {
     for (const name of [/Approve/, /Unhide/, /Restore/, /Edit/, /Delete/, /Reject/, /^Hide$/]) {
       expect(within(panel).queryByRole('button', { name })).not.toBeInTheDocument();
     }
-  });
-});
-
-describe('KB page — "Cases report" button (L2)', () => {
-  const button = () => screen.queryByRole('button', { name: 'Cases report' });
-
-  it('is absent while ui.kb_cases is not visible', async () => {
-    page();
-    await tableRow('Refunds');
-    expect(button()).not.toBeInTheDocument();
-  });
-
-  it('is present for a moderator once the flag is on, and leads to the report', async () => {
-    casesFlagVisible = true;
-    page();
-    await tableRow('Refunds');
-    expect(button()).toBeInTheDocument();
-  });
-
-  it('is absent without manage_knowledge_base, flag or not', async () => {
-    casesFlagVisible = true;
-    canManageKb = false;
-    page();
-    await tableRow('Refunds');
-    expect(button()).not.toBeInTheDocument();
   });
 });
 

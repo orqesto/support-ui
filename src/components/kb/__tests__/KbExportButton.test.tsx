@@ -32,60 +32,60 @@ afterEach(() => {
 const file = new Blob(['id,type\r\n'], { type: 'text/csv' });
 
 describe('KbExportButton', () => {
-  it('shows the count the backend answered for this type, and downloads with the same filter', async () => {
+  it('shows the count the backend answered for these filters, and downloads with the same filters', async () => {
     useBackend((request) =>
       request.params.count === '1'
         ? ok({ count: 12, cap: 10000, truncated: false })
         : { status: 200, data: file }
     );
-    render(<KbExportButton type="qa_pair" refreshKey={0} />);
+    render(<KbExportButton filters={{ status: 'all', type: 'qa_pair' }} />);
 
-    const button = await screen.findByRole('button', { name: 'Export approved to CSV (12)' });
+    const button = await screen.findByRole('button', { name: 'Export to CSV (12)' });
     expect(transport.calls('GET', '/api/knowledge-base/export.csv')[0].params).toMatchObject({
       count: '1',
+      status: 'all',
       type: 'qa_pair',
     });
 
     await userEvent.click(button);
     await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
     const download = transport.calls('GET', '/api/knowledge-base/export.csv')[1];
-    expect(download.params).toEqual({ type: 'qa_pair' });
+    expect(download.params).toEqual({ status: 'all', type: 'qa_pair' });
   });
 
   it('sends no type for the All and any other tab', async () => {
     useBackend(() => ok({ count: 3, cap: 10000, truncated: false }));
-    render(<KbExportButton type="all" refreshKey={0} />);
-    await screen.findByRole('button', { name: 'Export approved to CSV (3)' });
+    render(<KbExportButton filters={{ status: 'approved', type: 'all' }} />);
+    await screen.findByRole('button', { name: 'Export to CSV (3)' });
     expect(transport.calls('GET', '/api/knowledge-base/export.csv')[0].params).toEqual({
+      status: 'approved',
       count: '1',
     });
   });
 
   it('shows no button on a backend without the export', async () => {
     useBackend(routeAbsent);
-    render(<KbExportButton type="all" refreshKey={0} />);
+    render(<KbExportButton filters={{ status: 'approved', type: 'all' }} />);
     await waitFor(() => expect(transport.requests.length).toBeGreaterThan(0));
     await waitFor(() => expect(screen.queryByRole('button')).toBeNull());
   });
 
   it('shows no button when the backend answers something that is not a count', async () => {
     useBackend(() => ok({}));
-    render(<KbExportButton type="all" refreshKey={0} />);
+    render(<KbExportButton filters={{ status: 'approved', type: 'all' }} />);
     await waitFor(() => expect(transport.requests.length).toBeGreaterThan(0));
     await waitFor(() => expect(screen.queryByRole('button')).toBeNull());
   });
 
   it('disables the button when nothing is approved to export', async () => {
     useBackend(() => ok({ count: 0, cap: 10000, truncated: false }));
-    render(<KbExportButton type="all" refreshKey={0} />);
-    expect(
-      await screen.findByRole('button', { name: 'Export approved to CSV (0)' })
-    ).toBeDisabled();
+    render(<KbExportButton filters={{ status: 'approved', type: 'all' }} />);
+    expect(await screen.findByRole('button', { name: 'Export to CSV (0)' })).toBeDisabled();
   });
 
   it('says so when the cap cuts the file', async () => {
     useBackend(() => ok({ count: 25000, cap: 10000, truncated: true }));
-    render(<KbExportButton type="all" refreshKey={0} />);
+    render(<KbExportButton filters={{ status: 'approved', type: 'all' }} />);
     expect(
       await screen.findByText(/Only the first 10000 of 25000 entries are exported/)
     ).toBeTruthy();
@@ -93,19 +93,47 @@ describe('KbExportButton', () => {
 
   it('keeps the button, without a number, when the count itself failed', async () => {
     useBackend(() => ({ status: 500, data: { success: false, message: 'boom' } }));
-    render(<KbExportButton type="all" refreshKey={0} />);
-    const button = await screen.findByRole('button', { name: 'Export approved to CSV' });
+    render(<KbExportButton filters={{ status: 'approved', type: 'all' }} />);
+    const button = await screen.findByRole('button', { name: 'Export to CSV' });
     expect(button).toBeEnabled();
   });
 
-  it('reads the count again when the list changed', async () => {
+  it('reads the count again only when the filters change, not on a re-render', async () => {
     let count = 1;
     useBackend(() => ok({ count, cap: 10000, truncated: false }));
-    const view = render(<KbExportButton type="all" refreshKey={0} />);
-    await screen.findByRole('button', { name: 'Export approved to CSV (1)' });
+    const view = render(<KbExportButton filters={{ status: 'approved', type: 'all' }} />);
+    await screen.findByRole('button', { name: 'Export to CSV (1)' });
     count = 2;
-    view.rerender(<KbExportButton type="all" refreshKey={1} />);
-    expect(await screen.findByRole('button', { name: 'Export approved to CSV (2)' })).toBeTruthy();
+    view.rerender(<KbExportButton filters={{ status: 'approved', type: 'all' }} />);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(transport.calls('GET', '/api/knowledge-base/export.csv')).toHaveLength(1);
+    view.rerender(<KbExportButton filters={{ status: 'approved', type: 'qa_pair' }} />);
+    expect(await screen.findByRole('button', { name: 'Export to CSV (2)' })).toBeTruthy();
+  });
+
+  it("keeps the server's message when the count fails", async () => {
+    useBackend(() => ({ status: 400, data: { success: false, error: 'That team is not yours' } }));
+    render(<KbExportButton filters={{ status: 'approved', type: 'all' }} />);
+    expect(
+      await screen.findByText('Could not count the entries: That team is not yours')
+    ).toBeTruthy();
+  });
+
+  it("keeps the server's message when the download fails (the body arrives as a Blob)", async () => {
+    useBackend((request) =>
+      request.params.count === '1'
+        ? ok({ count: 4, cap: 10000, truncated: false })
+        : {
+            status: 400,
+            data: new Blob([JSON.stringify({ success: false, error: 'Too many rows to export' })], {
+              type: 'application/json',
+            }),
+          }
+    );
+    render(<KbExportButton filters={{ status: 'approved', type: 'all' }} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Export to CSV (4)' }));
+    expect(await screen.findByText('Too many rows to export')).toBeTruthy();
+    expect(screen.queryByText('Could not download the CSV.')).toBeNull();
   });
 
   it('says so when the download fails', async () => {
@@ -114,13 +142,62 @@ describe('KbExportButton', () => {
         ? ok({ count: 4, cap: 10000, truncated: false })
         : { status: 500, data: { success: false, message: 'Export failed on the server' } }
     );
-    render(<KbExportButton type="all" refreshKey={0} />);
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Export approved to CSV (4)' })
-    );
+    render(<KbExportButton filters={{ status: 'approved', type: 'all' }} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Export to CSV (4)' }));
     expect(
       await screen.findByText(/Export failed on the server|Could not download the CSV/)
     ).toBeTruthy();
     expect(click).not.toHaveBeenCalled();
+  });
+
+  it('export URL carries status, finding, departmentId, source, type, search and team', async () => {
+    useBackend((request) =>
+      request.params.count === '1'
+        ? ok({ count: 7, cap: 10000, truncated: false })
+        : { status: 200, data: file }
+    );
+    render(
+      <KbExportButton
+        filters={{
+          status: 'all',
+          finding: 'raw_email',
+          departmentId: 3,
+          departmentIds: [3, 4],
+          source: 'none',
+          type: 'qa_pair',
+          search: ' refund ',
+        }}
+      />
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Export to CSV (7)' }));
+    await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+    const [counted, downloaded] = transport.calls('GET', '/api/knowledge-base/export.csv');
+    const wanted = {
+      status: 'all',
+      finding: 'raw_email',
+      departmentId: '3',
+      departmentIds: '3,4',
+      messageSourceId: 'none',
+      type: 'qa_pair',
+      search: 'refund',
+    };
+    expect(counted.params).toEqual({ ...wanted, count: '1' });
+    expect(downloaded.params).toEqual(wanted);
+  });
+
+  it('export count shown equals the list total for the same filters (the count=1 call)', async () => {
+    // The wire answers the count of the query it is asked: the list's total for that query.
+    const listTotal = (status: string | undefined) => (status === 'all' ? 41 : 12);
+    useBackend((request) =>
+      ok({ count: listTotal(request.params.status), cap: 10000, truncated: false })
+    );
+    const view = render(<KbExportButton filters={{ status: 'all' }} />);
+    expect(await screen.findByRole('button', { name: 'Export to CSV (41)' })).toBeTruthy();
+    view.rerender(<KbExportButton filters={{ status: 'approved' }} />);
+    expect(await screen.findByRole('button', { name: 'Export to CSV (12)' })).toBeTruthy();
+    // The count call sends the very status the list sent, never a default one.
+    expect(
+      transport.calls('GET', '/api/knowledge-base/export.csv').map((call) => call.params.status)
+    ).toEqual(['all', 'approved']);
   });
 });

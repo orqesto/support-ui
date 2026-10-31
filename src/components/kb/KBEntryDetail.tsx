@@ -38,6 +38,8 @@ import {
 } from '@/lib/kbConsolidation';
 import { KBEntryEditDialog } from './KBEntryEditDialog';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
+import { KbEntryVersions } from './drawer/KbEntryVersions';
+import { KbEntryCaseActions } from './drawer/KbEntryCaseActions';
 
 const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico']);
 const isImageFile = (filename: string) =>
@@ -101,6 +103,8 @@ type KBEntryDetailProps = {
   onUnmerge?: (entry: KBEntry) => void;
   /** Open the review for the merge / add to case / rewrite / removal waiting on this entry. */
   onReviewDecision?: (decision: KbPendingDecision) => void;
+  /** A restore or a case move changed the entry: the list behind the drawer re-reads. */
+  onChanged?: () => void;
 };
 
 /**
@@ -157,6 +161,7 @@ export const KBEntryDetail = ({
   canReview,
   onUnmerge,
   onReviewDecision,
+  onChanged,
 }: KBEntryDetailProps) => {
   const [fullEntry, setFullEntry] = useState<KBEntry | null>(null);
   // Teams off: no team label next to the (hidden) team badge.
@@ -165,6 +170,12 @@ export const KBEntryDetail = ({
   const [editing, setEditing] = useState(false);
   // The drawer holds the entry's FULL text only once the detail route answered.
   const [detailLoaded, setDetailLoaded] = useState(false);
+  // Bumped after a restore or a case move: the drawer reads the entry again.
+  const [reloads, setReloads] = useState(0);
+  const changed = () => {
+    setReloads((count) => count + 1);
+    onChanged?.();
+  };
 
   // Fetch full entry content when drawer opens
   useEffect(() => {
@@ -189,7 +200,7 @@ export const KBEntryDetail = ({
       setFullEntry(null);
       setDetailLoaded(false);
     }
-  }, [entry?.id, entry]);
+  }, [entry?.id, entry, reloads]);
 
   const handleEditClick = () => {
     if (displayEntry) setEditing(true);
@@ -206,7 +217,9 @@ export const KBEntryDetail = ({
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="flex flex-col h-full">
+        // On a phone the whole drawer scrolls (header, content, history, actions), so nothing
+        // sits behind the action footer; from sm up the content scrolls between them.
+        <div className="flex flex-col sm:h-full">
           {/* Header */}
           <div className="flex-none p-6 border-b">
             <div className="flex gap-4 justify-between items-start mb-4">
@@ -233,7 +246,7 @@ export const KBEntryDetail = ({
                 )}
                 <KBStatusBadge
                   entry={displayEntry}
-                  pendingLabel="Pending Review"
+                  pendingLabel="Not live yet"
                   withProvenance={false}
                 />
               </div>
@@ -472,7 +485,7 @@ export const KBEntryDetail = ({
           </div>
 
           {/* Content */}
-          <div className="overflow-auto flex-1 p-6">
+          <div className="p-6 sm:overflow-auto sm:flex-1">
             <h3 className="font-display mb-3 text-lg font-semibold">Content</h3>
             <FormattedKBContent
               content={(() => {
@@ -513,13 +526,23 @@ export const KBEntryDetail = ({
                 return displayEntry.content;
               })()}
             />
+            {canReview && (
+              <div className="pt-6">
+                <KbEntryVersions
+                  entryId={displayEntry.id}
+                  canRestore={offersReviewActions(displayEntry) || isMergedOriginal(displayEntry)}
+                  onRestored={changed}
+                />
+              </div>
+            )}
           </div>
 
           {/* Actions Footer — reads the entry the drawer FETCHED, like the header badge above.
               The row it was opened with may not say it is a case or a merged original (a deep
               link has no row at all), and acting on it would offer what the server refuses. */}
           <div className="flex-none p-6 border-t bg-muted/20">
-            <div className="flex gap-3 justify-end">
+            <div className="flex flex-wrap gap-3 justify-end">
+              <KbEntryCaseActions entry={displayEntry} canReview={canReview} onChanged={changed} />
               {canReview && isCaseRow(displayEntry) && mayRemoveCase(displayEntry) && onUnmerge && (
                 <Button
                   variant="outline"

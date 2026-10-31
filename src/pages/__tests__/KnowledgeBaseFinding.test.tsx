@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type * as KbServiceModule from '@/services/kb.service';
-import type { KbCasesFindings } from '@/services/kbConsolidation.service';
 
 const getAllCalls: Array<Record<string, unknown>> = [];
 let total = 2;
@@ -38,6 +37,15 @@ let lastPage = Number.POSITIVE_INFINITY;
 const hidden: number[] = [];
 
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
+// KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
+vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
+  useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: false }),
+}));
+// No real network calls: "Automatic actions" asks the backend whether its routes exist.
+vi.mock('@/hooks/useAutoActionsAvailable', () => ({
+  useAutoActionsAvailable: () => false,
+  resetAutoActionsAvailability: () => undefined,
+}));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
@@ -123,9 +131,10 @@ vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => true, isOrgAdmin: true }),
 }));
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => ({ isSurfaceVisibleToMe: () => true }) }));
-vi.mock('@/components/kb/KbRunNow', () => ({ KbRunNow: () => null }));
 vi.mock('@/components/kb/KbExportButton', () => ({
-  KbExportButton: ({ type }: { type: string }) => <div data-testid="kb-export">{type}</div>,
+  KbExportButton: ({ filters }: { filters: unknown }) => (
+    <div data-testid="kb-export">{JSON.stringify(filters)}</div>
+  ),
 }));
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({ data: [{ id: 3, name: 'Support' }], teamsEnabled: true }),
@@ -134,19 +143,7 @@ vi.mock('@/hooks/useDepartments', () => ({
 }));
 
 const { KnowledgeBasePage } = await import('../KnowledgeBasePage');
-const { KbCasesFindingsPanel } = await import('../KbCasesPage');
 const { kbFindingFromSearch, kbFindingHref, withoutKbFinding } = await import('@/lib/kbFinding');
-
-const findings = (overrides: Partial<KbCasesFindings> = {}): KbCasesFindings => ({
-  rawEmails: 48,
-  judgedCustomerSpecific: 0,
-  couldNotClassify: 0,
-  awaitingKbReview: 19,
-  noClearLanguage: 0,
-  detached: 0,
-  possibleDuplicates: [],
-  ...overrides,
-});
 
 const lastCall = () => getAllCalls[getAllCalls.length - 1];
 
@@ -161,33 +158,6 @@ beforeEach(() => {
   hidden.length = 0;
 });
 afterEach(cleanup);
-
-describe('KB cases findings link to their own lists', () => {
-  it('"clean up" and "KB review" open the finding, for the report team', () => {
-    render(
-      <MemoryRouter>
-        <KbCasesFindingsPanel findings={findings()} departmentId={3} />
-      </MemoryRouter>
-    );
-    expect(screen.getByRole('link', { name: 'clean up' }).getAttribute('href')).toBe(
-      '/knowledge-base?finding=raw_email&departmentId=3#qa_pair'
-    );
-    expect(screen.getByRole('link', { name: 'KB review' }).getAttribute('href')).toBe(
-      '/knowledge-base?finding=awaiting_review&departmentId=3#qa_pair'
-    );
-  });
-
-  it('without a team there is no list to open, so no link — never one to every entry', () => {
-    render(
-      <MemoryRouter>
-        <KbCasesFindingsPanel findings={findings()} />
-      </MemoryRouter>
-    );
-    expect(screen.getByText(/clean up/)).toBeTruthy();
-    expect(screen.queryByRole('link', { name: 'clean up' })).toBeNull();
-    expect(screen.queryByRole('link', { name: 'KB review' })).toBeNull();
-  });
-});
 
 describe('kbFinding URL helpers', () => {
   it('reads a finding only with a valid team, and removes both', () => {
@@ -240,13 +210,29 @@ describe('Knowledge base list narrowed to a finding', () => {
     expect(screen.queryByText(/Entries awaiting a KB review/)).toBeNull();
   });
 
-  it('offers the export on the list tabs with the tab type, and not on the Documentation tab', async () => {
+  it('offers the export on the list with the type, and the old Documentation address leaves the page', async () => {
     renderAt('/knowledge-base#qa_pair');
-    expect((await screen.findByTestId('kb-export')).textContent).toBe('qa_pair');
+    expect(JSON.parse((await screen.findByTestId('kb-export')).textContent ?? '')).toMatchObject({
+      type: 'qa_pair',
+      status: 'approved',
+    });
     cleanup();
+    // Documentation moved to Settings › AI: the old address redirects, no list and no export.
     renderAt('/knowledge-base#documentation');
-    await waitFor(() => expect(screen.getAllByText(/Knowledge Base/).length).toBeGreaterThan(0));
+    await waitFor(() => expect(screen.queryByText(/Knowledge Base/)).toBeNull());
     expect(screen.queryByTestId('kb-export')).toBeNull();
+  });
+
+  it('the export carries the finding and its team, and the effective status (the list query itself)', async () => {
+    renderAt('/knowledge-base?finding=raw_email&departmentId=3#qa_pair');
+    await waitFor(() =>
+      expect(JSON.parse(screen.getByTestId('kb-export').textContent ?? '{}')).toMatchObject({
+        finding: 'raw_email',
+        departmentId: 3,
+        status: 'all',
+        type: 'qa_pair',
+      })
+    );
   });
 
   it('control: a plain visit asks for no finding and shows no banner', async () => {
@@ -391,7 +377,7 @@ describe('Knowledge base list narrowed to a finding', () => {
 describe('Source filter: "No source" (F2)', () => {
   it('asks the backend for messageSourceId=none, counts as a filter, and Clear All drops it', async () => {
     render(
-      <MemoryRouter initialEntries={['/knowledge-base#all']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live#all']}>
         <Routes>
           <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
         </Routes>
@@ -399,6 +385,8 @@ describe('Source filter: "No source" (F2)', () => {
     );
     await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(0));
     expect(lastCall().messageSourceId).toBeUndefined();
+    // Source sits under "More filters" (KB engine Stage 1: at most five controls by default).
+    fireEvent.click(screen.getByRole('button', { name: /More filters/ }));
     fireEvent.click(await screen.findByRole('button', { name: 'pick No source' }));
     await waitFor(() => expect(lastCall().messageSourceId).toBe('none'));
     fireEvent.click(screen.getByRole('button', { name: /Clear All/ }));
@@ -409,15 +397,16 @@ describe('Source filter: "No source" (F2)', () => {
 describe('Rejected tab (pass-5 F1)', () => {
   it("its tooltip holds for an automatic reject as well as a reviewer's", async () => {
     render(
-      <MemoryRouter initialEntries={['/knowledge-base#all']}>
+      <MemoryRouter initialEntries={['/knowledge-base?view=live#all']}>
         <Routes>
           <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
         </Routes>
       </MemoryRouter>
     );
-    const tab = await screen.findByRole('button', { name: 'Rejected' });
+    fireEvent.click(await screen.findByRole('button', { name: /More filters/ }));
+    const tab = await screen.findByRole('button', { name: 'Turned down' });
     expect(tab.getAttribute('title')).toBe(
-      'Rejected by a reviewer or automatically — deleted 90 days after the reject; Approve restores one before then.'
+      'Turned down by a person or by the engine — deleted 90 days later; Approve restores one before then.'
     );
   });
 });

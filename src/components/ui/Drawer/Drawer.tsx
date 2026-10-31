@@ -26,7 +26,8 @@ export const Drawer = ({
         aria-hidden="true"
       />
 
-      <div className={getDrawerContentClasses(side, size)}>
+      {/* data-drawer: single-key shortcuts behind it (the KB question card) stay quiet. */}
+      <div className={getDrawerContentClasses(side, size)} data-drawer="open">
         {header !== undefined ? (
           header
         ) : (

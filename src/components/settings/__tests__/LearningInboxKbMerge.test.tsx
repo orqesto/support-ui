@@ -106,8 +106,9 @@ describe('learning inbox — KB merge rows', () => {
     const links = screen.getAllByRole('button', { name: /Decide in Knowledge Base/ });
     expect(links).toHaveLength(2);
     fireEvent.click(links[0]);
+    // The link names the item: the merge question's own card.
     expect(screen.getByTestId('where')).toHaveTextContent(
-      '/knowledge-base?status=suggested_change'
+      '/knowledge-base?view=questions&question=1'
     );
   });
 

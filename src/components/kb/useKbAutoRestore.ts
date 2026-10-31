@@ -3,16 +3,17 @@ import { apiErrorMessage, apiErrorStatus } from '@/lib/apiError';
 import { toast } from '@/lib/toast';
 import type { KbFilterStatus } from '@/components/kb/KbStatusFilter';
 import { kbAutoActionsService } from '@/services/kbAutoActions.service';
-import { kbService, type KBEntry, type KbAutoChange, type KbAutoUndo } from '@/services/kb.service';
+import type { KBEntry, KbAutoChange, KbAutoUndo } from '@/services/kb.service';
 import { kbQualityService } from '@/services/kbQuality.service';
-import { REJECTED_RETENTION_DAYS } from '@/lib/kbRejection';
+import { restoreEntryVersion } from '@/services/kbEngine.service';
+import { restoreRefusalText } from './activity/kbActivityCopy';
 
 /** What each undo is called on a row of "Changed automatically". */
 export const AUTO_UNDO_LABEL: Record<KbAutoUndo, string> = {
   restore: 'Restore',
   undo_clean: 'Undo clean-up',
   release_hold: 'Use it again',
-  unapprove: 'Un-approve',
+  unapprove_mined: 'Send back to Not live yet',
   return_to_review: 'Send back for review',
 };
 export const AUTO_UNDO_TITLE: Record<KbAutoUndo, string> = {
@@ -20,18 +21,18 @@ export const AUTO_UNDO_TITLE: Record<KbAutoUndo, string> = {
   undo_clean: 'Undo clean-up — puts the original text back',
   release_hold: 'Use it again — the AI uses this answer again',
   return_to_review:
-    'Send back for review — not used in answers until someone approves it; it waits under Needs your decision.',
-  // Un-approve IS a reject (PATCH …/reject): worded as every other reject button.
-  unapprove: `Un-approve — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`,
+    'Send back for review — not used in answers until someone approves it; it waits under Question for you.',
+  // Back to Not live yet; it is not hidden or rejected.
+  unapprove_mined: 'Send back to Not live yet — a person decides on it',
 };
 
 /** What each automatic change is called on its row. */
 export const AUTO_CHANGE_KIND_LABELS: Record<KbAutoChange['action'], string> = {
-  remove: 'Removed automatically',
-  hold: 'Set aside automatically',
-  cleanPersonalData: 'Personal details removed automatically',
-  approveMined: 'Approved automatically (learned from mail)',
-  approveCaptures: 'Approved automatically (saved by a person)',
+  remove: 'Removed by the engine',
+  hold: 'Set aside by the engine',
+  cleanPersonalData: 'Personal details removed by the engine',
+  approveMined: 'Made live by the engine (learned from mail)',
+  approveCaptures: 'Made live by the engine (saved by a person)',
 };
 
 export type KbAutoRestore = {
@@ -42,16 +43,48 @@ export type KbAutoRestore = {
   pending: ReadonlySet<number>;
 };
 
-/** The undo a row offers, or null: none known, or the suggestion it runs through is missing. */
+/**
+ * The undo a row offers, or null: none known, or neither path exists. A clean-up or a hold runs
+ * through its suggestion, or through the version restore (the server reads the suggestion off the
+ * engine action and hands off); with neither, nothing is offered.
+ */
 export const autoUndoOf = (entry: KBEntry): KbAutoUndo | null => {
   const change = entry.autoChange;
   if (!change) return null;
   if (
     (change.undo === 'undo_clean' || change.undo === 'release_hold') &&
-    change.suggestionId === null
+    change.suggestionId === null &&
+    change.undoVersion === null
   )
     return null;
   return change.undo;
+};
+
+/** Shown on a disabled Undo: someone changed the entry after the engine. */
+export const UNDO_BLOCKED_TEXT = 'Someone changed this entry after the engine — undo by hand.';
+
+/** The undo would be refused (someone changed the entry after the engine): shown disabled. */
+export const undoBlocked = (entry: KBEntry): boolean =>
+  entry.autoChange?.undoBlocked === 'changed_after';
+
+/** The undos that run by version first (the server hands off to the action's own undo). */
+const BY_VERSION: readonly KbAutoUndo[] = ['restore', 'undo_clean', 'release_hold'];
+
+/**
+ * Undo an automatic change. Where the change has an entry version (`undoVersion`), the version
+ * restore runs it: the server hands off to the action's own undo and refuses, naming them, when
+ * someone changed the entry after the engine. `unapprove_mined` (back to Not live yet, owner
+ * decision) and `return_to_review` always use their own route. A version restore that answers
+ * "use the action's own undo" falls back to it.
+ */
+export const runAutoUndo = async (entry: KBEntry, undo: KbAutoUndo): Promise<string> => {
+  const version = entry.autoChange?.undoVersion ?? null;
+  if (version !== null && BY_VERSION.includes(undo)) {
+    const result = await restoreEntryVersion(entry.id, version);
+    if (!result.refused) return 'Undone';
+    if (result.refused !== 'use_action_undo') throw new Error(restoreRefusalText(result));
+  }
+  return runUndo(entry, undo);
 };
 
 const runUndo = async (entry: KBEntry, undo: KbAutoUndo): Promise<string> => {
@@ -72,9 +105,17 @@ const runUndo = async (entry: KBEntry, undo: KbAutoUndo): Promise<string> => {
     }
     return 'Sent back for review';
   }
-  if (undo === 'unapprove') {
-    await kbService.reject(entry.id);
-    return 'Un-approved';
+  if (undo === 'unapprove_mined') {
+    try {
+      await kbAutoActionsService.unapproveMined(entry.id);
+    } catch (err) {
+      if (apiErrorStatus(err) === 409)
+        throw new Error(
+          'This answer changed since: a person or the engine edited it, or it was undone.'
+        );
+      throw err;
+    }
+    return 'Back to Not live yet';
   }
   if (suggestionId === null) throw new Error('This change cannot be undone from here.');
   if (undo === 'release_hold') {
@@ -147,8 +188,12 @@ export const useKbAutoRestore = (
     );
   const undo = (entry: KBEntry) => {
     const kind = autoUndoOf(entry);
-    if (!kind) return;
-    run(entry.id, () => runUndo(entry, kind), `Could not ${AUTO_UNDO_LABEL[kind].toLowerCase()}`);
+    if (!kind || undoBlocked(entry)) return;
+    run(
+      entry.id,
+      () => runAutoUndo(entry, kind),
+      `Could not ${AUTO_UNDO_LABEL[kind].toLowerCase()}`
+    );
   };
   return { restore, undo, pending };
 };

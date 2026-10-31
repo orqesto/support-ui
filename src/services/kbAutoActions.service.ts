@@ -533,5 +533,14 @@ export const kbAutoActionsService = {
       `/api/knowledge-base/auto-actions/approved-captures/${entryId}/return`,
       {}
     );
+  } /**
+   * Undoes an approval the engine made of a mined answer or document: back to Not live yet. A 409
+   * means it is no longer an automatic approval, or someone changed the entry since.
+   */,
+  async unapproveMined(entryId: number): Promise<void> {
+    await apiClient.post(
+      `/api/knowledge-base/auto-actions/approved-mined/${entryId}/unapprove`,
+      {}
+    );
   },
 };

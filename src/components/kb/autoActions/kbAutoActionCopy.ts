@@ -8,10 +8,10 @@ import type {
 
 export const ACTION_LABELS: Record<KbAutoActionKey, string> = {
   remove: 'Remove entries the review is sure are wrong',
-  approveMined: 'Approve answers learned from the mailbox',
+  approveMined: 'Make answers learned from the mailbox live',
   hold: 'Set aside answers about one customer',
   cleanPersonalData: 'Remove personal details from answers',
-  approveCaptures: 'Approve answers people saved',
+  approveCaptures: 'Make answers people saved live',
 };
 
 /** Where Automatic actions lives: a section of Settings › AI (it left the sidebar 2026-10-22). */

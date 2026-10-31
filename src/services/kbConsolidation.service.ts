@@ -237,117 +237,8 @@ export type KbWorkRow = {
   heldForReview?: { suggestionId: number } | null;
 };
 
-export type KbCasesQuery = {
-  /** The departments to report on; empty or absent = every department the viewer can see. */
-  departmentIds?: number[];
-  /** Older backend only (before the worklist): the ONE department it requires. */
-  departmentId?: number;
-  search?: string;
-  sort?: 'conversations' | 'lastSeen';
-  page?: number;
-  pageSize?: number;
-};
-
-/**
- * The report was refused for want of ONE department: a backend before the worklist, which knows
- * neither "all departments" nor a list. The page then falls back to a single department.
- */
-export class KbCasesNeedsDepartmentError extends Error {
-  constructor() {
-    super('This server reports on one team at a time.');
-    this.name = 'KbCasesNeedsDepartmentError';
-  }
-}
-
-const NEEDS_ONE_DEPARTMENT = /'?departmentId'? is required/;
-
 const positiveInt = (value: unknown): value is number =>
   typeof value === 'number' && Number.isInteger(value) && value > 0;
-
-/** Defensive: an older backend sends neither field; a newer one may send reasons we do not know. */
-export const normalizeCasesReport = (raw: KbCasesReport): KbCasesReport => {
-  const data = raw as Omit<KbCasesReport, 'setAside' | 'departmentIds' | 'unassignedScopes'> & {
-    setAside?: unknown;
-    departmentIds?: unknown;
-    unassignedScopes?: unknown;
-  };
-  const setAside = Array.isArray(data.setAside)
-    ? data.setAside.flatMap((item: unknown): KbSetAsideItem[] => {
-        const entry = (item ?? {}) as { entryId?: unknown; reason?: unknown };
-        if (!positiveInt(entry.entryId)) return [];
-        const reason = (KB_SET_ASIDE_REASONS as readonly unknown[]).includes(entry.reason)
-          ? (entry.reason as KbSetAsideReason)
-          : // A reason this app does not know yet is still an entry in no case: list it, under
-            // a reason that claims nothing, rather than drop it from the page.
-            'other';
-        return [{ entryId: entry.entryId, reason }];
-      })
-    : undefined;
-  const departmentIds = Array.isArray(data.departmentIds)
-    ? data.departmentIds.filter(positiveInt)
-    : undefined;
-  const {
-    setAside: _omitSetAside,
-    departmentIds: _omitDepartments,
-    unassignedScopes,
-    ...rest
-  } = data;
-  return {
-    ...rest,
-    // Only a real `true` widens what "all" means; anything else claims departments only.
-    unassignedScopes: unassignedScopes === true,
-    ...(setAside ? { setAside } : {}),
-    ...(departmentIds ? { departmentIds } : {}),
-  };
-};
-
-const WORK_ROW_STATUSES: readonly KbWorkRowStatus[] = ['approved', 'pending', 'hidden', 'rejected'];
-const nullableString = (value: unknown): string | null =>
-  typeof value === 'string' ? value : null;
-const nullableId = (value: unknown): number | null => (positiveInt(value) ? value : null);
-
-/** Defensive: an older backend sends neither field, and a shape we cannot read claims nothing. */
-const readAutoCleaned = (raw: unknown): KbWorkRow['autoCleaned'] => {
-  if (!raw || typeof raw !== 'object') return null;
-  const data = raw as { suggestionId?: unknown; at?: unknown };
-  return positiveInt(data.suggestionId)
-    ? { suggestionId: data.suggestionId, at: typeof data.at === 'string' ? data.at : '' }
-    : null;
-};
-const readHeldForReview = (raw: unknown): KbWorkRow['heldForReview'] => {
-  if (!raw || typeof raw !== 'object') return null;
-  const data = raw as { suggestionId?: unknown };
-  return positiveInt(data.suggestionId) ? { suggestionId: data.suggestionId } : null;
-};
-
-/** A row with a status we cannot read is dropped from the list, never shown as "Pending". */
-export const normalizeWorkRow = (raw: unknown): KbWorkRow | null => {
-  const data = (raw ?? {}) as Record<string, unknown>;
-  if (!positiveInt(data.id)) return null;
-  if (!WORK_ROW_STATUSES.includes(data.status as KbWorkRowStatus)) return null;
-  return {
-    id: data.id,
-    publicId: nullableString(data.publicId),
-    title: nullableString(data.title),
-    question: nullableString(data.question),
-    answer: nullableString(data.answer),
-    status: data.status as KbWorkRowStatus,
-    caseId: nullableId(data.caseId),
-    casePublicId: nullableString(data.casePublicId),
-    conversationId: nullableId(data.conversationId),
-    conversationPublicId: nullableString(data.conversationPublicId),
-    canDecide: data.canDecide === true,
-    rejectedAt: nullableString(data.rejectedAt),
-    autoCleaned: readAutoCleaned(data.autoCleaned),
-    heldForReview: readHeldForReview(data.heldForReview),
-    ...(typeof data.sourceDeleted === 'boolean' ? { sourceDeleted: data.sourceDeleted } : {}),
-    ...(data.isCase === true ? { isCase: true } : {}),
-    ...(typeof data.canModerate === 'boolean' ? { canModerate: data.canModerate } : {}),
-    ...(typeof data.scopeKey === 'string' || data.scopeKey === null
-      ? { scopeKey: data.scopeKey }
-      : {}),
-  };
-};
 
 /** The rows route takes at most this many ids per call. */
 export const WORK_ROWS_MAX_IDS = 200;
@@ -364,18 +255,6 @@ export type KbDetachResult =
   | { outcome: 'detached'; detached: number[] | null }
   | { outcome: 'refused'; status: number; reason: string | null; message: string | null }
   | { outcome: 'unsupported' };
-
-const casesParams = (query: KbCasesQuery): Record<string, string> => {
-  const params: Record<string, string> = {};
-  if (query.departmentId !== undefined) params.departmentId = String(query.departmentId);
-  else if (query.departmentIds && query.departmentIds.length > 0)
-    params.departmentIds = query.departmentIds.join(',');
-  if (query.search?.trim()) params.search = query.search.trim();
-  if (query.sort) params.sort = query.sort;
-  if (query.page) params.page = String(query.page);
-  if (query.pageSize) params.pageSize = String(query.pageSize);
-  return params;
-};
 
 export type KbConsolidationLastRun = {
   trigger: 'manual' | 'nightly';
@@ -536,50 +415,6 @@ export const kbConsolidationService = {
   },
 
   /**
-   * Throws `KbCasesNeedsDepartmentError` when a backend before the worklist refuses a request
-   * without ONE `departmentId` — the caller falls back to a single department.
-   */
-  async getCases(query: KbCasesQuery): Promise<KbCasesReport> {
-    try {
-      const response = await apiClient.get<{ success: boolean; data: KbCasesReport }>(
-        '/api/knowledge-base/consolidation/cases',
-        { params: casesParams(query) }
-      );
-      return normalizeCasesReport(response.data.data);
-    } catch (err) {
-      const body = getErrorBody(err);
-      if (
-        query.departmentId === undefined &&
-        getErrorStatus(err) === 400 &&
-        NEEDS_ONE_DEPARTMENT.test(String(body?.error ?? body?.message ?? ''))
-      )
-        throw new KbCasesNeedsDepartmentError();
-      throw err;
-    }
-  },
-
-  /**
-   * The entries behind a case or a set-aside finding, in the order asked. Ids the viewer may not
-   * see are dropped by the server. Null on a backend without the route (before the worklist).
-   */
-  async getWorkRows(ids: number[]): Promise<KbWorkRow[] | null> {
-    if (ids.length === 0) return [];
-    try {
-      const response = await apiClient.post<{ success: boolean; data: { rows?: unknown } }>(
-        '/api/knowledge-base/consolidation/entries/rows',
-        { ids: ids.slice(0, WORK_ROWS_MAX_IDS) }
-      );
-      const rows = response.data.data?.rows;
-      return Array.isArray(rows)
-        ? rows.map(normalizeWorkRow).filter((row): row is KbWorkRow => row !== null)
-        : [];
-    } catch (err) {
-      if (isRouteAbsent(err)) return null;
-      throw err;
-    }
-  },
-
-  /**
    * Take entries out of a live case (the case stays; each comes back on its own, pending).
    * A 403 / 409 is an answer (why not), not a failure.
    */
@@ -686,28 +521,5 @@ export const kbConsolidationService = {
       }
       throw err;
     }
-  },
-
-  /** The CSV goes through the API client so it carries the same auth as every other call. */
-  async downloadCasesCsv(query: KbCasesQuery): Promise<void> {
-    const params = casesParams(query);
-    delete params.page;
-    delete params.pageSize;
-    const response = await apiClient.get('/api/knowledge-base/consolidation/cases.csv', {
-      params,
-      responseType: 'blob',
-    });
-    const url = URL.createObjectURL(response.data as Blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    const scope =
-      query.departmentId !== undefined
-        ? `department-${query.departmentId}`
-        : query.departmentIds && query.departmentIds.length > 0
-          ? `departments-${query.departmentIds.join('-')}`
-          : 'all-departments';
-    anchor.download = `kb-cases-${scope}.csv`;
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 };

@@ -478,7 +478,11 @@ describe('KbRunNow — which switch (backend `switches`)', () => {
       expect(screen.getByTestId('kb-run-refusal').textContent).toBe(OWN_KEY_TEXT)
     );
     // The old generic sentence (no switch, no scope) must be gone.
-    expect(screen.queryByText(/feature flag kb\.consolidation_enabled\)\. Ask the platform admin to turn it on\./)).toBeNull();
+    expect(
+      screen.queryByText(
+        /feature flag kb\.consolidation_enabled\)\. Ask the platform admin to turn it on\./
+      )
+    ).toBeNull();
     expect(screen.getAllByText(OWN_KEY_TEXT)).toHaveLength(1);
   });
 

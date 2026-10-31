@@ -493,7 +493,7 @@ describe('Automatic actions page — every action on one page', () => {
       expect(within(active).getByRole('button', { name: 'Check a sample' })).toBeInTheDocument();
     }
     expect(screen.getByText('Remove entries the review is sure are wrong')).toBeInTheDocument();
-    expect(screen.getByText('Approve answers learned from the mailbox')).toBeInTheDocument();
+    expect(screen.getByText('Make answers learned from the mailbox live')).toBeInTheDocument();
     expect(screen.getByText('Set aside answers about one customer')).toBeInTheDocument();
     expect(screen.getByText('Remove personal details from answers')).toBeInTheDocument();
     for (const label of ['Merge into a case', 'Rewrite an answer', 'Approve saved answers']) {

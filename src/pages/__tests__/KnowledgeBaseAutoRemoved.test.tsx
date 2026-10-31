@@ -37,6 +37,10 @@ const removedEntry = {
 };
 
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
+// KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
+vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
+  useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: false }),
+}));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
@@ -136,7 +140,7 @@ describe('knowledge base → Removed automatically', () => {
     await waitFor(() =>
       expect(state.getAllCalls.some((call) => call.status === 'auto_removed')).toBe(true)
     );
-    expect(await screen.findByRole('button', { name: 'Removed automatically' })).toHaveAttribute(
+    expect(await screen.findByRole('button', { name: 'Removed by the engine' })).toHaveAttribute(
       'aria-pressed',
       'true'
     );
@@ -146,7 +150,7 @@ describe('knowledge base → Removed automatically', () => {
     state.canManageKb = false;
     renderPage();
     await waitFor(() => expect(state.getAllCalls.length).toBeGreaterThan(0));
-    expect(screen.queryByRole('button', { name: 'Removed automatically' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Removed by the engine' })).toBeNull();
   });
 
   it("a row's Restore undoes the automatic removal, not an Approve, and re-reads the list", async () => {

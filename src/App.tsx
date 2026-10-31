@@ -337,9 +337,7 @@ const AppRoutes = () => {
           }
         />
         {/* KB sub-pages: consolidation (#873) cases + merges, and automatic actions. */}
-        {kbSubRoutes((page) => (
-          <PrivateRoute>{page}</PrivateRoute>
-        ))}
+        {kbSubRoutes()}
         <Route
           path="/tickets"
           element={

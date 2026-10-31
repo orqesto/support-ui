@@ -30,6 +30,7 @@ const promoteToKb = vi.fn<(id: number, pairs: KbQaPairInput[]) => Promise<KbProm
 /** What the service returns: the ids and the backend's truthful per-state `outcome`. */
 const promoted = (ids: number[], outcome: Partial<KbPromoteOutcome> = {}): KbPromoteResult => ({
   ids,
+  refused: [],
   outcome: {
     approved: 0,
     hidden: 0,
@@ -94,6 +95,30 @@ describe('PromoteToKbDialog', () => {
         answer: 'It was returned to our warehouse and reshipped today.',
       },
     ]);
+  });
+
+  it('shows a REFUSED pair in plain words with the server reason, and keeps the dialog open', async () => {
+    const onClose = vi.fn();
+    promoteToKb.mockResolvedValue({
+      ...promoted([]),
+      refused: [
+        {
+          questionMessageId: 11,
+          answerMessageId: 12,
+          reason: 'this reply reports something done for one customer',
+        },
+      ],
+    });
+    renderDialog(onClose);
+    await screen.findByDisplayValue('Where is my order ORB-1268?');
+    fireEvent.click(screen.getByRole('button', { name: /add to knowledge base/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(
+      'Not saved — this reply reports something done for one customer: “Where is my order ORB-1268?”'
+    );
+    expect(onClose).not.toHaveBeenCalled();
+    expect(success).not.toHaveBeenCalled();
   });
 
   it("sends the agent's edit, not the extracted text", async () => {

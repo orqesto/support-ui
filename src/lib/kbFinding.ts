@@ -38,4 +38,23 @@ export const KB_FINDING_TEXT: Record<KbFinding, { title: string; description: st
     description:
       'From the Knowledge base cases findings: entries a person saved that a reviewer has not decided yet.',
   },
+  customer_specific: {
+    title: 'Entries judged customer-specific',
+    description:
+      "From the Knowledge base findings: about one customer's situation, not a shared question.",
+  },
+  unclassified: {
+    title: 'Entries that could not be classified',
+    description: 'From the Knowledge base findings: the engine could not place these in a case.',
+  },
+  no_clear_language: {
+    title: 'Entries with no clear language',
+    description:
+      'From the Knowledge base findings: the engine could not tell what language these are in.',
+  },
+  detached: {
+    title: 'Entries detached from a case',
+    description:
+      'From the Knowledge base findings: taken out of a case by a moderator, or the thread moved to another mailbox.',
+  },
 };

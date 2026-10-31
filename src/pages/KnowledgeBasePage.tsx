@@ -1,20 +1,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { FileText, MessageSquare, Settings, X, Filter, Library } from 'lucide-react';
-import { Tabs, type Tab } from '@/components/ui/Tabs';
+import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { X } from 'lucide-react';
 import { KBEntryCard } from '@/components/kb/KBEntryCard';
 import { KBEntryDetail } from '@/components/kb/KBEntryDetail';
 import { KBTableView } from '@/components/kb/KBTableView';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { ConfluenceCatalogSection } from '@/components/knowledge-base/ConfluenceCatalogSection';
-import { MessageSourceFilter, ALL_SOURCES } from '@/components/messages/MessageSourceFilter';
-import { DocumentationSettings } from '@/components/settings/DocumentationSettings';
+import { ALL_SOURCES } from '@/components/messages/MessageSourceFilter';
 import { AlertDialog, type AlertDialogProps } from '@/components/ui/AlertDialog';
-import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent } from '@/components/ui/Card';
 import { Pagination } from '@/components/ui/Pagination';
-import { SearchInput } from '@/components/ui/SearchInput';
+import { Spinner } from '@/components/ui/Spinner';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { usePermissions } from '@/hooks/usePermissions';
 import { KbAutoActionsButton } from '@/components/kb/autoActions/KbAutoActionsButton';
@@ -23,20 +18,20 @@ import {
   kbService,
   kbSourceParam,
   type KBEntry,
+  type KbFinding,
   type KbIdMatch,
   type KbPendingDecision,
   type PaginationMeta,
 } from '@/services/kb.service';
 import { Permission } from '@/types/roles';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { useUiFlags } from '@/hooks/useUiFlags';
 import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
 import { useKbEntryParam } from '@/hooks/useKbEntryParam';
 import { useKbAutoChangedSupport } from '@/hooks/useKbAutoChangedSupport';
 import { CASE_ACTION_TITLES, LEFT_PAGE, runCaseAction } from '@/components/kb/runCaseAction';
+import { useKbDecideLink } from '@/components/kb/page/useKbDecideLink';
 import { KbExportButton } from '@/components/kb/KbExportButton';
-import { KbReviewSuggestionsButton } from '@/components/kb/KbReviewSuggestionsButton';
-import { KbStatusFilter, type KbFilterStatus } from '@/components/kb/KbStatusFilter';
+import type { KbFilterStatus } from '@/components/kb/KbStatusFilter';
 import { withoutKbFinding } from '@/lib/kbFinding';
 import { useKbStatusParam } from '@/hooks/useKbStatusParam';
 import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
@@ -49,20 +44,50 @@ import { KbDecisionDialog } from '@/components/kb/KbDecisionDialog';
 import { KbBulkDecisionBar, bulkModeFor } from '@/components/kb/KbBulkDecisionBar';
 import { useKbBulkDecisions } from '@/hooks/useKbBulkDecisions';
 import { useKbFindingFilter } from '@/hooks/useKbFindingFilter';
+import { KbMoreFilters } from '@/components/kb/page/KbMoreFilters';
+import { KbPageToolbar, type KbListType } from '@/components/kb/page/KbPageToolbar';
+import { useKbTeams } from '@/components/kb/page/KbTeamFilter';
+import { KbEngineActivity } from '@/components/kb/activity/KbEngineActivity';
+import {
+  KbEngineOffNotice,
+  KbDecideNotice,
+  KbQuestionsView,
+  KbStillLearning,
+} from '@/components/kb/page/KbPageStates';
+import { useKbEngineSummary } from '@/components/kb/page/useKbEngineSummary';
+import { useKbPageView } from '@/components/kb/page/useKbPageView';
+import { isOlderThan7d } from '@/components/kb/questions/useKbQuestions';
+import {
+  entryFailureAlert,
+  kbExportFilters,
+  kbQuestionFromSearch,
+  kbQuestionsTeamFromSearch,
+  liveDefaultStatus,
+  kbSearchForView,
+  type KbPageView,
+} from '@/components/kb/page/kbPageView';
 
 /** An action on a merged CASE row — each one unmerges it, so each is confirmed first. */
 type CaseAction = { entry: KBEntry; action: keyof typeof CASE_ACTION_TITLES };
 
-type FilterType = 'all' | 'qa_pair' | 'document' | 'documentation';
+type FilterType = KbListType;
 
-const VALID_FILTER_TYPES: FilterType[] = ['all', 'qa_pair', 'document', 'documentation'];
+const VALID_FILTER_TYPES: FilterType[] = ['all', 'qa_pair', 'document'];
+
+/** Documentation moved to Settings › AI (KB engine Stage 1); its old address lands there. */
+export const DOCUMENTATION_HREF = '/settings#ai/documentation';
 
 export const KnowledgeBasePage = () => {
+  const location = useLocation();
+  if (location.hash === '#documentation') return <Navigate to={DOCUMENTATION_HREF} replace />;
+  return <KnowledgeBaseViews />;
+};
+
+const KnowledgeBaseViews = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Get active tab from URL hash, default to 'all'
   const hashTab = location.hash.replace('#', '') as FilterType;
   const activeTab: FilterType = VALID_FILTER_TYPES.includes(hashTab) ? hashTab : 'all';
   const [entries, setEntries] = useState<KBEntry[]>([]);
@@ -87,16 +112,33 @@ export const KnowledgeBasePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
   const filterType = activeTab; // Use hash-based tab as filter type
-  const [filterStatus, setFilterStatus] = useKbStatusParam();
   // Approve / reject / hide / edit need manage_knowledge_base (moderator, org admin). Everyone
   // else is capped to approved entries by the server, so the review filters and buttons would
-  // only ever fail for them.
+  // only ever fail for them. The questions and the engine need the same right.
   const { hasPermission } = usePermissions();
   const canReview = hasPermission(Permission.MANAGE_KNOWLEDGE_BASE);
+  // BE `knowledgeBaseController.getAll` is dept-scoped via X-Department-Context.
+  const selectedDeptKey = useDepartmentContextKey();
+  const selectedTeams = selectedDeptKey ? selectedDeptKey.split(',').map(Number) : [];
+  // One team picked: the questions and the engine summary are read for it too.
+  const oneTeam = selectedTeams.length === 1 ? selectedTeams[0] : undefined;
+  const questionsTeam = oneTeam ?? kbQuestionsTeamFromSearch(searchParams); // an old link's ?departmentId= keeps its team
+  const engine = useKbEngineSummary(canReview, questionsTeam);
+  const openQuestions = engine.summary?.questions.open ?? null;
+
+  // Which view: the URL decides; a bare URL waits for the open-question count (useKbPageView).
+  const view = useKbPageView(canReview, searchParams, engine);
+  const [questionsKey, setQuestionsKey] = useState(0);
+  const setView = (next: KbPageView) =>
+    navigate({ search: kbSearchForView(searchParams, next), hash: location.hash });
+
+  // Live answers shows live answers by default; other statuses come from More filters › Status.
+  const defaultStatus = liveDefaultStatus(searchParams);
+  const [filterStatus, setFilterStatus] = useKbStatusParam('live', defaultStatus);
+  const [moreOpen, setMoreOpen] = useState(false);
   // Source filter — 'all' (no narrowing), 'none' (no mailbox) or a source id: kbSourceParam.
   const [filterSource, setFilterSource] = useState<string>(ALL_SOURCES);
 
-  // Handle tab change by updating URL hash via React Router
   const handleTabChange = (tabId: FilterType) => {
     navigate({ search: location.search, hash: tabId }, { replace: true });
   };
@@ -105,21 +147,11 @@ export const KnowledgeBasePage = () => {
   const [deleting, setDeleting] = useState(false);
   const [decision, setDecision] = useState<KbPendingDecision | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<KBEntry | null>(null);
-  // Shared KB revision: the Confluence catalog and the Documentation list are separate
-  // components over an overlapping doc set, so a mutation in one bumps this to make the
-  // other re-fetch (Process adds a doc → list refreshes; Remove/Delete → both refresh).
-  const [kbVersion, setKbVersion] = useState(0);
-  const bumpKb = useCallback(() => setKbVersion((version) => version + 1), []);
   const [caseAction, setCaseAction] = useState<CaseAction | null>(null);
-  const { isSurfaceVisibleToMe } = useUiFlags();
-  const showCasesLink = canReview && isSurfaceVisibleToMe('ui.kb_cases');
 
-  // Alert dialog state
   const [alertDialog, setAlertDialog] = useState<
     Pick<AlertDialogProps, 'open' | 'title' | 'description' | 'variant'>
   >({ open: false, title: '', description: '', variant: 'info' });
-  // BE `knowledgeBaseController.getAll` is dept-scoped via X-Department-Context.
-  const selectedDeptKey = useDepartmentContextKey();
   // A KB cases finding ("48 learned entries are raw emails") opens exactly its entries.
   const finding = useKbFindingFilter(selectedDeptKey);
   // Only a successful answer to THIS filter can show the notice (not the previous one's, not a
@@ -144,7 +176,8 @@ export const KnowledgeBasePage = () => {
             page,
             limit: pagination.limit,
             search: searchQuery || undefined,
-            status: filterStatus === 'all' ? undefined : filterStatus,
+            // Always the effective status, 'all' included: the export sends the same (owner rule).
+            status: filterStatus,
             messageSourceId: kbSourceParam(filterSource),
           });
         let response = await read(requestedPage);
@@ -183,13 +216,11 @@ export const KnowledgeBasePage = () => {
     [filterType, filterStatus, filterSource, searchQuery, pagination.limit, finding.listScopeKey]
   );
 
-  // Refetch when filters change (immediate, no debounce)
-  // Skip fetching when on Documentation tab (shows settings, not KB entries)
+  // Refetch when filters change (immediate, no debounce). Only Live answers shows the list.
+  const listShown = view === 'live';
   useEffect(() => {
-    if (filterType !== 'documentation') {
-      void fetchEntries(1); // Reset to page 1 when filters change
-    }
-  }, [filterType, filterStatus, searchQuery, fetchEntries]);
+    if (listShown) void fetchEntries(1); // Reset to page 1 when filters change
+  }, [listShown, filterType, filterStatus, searchQuery, fetchEntries]);
 
   const autoChangedSupported = useKbAutoChangedSupport(appliedStatus, setFilterStatus);
 
@@ -198,13 +229,23 @@ export const KnowledgeBasePage = () => {
   const rereadPage = () => void fetchEntries(pagination.page);
   const bulk = useKbBulkDecisions(entries, rereadPage, bulkMode);
 
+  const decideLink = useKbDecideLink(setAlertDialog);
   const { openEntry: handleOpenEntry, closeEntry: handleCloseEntry } = useKbEntryParam({
     selectedEntry,
     setSelectedEntry,
     canReview,
     entries,
     filterStatus,
-    onNotFound: setAlertDialog,
+    onNotFound: decideLink.onNotFound,
+  });
+
+  const exportFilters = kbExportFilters({
+    status: filterStatus,
+    finding: finding.filter,
+    teams: selectedTeams,
+    source: kbSourceParam(filterSource),
+    type: filterType,
+    search: searchQuery,
   });
 
   const handleSearch = () => {
@@ -231,22 +272,48 @@ export const KnowledgeBasePage = () => {
     // ONE navigation to the final URL: several in a tick each read the same stale params.
     const params = new URLSearchParams(withoutKbFinding(searchParams));
     params.delete('status');
+    params.set('view', 'live');
     navigate({ search: params.toString(), hash: '#all' }, { replace: !finding.filter });
     setFilterSource(ALL_SOURCES);
     setSearchQuery('');
     setPendingSearch('');
   };
 
-  const activeFilterCount =
-    (filterType !== 'all' ? 1 : 0) +
-    (filterStatus !== 'all' ? 1 : 0) +
+  const moreFilterCount =
+    (filterStatus !== defaultStatus ? 1 : 0) +
     (filterSource !== ALL_SOURCES ? 1 : 0) +
-    (searchQuery?.trim() ? 1 : 0) +
     (finding.filter ? 1 : 0);
+  const activeFilterCount =
+    (filterType !== 'all' ? 1 : 0) + (searchQuery?.trim() ? 1 : 0) + moreFilterCount;
+  // A filter set from a link is shown, not hidden behind "More filters".
+  const moreShown = moreOpen || moreFilterCount > 0;
+
+  // A finding is counted per team: the one picked, else the viewer's only team.
+  const teams = useKbTeams();
+  const findingTeamId =
+    finding.filter?.departmentId ?? oneTeam ?? (teams.length === 1 ? teams[0].id : null);
+  const setFinding = (next: KbFinding | null) => {
+    const params = new URLSearchParams(withoutKbFinding(searchParams));
+    if (next && findingTeamId !== null) {
+      params.set('finding', next);
+      params.set('departmentId', String(findingTeamId));
+    }
+    params.set('view', 'live');
+    navigate({ search: params.toString(), hash: location.hash });
+  };
+
+  // First run: a knowledge base with no entries at all (nothing filters the empty list).
+  const firstRun =
+    listShown && !loading && pagination.total === 0 && activeFilterCount === 0 && !statusIgnored;
 
   // Under a review filter (a finding, or a decision status) a decided row may leave the list, and
   // its pending decision changes — re-read the page instead of patching the row in place.
   const rereadAfterDecision = Boolean(finding.filter) || isNewStatus(filterStatus);
+
+  const reportFailure = (verb: string, title: string, error: unknown) => {
+    logger.error(`Failed to ${verb} entry:`, error);
+    setAlertDialog(entryFailureAlert(verb, title, error));
+  };
 
   const handleApprove = async (id: number) => {
     try {
@@ -275,13 +342,7 @@ export const KnowledgeBasePage = () => {
       // Re-read the same page so the entry's state and the count are current.
       if (rereadAfterDecision) rereadPage();
     } catch (error) {
-      logger.error('Failed to approve entry:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Failed to Approve',
-        description: error instanceof Error ? error.message : 'Failed to approve KB entry',
-        variant: 'error',
-      });
+      reportFailure('approve', 'Approve', error);
     }
   };
 
@@ -294,13 +355,7 @@ export const KnowledgeBasePage = () => {
     },
     onApproveInstead: (id) => void handleApprove(id),
     onFailed: (_id, error) => {
-      logger.error('Failed to unhide entry:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Failed to Unhide',
-        description: error instanceof Error ? error.message : 'Failed to unhide KB entry',
-        variant: 'error',
-      });
+      reportFailure('unhide', 'Unhide', error);
     },
   });
 
@@ -315,13 +370,7 @@ export const KnowledgeBasePage = () => {
       );
       if (rereadAfterDecision) rereadPage();
     } catch (error) {
-      logger.error('Failed to reject entry:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Failed to Reject',
-        description: error instanceof Error ? error.message : 'Failed to reject KB entry',
-        variant: 'error',
-      });
+      reportFailure('reject', 'Reject', error);
     }
   };
 
@@ -334,13 +383,7 @@ export const KnowledgeBasePage = () => {
       );
       if (rereadAfterDecision) rereadPage();
     } catch (error) {
-      logger.error('Failed to hide entry:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Failed to Hide',
-        description: error instanceof Error ? error.message : 'Failed to hide KB entry',
-        variant: 'error',
-      });
+      reportFailure('hide', 'Hide', error);
     }
   };
 
@@ -450,252 +493,223 @@ export const KnowledgeBasePage = () => {
     }
   };
 
+  // Engine activity: collapsed under the card, expanded on its own tab (reads only when expanded).
+  const engineActivity = (expanded: boolean) => (
+    <KbEngineActivity
+      summary={engine.summary}
+      defaultExpanded={expanded}
+      teamId={oneTeam}
+      onChanged={() => {
+        // An undo or rollback moves counts and questions too, not only the Live list.
+        engine.reload();
+        setQuestionsKey((key) => key + 1);
+        if (listShown) rereadPage();
+      }}
+    />
+  );
+
   return (
     <>
       <div className="px-4 mx-auto space-y-4 w-full">
         {/* Header */}
-        <div className="mb-6">
+        <div className="flex flex-wrap gap-3 justify-between items-start">
           <PageHeader
             title="Knowledge Base"
-            description="Review and manage automatically extracted knowledge from your threads"
+            description={
+              view === 'questions'
+                ? 'Where two answers disagree, the engine asks you. Everything else it does by itself.'
+                : 'What the AI answers from, and what the engine changed by itself'
+            }
           />
-          {canReview && (
-            <div className="flex flex-wrap gap-2 mt-2">
-              {showCasesLink && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/knowledge-base/cases')}
-                >
-                  Cases report
-                </Button>
-              )}
-              <KbAutoActionsButton />
-              <KbReviewSuggestionsButton onPick={() => setFilterStatus('suggested_change')} />
-            </div>
-          )}
-          {filterType !== 'documentation' && (
-            <KbExportButton type={filterType} refreshKey={entries} />
-          )}
+          {canReview && <KbAutoActionsButton />}
         </div>
 
-        {/* Tabs for Type Selection */}
-        <Tabs
-          tabs={
-            [
-              {
-                id: 'all' as const,
-                label: 'All',
-                icon: Library,
-                description: 'View all knowledge base entries',
-              },
-              {
-                id: 'qa_pair' as const,
-                label: 'Q&A Pairs',
-                icon: MessageSquare,
-                description: 'Questions and answers extracted from threads',
-              },
-              {
-                id: 'document' as const,
-                label: 'Documents',
-                icon: FileText,
-                description: 'Processed documents and attachments',
-              },
-              {
-                id: 'documentation' as const,
-                label: 'Documentation',
-                icon: Settings,
-                description: 'Configure KB extraction rules and settings',
-              },
-            ] satisfies Tab<FilterType>[]
-          }
-          activeTab={filterType}
-          onTabChange={handleTabChange}
-          variant="default"
-          size="md"
-          fullWidth
-        />
-
-        {/* Filters Card - Hidden in Documentation tab */}
-        {filterType !== 'documentation' && (
-          <Card className="mb-6">
-            <CardContent className="p-4">
-              <div className="space-y-4">
-                <KbFindingBanner {...finding.banner} total={loading ? null : pagination.total} />
-                {/* Header */}
-                <div className="flex flex-wrap gap-3 justify-between items-center">
-                  <div className="flex flex-wrap gap-3 items-center">
-                    <div className="flex gap-2 items-center">
-                      <Filter className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm font-semibold">Filters</span>
-                      {activeFilterCount > 0 && (
-                        <Badge variant="default" className="text-xs">
-                          {activeFilterCount}
-                        </Badge>
-                      )}
-                    </div>
-                    {pagination.total > 0 && (
-                      <span className="text-xs whitespace-nowrap text-muted-foreground">
-                        {(pagination.page - 1) * pagination.limit + 1}-
-                        {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                        {pagination.total}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex gap-2 items-center">
-                    {activeFilterCount > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={clearFilters}
-                        className="h-8 shrink-0"
-                      >
-                        <X className="mr-1 w-3 h-3" />
-                        Clear All
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Filter Controls */}
-                <div className="flex flex-col gap-3">
-                  {/* Search */}
-                  <SearchInput
-                    value={pendingSearch}
-                    onChange={handleSearchChange}
-                    onSearch={handleSearch}
-                    onBlur={handleSearchBlur}
-                    showSearchButton={true}
-                    placeholder="Search by ID, title, content, or category..."
-                    className="w-full"
-                    size="sm"
-                  />
-
-                  {/* Status Filter — reviewers only: the server caps everyone else to approved. */}
-                  {canReview && (
-                    <KbStatusFilter
-                      value={filterStatus}
-                      onChange={setFilterStatus}
-                      autoChanged={autoChangedSupported}
-                    />
-                  )}
-
-                  {/* Source Filter */}
-                  <div className="flex flex-col gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground">Source:</span>
-                    <MessageSourceFilter
-                      value={filterSource}
-                      onChange={setFilterSource}
-                      includeNoSource
-                      className="w-full sm:w-64"
-                    />
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {canReview && (
+          <KbEngineOffNotice
+            killed={engine.summary?.killed.all === true}
+            nightlyOff={engine.nightlyOff}
+          />
         )}
 
-        {/* Documentation Tab Content */}
-        {filterType === 'documentation' ? (
-          <>
-            <ConfluenceCatalogSection refreshSignal={kbVersion} onKbChange={bumpKb} />
-            <DocumentationSettings refreshSignal={kbVersion} onKbChange={bumpKb} />
-          </>
-        ) : statusIgnored ? (
-          // An older backend returned the unfiltered list: never pass it off as filtered.
-          <KbStatusIgnoredNotice status={statusIgnored} />
+        {view && (
+          <KbPageToolbar
+            canReview={canReview}
+            view={view}
+            onView={setView}
+            openQuestions={openQuestions}
+            search={{
+              value: pendingSearch,
+              onChange: handleSearchChange,
+              onSearch: handleSearch,
+              onBlur: handleSearchBlur,
+            }}
+            teamKey={selectedDeptKey}
+            type={filterType}
+            onType={handleTabChange}
+            more={{
+              open: moreShown,
+              onToggle: () => setMoreOpen(!moreShown),
+              active: moreFilterCount,
+            }}
+          />
+        )}
+
+        <KbDecideNotice text={decideLink.notice} />
+
+        {view === 'live' && moreShown && (
+          <KbMoreFilters
+            canReview={canReview}
+            status={filterStatus}
+            onStatus={setFilterStatus}
+            autoChanged={autoChangedSupported}
+            source={filterSource}
+            onSource={setFilterSource}
+            finding={finding.filter?.finding ?? null}
+            onFinding={setFinding}
+            findingTeamId={findingTeamId}
+          />
+        )}
+
+        {view === null ? (
+          <div className="flex justify-center p-8">
+            <Spinner />
+          </div>
+        ) : view === 'questions' ? (
+          <KbQuestionsView
+            openQuestions={openQuestions}
+            search={searchQuery}
+            departmentId={questionsTeam}
+            startAt={kbQuestionFromSearch(searchParams)}
+            onLinkUsed={decideLink.dropQuestion}
+            activity={engineActivity(false)}
+            onDecided={(question) => engine.decrementOpen(isOlderThan7d(question))}
+            onUndone={(question) => engine.incrementOpen(isOlderThan7d(question))}
+            reloadKey={questionsKey}
+          />
+        ) : view === 'activity' ? (
+          engineActivity(true)
         ) : (
           <>
-            <KbIdMatchHint
-              match={loading ? null : idMatch}
-              tab={filterType}
-              source={filterSource}
-              onClearSource={() => setFilterSource(ALL_SOURCES)}
-            />
-
-            {/* Mobile Card View */}
-            <div className="space-y-3 md:hidden">
-              {loading ? (
-                <div className="p-8 text-center">Loading...</div>
-              ) : entries.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">No entries found</div>
-              ) : (
-                entries.map((entry) => (
-                  <KBEntryCard
-                    key={entry.id}
-                    entry={entry}
-                    onView={handleOpenEntry}
-                    onApprove={handleApprove}
-                    onHide={handleHide}
-                    onUnhide={(id) => void handleUnhide(id)}
-                    onReject={handleReject}
-                    onDelete={handleDeleteClick}
-                    canReview={canReview}
-                    onUnmerge={handleUnmerge}
-                    onReviewDecision={setDecision}
-                    autoRestore={autoRestore}
-                    searchTerms={searchTerms}
-                  />
-                ))
-              )}
+            <KbFindingBanner {...finding.banner} total={loading ? null : pagination.total} />
+            {/* List header: the count, Clear all, and the export as a secondary action. */}
+            <div className="flex flex-wrap gap-3 justify-between items-center">
+              <span className="text-xs whitespace-nowrap text-muted-foreground">
+                {!statusIgnored && pagination.total > 0
+                  ? `${(pagination.page - 1) * pagination.limit + 1}-${Math.min(
+                      pagination.page * pagination.limit,
+                      pagination.total
+                    )} of ${pagination.total}`
+                  : ''}
+              </span>
+              <div className="flex gap-2 items-center">
+                {activeFilterCount > 0 && (
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 shrink-0">
+                    <X className="mr-1 w-3 h-3" />
+                    Clear All
+                  </Button>
+                )}
+                <KbExportButton filters={exportFilters} />
+              </div>
             </div>
-
-            {bulkMode && <KbBulkDecisionBar bulk={bulk} mode={bulkMode} />}
-
-            {/* Desktop Table View */}
-            <KBTableView
-              entries={entries}
-              loading={loading}
-              onView={handleOpenEntry}
-              onApprove={handleApprove}
-              onHide={handleHide}
-              onUnhide={(id) => void handleUnhide(id)}
-              onReject={handleReject}
-              onDelete={handleDeleteClick}
-              canReview={canReview}
-              onUnmerge={handleUnmerge}
-              onReviewDecision={setDecision}
-              autoRestore={autoRestore}
-              searchTerms={searchTerms}
-              selection={bulkMode ? bulk : undefined}
-            />
-
-            {/* Pagination */}
-            {!loading && pagination.totalPages > 1 && (
-              <Pagination
-                currentPage={pagination.page}
-                totalPages={pagination.totalPages}
-                total={pagination.total}
-                limit={pagination.limit}
-                onPageChange={(page) => void fetchEntries(page)}
-                loading={loading}
-              />
-            )}
-
-            <KbDecisionDialog
-              decision={decision}
-              onClose={(decided) => {
-                setDecision(null);
-                if (!decided) rereadPage();
-              }}
-              onDecided={() => {
-                // The drawer behind the dialog must not keep offering the decision just taken.
-                setSelectedEntry((entry) => entry && { ...entry, pendingDecision: null });
-                rereadPage();
-              }}
-            />
-            <KBDeleteDialog
-              open={deleteDialogOpen}
-              onOpenChange={setDeleteDialogOpen}
-              entry={entryToDelete}
-              deleting={deleting}
-              onConfirm={handleDeleteConfirm}
-            />
           </>
         )}
 
-        {/* Entry Detail Drawer */}
+        {view === 'live' &&
+          (statusIgnored ? (
+            // An older backend returned the unfiltered list: never pass it off as filtered.
+            <KbStatusIgnoredNotice status={statusIgnored} />
+          ) : firstRun ? (
+            <KbStillLearning />
+          ) : (
+            <>
+              <KbIdMatchHint
+                match={loading ? null : idMatch}
+                tab={filterType}
+                source={filterSource}
+                onClearSource={() => setFilterSource(ALL_SOURCES)}
+              />
+
+              {/* Mobile Card View */}
+              <div className="space-y-3 md:hidden">
+                {loading ? (
+                  <div className="p-8 text-center">Loading...</div>
+                ) : entries.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">No entries found</div>
+                ) : (
+                  entries.map((entry) => (
+                    <KBEntryCard
+                      key={entry.id}
+                      entry={entry}
+                      onView={handleOpenEntry}
+                      onApprove={handleApprove}
+                      onHide={handleHide}
+                      onUnhide={(id) => void handleUnhide(id)}
+                      onReject={handleReject}
+                      onDelete={handleDeleteClick}
+                      canReview={canReview}
+                      onUnmerge={handleUnmerge}
+                      onReviewDecision={setDecision}
+                      autoRestore={autoRestore}
+                      searchTerms={searchTerms}
+                    />
+                  ))
+                )}
+              </div>
+
+              {bulkMode && <KbBulkDecisionBar bulk={bulk} mode={bulkMode} />}
+
+              {/* Desktop Table View */}
+              <KBTableView
+                entries={entries}
+                loading={loading}
+                onView={handleOpenEntry}
+                onApprove={handleApprove}
+                onHide={handleHide}
+                onUnhide={(id) => void handleUnhide(id)}
+                onReject={handleReject}
+                onDelete={handleDeleteClick}
+                canReview={canReview}
+                onUnmerge={handleUnmerge}
+                onReviewDecision={setDecision}
+                autoRestore={autoRestore}
+                searchTerms={searchTerms}
+                selection={bulkMode ? bulk : undefined}
+              />
+
+              {/* Pagination */}
+              {!loading && pagination.totalPages > 1 && (
+                <Pagination
+                  currentPage={pagination.page}
+                  totalPages={pagination.totalPages}
+                  total={pagination.total}
+                  limit={pagination.limit}
+                  onPageChange={(page) => void fetchEntries(page)}
+                  loading={loading}
+                />
+              )}
+            </>
+          ))}
+
+        <KbDecisionDialog
+          decision={decision}
+          onClose={(decided) => {
+            setDecision(null);
+            if (!decided) rereadPage();
+          }}
+          onDecided={() => {
+            // The drawer behind the dialog must not keep offering the decision just taken.
+            setSelectedEntry((entry) => entry && { ...entry, pendingDecision: null });
+            rereadPage();
+          }}
+        />
+        <KBDeleteDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          entry={entryToDelete}
+          deleting={deleting}
+          onConfirm={handleDeleteConfirm}
+        />
+
         <KBEntryDetail
           entry={selectedEntry}
           onClose={handleCloseEntry}
@@ -708,6 +722,7 @@ export const KnowledgeBasePage = () => {
           canReview={canReview}
           onUnmerge={handleUnmerge}
           onReviewDecision={setDecision}
+          onChanged={rereadPage}
         />
 
         <ConfirmDialog
