@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { isRouteAbsent } from '@/lib/apiError';
 import type {
   KbCaseCandidate,
   KbCaseSearchParams,
@@ -12,7 +13,7 @@ import type {
   KbRollbackRequest,
   KbRollbackResult,
 } from '@/services/kbEngine.types';
-import type { KbFinding, KbListStatus } from '@/services/kb.service';
+import type { KbExportSize, KbFinding, KbListStatus } from '@/services/kb.service';
 
 type Envelope<T> = { success?: boolean; data: T };
 
@@ -149,7 +150,11 @@ export type KbListFilters = {
 };
 
 /** The CSV export of exactly what the list shows. */
-export const kbExportHref = (filters: KbListFilters): string => {
+export const kbExportHref = (filters: KbListFilters): string =>
+  `${KB}/export.csv?${kbExportQuery(filters)}`;
+
+/** The export's query string: the list's filters, and nothing it does not have. */
+const kbExportQuery = (filters: KbListFilters): string => {
   const query = new URLSearchParams();
   query.set('status', filters.status);
   if (filters.finding) query.set('finding', filters.finding);
@@ -163,5 +168,37 @@ export const kbExportHref = (filters: KbListFilters): string => {
   if (filters.source !== undefined) query.set('messageSourceId', String(filters.source));
   if (filters.type && filters.type !== 'all') query.set('type', filters.type);
   if (filters.search?.trim()) query.set('search', filters.search.trim());
-  return `${KB}/export.csv?${query.toString()}`;
+  return query.toString();
+};
+
+/**
+ * How many rows the export holds for exactly these filters: the same query the file is made from,
+ * with `count=1`. Null when the backend has no export, or answers something unreadable (never a
+ * guessed number). Goes through the api client, so the department context travels with it.
+ */
+export const getKbExportSize = async (filters: KbListFilters): Promise<KbExportSize | null> => {
+  try {
+    const response = await apiClient.get<Envelope<Partial<KbExportSize> | null>>(
+      `/api/knowledge-base/export.csv?${kbExportQuery(filters)}&count=1`
+    );
+    const data = response.data?.data;
+    if (!data || typeof data.count !== 'number' || typeof data.cap !== 'number') return null;
+    return { count: data.count, cap: data.cap, truncated: data.truncated === true };
+  } catch (err) {
+    if (isRouteAbsent(err)) return null;
+    throw err;
+  }
+};
+
+/** Download the CSV of exactly the filtered list, through the api client (auth + department). */
+export const downloadKbExport = async (filters: KbListFilters): Promise<void> => {
+  const response = await apiClient.get(`/api/knowledge-base/export.csv?${kbExportQuery(filters)}`, {
+    responseType: 'blob',
+  });
+  const url = URL.createObjectURL(response.data as Blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = 'knowledge-base.csv';
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 };

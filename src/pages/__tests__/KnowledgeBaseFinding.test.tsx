@@ -132,7 +132,9 @@ vi.mock('@/hooks/usePermissions', () => ({
 }));
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => ({ isSurfaceVisibleToMe: () => true }) }));
 vi.mock('@/components/kb/KbExportButton', () => ({
-  KbExportButton: ({ type }: { type: string }) => <div data-testid="kb-export">{type}</div>,
+  KbExportButton: ({ filters }: { filters: unknown }) => (
+    <div data-testid="kb-export">{JSON.stringify(filters)}</div>
+  ),
 }));
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({ data: [{ id: 3, name: 'Support' }], teamsEnabled: true }),
@@ -210,12 +212,27 @@ describe('Knowledge base list narrowed to a finding', () => {
 
   it('offers the export on the list with the type, and the old Documentation address leaves the page', async () => {
     renderAt('/knowledge-base#qa_pair');
-    expect((await screen.findByTestId('kb-export')).textContent).toBe('qa_pair');
+    expect(JSON.parse((await screen.findByTestId('kb-export')).textContent ?? '')).toMatchObject({
+      type: 'qa_pair',
+      status: 'approved',
+    });
     cleanup();
     // Documentation moved to Settings › AI: the old address redirects, no list and no export.
     renderAt('/knowledge-base#documentation');
     await waitFor(() => expect(screen.queryByText(/Knowledge Base/)).toBeNull());
     expect(screen.queryByTestId('kb-export')).toBeNull();
+  });
+
+  it('the export carries the finding and its team, and the effective status (the list query itself)', async () => {
+    renderAt('/knowledge-base?finding=raw_email&departmentId=3#qa_pair');
+    await waitFor(() =>
+      expect(JSON.parse(screen.getByTestId('kb-export').textContent ?? '{}')).toMatchObject({
+        finding: 'raw_email',
+        departmentId: 3,
+        status: 'all',
+        type: 'qa_pair',
+      })
+    );
   });
 
   it('control: a plain visit asks for no finding and shows no banner', async () => {

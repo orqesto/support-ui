@@ -2,43 +2,42 @@ import { useEffect, useState } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { getApiErrorMessage } from '@/lib/errorMessages';
-import { kbService, type KbExportSize, type KbExportType } from '@/services/kb.service';
+import type { KbExportSize } from '@/services/kb.service';
+import { downloadKbExport, getKbExportSize, type KbListFilters } from '@/services/kbEngine.service';
 
 type KbExportButtonProps = {
-  /** The list's type tab; only Q&A and documents are exported separately, anything else is everything. */
-  type: string;
-  /** Changes whenever the department picker or the list changed, so the count is read again. */
+  /** The list's own filters (status included, 'all' too): the file holds exactly the list's rows. */
+  filters: KbListFilters;
+  /** Changes whenever the list was read again, so the count is read again. */
   refreshKey: unknown;
 };
 
 /** loading ⇒ `undefined`; a backend without the export ⇒ `unsupported`; a count that failed ⇒ `unknown`. */
 type ExportSize = KbExportSize | 'unsupported' | 'unknown' | undefined;
 
-const exportTypeOf = (type: string): KbExportType | undefined =>
-  type === 'qa_pair' || type === 'document' ? type : undefined;
-
-export const KbExportButton = ({ type, refreshKey }: KbExportButtonProps) => {
-  const exportType = exportTypeOf(type);
+export const KbExportButton = ({ filters, refreshKey }: KbExportButtonProps) => {
+  // A new object on every render: the effect depends on what the filters say, not on identity.
+  const filtersKey = JSON.stringify(filters);
   const [size, setSize] = useState<ExportSize>(undefined);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let current = true;
-    kbService
-      .getExportSize(exportType)
+    getKbExportSize(filters)
       .then((result) => current && setSize(result ?? 'unsupported'))
       .catch(() => current && setSize('unknown'));
     return () => {
       current = false;
     };
-  }, [exportType, refreshKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtersKey, refreshKey]);
 
   const download = async () => {
     setDownloading(true);
     setError(null);
     try {
-      await kbService.downloadExport(exportType);
+      await downloadKbExport(filters);
     } catch (err) {
       setError(getApiErrorMessage(err) ?? 'Could not download the CSV.');
     } finally {
@@ -57,12 +56,12 @@ export const KbExportButton = ({ type, refreshKey }: KbExportButtonProps) => {
         isLoading={downloading}
         disabled={size === undefined || (counted && size.count === 0)}
       >
-        {counted ? `Export approved to CSV (${size.count})` : 'Export approved to CSV'}
+        {counted ? `Export to CSV (${size.count})` : 'Export to CSV'}
       </Button>
       {counted && size.truncated && (
         <Alert variant="warning">
-          Only the first {size.cap} of {size.count} entries are exported. Narrow the team or type to
-          get the rest.
+          Only the first {size.cap} of {size.count} entries are exported. Narrow the filters to get
+          the rest.
         </Alert>
       )}
       {error && <Alert variant="danger">{error}</Alert>}

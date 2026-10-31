@@ -14,6 +14,7 @@ import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { usePermissions } from '@/hooks/usePermissions';
 import { KbAutoActionsButton } from '@/components/kb/autoActions/KbAutoActionsButton';
 import { logger } from '@/lib/logger';
+import type { KbListFilters } from '@/services/kbEngine.service';
 import {
   kbService,
   kbSourceParam,
@@ -242,6 +243,17 @@ const KnowledgeBaseViews = () => {
     onNotFound: setAlertDialog,
   });
 
+  // The export is the list's own query: same status (incl. 'all'), finding, mailbox, type, search, teams.
+  const exportFilters: KbListFilters = {
+    status: filterStatus,
+    finding: finding.filter?.finding,
+    departmentId: finding.filter?.departmentId,
+    departmentIds: selectedTeams.length ? selectedTeams : undefined,
+    source: kbSourceParam(filterSource),
+    type: filterType,
+    search: searchQuery,
+  };
+
   const handleSearch = () => {
     // Trigger actual search when button clicked or Enter pressed
     setSearchQuery(pendingSearch);
@@ -304,6 +316,17 @@ const KnowledgeBaseViews = () => {
   // its pending decision changes — re-read the page instead of patching the row in place.
   const rereadAfterDecision = Boolean(finding.filter) || isNewStatus(filterStatus);
 
+  // The same words for every entry action that failed: "Failed to Hide", the error's own message.
+  const reportFailure = (verb: string, title: string, error: unknown) => {
+    logger.error(`Failed to ${verb} entry:`, error);
+    setAlertDialog({
+      open: true,
+      title: `Failed to ${title}`,
+      description: error instanceof Error ? error.message : `Failed to ${verb} KB entry`,
+      variant: 'error',
+    });
+  };
+
   const handleApprove = async (id: number) => {
     try {
       await kbService.approve(id);
@@ -331,13 +354,7 @@ const KnowledgeBaseViews = () => {
       // Re-read the same page so the entry's state and the count are current.
       if (rereadAfterDecision) rereadPage();
     } catch (error) {
-      logger.error('Failed to approve entry:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Failed to Approve',
-        description: error instanceof Error ? error.message : 'Failed to approve KB entry',
-        variant: 'error',
-      });
+      reportFailure('approve', 'Approve', error);
     }
   };
 
@@ -350,13 +367,7 @@ const KnowledgeBaseViews = () => {
     },
     onApproveInstead: (id) => void handleApprove(id),
     onFailed: (_id, error) => {
-      logger.error('Failed to unhide entry:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Failed to Unhide',
-        description: error instanceof Error ? error.message : 'Failed to unhide KB entry',
-        variant: 'error',
-      });
+      reportFailure('unhide', 'Unhide', error);
     },
   });
 
@@ -371,13 +382,7 @@ const KnowledgeBaseViews = () => {
       );
       if (rereadAfterDecision) rereadPage();
     } catch (error) {
-      logger.error('Failed to reject entry:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Failed to Reject',
-        description: error instanceof Error ? error.message : 'Failed to reject KB entry',
-        variant: 'error',
-      });
+      reportFailure('reject', 'Reject', error);
     }
   };
 
@@ -390,13 +395,7 @@ const KnowledgeBaseViews = () => {
       );
       if (rereadAfterDecision) rereadPage();
     } catch (error) {
-      logger.error('Failed to hide entry:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Failed to Hide',
-        description: error instanceof Error ? error.message : 'Failed to hide KB entry',
-        variant: 'error',
-      });
+      reportFailure('hide', 'Hide', error);
     }
   };
 
@@ -610,7 +609,7 @@ const KnowledgeBaseViews = () => {
                     Clear All
                   </Button>
                 )}
-                <KbExportButton type={filterType} refreshKey={entries} />
+                <KbExportButton filters={exportFilters} refreshKey={entries} />
               </div>
             </div>
           </>

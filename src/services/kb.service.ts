@@ -331,7 +331,6 @@ export const kbSourceParam = (value: string): number | 'none' | undefined => {
   return value === 'none' ? 'none' : Number(value);
 };
 
-export type KbExportType = 'qa_pair' | 'document';
 export type KbExportSize = { count: number; cap: number; truncated: boolean };
 
 const DECISION_STATUSES: readonly string[] = ['needs_decision', 'suggested_change', 'set_aside'];
@@ -461,40 +460,6 @@ export const kbService = {
       if (isRouteAbsent(err)) return { outcome: 'unsupported' };
       throw err;
     }
-  },
-
-  /**
-   * How many rows the CSV export holds for this type (the department comes with the request, as
-   * for the list). Null when the backend has no export yet, or answers something unreadable —
-   * never a guessed number.
-   */
-  getExportSize: async (type?: KbExportType): Promise<KbExportSize | null> => {
-    try {
-      const response = await apiClient.get<ApiResponse<Partial<KbExportSize> | null>>(
-        '/api/knowledge-base/export.csv',
-        { params: { count: 1, ...(type ? { type } : {}) } }
-      );
-      const data = response.data?.data;
-      if (!data || typeof data.count !== 'number' || typeof data.cap !== 'number') return null;
-      return { count: data.count, cap: data.cap, truncated: data.truncated === true };
-    } catch (err) {
-      if (isRouteAbsent(err)) return null;
-      throw err;
-    }
-  },
-
-  /** The CSV goes through the API client so it carries the same auth and department as the list. */
-  downloadExport: async (type?: KbExportType): Promise<void> => {
-    const response = await apiClient.get('/api/knowledge-base/export.csv', {
-      params: type ? { type } : undefined,
-      responseType: 'blob',
-    });
-    const url = URL.createObjectURL(response.data as Blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = 'knowledge-base.csv';
-    anchor.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
   },
 
   /**
