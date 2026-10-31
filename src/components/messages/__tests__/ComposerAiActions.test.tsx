@@ -12,6 +12,8 @@ const composeReply = vi.fn<
       groundedInKb?: boolean;
       envelope?: unknown;
     };
+    /** The press record (BE pressTimingHttp.ts): `timing.searchCutShort` lists stopped reads. */
+    meta?: unknown;
   }>
 >();
 
@@ -547,5 +549,42 @@ describe('ComposerAiActions — under StrictMode (the dev server)', () => {
       await Promise.resolve();
     });
     expect(onApplied).not.toHaveBeenCalled();
+  });
+});
+
+/*
+  2026-10-31: the backend stops a knowledge search that runs past its time limit and drafts from
+  what finished, listing the stopped reads in `meta.timing.searchCutShort`. The draft must say it
+  may be missing information; without the field (an older backend, or nothing cut) it says nothing.
+*/
+describe('ComposerAiActions — a draft whose knowledge search was cut short', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    aiConfigured.value = true;
+    aiDrafts.off = false;
+  });
+  afterEach(cleanup);
+
+  it('says part of the search was skipped', async () => {
+    composeReply.mockResolvedValue({
+      data: { text: 'Your parcel is at the border.', language: 'en' },
+      meta: { timing: { searchCutShort: ['kb_vector'] } },
+    });
+    render(<Host initial="<p></p>" />);
+    pressDraft();
+    expect(await screen.findByTestId('ai-draft-search-cut')).toHaveTextContent(
+      /took too long and was skipped/
+    );
+  });
+
+  it('CONTROL: a draft whose search finished says nothing about it', async () => {
+    composeReply.mockResolvedValue({
+      data: { text: 'Your parcel is at the border.', language: 'en' },
+      meta: { timing: { steps: [] } },
+    });
+    render(<Host initial="<p></p>" />);
+    pressDraft();
+    await waitFor(() => expect(onApplied).toHaveBeenCalled());
+    expect(screen.queryByTestId('ai-draft-search-cut')).not.toBeInTheDocument();
   });
 });

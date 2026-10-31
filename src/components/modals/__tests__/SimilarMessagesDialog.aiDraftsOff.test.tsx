@@ -256,3 +256,34 @@ describe('SimilarMessagesDialog — read-only offers nothing to choose', () => {
     expect(closeButtons()).toBe(1);
   });
 });
+
+/*
+  2026-10-31: the KB button's knowledge search now stops at a time limit and the answer is built
+  from what finished; the backend lists the stopped reads in `meta.timing.searchCutShort`.
+*/
+describe('SimilarMessagesDialog — an answer whose knowledge search was cut short', () => {
+  const answer = (meta: Record<string, unknown>) =>
+    getSuggestedAnswer.mockResolvedValue({
+      success: true,
+      data: {
+        mode: 'ai-generated',
+        aiConfigured: true,
+        aiResponse: { text: MATCH, confidence: 0.5 },
+        sources: [],
+      },
+      meta,
+    });
+
+  it('warns that part of the search was skipped', async () => {
+    answer({ timing: { searchCutShort: ['docs_vector'] } });
+    renderDialog();
+    expect(await screen.findByText(/took too long and was skipped/i)).toBeInTheDocument();
+  });
+
+  it('CONTROL: an answer whose search finished shows no warning', async () => {
+    answer({ timing: { steps: [] } });
+    renderDialog();
+    expect(await screen.findByText('AI-Generated Response')).toBeInTheDocument();
+    expect(screen.queryByText(/took too long and was skipped/i)).not.toBeInTheDocument();
+  });
+});

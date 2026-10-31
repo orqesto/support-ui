@@ -5,6 +5,7 @@
 import { useState, useEffect, type KeyboardEvent, type MouseEvent } from 'react';
 import { BookOpen, Check, ChevronDown, ChevronUp, Clock, ExternalLink, FileText, Globe, Languages, Loader2, MessageCircle, Quote, Search, Sparkles, TrendingUp, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
@@ -25,6 +26,7 @@ import { toast } from '@/lib/toast';
 import { isAiDraftsOffError, AI_DRAFTS_OFF_MESSAGE } from '@/lib/errorMessages';
 import { useAiRefusalText } from '@/components/subscription/useAiRefusalText';
 import { logger } from '@/lib/logger';
+import { SEARCH_CUT_SHORT_COPY, searchCutShort } from '@/lib/searchCutShort';
 import { AnswerPreview } from '@/components/messages/AnswerPreview';
 import {
   type SimilarMessage,
@@ -104,6 +106,8 @@ export const SimilarMessagesDialog = ({
   const [noAnswerReason, setNoAnswerReason] = useState<string | null>(null);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [aiConfidence, setAiConfidence] = useState<number>(0);
+  // Part of the knowledge search was stopped at its time limit (searchCutShort.ts).
+  const [searchCut, setSearchCut] = useState(false);
   const [translatedAiResponse, setTranslatedAiResponse] = useState<string | null>(null);
   /** The language the shown translation is IN — the picker may have moved on since. */
   const [translatedLanguageName, setTranslatedLanguageName] = useState<string | null>(null);
@@ -149,6 +153,7 @@ export const SimilarMessagesDialog = ({
           setNoAnswerReason(response.data?.reason ?? null);
           setAiResponse(response.data?.aiResponse?.text ?? null);
           setAiConfidence(response.data?.aiResponse?.confidence ?? 0);
+          setSearchCut(searchCutShort(response));
           // Convert sources to similar messages format for backward compatibility
           const sources = response.data?.sources ?? [];
           const converted: SimilarMessage[] = toSimilarMessages(sources);
@@ -162,6 +167,7 @@ export const SimilarMessagesDialog = ({
           setAiConfigured(null);
           setNoAnswerReason(null);
           setAiResponse(null);
+          setSearchCut(false);
         } finally {
           if (current) setLoading(false);
         }
@@ -275,6 +281,13 @@ export const SimilarMessagesDialog = ({
             <div className="flex gap-2 items-start p-3 mb-4 text-sm rounded-lg border border-warning-line bg-warning-muted text-warning">
               <Sparkles className="flex-shrink-0 mt-0.5 w-4 h-4" />
               <span>{NO_ANSWER_COPY[noAnswerReason] ?? NO_ANSWER_COPY.default}</span>
+            </div>
+          )}
+
+          {/* Part of the knowledge search was skipped: what is shown may be missing information. */}
+          {!loading && searchCut && (
+            <div className="mb-4">
+              <Alert variant="warning">{SEARCH_CUT_SHORT_COPY}</Alert>
             </div>
           )}
 
