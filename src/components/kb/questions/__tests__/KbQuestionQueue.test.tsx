@@ -358,31 +358,55 @@ describe('KbQuestionQueue', () => {
 });
 
 describe('a link names a question (?question=<suggestionId>)', () => {
+  const used = vi.fn();
+  /** A keyset server: ids ascending, `cursor` = last id seen. */
+  const serve = (open: KbQuestion[], fail = false) => {
+    state.respond = (params) => {
+      if (fail && params.limit === 1) return Promise.reject(new Error('down'));
+      const after = Number(params.cursor ?? 0);
+      const rest = open.filter((item) => item.suggestionId > after).slice(0, params.limit ?? 20);
+      return Promise.resolve(pageOf(rest, open.length));
+    };
+  };
   const renderAtQuestion = (startAt: number) =>
-    render(<KbQuestionQueue search="" startAt={startAt} empty={<p>Nothing needs you</p>} />);
+    render(
+      <KbQuestionQueue
+        search=""
+        startAt={startAt}
+        onLinkUsed={used}
+        empty={<p>Nothing needs you</p>}
+      />
+    );
+  const probes = () => state.calls.filter((call) => call.limit === 1);
 
-  it('capture suggestion link opens its question card', async () => {
-    state.pages = [pageOf([mergeQuestion(1), mergeQuestion(2), captureQuestion(3)], 3)];
+  it('capture suggestion link opens its question card, first, with one probe', async () => {
+    serve([mergeQuestion(1), mergeQuestion(2), captureQuestion(3)]);
     renderAtQuestion(3);
-    await screen.findByText('Question 3 of 3');
+    await waitFor(() => expect(used).toHaveBeenCalled());
+    expect(probes()).toEqual([expect.objectContaining({ cursor: '2', limit: 1 })]);
+    expect(screen.getByText(/Opening hours/)).toBeInTheDocument();
     expect(screen.queryByText(LINK_DECIDED_TEXT)).toBeNull();
   });
 
-  it('pages on until the linked question is found', async () => {
-    state.pages = [
-      pageOf([mergeQuestion(1), mergeQuestion(2)], 4, '3'),
-      pageOf([mergeQuestion(3), mergeQuestion(4)], 4, null),
-    ];
-    renderAtQuestion(4);
-    await screen.findByText('Question 4 of 4');
-    expect(heading()).toContain('fee 4');
+  it('decided or missing id shows "Already decided" with exactly one extra request, however deep', async () => {
+    serve(
+      Array.from({ length: 60 }, (_, index) => mergeQuestion(index + 1)).filter(
+        (item) => item.suggestionId !== 50
+      )
+    );
+    renderAtQuestion(50);
+    expect(await screen.findByText(LINK_DECIDED_TEXT)).toBeInTheDocument();
+    expect(probes()).toHaveLength(1);
+    // CONTROL: the queue still starts at its first card, with no error.
+    expect(screen.getByText(/Question 1 of/)).toBeInTheDocument();
+    expect(used).toHaveBeenCalled();
   });
 
-  it('decided or missing id shows "Already decided" on the view, and the queue still works', async () => {
-    state.pages = [pageOf([mergeQuestion(1), mergeQuestion(2)], 2)];
-    renderAtQuestion(99);
-    expect(await screen.findByText(LINK_DECIDED_TEXT)).toBeInTheDocument();
-    // CONTROL: the queue starts at its first card, with no error.
-    expect(screen.getByText('Question 1 of 2')).toBeInTheDocument();
+  it('a failed probe shows an error with Retry, not "Already decided"', async () => {
+    serve([mergeQuestion(1)], true);
+    renderAtQuestion(1);
+    expect(await screen.findByText('The linked question could not be loaded.')).toBeInTheDocument();
+    expect(screen.queryByText(LINK_DECIDED_TEXT)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
   });
 });

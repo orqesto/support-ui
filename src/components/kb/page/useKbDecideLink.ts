@@ -44,5 +44,11 @@ export const useKbDecideLink = (onAlert: (alert: KbEntryAlert) => void) => {
     },
     [onAlert]
   );
-  return { notice, onNotFound };
+  /** The question was looked up: take `?question=` out of the address (a remount must not re-ask). */
+  const dropQuestion = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('question');
+    navigate({ search: next.toString(), hash: location.hash }, { replace: true });
+  }, [searchParams, navigate, location.hash]);
+  return { notice, onNotFound, dropQuestion };
 };

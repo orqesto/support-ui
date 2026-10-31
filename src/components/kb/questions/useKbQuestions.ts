@@ -24,6 +24,8 @@ export type UseKbQuestions = {
   loadMore: () => void;
   retryMore: () => void;
   reload: () => void;
+  /** Put a question first (the one a link named), replacing a copy of it. */
+  pin: (question: KbQuestion) => void;
   /** Decided (answered here, or already decided / gone): leaves the queue. */
   remove: (suggestionId: number) => void;
   /** Skip / not sure: client-side only, the card goes behind every not-skipped card. */
@@ -61,6 +63,7 @@ export const useKbQuestions = ({ departmentId, search }: UseKbQuestionsArgs): Us
     setLoading(true);
     // A page of the old query may still be in flight: its answer is ignored, paging restarts.
     setLoadingMore(false);
+    asking.current = null;
     setFailedCursor(null);
     setError(null);
     setFresh([]);
@@ -146,6 +149,12 @@ export const useKbQuestions = ({ departmentId, search }: UseKbQuestionsArgs): Us
     ]);
   }, []);
 
+  const pin = useCallback((question: KbQuestion) => {
+    const same = (item: KbQuestion) => item.suggestionId === question.suggestionId;
+    setSkipped((current) => current.filter((item) => !same(item)));
+    setFresh((current) => [question, ...current.filter((item) => !same(item))]);
+  }, []);
+
   const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 
   const items = useMemo(() => [...fresh, ...skipped], [fresh, skipped]);
@@ -163,6 +172,7 @@ export const useKbQuestions = ({ departmentId, search }: UseKbQuestionsArgs): Us
     loadMore,
     retryMore,
     reload,
+    pin,
     remove,
     skip,
   };

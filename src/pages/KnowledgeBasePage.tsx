@@ -586,6 +586,7 @@ const KnowledgeBaseViews = () => {
             search={searchQuery}
             departmentId={questionsTeam}
             startAt={kbQuestionFromSearch(searchParams)}
+            onLinkUsed={decideLink.dropQuestion}
             activity={engineActivity(false)}
             onDecided={(question) => engine.decrementOpen(isOlderThan7d(question))}
           />

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
-import { answerKbQuestion } from '@/services/kbEngine.service';
+import { answerKbQuestion, getKbQuestions } from '@/services/kbEngine.service';
 import type { KbQuestion, KbQuestionChoiceKey } from '@/services/kbEngine.types';
 import { KbQuestionCard, ignoresCardKey } from './KbQuestionCard';
 import { useKbQuestions } from './useKbQuestions';
@@ -35,10 +35,13 @@ export const KbQuestionQueue = ({
   empty,
   onDecided,
   startAt,
+  onLinkUsed,
 }: {
   departmentId?: number;
   /** A link's `?question=<suggestionId>`: the queue starts at that card, or says it is decided. */
   startAt?: number;
+  /** The link's question was looked up: the address no longer needs `?question=`. */
+  onLinkUsed?: () => void;
   search: string;
   /** What an empty queue (no search) shows: "Nothing needs you". */
   empty: ReactNode;
@@ -92,23 +95,35 @@ export const KbQuestionQueue = ({
     [busy, items.length]
   );
 
-  // Start at the linked question: page on until it is found. Not found once every page is in (or
-  // the next page failed): it was decided or never was yours, and the line says so, never an error.
+  // Start at the linked question with ONE keyset probe (the cursor is the last id seen, so
+  // `id - 1` with limit 1 returns the linked question first if it is still open): found -> its card
+  // leads the queue; not found -> the "Already decided" line; a failed probe -> an error + Retry.
   const [startedAt, setStartedAt] = useState<number | null>(null);
-  const { loading, loadingMore, moreFailed } = queue;
+  const [probeFailed, setProbeFailed] = useState(false);
+  const [probeKey, setProbeKey] = useState(0);
+  const { loading, pin } = queue;
   useEffect(() => {
-    if (!startAt || startedAt === startAt || loading || loadingMore) return;
-    const at = items.findIndex((item) => item.suggestionId === startAt);
-    if (at >= 0) {
-      setIndex(at);
-      setStartedAt(startAt);
-    } else if (hasMore && !moreFailed) {
-      loadMore();
-    } else {
-      setStartedAt(startAt);
-      flash({ tone: 'info', text: LINK_DECIDED_TEXT });
-    }
-  }, [startAt, startedAt, loading, loadingMore, moreFailed, items, hasMore, loadMore, flash]);
+    if (!startAt || startedAt === startAt || loading) return;
+    let live = true;
+    setProbeFailed(false);
+    getKbQuestions({ departmentId, cursor: String(startAt - 1), limit: 1 }).then(
+      (page) => {
+        if (!live) return;
+        const found = page.items[0]?.suggestionId === startAt ? page.items[0] : null;
+        if (found) {
+          pin(found);
+          setIndex(0);
+        } else flash({ tone: 'info', text: LINK_DECIDED_TEXT });
+        setStartedAt(startAt);
+        onLinkUsed?.();
+      },
+      () => live && setProbeFailed(true)
+    );
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startAt, startedAt, loading, probeKey, departmentId]);
 
   // j / k from the moment the card is on screen (a layout effect, as in the card).
   useLayoutEffect(() => {
@@ -170,6 +185,14 @@ export const KbQuestionQueue = ({
             ? '1 question open over 7 days'
             : `${queue.olderThan7d} questions open over 7 days`}
         </p>
+      )}
+      {probeFailed && (
+        <Alert variant="danger" className="text-sm">
+          <span className="mr-2">The linked question could not be loaded.</span>
+          <Button variant="outline" size="sm" onClick={() => setProbeKey((key) => key + 1)}>
+            Retry
+          </Button>
+        </Alert>
       )}
       {notice && (
         <Alert variant={notice.tone} className="py-2 text-sm">
