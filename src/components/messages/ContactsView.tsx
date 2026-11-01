@@ -52,17 +52,16 @@ const SORTS: Record<
   string,
   { label: string; fn: (lhs: MessageContact, rhs: MessageContact) => number }
 > = {
-  recent: {
-    label: 'Recent',
-    fn: (lhs, rhs) => new Date(rhs.lastMessageAt).getTime() - new Date(lhs.lastMessageAt).getTime(),
-  },
+  // The server's own order: newest ACTIVITY first since the backend reads contacts along the
+  // activity index (2026-11-01). Re-sorting a page by received time made the screen disagree with
+  // how pages are built. Array.sort is stable, so 0 keeps the server's order.
+  recent: { label: 'Recent', fn: () => 0 },
   messages: { label: 'Most threads', fn: (lhs, rhs) => rhs.messageCount - lhs.messageCount },
   name: { label: 'Name', fn: (lhs, rhs) => lhs.sender.localeCompare(rhs.sender) },
   unread: {
     label: 'Unread first',
-    fn: (lhs, rhs) =>
-      Number(rhs.hasUnread) - Number(lhs.hasUnread) ||
-      new Date(rhs.lastMessageAt).getTime() - new Date(lhs.lastMessageAt).getTime(),
+    // Unread first, then the server's order (as Recent).
+    fn: (lhs, rhs) => Number(rhs.hasUnread) - Number(lhs.hasUnread),
   },
 };
 
