@@ -64,6 +64,19 @@ describe("useConversationNotesRefresh — a colleague's note shows without a rel
     expect(refresh).toHaveBeenCalledTimes(2);
   });
 
+  // The real order (review 2026-11-01): the backend emits before it answers the add, so the echo
+  // arrives while the note is NOT yet on screen; the add's own re-read shows it moments later.
+  it('our own echo, arriving before our re-read shows the note, still adds no read', () => {
+    const refresh = vi.fn();
+    const onScreen = new Set<number>();
+    renderHook(() => useConversationNotesRefresh(41, (noteId) => onScreen.has(noteId), refresh));
+    fire(41, 900);
+    vi.advanceTimersByTime(150);
+    onScreen.add(900); // the add's own GET landed
+    vi.advanceTimersByTime(CONV_NOTES_REFRESH_MS);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
   it('two notes inside the window ⇒ one re-read', () => {
     const refresh = vi.fn();
     renderHook(() => useConversationNotesRefresh(41, nothingKnown, refresh));

@@ -21,8 +21,10 @@ type NotesChangedPayload = {
  * 2026-11-01, thread 21401).
  *
  * `isKnownNote` skips the echo of a note this tab already shows: the agent's own add re-reads the
- * notes itself, so its `created` event would only repeat that read. Edits and deletes always
- * re-read — the event carries ids only, never the text.
+ * notes itself, so its `created` event would only repeat that read. It is asked when the window
+ * CLOSES, not when the event arrives: the backend emits before it answers the add, so the echo
+ * lands before the add's own re-read has put the note on screen (review 2026-11-01). Edits and
+ * deletes always re-read — the event carries ids only, never the text.
  *
  * COALESCED like useConversationStatusRefresh: events inside the window join one re-read.
  */
@@ -42,20 +44,25 @@ export const useConversationNotesRefresh = (
     const socket = getSocket();
     if (!socket) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    // Inside one window: the notes created (maybe our own), and whether anything else changed.
+    let created: number[] = [];
+    let otherChange = false;
     const onNotesChanged = (data: unknown) => {
       const payload = data as NotesChangedPayload | null;
       if (payload?.conversationId !== conversationId) return;
-      if (
-        payload.action === 'created' &&
-        typeof payload.noteId === 'number' &&
-        isKnownRef.current(payload.noteId)
-      ) {
-        return;
+      if (payload.action === 'created' && typeof payload.noteId === 'number') {
+        created.push(payload.noteId);
+      } else {
+        otherChange = true;
       }
       if (timer !== null) return;
       timer = setTimeout(() => {
         timer = null;
-        refreshRef.current();
+        const unknownNote = created.some((noteId) => !isKnownRef.current(noteId));
+        const reread = otherChange || unknownNote;
+        created = [];
+        otherChange = false;
+        if (reread) refreshRef.current();
       }, CONV_NOTES_REFRESH_MS);
     };
     subscribeToEvent(CONV_NOTES_CHANGED_EVENT, onNotesChanged);
