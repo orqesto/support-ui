@@ -59,6 +59,7 @@ import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useThreadMessageRefresh } from '@/hooks/useThreadMessageRefresh';
+import { useConversationNotesRefresh } from '@/hooks/useConversationNotesRefresh';
 import { useConversationStatusRefresh } from '@/hooks/useConversationStatusRefresh';
 import { useSocketReconnected } from '@/hooks/useSocketReconnected';
 import { useIsPhone } from './useIsPhone';
@@ -781,6 +782,17 @@ export function MessageDetail({
       cancelled = true;
     };
   }, [message.id, threadRefreshKey, panelsBump, notesBump]);
+
+  // A colleague added, edited or deleted a note on this thread: re-read the notes. The echo of a
+  // note already on screen (our own add, which re-read them itself) is skipped.
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  const isKnownNote = useCallback(
+    (noteId: number) => notesRef.current.some((note) => note.id === noteId),
+    []
+  );
+  const bumpNotes = useCallback(() => setNotesBump((key) => key + 1), []);
+  useConversationNotesRefresh(message.id, isKnownNote, bumpNotes);
 
   // …and the activity log — also after a live incoming message (activityBump): saving one can
   // write activity (auto-reopen, auto-route, "thanks" kept finished) with no other signal.
