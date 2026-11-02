@@ -53,6 +53,37 @@ export const autoRoutedReasonLabel = (code: string | null | undefined): string |
     ? AUTO_ROUTED_REASON_LABELS[code]
     : null;
 
+type RoutedMatch = { key: string; value: string; source: string; evidence: string | null };
+
+const isRoutedMatch = (entry: unknown): entry is RoutedMatch =>
+  !!entry &&
+  typeof entry === 'object' &&
+  typeof (entry as RoutedMatch).key === 'string' &&
+  typeof (entry as RoutedMatch).value === 'string';
+
+const describeRoutedMatch = (match: RoutedMatch): string => {
+  const notes: string[] = [];
+  if (match.source === 'ai') notes.push('AI judged');
+  if (match.source === 'language') notes.push('detected language');
+  else if (match.evidence) notes.push(`mentions “${match.evidence}”`);
+  return `${match.key} = ${match.value}${notes.length ? ` (${notes.join('; ')})` : ''}`;
+};
+
+/**
+ * The reason label plus, for a skill match, WHICH skills matched and the customer's words that
+ * did (`autoRoutedMatches`, BE spec 2026-11-02 skill routing §6.7). Tolerates an older backend
+ * (no matches) and malformed entries: the plain label then.
+ */
+export const autoRoutedTooltip = (
+  code: string | null | undefined,
+  matches: unknown
+): string | null => {
+  const label = autoRoutedReasonLabel(code);
+  if (!label || code !== 'skill_match' || !Array.isArray(matches)) return label;
+  const described = matches.filter(isRoutedMatch).map(describeRoutedMatch);
+  return described.length > 0 ? `${label} — ${described.join('; ')}` : label;
+};
+
 /** Shown where the analysis is, when the triage AI could not judge the message. */
 export const ANALYSIS_DEGRADED_HINT =
   "AI couldn't analyse this message — read it yourself before relying on the facets.";

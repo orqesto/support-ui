@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   autoRoutedReasonLabel,
+  autoRoutedTooltip,
   hasActiveContradiction,
   needsReviewReasonLabel,
   needsReviewTooltip,
@@ -156,5 +157,31 @@ describe('AI-state filter: "AI suggested" retired, old links still land', () => 
     expect(aiOptions(true)).not.toContain('lead');
     expect(aiOptions(false)).toContain('lead');
     expect(aiOptions(undefined)).toContain('lead');
+  });
+});
+
+describe('autoRoutedTooltip — the skill evidence (BE spec 2026-11-02 skill routing §6.7)', () => {
+  it('names each matched skill and the customer’s words that matched', () => {
+    expect(
+      autoRoutedTooltip('skill_match', [
+        { key: 'payment_sys', value: 'usdt', source: 'keyword', evidence: 'Tether' },
+        { key: 'lang', value: 'spanish', source: 'language', evidence: 'es' },
+      ])
+    ).toBe(
+      'Assigned automatically: skills match — payment_sys = usdt (mentions “Tether”); lang = spanish (detected language)'
+    );
+  });
+
+  it('says when the AI judged it', () => {
+    expect(
+      autoRoutedTooltip('skill_match', [{ key: 'payment_sys', value: 'usdc', source: 'ai', evidence: 'TRC20' }])
+    ).toBe('Assigned automatically: skills match — payment_sys = usdc (AI judged; mentions “TRC20”)');
+  });
+
+  it('an older backend (no matches) or malformed entries → the plain label', () => {
+    expect(autoRoutedTooltip('skill_match', undefined)).toBe('Assigned automatically: skills match');
+    expect(autoRoutedTooltip('skill_match', [{ nope: 1 } as never])).toBe('Assigned automatically: skills match');
+    expect(autoRoutedTooltip('load_balance', [])).toBe('Assigned automatically: least busy');
+    expect(autoRoutedTooltip('mystery', [])).toBeNull();
   });
 });
