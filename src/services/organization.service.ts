@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 import type {
   AiRefusal,
   RoutingKey,
@@ -529,7 +530,7 @@ export const organizationService = {
       );
       return response.data.data ?? [];
     } catch (error) {
-      if ((error as { response?: { status?: number } })?.response?.status === 404) return null;
+      if (getErrorStatus(error) === 404) return null;
       throw error;
     }
   },
@@ -562,9 +563,9 @@ export const organizationService = {
       );
       return { description: response.data.data?.description ?? '' };
     } catch (error) {
-      const failure = error as { response?: { status?: number; data?: { reason?: AiRefusal } } };
-      if (failure?.response?.status === 409) {
-        return { refused: failure.response.data?.reason ?? 'failed' };
+      if (getErrorStatus(error) === 409) {
+        const reason = (getErrorBody(error) as { reason?: AiRefusal } | undefined)?.reason;
+        return { refused: reason ?? 'failed' };
       }
       throw error;
     }

@@ -86,12 +86,12 @@ describe('organizationService — routing keys and values', () => {
   });
 
   it('values on an older backend (404) → null, not an error', async () => {
-    get.mockRejectedValue({ response: { status: 404 } });
+    get.mockRejectedValue(Object.assign(new Error('Not found'), { status: 404, data: { error: 'Not found' } }));
     await expect(organizationService.getRoutingKeyValues('payment_sys')).resolves.toBeNull();
   });
 
   it('suggest refused (409) → the reason, not an error', async () => {
-    post.mockRejectedValue({ response: { status: 409, data: { reason: 'no_ai' } } });
+    post.mockRejectedValue(Object.assign(new Error('Conflict'), { status: 409, data: { reason: 'no_ai' } }));
     await expect(
       organizationService.suggestRoutingValueDescription('payment_sys', 'usdt')
     ).resolves.toEqual({ refused: 'no_ai' });
