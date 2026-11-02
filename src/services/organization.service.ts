@@ -1,4 +1,11 @@
 import { apiClient } from '@/lib/api-client';
+import type {
+  AiRefusal,
+  RoutingKey,
+  RoutingKeyType,
+  RoutingTestResult,
+  RoutingValue,
+} from '@/types/skillRouting';
 import { scopedLookup } from '@/lib/scopedLookup';
 import type { ApiResponse, PaginationMeta } from '@/types';
 
@@ -487,17 +494,92 @@ export const organizationService = {
     return { off: response.data.data?.off === true };
   },
 
-  getRoutingKeys: async (): Promise<Array<{ id: number; key: string; description: string | null }>> => {
-    const response = await apiClient.get<ApiResponse<Array<{ id: number; key: string; description: string | null }>>>('/api/organizations/routing-keys');
-    return response.data.data ?? [];
+  /** An older backend answers without `type` (FE ships on merge, BE on a tag): read as topic. */
+  getRoutingKeys: async (): Promise<RoutingKey[]> => {
+    const response = await apiClient.get<
+      ApiResponse<Array<{ id: number; key: string; description: string | null; type?: RoutingKeyType }>>
+    >('/api/organizations/routing-keys');
+    return (response.data.data ?? []).map((row) => ({
+      ...row,
+      type: row.type === 'language' ? 'language' : 'topic',
+    }));
   },
 
-  addRoutingKey: async (key: string, description?: string): Promise<void> => {
-    await apiClient.post('/api/organizations/routing-keys', { key, description });
+  addRoutingKey: async (key: string, description?: string, type?: RoutingKeyType): Promise<void> => {
+    await apiClient.post('/api/organizations/routing-keys', {
+      key,
+      description,
+      ...(type && { type }),
+    });
+  },
+
+  setRoutingKeyType: async (key: string, type: RoutingKeyType): Promise<void> => {
+    await apiClient.patch(`/api/organizations/routing-keys/${encodeURIComponent(key)}`, { type });
   },
 
   deleteRoutingKey: async (key: string): Promise<void> => {
     await apiClient.delete(`/api/organizations/routing-keys/${encodeURIComponent(key)}`);
+  },
+
+  /** null when the backend predates per-value descriptions (404) — the page then hides them. */
+  getRoutingKeyValues: async (key: string): Promise<RoutingValue[] | null> => {
+    try {
+      const response = await apiClient.get<ApiResponse<RoutingValue[]>>(
+        `/api/organizations/routing-keys/${encodeURIComponent(key)}/values`
+      );
+      return response.data.data ?? [];
+    } catch (error) {
+      if ((error as { response?: { status?: number } })?.response?.status === 404) return null;
+      throw error;
+    }
+  },
+
+  setRoutingValueDescription: async (
+    key: string,
+    value: string,
+    description: string | null
+  ): Promise<void> => {
+    await apiClient.put(
+      `/api/organizations/routing-keys/${encodeURIComponent(key)}/values/${encodeURIComponent(value)}`,
+      { description }
+    );
+  },
+
+  deleteRoutingValue: async (key: string, value: string): Promise<void> => {
+    await apiClient.delete(
+      `/api/organizations/routing-keys/${encodeURIComponent(key)}/values/${encodeURIComponent(value)}`
+    );
+  },
+
+  /** A draft for the admin to edit, or why the AI could not write one (409 from the API). */
+  suggestRoutingValueDescription: async (
+    key: string,
+    value: string
+  ): Promise<{ description: string } | { refused: AiRefusal }> => {
+    try {
+      const response = await apiClient.post<ApiResponse<{ description: string }>>(
+        `/api/organizations/routing-keys/${encodeURIComponent(key)}/values/${encodeURIComponent(value)}/suggest`
+      );
+      return { description: response.data.data?.description ?? '' };
+    } catch (error) {
+      const failure = error as { response?: { status?: number; data?: { reason?: AiRefusal } } };
+      if (failure?.response?.status === 409) {
+        return { refused: failure.response.data?.reason ?? 'failed' };
+      }
+      throw error;
+    }
+  },
+
+  testRoutingMessage: async (body: {
+    text: string;
+    departmentId?: number;
+    askAi?: boolean;
+  }): Promise<RoutingTestResult> => {
+    const response = await apiClient.post<ApiResponse<RoutingTestResult>>(
+      '/api/organizations/routing/test',
+      body
+    );
+    return response.data.data as RoutingTestResult;
   },
 
   /** `assignOnReply` is optional on the wire: an older backend answers without it (read as on). */
