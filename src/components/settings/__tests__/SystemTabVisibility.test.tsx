@@ -54,6 +54,7 @@ vi.mock('@/components/settings/RulesSettings', () => ({ RulesSettings: () => <di
 vi.mock('@/components/settings/SystemSettings', () => ({ SystemSettings: () => <div data-testid="system-content" /> }));
 vi.mock('@/components/settings/SSOConfigSettings', () => ({ SSOConfigSettings: () => <div /> }));
 vi.mock('@/components/settings/SCIMConfigSettings', () => ({ SCIMConfigSettings: () => <div /> }));
+vi.mock('@/components/settings/SlackNotificationsSettings', () => ({ SlackNotificationsSettings: () => <div /> }));
 
 import { SettingsPage } from '@/pages/SettingsPage';
 
@@ -89,5 +90,32 @@ describe('Settings › System tab visibility (global-admin only)', () => {
     mockUser = { ...base, role: 'user' };
     renderAt();
     expect(screen.queryByTestId('tab-system')).toBeNull();
+  });
+});
+
+describe('Settings › Notifications tab visibility (workspace admins and global admins)', () => {
+  afterEach(() => {
+    cleanup();
+    mockUser = null;
+  });
+
+  const base = { id: 1, email: 'a@ex.com', firstName: 'A', lastName: 'B', position: null, createdAt: '2026-01-01T00:00:00Z' };
+
+  it('SHOWS the Notifications tab to a workspace admin', () => {
+    mockUser = { ...base, role: 'user', organizationRole: 'org_admin' };
+    renderAt('/settings?tab=notifications');
+    expect(screen.getByTestId('tab-notifications')).toBeTruthy();
+  });
+
+  it('SHOWS the Notifications tab to a global admin', () => {
+    mockUser = { ...base, role: 'admin' };
+    renderAt();
+    expect(screen.getByTestId('tab-notifications')).toBeTruthy();
+  });
+
+  it('HIDES the Notifications tab from a plain member', () => {
+    mockUser = { ...base, role: 'user', organizationRole: 'member' };
+    renderAt('/settings?tab=notifications');
+    expect(screen.queryByTestId('tab-notifications')).toBeNull();
   });
 });
