@@ -18,17 +18,10 @@ import type { Notification } from '@/types/api';
 export type SLABreachNotification = {
   id: number; // notifications.id from DB
   entityId: number; // message.id or ticket.id
-  // `conversation` / `ticket`: the backend's newer entity types (see the generated API types).
+  // The notification's entityType, from the generated API types (`npm run gen:types`).
   // `slack_connection` / `slack_channel_route`: kind `slack_connection_broken` (no breach fields),
   // shown in this list with its own label and a link to Settings › Notifications.
-  type:
-    | 'message'
-    | 'conversation'
-    | 'ticket'
-    | 'ticket_first_response'
-    | 'ticket_resolution'
-    | 'slack_connection'
-    | 'slack_channel_route';
+  type: Notification['entityType'];
   organizationId: number;
   severity: 'warning' | 'critical';
   breachAmount: number;
