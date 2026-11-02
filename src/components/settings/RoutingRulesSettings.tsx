@@ -350,7 +350,7 @@ export const RoutingRulesSettings = () => {
         excludeTypes={['propose_rule']}
         title="Suggestions"
         description="Routing questions the engine could not settle on its own, and learned rules waiting for you to keep or drop them."
-        onDecided={() => void ruleManagement.loadRules()}
+        onDecided={() => void ruleManagement.reloadAfterOutsideChange()}
       />
       <div className="rounded-lg border border-border bg-card p-4">
         <h3 className="font-display text-sm font-semibold text-foreground">Default team</h3>

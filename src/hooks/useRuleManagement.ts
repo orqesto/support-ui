@@ -46,6 +46,10 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ruleToDelete, setRuleToDelete] = useState<T | null>(null);
   const [formData, setFormData] = useState<TFormData>(() => getInitialFormDataRef.current());
+  // Latest editor row for callbacks that resolve after an await (a stale closure would miss an
+  // editor opened while the request was in flight).
+  const editingRuleRef = useRef<T | null>(null);
+  editingRuleRef.current = editingRule;
 
   const loadRules = useCallback(async () => {
     try {
@@ -56,6 +60,29 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
       logger.error('Error fetching rules:', error);
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  /**
+   * Reload after something OUTSIDE this page changed rules (an accepted engine suggestion can add,
+   * promote, disable or rewrite one). Quiet: no loading flag. An open editor whose rule changed on
+   * the server — or is gone — is closed: its form holds the OLD values, and saving it would
+   * silently undo that change. An editor whose rule did not change keeps the person's typing.
+   */
+  const reloadAfterOutsideChange = useCallback(async () => {
+    try {
+      const data = await fetchRulesRef.current();
+      setRules(data);
+      const open = editingRuleRef.current;
+      if (!open) return;
+      const fresh = data.find((rule) => rule.id === open.id);
+      const toForm = getFormDataFromRuleRef.current;
+      if (!fresh || JSON.stringify(toForm(fresh)) !== JSON.stringify(toForm(open))) {
+        setEditingRule(null);
+        setFormData(getInitialFormDataRef.current());
+      }
+    } catch (error) {
+      logger.error('Error reloading rules:', error);
     }
   }, []);
 
@@ -146,5 +173,6 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     handleDeleteConfirm,
     handleDeleteCancel,
     loadRules,
+    reloadAfterOutsideChange,
   };
 };
