@@ -6,7 +6,7 @@ import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { WhyParked } from '@/components/messages/WhyParked';
 import { Select } from '@/components/ui/Select';
 import { Tooltip } from '@/components/ui/Tooltip';
-import { autoRoutedReasonLabel } from './aiFlagCopy';
+import { autoRoutedReasonLabel, autoRoutedTooltip } from './aiFlagCopy';
 import { labelPickerEmptyText, type LabelsStatus } from '@/components/shared/labelPickerText';
 import { Button } from '@/components/ui/Button';
 import { useDepartmentById, useDepartments } from '@/hooks/useDepartments';
@@ -245,11 +245,16 @@ export function HeaderMetaStrip({
         {message.assigneeId !== null &&
           message.assigneeId !== undefined &&
           autoRoutedReasonLabel(message.autoRoutedReason) && (
-            <Tooltip content={autoRoutedReasonLabel(message.autoRoutedReason)} size="sm">
+            <Tooltip
+              content={autoRoutedTooltip(message.autoRoutedReason, message.autoRoutedMatches)}
+              size="sm"
+            >
               <span
                 role="img"
                 tabIndex={0}
-                aria-label={autoRoutedReasonLabel(message.autoRoutedReason) ?? undefined}
+                aria-label={
+                  autoRoutedTooltip(message.autoRoutedReason, message.autoRoutedMatches) ?? undefined
+                }
                 data-testid="auto-routed-reason"
                 className="inline-flex flex-shrink-0 items-center text-muted-foreground"
               >

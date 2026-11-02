@@ -74,3 +74,16 @@ describe('auto-assign reason by the assignee', () => {
     expect(screen.queryByTestId('auto-routed-reason')).toBeNull();
   });
 });
+
+describe('the routing reason carries the skill evidence (BE 2026-11-02 skill routing)', () => {
+  it('a skill match names the matched skill and the words that matched', () => {
+    renderStrip({
+      autoRoutedReason: 'skill_match',
+      autoRoutedMatches: [{ key: 'payment_sys', value: 'usdt', source: 'keyword', evidence: 'Tether' }],
+    });
+    expect(screen.getByTestId('auto-routed-reason')).toHaveAttribute(
+      'aria-label',
+      'Assigned automatically: skills match — payment_sys = usdt (mentions “Tether”)'
+    );
+  });
+});

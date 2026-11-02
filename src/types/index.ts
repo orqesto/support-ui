@@ -152,6 +152,8 @@ export type Message = {
    * load_balance. Absent/null ⇒ nothing is shown.
    */
   autoRoutedReason?: string | null;
+  /** Skill evidence behind a skill_match (BE 2026-11-02); absent on an older backend. */
+  autoRoutedMatches?: Array<{ key: string; value: string; source: string; evidence: string | null }> | null;
   createdAt: string;
   updatedAt?: string;
   metadata?: Record<string, unknown> | null;

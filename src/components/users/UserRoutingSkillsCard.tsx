@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Tag, X } from 'lucide-react';
+import { SkillValueSuggestions } from './SkillValueSuggestions';
+import { useExistingSkillValues } from './useExistingSkillValues';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Toggle } from '@/components/ui/Toggle';
 import { organizationService } from '@/services/organization.service';
 import { userService } from '@/services/user.service';
+import type { RoutingKey } from '@/types/skillRouting';
 
 /**
  * Routing skill values for auto-assignment.
@@ -15,9 +18,7 @@ import { userService } from '@/services/user.service';
  * something you have to infer from where the service calls sit.
  */
 export const UserRoutingSkillsCard = ({ userId }: { userId: number }) => {
-  const [routingKeys, setRoutingKeys] = useState<
-    Array<{ id: number; key: string; description: string | null }>
-  >([]);
+  const [routingKeys, setRoutingKeys] = useState<RoutingKey[]>([]);
   const [skillValues, setSkillValues] = useState<Record<string, string[]>>({});
   const [skillInputs, setSkillInputs] = useState<Record<string, string>>({});
   const [canEditSkills, setCanEditSkills] = useState(false);
@@ -34,8 +35,10 @@ export const UserRoutingSkillsCard = ({ userId }: { userId: number }) => {
       .catch(() => setCanEditSkills(false));
   }, [userId]);
 
-  const handleAddValue = (key: string) => {
-    const raw = skillInputs[key]?.trim() ?? '';
+  const existingValues = useExistingSkillValues(routingKeys.map((rk) => rk.key));
+
+  const handleAddValue = (key: string, picked?: string) => {
+    const raw = picked ?? skillInputs[key]?.trim() ?? '';
     if (!raw) return;
     const newVals = raw
       .split(',')
@@ -43,7 +46,7 @@ export const UserRoutingSkillsCard = ({ userId }: { userId: number }) => {
       .filter(Boolean);
     const merged = [...new Set([...(skillValues[key] ?? []), ...newVals])];
     setSkillValues((prev) => ({ ...prev, [key]: merged }));
-    setSkillInputs((prev) => ({ ...prev, [key]: '' }));
+    if (picked === undefined) setSkillInputs((prev) => ({ ...prev, [key]: '' }));
     void userService.setSkillValues(userId, key, merged);
   };
 
@@ -111,6 +114,12 @@ export const UserRoutingSkillsCard = ({ userId }: { userId: number }) => {
                     <span className="text-xs italic text-muted-foreground">None set</span>
                   )}
                 </div>
+                <SkillValueSuggestions
+                  keyType={routingKeys.find((rk) => rk.key === key)?.type ?? 'topic'}
+                  existing={existingValues[key] ?? []}
+                  held={skillValues[key] ?? []}
+                  onPick={(value) => handleAddValue(key, value)}
+                />
                 <div className="flex gap-2">
                   <input
                     type="text"

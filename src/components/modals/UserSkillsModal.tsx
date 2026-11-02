@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Tag, ShieldCheck } from 'lucide-react';
+import { SkillValueSuggestions } from '@/components/users/SkillValueSuggestions';
+import { useExistingSkillValues } from '@/components/users/useExistingSkillValues';
 import { organizationService } from '@/services/organization.service';
 import { userService } from '@/services/user.service';
 import { Button } from '@/components/ui/Button';
@@ -15,7 +17,7 @@ import {
 import type { User } from '@/types';
 import { logger } from '@/lib/logger';
 
-type RoutingKey = { id: number; key: string; description: string | null };
+import type { RoutingKey } from '@/types/skillRouting';
 
 type UserSkillsModalProps = {
   isOpen: boolean;
@@ -73,8 +75,10 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
     }
   };
 
-  const handleAddValue = async (key: string) => {
-    const val = (inputs[key] ?? '').trim().toLowerCase();
+  const existingValues = useExistingSkillValues(routingKeys.map((rk) => rk.key));
+
+  const handleAddValue = async (key: string, picked?: string) => {
+    const val = (picked ?? inputs[key] ?? '').trim().toLowerCase();
     if (!val || !user) return;
     const existing = skills[key] ?? [];
     if (existing.includes(val)) return;
@@ -83,7 +87,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
     try {
       await userService.setSkillValues(user.id, key, updated);
       setSkills((prev) => ({ ...prev, [key]: updated }));
-      setInputs((prev) => ({ ...prev, [key]: '' }));
+      if (picked === undefined) setInputs((prev) => ({ ...prev, [key]: '' }));
     } catch (err) {
       logger.error('Failed to add skill value:', err);
     } finally {
@@ -123,7 +127,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
               No routing keys defined. Add keys in Workspace Settings.
             </p>
           ) : (
-            routingKeys.map(({ key, description }) => (
+            routingKeys.map(({ key, description, type }) => (
               <div key={key} className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
                   <span className="font-display text-xs font-semibold uppercase tracking-[0.09em]">
@@ -157,6 +161,13 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
                     <span className="text-xs text-muted-foreground">None</span>
                   )}
                 </div>
+                <SkillValueSuggestions
+                  keyType={type}
+                  existing={existingValues[key] ?? []}
+                  held={skills[key] ?? []}
+                  disabled={saving[key]}
+                  onPick={(value) => handleAddValue(key, value).catch((err) => { logger.error(err); })}
+                />
                 <div className="flex gap-2">
                   <input
                     type="text"
