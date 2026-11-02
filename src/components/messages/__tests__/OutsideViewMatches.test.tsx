@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { MessageThread } from '@/services/message.service';
@@ -501,6 +502,27 @@ describe('OutsideViewMatches', () => {
     rerender(section(state, vi.fn(), vi.fn(), 'r3'));
     expect(getThreads).toHaveBeenCalledTimes(1);
     expect(container.textContent).toBe('');
+  });
+
+  // Release review (2nd round): the answer was matched to requestKey (incl. refreshKey); any
+  // colleague's change while it was on its way dropped it, and a busy inbox never left "Checking…".
+  it('🔴 an answer that lands after the list rows moved is still shown', async () => {
+    let land: (value: unknown) => void = () => undefined;
+    getThreads.mockImplementationOnce(() => new Promise((resolve) => (land = resolve)));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    land(answer([thread(1, 'terminal', 'Landed late')]));
+    expect(await screen.findByText('Landed late')).toBeTruthy();
+    // The same question in flight was not asked a second time, nor aborted.
+    expect(getThreads).toHaveBeenCalledTimes(1);
+  });
+
+  it('🔴 under StrictMode the first ask still answers', async () => {
+    getThreads.mockResolvedValue(answer([thread(1, 'terminal', 'Strict row')]));
+    render(<StrictMode>{section(filters())}</StrictMode>);
+    expect(await screen.findByText('Strict row')).toBeTruthy();
   });
 });
 

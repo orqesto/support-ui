@@ -1429,7 +1429,8 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
                   const count =
                     colState === undefined || colState.unfinished
                       ? '—'
-                      : colState.loading
+                      : // A refresh keeps the number it had; only a column with none yet says "…".
+                        colState.loading && colState.total === 0
                         ? '…'
                         : formatTotal(colState.total, colState.totalCapped);
                   return (

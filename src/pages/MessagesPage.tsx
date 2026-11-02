@@ -1586,6 +1586,7 @@ export const MessagesPage = () => {
                       <TriageMenu
                         active={activeTriage}
                         counts={triageCounts}
+                        countsAtLeast={listScope?.capped === true}
                         arrivals={{ spam: spamArrivals }}
                         onSelect={selectTriage}
                       />
