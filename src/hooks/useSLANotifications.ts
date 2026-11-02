@@ -122,6 +122,7 @@ const NON_SLA_BELL_KINDS = new Set([
   'new_unassigned_message',
   'hold_recheck_due',
   'conversation_reopened',
+  'customer_message_on_assigned',
 ]);
 const isNonSlaBellKind = (kind: unknown): boolean =>
   typeof kind === 'string' && NON_SLA_BELL_KINDS.has(kind);

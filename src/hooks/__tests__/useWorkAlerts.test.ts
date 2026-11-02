@@ -107,8 +107,8 @@ beforeEach(() => {
   dept.key = '';
 });
 
-/** Each kind is asked for by name: one request per kind (assigned, unassigned, recheck). */
-const KIND_COUNT = 4;
+/** Each kind is asked for by name: one request per kind (assigned, unassigned, recheck, reopened, customer message). */
+const KIND_COUNT = 5;
 
 describe('work alert text (#957 §3.7, verbatim copy)', () => {
   it('assigned', () => {
@@ -138,6 +138,33 @@ describe('work alert text (#957 §3.7, verbatim copy)', () => {
     expect(workAlertTypeLabel('new_unassigned_message')).toBe('New unassigned');
     expect(workAlertTypeLabel('hold_recheck_due')).toBe('Recheck');
     expect(workAlertTypeLabel('conversation_reopened')).toBe('Reopened');
+    expect(workAlertTypeLabel('customer_message_on_assigned')).toBe('New customer message');
+  });
+  it('a customer message on your conversation reads as such and opens the conversation', () => {
+    // The BE payload (assignedReplyNotifications.ts): subject, actor "Customer", eventId, departmentName.
+    const message = {
+      id: 9,
+      kind: 'customer_message_on_assigned',
+      entityType: 'conversation',
+      entityId: 77,
+      assigneeId: 7,
+      details: {
+        subject: 'Still no refund',
+        actor: { userId: null, label: 'Customer' },
+        eventId: 4321,
+        departmentName: 'Support',
+      },
+    };
+    const alert = toWorkAlert(message as never);
+    expect(alert.kind).toBe('customer_message_on_assigned');
+    expect(workAlertText(alert)).toBe(
+      'New customer message on your conversation — Still no refund'
+    );
+    expect(workAlertHref(alert)).toBe('/threads/77');
+    // CONTROL: the same payload under the unassigned kind keeps its own sentence.
+    expect(
+      workAlertText(toWorkAlert({ ...message, kind: 'new_unassigned_message' } as never))
+    ).toBe('New unassigned thread in Support — Still no refund');
   });
   it('a reopen reads "Customer replied — reopened from <status> — <subject>"', () => {
     const reopened = {
@@ -176,6 +203,7 @@ describe('useWorkAlerts', () => {
     expect(get.mock.calls.map(([, config]) => config?.params?.kind).sort()).toEqual([
       'conversation_assigned',
       'conversation_reopened',
+      'customer_message_on_assigned',
       'hold_recheck_due',
       'new_unassigned_message',
     ]);
@@ -249,6 +277,7 @@ describe('useWorkAlerts', () => {
     expect(patch.mock.calls.map(([url, , config]) => [url, config?.params?.kind]).sort()).toEqual([
       ['/api/notifications/dismiss-all', 'conversation_assigned'],
       ['/api/notifications/dismiss-all', 'conversation_reopened'],
+      ['/api/notifications/dismiss-all', 'customer_message_on_assigned'],
       ['/api/notifications/dismiss-all', 'hold_recheck_due'],
       ['/api/notifications/dismiss-all', 'new_unassigned_message'],
     ]);
@@ -263,6 +292,7 @@ describe('useWorkAlerts', () => {
     expect(patch.mock.calls.map(([url, , config]) => [url, config?.params?.kind]).sort()).toEqual([
       ['/api/notifications/read-all', 'conversation_assigned'],
       ['/api/notifications/read-all', 'conversation_reopened'],
+      ['/api/notifications/read-all', 'customer_message_on_assigned'],
       ['/api/notifications/read-all', 'hold_recheck_due'],
       ['/api/notifications/read-all', 'new_unassigned_message'],
     ]);
@@ -403,9 +433,8 @@ describe('final review fixes (#957)', () => {
     );
     const { result } = renderHook(() => useWorkAlerts());
     await waitFor(() => expect(result.current.alerts).toHaveLength(1));
-    // 37 assigned + 4 unassigned + 4 rechecks.
-    // 37 + 4 for each of the other three kinds.
-    expect(result.current.total).toBe(49);
+    // 37 assigned + 4 for each of the other four kinds.
+    expect(result.current.total).toBe(53);
   });
 
   it('CONTROL: a total below the loaded rows (older backend) never undercounts', async () => {

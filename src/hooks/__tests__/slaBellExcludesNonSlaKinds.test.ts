@@ -148,7 +148,7 @@ describe('SLA bell kind filter', () => {
     expect(result.current.total).toBe(1);
   });
 
-  it.each(['conversation_assigned', 'new_unassigned_message'])(
+  it.each(['conversation_assigned', 'new_unassigned_message', 'customer_message_on_assigned'])(
     'does not surface %s (#957, own surface in useWorkAlerts) as an SLA breach',
     async (kind) => {
       respond([row(1, 'sla_message_breach'), row(8, kind)]);
