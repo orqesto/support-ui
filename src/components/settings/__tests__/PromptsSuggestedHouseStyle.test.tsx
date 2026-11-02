@@ -10,13 +10,14 @@ vi.mock('@/services/settings.service', () => ({
 vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));
 vi.mock('@/hooks/useDepartments', () => ({ useDepartments: () => ({ data: [] }) }));
 
+const gate = vi.hoisted(() => ({ wait: null as Promise<void> | null }));
 const pending = vi.hoisted(() => ({ list: [] as unknown[] }));
 vi.mock('@/services/learning.service', async (importOriginal) => {
   const actual = await importOriginal<typeof LearningServiceModule>();
   return {
     ...actual,
     learningService: {
-      acceptSuggestion: () => Promise.resolve(),
+      acceptSuggestion: () => gate.wait ?? Promise.resolve(),
       declineSuggestion: () => Promise.resolve(),
       listSuggestions: (domain?: string) =>
         Promise.resolve((pending.list as Array<{ domain: string }>).filter((item) => !domain || item.domain === domain)),
@@ -33,7 +34,7 @@ const suggestion = (id: number, domain: string, suggestionType: string, payload:
 
 import { PromptsSettings } from '../PromptsSettings';
 
-beforeEach(() => { pending.list = []; templates.list = []; });
+beforeEach(() => { pending.list = []; templates.list = []; gate.wait = null; });
 
 const replyStyle = (prompt: string, active: boolean) => ({
   id: 7, name: 'reply_style', description: 'House style', prompt, active, departmentId: null, type: 'system',
@@ -110,5 +111,19 @@ describe('AI Prompts › Suggested house style', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Decline' })).toBeNull());
     expect(screen.getByDisplayValue('Be formal, typed')).toBeTruthy();
+  });
+
+  it('a reply_style editor opened WHILE the accept is in flight is still closed (no stale closure)', async () => {
+    let release!: () => void;
+    gate.wait = new Promise<void>((resolve) => { release = resolve; });
+    templates.list = [replyStyle('Be formal.', false)];
+    pending.list = [suggestion(56, 'reply_style', 'reply_style.update', { currentStyle: '', proposedStyle: 'Be warm.', rationale: '', signals: {} })];
+    render(<PromptsSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept this suggestion' }));
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }));
+    expect(screen.getByDisplayValue('Be formal.')).toBeTruthy();
+    templates.list = [replyStyle('Be warm.', true)];
+    release();
+    await waitFor(() => expect(screen.queryByDisplayValue('Be formal.')).toBeNull());
   });
 });
