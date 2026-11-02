@@ -819,16 +819,19 @@ export const MessagesPage = () => {
           getApiErrorMessage(error) ??
             'This thread is no longer available to you — it was moved, merged or deleted.'
         );
-        const params = new URLSearchParams(searchParams);
-        params.delete('id');
-        setSearchParams(params);
+        // From the URL as it is NOW: a filter changed while the read was out stays changed.
+        setSearchParams((current) => {
+          const params = new URLSearchParams(current);
+          params.delete('id');
+          return params;
+        });
         selectedThreadIdRef.current = null;
         setSelectedMessage(null);
         return;
       }
       logger.error('Failed to re-read the open thread after a status change:', error);
     }
-  }, [selectedMessage?.id, searchParams, setSearchParams]);
+  }, [selectedMessage?.id, setSearchParams]);
 
   const handleRefreshMessage = useCallback(async () => {
     if (!selectedMessage) return;
@@ -1732,7 +1735,8 @@ export const MessagesPage = () => {
                         </p>
                         {hiddenKnown(listScope) > 0 && (
                           <p className="mt-2.5 text-[12.5px]">
-                            {hiddenKnown(listScope).toLocaleString()} are outside this view — use{' '}
+                            {hiddenKnown(listScope).toLocaleString()}{' '}
+                            {hiddenKnown(listScope) === 1 ? 'is' : 'are'} outside this view — use{' '}
                             <b>Not shown</b> above to jump to them.
                           </p>
                         )}

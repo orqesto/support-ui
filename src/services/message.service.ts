@@ -315,6 +315,11 @@ export type ThreadsResponse = PaginatedResponse<MessageThread[]> & {
   timedOut?: boolean;
   /** Normalised in `getThreads` — never the raw wire shape. */
   search: SearchReading | null;
+  /**
+   * The rows ARE the matches outside the view (`outsideView=1` answered). Absent on a backend
+   * without outsideView, which answers the view's own rows to the same request.
+   */
+  outsideView?: boolean;
 };
 
 type RawThreadsBody = Omit<ThreadsResponse, 'search'> & { search?: unknown };

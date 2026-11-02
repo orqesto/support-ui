@@ -7,7 +7,7 @@
  * answer.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { defaultFilters } from '@/stores/messagesStore';
 import {
@@ -138,3 +138,37 @@ describe('Board: a column that did not finish', () => {
     expect(onTotalChange).toHaveBeenLastCalledWith(0, true);
   });
 });
+
+// Release review, 2026-11-02: a column counted to the search cap read "10,000+" while the header
+// summed it into an exact-looking "10,0xx on this board".
+describe('Board: a column counted to the cap', () => {
+  const capped = (): ThreadsResponse =>
+    ({
+      success: true,
+      data: [],
+      pagination: { page: 1, limit: 20, total: 10000, totalPages: 500, totalCapped: true },
+      search: null,
+    }) as unknown as ThreadsResponse;
+
+  it('🔴 makes the board total "at least" (partial)', async () => {
+    getThreadBoard.mockImplementation((request) =>
+      Promise.resolve({
+        columns: Object.fromEntries(
+          request.columns.map((col) => [col.id, [col.id === 'open' ? capped() : empty()]])
+        ),
+        counts: Object.fromEntries(request.counts.map((count) => [count.id, null])) as never,
+      })
+    );
+    const onTotalChange = vi.fn();
+    render(board(0, onTotalChange));
+    await waitFor(() => expect(onTotalChange).toHaveBeenLastCalledWith(10000, true));
+  });
+
+  it('[control] exact columns give an exact total', async () => {
+    getThreadBoard.mockImplementation((request) => Promise.resolve(boardAnswer([])(request)));
+    const onTotalChange = vi.fn();
+    render(board(0, onTotalChange));
+    await waitFor(() => expect(onTotalChange).toHaveBeenLastCalledWith(0, false));
+  });
+});
+

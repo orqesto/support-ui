@@ -377,7 +377,10 @@ export const useMessagesUrlSync = ({
       params.set('assigneeId', filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId);
     }
     if (filters.labelId && filters.labelId !== 'all') params.set('labelId', filters.labelId);
-    if (filters.search) params.set('search', filters.search);
+    // 🔒 Deliberately NOT written, as `receivedAt` above: a typed search is routinely a customer's
+    // address or name, and the URL keeps it in the address bar, history, every shared link and the
+    // access log — the reason the list itself is a POST (threadsQuery.ts). Still READ on mount, so
+    // an old link keeps working (release review, 2026-11-02).
     if (filters.slaBreached) params.set('slaBreached', 'true');
     if (filters.slaAtRisk) params.set('slaAtRisk', 'true');
     if (filters.hasAttachments) params.set('hasAttachments', 'true');

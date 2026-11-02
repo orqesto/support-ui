@@ -71,6 +71,14 @@ const PAGE_SIZE = 20;
  */
 const UNFINISHED_HINT = 'Not loaded';
 
+/**
+ * A column whose number is not exact: not finished, or counted to the search cap ("10,000+").
+ * A sum over it is "at least" — the header read "10,0xx on this board" beside a "10,000+"
+ * column (release review, 2026-11-02).
+ */
+const notExact = (state: { unfinished?: boolean; totalCapped?: boolean } | undefined): boolean =>
+  state?.unfinished === true || state?.totalCapped === true;
+
 type ColumnState = {
   threads: MessageThread[];
   total: number;
@@ -1285,7 +1293,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
       0
     );
     // A column that did not finish adds no number: the sum is then "at least" (review of #798).
-    const visiblePartial = visibleColumns.some((col) => colStates[col.id]?.unfinished === true);
+    const visiblePartial = visibleColumns.some((col) => notExact(colStates[col.id]));
     useEffect(() => {
       onTotalChange?.(visibleTotal, visiblePartial);
     }, [visibleTotal, visiblePartial, onTotalChange]);
@@ -1302,8 +1310,8 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
       (sum, col) => sum + (colStates[col.id]?.unfinished ? 0 : (colStates[col.id]?.total ?? 0)),
       0
     );
-    const triagePartial = COLUMNS.filter(countsTowardTriageBadge).some(
-      (col) => colStates[col.id]?.unfinished === true
+    const triagePartial = COLUMNS.filter(countsTowardTriageBadge).some((col) =>
+      notExact(colStates[col.id])
     );
     // Board-tab count badge: active work across the non-reference lifecycle columns
     // (Open / In Progress / Pending). Excludes the hideable reference columns
@@ -1315,7 +1323,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
       (sum, col) => sum + (colStates[col.id]?.unfinished ? 0 : (colStates[col.id]?.total ?? 0)),
       0
     );
-    const boardPartial = boardCols.some((col) => colStates[col.id]?.unfinished === true);
+    const boardPartial = boardCols.some((col) => notExact(colStates[col.id]));
 
     return (
       <DndContext
@@ -1415,9 +1423,15 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
                 {COLUMNS.filter((col) => HIDEABLE_COLS.has(col.id)).map((col) => {
                   const shown = !hiddenCols.has(col.id);
                   const Icon = col.icon;
-                  const count = colStates[col.id]?.unfinished
-                    ? '—'
-                    : (colStates[col.id]?.total ?? 0);
+                  const colState = colStates[col.id];
+                  // Loading is not 0: after a search change the column reads `total: 0` until it
+                  // answers, and the chip said "Resolved 0" meanwhile (release review).
+                  const count =
+                    colState === undefined || colState.unfinished
+                      ? '—'
+                      : colState.loading
+                        ? '…'
+                        : formatTotal(colState.total, colState.totalCapped);
                   return (
                     <Button
                       key={col.id}

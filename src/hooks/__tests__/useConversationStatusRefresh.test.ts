@@ -110,3 +110,21 @@ describe('useConversationStatusRefresh — one event for many threads', () => {
   });
 });
 
+describe('useConversationStatusRefresh — a move to another team', () => {
+  it('🔴 conversation:routed for this thread re-reads it', () => {
+    const refresh = vi.fn();
+    renderHook(() => useConversationStatusRefresh(41, refresh));
+    handlers.get('conversation:routed')?.({ conversationId: 41, departmentId: 3, routedBy: 9 });
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('[control] a move of another thread re-reads nothing', () => {
+    const refresh = vi.fn();
+    renderHook(() => useConversationStatusRefresh(41, refresh));
+    handlers.get('conversation:routed')?.({ conversationId: 7, departmentId: 3, routedBy: 9 });
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+});
+

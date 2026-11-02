@@ -24,8 +24,9 @@ export const scopeJumpUrl = (next: Partial<FilterState>): string => {
   const params = new URLSearchParams();
   if (next.queue && next.queue !== 'all') params.set('queue', next.queue);
   if (next.lifecycle && next.lifecycle !== 'all') params.set('lifecycle', next.lifecycle);
-  // A jump from a searched list keeps the search (OutsideViewMatches).
-  if (next.search?.trim()) params.set('search', next.search.trim());
+  // 🔒 The search is NOT written: it is routinely a customer's address, and a URL keeps it in the
+  // address bar, history, every shared link and the access log (threadsQuery.ts). The page stays
+  // mounted across this navigation, so the search the store holds is kept as it is.
   const query = params.toString();
   return query ? `/threads?${query}` : '/threads';
 };

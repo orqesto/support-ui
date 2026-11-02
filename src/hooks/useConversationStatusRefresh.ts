@@ -13,6 +13,12 @@ export const CONV_STATUS_CHANGED_EVENT = 'conv:status_changed';
  * (a customer's workspace, 2026-11-02).
  */
 export const CONVERSATION_UPDATED_EVENT = 'conversation:updated';
+/**
+ * A move to another team (`conversation:routed`): the open thread re-reads, and an agent who
+ * cannot open the new team is told it is gone (MessagesPage) instead of keeping a stale record
+ * (release review, 2026-11-02).
+ */
+export const CONVERSATION_ROUTED_EVENT = 'conversation:routed';
 export const CONV_STATUS_REFRESH_MS = 500;
 
 /**
@@ -61,9 +67,11 @@ export const useConversationStatusRefresh = (
     };
     subscribeToEvent(CONV_STATUS_CHANGED_EVENT, onStatusChanged);
     subscribeToEvent(CONVERSATION_UPDATED_EVENT, onStatusChanged);
+    subscribeToEvent(CONVERSATION_ROUTED_EVENT, onStatusChanged);
     return () => {
       unsubscribeFromEvent(CONV_STATUS_CHANGED_EVENT, onStatusChanged);
       unsubscribeFromEvent(CONVERSATION_UPDATED_EVENT, onStatusChanged);
+      unsubscribeFromEvent(CONVERSATION_ROUTED_EVENT, onStatusChanged);
       if (timer !== null) clearTimeout(timer);
       releaseSocket();
     };
