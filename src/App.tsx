@@ -1,6 +1,8 @@
 import { Suspense, useEffect, useState } from 'react';
 import { lazyWithReload } from './lib/lazyWithReload';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { loginPathFor } from '@/lib/postLoginRedirect';
+import { ReturnAfterLogin } from '@/components/auth/ProtectedRoute';
 import { Toaster } from 'sonner';
 import { AllianceConsoleRoute } from './components/auth/AllianceConsoleRoute';
 import { GlobalAdminRedirect } from './components/auth/GlobalAdminRedirect';
@@ -165,8 +167,9 @@ const SignupRoute = () => {
 
 const PrivateRoute = ({ children }: { children: JSX.Element }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const location = useLocation();
   const user = useAuthStore((state) => state.user);
-  return isAuthenticated && user ? children : <Navigate to="/login" />;
+  return isAuthenticated && user ? children : <Navigate to={loginPathFor(location)} replace />;
 };
 
 /**
@@ -275,10 +278,7 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      <Route
-        path="/login"
-        element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />}
-      />
+      <Route path="/login" element={isAuthenticated ? <ReturnAfterLogin /> : <LoginPage />} />
       <Route
         path="/signup"
         element={isAuthenticated ? <Navigate to="/dashboard" /> : <SignupRoute />}

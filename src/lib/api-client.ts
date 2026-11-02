@@ -1,4 +1,5 @@
 import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
+import { loginPathFor } from '@/lib/postLoginRedirect';
 import { API_BASE_URL } from './config';
 import { isPlanLimitBody, withFailedFields } from '@/lib/errorMessages';
 import { rateLimitRetryAfterMs } from '@/lib/rateLimit';
@@ -373,7 +374,7 @@ export const handleResponseError = async (error: unknown): Promise<unknown> => {
     if (!isOnAuthPage) {
       useAuthStore.getState().logout();
       sessionStorage.clear();
-      window.location.href = '/login';
+      window.location.href = loginPathFor(window.location);
     }
   }
 

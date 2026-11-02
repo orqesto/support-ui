@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { takeSsoNextPath } from '@/lib/postLoginRedirect';
 import { useAuthStore } from '@/stores/authStore';
 import { userService } from '@/services/user.service';
 import { logger } from '@/lib/logger';
@@ -61,7 +62,7 @@ export const SsoCallbackPage = () => {
           useAuthStore.getState().setSelectedOrganization(user.organizationId);
         }
         setMessage('Signed in. Redirecting…');
-        navigate('/dashboard', { replace: true });
+        navigate(takeSsoNextPath(), { replace: true });
       })
       .catch((err: unknown) => {
         logger.error('SSO callback failed to hydrate session from cookie', err);

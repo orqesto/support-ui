@@ -1,4 +1,5 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
+import { afterLoginPath, loginPathFor } from '@/lib/postLoginRedirect';
 import { useAuthStore } from '@/stores/authStore';
 import { hasPermission, type Permission } from '@/types/roles';
 
@@ -29,10 +30,11 @@ export const ProtectedRoute = ({
 }: ProtectedRouteProps) => {
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const location = useLocation();
 
   // Not authenticated - redirect to login
   if (!isAuthenticated || !user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={loginPathFor(location)} replace />;
   }
 
   // Check global role if required (e.g. system admin pages)
@@ -44,7 +46,8 @@ export const ProtectedRoute = ({
   if (allianceAdmin) {
     const mayAdminister =
       user.role === 'admin' ||
-      (user.allianceMemberships?.some((membership) => membership.role === 'alliance_admin') ?? false);
+      (user.allianceMemberships?.some((membership) => membership.role === 'alliance_admin') ??
+        false);
     if (!mayAdminister) {
       return <Navigate to={fallbackPath} replace />;
     }
@@ -66,4 +69,10 @@ export const ProtectedRoute = ({
   }
 
   return <>{children}</>;
+};
+
+/** /login while already signed in: go where `?next=` asked (a ticket link), else the dashboard. */
+export const ReturnAfterLogin = () => {
+  const location = useLocation();
+  return <Navigate to={afterLoginPath(location.search)} replace />;
 };

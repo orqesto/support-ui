@@ -1,4 +1,5 @@
 import { io, type Socket } from 'socket.io-client';
+import { loginPathFor } from '@/lib/postLoginRedirect';
 import { API_BASE_URL } from './config';
 import { ensureFreshSession, isRateLimited, refreshRetryInMs } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
@@ -78,7 +79,7 @@ const endSessionAndRedirect = () => {
   authRecoveryUsed = false;
   localStorage.removeItem('auth-storage');
   writeTabWorkspace(null);
-  window.location.href = '/login';
+  window.location.href = loginPathFor(window.location);
 };
 
 // Attach the one broadcast listener for `event` to the current socket and remember it so it

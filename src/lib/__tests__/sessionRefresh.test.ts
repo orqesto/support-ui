@@ -142,7 +142,7 @@ describe('a 401 is a question, not a verdict', () => {
 
     expect(replay).not.toHaveBeenCalled();
     expect(logout).toHaveBeenCalledTimes(1);
-    expect(assignedHref).toBe('/login');
+    expect(assignedHref).toBe('/login?next=%2Fthreads');
   });
 
   it('learns the lifetime at SIGN-IN too, so the first cycle is exact and not a fallback', () => {
@@ -210,7 +210,7 @@ describe('a 401 is a question, not a verdict', () => {
     await expect(handleResponseError(replayed)).rejects.toThrow();
 
     expect(refresh).not.toHaveBeenCalled();
-    expect(assignedHref).toBe('/login');
+    expect(assignedHref).toBe('/login?next=%2Fthreads');
   });
 });
 
@@ -321,7 +321,7 @@ describe('a renewal refused for rate (429) is not the end of the session', () =>
     logout.mockClear();
     await handleResponseError(failure(401, '/api/messages/threads')).catch(() => undefined);
     expect(logout).toHaveBeenCalled();
-    expect(assignedHref).toBe('/login');
+    expect(assignedHref).toBe('/login?next=%2Fthreads');
   });
 
   it('waits at most a minute, even when the server names its whole window', async () => {

@@ -1,0 +1,102 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createRef } from 'react';
+import { act, render, waitFor } from '@testing-library/react';
+import type { Editor } from '@tiptap/core';
+
+const reports: { message: string }[] = [];
+vi.mock('@/services/clientError.service', () => ({
+  clientErrorService: {
+    report: (crash: { message: string }) => {
+      reports.push(crash);
+      return true;
+    },
+  },
+}));
+import RichTextEditor, { type RichTextEditorHandle } from '../RichTextEditor';
+
+afterEach(() => {
+  reports.length = 0;
+});
+
+/**
+ * A ticket page crashed into "Something went wrong" on a phone (2026-11): the reply box read its
+ * TipTap editor after TipTap had destroyed it. `destroy()` nulls the editor's schema and command
+ * manager, so `getHTML()` threw "null is not an object (evaluating 'e.cached')" and `.commands`
+ * threw "... 'this.commandManager.commands'". A destroyed editor must be skipped, not used.
+ */
+
+const renderEditor = async (content = '<p>Hello world</p>') => {
+  const ref = createRef<RichTextEditorHandle>();
+  const view = render(<RichTextEditor ref={ref} content={content} initiallyHidden={false} />);
+  const editorOf = () =>
+    view.container.querySelector<HTMLElement & { editor?: Editor }>('.ProseMirror')?.editor;
+  await waitFor(() => expect(editorOf()?.getText()).toBe('Hello world'));
+  return { ref, view, editor: editorOf()! };
+};
+
+describe('RichTextEditor — a destroyed editor does not crash the page', () => {
+  it('a new content prop after destroy does not throw', async () => {
+    const { ref, view, editor } = await renderEditor();
+    act(() => editor.destroy());
+    expect(() =>
+      view.rerender(<RichTextEditor ref={ref} content="<p>Changed</p>" initiallyHidden={false} />)
+    ).not.toThrow();
+  });
+
+  it('the imperative handle is a no-op after destroy', async () => {
+    const { ref, editor } = await renderEditor();
+    act(() => editor.destroy());
+    expect(() => {
+      ref.current!.setContent('<p>x</p>');
+      ref.current!.focus();
+      ref.current!.focus('end');
+      ref.current!.insertText('x');
+      ref.current!.getTranslationText();
+      ref.current!.applyTranslation('x');
+    }).not.toThrow();
+  });
+
+  // `isDestroyed` is ALSO true for an editor that is not on the page yet: a collapsed reply box
+  // renders no EditorContent. That editor is alive — text inserted into it must not be dropped.
+  it('a collapsed (not yet mounted) editor still takes setContent and insertText', async () => {
+    const ref = createRef<RichTextEditorHandle>();
+    const view = render(<RichTextEditor ref={ref} content="" initiallyHidden />);
+    await waitFor(() => expect(ref.current).not.toBeNull());
+    expect(view.container.querySelector('.ProseMirror')).toBeNull();
+    act(() => ref.current!.setContent('<p>Draft from AI</p>'));
+    const editorOf = () =>
+      view.container.querySelector<HTMLElement & { editor?: Editor }>('.ProseMirror')?.editor;
+    await waitFor(() => expect(editorOf()?.getText()).toBe('Draft from AI'));
+  });
+
+  it('CONTROL: a live editor still takes a new content prop and the handle', async () => {
+    const { ref, view, editor } = await renderEditor();
+    view.rerender(<RichTextEditor ref={ref} content="<p>Changed</p>" initiallyHidden={false} />);
+    await waitFor(() => expect(editor.getText()).toBe('Changed'));
+    act(() => ref.current!.setContent('<p>From handle</p>'));
+    expect(editor.getText()).toBe('From handle');
+  });
+});
+
+describe('RichTextEditor — the guard reports that it bit', () => {
+  it('a destroyed editor is reported once, however often it is skipped', async () => {
+    const { ref, view, editor } = await renderEditor();
+    act(() => editor.destroy());
+    view.rerender(<RichTextEditor ref={ref} content="<p>Changed</p>" initiallyHidden={false} />);
+    ref.current!.setContent('<p>x</p>');
+    ref.current!.focus();
+    expect(reports).toHaveLength(1);
+    expect(reports[0].message).toContain('skipped a destroyed editor');
+  });
+
+  it('CONTROL: a live editor and a collapsed (not yet mounted) one report nothing', async () => {
+    const { ref, view } = await renderEditor();
+    view.rerender(<RichTextEditor ref={ref} content="<p>Changed</p>" initiallyHidden={false} />);
+    ref.current!.setContent('<p>x</p>');
+    const collapsed = createRef<RichTextEditorHandle>();
+    render(<RichTextEditor ref={collapsed} content="" initiallyHidden />);
+    await waitFor(() => expect(collapsed.current).not.toBeNull());
+    act(() => collapsed.current!.setContent('<p>Draft</p>'));
+    expect(reports).toHaveLength(0);
+  });
+});

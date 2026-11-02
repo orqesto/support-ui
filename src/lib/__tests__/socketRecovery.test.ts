@@ -112,7 +112,7 @@ describe('the WebSocket handshake refused for an expired token', () => {
     socket.fire('connect_error', expiredHandshake());
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(assignedHref).toBe('/login');
+    expect(assignedHref).toBe('/login?next=%2Fthreads');
     expect(socket.connect).not.toHaveBeenCalled();
   });
 

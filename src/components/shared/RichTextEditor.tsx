@@ -21,6 +21,7 @@ import { shieldPlaceholders } from '@/lib/replyPlaceholders';
 import { cn } from '@/lib/utils';
 import { TranslateButton } from './TranslateButton';
 import { extractImageFiles } from './extractImageFiles';
+import { noteSkippedEditor, trackEditorDestroy } from './destroyedEditorReport';
 
 export type RichTextEditorProps = {
   content?: string;
@@ -165,10 +166,25 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       },
     });
 
+    // ⛔ TipTap's destroy() nulls the editor's schema and command manager, and useEditor can hand
+    // back an editor it has already destroyed. Reading one (getHTML, .commands, can()) threw
+    // straight into the ErrorBoundary — a ticket page showed "Something went wrong" (2026-11).
+    // Every read below that runs after mount goes through this and skips a destroyed editor.
+    const liveEditor = () => {
+      if (!editor) return null;
+      if (editor.isDestroyed) {
+        noteSkippedEditor(editor);
+        return null;
+      }
+      return editor;
+    };
+    useEffect(() => (editor ? trackEditorDestroy(editor) : undefined), [editor]);
+
     // ⛔ useEditor reads `editable` once. Without this a lock is only a CSS dimming: the keyboard
     // still types into it, and Cmd+Enter still submits.
     useEffect(() => {
-      editor?.setEditable(editable && !locked);
+      liveEditor()?.setEditable(editable && !locked);
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- liveEditor only reads `editor`
     }, [editor, editable, locked]);
 
     // An empty transaction redraws the placeholder decoration with the new text.
@@ -178,19 +194,22 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
 
     // Update editor content when content prop changes
     useEffect(() => {
-      if (editor && content !== editor.getHTML()) {
-        editor.commands.setContent(content);
+      const live = liveEditor();
+      if (live && content !== live.getHTML()) {
+        live.commands.setContent(content);
       }
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- liveEditor only reads `editor`
     }, [editor, content]);
 
     // Template placeholders and links go out as markers, so the model cannot reword a placeholder,
     // and a link is rebuilt around its translated words.
     const translationText = () => {
-      if (!editor) return '';
+      const live = liveEditor();
+      if (!live) return '';
       linkTargets.current = [];
       sourceLists.current = { blocks: 0, items: [] };
       const shielded = shieldPlaceholders(
-        editorHtmlToText(editor.getHTML(), {
+        editorHtmlToText(live.getHTML(), {
           linkTargets: linkTargets.current,
           lists: sourceLists.current,
         })
@@ -199,7 +218,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       return shielded.text;
     };
     const applyTranslation = (translated: string) => {
-      editor
+      liveEditor()
         ?.chain()
         .focus()
         .setContent(
@@ -216,16 +235,16 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
     useImperativeHandle(ref, () => ({
       focus: (position?: 'end') => {
         setIsExpanded(true);
-        if (position) editor?.commands.focus(position);
-        else editor?.commands.focus();
+        if (position) liveEditor()?.commands.focus(position);
+        else liveEditor()?.commands.focus();
       },
       insertText: (text: string) => {
         setIsExpanded(true);
-        editor?.chain().focus().insertContent(text).run();
+        liveEditor()?.chain().focus().insertContent(text).run();
       },
       setContent: (html: string) => {
         setIsExpanded(true);
-        editor?.commands.setContent(html);
+        liveEditor()?.commands.setContent(html);
       },
       getTranslationText: translationText,
       applyTranslation: (translated: string) => {
@@ -273,7 +292,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
           )}
           onClick={() => {
             setIsExpanded(true);
-            setTimeout(() => editor.commands.focus(), 0);
+            setTimeout(() => liveEditor()?.commands.focus(), 0);
           }}
         >
           {/* One left-aligned line: a wrapped, centred hint took two lines of the reply box. */}
@@ -400,7 +419,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
               variant="ghost"
               size="sm"
               onClick={() => editor.chain().focus().undo().run()}
-              disabled={!editor.can().undo()}
+              disabled={!liveEditor()?.can().undo()}
               className="h-8 w-8 p-0"
               title="Undo"
               aria-label="Undo"
@@ -413,7 +432,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
               variant="ghost"
               size="sm"
               onClick={() => editor.chain().focus().redo().run()}
-              disabled={!editor.can().redo()}
+              disabled={!liveEditor()?.can().redo()}
               className="h-8 w-8 p-0"
               title="Redo"
               aria-label="Redo"
