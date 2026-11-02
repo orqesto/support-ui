@@ -23,7 +23,7 @@ vi.mock('@/stores/authStore', () => ({ useAuthStore: () => null }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'COR' }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'all' }));
 
-import { OutsideViewMatches } from '../list/OutsideViewMatches';
+import { FAILED_RETRY_MS, OutsideViewMatches } from '../list/OutsideViewMatches';
 
 const thread = (id: number, foundIn?: string, subject = `Order ${id}`): MessageThread =>
   ({
@@ -344,15 +344,27 @@ describe('OutsideViewMatches', () => {
     expect(getThreads).toHaveBeenCalledTimes(2);
   });
 
-  it('a failed answer is asked again on the next list read', async () => {
-    getThreads
-      .mockRejectedValueOnce(new Error('503'))
-      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Second try')]));
-    const state = filters();
-    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1', true));
-    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
-    rerender(section(state, vi.fn(), vi.fn(), 'r1', false));
-    rerender(section(state, vi.fn(), vi.fn(), 'r1', true));
-    expect(await screen.findByText('Second try')).toBeTruthy();
+  // Review of #803: a persistently failing answer was asked again on every list re-read. Once
+  // failed, the same question waits FAILED_RETRY_MS.
+  it('a failed answer is asked again only after the retry window, not on every list re-read', async () => {
+    let now = 5_000_000;
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
+    try {
+      getThreads
+        .mockRejectedValueOnce(new Error('503'))
+        .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Second try')]));
+      const state = filters();
+      const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1', true));
+      await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+      rerender(section(state, vi.fn(), vi.fn(), 'r1', false));
+      rerender(section(state, vi.fn(), vi.fn(), 'r1', true));
+      expect(getThreads).toHaveBeenCalledTimes(1);
+      now += FAILED_RETRY_MS + 1;
+      rerender(section(state, vi.fn(), vi.fn(), 'r1', false));
+      rerender(section(state, vi.fn(), vi.fn(), 'r1', true));
+      expect(await screen.findByText('Second try')).toBeTruthy();
+    } finally {
+      clock.mockRestore();
+    }
   });
 });
