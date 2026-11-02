@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Toggle } from '@/components/ui/Toggle';
 import { useDepartments } from '@/hooks/useDepartments';
+import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { toast } from '@/lib/toast';
 import {
@@ -152,6 +153,8 @@ const ChannelCard = ({
   const routeBroken = brokenFrom(route);
   useEffect(() => setBrokenReason(routeBroken), [routeBroken]);
   const { data: departments } = useDepartments();
+  // Teams off: no team switches (as everywhere else team UI is hidden while teams are off).
+  const teamsEnabled = useTeamsEnabled();
   const isTeam = channel === 'team';
   const hasChannel = draft.slackChannelId !== '';
 
@@ -332,7 +335,7 @@ const ChannelCard = ({
           </div>
         )}
 
-        {isTeam && departments && departments.length > 0 && (
+        {isTeam && teamsEnabled && departments && departments.length > 0 && (
           <div>
             <h4 className="mb-1 text-sm font-semibold">Teams posted here</h4>
             <p className="mb-2 text-xs text-muted-foreground">

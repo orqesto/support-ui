@@ -32,12 +32,15 @@ const toastMock = vi.hoisted(() => ({
 }));
 vi.mock('@/lib/toast', () => ({ toast: toastMock }));
 
+/** `teamsEnabled` as the backend sends it (undefined = older backend: derived from the count). */
+const teamsState = vi.hoisted(() => ({ teamsEnabled: undefined as boolean | undefined }));
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({
     data: [
       { id: 1, name: 'Sales', isActive: true },
       { id: 2, name: 'Billing', isActive: true },
     ],
+    teamsEnabled: teamsState.teamsEnabled,
     isLoading: false,
   }),
 }));
@@ -87,6 +90,7 @@ const deferred = <T,>() => {
 };
 
 beforeEach(() => {
+  teamsState.teamsEnabled = undefined;
   Object.values(toastMock).forEach((fn) => fn.mockReset());
   mockUser = { id: 7, role: 'user', organizationRole: 'org_admin' };
   vi.spyOn(slackNotificationsService, 'listChannels').mockResolvedValue({
@@ -365,6 +369,27 @@ describe('SlackNotificationsSettings — connect, load and return (fix round 1)'
     fireEvent.click(submit);
     await waitFor(() => expect(connectWithToken).toHaveBeenCalledWith('xoxb-test-1'));
     expect(await screen.findByText('Example Co')).toBeInTheDocument();
+  });
+
+  it('teams turned off: no "Teams posted here" switches on the team card', async () => {
+    teamsState.teamsEnabled = false;
+    vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(
+      connected([route({ channel: 'team' })])
+    );
+    renderPage();
+    await screen.findByText('Team channel');
+    expect(screen.queryByText('Teams posted here')).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Sales' })).not.toBeInTheDocument();
+  });
+
+  it('CONTROL: teams turned on: the team card lists each team', async () => {
+    teamsState.teamsEnabled = true;
+    vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(
+      connected([route({ channel: 'team' })])
+    );
+    renderPage();
+    expect(await screen.findByText('Teams posted here')).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: 'Sales' })).toBeInTheDocument();
   });
 
   describe('a token for ANOTHER Slack workspace', () => {
