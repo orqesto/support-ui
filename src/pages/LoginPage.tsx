@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { afterLoginPath, rememberNextForSso } from '@/lib/postLoginRedirect';
 import { Button } from '@/components/ui/Button';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
@@ -100,6 +101,7 @@ export const LoginPage = () => {
     }
     const orgSlug = query.get('org');
     if (orgSlug) {
+      rememberNextForSso(location.search);
       window.location.assign(startSsoUrl(orgSlug));
     }
     // location.search only; runs on mount + when the query string changes.
@@ -163,7 +165,7 @@ export const LoginPage = () => {
         setSelectedOrganization(data.user.organizationId);
         logger.info(`✅ [LOGIN] Logged into organization (ID: ${data.user.organizationId})`);
       }
-      navigate('/dashboard');
+      navigate(afterLoginPath(location.search));
     }
   };
 
@@ -214,11 +216,13 @@ export const LoginPage = () => {
     try {
       const resolved = await resolveOrgByEmail(email);
       if ('orgSlug' in resolved) {
+        rememberNextForSso(location.search);
         window.location.assign(startSsoUrl(resolved.orgSlug));
         return; // leaving the SPA; keep the spinner up
       }
       if ('allianceSlug' in resolved) {
         // Domain resolved to an ALLIANCE (multi-org SSO) — route to the alliance /start.
+        rememberNextForSso(location.search);
         window.location.assign(startAllianceSsoUrl(resolved.allianceSlug));
         return; // leaving the SPA; keep the spinner up
       }
@@ -323,6 +327,7 @@ export const LoginPage = () => {
     setIsLoading(true);
     // The slug only feeds the fixed start URL (T-05-04); the BE 404s an unknown
     // or non-SSO slug, redirecting back to /login?ssoError=.
+    rememberNextForSso(location.search);
     window.location.assign(startSsoUrl(slug));
   };
 
@@ -335,7 +340,7 @@ export const LoginPage = () => {
       login(null, data.user as Parameters<typeof login>[1]);
       const orgId = (data.user as { organizationId?: number }).organizationId;
       if (orgId) setSelectedOrganization(orgId);
-      navigate('/dashboard');
+      navigate(afterLoginPath(location.search));
     } catch {
       setError('Invalid code. Please try again.');
       setTotpCode('');
@@ -353,7 +358,7 @@ export const LoginPage = () => {
       login(null, data.user as Parameters<typeof login>[1]);
       const orgId = (data.user as { organizationId?: number }).organizationId;
       if (orgId) setSelectedOrganization(orgId);
-      navigate('/dashboard');
+      navigate(afterLoginPath(location.search));
     } catch {
       setError('Invalid code. Please try again.');
       setSetup2faCode('');
