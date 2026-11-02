@@ -11,9 +11,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ADM' }));
 vi.mock('@/services/message.service', () => ({ messageService: { getById: vi.fn() } }));
 
-import { useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
+import { rememberSearch, useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
 import { scopeJumpUrl } from '@/hooks/scopeJumpUrl';
 import { defaultFilters, useMessagesStore } from '@/stores/messagesStore';
+import { useAuthStore } from '@/stores/authStore';
 
 let search = '';
 const Probe = () => {
@@ -70,3 +71,46 @@ describe('the search never goes into the URL', () => {
     expect(url).toBe('/threads?queue=spam');
   });
 });
+
+/**
+ * The list remounts on a phone's open→Back, the full-page view, leaving and coming back: the
+ * search came back from the URL before; now from the TAB's memory, on Back/Forward/reload only.
+ */
+describe('the search survives the list remounting, without the URL', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ selectedOrganizationId: 7 } as never);
+    sessionStorage.clear();
+  });
+
+  it('🔴 Back onto the list (POP) shows the search it had', async () => {
+    rememberSearch(7, 'jane@shop.example');
+    mount('/threads?lifecycle=all'); // MemoryRouter's first entry is a POP, as Back is
+    await waitFor(() =>
+      expect(useMessagesStore.getState().filters.search).toBe('jane@shop.example')
+    );
+    expect(new URLSearchParams(search).has('search')).toBe(false);
+  });
+
+  it('[control] another workspace\'s search is not restored', async () => {
+    rememberSearch(8, 'other@shop.example');
+    mount('/threads?lifecycle=all');
+    await waitFor(() => expect(new URLSearchParams(search).get('lifecycle')).toBe('all'));
+    expect(useMessagesStore.getState().filters.search ?? '').toBe('');
+  });
+
+  it('typing a search remembers it for this tab; clearing it forgets it', async () => {
+    mount('/threads?lifecycle=all');
+    await waitFor(() => expect(new URLSearchParams(search).get('lifecycle')).toBe('all'));
+    act(() => {
+      useMessagesStore
+        .getState()
+        .setFilters({ ...useMessagesStore.getState().filters, search: 'jane@shop.example' });
+    });
+    await waitFor(() => expect(sessionStorage.getItem('threads.search.7')).toBe('jane@shop.example'));
+    act(() => {
+      useMessagesStore.getState().setFilters({ ...useMessagesStore.getState().filters, search: '' });
+    });
+    await waitFor(() => expect(sessionStorage.getItem('threads.search.7')).toBeNull());
+  });
+});
+

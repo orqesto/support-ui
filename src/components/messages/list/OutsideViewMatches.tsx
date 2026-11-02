@@ -154,7 +154,19 @@ export const OutsideViewMatches = ({
   const [retryTick, setRetryTick] = useState(0);
   const lastAsked = useRef<{ key: string; at: number } | null>(null);
   const inFlight = useRef<AbortController | null>(null);
-  useEffect(() => () => inFlight.current?.abort(), []);
+  // The question the ask in flight is FOR: a refresh of the same question lets it finish.
+  const inFlightQuery = useRef('');
+  useEffect(
+    () => () => {
+      inFlight.current?.abort();
+      inFlight.current = null;
+      // StrictMode re-runs the effects after this: the question must be asked again then, or the
+      // aborted first ask left "Checking…" for good (release review, 2026-11-02).
+      askedKey.current = '';
+      lastAsked.current = null;
+    },
+    []
+  );
 
   useEffect(() => {
     if (shownQuery.current !== queryKey) {
@@ -191,22 +203,31 @@ export const OutsideViewMatches = ({
     if (lastAsked.current?.key === queryKey && now - lastAsked.current.at < REFRESH_MIN_MS) {
       return later(REFRESH_MIN_MS - (now - lastAsked.current.at));
     }
+    // The same question is already on its way: its answer is still the right one — let it land.
+    if (inFlight.current !== null && inFlightQuery.current === queryKey) return undefined;
     askedKey.current = requestKey;
     lastAsked.current = { key: queryKey, at: now };
     setMoreFailed(false);
     if (rows.length === 0) setStatus('loading');
-    // The answer it replaces is no longer wanted: stop it on the server too.
+    // A different question's answer is no longer wanted: stop it on the server too.
     inFlight.current?.abort();
     const controller = new AbortController();
     inFlight.current = controller;
-    const askedFor = requestKey;
+    inFlightQuery.current = queryKey;
     const failedFor = queryKey;
+    // An answer is for the QUESTION (search, filters, team, workspace), not for the moment the
+    // list rows stood at: matching on requestKey dropped every answer that arrived after any
+    // colleague's change, and on a busy inbox the section never left "Checking…" (release review).
+    const stillAsked = () => !controller.signal.aborted && shownQuery.current === failedFor;
+    const settle = () => {
+      if (inFlight.current === controller) inFlight.current = null;
+    };
     const failed = () => {
-      // Only the CURRENT ask records a failure: a superseded one must not start the back-off.
-      if (currentKey.current !== askedFor) return;
+      // Only an answer to the question on screen records a failure.
+      if (shownQuery.current !== failedFor) return;
       setRows([]);
       setStatus('failed');
-      if (askedKey.current === askedFor) askedKey.current = '';
+      askedKey.current = '';
       failedAt.current = { key: failedFor, at: Date.now() };
       // Run the effect again so it sets the timer that asks at the end of the window.
       setRetryTick((tick) => tick + 1);
@@ -217,7 +238,8 @@ export const OutsideViewMatches = ({
         signal: controller.signal,
       })
       .then((answer) => {
-        if (controller.signal.aborted || currentKey.current !== askedFor) return;
+        settle();
+        if (!stillAsked()) return;
         if (answer.success && answer.outsideView !== true) {
           // A backend without outsideView: nothing to say, and not asked again for the window.
           setRows([]);
@@ -242,6 +264,7 @@ export const OutsideViewMatches = ({
         );
       })
       .catch(() => {
+        settle();
         if (controller.signal.aborted) return;
         failed();
       });

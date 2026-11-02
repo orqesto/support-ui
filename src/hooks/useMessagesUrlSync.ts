@@ -4,7 +4,8 @@ import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { logger } from '@/lib/logger';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import type { MutableRefObject } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { NavigationType, useNavigationType, useSearchParams } from 'react-router-dom';
+import { useAuthStore } from '@/stores/authStore';
 import { messageService } from '@/services/message.service';
 import {
   useMessagesStore,
@@ -147,6 +148,35 @@ export const displayIdIfRedirected = (
   return names.includes(wanted) || sameByPublicId ? null : getConvUrlId(shown, orgCode);
 };
 
+/**
+ * The search the list showed, per browser TAB and workspace. Not in the URL (it is routinely a
+ * customer's address — see the filters→URL effect), so a remount of the list lost it: on a phone,
+ * open a result and press Back and the search was gone (release review, 2026-11-02). Tab storage
+ * keeps it out of history, links and logs; restored only on Back/Forward/reload (POP), never on a
+ * fresh visit from the sidebar.
+ */
+const searchMemoryKey = (organizationId: number | null | undefined): string | null =>
+  organizationId ? `threads.search.${organizationId}` : null;
+export const rememberSearch = (organizationId: number | null | undefined, search: string): void => {
+  const key = searchMemoryKey(organizationId);
+  if (!key) return;
+  try {
+    if (search.trim()) sessionStorage.setItem(key, search);
+    else sessionStorage.removeItem(key);
+  } catch {
+    // Storage blocked (private mode): the search is simply not restored.
+  }
+};
+const recalledSearch = (organizationId: number | null | undefined): string | null => {
+  const key = searchMemoryKey(organizationId);
+  if (!key) return null;
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
 export const useMessagesUrlSync = ({
   urlSyncedRef,
   fetchedMessageIdRef,
@@ -155,6 +185,8 @@ export const useMessagesUrlSync = ({
   onFetchError,
 }: UseMessagesUrlSyncProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigationType = useNavigationType();
+  const organizationId = useAuthStore((state) => state.selectedOrganizationId);
   const urlIsBare = searchParams.toString() === '';
   const orgCode = useCurrentOrgCode();
   // Read when the fetch ANSWERS, not when it started: on a cold load the fetch starts before the
@@ -285,6 +317,12 @@ export const useMessagesUrlSync = ({
       if (Object.keys(urlFilters).length === 0 && (!mode || mode === 'threads')) {
         urlFilters.lifecycle = 'needs_us';
       }
+      // Back/Forward/reload onto the list: the search it showed (tab memory, never the URL). After
+      // the default lens above, so a remembered search does not turn "no filter named" into All.
+      if (!urlFilters.search && navigationType === NavigationType.Pop) {
+        const recalled = recalledSearch(organizationId);
+        if (recalled) urlFilters.search = recalled;
+      }
       setFilters({ ...defaultFilters, ...urlFilters });
 
       urlSyncedRef.current = true;
@@ -377,6 +415,7 @@ export const useMessagesUrlSync = ({
       params.set('assigneeId', filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId);
     }
     if (filters.labelId && filters.labelId !== 'all') params.set('labelId', filters.labelId);
+    rememberSearch(organizationId, filters.search ?? '');
     // 🔒 Deliberately NOT written, as `receivedAt` above: a typed search is routinely a customer's
     // address or name, and the URL keeps it in the address bar, history, every shared link and the
     // access log — the reason the list itself is a POST (threadsQuery.ts). Still READ on mount, so
@@ -390,7 +429,7 @@ export const useMessagesUrlSync = ({
     // `urlIsBare`: a bare /threads (the sidebar link) while already here does not remount the page
     // or change the filters, so the URL lost e.g. lifecycle=all and a reload opened Needs us
     // (review of #724). Re-written once; then the URL is not bare and this settles.
-  }, [filters, setSearchParams, urlIsBare]);
+  }, [filters, setSearchParams, urlIsBare, organizationId]);
 
   // Auto-open message from ?id= param. The param can be a numeric conv id
   // (legacy / unstamped) OR a publicId like 'SUP-42' (current). Pass the raw

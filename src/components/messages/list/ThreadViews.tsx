@@ -74,7 +74,13 @@ export const TriageMenu = ({
   counts,
   arrivals,
   onSelect,
+  countsAtLeast = false,
 }: {
+  /**
+   * The counts are "at least" (a searched scope counted to its cap): a lane the sample held none
+   * of is absent, and the total is the sum of the lanes known, as "N+" — not blank (release review).
+   */
+  countsAtLeast?: boolean;
   /** The triage lane on screen, or null when the list is the work queue. */
   active: TriageId | null;
   counts: Partial<Record<TriageId, Count | undefined>>;
@@ -82,7 +88,9 @@ export const TriageMenu = ({
   /** A lane, or 'all' to go back to the work queue. */
   onSelect: (id: TriageId | 'all') => void;
 }) => {
-  const total = sumCounts(TRIAGE_IDS.map((id) => counts[id]));
+  const total = countsAtLeast
+    ? sumCounts(TRIAGE_IDS.map((id) => counts[id] ?? { atLeast: 0 }))
+    : sumCounts(TRIAGE_IDS.map((id) => counts[id]));
   const fresh = TRIAGE_IDS.reduce((sum, id) => sum + (arrivals[id] ?? 0), 0);
   return (
     <Menu
