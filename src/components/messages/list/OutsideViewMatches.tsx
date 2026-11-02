@@ -40,8 +40,6 @@ const placeTitle = (place: string): string => PLACE_TITLE[place as Place] ?? 'El
  * `columnId` and landed on a list without the rows it promised (review of #798).
  */
 const LENS_RESET: Partial<FilterState> = {
-  // A negated lens ("not awaiting") would turn the jump into "everything EXCEPT …".
-  negate: '',
   lifecycle: 'all',
   queue: 'all',
   columnId: 'all',
@@ -50,6 +48,17 @@ const LENS_RESET: Partial<FilterState> = {
 };
 
 const PAGE = 25;
+
+/**
+ * The negations a jump keeps: a negated lifecycle or queue ("not awaiting") would turn the jump
+ * into "everything EXCEPT …", but any other ("not AI state X") is the agent's own filter — clearing
+ * it turned "everything except X" into "only X" (review of #798).
+ */
+const negateKeptByJump = (negate: string | undefined): string =>
+  (negate ?? '')
+    .split(',')
+    .filter((key) => key !== '' && key !== 'lifecycle' && key !== 'queue')
+    .join(',');
 
 /** The rows of an `outsideView` answer, or null when it must not be shown. */
 const outsideRows = (answer: ThreadsResponse): MessageThread[] | null => {
@@ -78,6 +87,7 @@ export const OutsideViewMatches = ({
   onOpen,
   highlightTerms,
   refreshKey,
+  enabled = true,
 }: {
   filters: FilterState;
   onJump: (filters: Partial<FilterState>, needsListView?: boolean) => void;
@@ -85,6 +95,11 @@ export const OutsideViewMatches = ({
   highlightTerms?: string[];
   /** Moves when the list's rows change (status, assignee…): a match may have moved in or out. */
   refreshKey?: string;
+  /**
+   * False while the list itself is loading: asked once it landed, not once before and again when
+   * its rows move `refreshKey` — two heavy reads per typed search (review of #798).
+   */
+  enabled?: boolean;
 }) => {
   const search = filters.search?.trim() ?? '';
   const deptKey = useDepartmentContextKey();
@@ -96,7 +111,7 @@ export const OutsideViewMatches = ({
   // What the answer is FOR (a new one clears the section) vs when to re-ask it (a refresh keeps
   // the rows on screen until the new answer — no blink each time a row moves).
   const queryKey = request ? JSON.stringify([request, deptKey, String(organizationId)]) : '';
-  const requestKey = request ? JSON.stringify([queryKey, refreshKey ?? '']) : '';
+  const requestKey = request && enabled ? JSON.stringify([queryKey, refreshKey ?? '']) : '';
   const shownQuery = useRef('');
   const [rows, setRows] = useState<MessageThread[]>([]);
   const [total, setTotal] = useState(0);
@@ -115,9 +130,10 @@ export const OutsideViewMatches = ({
       setTotal(0);
       setTotalCapped(false);
       setPage(1);
+      setLoadingMore(false);
     }
     setMoreFailed(false);
-    if (!request) return undefined;
+    if (!request || !enabled) return undefined;
     const askedFor = requestKey;
     void messageService
       .getThreads(request, 1, PAGE, undefined, 'time', { allowTimedOut: true })
@@ -136,7 +152,10 @@ export const OutsideViewMatches = ({
           answer.pagination?.totalCapped === true || answer.pagination?.countTimedOut === true
         );
       })
-      .catch(() => undefined);
+      .catch(() => {
+        // A refresh that failed keeps nothing it cannot vouch for — as one that timed out.
+        if (currentKey.current === askedFor) setRows([]);
+      });
     return undefined;
     // requestKey stands for `request` and everything else that changes the answer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -166,7 +185,8 @@ export const OutsideViewMatches = ({
     } catch {
       if (currentKey.current === askedFor) setMoreFailed(true);
     } finally {
-      if (currentKey.current === askedFor) setLoadingMore(false);
+      // Always: a refresh during "Show more" left the button on "Loading…" for good.
+      setLoadingMore(false);
     }
   };
 
@@ -216,7 +236,15 @@ export const OutsideViewMatches = ({
                     className="ml-auto h-7"
                     aria-label={`Show in ${title}`}
                     onClick={() =>
-                      onJump({ ...LENS_RESET, ...jump.filters, search }, jump.needsListView)
+                      onJump(
+                        {
+                          ...LENS_RESET,
+                          negate: negateKeptByJump(filters.negate),
+                          ...jump.filters,
+                          search,
+                        },
+                        jump.needsListView
+                      )
                     }
                   >
                     Show in that view
