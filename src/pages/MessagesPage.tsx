@@ -82,6 +82,7 @@ import { SurfaceCount } from '@/components/messages/filters/SurfaceCount';
 import { useListPresentation } from '@/components/messages/useListPresentation';
 import { useSafeMediaQuery } from '@/components/messages/useIsPhone';
 import { MessageListItem } from '@/components/messages/MessageListItem';
+import { OutsideViewMatches } from '@/components/messages/list/OutsideViewMatches';
 import { DeleteMessageDialog } from '@/components/messages/DeleteMessageDialog';
 import { neighbourThread } from '@/components/messages/detailShortcuts';
 import { threadIdForMessage } from '@/components/messages/threadForMessage';
@@ -242,6 +243,12 @@ export const MessagesPage = () => {
   const [bulkRunning, setBulkRunning] = useState(false);
   /** What the board says it is holding — see the `pagination` prop on MessageFilterBar. */
   const [boardTotal, setBoardTotal] = useState(0);
+  // A board column did not finish: the board's total is a lower bound (review of #798).
+  const [boardPartial, setBoardPartial] = useState(false);
+  const handleBoardTotal = useCallback((total: number, partial: boolean) => {
+    setBoardTotal(total);
+    setBoardPartial(partial);
+  }, []);
   // View counts (Needs us / Unassigned / …) re-read on this tick. Declared here because an agent's
   // own action bumps it together with the board, below.
   const [countsTick, bumpCounts] = useReducer((tick: number) => tick + 1, 0);
@@ -613,12 +620,6 @@ export const MessagesPage = () => {
    */
   const handleCommitSearch = (text: string) => {
     updateFilter('search', text);
-  };
-
-  /** The All view: every filter cleared, lifecycle 'all' (the store's defaults). */
-  const showAll = async () => {
-    clearFiltersStore();
-    await fetchMessages(messagesPagination.page, true);
   };
 
   const clearFilters = async () => {
@@ -1409,7 +1410,13 @@ export const MessagesPage = () => {
                       displayMode === 'contacts'
                         ? contactsPagination
                         : displayMode === 'kanban'
-                          ? { page: 1, limit: boardTotal, total: boardTotal }
+                          ? {
+                              page: 1,
+                              limit: boardTotal,
+                              total: boardTotal,
+                              totalCapped: boardPartial,
+                              countTimedOut: boardPartial && boardTotal === 0,
+                            }
                           : pagination
                     }
                     isKanban={isKanban}
@@ -1505,7 +1512,13 @@ export const MessagesPage = () => {
                 displayMode === 'contacts'
                   ? contactsPagination
                   : displayMode === 'kanban'
-                    ? { page: 1, limit: boardTotal, total: boardTotal }
+                    ? {
+                        page: 1,
+                        limit: boardTotal,
+                        total: boardTotal,
+                        totalCapped: boardPartial,
+                        countTimedOut: boardPartial && boardTotal === 0,
+                      }
                     : pagination
               }
               // The count is in the header now, beside the view switch.
@@ -1523,12 +1536,27 @@ export const MessagesPage = () => {
                     leadingViews: (
                       <ThreadPrimaryViews
                         needsUsOn={needsUsOn}
-                        allOn={primaryViewsOn(filters, activeFilterCount).all}
+                        // A typed search is not a filter that takes the list off All: the
+                        // views below keep it (owner, 2026-11-02).
+                        allOn={
+                          primaryViewsOn(
+                            filters,
+                            activeFilterCount - (filters.search?.trim() ? 1 : 0)
+                          ).all
+                        }
                         needsUsCount={laneCounts.needs_us}
-                        onNeedsUs={() => patchFilters({ ...defaultFilters, lifecycle: 'needs_us' })}
+                        // Both views replace the filters but KEEP the search: an agent who
+                        // searched under Needs us and pressed All had to type it again.
+                        onNeedsUs={() =>
+                          patchFilters({
+                            ...defaultFilters,
+                            lifecycle: 'needs_us',
+                            search: filters.search,
+                          })
+                        }
                         // ⛔ Not `clearFilters`: on the thread list that returns to Needs us
                         // (#728), which made All a no-op. All clears to everything.
-                        onAll={() => void showAll()}
+                        onAll={() => patchFilters({ ...defaultFilters, search: filters.search })}
                       />
                     ),
                     countViews: { refreshKey: countsRefreshKey, enabled: countsReady },
@@ -1563,7 +1591,7 @@ export const MessagesPage = () => {
                   onOpen={handleOpenThread}
                   refreshKey={kanbanRefreshKey}
                   onScopeJump={handleScopeJump}
-                  onTotalChange={setBoardTotal}
+                  onTotalChange={handleBoardTotal}
                   isSelected={bulkSelection.isSelected}
                   onToggleSelected={bulkSelection.toggle}
                   onToggleRange={bulkSelection.toggleRange}
@@ -1771,6 +1799,19 @@ export const MessagesPage = () => {
                 limit={pagination.limit}
                 onPageChange={handlePageChange}
                 loading={loading}
+              />
+            )}
+
+            {/* A searched list's matches its view does not show, grouped by where they are
+                (customer's workspace, 2026-11-02: an address under Needs us read as "not in
+                Odly" while all its matches sat in Resolved and the knowledge base). */}
+            {displayMode === 'threads' && !isKanban && !loading && (
+              <OutsideViewMatches
+                filters={filters}
+                onJump={handleScopeJump}
+                onOpen={handleOpenThread}
+                highlightTerms={highlightTerms}
+                refreshKey={countsRefreshKey}
               />
             )}
 

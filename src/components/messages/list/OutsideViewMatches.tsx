@@ -1,0 +1,259 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { MessageListItem } from '@/components/messages/MessageListItem';
+import { scopeReasonJump } from '@/components/messages/ListScopeNotice';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Typography } from '@/components/ui/Typography';
+import { threadApiFilters } from '@/hooks/threadApiFilters';
+import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
+import { formatTotal } from '@/lib/listTotals';
+import {
+  messageService,
+  type ListScope,
+  type MessageThread,
+  type ThreadsResponse,
+} from '@/services/message.service';
+import { useAuthStore } from '@/stores/authStore';
+import type { FilterState } from '@/stores/messagesStore';
+
+type Place = keyof ListScope['hiddenBecause'];
+
+/** What each "Not shown" bucket is called where an agent reads it as a place. */
+const PLACE_TITLE: Record<Place, string> = {
+  terminal: 'Resolved or closed',
+  knowledgeBase: 'Knowledge base',
+  awaitingOrReplied: 'Waiting on a reply',
+  needsRouting: 'Awaiting routing',
+  spam: 'Spam',
+  suspicious: 'Suspicious',
+  notAnalysed: 'Not yet reviewed',
+  archived: 'Auto-archived',
+  orphanOutgoing: 'Outbound echoes',
+  other: 'Hidden by this view',
+};
+/** A bucket a newer backend adds: still a place, never a blank heading. */
+const placeTitle = (place: string): string => PLACE_TITLE[place as Place] ?? 'Elsewhere';
+
+/**
+ * Every lens a jump can land on top of. A jump MERGES onto the current filters, so a group's
+ * "Show in that view" from inside the knowledge-base lens or a column chip kept `showKBOnly` /
+ * `columnId` and landed on a list without the rows it promised (review of #798).
+ */
+const LENS_RESET: Partial<FilterState> = {
+  // A negated lens ("not awaiting") would turn the jump into "everything EXCEPT …".
+  negate: '',
+  lifecycle: 'all',
+  queue: 'all',
+  columnId: 'all',
+  showKBOnly: false,
+  status: 'all',
+};
+
+const PAGE = 25;
+
+/** The rows of an `outsideView` answer, or null when it must not be shown. */
+const outsideRows = (answer: ThreadsResponse): MessageThread[] | null => {
+  if (!answer.success) return null;
+  // Not finished in time: say nothing rather than a part presented as the whole.
+  if (answer.timedOut === true || answer.search?.timedOut === true) return null;
+  const listed = (answer.data ?? []) as MessageThread[];
+  // ⛔ A backend without `outsideView` answers the VIEW's own rows (no `foundIn`): never list
+  // them a second time as "elsewhere".
+  return listed.every((thread) => thread.foundIn) ? listed : null;
+};
+
+/**
+ * A searched list's matches that its view does not show, grouped by where they are, each group
+ * with a way to go there (search kept). A customer's workspace, 2026-11-02: an address searched
+ * under Needs us showed nothing while all 10 matches sat in Resolved and the knowledge base, and
+ * agents read the empty list as "not in Odly".
+ *
+ * Rows come from the backend's `outsideView` (the scope count's hidden set, listed, each with the
+ * bucket that names it). Asked again when the search, filters, team or workspace change, and when
+ * the list's rows move (`refreshKey`) — not on every poll.
+ */
+export const OutsideViewMatches = ({
+  filters,
+  onJump,
+  onOpen,
+  highlightTerms,
+  refreshKey,
+}: {
+  filters: FilterState;
+  onJump: (filters: Partial<FilterState>, needsListView?: boolean) => void;
+  onOpen: (thread: MessageThread) => void;
+  highlightTerms?: string[];
+  /** Moves when the list's rows change (status, assignee…): a match may have moved in or out. */
+  refreshKey?: string;
+}) => {
+  const search = filters.search?.trim() ?? '';
+  const deptKey = useDepartmentContextKey();
+  const organizationId = useAuthStore((state) => state.selectedOrganizationId);
+  const request = useMemo(
+    () => (search ? { ...threadApiFilters(filters, false), outsideView: '1' } : null),
+    [filters, search]
+  );
+  // What the answer is FOR (a new one clears the section) vs when to re-ask it (a refresh keeps
+  // the rows on screen until the new answer — no blink each time a row moves).
+  const queryKey = request ? JSON.stringify([request, deptKey, String(organizationId)]) : '';
+  const requestKey = request ? JSON.stringify([queryKey, refreshKey ?? '']) : '';
+  const shownQuery = useRef('');
+  const [rows, setRows] = useState<MessageThread[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalCapped, setTotalCapped] = useState(false);
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreFailed, setMoreFailed] = useState(false);
+  // The request the rows on screen belong to: an answer for an older one is dropped.
+  const currentKey = useRef('');
+  currentKey.current = requestKey;
+
+  useEffect(() => {
+    if (shownQuery.current !== queryKey) {
+      shownQuery.current = queryKey;
+      setRows([]);
+      setTotal(0);
+      setTotalCapped(false);
+      setPage(1);
+    }
+    setMoreFailed(false);
+    if (!request) return undefined;
+    const askedFor = requestKey;
+    void messageService
+      .getThreads(request, 1, PAGE, undefined, 'time', { allowTimedOut: true })
+      .then((answer) => {
+        if (currentKey.current !== askedFor) return;
+        const listed = outsideRows(answer);
+        if (!listed) {
+          // A refresh that did not finish keeps nothing it cannot vouch for.
+          setRows([]);
+          return;
+        }
+        setRows(listed);
+        setPage(1);
+        setTotal(answer.pagination?.total ?? listed.length);
+        setTotalCapped(
+          answer.pagination?.totalCapped === true || answer.pagination?.countTimedOut === true
+        );
+      })
+      .catch(() => undefined);
+    return undefined;
+    // requestKey stands for `request` and everything else that changes the answer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestKey]);
+
+  const loadMore = async () => {
+    if (!request) return;
+    const askedFor = requestKey;
+    setLoadingMore(true);
+    setMoreFailed(false);
+    try {
+      const answer = await messageService.getThreads(request, page + 1, PAGE, undefined, 'time', {
+        allowTimedOut: true,
+      });
+      if (currentKey.current !== askedFor) return;
+      const listed = outsideRows(answer);
+      if (!listed) {
+        setMoreFailed(true);
+        return;
+      }
+      // Offset pages shift when a match moves: never the same thread twice.
+      setRows((shown) => {
+        const seen = new Set(shown.map((thread) => thread.threadId));
+        return [...shown, ...listed.filter((thread) => !seen.has(thread.threadId))];
+      });
+      setPage(page + 1);
+    } catch {
+      if (currentKey.current === askedFor) setMoreFailed(true);
+    } finally {
+      if (currentKey.current === askedFor) setLoadingMore(false);
+    }
+  };
+
+  if (!search || rows.length === 0) return null;
+
+  // Groups in the order their first match arrived (the list's own order).
+  const groups = new Map<string, MessageThread[]>();
+  for (const thread of rows) {
+    const place = thread.foundIn as string;
+    groups.set(place, [...(groups.get(place) ?? []), thread]);
+  }
+  // A group's own count is exact only once every match is loaded.
+  const allLoaded = !totalCapped && rows.length >= total;
+
+  return (
+    <section aria-label="Also found in other views" className="mt-4">
+      <div className="flex gap-2 items-baseline px-1 mb-2">
+        <Typography variant="label">Also found in other views</Typography>
+        <Typography variant="caption" color="muted" className="font-mono">
+          {formatTotal(total, totalCapped)}
+        </Typography>
+      </div>
+      <Card padding="none" className="overflow-hidden">
+        {[...groups].map(([place, threads]) => {
+          const jump = scopeReasonJump(place as Place);
+          const title = placeTitle(place);
+          return (
+            <div key={place} className="border-t first:border-t-0 border-border">
+              <div className="flex gap-2.5 items-center px-4 h-[34px] bg-raised">
+                <h3>
+                  <Typography variant="body3" weight="semibold">
+                    {title}
+                  </Typography>
+                  {allLoaded && (
+                    <>
+                      {' '}
+                      <Typography variant="caption" color="muted" className="font-mono">
+                        {threads.length}
+                      </Typography>
+                    </>
+                  )}
+                </h3>
+                {jump && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto h-7"
+                    aria-label={`Show in ${title}`}
+                    onClick={() =>
+                      onJump({ ...LENS_RESET, ...jump.filters, search }, jump.needsListView)
+                    }
+                  >
+                    Show in that view
+                  </Button>
+                )}
+              </div>
+              {threads.map((thread) => (
+                <MessageListItem
+                  key={thread.threadId}
+                  thread={thread}
+                  density="compact"
+                  onOpen={onOpen}
+                  highlightTerms={highlightTerms}
+                />
+              ))}
+            </div>
+          );
+        })}
+      </Card>
+      {(rows.length < total || totalCapped) && (
+        <div className="flex gap-3 justify-center items-center mt-2">
+          {moreFailed && (
+            <Typography variant="caption" color="muted">
+              Could not load more — try again.
+            </Typography>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            isLoading={loadingMore}
+            onClick={() => void loadMore()}
+          >
+            Show more
+            {totalCapped ? '' : ` (${(total - rows.length).toLocaleString()})`}
+          </Button>
+        </div>
+      )}
+    </section>
+  );
+};

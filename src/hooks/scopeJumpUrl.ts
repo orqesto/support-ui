@@ -24,6 +24,8 @@ export const scopeJumpUrl = (next: Partial<FilterState>): string => {
   const params = new URLSearchParams();
   if (next.queue && next.queue !== 'all') params.set('queue', next.queue);
   if (next.lifecycle && next.lifecycle !== 'all') params.set('lifecycle', next.lifecycle);
+  // A jump from a searched list keeps the search (OutsideViewMatches).
+  if (next.search?.trim()) params.set('search', next.search.trim());
   const query = params.toString();
   return query ? `/threads?${query}` : '/threads';
 };
