@@ -75,6 +75,21 @@ const TEST_HINTS: Record<string, string> = {
   is_archived: 'That channel is archived. Pick another channel.',
 };
 
+/** Ruling S: why Slack stopped taking posts to one channel, in words (other codes shown raw). */
+const ROUTE_BROKEN_REASONS: Record<string, string> = {
+  not_in_channel:
+    'Odly was removed from this channel — type /invite @Odly in Slack, then send a test message',
+  channel_not_found: 'This channel no longer exists or was archived — pick another channel',
+  is_archived: 'This channel no longer exists or was archived — pick another channel',
+};
+
+const routeBrokenText = (code: string): string =>
+  ROUTE_BROKEN_REASONS[code] ?? `Slack stopped accepting posts to this channel (${code})`;
+
+/** The channel's health as the server reports it; null = working (or an older backend). */
+const brokenFrom = (route: SlackRoute | undefined): string | null =>
+  route?.status === 'broken' ? (route.brokenReason ?? 'broken') : null;
+
 const INVITE_HINT = 'Private channel? Type /invite @Odly in Slack.';
 
 const CHANNEL_TITLES: Record<SlackRouteChannel, { title: string; description: string }> = {
@@ -132,6 +147,10 @@ const ChannelCard = ({
   const savingRef = useRef(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<SlackTestResult | null>(null);
+  // Ruling S: the server's word on whether Slack still takes posts to this channel.
+  const [brokenReason, setBrokenReason] = useState<string | null>(() => brokenFrom(route));
+  const routeBroken = brokenFrom(route);
+  useEffect(() => setBrokenReason(routeBroken), [routeBroken]);
   const { data: departments } = useDepartments();
   const isTeam = channel === 'team';
   const hasChannel = draft.slackChannelId !== '';
@@ -147,6 +166,7 @@ const ChannelCard = ({
       .then((status) => {
         const saved = (status.routes ?? []).find((each) => each.channel === channel);
         setDraft(draftFrom(channel, saved));
+        setBrokenReason(brokenFrom(saved));
       })
       .catch((err: unknown) => {
         toast.failure('read the saved Slack settings — reload the page', err);
@@ -163,7 +183,11 @@ const ChannelCard = ({
     slackNotificationsService
       .saveRoute(channel, next)
       .then((saved) => {
-        if (saved) setDraft(draftFrom(channel, saved));
+        if (!saved) return;
+        setDraft(draftFrom(channel, saved));
+        // The backend retires the channel's broken episode on every save (the PUT answer carries
+        // no status), so a saved route is working until Slack refuses it again.
+        setBrokenReason(saved.status === 'broken' ? (saved.brokenReason ?? 'broken') : null);
       })
       .catch(async (err: unknown) => {
         toast.failure(`save the ${channel} channel`, err);
@@ -216,13 +240,25 @@ const ChannelCard = ({
     setTestResult(null);
     slackNotificationsService
       .sendTest(channel)
-      .then(setTestResult)
+      .then((result) => {
+        setTestResult(result);
+        // A test post Slack took clears the broken channel on the server, one it refused may mark
+        // it: show what the server now holds. Only the health is taken — a save may be in flight.
+        return slackNotificationsService.getStatus().then(
+          (status) =>
+            setBrokenReason(
+              brokenFrom((status.routes ?? []).find((each) => each.channel === channel))
+            ),
+          () => {}
+        );
+      })
       .catch((err: unknown) => toast.failure('send the test message', err))
       .finally(() => setTesting(false));
   };
 
+  // The red line already says why when the refusal and the server's reason match.
   const failedHint =
-    testResult && !testResult.ok
+    testResult && !testResult.ok && testResult.code !== brokenReason
       ? (testResult.hint ??
         TEST_HINTS[testResult.code] ??
         `Slack refused the message (${testResult.code}).`)
@@ -241,6 +277,15 @@ const ChannelCard = ({
               Everyone in this Slack channel sees customer names and subjects from every team.
             </AlertDescription>
           </Alert>
+        )}
+        {brokenReason && (
+          <p
+            data-testid="slack-route-broken"
+            role="alert"
+            className="text-sm font-medium text-destructive"
+          >
+            {routeBrokenText(brokenReason)}
+          </p>
         )}
         <div>
           <Select

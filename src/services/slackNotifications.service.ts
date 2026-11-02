@@ -85,6 +85,13 @@ export type SlackRoute = {
   includePreview: boolean;
   departmentFilter: { excludedDepartmentIds: number[] } | null;
   updatedAt: string;
+  /**
+   * Ruling S (GET /slack only; absent on an older backend and on the PUT answer): `broken` while
+   * Slack refuses posts to this channel. Saving the route or a test post Slack accepts clears it.
+   */
+  status?: 'ok' | 'broken';
+  /** The Slack code (`not_in_channel`, `channel_not_found`, `is_archived`, …) when broken. */
+  brokenReason?: string | null;
 };
 
 export type SlackStatus = { connection: SlackConnection | null; routes: SlackRoute[] };

@@ -366,4 +366,127 @@ describe('SlackNotificationsSettings — connect, load and return (fix round 1)'
     await waitFor(() => expect(connectWithToken).toHaveBeenCalledWith('xoxb-test-1'));
     expect(await screen.findByText('Example Co')).toBeInTheDocument();
   });
+
+  describe('a broken channel (Ruling S)', () => {
+    it('shows why in words on that card only, with the test action; unknown codes show raw', async () => {
+      vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(
+        connected([
+          route({ channel: 'team', status: 'broken', brokenReason: 'not_in_channel' }),
+          route({
+            channel: 'admin',
+            enabledKinds: [],
+            slackChannelId: 'C2',
+            slackChannelName: 'ops',
+            status: 'ok',
+            brokenReason: null,
+          }),
+        ])
+      );
+      renderPage();
+      const line = await screen.findByText(
+        'Odly was removed from this channel — type /invite @Odly in Slack, then send a test message'
+      );
+      expect(line).toHaveClass('text-destructive');
+      // CONTROL: the healthy admin card carries no broken line.
+      expect(screen.getAllByTestId('slack-route-broken')).toHaveLength(1);
+      const buttons = screen.getAllByRole('button', { name: /send test message/i });
+      expect(buttons.every((button) => !(button as HTMLButtonElement).disabled)).toBe(true);
+      cleanup();
+
+      vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(
+        connected([
+          route({ channel: 'team', status: 'broken', brokenReason: 'is_archived' }),
+          route({
+            channel: 'admin',
+            enabledKinds: [],
+            slackChannelId: 'C2',
+            status: 'broken',
+            brokenReason: 'weird_code',
+          }),
+        ])
+      );
+      renderPage();
+      expect(
+        await screen.findByText(
+          'This channel no longer exists or was archived — pick another channel'
+        )
+      ).toBeInTheDocument();
+      expect(screen.getByText(/weird_code/)).toBeInTheDocument();
+    });
+
+    it('channel_not_found reads the same as archived', async () => {
+      vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(
+        connected([route({ channel: 'team', status: 'broken', brokenReason: 'channel_not_found' })])
+      );
+      renderPage();
+      expect(
+        await screen.findByText(
+          'This channel no longer exists or was archived — pick another channel'
+        )
+      ).toBeInTheDocument();
+    });
+
+    it('CONTROL: an older backend with no route status shows no broken line', async () => {
+      vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(
+        connected([route({ channel: 'team' })])
+      );
+      renderPage();
+      await screen.findByText('Team channel');
+      expect(screen.queryByTestId('slack-route-broken')).not.toBeInTheDocument();
+    });
+
+    it('a successful test post re-reads the status, and the cleared channel loses its red line', async () => {
+      const getStatus = vi
+        .spyOn(slackNotificationsService, 'getStatus')
+        .mockResolvedValueOnce(
+          connected([route({ channel: 'team', status: 'broken', brokenReason: 'not_in_channel' })])
+        )
+        .mockResolvedValue(
+          connected([route({ channel: 'team', status: 'ok', brokenReason: null })])
+        );
+      vi.spyOn(slackNotificationsService, 'sendTest').mockResolvedValue({ ok: true });
+      renderPage();
+      await screen.findByTestId('slack-route-broken');
+      const [teamButton] = screen.getAllByRole('button', { name: /send test message/i });
+      fireEvent.click(teamButton);
+      await screen.findByText(/Test message sent/);
+      await waitFor(() => expect(getStatus).toHaveBeenCalledTimes(2));
+      await waitFor(() =>
+        expect(screen.queryByTestId('slack-route-broken')).not.toBeInTheDocument()
+      );
+    });
+
+    it('CONTROL: a refused test post keeps the red line the server still reports', async () => {
+      const getStatus = vi
+        .spyOn(slackNotificationsService, 'getStatus')
+        .mockResolvedValue(
+          connected([route({ channel: 'team', status: 'broken', brokenReason: 'not_in_channel' })])
+        );
+      const sendTest = vi.spyOn(slackNotificationsService, 'sendTest').mockResolvedValue({
+        ok: false,
+        code: 'not_in_channel',
+      });
+      renderPage();
+      await screen.findByTestId('slack-route-broken');
+      fireEvent.click(screen.getAllByRole('button', { name: /send test message/i })[0]);
+      await waitFor(() => expect(sendTest).toHaveBeenCalled());
+      await waitFor(() => expect(getStatus).toHaveBeenCalledTimes(2));
+      expect(screen.getByTestId('slack-route-broken')).toBeInTheDocument();
+    });
+
+    it('a save the server accepts clears the red line (saving retires the broken episode)', async () => {
+      vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(
+        connected([route({ channel: 'team', status: 'broken', brokenReason: 'channel_not_found' })])
+      );
+      vi.spyOn(slackNotificationsService, 'saveRoute').mockImplementation((_channel, body) =>
+        Promise.resolve(route({ ...body }))
+      );
+      renderPage();
+      await screen.findByTestId('slack-route-broken');
+      fireEvent.click(await switchNamed(/hold recheck due/i));
+      await waitFor(() =>
+        expect(screen.queryByTestId('slack-route-broken')).not.toBeInTheDocument()
+      );
+    });
+  });
 });
