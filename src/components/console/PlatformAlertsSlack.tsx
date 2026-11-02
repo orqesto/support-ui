@@ -75,14 +75,19 @@ const BROKEN_REASONS: Record<string, string> = {
   account_inactive: 'the Slack app was removed from your Slack workspace',
   invalid_auth: 'Slack no longer accepts the token',
   missing_scope: 'the Slack app is missing a permission',
-  not_in_channel:
-    'Odly was removed from the alert channel — type /invite @Odly in Slack, then send a test message',
-  channel_not_found: 'the alert channel no longer exists or was archived — pick another channel',
-  is_archived: 'the alert channel no longer exists or was archived — pick another channel',
 };
 
-/** A refusal by the channel, not the token: the token still lists channels and posts a test. */
-const CHANNEL_CODES = new Set(['not_in_channel', 'channel_not_found', 'is_archived']);
+/**
+ * A refusal by the CHANNEL, not the token: the token still lists channels and posts a test, so the
+ * fix is the channel card (re-pick or test), never a reconnect — a reconnect only clears the mark
+ * until the next alert breaks it again.
+ */
+const CHANNEL_REASONS: Record<string, string> = {
+  not_in_channel:
+    'Odly was removed from the alert channel — type /invite @Odly in Slack, then send a test message',
+  channel_not_found: 'The alert channel no longer exists or was archived — pick another channel',
+  is_archived: 'The alert channel no longer exists or was archived — pick another channel',
+};
 
 // ─── Channel and signals ─────────────────────────────────────────────────────
 
@@ -409,7 +414,8 @@ const PlatformAlertsPanel = () => {
   const isBroken = connection?.status === 'broken';
   const brokenReason = isBroken ? (connection.brokenReason ?? null) : null;
   // A channel refusal leaves the token working: the channel can be re-picked or tested to clear it.
-  const tokenWorks = isConnected || (brokenReason !== null && CHANNEL_CODES.has(brokenReason));
+  const channelBroken = brokenReason !== null && brokenReason in CHANNEL_REASONS;
+  const tokenWorks = isConnected || channelBroken;
   const setConnection = (next: PlatformSlackConnection | null) =>
     setStatus((current) => (current ? { ...current, connection: next } : current));
   useEffect(() => {
@@ -499,7 +505,11 @@ const PlatformAlertsPanel = () => {
                       {connection.teamName ?? 'Slack workspace'}
                     </span>
                     <Badge variant={isBroken ? 'danger' : 'success'}>
-                      {isBroken ? 'Disconnected' : 'Connected'}
+                      {channelBroken
+                        ? 'Channel not reachable'
+                        : isBroken
+                          ? 'Disconnected'
+                          : 'Connected'}
                     </Badge>
                     {connection.source === 'env' && (
                       <Badge variant="secondary">Set in the server environment</Badge>
@@ -510,14 +520,28 @@ const PlatformAlertsPanel = () => {
                   </Button>
                 </div>
               ) : null}
-              {connection && isBroken && (
+              {connection && channelBroken && (
                 <Alert variant="danger">
                   <AlertTitle>
-                    Disconnected —{' '}
-                    {BROKEN_REASONS[brokenReason ?? ''] ??
-                      brokenReason ??
-                      'Slack stopped accepting the connection'}
-                    , reconnect
+                    <span data-testid="platform-slack-broken">{CHANNEL_REASONS[brokenReason]}</span>
+                  </AlertTitle>
+                  <AlertDescription>
+                    Nothing is posted to Slack until the channel works again; the alert email
+                    address set on the server still receives the alerts. Fix it in Channel and
+                    signals below.
+                  </AlertDescription>
+                </Alert>
+              )}
+              {connection && isBroken && !channelBroken && (
+                <Alert variant="danger">
+                  <AlertTitle>
+                    <span data-testid="platform-slack-broken">
+                      Disconnected —{' '}
+                      {BROKEN_REASONS[brokenReason ?? ''] ??
+                        brokenReason ??
+                        'Slack stopped accepting the connection'}
+                      , reconnect
+                    </span>
                   </AlertTitle>
                   <AlertDescription>
                     Nothing is posted to Slack until this is fixed; the alert email address set on

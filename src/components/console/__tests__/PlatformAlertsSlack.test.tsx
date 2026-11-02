@@ -277,13 +277,15 @@ describe('PlatformAlertsSlack', () => {
         .mockResolvedValue(connected());
       vi.spyOn(platformSlackAlertsService, 'sendTest').mockResolvedValue({ ok: true });
       renderPage();
-      expect(await screen.findByText(/^Disconnected —/)).toHaveTextContent(
+      expect(await screen.findByTestId('platform-slack-broken')).toHaveTextContent(
         'Odly was removed from the alert channel — type /invite @Odly in Slack, then send a test message'
       );
       fireEvent.click(await screen.findByRole('button', { name: /send test message/i }));
       await screen.findByText(/Test message sent/);
       await waitFor(() => expect(getStatus).toHaveBeenCalledTimes(2));
-      await waitFor(() => expect(screen.queryByText(/^Disconnected —/)).not.toBeInTheDocument());
+      await waitFor(() =>
+        expect(screen.queryByTestId('platform-slack-broken')).not.toBeInTheDocument()
+      );
       expect(screen.getByText('Connected')).toBeInTheDocument();
     });
 
@@ -302,8 +304,8 @@ describe('PlatformAlertsSlack', () => {
         .spyOn(platformSlackAlertsService, 'saveSettings')
         .mockResolvedValue(connected({ slackChannelId: 'C9', slackChannelName: 'ops-alerts' }));
       renderPage();
-      expect(await screen.findByText(/^Disconnected —/)).toHaveTextContent(
-        'the alert channel no longer exists or was archived — pick another channel'
+      expect(await screen.findByTestId('platform-slack-broken')).toHaveTextContent(
+        'The alert channel no longer exists or was archived — pick another channel'
       );
       // Wait for the channel list, then pick the new channel.
       await waitFor(() => expect(listChannels).toHaveBeenCalled());
@@ -311,7 +313,51 @@ describe('PlatformAlertsSlack', () => {
       await waitFor(() =>
         expect(save).toHaveBeenCalledWith({ slackChannelId: 'C9', slackChannelName: 'ops-alerts' })
       );
-      await waitFor(() => expect(screen.queryByText(/^Disconnected —/)).not.toBeInTheDocument());
+      await waitFor(() =>
+        expect(screen.queryByTestId('platform-slack-broken')).not.toBeInTheDocument()
+      );
+    });
+
+    it.each([
+      [
+        'not_in_channel',
+        'Odly was removed from the alert channel — type /invite @Odly in Slack, then send a test message',
+      ],
+      [
+        'channel_not_found',
+        'The alert channel no longer exists or was archived — pick another channel',
+      ],
+      ['is_archived', 'The alert channel no longer exists or was archived — pick another channel'],
+    ])(
+      'a channel problem (%s) does not ask for a reconnect: the token works, the channel is the fix',
+      async (code, words) => {
+        vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(broken(code));
+        renderPage();
+        const title = await screen.findByTestId('platform-slack-broken');
+        expect(title).toHaveTextContent(words);
+        expect(title.textContent).toBe(words);
+        expect(screen.getByText('Channel not reachable')).toBeInTheDocument();
+        expect(screen.queryByText('Disconnected')).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /^reconnect$/i })).not.toBeInTheDocument();
+        expect(
+          screen.queryByRole('button', { name: /paste a bot token/i })
+        ).not.toBeInTheDocument();
+        // The fix is on the channel card, which stays usable.
+        expect(
+          await screen.findByRole('button', { name: /send test message/i })
+        ).toBeInTheDocument();
+      }
+    );
+
+    it('CONTROL: a token problem still asks for a reconnect, with the paste-token fallback', async () => {
+      vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(broken('invalid_auth'));
+      renderPage();
+      expect(await screen.findByTestId('platform-slack-broken')).toHaveTextContent(
+        'Disconnected — Slack no longer accepts the token, reconnect'
+      );
+      expect(screen.getByText('Disconnected')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^reconnect$/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /paste a bot token/i })).toBeInTheDocument();
     });
   });
 });
