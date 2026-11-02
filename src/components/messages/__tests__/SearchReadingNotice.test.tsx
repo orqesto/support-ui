@@ -54,6 +54,30 @@ describe('SearchReadingNotice', () => {
     expect(screen.getByText(/does not mean nothing matches/)).toBeTruthy();
   });
 
+  // A customer's workspace, 2026-11-02: an address under Needs us timed out while the count of the
+  // other views found all 10 matches there. "Does not mean nothing matches" over an empty list
+  // read as "nothing found", when the search had found them — just not in this view.
+  it('a timed-out search whose matches were counted in other views says where they are', () => {
+    const timedOut = {
+      terms: ['someone@example.com'],
+      asPhrase: false,
+      cutShort: [],
+      timedOut: true,
+      rankedWithin: null,
+    };
+    const { container, rerender } = render(
+      <SearchReadingNotice reading={timedOut} elsewhere={10} />
+    );
+    expect(container.textContent).toMatch(/found 10 matching threads in other views/);
+    expect(container.textContent).toMatch(/Not shown/);
+    expect(container.textContent).not.toMatch(/does not mean nothing matches/);
+    rerender(<SearchReadingNotice reading={timedOut} elsewhere={1} />);
+    expect(container.textContent).toMatch(/found 1 matching thread in another view/);
+    // CONTROL: none counted elsewhere — the plain "not finished" notice, as before.
+    rerender(<SearchReadingNotice reading={timedOut} elsewhere={0} />);
+    expect(container.textContent).toMatch(/does not mean nothing matches/);
+  });
+
   it('a plain list that ran out of time says so', () => {
     render(<SearchReadingNotice reading={null} listTimedOut />);
     expect(screen.getByText(/This list took too long to load/)).toBeTruthy();

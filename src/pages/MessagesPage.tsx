@@ -1645,7 +1645,11 @@ export const MessagesPage = () => {
 
                 {/* A search reloads with the previous rows still drawn. Shaded, so they do not
                     read as the answer to the new search while it is on its way. */}
-                <SearchReadingNotice reading={searchReading} listTimedOut={listTimedOut} />
+                <SearchReadingNotice
+                  reading={searchReading}
+                  listTimedOut={listTimedOut}
+                  elsewhere={hiddenKnown(listScope)}
+                />
                 <LoadingOverlay active={searching && !loading} label="Searching…">
                   {loading ? (
                     // Messages list v4 `.skel`: grey-bar rows inside the list's own card, split by
@@ -1670,7 +1674,9 @@ export const MessagesPage = () => {
                         <p>
                           {listTimedOut
                             ? // Stopped, not empty: the notice above says why.
-                              'Not loaded — it took too long.'
+                              hiddenKnown(listScope) > 0
+                              ? 'This view did not finish in time.'
+                              : 'Not loaded — it took too long.'
                             : activeFilterCount > 0 ||
                                 hiddenKnown(listScope) > 0 ||
                                 filters.lifecycle === 'needs_us'
