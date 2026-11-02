@@ -44,6 +44,19 @@ describe('RichTextEditor — a destroyed editor does not crash the page', () => 
     }).not.toThrow();
   });
 
+  // `isDestroyed` is ALSO true for an editor that is not on the page yet: a collapsed reply box
+  // renders no EditorContent. That editor is alive — text inserted into it must not be dropped.
+  it('a collapsed (not yet mounted) editor still takes setContent and insertText', async () => {
+    const ref = createRef<RichTextEditorHandle>();
+    const view = render(<RichTextEditor ref={ref} content="" initiallyHidden />);
+    await waitFor(() => expect(ref.current).not.toBeNull());
+    expect(view.container.querySelector('.ProseMirror')).toBeNull();
+    act(() => ref.current!.setContent('<p>Draft from AI</p>'));
+    const editorOf = () =>
+      view.container.querySelector<HTMLElement & { editor?: Editor }>('.ProseMirror')?.editor;
+    await waitFor(() => expect(editorOf()?.getText()).toBe('Draft from AI'));
+  });
+
   it('CONTROL: a live editor still takes a new content prop and the handle', async () => {
     const { ref, view, editor } = await renderEditor();
     view.rerender(<RichTextEditor ref={ref} content="<p>Changed</p>" initiallyHidden={false} />);
