@@ -192,6 +192,18 @@ const REASONS: Array<{
   },
 ];
 
+/**
+ * Where a "Not shown" bucket's rows live: the lens its chip applies, and whether it needs the list
+ * (the board has no column for it). Shared with the searched list's "Also found in other views"
+ * section (OutsideViewMatches), so a group there jumps exactly where this menu does.
+ */
+export const scopeReasonJump = (
+  key: keyof ListScope['hiddenBecause']
+): { filters: Partial<FilterState>; needsListView?: boolean } | null => {
+  const reason = REASONS.find((entry) => entry.key === key);
+  return reason?.filters ? { filters: reason.filters, needsListView: reason.needsListView } : null;
+};
+
 export const ListScopeNotice = ({
   scope,
   shown,

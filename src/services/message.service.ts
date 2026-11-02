@@ -437,6 +437,11 @@ export type MessageThread = {
   latestIncomingMessage: Message | null;
   /** Normalised in `getThreads`: null when nothing was typed or the backend predates it. */
   searchMatch?: SearchMatch | null;
+  /**
+   * Only on a searched list's `outsideView` answer (backend outsideView.ts): the "Not shown"
+   * bucket that names where this match is. Absent from a backend without that option.
+   */
+  foundIn?: keyof ListScope['hiddenBecause'];
 };
 
 /**
