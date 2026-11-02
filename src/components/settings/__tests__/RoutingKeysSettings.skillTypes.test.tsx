@@ -29,8 +29,8 @@ describe('RoutingKeysSettings — key types, values and the test box', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getRoutingKeys.mockResolvedValue([
-      { id: 1, key: 'lang', description: null, type: 'language' },
-      { id: 2, key: 'payment_sys', description: 'Payment system', type: 'topic' },
+      { id: 1, key: 'lang', description: null, type: 'language', typeReported: true },
+      { id: 2, key: 'payment_sys', description: 'Payment system', type: 'topic', typeReported: true },
     ]);
     addRoutingKey.mockResolvedValue();
     setRoutingKeyType.mockResolvedValue();
@@ -67,5 +67,22 @@ describe('RoutingKeysSettings — key types, values and the test box', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Values of payment_sys' }));
     expect(await screen.findByText('values of payment_sys')).toBeInTheDocument();
     expect(screen.getByText('test box')).toBeInTheDocument();
+  });
+
+  it('an older backend (no type on keys): no type toggle, no test box — no dead controls', async () => {
+    getRoutingKeys.mockResolvedValue([
+      { id: 1, key: 'language', description: null, type: 'topic', typeReported: false },
+    ]);
+    render(<RoutingKeysSettings />);
+    expect(await screen.findByText('language')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Type of language/ })).toBeNull();
+    expect(screen.queryByText('test box')).toBeNull();
+  });
+
+  it('a failed type switch says so instead of failing silently', async () => {
+    setRoutingKeyType.mockRejectedValue(new Error('nope'));
+    render(<RoutingKeysSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Type of payment_sys: Topic' }));
+    expect(await screen.findByText(/Could not change the type/)).toBeInTheDocument();
   });
 });

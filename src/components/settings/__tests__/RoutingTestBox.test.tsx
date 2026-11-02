@@ -53,6 +53,7 @@ describe('RoutingTestBox', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Test' }));
     expect(await screen.findByText(/Ada Example/)).toBeInTheDocument();
+    expect(screen.getByText(/by skill match/)).toBeInTheDocument();
     expect(screen.getByText('payment_sys = usdt — mentions “Tether”')).toBeInTheDocument();
     expect(testRoutingMessage).toHaveBeenCalledWith({
       text: 'My Tether transfer is stuck',
@@ -63,7 +64,17 @@ describe('RoutingTestBox', () => {
   it('Ask AI sends askAi and an unclear key shows as unclear', async () => {
     testRoutingMessage.mockResolvedValue(
       result({
-        keys: [{ key: 'payment_sys', status: 'unclear', accepted: [], candidates: [] }],
+        keys: [
+          {
+            key: 'payment_sys',
+            status: 'unclear',
+            accepted: [],
+            candidates: [
+              { key: 'payment_sys', value: 'usdt', source: 'keyword', evidence: 'TRC20' },
+              { key: 'payment_sys', value: 'usdc', source: 'keyword', evidence: 'TRC20' },
+            ],
+          },
+        ],
         wouldAssign: null,
         aiRefused: 'no_ai',
       })
@@ -79,6 +90,7 @@ describe('RoutingTestBox', () => {
     );
     expect(await screen.findByText('unclear')).toBeInTheDocument();
     expect(screen.getByText(/Nobody would get it/)).toBeInTheDocument();
+    expect(screen.getByText(/could be usdt or usdc/)).toBeInTheDocument();
     expect(screen.getByText(/No AI provider/)).toBeInTheDocument();
   });
 

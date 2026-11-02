@@ -28,7 +28,9 @@ export const RoutingValueDescriptions = ({
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const load = async () => {
-    const rows = await organizationService.getRoutingKeyValues(routingKey).catch(() => null);
+    const rows = await organizationService
+      .getRoutingKeyValues(routingKey, { includeReassigned: true })
+      .catch(() => null);
     setValues(rows);
     if (rows) setDrafts(Object.fromEntries(rows.map((row) => [row.value, row.description ?? ''])));
   };
@@ -70,6 +72,8 @@ export const RoutingValueDescriptions = ({
         setDrafts((current) => ({ ...current, [value]: result.description }));
         setNotice((current) => ({ ...current, [value]: 'Draft from AI — check it, then Save.' }));
       }
+    } catch {
+      setNotice((current) => ({ ...current, [value]: aiRefusalText('failed') }));
     } finally {
       setBusy(null);
     }
@@ -77,9 +81,14 @@ export const RoutingValueDescriptions = ({
 
   const remove = async () => {
     if (!deleting) return;
-    await organizationService.deleteRoutingValue(routingKey, deleting);
+    const value = deleting;
     setDeleting(null);
-    await load();
+    try {
+      await organizationService.deleteRoutingValue(routingKey, value);
+      await load();
+    } catch {
+      setNotice((current) => ({ ...current, [value]: 'Could not delete. Try again.' }));
+    }
   };
 
   return (
@@ -92,7 +101,7 @@ export const RoutingValueDescriptions = ({
               {row.holders} {row.holders === 1 ? 'agent' : 'agents'}
             </Badge>
             {row.unused && <Badge variant="warning">Unused</Badge>}
-            {row.reassigned30d > 0 && (
+            {(row.reassigned30d ?? 0) > 0 && (
               <Badge variant="danger">{row.reassigned30d} reassigned in 30 days</Badge>
             )}
             {keyType === 'language' && row.knownLanguage === false && (
@@ -107,8 +116,11 @@ export const RoutingValueDescriptions = ({
             }
             rows={2}
             maxLength={1000}
-            placeholder="Which messages belong here. Words separated by commas count as keywords, e.g. USD Coin, Circle, crypto"
+            placeholder="Which messages belong here. Short phrases (up to 4 words) separated by commas count as keywords, e.g. USD Coin, Circle, crypto"
           />
+          {row.terms && row.terms.length > 0 && (
+            <p className="text-xs text-muted-foreground">Matches: {row.terms.join(', ')}</p>
+          )}
           <div className="flex items-center gap-2">
             <Button
               size="sm"

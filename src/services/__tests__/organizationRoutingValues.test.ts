@@ -36,8 +36,8 @@ describe('organizationService — routing keys and values', () => {
       ])
     );
     await expect(organizationService.getRoutingKeys()).resolves.toEqual([
-      { id: 1, key: 'lang', description: null, type: 'language' },
-      { id: 2, key: 'payment_sys', description: null, type: 'topic' },
+      { id: 1, key: 'lang', description: null, type: 'language', typeReported: true },
+      { id: 2, key: 'payment_sys', description: null, type: 'topic', typeReported: false },
     ]);
   });
 
@@ -70,7 +70,7 @@ describe('organizationService — routing keys and values', () => {
       ])
     );
     await expect(organizationService.getRoutingKeyValues('payment_sys')).resolves.toHaveLength(1);
-    expect(get).toHaveBeenCalledWith('/api/organizations/routing-keys/payment_sys/values');
+    expect(get).toHaveBeenCalledWith('/api/organizations/routing-keys/payment_sys/values', undefined);
     put.mockResolvedValue(reply({ value: 'usd c', description: null }));
     await organizationService.setRoutingValueDescription('payment_sys', 'usd c', null);
     expect(put).toHaveBeenCalledWith('/api/organizations/routing-keys/payment_sys/values/usd%20c', {
@@ -103,6 +103,16 @@ describe('organizationService — routing keys and values', () => {
     expect(post).toHaveBeenCalledWith('/api/organizations/routing/test', {
       text: 'Tether',
       askAi: false,
+    });
+  });
+
+  it('the reassignment count is asked for only when the caller wants it (it costs a month scan)', async () => {
+    get.mockResolvedValue(reply([]));
+    await organizationService.getRoutingKeyValues('payment_sys');
+    expect(get).toHaveBeenLastCalledWith('/api/organizations/routing-keys/payment_sys/values', undefined);
+    await organizationService.getRoutingKeyValues('payment_sys', { includeReassigned: true });
+    expect(get).toHaveBeenLastCalledWith('/api/organizations/routing-keys/payment_sys/values', {
+      params: { include: 'reassigned' },
     });
   });
 });

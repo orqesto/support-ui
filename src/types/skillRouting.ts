@@ -1,15 +1,24 @@
 /** Skill routing (BE spec docs/superpowers/specs/2026-11-02-skill-routing-matching-design.md). */
 export type RoutingKeyType = 'language' | 'topic';
 
-export type RoutingKey = { id: number; key: string; description: string | null; type: RoutingKeyType };
+export type RoutingKey = {
+  id: number;
+  key: string;
+  description: string | null;
+  type: RoutingKeyType;
+  /** False on a backend that predates key types — the page then hides the new controls. */
+  typeReported: boolean;
+};
 
 export type RoutingValue = {
   value: string;
   description: string | null;
   holders: number;
   unused: boolean;
-  /** Skill-routed tickets a person moved to someone else in the last 30 days. */
-  reassigned30d: number;
+  /** Skill-routed tickets moved to someone else in 30 days; null unless asked for. */
+  reassigned30d: number | null;
+  /** The keywords matching derives from the value and its description (absent on an older backend). */
+  terms?: string[];
   /** Language keys: whether the router recognises the language; null for topic keys. */
   knownLanguage: boolean | null;
 };

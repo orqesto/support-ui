@@ -37,6 +37,9 @@ export const RoutingKeysSettings = () => {
   const [savingSelfEdit, setSavingSelfEdit] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [openValues, setOpenValues] = useState<string | null>(null);
+  const [typeError, setTypeError] = useState<string | null>(null);
+  // An older backend sends keys without a type: hide the controls it cannot serve.
+  const skillRoutingSupported = routingKeys.some((rk) => rk.typeReported);
 
   const fetchKeys = async () => {
     setLoading(true);
@@ -114,8 +117,13 @@ export const RoutingKeysSettings = () => {
 
   const handleTypeToggle = async (rk: RoutingKey) => {
     const next: RoutingKeyType = rk.type === 'language' ? 'topic' : 'language';
-    await organizationService.setRoutingKeyType(rk.key, next);
-    await fetchKeys();
+    setTypeError(null);
+    try {
+      await organizationService.setRoutingKeyType(rk.key, next);
+      await fetchKeys();
+    } catch {
+      setTypeError(`Could not change the type of "${rk.key}". Please try again.`);
+    }
   };
 
   const handleDelete = async () => {
@@ -267,6 +275,7 @@ export const RoutingKeysSettings = () => {
                   <span className="ml-2 text-sm text-muted-foreground">{rk.description}</span>
                 )}
               </div>
+              {rk.typeReported && (
               <Button
                 size="sm"
                 variant="outline"
@@ -278,6 +287,7 @@ export const RoutingKeysSettings = () => {
                   {TYPE_LABEL[rk.type]}
                 </Badge>
               </Button>
+              )}
               <Button
                 size="sm"
                 variant="ghost"
@@ -310,7 +320,9 @@ export const RoutingKeysSettings = () => {
         </div>
       )}
 
-      <RoutingTestBox />
+      {skillRoutingSupported && <RoutingTestBox />}
+
+      {typeError && <p className="text-sm text-destructive">{typeError}</p>}
 
       {deleteError && (
         <p className="text-sm text-destructive">{deleteError}</p>

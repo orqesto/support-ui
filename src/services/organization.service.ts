@@ -503,6 +503,7 @@ export const organizationService = {
     return (response.data.data ?? []).map((row) => ({
       ...row,
       type: row.type === 'language' ? 'language' : 'topic',
+      typeReported: row.type === 'language' || row.type === 'topic',
     }));
   },
 
@@ -523,10 +524,15 @@ export const organizationService = {
   },
 
   /** null when the backend predates per-value descriptions (404) — the page then hides them. */
-  getRoutingKeyValues: async (key: string): Promise<RoutingValue[] | null> => {
+  getRoutingKeyValues: async (
+    key: string,
+    options: { includeReassigned?: boolean } = {}
+  ): Promise<RoutingValue[] | null> => {
     try {
+      // The reassignment count scans a month of conversations — only the settings page asks.
       const response = await apiClient.get<ApiResponse<RoutingValue[]>>(
-        `/api/organizations/routing-keys/${encodeURIComponent(key)}/values`
+        `/api/organizations/routing-keys/${encodeURIComponent(key)}/values`,
+        options.includeReassigned ? { params: { include: 'reassigned' } } : undefined
       );
       return response.data.data ?? [];
     } catch (error) {

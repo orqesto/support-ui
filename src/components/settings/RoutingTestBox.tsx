@@ -10,6 +10,11 @@ import type { RoutingTestResult, SkillMatch } from '@/types/skillRouting';
 
 const STATUS_BADGE = { clear: 'success', unclear: 'warning', none: 'secondary' } as const;
 
+const REASON_TEXT: Record<string, string> = {
+  skill_match: 'by skill match',
+  load_balance: 'as the least busy agent (no skill matched)',
+};
+
 const describeMatch = (match: SkillMatch): string =>
   `${match.key} = ${match.value}${match.evidence ? ` — mentions “${match.evidence}”` : ''}${
     match.source === 'ai' ? ' (AI judged)' : ''
@@ -89,7 +94,8 @@ export const RoutingTestBox = () => {
           <p>
             {result.wouldAssign ? (
               <>
-                Would go to <strong>{assignee}</strong>
+                Would go to <strong>{assignee}</strong>{' '}
+                {REASON_TEXT[result.wouldAssign.reason] ?? `(${result.wouldAssign.reason})`}
               </>
             ) : (
               'Nobody would get it by skill (the auto-assign mode decides what happens next).'
@@ -105,6 +111,11 @@ export const RoutingTestBox = () => {
                     {describeMatch(match)}
                   </span>
                 ))}
+                {entry.status === 'unclear' && entry.candidates.length > 0 && (
+                  <span className="text-muted-foreground">
+                    could be {entry.candidates.map((candidate) => candidate.value).join(' or ')}
+                  </span>
+                )}
                 {entry.status === 'unclear' && result.judgement?.[entry.key] && (
                   <span className="text-muted-foreground">
                     AI picked {result.judgement[entry.key]}

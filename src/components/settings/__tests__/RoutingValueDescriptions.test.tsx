@@ -7,7 +7,7 @@ import type { RoutingValue } from '@/types/skillRouting';
  * value matches is the admin's description; Suggest drafts one with AI; an older backend without
  * the endpoint hides the section instead of erroring.
  */
-const getRoutingKeyValues = vi.fn<(key: string) => Promise<RoutingValue[] | null>>();
+const getRoutingKeyValues = vi.fn<(key: string, options?: { includeReassigned?: boolean }) => Promise<RoutingValue[] | null>>();
 const setRoutingValueDescription =
   vi.fn<(key: string, value: string, description: string | null) => Promise<void>>();
 const deleteRoutingValue = vi.fn<(key: string, value: string) => Promise<void>>();
@@ -20,7 +20,7 @@ const suggestRoutingValueDescription =
   >();
 vi.mock('@/services/organization.service', () => ({
   organizationService: {
-    getRoutingKeyValues: (key: string) => getRoutingKeyValues(key),
+    getRoutingKeyValues: (key: string, options?: { includeReassigned?: boolean }) => getRoutingKeyValues(key, options),
     setRoutingValueDescription: (key: string, value: string, description: string | null) =>
       setRoutingValueDescription(key, value, description),
     deleteRoutingValue: (key: string, value: string) => deleteRoutingValue(key, value),
@@ -38,6 +38,7 @@ const row = (overrides: Partial<RoutingValue> = {}): RoutingValue => ({
   unused: false,
   reassigned30d: 0,
   knownLanguage: null,
+  terms: ['usdc', 'usd coin', 'circle'],
   ...overrides,
 });
 
@@ -113,5 +114,20 @@ describe('RoutingValueDescriptions', () => {
     );
     await waitFor(() => expect(getRoutingKeyValues).toHaveBeenCalled());
     await waitFor(() => expect(container).toBeEmptyDOMElement());
+  });
+
+  it('shows the keywords matching uses, and asks for the reassignment count', async () => {
+    getRoutingKeyValues.mockResolvedValue([row()]);
+    render(<RoutingValueDescriptions routingKey="payment_sys" keyType="topic" />);
+    expect(await screen.findByText(/Matches: usdc, usd coin, circle/)).toBeInTheDocument();
+    expect(getRoutingKeyValues).toHaveBeenCalledWith('payment_sys', { includeReassigned: true });
+  });
+
+  it('a failed suggestion or delete says so (no unhandled rejection)', async () => {
+    getRoutingKeyValues.mockResolvedValue([row()]);
+    suggestRoutingValueDescription.mockRejectedValue(new Error('boom'));
+    render(<RoutingValueDescriptions routingKey="payment_sys" keyType="topic" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Suggest usdc' }));
+    expect(await screen.findByText(/could not answer/i)).toBeInTheDocument();
   });
 });
