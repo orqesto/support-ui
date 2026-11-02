@@ -329,4 +329,30 @@ describe('OutsideViewMatches', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Show in Resolved or closed/ }));
     expect(onJump).toHaveBeenCalledWith(expect.objectContaining({ negate: 'aiState' }), undefined);
   });
+
+  // Review of #801 (probed): a question changed and changed back while the list loaded was never
+  // asked again — the section stayed empty.
+  it('a search changed and changed back while the list loads is asked again', async () => {
+    getThreads.mockResolvedValue(answer([thread(1, 'terminal', 'Back again')]));
+    const first = filters({ search: 'one@shop.example' });
+    const { rerender } = render(section(first, vi.fn(), vi.fn(), 'r1', true));
+    await screen.findByText('Back again');
+    rerender(section(filters({ search: 'two@shop.example' }), vi.fn(), vi.fn(), 'r1', false));
+    rerender(section(first, vi.fn(), vi.fn(), 'r1', false));
+    rerender(section(first, vi.fn(), vi.fn(), 'r1', true));
+    expect(await screen.findByText('Back again')).toBeTruthy();
+    expect(getThreads).toHaveBeenCalledTimes(2);
+  });
+
+  it('a failed answer is asked again on the next list read', async () => {
+    getThreads
+      .mockRejectedValueOnce(new Error('503'))
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Second try')]));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1', true));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+    rerender(section(state, vi.fn(), vi.fn(), 'r1', false));
+    rerender(section(state, vi.fn(), vi.fn(), 'r1', true));
+    expect(await screen.findByText('Second try')).toBeTruthy();
+  });
 });
