@@ -72,6 +72,12 @@ type ColumnState = {
   loading: boolean;
   hasMore: boolean;
   page: number;
+  /**
+   * The last read of this column did not finish (timed out, or failed): the rows and `total` on
+   * screen are not its answer. Drawn as "not loaded", never as "0" / "No … threads" — a searched
+   * board read a timed-out Resolved column as "nothing resolved" (customer's workspace, 2026-11-02).
+   */
+  unfinished?: boolean;
 };
 
 // Draggable wrapper — only rendered for DND_COLS
@@ -188,7 +194,9 @@ const KanbanColumn = ({
   // What this lane can offer a bulk run: the loaded cards that are real conversations
   // (a `spamlog_` row has none behind it, so it can never be acted on).
   const selectableIds = state.threads
-    .filter((thread) => !thread.threadId.startsWith('spamlog_') && (thread.latestMessage?.id ?? 0) > 0)
+    .filter(
+      (thread) => !thread.threadId.startsWith('spamlog_') && (thread.latestMessage?.id ?? 0) > 0
+    )
     .map((thread) => thread.latestMessage!.id);
   const selectedHere = isSelected ? selectableIds.filter((id) => isSelected(id)).length : 0;
 
@@ -234,7 +242,8 @@ const KanbanColumn = ({
             checked={selectableIds.length > 0 && selectedHere === selectableIds.length}
             ref={(node) => {
               // Indeterminate is a DOM property, not an attribute: it cannot be set in JSX.
-              if (node) node.indeterminate = selectedHere > 0 && selectedHere < selectableIds.length;
+              if (node)
+                node.indeterminate = selectedHere > 0 && selectedHere < selectableIds.length;
             }}
             aria-label={`Select the loaded ${col.label} cards`}
             disabled={selectableIds.length === 0}
@@ -264,8 +273,11 @@ const KanbanColumn = ({
           </Button>
         )}
         {!state.loading && (
-          <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">
-            {formatTotal(state.total, state.totalCapped)}
+          <span
+            className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0"
+            title={state.unfinished ? 'Not loaded — it took too long' : undefined}
+          >
+            {state.unfinished ? '—' : formatTotal(state.total, state.totalCapped)}
           </span>
         )}
         {/* Per-column sort — each column sorts independently. Compact chip select
@@ -294,7 +306,11 @@ const KanbanColumn = ({
             </div>
           ))
         ) : state.threads.length === 0 ? (
-          <p className="px-3 py-4 text-xs text-muted-foreground xl:text-center">{col.emptyText}</p>
+          <p className="px-3 py-4 text-xs text-muted-foreground xl:text-center">
+            {state.unfinished
+              ? 'Not loaded — it took too long. Refresh to try again, or narrow the search.'
+              : col.emptyText}
+          </p>
         ) : (
           <>
             {state.threads.map((thread) =>
@@ -305,9 +321,7 @@ const KanbanColumn = ({
                     colId={col.id}
                     onOpen={onOpen}
                     weRepliedLast={col.id === 'awaiting'}
-                    selected={
-                      thread.latestMessage ? isSelected?.(thread.latestMessage.id) : false
-                    }
+                    selected={thread.latestMessage ? isSelected?.(thread.latestMessage.id) : false}
                     onToggleSelected={toggleCard}
                     selectMode={selectMode}
                   />
@@ -327,9 +341,7 @@ const KanbanColumn = ({
                     onOpen={onOpen}
                     weRepliedLast={col.id === 'awaiting'}
                     colId={col.id}
-                    selected={
-                      thread.latestMessage ? isSelected?.(thread.latestMessage.id) : false
-                    }
+                    selected={thread.latestMessage ? isSelected?.(thread.latestMessage.id) : false}
                     onToggleSelected={toggleCard}
                     selectMode={selectMode}
                   />
@@ -506,9 +518,7 @@ const ApproveDropZone = ({ activeDragColId }: { activeDragColId: string | null }
       ref={setNodeRef}
       className={cn(
         'flex items-center justify-center gap-2 rounded-lg border-2 border-dashed py-3 text-sm font-medium transition-colors',
-        isOver
-          ? 'border-success bg-success/10 text-success'
-          : 'border-border text-muted-foreground'
+        isOver ? 'border-success bg-success/10 text-success' : 'border-border text-muted-foreground'
       )}
     >
       <ArrowRightCircle className="w-4 h-4" />
@@ -534,913 +544,933 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     },
     ref
   ) => {
-  const queryClient = useQueryClient();
-  // Which axis's columns are shown. Lifecycle = the work board; Triage = the
-  // pre-lifecycle classification queues. (Option A: separate tabs.)
-  const [activeTab, setActiveTab] = useState<ColumnAxis>('lifecycle');
-  // Hidden (collapsed) lifecycle columns — only On-hold/Resolved are hideable.
-  const [hiddenCols, setHiddenCols] = useState<Set<string>>(loadHiddenCols);
-  const toggleCol = useCallback((id: string) => {
-    setHiddenCols((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      try {
-        localStorage.setItem(HIDDEN_COLS_KEY, JSON.stringify([...next]));
-      } catch {
-        /* ignore quota/availability errors */
-      }
-      return next;
-    });
-  }, []);
-  const [colStates, setColStates] = useState<Record<string, ColumnState>>(initialColStates);
-  const [triageUnread, setTriageUnread] = useState(0);
-  const [activeThread, setActiveThread] = useState<MessageThread | null>(null);
-  const [activeDragColId, setActiveDragColId] = useState<string | null>(null);
-
-  // Per-column sort — each column sorts independently (kanban no longer reads the
-  // global store `sorting`, which the list view still owns). Falls back to
-  // newest-first for any column the user hasn't touched.
-  const DEFAULT_COL_SORT: SortingState = { sortBy: 'time', sortOrder: 'desc' };
-  const [colSort, setColSort] = useState<Record<string, SortingState>>({});
-  const getColSort = useCallback(
-    (colId: string): SortingState => colSort[colId] ?? DEFAULT_COL_SORT,
-    // DEFAULT_COL_SORT is a stable literal; only colSort drives changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [colSort]
-  );
-
-  const sharedFilters = useMemo(() => buildSharedFilters(filters), [filters]);
-  // Shared-filter key drives a full reload of every column (filters apply to all).
-  const filterKey = useMemo(() => JSON.stringify(sharedFilters), [sharedFilters]);
-  // Serialize per-column sort so a single column's sort change reloads just that
-  // column (see the colSort effect below), keyed off the previous snapshot.
-  const colSortKey = useMemo(() => JSON.stringify(colSort), [colSort]);
-
-  const selectedDeptKey = useDepartmentContextKey();
-  // P2: unread auto-arrival counts for the Suspicious/Spam column badges.
-  const { counts: arrivalCounts, clearKind: clearArrivalKind } = useNotificationCounts();
-
-  const colStatesRef = useRef(colStates);
-  colStatesRef.current = colStates;
-  const sharedFiltersRef = useRef(sharedFilters);
-  sharedFiltersRef.current = sharedFilters;
-  const colSortRef = useRef(colSort);
-  colSortRef.current = colSort;
-
-  // Load a single column with ITS current sort. Reads sort + filters from refs so the
-  // identity stays stable and effects can call it freely.
-  // `keepDepth` (post-action reconcile, same scope): re-fetch EVERY page the agent has
-  // already loaded, not just page 1. Reloading page 1 alone replaced the column with 20
-  // rows, which threw away each "Load more" page and jumped the scroll back to the top
-  // on every mark-as-read. One larger request can't stand in: the API caps `limit` at 50.
-  // One column's pages, as loaded — by its own requests or by the board read.
-  const applyColumnPages = useCallback((colId: string, results: ThreadsResponse[]) => {
-    const last = results[results.length - 1];
-    setColStates((prev) => ({
-      ...prev,
-      [colId]: {
-        threads: uniqueThreads(
-          results.flatMap((res) => res.data.filter((thread) => thread.latestMessage !== null))
-        ),
-        total: last.pagination.total,
-        totalCapped: last.pagination.totalCapped === true,
-        loading: false,
-        hasMore: last.pagination.page < last.pagination.totalPages,
-        // Rows can leave the column between loads; never claim a page past the end,
-        // or the next "Load more" would ask for one that does not exist.
-        page: Math.max(1, Math.min(last.pagination.page, last.pagination.totalPages)),
-      },
-    }));
-  }, []);
-
-  const loadColumn = useCallback((colId: string, keepDepth = false) => {
-    const col = COLUMNS.find((kanbanCol) => kanbanCol.id === colId);
-    if (!col) return () => {};
-    let cancelled = false;
-    setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: true } }));
-    const sort = colSortRef.current[colId] ?? { sortBy: 'time', sortOrder: 'desc' };
-    const requestFilters = { ...sharedFiltersRef.current, ...col.fixedFilters };
-    const pages = keepDepth ? Math.max(1, colStatesRef.current[colId]?.page ?? 1) : 1;
-    void (async () => {
-      try {
-        const results = await Promise.all(
-          Array.from({ length: pages }, (_, idx) =>
-            messageService.getThreads(
-              requestFilters,
-              idx + 1,
-              PAGE_SIZE,
-              sort.sortOrder,
-              sort.sortBy
-            )
-          )
-        );
-        if (cancelled) return;
-        if (!results.every((res) => res.success)) {
-          // Keep what is on screen rather than half a column; just stop "Loading…".
-          setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: false } }));
-          return;
+    const queryClient = useQueryClient();
+    // Which axis's columns are shown. Lifecycle = the work board; Triage = the
+    // pre-lifecycle classification queues. (Option A: separate tabs.)
+    const [activeTab, setActiveTab] = useState<ColumnAxis>('lifecycle');
+    // Hidden (collapsed) lifecycle columns — only On-hold/Resolved are hideable.
+    const [hiddenCols, setHiddenCols] = useState<Set<string>>(loadHiddenCols);
+    const toggleCol = useCallback((id: string) => {
+      setHiddenCols((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        try {
+          localStorage.setItem(HIDDEN_COLS_KEY, JSON.stringify([...next]));
+        } catch {
+          /* ignore quota/availability errors */
         }
-        applyColumnPages(colId, results);
-      } catch (err) {
-        if (!cancelled) {
-          logger.error(`Failed to fetch kanban column ${colId}:`, err);
-          setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: false } }));
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [applyColumnPages]);
-
-  // Server-side UNREAD count across the triage queues, for the Triage tab badge.
-  // One count request per triage column with `limit=1` — we only read
-  // `pagination.total`, never the rows, so this stays cheap and is correct
-  // regardless of how deep a queue is (see the note by triageCount for why the
-  // loaded page cannot be counted instead).
-  //
-  // `read=unread` is the SHARED org-wide read state (the same one the triage
-  // read/unread filter drives): a thread any agent has read is read for the team, so
-  // this number is "what the team has not looked at yet", not "what I have not looked
-  // at yet". Deliberately not useNotificationCounts() — those are arrival
-  // notifications for two kinds only, and they clear when a kind is marked reviewed,
-  // not when a thread is read.
-  const loadTriageUnread = useCallback(() => {
-    let cancelled = false;
-    // Same rule as the total badge — see `countsTowardTriageBadge`. Excluding it from one
-    // badge and not the other is how "1,267 unread" would have appeared beside a total of 30.
-    const triageCols = COLUMNS.filter(countsTowardTriageBadge);
-    void (async () => {
-      try {
-        const totals = await Promise.all(
-          triageCols.map(async (col) => {
-            const res = await messageService.getThreads(
-              { ...sharedFiltersRef.current, ...col.fixedFilters, read: 'unread' },
-              1,
-              1
-            );
-            // A capped or cut-short count is not a number to add up: keep the previous badge.
-            return res.success ? exactTotal(res.pagination) : 0;
-          })
-        );
-        if (totals.some((num) => num === undefined)) return;
-        if (!cancelled) setTriageUnread(totals.reduce<number>((sum, num) => sum + (num ?? 0), 0));
-      } catch (err) {
-        // Non-fatal: the badge is informational. Leave the previous value rather
-        // than flashing 0, which would read as "nothing unread" — the one wrong
-        // answer this badge can give.
-        logger.error('Failed to fetch triage unread count:', err);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  /**
-   * What this board CANNOT show, in numbers.
-   *
-   * The board fires one query per column and renders what comes back. Nothing ever asked
-   * the complementary question, so a conversation matching none of the nine columns was
-   * simply absent while the filter bar above it counted the row — `1–2 of 2` over a single
-   * card, with nothing saying the other one had no lane. `view=board` is that question:
-   * the union of the nine, so `pagination.total` is what the board holds and `scope.hidden`
-   * is what it leaves out, broken down by reason.
-   *
-   * 🪤 It CANNOT be derived by summing the column totals. Three reasons, each enough on its
-   * own: `boardCount` deliberately omits the hideable columns; the sum is only valid if all
-   * nine predicates are disjoint, which is an assumption no code here checks; and the
-   * columns resolve independently, so mid-load the sum is short and the notice would flash
-   * a number that is briefly a lie. One server-side answer has none of those problems.
-   *
-   * ⚠️ Costs one aggregate over the org per filter change — the same query the list view
-   * pays for, and the reason `useMessagesData` withholds `scope=1` from the board. It is
-   * requested with `limit=1` so only the count comes back, never rows.
-   */
-  /**
-   * ⚠️ SINCE THE TENTH COLUMN, THIS IS A TRIPWIRE — not a caption anyone should see.
-   *
-   * `view=board` covers every conversation now, so `scope.hidden` is 0 by construction and
-   * `ListScopeNotice` renders nothing. Keeping the query is deliberate: the day a lane
-   * narrows again — a predicate gains a clause, a column's filter drifts from the server's
-   * — `hidden` goes positive and the sentence reappears above the board, naming the count.
-   * That is the failure mode this whole feature exists for, and it stayed invisible for a
-   * month the last two times precisely because nothing was watching.
-   *
-   * The cost is one aggregate per filter change, which was already being paid.
-   */
-  const [boardScope, setBoardScope] = useState<{
-    scope: ListScope;
-    shown: number;
-    shownCapped?: boolean;
-  } | null>(null);
-
-  const loadBoardScope = useCallback((onLoaded?: () => void) => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await messageService.getThreads(
-          { ...sharedFiltersRef.current, view: 'board', scope: '1' },
-          1,
-          1
-        );
-        if (cancelled || !res.success) return;
-        /**
-         * ⛔ FEATURE-DETECT, not an optional nicety. This repo deploys on merge while the
-         * backend ships on a tag, so this bundle WILL run against a backend that predates
-         * `view=board` — and an unknown view is not rejected there, it is dropped
-         * (`requestedView` returns undefined for anything unrecognised). The request then
-         * answers with the DEFAULT list lens, and we would render its count above the
-         * kanban as though it described the board: a confidently wrong number, which is
-         * the precise failure this notice exists to remove.
-         *
-         * `orphanOutgoing` is added by the same backend change as `view=board`, so its
-         * presence is the signal that the answer means what we think. `scope` absent or
-         * null already means "no information"; so does an old shape.
-         */
-        setBoardScope(boardScopeFrom(res));
-        onLoaded?.();
-      } catch (err) {
-        // Non-fatal: the notice is informational, the board is not. Clear it rather than
-        // leaving a stale count describing the previous filter.
-        if (!cancelled) {
-          logger.error('Failed to fetch board scope:', err);
-          setBoardScope(null);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  /**
-   * The columns, the unread badge and (when asked) the scope in ONE request
-   * (`POST /threads/board`), where the board used to send one search per column, one per unread
-   * badge and one for the scope: nine on every refresh. Each entry is listed by the same backend
-   * code as its own search, so what lands here is what those requests answered.
-   *
-   * A backend without the route (it ships on a tag, this repo on merge) answers `null`, and the
-   * board reads itself the old way — `loadColumn`, `loadTriageUnread`, `loadBoardScope`.
-   */
-  const loadBoard = useCallback(
-    ({
-      colIds,
-      keepDepth,
-      unread,
-      scope,
-      onScopeLoaded,
-    }: {
-      colIds: string[];
-      keepDepth: boolean;
-      unread: boolean;
-      scope: boolean;
-      onScopeLoaded?: () => void;
-    }) => {
-      let cancelled = false;
-      const pagesOf = (colId: string) =>
-        keepDepth ? Math.max(1, colStatesRef.current[colId]?.page ?? 1) : 1;
-      // A column deeper than the board read takes (BOARD_MAX_PAGES, "Load more" has no limit)
-      // is read on its own, as before — one such column must not make the whole board a 400.
-      const deep = COLUMNS.filter(
-        (col) => colIds.includes(col.id) && pagesOf(col.id) > BOARD_MAX_PAGES
-      );
-      let fallbackCancels: Array<() => void> = deep.map((col) => loadColumn(col.id, keepDepth));
-      const columns = COLUMNS.filter(
-        (col) => colIds.includes(col.id) && pagesOf(col.id) <= BOARD_MAX_PAGES
-      );
-      const triageCols = unread ? COLUMNS.filter(countsTowardTriageBadge) : [];
-      setColStates((prev) => {
-        const next = { ...prev };
-        for (const col of columns) next[col.id] = { ...prev[col.id], loading: true };
         return next;
       });
-      void (async () => {
-        try {
-          const answer = await messageService.getThreadBoard({
-            filters: sharedFiltersRef.current,
-            columns: columns.map((col) => {
-              const sort = colSortRef.current[col.id] ?? { sortBy: 'time', sortOrder: 'desc' };
-              return {
-                id: col.id,
-                filters: col.fixedFilters,
-                sortOrder: sort.sortOrder,
-                ...(sort.sortBy !== 'time' ? { sortBy: sort.sortBy } : {}),
-                limit: PAGE_SIZE,
-                pages: pagesOf(col.id),
-              };
-            }),
-            counts: [
-              ...triageCols.map((col) => ({
-                id: col.id,
-                filters: { ...col.fixedFilters, read: 'unread' },
-              })),
-              ...(scope ? [{ id: BOARD_SCOPE_COUNT, filters: { view: 'board', scope: '1' } }] : []),
-            ],
-          });
-          if (cancelled) return;
-          if (!answer) {
-            fallbackCancels = [
-              ...fallbackCancels,
-              ...columns.map((col) => loadColumn(col.id, keepDepth)),
-              ...(unread ? [loadTriageUnread()] : []),
-              ...(scope ? [loadBoardScope(onScopeLoaded)] : []),
-            ];
-            return;
-          }
-          for (const col of columns) {
-            const pages = answer.columns[col.id];
-            if (pages && pages.length > 0) applyColumnPages(col.id, pages);
-            // Keep what is on screen rather than half a column; just stop "Loading…".
-            else setColStates((prev) => ({ ...prev, [col.id]: { ...prev[col.id], loading: false } }));
-          }
-          if (unread) {
-            // A count that failed, was capped or cut short is not a number to add up: keep the
-            // previous badge, as loadTriageUnread does.
-            const totals = triageCols.map((col) => {
-              const count = answer.counts[col.id];
-              return count ? exactTotal(count.pagination) : undefined;
-            });
-            if (!totals.some((num) => num === undefined)) {
-              setTriageUnread(totals.reduce<number>((sum, num) => sum + (num ?? 0), 0));
+    }, []);
+    const [colStates, setColStates] = useState<Record<string, ColumnState>>(initialColStates);
+    const [triageUnread, setTriageUnread] = useState(0);
+    const [activeThread, setActiveThread] = useState<MessageThread | null>(null);
+    const [activeDragColId, setActiveDragColId] = useState<string | null>(null);
+
+    // Per-column sort — each column sorts independently (kanban no longer reads the
+    // global store `sorting`, which the list view still owns). Falls back to
+    // newest-first for any column the user hasn't touched.
+    const DEFAULT_COL_SORT: SortingState = { sortBy: 'time', sortOrder: 'desc' };
+    const [colSort, setColSort] = useState<Record<string, SortingState>>({});
+    const getColSort = useCallback(
+      (colId: string): SortingState => colSort[colId] ?? DEFAULT_COL_SORT,
+      // DEFAULT_COL_SORT is a stable literal; only colSort drives changes.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [colSort]
+    );
+
+    const sharedFilters = useMemo(() => buildSharedFilters(filters), [filters]);
+    // Shared-filter key drives a full reload of every column (filters apply to all).
+    const filterKey = useMemo(() => JSON.stringify(sharedFilters), [sharedFilters]);
+    // Serialize per-column sort so a single column's sort change reloads just that
+    // column (see the colSort effect below), keyed off the previous snapshot.
+    const colSortKey = useMemo(() => JSON.stringify(colSort), [colSort]);
+
+    const selectedDeptKey = useDepartmentContextKey();
+    // P2: unread auto-arrival counts for the Suspicious/Spam column badges.
+    const { counts: arrivalCounts, clearKind: clearArrivalKind } = useNotificationCounts();
+
+    const colStatesRef = useRef(colStates);
+    colStatesRef.current = colStates;
+    const sharedFiltersRef = useRef(sharedFilters);
+    sharedFiltersRef.current = sharedFilters;
+    const colSortRef = useRef(colSort);
+    colSortRef.current = colSort;
+
+    // Load a single column with ITS current sort. Reads sort + filters from refs so the
+    // identity stays stable and effects can call it freely.
+    // `keepDepth` (post-action reconcile, same scope): re-fetch EVERY page the agent has
+    // already loaded, not just page 1. Reloading page 1 alone replaced the column with 20
+    // rows, which threw away each "Load more" page and jumped the scroll back to the top
+    // on every mark-as-read. One larger request can't stand in: the API caps `limit` at 50.
+    // One column's pages, as loaded — by its own requests or by the board read.
+    const applyColumnPages = useCallback((colId: string, results: ThreadsResponse[]) => {
+      const last = results[results.length - 1];
+      setColStates((prev) => ({
+        ...prev,
+        [colId]: {
+          threads: uniqueThreads(
+            results.flatMap((res) => res.data.filter((thread) => thread.latestMessage !== null))
+          ),
+          total: last.pagination.total,
+          totalCapped: last.pagination.totalCapped === true,
+          loading: false,
+          unfinished: false,
+          hasMore: last.pagination.page < last.pagination.totalPages,
+          // Rows can leave the column between loads; never claim a page past the end,
+          // or the next "Load more" would ask for one that does not exist.
+          page: Math.max(1, Math.min(last.pagination.page, last.pagination.totalPages)),
+        },
+      }));
+    }, []);
+
+    const loadColumn = useCallback(
+      (colId: string, keepDepth = false) => {
+        const col = COLUMNS.find((kanbanCol) => kanbanCol.id === colId);
+        if (!col) return () => {};
+        let cancelled = false;
+        setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: true } }));
+        const sort = colSortRef.current[colId] ?? { sortBy: 'time', sortOrder: 'desc' };
+        const requestFilters = { ...sharedFiltersRef.current, ...col.fixedFilters };
+        const pages = keepDepth ? Math.max(1, colStatesRef.current[colId]?.page ?? 1) : 1;
+        void (async () => {
+          try {
+            const results = await Promise.all(
+              Array.from({ length: pages }, (_, idx) =>
+                messageService.getThreads(
+                  requestFilters,
+                  idx + 1,
+                  PAGE_SIZE,
+                  sort.sortOrder,
+                  sort.sortBy
+                )
+              )
+            );
+            if (cancelled) return;
+            if (!results.every((res) => res.success)) {
+              // Keep what is on screen rather than half a column; just stop "Loading…".
+              setColStates((prev) => ({
+                ...prev,
+                [colId]: { ...prev[colId], loading: false, unfinished: true },
+              }));
+              return;
+            }
+            applyColumnPages(colId, results);
+          } catch (err) {
+            if (!cancelled) {
+              logger.error(`Failed to fetch kanban column ${colId}:`, err);
+              setColStates((prev) => ({
+                ...prev,
+                [colId]: { ...prev[colId], loading: false, unfinished: true },
+              }));
             }
           }
-          if (scope) {
-            const count = answer.counts[BOARD_SCOPE_COUNT];
-            setBoardScope(count ? boardScopeFrom(count) : null);
-            if (count) onScopeLoaded?.();
-          }
+        })();
+        return () => {
+          cancelled = true;
+        };
+      },
+      [applyColumnPages]
+    );
+
+    // Server-side UNREAD count across the triage queues, for the Triage tab badge.
+    // One count request per triage column with `limit=1` — we only read
+    // `pagination.total`, never the rows, so this stays cheap and is correct
+    // regardless of how deep a queue is (see the note by triageCount for why the
+    // loaded page cannot be counted instead).
+    //
+    // `read=unread` is the SHARED org-wide read state (the same one the triage
+    // read/unread filter drives): a thread any agent has read is read for the team, so
+    // this number is "what the team has not looked at yet", not "what I have not looked
+    // at yet". Deliberately not useNotificationCounts() — those are arrival
+    // notifications for two kinds only, and they clear when a kind is marked reviewed,
+    // not when a thread is read.
+    const loadTriageUnread = useCallback(() => {
+      let cancelled = false;
+      // Same rule as the total badge — see `countsTowardTriageBadge`. Excluding it from one
+      // badge and not the other is how "1,267 unread" would have appeared beside a total of 30.
+      const triageCols = COLUMNS.filter(countsTowardTriageBadge);
+      void (async () => {
+        try {
+          const totals = await Promise.all(
+            triageCols.map(async (col) => {
+              const res = await messageService.getThreads(
+                { ...sharedFiltersRef.current, ...col.fixedFilters, read: 'unread' },
+                1,
+                1
+              );
+              // A capped or cut-short count is not a number to add up: keep the previous badge.
+              return res.success ? exactTotal(res.pagination) : 0;
+            })
+          );
+          if (totals.some((num) => num === undefined)) return;
+          if (!cancelled) setTriageUnread(totals.reduce<number>((sum, num) => sum + (num ?? 0), 0));
         } catch (err) {
-          if (cancelled) return;
-          logger.error('Failed to fetch the kanban board:', err);
-          setColStates((prev) => {
-            const next = { ...prev };
-            for (const col of columns) next[col.id] = { ...prev[col.id], loading: false };
-            return next;
-          });
-          if (scope) setBoardScope(null);
+          // Non-fatal: the badge is informational. Leave the previous value rather
+          // than flashing 0, which would read as "nothing unread" — the one wrong
+          // answer this badge can give.
+          logger.error('Failed to fetch triage unread count:', err);
         }
       })();
       return () => {
         cancelled = true;
-        fallbackCancels.forEach((cancel) => cancel());
       };
-    },
-    [applyColumnPages, loadColumn, loadTriageUnread, loadBoardScope]
-  );
+    }, []);
 
-  // Optimistic single-card move — pull the card out of whichever column currently
-  // holds it and drop it into the destination column, all in local state. No column
-  // refetch (unlike bumpKanban), so the acting agent sees the card jump the instant
-  // their reply/resolve/close succeeds. The next authoritative reload (if any) simply
-  // confirms the same placement, so there's no visible second jump.
-  // Pull every card matching `isMoved` out of whichever column holds it and drop it into the
-  // destination column, all in local state. One card (the acting agent's reply/resolve) or many
-  // (a bulk run). No refetch: the next authoritative reload confirms the same placement.
-  const moveCards = useCallback(
-    (isMoved: (thread: MessageThread) => boolean, targetColId: string | null) => {
-      setColStates((prev) => {
-        const moved: MessageThread[] = [];
-        const next: Record<string, ColumnState> = {};
-        for (const [colId, state] of Object.entries(prev)) {
-          const leaving = state.threads.filter(isMoved);
-          // The target column too: a card already there goes back on top, patched, as one did.
-          if (leaving.length === 0) {
-            next[colId] = state;
-            continue;
+    /**
+     * What this board CANNOT show, in numbers.
+     *
+     * The board fires one query per column and renders what comes back. Nothing ever asked
+     * the complementary question, so a conversation matching none of the nine columns was
+     * simply absent while the filter bar above it counted the row — `1–2 of 2` over a single
+     * card, with nothing saying the other one had no lane. `view=board` is that question:
+     * the union of the nine, so `pagination.total` is what the board holds and `scope.hidden`
+     * is what it leaves out, broken down by reason.
+     *
+     * 🪤 It CANNOT be derived by summing the column totals. Three reasons, each enough on its
+     * own: `boardCount` deliberately omits the hideable columns; the sum is only valid if all
+     * nine predicates are disjoint, which is an assumption no code here checks; and the
+     * columns resolve independently, so mid-load the sum is short and the notice would flash
+     * a number that is briefly a lie. One server-side answer has none of those problems.
+     *
+     * ⚠️ Costs one aggregate over the org per filter change — the same query the list view
+     * pays for, and the reason `useMessagesData` withholds `scope=1` from the board. It is
+     * requested with `limit=1` so only the count comes back, never rows.
+     */
+    /**
+     * ⚠️ SINCE THE TENTH COLUMN, THIS IS A TRIPWIRE — not a caption anyone should see.
+     *
+     * `view=board` covers every conversation now, so `scope.hidden` is 0 by construction and
+     * `ListScopeNotice` renders nothing. Keeping the query is deliberate: the day a lane
+     * narrows again — a predicate gains a clause, a column's filter drifts from the server's
+     * — `hidden` goes positive and the sentence reappears above the board, naming the count.
+     * That is the failure mode this whole feature exists for, and it stayed invisible for a
+     * month the last two times precisely because nothing was watching.
+     *
+     * The cost is one aggregate per filter change, which was already being paid.
+     */
+    const [boardScope, setBoardScope] = useState<{
+      scope: ListScope;
+      shown: number;
+      shownCapped?: boolean;
+    } | null>(null);
+
+    const loadBoardScope = useCallback((onLoaded?: () => void) => {
+      let cancelled = false;
+      void (async () => {
+        try {
+          const res = await messageService.getThreads(
+            { ...sharedFiltersRef.current, view: 'board', scope: '1' },
+            1,
+            1
+          );
+          if (cancelled || !res.success) return;
+          /**
+           * ⛔ FEATURE-DETECT, not an optional nicety. This repo deploys on merge while the
+           * backend ships on a tag, so this bundle WILL run against a backend that predates
+           * `view=board` — and an unknown view is not rejected there, it is dropped
+           * (`requestedView` returns undefined for anything unrecognised). The request then
+           * answers with the DEFAULT list lens, and we would render its count above the
+           * kanban as though it described the board: a confidently wrong number, which is
+           * the precise failure this notice exists to remove.
+           *
+           * `orphanOutgoing` is added by the same backend change as `view=board`, so its
+           * presence is the signal that the answer means what we think. `scope` absent or
+           * null already means "no information"; so does an old shape.
+           */
+          setBoardScope(boardScopeFrom(res));
+          onLoaded?.();
+        } catch (err) {
+          // Non-fatal: the notice is informational, the board is not. Clear it rather than
+          // leaving a stale count describing the previous filter.
+          if (!cancelled) {
+            logger.error('Failed to fetch board scope:', err);
+            setBoardScope(null);
           }
-          moved.push(...leaving);
-          next[colId] = {
-            ...state,
-            threads: state.threads.filter((thr) => !isMoved(thr)),
-            total: Math.max(0, state.total - leaving.length),
-          };
         }
-        // No card on the loaded board (off-page / different filter) — nothing to do.
-        if (moved.length === 0) return prev;
-        if (targetColId && next[targetColId]) {
-          const patched = moved.map((thr) => ({ ...thr, ...COL_STATE_PATCH[targetColId] }));
-          next[targetColId] = {
-            ...next[targetColId],
-            threads: uniqueThreads([...patched, ...next[targetColId].threads]),
-            total: next[targetColId].total + moved.length,
-          };
-        }
-        return next;
-      });
-    },
-    []
-  );
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, []);
 
-  const optimisticMove = useCallback(
-    (threadId: string, targetColId: string | null) =>
-      moveCards((thr) => thr.threadId === threadId, targetColId),
-    [moveCards]
-  );
-
-  const optimisticMoveMany = useCallback(
-    (conversationIds: number[], targetColId: string | null) => {
-      const ids = new Set(conversationIds);
-      moveCards((thr) => ids.has(thr.latestMessage?.id ?? -1), targetColId);
-    },
-    [moveCards]
-  );
-
-  useImperativeHandle(ref, () => ({ optimisticMove, optimisticMoveMany }), [
-    optimisticMove,
-    optimisticMoveMany,
-  ]);
-
-  // Fetch all columns in parallel when shared filters / refresh / dept change.
-  // A filter/dept change invalidates the current rows → wipe to skeletons first. A
-  // plain refreshKey bump (post-action reconcile) reloads IN PLACE: loadColumn keeps
-  // the existing threads visible (loading flag only) until fresh data arrives, so an
-  // optimistically-moved card doesn't flash away and back.
-  const prevFilterKeyRef = useRef(filterKey);
-  const boardScopeLoadedRef = useRef(false);
-  // Which load each column last answered for (`filter|team|refresh`), so a tab opened later
-  // knows whether its columns are current. Set when a load starts; a cancelled one is redone by
-  // the run that cancelled it.
-  const loadGenRef = useRef('');
-  const colLoadedGenRef = useRef<Record<string, string>>({});
-  const activeTabRef = useRef(activeTab);
-  activeTabRef.current = activeTab;
-  const prevDeptKeyRef = useRef(selectedDeptKey);
-  useEffect(() => {
-    const scopeChanged =
-      prevFilterKeyRef.current !== filterKey || prevDeptKeyRef.current !== selectedDeptKey;
-    prevFilterKeyRef.current = filterKey;
-    prevDeptKeyRef.current = selectedDeptKey;
-    if (scopeChanged) setColStates(initialColStates);
-    // Same scope ⇒ keep every loaded page (and so the scroll position); a new scope
-    // starts again from page 1.
-    // Only the tab on screen. The other tab's columns are 4–5 full queries nobody is looking
-    // at; they load when their tab opens (the effect below). Its Triage total stays hidden
-    // until then — the unread badge beside it is still counted here.
-    loadGenRef.current = `${filterKey}|${selectedDeptKey}|${String(refreshKey)}`;
-    const colIds = COLUMNS.filter((col) => col.axis === activeTabRef.current).map((col) => {
-      colLoadedGenRef.current[col.id] = loadGenRef.current;
-      return col.id;
-    });
-    // A scope count describing the PREVIOUS filter is worse than none, because it reads as a
-    // fact about what is on screen now — so it re-reads when the SCOPE changes. Not on a plain
-    // refresh: it is the single heaviest read on the board (an aggregate over the whole org,
-    // the top statement on a customer's database, 2026-10), and a card moving between lanes
-    // leaves the board's union — and so `hidden` — where it was.
-    // The flag is set only by an answer that landed, so a load cancelled by a quick re-run is
-    // retried on the next refresh instead of leaving the board without its scope.
-    if (scopeChanged) boardScopeLoadedRef.current = false;
-    // Same triggers as the columns themselves, so the unread badge can never drift
-    // out of step with the totals beside it.
-    return loadBoard({
-      colIds,
-      keepDepth: !scopeChanged,
-      unread: true,
-      scope: !boardScopeLoadedRef.current,
-      onScopeLoaded: () => {
-        boardScopeLoadedRef.current = true;
-      },
-    });
-  }, [filterKey, refreshKey, selectedDeptKey, loadBoard]);
-
-  // A tab opened: load its columns unless they already answered for the current scope/refresh.
-  useEffect(() => {
-    const stale = COLUMNS.filter(
-      (col) => col.axis === activeTab && colLoadedGenRef.current[col.id] !== loadGenRef.current
-    );
-    if (stale.length === 0) return undefined;
-    for (const col of stale) colLoadedGenRef.current[col.id] = loadGenRef.current;
-    return loadBoard({
-      colIds: stale.map((col) => col.id),
-      keepDepth: true,
-      unread: false,
-      scope: false,
-    });
-  }, [activeTab, loadBoard]);
-
-  // When ONE column's sort changes, reload only that column (diff vs the previous
-  // snapshot). Avoids refetching all seven columns on a single per-column change.
-  const prevColSortRef = useRef<Record<string, SortingState>>({});
-  useEffect(() => {
-    const prev = prevColSortRef.current;
-    const cancels: Array<() => void> = [];
-    for (const col of COLUMNS) {
-      const before = prev[col.id];
-      const after = colSort[col.id];
-      if (
-        after &&
-        (before?.sortBy !== after.sortBy || before?.sortOrder !== after.sortOrder)
-      ) {
-        cancels.push(loadColumn(col.id));
-      }
-    }
-    prevColSortRef.current = colSort;
-    return () => cancels.forEach((cancel) => cancel());
-    // colSortKey is a stable string proxy for colSort's contents.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [colSortKey, loadColumn]);
-
-  const loadMore = useCallback((colId: string) => {
-    const col = COLUMNS.find((kanbanCol) => kanbanCol.id === colId);
-    if (!col) return;
-    setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: true } }));
-    const nextPage = colStatesRef.current[colId].page + 1;
-    const filterSnapshot = { ...sharedFiltersRef.current, ...col.fixedFilters };
-    const sort = colSortRef.current[colId] ?? { sortBy: 'time', sortOrder: 'desc' };
-    void (async () => {
-      try {
-        const res = await messageService.getThreads(
-          filterSnapshot,
-          nextPage,
-          PAGE_SIZE,
-          sort.sortOrder,
-          sort.sortBy
+    /**
+     * The columns, the unread badge and (when asked) the scope in ONE request
+     * (`POST /threads/board`), where the board used to send one search per column, one per unread
+     * badge and one for the scope: nine on every refresh. Each entry is listed by the same backend
+     * code as its own search, so what lands here is what those requests answered.
+     *
+     * A backend without the route (it ships on a tag, this repo on merge) answers `null`, and the
+     * board reads itself the old way — `loadColumn`, `loadTriageUnread`, `loadBoardScope`.
+     */
+    const loadBoard = useCallback(
+      ({
+        colIds,
+        keepDepth,
+        unread,
+        scope,
+        onScopeLoaded,
+      }: {
+        colIds: string[];
+        keepDepth: boolean;
+        unread: boolean;
+        scope: boolean;
+        onScopeLoaded?: () => void;
+      }) => {
+        let cancelled = false;
+        const pagesOf = (colId: string) =>
+          keepDepth ? Math.max(1, colStatesRef.current[colId]?.page ?? 1) : 1;
+        // A column deeper than the board read takes (BOARD_MAX_PAGES, "Load more" has no limit)
+        // is read on its own, as before — one such column must not make the whole board a 400.
+        const deep = COLUMNS.filter(
+          (col) => colIds.includes(col.id) && pagesOf(col.id) > BOARD_MAX_PAGES
         );
-        if (!res.success) return;
-        setColStates((prev) => ({
-          ...prev,
-          [colId]: {
-            // Offset pages shift when a row leaves the column, so the next page can
-            // repeat one already shown; a duplicate key would confuse React's reconcile.
-            threads: uniqueThreads([
-              ...prev[colId].threads,
-              ...res.data.filter((thread) => thread.latestMessage !== null),
-            ]),
-            total: res.pagination.total,
-            totalCapped: res.pagination.totalCapped === true,
-            loading: false,
-            hasMore: res.pagination.page < res.pagination.totalPages,
-            page: res.pagination.page,
-          },
-        }));
-      } catch (err) {
-        logger.error(`Failed to load more for column ${colId}:`, err);
-        setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: false } }));
-      }
-    })();
-  }, []);
-
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
-  );
-
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const threadId = event.active.id as string;
-    const colId = event.active.data.current?.colId as string;
-    const thread = colStatesRef.current[colId]?.threads.find((thr) => thr.threadId === threadId);
-    setActiveThread(thread ?? null);
-    setActiveDragColId(colId);
-  }, []);
-
-  const handleDragEnd = useCallback(
-    async (event: DragEndEvent) => {
-      const { active, over } = event;
-      setActiveThread(null);
-      setActiveDragColId(null);
-
-      if (!over) return;
-
-      const threadId = active.id as string;
-      const fromColId = active.data.current?.colId as string;
-      const toColId = over.id as string;
-
-      if (fromColId === toColId) return;
-
-      const action = getDndAction(fromColId, toColId);
-      if (!action) return;
-
-      const thread = colStatesRef.current[fromColId]?.threads.find(
-        (thr) => thr.threadId === threadId
-      );
-      if (!thread?.latestMessage) return;
-
-      // Spam-log synthetic threads have negative message IDs and cannot be classified
-      // via the API. Guard here to prevent a silent 400 error and confusing card jump.
-      const msgId = thread.latestMessage.id;
-      if (threadId.startsWith('spamlog_') || msgId <= 0) {
-        logger.warn(`Attempted DnD on spam-log synthetic thread ${threadId} — no-op`);
-        return;
-      }
-
-      // Capture original index before optimistic move so rollback restores the card
-      // to its original position rather than prepending at index 0.
-      const originalIndex = colStatesRef.current[fromColId].threads.findIndex(
-        (thr) => thr.threadId === threadId
-      );
-
-      // Optimistic move. "Approve" has no destination column (the item leaves triage
-      // and enters the lifecycle at "Open" on the other tab), so only add to a real,
-      // currently-loaded destination column.
-      setColStates((prev) => {
-        const next: Record<string, ColumnState> = {
-          ...prev,
-          [fromColId]: {
-            ...prev[fromColId],
-            threads: prev[fromColId].threads.filter((thr) => thr.threadId !== threadId),
-            total: Math.max(0, prev[fromColId].total - 1),
-          },
-        };
-        if (toColId !== APPROVE_TARGET && prev[toColId]) {
-          next[toColId] = {
-            ...prev[toColId],
-            threads: [thread, ...prev[toColId].threads],
-            total: prev[toColId].total + 1,
-          };
-        }
-        return next;
-      });
-
-      try {
-        if (action === 'reopen') {
-          await messageService.reopen(msgId);
-        } else {
-          // A drag onto Spam is an agent decision = confirmed spam (see dndConfirmsSpam).
-          await messageService.classify(msgId, action, undefined, undefined, dndConfirmsSpam(action));
-          // approve/move_to_spam on a needs_routing conv changes the badge — invalidate
-          // so the sidebar count doesn't lag behind the 60s auto-refetch interval.
-          void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
-        }
-        // The agent's OWN move: re-read the board in place now. Other people's changes wait for
-        // the page's coalesced refresh, and this one used to ride on its own socket echo — so
-        // without this a reopen landing in another column than the drop target, or the column
-        // totals, would stay wrong for up to that window.
-        loadBoard({
-          colIds: COLUMNS.filter((col) => col.axis === activeTabRef.current).map((col) => col.id),
-          keepDepth: true,
-          unread: true,
-          scope: false,
-        });
-      } catch (err) {
-        logger.error(`Failed to move thread ${threadId} from ${fromColId} to ${toColId}:`, err);
-        // Surface the server reason (e.g. a 409 "cannot be reopened") — the optimistic
-        // move is about to roll back, so without this the card silently snaps back.
-        toast.failure(action === 'reopen' ? 'reopen thread' : 'move thread', err);
-        // Rollback: restore card at its original position
+        let fallbackCancels: Array<() => void> = deep.map((col) => loadColumn(col.id, keepDepth));
+        const columns = COLUMNS.filter(
+          (col) => colIds.includes(col.id) && pagesOf(col.id) <= BOARD_MAX_PAGES
+        );
+        const triageCols = unread ? COLUMNS.filter(countsTowardTriageBadge) : [];
         setColStates((prev) => {
-          const restored = [...prev[fromColId].threads];
-          restored.splice(Math.min(originalIndex, restored.length), 0, thread);
+          const next = { ...prev };
+          for (const col of columns) next[col.id] = { ...prev[col.id], loading: true };
+          return next;
+        });
+        void (async () => {
+          try {
+            const answer = await messageService.getThreadBoard({
+              filters: sharedFiltersRef.current,
+              columns: columns.map((col) => {
+                const sort = colSortRef.current[col.id] ?? { sortBy: 'time', sortOrder: 'desc' };
+                return {
+                  id: col.id,
+                  filters: col.fixedFilters,
+                  sortOrder: sort.sortOrder,
+                  ...(sort.sortBy !== 'time' ? { sortBy: sort.sortBy } : {}),
+                  limit: PAGE_SIZE,
+                  pages: pagesOf(col.id),
+                };
+              }),
+              counts: [
+                ...triageCols.map((col) => ({
+                  id: col.id,
+                  filters: { ...col.fixedFilters, read: 'unread' },
+                })),
+                ...(scope
+                  ? [{ id: BOARD_SCOPE_COUNT, filters: { view: 'board', scope: '1' } }]
+                  : []),
+              ],
+            });
+            if (cancelled) return;
+            if (!answer) {
+              fallbackCancels = [
+                ...fallbackCancels,
+                ...columns.map((col) => loadColumn(col.id, keepDepth)),
+                ...(unread ? [loadTriageUnread()] : []),
+                ...(scope ? [loadBoardScope(onScopeLoaded)] : []),
+              ];
+              return;
+            }
+            for (const col of columns) {
+              const pages = answer.columns[col.id];
+              if (pages && pages.length > 0) applyColumnPages(col.id, pages);
+              // Keep what is on screen rather than half a column; just stop "Loading…" — and
+              // mark it: what is on screen is not this read's answer.
+              else
+                setColStates((prev) => ({
+                  ...prev,
+                  [col.id]: { ...prev[col.id], loading: false, unfinished: true },
+                }));
+            }
+            if (unread) {
+              // A count that failed, was capped or cut short is not a number to add up: keep the
+              // previous badge, as loadTriageUnread does.
+              const totals = triageCols.map((col) => {
+                const count = answer.counts[col.id];
+                return count ? exactTotal(count.pagination) : undefined;
+              });
+              if (!totals.some((num) => num === undefined)) {
+                setTriageUnread(totals.reduce<number>((sum, num) => sum + (num ?? 0), 0));
+              }
+            }
+            if (scope) {
+              const count = answer.counts[BOARD_SCOPE_COUNT];
+              setBoardScope(count ? boardScopeFrom(count) : null);
+              if (count) onScopeLoaded?.();
+            }
+          } catch (err) {
+            if (cancelled) return;
+            logger.error('Failed to fetch the kanban board:', err);
+            setColStates((prev) => {
+              const next = { ...prev };
+              for (const col of columns) next[col.id] = { ...prev[col.id], loading: false };
+              return next;
+            });
+            if (scope) setBoardScope(null);
+          }
+        })();
+        return () => {
+          cancelled = true;
+          fallbackCancels.forEach((cancel) => cancel());
+        };
+      },
+      [applyColumnPages, loadColumn, loadTriageUnread, loadBoardScope]
+    );
+
+    // Optimistic single-card move — pull the card out of whichever column currently
+    // holds it and drop it into the destination column, all in local state. No column
+    // refetch (unlike bumpKanban), so the acting agent sees the card jump the instant
+    // their reply/resolve/close succeeds. The next authoritative reload (if any) simply
+    // confirms the same placement, so there's no visible second jump.
+    // Pull every card matching `isMoved` out of whichever column holds it and drop it into the
+    // destination column, all in local state. One card (the acting agent's reply/resolve) or many
+    // (a bulk run). No refetch: the next authoritative reload confirms the same placement.
+    const moveCards = useCallback(
+      (isMoved: (thread: MessageThread) => boolean, targetColId: string | null) => {
+        setColStates((prev) => {
+          const moved: MessageThread[] = [];
+          const next: Record<string, ColumnState> = {};
+          for (const [colId, state] of Object.entries(prev)) {
+            const leaving = state.threads.filter(isMoved);
+            // The target column too: a card already there goes back on top, patched, as one did.
+            if (leaving.length === 0) {
+              next[colId] = state;
+              continue;
+            }
+            moved.push(...leaving);
+            next[colId] = {
+              ...state,
+              threads: state.threads.filter((thr) => !isMoved(thr)),
+              total: Math.max(0, state.total - leaving.length),
+            };
+          }
+          // No card on the loaded board (off-page / different filter) — nothing to do.
+          if (moved.length === 0) return prev;
+          if (targetColId && next[targetColId]) {
+            const patched = moved.map((thr) => ({ ...thr, ...COL_STATE_PATCH[targetColId] }));
+            next[targetColId] = {
+              ...next[targetColId],
+              threads: uniqueThreads([...patched, ...next[targetColId].threads]),
+              total: next[targetColId].total + moved.length,
+            };
+          }
+          return next;
+        });
+      },
+      []
+    );
+
+    const optimisticMove = useCallback(
+      (threadId: string, targetColId: string | null) =>
+        moveCards((thr) => thr.threadId === threadId, targetColId),
+      [moveCards]
+    );
+
+    const optimisticMoveMany = useCallback(
+      (conversationIds: number[], targetColId: string | null) => {
+        const ids = new Set(conversationIds);
+        moveCards((thr) => ids.has(thr.latestMessage?.id ?? -1), targetColId);
+      },
+      [moveCards]
+    );
+
+    useImperativeHandle(ref, () => ({ optimisticMove, optimisticMoveMany }), [
+      optimisticMove,
+      optimisticMoveMany,
+    ]);
+
+    // Fetch all columns in parallel when shared filters / refresh / dept change.
+    // A filter/dept change invalidates the current rows → wipe to skeletons first. A
+    // plain refreshKey bump (post-action reconcile) reloads IN PLACE: loadColumn keeps
+    // the existing threads visible (loading flag only) until fresh data arrives, so an
+    // optimistically-moved card doesn't flash away and back.
+    const prevFilterKeyRef = useRef(filterKey);
+    const boardScopeLoadedRef = useRef(false);
+    // Which load each column last answered for (`filter|team|refresh`), so a tab opened later
+    // knows whether its columns are current. Set when a load starts; a cancelled one is redone by
+    // the run that cancelled it.
+    const loadGenRef = useRef('');
+    const colLoadedGenRef = useRef<Record<string, string>>({});
+    const activeTabRef = useRef(activeTab);
+    activeTabRef.current = activeTab;
+    const prevDeptKeyRef = useRef(selectedDeptKey);
+    useEffect(() => {
+      const scopeChanged =
+        prevFilterKeyRef.current !== filterKey || prevDeptKeyRef.current !== selectedDeptKey;
+      prevFilterKeyRef.current = filterKey;
+      prevDeptKeyRef.current = selectedDeptKey;
+      if (scopeChanged) setColStates(initialColStates);
+      // Same scope ⇒ keep every loaded page (and so the scroll position); a new scope
+      // starts again from page 1.
+      // Only the tab on screen. The other tab's columns are 4–5 full queries nobody is looking
+      // at; they load when their tab opens (the effect below). Its Triage total stays hidden
+      // until then — the unread badge beside it is still counted here.
+      loadGenRef.current = `${filterKey}|${selectedDeptKey}|${String(refreshKey)}`;
+      const colIds = COLUMNS.filter((col) => col.axis === activeTabRef.current).map((col) => {
+        colLoadedGenRef.current[col.id] = loadGenRef.current;
+        return col.id;
+      });
+      // A scope count describing the PREVIOUS filter is worse than none, because it reads as a
+      // fact about what is on screen now — so it re-reads when the SCOPE changes. Not on a plain
+      // refresh: it is the single heaviest read on the board (an aggregate over the whole org,
+      // the top statement on a customer's database, 2026-10), and a card moving between lanes
+      // leaves the board's union — and so `hidden` — where it was.
+      // The flag is set only by an answer that landed, so a load cancelled by a quick re-run is
+      // retried on the next refresh instead of leaving the board without its scope.
+      if (scopeChanged) boardScopeLoadedRef.current = false;
+      // Same triggers as the columns themselves, so the unread badge can never drift
+      // out of step with the totals beside it.
+      return loadBoard({
+        colIds,
+        keepDepth: !scopeChanged,
+        unread: true,
+        scope: !boardScopeLoadedRef.current,
+        onScopeLoaded: () => {
+          boardScopeLoadedRef.current = true;
+        },
+      });
+    }, [filterKey, refreshKey, selectedDeptKey, loadBoard]);
+
+    // A tab opened: load its columns unless they already answered for the current scope/refresh.
+    useEffect(() => {
+      const stale = COLUMNS.filter(
+        (col) => col.axis === activeTab && colLoadedGenRef.current[col.id] !== loadGenRef.current
+      );
+      if (stale.length === 0) return undefined;
+      for (const col of stale) colLoadedGenRef.current[col.id] = loadGenRef.current;
+      return loadBoard({
+        colIds: stale.map((col) => col.id),
+        keepDepth: true,
+        unread: false,
+        scope: false,
+      });
+    }, [activeTab, loadBoard]);
+
+    // When ONE column's sort changes, reload only that column (diff vs the previous
+    // snapshot). Avoids refetching all seven columns on a single per-column change.
+    const prevColSortRef = useRef<Record<string, SortingState>>({});
+    useEffect(() => {
+      const prev = prevColSortRef.current;
+      const cancels: Array<() => void> = [];
+      for (const col of COLUMNS) {
+        const before = prev[col.id];
+        const after = colSort[col.id];
+        if (after && (before?.sortBy !== after.sortBy || before?.sortOrder !== after.sortOrder)) {
+          cancels.push(loadColumn(col.id));
+        }
+      }
+      prevColSortRef.current = colSort;
+      return () => cancels.forEach((cancel) => cancel());
+      // colSortKey is a stable string proxy for colSort's contents.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [colSortKey, loadColumn]);
+
+    const loadMore = useCallback((colId: string) => {
+      const col = COLUMNS.find((kanbanCol) => kanbanCol.id === colId);
+      if (!col) return;
+      setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: true } }));
+      const nextPage = colStatesRef.current[colId].page + 1;
+      const filterSnapshot = { ...sharedFiltersRef.current, ...col.fixedFilters };
+      const sort = colSortRef.current[colId] ?? { sortBy: 'time', sortOrder: 'desc' };
+      void (async () => {
+        try {
+          const res = await messageService.getThreads(
+            filterSnapshot,
+            nextPage,
+            PAGE_SIZE,
+            sort.sortOrder,
+            sort.sortBy
+          );
+          if (!res.success) return;
+          setColStates((prev) => ({
+            ...prev,
+            [colId]: {
+              // Offset pages shift when a row leaves the column, so the next page can
+              // repeat one already shown; a duplicate key would confuse React's reconcile.
+              threads: uniqueThreads([
+                ...prev[colId].threads,
+                ...res.data.filter((thread) => thread.latestMessage !== null),
+              ]),
+              total: res.pagination.total,
+              totalCapped: res.pagination.totalCapped === true,
+              loading: false,
+              hasMore: res.pagination.page < res.pagination.totalPages,
+              page: res.pagination.page,
+            },
+          }));
+        } catch (err) {
+          logger.error(`Failed to load more for column ${colId}:`, err);
+          setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: false } }));
+        }
+      })();
+    }, []);
+
+    const sensors = useSensors(
+      useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+      useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
+    );
+
+    const handleDragStart = useCallback((event: DragStartEvent) => {
+      const threadId = event.active.id as string;
+      const colId = event.active.data.current?.colId as string;
+      const thread = colStatesRef.current[colId]?.threads.find((thr) => thr.threadId === threadId);
+      setActiveThread(thread ?? null);
+      setActiveDragColId(colId);
+    }, []);
+
+    const handleDragEnd = useCallback(
+      async (event: DragEndEvent) => {
+        const { active, over } = event;
+        setActiveThread(null);
+        setActiveDragColId(null);
+
+        if (!over) return;
+
+        const threadId = active.id as string;
+        const fromColId = active.data.current?.colId as string;
+        const toColId = over.id as string;
+
+        if (fromColId === toColId) return;
+
+        const action = getDndAction(fromColId, toColId);
+        if (!action) return;
+
+        const thread = colStatesRef.current[fromColId]?.threads.find(
+          (thr) => thr.threadId === threadId
+        );
+        if (!thread?.latestMessage) return;
+
+        // Spam-log synthetic threads have negative message IDs and cannot be classified
+        // via the API. Guard here to prevent a silent 400 error and confusing card jump.
+        const msgId = thread.latestMessage.id;
+        if (threadId.startsWith('spamlog_') || msgId <= 0) {
+          logger.warn(`Attempted DnD on spam-log synthetic thread ${threadId} — no-op`);
+          return;
+        }
+
+        // Capture original index before optimistic move so rollback restores the card
+        // to its original position rather than prepending at index 0.
+        const originalIndex = colStatesRef.current[fromColId].threads.findIndex(
+          (thr) => thr.threadId === threadId
+        );
+
+        // Optimistic move. "Approve" has no destination column (the item leaves triage
+        // and enters the lifecycle at "Open" on the other tab), so only add to a real,
+        // currently-loaded destination column.
+        setColStates((prev) => {
           const next: Record<string, ColumnState> = {
             ...prev,
             [fromColId]: {
               ...prev[fromColId],
-              threads: restored,
-              total: prev[fromColId].total + 1,
+              threads: prev[fromColId].threads.filter((thr) => thr.threadId !== threadId),
+              total: Math.max(0, prev[fromColId].total - 1),
             },
           };
           if (toColId !== APPROVE_TARGET && prev[toColId]) {
             next[toColId] = {
               ...prev[toColId],
-              threads: prev[toColId].threads.filter((thr) => thr.threadId !== threadId),
-              total: Math.max(0, prev[toColId].total - 1),
+              threads: [thread, ...prev[toColId].threads],
+              total: prev[toColId].total + 1,
             };
           }
           return next;
         });
-      }
-    },
-    [queryClient, loadBoard]
-  );
 
-  /**
-   * ⛔ FEATURE-GATED, for the same reason the board notice is — see `loadBoardScope`.
-   *
-   * The Other column asks for `view=no_lane`. A backend that predates it does not reject
-   * that view, it DROPS it (`requestedView` returns undefined server-side) and answers with
-   * the default browse lens, so the column would fill with ordinary open threads under the
-   * heading "Other" — on every workspace, plausibly enough to survive a screenshot. The
-   * frontend deploys on merge and the backend ships on a tag, so that skew is routine here,
-   * not hypothetical.
-   *
-   * `scope.boardCoversAll` is the backend saying the column exists. Absent (old backend, a
-   * failed scope request, or the notice's own feature-detect rejecting the shape) hides the
-   * column. Hiding it is the safe direction: the rows are then exactly as reachable as they
-   * were before this change, whereas showing it would be a new and confident lie.
-   */
-  const boardCoversAll = boardScope?.scope.boardCoversAll === true;
-  const visibleColumns = COLUMNS.filter(
-    (col) =>
-      col.axis === activeTab &&
-      !hiddenCols.has(col.id) &&
-      (col.id !== 'no_lane' || boardCoversAll)
-  );
+        try {
+          if (action === 'reopen') {
+            await messageService.reopen(msgId);
+          } else {
+            // A drag onto Spam is an agent decision = confirmed spam (see dndConfirmsSpam).
+            await messageService.classify(
+              msgId,
+              action,
+              undefined,
+              undefined,
+              dndConfirmsSpam(action)
+            );
+            // approve/move_to_spam on a needs_routing conv changes the badge — invalidate
+            // so the sidebar count doesn't lag behind the 60s auto-refetch interval.
+            void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
+          }
+          // The agent's OWN move: re-read the board in place now. Other people's changes wait for
+          // the page's coalesced refresh, and this one used to ride on its own socket echo — so
+          // without this a reopen landing in another column than the drop target, or the column
+          // totals, would stay wrong for up to that window.
+          loadBoard({
+            colIds: COLUMNS.filter((col) => col.axis === activeTabRef.current).map((col) => col.id),
+            keepDepth: true,
+            unread: true,
+            scope: false,
+          });
+        } catch (err) {
+          logger.error(`Failed to move thread ${threadId} from ${fromColId} to ${toColId}:`, err);
+          // Surface the server reason (e.g. a 409 "cannot be reopened") — the optimistic
+          // move is about to roll back, so without this the card silently snaps back.
+          toast.failure(action === 'reopen' ? 'reopen thread' : 'move thread', err);
+          // Rollback: restore card at its original position
+          setColStates((prev) => {
+            const restored = [...prev[fromColId].threads];
+            restored.splice(Math.min(originalIndex, restored.length), 0, thread);
+            const next: Record<string, ColumnState> = {
+              ...prev,
+              [fromColId]: {
+                ...prev[fromColId],
+                threads: restored,
+                total: prev[fromColId].total + 1,
+              },
+            };
+            if (toColId !== APPROVE_TARGET && prev[toColId]) {
+              next[toColId] = {
+                ...prev[toColId],
+                threads: prev[toColId].threads.filter((thr) => thr.threadId !== threadId),
+                total: Math.max(0, prev[toColId].total - 1),
+              };
+            }
+            return next;
+          });
+        }
+      },
+      [queryClient, loadBoard]
+    );
 
-  /**
-   * The count the page header shows while the board is on screen.
-   *
-   * ⛔ Sum of the VISIBLE columns, not a fixed set. It has to follow the axis tab and the
-   * lane toggles, or the header goes back to describing a question the screen is not
-   * asking — which is the whole defect this reports away from.
-   */
-  const visibleTotal = visibleColumns.reduce(
-    (sum, col) => sum + (colStates[col.id]?.total ?? 0),
-    0
-  );
-  useEffect(() => {
-    onTotalChange?.(visibleTotal);
-  }, [visibleTotal, onTotalChange]);
+    /**
+     * ⛔ FEATURE-GATED, for the same reason the board notice is — see `loadBoardScope`.
+     *
+     * The Other column asks for `view=no_lane`. A backend that predates it does not reject
+     * that view, it DROPS it (`requestedView` returns undefined server-side) and answers with
+     * the default browse lens, so the column would fill with ordinary open threads under the
+     * heading "Other" — on every workspace, plausibly enough to survive a screenshot. The
+     * frontend deploys on merge and the backend ships on a tag, so that skew is routine here,
+     * not hypothetical.
+     *
+     * `scope.boardCoversAll` is the backend saying the column exists. Absent (old backend, a
+     * failed scope request, or the notice's own feature-detect rejecting the shape) hides the
+     * column. Hiding it is the safe direction: the rows are then exactly as reachable as they
+     * were before this change, whereas showing it would be a new and confident lie.
+     */
+    const boardCoversAll = boardScope?.scope.boardCoversAll === true;
+    const visibleColumns = COLUMNS.filter(
+      (col) =>
+        col.axis === activeTab &&
+        !hiddenCols.has(col.id) &&
+        (col.id !== 'no_lane' || boardCoversAll)
+    );
 
-  // Triage-tab count badges: UNREAD first (what still needs a human's eyes), then
-  // the all-items total. Both loaded even while the lifecycle board is showing, so
-  // the badges stay live.
-  //
-  // The unread number cannot be derived from `colStates[].threads` — only the first
-  // page is loaded (PAGE_SIZE), so counting `isRead === false` there would silently
-  // undercount any queue deeper than one page and look plausible while being wrong.
-  // It has to be a server-side count; see loadTriageUnread.
-  const triageCount = COLUMNS.filter(countsTowardTriageBadge).reduce(
-    (sum, col) => sum + (colStates[col.id]?.total ?? 0),
-    0
-  );
-  // Board-tab count badge: active work across the non-reference lifecycle columns
-  // (Open / In Progress / Pending). Excludes the hideable reference columns
-  // (On-hold, Resolved) so the badge tracks live work, not the resolved archive.
-  const boardCount = COLUMNS.filter(
-    (col) => col.axis === 'lifecycle' && !HIDEABLE_COLS.has(col.id)
-  ).reduce((sum, col) => sum + (colStates[col.id]?.total ?? 0), 0);
+    /**
+     * The count the page header shows while the board is on screen.
+     *
+     * ⛔ Sum of the VISIBLE columns, not a fixed set. It has to follow the axis tab and the
+     * lane toggles, or the header goes back to describing a question the screen is not
+     * asking — which is the whole defect this reports away from.
+     */
+    const visibleTotal = visibleColumns.reduce(
+      (sum, col) => sum + (colStates[col.id]?.total ?? 0),
+      0
+    );
+    useEffect(() => {
+      onTotalChange?.(visibleTotal);
+    }, [visibleTotal, onTotalChange]);
 
-  return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={handleDragStart}
-      onDragEnd={(event) => void handleDragEnd(event)}
-    >
-      <div className="space-y-3 xl:flex xl:flex-col xl:flex-1 xl:min-h-0">
-        {/* Axis tabs: Board (lifecycle) | Triage (pre-lifecycle classification).
+    // Triage-tab count badges: UNREAD first (what still needs a human's eyes), then
+    // the all-items total. Both loaded even while the lifecycle board is showing, so
+    // the badges stay live.
+    //
+    // The unread number cannot be derived from `colStates[].threads` — only the first
+    // page is loaded (PAGE_SIZE), so counting `isRead === false` there would silently
+    // undercount any queue deeper than one page and look plausible while being wrong.
+    // It has to be a server-side count; see loadTriageUnread.
+    const triageCount = COLUMNS.filter(countsTowardTriageBadge).reduce(
+      (sum, col) => sum + (colStates[col.id]?.total ?? 0),
+      0
+    );
+    // Board-tab count badge: active work across the non-reference lifecycle columns
+    // (Open / In Progress / Pending). Excludes the hideable reference columns
+    // (On-hold, Resolved) so the badge tracks live work, not the resolved archive.
+    const boardCount = COLUMNS.filter(
+      (col) => col.axis === 'lifecycle' && !HIDEABLE_COLS.has(col.id)
+    ).reduce((sum, col) => sum + (colStates[col.id]?.total ?? 0), 0);
+
+    return (
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={(event) => void handleDragEnd(event)}
+      >
+        <div className="space-y-3 xl:flex xl:flex-col xl:flex-1 xl:min-h-0">
+          {/* Axis tabs: Board (lifecycle) | Triage (pre-lifecycle classification).
             On the Board, chips on the right show/hide the reference columns
             (On-hold, Resolved) so agents can focus on Open/In Progress/Pending.
             The scope notice — what the board has NO lane for — sits on this same row,
             after the tabs: it used to be a card of its own above them, and that row
             came straight out of the lanes' height. Still outside any empty-state branch,
             because an empty board while rows sit one lens away is the silence it removes. */}
-        {/* One line, always. The scope caption is the element that yields width (it
+          {/* One line, always. The scope caption is the element that yields width (it
             truncates); the tabs and all three Show counts are shrink-0. The counts move
             with the filter — they are how an agent sees that a search matched 1,352
             resolved threads — so they never go behind a menu. Holds at 1440 with the long
             sentence plus four-digit counts (Kanban space audit, 2026-09-07). */}
-        <div className="flex gap-2 justify-between items-center min-w-0">
-          <div className="flex gap-1 items-center flex-1 min-w-0">
-            {(['lifecycle', 'triage'] as const).map((axis) => {
-              const isActive = activeTab === axis;
-              const count = axis === 'lifecycle' ? boardCount : triageCount;
-              return (
-                <Button
-                  key={axis}
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setActiveTab(axis)}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3 py-1.5 h-auto rounded-md text-sm font-medium transition-colors shrink-0',
-                    isActive
-                      ? 'bg-muted text-foreground'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {axis === 'lifecycle' ? 'Board' : 'Triage'}
-                  {/* Triage carries TWO numbers: unread (amber — needs eyes) then
+          <div className="flex gap-2 justify-between items-center min-w-0">
+            <div className="flex gap-1 items-center flex-1 min-w-0">
+              {(['lifecycle', 'triage'] as const).map((axis) => {
+                const isActive = activeTab === axis;
+                const count = axis === 'lifecycle' ? boardCount : triageCount;
+                return (
+                  <Button
+                    key={axis}
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setActiveTab(axis)}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-1.5 h-auto rounded-md text-sm font-medium transition-colors shrink-0',
+                      isActive
+                        ? 'bg-muted text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {axis === 'lifecycle' ? 'Board' : 'Triage'}
+                    {/* Triage carries TWO numbers: unread (amber — needs eyes) then
                       the all-items total (muted). Order matters: the actionable
                       number reads first. Both are hidden at zero, so a quiet queue
                       shows "Triage" with no decoration at all. */}
-                  {axis === 'triage' && triageUnread > 0 && (
-                    <Badge
-                      variant="warning"
-                      size="sm"
-                      className="justify-center px-1.5 min-w-[18px] h-[18px] text-[11px] leading-none"
-                      title={`${triageUnread} unread`}
-                    >
-                      {triageUnread}
-                    </Badge>
-                  )}
-                  {axis === 'triage' && count > 0 && (
-                    <Badge
-                      variant="secondary"
-                      size="sm"
-                      className="justify-center px-1.5 min-w-[18px] h-[18px] text-[11px] leading-none"
-                      title={`${count} in triage in total`}
-                    >
-                      {count}
-                    </Badge>
-                  )}
-                  {axis === 'lifecycle' && count > 0 && (
-                    <span
+                    {axis === 'triage' && triageUnread > 0 && (
+                      <Badge
+                        variant="warning"
+                        size="sm"
+                        className="justify-center px-1.5 min-w-[18px] h-[18px] text-[11px] leading-none"
+                        title={`${triageUnread} unread`}
+                      >
+                        {triageUnread}
+                      </Badge>
+                    )}
+                    {axis === 'triage' && count > 0 && (
+                      <Badge
+                        variant="secondary"
+                        size="sm"
+                        className="justify-center px-1.5 min-w-[18px] h-[18px] text-[11px] leading-none"
+                        title={`${count} in triage in total`}
+                      >
+                        {count}
+                      </Badge>
+                    )}
+                    {axis === 'lifecycle' && count > 0 && (
+                      <span
+                        className={cn(
+                          'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-semibold',
+                          isActive
+                            ? 'bg-foreground/15 text-foreground'
+                            : 'bg-muted-foreground/15 text-muted-foreground'
+                        )}
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </Button>
+                );
+              })}
+              {boardScope && (
+                <div className="ml-2 flex-1 min-w-0">
+                  <ListScopeNotice
+                    scope={boardScope.scope}
+                    shown={boardScope.shown}
+                    shownCapped={boardScope.shownCapped}
+                    surface="board"
+                    onJump={onScopeJump}
+                  />
+                </div>
+              )}
+            </div>
+
+            {activeTab === 'lifecycle' && (
+              <div className="flex gap-1.5 items-center text-xs shrink-0">
+                <span className="text-muted-foreground">Show:</span>
+                {COLUMNS.filter((col) => HIDEABLE_COLS.has(col.id)).map((col) => {
+                  const shown = !hiddenCols.has(col.id);
+                  const Icon = col.icon;
+                  const count = colStates[col.id]?.unfinished
+                    ? '—'
+                    : (colStates[col.id]?.total ?? 0);
+                  return (
+                    <Button
+                      key={col.id}
+                      type="button"
+                      variant="ghost"
+                      onClick={() => toggleCol(col.id)}
+                      aria-pressed={shown}
                       className={cn(
-                        'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-semibold',
-                        isActive
-                          ? 'bg-foreground/15 text-foreground'
-                          : 'bg-muted-foreground/15 text-muted-foreground'
+                        'flex items-center gap-1 px-2 py-0.5 h-auto rounded border font-medium transition-colors',
+                        shown
+                          ? 'border-transparent bg-muted text-foreground'
+                          : 'border-border text-muted-foreground hover:text-foreground'
                       )}
                     >
-                      {count}
-                    </span>
-                  )}
-                </Button>
-              );
-            })}
-            {boardScope && (
-              <div className="ml-2 flex-1 min-w-0">
-                <ListScopeNotice
-                  scope={boardScope.scope}
-                  shown={boardScope.shown}
-                  shownCapped={boardScope.shownCapped}
-                  surface="board"
-                  onJump={onScopeJump}
-                />
+                      <Icon className="w-3 h-3" />
+                      {col.label}
+                      <span className="ml-0.5 tabular-nums opacity-70">{count}</span>
+                    </Button>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {activeTab === 'lifecycle' && (
-            <div className="flex gap-1.5 items-center text-xs shrink-0">
-              <span className="text-muted-foreground">Show:</span>
-              {COLUMNS.filter((col) => HIDEABLE_COLS.has(col.id)).map((col) => {
-                const shown = !hiddenCols.has(col.id);
-                const Icon = col.icon;
-                const count = colStates[col.id]?.total ?? 0;
-                return (
-                  <Button
-                    key={col.id}
-                    type="button"
-                    variant="ghost"
-                    onClick={() => toggleCol(col.id)}
-                    aria-pressed={shown}
-                    className={cn(
-                      'flex items-center gap-1 px-2 py-0.5 h-auto rounded border font-medium transition-colors',
-                      shown
-                        ? 'border-transparent bg-muted text-foreground'
-                        : 'border-border text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    <Icon className="w-3 h-3" />
-                    {col.label}
-                    <span className="ml-0.5 tabular-nums opacity-70">{count}</span>
-                  </Button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+          {/* Approve bar — only on the Triage tab, only while a triaged card is dragged. */}
+          {activeTab === 'triage' && <ApproveDropZone activeDragColId={activeDragColId} />}
 
-        {/* Approve bar — only on the Triage tab, only while a triaged card is dragged. */}
-        {activeTab === 'triage' && <ApproveDropZone activeDragColId={activeDragColId} />}
-
-        {/* No pb under the lanes: the 16px it reserved sat on top of the page frame's own
+          {/* No pb under the lanes: the 16px it reserved sat on top of the page frame's own
             16px, and overlay scrollbars need no room of their own. */}
-        <div className="flex flex-col gap-4 xl:flex-row xl:flex-1 xl:min-h-0 xl:overflow-x-auto xl:gap-3">
-          {visibleColumns.map((col) => (
-            <KanbanColumn
-              key={col.id}
-              col={col}
-              state={
-                colStates[col.id] ?? {
-                  threads: [],
-                  total: 0,
-                  loading: true,
-                  hasMore: false,
-                  page: 1,
+          <div className="flex flex-col gap-4 xl:flex-row xl:flex-1 xl:min-h-0 xl:overflow-x-auto xl:gap-3">
+            {visibleColumns.map((col) => (
+              <KanbanColumn
+                key={col.id}
+                col={col}
+                state={
+                  colStates[col.id] ?? {
+                    threads: [],
+                    total: 0,
+                    loading: true,
+                    hasMore: false,
+                    page: 1,
+                  }
                 }
-              }
-              isDraggable={DRAGGABLE_COLS.has(col.id)}
-              isDroppable={DROPPABLE_COLS.has(col.id)}
-              activeDragColId={activeDragColId}
-              activeThreadId={activeThread?.threadId ?? null}
-              sort={getColSort(col.id)}
-              onSortChange={(nextSort) =>
-                setColSort((prev) => ({ ...prev, [col.id]: nextSort }))
-              }
-              onLoadMore={() => loadMore(col.id)}
-              onOpen={onOpen}
-              isSelected={isSelected}
-              onToggleSelected={onToggleSelected}
-              onToggleRange={onToggleRange}
-              selectMode={selectMode}
-              onSelectMany={onSelectMany}
-              onDeselectMany={onDeselectMany}
-              newCount={
-                ARRIVAL_KIND_BY_COL[col.id]
-                  ? (arrivalCounts[ARRIVAL_KIND_BY_COL[col.id]] ?? 0)
-                  : 0
-              }
-              onClearNew={
-                ARRIVAL_KIND_BY_COL[col.id]
-                  ? () => clearArrivalKind(ARRIVAL_KIND_BY_COL[col.id])
-                  : undefined
-              }
-            />
-          ))}
-        </div>
-      </div>
-
-      <DragOverlay dropAnimation={null}>
-        {activeThread ? (
-          <div className="min-w-[260px] rounded-md shadow-xl rotate-1 opacity-95 cursor-grabbing">
-            <KanbanCard thread={activeThread} onOpen={() => {}} />
+                isDraggable={DRAGGABLE_COLS.has(col.id)}
+                isDroppable={DROPPABLE_COLS.has(col.id)}
+                activeDragColId={activeDragColId}
+                activeThreadId={activeThread?.threadId ?? null}
+                sort={getColSort(col.id)}
+                onSortChange={(nextSort) => setColSort((prev) => ({ ...prev, [col.id]: nextSort }))}
+                onLoadMore={() => loadMore(col.id)}
+                onOpen={onOpen}
+                isSelected={isSelected}
+                onToggleSelected={onToggleSelected}
+                onToggleRange={onToggleRange}
+                selectMode={selectMode}
+                onSelectMany={onSelectMany}
+                onDeselectMany={onDeselectMany}
+                newCount={
+                  ARRIVAL_KIND_BY_COL[col.id]
+                    ? (arrivalCounts[ARRIVAL_KIND_BY_COL[col.id]] ?? 0)
+                    : 0
+                }
+                onClearNew={
+                  ARRIVAL_KIND_BY_COL[col.id]
+                    ? () => clearArrivalKind(ARRIVAL_KIND_BY_COL[col.id])
+                    : undefined
+                }
+              />
+            ))}
           </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
-  );
+        </div>
+
+        <DragOverlay dropAnimation={null}>
+          {activeThread ? (
+            <div className="min-w-[260px] rounded-md shadow-xl rotate-1 opacity-95 cursor-grabbing">
+              <KanbanCard thread={activeThread} onOpen={() => {}} />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    );
   }
 );
 MessagesKanbanView.displayName = 'MessagesKanbanView';
