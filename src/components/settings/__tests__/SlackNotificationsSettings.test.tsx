@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
 import {
   slackNotificationsService,
@@ -22,6 +22,15 @@ vi.mock('@/stores/authStore', () => ({
     selector({ user: mockUser })
   ),
 }));
+
+const toastMock = vi.hoisted(() => ({
+  success: vi.fn(),
+  info: vi.fn(),
+  warning: vi.fn(),
+  error: vi.fn(),
+  failure: vi.fn(),
+}));
+vi.mock('@/lib/toast', () => ({ toast: toastMock }));
 
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({
@@ -53,14 +62,32 @@ const connected = (routes: SlackRoute[] = []): SlackStatus => ({
   routes,
 });
 
+/** Shows the router's current query string, to prove the ?slack= params were removed. */
+const LocationProbe = () => <output data-testid="search">{useLocation().search}</output>;
+
 const renderPage = (url = '/settings?tab=notifications') =>
   render(
     <MemoryRouter initialEntries={[url]} future={ROUTER_FUTURE}>
       <SlackNotificationsSettings />
+      <LocationProbe />
     </MemoryRouter>
   );
 
+const switchNamed = (name: RegExp) => screen.findByRole('switch', { name });
+
+/** A promise the test settles by hand, to hold a save in flight. */
+const deferred = <T,>() => {
+  let resolve: (value: T) => void = () => {};
+  let reject: (err: unknown) => void = () => {};
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+};
+
 beforeEach(() => {
+  Object.values(toastMock).forEach((fn) => fn.mockReset());
   mockUser = { id: 7, role: 'user', organizationRole: 'org_admin' };
   vi.spyOn(slackNotificationsService, 'listChannels').mockResolvedValue({
     channels: [
@@ -166,7 +193,8 @@ describe('SlackNotificationsSettings', () => {
     mockUser = { id: 8, role: 'user', organizationRole: 'member' };
     const getStatus = vi.spyOn(slackNotificationsService, 'getStatus');
     const { container } = renderPage();
-    expect(container).toBeEmptyDOMElement();
+    expect(container.querySelector('section')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Slack' })).toBeNull();
     expect(getStatus).not.toHaveBeenCalled();
   });
 
@@ -197,5 +225,145 @@ describe('SlackNotificationsSettings', () => {
     });
     renderPage();
     expect(await screen.findByText(/first 2,000 channels/)).toBeInTheDocument();
+  });
+});
+
+describe('SlackNotificationsSettings — saves (fix round 1)', () => {
+  it('a failed save shows what the server holds after a re-read, not an old snapshot', async () => {
+    // The server already has `conversation_assigned` on (another save landed meanwhile).
+    const serverRoute = route({ enabledKinds: [...DEFAULT_TEAM_ON, 'conversation_assigned'] });
+    vi.spyOn(slackNotificationsService, 'getStatus')
+      .mockResolvedValueOnce(connected([route({})]))
+      .mockResolvedValueOnce(connected([serverRoute]));
+    vi.spyOn(slackNotificationsService, 'saveRoute').mockRejectedValue(new Error('boom'));
+    renderPage();
+    fireEvent.click(await switchNamed(/hold recheck due/i));
+    await waitFor(() => expect(toastMock.failure).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: /conversation assigned/i })).toHaveAttribute(
+        'aria-checked',
+        'true'
+      )
+    );
+    expect(screen.getByRole('switch', { name: /hold recheck due/i })).toHaveAttribute(
+      'aria-checked',
+      'false'
+    );
+  });
+
+  it('a second toggle during a pending save cannot send an overlapping, out-of-order PUT', async () => {
+    vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(connected([route({})]));
+    const first = deferred<SlackRoute | null>();
+    const save = vi
+      .spyOn(slackNotificationsService, 'saveRoute')
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementation((_channel, body) => Promise.resolve(route({ ...body })));
+    renderPage();
+    fireEvent.click(await switchNamed(/hold recheck due/i));
+    const assigned = screen.getByRole('switch', { name: /conversation assigned/i });
+    // While PUT #1 is in flight the card is locked: the second toggle sends nothing.
+    expect(assigned).toBeDisabled();
+    fireEvent.click(assigned);
+    expect(save).toHaveBeenCalledTimes(1);
+
+    first.resolve(route({ enabledKinds: [...DEFAULT_TEAM_ON, 'hold_recheck_due'] }));
+    await waitFor(() => expect(assigned).not.toBeDisabled());
+    fireEvent.click(assigned);
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    // PUT #2 starts after #1 finished and carries both changes.
+    expect(save.mock.calls[1][1].enabledKinds).toEqual([
+      ...DEFAULT_TEAM_ON,
+      'hold_recheck_due',
+      'conversation_assigned',
+    ]);
+  });
+
+  it('the screen takes the route the server returns', async () => {
+    vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(connected([route({})]));
+    // The server answer differs from what was sent (preview switched off server-side).
+    vi.spyOn(slackNotificationsService, 'saveRoute').mockResolvedValue(
+      route({ includePreview: false, enabledKinds: [...DEFAULT_TEAM_ON] })
+    );
+    renderPage();
+    const preview = await switchNamed(/include a short message preview/i);
+    fireEvent.click(preview);
+    expect(preview).toHaveAttribute('aria-checked', 'true');
+    await waitFor(() => expect(preview).toHaveAttribute('aria-checked', 'false'));
+  });
+});
+
+describe('SlackNotificationsSettings — connect, load and return (fix round 1)', () => {
+  it('an empty connect link says so instead of stopping silently', async () => {
+    vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue({
+      connection: null,
+      routes: [],
+    });
+    vi.spyOn(slackNotificationsService, 'getConnectUrl').mockResolvedValue('');
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: /add to slack/i }));
+    await waitFor(() => expect(toastMock.error).toHaveBeenCalledTimes(1));
+    expect(toastMock.error.mock.calls[0][0]).toMatch(/connect link/);
+  });
+
+  it('a failed status load offers Retry, which loads again', async () => {
+    vi.spyOn(slackNotificationsService, 'getStatus')
+      .mockRejectedValueOnce(new Error('down'))
+      .mockResolvedValueOnce({ connection: null, routes: [] });
+    renderPage();
+    expect(await screen.findByText(/could not be loaded/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(await screen.findByRole('button', { name: /add to slack/i })).toBeInTheDocument();
+  });
+
+  it('shows the invite hint for a channel the bot is not in, before any test post', async () => {
+    vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(
+      connected([
+        route({
+          channel: 'admin',
+          enabledKinds: [],
+          slackChannelId: 'C3',
+          slackChannelName: 'alerts',
+        }),
+      ])
+    );
+    vi.spyOn(slackNotificationsService, 'listChannels').mockResolvedValue({
+      channels: [{ id: 'C3', name: 'alerts', isPrivate: false, isMember: false }],
+      truncated: false,
+    });
+    const sendTest = vi.spyOn(slackNotificationsService, 'sendTest');
+    renderPage();
+    expect(
+      await screen.findByText('Private channel? Type /invite @Odly in Slack.')
+    ).toBeInTheDocument();
+    expect(sendTest).not.toHaveBeenCalled();
+  });
+
+  it('?slack=connected shows the success notice and removes the slack params', async () => {
+    vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(connected());
+    renderPage('/settings?tab=notifications&slack=connected');
+    expect(await screen.findByText(/Slack is connected/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId('search')).toHaveTextContent('?tab=notifications')
+    );
+    expect(screen.getByTestId('search').textContent).not.toMatch(/slack=/);
+  });
+
+  it('submits a pasted bot token and shows the connection', async () => {
+    vi.spyOn(slackNotificationsService, 'getStatus')
+      .mockResolvedValueOnce({ connection: null, routes: [] })
+      .mockResolvedValueOnce(connected());
+    const connectWithToken = vi
+      .spyOn(slackNotificationsService, 'connectWithToken')
+      .mockResolvedValue({ teamName: 'Example Co', status: 'connected', brokenReason: null });
+    renderPage();
+    fireEvent.click(
+      await screen.findByRole('button', { name: /self-hosted\? paste a bot token/i })
+    );
+    const submit = screen.getByRole('button', { name: /connect with this token/i });
+    expect(submit).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Bot token'), { target: { value: ' xoxb-test-1 ' } });
+    fireEvent.click(submit);
+    await waitFor(() => expect(connectWithToken).toHaveBeenCalledWith('xoxb-test-1'));
+    expect(await screen.findByText('Example Co')).toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -128,26 +128,51 @@ const ChannelCard = ({
 }) => {
   const [draft, setDraft] = useState<Draft>(() => draftFrom(channel, route));
   const [saving, setSaving] = useState(false);
+  // The lock as of now, not as of the last render: a second event in the same tick must see it.
+  const savingRef = useRef(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<SlackTestResult | null>(null);
   const { data: departments } = useDepartments();
   const isTeam = channel === 'team';
   const hasChannel = draft.slackChannelId !== '';
 
+  // One save at a time per card: every control on the card is locked while a PUT is in flight,
+  // so two full-route PUTs can never overlap or land out of order. Afterwards the screen shows
+  // what the server holds: the returned route on success, a fresh read on failure.
+  const locked = readOnly || saving;
+
+  const resyncFromServer = () =>
+    slackNotificationsService
+      .getStatus()
+      .then((status) => {
+        const saved = (status.routes ?? []).find((each) => each.channel === channel);
+        setDraft(draftFrom(channel, saved));
+      })
+      .catch((err: unknown) => {
+        toast.failure('read the saved Slack settings — reload the page', err);
+      });
+
   const persist = (next: Draft) => {
-    const previous = draft;
+    if (savingRef.current) return;
     setDraft(next);
     setTestResult(null);
     // No channel picked yet: keep the choice on the page; it is saved with the channel.
     if (!next.slackChannelId) return;
+    savingRef.current = true;
     setSaving(true);
     slackNotificationsService
       .saveRoute(channel, next)
-      .catch((err: unknown) => {
-        setDraft(previous);
-        toast.failure(`save the ${channel} channel`, err);
+      .then((saved) => {
+        if (saved) setDraft(draftFrom(channel, saved));
       })
-      .finally(() => setSaving(false));
+      .catch(async (err: unknown) => {
+        toast.failure(`save the ${channel} channel`, err);
+        await resyncFromServer();
+      })
+      .finally(() => {
+        savingRef.current = false;
+        setSaving(false);
+      });
   };
 
   const options = (channelList?.channels ?? []).map((chan) => ({
@@ -224,7 +249,7 @@ const ChannelCard = ({
             value={draft.slackChannelId}
             onChange={onPick}
             placeholder="Pick a channel"
-            disabled={readOnly || saving}
+            disabled={locked}
           />
           {picked && !picked.isMember && (
             <p className="mt-1 text-xs text-muted-foreground">{INVITE_HINT}</p>
@@ -245,7 +270,7 @@ const ChannelCard = ({
                 label={KIND_LABELS[kind] ?? kind}
                 checked={draft.enabledKinds.includes(kind)}
                 onChange={(on) => setKind(kind, on)}
-                disabled={readOnly}
+                disabled={locked}
               />
             ))}
           </div>
@@ -257,7 +282,7 @@ const ChannelCard = ({
               label="Include a short message preview (first 200 characters)"
               checked={draft.includePreview}
               onChange={(on) => persist({ ...draft, includePreview: on })}
-              disabled={readOnly}
+              disabled={locked}
             />
           </div>
         )}
@@ -276,7 +301,7 @@ const ChannelCard = ({
                   label={department.name}
                   checked={!excluded.has(department.id)}
                   onChange={(on) => setDepartment(department.id, on)}
-                  disabled={readOnly}
+                  disabled={locked}
                 />
               ))}
             </div>
@@ -289,7 +314,7 @@ const ChannelCard = ({
             size="sm"
             onClick={sendTest}
             isLoading={testing}
-            disabled={readOnly || !hasChannel || saving}
+            disabled={locked || !hasChannel}
           >
             Send test message
           </Button>
@@ -419,8 +444,12 @@ const SlackNotificationsPanel = () => {
     slackNotificationsService
       .getConnectUrl()
       .then((url) => {
-        if (url) window.location.assign(url);
-        else setConnecting(false);
+        if (url) {
+          window.location.assign(url);
+          return;
+        }
+        setConnecting(false);
+        toast.error('Slack did not return a connect link. Try again.');
       })
       .catch((err: unknown) => {
         setConnecting(false);
@@ -470,6 +499,9 @@ const SlackNotificationsPanel = () => {
       {loadError && (
         <Alert variant="danger">
           <AlertDescription>The Slack settings could not be loaded.</AlertDescription>
+          <Button variant="outline" size="sm" className="mt-2" onClick={load}>
+            Retry
+          </Button>
         </Alert>
       )}
       {!status && !loadError && <Spinner />}

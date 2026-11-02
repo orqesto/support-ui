@@ -66,4 +66,12 @@ describe('Slack connection broken in the bell', () => {
     expect(screen.getByText('30m over')).toBeInTheDocument();
     expect(document.querySelector('a[href="/tickets/12"]')).not.toBeNull();
   });
+
+  it('a channel row without a subject points at the channel, not at reconnecting', () => {
+    renderRow(row('slack_channel_route', { title: 'Slack admin channel stopped' }));
+    expect(
+      screen.getByText('Check the Slack channel in Settings › Notifications.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/reconnect Slack/)).toBeNull();
+  });
 });
