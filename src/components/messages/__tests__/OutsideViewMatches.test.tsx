@@ -291,4 +291,42 @@ describe('OutsideViewMatches', () => {
     rerender(section(state, vi.fn(), vi.fn(), 'r3', true));
     await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
   });
+
+  // Review of #799 (probed): the list's own re-reads flip `enabled`; that must not re-ask, nor drop
+  // an answer landing meanwhile.
+  it('a list re-read (enabled off and on, same rows) asks nothing again', async () => {
+    getThreads.mockResolvedValue(answer([thread(1, 'terminal', 'Stays')]));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1', true));
+    await screen.findByText('Stays');
+    rerender(section(state, vi.fn(), vi.fn(), 'r1', false));
+    rerender(section(state, vi.fn(), vi.fn(), 'r1', true));
+    rerender(section(state, vi.fn(), vi.fn(), 'r1', false));
+    rerender(section(state, vi.fn(), vi.fn(), 'r1', true));
+    expect(getThreads).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Stays')).toBeTruthy();
+  });
+
+  it('an answer landing while the list re-reads is still shown', async () => {
+    let answerIt: (value: unknown) => void = () => undefined;
+    getThreads.mockImplementationOnce(() => new Promise((resolve) => (answerIt = resolve)));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1', true));
+    rerender(section(state, vi.fn(), vi.fn(), 'r1', false));
+    answerIt(answer([thread(1, 'terminal', 'Landed')]));
+    rerender(section(state, vi.fn(), vi.fn(), 'r1', true));
+    expect(await screen.findByText('Landed')).toBeTruthy();
+    expect(getThreads).toHaveBeenCalledTimes(1);
+  });
+
+  it("a negation written with spaces still keeps only the agent's own", async () => {
+    getThreads.mockResolvedValue(answer([thread(1, 'terminal')]));
+    const onJump = vi.fn();
+    renderSection(
+      filters({ lifecycle: 'awaiting', aiState: 'needs_review', negate: 'aiState, lifecycle' }),
+      onJump
+    );
+    fireEvent.click(await screen.findByRole('button', { name: /Show in Resolved or closed/ }));
+    expect(onJump).toHaveBeenCalledWith(expect.objectContaining({ negate: 'aiState' }), undefined);
+  });
 });

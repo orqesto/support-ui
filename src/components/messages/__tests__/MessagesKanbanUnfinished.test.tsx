@@ -93,7 +93,7 @@ describe('Board: a column that did not finish', () => {
     const resolvedToggle = screen.getByRole('button', { name: /Resolved/ });
     expect(within(resolvedToggle).getByText('—')).toBeInTheDocument();
     // The column's own "—" says what it means to a screen reader too (no bare dash).
-    expect(screen.getAllByLabelText('Not loaded').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Not loaded', { exact: true }).length).toBeGreaterThan(0);
   });
 
   it('the same when the board is read one column at a time and a column times out', async () => {

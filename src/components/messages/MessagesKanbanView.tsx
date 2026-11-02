@@ -282,11 +282,10 @@ const KanbanColumn = ({
         {!state.loading &&
           (state.unfinished ? (
             <Tooltip content={UNFINISHED_HINT} size="sm">
-              <span
-                className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0"
-                aria-label={UNFINISHED_HINT}
-              >
-                —
+              <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">
+                <span aria-hidden="true">—</span>
+                {/* An aria-label on a plain span is not a reliable name: the words, visually hidden. */}
+                <span className="sr-only">{UNFINISHED_HINT}</span>
               </span>
             </Tooltip>
           ) : (
