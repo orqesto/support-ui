@@ -28,7 +28,7 @@ const Probe = () => {
   search = useLocation().search;
   return null;
 };
-const mount = (url: string) =>
+const mount = (url: string | { pathname: string; search: string; state?: unknown }) =>
   render(
     <MemoryRouter initialEntries={[url]}>
       <Probe />
@@ -82,18 +82,33 @@ describe('the search survives the list remounting, without the URL', () => {
     sessionStorage.clear();
   });
 
-  it('🔴 Back onto the list (POP) shows the search it had', async () => {
+  it('🔴 the thread page\'s Back onto the list shows the search it had', async () => {
     rememberSearch(7, 'jane@shop.example');
-    mount('/threads?lifecycle=all'); // MemoryRouter's first entry is a POP, as Back is
+    mount({ pathname: '/threads', search: '?lifecycle=all', state: { restoreSearch: true } });
     await waitFor(() =>
       expect(useMessagesStore.getState().filters.search).toBe('jane@shop.example')
     );
     expect(new URLSearchParams(search).has('search')).toBe(false);
   });
 
+  it('🔴 a full page load or a pasted link does not bring an old search back', async () => {
+    rememberSearch(7, 'jane@shop.example');
+    mount('/threads?lifecycle=all'); // the first entry: key "default", as a page load
+    await waitFor(() => expect(new URLSearchParams(search).get('lifecycle')).toBe('all'));
+    expect(useMessagesStore.getState().filters.search ?? '').toBe('');
+  });
+
+  it('🔴 signing out forgets every remembered search on this tab', () => {
+    rememberSearch(7, 'jane@shop.example');
+    rememberSearch(8, 'other@shop.example');
+    useAuthStore.getState().logout();
+    expect(sessionStorage.getItem('threads.search.7')).toBeNull();
+    expect(sessionStorage.getItem('threads.search.8')).toBeNull();
+  });
+
   it('[control] another workspace\'s search is not restored', async () => {
     rememberSearch(8, 'other@shop.example');
-    mount('/threads?lifecycle=all');
+    mount({ pathname: '/threads', search: '?lifecycle=all', state: { restoreSearch: true } });
     await waitFor(() => expect(new URLSearchParams(search).get('lifecycle')).toBe('all'));
     expect(useMessagesStore.getState().filters.search ?? '').toBe('');
   });

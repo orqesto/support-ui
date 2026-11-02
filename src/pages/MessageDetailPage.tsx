@@ -136,7 +136,8 @@ export const MessageDetailPage = () => {
   };
 
   const goBack = useCallback(() => {
-    navigate('/threads');
+    // Back to the list the agent came from, search included (useMessagesUrlSync restores it).
+    navigate('/threads', { state: { restoreSearch: true } });
   }, [navigate]);
 
   const confirmDelete = async (target: Message) => {

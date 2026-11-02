@@ -4,6 +4,7 @@ import { forceDisconnect } from '@/lib/socketManager';
 import { similarResultsCache } from '@/components/messages/similarResultsCache';
 import type { User } from '@/types';
 import { logoutClearsProcessingPanels } from '@/stores/processingPanelStore';
+import { forgetRememberedSearches } from '@/lib/searchMemory';
 import { pinTabWorkspace, readTabWorkspace, writeTabWorkspace } from '@/lib/tabWorkspace';
 
 type AuthState = {
@@ -35,6 +36,8 @@ export const useAuthStore = create<AuthState>()(
         // Every sign-out path comes through here (the menu, a 401, another tab's sign-out):
         // the next user must not inherit panels, closed runs or closed problems.
         logoutClearsProcessingPanels();
+        // A searched address must not come back for the next person on this tab.
+        forgetRememberedSearches();
         forceDisconnect();
         similarResultsCache.clear();
         set({

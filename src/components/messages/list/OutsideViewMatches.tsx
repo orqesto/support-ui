@@ -58,6 +58,11 @@ export const FAILED_RETRY_MS = 60_000;
  * at its end, so the section still catches up.
  */
 export const REFRESH_MIN_MS = 15_000;
+/**
+ * An ask of the same question still out after this long is replaced: the client sets no request
+ * timeout, and a read that never settled kept every re-ask away (release review, round 3).
+ */
+export const ASK_STALE_MS = 30_000;
 
 /**
  * The negations a jump keeps: a negated lifecycle or queue ("not awaiting") would turn the jump
@@ -156,6 +161,10 @@ export const OutsideViewMatches = ({
   const inFlight = useRef<AbortController | null>(null);
   // The question the ask in flight is FOR: a refresh of the same question lets it finish.
   const inFlightQuery = useRef('');
+  const inFlightAt = useRef(0);
+  // The page shown, for an answer that lands after "Show more" appended rows.
+  const pageRef = useRef(1);
+  pageRef.current = page;
   useEffect(
     () => () => {
       inFlight.current?.abort();
@@ -203,8 +212,15 @@ export const OutsideViewMatches = ({
     if (lastAsked.current?.key === queryKey && now - lastAsked.current.at < REFRESH_MIN_MS) {
       return later(REFRESH_MIN_MS - (now - lastAsked.current.at));
     }
-    // The same question is already on its way: its answer is still the right one — let it land.
-    if (inFlight.current !== null && inFlightQuery.current === queryKey) return undefined;
+    // The same question is already on its way: its answer is still the right one — let it land,
+    // unless it has been out so long it may never answer (then it is replaced, at ASK_STALE_MS).
+    const sameOut =
+      inFlight.current !== null &&
+      !inFlight.current.signal.aborted &&
+      inFlightQuery.current === queryKey;
+    if (sameOut && now - inFlightAt.current < ASK_STALE_MS) {
+      return later(ASK_STALE_MS - (now - inFlightAt.current));
+    }
     askedKey.current = requestKey;
     lastAsked.current = { key: queryKey, at: now };
     setMoreFailed(false);
@@ -214,13 +230,21 @@ export const OutsideViewMatches = ({
     const controller = new AbortController();
     inFlight.current = controller;
     inFlightQuery.current = queryKey;
+    inFlightAt.current = now;
     const failedFor = queryKey;
+    const askedRows = requestKey;
     // An answer is for the QUESTION (search, filters, team, workspace), not for the moment the
     // list rows stood at: matching on requestKey dropped every answer that arrived after any
     // colleague's change, and on a busy inbox the section never left "Checking…" (release review).
     const stillAsked = () => !controller.signal.aborted && shownQuery.current === failedFor;
     const settle = () => {
       if (inFlight.current === controller) inFlight.current = null;
+      // The list's rows moved while this was out: its answer is shown, and the question is asked
+      // once more (the refresh window decides when) so the move is reflected.
+      if (!controller.signal.aborted && currentKey.current !== askedRows) {
+        askedKey.current = '';
+        setRetryTick((tick) => tick + 1);
+      }
     };
     const failed = () => {
       // Only an answer to the question on screen records a failure.
@@ -256,8 +280,16 @@ export const OutsideViewMatches = ({
         }
         if (failedAt.current?.key === failedFor) failedAt.current = null;
         setStatus('done');
-        setRows(listed);
-        setPage(1);
+        if (pageRef.current > 1) {
+          // "Show more" appended rows meanwhile: keep them, under the fresh first page.
+          setRows((shown) => {
+            const fresh = new Set(listed.map((thread) => thread.threadId));
+            return [...listed, ...shown.filter((thread) => !fresh.has(thread.threadId))];
+          });
+        } else {
+          setRows(listed);
+          setPage(1);
+        }
         setTotal(answer.pagination?.total ?? listed.length);
         setTotalCapped(
           answer.pagination?.totalCapped === true || answer.pagination?.countTimedOut === true
@@ -275,7 +307,8 @@ export const OutsideViewMatches = ({
 
   const loadMore = async () => {
     if (!request) return;
-    const askedFor = requestKey;
+    // For the QUESTION, as page 1: a colleague's change while it was out dropped it (round 3).
+    const askedFor = queryKey;
     moreSeq.current += 1;
     const seq = moreSeq.current;
     setLoadingMore(true);
@@ -284,7 +317,7 @@ export const OutsideViewMatches = ({
       const answer = await messageService.getThreads(request, page + 1, PAGE, undefined, 'time', {
         allowTimedOut: true,
       });
-      if (currentKey.current !== askedFor) return;
+      if (shownQuery.current !== askedFor) return;
       const listed = outsideRows(answer);
       if (!listed) {
         setMoreFailed(true);
@@ -297,7 +330,7 @@ export const OutsideViewMatches = ({
       });
       setPage(page + 1);
     } catch {
-      if (currentKey.current === askedFor) setMoreFailed(true);
+      if (shownQuery.current === askedFor) setMoreFailed(true);
     } finally {
       // A refresh during "Show more" left the button on "Loading…" for good; an older one settling
       // must not clear a newer one's spinner.
