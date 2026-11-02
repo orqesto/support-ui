@@ -139,6 +139,9 @@ export const OutsideViewMatches = ({
       setPage(1);
       setLoadingMore(false);
       moreSeq.current += 1;
+      // A new question: whatever was asked before (even this same key, before a change and back
+      // while the list was loading) must be asked again (review of #801, probed).
+      askedKey.current = '';
     }
     if (!request || !enabled || askedKey.current === requestKey) return undefined;
     askedKey.current = requestKey;
@@ -150,8 +153,10 @@ export const OutsideViewMatches = ({
         if (currentKey.current !== askedFor) return;
         const listed = outsideRows(answer);
         if (!listed) {
-          // A refresh that did not finish keeps nothing it cannot vouch for.
+          // A refresh that did not finish keeps nothing it cannot vouch for — and may be asked
+          // again on the next list read (review of #801).
           setRows([]);
+          if (askedKey.current === askedFor) askedKey.current = '';
           return;
         }
         setRows(listed);
@@ -164,6 +169,7 @@ export const OutsideViewMatches = ({
       .catch(() => {
         // A refresh that failed keeps nothing it cannot vouch for — as one that timed out.
         if (currentKey.current === askedFor) setRows([]);
+        if (askedKey.current === askedFor) askedKey.current = '';
       });
     return undefined;
     // requestKey stands for `request` and everything else that changes the answer.

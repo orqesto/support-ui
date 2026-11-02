@@ -22,7 +22,7 @@ const getThreads = vi.fn((filters?: Record<string, string>, page?: number) =>
 );
 vi.mock('@/services/message.service', () => ({ messageService: { getThreads } }));
 
-const { useMessagesData } = await import('../useMessagesData');
+const { useMessagesData, SCOPE_UNKNOWN_RETRY_MS } = await import('../useMessagesData');
 const { useMessagesStore } = await import('@/stores/messagesStore');
 
 const urlSyncedRef = { current: true };
@@ -59,14 +59,26 @@ describe('the list asks for its scope count only when the lens changes', () => {
     expect(askedScope()).toEqual([true, true, false]);
   });
 
-  it('a count that did not come back is asked for again on the next read', async () => {
+  // Review of #1300: `scope: null` is the backend's count running past its budget. Asked again on
+  // every read, a slow searched term paid the whole budget and a heavy slot each time for another
+  // null. It is asked again once SCOPE_UNKNOWN_RETRY_MS has passed.
+  it('a count that came back unknown is not asked again at once — only after the retry window', async () => {
     scopeAnswer = null;
-    const { result } = renderHook(() => useMessagesData({ urlSyncedRef, isKanban: false }));
-    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
-    scopeAnswer = SCOPE;
-    await act(() => result.current.fetchMessages(1, true));
-    await act(() => result.current.fetchMessages(1, true));
-    expect(askedScope()).toEqual([true, true, false]);
-    expect(useMessagesStore.getState().listScope).toEqual(SCOPE);
+    let now = 1_000_000;
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
+    try {
+      const { result } = renderHook(() => useMessagesData({ urlSyncedRef, isKanban: false }));
+      await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+      scopeAnswer = SCOPE;
+      await act(() => result.current.fetchMessages(1, true));
+      expect(askedScope()).toEqual([true, false]);
+      now += SCOPE_UNKNOWN_RETRY_MS + 1;
+      await act(() => result.current.fetchMessages(1, true));
+      await act(() => result.current.fetchMessages(1, true));
+      expect(askedScope()).toEqual([true, false, true, false]);
+      expect(useMessagesStore.getState().listScope).toEqual(SCOPE);
+    } finally {
+      clock.mockRestore();
+    }
   });
 });

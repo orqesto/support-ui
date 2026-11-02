@@ -48,6 +48,9 @@ interface UseMessagesDataProps {
 
 const DEFAULT_LIMIT = 50;
 
+/** How long a lens whose scope came back "unknown" is not asked for it again. */
+export const SCOPE_UNKNOWN_RETRY_MS = 60_000;
+
 export const useMessagesData = ({
   urlSyncedRef,
   isKanban = false,
@@ -110,6 +113,12 @@ export const useMessagesData = ({
   // The lens the scope count on screen was asked for (see `askScope` below). Department and
   // workspace are read through a ref so `fetchMessages` keeps its identity: effects key on it.
   const scopeAnsweredForRef = useRef<string | null>(null);
+  /**
+   * The lens last answered "unknown" (`scope: null`: the backend's count ran past its budget) and
+   * when. Not asked again for SCOPE_UNKNOWN_RETRY_MS: for a slow searched term every refresh asked
+   * again, paid up to the whole budget and a heavy slot, and got null again (review of #1300).
+   */
+  const scopeUnknownRef = useRef<{ key: string; at: number } | null>(null);
   const lensIdentityRef = useRef('');
   lensIdentityRef.current = `${selectedDeptKey}|${String(selectedOrganizationId)}`;
 
@@ -215,8 +224,13 @@ export const useMessagesData = ({
         // another page keeps the count it has, as the board does: a thread moving lanes
         // shifts it by one at most, and the next filter change asks again.
         const scopeKey = JSON.stringify([apiFilters, lensIdentityRef.current]);
+        const unknownLately =
+          scopeUnknownRef.current?.key === scopeKey &&
+          Date.now() - scopeUnknownRef.current.at < SCOPE_UNKNOWN_RETRY_MS;
         const askScope =
-          !isKanban && (scopeAnsweredForRef.current !== scopeKey || snapshot.listScope === null);
+          !isKanban &&
+          !unknownLately &&
+          (scopeAnsweredForRef.current !== scopeKey || snapshot.listScope === null);
         if (askScope) apiFilters.scope = '1';
 
         const response = await messageService.getThreads(
@@ -239,6 +253,10 @@ export const useMessagesData = ({
           const scope = askScope ? (response.scope ?? null) : snapshot.listScope;
           // Only an answer that landed settles the question; a null is asked again next read.
           if (askScope && response.scope) scopeAnsweredForRef.current = scopeKey;
+          // An explicit null is "could not count in time" (an absent key is an older backend).
+          if (askScope && response.scope === null) {
+            scopeUnknownRef.current = { key: scopeKey, at: Date.now() };
+          }
           if (timedOut) {
             setListScope(scope);
           } else {
