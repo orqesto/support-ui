@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { MessageThread } from '@/services/message.service';
 import { defaultFilters, type FilterState } from '@/stores/messagesStore';
@@ -23,7 +23,7 @@ vi.mock('@/stores/authStore', () => ({ useAuthStore: () => null }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'COR' }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'all' }));
 
-import { FAILED_RETRY_MS, OutsideViewMatches } from '../list/OutsideViewMatches';
+import { FAILED_RETRY_MS, OutsideViewMatches, REFRESH_MIN_MS } from '../list/OutsideViewMatches';
 
 const thread = (id: number, foundIn?: string, subject = `Order ${id}`): MessageThread =>
   ({
@@ -46,9 +46,19 @@ const thread = (id: number, foundIn?: string, subject = `Order ${id}`): MessageT
 
 const answer = (rows: MessageThread[], total = rows.length) => ({
   success: true,
+  outsideView: true,
   data: rows,
   pagination: { page: 1, limit: 25, total, totalPages: 1 },
 });
+
+/** Moves the clock past the refresh window, so the next `refreshKey` move asks at once. */
+let clockOffset = 0;
+const realNow = Date.now.bind(Date);
+let clockSpy: { mockRestore: () => void } | null = null;
+const afterRefreshWindow = () => {
+  clockOffset += REFRESH_MIN_MS + 1;
+  clockSpy ??= vi.spyOn(Date, 'now').mockImplementation(() => realNow() + clockOffset);
+};
 
 const filters = (patch: Partial<FilterState> = {}): FilterState => ({
   ...defaultFilters,
@@ -77,8 +87,17 @@ const section = (
 const renderSection = (state: FilterState, onJump = vi.fn(), onOpen = vi.fn()) =>
   render(section(state, onJump, onOpen));
 
-beforeEach(() => getThreads.mockReset());
-afterEach(cleanup);
+// A block body: vitest runs a function RETURNED from beforeEach as a teardown, and `mockReset()`
+// returns the mock — so it called getThreads() after each test (hung on a never-settling answer).
+beforeEach(() => {
+  getThreads.mockReset();
+});
+afterEach(() => {
+  cleanup();
+  clockSpy?.mockRestore();
+  clockSpy = null;
+  clockOffset = 0;
+});
 
 describe('OutsideViewMatches', () => {
   it('asks for the view’s own filters with outsideView, and groups the rows by where they are', async () => {
@@ -99,7 +118,7 @@ describe('OutsideViewMatches', () => {
     getThreads.mockResolvedValue(answer([thread(1, 'terminal')]));
     const onJump = vi.fn();
     renderSection(filters(), onJump);
-    fireEvent.click(await screen.findByRole('button', { name: /Show in Resolved or closed/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Show in that view: Resolved or closed/ }));
     expect(onJump).toHaveBeenCalledWith(
       expect.objectContaining({ lifecycle: 'resolved', search: 'someone@shop.example' }),
       undefined
@@ -130,10 +149,11 @@ describe('OutsideViewMatches', () => {
   // FE deploys on merge, the backend on a tag: a backend without `outsideView` ignores it and
   // answers the VIEW's own rows. Shown here, they would be listed twice, labelled "elsewhere".
   it('shows nothing when the backend did not answer outsideView (rows without foundIn)', async () => {
-    getThreads.mockResolvedValue(answer([thread(1), thread(2)]));
+    // An older backend: no `outsideView` marker, the view's own rows.
+    getThreads.mockResolvedValue({ ...answer([thread(1), thread(2)]), outsideView: undefined });
     const { container } = renderSection(filters());
     await waitFor(() => expect(getThreads).toHaveBeenCalled());
-    expect(container.textContent).toBe('');
+    await waitFor(() => expect(container.textContent).toBe(''));
   });
 
   // Review of #798: a jump MERGES onto the current filters — from the knowledge-base lens or a
@@ -142,7 +162,7 @@ describe('OutsideViewMatches', () => {
     getThreads.mockResolvedValue(answer([thread(1, 'terminal')]));
     const onJump = vi.fn();
     renderSection(filters({ showKBOnly: true, columnId: 'open' }), onJump);
-    fireEvent.click(await screen.findByRole('button', { name: /Show in Resolved or closed/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Show in that view: Resolved or closed/ }));
     expect(onJump).toHaveBeenCalledWith(
       expect.objectContaining({ lifecycle: 'resolved', showKBOnly: false, columnId: 'all' }),
       undefined
@@ -168,15 +188,16 @@ describe('OutsideViewMatches', () => {
     const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
     await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
     rerender(section(state, vi.fn(), vi.fn(), 'r1'));
+    afterRefreshWindow();
     rerender(section(state, vi.fn(), vi.fn(), 'r2'));
     await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
   });
 
-  it('shows nothing for an answer that ran out of time', async () => {
+  it('an answer that ran out of time lists nothing and says other views could not be checked', async () => {
     getThreads.mockResolvedValue({ ...answer([thread(1, 'terminal')]), timedOut: true });
-    const { container } = renderSection(filters());
-    await waitFor(() => expect(getThreads).toHaveBeenCalled());
-    expect(container.textContent).toBe('');
+    renderSection(filters());
+    expect(await screen.findByText(/could not be checked/)).toBeTruthy();
+    expect(screen.queryByRole('heading')).toBeNull();
   });
 
   it('a capped total reads "N+", and group counts wait until every match is loaded', async () => {
@@ -211,7 +232,7 @@ describe('OutsideViewMatches', () => {
     getThreads.mockResolvedValue(answer([thread(1, 'terminal')]));
     const onJump = vi.fn();
     renderSection(filters({ lifecycle: 'awaiting', negate: 'lifecycle' }), onJump);
-    fireEvent.click(await screen.findByRole('button', { name: /Show in Resolved or closed/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Show in that view: Resolved or closed/ }));
     expect(onJump).toHaveBeenCalledWith(
       expect.objectContaining({ lifecycle: 'resolved', negate: '' }),
       undefined
@@ -224,7 +245,9 @@ describe('OutsideViewMatches', () => {
     const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
     await screen.findByText('Kept row');
     getThreads.mockImplementationOnce(() => new Promise(() => undefined));
+    afterRefreshWindow();
     rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
     expect(screen.getByText('Kept row')).toBeTruthy();
   });
 
@@ -248,7 +271,7 @@ describe('OutsideViewMatches', () => {
       filters({ lifecycle: 'awaiting', aiState: 'needs_review', negate: 'lifecycle,aiState' }),
       onJump
     );
-    fireEvent.click(await screen.findByRole('button', { name: /Show in Resolved or closed/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Show in that view: Resolved or closed/ }));
     expect(onJump).toHaveBeenCalledWith(
       expect.objectContaining({ lifecycle: 'resolved', negate: 'aiState' }),
       undefined
@@ -278,8 +301,10 @@ describe('OutsideViewMatches', () => {
     const state = filters();
     const { rerender, container } = render(section(state, vi.fn(), vi.fn(), 'r1'));
     await screen.findByText('Was here');
+    afterRefreshWindow();
     rerender(section(state, vi.fn(), vi.fn(), 'r2'));
-    await waitFor(() => expect(container.textContent).toBe(''));
+    await waitFor(() => expect(container.textContent).not.toContain('Was here'));
+    expect(container.textContent).toContain('could not be checked');
   });
 
   it('asks nothing while the list itself is loading, then once', async () => {
@@ -326,7 +351,7 @@ describe('OutsideViewMatches', () => {
       filters({ lifecycle: 'awaiting', aiState: 'needs_review', negate: 'aiState, lifecycle' }),
       onJump
     );
-    fireEvent.click(await screen.findByRole('button', { name: /Show in Resolved or closed/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Show in that view: Resolved or closed/ }));
     expect(onJump).toHaveBeenCalledWith(expect.objectContaining({ negate: 'aiState' }), undefined);
   });
 
@@ -367,4 +392,115 @@ describe('OutsideViewMatches', () => {
       clock.mockRestore();
     }
   });
+
+  // Review of #805: the back-off was keyed on the request INCLUDING `refreshKey`, which moves on
+  // every colleague's update — on a busy inbox the failing heavy read went out on every flush.
+  it('🔴 a failed answer is not asked again when only the list\'s rows moved (refreshKey)', async () => {
+    let now = 7_000_000;
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
+    try {
+      getThreads
+        .mockRejectedValueOnce(new Error('503'))
+        .mockResolvedValueOnce(answer([thread(1, 'terminal', 'After the window')]));
+      const state = filters();
+      const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1', true));
+      await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+      act(() => {
+        rerender(section(state, vi.fn(), vi.fn(), 'r2', true));
+        rerender(section(state, vi.fn(), vi.fn(), 'r3', true));
+      });
+      expect(getThreads).toHaveBeenCalledTimes(1);
+      // CONTROL: after the window, the next move asks again.
+      now += FAILED_RETRY_MS + 1;
+      rerender(section(state, vi.fn(), vi.fn(), 'r4', true));
+      expect(await screen.findByText('After the window')).toBeTruthy();
+      expect(getThreads).toHaveBeenCalledTimes(2);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it('[control] a DIFFERENT search after a failure is asked at once', async () => {
+    getThreads
+      .mockRejectedValueOnce(new Error('503'))
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Other term')]));
+    const { rerender } = render(section(filters({ search: 'one@shop.example' }), vi.fn(), vi.fn(), 'r1', true));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+    rerender(section(filters({ search: 'two@shop.example' }), vi.fn(), vi.fn(), 'r1', true));
+    expect(await screen.findByText('Other term')).toBeTruthy();
+  });
+
+  // Release review, 2026-11-02: `refreshKey` moves on every server-event flush (~5 s); each move
+  // sent the heavy read again, per tab, never cancelled.
+  it('🔴 moves inside the refresh window ask once, at its end — not on every move', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    try {
+      getThreads.mockResolvedValue(answer([thread(1, 'terminal', 'Row')]));
+      const state = filters();
+      const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+      await vi.waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+      rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+      rerender(section(state, vi.fn(), vi.fn(), 'r3'));
+      rerender(section(state, vi.fn(), vi.fn(), 'r4'));
+      expect(getThreads).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(REFRESH_MIN_MS);
+      });
+      expect(getThreads).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('🔴 the ask it replaces is cancelled on the server too (AbortSignal)', async () => {
+    const signals: AbortSignal[] = [];
+    getThreads.mockImplementation((...args: unknown[]) => {
+      const opts = args[5] as { signal?: AbortSignal } | undefined;
+      if (opts?.signal) signals.push(opts.signal);
+      return new Promise(() => undefined);
+    });
+    const { rerender } = render(section(filters({ search: 'one@shop.example' })));
+    await waitFor(() => expect(signals).toHaveLength(1));
+    rerender(section(filters({ search: 'two@shop.example' })));
+    await waitFor(() => expect(signals).toHaveLength(2));
+    expect(signals[0]?.aborted).toBe(true);
+    expect(signals[1]?.aborted).toBe(false);
+  });
+
+  it('🔴 says other views are being checked while the first answer is on its way', async () => {
+    getThreads.mockImplementation(() => new Promise(() => undefined));
+    renderSection(filters());
+    expect(await screen.findByText(/Checking other views/)).toBeTruthy();
+  });
+
+  it('🔴 a failed question is asked again on its own after the window, on a quiet inbox', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    try {
+      getThreads
+        .mockRejectedValueOnce(new Error('503'))
+        .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Back by itself')]));
+      render(section(filters(), vi.fn(), vi.fn(), 'r1'));
+      await vi.waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+      // Nothing else re-renders the section: only its own timer may ask again.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(FAILED_RETRY_MS);
+      });
+      expect(getThreads).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('[control] an older backend (no marker) shows nothing and is not asked again on every move', async () => {
+    getThreads.mockResolvedValue({ ...answer([]), outsideView: undefined });
+    const state = filters();
+    const { rerender, container } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+    afterRefreshWindow();
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    rerender(section(state, vi.fn(), vi.fn(), 'r3'));
+    expect(getThreads).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toBe('');
+  });
 });
+

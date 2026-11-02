@@ -13,7 +13,24 @@ export const CONV_STATUS_CHANGED_EVENT = 'conv:status_changed';
  * (a customer's workspace, 2026-11-02).
  */
 export const CONVERSATION_UPDATED_EVENT = 'conversation:updated';
+/**
+ * A move to another team (`conversation:routed`): the open thread re-reads, and an agent who
+ * cannot open the new team is told it is gone (MessagesPage) instead of keeping a stale record
+ * (release review, 2026-11-02).
+ */
+export const CONVERSATION_ROUTED_EVENT = 'conversation:routed';
 export const CONV_STATUS_REFRESH_MS = 500;
+
+/**
+ * Whether an event is about this thread. A bulk run or a merge sends ONE `conversation:updated`
+ * whose `conversationId` is only the first (or the surviving) thread; `conversationIds` names every
+ * thread it stands for (review of #1306/#805). Absent on older backends: `conversationId` only.
+ */
+export const eventConcerns = (data: unknown, conversationId: number): boolean => {
+  const event = data as { conversationId?: unknown; conversationIds?: unknown } | null;
+  if (event?.conversationId === conversationId) return true;
+  return Array.isArray(event?.conversationIds) && event.conversationIds.includes(conversationId);
+};
 
 /**
  * Re-read an OPEN thread when the backend changes its status on its own (`conv:status_changed`):
@@ -41,7 +58,7 @@ export const useConversationStatusRefresh = (
     if (!socket) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const onStatusChanged = (data: unknown) => {
-      if ((data as { conversationId?: number } | null)?.conversationId !== conversationId) return;
+      if (!eventConcerns(data, conversationId)) return;
       if (timer !== null) return;
       timer = setTimeout(() => {
         timer = null;
@@ -50,9 +67,11 @@ export const useConversationStatusRefresh = (
     };
     subscribeToEvent(CONV_STATUS_CHANGED_EVENT, onStatusChanged);
     subscribeToEvent(CONVERSATION_UPDATED_EVENT, onStatusChanged);
+    subscribeToEvent(CONVERSATION_ROUTED_EVENT, onStatusChanged);
     return () => {
       unsubscribeFromEvent(CONV_STATUS_CHANGED_EVENT, onStatusChanged);
       unsubscribeFromEvent(CONVERSATION_UPDATED_EVENT, onStatusChanged);
+      unsubscribeFromEvent(CONVERSATION_ROUTED_EVENT, onStatusChanged);
       if (timer !== null) clearTimeout(timer);
       releaseSocket();
     };
