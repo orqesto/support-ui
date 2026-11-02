@@ -12,16 +12,21 @@ import type { SearchReading } from '@/services/message.service';
  *   "some".
  * - timedOut (backend search plan step 3½): the list itself ran out of time and came back
  *   empty. That is "not finished", never "no match". `listTimedOut` is the same for a list with
- *   no search typed.
+ *   no search typed. `elsewhere`: the matches the count of the OTHER views found (list scope,
+ *   hidden) — then the search did find threads, and the notice says where instead of "that does
+ *   not mean nothing matches" over an empty list (a customer's workspace, 2026-11-02).
  * - rankedWithin (step 3½d): so many threads matched that the best matches were put first among
  *   the newest N only; older ones follow newest first. Nothing is missing — only the order.
  */
 export const SearchReadingNotice = ({
   reading,
   listTimedOut = false,
+  elsewhere = 0,
 }: {
   reading: SearchReading | null;
   listTimedOut?: boolean;
+  /** Matching threads counted outside this view (hiddenKnown of the list scope). */
+  elsewhere?: number;
 }) => {
   if (!reading) {
     return listTimedOut ? (
@@ -30,6 +35,17 @@ export const SearchReadingNotice = ({
         filter (team, status or date).
       </Alert>
     ) : null;
+  }
+  if (reading.timedOut && elsewhere > 0) {
+    return (
+      <Alert variant="warning">
+        This view's search did not finish in time, so its threads are not listed. The search found{' '}
+        {elsewhere === 1
+          ? '1 matching thread in another view'
+          : `${elsewhere.toLocaleString()} matching threads in other views`}{' '}
+        — open <b>Not shown</b> above to go to {elsewhere === 1 ? 'it' : 'them'}.
+      </Alert>
+    );
   }
   if (reading.timedOut) {
     return (
