@@ -107,7 +107,7 @@ import { isOwnSendEcho } from '@/lib/ownSends';
 import { useConversationNewRefresh } from '@/hooks/useConversationNewRefresh';
 import { useCoalescedRefresh } from '@/hooks/useCoalescedRefresh';
 import { logger } from '@/lib/logger';
-import { getApiErrorMessage } from '@/lib/errorMessages';
+import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { usePermissions } from '@/hooks/usePermissions';
 
 // URL params that are list-view-only filters. Kanban groups by status itself and
@@ -790,6 +790,9 @@ export const MessagesPage = () => {
   };
 
   const refreshAbortRef = useRef<AbortController | null>(null);
+  // The open thread's id NOW, for an answer that lands after the agent moved on.
+  const selectedMessageIdRef = useRef<number | undefined>(undefined);
+  selectedMessageIdRef.current = selectedMessage?.id;
 
   /**
    * Re-read ONLY the open thread after the backend changed its status (useConversationStatusRefresh).
@@ -807,9 +810,25 @@ export const MessagesPage = () => {
         setSelectedMessage((current) => (current?.id === openId ? data : current));
       }
     } catch (error) {
+      const status = getErrorStatus(error);
+      // Gone for this agent (moved to a team they cannot open, merged away, deleted): kept on
+      // screen it showed an old status with no notice (review of #805). Close it and say why —
+      // only if they are still on it.
+      if ((status === 403 || status === 404) && selectedMessageIdRef.current === openId) {
+        toast.warning(
+          getApiErrorMessage(error) ??
+            'This thread is no longer available to you — it was moved, merged or deleted.'
+        );
+        const params = new URLSearchParams(searchParams);
+        params.delete('id');
+        setSearchParams(params);
+        selectedThreadIdRef.current = null;
+        setSelectedMessage(null);
+        return;
+      }
       logger.error('Failed to re-read the open thread after a status change:', error);
     }
-  }, [selectedMessage?.id]);
+  }, [selectedMessage?.id, searchParams, setSearchParams]);
 
   const handleRefreshMessage = useCallback(async () => {
     if (!selectedMessage) return;

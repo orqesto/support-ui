@@ -79,3 +79,34 @@ describe('useConversationStatusRefresh — the open thread header follows a reop
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 });
+
+// Review of #1306/#805: a bulk run or a merge sends ONE event naming only its first (or surviving)
+// thread; `conversationIds` names every thread it stands for.
+describe('useConversationStatusRefresh — one event for many threads', () => {
+  const fireUpdated = (data: unknown) => handlers.get('conversation:updated')?.(data);
+
+  it('🔴 a bulk event that names this thread among others re-reads it', () => {
+    const refresh = vi.fn();
+    renderHook(() => useConversationStatusRefresh(41, refresh));
+    fireUpdated({ conversationId: 7, conversationIds: [7, 41, 52], status: 'resolved', action: 'bulk_resolve' });
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('[control] a bulk event that does not name this thread re-reads nothing', () => {
+    const refresh = vi.fn();
+    renderHook(() => useConversationStatusRefresh(41, refresh));
+    fireUpdated({ conversationId: 7, conversationIds: [7, 52], status: 'resolved', action: 'bulk_resolve' });
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('an older backend (no conversationIds) still matches on conversationId', () => {
+    const refresh = vi.fn();
+    renderHook(() => useConversationStatusRefresh(41, refresh));
+    fireUpdated({ conversationId: 41, status: 'closed', action: 'close' });
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+});
+

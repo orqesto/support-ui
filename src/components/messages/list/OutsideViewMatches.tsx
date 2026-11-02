@@ -119,8 +119,10 @@ export const OutsideViewMatches = ({
   const requestKey = request ? JSON.stringify([queryKey, refreshKey ?? '']) : '';
   // The key last asked: a flip of `enabled` back on with the same key asks nothing.
   const askedKey = useRef('');
-  // A key whose answer failed, and when: asked again only after FAILED_RETRY_MS — every list
-  // re-read asked a persistently failing term again (review of #803).
+  // A QUESTION whose answer failed, and when: asked again only after FAILED_RETRY_MS — every list
+  // re-read asked a persistently failing term again (review of #803). Keyed on `queryKey`, not
+  // `requestKey`: `refreshKey` moves on every colleague's update, and keyed on it the back-off
+  // never matched on a busy inbox — the heavy read went out again on every flush (review of #805).
   const failedAt = useRef<{ key: string; at: number } | null>(null);
   // Only the newest "Show more" clears its spinner.
   const moreSeq = useRef(0);
@@ -150,7 +152,7 @@ export const OutsideViewMatches = ({
     }
     if (!request || !enabled || askedKey.current === requestKey) return undefined;
     if (
-      failedAt.current?.key === requestKey &&
+      failedAt.current?.key === queryKey &&
       Date.now() - failedAt.current.at < FAILED_RETRY_MS
     ) {
       return undefined;
@@ -158,6 +160,7 @@ export const OutsideViewMatches = ({
     askedKey.current = requestKey;
     setMoreFailed(false);
     const askedFor = requestKey;
+    const failedFor = queryKey;
     void messageService
       .getThreads(request, 1, PAGE, undefined, 'time', { allowTimedOut: true })
       .then((answer) => {
@@ -168,9 +171,10 @@ export const OutsideViewMatches = ({
           // again on the next list read (review of #801).
           setRows([]);
           if (askedKey.current === askedFor) askedKey.current = '';
-          failedAt.current = { key: askedFor, at: Date.now() };
+          failedAt.current = { key: failedFor, at: Date.now() };
           return;
         }
+        if (failedAt.current?.key === failedFor) failedAt.current = null;
         setRows(listed);
         setPage(1);
         setTotal(answer.pagination?.total ?? listed.length);
@@ -182,7 +186,7 @@ export const OutsideViewMatches = ({
         // A refresh that failed keeps nothing it cannot vouch for — as one that timed out.
         if (currentKey.current === askedFor) setRows([]);
         if (askedKey.current === askedFor) askedKey.current = '';
-        failedAt.current = { key: askedFor, at: Date.now() };
+        failedAt.current = { key: failedFor, at: Date.now() };
       });
     return undefined;
     // requestKey stands for `request` and everything else that changes the answer.

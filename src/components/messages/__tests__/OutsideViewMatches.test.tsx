@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { MessageThread } from '@/services/message.service';
 import { defaultFilters, type FilterState } from '@/stores/messagesStore';
@@ -367,4 +367,42 @@ describe('OutsideViewMatches', () => {
       clock.mockRestore();
     }
   });
+
+  // Review of #805: the back-off was keyed on the request INCLUDING `refreshKey`, which moves on
+  // every colleague's update — on a busy inbox the failing heavy read went out on every flush.
+  it('🔴 a failed answer is not asked again when only the list\'s rows moved (refreshKey)', async () => {
+    let now = 7_000_000;
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
+    try {
+      getThreads
+        .mockRejectedValueOnce(new Error('503'))
+        .mockResolvedValueOnce(answer([thread(1, 'terminal', 'After the window')]));
+      const state = filters();
+      const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1', true));
+      await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+      act(() => {
+        rerender(section(state, vi.fn(), vi.fn(), 'r2', true));
+        rerender(section(state, vi.fn(), vi.fn(), 'r3', true));
+      });
+      expect(getThreads).toHaveBeenCalledTimes(1);
+      // CONTROL: after the window, the next move asks again.
+      now += FAILED_RETRY_MS + 1;
+      rerender(section(state, vi.fn(), vi.fn(), 'r4', true));
+      expect(await screen.findByText('After the window')).toBeTruthy();
+      expect(getThreads).toHaveBeenCalledTimes(2);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it('[control] a DIFFERENT search after a failure is asked at once', async () => {
+    getThreads
+      .mockRejectedValueOnce(new Error('503'))
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Other term')]));
+    const { rerender } = render(section(filters({ search: 'one@shop.example' }), vi.fn(), vi.fn(), 'r1', true));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+    rerender(section(filters({ search: 'two@shop.example' }), vi.fn(), vi.fn(), 'r1', true));
+    expect(await screen.findByText('Other term')).toBeTruthy();
+  });
 });
+

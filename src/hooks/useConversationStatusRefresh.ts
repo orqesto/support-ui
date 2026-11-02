@@ -16,6 +16,17 @@ export const CONVERSATION_UPDATED_EVENT = 'conversation:updated';
 export const CONV_STATUS_REFRESH_MS = 500;
 
 /**
+ * Whether an event is about this thread. A bulk run or a merge sends ONE `conversation:updated`
+ * whose `conversationId` is only the first (or the surviving) thread; `conversationIds` names every
+ * thread it stands for (review of #1306/#805). Absent on older backends: `conversationId` only.
+ */
+export const eventConcerns = (data: unknown, conversationId: number): boolean => {
+  const event = data as { conversationId?: unknown; conversationIds?: unknown } | null;
+  if (event?.conversationId === conversationId) return true;
+  return Array.isArray(event?.conversationIds) && event.conversationIds.includes(conversationId);
+};
+
+/**
  * Re-read an OPEN thread when the backend changes its status on its own (`conv:status_changed`):
  * a customer's reply reopening a resolved thread, a reply taking it off hold. Without it the
  * header kept saying "Closed" with a Reopen button while the thread was In Progress, until the
@@ -41,7 +52,7 @@ export const useConversationStatusRefresh = (
     if (!socket) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const onStatusChanged = (data: unknown) => {
-      if ((data as { conversationId?: number } | null)?.conversationId !== conversationId) return;
+      if (!eventConcerns(data, conversationId)) return;
       if (timer !== null) return;
       timer = setTimeout(() => {
         timer = null;
