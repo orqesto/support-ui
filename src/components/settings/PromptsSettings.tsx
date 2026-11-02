@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, Edit2, Save, X, Eye, EyeOff } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
@@ -12,6 +12,10 @@ export const PromptsSettings = () => {
   const [prompts, setPrompts] = useState<PromptTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingPrompt, setEditingPrompt] = useState<PromptTemplate | null>(null);
+  // Read by handleSuggestionDecided, which runs AFTER the accept request: the state captured at
+  // click time would miss an editor opened while that request was in flight.
+  const editingPromptRef = useRef<PromptTemplate | null>(null);
+  editingPromptRef.current = editingPrompt;
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -37,11 +41,8 @@ export const PromptsSettings = () => {
   // row: it holds the OLD text, and saving it would silently undo what was just accepted. Any
   // other open editor (or a decline, which changes no template) keeps the person's typing.
   const handleSuggestionDecided = (decision: SuggestionDecision) => {
-    if (
-      decision === 'accept' &&
-      editingPrompt?.name === 'reply_style' &&
-      editingPrompt.departmentId === null
-    ) {
+    const open = editingPromptRef.current;
+    if (decision === 'accept' && open?.name === 'reply_style' && open.departmentId === null) {
       setEditingPrompt(null);
     }
     void fetchPrompts({ quiet: true });

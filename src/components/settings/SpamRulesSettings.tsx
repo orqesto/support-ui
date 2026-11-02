@@ -70,7 +70,7 @@ export const SpamRulesSettings = () => {
         domains={['spam']}
         title="Suggestions"
         description="Rules the engine suggests adding, promoting or reconciling from how people in your workspace handle spam. Accept applies the change; Decline stops it coming back."
-        onDecided={() => void ruleManagement.loadRules()}
+        onDecided={() => void ruleManagement.reloadAfterOutsideChange()}
       />
     <RuleEditor<SpamRule, SpamRuleFormData>
       {...ruleManagement}
