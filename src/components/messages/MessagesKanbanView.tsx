@@ -43,6 +43,7 @@ import { ListScopeNotice } from './ListScopeNotice';
 import { type FilterState, type SortingState } from '@/stores/messagesStore';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { SORT_PRESET_OPTIONS, sortingToPreset, presetToSorting } from './sortPresets';
 import { KanbanCard } from './KanbanCard';
 import type { ToggleSelected } from './bulk/selectMode';
@@ -63,6 +64,12 @@ import {
 } from './kanbanColumns';
 
 const PAGE_SIZE = 20;
+
+/**
+ * A column whose read did not finish — timed out, or the request failed (500, 429, network): the
+ * same words for all, since the column cannot tell which (review of #798).
+ */
+const UNFINISHED_HINT = 'Not loaded';
 
 type ColumnState = {
   threads: MessageThread[];
@@ -272,14 +279,21 @@ const KanbanColumn = ({
             {newCount > 99 ? '99+' : newCount}
           </Button>
         )}
-        {!state.loading && (
-          <span
-            className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0"
-            title={state.unfinished ? 'Not loaded — it took too long' : undefined}
-          >
-            {state.unfinished ? '—' : formatTotal(state.total, state.totalCapped)}
-          </span>
-        )}
+        {!state.loading &&
+          (state.unfinished ? (
+            <Tooltip content={UNFINISHED_HINT} size="sm">
+              <span
+                className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0"
+                aria-label={UNFINISHED_HINT}
+              >
+                —
+              </span>
+            </Tooltip>
+          ) : (
+            <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">
+              {formatTotal(state.total, state.totalCapped)}
+            </span>
+          ))}
         {/* Per-column sort — each column sorts independently. Compact chip select
             keeps the header tight; icon-only trigger avoids crowding the label. */}
         <Select
@@ -308,7 +322,7 @@ const KanbanColumn = ({
         ) : state.threads.length === 0 ? (
           <p className="px-3 py-4 text-xs text-muted-foreground xl:text-center">
             {state.unfinished
-              ? 'Not loaded — it took too long. Refresh to try again, or narrow the search.'
+              ? `${UNFINISHED_HINT}. Refresh to try again, or narrow the search.`
               : col.emptyText}
           </p>
         ) : (

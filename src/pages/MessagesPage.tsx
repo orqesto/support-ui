@@ -1812,6 +1812,7 @@ export const MessagesPage = () => {
                 onOpen={handleOpenThread}
                 highlightTerms={highlightTerms}
                 refreshKey={countsRefreshKey}
+                enabled={countsReady}
               />
             )}
 

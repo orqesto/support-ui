@@ -85,13 +85,15 @@ describe('Board: a column that did not finish', () => {
       Promise.resolve(boardAnswer(['open', 'resolved'])(request))
     );
     render(board());
-    expect(await screen.findByText(/Not loaded — it took too long/)).toBeInTheDocument();
+    expect(await screen.findByText(/Not loaded\. Refresh to try again/)).toBeInTheDocument();
     expect(screen.queryByText('No open threads')).toBeNull();
     // CONTROL: a column that answered with no rows still says it is empty.
     expect(screen.getByText('Nothing in progress')).toBeInTheDocument();
     // The Show toggle of an unfinished column carries no number either.
     const resolvedToggle = screen.getByRole('button', { name: /Resolved/ });
     expect(within(resolvedToggle).getByText('—')).toBeInTheDocument();
+    // The column's own "—" says what it means to a screen reader too (no bare dash).
+    expect(screen.getAllByLabelText('Not loaded').length).toBeGreaterThan(0);
   });
 
   it('the same when the board is read one column at a time and a column times out', async () => {
@@ -102,7 +104,7 @@ describe('Board: a column that did not finish', () => {
         : Promise.resolve(empty())
     );
     render(board());
-    expect(await screen.findByText(/Not loaded — it took too long/)).toBeInTheDocument();
+    expect(await screen.findByText(/Not loaded\. Refresh to try again/)).toBeInTheDocument();
     expect(screen.queryByText('No open threads')).toBeNull();
   });
 
@@ -110,7 +112,9 @@ describe('Board: a column that did not finish', () => {
   it('says "not loaded" when the board request fails', async () => {
     getThreadBoard.mockRejectedValue(new Error('503'));
     render(board());
-    expect((await screen.findAllByText(/Not loaded — it took too long/)).length).toBeGreaterThan(0);
+    expect(
+      (await screen.findAllByText(/Not loaded\. Refresh to try again/)).length
+    ).toBeGreaterThan(0);
     expect(screen.queryByText('No open threads')).toBeNull();
   });
 
@@ -119,18 +123,18 @@ describe('Board: a column that did not finish', () => {
       Promise.resolve(boardAnswer(['open'])(request))
     );
     const { rerender } = render(board(0));
-    expect(await screen.findByText(/Not loaded — it took too long/)).toBeInTheDocument();
+    expect(await screen.findByText(/Not loaded\. Refresh to try again/)).toBeInTheDocument();
     getThreadBoard.mockImplementation((request) => Promise.resolve(boardAnswer([])(request)));
     rerender(board(1));
     expect(await screen.findByText('No open threads')).toBeInTheDocument();
-    expect(screen.queryByText(/Not loaded — it took too long/)).toBeNull();
+    expect(screen.queryByText(/Not loaded\. Refresh to try again/)).toBeNull();
   });
 
   it('tells the page its total is only partial while a column did not finish', async () => {
     getThreadBoard.mockImplementation((request) => Promise.resolve(boardAnswer(['open'])(request)));
     const onTotalChange = vi.fn();
     render(board(0, onTotalChange));
-    await screen.findByText(/Not loaded — it took too long/);
+    await screen.findByText(/Not loaded\. Refresh to try again/);
     expect(onTotalChange).toHaveBeenLastCalledWith(0, true);
   });
 });

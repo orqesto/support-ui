@@ -57,9 +57,21 @@ const filters = (patch: Partial<FilterState> = {}): FilterState => ({
   ...patch,
 });
 
-const section = (state: FilterState, onJump = vi.fn(), onOpen = vi.fn(), refreshKey = 'r1') => (
+const section = (
+  state: FilterState,
+  onJump = vi.fn(),
+  onOpen = vi.fn(),
+  refreshKey = 'r1',
+  enabled = true
+) => (
   <MemoryRouter>
-    <OutsideViewMatches filters={state} onJump={onJump} onOpen={onOpen} refreshKey={refreshKey} />
+    <OutsideViewMatches
+      filters={state}
+      onJump={onJump}
+      onOpen={onOpen}
+      refreshKey={refreshKey}
+      enabled={enabled}
+    />
   </MemoryRouter>
 );
 const renderSection = (state: FilterState, onJump = vi.fn(), onOpen = vi.fn()) =>
@@ -226,5 +238,57 @@ describe('OutsideViewMatches', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
     await screen.findByText('Row two');
     expect(screen.getAllByText('Row one')).toHaveLength(1);
+  });
+
+  // Review of #798 (third): only a negated lifecycle / queue is cleared by a jump.
+  it('a jump keeps the agent\'s other negations ("everything except AI state X")', async () => {
+    getThreads.mockResolvedValue(answer([thread(1, 'terminal')]));
+    const onJump = vi.fn();
+    renderSection(
+      filters({ lifecycle: 'awaiting', aiState: 'needs_review', negate: 'lifecycle,aiState' }),
+      onJump
+    );
+    fireEvent.click(await screen.findByRole('button', { name: /Show in Resolved or closed/ }));
+    expect(onJump).toHaveBeenCalledWith(
+      expect.objectContaining({ lifecycle: 'resolved', negate: 'aiState' }),
+      undefined
+    );
+  });
+
+  it('"Show more" racing a refresh never stays on "Loading…"', async () => {
+    let answerMore: (value: unknown) => void = () => undefined;
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'First')], 30))
+      .mockImplementationOnce(() => new Promise((resolve) => (answerMore = resolve)))
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'First')], 30));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    answerMore(answer([thread(2, 'terminal', 'Second')], 30));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /Show more/ })).not.toBeDisabled()
+    );
+  });
+
+  it('a refresh that fails clears the rows, as one that timed out', async () => {
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Was here')]))
+      .mockRejectedValueOnce(new Error('503'));
+    const state = filters();
+    const { rerender, container } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    await screen.findByText('Was here');
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    await waitFor(() => expect(container.textContent).toBe(''));
+  });
+
+  it('asks nothing while the list itself is loading, then once', async () => {
+    getThreads.mockResolvedValue(answer([thread(1, 'terminal')]));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1', false));
+    rerender(section(state, vi.fn(), vi.fn(), 'r2', false));
+    expect(getThreads).not.toHaveBeenCalled();
+    rerender(section(state, vi.fn(), vi.fn(), 'r3', true));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
   });
 });
