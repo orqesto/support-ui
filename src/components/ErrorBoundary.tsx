@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { logger } from '@/lib/logger';
+import { clientErrorService } from '@/services/clientError.service';
 
 type ErrorBoundaryProps = {
   children: ReactNode;
@@ -9,12 +10,14 @@ type ErrorBoundaryProps = {
 
 type ErrorBoundaryState = {
   error: Error | null;
+  // Whether this crash was sent to the server log (only while signed in).
+  reported: boolean;
 };
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { error: null };
+  state: ErrorBoundaryState = { error: null, reported: false };
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { error };
   }
 
@@ -24,6 +27,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       stack: error.stack,
       componentStack: info.componentStack,
     });
+    const reported = clientErrorService.report({
+      message: error.message,
+      stack: error.stack,
+      componentStack: info.componentStack ?? undefined,
+    });
+    this.setState({ reported });
   }
 
   private handleReload = (): void => {
@@ -31,7 +40,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   };
 
   private handleReset = (): void => {
-    this.setState({ error: null });
+    this.setState({ error: null, reported: false });
   };
 
   render(): ReactNode {
@@ -47,8 +56,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           </div>
           <h1 className="font-display text-2xl font-bold text-foreground">Something went wrong</h1>
           <p className="text-sm text-muted-foreground">
-            This page failed to load. The error has been logged. You can try again, or reload the
-            app to recover.
+            This page failed to load.{this.state.reported ? ' The error has been reported.' : ''}{' '}
+            You can try again, or reload the app to recover.
           </p>
           {import.meta.env.DEV && (
             <pre className="overflow-auto p-3 text-left text-xs rounded bg-muted text-muted-foreground max-h-40">
