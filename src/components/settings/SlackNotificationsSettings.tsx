@@ -619,7 +619,9 @@ const SlackNotificationsPanel = () => {
           <div className="grid gap-4 lg:grid-cols-2">
             {(['team', 'admin'] as const).map((channel) => (
               <ChannelCard
-                key={channel}
+                // Keyed on the Slack workspace: a token for another one drops the routes (BE), so
+                // the card must start again from the server, not keep the old channel's draft.
+                key={`${channel}-${connection.teamName}`}
                 channel={channel}
                 route={status?.routes.find((each) => each.channel === channel)}
                 channelList={channelList}

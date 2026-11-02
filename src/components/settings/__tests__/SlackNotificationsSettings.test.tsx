@@ -367,6 +367,72 @@ describe('SlackNotificationsSettings — connect, load and return (fix round 1)'
     expect(await screen.findByText('Example Co')).toBeInTheDocument();
   });
 
+  describe('a token for ANOTHER Slack workspace', () => {
+    const pasteToken = async (token: string) => {
+      fireEvent.click(
+        await screen.findByRole('button', { name: /self-hosted\? paste a bot token/i })
+      );
+      fireEvent.change(screen.getByLabelText('Bot token'), { target: { value: token } });
+      fireEvent.click(screen.getByRole('button', { name: /connect with this token/i }));
+    };
+
+    it('the cards drop the old channel, and a switch does not PUT the old channel id', async () => {
+      // The BE drops the routes when the token belongs to a different Slack workspace.
+      vi.spyOn(slackNotificationsService, 'getStatus')
+        .mockResolvedValueOnce({
+          connection: { teamName: 'Example Co', status: 'broken', brokenReason: 'token_revoked' },
+          routes: [route({ channel: 'team' })],
+        })
+        .mockResolvedValue({
+          connection: { teamName: 'Other Co', status: 'connected', brokenReason: null },
+          routes: [],
+        });
+      vi.spyOn(slackNotificationsService, 'connectWithToken').mockResolvedValue({
+        teamName: 'Other Co',
+        status: 'connected',
+        brokenReason: null,
+      });
+      const save = vi.spyOn(slackNotificationsService, 'saveRoute');
+      renderPage();
+      // CONTROL: before the new token the team card holds the old channel.
+      await screen.findByText('Team channel');
+      expect(screen.getAllByText(/pick a channel to start posting/i)).toHaveLength(1);
+      await pasteToken('xoxb-other-1');
+      expect(await screen.findByText('Other Co')).toBeInTheDocument();
+      // Both cards now start empty.
+      await waitFor(() =>
+        expect(screen.getAllByText(/pick a channel to start posting/i)).toHaveLength(2)
+      );
+      fireEvent.click(await switchNamed(/hold recheck due/i));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it('CONTROL: a token for the SAME Slack workspace keeps the saved channel', async () => {
+      vi.spyOn(slackNotificationsService, 'getStatus')
+        .mockResolvedValueOnce({
+          connection: { teamName: 'Example Co', status: 'broken', brokenReason: 'token_revoked' },
+          routes: [route({ channel: 'team' })],
+        })
+        .mockResolvedValue(connected([route({ channel: 'team' })]));
+      vi.spyOn(slackNotificationsService, 'connectWithToken').mockResolvedValue({
+        teamName: 'Example Co',
+        status: 'connected',
+        brokenReason: null,
+      });
+      const save = vi
+        .spyOn(slackNotificationsService, 'saveRoute')
+        .mockImplementation((_channel, body) => Promise.resolve(route({ ...body })));
+      renderPage();
+      await screen.findByText('Team channel');
+      await pasteToken('xoxb-same-1');
+      await screen.findByText('Connected');
+      fireEvent.click(await switchNamed(/hold recheck due/i));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+      expect(save.mock.calls[0][1].slackChannelId).toBe('C1');
+    });
+  });
+
   describe('a broken channel (Ruling S)', () => {
     it('shows why in words on that card only, with the test action; unknown codes show raw', async () => {
       vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(
