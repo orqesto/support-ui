@@ -250,7 +250,14 @@ export const useMessagesData = ({
           // `scope` is absent on a stale bundle/older backend and null when the count
           // could not be taken. Both mean "no information" — never a zeroed object.
           // Not asked this time: the count on screen still describes this lens.
-          const scope = askScope ? (response.scope ?? null) : snapshot.listScope;
+          // Not asked: keep the count on screen only if it was answered for THIS lens. Inside the
+          // "unknown" window the store may still hold another lens's numbers (updateFilter does
+          // not clear them): lens A unknown → B counted → back to A showed B's (review of #803).
+          const scope = askScope
+            ? (response.scope ?? null)
+            : scopeAnsweredForRef.current === scopeKey
+              ? snapshot.listScope
+              : null;
           // Only an answer that landed settles the question; a null is asked again next read.
           if (askScope && response.scope) scopeAnsweredForRef.current = scopeKey;
           // An explicit null is "could not count in time" (an absent key is an older backend).

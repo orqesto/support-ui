@@ -7,6 +7,12 @@ import {
 } from '@/lib/socketManager';
 
 export const CONV_STATUS_CHANGED_EVENT = 'conv:status_changed';
+/**
+ * Also re-read on `conversation:updated` (bulk actions, approve / resolve, close): the list heard it
+ * and caught up, the open thread did not — a closed thread's panel kept saying "In progress"
+ * (a customer's workspace, 2026-11-02).
+ */
+export const CONVERSATION_UPDATED_EVENT = 'conversation:updated';
 export const CONV_STATUS_REFRESH_MS = 500;
 
 /**
@@ -43,8 +49,10 @@ export const useConversationStatusRefresh = (
       }, CONV_STATUS_REFRESH_MS);
     };
     subscribeToEvent(CONV_STATUS_CHANGED_EVENT, onStatusChanged);
+    subscribeToEvent(CONVERSATION_UPDATED_EVENT, onStatusChanged);
     return () => {
       unsubscribeFromEvent(CONV_STATUS_CHANGED_EVENT, onStatusChanged);
+      unsubscribeFromEvent(CONVERSATION_UPDATED_EVENT, onStatusChanged);
       if (timer !== null) clearTimeout(timer);
       releaseSocket();
     };

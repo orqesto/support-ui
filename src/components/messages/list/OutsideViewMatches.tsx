@@ -48,6 +48,8 @@ const LENS_RESET: Partial<FilterState> = {
 };
 
 const PAGE = 25;
+/** A failed or timed-out answer is asked again for the same question after this long at most once. */
+export const FAILED_RETRY_MS = 60_000;
 
 /**
  * The negations a jump keeps: a negated lifecycle or queue ("not awaiting") would turn the jump
@@ -117,6 +119,9 @@ export const OutsideViewMatches = ({
   const requestKey = request ? JSON.stringify([queryKey, refreshKey ?? '']) : '';
   // The key last asked: a flip of `enabled` back on with the same key asks nothing.
   const askedKey = useRef('');
+  // A key whose answer failed, and when: asked again only after FAILED_RETRY_MS — every list
+  // re-read asked a persistently failing term again (review of #803).
+  const failedAt = useRef<{ key: string; at: number } | null>(null);
   // Only the newest "Show more" clears its spinner.
   const moreSeq = useRef(0);
   const shownQuery = useRef('');
@@ -144,6 +149,12 @@ export const OutsideViewMatches = ({
       askedKey.current = '';
     }
     if (!request || !enabled || askedKey.current === requestKey) return undefined;
+    if (
+      failedAt.current?.key === requestKey &&
+      Date.now() - failedAt.current.at < FAILED_RETRY_MS
+    ) {
+      return undefined;
+    }
     askedKey.current = requestKey;
     setMoreFailed(false);
     const askedFor = requestKey;
@@ -157,6 +168,7 @@ export const OutsideViewMatches = ({
           // again on the next list read (review of #801).
           setRows([]);
           if (askedKey.current === askedFor) askedKey.current = '';
+          failedAt.current = { key: askedFor, at: Date.now() };
           return;
         }
         setRows(listed);
@@ -170,6 +182,7 @@ export const OutsideViewMatches = ({
         // A refresh that failed keeps nothing it cannot vouch for — as one that timed out.
         if (currentKey.current === askedFor) setRows([]);
         if (askedKey.current === askedFor) askedKey.current = '';
+        failedAt.current = { key: askedFor, at: Date.now() };
       });
     return undefined;
     // requestKey stands for `request` and everything else that changes the answer.

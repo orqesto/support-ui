@@ -81,4 +81,25 @@ describe('the list asks for its scope count only when the lens changes', () => {
       clock.mockRestore();
     }
   });
+
+  // Review of #803 (probed): lens A unknown → lens B counted → back to A inside the window showed
+  // B's numbers on A. Not asked, the count is kept only if it was answered for this lens.
+  it('back on a lens inside its "unknown" window shows no count — never another lens\'s', async () => {
+    const { result } = renderHook(() => useMessagesData({ urlSyncedRef, isKanban: false }));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+    // Lens A answers "unknown".
+    scopeAnswer = null;
+    act(() => useMessagesStore.getState().setFilters({ priority: 'critical' }));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
+    // Lens B is counted.
+    scopeAnswer = SCOPE;
+    act(() => useMessagesStore.getState().setFilters({ priority: 'medium' }));
+    await waitFor(() => expect(useMessagesStore.getState().listScope).toEqual(SCOPE));
+    // Back to A the way updateFilter does it: the filters change, B's count stays in the store.
+    void act(() =>
+      useMessagesStore.setState((state) => ({ filters: { ...state.filters, priority: 'critical' } }))
+    );
+    await act(() => result.current.fetchMessages(1, true));
+    expect(useMessagesStore.getState().listScope).toBeNull();
+  });
 });

@@ -65,4 +65,17 @@ describe('useConversationStatusRefresh — the open thread header follows a reop
     fire(41);
     expect(() => vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS)).not.toThrow();
   });
+
+  // A customer's workspace, 2026-11-02: a thread closed elsewhere (bulk, approve, close) kept its
+  // open panel on "In progress" — the list heard `conversation:updated`, the panel did not.
+  it('an update to THIS thread (conversation:updated) re-reads it too; another thread\'s does not', () => {
+    const refresh = vi.fn();
+    renderHook(() => useConversationStatusRefresh(41, refresh));
+    handlers.get('conversation:updated')?.({ conversationId: 99, status: 'closed' });
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).not.toHaveBeenCalled();
+    handlers.get('conversation:updated')?.({ conversationId: 41, status: 'closed' });
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
 });
