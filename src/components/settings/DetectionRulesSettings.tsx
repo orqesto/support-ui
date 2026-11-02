@@ -100,6 +100,7 @@ export const DetectionRulesSettings = () => {
         domains={['detection']}
         title="Suggestions"
         description="Detection rules the engine suggests promoting or reconciling. Accept applies the change; Decline stops it coming back."
+        onDecided={() => void ruleManagement.loadRules()}
       />
     <RuleEditor<DetectionRule, DetectionRuleFormData>
       {...ruleManagement}

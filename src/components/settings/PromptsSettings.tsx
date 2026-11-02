@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { settingsService, type PromptTemplate } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
-import { FeatureSuggestions } from './FeatureSuggestions';
+import { FeatureSuggestions, type SuggestionDecision } from './FeatureSuggestions';
 
 export const PromptsSettings = () => {
   const [prompts, setPrompts] = useState<PromptTemplate[]>([]);
@@ -32,11 +32,18 @@ export const PromptsSettings = () => {
     }
   };
 
-  // Accepting a learned house style rewrites `reply_style` on the server. Reload the list without
-  // the full-page "Loading..." and close any open editor: it holds the OLD text, and saving it
-  // would silently undo what was just accepted.
-  const handleSuggestionDecided = () => {
-    setEditingPrompt(null);
+  // Accepting a learned house style rewrites the workspace-wide `reply_style` on the server.
+  // Reload the list without the full-page "Loading...". Close the editor ONLY when it is that
+  // row: it holds the OLD text, and saving it would silently undo what was just accepted. Any
+  // other open editor (or a decline, which changes no template) keeps the person's typing.
+  const handleSuggestionDecided = (decision: SuggestionDecision) => {
+    if (
+      decision === 'accept' &&
+      editingPrompt?.name === 'reply_style' &&
+      editingPrompt.departmentId === null
+    ) {
+      setEditingPrompt(null);
+    }
     void fetchPrompts({ quiet: true });
   };
 

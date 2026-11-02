@@ -1,10 +1,17 @@
 /** Detection Rules decides the engine's detection suggestions in place. Invented data. */
 import { vi, describe, it, expect, afterEach, beforeEach } from 'vitest';
 import type * as LearningServiceModule from '@/services/learning.service';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
+
+const fetches = vi.hoisted(() => ({ count: 0 }));
 
 vi.mock('@/services/detectionRule.service', () => ({
-  detectionRuleService: { getAll: () => Promise.resolve({ success: true, data: [] }) },
+  detectionRuleService: {
+    getAll: () => {
+      fetches.count += 1;
+      return Promise.resolve({ success: true, data: [] });
+    },
+  },
 }));
 vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));
 vi.mock('@/hooks/useDepartments', () => ({
@@ -19,6 +26,8 @@ vi.mock('@/services/learning.service', async (importOriginal) => {
   return {
     ...actual,
     learningService: {
+      acceptSuggestion: () => Promise.resolve({}),
+      declineSuggestion: () => Promise.resolve({}),
       listSuggestions: (domain?: string) =>
         Promise.resolve((pending.list as Array<{ domain: string }>).filter((item) => !domain || item.domain === domain)),
     },
@@ -43,5 +52,14 @@ describe('Detection Rules › Suggestions', () => {
     render(<DetectionRulesSettings />);
     expect(await screen.findByRole('button', { name: 'Accept this suggestion' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Decline' })).toBeTruthy();
+  });
+
+  it('accepting a suggestion reloads the rule list (it may have added, promoted or disabled a rule)', async () => {
+    pending.list = [suggestion(92, 'detection', 'promote', { summary: 'invented' })];
+    render(<DetectionRulesSettings />);
+    const accept = await screen.findByRole('button', { name: 'Accept this suggestion' });
+    const before = fetches.count;
+    fireEvent.click(accept);
+    await waitFor(() => expect(fetches.count).toBe(before + 1));
   });
 });

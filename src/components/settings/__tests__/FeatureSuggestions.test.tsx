@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
   declined: [] as number[],
   canAct: true,
   loads: 0,
+  failAccept: false,
 }));
 vi.mock('@/services/learning.service', async (importOriginal) => {
   const actual = await importOriginal<typeof LearningServiceModule>();
@@ -25,6 +26,7 @@ vi.mock('@/services/learning.service', async (importOriginal) => {
       },
       acceptSuggestion: (id: number) => {
         state.accepted.push(id);
+        if (state.failAccept) return Promise.reject(new Error('boom'));
         return Promise.resolve({});
       },
       declineSuggestion: (id: number) => {
@@ -87,6 +89,7 @@ beforeEach(() => {
   state.declined = [];
   state.canAct = true;
   state.loads = 0;
+  state.failAccept = false;
 });
 afterEach(cleanup);
 
@@ -183,5 +186,37 @@ describe('FeatureSuggestions', () => {
     ] as never;
     render(<FeatureSuggestions domains={['reply_style']} title="Suggested house style" />);
     expect(await screen.findByText(/Agents shorten drafts/)).toBeTruthy();
+  });
+
+  describe('onDecided — lets the host page reload what a decision changed', () => {
+    it('reports accept and decline, after the engine call', async () => {
+      const decided = vi.fn();
+      state.list = [row(61, 'spam', 'promote', { summary: 'a' }), row(62, 'spam', 'promote', { summary: 'b' })] as never;
+      render(<FeatureSuggestions domains={['spam']} title="Spam suggestions" onDecided={decided} />);
+      fireEvent.click((await screen.findAllByRole('button', { name: 'Accept this suggestion' }))[0]);
+      await waitFor(() => expect(decided).toHaveBeenCalledWith('accept'));
+      fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
+      await waitFor(() => expect(decided).toHaveBeenLastCalledWith('decline'));
+      expect(decided).toHaveBeenCalledTimes(2);
+    });
+
+    it('a failed accept does not report (CONTROL: nothing changed, the page must not reload)', async () => {
+      const decided = vi.fn();
+      state.failAccept = true;
+      state.list = [row(63, 'spam', 'promote', { summary: 'a' })] as never;
+      render(<FeatureSuggestions domains={['spam']} title="Spam suggestions" onDecided={decided} />);
+      fireEvent.click(await screen.findByRole('button', { name: 'Accept this suggestion' }));
+      await waitFor(() => expect(state.accepted).toEqual([63]));
+      await screen.findByText(/boom|Failed to accept/);
+      expect(decided).not.toHaveBeenCalled();
+    });
+
+    it('a decided routing card reports too (it may have kept, dropped or edited a rule)', async () => {
+      const decided = vi.fn();
+      state.list = [row(64, 'routing', 'resolve_routing_disagreement', { options: [] })] as never;
+      render(<FeatureSuggestions domains={['routing']} title="Routing suggestions" onDecided={decided} />);
+      fireEvent.click(await screen.findByRole('button', { name: 'DONE 64' }));
+      await waitFor(() => expect(decided).toHaveBeenCalledWith('routing_card'));
+    });
   });
 });

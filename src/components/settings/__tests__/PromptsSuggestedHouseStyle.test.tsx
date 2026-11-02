@@ -88,4 +88,27 @@ describe('AI Prompts › Suggested house style', () => {
     expect(screen.queryByDisplayValue('Be formal.')).toBeNull();
     expect(screen.queryByText('Inactive')).toBeNull();
   });
+
+  it('an editor on ANOTHER template keeps the typing when a house style is accepted', async () => {
+    const other = { id: 8, name: 'spam_check', description: '', prompt: 'Spam?', active: true, departmentId: null, type: 'custom' };
+    templates.list = [other];
+    pending.list = [suggestion(54, 'reply_style', 'reply_style.update', { currentStyle: '', proposedStyle: 'Be warm.', rationale: '', signals: {} })];
+    render(<PromptsSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: /edit/i }));
+    fireEvent.change(screen.getByDisplayValue('Spam?'), { target: { value: 'Spam? typed' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Accept this suggestion' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Accept this suggestion' })).toBeNull());
+    expect(screen.getByDisplayValue('Spam? typed')).toBeTruthy();
+  });
+
+  it('a decline leaves an open reply_style editor alone (a decline changes no template)', async () => {
+    templates.list = [replyStyle('Be formal.', false)];
+    pending.list = [suggestion(55, 'reply_style', 'reply_style.update', { currentStyle: '', proposedStyle: 'Be warm.', rationale: '', signals: {} })];
+    render(<PromptsSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: /edit/i }));
+    fireEvent.change(screen.getByDisplayValue('Be formal.'), { target: { value: 'Be formal, typed' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Decline' })).toBeNull());
+    expect(screen.getByDisplayValue('Be formal, typed')).toBeTruthy();
+  });
 });
