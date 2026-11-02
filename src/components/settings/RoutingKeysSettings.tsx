@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Route } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Trash2, Route } from 'lucide-react';
+import { RoutingTestBox } from './RoutingTestBox';
+import { RoutingValueDescriptions } from './RoutingValueDescriptions';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { organizationService } from '@/services/organization.service';
+import type { RoutingKey, RoutingKeyType } from '@/types/skillRouting';
+import { isLanguageKeyName } from '@/utils/routing/languageKeyNames';
 
-type RoutingKey = { id: number; key: string; description: string | null };
+const TYPE_LABEL: Record<RoutingKeyType, string> = { language: 'Language', topic: 'Topic' };
 type AutoAssignMode = 'off' | 'match_only' | 'always';
 
 const AUTO_ASSIGN_OPTIONS: { value: AutoAssignMode; label: string; description: string }[] = [
@@ -31,6 +36,7 @@ export const RoutingKeysSettings = () => {
   const [allowSelfEditSkills, setAllowSelfEditSkills] = useState(false);
   const [savingSelfEdit, setSavingSelfEdit] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [openValues, setOpenValues] = useState<string | null>(null);
 
   const fetchKeys = async () => {
     setLoading(true);
@@ -92,13 +98,24 @@ export const RoutingKeysSettings = () => {
     if (!key) return;
     setSaving(true);
     try {
-      await organizationService.addRoutingKey(key, newDescription.trim() || undefined);
+      // Pre-selected from the name; the admin can switch it on the row afterwards.
+      await organizationService.addRoutingKey(
+        key,
+        newDescription.trim() || undefined,
+        isLanguageKeyName(key) ? 'language' : 'topic'
+      );
       setNewKey('');
       setNewDescription('');
       await fetchKeys();
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleTypeToggle = async (rk: RoutingKey) => {
+    const next: RoutingKeyType = rk.type === 'language' ? 'topic' : 'language';
+    await organizationService.setRoutingKeyType(rk.key, next);
+    await fetchKeys();
   };
 
   const handleDelete = async () => {
@@ -121,7 +138,9 @@ export const RoutingKeysSettings = () => {
           <span className="font-mono text-xs">language</span>,{' '}
           <span className="font-mono text-xs">region</span>,{' '}
           <span className="font-mono text-xs">expertise</span>) can be assigned values per user in
-          their profile.
+          their profile. A <strong>Language</strong> key matches the language the customer writes in;
+          a <strong>Topic</strong> key matches what the message is about, using each value&apos;s
+          description.
         </p>
       </div>
 
@@ -239,7 +258,8 @@ export const RoutingKeysSettings = () => {
       ) : (
         <div className="rounded-lg border border-border divide-y divide-border">
           {routingKeys.map((rk) => (
-            <div key={rk.id} className="flex items-center gap-3 px-4 py-3">
+            <div key={rk.id}>
+              <div className="flex items-center gap-3 px-4 py-3">
               <Route className="flex-shrink-0 w-4 h-4 text-muted-foreground" />
               <div className="flex-1 min-w-0">
                 <span className="font-mono text-sm font-semibold">{rk.key}</span>
@@ -247,6 +267,30 @@ export const RoutingKeysSettings = () => {
                   <span className="ml-2 text-sm text-muted-foreground">{rk.description}</span>
                 )}
               </div>
+              <Button
+                size="sm"
+                variant="outline"
+                aria-label={`Type of ${rk.key}: ${TYPE_LABEL[rk.type]}`}
+                title="Switch between Language and Topic"
+                onClick={() => void handleTypeToggle(rk)}
+              >
+                <Badge variant={rk.type === 'language' ? 'success' : 'secondary'}>
+                  {TYPE_LABEL[rk.type]}
+                </Badge>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label={`Values of ${rk.key}`}
+                onClick={() => setOpenValues(openValues === rk.key ? null : rk.key)}
+              >
+                {openValues === rk.key ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+                Values
+              </Button>
               <Button
                 aria-label="Delete routing key"
                 title="Delete routing key"
@@ -257,10 +301,16 @@ export const RoutingKeysSettings = () => {
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
+              </div>
+              {openValues === rk.key && (
+                <RoutingValueDescriptions routingKey={rk.key} keyType={rk.type} />
+              )}
             </div>
           ))}
         </div>
       )}
+
+      <RoutingTestBox />
 
       {deleteError && (
         <p className="text-sm text-destructive">{deleteError}</p>
