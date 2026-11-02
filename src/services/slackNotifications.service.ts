@@ -246,7 +246,13 @@ export const fillPlatformThresholds = (raw: unknown): PlatformSlackThresholds =>
 
 export type PlatformSlackConnection = {
   teamName: string | null;
-  status: 'connected';
+  /**
+   * Ruling S: `broken` after a permanent Slack error (token revoked, channel gone) stopped platform
+   * posts; it clears when the connection or the channel is saved again or a test post succeeds.
+   */
+  status: 'connected' | 'broken';
+  /** The Slack code when broken (`token_revoked`, `not_in_channel`, …); absent on an older backend. */
+  brokenReason?: string | null;
   /** `env`: SLACK_PLATFORM_BOT_TOKEN in the server's environment; Disconnect cannot remove it. */
   source: 'db' | 'env' | 'none';
 };

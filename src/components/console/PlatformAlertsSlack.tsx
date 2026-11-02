@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { SecretField } from '@/components/console/platformDefaults/SecretField';
 import { ThresholdsCard } from '@/components/console/PlatformAlertsThresholds';
-import { Alert, AlertDescription } from '@/components/ui/Alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -25,6 +25,7 @@ import {
   PLATFORM_SLACK_SIGNALS,
   platformSlackAlertsService,
   SLACK_BOT_SCOPES,
+  type PlatformSlackConnection,
   type PlatformSlackSignal,
   type PlatformSlackStatus,
   type SlackChannelList,
@@ -65,16 +66,37 @@ const TEST_HINTS: Record<string, string> = {
   is_archived: 'That channel is archived. Pick another channel.',
 };
 
+/**
+ * Ruling S: why platform posts stopped, in words (other codes shown raw). The delivery marks the
+ * platform connection broken on ANY permanent code, so the channel codes appear here too.
+ */
+const BROKEN_REASONS: Record<string, string> = {
+  token_revoked: 'the Slack app was removed from your Slack workspace',
+  account_inactive: 'the Slack app was removed from your Slack workspace',
+  invalid_auth: 'Slack no longer accepts the token',
+  missing_scope: 'the Slack app is missing a permission',
+  not_in_channel:
+    'Odly was removed from the alert channel — type /invite @Odly in Slack, then send a test message',
+  channel_not_found: 'the alert channel no longer exists or was archived — pick another channel',
+  is_archived: 'the alert channel no longer exists or was archived — pick another channel',
+};
+
+/** A refusal by the channel, not the token: the token still lists channels and posts a test. */
+const CHANNEL_CODES = new Set(['not_in_channel', 'channel_not_found', 'is_archived']);
+
 // ─── Channel and signals ─────────────────────────────────────────────────────
 
 const ChannelAndSignalsCard = ({
   status,
   channelList,
   connected,
+  onConnection,
 }: {
   status: PlatformSlackStatus;
   channelList: SlackChannelList | null;
   connected: boolean;
+  /** The connection as the server now reports it (a channel save or a test post may clear it). */
+  onConnection: (connection: PlatformSlackConnection | null) => void;
 }) => {
   const [channel, setChannel] = useState({
     id: status.settings.slackChannelId ?? '',
@@ -90,6 +112,7 @@ const ChannelAndSignalsCard = ({
   const apply = (next: PlatformSlackStatus) => {
     setChannel({ id: next.settings.slackChannelId ?? '', name: next.settings.slackChannelName });
     setSignals(next.settings.enabledSignals);
+    onConnection(next.connection);
   };
 
   const persist = (body: Parameters<typeof platformSlackAlertsService.saveSettings>[0]) => {
@@ -146,7 +169,14 @@ const ChannelAndSignalsCard = ({
     setTestResult(null);
     platformSlackAlertsService
       .sendTest()
-      .then(setTestResult)
+      .then((result) => {
+        setTestResult(result);
+        // A test post Slack took clears a broken platform connection on the server: show that.
+        return platformSlackAlertsService.getStatus().then(
+          (next) => onConnection(next.connection),
+          () => {}
+        );
+      })
       .catch((err: unknown) => toast.failure('send the test message', err))
       .finally(() => setTesting(false));
   };
@@ -376,8 +406,14 @@ const PlatformAlertsPanel = () => {
 
   const connection = status?.connection ?? null;
   const isConnected = connection?.status === 'connected';
+  const isBroken = connection?.status === 'broken';
+  const brokenReason = isBroken ? (connection.brokenReason ?? null) : null;
+  // A channel refusal leaves the token working: the channel can be re-picked or tested to clear it.
+  const tokenWorks = isConnected || (brokenReason !== null && CHANNEL_CODES.has(brokenReason));
+  const setConnection = (next: PlatformSlackConnection | null) =>
+    setStatus((current) => (current ? { ...current, connection: next } : current));
   useEffect(() => {
-    if (!isConnected) return;
+    if (!tokenWorks) return;
     setChannelsError(null);
     platformSlackAlertsService
       .listChannels()
@@ -385,7 +421,7 @@ const PlatformAlertsPanel = () => {
       .catch((err: unknown) =>
         setChannelsError(getApiErrorMessage(err) ?? 'The Slack channel list could not be loaded.')
       );
-  }, [isConnected]);
+  }, [tokenWorks]);
 
   const connect = () => {
     setConnecting(true);
@@ -462,7 +498,9 @@ const PlatformAlertsPanel = () => {
                     <span className="text-sm font-medium">
                       {connection.teamName ?? 'Slack workspace'}
                     </span>
-                    <Badge variant="success">Connected</Badge>
+                    <Badge variant={isBroken ? 'danger' : 'success'}>
+                      {isBroken ? 'Disconnected' : 'Connected'}
+                    </Badge>
                     {connection.source === 'env' && (
                       <Badge variant="secondary">Set in the server environment</Badge>
                     )}
@@ -471,7 +509,29 @@ const PlatformAlertsPanel = () => {
                     Disconnect
                   </Button>
                 </div>
-              ) : (
+              ) : null}
+              {connection && isBroken && (
+                <Alert variant="danger">
+                  <AlertTitle>
+                    Disconnected —{' '}
+                    {BROKEN_REASONS[brokenReason ?? ''] ??
+                      brokenReason ??
+                      'Slack stopped accepting the connection'}
+                    , reconnect
+                  </AlertTitle>
+                  <AlertDescription>
+                    Nothing is posted to Slack until this is fixed; the alert email address set on
+                    the server still receives the alerts. Signals and thresholds are kept.
+                  </AlertDescription>
+                  <div className="mt-3 space-y-2">
+                    <Button size="sm" onClick={connect} isLoading={connecting}>
+                      Reconnect
+                    </Button>
+                    <PasteTokenForm onConnected={setStatus} />
+                  </div>
+                </Alert>
+              )}
+              {!connection && (
                 <>
                   <p className="text-sm">
                     Slack is not connected, so nothing is posted to Slack. The alert email address
@@ -505,7 +565,8 @@ const PlatformAlertsPanel = () => {
             key={`${connection?.teamName ?? 'none'}-${status.settings.slackChannelId ?? ''}`}
             status={status}
             channelList={channelList}
-            connected={isConnected}
+            connected={tokenWorks}
+            onConnection={setConnection}
           />
           <ThresholdsCard thresholds={fillPlatformThresholds(status.settings.thresholds)} />
         </>

@@ -9,6 +9,7 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/re
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
+import { chooseOption } from '@/test/chooseOption';
 import {
   platformSlackAlertsService,
   PLATFORM_SLACK_SIGNALS,
@@ -229,5 +230,88 @@ describe('PlatformAlertsSlack', () => {
     const ctx = { scope: 'platform' as const, allianceId: null, selfHostedDeployment: false };
     expect(section?.visible?.({ ...ctx, isGlobalAdmin: false })).toBe(false);
     expect(section?.visible?.({ ...ctx, isGlobalAdmin: true })).toBe(true);
+  });
+
+  describe('a broken platform connection (Ruling S)', () => {
+    const broken = (reason: string): PlatformSlackStatus => {
+      const base = connected();
+      return {
+        ...base,
+        connection: { teamName: 'Odly Ops', status: 'broken', brokenReason: reason, source: 'db' },
+      };
+    };
+
+    it('a dead token reads "Disconnected — <reason>" with Reconnect; the channel controls wait', async () => {
+      vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(broken('token_revoked'));
+      const listChannels = vi.spyOn(platformSlackAlertsService, 'listChannels');
+      renderPage();
+      expect(await screen.findByText(/^Disconnected —/)).toHaveTextContent(
+        'Disconnected — the Slack app was removed from your Slack workspace, reconnect'
+      );
+      expect(screen.getByRole('button', { name: /^reconnect$/i })).toBeInTheDocument();
+      expect(screen.queryByText('Connected')).not.toBeInTheDocument();
+      // A dead token cannot list channels or post a test.
+      expect(screen.queryByRole('button', { name: /send test message/i })).not.toBeInTheDocument();
+      expect(listChannels).not.toHaveBeenCalled();
+    });
+
+    it('CONTROL: a working connection shows no broken line', async () => {
+      vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(connected());
+      renderPage();
+      expect(await screen.findByText('Connected')).toBeInTheDocument();
+      expect(screen.queryByText(/^Disconnected —/)).not.toBeInTheDocument();
+    });
+
+    it('an unknown code is shown as it came', async () => {
+      vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(broken('odd_code'));
+      renderPage();
+      expect(await screen.findByText(/^Disconnected —/)).toHaveTextContent(
+        'Disconnected — odd_code, reconnect'
+      );
+    });
+
+    it('a channel refusal keeps the channel usable; a test post Slack takes re-reads and clears it', async () => {
+      const getStatus = vi
+        .spyOn(platformSlackAlertsService, 'getStatus')
+        .mockResolvedValueOnce(broken('not_in_channel'))
+        .mockResolvedValue(connected());
+      vi.spyOn(platformSlackAlertsService, 'sendTest').mockResolvedValue({ ok: true });
+      renderPage();
+      expect(await screen.findByText(/^Disconnected —/)).toHaveTextContent(
+        'Odly was removed from the alert channel — type /invite @Odly in Slack, then send a test message'
+      );
+      fireEvent.click(await screen.findByRole('button', { name: /send test message/i }));
+      await screen.findByText(/Test message sent/);
+      await waitFor(() => expect(getStatus).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(screen.queryByText(/^Disconnected —/)).not.toBeInTheDocument());
+      expect(screen.getByText('Connected')).toBeInTheDocument();
+    });
+
+    it('picking another channel takes the cleared state from the save answer', async () => {
+      vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(
+        broken('channel_not_found')
+      );
+      const listChannels = vi.spyOn(platformSlackAlertsService, 'listChannels').mockResolvedValue({
+        channels: [
+          { id: 'C1', name: 'platform-alerts', isPrivate: false, isMember: true },
+          { id: 'C9', name: 'ops-alerts', isPrivate: false, isMember: true },
+        ],
+        truncated: false,
+      });
+      const save = vi
+        .spyOn(platformSlackAlertsService, 'saveSettings')
+        .mockResolvedValue(connected({ slackChannelId: 'C9', slackChannelName: 'ops-alerts' }));
+      renderPage();
+      expect(await screen.findByText(/^Disconnected —/)).toHaveTextContent(
+        'the alert channel no longer exists or was archived — pick another channel'
+      );
+      // Wait for the channel list, then pick the new channel.
+      await waitFor(() => expect(listChannels).toHaveBeenCalled());
+      await chooseOption(await screen.findByLabelText('Slack channel'), '#ops-alerts');
+      await waitFor(() =>
+        expect(save).toHaveBeenCalledWith({ slackChannelId: 'C9', slackChannelName: 'ops-alerts' })
+      );
+      await waitFor(() => expect(screen.queryByText(/^Disconnected —/)).not.toBeInTheDocument());
+    });
   });
 });
