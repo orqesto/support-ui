@@ -57,7 +57,13 @@ export const MessageFilterBar = ({
   trailingViews,
 }: {
   filters: FilterState;
-  pagination: { page: number; limit: number; total: number };
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalCapped?: boolean;
+    countTimedOut?: boolean;
+  };
   activeFilterCount: number;
   clearableFilterCount?: number;
   isKanban?: boolean;

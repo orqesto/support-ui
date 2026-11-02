@@ -383,7 +383,8 @@ type MessagesKanbanViewProps = {
    * the board instead of the list. Fires on tab switch and lane toggle as well as on
    * data, because all three change what the agent is actually looking at.
    */
-  onTotalChange?: (total: number) => void;
+  /** `partial`: a counted column did not finish, so `total` is a lower bound. */
+  onTotalChange?: (total: number, partial: boolean) => void;
   /**
    * Bulk selection, owned by the page (it outlives a board refresh and is shared with the
    * action bar). Absent = no checkboxes: the board renders exactly as it did before.
@@ -903,7 +904,10 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
             logger.error('Failed to fetch the kanban board:', err);
             setColStates((prev) => {
               const next = { ...prev };
-              for (const col of columns) next[col.id] = { ...prev[col.id], loading: false };
+              // The board request failed (500, 429, network): no column has this read's answer.
+              for (const col of columns) {
+                next[col.id] = { ...prev[col.id], loading: false, unfinished: true };
+              }
               return next;
             });
             if (scope) setBoardScope(null);
@@ -1264,12 +1268,14 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
      * asking — which is the whole defect this reports away from.
      */
     const visibleTotal = visibleColumns.reduce(
-      (sum, col) => sum + (colStates[col.id]?.total ?? 0),
+      (sum, col) => sum + (colStates[col.id]?.unfinished ? 0 : (colStates[col.id]?.total ?? 0)),
       0
     );
+    // A column that did not finish adds no number: the sum is then "at least" (review of #798).
+    const visiblePartial = visibleColumns.some((col) => colStates[col.id]?.unfinished === true);
     useEffect(() => {
-      onTotalChange?.(visibleTotal);
-    }, [visibleTotal, onTotalChange]);
+      onTotalChange?.(visibleTotal, visiblePartial);
+    }, [visibleTotal, visiblePartial, onTotalChange]);
 
     // Triage-tab count badges: UNREAD first (what still needs a human's eyes), then
     // the all-items total. Both loaded even while the lifecycle board is showing, so
@@ -1280,15 +1286,23 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     // undercount any queue deeper than one page and look plausible while being wrong.
     // It has to be a server-side count; see loadTriageUnread.
     const triageCount = COLUMNS.filter(countsTowardTriageBadge).reduce(
-      (sum, col) => sum + (colStates[col.id]?.total ?? 0),
+      (sum, col) => sum + (colStates[col.id]?.unfinished ? 0 : (colStates[col.id]?.total ?? 0)),
       0
+    );
+    const triagePartial = COLUMNS.filter(countsTowardTriageBadge).some(
+      (col) => colStates[col.id]?.unfinished === true
     );
     // Board-tab count badge: active work across the non-reference lifecycle columns
     // (Open / In Progress / Pending). Excludes the hideable reference columns
     // (On-hold, Resolved) so the badge tracks live work, not the resolved archive.
-    const boardCount = COLUMNS.filter(
+    const boardCols = COLUMNS.filter(
       (col) => col.axis === 'lifecycle' && !HIDEABLE_COLS.has(col.id)
-    ).reduce((sum, col) => sum + (colStates[col.id]?.total ?? 0), 0);
+    );
+    const boardCount = boardCols.reduce(
+      (sum, col) => sum + (colStates[col.id]?.unfinished ? 0 : (colStates[col.id]?.total ?? 0)),
+      0
+    );
+    const boardPartial = boardCols.some((col) => colStates[col.id]?.unfinished === true);
 
     return (
       <DndContext
@@ -1315,6 +1329,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
               {(['lifecycle', 'triage'] as const).map((axis) => {
                 const isActive = activeTab === axis;
                 const count = axis === 'lifecycle' ? boardCount : triageCount;
+                const countText = `${count}${(axis === 'lifecycle' ? boardPartial : triagePartial) ? '+' : ''}`;
                 return (
                   <Button
                     key={axis}
@@ -1348,9 +1363,9 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
                         variant="secondary"
                         size="sm"
                         className="justify-center px-1.5 min-w-[18px] h-[18px] text-[11px] leading-none"
-                        title={`${count} in triage in total`}
+                        title={`${countText} in triage in total`}
                       >
-                        {count}
+                        {countText}
                       </Badge>
                     )}
                     {axis === 'lifecycle' && count > 0 && (
@@ -1362,7 +1377,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
                             : 'bg-muted-foreground/15 text-muted-foreground'
                         )}
                       >
-                        {count}
+                        {countText}
                       </span>
                     )}
                   </Button>

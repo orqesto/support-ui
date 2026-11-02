@@ -62,12 +62,15 @@ export const SurfaceCount = ({
           </>
         ) : (
           <>
-            <b className="font-mono font-semibold text-foreground/70">{total}</b> on this board
+            <b className="font-mono font-semibold text-foreground/70">
+              {formatTotal(total, pagination.totalCapped)}
+            </b>{' '}
+            on this board
           </>
         )
-      ) : noun && pagination.countTimedOut ? (
-        // A count that did not finish is no number at all — never "No contacts".
-        `${noun[0].toUpperCase()}${noun.slice(1)} not counted`
+      ) : pagination.countTimedOut ? (
+        // A count that did not finish is no number at all — never "No contacts" / "No threads".
+        `${(noun ?? 'threads')[0].toUpperCase()}${(noun ?? 'threads').slice(1)} not counted`
       ) : (
         `No ${noun ?? 'threads'}`
       )}

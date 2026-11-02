@@ -193,4 +193,38 @@ describe('OutsideViewMatches', () => {
     expect(await screen.findByText(/Could not load more/)).toBeTruthy();
     expect(screen.getByText('First page row')).toBeTruthy();
   });
+
+  // Review of #798: a negated lens ("not awaiting") made the jump "everything except Resolved".
+  it('a jump clears a negated lens', async () => {
+    getThreads.mockResolvedValue(answer([thread(1, 'terminal')]));
+    const onJump = vi.fn();
+    renderSection(filters({ lifecycle: 'awaiting', negate: 'lifecycle' }), onJump);
+    fireEvent.click(await screen.findByRole('button', { name: /Show in Resolved or closed/ }));
+    expect(onJump).toHaveBeenCalledWith(
+      expect.objectContaining({ lifecycle: 'resolved', negate: '' }),
+      undefined
+    );
+  });
+
+  it('a refresh keeps the rows on screen until its answer lands', async () => {
+    getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'Kept row')]));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    await screen.findByText('Kept row');
+    getThreads.mockImplementationOnce(() => new Promise(() => undefined));
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    expect(screen.getByText('Kept row')).toBeTruthy();
+  });
+
+  it('"Show more" never lists a thread twice', async () => {
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 3))
+      .mockResolvedValueOnce(
+        answer([thread(1, 'terminal', 'Row one'), thread(2, 'terminal', 'Row two')], 3)
+      );
+    renderSection(filters());
+    fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
+    await screen.findByText('Row two');
+    expect(screen.getAllByText('Row one')).toHaveLength(1);
+  });
 });

@@ -60,13 +60,15 @@ const boardAnswer =
     counts: Object.fromEntries(request.counts.map((count) => [count.id, null])) as never,
   });
 
-const board = () => (
-  <QueryClientProvider client={new QueryClient()}>
+const client = new QueryClient();
+const board = (refreshKey = 0, onTotalChange?: (total: number, partial: boolean) => void) => (
+  <QueryClientProvider client={client}>
     <MessagesKanbanView
       filters={{ ...defaultFilters, search: 'someone@shop.example' }}
       onOpen={() => {}}
-      refreshKey={0}
+      refreshKey={refreshKey}
       onScopeJump={() => {}}
+      onTotalChange={onTotalChange}
     />
   </QueryClientProvider>
 );
@@ -102,5 +104,33 @@ describe('Board: a column that did not finish', () => {
     render(board());
     expect(await screen.findByText(/Not loaded — it took too long/)).toBeInTheDocument();
     expect(screen.queryByText('No open threads')).toBeNull();
+  });
+
+  // Review of #798: the board request itself failing (500, 429, network) left "0" behind too.
+  it('says "not loaded" when the board request fails', async () => {
+    getThreadBoard.mockRejectedValue(new Error('503'));
+    render(board());
+    expect((await screen.findAllByText(/Not loaded — it took too long/)).length).toBeGreaterThan(0);
+    expect(screen.queryByText('No open threads')).toBeNull();
+  });
+
+  it('a later answer clears "not loaded"', async () => {
+    getThreadBoard.mockImplementationOnce((request) =>
+      Promise.resolve(boardAnswer(['open'])(request))
+    );
+    const { rerender } = render(board(0));
+    expect(await screen.findByText(/Not loaded — it took too long/)).toBeInTheDocument();
+    getThreadBoard.mockImplementation((request) => Promise.resolve(boardAnswer([])(request)));
+    rerender(board(1));
+    expect(await screen.findByText('No open threads')).toBeInTheDocument();
+    expect(screen.queryByText(/Not loaded — it took too long/)).toBeNull();
+  });
+
+  it('tells the page its total is only partial while a column did not finish', async () => {
+    getThreadBoard.mockImplementation((request) => Promise.resolve(boardAnswer(['open'])(request)));
+    const onTotalChange = vi.fn();
+    render(board(0, onTotalChange));
+    await screen.findByText(/Not loaded — it took too long/);
+    expect(onTotalChange).toHaveBeenLastCalledWith(0, true);
   });
 });

@@ -243,6 +243,12 @@ export const MessagesPage = () => {
   const [bulkRunning, setBulkRunning] = useState(false);
   /** What the board says it is holding — see the `pagination` prop on MessageFilterBar. */
   const [boardTotal, setBoardTotal] = useState(0);
+  // A board column did not finish: the board's total is a lower bound (review of #798).
+  const [boardPartial, setBoardPartial] = useState(false);
+  const handleBoardTotal = useCallback((total: number, partial: boolean) => {
+    setBoardTotal(total);
+    setBoardPartial(partial);
+  }, []);
   // View counts (Needs us / Unassigned / …) re-read on this tick. Declared here because an agent's
   // own action bumps it together with the board, below.
   const [countsTick, bumpCounts] = useReducer((tick: number) => tick + 1, 0);
@@ -1404,7 +1410,13 @@ export const MessagesPage = () => {
                       displayMode === 'contacts'
                         ? contactsPagination
                         : displayMode === 'kanban'
-                          ? { page: 1, limit: boardTotal, total: boardTotal }
+                          ? {
+                              page: 1,
+                              limit: boardTotal,
+                              total: boardTotal,
+                              totalCapped: boardPartial,
+                              countTimedOut: boardPartial && boardTotal === 0,
+                            }
                           : pagination
                     }
                     isKanban={isKanban}
@@ -1500,7 +1512,13 @@ export const MessagesPage = () => {
                 displayMode === 'contacts'
                   ? contactsPagination
                   : displayMode === 'kanban'
-                    ? { page: 1, limit: boardTotal, total: boardTotal }
+                    ? {
+                        page: 1,
+                        limit: boardTotal,
+                        total: boardTotal,
+                        totalCapped: boardPartial,
+                        countTimedOut: boardPartial && boardTotal === 0,
+                      }
                     : pagination
               }
               // The count is in the header now, beside the view switch.
@@ -1573,7 +1591,7 @@ export const MessagesPage = () => {
                   onOpen={handleOpenThread}
                   refreshKey={kanbanRefreshKey}
                   onScopeJump={handleScopeJump}
-                  onTotalChange={setBoardTotal}
+                  onTotalChange={handleBoardTotal}
                   isSelected={bulkSelection.isSelected}
                   onToggleSelected={bulkSelection.toggle}
                   onToggleRange={bulkSelection.toggleRange}

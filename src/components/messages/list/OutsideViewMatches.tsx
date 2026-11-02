@@ -40,6 +40,8 @@ const placeTitle = (place: string): string => PLACE_TITLE[place as Place] ?? 'El
  * `columnId` and landed on a list without the rows it promised (review of #798).
  */
 const LENS_RESET: Partial<FilterState> = {
+  // A negated lens ("not awaiting") would turn the jump into "everything EXCEPT …".
+  negate: '',
   lifecycle: 'all',
   queue: 'all',
   columnId: 'all',
@@ -91,9 +93,11 @@ export const OutsideViewMatches = ({
     () => (search ? { ...threadApiFilters(filters, false), outsideView: '1' } : null),
     [filters, search]
   );
-  const requestKey = request
-    ? JSON.stringify([request, deptKey, String(organizationId), refreshKey ?? ''])
-    : '';
+  // What the answer is FOR (a new one clears the section) vs when to re-ask it (a refresh keeps
+  // the rows on screen until the new answer — no blink each time a row moves).
+  const queryKey = request ? JSON.stringify([request, deptKey, String(organizationId)]) : '';
+  const requestKey = request ? JSON.stringify([queryKey, refreshKey ?? '']) : '';
+  const shownQuery = useRef('');
   const [rows, setRows] = useState<MessageThread[]>([]);
   const [total, setTotal] = useState(0);
   const [totalCapped, setTotalCapped] = useState(false);
@@ -105,10 +109,13 @@ export const OutsideViewMatches = ({
   currentKey.current = requestKey;
 
   useEffect(() => {
-    setRows([]);
-    setTotal(0);
-    setTotalCapped(false);
-    setPage(1);
+    if (shownQuery.current !== queryKey) {
+      shownQuery.current = queryKey;
+      setRows([]);
+      setTotal(0);
+      setTotalCapped(false);
+      setPage(1);
+    }
     setMoreFailed(false);
     if (!request) return undefined;
     const askedFor = requestKey;
@@ -117,8 +124,13 @@ export const OutsideViewMatches = ({
       .then((answer) => {
         if (currentKey.current !== askedFor) return;
         const listed = outsideRows(answer);
-        if (!listed) return;
+        if (!listed) {
+          // A refresh that did not finish keeps nothing it cannot vouch for.
+          setRows([]);
+          return;
+        }
         setRows(listed);
+        setPage(1);
         setTotal(answer.pagination?.total ?? listed.length);
         setTotalCapped(
           answer.pagination?.totalCapped === true || answer.pagination?.countTimedOut === true
@@ -145,7 +157,11 @@ export const OutsideViewMatches = ({
         setMoreFailed(true);
         return;
       }
-      setRows((shown) => [...shown, ...listed]);
+      // Offset pages shift when a match moves: never the same thread twice.
+      setRows((shown) => {
+        const seen = new Set(shown.map((thread) => thread.threadId));
+        return [...shown, ...listed.filter((thread) => !seen.has(thread.threadId))];
+      });
       setPage(page + 1);
     } catch {
       if (currentKey.current === askedFor) setMoreFailed(true);
