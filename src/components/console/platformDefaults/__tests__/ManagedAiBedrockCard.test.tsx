@@ -54,6 +54,9 @@ const SECRETS = {
   'ai.bedrock_secret_access_key': UNSET,
   'storage.s3_access_key_id': UNSET,
   'storage.s3_secret_access_key': UNSET,
+  'slack.client_id': UNSET,
+  'slack.client_secret': UNSET,
+  'slack.platform_bot_token': UNSET,
 } satisfies PlatformSettings['secrets'];
 
 const PROFILE = 'eu.anthropic.claude-haiku-4-5-20251001-v1:0';

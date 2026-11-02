@@ -57,6 +57,9 @@ const SECRETS = {
   'ai.bedrock_secret_access_key': UNSET,
   'storage.s3_access_key_id': UNSET,
   'storage.s3_secret_access_key': UNSET,
+  'slack.client_id': UNSET,
+  'slack.client_secret': UNSET,
+  'slack.platform_bot_token': UNSET,
 } satisfies PlatformSettings['secrets'];
 
 const orgInput = () => screen.getByPlaceholderText<HTMLInputElement>(/^org-/);
