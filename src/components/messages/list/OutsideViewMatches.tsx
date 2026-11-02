@@ -57,6 +57,7 @@ const PAGE = 25;
 const negateKeptByJump = (negate: string | undefined): string =>
   (negate ?? '')
     .split(',')
+    .map((key) => key.trim())
     .filter((key) => key !== '' && key !== 'lifecycle' && key !== 'queue')
     .join(',');
 
@@ -111,7 +112,13 @@ export const OutsideViewMatches = ({
   // What the answer is FOR (a new one clears the section) vs when to re-ask it (a refresh keeps
   // the rows on screen until the new answer — no blink each time a row moves).
   const queryKey = request ? JSON.stringify([request, deptKey, String(organizationId)]) : '';
-  const requestKey = request && enabled ? JSON.stringify([queryKey, refreshKey ?? '']) : '';
+  // `enabled` is NOT part of the key: the list's own re-reads flip it, and with it in the key every
+  // re-read asked again and dropped an answer landing meanwhile (review of #799, probed).
+  const requestKey = request ? JSON.stringify([queryKey, refreshKey ?? '']) : '';
+  // The key last asked: a flip of `enabled` back on with the same key asks nothing.
+  const askedKey = useRef('');
+  // Only the newest "Show more" clears its spinner.
+  const moreSeq = useRef(0);
   const shownQuery = useRef('');
   const [rows, setRows] = useState<MessageThread[]>([]);
   const [total, setTotal] = useState(0);
@@ -131,9 +138,11 @@ export const OutsideViewMatches = ({
       setTotalCapped(false);
       setPage(1);
       setLoadingMore(false);
+      moreSeq.current += 1;
     }
+    if (!request || !enabled || askedKey.current === requestKey) return undefined;
+    askedKey.current = requestKey;
     setMoreFailed(false);
-    if (!request || !enabled) return undefined;
     const askedFor = requestKey;
     void messageService
       .getThreads(request, 1, PAGE, undefined, 'time', { allowTimedOut: true })
@@ -159,11 +168,13 @@ export const OutsideViewMatches = ({
     return undefined;
     // requestKey stands for `request` and everything else that changes the answer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestKey]);
+  }, [requestKey, enabled]);
 
   const loadMore = async () => {
     if (!request) return;
     const askedFor = requestKey;
+    moreSeq.current += 1;
+    const seq = moreSeq.current;
     setLoadingMore(true);
     setMoreFailed(false);
     try {
@@ -185,8 +196,9 @@ export const OutsideViewMatches = ({
     } catch {
       if (currentKey.current === askedFor) setMoreFailed(true);
     } finally {
-      // Always: a refresh during "Show more" left the button on "Loading…" for good.
-      setLoadingMore(false);
+      // A refresh during "Show more" left the button on "Loading…" for good; an older one settling
+      // must not clear a newer one's spinner.
+      if (moreSeq.current === seq) setLoadingMore(false);
     }
   };
 
