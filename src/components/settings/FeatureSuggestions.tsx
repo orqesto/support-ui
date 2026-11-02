@@ -23,6 +23,9 @@ import {
 import { ReplyStyleSuggestionDetail } from './ReplyStyleSuggestionDetail';
 import { RoutingProposalCard } from './RoutingProposalCard';
 
+/** What a successful decision was, so the host page knows what may have changed. */
+export type SuggestionDecision = 'accept' | 'decline' | 'routing_card';
+
 /**
  * The engine's pending suggestions for ONE feature, decided inside that feature's page (owner rule
  * 2026-10-21: a suggestion is decided only where it belongs; Learning activity only shows it).
@@ -34,6 +37,7 @@ export const FeatureSuggestions = ({
   excludeTypes,
   title,
   description,
+  onDecided,
 }: {
   domains: string[];
   /** Only these suggestion types (default: every type in the domains). */
@@ -42,6 +46,13 @@ export const FeatureSuggestions = ({
   excludeTypes?: string[];
   title: string;
   description?: string;
+  /**
+   * Called after a suggestion is accepted or declined, so the page it sits on can reload what the
+   * decision changed. Without it AI Prompts kept showing the pre-accept `reply_style` text (a
+   * customer's workspace, 2026-11-02) — and saving that stale editor would have overwritten the
+   * adopted style.
+   */
+  onDecided?: (decision: SuggestionDecision) => void;
 }) => {
   const { canActOnSuggestion } = useSuggestionDomainAccess();
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
@@ -90,11 +101,17 @@ export const FeatureSuggestions = ({
 
   const drop = (id: number) => setRows((prev) => prev.filter((row) => row.id !== id));
 
-  const decide = async (id: number, action: () => Promise<unknown>, failure: string) => {
+  const decide = async (
+    id: number,
+    action: () => Promise<unknown>,
+    failure: string,
+    decision: SuggestionDecision = 'accept'
+  ) => {
     setActingId(id);
     try {
       await action();
       drop(id);
+      onDecided?.(decision);
     } catch (err) {
       logger.error(failure, err);
       setError(getApiErrorMessage(err) ?? `${failure}. Please try again.`);
@@ -133,7 +150,11 @@ export const FeatureSuggestions = ({
                   suggestion={suggestion}
                   deptNameById={deptNameById}
                   canAct={canAct}
-                  onDone={drop}
+                  onDone={(id) => {
+                    drop(id);
+                    // Any card action (keep, drop, edit, …) can change rules — the page reloads.
+                    onDecided?.('routing_card');
+                  }}
                   onError={setError}
                   onStale={() => void load()}
                 />
@@ -179,7 +200,7 @@ export const FeatureSuggestions = ({
                     title={canAct ? 'Decline' : whyCannotAct(suggestion)}
                     disabled={isActing || !canAct}
                     onClick={() =>
-                      void decide(suggestion.id, () => learningService.declineSuggestion(suggestion.id), 'Failed to decline the suggestion')
+                      void decide(suggestion.id, () => learningService.declineSuggestion(suggestion.id), 'Failed to decline the suggestion', 'decline')
                     }
                   >
                     <X className="w-4 h-4" />

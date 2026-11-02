@@ -4,13 +4,19 @@
  */
 import { vi, describe, it, expect, afterEach, beforeEach } from 'vitest';
 import type * as LearningServiceModule from '@/services/learning.service';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+const fetches = vi.hoisted(() => ({ count: 0 }));
 vi.mock('@/services/routingRule.service', () => ({
   ROUTING_RULE_TYPES: ['subject_contains', 'subject_regex', 'sender_email', 'sender_domain', 'body_contains', 'header_match'],
-  routingRuleService: { list: () => Promise.resolve({ success: true, data: [] }) },
+  routingRuleService: {
+    list: () => {
+      fetches.count += 1;
+      return Promise.resolve({ success: true, data: [] });
+    },
+  },
 }));
 vi.mock('@/services/department.service', () => ({
   departmentService: {
@@ -22,10 +28,10 @@ vi.mock('@/services/department.service', () => ({
 }));
 vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));
 vi.mock('../RoutingProposalCard', () => ({
-  RoutingProposalCard: ({ suggestion: pick }: { suggestion: { id: number } }) => (
+  RoutingProposalCard: ({ suggestion: pick, onDone }: { suggestion: { id: number }; onDone: (id: number) => void }) => (
     <div>
       <div data-testid={`card-${pick.id}`} />
-      <button type="button">Accept</button>
+      <button type="button" onClick={() => onDone(pick.id)}>Accept</button>
       <button type="button">Decline</button>
     </div>
   ),
@@ -37,6 +43,8 @@ vi.mock('@/services/learning.service', async (importOriginal) => {
   return {
     ...actual,
     learningService: {
+      acceptSuggestion: () => Promise.resolve({}),
+      declineSuggestion: () => Promise.resolve({}),
       listSuggestions: (domain?: string) =>
         Promise.resolve((pending.list as Array<{ domain: string }>).filter((item) => !domain || item.domain === domain)),
     },
@@ -76,5 +84,15 @@ describe('Routing Rules › Suggestions', () => {
     renderPage();
     await screen.findByText('Default team');
     expect(screen.queryByTestId('card-72')).toBeNull();
+  });
+
+  it('a decided routing card reloads the rule list (keep, drop or edit can change a rule)', async () => {
+    pending.list = [suggestion(93, 'routing', 'resolve_routing_disagreement', { options: [] })];
+    renderPage();
+    const accept = await screen.findByRole('button', { name: 'Accept' });
+    await waitFor(() => expect(fetches.count).toBeGreaterThan(0));
+    const before = fetches.count;
+    fireEvent.click(accept);
+    await waitFor(() => expect(fetches.count).toBe(before + 1));
   });
 });
