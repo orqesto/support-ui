@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { afterLoginPath, rememberNextForSso } from '@/lib/postLoginRedirect';
+import { afterLoginPath, peekSsoNextPath, rememberNextForSso } from '@/lib/postLoginRedirect';
 import { Button } from '@/components/ui/Button';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
@@ -98,6 +98,12 @@ export const LoginPage = () => {
     const ssoError = query.get('ssoError');
     if (ssoError) {
       setError(SSO_ERROR_MESSAGES[ssoError] ?? 'Single sign-on failed. Please try again.');
+      // Put the ticket link back: the failed SSO came back without it (postLoginRedirect).
+      const parked = query.get('next') ? null : peekSsoNextPath();
+      if (parked) {
+        query.set('next', parked);
+        navigate(`/login?${query.toString()}`, { replace: true });
+      }
     }
     const orgSlug = query.get('org');
     if (orgSlug) {
@@ -105,7 +111,7 @@ export const LoginPage = () => {
       window.location.assign(startSsoUrl(orgSlug));
     }
     // location.search only; runs on mount + when the query string changes.
-  }, [location.search]);
+  }, [location.search, navigate]);
 
   const resetCaptcha = () => {
     turnstileRef.current?.reset();
@@ -237,8 +243,7 @@ export const LoginPage = () => {
     } catch (err) {
       logger.warn('SSO resolve failed', err);
       setError(
-        getApiErrorMessage(err) ??
-          'Could not start SSO. Please try again or use your password.'
+        getApiErrorMessage(err) ?? 'Could not start SSO. Please try again or use your password.'
       );
     } finally {
       setIsLoading(false);

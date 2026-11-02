@@ -104,6 +104,14 @@ describe('a ticket link opened while signed out', () => {
     await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/tickets/101'));
   });
 
+  it('a FAILED SSO keeps the link: the retry with a password still opens the ticket', async () => {
+    // Parked by the SSO button before leaving; the identity provider sent the user back with an error.
+    sessionStorage.setItem('odly:post-login-next', '/tickets/101');
+    renderAt('/login?ssoError=handoff');
+    await signInWithPassword();
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/tickets/101'));
+  });
+
   it('CONTROL: plain /login still goes to the dashboard', async () => {
     renderAt('/login');
     await signInWithPassword();

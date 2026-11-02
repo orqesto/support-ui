@@ -1,8 +1,22 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRef } from 'react';
 import { act, render, waitFor } from '@testing-library/react';
 import type { Editor } from '@tiptap/core';
+
+const reports: { message: string }[] = [];
+vi.mock('@/services/clientError.service', () => ({
+  clientErrorService: {
+    report: (crash: { message: string }) => {
+      reports.push(crash);
+      return true;
+    },
+  },
+}));
 import RichTextEditor, { type RichTextEditorHandle } from '../RichTextEditor';
+
+afterEach(() => {
+  reports.length = 0;
+});
 
 /**
  * A ticket page crashed into "Something went wrong" on a phone (2026-11): the reply box read its
@@ -25,9 +39,7 @@ describe('RichTextEditor — a destroyed editor does not crash the page', () => 
     const { ref, view, editor } = await renderEditor();
     act(() => editor.destroy());
     expect(() =>
-      view.rerender(
-        <RichTextEditor ref={ref} content="<p>Changed</p>" initiallyHidden={false} />
-      )
+      view.rerender(<RichTextEditor ref={ref} content="<p>Changed</p>" initiallyHidden={false} />)
     ).not.toThrow();
   });
 
@@ -63,5 +75,28 @@ describe('RichTextEditor — a destroyed editor does not crash the page', () => 
     await waitFor(() => expect(editor.getText()).toBe('Changed'));
     act(() => ref.current!.setContent('<p>From handle</p>'));
     expect(editor.getText()).toBe('From handle');
+  });
+});
+
+describe('RichTextEditor — the guard reports that it bit', () => {
+  it('a destroyed editor is reported once, however often it is skipped', async () => {
+    const { ref, view, editor } = await renderEditor();
+    act(() => editor.destroy());
+    view.rerender(<RichTextEditor ref={ref} content="<p>Changed</p>" initiallyHidden={false} />);
+    ref.current!.setContent('<p>x</p>');
+    ref.current!.focus();
+    expect(reports).toHaveLength(1);
+    expect(reports[0].message).toContain('skipped a destroyed editor');
+  });
+
+  it('CONTROL: a live editor and a collapsed (not yet mounted) one report nothing', async () => {
+    const { ref, view } = await renderEditor();
+    view.rerender(<RichTextEditor ref={ref} content="<p>Changed</p>" initiallyHidden={false} />);
+    ref.current!.setContent('<p>x</p>');
+    const collapsed = createRef<RichTextEditorHandle>();
+    render(<RichTextEditor ref={collapsed} content="" initiallyHidden />);
+    await waitFor(() => expect(collapsed.current).not.toBeNull());
+    act(() => collapsed.current!.setContent('<p>Draft</p>'));
+    expect(reports).toHaveLength(0);
   });
 });

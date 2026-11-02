@@ -60,3 +60,16 @@ export const takeSsoNextPath = (): string => {
   }
   return safeNextPath(raw) ?? DEFAULT_AFTER_LOGIN;
 };
+
+/**
+ * A FAILED SSO returns to /login?ssoError=… without `next` (the identity-provider round trip does
+ * not carry it). The parked address is still there: read it WITHOUT taking it, so the retry —
+ * password or SSO — still returns to the link.
+ */
+export const peekSsoNextPath = (): string | null => {
+  try {
+    return safeNextPath(sessionStorage.getItem(SSO_NEXT_KEY));
+  } catch {
+    return null;
+  }
+};

@@ -21,6 +21,7 @@ import { shieldPlaceholders } from '@/lib/replyPlaceholders';
 import { cn } from '@/lib/utils';
 import { TranslateButton } from './TranslateButton';
 import { extractImageFiles } from './extractImageFiles';
+import { noteSkippedEditor, trackEditorDestroy } from './destroyedEditorReport';
 
 export type RichTextEditorProps = {
   content?: string;
@@ -169,7 +170,15 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
     // back an editor it has already destroyed. Reading one (getHTML, .commands, can()) threw
     // straight into the ErrorBoundary — a ticket page showed "Something went wrong" (2026-11).
     // Every read below that runs after mount goes through this and skips a destroyed editor.
-    const liveEditor = () => (editor && !editor.isDestroyed ? editor : null);
+    const liveEditor = () => {
+      if (!editor) return null;
+      if (editor.isDestroyed) {
+        noteSkippedEditor(editor);
+        return null;
+      }
+      return editor;
+    };
+    useEffect(() => (editor ? trackEditorDestroy(editor) : undefined), [editor]);
 
     // ⛔ useEditor reads `editable` once. Without this a lock is only a CSS dimming: the keyboard
     // still types into it, and Cmd+Enter still submits.
