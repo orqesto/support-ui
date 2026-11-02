@@ -20,16 +20,24 @@ export const PromptsSettings = () => {
     active: true,
   });
 
-  const fetchPrompts = async () => {
+  const fetchPrompts = async ({ quiet = false }: { quiet?: boolean } = {}) => {
     try {
-      setLoading(true);
+      if (!quiet) setLoading(true);
       const data = await settingsService.getPromptTemplates();
       setPrompts(data);
     } catch (error) {
       logger.error('Error fetching prompts:', error);
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
+  };
+
+  // Accepting a learned house style rewrites `reply_style` on the server. Reload the list without
+  // the full-page "Loading..." and close any open editor: it holds the OLD text, and saving it
+  // would silently undo what was just accepted.
+  const handleSuggestionDecided = () => {
+    setEditingPrompt(null);
+    void fetchPrompts({ quiet: true });
   };
 
   useEffect(() => {
@@ -113,6 +121,7 @@ export const PromptsSettings = () => {
         domains={['reply_style']}
         title="Suggested house style"
         description="The engine noticed how people in your workspace edit AI drafts. Accepting makes this the house style for every AI-drafted reply."
+        onDecided={handleSuggestionDecided}
       />
 
       {/* Info Banner */}

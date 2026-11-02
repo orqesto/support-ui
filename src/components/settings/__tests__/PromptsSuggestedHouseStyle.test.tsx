@@ -1,10 +1,11 @@
 /** AI Prompts decides the engine's suggested house style (reply_style.update) in place. Invented data. */
 import { vi, describe, it, expect, afterEach, beforeEach } from 'vitest';
 import type * as LearningServiceModule from '@/services/learning.service';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 
+const templates = vi.hoisted(() => ({ list: [] as unknown[] }));
 vi.mock('@/services/settings.service', () => ({
-  settingsService: { getPromptTemplates: () => Promise.resolve([]) },
+  settingsService: { getPromptTemplates: () => Promise.resolve(templates.list) },
 }));
 vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));
 vi.mock('@/hooks/useDepartments', () => ({ useDepartments: () => ({ data: [] }) }));
@@ -15,6 +16,8 @@ vi.mock('@/services/learning.service', async (importOriginal) => {
   return {
     ...actual,
     learningService: {
+      acceptSuggestion: () => Promise.resolve(),
+      declineSuggestion: () => Promise.resolve(),
       listSuggestions: (domain?: string) =>
         Promise.resolve((pending.list as Array<{ domain: string }>).filter((item) => !domain || item.domain === domain)),
     },
@@ -30,7 +33,11 @@ const suggestion = (id: number, domain: string, suggestionType: string, payload:
 
 import { PromptsSettings } from '../PromptsSettings';
 
-beforeEach(() => { pending.list = []; });
+beforeEach(() => { pending.list = []; templates.list = []; });
+
+const replyStyle = (prompt: string, active: boolean) => ({
+  id: 7, name: 'reply_style', description: 'House style', prompt, active, departmentId: null, type: 'system',
+});
 afterEach(cleanup);
 
 describe('AI Prompts › Suggested house style', () => {
@@ -60,5 +67,25 @@ describe('AI Prompts › Suggested house style', () => {
     ];
     render(<PromptsSettings />);
     expect(await screen.findByRole('button', { name: 'Accept this suggestion' })).toBeTruthy();
+  });
+
+  it('accepting reloads the templates, so reply_style shows the adopted text and an open editor cannot save the old one', async () => {
+    templates.list = [replyStyle('Be formal.', false)];
+    pending.list = [
+      suggestion(53, 'reply_style', 'reply_style.update', {
+        currentStyle: 'Be formal.', proposedStyle: 'Be warm and brief.', rationale: 'Agents shorten drafts.', signals: {},
+      }),
+    ];
+    render(<PromptsSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: /edit/i }));
+    expect(screen.getByDisplayValue('Be formal.')).toBeTruthy();
+
+    // The server now holds the accepted style, switched on.
+    templates.list = [replyStyle('Be warm and brief.', true)];
+    fireEvent.click(screen.getByRole('button', { name: 'Accept this suggestion' }));
+
+    await waitFor(() => expect(screen.getByText('Active')).toBeTruthy());
+    expect(screen.queryByDisplayValue('Be formal.')).toBeNull();
+    expect(screen.queryByText('Inactive')).toBeNull();
   });
 });

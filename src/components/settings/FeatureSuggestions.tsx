@@ -34,6 +34,7 @@ export const FeatureSuggestions = ({
   excludeTypes,
   title,
   description,
+  onDecided,
 }: {
   domains: string[];
   /** Only these suggestion types (default: every type in the domains). */
@@ -42,6 +43,13 @@ export const FeatureSuggestions = ({
   excludeTypes?: string[];
   title: string;
   description?: string;
+  /**
+   * Called after a suggestion is accepted or declined, so the page it sits on can reload what the
+   * decision changed. Without it AI Prompts kept showing the pre-accept `reply_style` text (a
+   * customer's workspace, 2026-11-02) — and saving that stale editor would have overwritten the
+   * adopted style.
+   */
+  onDecided?: () => void;
 }) => {
   const { canActOnSuggestion } = useSuggestionDomainAccess();
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
@@ -95,6 +103,7 @@ export const FeatureSuggestions = ({
     try {
       await action();
       drop(id);
+      onDecided?.();
     } catch (err) {
       logger.error(failure, err);
       setError(getApiErrorMessage(err) ?? `${failure}. Please try again.`);
