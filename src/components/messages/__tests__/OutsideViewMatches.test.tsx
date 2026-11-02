@@ -21,6 +21,7 @@ vi.mock('@/hooks/useAiDraftsOff', () => ({
 vi.mock('@/hooks/useDepartments', () => ({ useDepartments: () => ({ data: [] }) }));
 vi.mock('@/stores/authStore', () => ({ useAuthStore: () => null }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'COR' }));
+vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'all' }));
 
 import { OutsideViewMatches } from '../list/OutsideViewMatches';
 
@@ -56,12 +57,13 @@ const filters = (patch: Partial<FilterState> = {}): FilterState => ({
   ...patch,
 });
 
+const section = (state: FilterState, onJump = vi.fn(), onOpen = vi.fn(), refreshKey = 'r1') => (
+  <MemoryRouter>
+    <OutsideViewMatches filters={state} onJump={onJump} onOpen={onOpen} refreshKey={refreshKey} />
+  </MemoryRouter>
+);
 const renderSection = (state: FilterState, onJump = vi.fn(), onOpen = vi.fn()) =>
-  render(
-    <MemoryRouter>
-      <OutsideViewMatches filters={state} onJump={onJump} onOpen={onOpen} />
-    </MemoryRouter>
-  );
+  render(section(state, onJump, onOpen));
 
 beforeEach(() => getThreads.mockReset());
 afterEach(cleanup);
@@ -120,5 +122,75 @@ describe('OutsideViewMatches', () => {
     const { container } = renderSection(filters());
     await waitFor(() => expect(getThreads).toHaveBeenCalled());
     expect(container.textContent).toBe('');
+  });
+
+  // Review of #798: a jump MERGES onto the current filters — from the knowledge-base lens or a
+  // column chip it kept them and landed on a list without the rows.
+  it('a jump clears the lens it lands on top of (knowledge base, column chip, status)', async () => {
+    getThreads.mockResolvedValue(answer([thread(1, 'terminal')]));
+    const onJump = vi.fn();
+    renderSection(filters({ showKBOnly: true, columnId: 'open' }), onJump);
+    fireEvent.click(await screen.findByRole('button', { name: /Show in Resolved or closed/ }));
+    expect(onJump).toHaveBeenCalledWith(
+      expect.objectContaining({ lifecycle: 'resolved', showKBOnly: false, columnId: 'all' }),
+      undefined
+    );
+  });
+
+  it('drops an answer for a search that has since changed', async () => {
+    let answerOld: (value: unknown) => void = () => undefined;
+    getThreads
+      .mockImplementationOnce(() => new Promise((resolve) => (answerOld = resolve)))
+      .mockResolvedValueOnce(answer([thread(2, 'spam', 'New search row')]));
+    const { rerender, container } = render(section(filters({ search: 'old' })));
+    rerender(section(filters({ search: 'new' })));
+    await screen.findByText('New search row');
+    answerOld(answer([thread(1, 'terminal', 'Old search row')]));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(container.textContent).not.toContain('Old search row');
+  });
+
+  it('asks again when the list rows move (refreshKey), not otherwise', async () => {
+    getThreads.mockResolvedValue(answer([thread(1, 'terminal')]));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+    rerender(section(state, vi.fn(), vi.fn(), 'r1'));
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
+  });
+
+  it('shows nothing for an answer that ran out of time', async () => {
+    getThreads.mockResolvedValue({ ...answer([thread(1, 'terminal')]), timedOut: true });
+    const { container } = renderSection(filters());
+    await waitFor(() => expect(getThreads).toHaveBeenCalled());
+    expect(container.textContent).toBe('');
+  });
+
+  it('a capped total reads "N+", and group counts wait until every match is loaded', async () => {
+    getThreads.mockResolvedValue({
+      ...answer([thread(1, 'terminal')], 10000),
+      pagination: { page: 1, limit: 25, total: 10000, totalPages: 400, totalCapped: true },
+    });
+    const { container } = renderSection(filters());
+    await screen.findByText(/Also found in other views/);
+    expect(container.textContent).toContain('10,000+');
+    expect(screen.getByRole('heading', { name: 'Resolved or closed' })).toBeTruthy();
+  });
+
+  it('names a place a newer backend adds instead of leaving the heading blank', async () => {
+    getThreads.mockResolvedValue(answer([thread(1, 'somethingNew')]));
+    renderSection(filters());
+    expect(await screen.findByRole('heading', { name: /Elsewhere/ })).toBeTruthy();
+  });
+
+  it('says so when "Show more" fails, and keeps what it has', async () => {
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'First page row')], 30))
+      .mockRejectedValueOnce(new Error('network'));
+    renderSection(filters());
+    fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
+    expect(await screen.findByText(/Could not load more/)).toBeTruthy();
+    expect(screen.getByText('First page row')).toBeTruthy();
   });
 });

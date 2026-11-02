@@ -1793,6 +1793,7 @@ export const MessagesPage = () => {
                 onJump={handleScopeJump}
                 onOpen={handleOpenThread}
                 highlightTerms={highlightTerms}
+                refreshKey={countsRefreshKey}
               />
             )}
 
