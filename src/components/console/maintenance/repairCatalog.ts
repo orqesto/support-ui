@@ -170,6 +170,15 @@ export const REPAIRS: RepairEntry[] = [
     checkOnly: true,
   },
   {
+    id: 'spoofed-sender-report',
+    label: 'Senders with an address hidden in the name',
+    does: 'Counts stored senders whose display name or comment holds another address (for example "CEO <ceo@company.example>" <someone@other.example>), which older mail could store. Report only: it changes nothing. Run it until nothing remains; any count above zero needs a repair.',
+    path: 'spoofed-sender-report',
+    scope: 'workspace',
+    checkOnly: true,
+    pagedByEventId: true,
+  },
+  {
     id: 'split-campaign-threads',
     label: 'Split threads where several customers replied to one email',
     does: 'Finds threads holding replies from several customers to one email you sent to many (a newsletter, a sale) and gives each of those customers a thread of their own. A supplier or colleague who joined the conversation stays. Check first: it changes nothing and lists the threads.',
