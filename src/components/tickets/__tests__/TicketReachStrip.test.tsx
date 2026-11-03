@@ -87,6 +87,6 @@ describe('InsertFieldMenu', () => {
 
   it('can be disabled', () => {
     render(<InsertFieldMenu onInsert={vi.fn()} disabled />);
-    expect(screen.getByRole('button', { name: /Insert field/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Insert field/ })).toBeInactive();
   });
 });

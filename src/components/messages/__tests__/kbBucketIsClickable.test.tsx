@@ -72,7 +72,7 @@ describe('the "from the knowledge base" bucket', () => {
 
     const labels = ['resolved or closed', 'from the knowledge base', 'waiting on a reply'];
     for (const label of labels) {
-      expect(screen.getByRole('menuitem', { name: new RegExp(label, 'i') })).toBeEnabled();
+      expect(screen.getByRole('menuitem', { name: new RegExp(label, 'i') })).not.toBeInactive();
     }
   });
 });

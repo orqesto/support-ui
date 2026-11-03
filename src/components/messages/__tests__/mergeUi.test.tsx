@@ -94,7 +94,12 @@ describe('MergeConfirmDialog', () => {
   });
 
   it('the choice is a real radio group: one Tab stop, arrow keys move AND select, wrapping', () => {
-    const THIRD = { id: 31000, publicId: 'SUP-31', subject: 'Third', createdAt: '2026-09-25T00:00:00Z' };
+    const THIRD = {
+      id: 31000,
+      publicId: 'SUP-31',
+      subject: 'Third',
+      createdAt: '2026-09-25T00:00:00Z',
+    };
     render(
       <MergeConfirmDialog
         open
@@ -146,7 +151,7 @@ describe('MergeConfirmDialog', () => {
         notice="nope"
       />
     );
-    expect(screen.getByRole('button', { name: 'Merge' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Merge' })).toBeInactive();
   });
 });
 
@@ -294,7 +299,7 @@ describe('BulkMergeDialog', () => {
     expect(
       await screen.findByText(/Merging is not available on this server yet/)
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Merge' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Merge' })).toBeInactive();
   });
 
   it('refuses to merge a selection it could not read in full', async () => {
@@ -307,7 +312,7 @@ describe('BulkMergeDialog', () => {
     expect(
       await screen.findByText(/^Some of the selected threads could not be read just now/)
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Merge' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Merge' })).toBeInactive();
   });
 
   it('while reading, and for a mixed-channel selection, the notice speaks of threads', async () => {
@@ -335,6 +340,6 @@ describe('BulkMergeDialog', () => {
     );
     open();
     expect(await screen.findByText(/move into ODL-SUP-19/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Merge' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Merge' })).not.toBeInactive();
   });
 });

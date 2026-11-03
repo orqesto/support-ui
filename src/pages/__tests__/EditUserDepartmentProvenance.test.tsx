@@ -183,7 +183,7 @@ describe('department provenance in the member editor', () => {
     await seeded();
 
     expect(checkboxFor('Directory Dept').checked).toBe(true);
-    expect(checkboxFor('Directory Dept').disabled).toBe(true);
+    expect(checkboxFor('Directory Dept')).toBeInactive();
     expect(screen.getByText('from directory')).toBeInTheDocument();
   });
 
@@ -197,8 +197,8 @@ describe('department provenance in the member editor', () => {
     renderPage();
     await seeded();
 
-    expect(checkboxFor('Manual Dept').disabled).toBe(false);
-    expect(checkboxFor('Spare Dept').disabled).toBe(false);
+    expect(checkboxFor('Manual Dept')).not.toBeInactive();
+    expect(checkboxFor('Spare Dept')).not.toBeInactive();
   });
 
   /**
@@ -258,7 +258,7 @@ describe('department provenance in the member editor', () => {
     renderPage();
     await seeded();
 
-    expect(checkboxFor('Directory Dept').disabled).toBe(false);
+    expect(checkboxFor('Directory Dept')).not.toBeInactive();
     expect(screen.queryByText('from directory')).not.toBeInTheDocument();
   });
 });

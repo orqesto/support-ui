@@ -96,6 +96,6 @@ describe('RoutingTestBox', () => {
 
   it('Test is disabled until there is text', () => {
     render(<RoutingTestBox />);
-    expect(screen.getByRole('button', { name: 'Test' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Test' })).toBeInactive();
   });
 });

@@ -74,7 +74,7 @@ describe('RoutingProposalsCard', () => {
       '0.9',
       '5',
     ]);
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
     fireEvent.change(input('proposalMinConversations'), { target: { value: '4' } });
     fireEvent.change(input('autoacceptMinReplayRatio'), { target: { value: '0.85' } });
     // Edited and put back: still drafted, but equal to the saved value, so it is not sent.
@@ -92,7 +92,7 @@ describe('RoutingProposalsCard', () => {
     wrap(<RoutingProposalsCard routing={ROUTING} />);
     fireEvent.change(input('rerouteUndoMinutes'), { target: { value: '20' } });
     fireEvent.change(input('rerouteUndoMinutes'), { target: { value: '10' } });
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
   });
 
   it('refuses a value outside the backend range or not whole, and sends nothing', () => {
@@ -111,7 +111,7 @@ describe('RoutingProposalsCard', () => {
     ];
     for (const [name, bad] of cases) {
       fireEvent.change(input(name), { target: { value: bad } });
-      expect(saveButton(), `${name}=${bad}`).toBeDisabled();
+      expect(saveButton(), `${name}=${bad}`).toBeInactive();
       fireEvent.change(input(name), { target: { value: String(ROUTING[name].value) } });
     }
     expect(patches).toHaveLength(0);
@@ -120,11 +120,11 @@ describe('RoutingProposalsCard', () => {
   it('accepts the range edges (0 minutes, ratio 0.5 and 1)', () => {
     wrap(<RoutingProposalsCard routing={ROUTING} />);
     fireEvent.change(input('rerouteUndoMinutes'), { target: { value: '0' } });
-    expect(saveButton()).toBeEnabled();
+    expect(saveButton()).not.toBeInactive();
     fireEvent.change(input('autoacceptMinReplayRatio'), { target: { value: '0.5' } });
-    expect(saveButton()).toBeEnabled();
+    expect(saveButton()).not.toBeInactive();
     fireEvent.change(input('autoacceptMinReplayRatio'), { target: { value: '1' } });
-    expect(saveButton()).toBeEnabled();
+    expect(saveButton()).not.toBeInactive();
   });
 
   it('shows the default and range for each field', () => {

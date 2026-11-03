@@ -1,5 +1,6 @@
 import { Mail, StickyNote, Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Typography } from '@/components/ui/Typography';
 import { formatAge } from '@/lib/utils';
 
 export type ActivityItem = {
@@ -58,23 +59,32 @@ export function ContactProfileActivity({ activity }: { activity: ActivityItem[] 
             </div>
             <div className="flex-1 min-w-0 pb-5">
               <div className="flex gap-2 justify-between items-start">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={item.onClick}
-                  disabled={!item.onClick}
-                  className={`justify-start p-0 h-auto text-[12.5px] font-medium leading-snug text-left text-foreground hover:bg-transparent disabled:opacity-100 ${
-                    item.onClick ? 'hover:text-primary' : 'cursor-default'
-                  }`}
-                >
-                  {item.title}
-                </Button>
+                {item.onClick ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={item.onClick}
+                    className="justify-start p-0 h-auto text-[12.5px] font-medium leading-snug text-left text-foreground hover:bg-transparent hover:text-primary"
+                  >
+                    {item.title}
+                  </Button>
+                ) : (
+                  // Not a control: plain text, not a disabled Button
+                  // (that would be a dimmed Tab stop).
+                  <Typography
+                    className="text-[12.5px] font-medium leading-snug text-foreground"
+                  >
+                    {item.title}
+                  </Typography>
+                )}
                 <span className="font-mono text-[11px] text-muted-foreground whitespace-nowrap flex-shrink-0 mt-0.5">
                   {formatAge(item.at)}
                 </span>
               </div>
               <div className="flex gap-2 items-center mt-1.5">
-                <span className="text-[11px] font-mono truncate text-muted-foreground">{item.meta}</span>
+                <span className="text-[11px] font-mono truncate text-muted-foreground">
+                  {item.meta}
+                </span>
                 {style && (
                   <span
                     className={`inline-flex items-center gap-1 text-[10.5px] font-medium flex-shrink-0 ${style.text}`}

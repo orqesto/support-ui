@@ -68,6 +68,7 @@ vi.mock('@/components/messages/MessageDetail', () => ({
 
 import { MessageDetailPage } from '@/pages/MessageDetailPage';
 import { useMessagesStore } from '@/stores/messagesStore';
+import { isInactive } from '@/test/inactive';
 
 // Stands in for browser history: moves the agent while a DELETE is still running.
 const GoTo = () => {
@@ -179,7 +180,7 @@ describe('MessageDetailPage — More → Delete thread', () => {
     expect(screen.queryByTestId('inbox')).toBeNull();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     // Retry is possible: Delete is enabled again.
-    expect(screen.getByRole('button', { name: 'Delete' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Delete' })).not.toBeInactive();
   });
 
   it('⛔ while the delete is in flight, Esc / X / backdrop / Cancel cannot close it, and only ONE DELETE goes out', async () => {
@@ -198,9 +199,13 @@ describe('MessageDetailPage — More → Delete thread', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Close dialog' }));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    // The confirm button is busy (spinner, disabled): no second press reaches it.
+    // The confirm button is busy (spinner; a Button out of use is aria-disabled, not `disabled`,
+    // so it keeps keyboard focus): no second press reaches it.
     const buttons = within(screen.getByRole('dialog')).getAllByRole('button');
-    expect(buttons.filter((button) => (button as HTMLButtonElement).disabled)).toHaveLength(2);
+    expect(buttons.filter((button) => isInactive(button))).toHaveLength(2);
+    const busy = buttons.find((button) => /Loading/.test(button.textContent ?? ''));
+    expect(busy).toBeDefined();
+    fireEvent.click(busy as HTMLElement);
     expect(api.delete).toHaveBeenCalledTimes(1);
     finish({ data: { success: true } });
     await waitFor(() => expect(screen.getByTestId('inbox')).toBeInTheDocument());
@@ -294,8 +299,8 @@ describe('MessageDetailPage — More → Delete thread', () => {
     await pressDelete();
     const dialog = await screen.findByRole('dialog');
     // Message 43's confirm: nothing of 42's in-flight delete leaks into it.
-    expect(within(dialog).getByRole('button', { name: 'Delete' })).not.toBeDisabled();
-    expect(within(dialog).getByRole('button', { name: 'Cancel' })).not.toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Delete' })).not.toBeInactive();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).not.toBeInactive();
     // …and it can be confirmed while 42's request still runs: 43 gets its own DELETE.
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/api/messages/43'));
@@ -356,7 +361,7 @@ describe('MessageDetailPage — More → Delete thread', () => {
     const dialog = await screen.findByRole('dialog');
     expect(dialog).toHaveTextContent('From: ada@example.com');
     // 42's request still runs: its confirm shows it (busy), so it cannot be sent again.
-    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInactive();
     const footer = within(dialog).getAllByRole('button');
     fireEvent.click(footer[footer.length - 1]);
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -378,12 +383,12 @@ describe('MessageDetailPage — More → Delete thread', () => {
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/api/messages/43'));
-    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInactive();
     first.reject({ isAxiosError: true, response: { status: 403, data: { error: 'Nope' } } });
     await waitFor(() => expect(api.toastError).toHaveBeenCalledTimes(1));
     expect(
       within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancel' })
-    ).toBeDisabled();
+    ).toBeInactive();
     expect(api.delete).toHaveBeenCalledTimes(2);
   });
 
@@ -411,9 +416,7 @@ describe('MessageDetailPage — More → Delete thread', () => {
   it('MANAGE_ORGANIZATION alone is enough (an org admin)', async () => {
     api.granted = new Set(['manage_organization']);
     renderPage();
-    expect(
-      await screen.findByRole('button', { name: 'More → Delete thread' })
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'More → Delete thread' })).toBeInTheDocument();
   });
 });
 

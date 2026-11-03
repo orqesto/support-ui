@@ -97,6 +97,6 @@ describe('ReplyFlowSmoke', () => {
   it('disables send button while submitting', () => {
     render(<MessageReplyForm onSend={onSend} onCancel={onCancel} submitting={true} />);
     const sendButton = screen.getByText('Send Reply').closest('button');
-    expect(sendButton?.disabled).toBe(true);
+    expect(sendButton).toBeInactive();
   });
 });

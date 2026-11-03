@@ -17,7 +17,7 @@ const CONFIDENCE_PILL: Record<string, string> = {
 };
 
 const ACTION_BTN =
-  'flex items-center justify-center gap-1.5 px-3 py-1.5 h-auto rounded border border-border text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-50';
+  'flex items-center justify-center gap-1.5 px-3 py-1.5 h-auto rounded border border-border text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground transition-colors data-[inactive]:opacity-50';
 
 const CleanResult = ({ check }: { check: ContradictionCheckMetadata }) => (
   <div className="p-2 rounded border border-border bg-card space-y-1.5">

@@ -56,7 +56,7 @@ describe('ForgotPasswordPage', () => {
     });
 
     const submit = screen.getByRole('button', { name: /Send reset link/i });
-    expect(submit).not.toBeDisabled();
+    expect(submit).not.toBeInactive();
 
     fireEvent.click(submit);
     await waitFor(() => expect(forgotPassword).toHaveBeenCalled());
@@ -72,7 +72,7 @@ describe('ForgotPasswordPage', () => {
     fireEvent.change(screen.getByPlaceholderText('your.email@example.com'), {
       target: { value: 'someone@example.com' },
     });
-    expect(screen.getByRole('button', { name: /Send reset link/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Send reset link/i })).toBeInactive();
     expect(forgotPassword).not.toHaveBeenCalled();
   });
 

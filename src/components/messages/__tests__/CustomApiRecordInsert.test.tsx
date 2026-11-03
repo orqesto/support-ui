@@ -131,7 +131,7 @@ describe('putting a record into the reply', () => {
       await user.click(screen.getByLabelText(label));
     }
 
-    expect(screen.getByRole('button', { name: 'Add to my reply' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add to my reply' })).toBeInactive();
     expect(onUseInReply).not.toHaveBeenCalled();
   });
 });

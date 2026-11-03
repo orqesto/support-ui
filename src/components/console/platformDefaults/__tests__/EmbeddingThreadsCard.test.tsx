@@ -92,7 +92,7 @@ describe('EmbeddingThreadsCard', () => {
     wrap(<EmbeddingThreadsCard embeddingThreads={saved} />);
     fireEvent.change(screen.getByLabelText('API server (split setup)'), { target: { value: bad } });
     expect(screen.getByText('Enter a whole number from 1 to 64.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInactive();
   });
 
   it('an older backend: no inputs, only why', () => {

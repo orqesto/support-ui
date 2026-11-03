@@ -41,7 +41,7 @@ const bucketInput = () => screen.getByPlaceholderText('my-bucket');
 const startProbe = () => {
   render(<DefaultStorageCard storage={storage} />);
   fireEvent.click(screen.getByRole('button', { name: /^edit$/i }));
-  expect(saveButton()).toBeDisabled();
+  expect(saveButton()).toBeInactive();
   fireEvent.click(screen.getByRole('button', { name: /test connection/i }));
 };
 const landProbe = async (result: unknown) => {
@@ -68,7 +68,7 @@ describe('Default storage — a test that lands after the form changed', () => {
     await landProbe({ ok: true, latencyMs: 5 });
 
     expect(testMutation.mutate.mock.calls[0][0]).toMatchObject({ bucket: 'odly' });
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
     expect(screen.queryByText(/connection ok/i)).not.toBeInTheDocument();
   });
 
@@ -84,7 +84,7 @@ describe('Default storage — a test that lands after the form changed', () => {
     fireEvent.click(screen.getByRole('button', { name: /^edit$/i }));
     fireEvent.click(screen.getByRole('button', { name: /test connection/i }));
     await landProbe({ ok: true, latencyMs: 5 });
-    expect(saveButton()).toBeEnabled();
+    expect(saveButton()).not.toBeInactive();
 
     // The key's own Save button stored a new access key; the settings query refetched.
     rerender(
@@ -92,13 +92,13 @@ describe('Default storage — a test that lands after the form changed', () => {
         storage={{ ...storage, accessKeyId: { configured: true, source: 'db', last4: 'NEW1' } }}
       />
     );
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
   });
 
   it('CONTROL: a test nobody overtook unlocks Save', async () => {
     startProbe();
     await landProbe({ ok: true, latencyMs: 5 });
-    expect(saveButton()).toBeEnabled();
+    expect(saveButton()).not.toBeInactive();
     expect(screen.getByText(/connection ok/i)).toBeInTheDocument();
   });
 });

@@ -30,7 +30,10 @@ const KEY_MOVES: Record<string, FocusMove | undefined> = {
 const focusItem = (panel: HTMLElement | null, move: FocusMove) => {
   if (!panel) return;
   const items = Array.from(
-    panel.querySelectorAll<HTMLElement>('[role^="menuitem"]:not([disabled])')
+    // A disabled item is aria-disabled (Buttons keep focus), not natively disabled: skip both.
+    panel.querySelectorAll<HTMLElement>(
+      '[role^="menuitem"]:not([disabled]):not([aria-disabled="true"])'
+    )
   );
   if (!items.length) return;
   const at = items.indexOf(document.activeElement as HTMLElement);

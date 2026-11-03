@@ -64,7 +64,7 @@ describe('FreeStarterCard', () => {
   it('shows the saved micros in dollars; Save stays off until it changes', async () => {
     show();
     await waitFor(() => expect(amount()).toHaveValue(1));
-    expect(save()).toBeDisabled();
+    expect(save()).toBeInactive();
   });
 
   it('sends the typed dollars as micros', async () => {
@@ -87,7 +87,7 @@ describe('FreeStarterCard', () => {
     await waitFor(() => expect(amount()).toHaveValue(1));
     fireEvent.change(amount(), { target: { value: '150' } });
     expect(screen.getByText('Enter an amount from $0.00 to $100.00.')).toBeInTheDocument();
-    expect(save()).toBeDisabled();
+    expect(save()).toBeInactive();
   });
 
   it('a backend without the route (404): says so, no input', async () => {

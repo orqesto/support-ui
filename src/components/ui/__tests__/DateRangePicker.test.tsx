@@ -5,7 +5,12 @@
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
-import { DateRangePicker, formatRangeLabel, rangeQuery, type DateRangeValue } from '../DateRangePicker';
+import {
+  DateRangePicker,
+  formatRangeLabel,
+  rangeQuery,
+  type DateRangeValue,
+} from '../DateRangePicker';
 
 const presets = [
   { value: '7', label: 'Last 7 days' },
@@ -21,7 +26,8 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const open = (name: RegExp | string = /last 30 days/i) => fireEvent.click(screen.getByRole('button', { name }));
+const open = (name: RegExp | string = /last 30 days/i) =>
+  fireEvent.click(screen.getByRole('button', { name }));
 const day = (label: string) => screen.getByRole('button', { name: label });
 
 describe('formatRangeLabel', () => {
@@ -29,8 +35,12 @@ describe('formatRangeLabel', () => {
     expect(formatRangeLabel({ kind: 'preset', value: '30' }, presets)).toBe('Last 30 days');
   });
   it('a range reads as its two days, a since day as "Since"', () => {
-    expect(formatRangeLabel({ kind: 'range', from: '2026-10-03', to: '2026-10-09' }, presets)).toBe('3 Oct – 9 Oct 2026');
-    expect(formatRangeLabel({ kind: 'since', since: '2026-10-03' }, presets)).toBe('Since 3 Oct 2026');
+    expect(formatRangeLabel({ kind: 'range', from: '2026-10-03', to: '2026-10-09' }, presets)).toBe(
+      '3 Oct – 9 Oct 2026'
+    );
+    expect(formatRangeLabel({ kind: 'since', since: '2026-10-03' }, presets)).toBe(
+      'Since 3 Oct 2026'
+    );
   });
 });
 
@@ -78,8 +88,8 @@ describe('DateRangePicker', () => {
     setup();
     open();
     fireEvent.click(screen.getByRole('button', { name: 'Custom…' }));
-    expect(day('23 October 2026')).toBeDisabled();
-    expect(day('22 October 2026')).not.toBeDisabled();
+    expect(day('23 October 2026')).toBeInactive();
+    expect(day('22 October 2026')).not.toBeInactive();
   });
 
   it('a range longer than maxSpanDays is refused with a message', () => {
@@ -126,8 +136,8 @@ describe('DateRangePicker', () => {
     setup({ minDay: '2026-10-05' });
     open();
     fireEvent.click(screen.getByRole('button', { name: 'Custom…' }));
-    expect(day('4 October 2026')).toBeDisabled();
-    expect(day('5 October 2026')).not.toBeDisabled();
+    expect(day('4 October 2026')).toBeInactive();
+    expect(day('5 October 2026')).not.toBeInactive();
   });
 
   it('keyboard: opening moves the focus into the panel, and Escape on the trigger closes it', () => {
@@ -135,8 +145,9 @@ describe('DateRangePicker', () => {
     open();
     const panel = screen.getByRole('dialog', { name: 'Period' });
     expect(panel.contains(document.activeElement)).toBe(true);
-    fireEvent.keyDown(screen.getByRole('button', { name: /last 30 days/i, expanded: true }), { key: 'Escape' });
+    fireEvent.keyDown(screen.getByRole('button', { name: /last 30 days/i, expanded: true }), {
+      key: 'Escape',
+    });
     expect(screen.queryByRole('dialog', { name: 'Period' })).not.toBeInTheDocument();
   });
 });
-

@@ -371,12 +371,12 @@ describe('D23 — money without a currency is refused', () => {
 
     // ⛔ RED: allow it and the agent panel renders a bare number — and on this vendor the same
     // figure means different currencies depending on which lookup produced it.
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInactive();
     expect(screen.getByText(/where the currency comes from/i)).toBeTruthy();
 
     // POSITIVE CONTROL: naming the currency field unblocks it.
     await chooseOption(screen.getByLabelText(/^Currency for/), 'From currency_code');
-    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Save' })).not.toBeInactive();
   });
 });
 
@@ -397,12 +397,12 @@ describe('audit pass 10 — a blank field label is a 400 nobody can read', () =>
      * `{"error":"Validation error","fields":[...]}` — the zod message never reaches the admin
      * (pass 4), so they are told nothing about which field or why.
      */
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInactive();
     expect(screen.getByText(/a name agents will read/i)).toBeTruthy();
 
     // POSITIVE CONTROL: typing one clears the block.
     await user.type(screen.getByLabelText(/What agents see for date_added/i), 'Ordered on');
-    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Save' })).not.toBeInactive();
   });
 });
 
@@ -785,7 +785,7 @@ describe('the wizard reaches a working lookup without meeting 24 fields', () => 
     // ownership question are later steps that unlock more; this is the working floor.
     expect(inputs.length).toBeLessThanOrEqual(4);
     await fill(user);
-    expect(screen.getByRole('button', { name: 'Test' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Test' })).not.toBeInactive();
   });
 });
 

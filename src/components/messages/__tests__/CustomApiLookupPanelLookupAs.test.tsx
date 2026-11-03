@@ -97,7 +97,7 @@ describe('look up another email', () => {
   it('will not send something that is not an email', async () => {
     render(<CustomApiLookupPanel conversationId={1} identityNote={NO_EMAIL_IDENTITY_NOTE} />);
     await userEvent.type(await screen.findByLabelText('Look up another email'), 'rico');
-    expect(screen.getByRole('button', { name: 'Look up as' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Look up as' })).toBeInactive();
   });
 
   it('⛔ an older backend that ignored the email: no banner, no rows, and says why', async () => {
@@ -107,7 +107,9 @@ describe('look up another email', () => {
     await typeAndRun();
 
     // RED: trust the request ⇒ the ticket customer's records appear under the typed person's name.
-    expect(await screen.findByText('This server cannot look up another email yet.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('This server cannot look up another email yet.')
+    ).toBeInTheDocument();
     expect(screen.queryByText(/Showing results for/)).toBeNull();
     expect(screen.queryByText('Order details')).toBeNull();
   });

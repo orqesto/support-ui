@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, renderHook, act } from '@testing-library/react';
 import { ConfigCard } from '@/components/ui/ConfigCard';
 import { useConfigCardState } from '@/hooks/useConfigCardState';
+import { isInactive } from '@/test/inactive';
 
 afterEach(cleanup);
 
@@ -96,17 +97,21 @@ describe('ConfigCard', () => {
 describe('useConfigCardState', () => {
   it('does not let Save fire again while a save is in flight', () => {
     const onSave = vi.fn();
-    render(<ConfigCard title="Object Storage" state="editing" onSave={onSave} saving saveLabel="Save" />);
+    render(
+      <ConfigCard title="Object Storage" state="editing" onSave={onSave} saving saveLabel="Save" />
+    );
     // While saving the button shows a spinner instead of its label; it is the only button here.
     const save = screen.getByRole('button');
-    expect((save as HTMLButtonElement).disabled).toBe(true);
+    expect(isInactive(save)).toBe(true);
     fireEvent.click(save);
     expect(onSave).not.toHaveBeenCalled();
   });
 
   it('editDisabled disables Edit and Configure', () => {
     const onEdit = vi.fn();
-    const { rerender } = render(<ConfigCard title="T" state="stored" onEdit={onEdit} editDisabled />);
+    const { rerender } = render(
+      <ConfigCard title="T" state="stored" onEdit={onEdit} editDisabled />
+    );
     fireEvent.click(screen.getByRole('button', { name: /^edit$/i }));
     expect(onEdit).not.toHaveBeenCalled();
     rerender(<ConfigCard title="T" state="empty" onConfigure={onEdit} editDisabled />);
@@ -115,9 +120,12 @@ describe('useConfigCardState', () => {
   });
 
   it('derives empty and stored from whether config exists', () => {
-    const { result, rerender } = renderHook(({ configured }) => useConfigCardState({ configured }), {
-      initialProps: { configured: false },
-    });
+    const { result, rerender } = renderHook(
+      ({ configured }) => useConfigCardState({ configured }),
+      {
+        initialProps: { configured: false },
+      }
+    );
     expect(result.current.state).toBe('empty');
 
     rerender({ configured: true });
@@ -146,9 +154,12 @@ describe('useConfigCardState', () => {
   });
 
   it('keeps an open editor open when the stored config changes underneath it', () => {
-    const { result, rerender } = renderHook(({ configured }) => useConfigCardState({ configured }), {
-      initialProps: { configured: true },
-    });
+    const { result, rerender } = renderHook(
+      ({ configured }) => useConfigCardState({ configured }),
+      {
+        initialProps: { configured: true },
+      }
+    );
     act(() => result.current.startEditing());
 
     // Another operator removed the config mid-edit: the draft must survive.

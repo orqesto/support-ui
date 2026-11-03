@@ -196,7 +196,7 @@ describe('ComposerAiActions — the editor is the only input', () => {
       render(<Host initial="" />);
       pressDraft();
       expect(draftButton().textContent).toContain('Drafting');
-      expect((draftButton() as HTMLButtonElement).disabled).toBe(true);
+      expect(draftButton()).toBeInactive();
       expect(onBusyChange).toHaveBeenLastCalledWith(true);
       await act(async () => {
         pending.resolve({ data: { text: 'Done.' } });
@@ -383,25 +383,29 @@ describe('ComposerAiActions — the editor is the only input', () => {
       ['generate', '', 429],
       ['polish', '<p>mine</p>', 402],
       ['polish', '<p>mine</p>', 429],
-    ])('%s refused with FREE_AI_ALLOWANCE_USED (%s, %i): "ask your admin", not "try again"', async (_mode, initial, status) => {
-      composeReply.mockRejectedValue(
-        await apiError(status, {
-          code: 'FREE_AI_ALLOWANCE_USED',
-          error: 'Your free AI allowance is used. Add your own AI key to keep AI running.',
-        })
-      );
-      render(<Host initial={initial} />);
-      pressDraft();
-      const alert = (await screen.findByRole('alert')).textContent ?? '';
-      expect(alert).toMatch(/Your free AI allowance is used — ask your admin/);
-      expect(alert).not.toMatch(/AI limit reached|try again/i);
-    });
+    ])(
+      '%s refused with FREE_AI_ALLOWANCE_USED (%s, %i): "ask your admin", not "try again"',
+      async (_mode, initial, status) => {
+        composeReply.mockRejectedValue(
+          await apiError(status, {
+            code: 'FREE_AI_ALLOWANCE_USED',
+            error: 'Your free AI allowance is used. Add your own AI key to keep AI running.',
+          })
+        );
+        render(<Host initial={initial} />);
+        pressDraft();
+        const alert = (await screen.findByRole('alert')).textContent ?? '';
+        expect(alert).toMatch(/Your free AI allowance is used — ask your admin/);
+        expect(alert).not.toMatch(/AI limit reached|try again/i);
+      }
+    );
 
     it('a budget refusal (AI_BUDGET_PAUSED) never offers buying to an agent', async () => {
       composeReply.mockRejectedValue(
         await apiError(402, {
           code: 'AI_BUDGET_PAUSED',
-          error: "This period's AI messages are used up. Buying more messages or upgrading adds to it.",
+          error:
+            "This period's AI messages are used up. Buying more messages or upgrading adds to it.",
         })
       );
       render(<Host initial="" />);

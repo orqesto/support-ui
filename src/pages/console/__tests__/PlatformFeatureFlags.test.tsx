@@ -23,8 +23,9 @@ const flag = (over: Partial<AdminFeatureFlag> = {}): AdminFeatureFlag => ({
 let flags: AdminFeatureFlag[] = [flag()];
 type SetInput = { key: string; enabled: boolean; organizationId?: number | null };
 const setFlag = vi.fn<(input: SetInput) => Promise<void>>().mockResolvedValue(undefined);
-const clearFlag =
-  vi.fn<(key: string, organizationId?: number | null) => Promise<void>>().mockResolvedValue(undefined);
+const clearFlag = vi
+  .fn<(key: string, organizationId?: number | null) => Promise<void>>()
+  .mockResolvedValue(undefined);
 
 // Replaced wholesale rather than spread over the real module: the only runtime
 // export the page uses is `featureFlagAdminService`, and `AdminFeatureFlag` is a
@@ -135,7 +136,9 @@ describe('PlatformFeatureFlags', () => {
     renderPage();
     const row = await rowFor('learning.breadth_downweight');
     fireEvent.click(within(row).getByRole('button', { name: /clear override/i }));
-    await waitFor(() => expect(clearFlag).toHaveBeenCalledWith('learning.breadth_downweight', null));
+    await waitFor(() =>
+      expect(clearFlag).toHaveBeenCalledWith('learning.breadth_downweight', null)
+    );
     expect(setFlag).not.toHaveBeenCalled();
   });
 
@@ -143,7 +146,7 @@ describe('PlatformFeatureFlags', () => {
     // Without this the button is a no-op an admin cannot tell apart from a failure.
     renderPage();
     const row = await rowFor('learning.breadth_downweight');
-    expect(within(row).getByRole('button', { name: /clear override/i })).toBeDisabled();
+    expect(within(row).getByRole('button', { name: /clear override/i })).toBeInactive();
   });
 
   it('a 404 from the list reads as version skew, not as a broken console', async () => {

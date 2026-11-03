@@ -9,24 +9,44 @@ import { Dialog, DialogContent } from '@/components/ui/Dialog';
 afterEach(cleanup);
 
 const opts = (count: number) =>
-  Array.from({ length: count }, (_unused, index) => ({ value: `v${index}`, label: `Option ${index}` }));
+  Array.from({ length: count }, (_unused, index) => ({
+    value: `v${index}`,
+    label: `Option ${index}`,
+  }));
 
 const renderIn = (ui: React.ReactElement) => render(ui);
 
 describe('Select — one component for every dropdown', () => {
   it('sizes match Input exactly (sm 32 / md 40 / lg 48px, same padding and text)', () => {
     // Input's classes are the reference; a drift on either side fails here.
-    const rem = { 'h-8': '2rem', 'h-10': '2.5rem', 'h-12': '3rem', 'px-2': '0.5rem', 'px-3': '0.75rem', 'px-4': '1rem', 'text-xs': '0.75rem', 'text-sm': '0.875rem', 'text-base': '1rem' } as const;
+    const rem = {
+      'h-8': '2rem',
+      'h-10': '2.5rem',
+      'h-12': '3rem',
+      'px-2': '0.5rem',
+      'px-3': '0.75rem',
+      'px-4': '1rem',
+      'text-xs': '0.75rem',
+      'text-sm': '0.875rem',
+      'text-base': '1rem',
+    } as const;
     for (const size of ['sm', 'md', 'lg'] as const) {
       const classes = inputVariants({ size }).split(' ');
-      const pick = (prefix: string) => rem[classes.find((cls) => cls.startsWith(prefix) && cls in rem) as keyof typeof rem];
-      expect(SELECT_SIZES[size]).toEqual({ height: pick('h-'), paddingX: pick('px-'), fontSize: pick('text-') });
+      const pick = (prefix: string) =>
+        rem[classes.find((cls) => cls.startsWith(prefix) && cls in rem) as keyof typeof rem];
+      expect(SELECT_SIZES[size]).toEqual({
+        height: pick('h-'),
+        paddingX: pick('px-'),
+        fontSize: pick('text-'),
+      });
     }
   });
 
   it('defaults to md: the control is 40px tall', () => {
     renderIn(<Select aria-label="Pick" options={opts(2)} value="v0" onChange={() => {}} />);
-    const control = screen.getByRole('combobox', { name: 'Pick' }).closest('[class*="control"]') as HTMLElement;
+    const control = screen
+      .getByRole('combobox', { name: 'Pick' })
+      .closest('[class*="control"]') as HTMLElement;
     expect(control.style.height || getComputedStyle(control).height).toBe('2.5rem');
   });
 
@@ -56,9 +76,12 @@ describe('Select — one component for every dropdown', () => {
   });
 
   it(`search turns on by itself at ${SEARCHABLE_FROM} options, and the caller can override`, () => {
-    const { rerender } = renderIn(<Select aria-label="Short" options={opts(SEARCHABLE_FROM - 1)} />);
+    const { rerender } = renderIn(
+      <Select aria-label="Short" options={opts(SEARCHABLE_FROM - 1)} />
+    );
     // react-select renders a dummy input (aria-readonly, inputMode none) when not searchable.
-    const searchable = () => screen.getByRole('combobox', { name: 'Short' }).getAttribute('aria-readonly') !== 'true';
+    const searchable = () =>
+      screen.getByRole('combobox', { name: 'Short' }).getAttribute('aria-readonly') !== 'true';
     expect(searchable()).toBe(false);
     rerender(<Select aria-label="Short" options={opts(SEARCHABLE_FROM)} />);
     expect(searchable()).toBe(true);
@@ -83,7 +106,7 @@ describe('Select — one component for every dropdown', () => {
 
   it('disabled: the combobox is disabled', () => {
     renderIn(<Select aria-label="Off" disabled options={opts(3)} />);
-    expect(screen.getByRole('combobox', { name: 'Off' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'Off' })).toBeInactive();
   });
 
   it('error replaces hint and is announced; hint shows otherwise', () => {
@@ -95,15 +118,27 @@ describe('Select — one component for every dropdown', () => {
   });
 
   it('default variant: the menu shows menuLabel, the control shows label', async () => {
-    render(<Select aria-label="Ml" value="a" options={[{ value: 'a', label: 'Acme', menuLabel: 'Acme — 3 workspaces' }]} />);
+    render(
+      <Select
+        aria-label="Ml"
+        value="a"
+        options={[{ value: 'a', label: 'Acme', menuLabel: 'Acme — 3 workspaces' }]}
+      />
+    );
     expect(screen.getByText('Acme')).toBeInTheDocument();
-    expect(await listOptions(screen.getByRole('combobox', { name: 'Ml' }))).toEqual(['Acme — 3 workspaces']);
+    expect(await listOptions(screen.getByRole('combobox', { name: 'Ml' }))).toEqual([
+      'Acme — 3 workspaces',
+    ]);
   });
 
-  it('clearable: the × empties a single select to \'\'; without it there is no ×', () => {
+  it("clearable: the × empties a single select to ''; without it there is no ×", () => {
     const onChange = vi.fn();
-    const { container, rerender } = render(<Select aria-label="Cl" clearable options={opts(2)} value="v1" onChange={onChange} />);
-    fireEvent.mouseDown(container.querySelector('.select__clear-indicator') as HTMLElement, { button: 0 });
+    const { container, rerender } = render(
+      <Select aria-label="Cl" clearable options={opts(2)} value="v1" onChange={onChange} />
+    );
+    fireEvent.mouseDown(container.querySelector('.select__clear-indicator') as HTMLElement, {
+      button: 0,
+    });
     expect(onChange).toHaveBeenCalledWith('');
     rerender(<Select aria-label="Cl" options={opts(2)} value="v1" onChange={onChange} />);
     expect(container.querySelector('.select__clear-indicator')).toBeNull();
@@ -114,13 +149,24 @@ describe('Select — one component for every dropdown', () => {
       const [query, setQuery] = useState('');
       const all = opts(10);
       const shown = query ? all.filter((opt) => opt.label.includes(query)) : all;
-      return <Select aria-label="Users" options={shown} filterOption={null} onInputChange={(text) => setQuery(text)} />;
+      return (
+        <Select
+          aria-label="Users"
+          options={shown}
+          filterOption={null}
+          onInputChange={(text) => setQuery(text)}
+        />
+      );
     };
     render(<Server />);
     const box = screen.getByRole('combobox', { name: 'Users' });
     fireEvent.change(box, { target: { value: 'Option 1' } });
-    expect(screen.getByRole('combobox', { name: 'Users' }).getAttribute('aria-readonly')).not.toBe('true');
-    expect(screen.getByRole<HTMLInputElement>('combobox', { name: 'Users' }).value).toBe('Option 1');
+    expect(screen.getByRole('combobox', { name: 'Users' }).getAttribute('aria-readonly')).not.toBe(
+      'true'
+    );
+    expect(screen.getByRole<HTMLInputElement>('combobox', { name: 'Users' }).value).toBe(
+      'Option 1'
+    );
   });
 
   it('inside a Dialog: Escape closes the open menu only; a second Escape closes the dialog', async () => {
@@ -145,20 +191,44 @@ describe('Select — one component for every dropdown', () => {
 
   it('multi keeps values the list does not offer when another is ticked', async () => {
     const onChange = vi.fn();
-    render(<Select multi aria-label="Keep" options={opts(2)} value={['ghost', 'v0']} onChange={onChange} />);
+    render(
+      <Select
+        multi
+        aria-label="Keep"
+        options={opts(2)}
+        value={['ghost', 'v0']}
+        onChange={onChange}
+      />
+    );
     await chooseOption(screen.getByRole('combobox', { name: 'Keep' }), 'Option 1');
     expect(onChange).toHaveBeenCalledWith(['ghost', 'v0', 'v1']);
   });
 
   it('chip + multi does not crash and behaves as single; chip label becomes the accessible name', async () => {
     const onChange = vi.fn();
-    render(<Select variant="chip" multi label="Status" options={opts(2)} value={[]} onChange={onChange as (value: string[]) => void} />);
+    render(
+      <Select
+        variant="chip"
+        multi
+        label="Status"
+        options={opts(2)}
+        value={[]}
+        onChange={onChange as (value: string[]) => void}
+      />
+    );
     await chooseOption(screen.getByRole('combobox', { name: 'Status' }), 'Option 1');
     expect(onChange).toHaveBeenCalledWith('v1');
   });
 
   it('no × when the empty option ("All") is the one selected', () => {
-    const { container } = render(<Select aria-label="All" clearable options={[{ value: '', label: 'All' }, ...opts(2)]} value="" />);
+    const { container } = render(
+      <Select
+        aria-label="All"
+        clearable
+        options={[{ value: '', label: 'All' }, ...opts(2)]}
+        value=""
+      />
+    );
     expect(container.querySelector('.select__clear-indicator')).toBeNull();
   });
 
@@ -170,7 +240,10 @@ describe('Select — one component for every dropdown', () => {
 
   it('listOptions returns the menu texts', async () => {
     renderIn(<Select aria-label="List" options={opts(2)} />);
-    expect(await listOptions(screen.getByRole('combobox', { name: 'List' }))).toEqual(['Option 0', 'Option 1']);
+    expect(await listOptions(screen.getByRole('combobox', { name: 'List' }))).toEqual([
+      'Option 0',
+      'Option 1',
+    ]);
   });
 
   describe('variant="popover"', () => {
@@ -179,12 +252,24 @@ describe('Select — one component for every dropdown', () => {
       { value: '2', label: 'Billing', color: '#00ff00' },
     ];
     const trigger = ({ toggle }: { toggle: () => void }) => (
-      <button type="button" onClick={toggle}>Add label</button>
+      <button type="button" onClick={toggle}>
+        Add label
+      </button>
     );
 
     it('opens from the trigger, filters by typing, multi ticks keep it open', () => {
       const onChange = vi.fn();
-      render(<Select variant="popover" multi aria-label="Labels" trigger={trigger} options={labels} value={['1']} onChange={onChange} />);
+      render(
+        <Select
+          variant="popover"
+          multi
+          aria-label="Labels"
+          trigger={trigger}
+          options={labels}
+          value={['1']}
+          onChange={onChange}
+        />
+      );
       expect(screen.queryByRole('combobox')).toBeNull();
       fireEvent.click(screen.getByText('Add label'));
       const search = screen.getByRole('combobox', { name: 'Labels' });
@@ -197,7 +282,18 @@ describe('Select — one component for every dropdown', () => {
 
     it('creatable: a create row for new text, none for an exact match; onCreate gets the trimmed text', () => {
       const onCreate = vi.fn();
-      render(<Select variant="popover" multi creatable onCreate={onCreate} aria-label="Labels" trigger={trigger} options={labels} value={[]} />);
+      render(
+        <Select
+          variant="popover"
+          multi
+          creatable
+          onCreate={onCreate}
+          aria-label="Labels"
+          trigger={trigger}
+          options={labels}
+          value={[]}
+        />
+      );
       fireEvent.click(screen.getByText('Add label'));
       const search = screen.getByRole('combobox', { name: 'Labels' });
       fireEvent.change(search, { target: { value: 'bug' } });
@@ -209,7 +305,18 @@ describe('Select — one component for every dropdown', () => {
 
     it('single: picking closes it; Escape and an outside press close it', () => {
       const onChange = vi.fn();
-      render(<><Select variant="popover" aria-label="Lang" trigger={trigger} options={labels} onChange={onChange} /><p>outside</p></>);
+      render(
+        <>
+          <Select
+            variant="popover"
+            aria-label="Lang"
+            trigger={trigger}
+            options={labels}
+            onChange={onChange}
+          />
+          <p>outside</p>
+        </>
+      );
       fireEvent.click(screen.getByText('Add label'));
       fireEvent.click(screen.getByRole('option', { name: 'Bug' }));
       expect(onChange).toHaveBeenCalledWith('1');
@@ -226,9 +333,19 @@ describe('Select — one component for every dropdown', () => {
       // A trigger 30px from the right edge of a 400px page: a 220px panel must be pulled back.
       const width = vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(400);
       const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
-        left: 370, right: 390, top: 10, bottom: 30, width: 20, height: 20, x: 370, y: 10, toJSON: () => ({}),
+        left: 370,
+        right: 390,
+        top: 10,
+        bottom: 30,
+        width: 20,
+        height: 20,
+        x: 370,
+        y: 10,
+        toJSON: () => ({}),
       } as DOMRect);
-      const { container } = render(<Select variant="popover" aria-label="Labels" trigger={trigger} options={labels} />);
+      const { container } = render(
+        <Select variant="popover" aria-label="Labels" trigger={trigger} options={labels} />
+      );
       fireEvent.click(screen.getByText('Add label'));
       const panel = screen.getByRole('dialog', { name: 'Labels' });
       expect(container.contains(panel)).toBe(false);
@@ -242,7 +359,18 @@ describe('Select — one component for every dropdown', () => {
       const page = vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(1000);
       let left = 100;
       const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
-        () => ({ left, right: left + 20, top: 10, bottom: 30, width: 20, height: 20, x: left, y: 10, toJSON: () => ({}) }) as DOMRect
+        () =>
+          ({
+            left,
+            right: left + 20,
+            top: 10,
+            bottom: 30,
+            width: 20,
+            height: 20,
+            x: left,
+            y: 10,
+            toJSON: () => ({}),
+          }) as DOMRect
       );
       render(<Select variant="popover" aria-label="Follow" trigger={trigger} options={labels} />);
       fireEvent.click(screen.getByText('Add label'));
@@ -258,16 +386,42 @@ describe('Select — one component for every dropdown', () => {
 
     it('open state can be held by the parent', () => {
       const onOpenChange = vi.fn();
-      const { rerender } = render(<Select variant="popover" aria-label="P" open={false} onOpenChange={onOpenChange} trigger={trigger} options={labels} />);
+      const { rerender } = render(
+        <Select
+          variant="popover"
+          aria-label="P"
+          open={false}
+          onOpenChange={onOpenChange}
+          trigger={trigger}
+          options={labels}
+        />
+      );
       fireEvent.click(screen.getByText('Add label'));
       expect(onOpenChange).toHaveBeenCalledWith(true);
       expect(screen.queryByRole('dialog')).toBeNull();
-      rerender(<Select variant="popover" aria-label="P" open onOpenChange={onOpenChange} trigger={trigger} options={labels} />);
+      rerender(
+        <Select
+          variant="popover"
+          aria-label="P"
+          open
+          onOpenChange={onOpenChange}
+          trigger={trigger}
+          options={labels}
+        />
+      );
       expect(screen.getByRole('dialog', { name: 'P' })).toBeInTheDocument();
     });
 
-    it('typing matches the visible name, not the id; empty text is the caller\'s', () => {
-      render(<Select variant="popover" aria-label="F" trigger={trigger} noOptionsMessage={() => 'No labels yet.'} options={[{ value: '12', label: 'Bug' }]} />);
+    it("typing matches the visible name, not the id; empty text is the caller's", () => {
+      render(
+        <Select
+          variant="popover"
+          aria-label="F"
+          trigger={trigger}
+          noOptionsMessage={() => 'No labels yet.'}
+          options={[{ value: '12', label: 'Bug' }]}
+        />
+      );
       fireEvent.click(screen.getByText('Add label'));
       fireEvent.change(screen.getByRole('combobox', { name: 'F' }), { target: { value: '12' } });
       expect(screen.queryByRole('option')).toBeNull();
@@ -295,17 +449,21 @@ describe('Select — one component for every dropdown', () => {
               options={labels}
               onChange={() => setBusy(true)}
               trigger={({ toggle }) => (
-                <button type="button" disabled={busy} onClick={toggle}>Translate</button>
+                <button type="button" disabled={busy} onClick={toggle}>
+                  Translate
+                </button>
               )}
             />
-            <button type="button" onClick={() => setBusy(false)}>finish</button>
+            <button type="button" onClick={() => setBusy(false)}>
+              finish
+            </button>
           </>
         );
       };
       render(<Busy />);
       fireEvent.click(screen.getByText('Translate'));
       fireEvent.click(screen.getByRole('option', { name: 'Bug' }));
-      await waitFor(() => expect(screen.getByText('Translate')).toBeDisabled());
+      await waitFor(() => expect(screen.getByText('Translate')).toBeInactive());
       // The work finishes (fireEvent.click does not move the focus in jsdom).
       fireEvent.click(screen.getByText('finish'));
       await waitFor(() => expect(document.activeElement).toBe(screen.getByText('Translate')));
@@ -322,21 +480,25 @@ describe('Select — one component for every dropdown', () => {
               options={labels}
               onChange={() => setBusy(true)}
               trigger={({ toggle }) => (
-                <button type="button" disabled={busy} onClick={toggle}>Translate2</button>
+                <button type="button" disabled={busy} onClick={toggle}>
+                  Translate2
+                </button>
               )}
             />
             <p>message text</p>
-            <button type="button" onClick={() => setBusy(false)}>finish2</button>
+            <button type="button" onClick={() => setBusy(false)}>
+              finish2
+            </button>
           </>
         );
       };
       render(<Busy />);
       fireEvent.click(screen.getByText('Translate2'));
       fireEvent.click(screen.getByRole('option', { name: 'Bug' }));
-      await waitFor(() => expect(screen.getByText('Translate2')).toBeDisabled());
+      await waitFor(() => expect(screen.getByText('Translate2')).toBeInactive());
       fireEvent.pointerDown(screen.getByText('message text'));
       fireEvent.click(screen.getByText('finish2'));
-      await waitFor(() => expect(screen.getByText('Translate2')).not.toBeDisabled());
+      await waitFor(() => expect(screen.getByText('Translate2')).not.toBeInactive());
       await new Promise((resolve) => setTimeout(resolve, 20));
       expect(document.activeElement).not.toBe(screen.getByText('Translate2'));
     });
@@ -352,7 +514,9 @@ describe('Select — one component for every dropdown', () => {
             options={labels}
             onChange={() => setBusy(true)}
             trigger={({ toggle }) => (
-              <button type="button" disabled={busy} onClick={toggle}>Translate3</button>
+              <button type="button" disabled={busy} onClick={toggle}>
+                Translate3
+              </button>
             )}
           />
         );
@@ -360,15 +524,17 @@ describe('Select — one component for every dropdown', () => {
       const { unmount } = render(<Busy />);
       fireEvent.click(screen.getByText('Translate3'));
       fireEvent.click(screen.getByRole('option', { name: 'Bug' }));
-      await waitFor(() => expect(screen.getByText('Translate3')).toBeDisabled());
+      await waitFor(() => expect(screen.getByText('Translate3')).toBeInactive());
       await new Promise((resolve) => setTimeout(resolve, 5));
       const before = removed.mock.calls.filter(([type]) => type === 'keydown').length;
       unmount();
-      expect(removed.mock.calls.filter(([type]) => type === 'keydown').length).toBeGreaterThan(before);
+      expect(removed.mock.calls.filter(([type]) => type === 'keydown').length).toBeGreaterThan(
+        before
+      );
       removed.mockRestore();
     });
 
-    it('scrolling the panel\'s own list does not re-place it', () => {
+    it("scrolling the panel's own list does not re-place it", () => {
       const page = vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(1000);
       const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect');
       render(<Select variant="popover" aria-label="Own" trigger={trigger} options={labels} />);
@@ -382,11 +548,22 @@ describe('Select — one component for every dropdown', () => {
     });
 
     it('a stored colour is drawn as a dot (sanitised)', () => {
-      render(<Select variant="popover" aria-label="C" trigger={trigger} options={[{ value: 'x', label: 'X', color: 'red;background:url(evil)' }, ...labels]} />);
+      render(
+        <Select
+          variant="popover"
+          aria-label="C"
+          trigger={trigger}
+          options={[{ value: 'x', label: 'X', color: 'red;background:url(evil)' }, ...labels]}
+        />
+      );
       fireEvent.click(screen.getByText('Add label'));
-      const dot = screen.getByRole('option', { name: 'Bug' }).querySelector('span[aria-hidden]') as HTMLElement;
+      const dot = screen
+        .getByRole('option', { name: 'Bug' })
+        .querySelector('span[aria-hidden]') as HTMLElement;
       expect(dot.style.backgroundColor).toBe('rgb(255, 0, 0)');
-      const evil = screen.getByRole('option', { name: 'X' }).querySelector('span[aria-hidden]') as HTMLElement;
+      const evil = screen
+        .getByRole('option', { name: 'X' })
+        .querySelector('span[aria-hidden]') as HTMLElement;
       expect(evil.getAttribute('style') ?? '').not.toContain('url(');
     });
   });

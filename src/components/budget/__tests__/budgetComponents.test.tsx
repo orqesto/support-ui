@@ -186,7 +186,7 @@ describe('BulkLimitField', () => {
   it('is read-only without edit rights', () => {
     const onToggle = vi.fn();
     render(<BulkLimitField on pct={60} cap={60 * USD} canEdit={false} onToggle={onToggle} />);
-    expect(screen.getByRole('switch')).toBeDisabled();
+    expect(screen.getByRole('switch')).toBeInactive();
   });
 });
 
@@ -346,7 +346,7 @@ describe('BudgetBar', () => {
   it('is read-only without canEdit.bulk', () => {
     const onChange = vi.fn();
     render(<BudgetBar {...base} canEdit={false} onBulkPctChange={onChange} />);
-    expect(slider()).toBeDisabled();
+    expect(slider()).toBeInactive();
     fireEvent.change(slider(), { target: { value: '80' } });
     act(() => void vi.advanceTimersByTime(1000));
     expect(onChange).not.toHaveBeenCalled();
@@ -354,7 +354,7 @@ describe('BudgetBar', () => {
 
   it('shows no line and a disabled slider while the limit is off', () => {
     render(<BudgetBar {...base} bulkLimitOn={false} canEdit onBulkPctChange={vi.fn()} />);
-    expect(slider()).toBeDisabled();
+    expect(slider()).toBeInactive();
     expect(screen.queryByText(/compared with the purple part only/)).toBeNull();
   });
 });

@@ -96,7 +96,7 @@ describe('TicketPanel', () => {
     const props = setup();
     fireEvent.click(screen.getByRole('button', { name: 'Previous ticket' }));
     expect(props.onGo).toHaveBeenCalledWith(1179);
-    expect(screen.getByRole('button', { name: 'Next ticket' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Next ticket' })).toBeInactive();
   });
 
   it('opens the full page, copies the link and closes', () => {

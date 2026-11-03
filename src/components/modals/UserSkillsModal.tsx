@@ -150,7 +150,7 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
                         size="icon"
                         onClick={() => handleRemoveValue(key, val).catch((err) => { logger.error(err); })}
                         disabled={saving[key]}
-                        className="p-0 w-auto h-auto hover:text-destructive disabled:opacity-40"
+                        className="p-0 w-auto h-auto hover:text-destructive data-[inactive]:opacity-40"
                         aria-label={`Remove ${val}`}
                       >
                         <X className="w-3 h-3" />

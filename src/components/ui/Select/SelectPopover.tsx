@@ -189,6 +189,8 @@ export const SelectPopover = ({
         return;
       }
       /*
+       * (A design-system Button trigger is never natively disabled — it stays focusable while
+       * busy, so the branch above takes it. What follows is for a raw, natively disabled trigger.)
        * A pick can disable its own trigger (TranslateButton: busy while translating), and focus()
        * on a disabled button does nothing — the focus fell to <body>. Wait until it is enabled
        * again — but ANY click or key press meanwhile cancels the wait: a click on plain text also

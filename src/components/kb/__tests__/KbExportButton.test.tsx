@@ -80,7 +80,7 @@ describe('KbExportButton', () => {
   it('disables the button when nothing is approved to export', async () => {
     useBackend(() => ok({ count: 0, cap: 10000, truncated: false }));
     render(<KbExportButton filters={{ status: 'approved', type: 'all' }} />);
-    expect(await screen.findByRole('button', { name: 'Export to CSV (0)' })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Export to CSV (0)' })).toBeInactive();
   });
 
   it('says so when the cap cuts the file', async () => {
@@ -95,7 +95,7 @@ describe('KbExportButton', () => {
     useBackend(() => ({ status: 500, data: { success: false, message: 'boom' } }));
     render(<KbExportButton filters={{ status: 'approved', type: 'all' }} />);
     const button = await screen.findByRole('button', { name: 'Export to CSV' });
-    expect(button).toBeEnabled();
+    expect(button).not.toBeInactive();
   });
 
   it('reads the count again only when the filters change, not on a re-render', async () => {

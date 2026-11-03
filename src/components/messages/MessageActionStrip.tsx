@@ -105,7 +105,7 @@ export function MessageActionStrip({
   // its decisions inline on the right. Tone by state: amber = suspicious (a judgement is
   // pending), red = filtered/spam, neutral = finished (resolved, not customer work).
   const btnBase =
-    'inline-flex items-center justify-center gap-1.5 h-[27px] px-[11px] rounded-[7px] font-display text-[12px] font-medium transition-colors disabled:opacity-50';
+    'inline-flex items-center justify-center gap-1.5 h-[27px] px-[11px] rounded-[7px] font-display text-[12px] font-medium transition-colors data-[inactive]:opacity-50';
   const statusLabel =
     'font-display text-[10px] tracking-[0.1em] uppercase text-muted-foreground font-semibold';
   const stripBase =

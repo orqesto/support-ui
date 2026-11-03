@@ -161,7 +161,7 @@ describe('KbConsolidationReview (F1)', () => {
     expect(screen.getByText('edited since proposed — will be left out')).toBeInTheDocument();
     const edited = box('Include #KB-4');
     expect(edited.checked).toBe(false);
-    expect(edited.disabled).toBe(true);
+    expect(edited).toBeInactive();
   });
 
   it('marks a member already declined for this case — and still lets it be ticked (LOW-3)', async () => {
@@ -181,7 +181,7 @@ describe('KbConsolidationReview (F1)', () => {
     ).not.toBeInTheDocument();
     const tick = box('Include #KB-2');
     expect(tick.checked).toBe(true);
-    expect(tick.disabled).toBe(false);
+    expect(tick).not.toBeInactive();
   });
 
   it('on an attach, the declined-before mark speaks of this case', async () => {
@@ -200,9 +200,10 @@ describe('KbConsolidationReview (F1)', () => {
       })
     );
     renderReview();
-    expect(
-      await screen.findByText('declined before (this entry or its thread)')
-    ).toHaveAttribute('title', expect.stringContaining('for this case'));
+    expect(await screen.findByText('declined before (this entry or its thread)')).toHaveAttribute(
+      'title',
+      expect.stringContaining('for this case')
+    );
   });
 
   it('attach to a case that no longer exists has a complete title (LOW-4)', async () => {
@@ -255,7 +256,7 @@ describe('KbConsolidationReview (F1)', () => {
 
     fireEvent.click(box('Include #KB-1'));
     expect(box('Keep invoice.pdf').checked).toBe(false);
-    expect(box('Keep invoice.pdf').disabled).toBe(true);
+    expect(box('Keep invoice.pdf')).toBeInactive();
 
     fireEvent.click(box('Include #KB-1'));
     fireEvent.click(box('Keep invoice.pdf'));
@@ -270,7 +271,7 @@ describe('KbConsolidationReview (F1)', () => {
     await screen.findByText('Question 1?');
     fireEvent.click(box('Include #KB-2'));
     fireEvent.click(box('Include #KB-3'));
-    expect(screen.getByRole('button', { name: /Accept merge/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Accept merge/ })).toBeInactive();
     expect(screen.getByText('Tick at least two entries to merge.')).toBeInTheDocument();
   });
 
@@ -278,8 +279,8 @@ describe('KbConsolidationReview (F1)', () => {
     getMembers.mockResolvedValue(detail({ canDecide: false }));
     renderReview();
     await screen.findByText('Question 1?');
-    expect(screen.getByRole('button', { name: /Accept merge/ })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Decline/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Accept merge/ })).toBeInactive();
+    expect(screen.getByRole('button', { name: /Decline/ })).toBeInactive();
     expect(screen.getByTestId('accept-blocked-reason')).toHaveTextContent(
       /needs knowledge-base permission for every team/
     );
@@ -328,7 +329,7 @@ describe('KbConsolidationReview (F1)', () => {
     await screen.findByText('Question 1?');
     fireEvent.click(screen.getByRole('button', { name: /Decline/ }));
     await waitFor(() => expect(decline).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getByRole('button', { name: /Decline/ })).not.toBeDisabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: /Decline/ })).not.toBeInactive());
     expect(getMembers).toHaveBeenCalledTimes(1);
     decline.mockRejectedValueOnce(
       Object.assign(new Error('This proposal was already decided.'), { status: 409 })

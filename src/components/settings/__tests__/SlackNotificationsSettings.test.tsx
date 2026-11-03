@@ -13,6 +13,7 @@ import {
   type SlackRoute,
   type SlackStatus,
 } from '@/services/slackNotifications.service';
+import { isInactive } from '@/test/inactive';
 
 type MockUser = { id: number; role: string; organizationRole?: string } | null;
 let mockUser: MockUser = null;
@@ -186,7 +187,7 @@ describe('SlackNotificationsSettings', () => {
     expect(screen.queryByText(/\/invite @Odly/)).not.toBeInTheDocument();
     const buttons = await screen.findAllByRole('button', { name: /send test message/i });
     // The team card has no channel yet, so its button is disabled; the admin one is enabled.
-    const enabled = buttons.filter((button) => !(button as HTMLButtonElement).disabled);
+    const enabled = buttons.filter((button) => !isInactive(button));
     expect(enabled).toHaveLength(1);
     fireEvent.click(enabled[0]);
     await waitFor(() => expect(sendTest).toHaveBeenCalledWith('admin'));
@@ -266,12 +267,12 @@ describe('SlackNotificationsSettings — saves (fix round 1)', () => {
     fireEvent.click(await switchNamed(/hold recheck due/i));
     const assigned = screen.getByRole('switch', { name: /conversation assigned/i });
     // While PUT #1 is in flight the card is locked: the second toggle sends nothing.
-    expect(assigned).toBeDisabled();
+    expect(assigned).toBeInactive();
     fireEvent.click(assigned);
     expect(save).toHaveBeenCalledTimes(1);
 
     first.resolve(route({ enabledKinds: [...DEFAULT_TEAM_ON, 'hold_recheck_due'] }));
-    await waitFor(() => expect(assigned).not.toBeDisabled());
+    await waitFor(() => expect(assigned).not.toBeInactive());
     fireEvent.click(assigned);
     await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
     // PUT #2 starts after #1 finished and carries both changes.
@@ -380,7 +381,7 @@ describe('SlackNotificationsSettings — connect, load and return (fix round 1)'
       await screen.findByRole('button', { name: /self-hosted\? paste a bot token/i })
     );
     const submit = screen.getByRole('button', { name: /connect with this token/i });
-    expect(submit).toBeDisabled();
+    expect(submit).toBeInactive();
     fireEvent.change(screen.getByLabelText('Bot token'), { target: { value: ' xoxb-test-1 ' } });
     fireEvent.click(submit);
     await waitFor(() => expect(connectWithToken).toHaveBeenCalledWith('xoxb-test-1'));
@@ -497,7 +498,7 @@ describe('SlackNotificationsSettings — connect, load and return (fix round 1)'
       // CONTROL: the healthy admin card carries no broken line.
       expect(screen.getAllByTestId('slack-route-broken')).toHaveLength(1);
       const buttons = screen.getAllByRole('button', { name: /send test message/i });
-      expect(buttons.every((button) => !(button as HTMLButtonElement).disabled)).toBe(true);
+      expect(buttons.every((button) => !isInactive(button))).toBe(true);
       cleanup();
 
       vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(

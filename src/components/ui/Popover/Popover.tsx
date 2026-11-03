@@ -41,10 +41,11 @@ export const Popover = ({
 
   const closeToTrigger = () => {
     onOpenChange(false);
-    const target = rootRef.current?.querySelector<HTMLElement>('button, [tabindex]:not([tabindex="-1"])');
+    const target = rootRef.current?.querySelector<HTMLElement>(
+      'button, [tabindex]:not([tabindex="-1"])'
+    );
     window.setTimeout(() => target?.focus({ preventScroll: true }));
   };
-
 
   useLayoutEffect(() => {
     if (!open || !rootRef.current) {
@@ -57,7 +58,10 @@ export const Popover = ({
       const rect = rootRef.current.getBoundingClientRect();
       const visibleWidth = document.documentElement.clientWidth;
       const wanted = align === 'end' ? rect.right - width : rect.left;
-      const inView = Math.max(EDGE_MARGIN_PX, Math.min(wanted, visibleWidth - width - EDGE_MARGIN_PX));
+      const inView = Math.max(
+        EDGE_MARGIN_PX,
+        Math.min(wanted, visibleWidth - width - EDGE_MARGIN_PX)
+      );
       const height = panelRef.current?.offsetHeight ?? 0;
       const below = document.documentElement.clientHeight - rect.bottom - 4;
       const above = rect.top - 4;
@@ -84,7 +88,11 @@ export const Popover = ({
   // from the trigger would never reach it), and Escape closes it from the trigger or the panel.
   useEffect(() => {
     if (!open) return undefined;
-    panelRef.current?.querySelector<HTMLElement>('button:not([disabled]), [href], input, [tabindex]:not([tabindex="-1"])')?.focus({ preventScroll: true });
+    panelRef.current
+      ?.querySelector<HTMLElement>(
+        'button:not([disabled]):not([aria-disabled="true"]), [href], input, [tabindex]:not([tabindex="-1"])'
+      )
+      ?.focus({ preventScroll: true });
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
       event.stopPropagation();

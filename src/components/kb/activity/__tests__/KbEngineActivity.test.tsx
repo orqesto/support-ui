@@ -330,7 +330,7 @@ describe('KbEngineActivity', () => {
     listed.entries = [entry(9, change({ undoBlocked: 'changed_after' }))];
     renderActivity({ defaultExpanded: true });
     const row = await screen.findByTestId('kb-engine-change');
-    expect(within(row).getByRole('button', { name: /^Send back to Not live yet:/ })).toBeDisabled();
+    expect(within(row).getByRole('button', { name: /^Send back to Not live yet:/ })).toBeInactive();
     expect(
       within(row).getByLabelText('Someone changed this entry after the engine — undo by hand.')
     ).toBeInTheDocument();
@@ -399,7 +399,7 @@ describe('KbEngineActivity', () => {
     const undo = within(screen.getByTestId('kb-engine-change')).getByRole('button', {
       name: /^Send back to Not live yet:/,
     });
-    expect(undo).toBeEnabled();
+    expect(undo).not.toBeInactive();
     fireEvent.click(undo);
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith(
@@ -489,7 +489,7 @@ describe('KbEngineActivity', () => {
     fireEvent.change(screen.getByLabelText('From'), { target: { value: '2026-09-01' } });
     fireEvent.change(screen.getByLabelText('To'), { target: { value: '2026-10-15' } });
     expect(screen.getByText('Pick at most 31 days.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Check what would change' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Check what would change' })).toBeInactive();
   });
 
   it('rollback skip links name the entry by its own number, else "entry <id>"', async () => {

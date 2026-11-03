@@ -245,7 +245,7 @@ function ContactRow({
                   variant="ghost"
                   disabled={openingId === subject.latestMessageId}
                   onClick={() => void handleSubjectClick(subject)}
-                  className="group/topic flex justify-start items-center gap-3 w-full px-2 py-1.5 h-auto rounded-md text-left hover:bg-muted/60 transition-colors disabled:opacity-60"
+                  className="group/topic flex justify-start items-center gap-3 w-full px-2 py-1.5 h-auto rounded-md text-left hover:bg-muted/60 transition-colors data-[inactive]:opacity-60"
                 >
                   <span className="w-1 h-1 rounded-full bg-muted-foreground/40 shrink-0" />
                   <span className="flex-1 text-[12.5px] truncate text-muted-foreground group-hover/topic:text-foreground">

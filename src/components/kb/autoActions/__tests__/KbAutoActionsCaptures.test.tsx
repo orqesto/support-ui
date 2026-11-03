@@ -137,7 +137,7 @@ describe('Automatic actions — approve answers people saved', () => {
     expect(within(captures).getByRole('slider')).toBeInTheDocument();
     expect(within(captures).getByText('Would act on 12 answers')).toBeInTheDocument();
     expect(within(captures).getByText('Rate 20 more to switch this on.')).toBeInTheDocument();
-    expect(within(captures).getByRole('button', { name: 'Automatic' })).toBeDisabled();
+    expect(within(captures).getByRole('button', { name: 'Automatic' })).toBeInactive();
     expect(screen.queryByText('Approve saved answers')).not.toBeInTheDocument();
     expect(screen.getAllByText('Always waits for a person (coming later)')).toHaveLength(2);
     // The Changed automatically card counts it too (15 + 2).

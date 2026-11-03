@@ -125,7 +125,7 @@ describe('ConsoleAiBudget', () => {
     expect(await screen.findByTestId('budget-readonly')).toHaveTextContent('≈ $100.00');
     expect(screen.queryByLabelText('Monthly budget')).toBeNull();
     const toggle = screen.getByRole('switch', { name: /Limit it/ });
-    expect(toggle).not.toBeDisabled();
+    expect(toggle).not.toBeInactive();
     fireEvent.click(toggle);
     await waitFor(() => expect(calls.updateAllianceBudget).toEqual([[7, { bulkLimitOn: false }]]));
   });
@@ -136,7 +136,7 @@ describe('ConsoleAiBudget', () => {
     });
     renderPage();
     await screen.findByTestId('budget-readonly');
-    expect(screen.getByRole('switch', { name: /Limit it/ })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: /Limit it/ })).toBeInactive();
     expect(screen.queryByRole('button', { name: /Give/ })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Set limit' })).toBeNull();
   });

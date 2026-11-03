@@ -72,7 +72,7 @@ describe('CustomApiHealthCard', () => {
     wrap(<CustomApiHealthCard customApi={SETTING} />);
     for (const bad of ['0', '1.5', '']) {
       fireEvent.change(screen.getByLabelText(/Nothing found in a row/), { target: { value: bad } });
-      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Save' })).toBeInactive();
     }
     expect(puts).toHaveLength(0);
   });

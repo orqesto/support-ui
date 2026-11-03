@@ -593,7 +593,7 @@ export const GmailIntegrationCard = ({
                   variant="ghost"
                   onClick={handleGmailOAuth}
                   disabled={saving || redirecting}
-                  className="inline p-0 h-auto align-baseline font-medium underline hover:no-underline hover:bg-transparent disabled:opacity-50"
+                  className="inline p-0 h-auto align-baseline font-medium underline hover:no-underline hover:bg-transparent data-[inactive]:opacity-50"
                 >
                   Try the popup again
                 </Button>
@@ -603,7 +603,7 @@ export const GmailIntegrationCard = ({
                   variant="ghost"
                   onClick={handleGmailRedirect}
                   disabled={saving || redirecting}
-                  className="inline p-0 h-auto align-baseline font-medium underline hover:no-underline hover:bg-transparent disabled:opacity-50"
+                  className="inline p-0 h-auto align-baseline font-medium underline hover:no-underline hover:bg-transparent data-[inactive]:opacity-50"
                 >
                   continue without popup
                 </Button>

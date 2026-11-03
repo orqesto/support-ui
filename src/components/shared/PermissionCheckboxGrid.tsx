@@ -199,7 +199,7 @@ export const PermissionCheckboxGrid = ({
             size="sm"
             onClick={reset}
             disabled={disabled}
-            className="gap-1 items-center p-0 h-auto text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+            className="gap-1 items-center p-0 h-auto text-xs text-muted-foreground hover:text-foreground data-[inactive]:opacity-50"
           >
             <RotateCcw className="w-3 h-3" />
             Reset to role defaults

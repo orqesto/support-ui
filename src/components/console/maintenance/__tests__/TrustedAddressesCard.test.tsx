@@ -30,7 +30,7 @@ describe('TrustedAddressesCard', () => {
     });
     renderCard({ entries: ['198.51.100.0/24'], yourAddress: '203.0.113.7', selfHosted: false });
     const save = screen.getByRole('button', { name: 'Save' });
-    expect(save.hasAttribute('disabled')).toBe(true);
+    expect(save).toBeInactive();
     fireEvent.click(screen.getByRole('button', { name: 'Add my address (203.0.113.7)' }));
     fireEvent.click(save);
     await waitFor(() =>

@@ -335,7 +335,7 @@ describe('TeamsSettings — a plan with one team', () => {
     expect(
       await screen.findByText('Your plan includes one team. Upgrade to use teams.')
     ).toBeTruthy();
-    expect(screen.getByRole('switch', { name: 'Use teams' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Use teams' })).toBeInactive();
   });
 
   it('CONTROL: a paid plan keeps the switch enabled', async () => {
@@ -343,7 +343,7 @@ describe('TeamsSettings — a plan with one team', () => {
     svc.teams = [team(1, 'General team', { isDefault: true })];
     renderPage();
     await waitFor(() => expect(svc.getPlanTeamLimit).toHaveBeenCalled());
-    expect(await screen.findByRole('switch', { name: 'Use teams' })).not.toBeDisabled();
+    expect(await screen.findByRole('switch', { name: 'Use teams' })).not.toBeInactive();
     expect(screen.queryByTestId('teams-plan-limit')).toBeNull();
   });
 });
@@ -355,7 +355,7 @@ describe('TeamsSettings — a switch-off that did not finish', () => {
     renderPage();
     expect(await screen.findByText('Switching teams off didn’t finish')).toBeTruthy();
     expect(screen.getByText(/you cannot switch a team on/)).toBeTruthy();
-    expect(screen.getByRole('switch', { name: 'Use teams' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Use teams' })).toBeInactive();
     fireEvent.click(screen.getByRole('button', { name: 'Finish switching off' }));
     // Finish only completes a switch already confirmed: no dialog, no typed name.
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -462,7 +462,7 @@ describe('TeamsSettings — what stops a switch-off', () => {
     expect(line.textContent).toContain(
       "Remove or disable it, or replace General team's own with it"
     );
-    expect(within(dialog).getByRole('button', { name: 'Switch teams off' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Switch teams off' })).toBeInactive();
   });
 
   it('CONTROL: no blockers ⇒ the confirm is enabled; same-name merges are said', async () => {
@@ -478,7 +478,7 @@ describe('TeamsSettings — what stops a switch-off', () => {
       )
     ).toBeTruthy();
     typeName(dialog);
-    expect(within(dialog).getByRole('button', { name: 'Switch teams off' })).not.toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Switch teams off' })).not.toBeInactive();
   });
 
   it('409 TEAMS_SWITCH_BLOCKED shows its message and waits for nothing', async () => {

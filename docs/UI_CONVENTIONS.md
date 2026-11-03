@@ -204,3 +204,18 @@ hidden automation tab pauses CSS transitions, which freezes measured colours mid
 - **Tests**: `chooseOption(control, 'Option text')` / `listOptions(control)` from `@/test/chooseOption`
   — not `userEvent.selectOptions`, which only drives a native `<select>`.
 
+## Disabled and loading Buttons keep keyboard focus
+
+A `Button` or `IconButton` that is `disabled` or `isLoading` is **never natively disabled**: a
+browser moves focus off a focused button that turns disabled (Chrome, staging, 2026-11-03), so a
+keyboard user lost their place on every Save. Instead it stays focusable (a Tab stop), is `aria-
+disabled`, carries `data-inactive`, looks as before (dimmed, no pointer events) and cancels its
+own click — mouse, Enter, Space, a form's implicit submit; it does not bubble to ancestors
+(capture listeners still see it). An explicit `disabled={false}` with `isLoading` stays clickable.
+
+- Style an inactive Button with `data-[inactive]:…` (not `disabled:…`, which no longer matches).
+- Code that picks "enabled" controls must skip `[aria-disabled="true"]` too
+  (`:not([disabled])` alone now matches a disabled Button).
+- Tests: `expect(el).toBeInactive()` / `.not.toBeInactive()` (disabled or aria-disabled). jest-dom's
+  `toBeDisabled` / `toBeEnabled` and `expect(el.disabled)` are forbidden by lint in tests —
+  `.not.toBeDisabled()` passes on a Button that is out of use.

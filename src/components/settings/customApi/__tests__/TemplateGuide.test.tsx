@@ -277,7 +277,7 @@ describe('TemplateGuide', () => {
     await screen.findByText(/could not be reloaded/);
     const retry = screen.getByRole('button', { name: 'Try again' });
     fireEvent.click(retry);
-    expect(retry).toBeDisabled();
+    expect(retry).toBeInactive();
     fireEvent.click(retry);
     resolveRetry([{ id: 9, endpoints: [{ id: 101 }] }]);
     await waitFor(() => expect(onDone).toHaveBeenCalled());

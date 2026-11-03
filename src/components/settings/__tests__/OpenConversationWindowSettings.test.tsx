@@ -57,6 +57,7 @@ vi.mock('../WorkspaceDetailsSettings', () => ({ WorkspaceDetailsSettings: () => 
 import { OpenConversationWindowSettings } from '../OpenConversationWindowSettings';
 import { OrganizationSettings } from '../OrganizationSettings';
 import { apiError } from '@/test/apiError';
+import { isInactive } from '@/test/inactive';
 
 const daysInput = () => screen.getByLabelText('Days');
 const presetSelect = () => screen.getByLabelText('Window');
@@ -83,10 +84,10 @@ describe('OpenConversationWindowSettings', () => {
     expect(await screen.findByText(/Currently 14 days/)).toBeInTheDocument();
     expect(shownPreset('14 days')).toBeInTheDocument();
     expect(screen.queryByLabelText('Days')).not.toBeInTheDocument();
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
 
     await chooseOption(presetSelect(), '1 month (30 days)');
-    expect(saveButton()).not.toBeDisabled();
+    expect(saveButton()).not.toBeInactive();
     fireEvent.click(saveButton());
 
     await waitFor(() => expect(updateOpenConversationWindow).toHaveBeenCalledWith(30));
@@ -215,7 +216,7 @@ describe('OpenConversationWindowSettings', () => {
     const button = saveButton();
     fireEvent.click(button);
     await waitFor(() => expect(updateOpenConversationWindow).toHaveBeenCalledTimes(1));
-    expect(button).toBeDisabled();
+    expect(isInactive(button)).toBe(true);
     fireEvent.click(button);
     finish(supported(30));
 
@@ -227,9 +228,7 @@ describe('OpenConversationWindowSettings', () => {
     getOpenConversationWindow.mockRejectedValue(await apiError(500, { error: 'boom' }));
     render(<OpenConversationWindowSettings />);
 
-    expect(
-      await screen.findByText(/Couldn't load the open-thread window/)
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Couldn't load the open-thread window/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Window')).not.toBeInTheDocument();
   });
 });
@@ -246,7 +245,7 @@ describe('OpenConversationWindowSettings — Off', () => {
     fireEvent.click(offSwitch());
     // Off hides the length controls: there is no window to choose.
     expect(screen.queryByLabelText('Window')).not.toBeInTheDocument();
-    expect(saveButton()).not.toBeDisabled();
+    expect(saveButton()).not.toBeInactive();
     fireEvent.click(saveButton());
 
     await waitFor(() => expect(updateOpenConversationWindow).toHaveBeenCalledWith(0));
@@ -257,7 +256,7 @@ describe('OpenConversationWindowSettings — Off', () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/Saved: off\./)).toBeInTheDocument();
     expect(offSwitch()).toHaveAttribute('aria-checked', 'false');
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
   });
 
   it('a stored OFF shows the switch off; turning it on offers 14 and saves it', async () => {

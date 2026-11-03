@@ -83,7 +83,10 @@ describe('KbQualityReview — improve', () => {
     expect(screen.getByText(/where is my parcel\?\s*Best regards/)).toBeInTheDocument();
     expect(screen.getByLabelText('Question')).toHaveValue('Where is my parcel?');
     expect(screen.getByLabelText('Answer')).toHaveValue('Use the tracking link.');
-    expect(screen.getByRole('link', { name: 'Thread SUP-900' })).toHaveAttribute('href', '/threads?id=900');
+    expect(screen.getByRole('link', { name: 'Thread SUP-900' })).toHaveAttribute(
+      'href',
+      '/threads?id=900'
+    );
   });
 
   it('saves the text the moderator EDITED, not the AI proposal', async () => {
@@ -92,10 +95,16 @@ describe('KbQualityReview — improve', () => {
     const announced = vi.fn();
     window.addEventListener(KB_CONSOLIDATION_DECIDED_EVENT, announced);
     const onDecided = renderReview();
-    fireEvent.change(await screen.findByLabelText('Answer'), { target: { value: '  Track it in your account.  ' } });
+    fireEvent.change(await screen.findByLabelText('Answer'), {
+      target: { value: '  Track it in your account.  ' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /Save rewrite/ }));
     await waitFor(() => expect(accept).toHaveBeenCalledTimes(1));
-    expect(accept).toHaveBeenCalledWith(41, { action: 'apply', question: 'Where is my parcel?', answer: 'Track it in your account.' });
+    expect(accept).toHaveBeenCalledWith(41, {
+      action: 'apply',
+      question: 'Where is my parcel?',
+      answer: 'Track it in your account.',
+    });
     expect(await screen.findByText('#KB-12 was rewritten and approved.')).toBeInTheDocument();
     expect(onDecided).toHaveBeenCalledWith(expect.objectContaining({ kind: 'applied' }));
     expect(announced).toHaveBeenCalled();
@@ -107,26 +116,32 @@ describe('KbQualityReview — improve', () => {
     renderReview();
     const question = await screen.findByLabelText('Question');
     fireEvent.change(question, { target: { value: '   ' } });
-    expect(screen.getByRole('button', { name: /Save rewrite/ })).toBeDisabled();
-    expect(screen.getByTestId('quality-blocked-reason')).toHaveTextContent('The entry needs a question.');
+    expect(screen.getByRole('button', { name: /Save rewrite/ })).toBeInactive();
+    expect(screen.getByTestId('quality-blocked-reason')).toHaveTextContent(
+      'The entry needs a question.'
+    );
     fireEvent.change(question, { target: { value: 'q'.repeat(QUALITY_QUESTION_MAX + 1) } });
-    expect(screen.getByRole('button', { name: /Save rewrite/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Save rewrite/ })).toBeInactive();
     // Control: a valid question enables it again.
     fireEvent.change(question, { target: { value: 'Where is my parcel?' } });
-    expect(screen.getByRole('button', { name: /Save rewrite/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Save rewrite/ })).not.toBeInactive();
   });
 
   it('says why there is no rewrite and starts from the entry’s own text', async () => {
     getDetail.mockResolvedValue(detail({ proposed: null, rewriteProblem: 'nothing_reusable' }));
     renderReview();
-    expect(await screen.findByText(/found nothing in the answer that would help another customer/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/found nothing in the answer that would help another customer/)
+    ).toBeInTheDocument();
     expect(screen.getByLabelText('Answer')).toHaveValue('You can use the tracking link.');
   });
 });
 
 describe('KbQualityReview — remove', () => {
   it('offers Remove and Keep, and a rewrite only on request', async () => {
-    getDetail.mockResolvedValue(detail({ verdict: 'remove', reasons: ['customer_specific'], proposed: null }));
+    getDetail.mockResolvedValue(
+      detail({ verdict: 'remove', reasons: ['customer_specific'], proposed: null })
+    );
     accept.mockResolvedValue({ id: 41, status: 'rejected', entryId: 12, publicId: 'KB-12' });
     renderReview();
     expect(await screen.findByText('Proposed: remove #KB-12')).toBeInTheDocument();
@@ -142,15 +157,25 @@ describe('KbQualityReview — remove', () => {
   });
 
   it('"Rewrite it instead" opens the editor on the entry’s text and saves it as a rewrite', async () => {
-    getDetail.mockResolvedValue(detail({ verdict: 'remove', reasons: ['outdated'], proposed: null }));
+    getDetail.mockResolvedValue(
+      detail({ verdict: 'remove', reasons: ['outdated'], proposed: null })
+    );
     accept.mockResolvedValue({ id: 41, status: 'applied', entryId: 12 });
     renderReview();
     fireEvent.click(await screen.findByRole('button', { name: /Rewrite it instead/ }));
-    expect(screen.getByLabelText('Question')).toHaveValue('Hi Anna,\nwhere is my parcel?\nBest regards');
-    fireEvent.change(screen.getByLabelText('Question'), { target: { value: 'Where is my parcel?' } });
+    expect(screen.getByLabelText('Question')).toHaveValue(
+      'Hi Anna,\nwhere is my parcel?\nBest regards'
+    );
+    fireEvent.change(screen.getByLabelText('Question'), {
+      target: { value: 'Where is my parcel?' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /Save rewrite/ }));
     await waitFor(() =>
-      expect(accept).toHaveBeenCalledWith(41, { action: 'apply', question: 'Where is my parcel?', answer: 'You can use the tracking link.' })
+      expect(accept).toHaveBeenCalledWith(41, {
+        action: 'apply',
+        question: 'Where is my parcel?',
+        answer: 'You can use the tracking link.',
+      })
     );
   });
 
@@ -169,33 +194,41 @@ describe('KbQualityReview — who may decide, and when', () => {
   it('a moderator who does not cover the whole scope sees it but cannot decide', async () => {
     getDetail.mockResolvedValue(detail({ canDecide: false }));
     renderReview();
-    expect(await screen.findByTestId('quality-blocked-reason')).toHaveTextContent('every team this mailbox serves');
-    expect(screen.getByRole('button', { name: /Save rewrite/ })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Remove entry/ })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Keep as is/ })).toBeDisabled();
+    expect(await screen.findByTestId('quality-blocked-reason')).toHaveTextContent(
+      'every team this mailbox serves'
+    );
+    expect(screen.getByRole('button', { name: /Save rewrite/ })).toBeInactive();
+    expect(screen.getByRole('button', { name: /Remove entry/ })).toBeInactive();
+    expect(screen.getByRole('button', { name: /Keep as is/ })).toBeInactive();
   });
 
   it('an entry edited since the review cannot be acted on — not even "Keep" (FE audit M4)', async () => {
     getDetail.mockResolvedValue(detail({ editedSinceProposed: true }));
     renderReview();
-    expect(await screen.findByTestId('quality-blocked-reason')).toHaveTextContent('changed or left the knowledge base');
-    expect(screen.getByRole('button', { name: /Remove entry/ })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Save rewrite/ })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Keep as is/ })).toBeDisabled();
+    expect(await screen.findByTestId('quality-blocked-reason')).toHaveTextContent(
+      'changed or left the knowledge base'
+    );
+    expect(screen.getByRole('button', { name: /Remove entry/ })).toBeInactive();
+    expect(screen.getByRole('button', { name: /Save rewrite/ })).toBeInactive();
+    expect(screen.getByRole('button', { name: /Keep as is/ })).toBeInactive();
   });
 
   it('an entry no longer in the knowledge base as it was is blocked the same way', async () => {
     getDetail.mockResolvedValue(detail({ stillEligible: false }));
     renderReview();
-    expect(await screen.findByTestId('quality-blocked-reason')).toHaveTextContent('changed or left the knowledge base');
-    expect(screen.getByRole('button', { name: /Keep as is/ })).toBeDisabled();
+    expect(await screen.findByTestId('quality-blocked-reason')).toHaveTextContent(
+      'changed or left the knowledge base'
+    );
+    expect(screen.getByRole('button', { name: /Keep as is/ })).toBeInactive();
   });
 
   it('an answer over the server bound blocks Save', async () => {
     getDetail.mockResolvedValue(detail());
     renderReview();
-    fireEvent.change(await screen.findByLabelText('Answer'), { target: { value: 'a'.repeat(8001) } });
-    expect(screen.getByRole('button', { name: /Save rewrite/ })).toBeDisabled();
+    fireEvent.change(await screen.findByLabelText('Answer'), {
+      target: { value: 'a'.repeat(8001) },
+    });
+    expect(screen.getByRole('button', { name: /Save rewrite/ })).toBeInactive();
     expect(screen.getByTestId('quality-blocked-reason')).toHaveTextContent('8,000');
   });
 
@@ -213,7 +246,9 @@ describe('KbQualityReview — who may decide, and when', () => {
     accept.mockResolvedValue({ status: 'applied', entryId: 12, publicId: 'KB-12', redactions: 2 });
     renderReview();
     fireEvent.click(await screen.findByRole('button', { name: /Save rewrite/ }));
-    expect(await screen.findByText(/Contact details were removed from the saved text/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Contact details were removed from the saved text/)
+    ).toBeInTheDocument();
   });
 
   it('warns that a rewrite of a too-long entry may miss its end', async () => {
@@ -224,7 +259,9 @@ describe('KbQualityReview — who may decide, and when', () => {
 
   it('a decision taken elsewhere (409) re-reads the suggestion and shows its real status', async () => {
     getDetail.mockResolvedValueOnce(detail()).mockResolvedValueOnce(detail({ status: 'accepted' }));
-    accept.mockRejectedValue(Object.assign(new Error('This suggestion was already decided.'), { status: 409 }));
+    accept.mockRejectedValue(
+      Object.assign(new Error('This suggestion was already decided.'), { status: 409 })
+    );
     renderReview();
     fireEvent.click(await screen.findByRole('button', { name: /Save rewrite/ }));
     expect(await screen.findByText(/no longer pending \(accepted\)/)).toBeInTheDocument();
@@ -236,7 +273,11 @@ describe('KbQualityReview — who may decide, and when', () => {
     accept.mockResolvedValue({ id: 41, status: 'expired', reason: 'The entry was edited.' });
     renderReview();
     fireEvent.click(await screen.findByRole('button', { name: /Save rewrite/ }));
-    expect(await screen.findByText(/Nothing was changed — this suggestion expired. The entry was edited./)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        /Nothing was changed — this suggestion expired. The entry was edited./
+      )
+    ).toBeInTheDocument();
   });
 
   it('a decided suggestion shows its status and no buttons', async () => {

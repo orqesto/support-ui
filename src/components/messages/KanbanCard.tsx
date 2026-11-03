@@ -496,7 +496,7 @@ export const KanbanCard = ({
               onClick={openPicker}
               onPointerDown={(event) => event.stopPropagation()}
               disabled={!currentUser?.id}
-              className="inline-flex items-center gap-1 h-[22px] px-2 rounded text-[11px] font-semibold text-muted-foreground border border-dashed border-border hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-1 h-[22px] px-2 rounded text-[11px] font-semibold text-muted-foreground border border-dashed border-border hover:border-primary hover:text-primary data-[inactive]:opacity-50 data-[inactive]:cursor-not-allowed"
             >
               <Plus className="w-3 h-3" />
               Claim

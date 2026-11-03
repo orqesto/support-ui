@@ -188,7 +188,7 @@ describe('Automatic actions page', () => {
     perms.canManageOrg = false;
     renderPage();
     await screen.findByText('4 entries');
-    expect(slider()).toBeDisabled();
+    expect(slider()).toBeInactive();
     expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Automatic' })).not.toBeInTheDocument();
     expect(screen.getByText('Only workspace admins can change this setting.')).toBeInTheDocument();
@@ -514,15 +514,15 @@ describe('Automatic actions page — every action on one page', () => {
     renderPage();
     await screen.findByTestId('kb-auto-row-hold');
     expect(within(row('hold')).getByText('Rate 3 more to switch this on.')).toBeInTheDocument();
-    expect(within(row('hold')).getByRole('button', { name: 'Automatic' })).toBeDisabled();
-    expect(within(row('remove')).getByRole('button', { name: 'Automatic' })).toBeEnabled();
+    expect(within(row('hold')).getByRole('button', { name: 'Automatic' })).toBeInactive();
+    expect(within(row('remove')).getByRole('button', { name: 'Automatic' })).not.toBeInactive();
   });
 
   it('a platform admin may override the gate', async () => {
     useAuthStore.setState({ user: { role: 'admin' } as never });
     renderPage();
     await screen.findByTestId('kb-auto-row-hold');
-    expect(within(row('hold')).getByRole('button', { name: 'Automatic' })).toBeEnabled();
+    expect(within(row('hold')).getByRole('button', { name: 'Automatic' })).not.toBeInactive();
     expect(
       within(row('hold')).getByText(/You can override this as a platform admin\./)
     ).toBeInTheDocument();

@@ -242,7 +242,7 @@ describe('PlatformDefaults', () => {
     openStorageEditor();
     expect(screen.getByText(/Run a successful connection test/i)).toBeInTheDocument();
     const save = screen.getByRole('button', { name: /save storage default/i });
-    expect(save).toBeDisabled();
+    expect(save).toBeInactive();
     fireEvent.click(save);
     expect(noopMutation.mutate).not.toHaveBeenCalled();
   });

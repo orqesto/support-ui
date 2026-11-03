@@ -281,7 +281,7 @@ describe('PromoteToKbDialog', () => {
     renderDialog();
 
     expect(await screen.findByText(/no question and answer could be read/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /add to knowledge base/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /add to knowledge base/i })).toBeInactive();
   });
 
   it("surfaces the server's reason for refusing, not a generic failure", async () => {

@@ -495,13 +495,13 @@ describe('WorkspaceTokenLimitsDialog', () => {
     const kbInput = screen.getByLabelText('KB processing (tokens per UTC day)');
     const regularInput = screen.getByLabelText('Regular work (tokens per UTC day)');
     // CONTROL: editable before the Save.
-    expect(kbInput).not.toBeDisabled();
-    expect(regularInput).not.toBeDisabled();
+    expect(kbInput).not.toBeInactive();
+    expect(regularInput).not.toBeInactive();
     fireEvent.change(regularInput, { target: { value: '3000000' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(sent).toHaveLength(1));
-    expect(kbInput).toBeDisabled();
-    expect(regularInput).toBeDisabled();
+    expect(kbInput).toBeInactive();
+    expect(regularInput).toBeInactive();
     finish();
     await waitFor(() => expect(toasts).toHaveLength(1));
   });

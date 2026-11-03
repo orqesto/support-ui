@@ -183,7 +183,7 @@ export function ComposeNewAiDraft({
         aria-busy={busy}
         data-ai-draft
         title={empty ? EMPTY_DRAFT_HINT : 'Rewrite what you typed into a ready-to-send email'}
-        className={`${COMPOSER_AI_TOOL} disabled:opacity-50`}
+        className={`${COMPOSER_AI_TOOL} data-[inactive]:opacity-50`}
       >
         {busy ? <Spinner size={12} className="text-ai" /> : <Sparkles className="w-3 h-3" />}
         AI draft

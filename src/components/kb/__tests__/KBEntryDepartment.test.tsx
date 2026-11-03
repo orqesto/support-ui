@@ -143,9 +143,9 @@ describe('Team in the KB entry editor (F1)', () => {
   it('a team-only change saves, and sends ONLY departmentId', async () => {
     const saved = openEditor(brochure);
     await waitForDepartments();
-    expect(saveButton().disabled).toBe(true);
+    expect(saveButton()).toBeInactive();
     await chooseOption(departmentSelect()!, 'Sales');
-    expect(saveButton().disabled).toBe(false);
+    expect(saveButton()).not.toBeInactive();
     fireEvent.click(saveButton());
     await waitFor(() => expect(saved.length).toBe(1));
     expect(patches().map((call) => call.body)).toEqual([{ departmentId: 5 }]);
@@ -167,7 +167,7 @@ describe('Team in the KB entry editor (F1)', () => {
     expect(screen.getByText('Support')).toBeTruthy();
     expect(screen.queryByText('Unassigned')).toBeNull();
     await chooseOption(departmentSelect()!, 'Support');
-    expect(saveButton().disabled).toBe(true);
+    expect(saveButton()).toBeInactive();
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Brochure 2026' } });
     fireEvent.click(saveButton());
     await waitFor(() => expect(saved.length).toBe(1));

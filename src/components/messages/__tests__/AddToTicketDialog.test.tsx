@@ -250,6 +250,6 @@ describe('AddToTicketDialog', () => {
     // Not closed, nothing reported as added, and the button is usable again (busy cleared).
     expect(onAdded).not.toHaveBeenCalled();
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
-    expect(screen.getByRole('button', { name: /^Add$/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /^Add$/ })).not.toBeInactive();
   });
 });

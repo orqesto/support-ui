@@ -343,7 +343,7 @@ describe('KB list — consolidation states (F4)', () => {
     expect(
       screen.queryByText(/differs from the question and answer AI drafts use/)
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Save Changes/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Save Changes/ })).toBeInactive();
   });
 
   it('FE pass 23 LOW-1: a Q&A entry with no category — typing one and deleting it again leaves nothing to save (never a 400)', async () => {
@@ -368,11 +368,11 @@ describe('KB list — consolidation states (F4)', () => {
     await waitFor(() => expect(getById).toHaveBeenCalled());
     fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
     fireEvent.change(screen.getByLabelText('Category'), { target: { value: 'billing' } });
-    expect(screen.getByRole('button', { name: /Save Changes/ })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /Save Changes/ })).not.toBeInactive();
     fireEvent.change(screen.getByLabelText('Category'), { target: { value: '' } });
-    expect(screen.getByRole('button', { name: /Save Changes/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Save Changes/ })).toBeInactive();
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: '   ' } });
-    expect(screen.getByRole('button', { name: /Save Changes/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Save Changes/ })).toBeInactive();
   });
 
   it('FE pass 23 LOW-2: a drifted entry can be put back to the answer AI drafts already use', async () => {
@@ -433,7 +433,7 @@ describe('KB list — consolidation states (F4)', () => {
     );
     await waitFor(() => expect(getById).toHaveBeenCalled());
     fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
-    expect(screen.getByRole('button', { name: /Save Changes/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Save Changes/ })).toBeInactive();
     fireEvent.change(screen.getByLabelText('Title'), { target: { value: 'Refund policy' } });
     fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
     await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
@@ -463,11 +463,11 @@ describe('KB list — consolidation states (F4)', () => {
     );
     fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
     fireEvent.change(screen.getByLabelText('Answer'), { target: { value: '   ' } });
-    expect(screen.getByRole('button', { name: /Save Changes/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Save Changes/ })).toBeInactive();
     fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
     expect(update).not.toHaveBeenCalled();
     fireEvent.change(screen.getByLabelText('Answer'), { target: { value: '7 days.' } });
-    expect(screen.getByRole('button', { name: /Save Changes/ })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /Save Changes/ })).not.toBeInactive();
   });
 
   it('the drawer acts on the entry it fetched, not the row it was opened with (H1)', async () => {

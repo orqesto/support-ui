@@ -97,7 +97,7 @@ describe('TokenLimitsCard', () => {
   it('a blank field is refused: Save is disabled and the field says why — never null', () => {
     renderCard();
     fireEvent.change(kbField(), { target: { value: '' } });
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
     expect(screen.getByText('Enter a limit — 0 switches it off.')).toBeTruthy();
     fireEvent.click(saveButton());
     expect(sent).toHaveLength(0);
@@ -164,7 +164,7 @@ describe('TokenLimitsCard', () => {
   it('an invalid value blocks Save', () => {
     renderCard();
     fireEvent.change(regularField(), { target: { value: '1,2,3' } });
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
   });
 
   it('a limit not saved yet is tagged "Not saved" and the card says what that means', () => {
@@ -258,7 +258,7 @@ describe('TokenLimitsCard — after Save (audit pass 8)', () => {
     fireEvent.click(saveButton());
     await waitFor(() => expect(sent).toHaveLength(1));
     // The operator tries to leave and come back while the Save is on its way: the form stays.
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInactive();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
     shown = budgets({ kb: { limit: 9_000_000, source: 'platform' } });
@@ -276,7 +276,7 @@ describe('TokenLimitsCard — after Save (audit pass 8)', () => {
     renderCard();
     fireEvent.change(regularField(), { target: { value: '3000000' } });
     fireEvent.click(saveButton());
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).not.toBeDisabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).not.toBeInactive());
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
   });
@@ -334,24 +334,24 @@ describe('TokenLimitsCard — after Save (audit pass 8)', () => {
     fireEvent.change(regularField(), { target: { value: '3000000' } });
     fireEvent.click(saveButton());
     await waitFor(() => expect(sent).toHaveLength(1));
-    expect(kbField()).toBeDisabled();
-    expect(regularField()).toBeDisabled();
-    expect(screen.getByRole('switch')).toBeDisabled();
+    expect(kbField()).toBeInactive();
+    expect(regularField()).toBeInactive();
+    expect(screen.getByRole('switch')).toBeInactive();
     // CONTROL: once the Save has answered (failed, so the form stays), they are editable again.
     await act(async () => {
       fail();
       await Promise.resolve();
     });
-    await waitFor(() => expect(regularField()).not.toBeDisabled());
-    expect(kbField()).not.toBeDisabled();
-    expect(screen.getByRole('switch')).not.toBeDisabled();
+    await waitFor(() => expect(regularField()).not.toBeInactive());
+    expect(kbField()).not.toBeInactive();
+    expect(screen.getByRole('switch')).not.toBeInactive();
   });
 
   it('CONTROL: with nothing on its way the fields and the switch are editable', () => {
     renderCard();
-    expect(kbField()).not.toBeDisabled();
-    expect(regularField()).not.toBeDisabled();
-    expect(screen.getByRole('switch')).not.toBeDisabled();
+    expect(kbField()).not.toBeInactive();
+    expect(regularField()).not.toBeInactive();
+    expect(screen.getByRole('switch')).not.toBeInactive();
   });
 });
 

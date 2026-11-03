@@ -103,7 +103,7 @@ describe('GmailMarkImportedStrip', () => {
     render(
       <GmailMarkImportedStrip source={gmailSource({ grantedScopes: TODAY_GRANT })} {...props} />
     );
-    expect(toggle()).toBeDisabled();
+    expect(toggle()).toBeInactive();
     expect(screen.getByText(/needs an extra gmail permission/i)).toBeInTheDocument();
   });
 
@@ -133,7 +133,7 @@ describe('GmailMarkImportedStrip', () => {
         {...props}
       />
     );
-    expect(toggle()).toBeEnabled();
+    expect(toggle()).not.toBeInactive();
   });
 
   it('turning a stored "on" off saves enabled: false and keeps the label for next time', async () => {

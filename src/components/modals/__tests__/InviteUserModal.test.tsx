@@ -76,7 +76,7 @@ const fill = () => {
 describe('InviteUserModal — the invite goes to the workspace the requests go to', () => {
   it('names the current workspace, offers no other, and invites into it', async () => {
     render(<InviteUserModal isOpen onClose={vi.fn()} onInvite={onInvite} />);
-    expect(await screen.findByDisplayValue('Acme Support')).toBeDisabled();
+    expect(await screen.findByDisplayValue('Acme Support')).toBeInactive();
     expect(screen.getByTestId('invite-workspace-hint')).toHaveTextContent(
       'To invite into another workspace, switch to it first.'
     );
@@ -114,7 +114,7 @@ describe('InviteUserModal — the invite goes to the workspace the requests go t
     );
     fill();
     const submit = screen.getByRole('button', { name: /Send Invitation|Invite/ });
-    expect(submit).toBeDisabled();
+    expect(submit).toBeInactive();
     fireEvent.click(submit);
     // A submit that does not go through the button (Enter in a field) meets the same refusal.
     fireEvent.submit(submit.closest('form') as HTMLFormElement);
@@ -154,7 +154,7 @@ describe('InviteUserModal — the invite goes to the workspace the requests go t
     expect(screen.queryByDisplayValue('Workspace #3')).not.toBeInTheDocument();
     fill();
     const submit = screen.getByRole('button', { name: /Send Invitation|Invite/ });
-    expect(submit).toBeDisabled();
+    expect(submit).toBeInactive();
     fireEvent.submit(submit.closest('form') as HTMLFormElement);
     expect(
       await screen.findByText('No workspace is selected. Choose a workspace first.', {

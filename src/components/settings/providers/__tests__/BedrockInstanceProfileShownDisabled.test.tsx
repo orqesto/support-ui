@@ -48,7 +48,7 @@ describe('the EC2 instance profile option', () => {
     backendVersion.mockReturnValue({ data: { bedrockInstanceProfile: false } });
     openForm();
 
-    expect(instanceProfileRadio()).toBeDisabled();
+    expect(instanceProfileRadio()).toBeInactive();
     expect(screen.getByText(/Not available on this deployment/i)).toBeInTheDocument();
   });
 
@@ -56,7 +56,7 @@ describe('the EC2 instance profile option', () => {
     backendVersion.mockReturnValue({ data: { bedrockInstanceProfile: true } });
     openForm();
 
-    expect(instanceProfileRadio()).not.toBeDisabled();
+    expect(instanceProfileRadio()).not.toBeInactive();
     expect(screen.queryByText(/Not available on this deployment/i)).not.toBeInTheDocument();
   });
 
@@ -66,6 +66,6 @@ describe('the EC2 instance profile option', () => {
     backendVersion.mockReturnValue({ data: undefined });
     openForm();
 
-    expect(instanceProfileRadio()).toBeDisabled();
+    expect(instanceProfileRadio()).toBeInactive();
   });
 });

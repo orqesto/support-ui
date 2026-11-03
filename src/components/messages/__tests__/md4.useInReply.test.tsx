@@ -393,7 +393,7 @@ describe('"Use in reply": the sentence goes into the REPLY', () => {
     } as Partial<Message>);
     await useRecord();
     expect(editor().value).toBe(`<p>${SENTENCE}</p>`);
-    expect(within(composer()).getByRole('button', { name: /SEND/ })).toBeDisabled();
+    expect(within(composer()).getByRole('button', { name: /SEND/ })).toBeInactive();
   });
 
   it('phone: from the Lookups tab it goes back to Thread with the composer open', async () => {

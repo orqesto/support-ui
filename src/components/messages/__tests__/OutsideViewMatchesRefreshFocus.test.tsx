@@ -506,19 +506,16 @@ describe('OutsideViewMatches — Refresh keeps focus and says what came back', (
     fireEvent.click(more);
     // Loading: still focusable (a disabled button loses focus in a browser), marked aria-disabled.
     await waitFor(() => expect(more.getAttribute('aria-disabled')).toBe('true'));
-    expect((more as HTMLButtonElement).disabled).toBe(false);
-    // Looks inactive (whole class names: the base classes carry `disabled:opacity-50`).
-    expect(more.className.split(' ')).toEqual(
-      expect.arrayContaining(['opacity-50', 'pointer-events-none'])
-    );
+    expect(more.matches(':disabled')).toBe(false); // never natively disabled: it keeps focus
+    expect(more.hasAttribute('data-inactive')).toBe(true); // looks inactive (dimmed, no pointer events)
     expect(document.activeElement).toBe(more);
     fireEvent.click(more); // a second press while page 2 is out
     expect(getThreads).toHaveBeenCalledTimes(2);
     answerPage2(answer([thread(2, 'terminal', 'Old two')], 30));
     await screen.findByText('Old two');
     expect(document.activeElement).toBe(more);
-    expect(more.getAttribute('aria-disabled')).toBe('false');
-    expect(more.className.split(' ')).not.toContain('opacity-50');
+    expect(more.getAttribute('aria-disabled')).not.toBe('true');
+    expect(more.hasAttribute('data-inactive')).toBe(false);
   });
 
   it('[control] focus on a button the fresh answer keeps stays on that button', async () => {

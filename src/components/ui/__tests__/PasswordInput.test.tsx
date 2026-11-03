@@ -93,7 +93,7 @@ describe('PasswordInput', () => {
   it('cannot be revealed while the field is disabled', () => {
     render(<PasswordInput label="API Key" value="sk-secret" onChange={vi.fn()} disabled />);
     const toggle = screen.getByRole('button', { name: 'Show password' });
-    expect(toggle).toBeDisabled();
+    expect(toggle).toBeInactive();
     fireEvent.click(toggle);
     expect(screen.getByLabelText('API Key')).toHaveAttribute('type', 'password');
   });

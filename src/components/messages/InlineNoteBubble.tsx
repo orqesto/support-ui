@@ -79,7 +79,7 @@ export function InlineNoteBubble({ note, messageId, currentUserId, onUpdated, on
                 aria-label="Delete note"
                 onClick={() => void handleDelete()}
                 disabled={deleting}
-                className="p-0 w-auto h-auto text-note hover:text-destructive disabled:opacity-40"
+                className="p-0 w-auto h-auto text-note hover:text-destructive data-[inactive]:opacity-40"
               >
                 <Trash2 className="w-2.5 h-2.5" />
               </Button>

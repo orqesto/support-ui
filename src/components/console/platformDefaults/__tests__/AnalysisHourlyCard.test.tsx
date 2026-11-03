@@ -63,7 +63,7 @@ describe('AnalysisHourlyCard', () => {
     expect(screen.getByText('Default')).toBeInTheDocument();
     expect(screen.getByText('Console')).toBeInTheDocument();
     expect(kbLine()).toBe('Knowledge base can use up to 800 calls per hour.');
-    expect(save()).toBeDisabled();
+    expect(save()).toBeInactive();
     expect(screen.queryByTestId('reserve-clamped')).toBeNull();
   });
 
@@ -112,10 +112,10 @@ describe('AnalysisHourlyCard', () => {
       expect(
         screen.getByText('The reserve must be lower than the calls per hour.')
       ).toBeInTheDocument();
-      expect(save()).toBeDisabled();
+      expect(save()).toBeInactive();
     }
     fireEvent.change(reserve(), { target: { value: '999' } });
-    expect(save()).toBeEnabled();
+    expect(save()).not.toBeInactive();
     expect(puts).toHaveLength(0);
   });
 
@@ -124,7 +124,7 @@ describe('AnalysisHourlyCard', () => {
     for (const bad of ['49', '100001', '1.5', '']) {
       fireEvent.change(limit(), { target: { value: bad } });
       expect(screen.getByText('Enter a whole number from 50 to 100000.')).toBeInTheDocument();
-      expect(save()).toBeDisabled();
+      expect(save()).toBeInactive();
     }
     expect(puts).toHaveLength(0);
   });

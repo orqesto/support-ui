@@ -384,8 +384,8 @@ describe('requests card', () => {
     fireEvent.click(
       within(await screen.findByRole('dialog')).getByRole('button', { name: 'Decline' })
     );
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Decline' })).toBeDisabled());
-    expect(screen.getByRole('button', { name: 'Give' })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Decline' })).toBeInactive());
+    expect(screen.getByRole('button', { name: 'Give' })).toBeInactive();
     fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(calls.declineRequest).toEqual([41]);
@@ -479,8 +479,8 @@ describe('an organisation-wide request on the list page (F1)', () => {
     orgMode = 'separate';
     renderPage();
     const item = await screen.findByTestId('budget-request-41');
-    await waitFor(() => expect(within(item).getByRole('button', { name: 'Give' })).toBeDisabled());
-    expect(within(item).getByRole('button', { name: 'Decline' })).toBeEnabled();
+    await waitFor(() => expect(within(item).getByRole('button', { name: 'Give' })).toBeInactive());
+    expect(within(item).getByRole('button', { name: 'Decline' })).not.toBeInactive();
     expect(calls.getGroup).toEqual(['a:7']);
   });
 
@@ -488,7 +488,7 @@ describe('an organisation-wide request on the list page (F1)', () => {
     renderPage();
     const item = await screen.findByTestId('budget-request-41');
     await waitFor(() => expect(calls.getGroup).toEqual(['a:7']));
-    expect(within(item).getByRole('button', { name: 'Give' })).toBeEnabled();
+    expect(within(item).getByRole('button', { name: 'Give' })).not.toBeInactive();
   });
 
   it('a workspace request reads no organisation', async () => {

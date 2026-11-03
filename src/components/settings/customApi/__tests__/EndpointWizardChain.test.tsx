@@ -208,7 +208,7 @@ describe('D21 — the chain on the settings form', () => {
       'A value from another lookup’s answer, like the customer’s id'
     );
     // ⛔ Incomplete ⇒ Save is refused on screen rather than sent to be a 400.
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInactive();
 
     await chooseOption(screen.getByLabelText('Which lookup gives the value?'), 'Customer account');
     // The source's picked field is offered as a one-press answer.
@@ -248,7 +248,7 @@ describe('D21 — the chain on the settings form', () => {
     );
 
     expect(screen.getByText(/finds the customer by their email/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInactive();
   });
 
   it('CONTROL: an identity lookup is still saved as identity, with no chain fields', async () => {

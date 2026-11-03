@@ -161,7 +161,7 @@ describe('v4 lookup header — "ran …" and "Look up again" once a lookup has r
     expect(await screen.findByRole('button', { name: 'Look up' })).toBeInTheDocument();
     expect(ran()).toBeNull();
     await press(/^look up$/i);
-    expect(screen.getByRole('button', { name: 'Looking up…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Looking up…' })).toBeInactive();
     expect(ran()).toBeNull();
     answer([card()]);
     expect(await screen.findByRole('button', { name: 'Look up again' })).toBeInTheDocument();
@@ -185,7 +185,7 @@ describe('v4 lookup header — "ran …" and "Look up again" once a lookup has r
     run.mockRejectedValue(Object.assign(new Error('boom'), { status: 500 }));
     render(<CustomApiLookupPanel conversationId={1} />);
     await press(/^look up$/i);
-    expect(await screen.findByRole('button', { name: 'Look up' })).toBeEnabled();
+    expect(await screen.findByRole('button', { name: 'Look up' })).not.toBeInactive();
     expect(ran()).toBeNull();
   });
 

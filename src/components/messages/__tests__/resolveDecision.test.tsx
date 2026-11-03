@@ -160,7 +160,7 @@ describe('ResolveDecisions — the row under the reply (v3, 2026-09-23)', () => 
         onResolveAsSpam={vi.fn()}
       />
     );
-    for (const button of screen.getAllByRole('button')) expect(button).toBeDisabled();
+    for (const button of screen.getAllByRole('button')) expect(button).toBeInactive();
   });
 });
 
@@ -175,7 +175,7 @@ describe('ResolveDecisions — "Resolve & save to KB" says it is saving', () => 
     );
     const saving = screen.getByRole('button', { name: /Saving to KB…/ });
     expect(saving.getAttribute('aria-busy')).toBe('true');
-    expect((saving as HTMLButtonElement).disabled).toBe(true);
+    expect(saving).toBeInactive();
     expect(screen.queryByRole('button', { name: /Resolve & save to KB/ })).toBeNull();
   });
 

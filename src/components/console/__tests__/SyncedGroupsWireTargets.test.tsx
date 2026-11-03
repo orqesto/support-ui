@@ -117,7 +117,7 @@ describe('SyncedGroupsCard wire targets', () => {
     );
     renderCard();
 
-    expect(screen.getByRole('button', { name: 'Edit role / workspace' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Edit role / workspace' })).not.toBeInactive();
     expect(screen.getByRole('button', { name: 'Unwire' })).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Re-point', hidden: true })
@@ -288,7 +288,7 @@ describe('workspace selection defaults', () => {
   it('refuses to wire while nothing is selected, and says so', () => {
     syncedGroups.push(baseGroup());
     renderCard();
-    expect(screen.getByRole('button', { name: /Map access/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Map access/ })).toBeInactive();
     expect(screen.getByText(/Choose one to map/)).toBeInTheDocument();
   });
 

@@ -127,13 +127,13 @@ describe('Compose new — To', () => {
 describe('Compose new — AI draft', () => {
   it('is disabled while the message is empty, and the editor says how it works', async () => {
     await renderModal();
-    expect(aiDraft()).toBeDisabled();
+    expect(aiDraft()).toBeInactive();
     expect(screen.getByLabelText('Message')).toHaveAttribute(
       'placeholder',
       expect.stringContaining('press AI draft')
     );
     type('Message', '<p>invoice 12 paid, thanks</p>');
-    expect(aiDraft()).toBeEnabled();
+    expect(aiDraft()).not.toBeInactive();
   });
 
   it('rewrites what was typed in place, and Undo brings it back', async () => {
@@ -160,7 +160,7 @@ describe('Compose new — AI draft', () => {
     );
     // A state, not a failure: grey, not red.
     expect(screen.getByRole('alert')).toHaveClass('text-muted-foreground');
-    expect(aiDraft()).toBeEnabled();
+    expect(aiDraft()).not.toBeInactive();
     expect(screen.getByLabelText('Message')).toHaveValue('<p>hello</p>');
     // Once the backend has the route, the same button works.
     svc.composePolish.mockResolvedValueOnce({ success: true, data: { text: 'Hello.' } });
@@ -182,7 +182,7 @@ describe('Compose new — AI draft', () => {
       expect(screen.getByLabelText('Message')).toHaveValue('<p>Invoice 12 is paid.</p>')
     );
     type('Message', '<p>Invoice 12 is paid. receipt attached</p>');
-    expect(aiDraft()).toBeEnabled();
+    expect(aiDraft()).not.toBeInactive();
     fireEvent.click(aiDraft());
     await waitFor(() =>
       expect(screen.getByLabelText('Message')).toHaveValue(
@@ -230,7 +230,7 @@ describe('Compose new — Translate', () => {
     await waitFor(() => expect(aiDraft()).toHaveAttribute('aria-busy', 'true'));
     expect(aiDraft()).toHaveTextContent('AI draft');
     land({ success: true, data: { text: 'Hello.' } });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Undo' })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Undo' })).not.toBeInactive());
     // …and taking a draft adds no element to the row, so nothing beside it moves.
     expect(tools.querySelectorAll('button').length).toBe(before);
     // Undo renders in its slot right after Translate, not inline beside AI draft.
@@ -272,7 +272,7 @@ describe('Compose new — From', () => {
       </MemoryRouter>
     );
     expect(await screen.findByText(/No email source you can send from/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^send$/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^send$/i })).toBeInactive();
   });
 });
 
@@ -304,10 +304,10 @@ describe('Compose new — an AI draft in flight', () => {
   it('Translate is held while the draft is being written', async () => {
     svc.composePolish.mockReturnValue(new Promise(() => undefined));
     await renderModal();
-    expect(screen.getByRole('button', { name: 'Translate' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Translate' })).not.toBeInactive();
     type('Message', '<p>hello</p>');
     fireEvent.click(aiDraft());
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Translate' })).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Translate' })).toBeInactive());
   });
 });
 

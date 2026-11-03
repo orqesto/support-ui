@@ -73,7 +73,7 @@ describe('IngestionCard', () => {
     expect(kb()).toHaveValue(40);
     expect(screen.getAllByText('Default')).toHaveLength(2);
     expect(screen.getAllByText('Console')).toHaveLength(1);
-    expect(save()).toBeDisabled();
+    expect(save()).toBeInactive();
   });
 
   it('saves only the field that changed, with PUT /settings/ingestion', async () => {
@@ -101,11 +101,11 @@ describe('IngestionCard', () => {
     for (const bad of ['4', '601', '1.5', '']) {
       fireEvent.change(attachments(), { target: { value: bad } });
       expect(screen.getByText('Enter a whole number from 5 to 600.')).toBeInTheDocument();
-      expect(save()).toBeDisabled();
+      expect(save()).toBeInactive();
     }
     fireEvent.change(attachments(), { target: { value: '5' } });
     expect(screen.queryByText(/Enter a whole number/)).toBeNull();
-    expect(save()).toBeEnabled();
+    expect(save()).not.toBeInactive();
     expect(puts).toHaveLength(0);
   });
 
@@ -150,10 +150,10 @@ describe('IngestionCard — when imports pause', () => {
     wrap(<IngestionCard ingestion={ALL} />);
     fireEvent.change(resumeAt(), { target: { value: '1500' } });
     expect(screen.getByText('Must be lower than the pause value.')).toBeInTheDocument();
-    expect(save()).toBeDisabled();
+    expect(save()).toBeInactive();
     fireEvent.change(pauseAt(), { target: { value: '1600' } });
     expect(screen.queryByText('Must be lower than the pause value.')).toBeNull();
-    expect(save()).toBeEnabled();
+    expect(save()).not.toBeInactive();
     expect(puts).toHaveLength(0);
   });
 
@@ -161,10 +161,10 @@ describe('IngestionCard — when imports pause', () => {
     wrap(<IngestionCard ingestion={ALL} />);
     fireEvent.change(pauseAt(), { target: { value: '7000' } });
     expect(screen.getByText('Must not be lower than the pause value.')).toBeInTheDocument();
-    expect(save()).toBeDisabled();
+    expect(save()).toBeInactive();
     fireEvent.change(ceiling(), { target: { value: '7000' } });
     expect(screen.queryByText(/Must not be lower/)).toBeNull();
-    expect(save()).toBeEnabled();
+    expect(save()).not.toBeInactive();
   });
 
   it("the server's 400 sentence is shown, and clears on the next edit", async () => {
@@ -196,7 +196,7 @@ describe('IngestionCard — when imports pause', () => {
     expect(ceiling()).toHaveValue(6000);
     expect(screen.queryByLabelText(/Resume imports at/)).toBeNull();
     fireEvent.change(ceiling(), { target: { value: '8000' } });
-    expect(save()).toBeEnabled();
+    expect(save()).not.toBeInactive();
   });
 });
 
@@ -290,7 +290,7 @@ describe('IngestionCard — Gmail', () => {
     wrap(<IngestionCard ingestion={{ ...SETTING, ...GMAIL }} />);
     fireEvent.change(screen.getByLabelText('Gmail burst units'), { target: { value: '3000' } });
     expect(screen.getAllByText(/must stay below 15,000/)).toHaveLength(2);
-    expect(save()).toBeDisabled();
+    expect(save()).toBeInactive();
   });
 
   it("the server's 400 sentence is shown", async () => {

@@ -39,15 +39,24 @@ const plan = (name: string, displayName: string, price: number) => ({
 const load = (status: string) => {
   get.mockImplementation((...args: unknown[]) =>
     String(args[0]).includes('/plans')
-      ? Promise.resolve({ data: { success: true, data: { plans: [plan('free', 'Free', 0), plan('pro', 'Pro', 50000)] } } })
-      : Promise.resolve({ data: { success: true, data: { plan: { name: 'free' }, subscription: { status } } } })
+      ? Promise.resolve({
+          data: {
+            success: true,
+            data: { plans: [plan('free', 'Free', 0), plan('pro', 'Pro', 50000)] },
+          },
+        })
+      : Promise.resolve({
+          data: { success: true, data: { plan: { name: 'free' }, subscription: { status } } },
+        })
   );
 };
 
 describe('PricingPage — a lapsed workspace can move itself to Free', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    post.mockResolvedValue({ data: { success: true, data: { message: 'ok', plan: { name: 'free' } } } });
+    post.mockResolvedValue({
+      data: { success: true, data: { message: 'ok', plan: { name: 'free' } } },
+    });
   });
   afterEach(cleanup);
 
@@ -58,7 +67,11 @@ describe('PricingPage — a lapsed workspace can move itself to Free', () => {
     expect(buttons).toHaveLength(2); // Free and Pro — nothing marked current
     expect(screen.queryByRole('button', { name: 'Current Plan' })).not.toBeInTheDocument();
     fireEvent.click(buttons[0]);
-    expect(await screen.findByText(/Free's limits apply, with AI on your own key \(and any starter allowance of AI on us that is left\)/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        /Free's limits apply, with AI on your own key \(and any starter allowance of AI on us that is left\)/
+      )
+    ).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: 'Switch to Free' }));
     expect(post).toHaveBeenCalledWith('/api/subscriptions/upgrade', { planName: 'free' });
   });
@@ -75,10 +88,21 @@ describe('PricingPage — a lapsed workspace can move itself to Free', () => {
         ? Promise.resolve({
             data: {
               success: true,
-              data: { plans: [plan('free', 'Free', 0), { ...plan('small', 'Small', 4900), isActive: false }, plan('pro', 'Pro', 50000)] },
+              data: {
+                plans: [
+                  plan('free', 'Free', 0),
+                  { ...plan('small', 'Small', 4900), isActive: false },
+                  plan('pro', 'Pro', 50000),
+                ],
+              },
             },
           })
-        : Promise.resolve({ data: { success: true, data: { plan: { name: 'free' }, subscription: { status: 'active' } } } })
+        : Promise.resolve({
+            data: {
+              success: true,
+              data: { plan: { name: 'free' }, subscription: { status: 'active' } },
+            },
+          })
     );
     render(<PricingPage />);
     expect(await screen.findByText('Pro')).toBeInTheDocument();
@@ -88,6 +112,6 @@ describe('PricingPage — a lapsed workspace can move itself to Free', () => {
   it('control: an ACTIVE Free workspace still sees Free as its current plan', async () => {
     load('active');
     render(<PricingPage />);
-    expect(await screen.findByRole('button', { name: 'Current Plan' })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Current Plan' })).toBeInactive();
   });
 });

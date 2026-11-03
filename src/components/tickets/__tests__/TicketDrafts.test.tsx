@@ -168,7 +168,9 @@ describe('Ticket reply box — making drafts', () => {
     renderTicket();
     await waitFor(() => expect(box(12)).toBeChecked());
     await user.click(box(12));
-    await user.click(await screen.findByRole('button', { name: 'Draft per customer from template' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Draft per customer from template' })
+    );
     await user.click(await screen.findByRole('option', { name: 'Outage update' }));
     await waitFor(() => expect(create).toHaveBeenCalledWith(4, { templateId: 5 }, [11, 13]));
     expect(list).toHaveBeenCalledWith('ticket');
@@ -197,7 +199,7 @@ describe('Ticket reply box — making drafts', () => {
     renderTicket();
     await waitFor(() => expect(box(11)).toBeChecked());
     await user.click(await screen.findByRole('button', { name: 'More composer actions' }));
-    expect(screen.getByRole('menuitem', { name: 'Make a draft for each customer' })).toBeDisabled();
+    expect(screen.getByRole('menuitem', { name: 'Make a draft for each customer' })).toBeInactive();
   });
 });
 
@@ -221,14 +223,14 @@ describe('Ticket reply box — reviewing drafts', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Edit the draft for customer-11@example.com' })
     );
-    expect(screen.getByRole('button', { name: 'Send reviewed to 2 threads' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send reviewed to 2 threads' })).toBeInactive();
     const editor = screen.getByLabelText('Draft for customer-11@example.com');
     await user.clear(editor);
     await user.type(editor, 'Hi Ada, sorted.');
     await user.click(screen.getByRole('button', { name: 'Save draft' }));
     await waitFor(() => expect(update).toHaveBeenCalledWith(4, 11, 'Hi Ada, sorted.'));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Send reviewed to 2 threads' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Send reviewed to 2 threads' })).not.toBeInactive()
     );
   });
 

@@ -100,7 +100,7 @@ describe('WhatsApp card — sync templates', () => {
 
   it('is disabled without a WABA id, because the sync could only 400', () => {
     renderCard({ phoneNumberId: '123' });
-    expect(templatesButton()).toBeDisabled();
+    expect(templatesButton()).toBeInactive();
   });
 
   it('syncs the source it belongs to', async () => {

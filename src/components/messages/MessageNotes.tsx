@@ -160,7 +160,7 @@ export const MessageNotes = ({ messageId }: MessageNotesProps) => {
                           aria-label="Delete note"
                           onClick={() => void handleDelete(note.id)}
                           disabled={isDeleting}
-                          className="p-0.5 w-auto h-auto rounded text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                          className="p-0.5 w-auto h-auto rounded text-muted-foreground hover:text-destructive transition-colors data-[inactive]:opacity-50"
                           title="Delete note"
                         >
                           <Trash2 className="w-3 h-3" />

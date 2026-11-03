@@ -92,10 +92,10 @@ describe('D42 — the client acknowledges what connecting a vendor sends out', (
     // client's data controller connects a vendor that receives a customer's address, phone and
     // IP without ever being told that is what happens.
     const connect = screen.getByRole('button', { name: 'Connect' });
-    expect(connect).toBeDisabled();
+    expect(connect).toBeInactive();
 
     await user.click(screen.getByRole('checkbox'));
-    expect(connect).toBeEnabled();
+    expect(connect).not.toBeInactive();
   });
 
   it('says what actually leaves the workspace — not that "data may be shared"', () => {
@@ -214,9 +214,9 @@ describe('audit pass 2 — the blank header name', () => {
     // ⛔ RED: leave the header name out of the blocked condition and this form creates a
     // connection that cannot authenticate — and whose next RENAME is then refused with a
     // validation error about a field the admin never filled in.
-    expect(screen.getByRole('button', { name: 'Connect' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Connect' })).toBeInactive();
     await user.type(screen.getByLabelText('Header name'), 'X-Oc-Restadmin-Id');
-    expect(screen.getByRole('button', { name: 'Connect' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Connect' })).not.toBeInactive();
   });
 });
 

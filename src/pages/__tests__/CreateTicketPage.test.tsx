@@ -172,11 +172,11 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       const user = userEvent.setup();
       renderPage();
       // A title and a cause are needed.
-      expect(createButton()).toBeDisabled();
+      expect(createButton()).toBeInactive();
       await user.type(screen.getByLabelText('Title'), 'Customs papers lost');
       await user.type(screen.getByTestId('description'), 'The carrier lost the papers.');
       await user.click(await screen.findByRole('button', { name: 'Add bob@example.com' }));
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
 
       expect(await screen.findByText('opened null', {}, { timeout: 3000 })).toBeInTheDocument();
@@ -194,7 +194,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       const user = userEvent.setup();
       renderPage();
       await fill(user);
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
       await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
       expect(addThreads).not.toHaveBeenCalled();
@@ -205,7 +205,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       renderPage();
       await user.type(screen.getByLabelText('Title'), 'Carrier outage');
       await waitFor(() => expect(assignable).toHaveBeenCalled());
-      expect(createButton()).toBeDisabled();
+      expect(createButton()).toBeInactive();
     });
 
     it('only the creator’s teams are offered', async () => {
@@ -222,7 +222,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       ]);
       renderPage();
       await fill(user);
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
       await waitFor(() => expect(create).toHaveBeenCalled());
       expect(createdBody()).not.toHaveProperty('assigneeId');
@@ -251,7 +251,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       ]);
       renderPage();
       await fill(user);
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
       await waitFor(() => expect(create).toHaveBeenCalled());
       expect(createdBody()).not.toHaveProperty('assigneeId');
@@ -263,14 +263,14 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       assignable.mockReturnValue(new Promise((resolve) => (answer = resolve)));
       renderPage();
       await fill(user);
-      expect(createButton()).toBeDisabled();
+      expect(createButton()).toBeInactive();
       expect(screen.getByText('Loading who can own it…')).toBeInTheDocument();
 
       // The list arrives without the creator (a global admin is not assignable).
       answer([
         { id: 8, firstName: 'Bo', lastName: 'Agent', email: 'bo@example.com', role: 'user' },
       ]);
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
       await waitFor(() => expect(create).toHaveBeenCalled());
       expect(createdBody()).not.toHaveProperty('assigneeId');
@@ -317,9 +317,9 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
         renderPage();
         await fill(user);
         expect(screen.getByText('Loading who can own it…')).toBeInTheDocument();
-        expect(createButton()).toBeDisabled();
+        expect(createButton()).toBeInactive();
         vi.advanceTimersByTime(10_000);
-        await waitFor(() => expect(createButton()).toBeEnabled());
+        await waitFor(() => expect(createButton()).not.toBeInactive());
         expect(screen.queryByText('Loading who can own it…')).toBeNull();
         await user.click(createButton());
         await waitFor(() => expect(create).toHaveBeenCalled());
@@ -334,7 +334,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       assignable.mockRejectedValue(new Error('500'));
       renderPage();
       await fill(user);
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
       await waitFor(() => expect(create).toHaveBeenCalled());
       expect(createdBody()).not.toHaveProperty('assigneeId');
@@ -348,7 +348,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       });
       renderPage();
       await fill(user);
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
       expect(
         await screen.findByText(/could not be created|do not have access/)
@@ -362,7 +362,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       renderPage();
       await fill(user);
       await user.click(await screen.findByRole('button', { name: 'Add bob@example.com' }));
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
       expect(
         await screen.findByText('opened {"threadsNotLinked":true}', {}, { timeout: 3000 })
@@ -382,7 +382,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       const { container } = renderPage();
       await fill(user);
       await attach(user, container);
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
       expect(await screen.findByText('opened null', {}, { timeout: 3000 })).toBeInTheDocument();
       // No files ride on the create (the backend reads none there).
@@ -397,7 +397,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       const user = userEvent.setup();
       renderPage();
       await fill(user);
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
       await waitFor(() => expect(create).toHaveBeenCalled());
       expect(uploadAttachments).not.toHaveBeenCalled();
@@ -409,7 +409,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       const { container } = renderPage();
       await fill(user);
       await attach(user, container);
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
       expect(
         await screen.findByText('opened {"filesNotAttached":true}', {}, { timeout: 3000 })
@@ -434,7 +434,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       expect(screen.queryByRole('button', { name: 'Add ada@example.com' })).toBeNull();
 
       await user.click(screen.getByRole('button', { name: 'Add bob@example.com' }));
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
       await waitFor(() => expect(create).toHaveBeenCalled());
       expect(createdBody()).toMatchObject({ messageId: 11, title: 'Parcel held' });
@@ -500,7 +500,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       integrations.list = [{ type: 'jira', enabled: true }];
       renderPage();
       await fill(user);
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       expect(screen.queryByText('Sync to Jira')).toBeNull();
       await user.click(createButton());
       await waitFor(() => expect(create).toHaveBeenCalled());
@@ -512,7 +512,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       integrations.list = [{ type: 'jira', enabled: true }];
       renderPage('/tickets/create?messageId=11');
       await user.click(await screen.findByLabelText(/Sync to Jira/));
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
       await waitFor(() => expect(create).toHaveBeenCalled());
       expect(createdBody()).toMatchObject({ syncToJira: true, messageId: 11 });
@@ -522,14 +522,14 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       getById.mockRejectedValue(new Error('404'));
       renderPage('/tickets/create?messageId=11');
       expect(await screen.findByText(/This thread could not be loaded/)).toBeInTheDocument();
-      expect(createButton()).toBeDisabled();
+      expect(createButton()).toBeInactive();
     });
 
     it('a creator in no team is told why a ticket with no thread cannot be created', async () => {
       auth.user = { id: 7, role: 'user', organizationRole: 'support', departmentIds: [] };
       renderPage();
       expect(await screen.findByText(/you are not in\s+any/)).toBeInTheDocument();
-      expect(createButton()).toBeDisabled();
+      expect(createButton()).toBeInactive();
     });
 
     it('CONTROL: a creator with a team sees no such notice', async () => {
@@ -550,7 +550,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       expect(
         await screen.findByText(/big.pdf is over 10 MB and was left out; only the first 5/)
       ).toBeInTheDocument();
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
       await waitFor(() => expect(uploadAttachments).toHaveBeenCalled());
       const [, files] = uploadAttachments.mock.calls[0] as [number, File[]];
@@ -575,7 +575,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
         },
       });
       renderPage('/tickets/create?messageId=11');
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
     });
 
     it('when the threads are not linked, the dialog says so instead of "Ticket created successfully"', async () => {
@@ -584,7 +584,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       renderPage();
       await fill(user);
       await user.click(await screen.findByRole('button', { name: 'Add bob@example.com' }));
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
       expect(
         await screen.findByText(
@@ -608,7 +608,7 @@ describe('Create ticket — one page for New ticket and a thread’s Create tick
       await waitFor(() => expect(assignable).toHaveBeenCalledWith(4));
       const user = userEvent.setup();
       await fill(user);
-      await waitFor(() => expect(createButton()).toBeEnabled());
+      await waitFor(() => expect(createButton()).not.toBeInactive());
       await user.click(createButton());
       await waitFor(() => expect(create).toHaveBeenCalled());
       expect(createdBody()).toMatchObject({ departmentId: 4 });
@@ -642,23 +642,26 @@ describe('AI enhance refused by the Free starter allowance', () => {
     cleanup();
   });
 
-  it.each([429, 402])('%i FREE_AI_ALLOWANCE_USED: "ask your admin", no "try again"', async (status) => {
-    const { apiError } = await import('@/test/apiError');
-    enhanceRefusal = (await apiError(status, {
-      code: 'FREE_AI_ALLOWANCE_USED',
-      error: 'Your free AI allowance is used. Add your own AI key to keep AI running.',
-    })) as Error;
-    auth.user = SUPPORT;
-    perms.create = true;
-    const user = userEvent.setup();
-    renderPage();
-    await user.type(await screen.findByTestId('description'), 'Expected delays.');
-    await user.click(screen.getByRole('button', { name: /AI enhance/ }));
-    expect(
-      await screen.findByText(/Your free AI allowance is used — ask your admin/)
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/Please try again/)).not.toBeInTheDocument();
-  });
+  it.each([429, 402])(
+    '%i FREE_AI_ALLOWANCE_USED: "ask your admin", no "try again"',
+    async (status) => {
+      const { apiError } = await import('@/test/apiError');
+      enhanceRefusal = (await apiError(status, {
+        code: 'FREE_AI_ALLOWANCE_USED',
+        error: 'Your free AI allowance is used. Add your own AI key to keep AI running.',
+      })) as Error;
+      auth.user = SUPPORT;
+      perms.create = true;
+      const user = userEvent.setup();
+      renderPage();
+      await user.type(await screen.findByTestId('description'), 'Expected delays.');
+      await user.click(screen.getByRole('button', { name: /AI enhance/ }));
+      expect(
+        await screen.findByText(/Your free AI allowance is used — ask your admin/)
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Please try again/)).not.toBeInTheDocument();
+    }
+  );
 
   it('any other failure keeps "Please try again"', async () => {
     const { apiError } = await import('@/test/apiError');

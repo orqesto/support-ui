@@ -41,13 +41,46 @@ const overFree = {
   limits: { maxUsers: 2, maxIntegrations: 1 },
   over: { members: 1, sources: 1 },
   members: [
-    { userId: 1, name: 'Ada Admin', email: 'ada@acme.io', role: 'org_admin', state: 'active', joinedAt: '2026-01-01T00:00:00Z' },
-    { userId: 2, name: 'Bo Agent', email: 'bo@acme.io', role: 'support', state: 'active', joinedAt: '2026-02-01T00:00:00Z' },
-    { userId: 3, name: 'Cy Agent', email: 'cy@acme.io', role: 'support', state: 'active', joinedAt: '2026-03-01T00:00:00Z' },
+    {
+      userId: 1,
+      name: 'Ada Admin',
+      email: 'ada@acme.io',
+      role: 'org_admin',
+      state: 'active',
+      joinedAt: '2026-01-01T00:00:00Z',
+    },
+    {
+      userId: 2,
+      name: 'Bo Agent',
+      email: 'bo@acme.io',
+      role: 'support',
+      state: 'active',
+      joinedAt: '2026-02-01T00:00:00Z',
+    },
+    {
+      userId: 3,
+      name: 'Cy Agent',
+      email: 'cy@acme.io',
+      role: 'support',
+      state: 'active',
+      joinedAt: '2026-03-01T00:00:00Z',
+    },
   ],
   channels: [
-    { id: 10, name: 'Support inbox', type: 'gmail', state: 'active', createdAt: '2026-01-01T00:00:00Z' },
-    { id: 11, name: 'Sales inbox', type: 'email', state: 'active', createdAt: '2026-02-01T00:00:00Z' },
+    {
+      id: 10,
+      name: 'Support inbox',
+      type: 'gmail',
+      state: 'active',
+      createdAt: '2026-01-01T00:00:00Z',
+    },
+    {
+      id: 11,
+      name: 'Sales inbox',
+      type: 'email',
+      state: 'active',
+      createdAt: '2026-02-01T00:00:00Z',
+    },
   ],
 };
 
@@ -55,10 +88,17 @@ const load = (fit: unknown) => {
   get.mockImplementation((...args: unknown[]) => {
     const url = String(args[0]);
     if (url.includes('/plans')) {
-      return Promise.resolve({ data: { success: true, data: { plans: [plan('free', 'Free', 0), plan('pro', 'Pro', 50000)] } } });
+      return Promise.resolve({
+        data: {
+          success: true,
+          data: { plans: [plan('free', 'Free', 0), plan('pro', 'Pro', 50000)] },
+        },
+      });
     }
     if (url.includes('/plan-fit')) return Promise.resolve({ data: { success: true, data: fit } });
-    return Promise.resolve({ data: { success: true, data: { plan: { name: 'pro' }, subscription: { status: 'active' } } } });
+    return Promise.resolve({
+      data: { success: true, data: { plan: { name: 'pro' }, subscription: { status: 'active' } } },
+    });
   });
 };
 
@@ -71,7 +111,9 @@ const chooseFree = async () => {
 describe('PricingPage — moving to Free over its limits', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    post.mockResolvedValue({ data: { success: true, data: { message: 'ok', plan: { name: 'free' } } } });
+    post.mockResolvedValue({
+      data: { success: true, data: { message: 'ok', plan: { name: 'free' } } },
+    });
   });
   afterEach(cleanup);
 
@@ -79,11 +121,13 @@ describe('PricingPage — moving to Free over its limits', () => {
     load(overFree);
     render(<PricingPage />);
     await chooseFree();
-    expect(await screen.findByRole('heading', { name: 'Choose who stays active on Free' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Choose who stays active on Free' })
+    ).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: /Ada Admin/ })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: /Bo Agent/ })).toBeChecked();
     // The seats are full: the third member cannot be added without removing someone.
-    expect(screen.getByRole('checkbox', { name: /Cy Agent/ })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: /Cy Agent/ })).toBeInactive();
     expect(screen.getByRole('checkbox', { name: /Support inbox/ })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: /Sales inbox/ })).not.toBeChecked();
     fireEvent.click(screen.getByRole('button', { name: 'Switch to Free' }));
@@ -116,7 +160,7 @@ describe('PricingPage — moving to Free over its limits', () => {
     await screen.findByRole('heading', { name: 'Choose who stays active on Free' });
     fireEvent.click(screen.getByRole('checkbox', { name: /Ada Admin/ }));
     expect(screen.getByText(/Keep at least one admin active/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Switch to Free' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Switch to Free' })).toBeInactive();
     expect(post).not.toHaveBeenCalled();
   });
 
