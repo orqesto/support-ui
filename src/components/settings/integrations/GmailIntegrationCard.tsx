@@ -405,7 +405,7 @@ export const GmailIntegrationCard = ({
                           <p className="font-medium">
                             {(integration.config as { user?: string }).user ?? integration.name}
                           </p>
-                          <SourceRowBadges source={integration} onReconnect={() => void handleReconnect(integration)} />
+                          <SourceRowBadges source={integration} onReconnect={() => handleReconnect(integration)} />
                         </div>
                         <p className="text-xs break-all text-muted-foreground">
                           OAuth2 •{' '}
