@@ -213,7 +213,7 @@ const ChannelAndSignalsCard = ({
               placeholder="Pick a channel"
               disabled={saving}
             />
-            {picked && !picked.isMember && (
+            {picked && picked.isPrivate && !picked.isMember && (
               <p className="mt-1 text-xs text-muted-foreground">
                 Private channel? Type /invite @Odly in Slack.
               </p>
