@@ -164,6 +164,12 @@ export const userService = {
     return response.data.data ?? {};
   },
 
+  /** Per key, the values the workspace already has — what an agent may pick for themselves. */
+  getSelfSkillOptions: async (): Promise<Record<string, string[]>> => {
+    const response: AxiosResponse<ApiResponse<Record<string, string[]>>> = await apiClient.get('/api/users/me/skill-options');
+    return response.data.data ?? {};
+  },
+
   setSelfSkillValues: async (key: string, values: string[]): Promise<void> => {
     await apiClient.put(`/api/users/me/skill-values/${encodeURIComponent(key)}`, { values });
   },
