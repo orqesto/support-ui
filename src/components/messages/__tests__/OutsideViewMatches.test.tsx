@@ -563,19 +563,55 @@ describe('OutsideViewMatches', () => {
     expect(await screen.findByText('Second page row')).toBeTruthy();
   });
 
-  it('🔴 a first page that lands after "Show more" keeps the appended rows', async () => {
+  it('🔴 a first page that lands after a "Show more" made meanwhile keeps the appended rows', async () => {
+    getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    await screen.findByText('Row one');
+    // A refresh goes out and hangs while the agent presses "Show more".
+    let refreshed: (value: unknown) => void = () => undefined;
+    getThreads.mockImplementationOnce(() => new Promise((resolve) => (refreshed = resolve)));
+    afterRefreshWindow();
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
+    getThreads.mockResolvedValueOnce(answer([thread(2, 'terminal', 'Row two')], 30));
+    fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
+    await screen.findByText('Row two');
+    refreshed(answer([thread(1, 'terminal', 'Row one')], 30));
+    await waitFor(() => expect(screen.getByText('Row one')).toBeTruthy());
+    expect(screen.getByText('Row two')).toBeTruthy();
+  });
+
+  it('🔴 a later refresh (no "Show more" meanwhile) drops a row that stopped matching', async () => {
     getThreads
       .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30))
-      .mockResolvedValueOnce(answer([thread(2, 'terminal', 'Row two')], 30));
+      .mockResolvedValueOnce(answer([thread(2, 'terminal', 'Moved away')], 30));
     const state = filters();
     const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
     fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
-    await screen.findByText('Row two');
-    getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30));
+    await screen.findByText('Moved away');
+    getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 1));
     afterRefreshWindow();
     rerender(section(state, vi.fn(), vi.fn(), 'r2'));
-    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(3));
-    expect(screen.getByText('Row two')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText('Moved away')).toBeNull());
+  });
+
+  it('🔴 a first ask that never answers on a quiet inbox is replaced after ASK_STALE_MS', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    try {
+      getThreads
+        .mockImplementationOnce(() => new Promise(() => undefined))
+        .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Second try')]));
+      render(section(filters(), vi.fn(), vi.fn(), 'r1'));
+      await vi.waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+      // Nothing re-renders the section: only its own timer may replace the ask.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ASK_STALE_MS);
+      });
+      expect(getThreads).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
