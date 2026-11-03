@@ -353,10 +353,19 @@ export const OutsideViewMatches = ({
   // a fresh first page, so rows that stopped matching and an old total do not stay for good
   // (round-15 review).
   const refreshNow = () => {
+    // Everything out is cancelled — an older refresh too (it would hold the new ask for up to
+    // ASK_STALE_MS) — and the section is cleared to "Checking…": no Show more can be pressed into
+    // the middle of it and cancel it (round-16 review).
+    inFlight.current?.abort();
+    inFlight.current = null;
     moreAbort.current?.abort();
+    clearStale();
     moreSeq.current += 1;
+    rowsEpoch.current += 1;
     setLoadingMore(false);
     setMoreFailed(false);
+    setRows([]);
+    setStatus('loading');
     setPage(1);
     lastAsked.current = null;
     askedKey.current = '';

@@ -453,5 +453,52 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
     // Read without a total, the answer is still a success — no "could not load more".
     expect(screen.queryByText(/Could not load more/i)).toBeNull();
   });
+
+  // Round-16 review.
+  it('🔴 Refresh cancels a Show more, clears the section, and pages from 1 again', async () => {
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Old one')], 30))
+      .mockResolvedValueOnce(answer([thread(2, 'terminal', 'Old two')], 30));
+    const signals: AbortSignal[] = [];
+    render(section(filters()));
+    fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
+    await screen.findByText('Old two');
+    // A Show more out when Refresh is pressed is cancelled with everything else.
+    getThreads.mockImplementationOnce((...args: unknown[]) => {
+      const opts = args[5] as { signal?: AbortSignal } | undefined;
+      if (opts?.signal) signals.push(opts.signal);
+      return new Promise(() => undefined);
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
+    await waitFor(() => expect(signals).toHaveLength(1));
+    getThreads.mockResolvedValueOnce(answer([thread(3, 'terminal', 'Fresh one')], 30));
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    expect(signals[0]?.aborted).toBe(true);
+    // Cleared while it asks: nothing old to press Show more on.
+    expect(screen.queryByText('Old two')).toBeNull();
+    await screen.findByText('Fresh one');
+    getThreads.mockResolvedValueOnce(answer([thread(4, 'terminal', 'Page two')], 30));
+    fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
+    await screen.findByText('Page two');
+    // Paging restarts after the fresh first page: page 2, not 3.
+    expect(getThreads.mock.calls.at(-1)?.[1]).toBe(2);
+  });
+
+  it('🔴 Refresh asks at once while an older refresh is still out', async () => {
+    getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    await screen.findByText('Row one');
+    getThreads.mockImplementationOnce(() => new Promise(() => undefined)); // older refresh hangs
+    afterRefreshWindow();
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
+    getThreads.mockResolvedValueOnce(answer([thread(2, 'terminal', 'Row two')], 30));
+    fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
+    await screen.findByText('Row two');
+    getThreads.mockResolvedValueOnce(answer([thread(3, 'terminal', 'Fresh one')], 30));
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    expect(await screen.findByText('Fresh one')).toBeTruthy();
+  });
 });
 
