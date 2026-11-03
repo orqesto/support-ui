@@ -248,10 +248,12 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
     await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(3));
     expect(getThreads.mock.calls[2]?.[2]).toBe(50);
     await screen.findByText('R29');
+    // 30 rows = one full page: the next Show more asks page 2 (overlapping rows 26–30, dropped as
+    // duplicates) — never page 3, which would skip rows added meanwhile.
     getThreads.mockResolvedValueOnce(answer([thread(4, 'terminal', 'Next')], 100));
     fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
     await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(4));
-    expect(getThreads.mock.calls[3]?.[1]).toBe(3);
+    expect(getThreads.mock.calls[3]?.[1]).toBe(2);
   });
 
   it('🔴 past the cap (3 pages shown) a list move does not refresh and cut the section to 50', async () => {
@@ -384,6 +386,30 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
     fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
     await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(4));
     expect(getThreads.mock.calls[3]?.[1]).toBe(2);
+  });
+
+  // Round-9 review.
+  it('🔴 a Show more landing after a failed refresh does not append to the cleared section', async () => {
+    getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    await screen.findByText('Row one');
+    let refreshFail: (reason: unknown) => void = () => undefined;
+    getThreads.mockImplementationOnce(() => new Promise((_resolve, reject) => (refreshFail = reject)));
+    afterRefreshWindow();
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
+    let more: (value: unknown) => void = () => undefined;
+    getThreads.mockImplementationOnce(() => new Promise((resolve) => (more = resolve)));
+    fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(3));
+    refreshFail(new Error('503'));
+    await screen.findByText(/could not be checked/);
+    more(answer([thread(2, 'terminal', 'Stray page')], 30));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByText('Stray page')).toBeNull();
   });
 });
 

@@ -295,6 +295,8 @@ export const OutsideViewMatches = ({
       // Only an answer to the question on screen records a failure.
       if (shownQuery.current !== failedFor) return;
       if (overtaken()) return;
+      // The rows are gone: a "Show more" still out would append its page to nothing (round 9).
+      rowsEpoch.current += 1;
       setRows([]);
       // Nothing shown any more: back to one page, or the retry (past the cap check) never asked
       // again and the section stayed on "could not be checked" (round-8 review).
@@ -317,6 +319,7 @@ export const OutsideViewMatches = ({
         if (overtaken()) return;
         if (answer.success && answer.outsideView !== true) {
           // A backend without outsideView: nothing to say, and not asked again for the window.
+          rowsEpoch.current += 1;
           setRows([]);
           setPage(1);
           pageRef.current = 1;
@@ -335,8 +338,10 @@ export const OutsideViewMatches = ({
         setStatus('done');
         rowsEpoch.current += 1;
         setRows(listed);
-        // The pages actually shown — what came back, never what was asked (the backend caps it).
-        setPage(Math.max(1, Math.ceil(listed.length / PAGE)));
+        // The FULL pages actually shown — what came back, never what was asked (the backend caps
+        // it), rounded DOWN: the next "Show more" then overlaps a partial page (duplicates are
+        // dropped by thread id) instead of skipping past it when matches were added (round 9).
+        setPage(Math.max(1, Math.floor(listed.length / PAGE)));
         setTotal(answer.pagination?.total ?? listed.length);
         setTotalCapped(
           answer.pagination?.totalCapped === true || answer.pagination?.countTimedOut === true
