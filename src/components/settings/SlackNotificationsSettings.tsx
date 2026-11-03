@@ -28,7 +28,7 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 
 /**
- * Settings › Notifications › Slack (workspace admins and global admins).
+ * Settings › Slack notifications (workspace admins and global admins).
  *
  * Connect Slack ("Add to Slack", or a pasted bot token on a self-hosted install), then pick two
  * channels: the team channel (work that needs a person) and the admin channel (problems with the
@@ -136,11 +136,14 @@ const ChannelCard = ({
   route,
   channelList,
   readOnly,
+  onSavingChange,
 }: {
   channel: SlackRouteChannel;
   route: SlackRoute | undefined;
   channelList: SlackChannelList | null;
   readOnly: boolean;
+  /** Tells the page a route PUT started (true) or settled (false): Disconnect waits for it. */
+  onSavingChange: (saving: boolean) => void;
 }) => {
   const [draft, setDraft] = useState<Draft>(() => draftFrom(channel, route));
   const [saving, setSaving] = useState(false);
@@ -183,6 +186,7 @@ const ChannelCard = ({
     if (!next.slackChannelId) return;
     savingRef.current = true;
     setSaving(true);
+    onSavingChange(true);
     slackNotificationsService
       .saveRoute(channel, next)
       .then((saved) => {
@@ -199,6 +203,7 @@ const ChannelCard = ({
       .finally(() => {
         savingRef.current = false;
         setSaving(false);
+        onSavingChange(false);
       });
   };
 
@@ -447,6 +452,14 @@ const SlackNotificationsPanel = () => {
   const [returnNotice, setReturnNotice] = useState<{ ok: boolean; reason?: string } | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  // Route saves in flight on either card. A Disconnect then would delete the routes and the
+  // pending PUT could write one back for a connection that is gone.
+  const inFlightRef = useRef(0);
+  const [savesInFlight, setSavesInFlight] = useState(0);
+  const onSavingChange = (saving: boolean) => {
+    inFlightRef.current += saving ? 1 : -1;
+    setSavesInFlight(inFlightRef.current);
+  };
 
   const load = () => {
     setLoadError(false);
@@ -506,6 +519,7 @@ const SlackNotificationsPanel = () => {
   };
 
   const disconnect = () => {
+    if (inFlightRef.current > 0) return;
     slackNotificationsService
       .disconnect()
       .then(() => {
@@ -577,7 +591,12 @@ const SlackNotificationsPanel = () => {
                     {isConnected ? 'Connected' : 'Disconnected'}
                   </Badge>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setConfirmDisconnect(true)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmDisconnect(true)}
+                  disabled={savesInFlight > 0}
+                >
                   Disconnect
                 </Button>
               </div>
@@ -629,6 +648,7 @@ const SlackNotificationsPanel = () => {
                 route={status?.routes.find((each) => each.channel === channel)}
                 channelList={channelList}
                 readOnly={!isConnected}
+                onSavingChange={onSavingChange}
               />
             ))}
           </div>

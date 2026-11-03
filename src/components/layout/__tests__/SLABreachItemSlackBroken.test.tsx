@@ -1,6 +1,6 @@
 /**
  * `slack_connection_broken` lands in the bell's fail-open list. It is not a breach: it must read as
- * a Slack problem, show no "0m over", and link to Settings › Notifications where the admin
+ * a Slack problem, show no "0m over", and link to Settings › Slack notifications where the admin
  * reconnects — never to /tickets/<connection id>.
  */
 import { describe, expect, it } from 'vitest';
@@ -34,7 +34,7 @@ const renderRow = (notification: SLABreachNotification) =>
   );
 
 describe('Slack connection broken in the bell', () => {
-  it('a broken connection reads as Slack and links to Settings › Notifications', () => {
+  it('a broken connection reads as Slack and links to Settings › Slack notifications', () => {
     renderRow(
       row('slack_connection', {
         title: 'Slack notifications stopped',
@@ -70,7 +70,7 @@ describe('Slack connection broken in the bell', () => {
   it('a channel row without a subject points at the channel, not at reconnecting', () => {
     renderRow(row('slack_channel_route', { title: 'Slack admin channel stopped' }));
     expect(
-      screen.getByText('Check the Slack channel in Settings › Notifications.')
+      screen.getByText('Check the Slack channel in Settings › Slack notifications.')
     ).toBeInTheDocument();
     expect(screen.queryByText(/reconnect Slack/)).toBeNull();
   });

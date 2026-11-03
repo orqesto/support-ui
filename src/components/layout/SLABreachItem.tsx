@@ -98,8 +98,8 @@ export const SLABreachItem = ({
           <p className="mt-1 text-xs text-muted-foreground">
             {notification.details.subject ??
               (notification.type === 'slack_channel_route'
-                ? 'Check the Slack channel in Settings › Notifications.'
-                : 'Open Settings › Notifications to reconnect Slack.')}
+                ? 'Check the Slack channel in Settings › Slack notifications.'
+                : 'Open Settings › Slack notifications to reconnect Slack.')}
           </p>
         ) : (
           <div className="flex gap-2 items-center mt-1 text-xs text-muted-foreground">

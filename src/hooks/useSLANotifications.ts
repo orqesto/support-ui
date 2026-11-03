@@ -20,7 +20,7 @@ export type SLABreachNotification = {
   entityId: number; // message.id or ticket.id
   // The notification's entityType, from the generated API types (`npm run gen:types`).
   // `slack_connection` / `slack_channel_route`: kind `slack_connection_broken` (no breach fields),
-  // shown in this list with its own label and a link to Settings › Notifications.
+  // shown in this list with its own label and a link to Settings › Slack notifications.
   type: Notification['entityType'];
   organizationId: number;
   severity: 'warning' | 'critical';

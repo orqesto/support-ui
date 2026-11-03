@@ -93,7 +93,7 @@ describe('Settings › System tab visibility (global-admin only)', () => {
   });
 });
 
-describe('Settings › Notifications tab visibility (workspace admins and global admins)', () => {
+describe('Settings › Slack notifications tab visibility (workspace admins and global admins)', () => {
   afterEach(() => {
     cleanup();
     mockUser = null;
@@ -105,6 +105,8 @@ describe('Settings › Notifications tab visibility (workspace admins and global
     mockUser = { ...base, role: 'user', organizationRole: 'org_admin' };
     renderAt('/settings?tab=notifications');
     expect(screen.getByTestId('tab-notifications')).toBeTruthy();
+    // Named for what it holds, so it is not mistaken for the personal notification preferences.
+    expect(screen.getByTestId('tab-notifications')).toHaveTextContent(/^Slack notifications$/);
   });
 
   it('SHOWS the Notifications tab to a global admin', () => {
