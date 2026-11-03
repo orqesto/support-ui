@@ -400,9 +400,12 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
     getThreads.mockImplementationOnce(() => new Promise((_resolve, reject) => (moreFail = reject)));
     fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
     await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
-    getThreads.mockImplementation(() => new Promise(() => undefined));
+    getThreads
+      .mockImplementationOnce(() => new Promise(() => undefined)) // B, never answers
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'A again')], 30)); // A, asked afresh
     rerender(section(filters({ search: 'b@shop.example' })));
     rerender(section(filters({ search: 'a@shop.example' })));
+    await screen.findByText('A again');
     moreFail(new DOMException('aborted', 'AbortError'));
     await act(async () => {
       await Promise.resolve();
