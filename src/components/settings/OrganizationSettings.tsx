@@ -3,6 +3,7 @@ import { Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs } from '@/components/ui/Tabs';
 import { usePermissions } from '@/hooks/usePermissions';
+import { Permission } from '@/types/roles';
 import { CategoriesSettings } from './CategoriesSettings';
 import { LabelsSettings } from './LabelsSettings';
 import { RoutingKeysSettings } from './RoutingKeysSettings';
@@ -62,7 +63,7 @@ type OrganizationSettingsProps = {
 
 export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}) => {
   const navigate = useNavigate();
-  const { isAdmin, isOrgAdmin } = usePermissions();
+  const { isAdmin, isOrgAdmin, hasPermission } = usePermissions();
 
   // The "Workspace" tab is reachable by moderators (VIEW_ORGANIZATION_SETTINGS), but SLA
   // Thresholds, Business Hours and Authentication configure workspace-wide policy (SLA
@@ -70,22 +71,27 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
   // admin-only controls. Gate them to org_admin+ / global admin so they
   // aren't shown to moderators. UX-only; the BE requireOrgAdmin guard is the authority.
   const canManageOrgPolicy = isAdmin || isOrgAdmin;
-  const visibleSections = canManageOrgPolicy
-    ? sections
-    : sections.filter((sect) => !ADMIN_ONLY_SECTIONS.includes(sect.id));
+  // Routing Skills is all editing (assignment mode, self-edit toggles, keys, value descriptions,
+  // the test box) and every one of those calls needs manage_routing_rules on the BE (admins and
+  // moderators). Without it an agent saw every control, got 403 on each, and read a false
+  // "No routing keys defined yet" (staging 2026-11-03). Agents keep their own skills on Profile.
+  const canManageRouting = isAdmin || hasPermission(Permission.MANAGE_ROUTING_RULES);
+  const isHidden = (sect: OrgSection): boolean =>
+    (ADMIN_ONLY_SECTIONS.includes(sect) && !canManageOrgPolicy) ||
+    (sect === 'routing-skills' && !canManageRouting);
+  const visibleSections = sections.filter((sect) => !isHidden(sect.id));
 
   const requested = section && isOrgSection(section) ? section : 'details';
-  // Don't let a non-admin deep-link (#organization/sla-config|security) land on a hidden tab.
-  const initial: OrgSection =
-    ADMIN_ONLY_SECTIONS.includes(requested) && !canManageOrgPolicy ? 'categories' : requested;
+  // Don't let a deep link (#organization/sla-config|security|routing-skills) land on a hidden tab.
+  const initial: OrgSection = isHidden(requested) ? 'categories' : requested;
   const [active, setActive] = useState<OrgSection>(initial);
 
   useEffect(() => {
     if (!section || !isOrgSection(section)) return;
-    setActive(
-      ADMIN_ONLY_SECTIONS.includes(section) && !canManageOrgPolicy ? 'categories' : section
-    );
-  }, [section, canManageOrgPolicy]);
+    setActive(isHidden(section) ? 'categories' : section);
+    // isHidden reads only the two flags below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section, canManageOrgPolicy, canManageRouting]);
 
   const goToSection = (next: OrgSection) => {
     setActive(next);
@@ -114,7 +120,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
         {active === 'details' && <WorkspaceDetailsSettings />}
         {active === 'categories' && <CategoriesSettings />}
         {active === 'labels' && <LabelsSettings />}
-        {active === 'routing-skills' && <RoutingKeysSettings />}
+        {active === 'routing-skills' && canManageRouting && <RoutingKeysSettings />}
         {active === 'sla-config' && canManageOrgPolicy && <SLAConfigSettings />}
         {active === 'business-hours' && canManageOrgPolicy && <BusinessHoursSettings />}
         {active === 'open-conversations' && canManageOrgPolicy && <OpenConversationWindowSettings />}
