@@ -349,6 +349,20 @@ export const OutsideViewMatches = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestKey, enabled, retryTick]);
 
+  // Past page 1 nothing refreshes automatically (the page gate): the agent can, on demand — back to
+  // a fresh first page, so rows that stopped matching and an old total do not stay for good
+  // (round-15 review).
+  const refreshNow = () => {
+    moreAbort.current?.abort();
+    moreSeq.current += 1;
+    setLoadingMore(false);
+    setMoreFailed(false);
+    setPage(1);
+    lastAsked.current = null;
+    askedKey.current = '';
+    setRetryTick((tick) => tick + 1);
+  };
+
   const loadMore = async () => {
     if (!request) return;
     // For the QUESTION, as page 1: a colleague's change while it was out dropped it (round 3).
@@ -393,7 +407,7 @@ export const OutsideViewMatches = ({
         );
       }
     } catch {
-      // Aborted (question change, unmount — or an effect re-run in development): not a failure.
+      // Aborted (question change, unmount, Refresh): not a failure.
       if (!moreController.signal.aborted && shownQuery.current === askedFor) setMoreFailed(true);
     } finally {
       // A refresh during "Show more" left the button on "Loading…" for good; an older one settling
@@ -445,6 +459,11 @@ export const OutsideViewMatches = ({
         <Typography variant="caption" color="muted" className="font-mono">
           {formatTotal(total, totalCapped)}
         </Typography>
+        {page > 1 && (
+          <Button variant="ghost" size="sm" className="ml-auto h-7" onClick={refreshNow}>
+            Refresh
+          </Button>
+        )}
       </div>
       <Card padding="none" className="overflow-hidden">
         {[...groups].map(([place, threads]) => {

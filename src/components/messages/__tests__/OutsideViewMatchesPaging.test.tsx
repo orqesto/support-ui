@@ -425,5 +425,33 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
     await screen.findByText('Row two');
     expect(container.textContent).toContain('10,000+');
   });
+
+  // Round-15 review.
+  it('🔴 Refresh (shown once paged) brings back a fresh first page on demand', async () => {
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Old one')], 30))
+      .mockResolvedValueOnce(answer([thread(2, 'terminal', 'Old two')], 30))
+      .mockResolvedValueOnce(answer([thread(3, 'terminal', 'Fresh one')], 1));
+    render(section(filters()));
+    expect(screen.queryByRole('button', { name: 'Refresh' })).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
+    await screen.findByText('Old two');
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await screen.findByText('Fresh one');
+    expect(getThreads.mock.calls[2]?.[1]).toBe(1);
+    expect(screen.queryByText('Old two')).toBeNull();
+  });
+
+  it('"Show more" without a total leaves the total as it was', async () => {
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30))
+      .mockResolvedValueOnce({ ...answer([thread(2, 'terminal', 'Row two')]), pagination: undefined });
+    const { container } = render(section(filters()));
+    fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
+    await screen.findByText('Row two');
+    expect(container.textContent).toMatch(/Also found in other views\s*30/);
+    // Read without a total, the answer is still a success — no "could not load more".
+    expect(screen.queryByText(/Could not load more/i)).toBeNull();
+  });
 });
 
