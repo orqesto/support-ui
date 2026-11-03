@@ -135,7 +135,7 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
     expect(await screen.findByText('Second page row')).toBeTruthy();
   });
 
-  it('🔴 a "Show more" overtaken by a refresh is dropped, not appended at a skipped offset', async () => {
+  it('🔴 a "Show more" that lands after a refresh is appended (a refresh only replaces page 1)', async () => {
     getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30));
     const state = filters();
     const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
@@ -148,14 +148,8 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
     afterRefreshWindow();
     rerender(section(state, vi.fn(), vi.fn(), 'r2'));
     await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(3));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    more(answer([thread(2, 'terminal', 'Stale page row')], 30));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(screen.queryByText('Stale page row')).toBeNull();
+    more(answer([thread(2, 'terminal', 'Page two row')], 30));
+    expect(await screen.findByText('Page two row')).toBeTruthy();
   });
 
   it('🔴 a hung ask is replaced even when the list re-reads (enabled off and on) meanwhile', async () => {
@@ -354,6 +348,47 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
       await Promise.resolve();
     });
     expect(screen.queryByText('Stray page')).toBeNull();
+  });
+
+  // Round-11 review.
+  it('🔴 an older backend\'s answer to a refresh also drops a Show more still out', async () => {
+    getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    await screen.findByText('Row one');
+    let refreshed: (value: unknown) => void = () => undefined;
+    getThreads.mockImplementationOnce(() => new Promise((resolve) => (refreshed = resolve)));
+    afterRefreshWindow();
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
+    let more: (value: unknown) => void = () => undefined;
+    getThreads.mockImplementationOnce(() => new Promise((resolve) => (more = resolve)));
+    fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(3));
+    refreshed({ ...answer([thread(9, undefined, 'View row')]), outsideView: undefined });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    more(answer([thread(2, 'terminal', 'Stray page')], 30));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByText('Stray page')).toBeNull();
+  });
+
+  it('🔴 unmounting aborts a Show more in flight', async () => {
+    const signals: AbortSignal[] = [];
+    getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30));
+    getThreads.mockImplementationOnce((...args: unknown[]) => {
+      const opts = args[5] as { signal?: AbortSignal } | undefined;
+      if (opts?.signal) signals.push(opts.signal);
+      return new Promise(() => undefined);
+    });
+    const { unmount } = render(section(filters()));
+    fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
+    await waitFor(() => expect(signals).toHaveLength(1));
+    unmount();
+    expect(signals[0]?.aborted).toBe(true);
   });
 });
 

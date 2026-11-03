@@ -163,7 +163,7 @@ export const OutsideViewMatches = ({
   // The question the ask in flight is FOR: a refresh of the same question lets it finish.
   const inFlightQuery = useRef('');
   const inFlightAt = useRef(0);
-  // The page shown, for an answer that lands after "Show more" appended rows.
+  // The page shown: past page 1 (the agent pressed "Show more") nothing refreshes automatically.
   const pageRef = useRef(1);
   pageRef.current = page;
   // Moves each time a refresh replaces the rows: a "Show more" answer asked before it is dropped
@@ -209,8 +209,8 @@ export const OutsideViewMatches = ({
       setStatus('idle');
       moreSeq.current += 1;
       // Anything still out for the previous question — a refresh or a "Show more" — is not for
-      // this one, even if the agent switches back before it lands (round-10 review).
-      rowsEpoch.current += 1;
+      // this one, even if the agent switches back before it lands (round-10 review): aborted, and
+      // an aborted Show more appends nothing (loadMore checks its signal after the read).
       moreAbort.current?.abort();
       inFlight.current?.abort();
       clearStale();
@@ -263,8 +263,6 @@ export const OutsideViewMatches = ({
     inFlightAt.current = now;
     const failedFor = queryKey;
     const askedRows = requestKey;
-    // A refresh reads every page shown, in one request: the section keeps its length (it shrank
-    // back to 25 rows every ~15 s after "Show more") and a row that stopped matching leaves.
     // A "Show more" that adds rows while this is out makes this answer older than the screen.
     const appliedAtAsk = moreApplied.current;
     // An answer is for the QUESTION (search, filters, team, workspace), not for the moment the
@@ -284,13 +282,9 @@ export const OutsideViewMatches = ({
       }
     };
     // A "Show more" added rows while this was out: whatever this answer is (rows, a failure, an
-    // older backend), it is older than the screen — keep the rows and ask again (rounds 6–8).
-    const overtaken = () => {
-      if (moreApplied.current === appliedAtAsk) return false;
-      askedKey.current = '';
-      setRetryTick((tick) => tick + 1);
-      return true;
-    };
+    // older backend), it is older than the screen — keep the rows (rounds 6–11).
+    // Dropped, not re-asked: past page 1 nothing refreshes automatically (the page gate).
+    const overtaken = () => moreApplied.current !== appliedAtAsk;
     const failed = () => {
       // Only an answer to the question on screen records a failure.
       if (shownQuery.current !== failedFor) return;
@@ -336,9 +330,9 @@ export const OutsideViewMatches = ({
         }
         if (failedAt.current?.key === failedFor) failedAt.current = null;
         setStatus('done');
-        rowsEpoch.current += 1;
+        // Only ever page 1 (a refresh is asked at page 1, and one a Show more overtook is dropped):
+        // a Show more still out keeps a valid offset and is appended after it (round-11 review).
         setRows(listed);
-        setPage(1);
         setTotal(answer.pagination?.total ?? listed.length);
         setTotalCapped(
           answer.pagination?.totalCapped === true || answer.pagination?.countTimedOut === true
@@ -383,7 +377,7 @@ export const OutsideViewMatches = ({
       });
       if (moreController.signal.aborted) return;
       if (shownQuery.current !== askedFor) return;
-      // A refresh replaced the rows meanwhile: this page's offset no longer follows them.
+      // A failure (or an older backend) cleared the rows meanwhile: nothing to append to.
       if (rowsEpoch.current !== epochAtAsk) return;
       const listed = outsideRows(answer);
       if (!listed) {
