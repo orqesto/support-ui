@@ -495,6 +495,32 @@ describe('OutsideViewMatches — Refresh keeps focus and says what came back', (
     expect(document.activeElement).toBe(document.body);
   });
 
+  it('🔴 Show more keeps keyboard focus while it loads, and ignores a second press (staging, Chrome)', async () => {
+    let answerPage2 = (_value: unknown) => {};
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Old one')], 30))
+      .mockReturnValueOnce(new Promise((done) => (answerPage2 = done)));
+    render(section(filters()));
+    const more = await screen.findByRole('button', { name: /Show more/ });
+    more.focus();
+    fireEvent.click(more);
+    // Loading: still focusable (a disabled button loses focus in a browser), marked aria-disabled.
+    await waitFor(() => expect(more.getAttribute('aria-disabled')).toBe('true'));
+    expect((more as HTMLButtonElement).disabled).toBe(false);
+    // Looks inactive (whole class names: the base classes carry `disabled:opacity-50`).
+    expect(more.className.split(' ')).toEqual(
+      expect.arrayContaining(['opacity-50', 'pointer-events-none'])
+    );
+    expect(document.activeElement).toBe(more);
+    fireEvent.click(more); // a second press while page 2 is out
+    expect(getThreads).toHaveBeenCalledTimes(2);
+    answerPage2(answer([thread(2, 'terminal', 'Old two')], 30));
+    await screen.findByText('Old two');
+    expect(document.activeElement).toBe(more);
+    expect(more.getAttribute('aria-disabled')).toBe('false');
+    expect(more.className.split(' ')).not.toContain('opacity-50');
+  });
+
   it('[control] focus on a button the fresh answer keeps stays on that button', async () => {
     getThreads
       .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Old one')], 30))
