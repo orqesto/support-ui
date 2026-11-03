@@ -26,6 +26,7 @@ import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { ComposerSendButton, type SendAction } from './ComposerSendButton';
 import { SignatureReviewNotice } from './SignatureReviewNotice';
+import { useOpenOnNewAddress } from './useOpenOnNewAddress';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -213,6 +214,12 @@ export function MessageComposer({
     !recipientDraft?.cc.trim() &&
     !recipientDraft?.bcc.trim();
   const atRest = !open;
+  // A folded DRAFT hides its files and Cc/Bcc: the folded round Send opens the box to show them.
+  const openForReview = () => {
+    const editorRef = composerMode === 'note' ? noteEditorRef : richEditorRef;
+    setOpen(true);
+    setTimeout(() => editorRef.current?.focus('end'), 0);
+  };
   useEffect(() => {
     onOpenChange?.(!atRest);
   }, [atRest, onOpenChange]);
@@ -260,6 +267,7 @@ export function MessageComposer({
   useEffect(() => {
     if (!draftEmpty) setOpen(true);
   }, [draftEmpty]);
+  useOpenOnNewAddress(recipientDraft, () => setOpen(true));
   const draftEmptyRef = useRef(draftEmpty);
   draftEmptyRef.current = draftEmpty;
   const openRef = useRef(open);
@@ -749,7 +757,7 @@ export function MessageComposer({
           ) : (
             <Button
               variant="ghost"
-              onClick={onSend}
+              onClick={atRest && !draftEmpty ? openForReview : onSend}
               disabled={sendDisabled}
               title={sendTitle}
               className={`flex items-center gap-1 px-[13px] py-[5px] h-auto rounded-[7px] font-display text-[10.5px] font-semibold uppercase tracking-[0.07em] transition-colors disabled:opacity-50 ${

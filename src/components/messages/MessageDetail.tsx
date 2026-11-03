@@ -783,6 +783,8 @@ export function MessageDetail({
     pinToNewestRef.current = true;
     pinUntilRef.current = null;
   }, [message.id]);
+  const isPhoneRef = useRef(isPhone);
+  isPhoneRef.current = isPhone;
   const scrollToNewestIfPinned = useCallback(() => {
     const scroller = threadScrollerRef.current;
     if (!scroller || !pinToNewestRef.current) return;
@@ -792,7 +794,10 @@ export function MessageDetail({
       pinToNewestRef.current = false;
       return;
     }
-    scroller.scrollTop = scroller.scrollHeight;
+    // A phone scrolls the DOCUMENT, not the thread box (usePhoneDetailScroll), so the newest
+    // message is the bottom of the page there (owner, 2026-11-03: phones open at the newest too).
+    if (isPhoneRef.current) window.scrollTo({ top: document.documentElement.scrollHeight });
+    else scroller.scrollTop = scroller.scrollHeight;
   }, []);
   // The thread's messages arrived or changed while pinned: land on the newest.
   useLayoutEffect(() => {
@@ -807,6 +812,8 @@ export function MessageDetail({
     if (!content || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => scrollToNewestIfPinned());
     observer.observe(content);
+    // The box itself shrinking (the reply box opening under it) hides the last lines too.
+    if (threadScrollerRef.current) observer.observe(threadScrollerRef.current);
     return () => observer.disconnect();
   }, [message.id, scrollToNewestIfPinned]);
 
@@ -1919,7 +1926,9 @@ export function MessageDetail({
             // dialog (openResolveDialog). Notes post as before.
             onSend={() => (composerMode === 'reply' ? handleSendWith('send') : void handleSend())}
             sendActions={sendActions}
-            sendAction={sendAction}
+            // A NEW thread starts on plain Send whatever was remembered (owner, 2026-11-03): a habit
+            // click on "Send and resolve" must not close a first contact. The ▾ menu still offers it.
+            sendAction={resolveMode === 'unreviewed' ? 'send' : sendAction}
             onSendWith={handleSendWith}
             onSendPick={handleSendPick}
             onOpenChange={handleComposerOpenChange}

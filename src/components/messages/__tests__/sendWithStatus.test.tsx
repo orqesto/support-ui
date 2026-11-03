@@ -2,7 +2,7 @@
  * Send ▾ (2026-10-29): what happens to the conversation once the reply is out, chosen on the Send
  * button as in Zendesk's submit-as. Through MessageDetail, as the app calls the services.
  */
-import { renderDetail, svc } from './md4.mobile.utils';
+import { renderDetail, setViewport, svc } from './md4.mobile.utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -193,7 +193,10 @@ describe('Send ▾ elsewhere', () => {
     window.localStorage.setItem('odly.sendAction.7', 'resolve');
     renderDetail({ status: 'open', lastReplyFromClient: false });
     type('<p>Hello.</p>');
-    expect(screen.getByRole('button', { name: 'SEND & RESOLVE' })).toBeInTheDocument();
+    // …but the FACE is plain Send whatever was remembered (owner 2026-11-03): one habit click must
+    // not resolve a first contact. The remembered choice is kept for the next active thread.
+    expect(screen.getByRole('button', { name: 'SEND' })).toBeInTheDocument();
+    expect(window.localStorage.getItem('odly.sendAction.7')).toBe('resolve');
     openSendMenu();
     expect(screen.getAllByRole('menuitemcheckbox').map((item) => item.textContent)).toEqual([
       'Send',
@@ -418,5 +421,104 @@ describe('opening a thread lands on its newest message', () => {
     scroller.scrollTop = 120;
     await screen.findByText('Message 3');
     expect(scroller.scrollTop).toBe(120);
+  });
+});
+
+describe('a folded draft (review of #819–#822)', () => {
+  const press = (el: Element) => {
+    fireEvent.pointerDown(el);
+    fireEvent.click(el);
+  };
+  const foldWithFlush = () => {
+    const flushOnBody = () => flushSync(() => {});
+    document.body.addEventListener('click', flushOnBody);
+    press(screen.getByTestId('rte-collapse'));
+    document.body.removeEventListener('click', flushOnBody);
+  };
+
+  it("the folded box's round Send opens the box instead of sending what it hides", () => {
+    renderDetail();
+    type('<p>Half-written answer</p>');
+    foldWithFlush();
+    expect(screen.getByTestId('message-composer')).toHaveAttribute('data-state', 'rest');
+    const roundSend = within(screen.getByTestId('message-composer')).getByRole('button', {
+      name: /send/i,
+    });
+    fireEvent.click(roundSend);
+    expect(svc.message.reply).not.toHaveBeenCalled();
+    expect(screen.getByTestId('message-composer')).toHaveAttribute('data-state', 'open');
+  });
+
+  it("CONTROL: an empty folded box's round Send stays disabled", () => {
+    renderDetail();
+    const roundSend = within(screen.getByTestId('message-composer')).getByRole('button', {
+      name: /send/i,
+    });
+    expect(roundSend).toBeDisabled();
+  });
+
+  it('an address arriving onto a folded draft opens the box; the reset to empty does not', () => {
+    const view = (to: string) => (
+      <MemoryRouter>
+        <MessageComposer
+          message={
+            {
+              id: 5,
+              channel: 'email',
+              sender: 'Customer <customer@example.com>',
+              from: 'Customer <customer@example.com>',
+              recipients: [],
+            } as unknown as Message
+          }
+          composer="<p>Half-written answer</p>"
+          setComposer={vi.fn()}
+          composerMode="reply"
+          setComposerMode={vi.fn()}
+          submitting={false}
+          onSend={vi.fn()}
+          richEditorRef={createRef()}
+          noteEditorRef={createRef()}
+          onOpenSimilarMessages={vi.fn()}
+          selectedFiles={[]}
+          onFilesChange={vi.fn()}
+          recipientDraft={{ to, cc: '', bcc: '' }}
+          onRecipientDraftChange={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+    const { rerender } = render(view(''));
+    // A draft arrived (non-empty text) → the box opened; fold it on purpose.
+    expect(screen.getByTestId('message-composer')).toHaveAttribute('data-state', 'open');
+    const flushOnBody = () => flushSync(() => {});
+    document.body.addEventListener('click', flushOnBody);
+    press(screen.getByTestId('rte-collapse'));
+    document.body.removeEventListener('click', flushOnBody);
+    expect(screen.getByTestId('message-composer')).toHaveAttribute('data-state', 'rest');
+    // "Reply to this message" sets the To line.
+    rerender(view('someone@example.com'));
+    expect(screen.getByTestId('message-composer')).toHaveAttribute('data-state', 'open');
+  });
+});
+
+describe('phones open at the newest message too', () => {
+  it('scrolls the document to its bottom once the thread has loaded', async () => {
+    setViewport(true);
+    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    Object.defineProperty(document.documentElement, 'scrollHeight', {
+      configurable: true,
+      value: 3200,
+    });
+    svc.message.getThreadMessages = vi.fn().mockResolvedValue({
+      data: [1, 2].map((num) => ({
+        id: 700 + num,
+        type: 'inbound',
+        content: `Phone message ${num}`,
+        authorEmail: 'ada@example.com',
+        createdAt: `2026-09-2${num}T10:00:00Z`,
+      })),
+    });
+    renderDetail();
+    await screen.findByText('Phone message 2');
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledWith({ top: 3200 }));
   });
 });
