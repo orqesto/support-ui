@@ -165,10 +165,21 @@ export const OutsideViewMatches = ({
   // The page shown, for an answer that lands after "Show more" appended rows.
   const pageRef = useRef(1);
   pageRef.current = page;
+  // Moves each time a refresh replaces the rows: a "Show more" answer asked before it is dropped
+  // (its offset belongs to the rows it replaced — a page was skipped, round-4 review).
+  const rowsEpoch = useRef(0);
+  // The in-flight ask's own stale timer, cleared only when THAT ask ends: kept out of the effect's
+  // cleanup, which every list re-read (`enabled` off and on) ran and so cancelled it (round 4).
+  const staleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearStale = () => {
+    if (staleTimer.current !== null) clearTimeout(staleTimer.current);
+    staleTimer.current = null;
+  };
   useEffect(
     () => () => {
       inFlight.current?.abort();
       inFlight.current = null;
+      clearStale();
       // StrictMode re-runs the effects after this: the question must be asked again then, or the
       // aborted first ask left "Checking…" for good (release review, 2026-11-02).
       askedKey.current = '';
@@ -188,6 +199,7 @@ export const OutsideViewMatches = ({
       setStatus('idle');
       moreSeq.current += 1;
       inFlight.current?.abort();
+      clearStale();
       // The refresh window is per shown question: a new one (or one changed back) asks at once.
       lastAsked.current = null;
       // A new question: whatever was asked before (even this same key, before a change and back
@@ -233,14 +245,18 @@ export const OutsideViewMatches = ({
     inFlightAt.current = now;
     const failedFor = queryKey;
     const askedRows = requestKey;
-    // "Show more" pressed while this was out: its rows are merged with this answer, not replaced.
-    const moreAtAsk = moreSeq.current;
+    // A refresh reads every page shown, in one request: the section keeps its length (it shrank
+    // back to 25 rows every ~15 s after "Show more") and a row that stopped matching leaves.
+    const pagesAtAsk = pageRef.current;
     // An answer is for the QUESTION (search, filters, team, workspace), not for the moment the
     // list rows stood at: matching on requestKey dropped every answer that arrived after any
     // colleague's change, and on a busy inbox the section never left "Checking…" (release review).
     const stillAsked = () => !controller.signal.aborted && shownQuery.current === failedFor;
     const settle = () => {
-      if (inFlight.current === controller) inFlight.current = null;
+      if (inFlight.current === controller) {
+        inFlight.current = null;
+        clearStale();
+      }
       // The list's rows moved while this was out: its answer is shown, and the question is asked
       // once more (the refresh window decides when) so the move is reflected.
       if (!controller.signal.aborted && currentKey.current !== askedRows) {
@@ -259,7 +275,7 @@ export const OutsideViewMatches = ({
       setRetryTick((tick) => tick + 1);
     };
     void messageService
-      .getThreads(request, 1, PAGE, undefined, 'time', {
+      .getThreads(request, 1, PAGE * pagesAtAsk, undefined, 'time', {
         allowTimedOut: true,
         signal: controller.signal,
       })
@@ -282,16 +298,9 @@ export const OutsideViewMatches = ({
         }
         if (failedAt.current?.key === failedFor) failedAt.current = null;
         setStatus('done');
-        if (moreSeq.current !== moreAtAsk && pageRef.current > 1) {
-          // "Show more" appended rows meanwhile: keep them, under the fresh first page.
-          setRows((shown) => {
-            const fresh = new Set(listed.map((thread) => thread.threadId));
-            return [...listed, ...shown.filter((thread) => !fresh.has(thread.threadId))];
-          });
-        } else {
-          setRows(listed);
-          setPage(1);
-        }
+        rowsEpoch.current += 1;
+        setRows(listed);
+        setPage(pagesAtAsk);
         setTotal(answer.pagination?.total ?? listed.length);
         setTotalCapped(
           answer.pagination?.totalCapped === true || answer.pagination?.countTimedOut === true
@@ -304,12 +313,14 @@ export const OutsideViewMatches = ({
       });
     // Its own stale timer: on a quiet inbox nothing else re-runs this effect, and an ask that never
     // settles left "Checking…" for good (release review, round 4). Acts only if THIS ask is still out.
-    const staleTimer = setTimeout(() => {
+    clearStale();
+    staleTimer.current = setTimeout(() => {
+      staleTimer.current = null;
       if (inFlight.current !== controller) return;
       askedKey.current = '';
       setRetryTick((tick) => tick + 1);
     }, ASK_STALE_MS);
-    return () => clearTimeout(staleTimer);
+    return undefined;
     // requestKey stands for `request` and everything else that changes the answer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestKey, enabled, retryTick]);
@@ -318,15 +329,19 @@ export const OutsideViewMatches = ({
     if (!request) return;
     // For the QUESTION, as page 1: a colleague's change while it was out dropped it (round 3).
     const askedFor = queryKey;
+    const epochAtAsk = rowsEpoch.current;
+    const nextPage = page + 1;
     moreSeq.current += 1;
     const seq = moreSeq.current;
     setLoadingMore(true);
     setMoreFailed(false);
     try {
-      const answer = await messageService.getThreads(request, page + 1, PAGE, undefined, 'time', {
+      const answer = await messageService.getThreads(request, nextPage, PAGE, undefined, 'time', {
         allowTimedOut: true,
       });
       if (shownQuery.current !== askedFor) return;
+      // A refresh replaced the rows meanwhile: this page's offset no longer follows them.
+      if (rowsEpoch.current !== epochAtAsk) return;
       const listed = outsideRows(answer);
       if (!listed) {
         setMoreFailed(true);
@@ -337,7 +352,7 @@ export const OutsideViewMatches = ({
         const seen = new Set(shown.map((thread) => thread.threadId));
         return [...shown, ...listed.filter((thread) => !seen.has(thread.threadId))];
       });
-      setPage(page + 1);
+      setPage(nextPage);
     } catch {
       if (shownQuery.current === askedFor) setMoreFailed(true);
     } finally {

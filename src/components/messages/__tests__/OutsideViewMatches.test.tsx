@@ -563,23 +563,67 @@ describe('OutsideViewMatches', () => {
     expect(await screen.findByText('Second page row')).toBeTruthy();
   });
 
-  it('🔴 a first page that lands after a "Show more" made meanwhile keeps the appended rows', async () => {
+  it('🔴 a refresh after "Show more" reads every page shown — the section keeps its length', async () => {
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30))
+      .mockResolvedValueOnce(answer([thread(2, 'terminal', 'Row two')], 30));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
+    await screen.findByText('Row two');
+    getThreads.mockResolvedValueOnce(
+      answer([thread(1, 'terminal', 'Row one'), thread(2, 'terminal', 'Row two')], 30)
+    );
+    afterRefreshWindow();
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(3));
+    // Page 1, two pages' worth of rows.
+    expect(getThreads.mock.calls[2]?.[1]).toBe(1);
+    expect(getThreads.mock.calls[2]?.[2]).toBe(50);
+    expect(screen.getByText('Row two')).toBeTruthy();
+  });
+
+  it('🔴 a "Show more" overtaken by a refresh is dropped, not appended at a skipped offset', async () => {
     getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30));
     const state = filters();
     const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
     await screen.findByText('Row one');
-    // A refresh goes out and hangs while the agent presses "Show more".
-    let refreshed: (value: unknown) => void = () => undefined;
-    getThreads.mockImplementationOnce(() => new Promise((resolve) => (refreshed = resolve)));
+    let more: (value: unknown) => void = () => undefined;
+    getThreads.mockImplementationOnce(() => new Promise((resolve) => (more = resolve)));
+    fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
+    getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30));
     afterRefreshWindow();
     rerender(section(state, vi.fn(), vi.fn(), 'r2'));
-    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
-    getThreads.mockResolvedValueOnce(answer([thread(2, 'terminal', 'Row two')], 30));
-    fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
-    await screen.findByText('Row two');
-    refreshed(answer([thread(1, 'terminal', 'Row one')], 30));
-    await waitFor(() => expect(screen.getByText('Row one')).toBeTruthy());
-    expect(screen.getByText('Row two')).toBeTruthy();
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(3));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    more(answer([thread(2, 'terminal', 'Stale page row')], 30));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByText('Stale page row')).toBeNull();
+  });
+
+  it('🔴 a hung ask is replaced even when the list re-reads (enabled off and on) meanwhile', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    try {
+      getThreads
+        .mockImplementationOnce(() => new Promise(() => undefined))
+        .mockResolvedValueOnce(answer([thread(1, 'terminal', 'After the hang')]));
+      const state = filters();
+      const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1', true));
+      await vi.waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+      rerender(section(state, vi.fn(), vi.fn(), 'r1', false));
+      rerender(section(state, vi.fn(), vi.fn(), 'r1', true));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ASK_STALE_MS);
+      });
+      expect(getThreads).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('🔴 a later refresh (no "Show more" meanwhile) drops a row that stopped matching', async () => {
