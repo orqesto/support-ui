@@ -111,21 +111,27 @@ vi.mock('@/components/shared/RichTextEditor', () => ({
     placeholder,
     minHeight,
     className,
+    onCollapse,
   }: {
     content?: string;
     onChange?: (val: string) => void;
     placeholder?: string;
     minHeight?: string;
     className?: string;
+    onCollapse?: () => void;
   }) => (
-    <textarea
-      data-testid="rich-text-editor"
-      data-min-height={minHeight}
-      className={className}
-      placeholder={placeholder}
-      value={content ?? ''}
-      onChange={(event) => onChange?.(event.target.value)}
-    />
+    <>
+      <textarea
+        data-testid="rich-text-editor"
+        data-min-height={minHeight}
+        className={className}
+        placeholder={placeholder}
+        value={content ?? ''}
+        onChange={(event) => onChange?.(event.target.value)}
+      />
+      {/* The toolbar's Collapse (real editor: RichTextEditor), handed to the host. */}
+      {onCollapse && <button type="button" data-testid="rte-collapse" onClick={onCollapse} />}
+    </>
   ),
   extractImageFiles: () => [],
 }));

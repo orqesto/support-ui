@@ -19,6 +19,7 @@ import { editorHtmlToText, translatedTextToHtml, type SourceLists } from '@/lib/
 import { editorExtensions } from '@/lib/editorSchema';
 import { shieldPlaceholders } from '@/lib/replyPlaceholders';
 import { cn } from '@/lib/utils';
+import { isBlankRichText, previewText } from '@/lib/stripHtml';
 import { TranslateButton } from './TranslateButton';
 import { extractImageFiles } from './extractImageFiles';
 import { noteSkippedEditor, trackEditorDestroy } from './destroyedEditorReport';
@@ -35,6 +36,11 @@ export type RichTextEditorProps = {
   minHeight?: string;
   maxHeight?: string;
   initiallyHidden?: boolean;
+  /**
+   * The toolbar's Collapse, handed to the host instead of only hiding the editor: the reply box
+   * folds itself away (and the thread's header comes back) with the text kept.
+   */
+  onCollapse?: () => void;
   /**
    * Called with image files the user pastes (Ctrl+V screenshots) or drags &
    * drops into the editor. When provided, image paste/drop is intercepted and
@@ -94,6 +100,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       minHeight = '150px',
       maxHeight,
       initiallyHidden = true,
+      onCollapse,
       onImageFiles,
       translatable = false,
       locked = false,
@@ -295,8 +302,18 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
             setTimeout(() => liveEditor()?.commands.focus(), 0);
           }}
         >
-          {/* One left-aligned line: a wrapped, centred hint took two lines of the reply box. */}
-          <span className="min-w-0 truncate text-left">{placeholder}</span>
+          {/* One left-aligned line: a wrapped, centred hint took two lines of the reply box.
+              With text in it, the line is the TEXT: showing the hint over a draft made the draft
+              look gone (owner, 2026-11-03) while Send would still send it. */}
+          <span
+            className={cn(
+              'min-w-0 truncate text-left',
+              !isBlankRichText(content) && 'text-foreground'
+            )}
+            data-testid="rich-text-collapsed-line"
+          >
+            {isBlankRichText(content) ? placeholder : previewText(content)}
+          </span>
           <ChevronDown className="h-4 w-4 shrink-0" />
         </button>
       );
@@ -459,7 +476,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => setIsExpanded(false)}
+                  onClick={() => (onCollapse ? onCollapse() : setIsExpanded(false))}
                   className="items-center gap-1 ml-auto text-xs text-muted-foreground hover:text-foreground px-2 h-auto rounded"
                 >
                   <ChevronUp className="h-3 w-3" />

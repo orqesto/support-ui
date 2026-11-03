@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Send, Paperclip, BookOpen, FileText, Search, X, ChevronDown } from 'lucide-react';
+import { Send, Paperclip, BookOpen, FileText, Search, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/Button';
@@ -232,10 +232,12 @@ export function MessageComposer({
     if (!open) setOpen(true);
   };
   /*
-    Fold on purpose — a draft included (owner, 2026-11-03). An outside press never folds a draft
-    away (it may be an accident), so with text in the box there was no way back to the thread's
-    full header, which shrinks while the box is open. The text stays: the pill shows it, and
-    pressing into the pill opens the box with it. Not while an AI draft is being written.
+    Fold on purpose — a draft included (owner, 2026-11-03): the editor toolbar's Collapse. An
+    outside press never folds a draft away (it may be an accident), so with text in the box there
+    was no way back to the thread's full header, which shrinks while the box is open — and that
+    Collapse only hid the editor's text behind its hint, leaving the box open. The text stays: the
+    pill shows its first line, and pressing into the pill opens the box with it. Not while an AI
+    draft is being written.
   */
   const foldComposer = () => {
     if (!open || aiActiveRef.current) return;
@@ -482,20 +484,6 @@ export function MessageComposer({
           {shortcutHint ? `${shortcutHint} · ` : ''}
           {SEND_SHORTCUT} {composerMode === 'note' ? 'post' : 'send'}
         </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={foldComposer}
-          disabled={aiBusy}
-          aria-label="Fold the reply box (your text is kept)"
-          title="Fold the reply box — your text is kept"
-          data-testid="composer-fold"
-          className="h-auto px-1 py-0 text-[11px] text-muted-foreground hover:text-foreground max-sm:ml-auto"
-        >
-          <ChevronDown className="w-3.5 h-3.5" />
-          Fold
-        </Button>
       </div>
 
       {/* WhatsApp 24-hour window. Shown ABOVE the input so the agent reads it before
@@ -561,6 +549,7 @@ export function MessageComposer({
             // said "Reply as …", which is exactly the confusion the placeholder exists to stop.
             key={`reply-${restGeneration}`}
             ref={richEditorRef}
+            onCollapse={foldComposer}
             content={composer}
             onChange={setComposer}
             // While an AI draft is being written the editor holds the agent's NOTE, not a reply.
@@ -608,6 +597,7 @@ export function MessageComposer({
           <RichTextEditor
             key={`note-${restGeneration}`}
             ref={noteEditorRef}
+            onCollapse={foldComposer}
             content={composer}
             onChange={setComposer}
             onSubmit={onSend}
