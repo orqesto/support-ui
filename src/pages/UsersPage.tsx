@@ -33,6 +33,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useUsersStore } from '@/stores/usersStore';
 import type { User } from '@/types';
 import { Permission, roleDisplayNames } from '@/types/roles';
+import { canManageMemberSkills } from '@/lib/skillPermissions';
 import type { OrganizationRole } from '@/types/roles';
 import { getUserRowCapabilities } from '@/utils/userListCapabilities';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -117,6 +118,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
   );
 
   const canViewUsers = hasPermission(Permission.VIEW_USERS);
+  // Setting other members' skills needs manage_users or manage_routing_rules on the BE; a support
+  // agent (view_users only) saw the button and got a dialog that failed to load (2026-11-03).
+  const canManageSkills = canManageMemberSkills({ canManageUsers, hasPermission });
 
   useEffect(() => {
     if (canViewUsers) {
@@ -506,16 +510,18 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
                   <Edit2 className="w-4 h-4" />
                 </Button>
               )}
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex-shrink-0"
-                onClick={() => setSkillsUser(user)}
-                title="Manage skills"
-                aria-label="Manage skills"
-              >
-                <Tag className="w-4 h-4" />
-              </Button>
+              {canManageSkills && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-shrink-0"
+                  onClick={() => setSkillsUser(user)}
+                  title="Manage skills"
+                  aria-label="Manage skills"
+                >
+                  <Tag className="w-4 h-4" />
+                </Button>
+              )}
               {canDeleteUser(user) && (
                 <Button
                   aria-label="Delete user"
@@ -655,9 +661,11 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
               <DataTable
                 rows={users}
                 rowKey={(user) => user.id}
-                columns={
-                  teamsEnabled ? columns : columns.filter((column) => column.id !== 'departments')
-                }
+                columns={columns.filter(
+                  (column) =>
+                    (teamsEnabled || column.id !== 'departments') &&
+                    (canManageSkills || column.id !== 'skills')
+                )}
                 actions={rowActions}
                 renderCard={renderUserCard}
                 search={{
@@ -713,7 +721,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
 
       {/* User Skills Modal */}
       <UserSkillsModal
-        isOpen={skillsUser !== null}
+        isOpen={canManageSkills && skillsUser !== null}
         onClose={() => setSkillsUser(null)}
         user={skillsUser}
       />

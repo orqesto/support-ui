@@ -599,7 +599,7 @@ export const organizationService = {
     await apiClient.patch('/api/organizations/auto-assign', { mode });
   },
 
-  /** Whether a reply may make the replier the thread's owner (the app asks). Org admin. */
+  /** Whether a reply may make the replier the thread's owner (the app asks). Admins and moderators. */
   updateAssignOnReply: async (assignOnReply: boolean): Promise<void> => {
     await apiClient.patch('/api/organizations/auto-assign', { assignOnReply });
   },

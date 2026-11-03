@@ -75,7 +75,11 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
   // the test box) and every one of those calls needs manage_routing_rules on the BE (admins and
   // moderators). Without it an agent saw every control, got 403 on each, and read a false
   // "No routing keys defined yet" (staging 2026-11-03). Agents keep their own skills on Profile.
-  const canManageRouting = isAdmin || hasPermission(Permission.MANAGE_ROUTING_RULES);
+  // The page also READS keys, mode and self-edit, which need view_organization_settings.
+  const canManageRouting =
+    isAdmin ||
+    (hasPermission(Permission.MANAGE_ROUTING_RULES) &&
+      hasPermission(Permission.VIEW_ORGANIZATION_SETTINGS));
   const isHidden = (sect: OrgSection): boolean =>
     (ADMIN_ONLY_SECTIONS.includes(sect) && !canManageOrgPolicy) ||
     (sect === 'routing-skills' && !canManageRouting);
