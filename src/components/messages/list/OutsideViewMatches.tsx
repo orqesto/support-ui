@@ -173,6 +173,10 @@ export const OutsideViewMatches = ({
   // Moves each time a refresh replaces the rows: a "Show more" answer asked before it is dropped
   // (its offset belongs to the rows it replaced — a page was skipped, round-4 review).
   const rowsEpoch = useRef(0);
+  // Moves each time a "Show more" ADDS rows. A refresh is dropped if this moved while it was out —
+  // in either order: pressed before or after the refresh was asked, as long as it landed meanwhile.
+  // A "Show more" that failed or was dropped adds nothing and costs no refresh (round-7 review).
+  const moreApplied = useRef(0);
   // The in-flight ask's own stale timer, cleared only when THAT ask ends: kept out of the effect's
   // cleanup, which every list re-read (`enabled` off and on) ran and so cancelled it (round 4).
   const staleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -227,6 +231,12 @@ export const OutsideViewMatches = ({
     if (failedAt.current?.key === queryKey && now - failedAt.current.at < FAILED_RETRY_MS) {
       return later(FAILED_RETRY_MS - (now - failedAt.current.at));
     }
+    // More rows shown than one request can bring back (the backend's cap): a refresh would cut the
+    // section back to MAX_REFRESH_ROWS every window. It stays as the agent paged it until the
+    // question changes (round-7 review).
+    if (lastAsked.current?.key === queryKey && PAGE * pageRef.current > MAX_REFRESH_ROWS) {
+      return undefined;
+    }
     // The same question again inside the refresh window: once, at its end.
     if (lastAsked.current?.key === queryKey && now - lastAsked.current.at < REFRESH_MIN_MS) {
       return later(REFRESH_MIN_MS - (now - lastAsked.current.at));
@@ -255,8 +265,8 @@ export const OutsideViewMatches = ({
     // A refresh reads every page shown, in one request: the section keeps its length (it shrank
     // back to 25 rows every ~15 s after "Show more") and a row that stopped matching leaves.
     const rowsAtAsk = Math.min(PAGE * pageRef.current, MAX_REFRESH_ROWS);
-    // "Show more" pressed while this was out: its page is newer than this answer (round-6 review).
-    const moreAtAsk = moreSeq.current;
+    // A "Show more" that adds rows while this is out makes this answer older than the screen.
+    const appliedAtAsk = moreApplied.current;
     // An answer is for the QUESTION (search, filters, team, workspace), not for the moment the
     // list rows stood at: matching on requestKey dropped every answer that arrived after any
     // colleague's change, and on a busy inbox the section never left "Checking…" (release review).
@@ -307,7 +317,7 @@ export const OutsideViewMatches = ({
         }
         if (failedAt.current?.key === failedFor) failedAt.current = null;
         setStatus('done');
-        if (moreSeq.current !== moreAtAsk) {
+        if (moreApplied.current !== appliedAtAsk) {
           // A "Show more" landed while this was out: its rows are newer — keep them and ask again
           // (the refresh window decides when), instead of wiping the page it added.
           askedKey.current = '';
@@ -370,6 +380,13 @@ export const OutsideViewMatches = ({
         return [...shown, ...listed.filter((thread) => !seen.has(thread.threadId))];
       });
       setPage(nextPage);
+      moreApplied.current += 1;
+      // Its count is as fresh as any refresh's: a refresh this one overtook is dropped, so the total
+      // would otherwise stay as old as the last refresh that applied (round-7 review).
+      setTotal(answer.pagination?.total ?? total);
+      setTotalCapped(
+        answer.pagination?.totalCapped === true || answer.pagination?.countTimedOut === true
+      );
     } catch {
       if (shownQuery.current === askedFor) setMoreFailed(true);
     } finally {

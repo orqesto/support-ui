@@ -211,14 +211,14 @@ export const getSocket = (): Socket => {
   return socket;
 };
 
+/** Tests only: the terminal sign-out (it is otherwise reached through a refused renewal). */
+export const endSessionForTests = (): void => endSessionAndRedirect();
+
 /**
  * The socket's renewal was refused. Refused for RATE (429, or this tab's cool-down after one) says
  * nothing about the session — signing out there sent people to a login page the same limit then
  * refused. Reconnect once renewal may be tried again; any other refusal ends the session.
  */
-/** Tests only: the terminal sign-out (it is otherwise reached through a refused renewal). */
-export const endSessionForTests = (): void => endSessionAndRedirect();
-
 export const afterRefusedRenewal = (
   err: unknown,
   actions: { retry: () => void; endSession: () => void }
