@@ -21,10 +21,16 @@ const { endSessionAndRedirect } = await import('@/lib/socketManager');
 
 describe('endSessionAndRedirect', () => {
   it('🔴 forgets remembered searches and clears the processing panels', () => {
+    // jsdom cannot navigate: a stand-in location keeps the run quiet.
+    const realLocation = window.location;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...realLocation, href: realLocation.href, pathname: '/threads', search: '' },
+    });
     try {
       endSessionAndRedirect();
-    } catch {
-      // jsdom does not navigate (window.location.href); the clears run before that line.
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
     }
     expect(cleared.searches).toBe(1);
     expect(cleared.panels).toBe(1);

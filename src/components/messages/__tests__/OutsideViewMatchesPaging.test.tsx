@@ -390,5 +390,37 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
     unmount();
     expect(signals[0]?.aborted).toBe(true);
   });
+
+  // Round-14 review.
+  it('🔴 a Show more aborted by a search change says nothing when the agent switches back', async () => {
+    getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'A one')], 30));
+    const { rerender } = render(section(filters({ search: 'a@shop.example' })));
+    await screen.findByText('A one');
+    let moreFail: (reason: unknown) => void = () => undefined;
+    getThreads.mockImplementationOnce(() => new Promise((_resolve, reject) => (moreFail = reject)));
+    fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
+    getThreads.mockImplementation(() => new Promise(() => undefined));
+    rerender(section(filters({ search: 'b@shop.example' })));
+    rerender(section(filters({ search: 'a@shop.example' })));
+    moreFail(new DOMException('aborted', 'AbortError'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByText(/Could not load more/i)).toBeNull();
+  });
+
+  it('"Show more" carries its answer\'s capped flag ("N+")', async () => {
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30))
+      .mockResolvedValueOnce({
+        ...answer([thread(2, 'terminal', 'Row two')], 10000),
+        pagination: { page: 2, limit: 25, total: 10000, totalPages: 400, totalCapped: true },
+      });
+    const { container } = render(section(filters()));
+    fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
+    await screen.findByText('Row two');
+    expect(container.textContent).toContain('10,000+');
+  });
 });
 
