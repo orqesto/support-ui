@@ -454,7 +454,7 @@ describe('a folded draft (review of #819–#822)', () => {
     const roundSend = within(screen.getByTestId('message-composer')).getByRole('button', {
       name: /send/i,
     });
-    expect(roundSend).toBeDisabled();
+    expect(roundSend).toBeInactive();
   });
 
   it('an address arriving onto a folded draft opens the box; the reset to empty does not', () => {
