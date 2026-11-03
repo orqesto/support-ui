@@ -17,12 +17,12 @@ vi.mock('@/stores/processingPanelStore', () => ({
   },
 }));
 
-const { endSessionForTests } = await import('@/lib/socketManager');
+const { endSessionAndRedirect } = await import('@/lib/socketManager');
 
 describe('endSessionAndRedirect', () => {
   it('🔴 forgets remembered searches and clears the processing panels', () => {
     try {
-      endSessionForTests();
+      endSessionAndRedirect();
     } catch {
       // jsdom does not navigate (window.location.href); the clears run before that line.
     }

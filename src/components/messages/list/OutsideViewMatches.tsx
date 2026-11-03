@@ -166,8 +166,8 @@ export const OutsideViewMatches = ({
   // The page shown: past page 1 (the agent pressed "Show more") nothing refreshes automatically.
   const pageRef = useRef(1);
   pageRef.current = page;
-  // Moves each time a refresh replaces the rows: a "Show more" answer asked before it is dropped
-  // (its offset belongs to the rows it replaced — a page was skipped, round-4 review).
+  // Moves when a failure (or an older backend's answer) clears the rows: a "Show more" still out
+  // then has nothing to append to and is dropped.
   const rowsEpoch = useRef(0);
   // Moves each time a "Show more" ADDS rows. A refresh is dropped if this moved while it was out —
   // in either order: pressed before or after the refresh was asked, as long as it landed meanwhile.
@@ -187,6 +187,7 @@ export const OutsideViewMatches = ({
       inFlight.current?.abort();
       inFlight.current = null;
       moreAbort.current?.abort();
+      moreSeq.current += 1;
       clearStale();
       // StrictMode re-runs the effects after this: the question must be asked again then, or the
       // aborted first ask left "Checking…" for good (release review, 2026-11-02).
@@ -203,8 +204,6 @@ export const OutsideViewMatches = ({
       setTotal(0);
       setTotalCapped(false);
       setPage(1);
-      // The effect reads it below in this same run: a new question starts at one page.
-      pageRef.current = 1;
       setLoadingMore(false);
       setStatus('idle');
       moreSeq.current += 1;
@@ -292,10 +291,6 @@ export const OutsideViewMatches = ({
       // The rows are gone: a "Show more" still out would append its page to nothing (round 9).
       rowsEpoch.current += 1;
       setRows([]);
-      // Nothing shown any more: back to one page, or the retry (past the cap check) never asked
-      // again and the section stayed on "could not be checked" (round-8 review).
-      setPage(1);
-      pageRef.current = 1;
       setStatus('failed');
       askedKey.current = '';
       failedAt.current = { key: failedFor, at: Date.now() };
@@ -315,8 +310,6 @@ export const OutsideViewMatches = ({
           // A backend without outsideView: nothing to say, and not asked again for the window.
           rowsEpoch.current += 1;
           setRows([]);
-          setPage(1);
-          pageRef.current = 1;
           setStatus('idle');
           failedAt.current = { key: failedFor, at: Date.now() };
           return;
@@ -401,7 +394,7 @@ export const OutsideViewMatches = ({
         );
       }
     } catch {
-      if (!moreController.signal.aborted && shownQuery.current === askedFor) setMoreFailed(true);
+      if (shownQuery.current === askedFor) setMoreFailed(true);
     } finally {
       // A refresh during "Show more" left the button on "Loading…" for good; an older one settling
       // must not clear a newer one's spinner.

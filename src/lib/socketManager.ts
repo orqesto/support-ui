@@ -70,7 +70,8 @@ const cancelReconnectResync = () => {
 };
 
 /** Tear the socket down and send the user to the login screen. The terminal path only. */
-const endSessionAndRedirect = () => {
+/** The terminal sign-out: the session is over for this tab (a refused socket renewal). */
+export const endSessionAndRedirect = () => {
   cancelSocketRecovery();
   socket?.disconnect();
   // A re-read pending for the socket torn down is not for the next one.
@@ -210,9 +211,6 @@ export const getSocket = (): Socket => {
 
   return socket;
 };
-
-/** Tests only: the terminal sign-out (it is otherwise reached through a refused renewal). */
-export const endSessionForTests = (): void => endSessionAndRedirect();
 
 /**
  * The socket's renewal was refused. Refused for RATE (429, or this tab's cool-down after one) says
