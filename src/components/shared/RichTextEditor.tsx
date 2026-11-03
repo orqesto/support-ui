@@ -146,7 +146,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
           class: `prose prose-sm max-w-none focus:outline-none p-4 ${transparent ? 'bg-transparent' : 'bg-background'} text-foreground dark:prose-invert`,
         },
         handleKeyDown: (_view, event) => {
-          if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+          // Send is Ctrl/⌘+Shift+Enter (owner, 2026-11-03): plain Ctrl+Enter sent by accident.
+          if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key === 'Enter') {
             onSubmitRef.current?.();
             return true;
           }

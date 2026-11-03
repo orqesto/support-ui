@@ -36,7 +36,7 @@ const SEGMENT =
 
 /**
  * The reply's Send as a split button: the face sends with the agent's last choice, the chevron
- * picks another — picking one sends at once and becomes the new face. Ctrl+Enter is always a
+ * picks another — picking one sends at once and becomes the new face. Ctrl+Shift+Enter is always a
  * plain Send (MessageDetail): a keystroke never resolves or saves to the KB.
  */
 export function ComposerSendButton({

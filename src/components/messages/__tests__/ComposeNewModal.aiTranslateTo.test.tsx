@@ -65,9 +65,10 @@ vi.mock('@/components/shared/RichTextEditor', () => ({
           data-editable={String(props.editable !== false)}
           value={props.content ?? ''}
           onChange={(event) => props.onChange?.(event.target.value)}
-          // ⌘↵ / Ctrl+↵, as RichTextEditor's keydown handler does.
+          // ⌘⇧↵ / Ctrl+Shift+↵, as RichTextEditor's keydown handler does.
           onKeyDown={(event) => {
-            if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') props.onSubmit?.();
+            if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key === 'Enter')
+              props.onSubmit?.();
           }}
         />
       );
@@ -322,14 +323,14 @@ describe('Compose new — the field keeps its size while drafting', () => {
   });
 });
 
-describe('Compose new — ⌘↵ / Ctrl+↵', () => {
+describe('Compose new — ⌘⇧↵ / Ctrl+Shift+↵', () => {
   const fill = () => {
     type('To', 'one@example.com');
     type('Subject', 'Hello');
     type('Message', '<p>Hi</p>');
   };
   const pressSend = () =>
-    fireEvent.keyDown(screen.getByLabelText('Message'), { key: 'Enter', ctrlKey: true });
+    fireEvent.keyDown(screen.getByLabelText('Message'), { key: 'Enter', ctrlKey: true, shiftKey: true });
 
   it('sends from the editor', async () => {
     await renderModal();

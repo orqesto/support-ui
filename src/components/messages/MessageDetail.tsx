@@ -1111,7 +1111,7 @@ export function MessageDetail({
   );
 
   const handleSend = useCallback(async () => {
-    // Require real text — blocks Ctrl+Enter attachment-only sends the disabled
+    // Require real text — blocks Ctrl+Shift+Enter attachment-only sends the disabled
     // button can't (empty, whitespace, or markup-only like `<p><br></p>`).
     if (isBlankRichText(composer)) return;
     // A reply (not a note) first asks whether the thread becomes yours — every time on an
@@ -1921,7 +1921,7 @@ export function MessageDetail({
             composerMode={composerMode}
             setComposerMode={setComposerMode}
             submitting={submitting}
-            // Ctrl+Enter (and the folded box's round Send) is always a plain Send: a keystroke never
+            // Ctrl+Shift+Enter (and the folded box's round Send) is always a plain Send: a keystroke never
             // resolves or saves to the KB — that takes the Send ▾ button, as resolving takes its
             // dialog (openResolveDialog). Notes post as before.
             onSend={() => (composerMode === 'reply' ? handleSendWith('send') : void handleSend())}
