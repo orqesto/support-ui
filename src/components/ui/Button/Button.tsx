@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 import { getButtonClasses } from './button.styles';
+import { inactiveButtonProps } from './inactiveProps';
 import { LoadingSpinner } from './LoadingSpinner';
 import type { ButtonProps } from './button.types';
 
@@ -31,19 +32,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         // callers style it with `data-[inactive]:…` (a caller's own aria-disabled stays
         // unstyled).
         className={cn(getButtonClasses(variant, size), className)}
-        data-inactive={inactive ? '' : undefined}
         {...props}
         // After the spread: a caller's aria-disabled / onClick never undo `inactive`.
-        aria-disabled={inactive ? true : props['aria-disabled']}
-        onClick={
-          inactive
-            ? (event) => {
-                // As a disabled button: no submit, and no click bubbling to the ancestors either.
-                event.preventDefault();
-                event.stopPropagation();
-              }
-            : onClick
-        }
+        {...inactiveButtonProps(inactive, onClick, props['aria-disabled'])}
       >
         {isLoading ? <LoadingSpinner /> : children}
       </button>

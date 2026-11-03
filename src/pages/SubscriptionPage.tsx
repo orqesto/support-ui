@@ -500,15 +500,15 @@ export const SubscriptionPage = () => {
               isAdmin={isAdmin}
               packAction={
                 packOffer?.available ? (
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     data-testid="buy-message-pack-ai-banner"
                     onClick={() => void handleBuyPack()}
                     disabled={buyingPack}
-                    className="font-medium text-primary hover:underline"
+                    className="h-auto p-0 font-medium text-primary hover:bg-transparent hover:underline"
                   >
                     Buy {packOffer.messages.toLocaleString()} messages
-                  </button>
+                  </Button>
                 ) : undefined
               }
             />

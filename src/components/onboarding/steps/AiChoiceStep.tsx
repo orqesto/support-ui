@@ -1,7 +1,7 @@
 import { Bot, Check, KeyRound } from 'lucide-react';
 import { AIProvidersSettings } from '@/components/settings/AIProvidersSettings';
 import { Card, CardContent } from '@/components/ui/Card';
-import { cn } from '@/lib/utils';
+import { ChoiceCard } from '@/components/ui/ChoiceCard';
 
 /**
  * "Use our AI" in the wizard (audit A-F15): the 14-day trial comes first; after it a paid plan keeps
@@ -33,30 +33,16 @@ export const AiChoiceStep = ({ value, onChoose, managedAvailable }: Props) => (
     </p>
     <div className="grid gap-4 sm:grid-cols-2">
       {managedAvailable ? (
-        <button
-          type="button"
-          aria-pressed={value === 'managed'}
-          onClick={() => onChoose('managed')}
-          className="rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        >
-          <Card
-            className={cn(
-              'h-full cursor-pointer transition-colors hover:border-primary/60',
-              value === 'managed' && 'border-primary ring-2 ring-primary'
-            )}
-          >
-            <CardContent className="space-y-2 p-5">
-              <div className="flex items-center gap-2">
-                <Bot className="h-5 w-5 text-ai" />
-                <span className="font-medium text-foreground">Use our AI</span>
-                {value === 'managed' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
-              </div>
-              <p className="text-sm text-muted-foreground" data-testid="onboarding-managed-text">
-                {ONBOARDING_MANAGED_AI_TEXT}
-              </p>
-            </CardContent>
-          </Card>
-        </button>
+        <ChoiceCard selected={value === 'managed'} onSelect={() => onChoose('managed')}>
+          <div className="flex items-center gap-2">
+            <Bot className="h-5 w-5 text-ai" />
+            <span className="font-medium text-foreground">Use our AI</span>
+            {value === 'managed' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
+          </div>
+          <p className="text-sm text-muted-foreground" data-testid="onboarding-managed-text">
+            {ONBOARDING_MANAGED_AI_TEXT}
+          </p>
+        </ChoiceCard>
       ) : (
         /* No managed key configured — show coming-soon and non-selectable so we
            never imply AI works when it doesn't. */
@@ -78,31 +64,17 @@ export const AiChoiceStep = ({ value, onChoose, managedAvailable }: Props) => (
           </Card>
         </div>
       )}
-      <button
-        type="button"
-        aria-pressed={value === 'byo'}
-        onClick={() => onChoose('byo')}
-        className="rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-      >
-        <Card
-          className={cn(
-            'h-full cursor-pointer transition-colors hover:border-primary/60',
-            value === 'byo' && 'border-primary ring-2 ring-primary'
-          )}
-        >
-          <CardContent className="space-y-2 p-5">
-            <div className="flex items-center gap-2">
-              <KeyRound className="h-5 w-5 text-muted-foreground" />
-              <span className="font-medium text-foreground">Bring your own keys</span>
-              {value === 'byo' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Connect your own provider (OpenAI, Anthropic, Bedrock, …) below. You pay the provider
-              directly. AI features stay off until a provider is configured.
-            </p>
-          </CardContent>
-        </Card>
-      </button>
+      <ChoiceCard selected={value === 'byo'} onSelect={() => onChoose('byo')}>
+        <div className="flex items-center gap-2">
+          <KeyRound className="h-5 w-5 text-muted-foreground" />
+          <span className="font-medium text-foreground">Bring your own keys</span>
+          {value === 'byo' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Connect your own provider (OpenAI, Anthropic, Bedrock, …) below. You pay the provider
+          directly. AI features stay off until a provider is configured.
+        </p>
+      </ChoiceCard>
     </div>
     {value === 'managed' && managedAvailable && (
       <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-4">

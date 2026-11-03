@@ -2,6 +2,7 @@ import { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 import { getButtonClasses } from './button.styles';
 import type { ButtonProps } from './button.types';
+import { inactiveButtonProps } from './inactiveProps';
 
 export type IconButtonProps = Omit<ButtonProps, 'children' | 'isLoading'> & {
   icon: React.ReactNode;
@@ -19,17 +20,8 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         ref={ref}
         type={type}
         className={cn(getButtonClasses(variant, 'icon'), className)}
-        data-inactive={inactive ? '' : undefined}
         {...props}
-        aria-disabled={inactive ? true : props['aria-disabled']}
-        onClick={
-          inactive
-            ? (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-              }
-            : onClick
-        }
+        {...inactiveButtonProps(inactive, onClick, props['aria-disabled'])}
       >
         {icon}
       </button>
