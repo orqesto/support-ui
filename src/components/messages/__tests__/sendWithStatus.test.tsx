@@ -255,16 +255,19 @@ describe('the Resolve row and the header while writing', () => {
 });
 
 describe('getting the full header back while a draft is open', () => {
-  it('Fold folds the box with a draft, keeps the text, and the full header returns', () => {
+  it("the editor's Collapse folds the box with a draft, keeps the text, and the full header returns", () => {
     renderDetail();
     type('<p>Half-written answer</p>');
     expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
-    fireEvent.click(screen.getByTestId('composer-fold'));
+    fireEvent.click(screen.getByTestId('rte-collapse'));
     expect(screen.getByTestId('detail-top-row')).not.toHaveAttribute('data-compact');
     expect(screen.getByTestId('message-composer')).toHaveAttribute('data-state', 'rest');
-    // The draft is kept: pressing into the pill opens the box with it, header compact again.
+    // The draft is kept — the folded editor still holds it (the real editor shows its first line:
+    // RichTextEditor.collapsedDraft.test) — and pressing into the pill opens the box with it.
+    expect(screen.getByTestId('rich-text-editor')).toHaveValue('<p>Half-written answer</p>');
     fireEvent.click(screen.getByTestId('composer-field'));
     expect(screen.getByTestId('message-composer')).toHaveAttribute('data-state', 'open');
+    expect(screen.getByTestId('rich-text-editor')).toHaveValue('<p>Half-written answer</p>');
     expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
   });
 
