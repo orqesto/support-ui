@@ -2,7 +2,7 @@ import { apiClient } from '@/lib/api-client';
 import type { ApiResponse } from '@/types';
 
 /**
- * Workspace Slack notifications (Settings › Notifications › Slack). Workspace admins and global
+ * Workspace Slack notifications (Settings › Slack notifications). Workspace admins and global
  * admins only — the backend's `requireOrgAdmin` is the authority.
  *
  * Shapes mirror support-service `src/routes/notificationsRoutes.ts` (`/api/notifications/slack*`)
@@ -274,7 +274,7 @@ export type PlatformSlackSettingsInput = {
   slackChannelId?: string;
   slackChannelName?: string;
   enabledSignals?: PlatformSlackSignal[];
-  /** Always the full object: the backend replaces the stored thresholds with it. */
+  /** The page sends the full object: an older backend replaced the stored thresholds with it. */
   thresholds?: PlatformSlackThresholds;
 };
 

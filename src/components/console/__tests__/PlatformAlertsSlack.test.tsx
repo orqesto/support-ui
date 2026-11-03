@@ -5,11 +5,13 @@
  * a stored value back (only its last four characters), and that nobody else sees the page.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { chooseOption } from '@/test/chooseOption';
+import { apiError } from '@/test/apiError';
+import { apiClient } from '@/lib/api-client';
 import {
   platformSlackAlertsService,
   PLATFORM_SLACK_SIGNALS,
@@ -79,6 +81,25 @@ const renderPage = () =>
     </QueryClientProvider>
   );
 
+/** A promise the test settles by hand, to hold a save in flight. */
+const deferred = <T,>() => {
+  let resolve: (value: T) => void = () => {};
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+};
+
+/** The Save button that belongs to this secret field (the nearest one up the tree). */
+const saveButtonOf = (field: HTMLElement): HTMLElement => {
+  let node: HTMLElement | null = field.parentElement;
+  while (node && !within(node).queryByRole('button', { name: /^save$/i })) {
+    node = node.parentElement;
+  }
+  if (!node) throw new Error('no Save button near the field');
+  return within(node).getByRole('button', { name: /^save$/i });
+};
+
 beforeEach(() => {
   Object.values(toastMock).forEach((fn) => fn.mockReset());
   mockUser = { id: 1, role: 'admin' };
@@ -97,11 +118,14 @@ afterEach(() => {
 describe('PlatformAlertsSlack', () => {
   it('thresholds form saves and shows defaults when unset', async () => {
     // A stored row with no thresholds at all: every field must still show the design default.
+    // Through the real service: its normalisation is the one place the defaults are filled.
     const stored = connected();
-    vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue({
-      ...stored,
-      settings: { ...stored.settings, thresholds: {} as never },
-    });
+    vi.spyOn(apiClient, 'get').mockResolvedValue({
+      data: {
+        success: true,
+        data: { ...stored, settings: { ...stored.settings, thresholds: {} } },
+      },
+    } as never);
     const save = vi
       .spyOn(platformSlackAlertsService, 'saveSettings')
       .mockImplementation((body) =>
@@ -144,18 +168,130 @@ describe('PlatformAlertsSlack', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('a failed thresholds save re-reads the server instead of keeping the edit', async () => {
-    const getStatus = vi
-      .spyOn(platformSlackAlertsService, 'getStatus')
-      .mockResolvedValue(connected());
-    vi.spyOn(platformSlackAlertsService, 'saveSettings').mockRejectedValue(new Error('boom'));
+  it('a failed thresholds save keeps what the admin typed (no revert, no re-read over it)', async () => {
+    // A re-read would show 60, a revert 85: only the typed 70 proves the edit was kept.
+    vi.spyOn(platformSlackAlertsService, 'getStatus')
+      .mockResolvedValueOnce(connected())
+      .mockResolvedValue(
+        connected({
+          thresholds: { ...DEFAULT_PLATFORM_THRESHOLDS, cpu: { percent: 60, sustainedMinutes: 5 } },
+        })
+      );
+    const failure = await apiError(400, {
+      success: false,
+      error: 'dbPool: the warning level must be below the critical level',
+    });
+    vi.spyOn(platformSlackAlertsService, 'saveSettings').mockRejectedValue(failure);
     renderPage();
     const cpu = await screen.findByLabelText(/^CPU above \(%\)$/i);
     fireEvent.change(cpu, { target: { value: '70' } });
     fireEvent.click(screen.getByRole('button', { name: /save thresholds/i }));
-    await waitFor(() => expect(toastMock.failure).toHaveBeenCalled());
-    await waitFor(() => expect(getStatus).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(screen.getByLabelText(/^CPU above \(%\)$/i)).toHaveValue(85));
+    // The backend's own words, inline on the card.
+    expect(
+      await screen.findByText(/dbPool: the warning level must be below the critical level/)
+    ).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText(/^CPU above \(%\)$/i)).not.toBeInactive());
+    expect(screen.getByLabelText(/^CPU above \(%\)$/i)).toHaveValue(70);
+  });
+
+  it.each([
+    ['dbPool', /^Pool use warning \(%\)$/i, '95', /^Pool use critical \(%\)$/i],
+    ['eventLoop', /^Event-loop lag warning \(ms\)$/i, '500', /^Event-loop lag critical \(ms\)$/i],
+    [
+      'rate429',
+      /^Rejected requests warning \(per sample window\)$/i,
+      '300',
+      /^Rejected requests critical \(per sample window\)$/i,
+    ],
+  ])(
+    'a %s warning level at or above its critical level is refused inline, without saving',
+    async (_group, warnLabel, warnValue, critLabel) => {
+      vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(connected());
+      const save = vi.spyOn(platformSlackAlertsService, 'saveSettings');
+      renderPage();
+      const warn = await screen.findByLabelText(warnLabel);
+      fireEvent.change(warn, { target: { value: warnValue } });
+      fireEvent.click(screen.getByRole('button', { name: /save thresholds/i }));
+      expect(await screen.findByText(/must be below the critical level/i)).toBeInTheDocument();
+      expect(save).not.toHaveBeenCalled();
+      // CONTROL: raising the critical level above the warning lets the save go.
+      fireEvent.change(screen.getByLabelText(critLabel), {
+        target: { value: String(Number(warnValue) + 1) },
+      });
+      vi.mocked(save).mockResolvedValue(connected());
+      fireEvent.click(screen.getByRole('button', { name: /save thresholds/i }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    }
+  );
+
+  it('the thresholds form is disabled while its save is in flight', async () => {
+    vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(connected());
+    const pending = deferred<PlatformSlackStatus>();
+    const save = vi
+      .spyOn(platformSlackAlertsService, 'saveSettings')
+      .mockReturnValue(pending.promise);
+    renderPage();
+    const cpu = await screen.findByLabelText(/^CPU above \(%\)$/i);
+    const saveButton = screen.getByRole('button', { name: /save thresholds/i });
+    fireEvent.click(saveButton);
+    await waitFor(() => expect(cpu).toBeInactive());
+    expect(saveButton).toBeInactive();
+    // A second press while it is out of use sends nothing.
+    fireEvent.click(saveButton);
+    expect(save).toHaveBeenCalledTimes(1);
+    pending.resolve(connected());
+    await waitFor(() => expect(cpu).not.toBeInactive());
+    expect(saveButton).not.toBeInactive();
+  });
+
+  it('a signal save waits for a thresholds save in flight (the PUTs never overlap)', async () => {
+    vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(connected());
+    const thresholdsSave = deferred<PlatformSlackStatus>();
+    const save = vi
+      .spyOn(platformSlackAlertsService, 'saveSettings')
+      .mockImplementationOnce(() => thresholdsSave.promise)
+      .mockImplementation((body) =>
+        Promise.resolve(connected({ enabledSignals: body.enabledSignals }))
+      );
+    renderPage();
+    await screen.findByLabelText(/^CPU above \(%\)$/i);
+    fireEvent.click(screen.getByRole('button', { name: /save thresholds/i }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('switch', { name: /^disk usage$/i }));
+    // Give a would-be overlapping PUT every chance to start.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(save).toHaveBeenCalledTimes(1);
+    thresholdsSave.resolve(connected());
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(save.mock.calls[1][0]).toEqual({
+      enabledSignals: PLATFORM_SLACK_SIGNALS.filter((signal) => signal !== 'disk'),
+    });
+  });
+
+  it('Disconnect is blocked while a channel save is in flight', async () => {
+    vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(connected());
+    vi.spyOn(platformSlackAlertsService, 'listChannels').mockResolvedValue({
+      channels: [
+        { id: 'C1', name: 'platform-alerts', isPrivate: false, isMember: true },
+        { id: 'C9', name: 'ops-alerts', isPrivate: false, isMember: true },
+      ],
+      truncated: false,
+    });
+    const pending = deferred<PlatformSlackStatus>();
+    vi.spyOn(platformSlackAlertsService, 'saveSettings').mockReturnValue(pending.promise);
+    const disconnect = vi.spyOn(platformSlackAlertsService, 'disconnect').mockResolvedValue();
+    renderPage();
+    const disconnectButton = await screen.findByRole('button', { name: /^disconnect$/i });
+    expect(disconnectButton).not.toBeInactive();
+    await chooseOption(await screen.findByLabelText('Slack channel'), '#ops-alerts');
+    await waitFor(() => expect(disconnectButton).toBeInactive());
+    fireEvent.click(disconnectButton);
+    expect(screen.queryByText('Disconnect Slack?')).not.toBeInTheDocument();
+    expect(disconnect).not.toHaveBeenCalled();
+    pending.resolve(connected({ slackChannelId: 'C9', slackChannelName: 'ops-alerts' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /^disconnect$/i })).not.toBeInactive()
+    );
   });
 
   it('switching a signal saves the whole signal list from the server answer', async () => {
@@ -204,8 +340,7 @@ describe('PlatformAlertsSlack', () => {
     expect(field).toHaveAttribute('type', 'password');
     expect(field).toHaveAttribute('autocomplete', 'new-password');
     fireEvent.change(field, { target: { value: secretValue } });
-    const saveButtons = screen.getAllByRole('button', { name: /^save$/i });
-    fireEvent.click(saveButtons[1]);
+    fireEvent.click(saveButtonOf(field));
 
     await waitFor(() =>
       expect(setSecret).toHaveBeenCalledWith('slack.client_secret', secretValue, {

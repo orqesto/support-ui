@@ -21,7 +21,6 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { toast } from '@/lib/toast';
 import type { PlatformSecretKey, SecretStatus } from '@/services/platformSettings.service';
 import {
-  fillPlatformThresholds,
   PLATFORM_SLACK_SIGNALS,
   platformSlackAlertsService,
   SLACK_BOT_SCOPES,
@@ -38,8 +37,13 @@ import { useAuthStore } from '@/stores/authStore';
  * one Slack channel. The Slack app credentials (client id and secret, stored as platform secrets
  * and shown only by their last four characters), the connection, the channel, a switch per signal
  * and the thresholds. Each card saves on its own, one save at a time, and afterwards shows what
- * the server holds: the returned settings on success, a fresh read on failure.
+ * the server holds: the returned settings on success, a fresh read on failure (the thresholds
+ * card keeps what was typed instead). Both cards write the same stored settings, which the
+ * backend reads, merges and writes back, so their PUTs (and Disconnect) go one after another
+ * through the page's save queue — two at once could each write back the other's old half.
  */
+
+type SerialSave = (task: () => Promise<PlatformSlackStatus>) => Promise<PlatformSlackStatus>;
 
 const SIGNAL_LABELS: Record<PlatformSlackSignal, string> = {
   cpu: 'Container CPU sustained high',
@@ -96,10 +100,12 @@ const ChannelAndSignalsCard = ({
   channelList,
   connected,
   onConnection,
+  serialSave,
 }: {
   status: PlatformSlackStatus;
   channelList: SlackChannelList | null;
   connected: boolean;
+  serialSave: SerialSave;
   /** The connection as the server now reports it (a channel save or a test post may clear it). */
   onConnection: (connection: PlatformSlackConnection | null) => void;
 }) => {
@@ -125,8 +131,7 @@ const ChannelAndSignalsCard = ({
     savingRef.current = true;
     setSaving(true);
     setTestResult(null);
-    platformSlackAlertsService
-      .saveSettings(body)
+    serialSave(() => platformSlackAlertsService.saveSettings(body))
       .then(apply)
       .catch(async (err: unknown) => {
         toast.failure('save the platform alert settings', err);
@@ -381,6 +386,21 @@ const PlatformAlertsPanel = () => {
   const [returnNotice, setReturnNotice] = useState<{ ok: boolean; reason?: string } | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  // The page's save queue: each settings PUT starts only after the previous one settled.
+  const queueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const inFlightRef = useRef(0);
+  const [savesInFlight, setSavesInFlight] = useState(0);
+
+  const serialSave: SerialSave = (task) => {
+    inFlightRef.current += 1;
+    setSavesInFlight(inFlightRef.current);
+    const run = queueRef.current.then(task);
+    queueRef.current = run.catch(() => undefined);
+    return run.finally(() => {
+      inFlightRef.current -= 1;
+      setSavesInFlight(inFlightRef.current);
+    });
+  };
 
   const load = () => {
     setLoadError(false);
@@ -448,6 +468,8 @@ const PlatformAlertsPanel = () => {
   };
 
   const disconnect = () => {
+    // Disconnect also rewrites the stored settings: never while a save is still on its way.
+    if (inFlightRef.current > 0) return;
     platformSlackAlertsService
       .disconnect()
       .then(() => {
@@ -515,7 +537,12 @@ const PlatformAlertsPanel = () => {
                       <Badge variant="secondary">Set in the server environment</Badge>
                     )}
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => setConfirmDisconnect(true)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmDisconnect(true)}
+                    disabled={savesInFlight > 0}
+                  >
                     Disconnect
                   </Button>
                 </div>
@@ -591,8 +618,10 @@ const PlatformAlertsPanel = () => {
             channelList={channelList}
             connected={tokenWorks}
             onConnection={setConnection}
+            serialSave={serialSave}
           />
-          <ThresholdsCard thresholds={fillPlatformThresholds(status.settings.thresholds)} />
+          {/* The service already filled any missing threshold with its default. */}
+          <ThresholdsCard thresholds={status.settings.thresholds} serialSave={serialSave} />
         </>
       )}
 

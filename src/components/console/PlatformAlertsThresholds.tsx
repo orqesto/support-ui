@@ -1,18 +1,22 @@
 import { useRef, useState } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 import { toast } from '@/lib/toast';
 import {
   fillPlatformThresholds,
   platformSlackAlertsService,
+  type PlatformSlackStatus,
   type PlatformSlackThresholds,
 } from '@/services/slackNotifications.service';
 
 /**
- * Admin console › Platform › Alerts › Thresholds. One form, one save at a time; it always sends
- * the FULL thresholds object, because the settings PUT replaces the stored thresholds with it.
- * On success the form shows what the server returned; on a failed save it re-reads the server.
+ * Admin console › Platform › Alerts › Thresholds. One form, one save at a time; it sends the FULL
+ * thresholds object (an older backend replaced the stored thresholds with whatever it got; the
+ * current one merges, so the full object is right for both). On success the form shows what the
+ * server returned; on a failed save it keeps what the admin typed and says why, inline.
  */
 
 type ThresholdField = {
@@ -160,6 +164,18 @@ const fieldError = (field: ThresholdField, raw: string): string | undefined => {
   return undefined;
 };
 
+/**
+ * Each warning level must be below its critical level, or the critical alert can never fire.
+ * Mirrors `WARN_BELOW_CRIT` in support-service `slackConnectionService.ts` (400 there).
+ */
+const WARN_BELOW_CRIT: ReadonlyArray<[warn: string, crit: string]> = [
+  ['dbPool.warnPercent', 'dbPool.critPercent'],
+  ['eventLoop.warnMs', 'eventLoop.critMs'],
+  ['rate429.warnPerWindow', 'rate429.critPerWindow'],
+];
+
+const BELOW_CRIT_MESSAGE = 'The warning level must be below the critical level.';
+
 /** The FULL thresholds object: the settings PUT replaces the stored one with it. */
 const thresholdsFromDraft = (draft: ThresholdDraft): PlatformSlackThresholds => {
   const grouped: Record<string, unknown> = {};
@@ -172,20 +188,21 @@ const thresholdsFromDraft = (draft: ThresholdDraft): PlatformSlackThresholds => 
   return fillPlatformThresholds(grouped);
 };
 
-export const ThresholdsCard = ({ thresholds }: { thresholds: PlatformSlackThresholds }) => {
+export const ThresholdsCard = ({
+  thresholds,
+  serialSave,
+}: {
+  /** As the service normalised them (defaults already filled). */
+  thresholds: PlatformSlackThresholds;
+  /** The page's one save queue: this card's PUT never overlaps the channel and signals card's. */
+  serialSave: (task: () => Promise<PlatformSlackStatus>) => Promise<PlatformSlackStatus>;
+}) => {
   const [draft, setDraft] = useState<ThresholdDraft>(() => draftFromThresholds(thresholds));
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   // The lock as of now, not as of the last render: a second click in the same tick must see it.
   const savingRef = useRef(false);
-
-  const resyncFromServer = () =>
-    platformSlackAlertsService
-      .getStatus()
-      .then((status) =>
-        setDraft(draftFromThresholds(fillPlatformThresholds(status.settings.thresholds)))
-      )
-      .catch((err: unknown) => toast.failure('read the saved thresholds — reload the page', err));
 
   const save = () => {
     if (savingRef.current) return;
@@ -194,19 +211,24 @@ export const ThresholdsCard = ({ thresholds }: { thresholds: PlatformSlackThresh
       const message = fieldError(field, draft[field.path] ?? '');
       if (message) found[field.path] = message;
     }
+    for (const [warn, crit] of WARN_BELOW_CRIT) {
+      if (found[warn] || found[crit]) continue;
+      if (Number(draft[warn]) >= Number(draft[crit])) found[warn] = BELOW_CRIT_MESSAGE;
+    }
     setErrors(found);
+    setSaveError(null);
     if (Object.keys(found).length > 0) return;
     savingRef.current = true;
     setSaving(true);
-    platformSlackAlertsService
-      .saveSettings({ thresholds: thresholdsFromDraft(draft) })
+    const body = { thresholds: thresholdsFromDraft(draft) };
+    serialSave(() => platformSlackAlertsService.saveSettings(body))
       .then((saved) => {
-        setDraft(draftFromThresholds(fillPlatformThresholds(saved.settings.thresholds)));
+        setDraft(draftFromThresholds(saved.settings.thresholds));
         toast.success('Thresholds saved');
       })
-      .catch(async (err: unknown) => {
-        toast.failure('save the thresholds', err);
-        await resyncFromServer();
+      .catch((err: unknown) => {
+        // The typed values stay: the admin fixes what the server refused instead of retyping.
+        setSaveError(`The thresholds were not saved: ${getApiErrorMessage(err) ?? 'try again.'}`);
       })
       .finally(() => {
         savingRef.current = false;
@@ -248,6 +270,11 @@ export const ThresholdsCard = ({ thresholds }: { thresholds: PlatformSlackThresh
             </div>
           </div>
         ))}
+        {saveError && (
+          <Alert variant="danger">
+            <AlertDescription>{saveError}</AlertDescription>
+          </Alert>
+        )}
         <Button onClick={save} isLoading={saving} disabled={saving}>
           Save thresholds
         </Button>
