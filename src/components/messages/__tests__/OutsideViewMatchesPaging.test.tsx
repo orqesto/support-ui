@@ -339,4 +339,51 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
     await screen.findByText('New one');
     expect(getThreads.mock.calls[2]?.[2]).toBe(25);
   });
+
+  // Round-8 review.
+  it('🔴 a refresh that fails after a Show more added rows keeps them, and the section recovers', async () => {
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30))
+      .mockResolvedValueOnce(answer([thread(2, 'terminal', 'Row two')], 30));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
+    await screen.findByText('Row two');
+    let refreshFail: (reason: unknown) => void = () => undefined;
+    getThreads.mockImplementationOnce(() => new Promise((_resolve, reject) => (refreshFail = reject)));
+    afterRefreshWindow();
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(3));
+    getThreads.mockResolvedValueOnce(answer([thread(3, 'terminal', 'Row three')], 30));
+    fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
+    await screen.findByText('Row three');
+    refreshFail(new Error('503'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByText('Row two')).toBeTruthy();
+    expect(screen.queryByText(/could not be checked/)).toBeNull();
+  });
+
+  it('🔴 a refresh bringing back fewer rows than one page sets one page, so Show more asks page 2', async () => {
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'P1')], 40))
+      .mockResolvedValueOnce(answer([thread(2, 'terminal', 'P2')], 40));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
+    await screen.findByText('P2');
+    // Matches moved away: the refresh (2 pages asked) brings back 10 rows.
+    getThreads.mockResolvedValueOnce(
+      answer(Array.from({ length: 10 }, (_, index) => thread(200 + index, 'terminal', `S${index}`)), 40)
+    );
+    afterRefreshWindow();
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    await screen.findByText('S9');
+    getThreads.mockResolvedValueOnce(answer([thread(5, 'terminal', 'Next')], 40));
+    fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(4));
+    expect(getThreads.mock.calls[3]?.[1]).toBe(2);
+  });
 });
+

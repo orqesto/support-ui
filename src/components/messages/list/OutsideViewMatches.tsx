@@ -283,10 +283,23 @@ export const OutsideViewMatches = ({
         setRetryTick((tick) => tick + 1);
       }
     };
+    // A "Show more" added rows while this was out: whatever this answer is (rows, a failure, an
+    // older backend), it is older than the screen — keep the rows and ask again (rounds 6–8).
+    const overtaken = () => {
+      if (moreApplied.current === appliedAtAsk) return false;
+      askedKey.current = '';
+      setRetryTick((tick) => tick + 1);
+      return true;
+    };
     const failed = () => {
       // Only an answer to the question on screen records a failure.
       if (shownQuery.current !== failedFor) return;
+      if (overtaken()) return;
       setRows([]);
+      // Nothing shown any more: back to one page, or the retry (past the cap check) never asked
+      // again and the section stayed on "could not be checked" (round-8 review).
+      setPage(1);
+      pageRef.current = 1;
       setStatus('failed');
       askedKey.current = '';
       failedAt.current = { key: failedFor, at: Date.now() };
@@ -301,9 +314,12 @@ export const OutsideViewMatches = ({
       .then((answer) => {
         settle();
         if (!stillAsked()) return;
+        if (overtaken()) return;
         if (answer.success && answer.outsideView !== true) {
           // A backend without outsideView: nothing to say, and not asked again for the window.
           setRows([]);
+          setPage(1);
+          pageRef.current = 1;
           setStatus('idle');
           failedAt.current = { key: failedFor, at: Date.now() };
           return;
@@ -317,13 +333,6 @@ export const OutsideViewMatches = ({
         }
         if (failedAt.current?.key === failedFor) failedAt.current = null;
         setStatus('done');
-        if (moreApplied.current !== appliedAtAsk) {
-          // A "Show more" landed while this was out: its rows are newer — keep them and ask again
-          // (the refresh window decides when), instead of wiping the page it added.
-          askedKey.current = '';
-          setRetryTick((tick) => tick + 1);
-          return;
-        }
         rowsEpoch.current += 1;
         setRows(listed);
         // The pages actually shown — what came back, never what was asked (the backend caps it).
@@ -383,10 +392,13 @@ export const OutsideViewMatches = ({
       moreApplied.current += 1;
       // Its count is as fresh as any refresh's: a refresh this one overtook is dropped, so the total
       // would otherwise stay as old as the last refresh that applied (round-7 review).
-      setTotal(answer.pagination?.total ?? total);
-      setTotalCapped(
-        answer.pagination?.totalCapped === true || answer.pagination?.countTimedOut === true
-      );
+      // Only when this answer carries a count — never clear a capped flag it says nothing about.
+      if (typeof answer.pagination?.total === 'number') {
+        setTotal(answer.pagination.total);
+        setTotalCapped(
+          answer.pagination.totalCapped === true || answer.pagination.countTimedOut === true
+        );
+      }
     } catch {
       if (shownQuery.current === askedFor) setMoreFailed(true);
     } finally {
