@@ -24,7 +24,12 @@ vi.mock('@/stores/authStore', () => ({ useAuthStore: () => null }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'COR' }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'all' }));
 
-import { FAILED_RETRY_MS, OutsideViewMatches, REFRESH_MIN_MS } from '../list/OutsideViewMatches';
+import {
+  ASK_STALE_MS,
+  FAILED_RETRY_MS,
+  OutsideViewMatches,
+  REFRESH_MIN_MS,
+} from '../list/OutsideViewMatches';
 
 const thread = (id: number, foundIn?: string, subject = `Order ${id}`): MessageThread =>
   ({
@@ -523,6 +528,54 @@ describe('OutsideViewMatches', () => {
     getThreads.mockResolvedValue(answer([thread(1, 'terminal', 'Strict row')]));
     render(<StrictMode>{section(filters())}</StrictMode>);
     expect(await screen.findByText('Strict row')).toBeTruthy();
+  });
+
+  // Release review, round 3.
+  it('🔴 an ask that never answers is replaced after ASK_STALE_MS', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    try {
+      getThreads
+        .mockImplementationOnce(() => new Promise(() => undefined))
+        .mockResolvedValueOnce(answer([thread(1, 'terminal', 'After the hang')]));
+      const state = filters();
+      const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+      await vi.waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
+      rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ASK_STALE_MS);
+      });
+      expect(getThreads).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('🔴 "Show more" keeps its answer when the list rows moved meanwhile', async () => {
+    let more: (value: unknown) => void = () => undefined;
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'First row')], 30))
+      .mockImplementationOnce(() => new Promise((resolve) => (more = resolve)));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    more(answer([thread(2, 'terminal', 'Second page row')], 30));
+    expect(await screen.findByText('Second page row')).toBeTruthy();
+  });
+
+  it('🔴 a first page that lands after "Show more" keeps the appended rows', async () => {
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30))
+      .mockResolvedValueOnce(answer([thread(2, 'terminal', 'Row two')], 30));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
+    await screen.findByText('Row two');
+    getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30));
+    afterRefreshWindow();
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(3));
+    expect(screen.getByText('Row two')).toBeTruthy();
   });
 });
 

@@ -4,7 +4,8 @@ import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { logger } from '@/lib/logger';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import type { MutableRefObject } from 'react';
-import { NavigationType, useNavigationType, useSearchParams } from 'react-router-dom';
+import { NavigationType, useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
+import { recalledSearch, rememberSearch } from '@/lib/searchMemory';
 import { useAuthStore } from '@/stores/authStore';
 import { messageService } from '@/services/message.service';
 import {
@@ -148,34 +149,7 @@ export const displayIdIfRedirected = (
   return names.includes(wanted) || sameByPublicId ? null : getConvUrlId(shown, orgCode);
 };
 
-/**
- * The search the list showed, per browser TAB and workspace. Not in the URL (it is routinely a
- * customer's address — see the filters→URL effect), so a remount of the list lost it: on a phone,
- * open a result and press Back and the search was gone (release review, 2026-11-02). Tab storage
- * keeps it out of history, links and logs; restored only on Back/Forward/reload (POP), never on a
- * fresh visit from the sidebar.
- */
-const searchMemoryKey = (organizationId: number | null | undefined): string | null =>
-  organizationId ? `threads.search.${organizationId}` : null;
-export const rememberSearch = (organizationId: number | null | undefined, search: string): void => {
-  const key = searchMemoryKey(organizationId);
-  if (!key) return;
-  try {
-    if (search.trim()) sessionStorage.setItem(key, search);
-    else sessionStorage.removeItem(key);
-  } catch {
-    // Storage blocked (private mode): the search is simply not restored.
-  }
-};
-const recalledSearch = (organizationId: number | null | undefined): string | null => {
-  const key = searchMemoryKey(organizationId);
-  if (!key) return null;
-  try {
-    return sessionStorage.getItem(key);
-  } catch {
-    return null;
-  }
-};
+export { rememberSearch } from '@/lib/searchMemory';
 
 export const useMessagesUrlSync = ({
   urlSyncedRef,
@@ -186,6 +160,15 @@ export const useMessagesUrlSync = ({
 }: UseMessagesUrlSyncProps) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigationType = useNavigationType();
+  const location = useLocation();
+  /**
+   * Back to the list INSIDE the app: a history step (POP) to an entry this app created (a full
+   * page load or a pasted link is POP too, but its entry is the first one, key "default"), or the
+   * thread page's own Back (`state.restoreSearch`, a PUSH).
+   */
+  const backToList =
+    (navigationType === NavigationType.Pop && location.key !== 'default') ||
+    (location.state as { restoreSearch?: boolean } | null)?.restoreSearch === true;
   const organizationId = useAuthStore((state) => state.selectedOrganizationId);
   const urlIsBare = searchParams.toString() === '';
   const orgCode = useCurrentOrgCode();
@@ -319,7 +302,7 @@ export const useMessagesUrlSync = ({
       }
       // Back/Forward/reload onto the list: the search it showed (tab memory, never the URL). After
       // the default lens above, so a remembered search does not turn "no filter named" into All.
-      if (!urlFilters.search && navigationType === NavigationType.Pop) {
+      if (!urlFilters.search && backToList) {
         const recalled = recalledSearch(organizationId);
         if (recalled) urlFilters.search = recalled;
       }
