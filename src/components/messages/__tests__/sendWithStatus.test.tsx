@@ -163,9 +163,10 @@ describe('Send ▾ — what is remembered', () => {
     expect(window.localStorage.getItem('odly.sendAction.7')).toBe('hold');
   });
 
-  it('pressing the fallback face on an unreviewed thread keeps the stored choice', async () => {
+  it('pressing the fallback face on a thread that cannot be resolved keeps the stored choice', async () => {
     window.localStorage.setItem('odly.sendAction.7', 'resolve');
-    renderDetail({ status: 'open', lastReplyFromClient: false });
+    // A resolved thread: replying reopens it, resolving is not on offer (resolveMode null).
+    renderDetail({ status: 'resolved' });
     type('<p>Hello.</p>');
     fireEvent.click(screen.getByRole('button', { name: 'SEND' }));
     await waitFor(() => expect(svc.message.reply).toHaveBeenCalled());
@@ -185,9 +186,37 @@ describe('Send ▾ — what is remembered', () => {
 });
 
 describe('Send ▾ elsewhere', () => {
-  it('an unreviewed thread offers Send and hold only, and a remembered "resolve" falls back to Send', () => {
+  it('a new thread (open, customer has not written again) offers all four — the send IS the reply', () => {
+    // Owner 2026-11-03: the Resolve row hides while a reply is typed, so leaving resolve out of
+    // Send ▾ here left a new thread with a draft no way to resolve at all.
     window.localStorage.setItem('odly.sendAction.7', 'resolve');
     renderDetail({ status: 'open', lastReplyFromClient: false });
+    type('<p>Hello.</p>');
+    expect(screen.getByRole('button', { name: 'SEND & RESOLVE' })).toBeInTheDocument();
+    openSendMenu();
+    expect(screen.getAllByRole('menuitemcheckbox').map((item) => item.textContent)).toEqual([
+      'Send',
+      'Send and resolve',
+      'Send, resolve & save to KB',
+      'Send and put on hold',
+    ]);
+  });
+
+  it('Send and resolve on a new thread: the reply goes out, then the thread is resolved', async () => {
+    renderDetail({ status: 'open', lastReplyFromClient: false });
+    type('<p>Hello.</p>');
+    openSendMenu();
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Send and resolve' }));
+    await waitFor(() => expect(svc.message.close).toHaveBeenCalled());
+    expect(svc.message.reply).toHaveBeenCalled();
+    expect(svc.message.reply.mock.invocationCallOrder[0]).toBeLessThan(
+      svc.message.close.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('CONTROL: a resolved thread offers Send and hold only, and a remembered "resolve" falls back to Send', () => {
+    window.localStorage.setItem('odly.sendAction.7', 'resolve');
+    renderDetail({ status: 'resolved' });
     type('<p>Hello.</p>');
     expect(screen.getByRole('button', { name: 'SEND' })).toBeInTheDocument();
     openSendMenu();
@@ -222,6 +251,54 @@ describe('the Resolve row and the header while writing', () => {
     type('<p>Hello.</p>');
     expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
     expect(screen.getByTestId('header-chips').className).toMatch(/(^|\s)hidden(\s|$)/);
+  });
+});
+
+describe('getting the full header back while a draft is open', () => {
+  it('Fold folds the box with a draft, keeps the text, and the full header returns', () => {
+    renderDetail();
+    type('<p>Half-written answer</p>');
+    expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
+    fireEvent.click(screen.getByTestId('composer-fold'));
+    expect(screen.getByTestId('detail-top-row')).not.toHaveAttribute('data-compact');
+    expect(screen.getByTestId('message-composer')).toHaveAttribute('data-state', 'rest');
+    // The draft is kept: pressing into the pill opens the box with it, header compact again.
+    fireEvent.click(screen.getByTestId('composer-field'));
+    expect(screen.getByTestId('message-composer')).toHaveAttribute('data-state', 'open');
+    expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
+  });
+
+  it('scrolling UP the thread while writing brings the full header back; down hides it again', () => {
+    renderDetail();
+    type('<p>Half-written answer</p>');
+    const scroller = screen.getByTestId('thread-scroller');
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 2000 });
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 300 });
+    fireEvent.wheel(scroller);
+    scroller.scrollTop = 900;
+    fireEvent.scroll(scroller);
+    expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
+    // The scroll handler settles 300 ms after each change.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 400);
+    fireEvent.wheel(scroller);
+    scroller.scrollTop = 500;
+    fireEvent.scroll(scroller);
+    expect(screen.getByTestId('detail-top-row')).not.toHaveAttribute('data-compact');
+    vi.setSystemTime(Date.now() + 400);
+    fireEvent.wheel(scroller);
+    scroller.scrollTop = 800;
+    fireEvent.scroll(scroller);
+    expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
+    vi.useRealTimers();
+  });
+
+  it('CONTROL: an outside press still never folds a draft away', () => {
+    renderDetail();
+    type('<p>Half-written answer</p>');
+    fireEvent.pointerDown(document.body);
+    fireEvent.click(document.body);
+    expect(screen.getByTestId('message-composer')).toHaveAttribute('data-state', 'open');
   });
 });
 
@@ -289,5 +366,40 @@ describe('the header tucks only on a thread with room to scroll', () => {
     scroller.scrollTop = 1700;
     fireEvent.scroll(scroller);
     expect(screen.getByTestId('detail-top-row')).not.toHaveAttribute('data-compact');
+  });
+});
+
+describe('opening a thread lands on its newest message', () => {
+  const events = [1, 2, 3].map((num) => ({
+    id: 600 + num,
+    type: 'inbound',
+    content: `Message ${num}`,
+    authorEmail: 'ada@example.com',
+    createdAt: `2026-09-2${num}T10:00:00Z`,
+  }));
+  const withScrollSize = () => {
+    const scroller = screen.getByTestId('thread-scroller');
+    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 2400 });
+    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 300 });
+    return scroller;
+  };
+
+  it('scrolls to the bottom once the thread has loaded, without tucking the header', async () => {
+    svc.message.getThreadMessages = vi.fn().mockResolvedValue({ data: events });
+    renderDetail();
+    const scroller = withScrollSize();
+    await screen.findByText('Message 3');
+    await waitFor(() => expect(scroller.scrollTop).toBe(2400));
+    expect(screen.getByTestId('detail-top-row')).not.toHaveAttribute('data-compact');
+  });
+
+  it("CONTROL: the reader's own scroll before it settles is never overridden", async () => {
+    svc.message.getThreadMessages = vi.fn().mockResolvedValue({ data: events });
+    renderDetail();
+    const scroller = withScrollSize();
+    fireEvent.wheel(scroller);
+    scroller.scrollTop = 120;
+    await screen.findByText('Message 3');
+    expect(scroller.scrollTop).toBe(120);
   });
 });

@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Send, Paperclip, BookOpen, FileText, Search, X } from 'lucide-react';
+import { Send, Paperclip, BookOpen, FileText, Search, X, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/Button';
@@ -230,6 +230,17 @@ export function MessageComposer({
       : replyAs;
   const openComposer = () => {
     if (!open) setOpen(true);
+  };
+  /*
+    Fold on purpose — a draft included (owner, 2026-11-03). An outside press never folds a draft
+    away (it may be an accident), so with text in the box there was no way back to the thread's
+    full header, which shrinks while the box is open. The text stays: the pill shows it, and
+    pressing into the pill opens the box with it. Not while an AI draft is being written.
+  */
+  const foldComposer = () => {
+    if (!open || aiActiveRef.current) return;
+    setOpen(false);
+    setRestGeneration((gen) => gen + 1);
   };
   // Text or an address arriving from elsewhere (a KB answer, "Reply to this message") opens it.
   useEffect(() => {
@@ -471,6 +482,20 @@ export function MessageComposer({
           {shortcutHint ? `${shortcutHint} · ` : ''}
           {SEND_SHORTCUT} {composerMode === 'note' ? 'post' : 'send'}
         </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={foldComposer}
+          disabled={aiBusy}
+          aria-label="Fold the reply box (your text is kept)"
+          title="Fold the reply box — your text is kept"
+          data-testid="composer-fold"
+          className="h-auto px-1 py-0 text-[11px] text-muted-foreground hover:text-foreground max-sm:ml-auto"
+        >
+          <ChevronDown className="w-3.5 h-3.5" />
+          Fold
+        </Button>
       </div>
 
       {/* WhatsApp 24-hour window. Shown ABOVE the input so the agent reads it before
