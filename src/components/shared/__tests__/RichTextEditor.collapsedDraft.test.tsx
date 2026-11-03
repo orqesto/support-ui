@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import RichTextEditor from '../RichTextEditor';
+import { createRef } from 'react';
+import RichTextEditor, { type RichTextEditorHandle } from '../RichTextEditor';
 
 // jsdom has no layout; expanding the editor focuses it and ProseMirror scrolls through these
 // (an unhandled TypeError here fails CI with every test green). Same stubs as the locked test.
@@ -51,5 +52,27 @@ describe('RichTextEditor — collapsed with a draft', () => {
     await waitFor(() =>
       expect(screen.getByTestId('rich-text-collapsed-line')).toHaveTextContent('Text kept')
     );
+  });
+});
+
+describe('RichTextEditor — reopening a draft', () => {
+  it('puts the cursor at the END: new text goes after the draft, not in front of it', async () => {
+    const ref = createRef<RichTextEditorHandle>();
+    let html = '';
+    render(
+      <RichTextEditor
+        ref={ref}
+        placeholder="Reply"
+        content="<p>Draft so far</p>"
+        onChange={(value) => {
+          html = value;
+        }}
+      />
+    );
+    fireEvent.click(await screen.findByTestId('rich-text-collapsed-line'));
+    // The expand focuses on the next tick.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    ref.current?.insertText(' and more');
+    await waitFor(() => expect(html).toContain('Draft so far and more'));
   });
 });

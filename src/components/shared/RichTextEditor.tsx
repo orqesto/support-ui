@@ -299,7 +299,8 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
           )}
           onClick={() => {
             setIsExpanded(true);
-            setTimeout(() => liveEditor()?.commands.focus(), 0);
+            // At the END: a draft reopened after a fold must not take new typing in front of it.
+            setTimeout(() => liveEditor()?.commands.focus('end'), 0);
           }}
         >
           {/* One left-aligned line: a wrapped, centred hint took two lines of the reply box.
