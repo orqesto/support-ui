@@ -747,3 +747,41 @@ describe('KbHistoryRangeDialog', () => {
     expect('historyToFetch' in (sent ?? {})).toBe(false);
   });
 });
+
+describe('Google rejected the stored sign-in (MAILBOX_SIGN_IN)', () => {
+  const mountWithReconnect = (type: 'gmail' | 'email', onReconnect: () => void) =>
+    render(
+      <KbHistoryRangeDialog
+        source={{ id: 5, name: 'orders@acme.test', type }}
+        onClose={onClose}
+        onShowAlert={onShowAlert}
+        onApplied={onApplied}
+        onReconnect={onReconnect}
+      />
+    );
+  const signInRejected = () =>
+    Promise.reject(err(400, 'MAILBOX_SIGN_IN', 'Google rejected the stored sign-in. Reconnect it.'));
+
+  it('a Gmail mailbox gets Reconnect next to the message, and it calls the card', async () => {
+    handler = signInRejected;
+    const onReconnect = vi.fn();
+    mountWithReconnect('gmail', onReconnect);
+    expect(await screen.findByText(/Google rejected the stored sign-in/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reconnect Google Account' }));
+    expect(onReconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('CONTROL: an IMAP mailbox (fixed by its credentials, not Google) gets no Google button', async () => {
+    handler = signInRejected;
+    mountWithReconnect('email', vi.fn());
+    expect(await screen.findByText(/Google rejected the stored sign-in/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reconnect Google Account' })).toBeNull();
+  });
+
+  it('CONTROL: any other failure shows no Reconnect button', async () => {
+    handler = () => Promise.reject(err(429, 'MAILBOX_QUOTA', 'Gmail refused the request (quota).'));
+    mountWithReconnect('gmail', vi.fn());
+    expect(await screen.findByText(/quota/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reconnect Google Account' })).toBeNull();
+  });
+});

@@ -11,13 +11,20 @@ export const GmailRowStrips = ({
   source,
   onRefresh,
   onShowAlert,
+  onReconnect,
 }: {
   source: Integration;
   onRefresh: () => Promise<void>;
   onShowAlert: (alert: AlertState) => void;
+  onReconnect?: () => void;
 }) => (
   <>
-    <SourceKbStrip source={source} onShowAlert={onShowAlert} onRefresh={onRefresh} />
+    <SourceKbStrip
+      source={source}
+      onShowAlert={onShowAlert}
+      onRefresh={onRefresh}
+      onReconnect={onReconnect}
+    />
     <GmailMarkImportedStrip source={source} onShowAlert={onShowAlert} onRefresh={onRefresh} />
   </>
 );

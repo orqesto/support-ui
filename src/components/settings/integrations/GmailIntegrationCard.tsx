@@ -539,7 +539,7 @@ export const GmailIntegrationCard = ({
                     onShowAlert={onShowAlert}
                     onReconnect={() => void handleReconnect(integration)}
                   />
-                  <GmailRowStrips source={integration} onShowAlert={onShowAlert} onRefresh={onRefresh} />
+                  <GmailRowStrips source={integration} onShowAlert={onShowAlert} onRefresh={onRefresh} onReconnect={() => void handleReconnect(integration)} />
                   {editAliases === integration.id && (
                     <SourceAliasEditor
                       sourceId={integration.id}
