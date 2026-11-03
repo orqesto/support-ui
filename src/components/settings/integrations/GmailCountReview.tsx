@@ -59,6 +59,15 @@ type Props = {
   onStarted: () => Promise<void> | void;
   onClose: () => void;
   onShowAlert: (alert: AlertState) => void;
+  /** Google rejected the stored sign-in: offer the card's "Reconnect Google Account" right here. */
+  onReconnect?: () => void;
+};
+
+/** The server's code for "Google rejected this mailbox's stored sign-in — reconnect it". */
+const SIGN_IN_REJECTED = 'MAILBOX_SIGN_IN';
+const errorCode = (err: unknown): string | undefined => {
+  const code = (err as { data?: { code?: unknown } } | null | undefined)?.data?.code;
+  return typeof code === 'string' ? code : undefined;
 };
 
 type CountResult = { count: number; capped: boolean };
@@ -135,13 +144,20 @@ export const notComparedNote = (result: GmailCountResult): string => {
   return `${fmtN(compared)} of ${fmtN(result.count)} listed messages were compared; ${fmtN(notCompared)} ${notCompared === 1 ? 'was' : 'were'} not compared before the time limit — neither in Odly nor missing.`;
 };
 
-export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Props) => {
+export const GmailCountReview = ({
+  source,
+  onStarted,
+  onClose,
+  onShowAlert,
+  onReconnect,
+}: Props) => {
   const [searchQuery, setSearchQuery] = useState(source.searchQuery);
   const [range, setRange] = useState<DateRangeValue>(() => importRangeValue(source, 30));
   // The count endpoint takes days: a since day is sent as the days the import will reach back.
   const bulkImportDays = importRangeDays(range);
   const [result, setResult] = useState<GmailCountResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [signInRejected, setSignInRejected] = useState(false);
   const [checking, setChecking] = useState(false);
   const [progress, setProgress] = useState<CountProgress | null>(null);
   const [starting, setStarting] = useState(false);
@@ -156,6 +172,7 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
     setChecking(true);
     setProgress(null);
     setError(null);
+    setSignInRejected(false);
     setResult(null);
     try {
       const data = await integrationsService.countGmailMessages(
@@ -167,6 +184,7 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
     } catch (err) {
       if (err instanceof CountPollStopped) return;
       setError(apiErrorMessage(err, 'Could not count messages in this mailbox'));
+      setSignInRejected(errorCode(err) === SIGN_IN_REJECTED);
     } finally {
       if (following.current === follow) {
         following.current = null;
@@ -338,8 +356,13 @@ export const GmailCountReview = ({ source, onStarted, onClose, onShowAlert }: Pr
         </Alert>
       )}
       {error && (
-        <Alert variant="danger" className="p-3">
+        <Alert variant="danger" className="p-3 space-y-2">
           <p className="text-sm">{error}</p>
+          {signInRejected && onReconnect && (
+            <Button type="button" size="sm" onClick={onReconnect}>
+              Reconnect Google Account
+            </Button>
+          )}
         </Alert>
       )}
 
@@ -393,6 +416,7 @@ export const GmailRowCount = ({
   onClose,
   onRefresh,
   onShowAlert,
+  onReconnect,
 }: {
   integration: Integration;
   open: boolean;
@@ -400,6 +424,7 @@ export const GmailRowCount = ({
   onClose: () => void;
   onRefresh: () => Promise<void>;
   onShowAlert: (alert: AlertState) => void;
+  onReconnect?: () => void;
 }) => {
   if (open) {
     return (
@@ -411,6 +436,7 @@ export const GmailRowCount = ({
           await onRefresh();
         }}
         onShowAlert={onShowAlert}
+        onReconnect={onReconnect}
       />
     );
   }
