@@ -4,6 +4,7 @@ import { API_BASE_URL } from './config';
 import { ensureFreshSession, isRateLimited, refreshRetryInMs } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 import { writeTabWorkspace } from '@/lib/tabWorkspace';
+import { forgetRememberedSearches } from '@/lib/searchMemory';
 import { SOCKET_RECONNECTED_EVENT } from '@/lib/socketEvents';
 
 type EventCallback = (data: unknown) => void;
@@ -78,6 +79,8 @@ const endSessionAndRedirect = () => {
   activeOrgRooms.clear();
   authRecoveryUsed = false;
   localStorage.removeItem('auth-storage');
+  // This sign-out skips authStore.logout: the remembered search must not outlive it either.
+  forgetRememberedSearches();
   writeTabWorkspace(null);
   window.location.href = loginPathFor(window.location);
 };

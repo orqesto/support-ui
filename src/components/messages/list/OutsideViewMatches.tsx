@@ -233,6 +233,8 @@ export const OutsideViewMatches = ({
     inFlightAt.current = now;
     const failedFor = queryKey;
     const askedRows = requestKey;
+    // "Show more" pressed while this was out: its rows are merged with this answer, not replaced.
+    const moreAtAsk = moreSeq.current;
     // An answer is for the QUESTION (search, filters, team, workspace), not for the moment the
     // list rows stood at: matching on requestKey dropped every answer that arrived after any
     // colleague's change, and on a busy inbox the section never left "Checking…" (release review).
@@ -280,7 +282,7 @@ export const OutsideViewMatches = ({
         }
         if (failedAt.current?.key === failedFor) failedAt.current = null;
         setStatus('done');
-        if (pageRef.current > 1) {
+        if (moreSeq.current !== moreAtAsk && pageRef.current > 1) {
           // "Show more" appended rows meanwhile: keep them, under the fresh first page.
           setRows((shown) => {
             const fresh = new Set(listed.map((thread) => thread.threadId));
@@ -300,7 +302,14 @@ export const OutsideViewMatches = ({
         if (controller.signal.aborted) return;
         failed();
       });
-    return undefined;
+    // Its own stale timer: on a quiet inbox nothing else re-runs this effect, and an ask that never
+    // settles left "Checking…" for good (release review, round 4). Acts only if THIS ask is still out.
+    const staleTimer = setTimeout(() => {
+      if (inFlight.current !== controller) return;
+      askedKey.current = '';
+      setRetryTick((tick) => tick + 1);
+    }, ASK_STALE_MS);
+    return () => clearTimeout(staleTimer);
     // requestKey stands for `request` and everything else that changes the answer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestKey, enabled, retryTick]);

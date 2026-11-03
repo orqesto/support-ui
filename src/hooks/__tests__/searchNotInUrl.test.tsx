@@ -91,9 +91,9 @@ describe('the search survives the list remounting, without the URL', () => {
     expect(new URLSearchParams(search).has('search')).toBe(false);
   });
 
-  it('🔴 a full page load or a pasted link does not bring an old search back', async () => {
+  it('🔴 a pasted or newly opened link does not bring an old search back', async () => {
     rememberSearch(7, 'jane@shop.example');
-    mount('/threads?lifecycle=all'); // the first entry: key "default", as a page load
+    mount('/threads?lifecycle=all'); // a tab's first entry: key "default", as an opened link
     await waitFor(() => expect(new URLSearchParams(search).get('lifecycle')).toBe('all'));
     expect(useMessagesStore.getState().filters.search ?? '').toBe('');
   });
@@ -129,3 +129,13 @@ describe('the search survives the list remounting, without the URL', () => {
   });
 });
 
+
+describe('the socket\'s terminal sign-out (it skips authStore.logout)', () => {
+  it('🔴 forgets the remembered searches too', async () => {
+    const { forgetRememberedSearches } = await import('@/lib/searchMemory');
+    sessionStorage.setItem('threads.search.7', 'jane@shop.example');
+    // endSessionAndRedirect calls this before it navigates away (socketManager.ts).
+    forgetRememberedSearches();
+    expect(sessionStorage.getItem('threads.search.7')).toBeNull();
+  });
+});

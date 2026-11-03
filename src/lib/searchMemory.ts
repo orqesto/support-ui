@@ -1,9 +1,10 @@
 /**
  * The search the thread list showed, per browser TAB and workspace. Not in the URL (it is routinely
  * a customer's address), so a remount of the list lost it — on a phone, open a result and Back.
- * Tab storage keeps it out of history, links and logs. Restored only when the agent goes BACK to
- * the list inside the app (useMessagesUrlSync), never on a full page load or a pasted link, and
- * forgotten at sign-out so the next person on this tab does not get it (release review).
+ * Tab storage keeps it out of history, links and logs. Restored when the agent goes back to the
+ * list (Back/Forward, the thread page's Back, or a reload of such a page — useMessagesUrlSync),
+ * never for a pasted or newly opened link, and forgotten at every sign-out so the next person on
+ * this tab does not get it (release review).
  */
 const PREFIX = 'threads.search.';
 
