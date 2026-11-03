@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { SecretField } from '@/components/console/platformDefaults/SecretField';
-import { ThresholdsCard } from '@/components/console/PlatformAlertsThresholds';
+import { RetentionCard } from '@/components/console/PlatformAlertsRetention';
+import { ThresholdsCard, type SerialSave } from '@/components/console/PlatformAlertsThresholds';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -24,6 +25,7 @@ import {
   PLATFORM_SLACK_SIGNALS,
   platformSlackAlertsService,
   SLACK_BOT_SCOPES,
+  slackTeamKey,
   type PlatformSlackConnection,
   type PlatformSlackSignal,
   type PlatformSlackStatus,
@@ -42,8 +44,6 @@ import { useAuthStore } from '@/stores/authStore';
  * backend reads, merges and writes back, so their PUTs (and Disconnect) go one after another
  * through the page's save queue — two at once could each write back the other's old half.
  */
-
-type SerialSave = (task: () => Promise<PlatformSlackStatus>) => Promise<PlatformSlackStatus>;
 
 const SIGNAL_LABELS: Record<PlatformSlackSignal, string> = {
   cpu: 'Container CPU sustained high',
@@ -613,7 +613,7 @@ const PlatformAlertsPanel = () => {
 
           {/* Keyed on the connection so a reconnect starts the cards from the server again. */}
           <ChannelAndSignalsCard
-            key={`${connection?.teamName ?? 'none'}-${status.settings.slackChannelId ?? ''}`}
+            key={`${slackTeamKey(connection)}-${status.settings.slackChannelId ?? ''}`}
             status={status}
             channelList={channelList}
             connected={tokenWorks}
@@ -622,6 +622,10 @@ const PlatformAlertsPanel = () => {
           />
           {/* The service already filled any missing threshold with its default. */}
           <ThresholdsCard thresholds={status.settings.thresholds} serialSave={serialSave} />
+          {/* An older backend sends no retention: nothing to show or save. */}
+          {status.settings.postRetention && (
+            <RetentionCard retention={status.settings.postRetention} serialSave={serialSave} />
+          )}
         </>
       )}
 

@@ -316,6 +316,93 @@ describe('PlatformAlertsSlack', () => {
     );
   });
 
+  describe('Slack post retention (round 2)', () => {
+    const RETENTION = { days: 30, chunkSize: 500, maxChunksPerWorkspace: 20 };
+    const withRetention = (over: Partial<typeof RETENTION> = {}) =>
+      connected({ postRetention: { ...RETENTION, ...over } });
+
+    it('shows the stored values and saves only the retention group', async () => {
+      vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(withRetention());
+      const save = vi
+        .spyOn(platformSlackAlertsService, 'saveSettings')
+        .mockImplementation((body) =>
+          Promise.resolve(connected({ postRetention: { ...RETENTION, ...body.postRetention } }))
+        );
+      renderPage();
+      const days = await screen.findByLabelText(/^Delete ended Slack posts after \(days\)$/i);
+      expect(days).toHaveValue(30);
+      expect(screen.getByLabelText(/^Posts deleted per step$/i)).toHaveValue(500);
+      expect(screen.getByLabelText(/^Steps per workspace per daily run$/i)).toHaveValue(20);
+      fireEvent.change(days, { target: { value: '45' } });
+      fireEvent.click(screen.getByRole('button', { name: /save retention/i }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+      expect(save).toHaveBeenCalledWith({ postRetention: { ...RETENTION, days: 45 } });
+      expect(toastMock.success).toHaveBeenCalledWith('Retention saved');
+    });
+
+    it('an older backend that sends no retention shows no retention fields', async () => {
+      vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(connected());
+      renderPage();
+      // CONTROL: the page itself rendered.
+      await screen.findByLabelText(/^CPU above \(%\)$/i);
+      expect(screen.queryByLabelText(/delete ended slack posts/i)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /save retention/i })).not.toBeInTheDocument();
+    });
+
+    it.each([
+      [/^Delete ended Slack posts after \(days\)$/i, '3', /between 7 and 3,650/],
+      [/^Posts deleted per step$/i, '10', /between 50 and 5,000/],
+      [/^Steps per workspace per daily run$/i, '2.5', /whole number/],
+    ])(
+      'refuses an out-of-bounds value inline without saving (%s)',
+      async (label, value, message) => {
+        vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(withRetention());
+        const save = vi.spyOn(platformSlackAlertsService, 'saveSettings');
+        renderPage();
+        fireEvent.change(await screen.findByLabelText(label), { target: { value } });
+        fireEvent.click(screen.getByRole('button', { name: /save retention/i }));
+        expect(await screen.findByText(message)).toBeInTheDocument();
+        expect(save).not.toHaveBeenCalled();
+      }
+    );
+
+    it('a refused save shows the backend message inline and keeps the typed value', async () => {
+      vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(withRetention());
+      vi.spyOn(platformSlackAlertsService, 'saveSettings').mockRejectedValue(
+        await apiError(400, { success: false, error: 'Number must be less than or equal to 3650' })
+      );
+      renderPage();
+      const days = await screen.findByLabelText(/^Delete ended Slack posts after \(days\)$/i);
+      fireEvent.change(days, { target: { value: '60' } });
+      fireEvent.click(screen.getByRole('button', { name: /save retention/i }));
+      expect(
+        await screen.findByText(/Number must be less than or equal to 3650/)
+      ).toBeInTheDocument();
+      await waitFor(() => expect(days).not.toBeInactive());
+      expect(days).toHaveValue(60);
+    });
+
+    it('a retention save waits for a thresholds save in flight (one save queue)', async () => {
+      vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(withRetention());
+      const thresholdsSave = deferred<PlatformSlackStatus>();
+      const save = vi
+        .spyOn(platformSlackAlertsService, 'saveSettings')
+        .mockImplementationOnce(() => thresholdsSave.promise)
+        .mockImplementation(() => Promise.resolve(withRetention({ days: 45 })));
+      renderPage();
+      const days = await screen.findByLabelText(/^Delete ended Slack posts after \(days\)$/i);
+      fireEvent.click(screen.getByRole('button', { name: /save thresholds/i }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+      fireEvent.change(days, { target: { value: '45' } });
+      fireEvent.click(screen.getByRole('button', { name: /save retention/i }));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(save).toHaveBeenCalledTimes(1);
+      thresholdsSave.resolve(withRetention());
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+      expect(save.mock.calls[1][0]).toEqual({ postRetention: { ...RETENTION, days: 45 } });
+    });
+  });
+
   it('client secret is never displayed, only last4', async () => {
     vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue({
       connection: null,

@@ -18,6 +18,7 @@ import {
   kindsForChannel,
   SLACK_BOT_SCOPES,
   slackNotificationsService,
+  slackTeamKey,
   type SlackChannelList,
   type SlackRoute,
   type SlackRouteChannel,
@@ -641,9 +642,10 @@ const SlackNotificationsPanel = () => {
           <div className="grid gap-4 lg:grid-cols-2">
             {(['team', 'admin'] as const).map((channel) => (
               <ChannelCard
-                // Keyed on the Slack workspace: a token for another one drops the routes (BE), so
-                // the card must start again from the server, not keep the old channel's draft.
-                key={`${channel}-${connection.teamName}`}
+                // Keyed on the Slack workspace (its team id; the name on an older backend): a token
+                // for another one drops the routes (BE), so the card must start again from the
+                // server, not keep the old channel's draft. Two Slack workspaces can share a name.
+                key={`${channel}-${slackTeamKey(connection)}`}
                 channel={channel}
                 route={status?.routes.find((each) => each.channel === channel)}
                 channelList={channelList}

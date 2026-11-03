@@ -19,7 +19,10 @@ import {
  * server returned; on a failed save it keeps what the admin typed and says why, inline.
  */
 
-type ThresholdField = {
+/** The page's one save queue: each settings PUT starts only after the previous one settled. */
+export type SerialSave = (task: () => Promise<PlatformSlackStatus>) => Promise<PlatformSlackStatus>;
+
+export type ThresholdField = {
   /** `group.field`, or `quietMinutes`. */
   path: string;
   label: string;
@@ -154,7 +157,7 @@ const draftFromThresholds = (thresholds: PlatformSlackThresholds): ThresholdDraf
     ALL_THRESHOLD_FIELDS.map((field) => [field.path, String(readPath(thresholds, field.path))])
   );
 
-const fieldError = (field: ThresholdField, raw: string): string | undefined => {
+export const fieldError = (field: ThresholdField, raw: string): string | undefined => {
   const value = Number(raw);
   if (raw.trim() === '' || !Number.isFinite(value)) return 'Enter a number.';
   if (value < field.min || value > field.max) {
@@ -195,7 +198,7 @@ export const ThresholdsCard = ({
   /** As the service normalised them (defaults already filled). */
   thresholds: PlatformSlackThresholds;
   /** The page's one save queue: this card's PUT never overlaps the channel and signals card's. */
-  serialSave: (task: () => Promise<PlatformSlackStatus>) => Promise<PlatformSlackStatus>;
+  serialSave: SerialSave;
 }) => {
   const [draft, setDraft] = useState<ThresholdDraft>(() => draftFromThresholds(thresholds));
   const [errors, setErrors] = useState<Record<string, string>>({});
