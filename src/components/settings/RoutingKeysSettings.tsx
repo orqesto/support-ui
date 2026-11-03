@@ -38,6 +38,8 @@ export const RoutingKeysSettings = () => {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [openValues, setOpenValues] = useState<string | null>(null);
   const [typeError, setTypeError] = useState<string | null>(null);
+  // A save that fails (403, network) used to leave the control silently unchanged.
+  const [saveError, setSaveError] = useState<string | null>(null);
   // An older backend sends keys without a type: hide the controls it cannot serve.
   const skillRoutingSupported = routingKeys.some((rk) => rk.typeReported);
 
@@ -66,9 +68,12 @@ export const RoutingKeysSettings = () => {
 
   const handleModeChange = async (mode: AutoAssignMode) => {
     setSavingMode(true);
+    setSaveError(null);
     try {
       await organizationService.updateAutoAssign(mode);
       setAutoAssignMode(mode);
+    } catch {
+      setSaveError('Could not save the auto-assignment mode. Please try again.');
     } finally {
       setSavingMode(false);
     }
@@ -77,9 +82,12 @@ export const RoutingKeysSettings = () => {
   const handleAssignOnReplyToggle = async () => {
     const next = !assignOnReply;
     setSavingAssignOnReply(true);
+    setSaveError(null);
     try {
       await organizationService.updateAssignOnReply(next);
       setAssignOnReply(next);
+    } catch {
+      setSaveError('Could not save the ownership setting. Please try again.');
     } finally {
       setSavingAssignOnReply(false);
     }
@@ -88,9 +96,12 @@ export const RoutingKeysSettings = () => {
   const handleSelfEditToggle = async () => {
     const next = !allowSelfEditSkills;
     setSavingSelfEdit(true);
+    setSaveError(null);
     try {
       await organizationService.updateSelfEditSkills(next);
       setAllowSelfEditSkills(next);
+    } catch {
+      setSaveError('Could not save the self-edit setting. Please try again.');
     } finally {
       setSavingSelfEdit(false);
     }
@@ -99,6 +110,7 @@ export const RoutingKeysSettings = () => {
   const handleAdd = async () => {
     const key = newKey.trim().toLowerCase();
     if (!key) return;
+    setSaveError(null);
     setSaving(true);
     try {
       // Pre-selected from the name; the admin can switch it on the row afterwards.
@@ -110,6 +122,8 @@ export const RoutingKeysSettings = () => {
       setNewKey('');
       setNewDescription('');
       await fetchKeys();
+    } catch {
+      setSaveError(`Could not add the routing key "${key}". Please try again.`);
     } finally {
       setSaving(false);
     }
@@ -151,6 +165,12 @@ export const RoutingKeysSettings = () => {
           description.
         </p>
       </div>
+
+      {saveError && (
+        <p role="alert" className="text-sm text-destructive">
+          {saveError}
+        </p>
+      )}
 
       {/* Auto-assign mode */}
       <div className="p-4 rounded-lg border border-border bg-muted/30">

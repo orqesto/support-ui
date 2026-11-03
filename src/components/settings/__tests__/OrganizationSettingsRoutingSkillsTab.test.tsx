@@ -43,11 +43,22 @@ describe('Workspace settings: Routing Skills tab', () => {
     perms = {
       isAdmin: false,
       isOrgAdmin: false,
-      hasPermission: (perm: string) => perm === 'manage_routing_rules',
+      hasPermission: (perm: string) =>
+        perm === 'manage_routing_rules' || perm === 'view_organization_settings',
     };
     render(<OrganizationSettings section="routing-skills" />);
     expect(screen.getByText('Routing Skills')).toBeInTheDocument();
     expect(screen.getByText('RoutingKeysSettings')).toBeInTheDocument();
+  });
+
+  it('is not offered on manage_routing_rules alone: the page cannot read its settings', () => {
+    perms = {
+      isAdmin: false,
+      isOrgAdmin: false,
+      hasPermission: (perm: string) => perm === 'manage_routing_rules',
+    };
+    render(<OrganizationSettings section="routing-skills" />);
+    expect(screen.queryByText('RoutingKeysSettings')).toBeNull();
   });
 
   it('is offered to a global admin even without the permission flag', () => {
