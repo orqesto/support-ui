@@ -299,7 +299,7 @@ const ChannelCard = ({
             placeholder="Pick a channel"
             disabled={locked}
           />
-          {picked && !picked.isMember && (
+          {picked && picked.isPrivate && !picked.isMember && (
             <p className="mt-1 text-xs text-muted-foreground">{INVITE_HINT}</p>
           )}
           {!hasChannel && (

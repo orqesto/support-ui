@@ -319,7 +319,8 @@ describe('SlackNotificationsSettings — connect, load and return (fix round 1)'
     expect(await screen.findByRole('button', { name: /add to slack/i })).toBeInTheDocument();
   });
 
-  it('shows the invite hint for a channel the bot is not in, before any test post', async () => {
+  const HINT = 'Private channel? Type /invite @Odly in Slack.';
+  function renderWithChannel(isPrivate: boolean, isMember: boolean) {
     vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(
       connected([
         route({
@@ -331,15 +332,30 @@ describe('SlackNotificationsSettings — connect, load and return (fix round 1)'
       ])
     );
     vi.spyOn(slackNotificationsService, 'listChannels').mockResolvedValue({
-      channels: [{ id: 'C3', name: 'alerts', isPrivate: false, isMember: false }],
+      channels: [{ id: 'C3', name: 'alerts', isPrivate, isMember }],
       truncated: false,
     });
     const sendTest = vi.spyOn(slackNotificationsService, 'sendTest');
     renderPage();
-    expect(
-      await screen.findByText('Private channel? Type /invite @Odly in Slack.')
-    ).toBeInTheDocument();
+    return sendTest;
+  }
+
+  it('shows the invite hint for a private channel the bot is not in, before any test post', async () => {
+    const sendTest = renderWithChannel(true, false);
+    expect(await screen.findByText(HINT)).toBeInTheDocument();
     expect(sendTest).not.toHaveBeenCalled();
+  });
+
+  it('shows no invite hint for a public channel the bot is not in', async () => {
+    renderWithChannel(false, false);
+    await screen.findByText(/#alerts/);
+    expect(screen.queryByText(HINT)).not.toBeInTheDocument();
+  });
+
+  it('shows no invite hint for a private channel the bot is in', async () => {
+    renderWithChannel(true, true);
+    await screen.findByText(/#alerts/);
+    expect(screen.queryByText(HINT)).not.toBeInTheDocument();
   });
 
   it('?slack=connected shows the success notice and removes the slack params', async () => {
