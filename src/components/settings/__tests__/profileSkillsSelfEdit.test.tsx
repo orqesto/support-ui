@@ -60,16 +60,38 @@ describe('Profile — own routing skills', () => {
   });
 
   it('a refused save goes back to what was saved and shows the reason', async () => {
+    // The shape the api-client interceptor throws: status and body on the error itself.
     setSelfSkillValues.mockRejectedValue({
-      isAxiosError: true,
-      response: { status: 400, data: { message: "'vip' is not a value of 'payment_sys' yet." } },
+      status: 400,
+      data: { success: false, message: "'vip' is not a value of 'payment_sys' yet." },
     });
     render(<ProfileSettings />);
     const input = await screen.findByPlaceholderText(/comma-separated/);
     fireEvent.change(input, { target: { value: 'vip' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(/vip|Could not save/);
+    expect(await screen.findByRole('alert')).toHaveTextContent("'vip' is not a value of 'payment_sys' yet.");
     await waitFor(() => expect(screen.queryByText('vip')).toBeNull());
     expect(screen.getByText('usdt')).toBeInTheDocument();
+  });
+
+  it('one save per key at a time; a refusal rolls back to what the server confirmed', async () => {
+    let refuse: (reason: unknown) => void = () => undefined;
+    setSelfSkillValues.mockImplementationOnce(
+      () => new Promise<void>((_resolve, reject) => (refuse = reject))
+    );
+    render(<ProfileSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: '+ usdc' }));
+    // While the first save is out, the key's controls are locked: a second save sends nothing.
+    expect(screen.getByRole('button', { name: 'Add' })).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.change(screen.getByPlaceholderText(/comma-separated/), { target: { value: 'busd' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(setSelfSkillValues).toHaveBeenCalledTimes(1);
+    refuse({ status: 400, data: { message: 'Self-edit skills not permitted' } });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Self-edit skills not permitted');
+    await waitFor(() => expect(screen.queryByText('usdc')).toBeNull());
+    expect(screen.getByText('usdt')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Add' })).not.toHaveAttribute('aria-disabled', 'true')
+    );
   });
 });

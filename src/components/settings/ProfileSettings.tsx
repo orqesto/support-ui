@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Lock, User, Tag, X, PenLine, ShieldCheck, MonitorSmartphone } from 'lucide-react';
 import { TwoFactorSettings } from './TwoFactorSettings';
 import { ActiveSessionsSettings } from './ActiveSessionsSettings';
@@ -36,12 +36,21 @@ export const ProfileSettings = () => {
   // Values the workspace already has, per key: an agent picks from these (owner 2026-11-03).
   const [skillOptions, setSkillOptions] = useState<Record<string, string[]>>({});
   const [skillError, setSkillError] = useState<string | null>(null);
+  // One save per key at a time, and a refusal rolls back to what the server last CONFIRMED —
+  // not the render-time list, which after a quick second click already held the first click's
+  // unsaved value (final review 2026-11-03: two refused clicks restored a refused value; two
+  // concurrent replace-all PUTs could land out of order).
+  const savedSkills = useRef<Record<string, string[]>>({});
+  const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (user?.id) {
       void userService
         .getSelfSkillValues()
-        .then(setSkillValues)
+        .then((values) => {
+          savedSkills.current = values;
+          setSkillValues(values);
+        })
         .catch(() => setSkillValues({}));
       void userService
         .getSelfCanEditSkills()
@@ -62,33 +71,51 @@ export const ProfileSettings = () => {
   }, []);
 
   // Saves one key's values; on a refusal (not allowed any more, a value the workspace does not
-  // have, the key deleted) the list goes back to what was saved and the reason is shown —
-  // it used to keep the unsaved value on screen with no word (review 2026-11-03).
+  // have, the key deleted) the list goes back to what the server last confirmed and the reason
+  // is shown — it used to keep the unsaved value on screen with no word (review 2026-11-03).
   const saveSkillValues = async (key: string, next: string[]) => {
-    const previous = skillValues[key] ?? [];
     setSkillError(null);
+    setSavingKeys((prev) => new Set(prev).add(key));
     setSkillValues((prev) => ({ ...prev, [key]: next }));
     try {
       await userService.setSelfSkillValues(key, next);
+      savedSkills.current = { ...savedSkills.current, [key]: next };
+      // A value only this agent held may be gone now, or a new one exists: re-read the picks.
+      void userService
+        .getSelfSkillOptions()
+        .then(setSkillOptions)
+        .catch(() => undefined);
     } catch (error) {
-      setSkillValues((prev) => ({ ...prev, [key]: previous }));
+      const confirmed = savedSkills.current[key] ?? [];
+      setSkillValues((prev) => ({ ...prev, [key]: confirmed }));
       setSkillError(apiErrorMessage(error, `Could not save your ${key} skills. Please try again.`));
+    } finally {
+      setSavingKeys((prev) => {
+        const rest = new Set(prev);
+        rest.delete(key);
+        return rest;
+      });
     }
   };
 
   const handleAddValue = (key: string, picked?: string) => {
-    const raw = picked ?? skillInputs[key]?.trim() ?? '';
-    if (!raw) return;
-    const newVals = raw
-      .split(',')
-      .map((val) => val.trim().toLowerCase())
-      .filter(Boolean);
+    if (savingKeys.has(key)) return;
+    // A picked chip is one stored value, used whole (it may contain a comma); typed text is a
+    // comma-separated list.
+    const newVals = picked
+      ? [picked]
+      : (skillInputs[key] ?? '')
+          .split(',')
+          .map((val) => val.trim().toLowerCase())
+          .filter(Boolean);
+    if (newVals.length === 0) return;
     const merged = [...new Set([...(skillValues[key] ?? []), ...newVals])];
     if (!picked) setSkillInputs((prev) => ({ ...prev, [key]: '' }));
     void saveSkillValues(key, merged);
   };
 
   const handleRemoveValue = (key: string, value: string) => {
+    if (savingKeys.has(key)) return;
     void saveSkillValues(
       key,
       (skillValues[key] ?? []).filter((val) => val !== value)
@@ -267,6 +294,7 @@ export const ProfileSettings = () => {
                             variant="ghost"
                             size="icon"
                             onClick={() => handleRemoveValue(key, val)}
+                            disabled={savingKeys.has(key)}
                             aria-label={`Remove ${val}`}
                             className="p-0 w-auto h-auto hover:text-destructive"
                           >
@@ -291,6 +319,7 @@ export const ProfileSettings = () => {
                               variant="outline"
                               size="sm"
                               onClick={() => handleAddValue(key, opt)}
+                              disabled={savingKeys.has(key)}
                               className="px-2 py-0.5 h-auto text-xs"
                             >
                               + {opt}
@@ -319,6 +348,7 @@ export const ProfileSettings = () => {
                         type="button"
                         size="sm"
                         onClick={() => handleAddValue(key)}
+                        disabled={savingKeys.has(key)}
                         className="px-2 py-1 h-auto text-xs"
                       >
                         Add
