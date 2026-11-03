@@ -22,7 +22,8 @@ vi.mock('@/services/organization.service', () => ({
     updateAutomaticReplySubjects: (subjects: string[]) => updateAutomaticReplySubjects(subjects),
   },
 }));
-const permissions = { isAdmin: false, isOrgAdmin: true };
+// Admins and moderators both hold manage_routing_rules (Routing Skills tab).
+const permissions = { isAdmin: false, isOrgAdmin: true, hasPermission: (_perm: string) => true };
 vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => permissions }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() } }));
 // The other Workspace tabs are not under test; stub them so the tab test mounts only the shell.

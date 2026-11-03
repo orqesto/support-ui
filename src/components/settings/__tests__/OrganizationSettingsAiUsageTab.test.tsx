@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 
-let perms = { isAdmin: false, isOrgAdmin: false };
+let perms = { isAdmin: false, isOrgAdmin: false, hasPermission: (_p: string) => false };
 vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => perms }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
 for (const name of [
@@ -22,7 +22,7 @@ for (const name of [
 const { OrganizationSettings } = await import('../OrganizationSettings');
 
 beforeEach(() => {
-  perms = { isAdmin: false, isOrgAdmin: false };
+  perms = { isAdmin: false, isOrgAdmin: false, hasPermission: () => false };
 });
 afterEach(cleanup);
 
@@ -34,7 +34,7 @@ describe('Workspace settings: AI usage tab', () => {
   });
 
   it('is offered to a workspace admin', () => {
-    perms = { isAdmin: false, isOrgAdmin: true };
+    perms = { isAdmin: false, isOrgAdmin: true, hasPermission: () => true };
     render(<OrganizationSettings section="ai-usage" />);
     expect(screen.getByText('AI usage')).toBeInTheDocument();
   });
