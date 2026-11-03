@@ -49,11 +49,7 @@ const LENS_RESET: Partial<FilterState> = {
 };
 
 const PAGE = 25;
-/**
- * The backend's page-size cap (PAGINATION.MAX_LIMIT): a refresh asking for more got 50 rows while
- * the page counter claimed more, and the next "Show more" skipped rows 51–75 (round-6 review).
- */
-const MAX_REFRESH_ROWS = 50;
+
 /** A failed or timed-out answer is asked again for the same question after this long at most once. */
 export const FAILED_RETRY_MS = 60_000;
 /**
@@ -177,6 +173,8 @@ export const OutsideViewMatches = ({
   // in either order: pressed before or after the refresh was asked, as long as it landed meanwhile.
   // A "Show more" that failed or was dropped adds nothing and costs no refresh (round-7 review).
   const moreApplied = useRef(0);
+  // The "Show more" read in flight, aborted when the question changes or the section unmounts.
+  const moreAbort = useRef<AbortController | null>(null);
   // The in-flight ask's own stale timer, cleared only when THAT ask ends: kept out of the effect's
   // cleanup, which every list re-read (`enabled` off and on) ran and so cancelled it (round 4).
   const staleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -188,6 +186,7 @@ export const OutsideViewMatches = ({
     () => () => {
       inFlight.current?.abort();
       inFlight.current = null;
+      moreAbort.current?.abort();
       clearStale();
       // StrictMode re-runs the effects after this: the question must be asked again then, or the
       // aborted first ask left "Checking…" for good (release review, 2026-11-02).
@@ -209,6 +208,10 @@ export const OutsideViewMatches = ({
       setLoadingMore(false);
       setStatus('idle');
       moreSeq.current += 1;
+      // Anything still out for the previous question — a refresh or a "Show more" — is not for
+      // this one, even if the agent switches back before it lands (round-10 review).
+      rowsEpoch.current += 1;
+      moreAbort.current?.abort();
       inFlight.current?.abort();
       clearStale();
       // The refresh window is per shown question: a new one (or one changed back) asks at once.
@@ -231,12 +234,10 @@ export const OutsideViewMatches = ({
     if (failedAt.current?.key === queryKey && now - failedAt.current.at < FAILED_RETRY_MS) {
       return later(FAILED_RETRY_MS - (now - failedAt.current.at));
     }
-    // More rows shown than one request can bring back (the backend's cap): a refresh would cut the
-    // section back to MAX_REFRESH_ROWS every window. It stays as the agent paged it until the
-    // question changes (round-7 review).
-    if (lastAsked.current?.key === queryKey && PAGE * pageRef.current > MAX_REFRESH_ROWS) {
-      return undefined;
-    }
+    // Once the agent pressed "Show more" for this question, it is not refreshed automatically: a
+    // refresh racing the pages the agent asked for broke the list four review rounds running
+    // (skipped pages, wiped pages, stray pages). It is asked afresh when the question changes.
+    if (lastAsked.current?.key === queryKey && pageRef.current > 1) return undefined;
     // The same question again inside the refresh window: once, at its end.
     if (lastAsked.current?.key === queryKey && now - lastAsked.current.at < REFRESH_MIN_MS) {
       return later(REFRESH_MIN_MS - (now - lastAsked.current.at));
@@ -264,7 +265,6 @@ export const OutsideViewMatches = ({
     const askedRows = requestKey;
     // A refresh reads every page shown, in one request: the section keeps its length (it shrank
     // back to 25 rows every ~15 s after "Show more") and a row that stopped matching leaves.
-    const rowsAtAsk = Math.min(PAGE * pageRef.current, MAX_REFRESH_ROWS);
     // A "Show more" that adds rows while this is out makes this answer older than the screen.
     const appliedAtAsk = moreApplied.current;
     // An answer is for the QUESTION (search, filters, team, workspace), not for the moment the
@@ -309,7 +309,7 @@ export const OutsideViewMatches = ({
       setRetryTick((tick) => tick + 1);
     };
     void messageService
-      .getThreads(request, 1, rowsAtAsk, undefined, 'time', {
+      .getThreads(request, 1, PAGE, undefined, 'time', {
         allowTimedOut: true,
         signal: controller.signal,
       })
@@ -338,10 +338,7 @@ export const OutsideViewMatches = ({
         setStatus('done');
         rowsEpoch.current += 1;
         setRows(listed);
-        // The FULL pages actually shown — what came back, never what was asked (the backend caps
-        // it), rounded DOWN: the next "Show more" then overlaps a partial page (duplicates are
-        // dropped by thread id) instead of skipping past it when matches were added (round 9).
-        setPage(Math.max(1, Math.floor(listed.length / PAGE)));
+        setPage(1);
         setTotal(answer.pagination?.total ?? listed.length);
         setTotalCapped(
           answer.pagination?.totalCapped === true || answer.pagination?.countTimedOut === true
@@ -374,12 +371,17 @@ export const OutsideViewMatches = ({
     const nextPage = page + 1;
     moreSeq.current += 1;
     const seq = moreSeq.current;
+    moreAbort.current?.abort();
+    const moreController = new AbortController();
+    moreAbort.current = moreController;
     setLoadingMore(true);
     setMoreFailed(false);
     try {
       const answer = await messageService.getThreads(request, nextPage, PAGE, undefined, 'time', {
         allowTimedOut: true,
+        signal: moreController.signal,
       });
+      if (moreController.signal.aborted) return;
       if (shownQuery.current !== askedFor) return;
       // A refresh replaced the rows meanwhile: this page's offset no longer follows them.
       if (rowsEpoch.current !== epochAtAsk) return;
@@ -405,7 +407,7 @@ export const OutsideViewMatches = ({
         );
       }
     } catch {
-      if (shownQuery.current === askedFor) setMoreFailed(true);
+      if (!moreController.signal.aborted && shownQuery.current === askedFor) setMoreFailed(true);
     } finally {
       // A refresh during "Show more" left the button on "Loading…" for good; an older one settling
       // must not clear a newer one's spinner.
