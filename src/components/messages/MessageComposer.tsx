@@ -239,8 +239,20 @@ export function MessageComposer({
     pill shows its first line, and pressing into the pill opens the box with it. Not while an AI
     draft is being written.
   */
+  /*
+    The Collapse press BEGAN inside the box, so the document listener below reads it as a press
+    into the composer and opens it again — the box folded and reopened within one click (staging,
+    2026-11-03). Set by the fold, consumed by that same click.
+  */
+  const foldedByThisClickRef = useRef(false);
   const foldComposer = () => {
     if (!open || aiActiveRef.current) return;
+    foldedByThisClickRef.current = true;
+    // Only THIS click: cleared once it has been dispatched, so a fold that came without one can
+    // never swallow the next press (the one that opens the box again).
+    window.setTimeout(() => {
+      foldedByThisClickRef.current = false;
+    }, 0);
     setOpen(false);
     setRestGeneration((gen) => gen + 1);
   };
@@ -312,6 +324,11 @@ export function MessageComposer({
     const onClick = () => {
       const press = clickPress;
       clickPress = null;
+      // This click is the Collapse that just folded the box: it must not reopen it.
+      if (foldedByThisClickRef.current) {
+        foldedByThisClickRef.current = false;
+        return;
+      }
       if (press === 'composer') {
         if (!openRef.current) setOpen(true);
         return;
