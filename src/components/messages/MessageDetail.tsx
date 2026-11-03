@@ -2,7 +2,15 @@
 // read/unread toggle + close prompt pushed it over; splitting the confirm-dialog
 // wiring out is the natural follow-up refactor.
 /* eslint-disable max-lines */
-import { Fragment, useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import {
+  Fragment,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from 'react';
 import type { AddOutcome } from './recordInsertOutcome';
 import { appendReplyParagraph, replyHasSentence } from './customApiRecordNote';
 import { usePhoneDetailScroll } from './usePhoneDetailScroll';
@@ -724,9 +732,30 @@ export function MessageDetail({
     briefly, because the header changing height moves the scroll position itself.
   */
   const [headerTucked, setHeaderTucked] = useState(false);
+  /*
+    While a reply is open the header keeps only its title row — but a draft keeps the box open, so
+    the reader needs a way back to the sender, status and meta rows (owner, 2026-11-03): scrolling
+    UP the thread reveals them while writing; opening the box again or scrolling down hides them.
+  */
+  const [headerRevealed, setHeaderRevealed] = useState(false);
+  const handleComposerOpenChange = useCallback((open: boolean) => {
+    setComposerOpen(open);
+    if (open) setHeaderRevealed(false);
+  }, []);
   const scrollTrackRef = useRef({ top: 0, intentUntil: 0, settleUntil: 0 });
+  /*
+    Opening a thread lands on its LAST message (owner, 2026-11-03): the thread is sorted oldest
+    first, so it opened at the top and the newest message — the one to answer — sat below the fold.
+    It stays pinned to the bottom while the thread settles (images and quoted blocks growing after
+    the first paint), until the reader's own scroll, press or key takes over. The jump itself is
+    not the reader's scrolling, so it never tucks the header (handleThreadScroll needs intent).
+  */
+  const threadScrollerRef = useRef<HTMLDivElement>(null);
+  const threadContentRef = useRef<HTMLDivElement>(null);
+  const pinToNewestRef = useRef(true);
   const markScrollIntent = useCallback(() => {
     scrollTrackRef.current.intentUntil = Date.now() + 800;
+    pinToNewestRef.current = false;
   }, []);
   const handleThreadScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
     const track = scrollTrackRef.current;
@@ -744,7 +773,42 @@ export function MessageDetail({
     if (tuck === null) return;
     track.settleUntil = now + 300;
     setHeaderTucked(tuck);
+    setHeaderRevealed(!tuck);
   }, []);
+
+  // A newly opened thread pins to its newest message again; the pin's clock starts when its
+  // messages first arrive (a slow load must not use it up).
+  const pinUntilRef = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    pinToNewestRef.current = true;
+    pinUntilRef.current = null;
+  }, [message.id]);
+  const scrollToNewestIfPinned = useCallback(() => {
+    const scroller = threadScrollerRef.current;
+    if (!scroller || !pinToNewestRef.current) return;
+    if (pinUntilRef.current !== null && Date.now() > pinUntilRef.current) {
+      // Released for good after a few settled seconds even without input, so a thread whose
+      // content keeps growing never fights a reader who is just looking.
+      pinToNewestRef.current = false;
+      return;
+    }
+    scroller.scrollTop = scroller.scrollHeight;
+  }, []);
+  // The thread's messages arrived or changed while pinned: land on the newest.
+  useLayoutEffect(() => {
+    if (sortedThread.length === 0) return;
+    pinUntilRef.current ??= Date.now() + 4000;
+    scrollToNewestIfPinned();
+  }, [message.id, sortedThread, scrollToNewestIfPinned]);
+  // Content growing after the first paint (images, quoted history) keeps the newest in view while
+  // pinned.
+  useEffect(() => {
+    const content = threadContentRef.current;
+    if (!content || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => scrollToNewestIfPinned());
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [message.id, scrollToNewestIfPinned]);
 
   // Ownership prompt on Send (owner decision 2026-09-07). The workspace setting rides on the
   // organization payload every member may read; cached, one read per session.
@@ -1069,9 +1133,12 @@ export function MessageDetail({
     performSend,
   ]);
 
-  // Resolving is offered where the Resolve row offers it with KB (an active thread); hold always.
+  // Resolving rides on any thread the Resolve row could resolve — an UNREVIEWED one too: its
+  // "dismiss without a reply" meaning is the row's, and a send IS the reply, so there is an answer
+  // to resolve on (and to save to the KB). The row hides while a reply is typed, so leaving these
+  // out left a new thread with a draft no way to resolve at all (owner, 2026-11-03). Hold always.
   const sendActions: SendAction[] =
-    resolveMode === 'active' ? ['send', 'resolve', 'resolve_kb', 'hold'] : ['send', 'hold'];
+    resolveMode !== null ? ['send', 'resolve', 'resolve_kb', 'hold'] : ['send', 'hold'];
   // Sends with an action WITHOUT remembering it: the Send ▾ face, which already shows the choice.
   const handleSendWith = useCallback(
     (action: SendAction) => {
@@ -1663,7 +1730,7 @@ export function MessageDetail({
           isRead={readState}
           onToggleRead={handleToggleRead}
           metaTarget={twoColumn ? sideMetaEl : undefined}
-          compact={(composerOpen || headerTucked) && !isPhone}
+          compact={((composerOpen && !headerRevealed) || headerTucked) && !isPhone}
           merges={mergeContext.merges}
           onReloadMerges={mergeContext.reloadMerges}
           onMergeChange={mergeContext.applyMergeChange}
@@ -1722,6 +1789,7 @@ export function MessageDetail({
           WHOLE thread into a sideways-scrolling pane that clipped every message
           (ZET-SUP-1358). Wide content is contained per-bubble in ThreadBubble. */}
         <div
+          ref={threadScrollerRef}
           data-testid="thread-scroller"
           onScroll={handleThreadScroll}
           onWheel={markScrollIntent}
@@ -1731,7 +1799,10 @@ export function MessageDetail({
           className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background max-sm:flex-none ${panelOpen && !twoColumn ? 'hidden' : ''}`}
         >
           {/* v3: the thread is the canvas; bubbles are the cards on it. */}
-          <div className="flex flex-col gap-3.5 px-3.5 py-4 max-sm:gap-3 max-sm:px-3 max-sm:pt-3 max-sm:pb-2">
+          <div
+            ref={threadContentRef}
+            className="flex flex-col gap-3.5 px-3.5 py-4 max-sm:gap-3 max-sm:px-3 max-sm:pt-3 max-sm:pb-2"
+          >
             {threadLoading && sortedThread.length === 0 && (
               <div className="py-8 text-sm text-center text-muted-foreground">
                 <div className="mx-auto mb-2 w-5 h-5 rounded-full border-2 animate-spin border-primary border-t-transparent" />
@@ -1851,7 +1922,7 @@ export function MessageDetail({
             sendAction={sendAction}
             onSendWith={handleSendWith}
             onSendPick={handleSendPick}
-            onOpenChange={setComposerOpen}
+            onOpenChange={handleComposerOpenChange}
             richEditorRef={richEditorRef}
             noteEditorRef={noteEditorRef}
             onOpenSimilarMessages={() => setSimilarOpen(true)}
