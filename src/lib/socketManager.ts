@@ -5,6 +5,7 @@ import { ensureFreshSession, isRateLimited, refreshRetryInMs } from '@/lib/api-c
 import { logger } from '@/lib/logger';
 import { writeTabWorkspace } from '@/lib/tabWorkspace';
 import { forgetRememberedSearches } from '@/lib/searchMemory';
+import { logoutClearsProcessingPanels } from '@/stores/processingPanelStore';
 import { SOCKET_RECONNECTED_EVENT } from '@/lib/socketEvents';
 
 type EventCallback = (data: unknown) => void;
@@ -68,8 +69,11 @@ const cancelReconnectResync = () => {
   reconnectResyncTimer = null;
 };
 
-/** Tear the socket down and send the user to the login screen. The terminal path only. */
-const endSessionAndRedirect = () => {
+/**
+ * The terminal sign-out (a refused socket renewal): tear the socket down, clear what the next
+ * person on this tab must not inherit, and send the user to the login screen.
+ */
+export const endSessionAndRedirect = () => {
   cancelSocketRecovery();
   socket?.disconnect();
   // A re-read pending for the socket torn down is not for the next one.
@@ -79,8 +83,10 @@ const endSessionAndRedirect = () => {
   activeOrgRooms.clear();
   authRecoveryUsed = false;
   localStorage.removeItem('auth-storage');
-  // This sign-out skips authStore.logout: the remembered search must not outlive it either.
+  // This sign-out skips authStore.logout: what it clears for the next person must go here too —
+  // remembered searches and the processing panels' closed runs/problems (round-6 review).
   forgetRememberedSearches();
+  logoutClearsProcessingPanels();
   writeTabWorkspace(null);
   window.location.href = loginPathFor(window.location);
 };

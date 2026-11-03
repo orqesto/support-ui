@@ -49,6 +49,7 @@ const LENS_RESET: Partial<FilterState> = {
 };
 
 const PAGE = 25;
+
 /** A failed or timed-out answer is asked again for the same question after this long at most once. */
 export const FAILED_RETRY_MS = 60_000;
 /**
@@ -162,12 +163,18 @@ export const OutsideViewMatches = ({
   // The question the ask in flight is FOR: a refresh of the same question lets it finish.
   const inFlightQuery = useRef('');
   const inFlightAt = useRef(0);
-  // The page shown, for an answer that lands after "Show more" appended rows.
+  // The page shown: past page 1 (the agent pressed "Show more") nothing refreshes automatically.
   const pageRef = useRef(1);
   pageRef.current = page;
-  // Moves each time a refresh replaces the rows: a "Show more" answer asked before it is dropped
-  // (its offset belongs to the rows it replaced — a page was skipped, round-4 review).
+  // Moves when a failure (or an older backend's answer) clears the rows: a "Show more" still out
+  // then has nothing to append to and is dropped.
   const rowsEpoch = useRef(0);
+  // Moves each time a "Show more" ADDS rows. A refresh is dropped if this moved while it was out —
+  // in either order: pressed before or after the refresh was asked, as long as it landed meanwhile.
+  // A "Show more" that failed or was dropped adds nothing and costs no refresh (round-7 review).
+  const moreApplied = useRef(0);
+  // The "Show more" read in flight, aborted when the question changes or the section unmounts.
+  const moreAbort = useRef<AbortController | null>(null);
   // The in-flight ask's own stale timer, cleared only when THAT ask ends: kept out of the effect's
   // cleanup, which every list re-read (`enabled` off and on) ran and so cancelled it (round 4).
   const staleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -179,6 +186,7 @@ export const OutsideViewMatches = ({
     () => () => {
       inFlight.current?.abort();
       inFlight.current = null;
+      moreAbort.current?.abort();
       clearStale();
       // StrictMode re-runs the effects after this: the question must be asked again then, or the
       // aborted first ask left "Checking…" for good (release review, 2026-11-02).
@@ -198,6 +206,10 @@ export const OutsideViewMatches = ({
       setLoadingMore(false);
       setStatus('idle');
       moreSeq.current += 1;
+      // Anything still out for the previous question — a refresh or a "Show more" — is not for
+      // this one, even if the agent switches back before it lands (round-10 review): aborted, and
+      // an aborted Show more appends nothing (loadMore checks its signal after the read).
+      moreAbort.current?.abort();
       inFlight.current?.abort();
       clearStale();
       // The refresh window is per shown question: a new one (or one changed back) asks at once.
@@ -220,6 +232,10 @@ export const OutsideViewMatches = ({
     if (failedAt.current?.key === queryKey && now - failedAt.current.at < FAILED_RETRY_MS) {
       return later(FAILED_RETRY_MS - (now - failedAt.current.at));
     }
+    // Once the agent pressed "Show more" for this question, it is not refreshed automatically: a
+    // refresh racing the pages the agent asked for broke the list four review rounds running
+    // (skipped pages, wiped pages, stray pages). It is asked afresh when the question changes.
+    if (lastAsked.current?.key === queryKey && pageRef.current > 1) return undefined;
     // The same question again inside the refresh window: once, at its end.
     if (lastAsked.current?.key === queryKey && now - lastAsked.current.at < REFRESH_MIN_MS) {
       return later(REFRESH_MIN_MS - (now - lastAsked.current.at));
@@ -245,9 +261,8 @@ export const OutsideViewMatches = ({
     inFlightAt.current = now;
     const failedFor = queryKey;
     const askedRows = requestKey;
-    // A refresh reads every page shown, in one request: the section keeps its length (it shrank
-    // back to 25 rows every ~15 s after "Show more") and a row that stopped matching leaves.
-    const pagesAtAsk = pageRef.current;
+    // A "Show more" that adds rows while this is out makes this answer older than the screen.
+    const appliedAtAsk = moreApplied.current;
     // An answer is for the QUESTION (search, filters, team, workspace), not for the moment the
     // list rows stood at: matching on requestKey dropped every answer that arrived after any
     // colleague's change, and on a busy inbox the section never left "Checking…" (release review).
@@ -264,9 +279,16 @@ export const OutsideViewMatches = ({
         setRetryTick((tick) => tick + 1);
       }
     };
+    // A "Show more" added rows while this was out: whatever this answer is (rows, a failure, an
+    // older backend), it is older than the screen — keep the rows (rounds 6–11).
+    // Dropped, not re-asked: past page 1 nothing refreshes automatically (the page gate).
+    const overtaken = () => moreApplied.current !== appliedAtAsk;
     const failed = () => {
       // Only an answer to the question on screen records a failure.
       if (shownQuery.current !== failedFor) return;
+      if (overtaken()) return;
+      // The rows are gone: a "Show more" still out would append its page to nothing (round 9).
+      rowsEpoch.current += 1;
       setRows([]);
       setStatus('failed');
       askedKey.current = '';
@@ -275,15 +297,17 @@ export const OutsideViewMatches = ({
       setRetryTick((tick) => tick + 1);
     };
     void messageService
-      .getThreads(request, 1, PAGE * pagesAtAsk, undefined, 'time', {
+      .getThreads(request, 1, PAGE, undefined, 'time', {
         allowTimedOut: true,
         signal: controller.signal,
       })
       .then((answer) => {
         settle();
         if (!stillAsked()) return;
+        if (overtaken()) return;
         if (answer.success && answer.outsideView !== true) {
           // A backend without outsideView: nothing to say, and not asked again for the window.
+          rowsEpoch.current += 1;
           setRows([]);
           setStatus('idle');
           failedAt.current = { key: failedFor, at: Date.now() };
@@ -298,9 +322,9 @@ export const OutsideViewMatches = ({
         }
         if (failedAt.current?.key === failedFor) failedAt.current = null;
         setStatus('done');
-        rowsEpoch.current += 1;
+        // Only ever page 1 (a refresh is asked at page 1, and one a Show more overtook is dropped):
+        // a Show more still out keeps a valid offset and is appended after it (round-11 review).
         setRows(listed);
-        setPage(pagesAtAsk);
         setTotal(answer.pagination?.total ?? listed.length);
         setTotalCapped(
           answer.pagination?.totalCapped === true || answer.pagination?.countTimedOut === true
@@ -325,6 +349,29 @@ export const OutsideViewMatches = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestKey, enabled, retryTick]);
 
+  // Past page 1 nothing refreshes automatically (the page gate): the agent can, on demand — back to
+  // a fresh first page, so rows that stopped matching and an old total do not stay for good
+  // (round-15 review).
+  const refreshNow = () => {
+    // Everything out is cancelled — an older refresh too (it would hold the new ask for up to
+    // ASK_STALE_MS) — and the section is cleared to "Checking…": no Show more can be pressed into
+    // the middle of it and cancel it (round-16 review).
+    inFlight.current?.abort();
+    inFlight.current = null;
+    moreAbort.current?.abort();
+    clearStale();
+    moreSeq.current += 1;
+    rowsEpoch.current += 1;
+    setLoadingMore(false);
+    setMoreFailed(false);
+    setRows([]);
+    setStatus('loading');
+    setPage(1);
+    lastAsked.current = null;
+    askedKey.current = '';
+    setRetryTick((tick) => tick + 1);
+  };
+
   const loadMore = async () => {
     if (!request) return;
     // For the QUESTION, as page 1: a colleague's change while it was out dropped it (round 3).
@@ -333,14 +380,19 @@ export const OutsideViewMatches = ({
     const nextPage = page + 1;
     moreSeq.current += 1;
     const seq = moreSeq.current;
+    // (The button is disabled while one is out, so there is never an earlier one to abort here.)
+    const moreController = new AbortController();
+    moreAbort.current = moreController;
     setLoadingMore(true);
     setMoreFailed(false);
     try {
       const answer = await messageService.getThreads(request, nextPage, PAGE, undefined, 'time', {
         allowTimedOut: true,
+        signal: moreController.signal,
       });
+      if (moreController.signal.aborted) return;
       if (shownQuery.current !== askedFor) return;
-      // A refresh replaced the rows meanwhile: this page's offset no longer follows them.
+      // A failure (or an older backend) cleared the rows meanwhile: nothing to append to.
       if (rowsEpoch.current !== epochAtAsk) return;
       const listed = outsideRows(answer);
       if (!listed) {
@@ -353,8 +405,19 @@ export const OutsideViewMatches = ({
         return [...shown, ...listed.filter((thread) => !seen.has(thread.threadId))];
       });
       setPage(nextPage);
+      moreApplied.current += 1;
+      // Its count is as fresh as any refresh's: a refresh this one overtook is dropped, so the total
+      // would otherwise stay as old as the last refresh that applied (round-7 review).
+      // Only when this answer carries a count — never clear a capped flag it says nothing about.
+      if (typeof answer.pagination?.total === 'number') {
+        setTotal(answer.pagination.total);
+        setTotalCapped(
+          answer.pagination.totalCapped === true || answer.pagination.countTimedOut === true
+        );
+      }
     } catch {
-      if (shownQuery.current === askedFor) setMoreFailed(true);
+      // Aborted (question change, unmount, Refresh): not a failure.
+      if (!moreController.signal.aborted && shownQuery.current === askedFor) setMoreFailed(true);
     } finally {
       // A refresh during "Show more" left the button on "Loading…" for good; an older one settling
       // must not clear a newer one's spinner.
@@ -405,6 +468,11 @@ export const OutsideViewMatches = ({
         <Typography variant="caption" color="muted" className="font-mono">
           {formatTotal(total, totalCapped)}
         </Typography>
+        {page > 1 && (
+          <Button variant="ghost" size="sm" className="ml-auto h-7" onClick={refreshNow}>
+            Refresh
+          </Button>
+        )}
       </div>
       <Card padding="none" className="overflow-hidden">
         {[...groups].map(([place, threads]) => {

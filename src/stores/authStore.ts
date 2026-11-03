@@ -33,7 +33,9 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
-        // Every sign-out path comes through here (the menu, a 401, another tab's sign-out):
+        // The menu, a 401 and another tab's sign-out come through here; the socket's terminal
+        // sign-out (socketManager endSessionAndRedirect) clears the same stored state itself and
+        // reloads the page:
         // the next user must not inherit panels, closed runs or closed problems.
         logoutClearsProcessingPanels();
         // A searched address must not come back for the next person on this tab.
