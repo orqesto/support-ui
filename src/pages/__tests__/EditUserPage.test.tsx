@@ -71,8 +71,14 @@ vi.mock('@/stores/authStore', () => ({
     selector({ user: { id: 1 } }),
 }));
 
-vi.mock('@/hooks/usePermissions', () => ({
-  usePermissions: () => ({ isAdmin: false, canManageUsers: true }),
+let perms: { isAdmin: boolean; canManageUsers: boolean; hasPermission: (permission: string) => boolean } = {
+  isAdmin: false,
+  canManageUsers: true,
+  hasPermission: () => false,
+};
+vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => perms }));
+vi.mock('@/components/users/UserRoutingSkillsCard', () => ({
+  UserRoutingSkillsCard: () => <div data-testid="routing-skills-card" />,
 }));
 
 vi.mock('@/components/layout/Layout', () => ({
@@ -183,4 +189,27 @@ describe('EditUserPage', () => {
 
     expect(screen.queryByText(/Managed by IdP \(SCIM\)/)).not.toBeInTheDocument();
   });
+
+describe('EditUserPage — routing skills card', () => {
+  afterEach(() => {
+    perms = { isAdmin: false, canManageUsers: true, hasPermission: () => false };
+  });
+
+  it('a moderator (manage_routing_rules, no manage_users) sees the skills card', async () => {
+    perms = {
+      isAdmin: false,
+      canManageUsers: false,
+      hasPermission: (permission) => permission === 'manage_routing_rules',
+    };
+    renderAt('/users/7/edit', '/users/:id/edit');
+    expect(await screen.findByTestId('routing-skills-card')).toBeInTheDocument();
+  });
+
+  it('CONTROL: neither permission ⇒ no skills card', async () => {
+    perms = { isAdmin: false, canManageUsers: false, hasPermission: () => false };
+    renderAt('/users/7/edit', '/users/:id/edit');
+    await screen.findByDisplayValue('Ada');
+    expect(screen.queryByTestId('routing-skills-card')).toBeNull();
+  });
+});
 });

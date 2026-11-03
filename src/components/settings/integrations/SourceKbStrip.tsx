@@ -182,7 +182,7 @@ export const SourceKbStrip = ({
   /** After the history range was changed: the card reads its sources again. */
   onRefresh?: () => void | Promise<void>;
   /** Gmail only: the card's "Reconnect Google Account", offered when Google rejects the sign-in. */
-  onReconnect?: () => void;
+  onReconnect?: () => void | Promise<void>;
 }) => {
   const rangeOpenId = useKbRangeDialogStore((state) => state.openSourceId);
   const [remining, setRemining] = useState(false);

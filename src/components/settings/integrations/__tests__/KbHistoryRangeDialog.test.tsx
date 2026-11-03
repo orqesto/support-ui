@@ -749,7 +749,7 @@ describe('KbHistoryRangeDialog', () => {
 });
 
 describe('Google rejected the stored sign-in (MAILBOX_SIGN_IN)', () => {
-  const mountWithReconnect = (type: 'gmail' | 'email', onReconnect: () => void) =>
+  const mountWithReconnect = (type: 'gmail' | 'email', onReconnect: () => void | Promise<void>) =>
     render(
       <KbHistoryRangeDialog
         source={{ id: 5, name: 'orders@acme.test', type }}
@@ -769,6 +769,23 @@ describe('Google rejected the stored sign-in (MAILBOX_SIGN_IN)', () => {
     expect(await screen.findByText(/Google rejected the stored sign-in/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Reconnect Google Account' }));
     expect(onReconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('after Reconnect the range is read again and the old refusal is gone', async () => {
+    let first = true;
+    handler = (id, body) => {
+      if (first) {
+        first = false;
+        return signInRejected();
+      }
+      return defaultHandler()(id, body);
+    };
+    const onReconnect = vi.fn(() => Promise.resolve());
+    mountWithReconnect('gmail', onReconnect);
+    fireEvent.click(await screen.findByRole('button', { name: 'Reconnect Google Account' }));
+    await ready();
+    expect(screen.queryByText(/Google rejected the stored sign-in/)).toBeNull();
+    expect(calls.filter(isPolicy)).toHaveLength(2);
   });
 
   it('CONTROL: an IMAP mailbox (fixed by its credentials, not Google) gets no Google button', async () => {

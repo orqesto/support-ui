@@ -8,6 +8,8 @@ import {
 import { describeMarkImportedWarning } from '@/components/settings/integrations/markImported';
 import type { MarkImportedWarning } from '@/services/integrations.service';
 import { Badge } from '@/components/ui/Badge';
+import { useState } from 'react';
+import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 
 /**
@@ -34,12 +36,15 @@ import { Tooltip } from '@/components/ui/Tooltip';
  */
 export const SourceRowBadges = ({
   source,
+  onReconnect,
 }: {
   source: {
     departmentId?: number | null;
     isKnowledgeBase?: boolean;
     markImportedWarning?: MarkImportedWarning | null;
   } & WithSyncHold;
+  /** Gmail only: a hold for a rejected sign-in offers the card's "Reconnect Google Account". */
+  onReconnect?: () => void | Promise<void>;
 }) => (
   <>
     {typeof source.departmentId === 'number' && (
@@ -53,6 +58,9 @@ export const SourceRowBadges = ({
         </Badge>
       </Tooltip>
     ) : null}
+    {source.syncHold?.reason === 'auth_failed' && onReconnect ? (
+      <ReconnectButton onReconnect={onReconnect} />
+    ) : null}
     {source.markImportedWarning ? (
       <Tooltip content={describeMarkImportedWarning(source.markImportedWarning)}>
         <Badge variant={source.markImportedWarning.status === 'failed' ? 'warning' : 'secondary'}>
@@ -62,3 +70,23 @@ export const SourceRowBadges = ({
     ) : null}
   </>
 );
+
+/** Disabled while the Google popup is open, so a double click cannot open two. */
+const ReconnectButton = ({ onReconnect }: { onReconnect: () => void | Promise<void> }) => {
+  const [busy, setBusy] = useState(false);
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      isLoading={busy}
+      disabled={busy}
+      onClick={() => {
+        setBusy(true);
+        void Promise.resolve(onReconnect()).finally(() => setBusy(false));
+      }}
+    >
+      Reconnect
+    </Button>
+  );
+};

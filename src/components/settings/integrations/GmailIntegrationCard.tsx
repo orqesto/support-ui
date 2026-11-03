@@ -405,7 +405,7 @@ export const GmailIntegrationCard = ({
                           <p className="font-medium">
                             {(integration.config as { user?: string }).user ?? integration.name}
                           </p>
-                          <SourceRowBadges source={integration} />
+                          <SourceRowBadges source={integration} onReconnect={() => handleReconnect(integration)} />
                         </div>
                         <p className="text-xs break-all text-muted-foreground">
                           OAuth2 •{' '}
@@ -537,9 +537,9 @@ export const GmailIntegrationCard = ({
                     onClose={() => setReviewId(null)}
                     onRefresh={onRefresh}
                     onShowAlert={onShowAlert}
-                    onReconnect={() => void handleReconnect(integration)}
+                    onReconnect={() => handleReconnect(integration)}
                   />
-                  <GmailRowStrips source={integration} onShowAlert={onShowAlert} onRefresh={onRefresh} onReconnect={() => void handleReconnect(integration)} />
+                  <GmailRowStrips source={integration} onShowAlert={onShowAlert} onRefresh={onRefresh} onReconnect={() => handleReconnect(integration)} />
                   {editAliases === integration.id && (
                     <SourceAliasEditor
                       sourceId={integration.id}
