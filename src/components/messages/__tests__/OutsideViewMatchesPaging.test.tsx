@@ -23,11 +23,9 @@ vi.mock('@/stores/authStore', () => ({ useAuthStore: () => null }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'COR' }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'all' }));
 
-import {
-  ASK_STALE_MS,
-  OutsideViewMatches,
-  REFRESH_MIN_MS,
-} from '../list/OutsideViewMatches';
+import { ASK_STALE_MS, OutsideViewMatches, REFRESH_MIN_MS } from '../list/OutsideViewMatches';
+
+const REFRESH = 'Refresh matches in other views';
 
 const thread = (id: number, foundIn?: string, subject = `Order ${id}`): MessageThread =>
   ({
@@ -301,17 +299,34 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
     await screen.findByText('Old two');
     rerender(section(filters({ search: 'two@shop.example' })));
     await screen.findByText('New one');
-    expect(getThreads.mock.calls[2]?.[2]).toBe(25);
+    // Back at page 1: nothing to refresh yet, and the next Show more asks page 2, not 3.
+    expect(screen.queryByRole('button', { name: REFRESH })).toBeNull();
+    getThreads.mockResolvedValueOnce(answer([thread(4, 'terminal', 'New two')], 30));
+    fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
+    await screen.findByText('New two');
+    expect(getThreads.mock.calls[3]?.[1]).toBe(2);
   });
 
-  // Round-8 review.
+  it('🔴 a new search says "Checking…" while its answer is out (round-17 review)', async () => {
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Old one')], 1))
+      .mockReturnValueOnce(new Promise(() => {}));
+    const { rerender } = render(section(filters({ search: 'one@shop.example' })));
+    await screen.findByText('Old one');
+    rerender(section(filters({ search: 'two@shop.example' })));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
+    expect(screen.getByText(/Checking other views/)).toBeTruthy();
+  });
+
   it('🔴 a refresh that fails after a Show more added rows (while it was out) keeps them', async () => {
     getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30));
     const state = filters();
     const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
     await screen.findByText('Row one');
     let refreshFail: (reason: unknown) => void = () => undefined;
-    getThreads.mockImplementationOnce(() => new Promise((_resolve, reject) => (refreshFail = reject)));
+    getThreads.mockImplementationOnce(
+      () => new Promise((_resolve, reject) => (refreshFail = reject))
+    );
     afterRefreshWindow();
     rerender(section(state, vi.fn(), vi.fn(), 'r2'));
     await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
@@ -333,7 +348,9 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
     const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
     await screen.findByText('Row one');
     let refreshFail: (reason: unknown) => void = () => undefined;
-    getThreads.mockImplementationOnce(() => new Promise((_resolve, reject) => (refreshFail = reject)));
+    getThreads.mockImplementationOnce(
+      () => new Promise((_resolve, reject) => (refreshFail = reject))
+    );
     afterRefreshWindow();
     rerender(section(state, vi.fn(), vi.fn(), 'r2'));
     await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
@@ -351,7 +368,7 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
   });
 
   // Round-11 review.
-  it('🔴 an older backend\'s answer to a refresh also drops a Show more still out', async () => {
+  it("🔴 an older backend's answer to a refresh also drops a Show more still out", async () => {
     getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30));
     const state = filters();
     const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
@@ -433,10 +450,10 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
       .mockResolvedValueOnce(answer([thread(2, 'terminal', 'Old two')], 30))
       .mockResolvedValueOnce(answer([thread(3, 'terminal', 'Fresh one')], 1));
     render(section(filters()));
-    expect(screen.queryByRole('button', { name: 'Refresh' })).toBeNull();
+    expect(screen.queryByRole('button', { name: REFRESH })).toBeNull();
     fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
     await screen.findByText('Old two');
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    fireEvent.click(screen.getByRole('button', { name: REFRESH }));
     await screen.findByText('Fresh one');
     expect(getThreads.mock.calls[2]?.[1]).toBe(1);
     expect(screen.queryByText('Old two')).toBeNull();
@@ -445,7 +462,10 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
   it('"Show more" without a total leaves the total as it was', async () => {
     getThreads
       .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30))
-      .mockResolvedValueOnce({ ...answer([thread(2, 'terminal', 'Row two')]), pagination: undefined });
+      .mockResolvedValueOnce({
+        ...answer([thread(2, 'terminal', 'Row two')]),
+        pagination: undefined,
+      });
     const { container } = render(section(filters()));
     fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
     await screen.findByText('Row two');
@@ -472,7 +492,7 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
     fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
     await waitFor(() => expect(signals).toHaveLength(1));
     getThreads.mockResolvedValueOnce(answer([thread(3, 'terminal', 'Fresh one')], 30));
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    fireEvent.click(screen.getByRole('button', { name: REFRESH }));
     expect(signals[0]?.aborted).toBe(true);
     // Cleared while it asks: nothing old to press Show more on.
     expect(screen.queryByText('Old two')).toBeNull();
@@ -497,8 +517,7 @@ describe('OutsideViewMatches — refreshes and Show more', () => {
     fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
     await screen.findByText('Row two');
     getThreads.mockResolvedValueOnce(answer([thread(3, 'terminal', 'Fresh one')], 30));
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    fireEvent.click(screen.getByRole('button', { name: REFRESH }));
     expect(await screen.findByText('Fresh one')).toBeTruthy();
   });
 });
-

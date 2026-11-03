@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { MessageListItem } from '@/components/messages/MessageListItem';
 import { scopeReasonJump } from '@/components/messages/ListScopeNotice';
 import { Button } from '@/components/ui/Button';
@@ -99,7 +99,8 @@ const outsideRows = (answer: ThreadsResponse): MessageThread[] | null => {
  *
  * Rows come from the backend's `outsideView` (the scope count's hidden set, listed, each with the
  * bucket that names it). Asked again when the search, filters, team or workspace change, and when
- * the list's rows move (`refreshKey`) — not on every poll.
+ * the list's rows move (`refreshKey`) — not on every poll, and not on its own once the agent has
+ * pressed "Show more": then only the Refresh button asks again, from page 1.
  */
 export const OutsideViewMatches = ({
   filters,
@@ -140,7 +141,7 @@ export const OutsideViewMatches = ({
   // re-read asked a persistently failing term again (review of #803). Keyed on `queryKey`, not
   // `requestKey`: `refreshKey` moves on every colleague's update, and keyed on it the back-off
   // never matched on a busy inbox — the heavy read went out again on every flush (review of #805).
-  const failedAt = useRef<{ key: string; at: number } | null>(null);
+  const failedAt = useRef<{ key: string; at: number; failed: boolean } | null>(null);
   // Only the newest "Show more" clears its spinner.
   const moreSeq = useRef(0);
   const shownQuery = useRef('');
@@ -173,11 +174,41 @@ export const OutsideViewMatches = ({
   // in either order: pressed before or after the refresh was asked, as long as it landed meanwhile.
   // A "Show more" that failed or was dropped adds nothing and costs no refresh (round-7 review).
   const moreApplied = useRef(0);
-  // The "Show more" read in flight, aborted when the question changes or the section unmounts.
+  // The "Show more" read in flight, aborted when the question changes, Refresh is pressed, or the
+  // section unmounts.
   const moreAbort = useRef<AbortController | null>(null);
   // The in-flight ask's own stale timer, cleared only when THAT ask ends: kept out of the effect's
   // cleanup, which every list re-read (`enabled` off and on) ran and so cancelled it (round 4).
   const staleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The one root element every shown state renders in — "Checking…", "could not be checked", "no
+  // matches now", the matches — so React keeps it, and the focus Refresh puts on it, while the
+  // content changes (round-17/18 reviews). It carries the section's top margin, which the list's
+  // `space-y-*` overrides exactly as it did the section's (round-19 review).
+  const regionRef = useRef<HTMLElement>(null);
+  // Set when a render may remove the element that has keyboard focus inside the section (Refresh
+  // takes its own button away; an answer can take a row, Show more or a jump button away). After
+  // that render (a layout effect, before paint), focus that fell to <body> goes to the root — so
+  // it is never lost, and the old rows are never read out as its content (round-17–22 reviews).
+  const focusRootIfLost = useRef(false);
+  const holdFocusIfInside = () => {
+    if (regionRef.current?.contains(document.activeElement)) focusRootIfLost.current = true;
+  };
+  // Refresh's own answer was empty: the section the agent was in went, so that is SAID (shown) —
+  // until the question changes or matches come back; later re-asks keep it (no "Checking…"
+  // flicker each time the list moves). Silence after a Refresh read as "it broke" (round-18/19).
+  const refreshPending = useRef(false);
+  const [nothingAfterRefresh, setNothingAfterRefresh] = useState(false);
+  // An answer the agent is owed in words, not by the section silently going: one to their own
+  // Refresh, or any answer while keyboard focus is inside the section — unmounting it would drop
+  // focus to <body> (round-21 review).
+  const owedAnswer = () =>
+    refreshPending.current || regionRef.current?.contains(document.activeElement) === true;
+  useLayoutEffect(() => {
+    if (!focusRootIfLost.current) return;
+    focusRootIfLost.current = false;
+    const active = document.activeElement;
+    if (active === null || active === document.body) regionRef.current?.focus();
+  });
   const clearStale = () => {
     if (staleTimer.current !== null) clearTimeout(staleTimer.current);
     staleTimer.current = null;
@@ -197,14 +228,22 @@ export const OutsideViewMatches = ({
   );
 
   useEffect(() => {
+    // `rows` below is this render's: just cleared for a new question, it still holds the old rows.
+    let cleared = false;
     if (shownQuery.current !== queryKey) {
+      cleared = true;
       shownQuery.current = queryKey;
       setRows([]);
       setTotal(0);
       setTotalCapped(false);
       setPage(1);
       setLoadingMore(false);
-      setStatus('idle');
+      refreshPending.current = false;
+      setNothingAfterRefresh(false);
+      // Focus inside (a jump or a filter changed from the keyboard there): the section stays, as
+      // "Checking…" for the new question, and focus goes to its root — not to <body> (round-23).
+      holdFocusIfInside();
+      setStatus(focusRootIfLost.current ? 'loading' : 'idle');
       moreSeq.current += 1;
       // Anything still out for the previous question — a refresh or a "Show more" — is not for
       // this one, even if the agent switches back before it lands (round-10 review): aborted, and
@@ -230,6 +269,13 @@ export const OutsideViewMatches = ({
     // A question that failed waits FAILED_RETRY_MS, then is asked again on its own — on a quiet
     // inbox nothing else would re-run this (release review).
     if (failedAt.current?.key === queryKey && now - failedAt.current.at < FAILED_RETRY_MS) {
+      // Back on a question that FAILED a moment ago: say so until its retry, not silence — read as
+      // "nowhere else" (round-24 review). An older backend's quiet window stays quiet, unless an
+      // answer is owed (focus inside): then, as for that backend's answer, a failed check — never
+      // "Checking…" with nothing asked (round-25 review). (Its rows are already empty.)
+      // Otherwise quiet — also over a "Checking…" a question change left while the list loaded
+      // (round-26 review): nothing is asked until the window ends.
+      setStatus(failedAt.current.failed || owedAnswer() ? 'failed' : 'idle');
       return later(FAILED_RETRY_MS - (now - failedAt.current.at));
     }
     // Once the agent pressed "Show more" for this question, it is not refreshed automatically: a
@@ -252,7 +298,8 @@ export const OutsideViewMatches = ({
     askedKey.current = requestKey;
     lastAsked.current = { key: queryKey, at: now };
     setMoreFailed(false);
-    if (rows.length === 0) setStatus('loading');
+    // Cleared for a new question this run: "Checking…", not silence until the answer (round-17).
+    if (cleared || rows.length === 0) setStatus('loading');
     // A different question's answer is no longer wanted: stop it on the server too.
     inFlight.current?.abort();
     const controller = new AbortController();
@@ -287,12 +334,16 @@ export const OutsideViewMatches = ({
       // Only an answer to the question on screen records a failure.
       if (shownQuery.current !== failedFor) return;
       if (overtaken()) return;
+      // Only once it will render: a flag left by a dropped answer pulled focus from <body> into
+      // the section on a later, unrelated render (round-23 review).
+      holdFocusIfInside();
       // The rows are gone: a "Show more" still out would append its page to nothing (round 9).
       rowsEpoch.current += 1;
       setRows([]);
       setStatus('failed');
+      // refreshPending is kept: the automatic retry still answers the agent's Refresh.
       askedKey.current = '';
-      failedAt.current = { key: failedFor, at: Date.now() };
+      failedAt.current = { key: failedFor, at: Date.now(), failed: true };
       // Run the effect again so it sets the timer that asks at the end of the window.
       setRetryTick((tick) => tick + 1);
     };
@@ -305,12 +356,21 @@ export const OutsideViewMatches = ({
         settle();
         if (!stillAsked()) return;
         if (overtaken()) return;
+        holdFocusIfInside(); // after the drops: only an answer that renders (round-23 review)
         if (answer.success && answer.outsideView !== true) {
           // A backend without outsideView: nothing to say, and not asked again for the window.
+          // It vouches for nothing, so an earlier "no matches now" goes (round-20 review).
+          setNothingAfterRefresh(false);
+          // Owed to the agent (their Refresh, or focus inside; a backend rolled back mid-session):
+          // said, as a failed check — retried after the window — and the root stays (round-20/21).
+          if (owedAnswer()) {
+            failed();
+            return;
+          }
           rowsEpoch.current += 1;
           setRows([]);
           setStatus('idle');
-          failedAt.current = { key: failedFor, at: Date.now() };
+          failedAt.current = { key: failedFor, at: Date.now(), failed: false };
           return;
         }
         const listed = outsideRows(answer);
@@ -322,6 +382,9 @@ export const OutsideViewMatches = ({
         }
         if (failedAt.current?.key === failedFor) failedAt.current = null;
         setStatus('done');
+        if (listed.length > 0) setNothingAfterRefresh(false);
+        else if (owedAnswer()) setNothingAfterRefresh(true);
+        refreshPending.current = false;
         // Only ever page 1 (a refresh is asked at page 1, and one a Show more overtook is dropped):
         // a Show more still out keeps a valid offset and is appended after it (round-11 review).
         setRows(listed);
@@ -356,6 +419,10 @@ export const OutsideViewMatches = ({
     // Everything out is cancelled — an older refresh too (it would hold the new ask for up to
     // ASK_STALE_MS) — and the section is cleared to "Checking…": no Show more can be pressed into
     // the middle of it and cancel it (round-16 review).
+    // The pressed button goes with the rows: keyboard focus moves to the section's root, which
+    // stays mounted through "Checking…" and whatever the fresh answer is (round-17/18 reviews).
+    holdFocusIfInside(); // a mouse click in Safari leaves focus where it was (round-25 review)
+    refreshPending.current = true;
     inFlight.current?.abort();
     inFlight.current = null;
     moreAbort.current?.abort();
@@ -399,6 +466,8 @@ export const OutsideViewMatches = ({
         setMoreFailed(true);
         return;
       }
+      // The last page takes the Show more button away: focus on it goes to the root (round-24).
+      holdFocusIfInside();
       // Offset pages shift when a match moves: never the same thread twice.
       setRows((shown) => {
         const seen = new Set(shown.map((thread) => thread.threadId));
@@ -426,13 +495,35 @@ export const OutsideViewMatches = ({
   };
 
   if (!search) return null;
+  // The named region itself is the focus target (named for a screen reader; no ring of its own,
+  // like the app's other script-focused containers — round-24 review).
+  const region = (content: ReactNode) => (
+    <section
+      ref={regionRef}
+      tabIndex={-1}
+      aria-label="Also found in other views"
+      className="mt-4 focus:outline-none"
+    >
+      {content}
+    </section>
+  );
   if (rows.length === 0) {
     // Silence here read as "not anywhere else" — the screen of the original complaint, an empty
     // view the agent took for "not in Odly". Say that other views are being checked, or could not
-    // be (release review, 2026-11-02). Done with no rows: there is nothing elsewhere to show.
+    // be (release review, 2026-11-02). Done with no rows: nothing elsewhere to show — said only
+    // when it answers the agent's own Refresh.
+    if (nothingAfterRefresh && status !== 'failed') {
+      return region(
+        <div className="px-1" role="status">
+          <Typography variant="caption" color="muted">
+            No matches in other views for this search now.
+          </Typography>
+        </div>
+      );
+    }
     if (status === 'loading') {
-      return (
-        <div className="mt-4 flex items-center gap-2 px-1" role="status">
+      return region(
+        <div className="flex items-center gap-2 px-1" role="status">
           <Spinner size={12} />
           <Typography variant="caption" color="muted">
             Checking other views for this search…
@@ -441,8 +532,8 @@ export const OutsideViewMatches = ({
       );
     }
     if (status === 'failed') {
-      return (
-        <div className="mt-4 px-1" role="status">
+      return region(
+        <div className="px-1" role="status">
           <Typography variant="caption" color="muted">
             Other views could not be checked for this search just now. Trying again shortly.
           </Typography>
@@ -461,15 +552,21 @@ export const OutsideViewMatches = ({
   // A group's own count is exact only once every match is loaded.
   const allLoaded = !totalCapped && rows.length >= total;
 
-  return (
-    <section aria-label="Also found in other views" className="mt-4">
+  return region(
+    <div>
       <div className="flex gap-2 items-baseline px-1 mb-2">
         <Typography variant="label">Also found in other views</Typography>
         <Typography variant="caption" color="muted" className="font-mono">
           {formatTotal(total, totalCapped)}
         </Typography>
         {page > 1 && (
-          <Button variant="ghost" size="sm" className="ml-auto h-7" onClick={refreshNow}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-7"
+            onClick={refreshNow}
+            aria-label="Refresh matches in other views"
+          >
             Refresh
           </Button>
         )}
@@ -548,6 +645,6 @@ export const OutsideViewMatches = ({
           </Button>
         </div>
       )}
-    </section>
+    </div>
   );
 };
