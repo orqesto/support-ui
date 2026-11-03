@@ -75,6 +75,52 @@ describe('GmailCountReview', () => {
     update.mockResolvedValue({ success: true });
   });
 
+  it('Google rejected the stored sign-in (MAILBOX_SIGN_IN): the error offers Reconnect, which calls the card', async () => {
+    countGmailMessages.mockRejectedValue(
+      Object.assign(new Error('rejected'), {
+        status: 400,
+        data: {
+          code: 'MAILBOX_SIGN_IN',
+          error:
+            'Google rejected the stored sign-in for this mailbox. Reconnect it, then check the count.',
+        },
+      })
+    );
+    const onReconnect = vi.fn();
+    render(
+      <GmailCountReview
+        source={paused}
+        onStarted={vi.fn()}
+        onClose={vi.fn()}
+        onShowAlert={vi.fn()}
+        onReconnect={onReconnect}
+      />
+    );
+    expect(await screen.findByText(/Google rejected the stored sign-in/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reconnect Google Account' }));
+    expect(onReconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('CONTROL: any other count failure shows its message and no Reconnect button', async () => {
+    countGmailMessages.mockRejectedValue(
+      Object.assign(new Error('failed'), {
+        status: 500,
+        data: { error: 'The count failed. Try again; if it keeps failing, contact support.' },
+      })
+    );
+    render(
+      <GmailCountReview
+        source={paused}
+        onStarted={vi.fn()}
+        onClose={vi.fn()}
+        onShowAlert={vi.fn()}
+        onReconnect={vi.fn()}
+      />
+    );
+    expect(await screen.findByText(/The count failed/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reconnect Google Account' })).toBeNull();
+  });
+
   it('a just-connected PAUSED source is counted at once, with its KB flag and range', async () => {
     render(
       <GmailCountReview

@@ -38,6 +38,7 @@ import {
   confirmLabel,
   costLine,
   errorText,
+  isSignInRejected,
   f4Caveat,
   historyLine,
   introLine,
@@ -56,6 +57,8 @@ type Props = {
   onShowAlert: (alert: AlertState) => void;
   /** Called after a successful apply, before the dialog closes (the dialog itself opens the processing panel; this is only for refreshing the card). */
   onApplied?: (applied: KbRangeApplied) => void;
+  /** Google rejected this Gmail mailbox's sign-in: offer the card's reconnect next to the error. */
+  onReconnect?: () => void;
 };
 
 const STILL_COUNTING_MS = 30_000;
@@ -93,7 +96,13 @@ const defaultDays = (policy: KbRangePolicy, choices: Choice[]): number | null =>
   ).days;
 };
 
-export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }: Props) => {
+export const KbHistoryRangeDialog = ({
+  source,
+  onClose,
+  onShowAlert,
+  onApplied,
+  onReconnect,
+}: Props) => {
   // Money (≈ $) is for workspace / platform admins; agents get the money-free sentences.
   const { isOrgAdmin: showMoney } = usePermissions();
   const [policy, setPolicy] = useState<KbRangePolicy | null>(null);
@@ -105,7 +114,13 @@ export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }
   /** The count being followed. Closing stops following it; another range cancels it. */
   const following = useRef<AbortController | null>(null);
   const [applying, setApplying] = useState(false);
-  const [error, setFailure] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [signInRejected, setSignInRejected] = useState(false);
+  /** One place sets the message and whether Reconnect is the fix; null clears both. */
+  const setFailure = (failure: string | null, cause?: unknown) => {
+    setError(failure);
+    setSignInRejected(failure !== null && isSignInRejected(cause));
+  };
   /** Bumped by every selection change and on unmount: an older response compares and is dropped. */
   const generation = useRef(0);
   const inFlight = useRef(false);
@@ -138,7 +153,7 @@ export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }
         setDays(defaultDays(loaded, choicesOf(loaded)));
       })
       .catch((failure: unknown) => {
-        if (!cancelled) setFailure(errorText(failure));
+        if (!cancelled) setFailure(errorText(failure), failure);
       });
     return () => {
       cancelled = true;
@@ -186,7 +201,7 @@ export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }
       if (mounted.current && generation.current === mine) setResult(answer);
     } catch (failure) {
       if (failure instanceof CountPollStopped) return;
-      if (mounted.current && generation.current === mine) setFailure(errorText(failure));
+      if (mounted.current && generation.current === mine) setFailure(errorText(failure), failure);
     } finally {
       // Only the count still followed may clear the state: a cancelled one already did, and a
       // newer count may be running by now.
@@ -216,7 +231,8 @@ export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }
                 ...(result.history ? { historyToFetch: result.history.toFetch } : {}),
                 recentToFetch: result.recent?.toFetch ?? null,
                 estimatedTokens: result.estimate?.estimatedTokens ?? null,
-                ...(result.estimate?.estimatedMicros !== null && result.estimate?.estimatedMicros !== undefined
+                ...(result.estimate?.estimatedMicros !== null &&
+                result.estimate?.estimatedMicros !== undefined
                   ? { estimatedMicros: result.estimate.estimatedMicros }
                   : {}),
               },
@@ -232,7 +248,7 @@ export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }
       onClose();
     } catch (failure) {
       logger.error('Failed to change the KB history range:', failure);
-      if (mounted.current) setFailure(errorText(failure));
+      if (mounted.current) setFailure(errorText(failure), failure);
     } finally {
       if (mounted.current) setApplying(false);
     }
@@ -334,6 +350,11 @@ export const KbHistoryRangeDialog = ({ source, onClose, onShowAlert, onApplied }
           <p className="text-sm text-destructive" role="alert">
             {error}
           </p>
+        )}
+        {error && signInRejected && onReconnect && source.type === 'gmail' && (
+          <Button size="sm" onClick={onReconnect}>
+            Reconnect Google Account
+          </Button>
         )}
       </DialogContent>
       <DialogFooter>

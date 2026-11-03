@@ -169,6 +169,7 @@ export const SourceKbStrip = ({
   source,
   onShowAlert,
   onRefresh,
+  onReconnect,
 }: {
   source: {
     id: number;
@@ -180,6 +181,8 @@ export const SourceKbStrip = ({
   onShowAlert: (alert: AlertState) => void;
   /** After the history range was changed: the card reads its sources again. */
   onRefresh?: () => void | Promise<void>;
+  /** Gmail only: the card's "Reconnect Google Account", offered when Google rejects the sign-in. */
+  onReconnect?: () => void;
 }) => {
   const rangeOpenId = useKbRangeDialogStore((state) => state.openSourceId);
   const [remining, setRemining] = useState(false);
@@ -350,6 +353,7 @@ export const SourceKbStrip = ({
           }}
           onShowAlert={onShowAlert}
           onApplied={() => void onRefresh?.()}
+          onReconnect={onReconnect}
         />
       )}
       <ConfirmDialog

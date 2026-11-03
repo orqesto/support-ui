@@ -9,8 +9,10 @@ import type { ReactElement } from 'react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { useKbRangeDialogStore } from '@/stores/kbRangeDialogStore';
 
+const connectWithPopup = vi.fn(() => Promise.resolve({ success: false, error: 'CANCELLED' }));
 vi.mock('@/services/gmail-oauth.service', () => ({
   gmailOAuthService: {
+    connectWithPopup: () => connectWithPopup(),
     hasPendingRedirectResult: () => false,
     consumePendingRedirectResult: () => Promise.resolve(null),
   },
@@ -43,8 +45,21 @@ vi.mock('@/services/kb.service', () => ({
   },
 }));
 vi.mock('../KbHistoryRangeDialog', () => ({
-  KbHistoryRangeDialog: ({ source }: { source: { id: number; name: string; type: string } }) => (
-    <div data-testid="kb-range-dialog">{`${source.type}:${source.id}:${source.name}`}</div>
+  KbHistoryRangeDialog: ({
+    source,
+    onReconnect,
+  }: {
+    source: { id: number; name: string; type: string };
+    onReconnect?: () => void;
+  }) => (
+    <>
+      <div data-testid="kb-range-dialog">{`${source.type}:${source.id}:${source.name}`}</div>
+      {onReconnect && (
+        <span role="button" tabIndex={0} onClick={onReconnect} onKeyDown={onReconnect}>
+          probe-reconnect
+        </span>
+      )}
+    </>
   ),
 }));
 
@@ -96,6 +111,20 @@ const openKebab = () =>
   fireEvent.click(screen.getByRole('button', { name: 'More actions for this mailbox' }));
 
 describe('history range wiring', () => {
+  it('a Gmail card hands its own Reconnect to the KB range dialog (offered on MAILBOX_SIGN_IN)', async () => {
+    connectWithPopup.mockClear();
+    gmailCard(gmail());
+    openKebab();
+    const item = screen
+      .getAllByRole('button', { name: /History range/ })
+      .find((button) => button.closest('.absolute'));
+    fireEvent.click(item as HTMLElement);
+    fireEvent.click(screen.getByRole('button', { name: 'probe-reconnect' }));
+    await waitFor(() => expect(connectWithPopup).toHaveBeenCalledTimes(1));
+    cleanup();
+    useKbRangeDialogStore.getState().close();
+  });
+
   it('Gmail kebab on a KB source opens the KB range dialog; non-KB opens Change Initial Sync Range', () => {
     gmailCard(gmail());
     openKebab();

@@ -434,6 +434,9 @@ const errorCode = (err: unknown): string | null => {
   return typeof code === 'string' && code.length > 0 ? code : null;
 };
 
+/** Google rejected (or never had) this mailbox's sign-in: reconnecting is the fix. */
+export const isSignInRejected = (err: unknown): boolean => errorCode(err) === 'MAILBOX_SIGN_IN';
+
 export const errorText = (err: unknown): string => {
   const status = apiErrorStatus(err);
   const code = errorCode(err);
