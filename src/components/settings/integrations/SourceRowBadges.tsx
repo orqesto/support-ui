@@ -8,6 +8,7 @@ import {
 import { describeMarkImportedWarning } from '@/components/settings/integrations/markImported';
 import type { MarkImportedWarning } from '@/services/integrations.service';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 
 /**
@@ -34,12 +35,15 @@ import { Tooltip } from '@/components/ui/Tooltip';
  */
 export const SourceRowBadges = ({
   source,
+  onReconnect,
 }: {
   source: {
     departmentId?: number | null;
     isKnowledgeBase?: boolean;
     markImportedWarning?: MarkImportedWarning | null;
   } & WithSyncHold;
+  /** Gmail only: a hold for a rejected sign-in offers the card's "Reconnect Google Account". */
+  onReconnect?: () => void;
 }) => (
   <>
     {typeof source.departmentId === 'number' && (
@@ -52,6 +56,11 @@ export const SourceRowBadges = ({
           {HOLD_LABEL[source.syncHold.reason] ?? HOLD_LABEL.unknown}
         </Badge>
       </Tooltip>
+    ) : null}
+    {source.syncHold?.reason === 'auth_failed' && onReconnect ? (
+      <Button type="button" size="sm" variant="outline" onClick={onReconnect}>
+        Reconnect
+      </Button>
     ) : null}
     {source.markImportedWarning ? (
       <Tooltip content={describeMarkImportedWarning(source.markImportedWarning)}>

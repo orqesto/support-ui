@@ -72,7 +72,7 @@ vi.mock('@/stores/authStore', () => ({
 }));
 
 vi.mock('@/hooks/usePermissions', () => ({
-  usePermissions: () => ({ isAdmin: false, canManageUsers: true }),
+  usePermissions: () => ({ isAdmin: false, canManageUsers: true, hasPermission: () => false }),
 }));
 
 vi.mock('@/components/layout/Layout', () => ({

@@ -60,7 +60,7 @@ type Props = {
   onClose: () => void;
   onShowAlert: (alert: AlertState) => void;
   /** Google rejected the stored sign-in: offer the card's "Reconnect Google Account" right here. */
-  onReconnect?: () => void;
+  onReconnect?: () => void | Promise<void>;
 };
 
 /** The server's code for "Google rejected this mailbox's stored sign-in — reconnect it". */
@@ -158,6 +158,7 @@ export const GmailCountReview = ({
   const [result, setResult] = useState<GmailCountResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [signInRejected, setSignInRejected] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
   const [checking, setChecking] = useState(false);
   const [progress, setProgress] = useState<CountProgress | null>(null);
   const [starting, setStarting] = useState(false);
@@ -191,6 +192,18 @@ export const GmailCountReview = ({
         setChecking(false);
       }
     }
+  };
+
+  /** Reconnect, then count again: the old refusal described the old sign-in. */
+  const reconnect = async () => {
+    if (!onReconnect || reconnecting) return;
+    setReconnecting(true);
+    try {
+      await onReconnect();
+    } finally {
+      setReconnecting(false);
+    }
+    void check({ searchQuery, bulkImportDays });
   };
 
   /** A changed setting asks a different question: the running count is cancelled. */
@@ -359,7 +372,13 @@ export const GmailCountReview = ({
         <Alert variant="danger" className="p-3 space-y-2">
           <p className="text-sm">{error}</p>
           {signInRejected && onReconnect && (
-            <Button type="button" size="sm" onClick={onReconnect}>
+            <Button
+              type="button"
+              size="sm"
+              isLoading={reconnecting}
+              disabled={reconnecting}
+              onClick={() => void reconnect()}
+            >
               Reconnect Google Account
             </Button>
           )}
@@ -424,7 +443,7 @@ export const GmailRowCount = ({
   onClose: () => void;
   onRefresh: () => Promise<void>;
   onShowAlert: (alert: AlertState) => void;
-  onReconnect?: () => void;
+  onReconnect?: () => void | Promise<void>;
 }) => {
   if (open) {
     return (

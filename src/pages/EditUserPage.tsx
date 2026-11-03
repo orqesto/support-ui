@@ -1,4 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { canManageMemberSkills } from '@/lib/skillPermissions';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, ChevronRight, Lock } from 'lucide-react';
 import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
@@ -51,7 +52,9 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
   // Inside the per-workspace console shell the chrome is supplied by WorkspaceShell,
   // which also owns the org context this form's calls run against.
   const Wrap = Fragment;
-  const { isAdmin, canManageUsers } = usePermissions();
+  const { isAdmin, canManageUsers, hasPermission } = usePermissions();
+  // Moderators assign agents' skills too (manage_routing_rules, owner 2026-11-03).
+  const canManageSkills = canManageMemberSkills({ canManageUsers, hasPermission });
   const currentUser = useAuthStore((state) => state.user);
 
   const userId = Number(id);
@@ -569,7 +572,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
             </Card>
           )}
 
-          {canManageUsers && <UserRoutingSkillsCard userId={user.id} />}
+          {canManageSkills && <UserRoutingSkillsCard userId={user.id} />}
         </div>
 
         {/* Actions stay reachable without scrolling back up — the form is long by nature. */}

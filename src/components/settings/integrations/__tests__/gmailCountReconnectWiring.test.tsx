@@ -82,4 +82,21 @@ describe('Gmail card: Reconnect from the count panel', () => {
     await waitFor(() => expect(connectWithPopup).toHaveBeenCalledTimes(1));
     expect(connectWithPopup.mock.calls[0][0]).toEqual({});
   });
+
+  it('a mailbox held down for a rejected sign-in shows Reconnect beside the badge, wired to the card', async () => {
+    const heldDown = {
+      ...paused,
+      enabled: true,
+      syncHold: { reason: 'auth_failed', retryInMs: 3_600_000, since: Date.now() },
+    };
+    render(
+      <GmailIntegrationCard
+        integrations={[heldDown] as never}
+        onRefresh={vi.fn()}
+        onShowAlert={vi.fn()}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Reconnect' }));
+    await waitFor(() => expect(connectWithPopup).toHaveBeenCalledTimes(1));
+  });
 });

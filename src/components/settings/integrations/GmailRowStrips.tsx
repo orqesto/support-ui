@@ -16,7 +16,7 @@ export const GmailRowStrips = ({
   source: Integration;
   onRefresh: () => Promise<void>;
   onShowAlert: (alert: AlertState) => void;
-  onReconnect?: () => void;
+  onReconnect?: () => void | Promise<void>;
 }) => (
   <>
     <SourceKbStrip

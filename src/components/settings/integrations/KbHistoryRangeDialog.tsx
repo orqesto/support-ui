@@ -58,7 +58,7 @@ type Props = {
   /** Called after a successful apply, before the dialog closes (the dialog itself opens the processing panel; this is only for refreshing the card). */
   onApplied?: (applied: KbRangeApplied) => void;
   /** Google rejected this Gmail mailbox's sign-in: offer the card's reconnect next to the error. */
-  onReconnect?: () => void;
+  onReconnect?: () => void | Promise<void>;
 };
 
 const STILL_COUNTING_MS = 30_000;
@@ -116,6 +116,9 @@ export const KbHistoryRangeDialog = ({
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signInRejected, setSignInRejected] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
+  /** Bumped after a reconnect: the policy is read again with the new sign-in. */
+  const [reloads, setReloads] = useState(0);
   /** One place sets the message and whether Reconnect is the fix; null clears both. */
   const setFailure = (failure: string | null, cause?: unknown) => {
     setError(failure);
@@ -158,7 +161,20 @@ export const KbHistoryRangeDialog = ({
     return () => {
       cancelled = true;
     };
-  }, [source.id]);
+  }, [source.id, reloads]);
+
+  /** Reconnect, then read the range again: the old refusal described the old sign-in. */
+  const reconnect = async () => {
+    if (!onReconnect || reconnecting) return;
+    setReconnecting(true);
+    try {
+      await onReconnect();
+    } finally {
+      setReconnecting(false);
+    }
+    setFailure(null);
+    setReloads((count) => count + 1);
+  };
 
   const choose = (value: string) => {
     generation.current += 1;
@@ -352,7 +368,12 @@ export const KbHistoryRangeDialog = ({
           </p>
         )}
         {error && signInRejected && onReconnect && source.type === 'gmail' && (
-          <Button size="sm" onClick={onReconnect}>
+          <Button
+            size="sm"
+            isLoading={reconnecting}
+            disabled={reconnecting}
+            onClick={() => void reconnect()}
+          >
             Reconnect Google Account
           </Button>
         )}
