@@ -292,7 +292,7 @@ export function MessagePanelTabs({
                 setTab(id);
                 setPanelOpen(true);
                 // Sidebar tabs never switch the composer: they sit beside a draft, and flipping a
-                // half-written internal note to Reply put it one ⌘↵ from the customer.
+                // half-written internal note to Reply put it one ⌘⇧↵ from the customer.
                 if (!sidebar) setComposerMode(id === 'notes' ? 'note' : 'reply');
               }
             }}

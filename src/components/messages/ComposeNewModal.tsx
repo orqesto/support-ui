@@ -315,7 +315,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
               ref={editorRef}
               content={content}
               onChange={setContent}
-              // ⌘↵ sends, as in the reply box — except while an AI draft is replacing the text.
+              // ⌘⇧↵ sends, as in the reply box — except while an AI draft is replacing the text.
               onSubmit={aiBusy ? undefined : () => formRef.current?.requestSubmit()}
               placeholder={messagePlaceholder}
               minHeight="180px"

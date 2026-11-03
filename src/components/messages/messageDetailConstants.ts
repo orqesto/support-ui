@@ -24,7 +24,7 @@ export const COMPOSER_SEND =
   'flex items-center gap-1 px-[13px] py-[5px] h-auto rounded-[7px] font-display text-[10.5px] font-semibold uppercase tracking-[0.07em] transition-colors data-[inactive]:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90';
 /** The send shortcut as the agent's keyboard writes it (the editor accepts both). */
 export const SEND_SHORTCUT =
-  typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘↵' : 'Ctrl+↵';
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘⇧↵' : 'Ctrl+Shift+↵';
 export const CHIP_BASE = `inline-flex items-center gap-1 px-2 py-0.5 rounded border ${LABEL} transition-colors`;
 /**
  * v4 header chip (`.arow .chip .lab`): the same chip, read in sentence case — 12px / 500, no

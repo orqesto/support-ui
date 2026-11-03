@@ -10,7 +10,7 @@ import type * as MessageService from '@/services/message.service';
 
 /**
  * The full page's sidebar tabs (v3) sit BESIDE the composer, so pressing one must not switch
- * the composer's mode: flipping a half-written internal note to Reply put it one ⌘↵ from the
+ * the composer's mode: flipping a half-written internal note to Reply put it one ⌘⇧↵ from the
  * customer. The slide-over keeps its existing behaviour (the control below).
  */
 
