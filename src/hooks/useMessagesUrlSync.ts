@@ -162,9 +162,10 @@ export const useMessagesUrlSync = ({
   const navigationType = useNavigationType();
   const location = useLocation();
   /**
-   * Back to the list INSIDE the app: a history step (POP) to an entry this app created (a full
-   * page load or a pasted link is POP too, but its entry is the first one, key "default"), or the
-   * thread page's own Back (`state.restoreSearch`, a PUSH).
+   * Back to the list: a history step (POP) to an entry this app created, or the thread page's own
+   * Back (`state.restoreSearch`, a PUSH). ⚠️ A RELOAD of such an entry restores too: the router
+   * reads the entry's key (and state) from history.state. Only a tab's first entry — a pasted or
+   * opened link — has key "default" and does not. Same tab, same person: that is intended.
    */
   const backToList =
     (navigationType === NavigationType.Pop && location.key !== 'default') ||
