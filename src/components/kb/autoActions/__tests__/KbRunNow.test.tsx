@@ -133,7 +133,7 @@ describe('KbRunNow', () => {
     render(<KbRunNow onRunEnded={() => ended.push(1)} />);
     fireEvent.click(await screen.findByRole('button', { name: /Run now/ }));
     await waitFor(() => expect(screen.getByRole('button', { name: /Running/ })).toBeTruthy());
-    expect(screen.getByRole('button', { name: /Running/ }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: /Running/ })).toBeInactive();
     expect(toasts).toEqual(['Run started']);
     expect(ended).toEqual([]);
     // The run ends: the next poll reads an idle state with a recorded run.

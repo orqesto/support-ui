@@ -32,7 +32,7 @@ const ICON: Record<SendAction, React.ReactNode> = {
 };
 
 const SEGMENT =
-  'flex items-center h-auto py-[5px] font-display text-[10.5px] font-semibold uppercase tracking-[0.07em] bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 max-sm:h-9';
+  'flex items-center h-auto py-[5px] font-display text-[10.5px] font-semibold uppercase tracking-[0.07em] bg-primary text-primary-foreground hover:bg-primary/90 data-[inactive]:opacity-50 max-sm:h-9';
 
 /**
  * The reply's Send as a split button: the face sends with the agent's last choice, the chevron

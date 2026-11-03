@@ -183,13 +183,13 @@ describe('Clean captured questions', () => {
   it('Apply is off before a Check and again after the scope changes', async () => {
     render(<KbQuestionTextRepair workspace={67} />);
     await workspacesListed();
-    expect(applyButton()).toBeDisabled();
+    expect(applyButton()).toBeInactive();
     fireEvent.click(checkButton());
     await screen.findByText('before 1 <b>raw</b>');
-    expect(applyButton()).not.toBeDisabled();
+    expect(applyButton()).not.toBeInactive();
 
     await chooseOption(scopeSelect(), 'Bluebell Bakery');
-    expect(applyButton()).toBeDisabled();
+    expect(applyButton()).toBeInactive();
     expect(screen.queryByText('before 1 <b>raw</b>')).not.toBeInTheDocument();
     expect(bodies.every((body) => body.dryRun)).toBe(true);
   });
@@ -204,7 +204,7 @@ describe('Clean captured questions', () => {
     finish(answer({ organizationId: 67, dryRun: true, action: 'reject' }));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.queryByText('before 1 <b>raw</b>')).not.toBeInTheDocument();
-    expect(applyButton()).toBeDisabled();
+    expect(applyButton()).toBeInactive();
   });
 
   it('confirm names the counts; only the confirm sends the write, for the checked scope', async () => {
@@ -215,7 +215,9 @@ describe('Clean captured questions', () => {
     await screen.findByText('before 1 <b>raw</b>');
     // Every workspace checked: each entry says whose it is.
     expect(
-      within(screen.getByRole('list', { name: 'Entries before and after' })).getByText('Northwind Parcels')
+      within(screen.getByRole('list', { name: 'Entries before and after' })).getByText(
+        'Northwind Parcels'
+      )
     ).toBeInTheDocument();
     fireEvent.click(applyButton());
 
@@ -233,7 +235,7 @@ describe('Clean captured questions', () => {
     await screen.findByText(/Applied — 79 entries cleaned, 5 rejected/);
     expect(bodies.at(-1)).toEqual({ organizationId: null, dryRun: false });
     expect(screen.getByText('AI rewritten')).toBeInTheDocument();
-    expect(applyButton()).toBeDisabled(); // the check described the entries BEFORE the write
+    expect(applyButton()).toBeInactive(); // the check described the entries BEFORE the write
   });
 
   it('an older backend (no route) says the repair arrives with the next release', async () => {
@@ -241,7 +243,7 @@ describe('Clean captured questions', () => {
     render(<KbQuestionTextRepair workspace={67} />);
     fireEvent.click(checkButton());
     expect(await screen.findByText(QUESTION_TEXT_NOT_DEPLOYED)).toBeInTheDocument();
-    expect(applyButton()).toBeDisabled();
+    expect(applyButton()).toBeInactive();
   });
 
   it('a 404 from the route itself is shown as its own message, not as "next release"', async () => {
@@ -397,8 +399,8 @@ describe('Clean captured questions — audit 2026-10-07 (H3, M5)', () => {
     // …and the section is usable again: no "Applying…", Check and the workspace enabled (pass 3).
     expect(screen.queryByRole('button', { name: 'Stop' })).not.toBeInTheDocument();
     expect(screen.queryByText(/Applying…/)).not.toBeInTheDocument();
-    expect(checkButton()).not.toBeDisabled();
-    expect(scopeSelect()).not.toBeDisabled();
+    expect(checkButton()).not.toBeInactive();
+    expect(scopeSelect()).not.toBeInactive();
   });
 
   it('a round that FAILS after Stop still reports what earlier rounds did, and frees the section', async () => {
@@ -424,7 +426,7 @@ describe('Clean captured questions — audit 2026-10-07 (H3, M5)', () => {
     await waitFor(() => expect(gate.fail).toBeDefined());
     gate.fail?.();
     expect(await screen.findByText(/Partly applied — 2 entries cleaned/)).toBeInTheDocument();
-    expect(checkButton()).not.toBeDisabled();
+    expect(checkButton()).not.toBeInactive();
   });
 
   it('leaving the section ends the loop — no further calls nobody sees', async () => {

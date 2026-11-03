@@ -93,7 +93,7 @@ describe('Quick Actions for a role that cannot read integrations', () => {
     getMessageSourcesForFilter.mockResolvedValue([source('gmail')]);
     render(<DashboardPage />);
     await waitFor(() => expect(getMessageSourcesForFilter).toHaveBeenCalled());
-    await waitFor(async () => expect(await startAll()).toBeEnabled());
+    await waitFor(async () => expect(await startAll()).not.toBeInactive());
     expect(screen.queryByText(/No message sources configured/)).not.toBeInTheDocument();
   });
 
@@ -102,14 +102,14 @@ describe('Quick Actions for a role that cannot read integrations', () => {
     render(<DashboardPage />);
     await waitFor(() => expect(getMessageSourcesForFilter).toHaveBeenCalled());
     expect(await screen.findByText(/No message sources configured/)).toBeInTheDocument();
-    expect(await startAll()).toBeDisabled();
+    expect(await startAll()).toBeInactive();
   });
 
   it('a Telegram-only workspace enables "all" and Telegram, not Email', async () => {
     getMessageSourcesForFilter.mockResolvedValue([source('telegram')]);
     render(<DashboardPage />);
-    await waitFor(async () => expect(await startAll()).toBeEnabled());
-    expect(screen.getByRole('button', { name: 'Telegram' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Email' })).toBeDisabled();
+    await waitFor(async () => expect(await startAll()).not.toBeInactive());
+    expect(screen.getByRole('button', { name: 'Telegram' })).not.toBeInactive();
+    expect(screen.getByRole('button', { name: 'Email' })).toBeInactive();
   });
 });

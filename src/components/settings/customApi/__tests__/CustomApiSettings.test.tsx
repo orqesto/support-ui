@@ -327,7 +327,7 @@ describe('removing what you connected', () => {
     await waitFor(() => expect(remove).toHaveBeenCalledTimes(1));
 
     const busy = await screen.findByRole('button', { name: 'Removing…' });
-    expect(busy.hasAttribute('disabled')).toBe(true);
+    expect(busy).toBeInactive();
     await user.click(busy);
     expect(remove).toHaveBeenCalledTimes(1);
 
@@ -360,7 +360,7 @@ describe('removing what you connected', () => {
     expect(await screen.findByRole('button', { name: 'Removing…' })).toBeTruthy();
     const other = screen.getByRole('button', { name: 'Disconnect' });
     expect(other).toBe(second);
-    expect(other.hasAttribute('disabled')).toBe(true);
+    expect(other).toBeInactive();
   });
 
   it('D40: a moderator is offered lookup removal but NOT vendor removal', async () => {

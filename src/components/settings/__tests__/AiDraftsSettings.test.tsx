@@ -54,7 +54,7 @@ describe('AiDraftsSettings', () => {
 
     const toggle = await screen.findByRole('switch');
     expect(toggle).toHaveAttribute('aria-checked', 'false');
-    expect(toggle).not.toBeDisabled();
+    expect(toggle).not.toBeInactive();
     fireEvent.click(toggle);
 
     await waitFor(() => expect(updateAiDrafts).toHaveBeenCalledWith(true));
@@ -79,7 +79,7 @@ describe('AiDraftsSettings', () => {
     renderCard();
 
     const toggle = await screen.findByRole('switch');
-    expect(toggle).toBeDisabled();
+    expect(toggle).toBeInactive();
     expect(toggle).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByText(/AI drafts are off for this workspace\./i)).toBeInTheDocument();
     expect(screen.getByText(/Only a workspace admin can change this/i)).toBeInTheDocument();

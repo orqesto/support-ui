@@ -169,6 +169,6 @@ describe('B3: an agent with no AI gets no dead Translate control', () => {
   it('CONTROL: an admin, no AI: the control stays (disabled, with the reason)', () => {
     aiConfigured = false;
     render(<TranslateButton messageId={5} onTranslated={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Translate' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Translate' })).toBeInactive();
   });
 });

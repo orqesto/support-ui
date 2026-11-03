@@ -266,3 +266,19 @@ describe('MergeConfirmDialog — the Needs Routing badge', () => {
     invalidate.mockRestore();
   });
 });
+
+describe('MergeConfirmDialog — while the merge runs', () => {
+  it('🔴 the radios stay focusable but the arrow keys do not move the choice (the retry reads it)', async () => {
+    mergeImpl = () => new Promise(() => undefined);
+    render(
+      <MergeConfirmDialog open rows={[OLDEST, NEWEST]} onOpenChange={vi.fn()} onMerged={vi.fn()} />
+    );
+    const before = checked();
+    fireEvent.click(screen.getByRole('button', { name: 'Merge' }));
+    await waitFor(() => expect(mergeCalls).toHaveLength(1));
+    const current = radios().find((radio) => radio.getAttribute('aria-checked') === 'true');
+    expect(current).toBeInactive();
+    fireEvent.keyDown(current as HTMLElement, { key: 'ArrowDown' });
+    expect(checked()).toEqual(before);
+  });
+});

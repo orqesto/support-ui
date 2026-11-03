@@ -205,7 +205,7 @@ describe('PlatformMaintenance — repairs', () => {
     renderPage();
     const row = await screen.findByTestId('repair-repair-swept-reopens');
     const check = within(row).getByRole('button', { name: 'Check' });
-    expect(check).toBeDisabled();
+    expect(check).toBeInactive();
 
     await chooseOption(
       document.getElementById('maintenance-workspace') as HTMLElement,
@@ -233,10 +233,10 @@ describe('PlatformMaintenance — repairs', () => {
     );
     const row = screen.getByTestId('repair-repair-swept-reopens');
     const apply = within(row).getByRole('button', { name: 'Apply' });
-    expect(apply).toBeDisabled();
+    expect(apply).toBeInactive();
 
     fireEvent.click(within(row).getByRole('button', { name: 'Check' }));
-    await waitFor(() => expect(apply).not.toBeDisabled());
+    await waitFor(() => expect(apply).not.toBeInactive());
     fireEvent.click(apply);
     expect(api.post).toHaveBeenCalledTimes(1); // nothing written before the confirm
     // The confirm dialog's own Apply is the last one on the page.
@@ -272,7 +272,7 @@ describe('PlatformMaintenance — repairs', () => {
       expect(api.post).toHaveBeenCalledWith('/api/system/deleted-at-backfill', {}, {})
     );
     const apply = within(row).getByRole('button', { name: 'Apply' });
-    await waitFor(() => expect(apply).not.toBeDisabled());
+    await waitFor(() => expect(apply).not.toBeInactive());
     fireEvent.click(apply);
     fireEvent.click(screen.getAllByRole('button', { name: 'Apply' }).at(-1) as HTMLElement);
     await waitFor(() =>
@@ -300,7 +300,7 @@ describe('PlatformMaintenance — repairs', () => {
       .getAllByRole('button', { name: /^(Check|Apply)$/ })
       // Read-only reports stay usable with repairs off (the backend serves them either way).
       .filter((button) => !button.closest('[data-read-only]'))) {
-      expect(button).toBeDisabled();
+      expect(button).toBeInactive();
     }
     const repairsSwitch = screen.getByText('Repairs switched off').closest('label') as HTMLElement;
     fireEvent.click(within(repairsSwitch).getByRole('switch'));
@@ -319,7 +319,7 @@ describe('PlatformMaintenance — repairs', () => {
     const check = within(screen.getByTestId('repair-repair-swept-reopens')).getByRole('button', {
       name: 'Check',
     });
-    expect(check).not.toBeDisabled();
+    expect(check).not.toBeInactive();
   });
 
   it('each job switch is named by its job, not by its state', async () => {
@@ -341,11 +341,11 @@ describe('PlatformMaintenance — repairs', () => {
     const row = screen.getByTestId('repair-repair-swept-reopens');
     const apply = within(row).getByRole('button', { name: 'Apply' });
     fireEvent.click(within(row).getByRole('button', { name: 'Check' }));
-    await waitFor(() => expect(apply).not.toBeDisabled());
+    await waitFor(() => expect(apply).not.toBeInactive());
     fireEvent.click(apply);
     fireEvent.click(screen.getAllByRole('button', { name: 'Apply' }).at(-1) as HTMLElement);
     await within(row).findByText('Applied');
-    expect(apply).toBeDisabled();
+    expect(apply).toBeInactive();
   });
 
   it('switching workspace clears every result read in the previous one', async () => {
@@ -363,7 +363,7 @@ describe('PlatformMaintenance — repairs', () => {
     );
     const fresh = screen.getByTestId('repair-repair-swept-reopens');
     expect(within(fresh).queryByText('Check (nothing changed)')).toBeNull();
-    expect(within(fresh).getByRole('button', { name: 'Apply' })).toBeDisabled();
+    expect(within(fresh).getByRole('button', { name: 'Apply' })).toBeInactive();
   });
 
   it('an all-workspaces Check adds up the counts of the workspaces it found', async () => {
@@ -398,7 +398,7 @@ describe('PlatformMaintenance — repairs', () => {
     );
     const row = screen.getByTestId('repair-relayed-fusion-report');
     const check = within(row).getByRole('button', { name: 'Check' });
-    expect(check).not.toBeDisabled();
+    expect(check).not.toBeInactive();
   });
 });
 
@@ -431,7 +431,7 @@ describe('PlatformMaintenance — lost attachments repair', () => {
     });
     const row = await pick();
     expect(within(row).getByText('Find attachments lost to Gmail quota')).toBeTruthy();
-    expect(within(row).getByRole('button', { name: 'Apply' })).toBeDisabled();
+    expect(within(row).getByRole('button', { name: 'Apply' })).toBeInactive();
     fireEvent.click(within(row).getByRole('button', { name: 'Check' }));
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith(

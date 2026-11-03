@@ -85,7 +85,7 @@ describe('wizard Finish gate — channel', () => {
 
     const button = await finishButton();
     await vi.waitFor(() => expect(getPlanState).toHaveBeenCalled());
-    await vi.waitFor(() => expect(button).toBeEnabled());
+    await vi.waitFor(() => expect(button).not.toBeInactive());
     expect(screen.queryByRole('button', { name: 'connect a channel' })).not.toBeInTheDocument();
   });
 
@@ -98,7 +98,7 @@ describe('wizard Finish gate — channel', () => {
     render(<OnboardingWizard />);
 
     expect(await screen.findByRole('button', { name: 'connect a channel' })).toBeInTheDocument();
-    expect(await finishButton()).toBeDisabled();
+    expect(await finishButton()).toBeInactive();
   });
 
   it('waits for the plan read: Finish stays off (with no "connect a channel") until it answers', async () => {
@@ -107,11 +107,11 @@ describe('wizard Finish gate — channel', () => {
     render(<OnboardingWizard />);
 
     const button = await finishButton();
-    expect(button).toBeDisabled();
+    expect(button).toBeInactive();
     expect(screen.queryByRole('button', { name: 'connect a channel' })).not.toBeInTheDocument();
 
     answer({ name: 'free', status: 'trialing', cancellationRoute: 'local' });
-    await vi.waitFor(() => expect(button).toBeEnabled());
+    await vi.waitFor(() => expect(button).not.toBeInactive());
   });
 
   it('does not trap the user when the plan cannot be read', async () => {
@@ -120,6 +120,6 @@ describe('wizard Finish gate — channel', () => {
 
     const button = await finishButton();
     await vi.waitFor(() => expect(getPlanState).toHaveBeenCalled());
-    await vi.waitFor(() => expect(button).toBeEnabled());
+    await vi.waitFor(() => expect(button).not.toBeInactive());
   });
 });

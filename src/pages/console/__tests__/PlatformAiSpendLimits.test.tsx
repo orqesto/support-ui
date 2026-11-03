@@ -264,7 +264,7 @@ describe('AI Spend — token limit controls', () => {
     saveImpl = () => new Promise((resolve) => (finish = () => resolve(undefined)));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     // Neither Cancel nor Escape leaves it: the same workspace cannot be reopened from stale figures.
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Cancel' })).toBeInactive());
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.getByText('Daily token limits · Acme')).toBeTruthy();

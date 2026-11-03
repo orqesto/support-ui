@@ -102,7 +102,7 @@ describe('WorkspaceAiUsage', () => {
     expect(screen.getByTestId('group-status')).toHaveTextContent('Organisation running');
     expect(screen.queryByLabelText('Budget per billing period')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Send request' })).toBeNull();
-    expect(screen.getByRole('switch', { name: /Limit it/ })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: /Limit it/ })).toBeInactive();
   });
 
   it('a standalone workspace is named as such', async () => {

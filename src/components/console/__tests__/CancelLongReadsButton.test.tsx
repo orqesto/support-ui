@@ -31,6 +31,6 @@ describe('CancelLongReadsButton', () => {
 
   it('CONTROL — nothing past five minutes: the button is off', () => {
     renderButton(120);
-    expect(screen.getByRole('button', { name: /stop reads running over 5 min/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /stop reads running over 5 min/i })).toBeInactive();
   });
 });

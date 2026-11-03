@@ -420,7 +420,7 @@ export function RuleEditor<
                           onClick={() => !toggleDisabled && onToggleActive(rule)}
                           disabled={toggleDisabled}
                           title={toggleTitle?.(rule)}
-                          className="gap-1 items-center p-0 h-auto hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="gap-1 items-center p-0 h-auto hover:text-primary data-[inactive]:opacity-40 data-[inactive]:cursor-not-allowed"
                         >
                           {rule.active ? (
                             <>
@@ -454,7 +454,7 @@ export function RuleEditor<
                             onClick={() => handleDeleteClick(rule)}
                             disabled={deleteDisabled}
                             title={deleteTitle?.(rule)}
-                            className="text-destructive hover:text-destructive hover:bg-destructive-muted disabled:text-muted-foreground"
+                            className="text-destructive hover:text-destructive hover:bg-destructive-muted data-[inactive]:text-muted-foreground"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -522,7 +522,7 @@ export function RuleEditor<
                         onClick={() => handleDeleteClick(rule)}
                         disabled={deleteDisabled}
                         title={deleteTitle?.(rule)}
-                        className="text-destructive hover:text-destructive hover:bg-destructive-muted disabled:text-muted-foreground"
+                        className="text-destructive hover:text-destructive hover:bg-destructive-muted data-[inactive]:text-muted-foreground"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -548,7 +548,7 @@ export function RuleEditor<
                       onClick={() => !toggleDisabled && onToggleActive(rule)}
                       disabled={toggleDisabled}
                       title={toggleTitle?.(rule)}
-                      className="gap-1 items-center p-0 h-auto hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="gap-1 items-center p-0 h-auto hover:text-primary data-[inactive]:opacity-40 data-[inactive]:cursor-not-allowed"
                     >
                       {rule.active ? (
                         <>

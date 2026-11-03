@@ -68,7 +68,7 @@ describe('StatusVocabularyStep', () => {
 
     await userEvent.type(screen.getByLabelText(/status value/i), 'in_transit');
 
-    expect(screen.getByRole('button', { name: 'Add' })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: 'Add' })).toBeInactive();
     expect(onChange).not.toHaveBeenCalled();
   });
 

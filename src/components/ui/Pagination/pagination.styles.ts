@@ -17,7 +17,7 @@ export const paginationContainerVariants = cva(
 );
 
 export const paginationPageButtonVariants = cva(
-  'min-w-[36px] h-9 px-3 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+  'min-w-[36px] h-9 px-3 rounded-md text-sm font-medium transition-colors data-[inactive]:opacity-50 data-[inactive]:cursor-not-allowed',
   {
     variants: {
       isActive: {

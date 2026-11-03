@@ -655,7 +655,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                                 })
                               }
                               aria-label={`Remove phrase ${phrase}`}
-                              className="p-0 w-auto h-auto hover:text-destructive disabled:opacity-50"
+                              className="p-0 w-auto h-auto hover:text-destructive data-[inactive]:opacity-50"
                             >
                               <X className="w-3 h-3" />
                             </Button>

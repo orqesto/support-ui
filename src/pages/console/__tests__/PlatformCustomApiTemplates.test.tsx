@@ -132,11 +132,11 @@ describe('Platform Console — Custom API templates', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save template' }));
     await waitFor(() => expect(update).toHaveBeenCalled());
-    expect(screen.getByLabelText('Definition (JSON)')).toBeDisabled();
-    expect(screen.getByLabelText('Name')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'New template' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeDisabled();
+    expect(screen.getByLabelText('Definition (JSON)')).toBeInactive();
+    expect(screen.getByLabelText('Name')).toBeInactive();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInactive();
+    expect(screen.getByRole('button', { name: 'New template' })).toBeInactive();
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInactive();
   });
 
   it('cancel clears a shown error', async () => {
@@ -214,7 +214,7 @@ describe('Platform Console — a template whose stored definition is broken (F2)
     list.mockImplementationOnce(() => Promise.resolve([broken()]));
     renderPage();
     const publish = await screen.findByRole('button', { name: 'Publish' });
-    expect(publish).toBeDisabled();
+    expect(publish).toBeInactive();
     expect(publish).toHaveAttribute('title', expect.stringMatching(/definition is broken/i));
   });
 
@@ -222,7 +222,7 @@ describe('Platform Console — a template whose stored definition is broken (F2)
     list.mockImplementationOnce(() => Promise.resolve([broken({ status: 'published' })]));
     renderPage();
     const unpublish = await screen.findByRole('button', { name: 'Unpublish' });
-    expect(unpublish).toBeEnabled();
+    expect(unpublish).not.toBeInactive();
     fireEvent.click(unpublish);
     await waitFor(() => expect(update).toHaveBeenCalledWith(3, { status: 'draft' }));
   });

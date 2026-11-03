@@ -29,7 +29,7 @@ describe('RichTextEditor — locked', () => {
     );
     await waitFor(() => expect(container.querySelector('.ProseMirror')).not.toBeNull());
     for (const name of ['Bold', 'Italic', 'Bullet List', 'Numbered List', 'Quote', 'Add Link']) {
-      expect(screen.getByLabelText(name)).toBeDisabled();
+      expect(screen.getByLabelText(name)).toBeInactive();
     }
     const callsBefore = onChange.mock.calls.length;
     // userEvent, like a person: a button in a disabled fieldset gets no click.
@@ -44,7 +44,7 @@ describe('RichTextEditor — locked', () => {
       <RichTextEditor content="<p>hello</p>" onChange={onChange} initiallyHidden={false} />
     );
     await waitFor(() => expect(container.querySelector('.ProseMirror')).not.toBeNull());
-    expect(screen.getByLabelText('Bullet List')).toBeEnabled();
+    expect(screen.getByLabelText('Bullet List')).not.toBeInactive();
     await userEvent.click(screen.getByLabelText('Bullet List'));
     await waitFor(() => expect(container.querySelector('.ProseMirror ul')).not.toBeNull());
   });

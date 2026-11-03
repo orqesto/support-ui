@@ -396,10 +396,11 @@ export const TicketsSection = ({
   );
 
   /*
-    Focus after a Remove. The pressed button is disabled for the request (a browser drops focus
-    from a disabled control) and then its card goes — while the popover stays open, so focus fell
-    to <body> and the next Tab started from the top of the page. It goes to the NEXT card's Remove
-    (else its Open ticket), else to the popover itself; after a failure, back to the same Remove.
+    Focus after a Remove. The pressed button (a design-system Button) stays focusable while the
+    request runs — it is aria-disabled, never natively disabled — and then its card goes, while
+    the popover stays open, so focus fell to <body> and the next Tab started from the top of the
+    page. It goes to the NEXT card's Remove (else its Open ticket), else to the popover itself;
+    after a failure, back to the same Remove.
     ⛔ Only when focus is LOST — a user who tabbed on during the request keeps their place.
   */
   const sectionRef = useRef<HTMLElement>(null);
@@ -450,6 +451,7 @@ export const TicketsSection = ({
         !active ||
         active === document.body ||
         !active.isConnected ||
+        // Only a raw, natively disabled <button>: a design-system Button keeps focus.
         (active instanceof HTMLButtonElement && active.disabled)
       );
     };

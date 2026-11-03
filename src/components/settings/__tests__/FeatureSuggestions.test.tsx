@@ -51,9 +51,15 @@ vi.mock('../RoutingProposalCard', () => ({
     onError: (message: string) => void;
   }) => (
     <div data-testid={`card-${suggestion.id}`} data-can-act={String(canAct)}>
-      <button type="button" onClick={() => onDone(suggestion.id)}>DONE {suggestion.id}</button>
-      <button type="button" onClick={() => onStale()}>STALE {suggestion.id}</button>
-      <button type="button" onClick={() => onError('This suggestion was already decided.')}>FAIL {suggestion.id}</button>
+      <button type="button" onClick={() => onDone(suggestion.id)}>
+        DONE {suggestion.id}
+      </button>
+      <button type="button" onClick={() => onStale()}>
+        STALE {suggestion.id}
+      </button>
+      <button type="button" onClick={() => onError('This suggestion was already decided.')}>
+        FAIL {suggestion.id}
+      </button>
     </div>
   ),
 }));
@@ -70,7 +76,12 @@ vi.mock('@/stores/authStore', () => ({
 }));
 
 const { FeatureSuggestions } = await import('../FeatureSuggestions');
-const row = (id: number, domain: string, suggestionType: string, payload: Record<string, unknown> = {}) => ({
+const row = (
+  id: number,
+  domain: string,
+  suggestionType: string,
+  payload: Record<string, unknown> = {}
+) => ({
   id,
   domain,
   suggestionType,
@@ -95,16 +106,22 @@ afterEach(cleanup);
 
 describe('FeatureSuggestions', () => {
   it('renders nothing when the feature has no pending suggestion', async () => {
-    const { container } = render(<FeatureSuggestions domains={['spam']} title="Spam suggestions" />);
+    const { container } = render(
+      <FeatureSuggestions domains={['spam']} title="Spam suggestions" />
+    );
     await waitFor(() => expect(container.textContent).toBe(''));
   });
 
   it('a spam conflict is decided here: Accept and Decline call the engine', async () => {
-    state.list = [row(11, 'spam', 'resolve_conflict', { conflictType: 'category_mismatch', evidence: {} })] as never;
+    state.list = [
+      row(11, 'spam', 'resolve_conflict', { conflictType: 'category_mismatch', evidence: {} }),
+    ] as never;
     render(<FeatureSuggestions domains={['spam']} title="Spam suggestions" />);
     fireEvent.click(await screen.findByRole('button', { name: 'Accept this suggestion' }));
     await waitFor(() => expect(state.accepted).toEqual([11]));
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Accept this suggestion' })).toBeNull());
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Accept this suggestion' })).toBeNull()
+    );
   });
 
   it('Decline records the rejection', async () => {
@@ -115,7 +132,10 @@ describe('FeatureSuggestions', () => {
   });
 
   it('only shows its own domains (CONTROL: a spam row never shows on a routing panel)', async () => {
-    state.list = [row(11, 'spam', 'resolve_conflict'), row(13, 'routing', 'resolve_routing_disagreement')] as never;
+    state.list = [
+      row(11, 'spam', 'resolve_conflict'),
+      row(13, 'routing', 'resolve_routing_disagreement'),
+    ] as never;
     render(<FeatureSuggestions domains={['routing']} title="Routing suggestions" />);
     expect(await screen.findByTestId('card-13')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Accept this suggestion' })).toBeNull();
@@ -124,15 +144,28 @@ describe('FeatureSuggestions', () => {
   it('excludeTypes hides propose_rule (the dormant rule row is its place)', async () => {
     state.list = [row(14, 'routing', 'propose_rule')] as never;
     const { container } = render(
-      <FeatureSuggestions domains={['routing']} excludeTypes={['propose_rule']} title="Routing suggestions" />
+      <FeatureSuggestions
+        domains={['routing']}
+        excludeTypes={['propose_rule']}
+        title="Routing suggestions"
+      />
     );
     await waitFor(() => expect(container.textContent).toBe(''));
     expect(screen.queryByTestId('card-14')).toBeNull();
   });
 
   it('types limits to the listed suggestion types', async () => {
-    state.list = [row(15, 'reply_style', 'reply_style.update', { proposedStyle: 'warm', currentStyle: '' }), row(16, 'reply_style', 'other')] as never;
-    render(<FeatureSuggestions domains={['reply_style']} types={['reply_style.update']} title="Suggested house style" />);
+    state.list = [
+      row(15, 'reply_style', 'reply_style.update', { proposedStyle: 'warm', currentStyle: '' }),
+      row(16, 'reply_style', 'other'),
+    ] as never;
+    render(
+      <FeatureSuggestions
+        domains={['reply_style']}
+        types={['reply_style.update']}
+        title="Suggested house style"
+      />
+    );
     await screen.findByText(/Suggested house style/);
     expect(screen.getAllByRole('button', { name: 'Accept this suggestion' })).toHaveLength(1);
   });
@@ -142,12 +175,21 @@ describe('FeatureSuggestions', () => {
     state.list = [row(11, 'spam', 'resolve_conflict')] as never;
     render(<FeatureSuggestions domains={['spam']} title="Spam suggestions" />);
     const accept = await screen.findByRole('button', { name: 'Accept this suggestion' });
-    expect((accept as HTMLButtonElement).disabled).toBe(true);
+    expect(accept).toBeInactive();
   });
 
   it('a decided routing card leaves the list', async () => {
-    state.list = [row(21, 'routing', 'resolve_routing_disagreement'), row(22, 'routing', 'confirm_learned_rule')] as never;
-    render(<FeatureSuggestions domains={['routing']} excludeTypes={['propose_rule']} title="Routing suggestions" />);
+    state.list = [
+      row(21, 'routing', 'resolve_routing_disagreement'),
+      row(22, 'routing', 'confirm_learned_rule'),
+    ] as never;
+    render(
+      <FeatureSuggestions
+        domains={['routing']}
+        excludeTypes={['propose_rule']}
+        title="Routing suggestions"
+      />
+    );
     await screen.findByTestId('card-21');
     fireEvent.click(screen.getByText('DONE 21'));
     expect(screen.queryByTestId('card-21')).toBeNull();
@@ -177,12 +219,19 @@ describe('FeatureSuggestions', () => {
     state.list = [row(21, 'routing', 'resolve_routing_disagreement')] as never;
     render(<FeatureSuggestions domains={['routing']} title="Routing suggestions" />);
     expect((await screen.findByTestId('card-21')).getAttribute('data-can-act')).toBe('false');
-    expect(screen.getByText('You do not have permission to change this kind of rule. Ask an admin.')).toBeTruthy();
+    expect(
+      screen.getByText('You do not have permission to change this kind of rule. Ask an admin.')
+    ).toBeTruthy();
   });
 
   it('a house-style suggestion opens its diff without a click', async () => {
     state.list = [
-      row(31, 'reply_style', 'reply_style.update', { currentStyle: 'Be formal.', proposedStyle: 'Be warm.', rationale: 'Agents shorten drafts.', signals: {} }),
+      row(31, 'reply_style', 'reply_style.update', {
+        currentStyle: 'Be formal.',
+        proposedStyle: 'Be warm.',
+        rationale: 'Agents shorten drafts.',
+        signals: {},
+      }),
     ] as never;
     render(<FeatureSuggestions domains={['reply_style']} title="Suggested house style" />);
     expect(await screen.findByText(/Agents shorten drafts/)).toBeTruthy();
@@ -191,9 +240,16 @@ describe('FeatureSuggestions', () => {
   describe('onDecided — lets the host page reload what a decision changed', () => {
     it('reports accept and decline, after the engine call', async () => {
       const decided = vi.fn();
-      state.list = [row(61, 'spam', 'promote', { summary: 'a' }), row(62, 'spam', 'promote', { summary: 'b' })] as never;
-      render(<FeatureSuggestions domains={['spam']} title="Spam suggestions" onDecided={decided} />);
-      fireEvent.click((await screen.findAllByRole('button', { name: 'Accept this suggestion' }))[0]);
+      state.list = [
+        row(61, 'spam', 'promote', { summary: 'a' }),
+        row(62, 'spam', 'promote', { summary: 'b' }),
+      ] as never;
+      render(
+        <FeatureSuggestions domains={['spam']} title="Spam suggestions" onDecided={decided} />
+      );
+      fireEvent.click(
+        (await screen.findAllByRole('button', { name: 'Accept this suggestion' }))[0]
+      );
       await waitFor(() => expect(decided).toHaveBeenCalledWith('accept'));
       fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
       await waitFor(() => expect(decided).toHaveBeenLastCalledWith('decline'));
@@ -204,7 +260,9 @@ describe('FeatureSuggestions', () => {
       const decided = vi.fn();
       state.failAccept = true;
       state.list = [row(63, 'spam', 'promote', { summary: 'a' })] as never;
-      render(<FeatureSuggestions domains={['spam']} title="Spam suggestions" onDecided={decided} />);
+      render(
+        <FeatureSuggestions domains={['spam']} title="Spam suggestions" onDecided={decided} />
+      );
       fireEvent.click(await screen.findByRole('button', { name: 'Accept this suggestion' }));
       await waitFor(() => expect(state.accepted).toEqual([63]));
       await screen.findByText(/boom|Failed to accept/);
@@ -214,7 +272,9 @@ describe('FeatureSuggestions', () => {
     it('a decided routing card reports too (it may have kept, dropped or edited a rule)', async () => {
       const decided = vi.fn();
       state.list = [row(64, 'routing', 'resolve_routing_disagreement', { options: [] })] as never;
-      render(<FeatureSuggestions domains={['routing']} title="Routing suggestions" onDecided={decided} />);
+      render(
+        <FeatureSuggestions domains={['routing']} title="Routing suggestions" onDecided={decided} />
+      );
       fireEvent.click(await screen.findByRole('button', { name: 'DONE 64' }));
       await waitFor(() => expect(decided).toHaveBeenCalledWith('routing_card'));
     });

@@ -112,6 +112,40 @@ export default [
       'jsx-a11y/no-static-element-interactions': 'warn',
     },
   },
+  // Tests: a Button out of use is aria-disabled, never natively disabled (it keeps keyboard
+  // focus), so jest-dom's toBeDisabled/toBeEnabled and `.disabled` reads miss it — and
+  // `.not.toBeDisabled()` passes on a busy Button. Use `toBeInactive()` (src/test/inactive.ts).
+  {
+    files: ['**/*.test.{ts,tsx}', '**/__tests__/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'CallExpression[callee.property.name=/^toBe(Disabled|Enabled)$/]',
+          message:
+            'Use toBeInactive() / .not.toBeInactive(): a Button out of use is aria-disabled, not disabled.',
+        },
+        {
+          selector:
+            "CallExpression[callee.name='expect'] > MemberExpression[property.name='disabled']",
+          message:
+            'Use expect(element).toBeInactive(): a Button out of use is aria-disabled, not disabled.',
+        },
+        {
+          selector:
+            "CallExpression[callee.name='expect'] > ChainExpression > MemberExpression[property.name='disabled']",
+          message:
+            'Use expect(element).toBeInactive(): a Button out of use is aria-disabled, not disabled.',
+        },
+        {
+          selector:
+            "CallExpression[callee.property.name=/^(toHaveAttribute|toHaveProperty)$/][arguments.0.value='disabled']",
+          message:
+            'Use toBeInactive() / .not.toBeInactive(): a Button out of use is aria-disabled, not disabled.',
+        },
+      ],
+    },
+  },
   // Override for Typography folder - disable strict unsafe rules for CVA
   {
     files: ['**/Typography/**/*.ts', '**/Typography/**/*.tsx'],

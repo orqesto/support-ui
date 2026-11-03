@@ -1060,7 +1060,7 @@ export const TrackingPage = () => {
                       variant="primary"
                       onClick={() => void submitReply()}
                       disabled={replyState.kind === 'submitting' || replyText.trim().length === 0}
-                      className="ml-auto bg-primary text-primary-foreground text-sm font-medium px-4 py-1.5 h-auto rounded-md hover:bg-primary/90 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="ml-auto bg-primary text-primary-foreground text-sm font-medium px-4 py-1.5 h-auto rounded-md hover:bg-primary/90 transition data-[inactive]:opacity-40 data-[inactive]:cursor-not-allowed"
                     >
                       {replyState.kind === 'submitting' ? 'Sending…' : 'Send'}
                     </Button>

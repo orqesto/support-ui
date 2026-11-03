@@ -376,7 +376,7 @@ const KanbanColumn = ({
                 variant="ghost"
                 disabled={state.loading}
                 onClick={onLoadMore}
-                className="flex gap-1 justify-center items-center px-3 py-2 h-auto text-xs shrink-0 text-muted-foreground hover:text-foreground disabled:opacity-50 xl:w-full"
+                className="flex gap-1 justify-center items-center px-3 py-2 h-auto text-xs shrink-0 text-muted-foreground hover:text-foreground data-[inactive]:opacity-50 xl:w-full"
               >
                 <RotateCcw className="w-3 h-3" />
                 {state.loading ? 'Loading…' : 'Load more'}

@@ -149,7 +149,7 @@ describe('SourceAliasEditor', () => {
     await screen.findByText(/temporary failure/i);
     expect(screen.queryByText(/cannot suggest addresses yet/i)).not.toBeInTheDocument();
     // Manual entry needs no backend, so the panel stays usable either way.
-    expect(screen.getByRole('button', { name: 'Save' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save' })).not.toBeInactive();
     expect(screen.getByText('already@shop.es')).toBeInTheDocument();
   });
 
@@ -197,7 +197,7 @@ describe('SourceAliasEditor', () => {
     renderPanel(['already@shop.es']);
 
     await screen.findByText(/cannot suggest addresses yet/i);
-    expect(screen.getByRole('button', { name: 'Save' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save' })).not.toBeInactive();
     // The already-declared alias is still listed, so it cannot be silently dropped.
     expect(screen.getByText('already@shop.es')).toBeInTheDocument();
   });
@@ -210,9 +210,7 @@ describe('SourceAliasEditor', () => {
     });
     renderPanel([]);
 
-    expect(
-      await screen.findByText(/known for 46 of 976 threads/i)
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/known for 46 of 976 threads/i)).toBeInTheDocument();
   });
 
   it('locks the configured address on — it is ours by definition', async () => {
@@ -225,7 +223,7 @@ describe('SourceAliasEditor', () => {
 
     const toggle = await screen.findByRole('switch', { name: /info@shop\.info/ });
     expect(toggle).toHaveAttribute('aria-checked', 'true');
-    expect(toggle).toBeDisabled();
+    expect(toggle).toBeInactive();
   });
 
   it('will not let an address already owned by another mailbox be adopted here', async () => {
@@ -236,7 +234,7 @@ describe('SourceAliasEditor', () => {
     });
     renderPanel([]);
 
-    expect(await screen.findByRole('switch', { name: /shared@shop\.es/ })).toBeDisabled();
+    expect(await screen.findByRole('switch', { name: /shared@shop\.es/ })).toBeInactive();
   });
 });
 

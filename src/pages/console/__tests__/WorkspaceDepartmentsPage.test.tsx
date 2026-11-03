@@ -150,7 +150,7 @@ describe('WorkspaceDepartmentsPage', () => {
     );
     // Confirm is disabled until a target is chosen (nothing dispatched yet).
     const confirm = screen.getByRole('button', { name: /Merge & deactivate/i });
-    expect(confirm).toBeDisabled();
+    expect(confirm).toBeInactive();
     expect(deactivateWorkspaceDepartment).not.toHaveBeenCalled();
   });
 

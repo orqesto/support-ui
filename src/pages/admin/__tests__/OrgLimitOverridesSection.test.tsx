@@ -13,7 +13,12 @@ const payload = {
   enforced: true,
   limits: [
     { key: 'maxUsers', plan: 5, override: null, effective: 5 },
-    { key: 'maxMessagesPerMonth', plan: 4000, override: { value: 9000, reason: null, updatedAt: '' }, effective: 9000 },
+    {
+      key: 'maxMessagesPerMonth',
+      plan: 4000,
+      override: { value: 9000, reason: null, updatedAt: '' },
+      effective: 9000,
+    },
     { key: 'maxDepartments', plan: 999999, override: null, effective: 999999 },
   ],
 };
@@ -61,6 +66,6 @@ describe('OrgLimitOverridesSection', () => {
     expect(puts[0].body).toEqual({ limitKey: 'maxMessagesPerMonth', value: null });
 
     fireEvent.change(screen.getByLabelText('Users override'), { target: { value: '-3' } });
-    expect(screen.getAllByRole('button', { name: 'Set' })[0]).toBeDisabled();
+    expect(screen.getAllByRole('button', { name: 'Set' })[0]).toBeInactive();
   });
 });

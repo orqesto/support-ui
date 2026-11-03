@@ -120,11 +120,11 @@ describe('TicketReplyComposer', () => {
     await waitFor(() => expect(box(11)).toBeChecked());
     expect(box(12)).toBeChecked();
     expect(box(13)).not.toBeChecked();
-    expect(box(13)).toBeDisabled();
+    expect(box(13)).toBeInactive();
     expect(
       screen.getByText('A reply cannot reach this thread: WhatsApp 24-hour window is closed')
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Send to 2 threads' })).toBeDisabled(); // no text yet
+    expect(screen.getByRole('button', { name: 'Send to 2 threads' })).toBeInactive(); // no text yet
   });
 
   it('Q2: on a RESOLVED ticket only the customers still owed a reply are ticked', async () => {
@@ -364,7 +364,7 @@ describe('TicketReplyComposer', () => {
     renderTicket();
     await waitFor(() => expect(box(13)).toBeChecked());
     await user.type(screen.getByLabelText('Reply text'), 'Hello');
-    expect(screen.getByRole('button', { name: 'Send to 3 threads' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Send to 3 threads' })).toBeInactive();
     expect(
       screen.getByText('One reply can go to at most 2 threads — untick 1.')
     ).toBeInTheDocument();

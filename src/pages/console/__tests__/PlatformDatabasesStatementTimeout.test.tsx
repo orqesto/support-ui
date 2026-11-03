@@ -49,7 +49,7 @@ describe('Query time limit', () => {
         'Longest a single database query may run for a user request. Off = no limit.'
       )
     ).toBeTruthy();
-    expect(save()).toBeDisabled();
+    expect(save()).toBeInactive();
   });
 
   it('saves seconds as ms', () => {
@@ -74,7 +74,7 @@ describe('Query time limit', () => {
     render(<PlatformDatabases />);
     type(value);
     expect(screen.getByText('0 (off) or a whole number from 5 to 600')).toBeTruthy();
-    expect(save()).toBeDisabled();
+    expect(save()).toBeInactive();
   });
 
   it('CONTROL: the range ends are accepted', () => {

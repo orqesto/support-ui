@@ -508,7 +508,7 @@ export function MessagePanelTabs({
                             aria-label="Delete note"
                             onClick={() => void handleDeleteNote(note.id)}
                             disabled={isDeleting}
-                            className="p-0 w-auto h-auto text-note hover:text-destructive disabled:opacity-40 max-sm:min-w-10 max-sm:min-h-10"
+                            className="p-0 w-auto h-auto text-note hover:text-destructive data-[inactive]:opacity-40 max-sm:min-w-10 max-sm:min-h-10"
                           >
                             <Trash2 className="w-2.5 h-2.5" />
                           </Button>

@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { isInactive } from '@/test/inactive';
 
 const { create } = vi.hoisted(() => ({ create: vi.fn() }));
 const empty = () =>
@@ -68,7 +69,7 @@ const readyForm = (container: HTMLElement) =>
   waitFor(() => {
     const found = container.querySelector('form');
     const submit = container.querySelector<HTMLButtonElement>('button[type="submit"]');
-    if (!found || !submit || submit.disabled) throw new Error('form not ready yet');
+    if (!found || !submit || isInactive(submit)) throw new Error('form not ready yet');
     return found;
   });
 
@@ -87,7 +88,7 @@ describe('Create ticket — one press, one ticket', () => {
     fireEvent.submit(form);
     await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
     const submit = container.querySelector('button[type="submit"]') as HTMLButtonElement;
-    await waitFor(() => expect(submit).toBeDisabled());
+    await waitFor(() => expect(submit).toBeInactive());
     fireEvent.submit(form);
     expect(create).toHaveBeenCalledTimes(1);
   });

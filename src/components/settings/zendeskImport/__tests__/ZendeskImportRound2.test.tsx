@@ -174,9 +174,7 @@ describe('ZendeskImportSettings — review round 2', () => {
       await screen.findByRole('switch', { name: /Also import tickets Zendesk closed as spam/ })
     );
     expect(await screen.findByText(/numbers are from before the spam choice changed/)).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: /Import \d+ tickets/ }).hasAttribute('disabled')
-    ).toBe(true);
+    expect(screen.getByRole('button', { name: /Import \d+ tickets/ })).toBeInactive();
   });
 
   it('leaving the screen mid-upload: no "Upload stopped" notice and no reload', async () => {
@@ -268,7 +266,7 @@ describe('ZendeskImportSettings — review round 2', () => {
     await waitFor(() =>
       expect(post).toHaveBeenCalledWith('/api/imports/zendesk/runs/5/preview', {})
     );
-    expect((toggle as HTMLButtonElement).disabled).toBe(true);
+    expect(toggle).toBeInactive();
   });
 
   // Staging 2026-10-22: the page crashed ("Something went wrong") right after every upload.

@@ -62,8 +62,8 @@ describe('KbBulkDecisionBar', () => {
 
   it('nothing selected: every action is disabled', () => {
     render(<KbBulkDecisionBar bulk={makeBulk()} mode="needs_decision" />);
-    expect(screen.getByRole('button', { name: 'Approve selected (0)' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Reject selected (0)' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Approve selected (0)' })).toBeInactive();
+    expect(screen.getByRole('button', { name: 'Reject selected (0)' })).toBeInactive();
   });
 
   it('Approve runs at once and reports the outcome', async () => {

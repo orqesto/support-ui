@@ -121,7 +121,7 @@ export const RowAssignee = ({ thread }: Props) => {
           size="sm"
           onClick={openPicker}
           disabled={!currentUser?.id}
-          className="inline-flex items-center gap-1 h-6 px-[9px] rounded-md text-[11.5px] font-semibold text-muted-foreground border border-dashed border-border-strong hover:border-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1 h-6 px-[9px] rounded-md text-[11.5px] font-semibold text-muted-foreground border border-dashed border-border-strong hover:border-primary hover:text-primary data-[inactive]:opacity-50 data-[inactive]:cursor-not-allowed"
         >
           <Plus className="w-3 h-3" />
           Claim

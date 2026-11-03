@@ -1,7 +1,12 @@
 import '@testing-library/jest-dom/vitest';
-import { afterEach, vi } from 'vitest';
+import { afterEach, expect, vi } from 'vitest';
 import { invalidateSharedFetch } from '@/lib/sharedFetch';
 import { cleanup } from '@testing-library/react';
+import { toBeInactive } from '@/test/inactive';
+
+// A Button out of use is aria-disabled, never natively disabled (it keeps keyboard focus):
+// `toBeInactive()` sees both; jest-dom's `toBeDisabled()` does not (src/test/inactive.ts).
+expect.extend({ toBeInactive });
 
 // vitest runs with `globals: false`, so @testing-library/react never registers its own
 // afterEach(cleanup) — that hook is only installed when the globals are present. Without

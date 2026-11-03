@@ -42,7 +42,13 @@ describe('OrgDepartmentPicker — collapsed by default', () => {
   it('hides the department picker until the disclosure is opened', () => {
     withDepartments(DEPTS);
     render(
-      <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[]} onChange={vi.fn()} />
+      <OrgDepartmentPicker
+        allianceId={7}
+        orgId={42}
+        orgLabel="Acme"
+        selected={[]}
+        onChange={vi.fn()}
+      />
     );
 
     expect(screen.queryByRole('combobox')).toBeNull();
@@ -54,7 +60,13 @@ describe('OrgDepartmentPicker — collapsed by default', () => {
   it('opens and closes on click', () => {
     withDepartments(DEPTS);
     render(
-      <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[]} onChange={vi.fn()} />
+      <OrgDepartmentPicker
+        allianceId={7}
+        orgId={42}
+        orgLabel="Acme"
+        selected={[]}
+        onChange={vi.fn()}
+      />
     );
 
     fireEvent.click(disclosure());
@@ -68,7 +80,13 @@ describe('OrgDepartmentPicker — collapsed by default', () => {
   it('⛔ collapsing must hide the CONTROL, never the STATE — a scoped group says so while collapsed', () => {
     withDepartments(DEPTS);
     render(
-      <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[3, 4]} onChange={vi.fn()} />
+      <OrgDepartmentPicker
+        allianceId={7}
+        orgId={42}
+        orgLabel="Acme"
+        selected={[3, 4]}
+        onChange={vi.fn()}
+      />
     );
 
     // Without this badge, an admin editing an already-scoped group would see a closed
@@ -79,7 +97,13 @@ describe('OrgDepartmentPicker — collapsed by default', () => {
   it('shows no badge when nothing is selected, so "empty" is not dressed up as a setting', () => {
     withDepartments(DEPTS);
     render(
-      <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[]} onChange={vi.fn()} />
+      <OrgDepartmentPicker
+        allianceId={7}
+        orgId={42}
+        orgLabel="Acme"
+        selected={[]}
+        onChange={vi.fn()}
+      />
     );
 
     expect(disclosure()).not.toHaveTextContent(/\d/);
@@ -110,7 +134,13 @@ describe('OrgDepartmentPicker', () => {
     withDepartments(DEPTS);
     const onChange = vi.fn();
     renderOpen(
-      <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[3]} onChange={onChange} />
+      <OrgDepartmentPicker
+        allianceId={7}
+        orgId={42}
+        orgLabel="Acme"
+        selected={[3]}
+        onChange={onChange}
+      />
     );
 
     await chooseOption(picker(), 'Billing');
@@ -122,7 +152,13 @@ describe('OrgDepartmentPicker', () => {
     withDepartments(DEPTS);
     const onChange = vi.fn();
     renderOpen(
-      <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[3, 4]} onChange={onChange} />
+      <OrgDepartmentPicker
+        allianceId={7}
+        orgId={42}
+        orgLabel="Acme"
+        selected={[3, 4]}
+        onChange={onChange}
+      />
     );
 
     // react-select acts on mousedown for the chip's remove control.
@@ -135,7 +171,13 @@ describe('OrgDepartmentPicker', () => {
     withDepartments(DEPTS);
     const onChange = vi.fn();
     renderOpen(
-      <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[3, 99]} onChange={onChange} />
+      <OrgDepartmentPicker
+        allianceId={7}
+        orgId={42}
+        orgLabel="Acme"
+        selected={[3, 99]}
+        onChange={onChange}
+      />
     );
 
     await chooseOption(picker(), 'Billing');
@@ -146,7 +188,13 @@ describe('OrgDepartmentPicker', () => {
   it('shows the role-default hint (no picker) when the org has no departments', () => {
     withDepartments([]);
     renderOpen(
-      <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[]} onChange={vi.fn()} />
+      <OrgDepartmentPicker
+        allianceId={7}
+        orgId={42}
+        orgLabel="Acme"
+        selected={[]}
+        onChange={vi.fn()}
+      />
     );
 
     expect(screen.getByText(/members get the role default/i)).toBeInTheDocument();
@@ -156,7 +204,13 @@ describe('OrgDepartmentPicker', () => {
   it('shows a loading affordance and no picker while departments are loading', () => {
     withDepartments([], true);
     renderOpen(
-      <OrgDepartmentPicker allianceId={7} orgId={42} orgLabel="Acme" selected={[]} onChange={vi.fn()} />
+      <OrgDepartmentPicker
+        allianceId={7}
+        orgId={42}
+        orgLabel="Acme"
+        selected={[]}
+        onChange={vi.fn()}
+      />
     );
 
     expect(screen.getByText(/loading teams/i)).toBeInTheDocument();
@@ -177,7 +231,7 @@ describe('OrgDepartmentPicker', () => {
       />
     );
 
-    expect(picker()).toBeDisabled();
+    expect(picker()).toBeInactive();
     fireEvent.keyDown(picker(), { key: 'ArrowDown', code: 'ArrowDown', keyCode: 40 });
     expect(screen.queryByRole('option', { name: 'Billing' })).toBeNull();
     expect(onChange).not.toHaveBeenCalled();

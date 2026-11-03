@@ -8,6 +8,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as ServiceModule from '@/services/importProgress.service';
 import { decidedOf, failWith, owedOf, retryOf, stageRetry, stalled } from './owedFixtures';
+import { isInactive } from '@/test/inactive';
 
 // Plain functions swapped per test: a rejection from a module-level vi.fn fails the run in
 // vitest 4 even when the component catches it. The real normalisers run, so an older backend's
@@ -347,7 +348,9 @@ describe('Retry', () => {
     });
     await act(() => Promise.resolve());
     expect(calls.filter((call) => call === 'retry:false')).toHaveLength(1);
-    expect(confirm).toBeDisabled();
+    expect(isInactive(confirm)).toBe(true);
+    act(() => confirm.click()); // after the re-render: the busy button sends nothing either
+    expect(calls.filter((call) => call === 'retry:false')).toHaveLength(1);
     release(retryOf(false));
     expect(await screen.findByTestId('retry-done')).toBeInTheDocument();
     expect(calls.filter((call) => call === 'retry:false')).toHaveLength(1);

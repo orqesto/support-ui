@@ -78,11 +78,11 @@ describe('bulk Assign picker', () => {
     renderAssign(onConfirm);
     await screen.findByText(/This will/);
     // Nothing chosen: no run (it would clear every assignee without being asked to).
-    expect(assignButton().disabled).toBe(true);
+    expect(assignButton()).toBeInactive();
     await chooseOption(screen.getByLabelText('Assign to'), 'Nobody (unassign)');
     expect(screen.getByText(/This will unassign/)).toBeTruthy();
     expect(assignButton().textContent).toBe('Unassign 2');
-    expect(assignButton().disabled).toBe(false);
+    expect(assignButton()).not.toBeInactive();
     assignButton().click();
     expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ assigneeId: null }));
   });

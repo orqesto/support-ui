@@ -760,7 +760,7 @@ export function MessageComposer({
               onClick={atRest && !draftEmpty ? openForReview : onSend}
               disabled={sendDisabled}
               title={sendTitle}
-              className={`flex items-center gap-1 px-[13px] py-[5px] h-auto rounded-[7px] font-display text-[10.5px] font-semibold uppercase tracking-[0.07em] transition-colors disabled:opacity-50 ${
+              className={`flex items-center gap-1 px-[13px] py-[5px] h-auto rounded-[7px] font-display text-[10.5px] font-semibold uppercase tracking-[0.07em] transition-colors data-[inactive]:opacity-50 ${
                 composerMode === 'note'
                   ? 'bg-note hover:bg-note/90 text-note-foreground'
                   : 'bg-primary text-primary-foreground hover:bg-primary/90'

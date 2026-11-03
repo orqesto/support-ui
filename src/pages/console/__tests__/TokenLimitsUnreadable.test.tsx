@@ -72,13 +72,13 @@ describe('stored limit settings unreadable (settingsLookupFailed)', () => {
     expect(screen.queryByTestId('token-limits-unreadable')).toBeNull();
     expect(text()).not.toContain('fallback');
     expect(text()).toContain('measured and notified only');
-    expect(screen.getByRole('button', { name: 'Edit' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Edit' })).not.toBeInactive();
   });
 
   // FE audit pass 17 (queued + console LOW-1): editing on the fallback saved it as a change.
   it('cannot be edited while unreadable', () => {
     wrap(<TokenLimitsCard budgets={failed} />);
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInactive();
   });
 
   it('a form open when the settings turn unreadable cannot Save, and says why', () => {
@@ -89,21 +89,21 @@ describe('stored limit settings unreadable (settingsLookupFailed)', () => {
       </QueryClientProvider>
     );
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    expect(screen.getByRole('button', { name: 'Save' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save' })).not.toBeInactive();
     rerender(
       <QueryClientProvider client={client}>
         <TokenLimitsCard budgets={failed} />
       </QueryClientProvider>
     );
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInactive();
     expect(screen.getByTestId('token-limits-unreadable')).toBeTruthy();
     // The note says the limits cannot be edited: the open form's fields lock too (FE audit pass 18,
     // NIT), keeping the value they opened with. Cancel stays usable.
     const kbField = screen.getByLabelText<HTMLInputElement>('KB processing (tokens per UTC day)');
-    expect(kbField).toBeDisabled();
+    expect(kbField).toBeInactive();
     expect(kbField).toHaveValue(String(readable.kb.limit));
-    expect(screen.getByLabelText('Regular work (tokens per UTC day)')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Cancel' })).not.toBeDisabled();
+    expect(screen.getByLabelText('Regular work (tokens per UTC day)')).toBeInactive();
+    expect(screen.getByRole('button', { name: 'Cancel' })).not.toBeInactive();
   });
 
   // Pass 17 NIT-1: the BE's soft re-read can return the STORED platform setting with the flag.
@@ -151,8 +151,8 @@ describe('stored limit settings unreadable (settingsLookupFailed)', () => {
     expect(text()).not.toContain('own-key limits are measured only');
     // One unreadable sentence, not the enforcement-unknown one beside it.
     expect(text()).not.toContain('disagree with the answer in use');
-    expect(screen.getByLabelText('KB processing (tokens per UTC day)')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByLabelText('KB processing (tokens per UTC day)')).toBeInactive();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInactive();
   });
 
   it('once readable again the fields are filled from the REAL override, not the blank fallback', () => {
@@ -174,8 +174,8 @@ describe('stored limit settings unreadable (settingsLookupFailed)', () => {
     expect(kbField().value).toBe('');
     rerender(dialog(readableOrgBudget, readable));
     expect(kbField().value).toBe('9000000');
-    expect(kbField()).not.toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Save' })).not.toBeDisabled();
+    expect(kbField()).not.toBeInactive();
+    expect(screen.getByRole('button', { name: 'Save' })).not.toBeInactive();
   });
 
   it('CONTROL: opened readable, a typed value is kept when the data refreshes', () => {
@@ -239,11 +239,11 @@ describe('stored limit settings unreadable (settingsLookupFailed)', () => {
     const { rerender } = render(dialog(readableOrgBudget, readable));
     fireEvent.change(kbField(), { target: { value: '5000000' } });
     rerender(dialog(failedOrgBudget, failed));
-    expect(kbField()).toBeDisabled();
+    expect(kbField()).toBeInactive();
     expect(kbField().value).toBe('5000000');
     rerender(dialog(readableOrgBudget, readable));
     expect(kbField().value).toBe('5000000');
-    expect(kbField()).not.toBeDisabled();
+    expect(kbField()).not.toBeInactive();
   });
 
   // FE audit pass 19, LOW: opened readable, then a refetch turned unreadable — the fields still
@@ -292,6 +292,6 @@ describe('stored limit settings unreadable (settingsLookupFailed)', () => {
     );
     expect(screen.queryByTestId('workspace-limits-unreadable')).toBeNull();
     expect(text()).toContain('own-key limits are measured only');
-    expect(screen.getByLabelText('KB processing (tokens per UTC day)')).not.toBeDisabled();
+    expect(screen.getByLabelText('KB processing (tokens per UTC day)')).not.toBeInactive();
   });
 });

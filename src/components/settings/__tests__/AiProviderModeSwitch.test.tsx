@@ -1,6 +1,9 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
-import { AiProviderModeSwitch, modeSwitchErrorText } from '@/components/settings/AiProviderModeSwitch';
+import {
+  AiProviderModeSwitch,
+  modeSwitchErrorText,
+} from '@/components/settings/AiProviderModeSwitch';
 
 afterEach(cleanup);
 
@@ -11,7 +14,12 @@ describe('AiProviderModeSwitch', () => {
   it('offers no way to pick managed when the platform has no managed key', () => {
     const onSelect = vi.fn();
     render(
-      <AiProviderModeSwitch mode="byo" managedAvailable={false} saving={false} onSelect={onSelect} />
+      <AiProviderModeSwitch
+        mode="byo"
+        managedAvailable={false}
+        saving={false}
+        onSelect={onSelect}
+      />
     );
 
     expect(screen.getByText('Coming soon')).toBeInTheDocument();
@@ -56,8 +64,8 @@ describe('AiProviderModeSwitch', () => {
       <AiProviderModeSwitch mode="byo" managedAvailable={true} saving={true} onSelect={onSelect} />
     );
 
-    expect(managedCard()).toBeDisabled();
-    expect(byoCard()).toBeDisabled();
+    expect(managedCard()).toBeInactive();
+    expect(byoCard()).toBeInactive();
 
     fireEvent.click(managedCard()!);
     expect(onSelect).not.toHaveBeenCalled();
@@ -136,7 +144,12 @@ describe('AiProviderModeSwitch', () => {
 
     it('paid plan / older backend (no allowance): the plan wording', () => {
       render(
-        <AiProviderModeSwitch mode="byo" managedAvailable={true} saving={false} onSelect={vi.fn()} />
+        <AiProviderModeSwitch
+          mode="byo"
+          managedAvailable={true}
+          saving={false}
+          onSelect={vi.fn()}
+        />
       );
       expect(screen.getByText(/Included in your plan/)).toBeInTheDocument();
     });

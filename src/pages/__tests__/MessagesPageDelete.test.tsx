@@ -293,7 +293,7 @@ describe('MessagesPage — slide-over More → Delete thread', () => {
     expect(mocks.toastError).toHaveBeenCalledWith('You cannot delete messages in this department');
     expect(screen.queryByText('Delete Failed')).toBeNull();
     expect(screen.getByRole('dialog')).toHaveTextContent('Delete thread');
-    expect(screen.getByRole('button', { name: 'Delete' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Delete' })).not.toBeInactive();
     expect(screen.getByTestId('detail-pane')).toHaveTextContent('12');
   });
 
@@ -493,7 +493,7 @@ describe('MessagesPage — the sidebar badge refreshes', () => {
 // Another agent's change arrives as a socket event. Every one used to re-read the list and the
 // whole board at once — per event, per open tab — which kept a customer's database at its ceiling
 // (2026-10). They now join one refresh per SERVER_EVENT_REFRESH_MS.
-describe('MessagesPage — other people\'s changes refresh the board once per window', () => {
+describe("MessagesPage — other people's changes refresh the board once per window", () => {
   const EVENTS = [
     'conversation:updated',
     'conv:status_changed',

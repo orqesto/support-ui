@@ -40,7 +40,7 @@ describe('DeleteMessageDialog', () => {
 
   it('while deleting, Cancel is disabled', () => {
     renderDialog({ deleting: true });
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInactive();
   });
 
   it('⛔ while deleting, the X, Esc and the backdrop cannot close it either', () => {

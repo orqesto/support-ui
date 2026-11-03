@@ -162,7 +162,7 @@ describe('ManagedAiDefaultsCard — split input/output rates', () => {
     fireEvent.change(rate('Vision tier', 'input'), { target: { value: '0.3' } });
 
     expect(screen.getByText('Set both input and output, or neither.')).toBeTruthy();
-    expect((saveButton() as HTMLButtonElement).disabled).toBe(true);
+    expect(saveButton()).toBeInactive();
     fireEvent.click(saveButton());
     expect(saveMutation.mutate).not.toHaveBeenCalled();
 

@@ -221,7 +221,7 @@ describe('the group page', () => {
     );
     expect(screen.getByTestId('budget-readonly')).toBeInTheDocument();
     expect(screen.queryByLabelText(/^Budget per billing period, /)).toBeNull();
-    expect(screen.getByRole('switch', { name: /Limit it/ })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: /Limit it/ })).toBeInactive();
     expect(
       screen.queryByRole('button', { name: 'Give extra to the whole organisation' })
     ).toBeNull();
@@ -240,7 +240,7 @@ describe('the group page', () => {
       await screen.findByRole('textbox', { name: 'Budget per billing period, tokens' })
     ).toBeVisible();
     expect(screen.queryByTestId('budget-separate-note')).toBeNull();
-    expect(screen.getByRole('switch', { name: /Limit it/ })).not.toBeDisabled();
+    expect(screen.getByRole('switch', { name: /Limit it/ })).not.toBeInactive();
     expect(
       screen.getByRole('button', { name: 'Give extra to the whole organisation' })
     ).toBeInTheDocument();
@@ -398,7 +398,7 @@ describe('the group page', () => {
       name: /^Give ≈ \$15\.00 \(.+ tokens\) extra · 3 days$/,
     });
     fireEvent.click(give);
-    await waitFor(() => expect(give).toBeDisabled());
+    await waitFor(() => expect(give).toBeInactive());
     fireEvent.click(give);
     expect(calls.giveExtra).toHaveLength(1);
   });
@@ -410,11 +410,11 @@ describe('the group page', () => {
     fireEvent.click(await screen.findByRole('checkbox', { name: 'Select Shop 1' }));
     const bar = within(screen.getByTestId('budget-bulk'));
     fireEvent.click(bar.getByRole('button', { name: 'Give extra' }));
-    await waitFor(() => expect(bar.getByRole('button', { name: 'Give extra' })).toBeDisabled());
+    await waitFor(() => expect(bar.getByRole('button', { name: 'Give extra' })).toBeInactive());
     fireEvent.click(bar.getByRole('button', { name: 'Give extra' }));
     expect(calls.giveExtra).toHaveLength(1);
     for (const name of ['Set limit', 'Remove limit', 'End extra (1)'])
-      expect(bar.getByRole('button', { name })).toBeDisabled();
+      expect(bar.getByRole('button', { name })).toBeInactive();
   });
 
   it('no budget: the own-limit slider is not capped at $1 and Set limit sends the value', async () => {
@@ -559,7 +559,7 @@ describe('BudgetGroupView, organisation mode', () => {
     expect(screen.queryByRole('button', { name: /Give \+/ })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Advanced' })).toBeNull();
     // The bulk limit is still theirs to change.
-    expect(screen.getByRole('switch', { name: /Limit it/ })).not.toBeDisabled();
+    expect(screen.getByRole('switch', { name: /Limit it/ })).not.toBeInactive();
   });
 
   it('the platform admin in the organisation console gets no editable budget (its PUT has none)', () => {
@@ -597,13 +597,13 @@ describe('an organisation switched to separate (F1)', () => {
     detail = groupDetail({ mode: separateMode, requests: [orgWideRequest, workspaceRequest] });
     renderGroup();
     const orgWide = await screen.findByTestId('budget-request-41');
-    expect(within(orgWide).getByRole('button', { name: 'Give' })).toBeDisabled();
-    expect(within(orgWide).getByRole('button', { name: 'Decline' })).toBeEnabled();
+    expect(within(orgWide).getByRole('button', { name: 'Give' })).toBeInactive();
+    expect(within(orgWide).getByRole('button', { name: 'Decline' })).not.toBeInactive();
     expect(within(orgWide).getByTestId('budget-request-41-blocked')).toHaveTextContent(
       /gives each workspace its own budget/
     );
     const perWorkspace = screen.getByTestId('budget-request-42');
-    expect(within(perWorkspace).getByRole('button', { name: 'Give' })).toBeEnabled();
+    expect(within(perWorkspace).getByRole('button', { name: 'Give' })).not.toBeInactive();
     // The group page knew the mode: no second read of the group for the request.
     expect(calls.getGroup).toEqual(['a:7']);
   });
@@ -615,7 +615,7 @@ describe('an organisation switched to separate (F1)', () => {
     });
     renderGroup();
     const orgWide = await screen.findByTestId('budget-request-41');
-    expect(within(orgWide).getByRole('button', { name: 'Give' })).toBeEnabled();
+    expect(within(orgWide).getByRole('button', { name: 'Give' })).not.toBeInactive();
     expect(within(orgWide).queryByTestId('budget-request-41-blocked')).toBeNull();
   });
 

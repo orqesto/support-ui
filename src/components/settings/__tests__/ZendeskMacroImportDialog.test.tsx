@@ -76,11 +76,11 @@ describe('ZendeskMacroImportDialog', () => {
     expect(statusOf('Take it').getByText('No reply text')).toBeInTheDocument();
     expect(statusOf('Take it').getByText('Not imported: assignee_id')).toBeInTheDocument();
     expect(statusOf('Old greeting').getByText('Inactive')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Import 2 templates' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Import 2 templates' })).not.toBeInactive();
 
     await user.click(screen.getByLabelText('Also import inactive macros (1)'));
     expect(statusOf('Old greeting').getByText('Ready')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Import 3 templates' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Import 3 templates' })).not.toBeInactive();
   });
 
   it('creates the ready macros as workspace templates and reports each result', async () => {

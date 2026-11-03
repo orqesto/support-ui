@@ -34,14 +34,14 @@ export type ResolveDecisionsProps = {
 // v3 ".act": outlined. ⛔ Nothing here is filled — Send owns the composer's right edge and is its
 // ONLY filled button, so a hand going for Send cannot land on Resolve.
 const ACT =
-  'inline-flex items-center gap-1.5 h-[27px] px-[11px] rounded-[7px] border border-border bg-card text-foreground text-[12px] whitespace-nowrap transition-colors disabled:opacity-50';
+  'inline-flex items-center gap-1.5 h-[27px] px-[11px] rounded-[7px] border border-border bg-card text-foreground text-[12px] whitespace-nowrap transition-colors data-[inactive]:opacity-50';
 // v4 mobile `.decide .on .act` / `.decide .q`: the Resolve pair share the row at 42px; the quiet
 // exits are 38px. Appended after ACT / QUIET, so these heights win.
 const PHONE_ACT = '!flex-1 !justify-center !h-[42px] !text-[13.5px]';
 const PHONE_QUIET = '!h-[38px] !text-[13px]';
 // v3 ".q": the quiet exits that are not "we answered it".
 const QUIET =
-  'inline-flex items-center gap-[5px] h-[27px] px-2 rounded-[7px] text-muted-foreground text-[12px] whitespace-nowrap transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50';
+  'inline-flex items-center gap-[5px] h-[27px] px-2 rounded-[7px] text-muted-foreground text-[12px] whitespace-nowrap transition-colors hover:bg-muted hover:text-foreground data-[inactive]:opacity-50';
 
 /**
  * The resolve decisions, under the reply — where the answer is written (design v3, 2026-09-23).

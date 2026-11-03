@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type * as KbServiceModule from '@/services/kb.service';
+import { isInactive } from '@/test/inactive';
 
 const state = vi.hoisted(() => ({
   canManageKb: true,
@@ -181,15 +182,13 @@ describe('knowledge base → Removed automatically', () => {
     // Every view of the row (table and mobile card) is disabled while the call runs.
     await waitFor(() =>
       expect(
-        screen
-          .getAllByRole('button', { name: 'Restore' })
-          .every((each) => each.hasAttribute('disabled'))
+        screen.getAllByRole('button', { name: 'Restore' }).every((each) => isInactive(each))
       ).toBe(true)
     );
     expect(state.restore).toHaveBeenCalledTimes(1);
     finish();
     await waitFor(() =>
-      expect(screen.getAllByRole('button', { name: 'Restore' })[0]).toBeEnabled()
+      expect(screen.getAllByRole('button', { name: 'Restore' })[0]).not.toBeInactive()
     );
     expect(state.restore).toHaveBeenCalledTimes(1);
   });

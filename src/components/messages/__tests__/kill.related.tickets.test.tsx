@@ -365,12 +365,12 @@ describe('Remove', () => {
     render(<Section tickets={ready([ticket(9), ticket(7)])} />);
     expect(removeButton(9)).toHaveTextContent(/^Remove$/);
     expect(removeButton(7)).toHaveTextContent(/^Remove$/);
-    expect(removeButton(9)).toBeEnabled();
+    expect(removeButton(9)).not.toBeInactive();
     fireEvent.click(removeButton(9));
     expect(removeButton(9)).toHaveTextContent(/^Removing…$/);
     expect(removeButton(7)).toHaveTextContent(/^Remove$/);
-    expect(removeButton(9)).toBeDisabled();
-    expect(removeButton(7)).toBeDisabled();
+    expect(removeButton(9)).toBeInactive();
+    expect(removeButton(7)).toBeInactive();
     await settle(() => req.resolve(undefined));
   });
 

@@ -129,7 +129,7 @@ describe('Managed AI defaults — Save and test', () => {
     openEditor();
 
     const button = screen.getByRole('button', { name: /save and test/i });
-    expect(button).not.toBeDisabled();
+    expect(button).not.toBeInactive();
     fireEvent.click(button);
 
     expect(saveMutation.mutate).toHaveBeenCalledTimes(1);
@@ -252,14 +252,14 @@ describe('Managed AI defaults — Save and test', () => {
     });
 
     const button = screen.getByRole('button', { name: /save and test/i });
-    expect(button).toBeDisabled();
+    expect(button).toBeInactive();
     fireEvent.click(button);
     expect(saveMutation.mutate).not.toHaveBeenCalled();
   });
 
   it('outside the editor stays a plain Test connection', () => {
     renderCard(bedrockAi());
-    expect(screen.getByRole('button', { name: /^test connection/i })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: /^test connection/i })).not.toBeInactive();
     expect(screen.queryByRole('button', { name: /save and test/i })).not.toBeInTheDocument();
   });
 });

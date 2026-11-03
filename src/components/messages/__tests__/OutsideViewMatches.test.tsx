@@ -299,7 +299,7 @@ describe('OutsideViewMatches', () => {
     rerender(section(state, vi.fn(), vi.fn(), 'r2'));
     answerMore(answer([thread(2, 'terminal', 'Second')], 30));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Show more/ })).not.toBeDisabled()
+      expect(screen.getByRole('button', { name: /Show more/ })).not.toBeInactive()
     );
   });
 

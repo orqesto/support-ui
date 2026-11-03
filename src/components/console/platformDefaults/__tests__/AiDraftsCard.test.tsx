@@ -78,7 +78,7 @@ describe('AiDraftsCard', () => {
     expect(seconds()).toHaveValue(90);
     expect(screen.getByText('Default')).toBeInTheDocument();
     expect(screen.getByText('Console')).toBeInTheDocument();
-    expect(save()).toBeDisabled();
+    expect(save()).toBeInactive();
   });
 
   it('saves only the field that changed, with PUT /settings/drafts', async () => {
@@ -117,11 +117,11 @@ describe('AiDraftsCard', () => {
     for (const bad of ['0.69', '1', '']) {
       fireEvent.change(similarity(), { target: { value: bad } });
       expect(screen.getByText('Enter a number from 0.7 to 0.99.')).toBeInTheDocument();
-      expect(save()).toBeDisabled();
+      expect(save()).toBeInactive();
     }
     // CONTROL: a bound itself is allowed.
     fireEvent.change(similarity(), { target: { value: '0.7' } });
-    expect(save()).toBeEnabled();
+    expect(save()).not.toBeInactive();
     expect(puts).toHaveLength(0);
   });
 
@@ -130,10 +130,10 @@ describe('AiDraftsCard', () => {
     for (const bad of ['29', '181', '']) {
       fireEvent.change(seconds(), { target: { value: bad } });
       expect(screen.getByText('Enter a number of seconds from 30 to 180.')).toBeInTheDocument();
-      expect(save()).toBeDisabled();
+      expect(save()).toBeInactive();
     }
     fireEvent.change(seconds(), { target: { value: '180' } });
-    expect(save()).toBeEnabled();
+    expect(save()).not.toBeInactive();
     expect(puts).toHaveLength(0);
   });
 

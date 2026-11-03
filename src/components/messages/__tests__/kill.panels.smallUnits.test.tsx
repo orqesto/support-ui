@@ -77,7 +77,7 @@ describe('CustomApiRecordInsert — the open panel', () => {
       if ((checkbox as HTMLInputElement).checked) await user.click(checkbox);
     }
     expect(container.querySelector('p.border-hair')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Add to my reply' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add to my reply' })).toBeInactive();
   });
 
   it('"Post or clear your internal note first" shows only for that outcome', async () => {

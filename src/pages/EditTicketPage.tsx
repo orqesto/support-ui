@@ -380,7 +380,7 @@ export const EditTicketPage = () => {
                               return next;
                             });
                           }}
-                          className={`inline-flex items-center px-2.5 py-1 h-auto rounded-full text-xs font-medium transition-opacity ${selected ? 'opacity-100 ring-2 ring-offset-1 ring-current' : 'opacity-40'} disabled:cursor-not-allowed`}
+                          className={`inline-flex items-center px-2.5 py-1 h-auto rounded-full text-xs font-medium transition-opacity ${selected ? 'opacity-100 ring-2 ring-offset-1 ring-current' : 'opacity-40'} data-[inactive]:cursor-not-allowed`}
                           style={solidChip(label.color)}
                         >
                           {label.name}

@@ -117,7 +117,7 @@ describe('Conflict tab — Dismiss', () => {
       />
     );
     fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Dismiss' })).not.toBeDisabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Dismiss' })).not.toBeInactive());
     expect(screen.getByText(/Earlier the customer confirmed/)).toBeInTheDocument();
   });
 

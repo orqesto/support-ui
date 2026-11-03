@@ -111,7 +111,10 @@ const evidence = (over: Partial<RoutingProposalEvidence> = {}): RoutingProposalE
   autoAccept: { mode: 'manual', eligibleInBalanced: true },
   ...over,
 });
-const suggestion = (suggestionType: string, payload: Record<string, unknown>): LearningSuggestion => ({
+const suggestion = (
+  suggestionType: string,
+  payload: Record<string, unknown>
+): LearningSuggestion => ({
   id: 77,
   domain: 'routing',
   suggestionType,
@@ -179,7 +182,12 @@ describe('helpers', () => {
     expect(replayLine(replay({ ratio: null, matches: 0, inDepartment: 0 }), 'Support')).toBe(
       'Would have matched no threads in the last 30 days'
     );
-    expect(replayLine(replay({ truncated: true, matches: 2000, inDepartment: 1900, ratio: 0.95 }), 'Support')).toBe(
+    expect(
+      replayLine(
+        replay({ truncated: true, matches: 2000, inDepartment: 1900, ratio: 0.95 }),
+        'Support'
+      )
+    ).toBe(
       'Would have matched at least 2000 threads in the last 30 days; 1900 went to Support (95 %)'
     );
     expect(replayLine(replay({ skipped: 2 }), 'Support')).toBe(
@@ -191,9 +199,15 @@ describe('helpers', () => {
   });
 
   it('supportLine: span only when both ends are known; a weighted count is never shown as a fraction', () => {
-    expect(supportLine(dept())).toBe('Routed there by people in your workspace 3 times — 2 agents over 9 days');
-    expect(supportLine(dept({ firstAt: null }))).toBe('Routed there by people in your workspace 3 times — 2 agents');
-    expect(supportLine(dept({ lastAt: null, agents: 0 }))).toBe('Routed there by people in your workspace 3 times');
+    expect(supportLine(dept())).toBe(
+      'Routed there by people in your workspace 3 times — 2 agents over 9 days'
+    );
+    expect(supportLine(dept({ firstAt: null }))).toBe(
+      'Routed there by people in your workspace 3 times — 2 agents'
+    );
+    expect(supportLine(dept({ lastAt: null, agents: 0 }))).toBe(
+      'Routed there by people in your workspace 3 times'
+    );
     expect(supportLine(dept({ supportCount: 1, agents: 1, lastAt: '2026-10-05T10:00:00Z' }))).toBe(
       'Routed there by people in your workspace 1 time — 1 agent over 1 day'
     );
@@ -206,16 +220,29 @@ describe('helpers', () => {
 describe('propose_rule card', () => {
   it('says what, how often, by whom, the estimate and the badge', async () => {
     renderCard(PROPOSE);
-    expect(screen.getByText('Route mail mentioning "pallet label" in the message to Support')).toBeTruthy();
-    expect(await screen.findByText('Routed there by people in your workspace 3 times — 2 agents over 9 days')).toBeTruthy();
     expect(
-      screen.getByText('Would have matched 14 threads in the last 30 days; 13 went to Support (93 %)')
+      screen.getByText('Route mail mentioning "pallet label" in the message to Support')
+    ).toBeTruthy();
+    expect(
+      await screen.findByText(
+        'Routed there by people in your workspace 3 times — 2 agents over 9 days'
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Would have matched 14 threads in the last 30 days; 13 went to Support (93 %)'
+      )
     ).toBeTruthy();
     expect(screen.getByText('Recommended')).toBeTruthy();
     expect(screen.getByText('also routed to Sales ×2')).toBeTruthy();
     expect(screen.getByText('Would be accepted automatically in Balanced mode')).toBeTruthy();
-    expect(screen.getByRole('link', { name: /SUP-5 · Pallet label missing/ }).getAttribute('href')).toBe('/threads/5');
-    const day = new Date('2026-10-14T09:00:00Z').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    expect(
+      screen.getByRole('link', { name: /SUP-5 · Pallet label missing/ }).getAttribute('href')
+    ).toBe('/threads/5');
+    const day = new Date('2026-10-14T09:00:00Z').toLocaleDateString(undefined, {
+      day: 'numeric',
+      month: 'short',
+    });
     expect(screen.getByText(`— Anna Weber, ${day}`)).toBeTruthy();
     expect(screen.getByText('+1 in teams you can’t see')).toBeTruthy();
   });
@@ -227,15 +254,31 @@ describe('propose_rule card', () => {
           firstAt: null,
           lastAt: null,
           conversations: [
-            { conversationId: 6, publicId: null, subject: null, departmentId: 1, routedBy: null, routedAt: null },
-            { conversationId: 7, publicId: 'SUP-7', subject: 'Crate dented', departmentId: 1, routedBy: { id: 9, name: 'Anna Weber' }, routedAt: null },
+            {
+              conversationId: 6,
+              publicId: null,
+              subject: null,
+              departmentId: 1,
+              routedBy: null,
+              routedAt: null,
+            },
+            {
+              conversationId: 7,
+              publicId: 'SUP-7',
+              subject: 'Crate dented',
+              departmentId: 1,
+              routedBy: { id: 9, name: 'Anna Weber' },
+              routedAt: null,
+            },
           ],
           replay: replay({ at: null }),
         }),
       ],
     });
     const { container } = renderCard(PROPOSE);
-    expect(await screen.findByText('Routed there by people in your workspace 3 times — 2 agents')).toBeTruthy();
+    expect(
+      await screen.findByText('Routed there by people in your workspace 3 times — 2 agents')
+    ).toBeTruthy();
     expect(screen.getByRole('link', { name: '#6 · (no subject)' })).toBeTruthy();
     // A row with a name but no time names the person only.
     expect(screen.getByText('— Anna Weber')).toBeTruthy();
@@ -248,7 +291,9 @@ describe('propose_rule card', () => {
     });
     renderCard(PROPOSE);
     expect(
-      await screen.findByText('Would have matched at least 14 threads in the last 30 days; 13 went to Support (93 %)')
+      await screen.findByText(
+        'Would have matched at least 14 threads in the last 30 days; 13 went to Support (93 %)'
+      )
     ).toBeTruthy();
     expect(screen.queryByText('Recommended')).toBeNull();
     expect(screen.queryByText('Review')).toBeNull();
@@ -256,12 +301,16 @@ describe('propose_rule card', () => {
   });
 
   it('the badge names the replay’s own recommendation', async () => {
-    impl.evidence = evidence({ departments: [dept({ replay: replay({ recommendation: 'review' }) })] });
+    impl.evidence = evidence({
+      departments: [dept({ replay: replay({ recommendation: 'review' }) })],
+    });
     renderCard(PROPOSE);
     expect(await screen.findByText('Review')).toBeTruthy();
     expect(screen.queryByText('Recommended')).toBeNull();
     cleanup();
-    impl.evidence = evidence({ departments: [dept({ replay: replay({ recommendation: 'not_recommended' }) })] });
+    impl.evidence = evidence({
+      departments: [dept({ replay: replay({ recommendation: 'not_recommended' }) })],
+    });
     renderCard(PROPOSE);
     expect(await screen.findByText('Not recommended')).toBeTruthy();
   });
@@ -293,7 +342,9 @@ describe('propose_rule card', () => {
   it('an older backend (no proposal evidence) still shows the card and its actions', async () => {
     impl.evidence = null;
     renderCard(PROPOSE);
-    expect(screen.getByText('Route mail mentioning "pallet label" in the message to Support')).toBeTruthy();
+    expect(
+      screen.getByText('Route mail mentioning "pallet label" in the message to Support')
+    ).toBeTruthy();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Accept' })).toBeTruthy());
     expect(screen.queryByText(/^Routed there by people in your workspace/)).toBeNull();
   });
@@ -314,12 +365,17 @@ describe('propose_rule card', () => {
     const err = await real409('This suggestion was already decided.');
     // The interceptor's own shape: a fresh Error with status/data copied, `.response` gone.
     expect(err).toBeInstanceOf(Error);
-    expect(err).toMatchObject({ status: 409, data: { success: false, error: 'This suggestion was already decided.' } });
+    expect(err).toMatchObject({
+      status: 409,
+      data: { success: false, error: 'This suggestion was already decided.' },
+    });
     expect((err as { response?: unknown }).response).toBeUndefined();
     impl.accept = () => Promise.reject(err as Error);
     renderCard(PROPOSE);
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
-    await waitFor(() => expect(props.onError).toHaveBeenCalledWith('This suggestion was already decided.'));
+    await waitFor(() =>
+      expect(props.onError).toHaveBeenCalledWith('This suggestion was already decided.')
+    );
     expect(props.onStale).toHaveBeenCalled();
     expect(props.onDone).not.toHaveBeenCalled();
   });
@@ -328,17 +384,21 @@ describe('propose_rule card', () => {
     impl.accept = () => Promise.reject(new Error('Network Error'));
     renderCard(PROPOSE);
     fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
-    await waitFor(() => expect(props.onError).toHaveBeenCalledWith('That did not work. Please try again.'));
+    await waitFor(() =>
+      expect(props.onError).toHaveBeenCalledWith('That did not work. Please try again.')
+    );
     expect(props.onStale).not.toHaveBeenCalled();
     expect(props.onDone).not.toHaveBeenCalled();
     // The card can be tried again.
-    expect(screen.getByRole('button', { name: 'Accept' })).toHaveProperty('disabled', false);
+    expect(screen.getByRole('button', { name: 'Accept' })).not.toBeInactive();
   });
 
   it('Decline takes an optional reason', async () => {
     renderCard(PROPOSE);
     fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
-    fireEvent.change(screen.getByLabelText('Reason (optional)'), { target: { value: '  too broad ' } });
+    fireEvent.change(screen.getByLabelText('Reason (optional)'), {
+      target: { value: '  too broad ' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Confirm decline' }));
     await waitFor(() => expect(calls.decline).toEqual([[77, 'too broad']]));
     expect(props.onDone).toHaveBeenCalledWith(77);
@@ -364,7 +424,9 @@ describe('propose_rule card', () => {
     renderCard(suggestion('propose_rule', { ...PROPOSE.payload, siblingRuleId: 12 }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect(screen.queryByText('Where to look')).toBeNull();
-    fireEvent.change(screen.getByLabelText('Keyword in the message'), { target: { value: 'pallet labels' } });
+    fireEvent.change(screen.getByLabelText('Keyword in the message'), {
+      target: { value: 'pallet labels' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Save and accept' }));
     await waitFor(() => expect(calls.accept).toEqual([[77]]));
     expect(calls.update).toEqual([[10, { value: 'pallet labels' }]]);
@@ -374,7 +436,9 @@ describe('propose_rule card', () => {
     renderCard(suggestion('propose_rule', { ...PROPOSE.payload, siblingRuleId: 12 }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     expect(screen.getByLabelText('Keyword in the message')).toBeTruthy();
-    expect(screen.getByText('The other keyword of this pair is edited on the Rules page.')).toBeTruthy();
+    expect(
+      screen.getByText('The other keyword of this pair is edited on the Rules page.')
+    ).toBeTruthy();
     cleanup();
     renderCard(PROPOSE);
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
@@ -383,21 +447,27 @@ describe('propose_rule card', () => {
   });
 
   it('a duplicate-rule 409 on a pair edit shows the message, goes stale and sends no second request', async () => {
-    const err = await real409('Editing this rule would duplicate another rule with the same type and value in this team');
+    const err = await real409(
+      'Editing this rule would duplicate another rule with the same type and value in this team'
+    );
     impl.update = () => Promise.reject(err as Error);
     renderCard(suggestion('propose_rule', { ...PROPOSE.payload, siblingRuleId: 12 }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save and accept' }));
-    await waitFor(() => expect(props.onError).toHaveBeenCalledWith(
+    await waitFor(() =>
+      expect(props.onError).toHaveBeenCalledWith(
         'Editing this rule would duplicate another rule with the same type and value in this team'
-      ));
+      )
+    );
     expect(props.onStale).toHaveBeenCalled();
     expect(calls.update).toHaveLength(1);
     expect(calls.accept).toEqual([]);
   });
 
   it('a refused edit does not accept', async () => {
-    const err = await real409('Editing this rule would duplicate another rule with the same type and value in this team');
+    const err = await real409(
+      'Editing this rule would duplicate another rule with the same type and value in this team'
+    );
     impl.update = () => Promise.reject(err as Error);
     renderCard(PROPOSE);
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
@@ -414,7 +484,7 @@ describe('propose_rule card', () => {
     renderCard(PROPOSE, { canAct: false });
     await evidenceLoaded();
     for (const name of ['Accept', 'Edit', 'Decline']) {
-      expect(screen.getByRole('button', { name })).toHaveProperty('disabled', true);
+      expect(screen.getByRole('button', { name })).toBeInactive();
     }
   });
 });
@@ -423,14 +493,29 @@ describe('disagreement card', () => {
   it('lists each team with its evidence and picks one or Neither', async () => {
     impl.evidence = evidence({
       kind: 'resolve_routing_disagreement',
-      departments: [dept(), dept({ departmentId: 2, ruleId: 11, supportCount: 1, agents: 1, conversations: [], contradictions: [], redactedCount: 0 })],
+      departments: [
+        dept(),
+        dept({
+          departmentId: 2,
+          ruleId: 11,
+          supportCount: 1,
+          agents: 1,
+          conversations: [],
+          contradictions: [],
+          redactedCount: 0,
+        }),
+      ],
       autoAccept: { mode: 'manual', eligibleInBalanced: true },
     });
     renderCard(DISAGREE);
     expect(screen.getByText('Agents disagree where "crate" mail goes')).toBeTruthy();
     expect(screen.getByText('Support — 2 threads')).toBeTruthy();
     expect(screen.getByText('Sales — 1 thread')).toBeTruthy();
-    expect(await screen.findByText('Routed there by people in your workspace 1 time — 1 agent over 9 days')).toBeTruthy();
+    expect(
+      await screen.findByText(
+        'Routed there by people in your workspace 1 time — 1 agent over 9 days'
+      )
+    ).toBeTruthy();
     // A disagreement is never auto-accepted, whatever the evidence says.
     expect(screen.queryByText('Would be accepted automatically in Balanced mode')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Sales' }));
@@ -448,7 +533,9 @@ describe('confirm_learned_rule card', () => {
     renderCard(CONFIRM);
     expect(screen.getByText('Keep this learned rule?')).toBeTruthy();
     expect(
-      screen.getByText('Mail mentioning "loading dock" in the message routes to Support. It keeps routing until you decide.')
+      screen.getByText(
+        'Mail mentioning "loading dock" in the message routes to Support. It keeps routing until you decide.'
+      )
     ).toBeTruthy();
     await evidenceLoaded();
     expect(screen.queryByText('Would be accepted automatically in Balanced mode')).toBeNull();
@@ -464,34 +551,47 @@ describe('subject/body pair wording', () => {
   const pairEvidence = (type: string) =>
     evidence({
       kind: type as RoutingProposalEvidence['kind'],
-      departments: [dept({ sibling: { ruleId: 12, type: 'subject_contains', value: 'label missing' } })],
+      departments: [
+        dept({ sibling: { ruleId: 12, type: 'subject_contains', value: 'label missing' } }),
+      ],
     });
 
   it('propose card names both keywords and says the two rules switch on together', async () => {
     impl.evidence = pairEvidence('propose_rule');
     renderCard(suggestion('propose_rule', PAIR));
     expect(
-      await screen.findByText('Route mail mentioning "pallet label" in the message or "label missing" in the subject, to Support')
+      await screen.findByText(
+        'Route mail mentioning "pallet label" in the message or "label missing" in the subject, to Support'
+      )
     ).toBeTruthy();
-    expect(screen.getByText('Two rules that switch on together; Accept turns on both.')).toBeTruthy();
+    expect(
+      screen.getByText('Two rules that switch on together; Accept turns on both.')
+    ).toBeTruthy();
   });
 
   it('confirm card names both keywords and says Keep / Switch off act on both', async () => {
     impl.evidence = pairEvidence('confirm_learned_rule');
     renderCard(suggestion('confirm_learned_rule', { ...CONFIRM.payload, siblingRuleId: 12 }));
     expect(
-      await screen.findByText(/Mail mentioning "loading dock" in the message or "label missing" in the subject routes to Support\..*Keep and Switch off act on both\./)
+      await screen.findByText(
+        /Mail mentioning "loading dock" in the message or "label missing" in the subject routes to Support\..*Keep and Switch off act on both\./
+      )
     ).toBeTruthy();
   });
 
   it('a disagreement option with a sibling names its second keyword', async () => {
     impl.evidence = evidence({
       kind: 'resolve_routing_disagreement',
-      departments: [dept({ sibling: { ruleId: 12, type: 'subject_contains', value: 'label missing' } }), dept({ departmentId: 2, ruleId: 11 })],
+      departments: [
+        dept({ sibling: { ruleId: 12, type: 'subject_contains', value: 'label missing' } }),
+        dept({ departmentId: 2, ruleId: 11 }),
+      ],
     });
     renderCard(DISAGREE);
     expect(
-      await screen.findAllByText('Two rules switch on together: mail with "label missing" in the subject also goes there.')
+      await screen.findAllByText(
+        'Two rules switch on together: mail with "label missing" in the subject also goes there.'
+      )
     ).toHaveLength(1);
   });
 
@@ -502,22 +602,27 @@ describe('subject/body pair wording', () => {
   it.each([
     ['still loading', pending],
     ['failed to load', failing],
-  ])('propose card with siblingRuleId and evidence %s: shows the note, Accept stays enabled', async (_label, call) => {
-    impl.evidenceCall = call;
-    renderCard(suggestion('propose_rule', PAIR));
-    expect(await screen.findByText(NOTE)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Accept' })).toHaveProperty('disabled', false);
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    expect(screen.getByLabelText('Keyword in the message')).toBeTruthy();
-  });
+  ])(
+    'propose card with siblingRuleId and evidence %s: shows the note, Accept stays enabled',
+    async (_label, call) => {
+      impl.evidenceCall = call;
+      renderCard(suggestion('propose_rule', PAIR));
+      expect(await screen.findByText(NOTE)).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Accept' })).not.toBeInactive();
+      fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+      expect(screen.getByLabelText('Keyword in the message')).toBeTruthy();
+    }
+  );
 
   it('confirm card and disagreement option carry the note while evidence is missing', async () => {
     impl.evidenceCall = failing;
     renderCard(suggestion('confirm_learned_rule', { ...CONFIRM.payload, siblingRuleId: 12 }));
     expect(
-      await screen.findByText('This is one of two rules (the other matches the subject); Keep and Switch off act on both.')
+      await screen.findByText(
+        'This is one of two rules (the other matches the subject); Keep and Switch off act on both.'
+      )
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Keep' })).toHaveProperty('disabled', false);
+    expect(screen.getByRole('button', { name: 'Keep' })).not.toBeInactive();
     cleanup();
     renderCard(
       suggestion('resolve_routing_disagreement', {
@@ -529,7 +634,9 @@ describe('subject/body pair wording', () => {
       })
     );
     expect(
-      await screen.findAllByText('This is one of two rules (the other matches the subject); picking it turns on both.')
+      await screen.findAllByText(
+        'This is one of two rules (the other matches the subject); picking it turns on both.'
+      )
     ).toHaveLength(1);
   });
 
@@ -545,13 +652,17 @@ describe('subject/body pair wording', () => {
   it('a single rule shows no "and" wording, and an old BE (sibling absent) renders like single', async () => {
     renderCard(PROPOSE);
     await evidenceLoaded();
-    expect(screen.getByText('Route mail mentioning "pallet label" in the message to Support')).toBeTruthy();
+    expect(
+      screen.getByText('Route mail mentioning "pallet label" in the message to Support')
+    ).toBeTruthy();
     expect(screen.queryByText(/switch on together/)).toBeNull();
     cleanup();
     const { sibling: _gone, ...oldDept } = dept();
     impl.evidence = evidence({ departments: [oldDept as ProposalDepartmentEvidence] });
     renderCard(PROPOSE);
     await evidenceLoaded();
-    expect(screen.getByText('Route mail mentioning "pallet label" in the message to Support')).toBeTruthy();
+    expect(
+      screen.getByText('Route mail mentioning "pallet label" in the message to Support')
+    ).toBeTruthy();
   });
 });

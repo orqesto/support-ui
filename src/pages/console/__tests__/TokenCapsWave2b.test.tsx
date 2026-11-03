@@ -114,10 +114,10 @@ describe('rules card: the shares the catch-up and the console now use', () => {
     wrap(<TokenLimitRulesCard rules={RULES} />);
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     type(/Near-limit warning at/, '100');
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' })).toBeInactive();
     type(/Near-limit warning at/, '99');
     type(/AI catch-up runs while spend is under/, '0');
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' })).toBeInactive();
   });
 
   it('digits only: 1e6, 0x10 and 1,0,0,0 are refused; CONTROL 2,000,000 is accepted', async () => {
@@ -125,7 +125,7 @@ describe('rules card: the shares the catch-up and the console now use', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     for (const bad of ['1e6', '0x10', '1,0,0,0', '2.5']) {
       type(/Lowest KB limit/, bad);
-      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
+      expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' })).toBeInactive();
     }
     type(/Lowest KB limit/, '2,000,000');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));

@@ -102,6 +102,9 @@ export const MergeConfirmDialog = ({
   const radioRefs = useRef(new Map<number, HTMLButtonElement>());
   const tabStopId = survivor?.id ?? rows[0]?.id ?? null;
   const onRadioKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    // While merging, the radios are aria-disabled but still focusable: the choice must not move
+    // (a conflict retry reads it).
+    if (busy) return;
     const count = rows.length;
     if (count === 0) return;
     let next: number;

@@ -447,7 +447,7 @@ export const OutsideViewMatches = ({
     const nextPage = page + 1;
     moreSeq.current += 1;
     const seq = moreSeq.current;
-    // (A press while one is out is ignored, so there is never an earlier one to abort here.)
+    // (Button cancels a press while one is out, so there is never an earlier one to abort here.)
     const moreController = new AbortController();
     moreAbort.current = moreController;
     setLoadingMore(true);
@@ -634,22 +634,13 @@ export const OutsideViewMatches = ({
               Could not load more — try again.
             </Typography>
           )}
-          {/* Not `disabled` while loading: a browser moves focus off a focused button that turns
-              disabled (Chrome 156 measured on staging: to <body>, and it does not come back), so
-              every keyboard Show more lost focus. aria-disabled, and a press while one is out is
-              ignored (2026-11-03). */}
+          {/* While loading, Button keeps it focusable (aria-disabled, not `disabled`) and
+              cancels a press: keyboard focus stays on it (staging, Chrome, 2026-11-03). */}
           <Button
             variant="outline"
             size="sm"
             isLoading={loadingMore}
-            disabled={false}
-            aria-disabled={loadingMore}
-            // The look `disabled` gives every other loading Button (dimmed, no hover or clicks),
-            // without the focus loss.
-            className={loadingMore ? 'opacity-50 pointer-events-none' : undefined}
-            onClick={() => {
-              if (!loadingMore) void loadMore();
-            }}
+            onClick={() => void loadMore()}
           >
             Show more
             {totalCapped ? '' : ` (${(total - rows.length).toLocaleString()})`}

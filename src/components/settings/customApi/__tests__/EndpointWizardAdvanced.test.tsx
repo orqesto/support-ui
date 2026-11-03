@@ -227,7 +227,7 @@ describe('advanced request settings (2026-09-29)', () => {
     await user.click(screen.getByLabelText(/Request body/i));
     await user.paste('{"id": {value}}');
     expect(screen.getByText(/not valid JSON/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Test' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Test' })).toBeInactive();
   });
 
   it('EDIT → Save carries the settings too (the second write payload), keeping what was stored', async () => {

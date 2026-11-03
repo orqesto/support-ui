@@ -172,7 +172,7 @@ describe('contingency page', () => {
       screen.getByRole('button', {
         name: 'customer-12@example.com’s thread received an update and cannot be removed',
       })
-    ).toBeDisabled();
+    ).toBeInactive();
     // ⛔ and no working Remove for it anywhere on the row.
     expect(
       screen.queryByRole('button', {
@@ -184,7 +184,7 @@ describe('contingency page', () => {
       screen.getByRole('button', {
         name: 'Remove customer-14@example.com’s thread from this ticket',
       })
-    ).toBeEnabled();
+    ).not.toBeInactive();
     expect(screen.getByText('updated')).toBeInTheDocument();
   });
 
@@ -228,7 +228,7 @@ describe('contingency page', () => {
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: 'Send & put on hold' });
     // No reason yet: nothing can be sent.
-    expect(confirm).toBeDisabled();
+    expect(confirm).toBeInactive();
     await user.type(within(dialog).getByLabelText('Reason'), 'Awaiting customs');
     await user.click(confirm);
     await waitFor(() => expect(send).toHaveBeenCalled());
@@ -380,9 +380,9 @@ describe('contingency page', () => {
     ready([thread(11, { status: 'resolved' }), thread(12, { status: 'closed' })]);
     renderTicket();
     expect(await screen.findByText(/Every linked thread is resolved/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Send to/ })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /AI draft/ })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Attach' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Send to/ })).toBeInactive();
+    expect(screen.getByRole('button', { name: /AI draft/ })).toBeInactive();
+    expect(screen.getByRole('button', { name: 'Attach' })).toBeInactive();
   });
 
   it('"Sending to N threads…" goes once the deliveries it started have finished', async () => {

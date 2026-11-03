@@ -155,7 +155,7 @@ describe('TeamsOffDialog — raw backend preview through the service', () => {
     expect(within(dialog).getByText(/2 people are added to General team/)).toBeTruthy();
     expect(within(dialog).getByText(/Lead qualification will run on General team/)).toBeTruthy();
     typeName(dialog);
-    expect(within(dialog).getByRole('button', { name: 'Switch teams off' })).not.toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Switch teams off' })).not.toBeInactive();
   });
 
   it('lists Threads, Open threads, Tickets first, and the warning keeps "AI" upper case', async () => {
@@ -199,7 +199,7 @@ describe('TeamsOffDialog — raw backend preview through the service', () => {
     expect(line.textContent).toContain(
       "Its tickets will then sync through General team's connection."
     );
-    expect(within(dialog).getByRole('button', { name: 'Switch teams off' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Switch teams off' })).toBeInactive();
   });
 });
 
@@ -278,17 +278,17 @@ describe('TeamsOffDialog — type the workspace name to confirm', () => {
   it('shows the name in bold and keeps the button disabled until it matches', async () => {
     const { dialog } = await open();
     expect(within(dialog).getByText('Acme Workspace').tagName).toBe('STRONG');
-    expect(button(dialog)).toBeDisabled();
+    expect(button(dialog)).toBeInactive();
     typeName(dialog, 'Acme Workspac');
-    expect(button(dialog)).toBeDisabled();
+    expect(button(dialog)).toBeInactive();
     typeName(dialog, 'Acme Workspace');
-    expect(button(dialog)).not.toBeDisabled();
+    expect(button(dialog)).not.toBeInactive();
   });
 
   it('matches ignoring surrounding whitespace and letter case', async () => {
     const { dialog } = await open();
     typeName(dialog, '  acme WORKSPACE  ');
-    expect(button(dialog)).not.toBeDisabled();
+    expect(button(dialog)).not.toBeInactive();
   });
 
   it('Enter submits only when the button is enabled', async () => {
@@ -313,7 +313,7 @@ describe('TeamsOffDialog — type the workspace name to confirm', () => {
     const dialog = await screen.findByRole('dialog');
     await within(dialog).findByText(/Teams can’t be switched off yet/);
     typeName(dialog);
-    expect(button(dialog)).toBeDisabled();
+    expect(button(dialog)).toBeInactive();
   });
 
   it('the typed text is cleared when the dialog is reopened', async () => {
@@ -323,12 +323,12 @@ describe('TeamsOffDialog — type the workspace name to confirm', () => {
     let dialog = await screen.findByRole('dialog');
     await within(dialog).findByText(/1 team will be merged/);
     typeName(dialog);
-    expect(button(dialog)).not.toBeDisabled();
+    expect(button(dialog)).not.toBeInactive();
     view.rerender(<TeamsOffDialog open={false} {...props} />);
     view.rerender(<TeamsOffDialog open {...props} />);
     dialog = await screen.findByRole('dialog');
     await within(dialog).findByText(/1 team will be merged/);
     expect(within(dialog).getByLabelText(/To confirm, type the workspace name/)).toHaveValue('');
-    expect(button(dialog)).toBeDisabled();
+    expect(button(dialog)).toBeInactive();
   });
 });

@@ -125,7 +125,9 @@ describe('KbEntryVersions', () => {
     expect(within(rows[0]).queryByRole('button', { name: 'Restore this version' })).toBeNull();
     expect(within(rows[3]).getByText('Text removed (personal data)')).toBeInTheDocument();
     expect(within(rows[3]).queryByRole('button', { name: 'Restore this version' })).toBeNull();
-    expect(within(rows[2]).getByRole('button', { name: 'Restore this version' })).toBeEnabled();
+    expect(
+      within(rows[2]).getByRole('button', { name: 'Restore this version' })
+    ).not.toBeInactive();
   });
 
   it('version restore refusal offers restore-with-later', async () => {

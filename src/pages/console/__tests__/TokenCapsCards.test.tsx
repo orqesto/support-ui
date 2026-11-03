@@ -117,7 +117,7 @@ describe('MonthlyLimitsCard', () => {
     wrap(<MonthlyLimitsCard caps={{ alliances: [] }} kbMin={1_000_000} />);
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     type(/KB processing/, '10');
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' })).toBeInactive();
     type(/KB processing/, '');
     type(/Regular work/, '0');
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -155,7 +155,7 @@ describe('TokenLimitRulesCard', () => {
     wrap(<TokenLimitRulesCard rules={RULES} />);
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     type(/Re-check a monthly or organisation pause/, '2');
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' })).toBeInactive();
     expect(screen.getByText(/between 5 and 1,440/)).toBeTruthy();
   });
 
@@ -268,7 +268,7 @@ describe('review M2: the daily forms use the console KB minimum (rules), not the
     );
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     type(/KB processing/, '1500000');
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' })).toBeInactive();
     expect(screen.getAllByText(/2,000,000/).length).toBeGreaterThan(0);
   });
 });
@@ -295,9 +295,7 @@ describe('pass 2 m2: the workspace monthly section when the caps could not be re
     );
     expect(screen.queryByText(/No monthly limit/)).toBeNull();
     expect(screen.getAllByText(/unknown/).length).toBeGreaterThan(0);
-    expect(
-      screen.getByRole<HTMLButtonElement>('button', { name: 'Save monthly limits' }).disabled
-    ).toBe(true);
+    expect(screen.getByRole('button', { name: 'Save monthly limits' })).toBeInactive();
   });
 });
 
@@ -326,9 +324,9 @@ describe('pass 4: a saved KB value under a RAISED minimum does not lock the othe
     );
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     type(/Regular work/, '9000000');
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(false);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' })).not.toBeInactive();
     type(/KB processing/, '3000000');
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' })).toBeInactive();
     cleanup();
     const pool = {
       id: 3,
@@ -341,7 +339,7 @@ describe('pass 4: a saved KB value under a RAISED minimum does not lock the othe
     wrap(<AlliancePoolsCard caps={{ alliances: [pool] }} kbMin={5_000_000} />);
     fireEvent.click(screen.getByRole('button', { name: 'Edit North Group' }));
     type(/Regular work per month/, '9000000');
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' }).disabled).toBe(false);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Save' })).not.toBeInactive();
   });
 });
 

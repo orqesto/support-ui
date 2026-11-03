@@ -23,6 +23,7 @@ import {
   routeGet,
   uploadingRun,
 } from './zendeskImportFixtures';
+import { isInactive } from '@/test/inactive';
 
 const get = vi.fn();
 const post = vi.fn();
@@ -365,8 +366,7 @@ describe('ZendeskImportSettings — runs that are not simply "previewed"', () =>
     expect(put).toHaveBeenLastCalledWith('/api/imports/zendesk/runs/5/options', {
       groupDepartments: { Orders: 1 },
     });
-    const infoLocked = () =>
-      screen.getByRole('combobox', { name: 'Team for Info' }).hasAttribute('disabled');
+    const infoLocked = () => isInactive(screen.getByRole('combobox', { name: 'Team for Info' }));
     expect(infoLocked()).toBe(true);
 
     act(() => {
@@ -460,7 +460,8 @@ describe('ZendeskImportSettings — an agent with no Odly account under that add
       agentUsers: { 'nobody@shop.example': 21 },
     });
     // CONTROL: kurt@ has an Odly account by that address — nothing to choose.
-    expect(screen.queryByRole('combobox', { name: 'Odly person for kurt@shop.example' })).toBeNull();
+    expect(
+      screen.queryByRole('combobox', { name: 'Odly person for kurt@shop.example' })
+    ).toBeNull();
   });
 });
-

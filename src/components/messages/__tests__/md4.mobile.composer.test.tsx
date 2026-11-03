@@ -377,9 +377,9 @@ describe('M7 — AI draft on a phone', () => {
     svc.message.composeReply = vi.fn(() => new Promise(() => {}));
     render(<MessageComposer {...props()} composer="<p>refund issued</p>" />);
     const send = () => within(composer()).getByRole('button', { name: /send/i });
-    expect((send() as HTMLButtonElement).disabled).toBe(false);
+    expect(send()).not.toBeInactive();
     fireEvent.click(aiButton());
-    expect((send() as HTMLButtonElement).disabled).toBe(true);
+    expect(send()).toBeInactive();
   });
 
   it('CONTROL desktop: AI draft drafts at once — there is no panel to open', () => {

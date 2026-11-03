@@ -12,6 +12,7 @@ import type {
 import type { AlertState } from '@/components/settings/integrations/types';
 import { useProcessingPanelStore } from '@/stores/processingPanelStore';
 import { useAuthStore } from '@/stores/authStore';
+import { isInactive } from '@/test/inactive';
 
 /** Plain functions, not module-level vi.fn (a rejection from one fails the test even when caught). */
 let handler: (id: number, body: KbRangeRequest) => Promise<KbRangeResult> = () =>
@@ -237,7 +238,7 @@ describe('KbHistoryRangeDialog', () => {
     const select = (await ready()) as HTMLSelectElement;
     expect(select.value).toBe('90');
     const current = screen.getByRole('option', { name: /365 days.*above your plan/ });
-    expect((current as HTMLOptionElement).disabled).toBe(true);
+    expect(current).toBeInactive();
   });
 
   it('blocked source: shows the reason, no intro, Check disabled', async () => {
@@ -249,7 +250,7 @@ describe('KbHistoryRangeDialog', () => {
     mount();
     await screen.findByText('Mining is off for this mailbox: verbatim.');
     expect(screen.queryByText(/mining threads received before/)).toBeNull();
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Check' }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Check' })).toBeInactive();
   });
 
   it("type 'other' skips the intro", async () => {
@@ -340,7 +341,7 @@ describe('KbHistoryRangeDialog', () => {
     const confirm = await screen.findByRole('button', { name: /^Read / });
     fireEvent.click(confirm);
     await waitFor(() => expect(calls.filter((body) => body.apply)).toHaveLength(1));
-    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+    expect(isInactive(confirm)).toBe(true);
     fireEvent.click(confirm);
     expect(calls.filter((body) => body.apply)).toHaveLength(1);
     await act(() => Promise.resolve(finish(applied())));
@@ -398,7 +399,7 @@ describe('KbHistoryRangeDialog', () => {
     selectDays('90');
     check();
     const button = screen.getByRole<HTMLButtonElement>('button', { name: 'Check' });
-    expect(button.disabled).toBe(true);
+    expect(button).toBeInactive();
     fireEvent.click(button);
     fireEvent.click(button);
     expect(calls.filter(isDry)).toHaveLength(1);
@@ -429,7 +430,7 @@ describe('KbHistoryRangeDialog', () => {
     });
     expect(screen.queryByText(/449 messages/)).toBeNull();
     // the count has settled, so Check works again for the new selection
-    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Check' }).disabled).toBe(false);
+    expect(screen.getByRole<HTMLButtonElement>('button', { name: 'Check' })).not.toBeInactive();
   });
 
   it('error texts: 403 / 404 with code / 404 without code / 409 / 5xx unknown', async () => {
@@ -560,7 +561,12 @@ describe('KbHistoryRangeDialog', () => {
     expect(calls[calls.length - 1]).toEqual({
       days: 90,
       apply: true,
-      estimate: { historyToFetch: 382, recentToFetch: 3, estimatedTokens: 327000, estimatedMicros: 1_300_000 },
+      estimate: {
+        historyToFetch: 382,
+        recentToFetch: 3,
+        estimatedTokens: 327000,
+        estimatedMicros: 1_300_000,
+      },
     });
     expect(useProcessingPanelStore.getState().opened[5]).toMatchObject({ reason: 'manual' });
     expect(onShowAlert.mock.calls[0][0]).toMatchObject({
@@ -647,7 +653,15 @@ describe('KbHistoryRangeDialog', () => {
   it('G14: F4 caveat for Gmail only; allowance warning when short', async () => {
     handler = defaultHandler(
       policy(),
-      dry({ days: 0, aiAllowance: { bulkMicrosLeft: 3_200_000, estimatedMicros: 9_000_000, estimatedCalls: 360, short: true } })
+      dry({
+        days: 0,
+        aiAllowance: {
+          bulkMicrosLeft: 3_200_000,
+          estimatedMicros: 9_000_000,
+          estimatedCalls: 360,
+          short: true,
+        },
+      })
     );
     useAuthStore.setState({
       user: { role: 'user', organizationRole: 'org_admin' } as never,
@@ -657,7 +671,9 @@ describe('KbHistoryRangeDialog', () => {
     selectDays('0');
     check();
     await screen.findByText(/Also re-checks mail since the cutoff/);
-    expect(screen.getByText(/≈ \$3\.20 of this period's AI allowance left for history import/)).toBeTruthy();
+    expect(
+      screen.getByText(/≈ \$3\.20 of this period's AI allowance left for history import/)
+    ).toBeTruthy();
     cleanup();
     // An agent reads the same dialog without a dollar sign.
     useAuthStore.setState({ user: { role: 'user', organizationRole: 'support' } as never });
@@ -760,7 +776,9 @@ describe('Google rejected the stored sign-in (MAILBOX_SIGN_IN)', () => {
       />
     );
   const signInRejected = () =>
-    Promise.reject(err(400, 'MAILBOX_SIGN_IN', 'Google rejected the stored sign-in. Reconnect it.'));
+    Promise.reject(
+      err(400, 'MAILBOX_SIGN_IN', 'Google rejected the stored sign-in. Reconnect it.')
+    );
 
   it('a Gmail mailbox gets Reconnect next to the message, and it calls the card', async () => {
     handler = signInRejected;

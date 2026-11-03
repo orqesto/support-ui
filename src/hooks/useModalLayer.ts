@@ -57,7 +57,12 @@ export const useModalLayer = (
     const inside = (node: Node | null): boolean => node !== null && root.contains(node);
     const initial = optionsRef.current.initialFocus ?? 'container';
     if (initial !== 'none' && !inside(document.activeElement)) {
-      const target = initial === 'first' ? (focusableIn(root)[0] ?? root) : root;
+      // First control IN USE: a disabled Button is aria-disabled and focusable (a Tab stop), but
+      // the dialog should not open on it.
+      const target =
+        initial === 'first'
+          ? (focusableIn(root).find((el) => el.getAttribute('aria-disabled') !== 'true') ?? root)
+          : root;
       target.focus({ preventScroll: true });
     }
 

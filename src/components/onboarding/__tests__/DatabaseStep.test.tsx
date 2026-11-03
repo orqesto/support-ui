@@ -3,14 +3,19 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/re
 import { DatabaseStep } from '../steps/DatabaseStep';
 import type { DatabaseDisplay } from '@/services/database.service';
 
-const get = vi.fn(() =>
-  Promise.resolve({ data: { success: true, data: managed() } })
-);
+const get = vi.fn(() => Promise.resolve({ data: { success: true, data: managed() } }));
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { get: (...args: unknown[]) => get(...(args as [])), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
+  apiClient: {
+    get: (...args: unknown[]) => get(...(args as [])),
+    post: vi.fn(),
+    put: vi.fn(),
+    delete: vi.fn(),
+  },
 }));
 vi.mock('@/lib/toast', () => ({ toast: { error: vi.fn(), success: vi.fn(), failure: vi.fn() } }));
-vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => ({ hasPermission: () => true }) }));
+vi.mock('@/hooks/usePermissions', () => ({
+  usePermissions: () => ({ hasPermission: () => true }),
+}));
 
 const managed = (over: Partial<DatabaseDisplay> = {}): DatabaseDisplay => ({
   mode: 'managed',
@@ -40,18 +45,29 @@ afterEach(() => {
 describe('DatabaseStep', () => {
   it('disables the managed card with the reason when the workspace is not entitled to it', () => {
     const onChoose = vi.fn();
-    render(<DatabaseStep value={undefined} onChoose={onChoose} managedAllowed={false} current={managed()} />);
+    render(
+      <DatabaseStep
+        value={undefined}
+        onChoose={onChoose}
+        managedAllowed={false}
+        current={managed()}
+      />
+    );
 
     const managedCard = screen.getByTestId('database-choice-managed');
-    expect(managedCard).toBeDisabled();
-    expect(screen.getByText(/The managed database needs an active plan — Free included/)).toBeInTheDocument();
+    expect(managedCard).toBeInactive();
+    expect(
+      screen.getByText(/The managed database needs an active plan — Free included/)
+    ).toBeInTheDocument();
     fireEvent.click(managedCard);
     expect(onChoose).not.toHaveBeenCalled();
   });
 
   it('offers the managed card to an entitled workspace', () => {
     const onChoose = vi.fn();
-    render(<DatabaseStep value={undefined} onChoose={onChoose} managedAllowed current={managed()} />);
+    render(
+      <DatabaseStep value={undefined} onChoose={onChoose} managedAllowed current={managed()} />
+    );
 
     fireEvent.click(screen.getByTestId('database-choice-managed'));
     expect(onChoose).toHaveBeenCalledWith('managed');
@@ -73,7 +89,11 @@ describe('DatabaseStep', () => {
         value={undefined}
         onChoose={onChoose}
         managedAllowed={false}
-        current={managed({ mode: 'own', source: 'customer', hostMasked: 'postgres://…@db.example.com:5432/odly' })}
+        current={managed({
+          mode: 'own',
+          source: 'customer',
+          hostMasked: 'postgres://…@db.example.com:5432/odly',
+        })}
       />
     );
     expect(onChoose).toHaveBeenCalledWith('own');
@@ -89,6 +109,8 @@ describe('DatabaseStep', () => {
         choiceError="This workspace has no active plan — choose one, or connect your own Postgres."
       />
     );
-    expect(screen.getByTestId('database-choice-error')).toHaveTextContent(/choose one, or connect your own Postgres/);
+    expect(screen.getByTestId('database-choice-error')).toHaveTextContent(
+      /choose one, or connect your own Postgres/
+    );
   });
 });

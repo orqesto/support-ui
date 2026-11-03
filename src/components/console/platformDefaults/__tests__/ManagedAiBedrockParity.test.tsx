@@ -93,7 +93,7 @@ describe('Managed AI Defaults — testing while editing', () => {
     renderEditing();
     await switchToBedrock();
     expect(screen.queryByRole('button', { name: /^test connection/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /save and test/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /save and test/i })).not.toBeInactive();
     expect(screen.getByText(/Save and test stores this draft/)).toHaveTextContent(
       /managed traffic stays on OpenAI/
     );
@@ -101,7 +101,7 @@ describe('Managed AI Defaults — testing while editing', () => {
 
   it('CONTROL: Test connection on the read-only view', () => {
     render(<ManagedAiDefaultsCard ai={settings.ai} secrets={settings.secrets} />);
-    expect(screen.getByRole('button', { name: /^test connection/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /^test connection/i })).not.toBeInactive();
     expect(screen.queryByText(/Save and test stores this draft/)).not.toBeInTheDocument();
   });
 });
@@ -131,13 +131,13 @@ describe('Managed AI Defaults — Bedrock parity with the workspace card', () =>
     backendVersionData = { bedrockInstanceProfile: false };
     renderEditing();
     await switchToBedrock();
-    expect(screen.getByRole('switch')).toBeDisabled();
+    expect(screen.getByRole('switch')).toBeInactive();
     expect(screen.getByText(/Not available on this deployment/)).toBeInTheDocument();
     cleanup();
     backendVersionData = { bedrockInstanceProfile: true };
     renderEditing();
     await switchToBedrock();
-    expect(screen.getByRole('switch')).toBeEnabled();
+    expect(screen.getByRole('switch')).not.toBeInactive();
     expect(screen.queryByText(/Not available on this deployment/)).not.toBeInTheDocument();
   });
 
@@ -149,7 +149,7 @@ describe('Managed AI Defaults — Bedrock parity with the workspace card', () =>
     renderEditing();
     await switchToBedrock();
     const toggle = screen.getByRole('switch');
-    expect(toggle).toBeEnabled();
+    expect(toggle).not.toBeInactive();
     expect(screen.queryByText(/Not available on this deployment/)).not.toBeInTheDocument();
     fireEvent.click(toggle);
     fireEvent.click(screen.getByRole('button', { name: /save ai defaults/i }));

@@ -96,7 +96,7 @@ describe('SSO settings — Require SSO (enforceSsoOnly)', () => {
 
   it('cannot be switched on while SSO itself is off (it would have nothing to enforce through)', async () => {
     const box = await renderLoaded(baseConfig({ enabled: false, enforceSsoOnly: false }));
-    expect((box as HTMLInputElement).disabled).toBe(true);
+    expect(box).toBeInactive();
   });
 
   it('turns itself off with SSO: an enforcement left ON with SSO off is shown and SAVED off', async () => {

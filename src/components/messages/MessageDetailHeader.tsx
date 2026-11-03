@@ -1608,7 +1608,7 @@ export function MessageDetailHeader({
                       onClick={() => void handleManualRoute(deptId)}
                       disabled={busy}
                       aria-label={busy ? `Moving to ${dept.name}…` : `Move to ${dept.name} →`}
-                      className="h-[23px] px-2 rounded-md border border-border bg-card text-[11.5px] font-normal text-foreground hover:border-border-strong hover:bg-card disabled:opacity-50"
+                      className="h-[23px] px-2 rounded-md border border-border bg-card text-[11.5px] font-normal text-foreground hover:border-border-strong hover:bg-card data-[inactive]:opacity-50"
                     >
                       {busy ? `${dept.name}…` : `${dept.name} →`}
                     </Button>

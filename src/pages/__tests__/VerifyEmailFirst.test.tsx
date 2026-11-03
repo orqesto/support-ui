@@ -7,6 +7,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { isInactive } from '@/test/inactive';
 
 const signup = vi.fn();
 const verifyEmail = vi.fn();
@@ -557,9 +558,11 @@ describe('CreateWorkspacePage — the waiting screen survives a reload', () => {
     // A loading button shows only its spinner (no name), so hold the element itself.
     const resend = screen.getByRole('button', { name: /Resend email/i });
     fireEvent.click(resend);
-    expect(resend).toBeDisabled();
+    expect(isInactive(resend)).toBe(true);
+    fireEvent.click(resend); // a second press while it runs sends nothing
+    expect(resendPendingSignup).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: /Wrong address/i }));
-    expect(screen.getByRole('button', { name: /Send to this address/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Send to this address/i })).toBeInactive();
   });
 
   it('while a correction runs, neither it, a resend, nor Cancel can be used', () => {
@@ -572,9 +575,11 @@ describe('CreateWorkspacePage — the waiting screen survives a reload', () => {
     });
     const submit = screen.getByRole('button', { name: /Send to this address/i });
     fireEvent.click(submit);
-    expect(submit).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Resend email/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(isInactive(submit)).toBe(true);
+    fireEvent.click(submit); // a second press while it runs sends nothing
+    expect(changePendingSignupEmail).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: /Resend email/i })).toBeInactive();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInactive();
   });
 
   it('a new signup after an end screen starts clean (no end screen, no old error)', async () => {

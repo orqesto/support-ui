@@ -69,7 +69,7 @@ describe('AutomaticReplySubjectsSettings', () => {
     await screen.findByText(THANKS);
     expect(shownSubjects()).toEqual([THANKS, RECEIVED]);
     // Nothing changed yet: nothing to save.
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
   });
 
   it('an empty list reads as such', async () => {
@@ -97,7 +97,7 @@ describe('AutomaticReplySubjectsSettings', () => {
     await waitFor(() => expect(updateAutomaticReplySubjects).toHaveBeenCalledWith([RECEIVED]));
     expect(await screen.findByText(/Saved\./)).toBeInTheDocument();
     expect(shownSubjects()).toEqual([RECEIVED, 'Ticket received']);
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
   });
 
   it('an admin may save an empty list', async () => {

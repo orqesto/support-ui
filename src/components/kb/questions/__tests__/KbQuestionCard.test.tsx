@@ -93,10 +93,10 @@ describe('KbQuestionCard', () => {
       '3Both wrong — write the answer',
     ]);
     expect(screen.queryByText(/Pick A/)).toBeNull();
-    expect(save()).toBeDisabled();
+    expect(save()).toBeInactive();
     fireEvent.click(buttons[1]);
     expect(buttons[1]).toHaveAttribute('aria-pressed', 'true');
-    expect(save()).toBeEnabled();
+    expect(save()).not.toBeInactive();
     fireEvent.click(save());
     expect(onAnswer).toHaveBeenCalledWith('keep_separate', undefined);
   });
@@ -141,11 +141,11 @@ describe('KbQuestionCard', () => {
     expect(box).toHaveFocus();
     expect(box).toHaveValue('');
     expect(screen.getByText('Your answer goes live at once when you save it.')).toBeInTheDocument();
-    expect(save()).toBeDisabled();
+    expect(save()).toBeInactive();
     fireEvent.change(box, { target: { value: '   ' } });
-    expect(save()).toBeDisabled();
+    expect(save()).toBeInactive();
     fireEvent.change(box, { target: { value: 'Sending again costs 25 EUR.' } });
-    expect(save()).toBeEnabled();
+    expect(save()).not.toBeInactive();
     fireEvent.click(save());
     expect(onAnswer).toHaveBeenCalledWith('both_wrong', 'Sending again costs 25 EUR.');
   });

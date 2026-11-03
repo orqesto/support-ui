@@ -22,10 +22,14 @@ vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ isOrgAdmin: true, hasPermission: () => true }),
 }));
 
-const { KbQualityReview, QUALITY_ANSWER_MAX, QUALITY_QUESTION_MAX } = await import('../KbQualityReview');
+const { KbQualityReview, QUALITY_ANSWER_MAX, QUALITY_QUESTION_MAX } = await import(
+  '../KbQualityReview'
+);
 const { KB_CONSOLIDATION_DECIDED_EVENT } = await import('@/lib/kbConsolidation');
 
-const entry = (over: Partial<NonNullable<KbQualityDetail['entry']>> = {}): NonNullable<KbQualityDetail['entry']> => ({
+const entry = (
+  over: Partial<NonNullable<KbQualityDetail['entry']>> = {}
+): NonNullable<KbQualityDetail['entry']> => ({
   id: 12,
   publicId: 'KB-12',
   question: 'Where is my parcel?',
@@ -71,7 +75,9 @@ describe('what the review shows', () => {
     cleanup();
     getDetail.mockResolvedValue(detail());
     renderReview();
-    expect((await screen.findByText('question is a whole email')).className).toContain('text-warning');
+    expect((await screen.findByText('question is a whole email')).className).toContain(
+      'text-warning'
+    );
   });
 
   it('an approved, never-used entry carries neither badge; a once-used one says "once"', async () => {
@@ -96,7 +102,9 @@ describe('what the review shows', () => {
   });
 
   it('the AI badge and the truncation warning only come with an AI proposal', async () => {
-    getDetail.mockResolvedValue(detail({ proposed: null, inputTruncated: true, verdict: 'remove' }));
+    getDetail.mockResolvedValue(
+      detail({ proposed: null, inputTruncated: true, verdict: 'remove' })
+    );
     renderReview();
     fireEvent.click(await screen.findByRole('button', { name: /Rewrite it instead/ }));
     expect(screen.queryByText('AI-drafted')).not.toBeInTheDocument();
@@ -104,7 +112,9 @@ describe('what the review shows', () => {
   });
 
   it('a rewrite problem is only explained for a rewrite with no proposal', async () => {
-    getDetail.mockResolvedValue(detail({ verdict: 'remove', proposed: null, rewriteProblem: 'failed' }));
+    getDetail.mockResolvedValue(
+      detail({ verdict: 'remove', proposed: null, rewriteProblem: 'failed' })
+    );
     renderReview();
     await screen.findByText('Proposed: remove #KB-12');
     expect(screen.queryByText(/could not write a replacement/)).not.toBeInTheDocument();
@@ -118,27 +128,33 @@ describe('what the review shows', () => {
   it('a decided suggestion keeps its text read-only', async () => {
     getDetail.mockResolvedValue(detail({ status: 'declined' }));
     renderReview();
-    expect(await screen.findByLabelText('Question')).toBeDisabled();
-    expect(screen.getByLabelText('Answer')).toBeDisabled();
+    expect(await screen.findByLabelText('Question')).toBeInactive();
+    expect(screen.getByLabelText('Answer')).toBeInactive();
     expect(screen.queryByTestId('quality-blocked-reason')).not.toBeInTheDocument();
   });
 
   it('Remove is the primary (red) action for a removal until the moderator starts a rewrite', async () => {
     getDetail.mockResolvedValue(detail({ verdict: 'remove', proposed: null }));
     renderReview();
-    expect((await screen.findByRole('button', { name: /Remove entry/ })).className).toContain('bg-destructive');
+    expect((await screen.findByRole('button', { name: /Remove entry/ })).className).toContain(
+      'bg-destructive'
+    );
     fireEvent.click(screen.getByRole('button', { name: /Rewrite it instead/ }));
     expect(screen.getByRole('button', { name: /Remove entry/ })).not.toHaveClass('bg-destructive');
     cleanup();
     getDetail.mockResolvedValue(detail());
     renderReview();
-    expect(await screen.findByRole('button', { name: /Remove entry/ })).not.toHaveClass('bg-destructive');
+    expect(await screen.findByRole('button', { name: /Remove entry/ })).not.toHaveClass(
+      'bg-destructive'
+    );
   });
 });
 
 describe('what the review shows — the positive cases', () => {
   it('an unapproved entry says so; a note is shown; an AI proposal carries its badge', async () => {
-    getDetail.mockResolvedValue(detail({ note: 'a whole email', entry: entry({ approved: false }) }));
+    getDetail.mockResolvedValue(
+      detail({ note: 'a whole email', entry: entry({ approved: false }) })
+    );
     renderReview();
     expect(await screen.findByText('not approved')).toBeInTheDocument();
     expect(screen.getByText(/Why the AI flagged it/)).toBeInTheDocument();
@@ -154,18 +170,24 @@ describe('what is sent, and the bounds', () => {
     renderReview();
     const question = 'q'.repeat(QUALITY_QUESTION_MAX);
     const answer = 'a'.repeat(QUALITY_ANSWER_MAX);
-    fireEvent.change(await screen.findByLabelText('Question'), { target: { value: `  ${question}  ` } });
+    fireEvent.change(await screen.findByLabelText('Question'), {
+      target: { value: `  ${question}  ` },
+    });
     fireEvent.change(screen.getByLabelText('Answer'), { target: { value: `  ${answer}\n` } });
     expect(screen.queryByTestId('quality-blocked-reason')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Save rewrite/ }));
-    await waitFor(() => expect(accept).toHaveBeenCalledWith(41, { action: 'apply', question, answer }));
+    await waitFor(() =>
+      expect(accept).toHaveBeenCalledWith(41, { action: 'apply', question, answer })
+    );
   });
 
   it('an answer of only spaces is no answer', async () => {
     getDetail.mockResolvedValue(detail());
     renderReview();
     fireEvent.change(await screen.findByLabelText('Answer'), { target: { value: '   ' } });
-    expect(screen.getByTestId('quality-blocked-reason')).toHaveTextContent('The entry needs an answer.');
+    expect(screen.getByTestId('quality-blocked-reason')).toHaveTextContent(
+      'The entry needs an answer.'
+    );
   });
 
   it('cancelling the remove confirmation removes nothing', async () => {
@@ -192,8 +214,10 @@ describe('failures', () => {
     const onDecided = vi.fn();
     renderReview(onDecided);
     fireEvent.click(await screen.findByRole('button', { name: /Save rewrite/ }));
-    expect(await screen.findByText(/server said no|Could not save the decision/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Save rewrite/ })).toBeEnabled();
+    expect(
+      await screen.findByText(/server said no|Could not save the decision/)
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Save rewrite/ })).not.toBeInactive();
     expect(onDecided).not.toHaveBeenCalled();
     expect(getDetail).toHaveBeenCalledTimes(1);
   });
@@ -204,7 +228,7 @@ describe('failures', () => {
     renderReview();
     fireEvent.click(await screen.findByRole('button', { name: /Keep as is/ }));
     expect(await screen.findByText(/keep failed|Could not save the decision/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Keep as is/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Keep as is/ })).not.toBeInactive();
   });
 
   it('a 404 (gone) re-reads and tells the bell; a still-pending re-read keeps the error', async () => {

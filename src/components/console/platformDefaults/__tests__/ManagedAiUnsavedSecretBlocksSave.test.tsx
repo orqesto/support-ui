@@ -83,11 +83,11 @@ describe('Managed AI defaults — a credential nobody saved', () => {
     render(<ManagedAiDefaultsCard ai={ai} secrets={SECRETS} />);
     openEditor();
 
-    expect(saveButton()).not.toBeDisabled();
+    expect(saveButton()).not.toBeInactive();
 
     fireEvent.change(keyInput(), { target: { value: 'sk-typed-but-not-saved' } });
 
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
     expect(screen.getByText(/nobody has saved yet/i)).toBeInTheDocument();
     fireEvent.click(saveButton());
     expect(saveMutation.mutate).not.toHaveBeenCalled();
@@ -97,17 +97,17 @@ describe('Managed AI defaults — a credential nobody saved', () => {
     render(<ManagedAiDefaultsCard ai={ai} secrets={SECRETS} />);
     openEditor();
     fireEvent.change(keyInput(), { target: { value: '   ' } });
-    expect(saveButton()).not.toBeDisabled();
+    expect(saveButton()).not.toBeInactive();
   });
 
   it('unblocks once the field is emptied again', () => {
     render(<ManagedAiDefaultsCard ai={ai} secrets={SECRETS} />);
     openEditor();
     fireEvent.change(keyInput(), { target: { value: 'sk-oops' } });
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
 
     fireEvent.change(keyInput(), { target: { value: '' } });
-    expect(saveButton()).not.toBeDisabled();
+    expect(saveButton()).not.toBeInactive();
   });
 
   it('does not stay blocked after the form is cancelled and reopened', () => {
@@ -116,12 +116,12 @@ describe('Managed AI defaults — a credential nobody saved', () => {
     render(<ManagedAiDefaultsCard ai={ai} secrets={SECRETS} />);
     openEditor();
     fireEvent.change(keyInput(), { target: { value: 'sk-oops' } });
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
 
     fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
     openEditor();
 
-    expect(saveButton()).not.toBeDisabled();
+    expect(saveButton()).not.toBeInactive();
   });
 
   it('does not stay blocked after the provider switch unmounts that field', async () => {
@@ -130,10 +130,10 @@ describe('Managed AI defaults — a credential nobody saved', () => {
     render(<ManagedAiDefaultsCard ai={ai} secrets={SECRETS} />);
     openEditor();
     fireEvent.change(keyInput(), { target: { value: 'sk-for-openai' } });
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
 
     await chooseOption(screen.getByRole('combobox', { name: 'Provider' }), 'AWS Bedrock');
 
-    expect(saveButton()).not.toBeDisabled();
+    expect(saveButton()).not.toBeInactive();
   });
 });

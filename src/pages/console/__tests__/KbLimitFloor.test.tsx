@@ -111,7 +111,7 @@ describe.each([
     open();
     type(kbField(), '999,999');
     expect(screen.getByText(KB_FLOOR_ERROR)).toBeTruthy();
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
     await save();
     expect(sent()).toEqual([]);
   });
@@ -180,6 +180,6 @@ describe('a workspace KB override written outside the console below the floor', 
     renderDialog(subFloor());
     type(kbField(), '600000');
     expect(screen.getByText(KB_FLOOR_ERROR)).toBeTruthy();
-    expect(saveButton()).toBeDisabled();
+    expect(saveButton()).toBeInactive();
   });
 });

@@ -4,6 +4,7 @@ import { act, render, cleanup, fireEvent, within, waitFor, screen } from '@testi
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import type * as PlatformSettingsModule from '@/services/platformSettings.service';
+import { isInactive } from '@/test/inactive';
 
 type PlatformReasoning = PlatformSettingsModule.PlatformReasoning;
 type ReasoningInput = PlatformSettingsModule.ReasoningInput;
@@ -172,7 +173,13 @@ const pressReset = async () => {
   await waitFor(() => expect(pendingSaves.length).toBe(1));
 };
 const MOVED = /saved values changed on the server/i;
-const disabled = (element: HTMLElement) => (element as HTMLButtonElement).disabled;
+// Out of use: `disabled`, or aria-disabled for a loading Button (it keeps focus).
+const disabled = (element: HTMLElement) => isInactive(element);
+/** Presses every button in the card once more: none may start another save. */
+const pressAllAgain = () => {
+  for (const button of card().getAllByRole('button')) fireEvent.click(button);
+  expect(pendingSaves.length).toBe(1);
+};
 
 beforeEach(() => {
   server = INITIAL;
@@ -199,6 +206,7 @@ describe('ReasoningCard with a real QueryClient', () => {
     expect(disabled(select('Translation'))).toBe(true);
     expect(disabled(card().getByLabelText(/reasoning headroom/i))).toBe(true);
     expect(card().getAllByRole('button').every(disabled)).toBe(true);
+    pressAllAgain();
     // Reverting to the seeded value mid-flight (audit P1) cannot happen: the locked picker
     // does not even open, so there is no option to pick.
     fireEvent.keyDown(select('Spam detection'), {
@@ -220,6 +228,7 @@ describe('ReasoningCard with a real QueryClient', () => {
     expect(disabled(card().getByRole('button', { name: /^edit$/i }))).toBe(true);
     // Reset reads "Loading..." while pending rather than "Reset"; every button is disabled.
     expect(card().getAllByRole('button').every(disabled)).toBe(true);
+    pressAllAgain();
     edit();
     expect(card().queryByLabelText('Spam detection')).toBeNull();
     await answerSave();
