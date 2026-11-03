@@ -287,7 +287,7 @@ export interface components {
             organizationId: number;
             kind: string;
             /** @enum {string} */
-            entityType: "message" | "ticket_first_response" | "ticket_resolution" | "conversation" | "ticket";
+            entityType: "message" | "ticket_first_response" | "ticket_resolution" | "conversation" | "ticket" | "slack_connection" | "slack_channel_route";
             entityId: number;
             assigneeId: number | null;
             departmentId: number | null;
@@ -312,6 +312,7 @@ export interface components {
                 departmentName?: string | null;
                 holdReason?: string | null;
                 holdUntil?: string | null;
+                reopenedFrom?: string;
             };
             dismissedAt: string | null;
             createdAt: string;

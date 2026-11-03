@@ -1,4 +1,5 @@
 import {
+  Bell,
   Settings,
   ShieldAlert,
   BrainCog,
@@ -20,6 +21,7 @@ import { OrganizationSettings } from '@/components/settings/OrganizationSettings
 import { ProfileSettings } from '@/components/settings/ProfileSettings';
 import { NotificationPreferencesSettings } from '@/components/settings/NotificationPreferencesSettings';
 import { RulesSettings } from '@/components/settings/RulesSettings';
+import { SlackNotificationsSettings } from '@/components/settings/SlackNotificationsSettings';
 import { SystemSettings } from '@/components/settings/SystemSettings';
 import { SSOConfigSettings } from '@/components/settings/SSOConfigSettings';
 import { SCIMConfigSettings } from '@/components/settings/SCIMConfigSettings';
@@ -89,6 +91,16 @@ const SETTINGS_TABS: SettingsTabDef[] = [
     icon: Plug,
     description: 'Connect channels, ticket systems, and AI providers',
     render: (ctx) => <ConnectedServicesSettings section={ctx.section} />,
+  },
+  {
+    // The Slack connect callback returns to `/settings?tab=notifications`; the bell's
+    // `slack_connection_broken` item links to `/settings#notifications`.
+    id: 'notifications',
+    label: 'Notifications',
+    icon: Bell,
+    description: 'Send new work and workspace problems to Slack',
+    render: () => <SlackNotificationsSettings />,
+    visible: (ctx) => ctx.isGlobalAdmin || ctx.isOrgAdmin,
   },
   {
     id: 'rules',

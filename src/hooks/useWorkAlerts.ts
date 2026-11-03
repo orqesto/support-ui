@@ -24,18 +24,25 @@ export const NEW_UNASSIGNED_MESSAGE_KIND = 'new_unassigned_message';
 export const HOLD_RECHECK_KIND = 'hold_recheck_due';
 /** A customer replied to a finished thread and it reopened — to its owner (owner 2026-10-30). */
 export const CUSTOMER_REOPENED_KIND = 'conversation_reopened';
+/**
+ * A customer wrote on a conversation that already has an owner — to that owner (BE personalKinds.ts,
+ * Slack design 2026-11-01). Listed by the BE only when asked for by name, like the others.
+ */
+export const CUSTOMER_MESSAGE_ON_ASSIGNED_KIND = 'customer_message_on_assigned';
 /** Socket-driven refetches inside this window join one request (a bulk assignment sends N pings — R15). */
 export const WORK_ALERTS_REFRESH_MS = 500;
 export type WorkAlertKind =
   | typeof CONVERSATION_ASSIGNED_KIND
   | typeof NEW_UNASSIGNED_MESSAGE_KIND
   | typeof HOLD_RECHECK_KIND
-  | typeof CUSTOMER_REOPENED_KIND;
+  | typeof CUSTOMER_REOPENED_KIND
+  | typeof CUSTOMER_MESSAGE_ON_ASSIGNED_KIND;
 const KINDS: WorkAlertKind[] = [
   CONVERSATION_ASSIGNED_KIND,
   NEW_UNASSIGNED_MESSAGE_KIND,
   HOLD_RECHECK_KIND,
   CUSTOMER_REOPENED_KIND,
+  CUSTOMER_MESSAGE_ON_ASSIGNED_KIND,
 ];
 
 export type WorkAlert = {
@@ -87,6 +94,8 @@ export const toWorkAlert = (row: Notification): WorkAlert => {
 export const workAlertText = (alert: WorkAlert): string => {
   if (alert.kind === CONVERSATION_ASSIGNED_KIND)
     return `Assigned to you by ${alert.actorLabel ?? 'a colleague'} — ${alert.subject}`;
+  if (alert.kind === CUSTOMER_MESSAGE_ON_ASSIGNED_KIND)
+    return `New customer message on your conversation — ${alert.subject}`;
   if (alert.kind === CUSTOMER_REOPENED_KIND)
     return `Customer replied — reopened${alert.reopenedFrom ? ` from ${alert.reopenedFrom}` : ''} — ${alert.subject}`;
   if (alert.kind === HOLD_RECHECK_KIND)
@@ -104,7 +113,9 @@ export const workAlertTypeLabel = (kind: WorkAlertKind): string =>
       ? 'Recheck'
       : kind === CUSTOMER_REOPENED_KIND
         ? 'Reopened'
-        : 'New unassigned';
+        : kind === CUSTOMER_MESSAGE_ON_ASSIGNED_KIND
+          ? 'New customer message'
+          : 'New unassigned';
 
 export type UseWorkAlertsResult = ReturnType<typeof useWorkAlerts>;
 

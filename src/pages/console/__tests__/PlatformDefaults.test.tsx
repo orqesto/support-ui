@@ -52,6 +52,9 @@ const SAMPLE: PlatformSettings = {
     'ai.bedrock_secret_access_key': UNSET,
     'storage.s3_access_key_id': { configured: true, source: 'env', last4: 'ABCD' },
     'storage.s3_secret_access_key': UNSET,
+    'slack.client_id': UNSET,
+    'slack.client_secret': UNSET,
+    'slack.platform_bot_token': UNSET,
   },
 };
 

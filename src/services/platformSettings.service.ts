@@ -11,6 +11,12 @@ import {
 } from '@/services/bedrockDiscovery.service';
 import type { AIModel, AIProvider } from '@/types/aiProviders';
 import {
+  ALL_SECRET_KEYS,
+  type PlatformSecretKey,
+  type SecretSaveResult,
+  type SecretStatus,
+} from './platformSecrets';
+import {
   normalizeRouting,
   type PlatformRoutingInput,
   type RoutingSettings,
@@ -23,47 +29,19 @@ import {
  * and returns each field with its `source`; secrets are status-only (never values).
  */
 
+export type {
+  PlatformSecretKey,
+  SecretSaveResult,
+  SecretSource,
+  SecretStatus,
+  SecretVerification,
+} from './platformSecrets';
+
 export type FieldSource = 'db' | 'env' | 'default';
 export type ResolvedField<T> = { value: T | null; source: FieldSource };
 /** Storage fields resolve through the same three layers as the AI fields. */
 export type StorageFieldSource = FieldSource;
 export type ResolvedStorageField<T> = ResolvedField<T>;
-export type SecretSource = 'db' | 'env' | 'none';
-export type SecretStatus = {
-  configured: boolean;
-  source: SecretSource;
-  last4: string | null;
-  /**
-   * A row IS stored for this key and is NOT what resolves — its ciphertext would not decrypt,
-   * so traffic falls through to the environment. Absent unless that is the case, and absent
-   * entirely on a backend older than the fix that made the status resolve rather than read a
-   * column.
-   */
-  storedValueUnusable?: boolean;
-};
-
-/**
- * What the backend established about a credential BEFORE storing it.
- *
- * `checked: false` is not a pass — it means nothing was proven (Bedrock, half an S3 key pair,
- * an unreachable provider). Rendering it as success is the exact habit that let an autofilled
- * key sit in the console looking configured for four hours.
- */
-export type SecretVerification = { checked: boolean; ok: boolean; reason?: string };
-export type SecretSaveResult = SecretStatus & { verification?: SecretVerification };
-
-export type PlatformSecretKey =
-  | 'ai.openai_api_key'
-  | 'ai.anthropic_api_key'
-  | 'ai.deepseek_api_key'
-  | 'ai.perplexity_api_key'
-  | 'ai.qwen_api_key'
-  | 'ai.custom_api_key'
-  | 'ai.bedrock_access_key_id'
-  | 'ai.bedrock_secret_access_key'
-  | 'storage.s3_access_key_id'
-  | 'storage.s3_secret_access_key';
-
 export type PlatformSettings = {
   ai: {
     provider: ResolvedField<AIProvider>;
@@ -645,19 +623,6 @@ export const normalizeSplitCosts = (
   if (fields.some(([, value]) => value === undefined)) return {};
   return { ...Object.fromEntries(fields), splitCostsSupported: true };
 };
-
-const ALL_SECRET_KEYS: PlatformSecretKey[] = [
-  'ai.openai_api_key',
-  'ai.anthropic_api_key',
-  'ai.deepseek_api_key',
-  'ai.perplexity_api_key',
-  'ai.qwen_api_key',
-  'ai.custom_api_key',
-  'ai.bedrock_access_key_id',
-  'ai.bedrock_secret_access_key',
-  'storage.s3_access_key_id',
-  'storage.s3_secret_access_key',
-];
 
 /**
  * Which platform secret each provider authenticates with. Mirrors

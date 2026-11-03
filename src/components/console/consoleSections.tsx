@@ -19,6 +19,7 @@ import {
   MailOpen,
   Blocks,
   Wrench,
+  BellRing,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -127,6 +128,9 @@ const PlatformDefaults = lazy(() =>
 const PlatformFeatureFlags = lazy(() =>
   import('@/pages/console/PlatformFeatureFlags').then((mod) => ({ default: mod.PlatformFeatureFlags }))
 );
+const PlatformAlertsSlack = lazy(() =>
+  import('@/components/console/PlatformAlertsSlack').then((mod) => ({ default: mod.PlatformAlertsSlack }))
+);
 const PlatformAudit = lazy(() =>
   import('@/pages/console/PlatformAudit').then((mod) => ({ default: mod.PlatformAudit }))
 );
@@ -187,6 +191,17 @@ export const PLATFORM_SECTIONS: ConsoleSection[] = [
     visible: (ctx) => !ctx.selfHostedDeployment,
   },
   { id: 'system', label: 'System', icon: ServerCog, path: 'system', element: PlatformSystem },
+  {
+    // This deployment's health alerts in Slack (CPU, memory, database, queues, disk). The Slack
+    // OAuth callback redirects to /console/platform/alerts, so the path is fixed. The whole
+    // platform console is global-admin-only already; this keeps the nav honest on its own.
+    id: 'alerts',
+    label: 'Alerts',
+    icon: BellRing,
+    path: 'alerts',
+    element: PlatformAlertsSlack,
+    visible: (ctx) => ctx.isGlobalAdmin,
+  },
   // Background jobs (on/off, last run) and one-off repairs (Check → Apply), 2026-10-20.
   { id: 'maintenance', label: 'Maintenance', icon: Wrench, path: 'maintenance', element: PlatformMaintenance },
   // Where each workspace's data lives (BYODB): retention window, Free-on-managed deadlines,

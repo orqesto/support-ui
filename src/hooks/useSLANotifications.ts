@@ -18,8 +18,10 @@ import type { Notification } from '@/types/api';
 export type SLABreachNotification = {
   id: number; // notifications.id from DB
   entityId: number; // message.id or ticket.id
-  // `conversation` / `ticket`: the backend's newer entity types (see the generated API types).
-  type: 'message' | 'conversation' | 'ticket' | 'ticket_first_response' | 'ticket_resolution';
+  // The notification's entityType, from the generated API types (`npm run gen:types`).
+  // `slack_connection` / `slack_channel_route`: kind `slack_connection_broken` (no breach fields),
+  // shown in this list with its own label and a link to Settings › Notifications.
+  type: Notification['entityType'];
   organizationId: number;
   severity: 'warning' | 'critical';
   breachAmount: number;
@@ -113,6 +115,7 @@ const NON_SLA_BELL_KINDS = new Set([
   'new_unassigned_message',
   'hold_recheck_due',
   'conversation_reopened',
+  'customer_message_on_assigned',
 ]);
 const isNonSlaBellKind = (kind: unknown): boolean =>
   typeof kind === 'string' && NON_SLA_BELL_KINDS.has(kind);

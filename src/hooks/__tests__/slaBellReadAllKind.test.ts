@@ -55,7 +55,7 @@ const mount = async () => {
 };
 
 describe('SLA bell read-all (R23)', () => {
-  it.each(['conversation_assigned', 'new_unassigned_message'])(
+  it.each(['conversation_assigned', 'new_unassigned_message', 'customer_message_on_assigned'])(
     'ignores a read-all for %s',
     async (kind) => {
       const { result } = await mount();

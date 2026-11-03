@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -49,6 +49,7 @@ export const SecretField = ({
   const [rejection, setRejection] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<{ verified: boolean; reason?: string } | null>(null);
   const busy = saving || clearing || disabled;
+  const inputId = useId();
 
   /**
    * A field that leaves the screen is no longer holding anything unsaved.
@@ -89,7 +90,9 @@ export const SecretField = ({
   return (
     <div>
       <div className="flex gap-2 items-center mb-2 flex-wrap">
-        <Label className="mb-0">{label}</Label>
+        <Label className="mb-0" htmlFor={inputId}>
+          {label}
+        </Label>
         {status.configured ? (
           <Badge variant="success" size="sm">
             Set · {status.source === 'db' ? 'Console' : 'Environment'}
@@ -113,6 +116,7 @@ export const SecretField = ({
       </div>
       <div className="flex gap-2 items-center">
         <Input
+          id={inputId}
           type="password"
           autoComplete="new-password"
           value={value}
