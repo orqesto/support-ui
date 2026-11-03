@@ -24,11 +24,7 @@ vi.mock('@/stores/authStore', () => ({ useAuthStore: () => null }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'COR' }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'all' }));
 
-import {
-  FAILED_RETRY_MS,
-  OutsideViewMatches,
-  REFRESH_MIN_MS,
-} from '../list/OutsideViewMatches';
+import { FAILED_RETRY_MS, OutsideViewMatches, REFRESH_MIN_MS } from '../list/OutsideViewMatches';
 
 const thread = (id: number, foundIn?: string, subject = `Order ${id}`): MessageThread =>
   ({
@@ -123,7 +119,9 @@ describe('OutsideViewMatches', () => {
     getThreads.mockResolvedValue(answer([thread(1, 'terminal')]));
     const onJump = vi.fn();
     renderSection(filters(), onJump);
-    fireEvent.click(await screen.findByRole('button', { name: /Show in that view: Resolved or closed/ }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Show in that view: Resolved or closed/ })
+    );
     expect(onJump).toHaveBeenCalledWith(
       expect.objectContaining({ lifecycle: 'resolved', search: 'someone@shop.example' }),
       undefined
@@ -167,7 +165,9 @@ describe('OutsideViewMatches', () => {
     getThreads.mockResolvedValue(answer([thread(1, 'terminal')]));
     const onJump = vi.fn();
     renderSection(filters({ showKBOnly: true, columnId: 'open' }), onJump);
-    fireEvent.click(await screen.findByRole('button', { name: /Show in that view: Resolved or closed/ }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Show in that view: Resolved or closed/ })
+    );
     expect(onJump).toHaveBeenCalledWith(
       expect.objectContaining({ lifecycle: 'resolved', showKBOnly: false, columnId: 'all' }),
       undefined
@@ -237,7 +237,9 @@ describe('OutsideViewMatches', () => {
     getThreads.mockResolvedValue(answer([thread(1, 'terminal')]));
     const onJump = vi.fn();
     renderSection(filters({ lifecycle: 'awaiting', negate: 'lifecycle' }), onJump);
-    fireEvent.click(await screen.findByRole('button', { name: /Show in that view: Resolved or closed/ }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Show in that view: Resolved or closed/ })
+    );
     expect(onJump).toHaveBeenCalledWith(
       expect.objectContaining({ lifecycle: 'resolved', negate: '' }),
       undefined
@@ -276,7 +278,9 @@ describe('OutsideViewMatches', () => {
       filters({ lifecycle: 'awaiting', aiState: 'needs_review', negate: 'lifecycle,aiState' }),
       onJump
     );
-    fireEvent.click(await screen.findByRole('button', { name: /Show in that view: Resolved or closed/ }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Show in that view: Resolved or closed/ })
+    );
     expect(onJump).toHaveBeenCalledWith(
       expect.objectContaining({ lifecycle: 'resolved', negate: 'aiState' }),
       undefined
@@ -356,7 +360,9 @@ describe('OutsideViewMatches', () => {
       filters({ lifecycle: 'awaiting', aiState: 'needs_review', negate: 'aiState, lifecycle' }),
       onJump
     );
-    fireEvent.click(await screen.findByRole('button', { name: /Show in that view: Resolved or closed/ }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Show in that view: Resolved or closed/ })
+    );
     expect(onJump).toHaveBeenCalledWith(expect.objectContaining({ negate: 'aiState' }), undefined);
   });
 
@@ -400,7 +406,7 @@ describe('OutsideViewMatches', () => {
 
   // Review of #805: the back-off was keyed on the request INCLUDING `refreshKey`, which moves on
   // every colleague's update — on a busy inbox the failing heavy read went out on every flush.
-  it('🔴 a failed answer is not asked again when only the list\'s rows moved (refreshKey)', async () => {
+  it("🔴 a failed answer is not asked again when only the list's rows moved (refreshKey)", async () => {
     let now = 7_000_000;
     const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
     try {
@@ -429,7 +435,9 @@ describe('OutsideViewMatches', () => {
     getThreads
       .mockRejectedValueOnce(new Error('503'))
       .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Other term')]));
-    const { rerender } = render(section(filters({ search: 'one@shop.example' }), vi.fn(), vi.fn(), 'r1', true));
+    const { rerender } = render(
+      section(filters({ search: 'one@shop.example' }), vi.fn(), vi.fn(), 'r1', true)
+    );
     await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(1));
     rerender(section(filters({ search: 'two@shop.example' }), vi.fn(), vi.fn(), 'r1', true));
     expect(await screen.findByText('Other term')).toBeTruthy();
