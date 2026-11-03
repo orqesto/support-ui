@@ -49,6 +49,11 @@ const LENS_RESET: Partial<FilterState> = {
 };
 
 const PAGE = 25;
+/**
+ * The backend's page-size cap (PAGINATION.MAX_LIMIT): a refresh asking for more got 50 rows while
+ * the page counter claimed more, and the next "Show more" skipped rows 51–75 (round-6 review).
+ */
+const MAX_REFRESH_ROWS = 50;
 /** A failed or timed-out answer is asked again for the same question after this long at most once. */
 export const FAILED_RETRY_MS = 60_000;
 /**
@@ -195,6 +200,8 @@ export const OutsideViewMatches = ({
       setTotal(0);
       setTotalCapped(false);
       setPage(1);
+      // The effect reads it below in this same run: a new question starts at one page.
+      pageRef.current = 1;
       setLoadingMore(false);
       setStatus('idle');
       moreSeq.current += 1;
@@ -247,7 +254,9 @@ export const OutsideViewMatches = ({
     const askedRows = requestKey;
     // A refresh reads every page shown, in one request: the section keeps its length (it shrank
     // back to 25 rows every ~15 s after "Show more") and a row that stopped matching leaves.
-    const pagesAtAsk = pageRef.current;
+    const rowsAtAsk = Math.min(PAGE * pageRef.current, MAX_REFRESH_ROWS);
+    // "Show more" pressed while this was out: its page is newer than this answer (round-6 review).
+    const moreAtAsk = moreSeq.current;
     // An answer is for the QUESTION (search, filters, team, workspace), not for the moment the
     // list rows stood at: matching on requestKey dropped every answer that arrived after any
     // colleague's change, and on a busy inbox the section never left "Checking…" (release review).
@@ -275,7 +284,7 @@ export const OutsideViewMatches = ({
       setRetryTick((tick) => tick + 1);
     };
     void messageService
-      .getThreads(request, 1, PAGE * pagesAtAsk, undefined, 'time', {
+      .getThreads(request, 1, rowsAtAsk, undefined, 'time', {
         allowTimedOut: true,
         signal: controller.signal,
       })
@@ -298,9 +307,17 @@ export const OutsideViewMatches = ({
         }
         if (failedAt.current?.key === failedFor) failedAt.current = null;
         setStatus('done');
+        if (moreSeq.current !== moreAtAsk) {
+          // A "Show more" landed while this was out: its rows are newer — keep them and ask again
+          // (the refresh window decides when), instead of wiping the page it added.
+          askedKey.current = '';
+          setRetryTick((tick) => tick + 1);
+          return;
+        }
         rowsEpoch.current += 1;
         setRows(listed);
-        setPage(pagesAtAsk);
+        // The pages actually shown — what came back, never what was asked (the backend caps it).
+        setPage(Math.max(1, Math.ceil(listed.length / PAGE)));
         setTotal(answer.pagination?.total ?? listed.length);
         setTotalCapped(
           answer.pagination?.totalCapped === true || answer.pagination?.countTimedOut === true

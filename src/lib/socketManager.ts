@@ -5,6 +5,7 @@ import { ensureFreshSession, isRateLimited, refreshRetryInMs } from '@/lib/api-c
 import { logger } from '@/lib/logger';
 import { writeTabWorkspace } from '@/lib/tabWorkspace';
 import { forgetRememberedSearches } from '@/lib/searchMemory';
+import { logoutClearsProcessingPanels } from '@/stores/processingPanelStore';
 import { SOCKET_RECONNECTED_EVENT } from '@/lib/socketEvents';
 
 type EventCallback = (data: unknown) => void;
@@ -79,8 +80,10 @@ const endSessionAndRedirect = () => {
   activeOrgRooms.clear();
   authRecoveryUsed = false;
   localStorage.removeItem('auth-storage');
-  // This sign-out skips authStore.logout: the remembered search must not outlive it either.
+  // This sign-out skips authStore.logout: what it clears for the next person must go here too —
+  // remembered searches and the processing panels' closed runs/problems (round-6 review).
   forgetRememberedSearches();
+  logoutClearsProcessingPanels();
   writeTabWorkspace(null);
   window.location.href = loginPathFor(window.location);
 };
@@ -213,6 +216,9 @@ export const getSocket = (): Socket => {
  * nothing about the session — signing out there sent people to a login page the same limit then
  * refused. Reconnect once renewal may be tried again; any other refusal ends the session.
  */
+/** Tests only: the terminal sign-out (it is otherwise reached through a refused renewal). */
+export const endSessionForTests = (): void => endSessionAndRedirect();
+
 export const afterRefusedRenewal = (
   err: unknown,
   actions: { retry: () => void; endSession: () => void }

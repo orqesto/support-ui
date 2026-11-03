@@ -657,5 +657,66 @@ describe('OutsideViewMatches', () => {
       vi.useRealTimers();
     }
   });
+
+  // Round-6 review.
+  it('🔴 a refresh never asks past the backend cap, and the page follows what came back', async () => {
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'P1')], 100))
+      .mockResolvedValueOnce(answer([thread(2, 'terminal', 'P2')], 100))
+      .mockResolvedValueOnce(answer([thread(3, 'terminal', 'P3')], 100));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
+    await screen.findByText('P2');
+    fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
+    await screen.findByText('P3');
+    // Three pages shown. The refresh asks 50 (the cap), and 50 rows' worth come back.
+    getThreads.mockResolvedValueOnce(
+      answer(Array.from({ length: 50 }, (_, index) => thread(100 + index, 'terminal', `R${index}`)), 100)
+    );
+    afterRefreshWindow();
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(4));
+    expect(getThreads.mock.calls[3]?.[2]).toBe(50);
+    await screen.findByText('R49');
+    // The next "Show more" continues after those 50 rows: page 3, not page 4.
+    getThreads.mockResolvedValueOnce(answer([thread(4, 'terminal', 'Next')], 100));
+    fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(5));
+    expect(getThreads.mock.calls[4]?.[1]).toBe(3);
+  });
+
+  it('🔴 a refresh that lands after a "Show more" made meanwhile keeps the added page', async () => {
+    getThreads.mockResolvedValueOnce(answer([thread(1, 'terminal', 'Row one')], 30));
+    const state = filters();
+    const { rerender } = render(section(state, vi.fn(), vi.fn(), 'r1'));
+    await screen.findByText('Row one');
+    let refreshed: (value: unknown) => void = () => undefined;
+    getThreads.mockImplementationOnce(() => new Promise((resolve) => (refreshed = resolve)));
+    afterRefreshWindow();
+    rerender(section(state, vi.fn(), vi.fn(), 'r2'));
+    await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(2));
+    getThreads.mockResolvedValueOnce(answer([thread(2, 'terminal', 'Row two')], 30));
+    fireEvent.click(screen.getByRole('button', { name: /Show more/ }));
+    await screen.findByText('Row two');
+    refreshed(answer([thread(1, 'terminal', 'Row one')], 30));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByText('Row two')).toBeTruthy();
+  });
+
+  it('🔴 a new search asks for one page, whatever the old one showed', async () => {
+    getThreads
+      .mockResolvedValueOnce(answer([thread(1, 'terminal', 'Old one')], 30))
+      .mockResolvedValueOnce(answer([thread(2, 'terminal', 'Old two')], 30))
+      .mockResolvedValueOnce(answer([thread(3, 'terminal', 'New one')], 30));
+    const { rerender } = render(section(filters({ search: 'one@shop.example' })));
+    fireEvent.click(await screen.findByRole('button', { name: /Show more/ }));
+    await screen.findByText('Old two');
+    rerender(section(filters({ search: 'two@shop.example' })));
+    await screen.findByText('New one');
+    expect(getThreads.mock.calls[2]?.[2]).toBe(25);
+  });
 });
 
