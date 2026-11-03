@@ -187,7 +187,6 @@ export const OutsideViewMatches = ({
       inFlight.current?.abort();
       inFlight.current = null;
       moreAbort.current?.abort();
-      moreSeq.current += 1;
       clearStale();
       // StrictMode re-runs the effects after this: the question must be asked again then, or the
       // aborted first ask left "Checking…" for good (release review, 2026-11-02).
@@ -358,7 +357,7 @@ export const OutsideViewMatches = ({
     const nextPage = page + 1;
     moreSeq.current += 1;
     const seq = moreSeq.current;
-    moreAbort.current?.abort();
+    // (The button is disabled while one is out, so there is never an earlier one to abort here.)
     const moreController = new AbortController();
     moreAbort.current = moreController;
     setLoadingMore(true);
@@ -394,7 +393,8 @@ export const OutsideViewMatches = ({
         );
       }
     } catch {
-      if (shownQuery.current === askedFor) setMoreFailed(true);
+      // Aborted (question change, unmount — or an effect re-run in development): not a failure.
+      if (!moreController.signal.aborted && shownQuery.current === askedFor) setMoreFailed(true);
     } finally {
       // A refresh during "Show more" left the button on "Loading…" for good; an older one settling
       // must not clear a newer one's spinner.

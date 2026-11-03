@@ -69,8 +69,10 @@ const cancelReconnectResync = () => {
   reconnectResyncTimer = null;
 };
 
-/** Tear the socket down and send the user to the login screen. The terminal path only. */
-/** The terminal sign-out: the session is over for this tab (a refused socket renewal). */
+/**
+ * The terminal sign-out (a refused socket renewal): tear the socket down, clear what the next
+ * person on this tab must not inherit, and send the user to the login screen.
+ */
 export const endSessionAndRedirect = () => {
   cancelSocketRecovery();
   socket?.disconnect();
