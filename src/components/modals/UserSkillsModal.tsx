@@ -45,7 +45,11 @@ export const UserSkillsModal = ({ isOpen, onClose, user }: UserSkillsModalProps)
           organizationService.getRoutingKeys(),
           userService.getSkillValues(user.id),
           userService.getCanEditSkills(user.id),
-          organizationService.getSelfEditSkills(),
+          // Needs view_organization_settings, which a custom role with only manage_routing_rules
+          // may lack: without it the dialog opened empty (review 2026-11-03). Default to off.
+          organizationService
+            .getSelfEditSkills()
+            .catch(() => ({ allowSelfEditSkills: false })),
         ]);
         setRoutingKeys(keys);
         setSkills(values);

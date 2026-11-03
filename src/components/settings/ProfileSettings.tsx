@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Lock, User, Tag, X, PenLine, ShieldCheck, MonitorSmartphone } from 'lucide-react';
 import { TwoFactorSettings } from './TwoFactorSettings';
 import { ActiveSessionsSettings } from './ActiveSessionsSettings';
+import { apiErrorMessage } from '@/lib/apiError';
 import { userService } from '@/services/user.service';
 import { organizationService } from '@/services/organization.service';
 import { Button } from '@/components/ui/Button';
@@ -32,6 +33,9 @@ export const ProfileSettings = () => {
     Array<{ id: number; key: string; description: string | null }>
   >([]);
   const [skillInputs, setSkillInputs] = useState<Record<string, string>>({});
+  // Values the workspace already has, per key: an agent picks from these (owner 2026-11-03).
+  const [skillOptions, setSkillOptions] = useState<Record<string, string[]>>({});
+  const [skillError, setSkillError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -43,6 +47,10 @@ export const ProfileSettings = () => {
         .getSelfCanEditSkills()
         .then(setCanEditSkills)
         .catch(() => setCanEditSkills(false));
+      void userService
+        .getSelfSkillOptions()
+        .then(setSkillOptions)
+        .catch(() => setSkillOptions({}));
     }
   }, [user?.id]);
 
@@ -53,23 +61,38 @@ export const ProfileSettings = () => {
       .catch(() => setRoutingKeys([]));
   }, []);
 
-  const handleAddValue = (key: string) => {
-    const raw = skillInputs[key]?.trim() ?? '';
+  // Saves one key's values; on a refusal (not allowed any more, a value the workspace does not
+  // have, the key deleted) the list goes back to what was saved and the reason is shown —
+  // it used to keep the unsaved value on screen with no word (review 2026-11-03).
+  const saveSkillValues = async (key: string, next: string[]) => {
+    const previous = skillValues[key] ?? [];
+    setSkillError(null);
+    setSkillValues((prev) => ({ ...prev, [key]: next }));
+    try {
+      await userService.setSelfSkillValues(key, next);
+    } catch (error) {
+      setSkillValues((prev) => ({ ...prev, [key]: previous }));
+      setSkillError(apiErrorMessage(error, `Could not save your ${key} skills. Please try again.`));
+    }
+  };
+
+  const handleAddValue = (key: string, picked?: string) => {
+    const raw = picked ?? skillInputs[key]?.trim() ?? '';
     if (!raw) return;
     const newVals = raw
       .split(',')
       .map((val) => val.trim().toLowerCase())
       .filter(Boolean);
     const merged = [...new Set([...(skillValues[key] ?? []), ...newVals])];
-    setSkillValues((prev) => ({ ...prev, [key]: merged }));
-    setSkillInputs((prev) => ({ ...prev, [key]: '' }));
-    void userService.setSelfSkillValues(key, merged);
+    if (!picked) setSkillInputs((prev) => ({ ...prev, [key]: '' }));
+    void saveSkillValues(key, merged);
   };
 
   const handleRemoveValue = (key: string, value: string) => {
-    const next = (skillValues[key] ?? []).filter((val) => val !== value);
-    setSkillValues((prev) => ({ ...prev, [key]: next }));
-    void userService.setSelfSkillValues(key, next);
+    void saveSkillValues(
+      key,
+      (skillValues[key] ?? []).filter((val) => val !== value)
+    );
   };
 
   // One signature per workspace: this section edits the one of the workspace this tab is in.
@@ -256,6 +279,25 @@ export const ProfileSettings = () => {
                       <span className="text-xs text-muted-foreground italic">None set</span>
                     )}
                   </div>
+                  {canEditSkills &&
+                    (skillOptions[key] ?? []).some((opt) => !values.includes(opt)) && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {(skillOptions[key] ?? [])
+                          .filter((opt) => !values.includes(opt))
+                          .map((opt) => (
+                            <Button
+                              key={opt}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAddValue(key, opt)}
+                              className="px-2 py-0.5 h-auto text-xs"
+                            >
+                              + {opt}
+                            </Button>
+                          ))}
+                      </div>
+                    )}
                   {canEditSkills && (
                     <div className="flex gap-2">
                       <input
@@ -287,6 +329,11 @@ export const ProfileSettings = () => {
               );
             })}
           </div>
+          {skillError && (
+            <p role="alert" className="mt-2 text-sm text-destructive">
+              {skillError}
+            </p>
+          )}
           {!canEditSkills && (
             <p className="mt-2 text-xs text-muted-foreground">
               Contact your administrator to update your routing skills.
@@ -294,7 +341,9 @@ export const ProfileSettings = () => {
           )}
           {canEditSkills && (
             <p className="mt-2 text-xs text-muted-foreground">
-              Tickets matching your skill values will be routed to you automatically.
+              Tickets matching your skill values will be routed to you automatically. Pick from the
+              values above; a new value is added by an admin or moderator (a language key takes
+              any language).
             </p>
           )}
         </div>

@@ -132,6 +132,7 @@ export const RoutingKeysSettings = () => {
   const handleTypeToggle = async (rk: RoutingKey) => {
     const next: RoutingKeyType = rk.type === 'language' ? 'topic' : 'language';
     setTypeError(null);
+    setSaveError(null);
     try {
       await organizationService.setRoutingKeyType(rk.key, next);
       await fetchKeys();
@@ -143,6 +144,7 @@ export const RoutingKeysSettings = () => {
   const handleDelete = async () => {
     if (!deleteDialog.key) return;
     setDeleteError(null);
+    setSaveError(null);
     try {
       await organizationService.deleteRoutingKey(deleteDialog.key);
       setDeleteDialog({ open: false, key: null });

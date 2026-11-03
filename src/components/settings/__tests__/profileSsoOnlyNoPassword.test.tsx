@@ -26,6 +26,7 @@ vi.mock('@/services/user.service', () => ({
     getCurrentUser: vi.fn().mockResolvedValue({ id: 1, email: 'v@x.test', hasPassword: true }),
     getSelfSkillValues: vi.fn().mockResolvedValue({}),
     getSelfCanEditSkills: vi.fn().mockResolvedValue(false),
+    getSelfSkillOptions: vi.fn().mockResolvedValue({}),
     setSelfSkillValues: vi.fn().mockResolvedValue(undefined),
     updateSelf: vi.fn().mockResolvedValue(undefined),
   },
