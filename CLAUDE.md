@@ -27,6 +27,7 @@ visual and behavioural drift.
 | Multi-line text | `Textarea` | `<textarea>` |
 | Status / tag / chip | `Badge` (`variant`: default/success/warning/danger/secondary) | styled `<span>` |
 | Card / panel container | `Card` (+ `CardHeader`/`CardContent`/`CardTitle`, `padding` prop) | styled `<div>` |
+| "Pick one" option card | `ChoiceCard` (`selected`, `onSelect`, `disabled`, `contentClassName`) | `<button>` wrapping a `Card` |
 | Toggle / switch | `Toggle` | `<input type=checkbox>` |
 | Tabs | `Tabs` | styled `<button>` row |
 | Loading | `Spinner` | inline SVG |
@@ -40,7 +41,7 @@ visual and behavioural drift.
 | Text / headings | `Typography` where it fits | — |
 | External link | `ExternalLink` | `<a target=_blank>` |
 
-Full inventory: `Alert, AlertDialog, Badge, Button, Card, ConfirmDialog, DataTable, Dialog, Drawer,
+Full inventory: `Alert, AlertDialog, Badge, Button, Card, ChoiceCard, ConfirmDialog, DataTable, Dialog, Drawer,
 ExternalLink, Input, Label, ListCard, Pagination, Progress, SearchInput, Select,
 Spinner, Tabs, Textarea, Toggle, Tooltip, Typography`.
 (Generated from `src/components/ui/` on 2026-08-21.)

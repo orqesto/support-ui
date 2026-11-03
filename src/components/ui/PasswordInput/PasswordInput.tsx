@@ -2,6 +2,7 @@ import { forwardRef, useId, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { getInputLabelClasses, getInputErrorClasses } from '@/components/ui/Input/input.styles';
+import { inactiveButtonProps } from '@/components/ui/Button/inactiveProps';
 import { cn } from '@/lib/utils';
 import type { PasswordInputProps } from './passwordInput.types';
 
@@ -69,16 +70,19 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
           />
           <button
             type="button"
-            onClick={() => setRevealed((current) => !current)}
+            // Never natively disabled (as Button, 2026-11-03): with the field out of use it is
+            // aria-disabled and dimmed, and refuses its own press.
+            {...inactiveButtonProps(props.disabled === true, () =>
+              setRevealed((current) => !current)
+            )}
             // `tabIndex={-1}` keeps Tab going straight from the field to Save, which is
             // the path someone typing a credential is actually on.
             tabIndex={-1}
             aria-label={`${revealed ? 'Hide' : 'Show'} ${revealLabel}`}
             aria-pressed={revealed}
-            disabled={props.disabled}
             // `inset-y-0` centres against the INPUT at any size — sm/md/lg differ in height,
             // so a fixed offset would only ever be right for one of them.
-            className="flex absolute inset-y-0 right-2 items-center p-1 text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex absolute inset-y-0 right-2 items-center p-1 text-muted-foreground hover:text-foreground data-[inactive]:opacity-50 data-[inactive]:cursor-not-allowed"
           >
             <Icon className="w-4 h-4" />
           </button>

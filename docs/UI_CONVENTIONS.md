@@ -36,6 +36,7 @@ about interactive controls and styled primitives.
 | `<textarea>`               | `Textarea`                                                                                             |
 | a status/tag `<span>` pill | `Badge` — `variant`: default / success / warning / danger / secondary; `size`: sm/md/lg                |
 | a bordered `<div>` panel   | `Card` (+ `CardHeader`, `CardContent`, `CardTitle`, `CardDescription`); `padding` prop controls insets |
+| a `<button>` wrapping a `Card` ("pick one") | `ChoiceCard` — `selected`, `onSelect`, `disabled`, `contentClassName`                |
 | a checkbox/switch          | `Toggle`                                                                                               |
 | a modal                    | `Dialog`, or `ConfirmDialog` / `AlertDialog` for confirmations                                         |
 | an inline notice           | `Alert`                                                                                                |
@@ -213,6 +214,10 @@ disabled`, carries `data-inactive`, looks as before (dimmed, no pointer events) 
 own click — mouse, Enter, Space, a form's implicit submit; it does not bubble to ancestors
 (capture listeners still see it). An explicit `disabled={false}` with `isLoading` stays clickable.
 
+- The same holds for every design-system control that draws its own `<button>`: `Toggle`,
+  `SegmentedControl` segments, `PasswordInput`'s reveal and `ChoiceCard` (2026-11-03). A new one
+  spreads `inactiveButtonProps(inactive, onClick)` (`ui/Button/inactiveProps.ts`) after its other
+  props instead of passing `disabled`.
 - Style an inactive Button with `data-[inactive]:…` (not `disabled:…`, which no longer matches).
 - Code that picks "enabled" controls must skip `[aria-disabled="true"]` too
   (`:not([disabled])` alone now matches a disabled Button).

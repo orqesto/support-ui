@@ -1,6 +1,6 @@
 import { Bot, Check, KeyRound } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
-import { cn } from '@/lib/utils';
+import { ChoiceCard } from '@/components/ui/ChoiceCard';
 import {
   FREE_AI_ALLOWANCE_USED,
   starterAllowanceLine,
@@ -105,33 +105,20 @@ export const AiProviderModeSwitch = ({
             </Card>
           </div>
         ) : managedAvailable ? (
-          <button
-            type="button"
-            aria-pressed={mode === 'managed'}
+          <ChoiceCard
+            selected={mode === 'managed'}
+            onSelect={() => onSelect('managed')}
             disabled={saving}
-            onClick={() => onSelect('managed')}
-            className="rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
           >
-            <Card
-              className={cn(
-                'h-full cursor-pointer transition-colors hover:border-primary/60',
-                mode === 'managed' && 'border-primary ring-2 ring-primary'
-              )}
-            >
-              <CardContent className="space-y-2 p-5">
-                <div className="flex items-center gap-2">
-                  <Bot className="h-5 w-5 text-ai" />
-                  <span className="font-medium text-foreground">Use our AI</span>
-                  {mode === 'managed' && (
-                    <Check className="ml-auto h-4 w-4 text-muted-foreground" />
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground" data-testid="managed-ai-card-text">
-                  {managedCardText(starter, isFree)}
-                </p>
-              </CardContent>
-            </Card>
-          </button>
+            <div className="flex items-center gap-2">
+              <Bot className="h-5 w-5 text-ai" />
+              <span className="font-medium text-foreground">Use our AI</span>
+              {mode === 'managed' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
+            </div>
+            <p className="text-sm text-muted-foreground" data-testid="managed-ai-card-text">
+              {managedCardText(starter, isFree)}
+            </p>
+          </ChoiceCard>
         ) : (
           <div aria-disabled className="rounded-lg">
             <Card className="h-full border-dashed opacity-70">
@@ -152,32 +139,17 @@ export const AiProviderModeSwitch = ({
           </div>
         )}
 
-        <button
-          type="button"
-          aria-pressed={mode === 'byo'}
-          disabled={saving}
-          onClick={() => onSelect('byo')}
-          className="rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
-        >
-          <Card
-            className={cn(
-              'h-full cursor-pointer transition-colors hover:border-primary/60',
-              mode === 'byo' && 'border-primary ring-2 ring-primary'
-            )}
-          >
-            <CardContent className="space-y-2 p-5">
-              <div className="flex items-center gap-2">
-                <KeyRound className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium text-foreground">Bring your own keys</span>
-                {mode === 'byo' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Connect your own provider (OpenAI, Anthropic, Bedrock, …) below. You pay the
-                provider directly.
-              </p>
-            </CardContent>
-          </Card>
-        </button>
+        <ChoiceCard selected={mode === 'byo'} onSelect={() => onSelect('byo')} disabled={saving}>
+          <div className="flex items-center gap-2">
+            <KeyRound className="h-5 w-5 text-muted-foreground" />
+            <span className="font-medium text-foreground">Bring your own keys</span>
+            {mode === 'byo' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Connect your own provider (OpenAI, Anthropic, Bedrock, …) below. You pay the provider
+            directly.
+          </p>
+        </ChoiceCard>
       </div>
     </div>
   );

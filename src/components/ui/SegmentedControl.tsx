@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import type { ComponentType } from 'react';
+import { inactiveButtonProps } from './Button/inactiveProps';
 
 export type Segment<T extends string> = {
   value: T;
@@ -67,10 +68,11 @@ export const SegmentedControl = <T extends string>({
           aria-pressed={active}
           aria-label={iconOnly ? segment.label : undefined}
           title={segment.title ?? (iconOnly ? segment.label : undefined)}
-          disabled={segment.disabled}
-          onClick={() => onChange(segment.value)}
+          // Never natively disabled (as Button, 2026-11-03): a segment out of use stays a focusable
+          // Tab stop, aria-disabled and dimmed, and refuses its own press.
+          {...inactiveButtonProps(segment.disabled === true, () => onChange(segment.value))}
           className={cn(
-            'inline-flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 disabled:cursor-not-allowed',
+            'inline-flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[inactive]:opacity-50 data-[inactive]:cursor-not-allowed',
             iconOnly
               ? 'w-7 h-6 rounded-md'
               : size === 'md'

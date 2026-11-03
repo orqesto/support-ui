@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/Dialog';
 import { CheckoutSessionForm } from '@/components/billing/CheckoutSessionForm';
 import { Card, CardContent } from '@/components/ui/Card';
+import { ChoiceCard } from '@/components/ui/ChoiceCard';
 import { ExternalLink } from '@/components/ui/ExternalLink';
 import { Spinner } from '@/components/ui/Spinner';
 import {
@@ -236,38 +237,28 @@ export const PaymentStep = ({
             const additions = formatFeatureAdditions(planFeatureAdditions(plan, cards[index - 1]));
             return (
               /* Same selectable-card pattern as the AI and Storage steps. */
-              <button
+              <ChoiceCard
                 key={plan.name}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setChosenPlan(plan.name)}
-                className="rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                selected={active}
+                onSelect={() => setChosenPlan(plan.name)}
+                contentClassName="space-y-1 p-4"
               >
-                <Card
-                  className={cn(
-                    'h-full cursor-pointer transition-colors hover:border-primary/60',
-                    active && 'border-primary ring-2 ring-primary'
-                  )}
-                >
-                  <CardContent className="space-y-1 p-4">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-foreground">{plan.displayName}</span>
-                      {active && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {plan.name === FREE_PLAN
-                        ? 'Free forever · no card'
-                        : `${formatMoneyExVat(plan.price, plan.currency)}/${plan.billingInterval}`}
-                    </p>
-                    <ul className="space-y-0.5 pt-2 text-xs text-muted-foreground">
-                      {planLimitLines(plan).map((line) => (
-                        <li key={line}>{line}</li>
-                      ))}
-                    </ul>
-                    {additions && <p className="pt-1 text-xs text-foreground/80">{additions}</p>}
-                  </CardContent>
-                </Card>
-              </button>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-foreground">{plan.displayName}</span>
+                  {active && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {plan.name === FREE_PLAN
+                    ? 'Free forever · no card'
+                    : `${formatMoneyExVat(plan.price, plan.currency)}/${plan.billingInterval}`}
+                </p>
+                <ul className="space-y-0.5 pt-2 text-xs text-muted-foreground">
+                  {planLimitLines(plan).map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+                {additions && <p className="pt-1 text-xs text-foreground/80">{additions}</p>}
+              </ChoiceCard>
             );
           })}
         </div>

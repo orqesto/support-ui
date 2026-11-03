@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
 import { Check, Cloud, Database } from 'lucide-react';
 import { DatabaseConfigCard } from '@/components/settings/providers/DatabaseConfigCard';
-import { Card, CardContent } from '@/components/ui/Card';
-import { cn } from '@/lib/utils';
+import { ChoiceCard } from '@/components/ui/ChoiceCard';
 import type { DatabaseDisplay } from '@/services/database.service';
 
 type Choice = 'managed' | 'own';
@@ -50,64 +49,39 @@ export const DatabaseStep = ({
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <button
-          type="button"
-          aria-pressed={value === 'managed'}
-          aria-disabled={!managedAllowed || ownConnected}
+        <ChoiceCard
+          selected={value === 'managed'}
+          onSelect={() => onChoose('managed')}
           disabled={!managedAllowed || ownConnected}
-          onClick={() => onChoose('managed')}
-          className="rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed"
           data-testid="database-choice-managed"
         >
-          <Card
-            className={cn(
-              'h-full transition-colors',
-              managedAllowed && !ownConnected && 'cursor-pointer hover:border-primary/60',
-              value === 'managed' && 'border-primary ring-2 ring-primary',
-              (!managedAllowed || ownConnected) && 'opacity-60'
-            )}
-          >
-            <CardContent className="space-y-2 p-5">
-              <div className="flex items-center gap-2">
-                <Cloud className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium text-foreground">Use Odly's managed database</span>
-                {value === 'managed' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {managedAllowed
-                  ? 'Nothing to set up. Your data is stored on the platform, isolated per workspace.'
-                  : 'The managed database needs an active plan — Free included. Choose a plan, or connect your own Postgres.'}
-              </p>
-            </CardContent>
-          </Card>
-        </button>
+          <div className="flex items-center gap-2">
+            <Cloud className="h-5 w-5 text-muted-foreground" />
+            <span className="font-medium text-foreground">Use Odly's managed database</span>
+            {value === 'managed' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {managedAllowed
+              ? 'Nothing to set up. Your data is stored on the platform, isolated per workspace.'
+              : 'The managed database needs an active plan — Free included. Choose a plan, or connect your own Postgres.'}
+          </p>
+        </ChoiceCard>
 
-        <button
-          type="button"
-          aria-pressed={value === 'own'}
-          onClick={() => onChoose('own')}
-          className="rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        <ChoiceCard
+          selected={value === 'own'}
+          onSelect={() => onChoose('own')}
           data-testid="database-choice-own"
         >
-          <Card
-            className={cn(
-              'h-full cursor-pointer transition-colors hover:border-primary/60',
-              value === 'own' && 'border-primary ring-2 ring-primary'
-            )}
-          >
-            <CardContent className="space-y-2 p-5">
-              <div className="flex items-center gap-2">
-                <Database className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium text-foreground">Bring your own Postgres</span>
-                {value === 'own' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Your data is read and written in a database you run. Odly keeps only sign-in,
-                billing and audit metadata.
-              </p>
-            </CardContent>
-          </Card>
-        </button>
+          <div className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-muted-foreground" />
+            <span className="font-medium text-foreground">Bring your own Postgres</span>
+            {value === 'own' && <Check className="ml-auto h-4 w-4 text-muted-foreground" />}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Your data is read and written in a database you run. Odly keeps only sign-in, billing
+            and audit metadata.
+          </p>
+        </ChoiceCard>
       </div>
 
       {choiceError && (
