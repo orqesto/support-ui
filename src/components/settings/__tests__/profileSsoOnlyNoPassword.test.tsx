@@ -31,7 +31,11 @@ vi.mock('@/services/user.service', () => ({
   },
 }));
 vi.mock('@/services/organization.service', () => ({
-  organizationService: { getRoutingKeys: vi.fn().mockResolvedValue([]) },
+  organizationService: {
+    getRoutingKeys: vi.fn().mockResolvedValue([]),
+    // The signature section names the workspace it edits.
+    getCurrent: vi.fn().mockResolvedValue({ name: 'Example Workspace' }),
+  },
 }));
 // Child panels do their own fetching and are irrelevant to the password form.
 vi.mock('../TwoFactorSettings', () => ({ TwoFactorSettings: () => null }));

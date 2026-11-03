@@ -9,6 +9,7 @@ import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Textarea } from '@/components/ui/Textarea';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/stores/authStore';
+import { useWorkspaceNameWhen } from '@/hooks/useWorkspaceNameWhen';
 import { toast } from '@/lib/toast';
 
 export const ProfileSettings = () => {
@@ -71,6 +72,8 @@ export const ProfileSettings = () => {
     void userService.setSelfSkillValues(key, next);
   };
 
+  // One signature per workspace: this section edits the one of the workspace this tab is in.
+  const workspaceName = useWorkspaceNameWhen(true);
   const [signature, setSignature] = useState(user?.signature ?? '');
   const [sigSaving, setSigSaving] = useState(false);
 
@@ -83,7 +86,9 @@ export const ProfileSettings = () => {
     try {
       await userService.updateSelf({ signature: signature.trim() || null });
       useAuthStore.setState((store) => ({
-        user: store.user ? { ...store.user, signature: signature.trim() || null } : store.user,
+        user: store.user
+          ? { ...store.user, signature: signature.trim() || null, signatureNeedsReview: false }
+          : store.user,
       }));
       toast.success('Signature saved');
     } catch (error) {
@@ -182,11 +187,13 @@ export const ProfileSettings = () => {
       <div className="bg-card rounded-lg border border-border p-6">
         <h3 className="font-display text-md font-semibold mb-1 flex items-center gap-2">
           <PenLine className="w-5 h-5 text-muted-foreground" />
-          Email Signature
+          Email Signature{workspaceName ? ` for ${workspaceName}` : ''}
         </h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Appended to email replies and emails you compose. Chat channels (Telegram, Slack) are sent
-          without it. Leave blank to send without a signature.
+          Appended to email replies and emails you compose in{' '}
+          {workspaceName ? <strong>{workspaceName}</strong> : 'this workspace'}. Each workspace you
+          work in has its own signature: switch workspace to edit another. Chat channels (Telegram,
+          Slack) are sent without it. Leave blank to send without a signature.
         </p>
         <Textarea
           value={signature}
