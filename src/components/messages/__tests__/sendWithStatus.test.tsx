@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { createRef } from 'react';
+import { flushSync } from 'react-dom';
 import type { Message } from '@/types';
 import { MessageComposer } from '../MessageComposer';
 import { readSendAction } from '../ComposerSendButton';
@@ -259,12 +260,25 @@ describe('getting the full header back while a draft is open', () => {
     renderDetail();
     type('<p>Half-written answer</p>');
     expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
-    fireEvent.click(screen.getByTestId('rte-collapse'));
+    // A real press: pointerdown INSIDE the box, then the click. The page-wide listener reads that
+    // as a press into the composer — it reopened the box within the same click (staging, #820).
+    // ⚠️ A browser runs a microtask checkpoint between listeners, so React has re-rendered the
+    // fold before that document listener runs; jsdom re-renders only after the whole dispatch,
+    // which hid the bug. Flushing React on <body> — between React's root and the document — puts
+    // the browser's order back.
+    const flushOnBody = () => flushSync(() => {});
+    document.body.addEventListener('click', flushOnBody);
+    const collapse = screen.getByTestId('rte-collapse');
+    fireEvent.pointerDown(collapse);
+    fireEvent.click(collapse);
+    document.body.removeEventListener('click', flushOnBody);
     expect(screen.getByTestId('detail-top-row')).not.toHaveAttribute('data-compact');
     expect(screen.getByTestId('message-composer')).toHaveAttribute('data-state', 'rest');
     // The draft is kept — the folded editor still holds it (the real editor shows its first line:
     // RichTextEditor.collapsedDraft.test) — and pressing into the pill opens the box with it.
     expect(screen.getByTestId('rich-text-editor')).toHaveValue('<p>Half-written answer</p>');
+    // The next press into the pill is NOT swallowed by the fold's guard.
+    fireEvent.pointerDown(screen.getByTestId('composer-field'));
     fireEvent.click(screen.getByTestId('composer-field'));
     expect(screen.getByTestId('message-composer')).toHaveAttribute('data-state', 'open');
     expect(screen.getByTestId('rich-text-editor')).toHaveValue('<p>Half-written answer</p>');
