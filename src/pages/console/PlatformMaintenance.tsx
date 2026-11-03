@@ -13,6 +13,7 @@ import { Toggle } from '@/components/ui/Toggle';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { GlobalAdminMembershipsCard } from '@/components/console/maintenance/GlobalAdminMembershipsCard';
 import { SyncCheckpointsCard } from '@/components/console/maintenance/SyncCheckpointsCard';
+import { SpoofedSenderReportView } from '@/components/console/maintenance/SpoofedSenderReportView';
 import { TrustedAddressesCard } from '@/components/console/maintenance/TrustedAddressesCard';
 import {
   REPAIRS,
@@ -267,7 +268,9 @@ const RepairRow = ({
         </Alert>
       )}
       {checked &&
-        (repair.pagedByEventId ? (
+        (repair.id === 'spoofed-sender-report' ? (
+          <SpoofedSenderReportView title="Check (nothing changed)" result={checked} />
+        ) : repair.pagedByEventId ? (
           <LostAttachmentsView title="Check (nothing changed)" result={checked} />
         ) : (
           <RepairResultView title="Check (nothing changed)" result={checked} />
