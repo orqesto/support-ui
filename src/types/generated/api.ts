@@ -268,6 +268,7 @@ export interface components {
             /** @enum {string} */
             role: "admin" | "user";
             signature: string | null;
+            signatureNeedsReview?: boolean;
             createdAt: string;
             organizationRole: string;
             organizationId: number;

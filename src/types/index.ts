@@ -80,7 +80,13 @@ export type User = {
   telegram?: string | null; // Telegram username (e.g., @username)
   slack?: string | null; // Slack username or user ID
   phone?: string | null; // Phone number
-  signature?: string | null; // Personal email signature
+  // The email signature of the CURRENT workspace (one per workspace: a person in several brand
+  // workspaces signs off as each brand). Reloaded with /api/users/me on every workspace switch.
+  signature?: string | null;
+  // True while `signature` is the copy of the person's old one-for-every-workspace signature and
+  // they have not saved or kept it in this workspace: the reply box asks them to check it.
+  // Absent on a backend from before per-workspace signatures — treat as false.
+  signatureNeedsReview?: boolean;
   // SCIM: true when the member is IdP-managed by the BE's robust signal
   // (auth_provider='scim' OR per-org scim_external_id set OR a member of a SCIM
   // group in this org) — NOT scim_external_id alone, which JumpCloud omits on

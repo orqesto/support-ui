@@ -25,6 +25,7 @@ import { TranslateButton } from '@/components/shared/TranslateButton';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
 import { ComposerSendButton, type SendAction } from './ComposerSendButton';
+import { SignatureReviewNotice } from './SignatureReviewNotice';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -554,6 +555,7 @@ export function MessageComposer({
             same ones that show addressing). Shown here, outside the editor, so it is always
             visible, cannot be edited or deleted per reply, and never doubles when an AI draft
             or KB answer replaces the text. Edited only in Settings › Profile. */}
+        {composerMode === 'reply' && recipientDraft && !atRest && <SignatureReviewNotice />}
         {composerMode === 'reply' && recipientDraft && !atRest && user?.signature?.trim() && (
           // One line (2026-10-29): the full block took four lines of the conversation's room. The
           // whole signature is in the hover title and goes out in full on send.

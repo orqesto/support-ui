@@ -102,6 +102,12 @@ export const userService = {
     return response.data.data as User;
   },
 
+  // Keep the signature copied into the current workspace as it is (clears the "check your
+  // signature" notice there). Saving the signature through updateSelf does the same.
+  confirmSignature: async (): Promise<void> => {
+    await apiClient.post('/api/users/me/signature/confirm');
+  },
+
   // Update user
   update: async (id: number, data: Partial<User>): Promise<User> => {
     const response: AxiosResponse<ApiResponse<User>> = await apiClient.put(`/api/users/${id}`, data);
