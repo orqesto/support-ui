@@ -152,4 +152,31 @@ describe('describeProbe / describeMove', () => {
       describeMove({ id: 1, status: 'failed', totalRows: 10, copiedRows: 4, error: 'target refused', startedAt: null, finishedAt: null, cleanedAt: null })
     ).toMatch(/stayed on the managed database, untouched: target refused/);
   });
+
+  // Staging 2026-11-04: a move that finished in 2 s still read "Copying… 0 of 0 rows — the inbox
+  // is paused" on this card for minutes, because the card loaded once and never again.
+  it('re-reads while a move is in flight and shows it finished without a reload', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const move = { id: 1, totalRows: 0, copiedRows: 0, error: null, startedAt: null, finishedAt: null, cleanedAt: null };
+      get.mockResolvedValueOnce({
+        data: { success: true, data: display({ mode: 'own', status: 'provisioning', move: { ...move, status: 'copying' } }) },
+      });
+      get.mockResolvedValue({
+        data: { success: true, data: display({ mode: 'own', status: 'active', move: { ...move, status: 'copied' } }) },
+      });
+      render(<DatabaseConfigCard />);
+      expect(await screen.findByText(/Copying your data to your database/)).toBeInTheDocument();
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(await screen.findByText(/now runs on your database/)).toBeInTheDocument();
+      expect(screen.queryByText(/Copying your data/)).not.toBeInTheDocument();
+      // Settled: no more reads once the move left the in-flight states.
+      const reads = get.mock.calls.length;
+      await vi.advanceTimersByTimeAsync(9000);
+      expect(get.mock.calls.length).toBe(reads);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
+
