@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Toggle } from '@/components/ui/Toggle';
+import { useAuthStore } from '@/stores/authStore';
 import { useNotificationSettings } from '@/hooks/useNotificationSettings';
-import type { SettingsLine, WorkingHours } from '@/services/notificationSettingsService';
-import { NotificationPreferencesLegacy } from './NotificationPreferencesLegacy';
+import type { NotificationSettings, SettingsLine, WorkingHours } from '@/services/notificationSettingsService';
+import { NotificationPreferencesLegacy, type Prefs } from './NotificationPreferencesLegacy';
 import { lineLabel } from './notificationKindLabels';
 import { WorkingHoursEditor, validateWorkingHours } from './WorkingHoursEditor';
 
@@ -63,8 +64,66 @@ const Row = ({ label, children }: { label: string; children: React.ReactNode }) 
   </div>
 );
 
+const statusId = (key: string) => `line-status-${key}`;
+
+const Status = ({ each, onReset }: { each: SettingsLine; onReset: (key: string) => void }) => (
+  <>
+    {each.alwaysOn && (
+      <span id={statusId(each.key)}>
+        <Badge variant="secondary">Always on</Badge>
+      </span>
+    )}
+    {!each.alwaysOn && each.locked && (
+      <span id={statusId(each.key)}>
+        <Badge variant="warning">Set by your admin</Badge>
+      </span>
+    )}
+    {!each.alwaysOn && !each.locked && each.source === 'own' && (
+      <Button size="sm" variant="ghost" aria-label={`Reset ${lineLabel(each.key)} to default`} onClick={() => onReset(each.key)}>
+        Reset to default
+      </Button>
+    )}
+  </>
+);
+
+const LEGACY_FIELDS: Array<[key: string, field: keyof Prefs]> = [
+  ['kind:sla_message_breach', 'notifyMessages'],
+  ['kind:sla_ticket_first_response', 'notifyTicketFirstResponse'],
+  ['kind:sla_ticket_resolution', 'notifyTicketResolution'],
+  ['kind:new_unassigned_message', 'notifyNewUnassigned'],
+  ['slaMinSeverity', 'minSeverity'],
+];
+
+/** The old preferences, rebuilt from the lines the hook already read (no second GET). */
+const legacyPrefs = (settings: NotificationSettings): Partial<Prefs> => {
+  const out: Record<string, unknown> = {};
+  for (const [key, field] of LEGACY_FIELDS) {
+    const hit = settings.lines.find((each) => each.key === key);
+    if (hit && hit.value !== null) out[field] = hit.value;
+  }
+  return out as Partial<Prefs>;
+};
+
+const DEBOUNCE_MS = 600;
+
+/** Keyed on the workspace so every bit of local state (drafts, pending values, notices) starts clean on a switch. */
 export const NotificationPreferencesSettings = () => {
+  const orgKey = useAuthStore((state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null);
+  return <NotificationPreferencesBody key={orgKey ?? 'none'} />;
+};
+
+const NotificationPreferencesBody = () => {
   const { settings, save, reset, loading, error } = useNotificationSettings();
+  const sendCount = useRef(0);
+  const latestFor = useRef<Record<string, number>>({});
+  const hoursTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Dropped, not flushed, on unmount: a flush after a workspace switch would write A's hours into B.
+  useEffect(
+    () => () => {
+      if (hoursTimer.current) clearTimeout(hoursTimer.current);
+    },
+    []
+  );
   const [pending, setPending] = useState<Record<string, unknown>>({});
   const [lockedNames, setLockedNames] = useState<string[]>([]);
   const [failed, setFailed] = useState<string | null>(null);
@@ -74,29 +133,47 @@ export const NotificationPreferencesSettings = () => {
   // Old server (or a reply without lines): exactly today's page.
   if (!settings || settings.legacy || settings.lines.length === 0) {
     if (error && !settings) return <p className="text-sm text-destructive">{error}</p>;
-    return <NotificationPreferencesLegacy />;
+    return <NotificationPreferencesLegacy initial={settings?.legacy ? legacyPrefs(settings) : undefined} />;
   }
 
   const byKey = new Map(settings.lines.map((each) => [each.key, each]));
   const valueOf = (each: SettingsLine): unknown => (each.key in pending ? pending[each.key] : each.value);
 
   const change = async (key: string, value: unknown) => {
+    const call = ++sendCount.current;
+    latestFor.current[key] = call;
+    const isLatest = () => latestFor.current[key] === call;
     setLockedNames([]);
     setFailed(null);
     setPending((prev) => ({ ...prev, [key]: value }));
     try {
       const result = await save({ [key]: value });
+      if (!isLatest()) return;
       if ('lockedKeys' in result) {
         setLockedNames(result.lockedKeys.map(lineLabel));
         setHoursDraft(null);
+      } else if (key === 'workingHours') {
+        // Saved: drop the draft unless the user has edited again since.
+        setHoursDraft((prev) => (prev && prev.value === value ? null : prev));
       }
     } catch {
-      setFailed('Could not save that change.');
+      if (isLatest()) setFailed('Could not save that change.');
     } finally {
-      setPending((prev) => {
-        const { [key]: _gone, ...rest } = prev;
-        return rest;
-      });
+      if (isLatest()) {
+        setPending((prev) => {
+          const { [key]: _gone, ...rest } = prev;
+          return rest;
+        });
+      }
+    }
+  };
+
+  const changeHours = (key: string, next: WorkingHours | null) => {
+    setHoursDraft({ value: next });
+    if (hoursTimer.current) clearTimeout(hoursTimer.current);
+    // Only valid values are sent, and only once typing pauses.
+    if (next === null || validateWorkingHours(next) === null) {
+      hoursTimer.current = setTimeout(() => void change(key, next), DEBOUNCE_MS);
     }
   };
 
@@ -110,26 +187,15 @@ export const NotificationPreferencesSettings = () => {
     }
   };
 
-  const Status = ({ each }: { each: SettingsLine }) => (
-    <>
-      {each.alwaysOn && <Badge variant="secondary">Always on</Badge>}
-      {!each.alwaysOn && each.locked && <Badge variant="warning">Set by your admin</Badge>}
-      {!each.alwaysOn && !each.locked && each.source === 'own' && (
-        <Button size="sm" variant="ghost" onClick={() => resetLine(each.key)}>
-          Reset to default
-        </Button>
-      )}
-    </>
-  );
-
   const switchRow = (each: SettingsLine) => {
     const label = lineLabel(each.key);
     const fixed = each.alwaysOn || each.locked;
     return (
       <Row key={each.key} label={label}>
-        <Status each={each} />
+        <Status each={each} onReset={resetLine} />
         <Toggle
           ariaLabel={label}
+          ariaDescribedBy={fixed ? statusId(each.key) : undefined}
           checked={each.alwaysOn ? true : valueOf(each) === true}
           disabled={fixed}
           onChange={(next) => change(each.key, next)}
@@ -187,13 +253,15 @@ export const NotificationPreferencesSettings = () => {
             {only && switchRow(only)}
             {severity && (
               <Row label={lineLabel(severity.key)}>
-                <Status each={severity} />
+                <Status each={severity} onReset={resetLine} />
                 {(['warning', 'critical'] as const).map((sev) => (
                   <Button
                     key={sev}
                     size="sm"
                     variant={valueOf(severity) === sev ? 'primary' : 'outline'}
                     disabled={severity.locked}
+                    aria-label={`${lineLabel(severity.key)}: ${sev === 'warning' ? 'All (warning+)' : 'Critical only'}`}
+                    aria-pressed={valueOf(severity) === sev}
                     onClick={() => change(severity.key, sev)}
                   >
                     {sev === 'warning' ? 'All (warning+)' : 'Critical only'}
@@ -203,9 +271,10 @@ export const NotificationPreferencesSettings = () => {
             )}
             {priority && (
               <Row label="Minimum priority">
-                <Status each={priority} />
+                <Status each={priority} onReset={resetLine} />
                 <div className="w-40">
                   <Select
+                    aria-label="Minimum priority"
                     options={PRIORITIES}
                     value={typeof valueOf(priority) === 'string' ? (valueOf(priority) as string) : 'low'}
                     disabled={priority.locked}
@@ -219,14 +288,13 @@ export const NotificationPreferencesSettings = () => {
               <div data-line-row className="border-b border-border last:border-0">
                 <div className="flex items-center justify-between pt-3">
                   <p className="text-sm font-medium">Working hours</p>
-                  <Status each={hours} />
+                  <Status each={hours} onReset={resetLine} />
                 </div>
                 <WorkingHoursEditor
                   value={hoursValue}
                   disabled={hours.locked}
                   onChange={(next) => {
-                    setHoursDraft({ value: next });
-                    if (next === null || validateWorkingHours(next) === null) void change(hours.key, next);
+                    changeHours(hours.key, next);
                   }}
                 />
               </div>

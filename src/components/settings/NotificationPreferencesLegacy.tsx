@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
 import { apiClient } from '@/lib/api-client';
 
-type Prefs = {
+export type Prefs = {
   minSeverity: 'warning' | 'critical';
   notifyMessages: boolean;
   notifyTicketFirstResponse: boolean;
@@ -34,8 +34,9 @@ const PreferenceRow = ({
   </div>
 );
 
-export const NotificationPreferencesLegacy = () => {
-  const [prefs, setPrefs] = useState<Prefs>(defaults);
+/** `initial`: the values the page already fetched (saves a second GET); without it the component fetches. */
+export const NotificationPreferencesLegacy = ({ initial }: { initial?: Partial<Prefs> }) => {
+  const [prefs, setPrefs] = useState<Prefs>(initial ? { ...defaults, ...initial } : defaults);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,6 +44,7 @@ export const NotificationPreferencesLegacy = () => {
   useEffect(() => () => { if (savedTimerRef.current) clearTimeout(savedTimerRef.current); }, []);
 
   useEffect(() => {
+    if (initial) return;
     apiClient
       .get('/api/users/me/notification-preferences')
       .then((result) => setPrefs({ ...defaults, ...((result.data as { data: Partial<Prefs> }).data) }))

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import {
   fetchNotificationSettings,
@@ -12,6 +12,8 @@ export const useNotificationSettings = () => {
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Send order: only the newest save/reset may write `settings`, so a slow older reply cannot undo a newer one.
+  const latestCall = useRef(0);
 
   // Same workspace key as useSLANotifications: lines are per workspace, so a switch re-fetches.
   const orgKey = useAuthStore(
@@ -33,19 +35,22 @@ export const useNotificationSettings = () => {
   }, [orgKey]);
 
   const save = useCallback(async (lines: Record<string, unknown>) => {
+    const call = ++latestCall.current;
     const result = await saveNotificationSettings(lines);
     if ('lockedKeys' in result) {
       // Allowed keys were still saved: show what the server holds now.
-      setSettings(await fetchNotificationSettings());
-    } else {
+      const fresh = await fetchNotificationSettings();
+      if (call === latestCall.current) setSettings(fresh);
+    } else if (call === latestCall.current) {
       setSettings(result);
     }
     return result;
   }, []);
 
   const reset = useCallback(async (keys?: string[]) => {
+    const call = ++latestCall.current;
     const next = await resetNotificationSettings(keys);
-    setSettings(next);
+    if (call === latestCall.current) setSettings(next);
     return next;
   }, []);
 
