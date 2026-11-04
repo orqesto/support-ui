@@ -248,21 +248,18 @@ describe('the Resolve row and the header while writing', () => {
     expect(screen.getByRole('button', { name: /Resolve & save to KB/ })).toBeInTheDocument();
   });
 
-  it('the header keeps only its top row while the reply box is open', () => {
+  it('the header stays whole while the reply box is open', () => {
     renderDetail();
+    type('<p>Hello.</p>');
     expect(screen.getByTestId('detail-top-row')).not.toHaveAttribute('data-compact');
     expect(screen.getByTestId('header-chips').className).not.toMatch(/(^|\s)hidden(\s|$)/);
-    type('<p>Hello.</p>');
-    expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
-    expect(screen.getByTestId('header-chips').className).toMatch(/(^|\s)hidden(\s|$)/);
   });
 });
 
-describe('getting the full header back while a draft is open', () => {
-  it("the editor's Collapse folds the box with a draft, keeps the text, and the full header returns", () => {
+describe('folding the reply box with a draft', () => {
+  it("the editor's Collapse folds the box with a draft and keeps the text", () => {
     renderDetail();
     type('<p>Half-written answer</p>');
-    expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
     // A real press: pointerdown INSIDE the box, then the click. The page-wide listener reads that
     // as a press into the composer — it reopened the box within the same click (staging, #820).
     // ⚠️ A browser runs a microtask checkpoint between listeners, so React has re-rendered the
@@ -275,7 +272,6 @@ describe('getting the full header back while a draft is open', () => {
     fireEvent.pointerDown(collapse);
     fireEvent.click(collapse);
     document.body.removeEventListener('click', flushOnBody);
-    expect(screen.getByTestId('detail-top-row')).not.toHaveAttribute('data-compact');
     expect(screen.getByTestId('message-composer')).toHaveAttribute('data-state', 'rest');
     // The draft is kept — the folded editor still holds it (the real editor shows its first line:
     // RichTextEditor.collapsedDraft.test) — and pressing into the pill opens the box with it.
@@ -285,32 +281,6 @@ describe('getting the full header back while a draft is open', () => {
     fireEvent.click(screen.getByTestId('composer-field'));
     expect(screen.getByTestId('message-composer')).toHaveAttribute('data-state', 'open');
     expect(screen.getByTestId('rich-text-editor')).toHaveValue('<p>Half-written answer</p>');
-    expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
-  });
-
-  it('scrolling UP the thread while writing brings the full header back; down hides it again', () => {
-    renderDetail();
-    type('<p>Half-written answer</p>');
-    const scroller = screen.getByTestId('thread-scroller');
-    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 2000 });
-    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 300 });
-    fireEvent.wheel(scroller);
-    scroller.scrollTop = 900;
-    fireEvent.scroll(scroller);
-    expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
-    // The scroll handler settles 300 ms after each change.
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(Date.now() + 400);
-    fireEvent.wheel(scroller);
-    scroller.scrollTop = 500;
-    fireEvent.scroll(scroller);
-    expect(screen.getByTestId('detail-top-row')).not.toHaveAttribute('data-compact');
-    vi.setSystemTime(Date.now() + 400);
-    fireEvent.wheel(scroller);
-    scroller.scrollTop = 800;
-    fireEvent.scroll(scroller);
-    expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
-    vi.useRealTimers();
   });
 
   it('CONTROL: an outside press still never folds a draft away', () => {
@@ -356,35 +326,27 @@ describe('the Resolve row when sending is blocked', () => {
   });
 });
 
-describe('the header tucks only on a thread with room to scroll', () => {
-  const scrollThread = (scrollHeight: number) => {
-    const scroller = screen.getByTestId('thread-scroller');
-    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: scrollHeight });
-    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 300 });
-    fireEvent.wheel(scroller);
-    scroller.scrollTop = 60;
-    fireEvent.scroll(scroller);
-  };
-
-  it('a long thread: scrolling down tucks the header', () => {
-    renderDetail();
-    scrollThread(2000);
-    expect(screen.getByTestId('detail-top-row')).toHaveAttribute('data-compact', 'true');
-  });
-
-  it('a short thread (would fit once tucked): scrolling down leaves it', () => {
-    renderDetail();
-    scrollThread(400);
-    expect(screen.getByTestId('detail-top-row')).not.toHaveAttribute('data-compact');
-  });
-
-  it('the thread jumping on its own (no wheel, touch or key) does not tuck it', () => {
-    renderDetail();
+describe('the header never hides on scroll', () => {
+  const scrollThread = (top: number) => {
     const scroller = screen.getByTestId('thread-scroller');
     Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 2000 });
     Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 300 });
-    scroller.scrollTop = 1700;
+    fireEvent.wheel(scroller);
+    scroller.scrollTop = top;
     fireEvent.scroll(scroller);
+  };
+
+  it('a long thread: scrolling down keeps the full header', () => {
+    renderDetail();
+    scrollThread(900);
+    expect(screen.getByTestId('detail-top-row')).not.toHaveAttribute('data-compact');
+    expect(screen.getByTestId('header-chips').className).not.toMatch(/(^|\s)hidden(\s|$)/);
+  });
+
+  it('scrolling down while writing keeps the full header too', () => {
+    renderDetail();
+    type('<p>Half-written answer</p>');
+    scrollThread(900);
     expect(screen.getByTestId('detail-top-row')).not.toHaveAttribute('data-compact');
   });
 });
@@ -404,7 +366,7 @@ describe('opening a thread lands on its newest message', () => {
     return scroller;
   };
 
-  it('scrolls to the bottom once the thread has loaded, without tucking the header', async () => {
+  it('scrolls to the bottom once the thread has loaded, keeping the full header', async () => {
     svc.message.getThreadMessages = vi.fn().mockResolvedValue({ data: events });
     renderDetail();
     const scroller = withScrollSize();

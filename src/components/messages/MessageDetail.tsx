@@ -723,57 +723,19 @@ export function MessageDetail({
     action: 'send',
   });
   const [sendHoldOpen, setSendHoldOpen] = useState(false);
-  // While the reply box is open the header keeps only its title row and tabs.
-  const [composerOpen, setComposerOpen] = useState(false);
-  /*
-    Reading (owner, 2026-10-29): scrolling DOWN the thread tucks the header's sender, status and
-    meta rows away; scrolling up brings them back. Only the reader's own scrolling counts — the
-    thread's own jump to the newest message on open must not tuck it — and each change settles
-    briefly, because the header changing height moves the scroll position itself.
-  */
-  const [headerTucked, setHeaderTucked] = useState(false);
-  /*
-    While a reply is open the header keeps only its title row — but a draft keeps the box open, so
-    the reader needs a way back to the sender, status and meta rows (owner, 2026-11-03): scrolling
-    UP the thread reveals them while writing; opening the box again or scrolling down hides them.
-  */
-  const [headerRevealed, setHeaderRevealed] = useState(false);
-  const handleComposerOpenChange = useCallback((open: boolean) => {
-    setComposerOpen(open);
-    if (open) setHeaderRevealed(false);
-  }, []);
-  const scrollTrackRef = useRef({ top: 0, intentUntil: 0, settleUntil: 0 });
+  // The header stays whole at all times (owner, 2026-11-04): it no longer folds its sender, status
+  // and meta rows away while scrolling the thread or writing a reply.
   /*
     Opening a thread lands on its LAST message (owner, 2026-11-03): the thread is sorted oldest
     first, so it opened at the top and the newest message — the one to answer — sat below the fold.
     It stays pinned to the bottom while the thread settles (images and quoted blocks growing after
-    the first paint), until the reader's own scroll, press or key takes over. The jump itself is
-    not the reader's scrolling, so it never tucks the header (handleThreadScroll needs intent).
+    the first paint), until the reader's own scroll, press or key takes over.
   */
   const threadScrollerRef = useRef<HTMLDivElement>(null);
   const threadContentRef = useRef<HTMLDivElement>(null);
   const pinToNewestRef = useRef(true);
   const markScrollIntent = useCallback(() => {
-    scrollTrackRef.current.intentUntil = Date.now() + 800;
     pinToNewestRef.current = false;
-  }, []);
-  const handleThreadScroll = useCallback((event: React.UIEvent<HTMLDivElement>) => {
-    const track = scrollTrackRef.current;
-    const top = event.currentTarget.scrollTop;
-    const delta = top - track.top;
-    track.top = top;
-    const now = Date.now();
-    if (now < track.settleUntil || now > track.intentUntil) return;
-    const el = event.currentTarget;
-    // Only a thread with room to spare tucks: on one that scrolls by less than the rows tucking
-    // hides, tucking made it fit, the browser reset the scroll to the top inside the settle
-    // window, and no scroll ever came to bring the header back.
-    const roomy = el.scrollHeight - el.clientHeight > 240;
-    const tuck = top <= 4 ? false : delta > 6 && roomy ? true : delta < -6 ? false : null;
-    if (tuck === null) return;
-    track.settleUntil = now + 300;
-    setHeaderTucked(tuck);
-    setHeaderRevealed(!tuck);
   }, []);
 
   // A newly opened thread pins to its newest message again; the pin's clock starts when its
@@ -1737,7 +1699,6 @@ export function MessageDetail({
           isRead={readState}
           onToggleRead={handleToggleRead}
           metaTarget={twoColumn ? sideMetaEl : undefined}
-          compact={((composerOpen && !headerRevealed) || headerTucked) && !isPhone}
           merges={mergeContext.merges}
           onReloadMerges={mergeContext.reloadMerges}
           onMergeChange={mergeContext.applyMergeChange}
@@ -1798,7 +1759,6 @@ export function MessageDetail({
         <div
           ref={threadScrollerRef}
           data-testid="thread-scroller"
-          onScroll={handleThreadScroll}
           onWheel={markScrollIntent}
           onTouchMove={markScrollIntent}
           onKeyDown={markScrollIntent}
@@ -1931,7 +1891,6 @@ export function MessageDetail({
             sendAction={resolveMode === 'unreviewed' ? 'send' : sendAction}
             onSendWith={handleSendWith}
             onSendPick={handleSendPick}
-            onOpenChange={handleComposerOpenChange}
             richEditorRef={richEditorRef}
             noteEditorRef={noteEditorRef}
             onOpenSimilarMessages={() => setSimilarOpen(true)}
