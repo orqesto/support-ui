@@ -57,16 +57,22 @@ const attachments = new Map<number, Attachment[]>([
   [2, [attachment(22, 2, 'application/pdf', 'invoice.pdf')]],
 ]);
 
-const Thread = ({ rows = thread }: { rows?: MessageEvent[] }) => {
+const Thread = ({
+  rows = thread,
+  files = attachments,
+}: {
+  rows?: MessageEvent[];
+  files?: Map<number, Attachment[]>;
+}) => {
   const rootRef = useRef<HTMLDivElement>(null);
-  const viewer = useThreadFileViewer(rootRef, rows, attachments, 1);
+  const viewer = useThreadFileViewer(rootRef, rows, files, 1);
   return (
     <div ref={rootRef} data-testid="thread">
       {rows.map((msg) => (
         <ThreadMessageItem
           key={msg.id}
           msg={msg}
-          attachments={attachments.get(msg.id) ?? []}
+          attachments={files.get(msg.id) ?? []}
           onOpenAttachment={viewer.openAttachment}
           onOpenInlineImage={viewer.openInlineImage}
         />
@@ -169,6 +175,48 @@ describe('thread → file viewer', () => {
     fireEvent.click(screen.getByAltText('Our label'));
     expect(viewerTitle()).toBe('Our label');
     expect(screen.getByText('5 of 5')).toBeTruthy();
+  });
+
+  describe('a tiny attached picture (signature icon, tracking pixel)', () => {
+    const withIcon = new Map<number, Attachment[]>([
+      [1, [attachment(21, 1, 'image/jpeg', 'box.jpg'), attachment(23, 1, 'image/png', 'icon.png')]],
+      [2, [attachment(22, 2, 'application/pdf', 'invoice.pdf')]],
+    ]);
+    const loadThumb = (name: string, size: number) => {
+      const thumb = screen.getByRole('button', { name }).querySelector('img') as HTMLImageElement;
+      Object.defineProperty(thumb, 'complete', { value: true });
+      Object.defineProperty(thumb, 'naturalWidth', { value: size });
+      Object.defineProperty(thumb, 'naturalHeight', { value: size });
+    };
+
+    it('is left out of next/previous once its thumbnail has loaded small', () => {
+      render(<Thread files={withIcon} />);
+      loadThumb('icon.png', 16);
+      fireEvent.click(screen.getByRole('button', { name: 'box.jpg' }));
+      // damaged (m1 text) · box.jpg · Label (m2 text) · invoice.pdf — no icon.png
+      expect(screen.getByText('2 of 4')).toBeTruthy();
+      fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+      expect(viewerTitle()).toBe('Label');
+    });
+
+    it('still opens when the agent presses it', () => {
+      render(<Thread files={withIcon} />);
+      loadThumb('icon.png', 16);
+      fireEvent.click(screen.getByRole('button', { name: 'icon.png' }));
+      expect(viewerTitle()).toBe('icon.png');
+      expect(screen.getByText('3 of 5')).toBeTruthy();
+    });
+
+    it('CONTROL: a full-size photo, or one not loaded yet, stays in the list', () => {
+      render(<Thread files={withIcon} />);
+      loadThumb('icon.png', 600);
+      fireEvent.click(screen.getByRole('button', { name: 'box.jpg' }));
+      expect(screen.getByText('2 of 5')).toBeTruthy();
+      cleanup();
+      render(<Thread files={withIcon} />);
+      fireEvent.click(screen.getByRole('button', { name: 'box.jpg' }));
+      expect(screen.getByText('2 of 5')).toBeTruthy();
+    });
   });
 
   it('Escape closes it and the thread is the same, never re-mounted', () => {

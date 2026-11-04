@@ -863,6 +863,10 @@ export function MessageDetail({
           list.push(att);
           map.set(att.messageEventId, list);
         }
+        // The API returns a message's files in no set order. Id order is the order they were
+        // stored at ingest — the order the email carried them — so chips, the Files tab and the
+        // viewer's next/previous all follow the email (owner, 2026-11-04).
+        for (const list of map.values()) list.sort((left, right) => left.id - right.id);
         setAttachmentsByMessageId(map);
       })
       .catch(() => {});

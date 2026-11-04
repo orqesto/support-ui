@@ -75,6 +75,9 @@ export const ThreadAttachmentChip = ({
         // `X-Organization-Context` header never goes with it — see `attachmentDownloadUrl`.
         src={attachmentDownloadUrl(attachment.id, selectedOrganizationId)}
         alt={attachment.originalFilename}
+        // The viewer reads the loaded size here to leave tiny signature pictures out of
+        // next/previous (useThreadFileViewer).
+        data-viewer-attachment={attachment.id}
         loading="lazy"
         decoding="async"
         onError={() => setPreviewFailed(true)}
