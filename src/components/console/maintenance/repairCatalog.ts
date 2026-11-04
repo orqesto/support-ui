@@ -43,6 +43,14 @@ export const REPAIRS: RepairEntry[] = [
     scope: 'workspace',
   },
   {
+    id: 'repair-stale-drafts',
+    label: 'Refresh AI drafts written for an older customer email',
+    does: 'Threads still being worked where the customer wrote last (in the last 14 days) and the AI draft shown in the thread is missing or answers an earlier email: queues a fresh draft for their latest email. Nothing is sent; drafts arrive over the next minutes (about 10 a minute).',
+    path: 'repair-stale-drafts',
+    scope: 'workspace',
+    caution: 'Each thread is one AI draft — check the count first. Up to 500 per run; run again if it says truncated.',
+  },
+  {
     id: 'repair-routed-outreach',
     label: 'Restore the clock on outreach someone moved out of Marketing',
     does: 'Threads marked as unsolicited outreach that a person then routed out of Marketing to another team: clears the outreach mark, restarts the response clock and counts it against the rule that made the call. Threads still in Marketing, and outreach nobody routed, are left alone.',
