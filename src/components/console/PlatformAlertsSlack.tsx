@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { SecretField } from '@/components/console/platformDefaults/SecretField';
-import { ThresholdsCard } from '@/components/console/PlatformAlertsThresholds';
+import { RetentionCard } from '@/components/console/PlatformAlertsRetention';
+import { ThresholdsCard, type SerialSave } from '@/components/console/PlatformAlertsThresholds';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -21,10 +22,10 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { toast } from '@/lib/toast';
 import type { PlatformSecretKey, SecretStatus } from '@/services/platformSettings.service';
 import {
-  fillPlatformThresholds,
   PLATFORM_SLACK_SIGNALS,
   platformSlackAlertsService,
   SLACK_BOT_SCOPES,
+  slackTeamKey,
   type PlatformSlackConnection,
   type PlatformSlackSignal,
   type PlatformSlackStatus,
@@ -38,7 +39,10 @@ import { useAuthStore } from '@/stores/authStore';
  * one Slack channel. The Slack app credentials (client id and secret, stored as platform secrets
  * and shown only by their last four characters), the connection, the channel, a switch per signal
  * and the thresholds. Each card saves on its own, one save at a time, and afterwards shows what
- * the server holds: the returned settings on success, a fresh read on failure.
+ * the server holds: the returned settings on success, a fresh read on failure (the thresholds
+ * card keeps what was typed instead). Both cards write the same stored settings, which the
+ * backend reads, merges and writes back, so their PUTs (and Disconnect) go one after another
+ * through the page's save queue — two at once could each write back the other's old half.
  */
 
 const SIGNAL_LABELS: Record<PlatformSlackSignal, string> = {
@@ -54,6 +58,10 @@ const SIGNAL_LABELS: Record<PlatformSlackSignal, string> = {
   platform_ai_key: 'Platform shared AI key failing',
   process_start: 'API or worker process started or unhealthy',
 };
+
+/** Shown when a Disconnect is confirmed while a save is still on its way. */
+export const DISCONNECT_WAITS =
+  'A save is still on its way. Disconnect again once it has finished.';
 
 const UNSET_SECRET: SecretStatus = { configured: false, source: 'none', last4: null };
 
@@ -96,10 +104,15 @@ const ChannelAndSignalsCard = ({
   channelList,
   connected,
   onConnection,
+  serialSave,
+  locked,
 }: {
   status: PlatformSlackStatus;
   channelList: SlackChannelList | null;
   connected: boolean;
+  serialSave: SerialSave;
+  /** Out of use while the page disconnects Slack. */
+  locked: boolean;
   /** The connection as the server now reports it (a channel save or a test post may clear it). */
   onConnection: (connection: PlatformSlackConnection | null) => void;
 }) => {
@@ -121,12 +134,11 @@ const ChannelAndSignalsCard = ({
   };
 
   const persist = (body: Parameters<typeof platformSlackAlertsService.saveSettings>[0]) => {
-    if (savingRef.current) return;
+    if (savingRef.current || locked) return;
     savingRef.current = true;
     setSaving(true);
     setTestResult(null);
-    platformSlackAlertsService
-      .saveSettings(body)
+    serialSave(() => platformSlackAlertsService.saveSettings(body))
       .then(apply)
       .catch(async (err: unknown) => {
         toast.failure('save the platform alert settings', err);
@@ -153,7 +165,7 @@ const ChannelAndSignalsCard = ({
   const picked = channelList?.channels.find((chan) => chan.id === channel.id);
 
   const onPick = (slackChannelId: string) => {
-    if (!slackChannelId || savingRef.current) return;
+    if (!slackChannelId || savingRef.current || locked) return;
     const found = channelList?.channels.find((chan) => chan.id === slackChannelId);
     setChannel({ id: slackChannelId, name: found?.name });
     persist({ slackChannelId, slackChannelName: found?.name ?? slackChannelId });
@@ -211,7 +223,7 @@ const ChannelAndSignalsCard = ({
               value={channel.id}
               onChange={onPick}
               placeholder="Pick a channel"
-              disabled={saving}
+              disabled={saving || locked}
             />
             {picked && picked.isPrivate && !picked.isMember && (
               <p className="mt-1 text-xs text-muted-foreground">
@@ -237,7 +249,7 @@ const ChannelAndSignalsCard = ({
                 checked={signals.includes(signal)}
                 onChange={(on) => setSignal(signal, on)}
                 ariaLabel={SIGNAL_LABELS[signal]}
-                disabled={saving}
+                disabled={saving || locked}
               />
             </div>
           ))}
@@ -250,7 +262,7 @@ const ChannelAndSignalsCard = ({
               size="sm"
               onClick={sendTest}
               isLoading={testing}
-              disabled={saving || !hasChannel}
+              disabled={saving || locked || !hasChannel}
             >
               Send test message
             </Button>
@@ -381,6 +393,24 @@ const PlatformAlertsPanel = () => {
   const [returnNotice, setReturnNotice] = useState<{ ok: boolean; reason?: string } | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  // The page's save queue: each settings PUT starts only after the previous one settled.
+  const queueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const inFlightRef = useRef(0);
+  const [savesInFlight, setSavesInFlight] = useState(0);
+  // While a Disconnect runs every save control is out of use: the Disconnect and a save would
+  // both read, merge and write the same stored setting.
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const serialSave: SerialSave = (task) => {
+    inFlightRef.current += 1;
+    setSavesInFlight(inFlightRef.current);
+    const run = queueRef.current.then(task);
+    queueRef.current = run.catch(() => undefined);
+    return run.finally(() => {
+      inFlightRef.current -= 1;
+      setSavesInFlight(inFlightRef.current);
+    });
+  };
 
   const load = () => {
     setLoadError(false);
@@ -448,14 +478,23 @@ const PlatformAlertsPanel = () => {
   };
 
   const disconnect = () => {
-    platformSlackAlertsService
-      .disconnect()
+    // Disconnect also rewrites the stored settings: never while a save is still on its way.
+    if (inFlightRef.current > 0) {
+      toast.error(DISCONNECT_WAITS);
+      return;
+    }
+    setDisconnecting(true);
+    // Through the queue as well, so no save can start before it has finished.
+    const run = queueRef.current.then(() => platformSlackAlertsService.disconnect());
+    queueRef.current = run.catch(() => undefined);
+    run
       .then(() => {
         setChannelList(null);
         toast.success('Slack disconnected');
         load();
       })
-      .catch((err: unknown) => toast.failure('disconnect Slack', err));
+      .catch((err: unknown) => toast.failure('disconnect Slack', err))
+      .finally(() => setDisconnecting(false));
   };
 
   return (
@@ -515,7 +554,12 @@ const PlatformAlertsPanel = () => {
                       <Badge variant="secondary">Set in the server environment</Badge>
                     )}
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => setConfirmDisconnect(true)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmDisconnect(true)}
+                    disabled={savesInFlight > 0 || disconnecting}
+                  >
                     Disconnect
                   </Button>
                 </div>
@@ -586,13 +630,28 @@ const PlatformAlertsPanel = () => {
 
           {/* Keyed on the connection so a reconnect starts the cards from the server again. */}
           <ChannelAndSignalsCard
-            key={`${connection?.teamName ?? 'none'}-${status.settings.slackChannelId ?? ''}`}
+            key={`${slackTeamKey(connection)}-${status.settings.slackChannelId ?? ''}`}
             status={status}
             channelList={channelList}
             connected={tokenWorks}
             onConnection={setConnection}
+            serialSave={serialSave}
+            locked={disconnecting}
           />
-          <ThresholdsCard thresholds={fillPlatformThresholds(status.settings.thresholds)} />
+          {/* The service already filled any missing threshold with its default. */}
+          <ThresholdsCard
+            thresholds={status.settings.thresholds}
+            serialSave={serialSave}
+            locked={disconnecting}
+          />
+          {/* An older backend sends no retention: nothing to show or save. */}
+          {status.settings.postRetention && (
+            <RetentionCard
+              retention={status.settings.postRetention}
+              serialSave={serialSave}
+              locked={disconnecting}
+            />
+          )}
         </>
       )}
 

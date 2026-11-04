@@ -94,9 +94,11 @@ const SETTINGS_TABS: SettingsTabDef[] = [
   },
   {
     // The Slack connect callback returns to `/settings?tab=notifications`; the bell's
-    // `slack_connection_broken` item links to `/settings#notifications`.
+    // `slack_connection_broken` item links to `/settings#notifications` — so the id stays. The
+    // label names Slack: a plain "Notifications" read as the personal notification preferences,
+    // which live under Profile.
     id: 'notifications',
-    label: 'Notifications',
+    label: 'Slack notifications',
     icon: Bell,
     description: 'Send new work and workspace problems to Slack',
     render: () => <SlackNotificationsSettings />,

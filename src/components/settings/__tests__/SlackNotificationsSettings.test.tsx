@@ -1,10 +1,10 @@
 /**
- * Settings › Notifications › Slack. Pins what an admin must be able to see and do: connect, see
+ * Settings › Slack notifications. Pins what an admin must be able to see and do: connect, see
  * a broken connection with its reason, switch an alert type (which saves the channel's kinds),
  * read the admin-channel warning, and get the invite hint when the bot is not in the channel.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
 import {
@@ -283,6 +283,69 @@ describe('SlackNotificationsSettings — saves (fix round 1)', () => {
     ]);
   });
 
+  it('while a Disconnect runs the channel cards are out of use and a switch sends nothing', async () => {
+    vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(connected([route({})]));
+    const pendingDisconnect = deferred<void>();
+    const disconnect = vi
+      .spyOn(slackNotificationsService, 'disconnect')
+      .mockReturnValue(pendingDisconnect.promise);
+    const save = vi.spyOn(slackNotificationsService, 'saveRoute');
+    renderPage();
+    const hold = await switchNamed(/hold recheck due/i);
+    fireEvent.click(screen.getByRole('button', { name: /^disconnect$/i }));
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: /^disconnect$/i })
+    );
+    await waitFor(() => expect(disconnect).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(hold).toBeInactive());
+    fireEvent.click(hold);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(save).not.toHaveBeenCalled();
+    pendingDisconnect.resolve();
+    await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Slack disconnected'));
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('a Disconnect confirmed while a route save is still on its way is refused with a message', async () => {
+    vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(connected([route({})]));
+    const pendingSave = deferred<SlackRoute | null>();
+    const save = vi
+      .spyOn(slackNotificationsService, 'saveRoute')
+      .mockReturnValue(pendingSave.promise);
+    const disconnect = vi.spyOn(slackNotificationsService, 'disconnect').mockResolvedValue();
+    renderPage();
+    const hold = await switchNamed(/hold recheck due/i);
+    fireEvent.click(screen.getByRole('button', { name: /^disconnect$/i }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(hold);
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    fireEvent.click(within(dialog).getByRole('button', { name: /^disconnect$/i }));
+    await waitFor(() =>
+      expect(toastMock.error).toHaveBeenCalledWith(
+        'A save is still on its way. Disconnect again once it has finished.'
+      )
+    );
+    expect(disconnect).not.toHaveBeenCalled();
+    pendingSave.resolve(route({}));
+  });
+
+  it('Disconnect is blocked while a channel save is in flight', async () => {
+    vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(connected([route({})]));
+    const pending = deferred<SlackRoute | null>();
+    vi.spyOn(slackNotificationsService, 'saveRoute').mockReturnValue(pending.promise);
+    const disconnect = vi.spyOn(slackNotificationsService, 'disconnect').mockResolvedValue();
+    renderPage();
+    const disconnectButton = await screen.findByRole('button', { name: /^disconnect$/i });
+    expect(disconnectButton).not.toBeInactive();
+    fireEvent.click(await switchNamed(/hold recheck due/i));
+    await waitFor(() => expect(disconnectButton).toBeInactive());
+    fireEvent.click(disconnectButton);
+    expect(screen.queryByText('Disconnect Slack?')).not.toBeInTheDocument();
+    expect(disconnect).not.toHaveBeenCalled();
+    pending.resolve(route({ enabledKinds: [...DEFAULT_TEAM_ON, 'hold_recheck_due'] }));
+    await waitFor(() => expect(disconnectButton).not.toBeInactive());
+  });
+
   it('the screen takes the route the server returns', async () => {
     vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(connected([route({})]));
     // The server answer differs from what was sent (preview switched off server-side).
@@ -399,6 +462,22 @@ describe('SlackNotificationsSettings — connect, load and return (fix round 1)'
     expect(screen.queryByRole('switch', { name: 'Sales' })).not.toBeInTheDocument();
   });
 
+  it('teams turned off: a saved team exclusion is not shown, and a save keeps it stored', async () => {
+    teamsState.teamsEnabled = false;
+    vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(
+      connected([route({ channel: 'team', departmentFilter: { excludedDepartmentIds: [2] } })])
+    );
+    const save = vi
+      .spyOn(slackNotificationsService, 'saveRoute')
+      .mockImplementation((_channel, body) => Promise.resolve(route({ ...body })));
+    renderPage();
+    fireEvent.click(await switchNamed(/hold recheck due/i));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('switch', { name: 'Billing' })).not.toBeInTheDocument();
+    // Hidden, not deleted: switching teams back on brings the same exclusion back.
+    expect(save.mock.calls[0][1].departmentFilter).toEqual({ excludedDepartmentIds: [2] });
+  });
+
   it('CONTROL: teams turned on: the team card lists each team', async () => {
     teamsState.teamsEnabled = true;
     vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(
@@ -442,6 +521,46 @@ describe('SlackNotificationsSettings — connect, load and return (fix round 1)'
       await pasteToken('xoxb-other-1');
       expect(await screen.findByText('Other Co')).toBeInTheDocument();
       // Both cards now start empty.
+      await waitFor(() =>
+        expect(screen.getAllByText(/pick a channel to start posting/i)).toHaveLength(2)
+      );
+      fireEvent.click(await switchNamed(/hold recheck due/i));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(save).not.toHaveBeenCalled();
+    });
+
+    it('ANOTHER Slack workspace with the SAME name (told apart by team id) also drops the old channel', async () => {
+      vi.spyOn(slackNotificationsService, 'getStatus')
+        .mockResolvedValueOnce({
+          connection: {
+            teamId: 'T1',
+            teamName: 'Example Co',
+            status: 'broken',
+            brokenReason: 'token_revoked',
+          },
+          routes: [route({ channel: 'team' })],
+        })
+        .mockResolvedValue({
+          connection: {
+            teamId: 'T2',
+            teamName: 'Example Co',
+            status: 'connected',
+            brokenReason: null,
+          },
+          routes: [],
+        });
+      vi.spyOn(slackNotificationsService, 'connectWithToken').mockResolvedValue({
+        teamId: 'T2',
+        teamName: 'Example Co',
+        status: 'connected',
+        brokenReason: null,
+      });
+      const save = vi.spyOn(slackNotificationsService, 'saveRoute');
+      renderPage();
+      await screen.findByText('Team channel');
+      expect(screen.getAllByText(/pick a channel to start posting/i)).toHaveLength(1);
+      await pasteToken('xoxb-other-2');
+      await screen.findByText('Connected');
       await waitFor(() =>
         expect(screen.getAllByText(/pick a channel to start posting/i)).toHaveLength(2)
       );

@@ -2,7 +2,7 @@ import { apiClient } from '@/lib/api-client';
 import type { ApiResponse } from '@/types';
 
 /**
- * Workspace Slack notifications (Settings › Notifications › Slack). Workspace admins and global
+ * Workspace Slack notifications (Settings › Slack notifications). Workspace admins and global
  * admins only — the backend's `requireOrgAdmin` is the authority.
  *
  * Shapes mirror support-service `src/routes/notificationsRoutes.ts` (`/api/notifications/slack*`)
@@ -71,6 +71,8 @@ export const defaultKindsForChannel = (channel: SlackRouteChannel): readonly str
 export const SLACK_BOT_SCOPES = ['chat:write', 'chat:write.public', 'channels:read', 'groups:read'];
 
 export type SlackConnection = {
+  /** Slack's team id (round 2; absent on an older backend). Cards are keyed on it — names repeat. */
+  teamId?: string;
   teamName: string;
   status: 'connected' | 'broken';
   /** The Slack error code that broke it (`token_revoked`, `invalid_auth`, …). */
@@ -114,10 +116,39 @@ export type SlackTestResult = { ok: true } | { ok: false; code: string; hint?: s
 
 const BASE = '/api/notifications/slack';
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** A string id, or nothing: anything else from the server is not trusted as a key. */
+const stringOrUndefined = (value: unknown): string | undefined =>
+  typeof value === 'string' && value ? value : undefined;
+
+/**
+ * Which Slack workspace a connection is, for keying cards: the team id (round 2), else the team
+ * name an older backend sends, else `none`.
+ */
+export const slackTeamKey = (
+  connection: { teamId?: string; teamName?: string | null } | null | undefined
+): string => connection?.teamId ?? connection?.teamName ?? 'none';
+
+const normalizeConnection = (raw: unknown): SlackConnection | null => {
+  if (!isRecord(raw)) return null;
+  return {
+    teamId: stringOrUndefined(raw.teamId),
+    teamName: typeof raw.teamName === 'string' ? raw.teamName : '',
+    status: raw.status === 'broken' ? 'broken' : 'connected',
+    brokenReason: typeof raw.brokenReason === 'string' ? raw.brokenReason : null,
+  };
+};
+
 export const slackNotificationsService = {
   async getStatus(): Promise<SlackStatus> {
     const res = await apiClient.get<ApiResponse<SlackStatus>>(BASE);
-    return res.data.data ?? { connection: null, routes: [] };
+    const data = res.data.data;
+    return {
+      connection: normalizeConnection(data?.connection),
+      routes: Array.isArray(data?.routes) ? data.routes : [],
+    };
   },
 
   /** The Slack authorize URL; the browser goes there and Slack sends it back to this page. */
@@ -134,7 +165,7 @@ export const slackNotificationsService = {
         botToken,
       }
     );
-    return res.data.data?.connection ?? null;
+    return normalizeConnection(res.data.data?.connection);
   },
 
   async listChannels(): Promise<SlackChannelList> {
@@ -207,9 +238,6 @@ export const DEFAULT_PLATFORM_THRESHOLDS: PlatformSlackThresholds = {
   quietMinutes: 60,
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
 /**
  * Every threshold, with the default for anything missing or not a number. The settings PUT
  * replaces the stored thresholds wholesale, so the page always works on (and sends) a full object.
@@ -245,6 +273,8 @@ export const fillPlatformThresholds = (raw: unknown): PlatformSlackThresholds =>
 };
 
 export type PlatformSlackConnection = {
+  /** Slack's team id (round 2; absent on an older backend). */
+  teamId?: string;
   teamName: string | null;
   /**
    * Ruling S: `broken` after a permanent Slack error (token revoked, channel gone) stopped platform
@@ -257,12 +287,37 @@ export type PlatformSlackConnection = {
   source: 'db' | 'env' | 'none';
 };
 
+/**
+ * How long ENDED workspace Slack posts are kept (round 2, `notifications.slack_post_retention (its own platform setting since round 2)`).
+ * Bounds and defaults mirror support-service `slackPostRetentionSchema`.
+ */
+export type SlackPostRetention = { days: number; chunkSize: number; maxChunksPerWorkspace: number };
+
+export const DEFAULT_POST_RETENTION: SlackPostRetention = {
+  days: 30,
+  chunkSize: 500,
+  maxChunksPerWorkspace: 20,
+};
+
+const fillPostRetention = (raw: unknown): SlackPostRetention | undefined => {
+  if (!isRecord(raw)) return undefined;
+  const pick = (key: keyof SlackPostRetention) =>
+    typeof raw[key] === 'number' ? raw[key] : DEFAULT_POST_RETENTION[key];
+  return {
+    days: pick('days'),
+    chunkSize: pick('chunkSize'),
+    maxChunksPerWorkspace: pick('maxChunksPerWorkspace'),
+  };
+};
+
 export type PlatformSlackSettings = {
   teamName?: string;
   slackChannelId?: string;
   slackChannelName?: string;
   enabledSignals: PlatformSlackSignal[];
   thresholds: PlatformSlackThresholds;
+  /** Absent on an older backend: the page then shows no retention fields. */
+  postRetention?: SlackPostRetention;
 };
 
 export type PlatformSlackStatus = {
@@ -274,8 +329,10 @@ export type PlatformSlackSettingsInput = {
   slackChannelId?: string;
   slackChannelName?: string;
   enabledSignals?: PlatformSlackSignal[];
-  /** Always the full object: the backend replaces the stored thresholds with it. */
+  /** The page sends the full object: an older backend replaced the stored thresholds with it. */
   thresholds?: PlatformSlackThresholds;
+  /** A partial edit on the backend: only the group sent changes. */
+  postRetention?: SlackPostRetention;
 };
 
 const normalizePlatformStatus = (raw: unknown): PlatformSlackStatus => {
@@ -288,13 +345,19 @@ const normalizePlatformStatus = (raw: unknown): PlatformSlackStatus => {
     : [...PLATFORM_SLACK_SIGNALS];
   const text = (value: unknown) => (typeof value === 'string' && value ? value : undefined);
   return {
-    connection: isRecord(source.connection) ? (source.connection as PlatformSlackConnection) : null,
+    connection: isRecord(source.connection)
+      ? {
+          ...(source.connection as PlatformSlackConnection),
+          teamId: stringOrUndefined(source.connection.teamId),
+        }
+      : null,
     settings: {
       teamName: text(settings.teamName),
       slackChannelId: text(settings.slackChannelId),
       slackChannelName: text(settings.slackChannelName),
       enabledSignals: signals,
       thresholds: fillPlatformThresholds(settings.thresholds),
+      postRetention: fillPostRetention(settings.postRetention),
     },
   };
 };
