@@ -360,14 +360,19 @@ export const useSLANotifications = () => {
 
       const disposition = classifyBreach(seenSeverity.current.get(breach.id), breach.severity);
       if (disposition === 'duplicate') return;
+      const existing = notificationsRef.current.find((notif) => notif.id === breach.id);
+      // A row NOT in the list while the server counted unread rows beyond the page: it may be one
+      // of them (an escalation keeps its id, and `seenSeverity` only knows the loaded page), and
+      // then it is already in the count. Only the server can tell, so re-read instead of +1.
+      const countUnknown = !existing && unreadBeyondRef.current > 0;
+      if (countUnknown) scheduleRecount();
       if (disposition === 'escalation') {
         seenSeverity.current.set(breach.id, breach.severity);
 
         // Re-surface: update severity/breachAmount in place, mark unread, move
         // to top. Bump unreadCount only if it was previously read (or has since
         // been evicted from the list) so an already-unread item isn't counted twice.
-        const existing = notificationsRef.current.find((notif) => notif.id === breach.id);
-        if (!existing || existing.isRead) {
+        if (!countUnknown && (!existing || existing.isRead)) {
           setUnreadCount((prev) => prev + 1);
         }
         setNotifications((prev) => {
@@ -397,6 +402,7 @@ export const useSLANotifications = () => {
         isRead: false,
       };
       setNotifications((prev) => [notification, ...prev]);
+      if (countUnknown) return; // the re-read above sets both counts
       setUnreadCount((prev) => prev + 1);
       // W2-M26: a genuinely-new breach is a new persisted notification row, so the
       // total count must grow alongside unreadCount (dismiss/clearAll already adjust
@@ -410,7 +416,11 @@ export const useSLANotifications = () => {
     // markRead). Decrement here only if the item was still unread in our state, so the
     // self-echo (and any duplicate echo) can't double-count. Mirrors dismiss()'s pattern.
     const handleNotificationRead = (data: unknown) => {
-      const { notificationId } = data as { notificationId: number };
+      const { notificationId, kind } = data as { notificationId: number; kind?: unknown };
+      // A read of a kind this section never lists (arrival reads reach the whole workspace, a
+      // work-alert read this user's tabs): not ours, and never a reason to re-read. A payload
+      // without `kind` (older backend) falls through.
+      if (isNonSlaBellKind(kind)) return;
       // A row beyond the loaded page: only the server knows whether it was an unread one of ours.
       if (
         unreadBeyondRef.current > 0 &&

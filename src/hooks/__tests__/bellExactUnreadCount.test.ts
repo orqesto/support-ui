@@ -110,6 +110,8 @@ describe('SLA bell: the exact unread count', () => {
     }
     // The SLA kinds themselves are never excluded.
     expect(SLA_BELL_EXCLUDE_KINDS.split(',')).not.toContain('sla_message_breach');
+    // The backend refuses more than 30 (400) — the SLA part of the badge would then stay at 0.
+    expect(SLA_BELL_EXCLUDE_KINDS.split(',').length).toBeLessThanOrEqual(30);
   });
 
   it('more than 20 rows: the count is unreadTotal, not the page', async () => {
@@ -146,9 +148,9 @@ describe('SLA bell: the exact unread count', () => {
     await mountSla(1);
   });
 
-  it('+1 on a live breach, -1 on a read', async () => {
-    slaPayload = { notifications: page(2), total: 40, unreadTotal: 37, hasMore: true };
-    const { result } = await mountSla(37);
+  it('+1 on a live breach, -1 on a read (every unread row is on the page)', async () => {
+    slaPayload = { notifications: page(2), total: 20, unreadTotal: 18, hasMore: false };
+    const { result } = await mountSla(18);
     act(() =>
       handlers.get('sla_breach')?.({
         ...breach(99, false),
@@ -156,16 +158,61 @@ describe('SLA bell: the exact unread count', () => {
         isRead: undefined,
       })
     );
-    expect(result.current.unreadCount).toBe(38);
+    expect(result.current.unreadCount).toBe(19);
     act(() => result.current.markRead(5)); // an unread row on the page
-    expect(result.current.unreadCount).toBe(37);
+    expect(result.current.unreadCount).toBe(18);
     expect(patch).toHaveBeenCalledWith('/api/notifications/5/read', undefined, undefined);
     // The read echo from another tab for a row on the page.
-    act(() => handlers.get('notification:read')?.({ notificationId: 6 }));
-    expect(result.current.unreadCount).toBe(36);
+    act(() =>
+      handlers.get('notification:read')?.({ notificationId: 6, kind: 'sla_message_breach' })
+    );
+    expect(result.current.unreadCount).toBe(17);
     // The self-echo of the first read does not count twice.
     act(() => handlers.get('notification:read')?.({ notificationId: 5 }));
-    expect(result.current.unreadCount).toBe(36);
+    expect(result.current.unreadCount).toBe(17);
+    expect(listCalls()).toHaveLength(1); // all exact locally: nothing re-read
+  });
+
+  it('an escalation of an unread row beyond the page is not counted twice', async () => {
+    // Row 300 is unread and beyond the page, so it is already among the 37. It escalates
+    // (warning → critical, same id): the hook does not know it, and a +1 would read 38.
+    slaPayload = { notifications: page(2), total: 40, unreadTotal: 37, hasMore: true };
+    const { result } = await mountSla(37);
+    vi.useFakeTimers();
+    act(() => handlers.get('sla_breach')?.({ ...breach(300, false), severity: 'critical' }));
+    expect(result.current.unreadCount).toBe(37);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SLA_RECOUNT_MS);
+    });
+    vi.useRealTimers();
+    expect(listCalls()).toHaveLength(2); // the server settles it
+    // A genuinely new row beyond-page state: the re-read brings the server's number.
+    slaPayload = { ...slaPayload, unreadTotal: 38 };
+    vi.useFakeTimers();
+    act(() => handlers.get('sla_breach')?.({ ...breach(301, false) }));
+    expect(result.current.unreadCount).toBe(37);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SLA_RECOUNT_MS);
+    });
+    vi.useRealTimers();
+    await waitFor(() => expect(result.current.unreadCount).toBe(38));
+  });
+
+  it('a read of another kind (an arrival, a work alert) re-reads nothing', async () => {
+    slaPayload = { notifications: page(2), total: 40, unreadTotal: 37, hasMore: true };
+    const { result } = await mountSla(37);
+    vi.useFakeTimers();
+    act(() => {
+      handlers.get('notification:read')?.({ notificationId: 601, kind: 'spam_arrival' });
+      handlers.get('notification:read')?.({ notificationId: 602, kind: 'suspicious_arrival' });
+      handlers.get('notification:read')?.({ notificationId: 603, kind: 'conversation_assigned' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SLA_RECOUNT_MS * 2);
+    });
+    vi.useRealTimers();
+    expect(result.current.unreadCount).toBe(37);
+    expect(listCalls()).toHaveLength(1);
   });
 
   it('a read of a row beyond the page re-reads the count (once for a burst)', async () => {
@@ -175,7 +222,8 @@ describe('SLA bell: the exact unread count', () => {
     slaPayload = { ...slaPayload, unreadTotal: 35 };
     vi.useFakeTimers();
     act(() => {
-      handlers.get('notification:read')?.({ notificationId: 501 });
+      // One SLA-kind read, one from an older backend (no kind): both may be ours.
+      handlers.get('notification:read')?.({ notificationId: 501, kind: 'sla_message_breach' });
       handlers.get('notification:read')?.({ notificationId: 502 });
     });
     expect(result.current.unreadCount).toBe(37); // nothing guessed
