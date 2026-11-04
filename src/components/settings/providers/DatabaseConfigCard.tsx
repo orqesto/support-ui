@@ -47,6 +47,10 @@ export const STATUS_LABEL: Record<DatabaseStatus, string> = {
   suspended: 'Suspended',
 };
 
+/** Move states that are still running: the card keeps re-reading until it leaves them. */
+export const MOVE_IN_FLIGHT: readonly string[] = ['pending', 'copying', 'verifying'];
+export const MOVE_REFRESH_MS = 3000;
+
 /** The move's status as a sentence the admin can act on. */
 export const describeMove = (move: DatabaseMoveSummary): string => {
   switch (move.status) {
@@ -129,30 +133,47 @@ export const DatabaseConfigCard = ({
   const [reverifying, setReverifying] = useState(false);
   const [removing, setRemoving] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const next = await databaseService.get();
-      setDisplay(next);
-      setUnavailable(null);
-      setMode(next.mode === 'own' ? 'own' : defaultMode);
-      setRegion(next.region ?? '');
-      return next;
-    } catch (err) {
-      const status = getErrorStatus(err);
-      const code = getErrorBody(err)?.code;
-      if (status === 404) setUnavailable('older_backend');
-      else if (status === 503 && isDatabasePauseCode(code)) setUnavailable(code);
-      else toast.failure('Load database config', err);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [defaultMode]);
+  // `quiet`: the in-flight refresh below, which must not blank the card with the spinner.
+  const load = useCallback(
+    async (quiet = false) => {
+      if (!quiet) setLoading(true);
+      try {
+        const next = await databaseService.get();
+        setDisplay(next);
+        setUnavailable(null);
+        setMode(next.mode === 'own' ? 'own' : defaultMode);
+        setRegion(next.region ?? '');
+        return next;
+      } catch (err) {
+        const status = getErrorStatus(err);
+        const code = getErrorBody(err)?.code;
+        if (status === 404) setUnavailable('older_backend');
+        else if (status === 503 && isDatabasePauseCode(code)) setUnavailable(code);
+        // A quiet re-read must not toast every 3 s while it fails; the next one retries.
+        else if (!quiet) toast.failure('Load database config', err);
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [defaultMode]
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // While a move is queued, copying or verifying, the card re-reads every few seconds. It loaded
+  // once (on mount and after Connect) and never again, so after a move that finished in 2 s it
+  // kept saying "Copying… 0 of 0 rows — the inbox is paused" until the page was reloaded
+  // (staging, 2026-11-04 BYODB acceptance run; the console showed it done).
+  const moveStatus = display?.move?.status;
+  const moveInFlight = moveStatus !== undefined && MOVE_IN_FLIGHT.includes(moveStatus);
+  useEffect(() => {
+    if (!moveInFlight) return;
+    const timer = setInterval(() => void load(true), MOVE_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [moveInFlight, load]);
 
   const handleTest = async () => {
     setTesting(true);
