@@ -381,6 +381,13 @@ export function MessageDetail({
     msgs.sort((ma, mb) => threadTimeOf(ma) - threadTimeOf(mb));
     return msgs;
   }, [threadMessages]);
+  // The last message (notes aside) is ours — an agent's reply or the auto-reply. The stored AI
+  // draft answered the customer's email, which is answered now: the thread shows no suggestion
+  // until the customer writes again (a new email gets a new draft from the backend).
+  const lastWordOurs = useMemo(() => {
+    const last = [...sortedThread].reverse().find((event) => event.type !== 'note');
+    return last ? isOutgoingEvent(last) : false;
+  }, [sortedThread]);
   // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
   // only ever sit between days, in order.
 
@@ -1852,6 +1859,7 @@ export function MessageDetail({
                 composer={composer}
                 composerMode={composerMode}
                 resolved={message.status === 'resolved'}
+                answered={lastWordOurs}
                 alternativeCount={alternativeCount}
                 onGhostClick={handleGhostClick}
                 onShowAlternatives={() => {

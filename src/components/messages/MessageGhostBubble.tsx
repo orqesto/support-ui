@@ -19,6 +19,12 @@ type Props = {
   composer: string;
   composerMode: 'reply' | 'note';
   resolved: boolean;
+  /**
+   * The last message in the thread is ours (an agent's or the auto-reply's reply): the stored
+   * draft answered an email that has been answered, so nothing is suggested until the customer
+   * writes again.
+   */
+  answered?: boolean;
   alternativeCount: number;
   onGhostClick: (answer: string, source: string) => void;
   onShowAlternatives: () => void;
@@ -32,12 +38,13 @@ export function MessageGhostBubble({
   composer,
   composerMode,
   resolved,
+  answered = false,
   alternativeCount,
   onGhostClick,
   onShowAlternatives,
 }: Props) {
   const empty = !composer || composer === '<p></p>';
-  const showZone = !autoReply?.sent && empty && composerMode === 'reply' && !resolved;
+  const showZone = !autoReply?.sent && empty && composerMode === 'reply' && !resolved && !answered;
 
   if (!showZone) return null;
 
