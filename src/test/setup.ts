@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, vi } from 'vitest';
 import { invalidateSharedFetch } from '@/lib/sharedFetch';
+import { resetRoleDefaultsUnavailableForTests } from '@/services/notificationRoleDefaultsMemory';
 import { cleanup } from '@testing-library/react';
 import { toBeInactive } from '@/test/inactive';
 
@@ -15,7 +16,10 @@ expect.extend({ toBeInactive });
 // in one file render the same control.
 afterEach(cleanup);
 // Shared answers (sharedFetch) must not leak from one test into the next.
-afterEach(() => invalidateSharedFetch());
+afterEach(() => {
+  invalidateSharedFetch();
+  resetRoleDefaultsUnavailableForTests();
+});
 
 // The app loads the rich-text editor lazily (LazyRichTextEditor: TipTap is not in the inbox
 // bundle). Tests render it synchronously, as before — through whatever a test file mocks

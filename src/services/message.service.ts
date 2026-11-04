@@ -1220,6 +1220,14 @@ export const messageService = {
     return response.data;
   },
 
+  /** Mute (true) or unmute (false) a thread for the signed-in user: PUT / DELETE .../mute. */
+  setThreadMute: async (id: number, muted: boolean): Promise<boolean> => {
+    const response = muted
+      ? await apiClient.put<ApiResponse<{ muted: boolean }>>(`/api/messages/${id}/mute`, {})
+      : await apiClient.delete<ApiResponse<{ muted: boolean }>>(`/api/messages/${id}/mute`);
+    return response.data?.data?.muted ?? muted;
+  },
+
   // Per-user read/unread state for the triage queues.
   markRead: async (id: number) => {
     const response = await apiClient.put<ApiResponse<{ conversationId: number; isRead: boolean }>>(

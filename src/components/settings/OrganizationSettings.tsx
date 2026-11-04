@@ -14,6 +14,9 @@ import { SLAConfigSettings } from './SLAConfigSettings';
 import { SecuritySettings } from './SecuritySettings';
 import { WorkspaceDetailsSettings } from './WorkspaceDetailsSettings';
 import { WorkspaceAiUsage } from './WorkspaceAiUsage';
+import { NotificationRoleDefaults } from './NotificationRoleDefaults';
+import { loadRoleDefaults } from '@/services/notificationRoleDefaultsShared';
+import { useAuthStore } from '@/stores/authStore';
 
 type OrgSection =
   | 'details'
@@ -25,7 +28,8 @@ type OrgSection =
   | 'open-conversations'
   | 'automatic-replies'
   | 'security'
-  | 'ai-usage';
+  | 'ai-usage'
+  | 'notification-roles';
 
 const sections = [
   { id: 'details' as OrgSection, label: 'Details', description: 'Workspace name and description' },
@@ -38,6 +42,7 @@ const sections = [
   { id: 'automatic-replies' as OrgSection, label: 'Automatic Replies', description: 'Automatic helpdesk emails that do not count as your answer' },
   { id: 'security' as OrgSection, label: 'Authentication', description: 'Workspace two-factor authentication policy' },
   { id: 'ai-usage' as OrgSection, label: 'AI usage', description: 'AI budget per billing period and bulk processing' },
+  { id: 'notification-roles' as OrgSection, label: 'Notifications by role', description: 'What each role is notified about by default, and what is locked' },
 ];
 
 // Workspace-wide policy sub-sections — admin-only (org_admin+/global), hidden from
@@ -49,6 +54,7 @@ const ADMIN_ONLY_SECTIONS: OrgSection[] = [
   'security',
   // Money (≈ $) is for workspace / platform admins; the AI usage tab is all money.
   'ai-usage',
+  'notification-roles',
 ];
 
 const KNOWN_ORG_SECTIONS = sections.map((sect) => sect.id);
@@ -80,9 +86,24 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
     isAdmin ||
     (hasPermission(Permission.MANAGE_ROUTING_RULES) &&
       hasPermission(Permission.VIEW_ORGANIZATION_SETTINGS));
+  // Hidden until the server shows it has the endpoint (an older backend answers 403/400/404 for the path). The read is shared with the tab itself and remembered per workspace.
+  const orgKey = useAuthStore((state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null);
+  const [rolesAvailable, setRolesAvailable] = useState(false);
+  useEffect(() => {
+    setRolesAvailable(false);
+    if (!canManageOrgPolicy) return;
+    let live = true;
+    loadRoleDefaults(orgKey)
+      .then((res) => live && setRolesAvailable(res !== null))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [canManageOrgPolicy, orgKey]);
   const isHidden = (sect: OrgSection): boolean =>
     (ADMIN_ONLY_SECTIONS.includes(sect) && !canManageOrgPolicy) ||
-    (sect === 'routing-skills' && !canManageRouting);
+    (sect === 'routing-skills' && !canManageRouting) ||
+    (sect === 'notification-roles' && !rolesAvailable);
   const visibleSections = sections.filter((sect) => !isHidden(sect.id));
 
   const requested = section && isOrgSection(section) ? section : 'details';
@@ -95,7 +116,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
     setActive(isHidden(section) ? 'categories' : section);
     // isHidden reads only the two flags below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section, canManageOrgPolicy, canManageRouting]);
+  }, [section, canManageOrgPolicy, canManageRouting, rolesAvailable]);
 
   const goToSection = (next: OrgSection) => {
     setActive(next);
@@ -132,6 +153,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
         {active === 'automatic-replies' && <AutomaticReplySubjectsSettings />}
         {active === 'security' && canManageOrgPolicy && <SecuritySettings />}
         {active === 'ai-usage' && canManageOrgPolicy && <WorkspaceAiUsage />}
+        {active === 'notification-roles' && canManageOrgPolicy && <NotificationRoleDefaults />}
       </Tabs>
     </div>
   );

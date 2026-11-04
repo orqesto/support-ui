@@ -62,6 +62,14 @@ const SEND_FIELDS: FieldDef[] = [
     hint: 'A reply sent from a ticket to many threads goes out one email at a time, this many seconds apart, so a mailbox never sends a burst. 0 = no gap.',
   },
 ];
+/** The alert center's wait for an AI priority (`notifications.priority_wait`). */
+const NOTIFY_FIELDS: FieldDef[] = [
+  {
+    key: 'notificationPriorityWaitMinutes',
+    label: 'Wait for AI priority (minutes)',
+    hint: 'How long a new unassigned mail waits for its AI priority before people with a minimum priority see it.',
+  },
+];
 /** Attachment retry (Gmail and IMAP), then the pacing that keeps a Gmail mailbox under Google's quota. */
 const GMAIL_FIELDS: FieldDef[] = [
   {
@@ -97,7 +105,7 @@ const GMAIL_FIELDS: FieldDef[] = [
 ];
 /** Google's own per-minute limit for one mailbox; paced + burst must stay below it. */
 const GMAIL_UNIT_LIMIT = 15000;
-const FIELDS: FieldDef[] = [...RATE_FIELDS, ...PAUSE_FIELDS, ...SEND_FIELDS, ...GMAIL_FIELDS];
+const FIELDS: FieldDef[] = [...RATE_FIELDS, ...PAUSE_FIELDS, ...SEND_FIELDS, ...NOTIFY_FIELDS, ...GMAIL_FIELDS];
 
 /** The text as a whole number inside the field's bounds, or null. */
 const asBounded = (text: string, field: BoundedField): number | null => {
@@ -222,6 +230,12 @@ export const IngestionCard = ({ ingestion }: { ingestion: IngestionSettings | un
               <>
                 <h3 className="text-sm font-medium pt-2">Ticket replies</h3>
                 {renderGrid(SEND_FIELDS)}
+              </>
+            )}
+            {NOTIFY_FIELDS.some((field) => ingestion?.[field.key] !== undefined) && (
+              <>
+                <h3 className="text-sm font-medium pt-2">Alert center</h3>
+                {renderGrid(NOTIFY_FIELDS)}
               </>
             )}
             {GMAIL_FIELDS.some((field) => ingestion?.[field.key] !== undefined) && (

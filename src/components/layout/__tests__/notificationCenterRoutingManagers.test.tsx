@@ -40,6 +40,8 @@ const slaProp: CenterProps['sla'] = {
   fetchError: false,
   onlyAssignedToMe: false,
   setOnlyMine: vi.fn(),
+  onlyMineLocked: false,
+  onlyMineNotice: null,
   clearAll: () => Promise.resolve(),
   dismiss: vi.fn(),
   markRead: vi.fn(),
