@@ -4,7 +4,8 @@
  * Stored on the source config as `markImported: { enabled, label }` — under `email` for an IMAP
  * source, under `gmail` for a Gmail one. Off unless the customer turns it on; the label defaults
  * to "Odly". A Gmail source can use it only once its Google grant includes `gmail.modify`, which
- * Odly does not request yet: the backend stores the grant's scopes as `gmail.grantedScopes`.
+ * the switch asks Google for on its own (MarkImportedStrip); the backend stores the grant's scopes
+ * as `gmail.grantedScopes`.
  */
 import type { MarkImportedWarning } from '@/services/integrations.service';
 
