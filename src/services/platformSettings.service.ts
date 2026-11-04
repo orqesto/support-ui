@@ -212,6 +212,8 @@ export type IngestionSettings = {
   importResumeAtUnits?: BoundedField;
   /** Seconds between two emails of one ticket reply (`tickets.reply_send_gap`, 2026-10-19). */
   ticketReplyGapSeconds?: BoundedField;
+  /** Minutes a new unassigned mail waits for its AI priority (`notifications.priority_wait`, 1-60). */
+  notificationPriorityWaitMinutes?: BoundedField;
   /** Failed attachment downloads retried per mailbox check; 0 = off. */
   attachmentRefetchPerRun?: BoundedField;
   /** Gmail quota units spent per minute, steady state (Google's limit is 15,000). */
@@ -493,6 +495,7 @@ export const INGESTION_FIELDS = [
   'importPauseAtUnits',
   'importResumeAtUnits',
   'ticketReplyGapSeconds',
+  'notificationPriorityWaitMinutes',
   'attachmentRefetchPerRun',
   'pacedUnitsPerMinute',
   'burstUnits',

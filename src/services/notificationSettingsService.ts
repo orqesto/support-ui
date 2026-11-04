@@ -144,3 +144,62 @@ export const resetNotificationSettings = async (keys?: string[]): Promise<Notifi
 export const resetNotificationSettingsModeForTests = (): void => {
   legacyMode = false;
 };
+
+export type RoleDefaultsLine = {
+  key: string;
+  value: unknown;
+  locked: boolean;
+  alwaysOn: boolean;
+  /** How many people in this role use their own value instead of the default. 0 on a locked line. */
+  differing: number;
+  differingUsers: Array<{ id: number; name: string; value: unknown }>;
+};
+export type RoleDefaults = { roles: Array<{ role: string; lines: RoleDefaultsLine[] }> };
+
+const ROLES_URL = '/api/organizations/notification-roles';
+
+const normaliseRoleDefaults = (raw: unknown): RoleDefaults => {
+  const rawRoles = isRecord(raw) && Array.isArray(raw.roles) ? raw.roles : [];
+  const roles: RoleDefaults['roles'] = [];
+  for (const entry of rawRoles) {
+    if (!isRecord(entry) || typeof entry.role !== 'string') continue;
+    const lines: RoleDefaultsLine[] = [];
+    for (const row of Array.isArray(entry.lines) ? entry.lines : []) {
+      if (!isRecord(row) || typeof row.key !== 'string') continue;
+      const users = Array.isArray(row.differingUsers)
+        ? row.differingUsers.flatMap((who) =>
+            isRecord(who) && typeof who.name === 'string'
+              ? [{ id: typeof who.id === 'number' ? who.id : 0, name: who.name, value: who.value ?? null }]
+              : []
+          )
+        : [];
+      lines.push({
+        key: row.key,
+        value: row.value ?? null,
+        locked: row.locked === true,
+        alwaysOn: row.alwaysOn === true,
+        differing: typeof row.differing === 'number' ? row.differing : users.length,
+        differingUsers: users,
+      });
+    }
+    roles.push({ role: entry.role, lines });
+  }
+  return { roles };
+};
+
+/** Admin overview of the role defaults; null when the server has no such endpoint (404, old BE). */
+export const fetchRoleDefaults = async (): Promise<RoleDefaults | null> => {
+  try {
+    return normaliseRoleDefaults(unwrap(await apiClient.get(ROLES_URL)));
+  } catch (err) {
+    if (errorStatus(err) === 404) return null;
+    throw err;
+  }
+};
+
+/** Saves the lines the admin changed for one role (never always-on lines); answers the fresh overview. */
+export const saveRoleDefaults = async (
+  role: string,
+  lines: Record<string, { value: unknown; locked: boolean }>
+): Promise<RoleDefaults> =>
+  normaliseRoleDefaults(unwrap(await apiClient.put(`${ROLES_URL}/${encodeURIComponent(role)}`, { lines })));
