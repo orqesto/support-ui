@@ -48,7 +48,8 @@ export const REPAIRS: RepairEntry[] = [
     does: 'Threads still being worked where the customer wrote last (in the last 14 days) and the AI draft shown in the thread is missing or answers an earlier email: queues a fresh draft for their latest email. Nothing is sent; drafts arrive over the next minutes (about 10 a minute).',
     path: 'repair-stale-drafts',
     scope: 'workspace',
-    caution: 'Each thread is one AI draft — check the count first. Up to 500 per run; run again if it says truncated.',
+    caution:
+      'Each thread is one AI draft — check the count first. Up to 500 per run. If it says truncated, run it again once these drafts have arrived (about 10 a minute): an earlier re-run only finds the same threads already queued.',
   },
   {
     id: 'repair-routed-outreach',
