@@ -23,6 +23,8 @@ import {
   GitMerge,
   ChevronLeft,
   Info,
+  BellOff,
+  Bell,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
@@ -84,6 +86,7 @@ import { MOBILE_SHEET, MOBILE_SHEET_ITEM } from './relatedStyles';
 import { useHeaderFocusReturn } from './useHeaderFocusReturn';
 import { asManualMerge, type MergeChange } from './useThreadMergeContext';
 import { useThreadTicketsState } from './useThreadTicketsState';
+import { useConversationMute } from '@/hooks/useConversationMute';
 import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
 import { TicketRef } from '@/components/tickets/TicketRef';
 import { ticketDisplayId } from '@/lib/ticketReference';
@@ -255,6 +258,7 @@ export function MessageDetailHeader({
   }, [onApprove, navigate, message.id]);
 
   const [moreOpen, setMoreOpen] = useState(false);
+  const threadMute = useConversationMute(message.id, message.mutedByMe);
   // Phones: the More sheet is modal (scrim over the page) — Tab stays on its items and the first
   // takes focus, as in a menu. Desktop keeps the plain popover (click-outside closes it).
   const moreSheetRef = useRef<HTMLDivElement>(null);
@@ -954,6 +958,16 @@ export function MessageDetailHeader({
           setMergePickerOpen(true);
         },
       },
+    threadMute.available && {
+      label: threadMute.muted ? 'Unmute this thread' : 'Mute this thread',
+      icon: threadMute.muted ? <Bell className="w-3 h-3" /> : <BellOff className="w-3 h-3" />,
+      tooltip:
+        "You won't get live alerts for this thread until it's resolved. It stays in your bell.",
+      action: () => {
+        void threadMute.toggle();
+        setMoreOpen(false);
+      },
+    },
     // Phones only: the header's icon actions move here (v4 mobile hides the icons).
     isPhone &&
       onRefresh && {

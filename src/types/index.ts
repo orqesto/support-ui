@@ -200,6 +200,8 @@ export type Message = {
   // Per-user read state for the triage read/unread indicator (true = read for the
   // current user). Present on the detail payload; absent on some list shapes.
   isRead?: boolean;
+  /** The signed-in user's own mute on this thread. Absent = the backend does not know mutes. */
+  mutedByMe?: boolean;
   /**
    * The thread carries the SUSPICIOUS verdict — the same predicate the Suspicious chip
    * claims rows by, resolved server-side from the newest inbound event (not the frozen

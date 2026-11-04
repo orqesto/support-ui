@@ -42,6 +42,7 @@ const svc = vi.hoisted(() => ({
   merge: vi.fn(),
   getAll: vi.fn(),
   getThreads: vi.fn(),
+  setThreadMute: vi.fn(),
 }));
 vi.mock('@/services/ticketThreads.service', () => ({
   ticketThreadsService: {
@@ -68,9 +69,11 @@ vi.mock('@/services/message.service', () => ({
       get: (_target, prop) =>
         prop === 'getThreads'
           ? svc.getThreads
-          : prop === 'getLinkedTicket'
-            ? () => Promise.resolve({ success: true, data: { id: 5, status: 'open' } })
-            : () => Promise.resolve({ success: true, data: null }),
+          : prop === 'setThreadMute'
+            ? svc.setThreadMute
+            : prop === 'getLinkedTicket'
+              ? () => Promise.resolve({ success: true, data: { id: 5, status: 'open' } })
+              : () => Promise.resolve({ success: true, data: null }),
     }
   ),
 }));
