@@ -1,3 +1,20 @@
+import type { WorkingHours } from '@/services/notificationSettingsService';
+
+/** Shared choices for the minimum-priority and minimum-severity lines (prefs page, admin page). */
+export const PRIORITY_OPTIONS = ['low', 'medium', 'high', 'critical'].map((value) => ({
+  value,
+  label: value.charAt(0).toUpperCase() + value.slice(1),
+}));
+export const SEVERITY_OPTIONS = [
+  { value: 'warning', label: 'All (warning+)' },
+  { value: 'critical', label: 'Critical only' },
+];
+export const severityLabel = (value: string): string =>
+  SEVERITY_OPTIONS.find((opt) => opt.value === value)?.label ?? value;
+
+export const isHours = (val: unknown): val is WorkingHours =>
+  typeof val === 'object' && val !== null && Array.isArray((val as WorkingHours).days);
+
 /** Plain-words names for the bell kinds a notification line can switch (line key = `kind:<kind>`). */
 export const NOTIFICATION_KIND_LABELS: Record<string, string> = {
   conversation_assigned: 'Assigned to me',
@@ -31,7 +48,7 @@ const sentenceCase = (raw: string): string => {
 /** Label for any line key; a key a newer server sends falls back to a words-from-the-key label. */
 export const lineLabel = (key: string): string => {
   const NON_KIND: Record<string, string> = {
-    onlyAssignedToMe: 'Only conversations assigned to me',
+    onlyAssignedToMe: 'Only threads assigned to me',
     slaMinSeverity: 'Minimum SLA severity',
     minPriority: 'Minimum priority',
     workingHours: 'Working hours',

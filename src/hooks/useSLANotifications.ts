@@ -10,9 +10,8 @@ import {
 import { apiClient } from '@/lib/api-client';
 import { invalidateSharedFetch, sharedFetch } from '@/lib/sharedFetch';
 import { useAuthStore } from '@/stores/authStore';
+import { notificationPrefsFetchKey } from '@/hooks/notificationPrefsKey';
 
-/** The signed-in user's own preferences: one key, cleared on sign-out with the rest. */
-const NOTIFICATION_PREFS_KEY = 'notification-settings:me';
 import type { Notification } from '@/types/api';
 import {
   fetchNotificationSettings,
@@ -161,6 +160,10 @@ export const useSLANotifications = () => {
   const [total, setTotal] = useState(0);
   const [onlyAssignedToMe, setOnlyAssignedToMeState] = useState(false);
   const [fetchError, setFetchError] = useState(false);
+  // "Only mine" can be fixed by the admin (a locked line): the control is disabled, and a change
+  // the server refuses anyway (409) is reverted with a notice instead of silently.
+  const [onlyMineLocked, setOnlyMineLocked] = useState(false);
+  const [onlyMineNotice, setOnlyMineNotice] = useState<string | null>(null);
   // Tracks the highest severity surfaced per notification id. The BE
   // deliberately re-delivers a warning→critical escalation reusing the SAME
   // notifications.id; deduping on id alone dropped it (bell stayed "warning",
@@ -229,19 +232,32 @@ export const useSLANotifications = () => {
 
   const setOnlyMine = useCallback(
     (value: boolean) => {
+      if (linesRef.current.some((line) => line.key === 'onlyAssignedToMe' && line.locked)) return;
+      setOnlyMineNotice(null);
       const previousValue = prefsRef.current.onlyAssignedToMe;
       setOnlyAssignedToMeState(value);
       prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: value };
       apiClient
         .put('/api/users/me/notification-preferences', { onlyAssignedToMe: value })
         .then(() => {
-          invalidateSharedFetch(`${NOTIFICATION_PREFS_KEY}:${String(orgKey)}`);
+          invalidateSharedFetch(notificationPrefsFetchKey(orgKey));
           fetchNotifications();
         })
-        .catch(() => {
+        .catch((err: unknown) => {
           // Roll back to last server-confirmed state, not the negation of the argument
           setOnlyAssignedToMeState(previousValue);
           prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: previousValue };
+          const status = (err as { status?: number; response?: { status?: number } } | null)?.status ??
+            (err as { response?: { status?: number } } | null)?.response?.status;
+          if (status === 409) {
+            setOnlyMineLocked(true);
+            linesRef.current = linesRef.current.map((line) =>
+              line.key === 'onlyAssignedToMe' ? { ...line, locked: true } : line
+            );
+            setOnlyMineNotice('Set by your admin. This was not changed.');
+          } else {
+            setOnlyMineNotice('Could not save that change.');
+          }
         });
     },
     [fetchNotifications, orgKey]
@@ -251,8 +267,9 @@ export const useSLANotifications = () => {
   useEffect(() => {
     // Shared and held for a minute: Layout mounts this on every navigation (see sharedFetch).
     let cancelled = false;
+    setOnlyMineNotice(null);
     sharedFetch(
-      `${NOTIFICATION_PREFS_KEY}:${String(orgKey)}`,
+      notificationPrefsFetchKey(orgKey),
       () => fetchNotificationSettings(),
       60_000
     )
@@ -260,6 +277,9 @@ export const useSLANotifications = () => {
         if (cancelled) return;
         // Old backend: the service already fell back to the legacy GET (same fields as before).
         linesRef.current = settings.lines;
+        setOnlyMineLocked(
+          settings.lines.some((line) => line.key === 'onlyAssignedToMe' && line.locked)
+        );
         prefsRef.current = prefsFromLines(settings.lines);
         setOnlyAssignedToMeState(prefsRef.current.onlyAssignedToMe);
       })
@@ -456,6 +476,8 @@ export const useSLANotifications = () => {
     fetchError,
     onlyAssignedToMe,
     setOnlyMine,
+    onlyMineLocked,
+    onlyMineNotice,
     clearAll,
     dismiss,
     markRead,

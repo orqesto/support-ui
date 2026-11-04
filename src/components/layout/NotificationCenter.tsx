@@ -318,6 +318,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                 variant={sla.onlyAssignedToMe ? 'primary' : 'ghost'}
                 size="sm"
                 onClick={() => sla.setOnlyMine(!sla.onlyAssignedToMe)}
+                disabled={sla.onlyMineLocked}
                 className={cn(
                   'px-2 py-0.5 h-auto text-xs',
                   sla.onlyAssignedToMe
@@ -328,13 +329,18 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
                 // that have no assignee — AI limits, AI provider down, mail intake (be R10 A(a)).
                 // "may show too" stays true against an older backend that does not (pass 11).
                 title={
-                  sla.onlyAssignedToMe
+                  sla.onlyMineLocked
+                    ? 'Set by your admin'
+                    : sla.onlyAssignedToMe
                     ? 'Showing alerts assigned to me; unassigned workspace alerts (AI limits, AI provider down, mail intake) may show too'
                     : 'Showing all org alerts'
                 }
               >
                 Only mine
               </Button>
+              {sla.onlyMineLocked && (
+                <span className="text-[10px] text-muted-foreground">Set by your admin</span>
+              )}
               {(hasSla || work.alerts.length > 0) && (
                 <Button
                   variant="ghost"
@@ -366,6 +372,12 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
               </Button>
             </div>
           </div>
+
+          {sla.onlyMineNotice && (
+            <p role="status" className="px-3 py-1 text-xs border-b text-muted-foreground border-border">
+              {sla.onlyMineNotice}
+            </p>
+          )}
 
           <div className="overflow-y-auto flex-1 p-2 space-y-2 min-h-0 max-h-96">
             {isEmpty ? (

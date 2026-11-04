@@ -58,8 +58,13 @@ describe('useNotificationToast', () => {
     expect(toastFn.mock.calls[0][0]).toBe('Assigned to you');
   });
 
-  it('shows no Open action from an older backend without conversationId', () => {
-    fire({ kind: 'conversation_assigned', organizationId: 21, id: 7 });
+  it('shows no toast from an older backend (no conversationId key)', () => {
+    fire({ kind: 'conversation_assigned', organizationId: 21, id: 7, title: 'Refund' });
+    expect(toastFn).not.toHaveBeenCalled();
+  });
+
+  it('a null conversationId (new backend, no thread) toasts without an Open action', () => {
+    fire({ kind: 'hold_recheck_due', organizationId: 21, id: 10, conversationId: null });
     expect(toastFn).toHaveBeenCalledTimes(1);
     expect(toastFn.mock.calls[0][1]?.action).toBeUndefined();
   });

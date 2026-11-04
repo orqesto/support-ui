@@ -15,7 +15,7 @@ import { SecuritySettings } from './SecuritySettings';
 import { WorkspaceDetailsSettings } from './WorkspaceDetailsSettings';
 import { WorkspaceAiUsage } from './WorkspaceAiUsage';
 import { NotificationRoleDefaults } from './NotificationRoleDefaults';
-import { fetchRoleDefaults } from '@/services/notificationSettingsService';
+import { loadRoleDefaults } from '@/services/notificationRoleDefaultsShared';
 import { useAuthStore } from '@/stores/authStore';
 
 type OrgSection =
@@ -86,14 +86,14 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
     isAdmin ||
     (hasPermission(Permission.MANAGE_ROUTING_RULES) &&
       hasPermission(Permission.VIEW_ORGANIZATION_SETTINGS));
-  // Hidden until the server shows it has the endpoint (404 on an older backend). Re-checked per workspace.
+  // Hidden until the server shows it has the endpoint (an older backend answers 403/400/404 for the path). The read is shared with the tab itself and remembered per workspace.
   const orgKey = useAuthStore((state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null);
   const [rolesAvailable, setRolesAvailable] = useState(false);
   useEffect(() => {
     setRolesAvailable(false);
     if (!canManageOrgPolicy) return;
     let live = true;
-    fetchRoleDefaults()
+    loadRoleDefaults(orgKey)
       .then((res) => live && setRolesAvailable(res !== null))
       .catch(() => undefined);
     return () => {

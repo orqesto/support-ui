@@ -16,6 +16,7 @@ vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => perms }));
 const { NotificationRoleDefaults } = await import('../NotificationRoleDefaults');
 const { OrganizationSettings } = await import('../OrganizationSettings');
 const { MemoryRouter } = await import('react-router-dom');
+const { invalidateSharedFetch } = await import('@/lib/sharedFetch');
 
 const overview = (differing: Array<{ id: number; name: string; value: unknown }> = []): RoleDefaults => ({
   roles: ['org_admin', 'moderator', 'support', 'associate'].map((role) => ({
@@ -34,7 +35,7 @@ const overview = (differing: Array<{ id: number; name: string; value: unknown }>
   })),
 });
 
-const pickRole = (name: string) => fireEvent.click(screen.getByRole('button', { name }));
+const pickRole = (name: string) => fireEvent.click(screen.getByRole('button', { name: new RegExp(`^${name}`) }));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -54,7 +55,7 @@ describe('notifications by role', () => {
     expect(fetchRoles).not.toHaveBeenCalled();
   });
 
-  it('shows the tab to an org admin when the BE has the endpoint, hides it on 404', async () => {
+  it('shows the tab to an org admin when the BE has the endpoint, hides it when the old BE answers unavailable (403/400/404 all read as null)', async () => {
     fetchRoles.mockResolvedValue(overview());
     const { unmount } = render(
       <MemoryRouter>
@@ -63,6 +64,7 @@ describe('notifications by role', () => {
     );
     await screen.findByText('Notifications by role');
     unmount();
+    invalidateSharedFetch();
     fetchRoles.mockResolvedValue(null);
     render(
       <MemoryRouter>
@@ -116,5 +118,30 @@ describe('notifications by role', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(saveRoles).toHaveBeenCalledTimes(1));
     expect(saveRoles).toHaveBeenCalledWith('moderator', { 'kind:spam_arrival': { value: true, locked: true } });
+  });
+
+  it('opening the tab does not read the role defaults a second time', async () => {
+    fetchRoles.mockResolvedValue(overview());
+    render(
+      <MemoryRouter>
+        <OrganizationSettings section="notification-roles" />
+      </MemoryRouter>
+    );
+    await screen.findByText('Spam arrived');
+    expect(fetchRoles).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a draft when switching roles and marks the role that has unsaved changes', async () => {
+    fetchRoles.mockResolvedValue(overview());
+    render(<NotificationRoleDefaults />);
+    await screen.findByText('Spam arrived');
+    pickRole('Moderator');
+    fireEvent.click(screen.getByRole('switch', { name: 'Spam arrived' }));
+    expect(within(screen.getByRole('button', { name: /Moderator/ })).getByLabelText('unsaved changes')).toBeInTheDocument();
+    expect(within(screen.getByRole('button', { name: /Support Agent/ })).queryByLabelText('unsaved changes')).toBeNull();
+    pickRole('Support Agent');
+    pickRole('Moderator');
+    expect(screen.getByRole('switch', { name: 'Spam arrived' })).toBeChecked();
+    expect(saveRoles).not.toHaveBeenCalled();
   });
 });

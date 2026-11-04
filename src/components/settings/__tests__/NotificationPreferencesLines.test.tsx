@@ -42,6 +42,7 @@ const rowSwitch = (label: string) => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  useAuthStore.setState(useAuthStore.getInitialState());
 });
 
 describe('notification preferences: lines', () => {

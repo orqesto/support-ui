@@ -166,3 +166,39 @@ describe('matchesPrefs with effective lines', () => {
     expect(matchesPrefs(breach, prefs, [line('kind:sla_message_breach', true)])).toBe(true);
   });
 });
+
+describe('old backend costs one 404 per session', () => {
+  it('after the first 404 the next reads go straight to the legacy GET, and re-probe after 10 minutes', async () => {
+    vi.useFakeTimers();
+    try {
+      get.mockRejectedValueOnce(await apiError(404, {}));
+      get.mockResolvedValue({ data: { data: legacyBody } });
+      await svc.fetchNotificationSettings();
+      await svc.fetchNotificationSettings();
+      await svc.fetchNotificationSettings();
+      const urls = get.mock.calls.map((call) => String(call[0]));
+      expect(urls.filter((url) => url === '/api/users/me/notification-settings')).toHaveLength(1);
+      expect(urls.filter((url) => url === '/api/users/me/notification-preferences')).toHaveLength(3);
+      vi.advanceTimersByTime(10 * 60_000 + 1);
+      get.mockReset();
+      get.mockResolvedValueOnce({ data: { data: { role: 'support', lines: [] } } });
+      const upgraded = await svc.fetchNotificationSettings();
+      expect(get.mock.calls[0][0]).toBe('/api/users/me/notification-settings');
+      expect(upgraded.legacy).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('fetchRoleDefaults on an older backend', () => {
+  it.each([400, 403, 404])('reads %s as unavailable, not an error', async (status) => {
+    get.mockRejectedValueOnce(await apiError(status, { success: false }));
+    expect(await svc.fetchRoleDefaults()).toBeNull();
+  });
+
+  it('CONTROL: a 500 is still an error', async () => {
+    get.mockRejectedValueOnce(await apiError(500, { success: false }));
+    await expect(svc.fetchRoleDefaults()).rejects.toBeTruthy();
+  });
+});

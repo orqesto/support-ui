@@ -8,37 +8,25 @@ import { Toggle } from '@/components/ui/Toggle';
 import { useAuthStore } from '@/stores/authStore';
 import { roleDisplayNames } from '@/types/roles';
 import {
-  fetchRoleDefaults,
   saveRoleDefaults,
   type RoleDefaults,
   type RoleDefaultsLine,
-  type WorkingHours,
 } from '@/services/notificationSettingsService';
-import { lineLabel } from './notificationKindLabels';
+import { invalidateRoleDefaults, loadRoleDefaults } from '@/services/notificationRoleDefaultsShared';
+import { isHours, lineLabel, PRIORITY_OPTIONS, SEVERITY_OPTIONS } from './notificationKindLabels';
 import { WorkingHoursEditor, validateWorkingHours } from './WorkingHoursEditor';
 
 type Draft = { value: unknown; locked: boolean };
 type RoleName = 'org_admin' | 'moderator' | 'support' | 'associate';
 const ROLE_ORDER: RoleName[] = ['org_admin', 'moderator', 'support', 'associate'];
-const PRIORITIES = ['low', 'medium', 'high', 'critical'].map((value) => ({
-  value,
-  label: value.charAt(0).toUpperCase() + value.slice(1),
-}));
-const SEVERITIES = [
-  { value: 'warning', label: 'All (warning+)' },
-  { value: 'critical', label: 'Critical only' },
-];
-
-const isHours = (val: unknown): val is WorkingHours =>
-  typeof val === 'object' && val !== null && Array.isArray((val as WorkingHours).days);
 
 /** Keyed on the workspace so no role data survives a switch. */
 export const NotificationRoleDefaults = () => {
   const orgKey = useAuthStore((state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null);
-  return <RoleDefaultsBody key={orgKey ?? 'none'} />;
+  return <RoleDefaultsBody key={orgKey ?? 'none'} orgKey={orgKey} />;
 };
 
-const RoleDefaultsBody = () => {
+const RoleDefaultsBody = ({ orgKey }: { orgKey: number | string | null }) => {
   const [data, setData] = useState<RoleDefaults | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [role, setRole] = useState<string>('org_admin');
@@ -51,13 +39,14 @@ const RoleDefaultsBody = () => {
 
   useEffect(() => {
     let live = true;
-    fetchRoleDefaults()
+    // Shared with the Workspace-settings tab probe: opening the tab does not fetch again.
+    loadRoleDefaults(orgKey)
       .then((res) => live && setData(res))
       .catch(() => live && setLoadError('Could not load the role defaults.'));
     return () => {
       live = false;
     };
-  }, []);
+  }, [orgKey]);
 
   if (loadError) return <p className="text-sm text-destructive">{loadError}</p>;
   if (data === undefined) return <Spinner />;
@@ -93,7 +82,9 @@ const RoleDefaultsBody = () => {
       for (const line of current.lines) {
         if (!line.alwaysOn && roleDrafts[line.key]) body[line.key] = roleDrafts[line.key];
       }
-      setData(await saveRoleDefaults(current.role, body));
+      const fresh = await saveRoleDefaults(current.role, body);
+      invalidateRoleDefaults(orgKey);
+      setData(fresh);
       setDrafts((prev) => ({ ...prev, [current.role]: {} }));
       setSaved(true);
     } catch {
@@ -115,7 +106,7 @@ const RoleDefaultsBody = () => {
         <div className="w-40">
           <Select
             aria-label={label}
-            options={PRIORITIES}
+            options={PRIORITY_OPTIONS}
             value={typeof value === 'string' ? value : 'low'}
             disabled={disabled}
             onChange={(next) => setDraft(line, { value: next })}
@@ -127,7 +118,7 @@ const RoleDefaultsBody = () => {
         <div className="w-44">
           <Select
             aria-label={label}
-            options={SEVERITIES}
+            options={SEVERITY_OPTIONS}
             value={typeof value === 'string' ? value : 'warning'}
             disabled={disabled}
             onChange={(next) => setDraft(line, { value: next })}
@@ -153,7 +144,7 @@ const RoleDefaultsBody = () => {
       <div key={line.key} data-line-row className="py-3 border-b border-border last:border-0">
         <div className="flex flex-wrap justify-between items-center gap-2">
           <p className="text-sm font-medium">{label}</p>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             {line.alwaysOn ? (
               <>
                 <span className="text-xs text-muted-foreground">Always on</span>
@@ -227,6 +218,14 @@ const RoleDefaultsBody = () => {
             }}
           >
             {roleDisplayNames[name]}
+            {(drafts[name] && Object.keys(drafts[name]).length > 0) && (
+              <span
+                role="img"
+                aria-label="unsaved changes"
+                title="Unsaved changes"
+                className="ml-2 inline-block h-2 w-2 rounded-full bg-warning"
+              />
+            )}
           </Button>
         ))}
       </div>

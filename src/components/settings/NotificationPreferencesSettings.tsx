@@ -7,9 +7,14 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Toggle } from '@/components/ui/Toggle';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationSettings } from '@/hooks/useNotificationSettings';
-import type { NotificationSettings, SettingsLine, WorkingHours } from '@/services/notificationSettingsService';
+import {
+  LEGACY_LINES,
+  type NotificationSettings,
+  type SettingsLine,
+  type WorkingHours,
+} from '@/services/notificationSettingsService';
 import { NotificationPreferencesLegacy, type Prefs } from './NotificationPreferencesLegacy';
-import { lineLabel } from './notificationKindLabels';
+import { isHours, lineLabel, PRIORITY_OPTIONS, severityLabel } from './notificationKindLabels';
 import { WorkingHoursEditor, validateWorkingHours } from './WorkingHoursEditor';
 
 const GROUPS: Array<{ title: string; hint: string; kinds: string[] }> = [
@@ -49,18 +54,11 @@ const GROUPS: Array<{ title: string; hint: string; kinds: string[] }> = [
   },
 ];
 const SETTING_KEYS = ['onlyAssignedToMe', 'slaMinSeverity', 'minPriority', 'workingHours'];
-const PRIORITIES = ['low', 'medium', 'high', 'critical'].map((value) => ({
-  value,
-  label: value.charAt(0).toUpperCase() + value.slice(1),
-}));
-
-const isHours = (val: unknown): val is WorkingHours =>
-  typeof val === 'object' && val !== null && Array.isArray((val as WorkingHours).days);
 
 const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div data-line-row className="flex flex-wrap justify-between items-center gap-2 py-3 border-b border-border last:border-0">
     <p className="text-sm font-medium">{label}</p>
-    <div className="flex items-center gap-3">{children}</div>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">{children}</div>
   </div>
 );
 
@@ -86,19 +84,13 @@ const Status = ({ each, onReset }: { each: SettingsLine; onReset: (key: string) 
   </>
 );
 
-const LEGACY_FIELDS: Array<[key: string, field: keyof Prefs]> = [
-  ['kind:sla_message_breach', 'notifyMessages'],
-  ['kind:sla_ticket_first_response', 'notifyTicketFirstResponse'],
-  ['kind:sla_ticket_resolution', 'notifyTicketResolution'],
-  ['kind:new_unassigned_message', 'notifyNewUnassigned'],
-  ['slaMinSeverity', 'minSeverity'],
-];
-
 /** The old preferences, rebuilt from the lines the hook already read (no second GET). */
 const legacyPrefs = (settings: NotificationSettings): Partial<Prefs> => {
   const out: Record<string, unknown> = {};
-  for (const [key, field] of LEGACY_FIELDS) {
-    const hit = settings.lines.find((each) => each.key === key);
+  // One column per line set: the first line of each column carries its value.
+  for (const [field, keys] of LEGACY_LINES) {
+    if (field === 'onlyAssignedToMe') continue;
+    const hit = settings.lines.find((each) => each.key === keys[0]);
     if (hit && hit.value !== null) out[field] = hit.value;
   }
   return out as Partial<Prefs>;
@@ -260,11 +252,11 @@ const NotificationPreferencesBody = () => {
                     size="sm"
                     variant={valueOf(severity) === sev ? 'primary' : 'outline'}
                     disabled={severity.locked}
-                    aria-label={`${lineLabel(severity.key)}: ${sev === 'warning' ? 'All (warning+)' : 'Critical only'}`}
+                    aria-label={`${lineLabel(severity.key)}: ${severityLabel(sev)}`}
                     aria-pressed={valueOf(severity) === sev}
                     onClick={() => change(severity.key, sev)}
                   >
-                    {sev === 'warning' ? 'All (warning+)' : 'Critical only'}
+                    {severityLabel(sev)}
                   </Button>
                 ))}
               </Row>
@@ -275,7 +267,7 @@ const NotificationPreferencesBody = () => {
                 <div className="w-40">
                   <Select
                     aria-label="Minimum priority"
-                    options={PRIORITIES}
+                    options={PRIORITY_OPTIONS}
                     value={typeof valueOf(priority) === 'string' ? (valueOf(priority) as string) : 'low'}
                     disabled={priority.locked}
                     onChange={(next) => change(priority.key, next)}

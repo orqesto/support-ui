@@ -961,8 +961,9 @@ export function MessageDetailHeader({
     threadMute.available && {
       label: threadMute.muted ? 'Unmute this thread' : 'Mute this thread',
       icon: threadMute.muted ? <Bell className="w-3 h-3" /> : <BellOff className="w-3 h-3" />,
-      tooltip:
-        "You won't get live alerts for this thread until it's resolved. It stays in your bell.",
+      tooltip: threadMute.muted
+        ? undefined
+        : "You won't get live alerts for this thread until it's resolved. It stays in your bell.",
       action: () => {
         void threadMute.toggle();
         setMoreOpen(false);

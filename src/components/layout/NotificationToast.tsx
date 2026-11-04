@@ -45,6 +45,10 @@ export const useNotificationToast = (): void => {
     const onNew = (data?: unknown) => {
       const payload = (data ?? {}) as Payload;
       const { kind, id, organizationId, conversationId, title } = payload;
+      // Only the new backend sends `conversationId` (a number, or null). It is also the one that
+      // applies mute / OFF / working hours, so no key = an older backend: no toast, or a muted or
+      // switched-off kind would pop up anyway. The bell and the tab count still update.
+      if (!('conversationId' in payload)) return;
       if (typeof id !== 'number' || typeof kind !== 'string') return;
       const label = TOAST_COPY[kind];
       if (!label) return;

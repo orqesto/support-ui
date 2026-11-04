@@ -47,7 +47,7 @@ export const normaliseSettings = (raw: unknown): NotificationSettings => {
 };
 
 // Which legacy column drives which line(s). `notifyMessages` stands for both message lines.
-const LEGACY_LINES: Array<[field: string, keys: string[]]> = [
+export const LEGACY_LINES: Array<[field: string, keys: string[]]> = [
   ['notifyMessages', ['kind:sla_message_breach', 'kind:customer_message_on_assigned']],
   ['notifyTicketFirstResponse', ['kind:sla_ticket_first_response']],
   ['notifyTicketResolution', ['kind:sla_ticket_resolution']],
@@ -68,8 +68,14 @@ const legacyToSettings = (raw: unknown): NotificationSettings => {
   return { role: null, lines, legacy: true };
 };
 
-/** Remembered from the last fetch: an old server answers 404 on the new endpoint. */
+/**
+ * Remembered once an old server answered 404 on the new endpoint: from then on the legacy GET is
+ * asked directly (one wasted 404 per session, not per 60 s window). Re-probed after
+ * LEGACY_REPROBE_MS so a backend upgrade is picked up without a reload.
+ */
+const LEGACY_REPROBE_MS = 10 * 60_000;
 let legacyMode = false;
+let legacySince = 0;
 
 const unwrap = (res: unknown): unknown => (isRecord(res) && isRecord(res.data) ? res.data.data : undefined);
 
@@ -93,6 +99,9 @@ const lockedKeysOf = (err: unknown): string[] | null => {
 };
 
 export const fetchNotificationSettings = async (): Promise<NotificationSettings> => {
+  if (legacyMode && Date.now() - legacySince < LEGACY_REPROBE_MS) {
+    return legacyToSettings(unwrap(await apiClient.get(LEGACY_URL)));
+  }
   try {
     const res = await apiClient.get(SETTINGS_URL);
     legacyMode = false;
@@ -102,6 +111,7 @@ export const fetchNotificationSettings = async (): Promise<NotificationSettings>
   }
   const res = await apiClient.get(LEGACY_URL);
   legacyMode = true;
+  legacySince = Date.now();
   return legacyToSettings(unwrap(res));
 };
 
@@ -143,6 +153,7 @@ export const resetNotificationSettings = async (keys?: string[]): Promise<Notifi
 /** Test-only: forget the remembered legacy mode. */
 export const resetNotificationSettingsModeForTests = (): void => {
   legacyMode = false;
+  legacySince = 0;
 };
 
 export type RoleDefaultsLine = {
@@ -187,12 +198,18 @@ const normaliseRoleDefaults = (raw: unknown): RoleDefaults => {
   return { roles };
 };
 
-/** Admin overview of the role defaults; null when the server has no such endpoint (404, old BE). */
+/**
+ * Admin overview of the role defaults; null when this server has no such endpoint. The released
+ * backend has no `/notification-roles` route, so the path is read as `/organizations/:id`:
+ * 403 for an org admin, 400 for a global admin, 404 where no route matches. All three mean
+ * "unavailable", not an error.
+ */
 export const fetchRoleDefaults = async (): Promise<RoleDefaults | null> => {
   try {
     return normaliseRoleDefaults(unwrap(await apiClient.get(ROLES_URL)));
   } catch (err) {
-    if (errorStatus(err) === 404) return null;
+    const status = errorStatus(err);
+    if (status === 400 || status === 403 || status === 404) return null;
     throw err;
   }
 };
