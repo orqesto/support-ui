@@ -247,8 +247,8 @@ export const useSLANotifications = () => {
           // Roll back to last server-confirmed state, not the negation of the argument
           setOnlyAssignedToMeState(previousValue);
           prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: previousValue };
-          const status = (err as { status?: number; response?: { status?: number } } | null)?.status ??
-            (err as { response?: { status?: number } } | null)?.response?.status;
+          // The api-client interceptor rethrows an Error carrying `status`.
+          const status = (err as { status?: number } | null)?.status;
           if (status === 409) {
             setOnlyMineLocked(true);
             linesRef.current = linesRef.current.map((line) =>
