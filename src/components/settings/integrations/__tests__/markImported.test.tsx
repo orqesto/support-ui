@@ -10,6 +10,10 @@ import type * as IntegrationsService from '@/services/integrations.service';
 type Integration = IntegrationsService.Integration;
 
 const update = vi.fn<(...args: unknown[]) => Promise<unknown>>();
+const connectWithPopup = vi.fn<(...args: unknown[]) => Promise<Record<string, unknown>>>();
+vi.mock('@/services/gmail-oauth.service', () => ({
+  gmailOAuthService: { connectWithPopup: (...args: unknown[]) => connectWithPopup(...args) },
+}));
 vi.mock('@/services/integrations.service', async (importOriginal) => {
   const real = await importOriginal<typeof IntegrationsService>();
   return {
@@ -18,7 +22,7 @@ vi.mock('@/services/integrations.service', async (importOriginal) => {
   };
 });
 
-const { GmailMarkImportedStrip } = await import('../GmailMarkImportedStrip');
+const { MarkImportedStrip: GmailMarkImportedStrip } = await import('../MarkImportedStrip');
 const { MarkImportedControl } = await import('../MarkImportedControl');
 const { SourceRowBadges } = await import('../SourceRowBadges');
 const { gmailCanModify, readMarkImported, toSavedMarkImported } = await import('../markImported');
@@ -36,6 +40,7 @@ const toggle = () =>
 
 beforeEach(() => {
   update.mockReset().mockResolvedValue({});
+  connectWithPopup.mockReset().mockResolvedValue({ success: true, markImportedGranted: true });
 });
 afterEach(cleanup);
 
@@ -99,12 +104,99 @@ describe('MarkImportedControl', () => {
 describe('GmailMarkImportedStrip', () => {
   const props = { onRefresh: vi.fn(() => Promise.resolve()), onShowAlert: vi.fn() };
 
-  it("today's grant (readonly + send): disabled, and says why", () => {
+  it("today's grant (readonly + send): the switch is usable and says Google will ask", () => {
     render(
       <GmailMarkImportedStrip source={gmailSource({ grantedScopes: TODAY_GRANT })} {...props} />
     );
-    expect(toggle()).toBeInactive();
-    expect(screen.getByText(/needs an extra gmail permission/i)).toBeInTheDocument();
+    expect(toggle()).not.toBeInactive();
+    expect(screen.getByText(/opens a google window/i)).toBeInTheDocument();
+  });
+
+  it('without the grant, turning it on asks Google (no PATCH) and reports "Turned on"', async () => {
+    const onShowAlert = vi.fn();
+    const onRefresh = vi.fn(() => Promise.resolve());
+    render(
+      <GmailMarkImportedStrip
+        source={gmailSource({
+          grantedScopes: TODAY_GRANT,
+          markImported: { enabled: false, label: 'Done' },
+        })}
+        onRefresh={onRefresh}
+        onShowAlert={onShowAlert}
+      />
+    );
+    fireEvent.click(toggle());
+    // Called in the click itself, so the browser lets the window open.
+    expect(connectWithPopup).toHaveBeenCalledWith({ grant: { sourceId: 9, label: 'Done' } });
+    await waitFor(() =>
+      expect(onShowAlert).toHaveBeenCalledWith(expect.objectContaining({ title: 'Turned on' }))
+    );
+    expect(onRefresh).toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('a refused grant says why and never says "Turned on"', async () => {
+    connectWithPopup.mockResolvedValueOnce({
+      success: false,
+      error: 'You signed in as someone else',
+    });
+    const onShowAlert = vi.fn();
+    render(
+      <GmailMarkImportedStrip
+        source={gmailSource({ grantedScopes: TODAY_GRANT })}
+        onRefresh={vi.fn(() => Promise.resolve())}
+        onShowAlert={onShowAlert}
+      />
+    );
+    fireEvent.click(toggle());
+    await waitFor(() =>
+      expect(onShowAlert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Not turned on',
+          description: 'You signed in as someone else',
+        })
+      )
+    );
+    expect(onShowAlert).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Turned on' }));
+  });
+
+  it('CONTROL: an older server that only reconnected (no markImportedGranted) is not "Turned on"', async () => {
+    connectWithPopup.mockResolvedValueOnce({ success: true });
+    const onShowAlert = vi.fn();
+    render(
+      <GmailMarkImportedStrip
+        source={gmailSource({ grantedScopes: TODAY_GRANT })}
+        onRefresh={vi.fn(() => Promise.resolve())}
+        onShowAlert={onShowAlert}
+      />
+    );
+    fireEvent.click(toggle());
+    await waitFor(() =>
+      expect(onShowAlert).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Not turned on', variant: 'warning' })
+      )
+    );
+  });
+
+  it('an IMAP row saves under config.email, with no Google step', async () => {
+    render(
+      <GmailMarkImportedStrip
+        source={
+          { id: 4, type: 'email', name: 'Box', config: { email: {} } } as unknown as Integration
+        }
+        {...props}
+      />
+    );
+    expect(screen.queryByText(/opens a google window/i)).not.toBeInTheDocument();
+    fireEvent.click(toggle());
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(update).toHaveBeenCalledWith(4, {
+        type: 'email',
+        config: { email: { markImported: { enabled: true, label: '' } } },
+      })
+    );
+    expect(connectWithPopup).not.toHaveBeenCalled();
   });
 
   it('with gmail.modify: turning it on and saving PATCHes config.gmail.markImported', async () => {
@@ -210,11 +302,11 @@ describe('GmailMarkImportedStrip', () => {
     expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
   });
 
-  it('the switch is described by the note (why it is disabled)', () => {
+  it('the switch is described by the note (what turning it on does)', () => {
     render(
       <GmailMarkImportedStrip source={gmailSource({ grantedScopes: TODAY_GRANT })} {...props} />
     );
-    expect(toggle()).toHaveAccessibleDescription(/needs an extra gmail permission/i);
+    expect(toggle()).toHaveAccessibleDescription(/opens a google window/i);
   });
 
   it('no Save button until something changed', () => {

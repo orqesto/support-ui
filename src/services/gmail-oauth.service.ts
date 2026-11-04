@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 
 export type GmailOAuthConfig = {
@@ -38,6 +39,8 @@ export type ApiResponse<T> = {
   message?: string;
   /** Gmail callback: this connect switched the knowledge base on but nothing is mined (no active plan). */
   kbMiningDeferred?: 'plan_inactive';
+  /** Gmail callback: this was the mark-imported grant and the server switched the setting on. */
+  markImportedGranted?: true;
 };
 
 export interface ConnectWithPopupConfig {
@@ -48,7 +51,17 @@ export interface ConnectWithPopupConfig {
   bulkImportMaxResults?: number;
   isKnowledgeBase?: boolean;
   startPaused?: boolean;
+  /**
+   * The mark-imported switch on an existing Gmail source: ask Google only for the permission to
+   * change messages; the server turns the setting on when it is given (support-service#1229).
+   */
+  grant?: MarkImportedGrant;
 }
+
+export type MarkImportedGrant = { sourceId: number; label?: string };
+
+/** The readable reason of a refused request (the server's words), else the raw text. */
+const failureText = (error: unknown): string => getApiErrorMessage(error) ?? String(error);
 
 export const gmailOAuthService = {
   /**
@@ -64,10 +77,12 @@ export const gmailOAuthService = {
   /**
    * Initiate OAuth flow
    */
-  initiateOAuth: async (): Promise<ApiResponse<GmailOAuthInitResponse>> => {
+  initiateOAuth: async (
+    grant?: MarkImportedGrant
+  ): Promise<ApiResponse<GmailOAuthInitResponse>> => {
     const response = await apiClient.post<{ success: boolean; data: GmailOAuthInitResponse }>(
       '/api/oauth/gmail/authorize',
-      {}
+      grant ? { grant: 'markImported', sourceId: grant.sourceId, label: grant.label ?? '' } : {}
     );
     return { success: response.data.success, data: response.data.data };
   },
@@ -83,6 +98,7 @@ export const gmailOAuthService = {
       data: { email: string; id: number };
       message: string;
       kbMiningDeferred?: string;
+      markImportedGranted?: boolean;
     }>('/api/oauth/gmail/callback', request);
     return {
       success: response.data.success,
@@ -92,6 +108,7 @@ export const gmailOAuthService = {
       ...(response.data.kbMiningDeferred === 'plan_inactive'
         ? { kbMiningDeferred: 'plan_inactive' as const }
         : {}),
+      ...(response.data.markImportedGranted === true ? { markImportedGranted: true as const } : {}),
     };
   },
 
@@ -110,6 +127,7 @@ export const gmailOAuthService = {
         bulkImportMaxResults,
         isKnowledgeBase,
         startPaused,
+        grant,
       } = config;
       // Open the popup synchronously while the user gesture is still active —
       // browsers block window.open() if it runs after awaits, even with valid intent.
@@ -147,7 +165,7 @@ export const gmailOAuthService = {
           const redirectUri = configResponse.data.redirectUri;
 
           // Initiate OAuth flow
-          const initResponse = await gmailOAuthService.initiateOAuth();
+          const initResponse = await gmailOAuthService.initiateOAuth(grant);
           if (!initResponse.success || !initResponse.data) {
             popup.close();
             resolve({ success: false, error: 'Failed to initiate OAuth flow' });
@@ -226,7 +244,7 @@ export const gmailOAuthService = {
                   safeResolve(callbackResponse);
                 })
                 .catch((error) => {
-                  safeResolve({ success: false, error: String(error) });
+                  safeResolve({ success: false, error: failureText(error) });
                 });
             }
           };
@@ -272,7 +290,7 @@ export const gmailOAuthService = {
                 safeResolve(callbackResponse);
               })
               .catch((error) => {
-                safeResolve({ success: false, error: String(error) });
+                safeResolve({ success: false, error: failureText(error) });
               });
           }, 500);
 
@@ -289,7 +307,12 @@ export const gmailOAuthService = {
           );
         } catch (error) {
           logger.error('OAuth error:', error);
-          resolve({ success: false, error: 'An error occurred during OAuth flow' });
+          // A refused authorize (no permission, source gone) leaves the blank window open otherwise.
+          popup.close();
+          resolve({
+            success: false,
+            error: getApiErrorMessage(error) ?? 'An error occurred during OAuth flow',
+          });
         }
       };
 
@@ -312,7 +335,7 @@ export const gmailOAuthService = {
     if (!configResponse.success || !configResponse.data) {
       return { success: false, error: 'Failed to get OAuth configuration' };
     }
-    const initResponse = await gmailOAuthService.initiateOAuth();
+    const initResponse = await gmailOAuthService.initiateOAuth(config.grant);
     if (!initResponse.success || !initResponse.data) {
       return { success: false, error: 'Failed to initiate OAuth flow' };
     }

@@ -24,7 +24,7 @@ import {
 import { SourceMenuItem } from '@/components/settings/integrations/SourceMenuItem';
 import { PauseSyncDialog, type PauseTarget } from '@/components/settings/integrations/PauseSyncDialog';
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
-import { GmailRowStrips } from '@/components/settings/integrations/GmailRowStrips';
+import { SourceRowStrips } from '@/components/settings/integrations/SourceRowStrips';
 import { SourceRowBadges } from '@/components/settings/integrations/SourceRowBadges';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
@@ -539,7 +539,7 @@ export const GmailIntegrationCard = ({
                     onShowAlert={onShowAlert}
                     onReconnect={() => handleReconnect(integration)}
                   />
-                  <GmailRowStrips source={integration} onShowAlert={onShowAlert} onRefresh={onRefresh} onReconnect={() => handleReconnect(integration)} />
+                  <SourceRowStrips source={integration} onShowAlert={onShowAlert} onRefresh={onRefresh} onReconnect={() => handleReconnect(integration)} />
                   {editAliases === integration.id && (
                     <SourceAliasEditor
                       sourceId={integration.id}

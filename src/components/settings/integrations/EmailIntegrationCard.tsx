@@ -22,8 +22,8 @@ import {
   declaredAliases,
 } from '@/components/settings/integrations/SourceAliasEditor';
 import { SourceDepartmentEditor } from '@/components/settings/integrations/SourceDepartmentEditor';
-import { SourceKbStrip } from '@/components/settings/integrations/SourceKbStrip';
 import { SourceRowBadges } from '@/components/settings/integrations/SourceRowBadges';
+import { SourceRowStrips } from '@/components/settings/integrations/SourceRowStrips';
 import type { IntegrationCardProps } from '@/components/settings/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -538,10 +538,11 @@ export const EmailIntegrationCard = ({
                       </Button>
                     </div>
                   </div>
-                  <SourceKbStrip
+                  <SourceRowStrips
                     source={integration}
                     onShowAlert={onShowAlert}
                     onRefresh={onRefresh}
+                    editing={showForm && editingId === integration.id}
                   />
                   {compareId === integration.id && (
                     <ImapCompareReview
