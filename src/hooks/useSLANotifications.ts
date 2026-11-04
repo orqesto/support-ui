@@ -14,6 +14,7 @@ import { useAuthStore } from '@/stores/authStore';
 /** The signed-in user's own preferences: one key, cleared on sign-out with the rest. */
 const NOTIFICATION_PREFS_KEY = 'notification-preferences:me';
 import type { Notification } from '@/types/api';
+import type { SettingsLine } from '@/services/notificationSettingsService';
 
 export type SLABreachNotification = {
   id: number; // notifications.id from DB
@@ -58,8 +59,20 @@ const DEFAULT_PREFS: UserPrefs = {
 
 export const matchesPrefs = (
   breach: Omit<SLABreachNotification, 'receivedAt'>,
-  prefs: UserPrefs
+  prefs: UserPrefs,
+  lines?: SettingsLine[]
 ): boolean => {
+  // Effective lines (new settings API): a kind switched OFF never matches. Absent lines (old
+  // backend) leave the legacy flags below as the only rule.
+  const kind =
+    breach.type === 'message' || breach.type === 'conversation'
+      ? 'sla_message_breach'
+      : breach.type === 'ticket_first_response'
+        ? 'sla_ticket_first_response'
+        : breach.type === 'ticket_resolution'
+          ? 'sla_ticket_resolution'
+          : null;
+  if (kind && lines?.some((entry) => entry.key === `kind:${kind}` && entry.value === false)) return false;
   if (prefs.minSeverity === 'critical' && breach.severity !== 'critical') return false;
   // A thread breach arrives as `message` or (newer backend) `conversation`; a ticket breach by its
   // kind, or as a plain `ticket` — muted only when both ticket kinds are off.
