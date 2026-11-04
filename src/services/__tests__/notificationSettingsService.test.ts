@@ -10,6 +10,7 @@ const { apiError } = await import('@/test/apiError');
 const { matchesPrefs } = await import('@/hooks/useSLANotifications');
 
 beforeEach(() => {
+  svc.resetNotificationSettingsModeForTests();
   get.mockReset();
   put.mockReset();
   post.mockReset();

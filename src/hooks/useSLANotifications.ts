@@ -12,9 +12,13 @@ import { invalidateSharedFetch, sharedFetch } from '@/lib/sharedFetch';
 import { useAuthStore } from '@/stores/authStore';
 
 /** The signed-in user's own preferences: one key, cleared on sign-out with the rest. */
-const NOTIFICATION_PREFS_KEY = 'notification-preferences:me';
+const NOTIFICATION_PREFS_KEY = 'notification-settings:me';
 import type { Notification } from '@/types/api';
-import type { SettingsLine } from '@/services/notificationSettingsService';
+import {
+  fetchNotificationSettings,
+  type NotificationSettings,
+  type SettingsLine,
+} from '@/services/notificationSettingsService';
 
 export type SLABreachNotification = {
   id: number; // notifications.id from DB
@@ -55,6 +59,22 @@ const DEFAULT_PREFS: UserPrefs = {
   notifyTicketFirstResponse: true,
   notifyTicketResolution: true,
   onlyAssignedToMe: false,
+};
+
+/** Bell prefs from the effective lines; a line that is absent keeps today's default. */
+export const prefsFromLines = (lines: SettingsLine[]): UserPrefs => {
+  const flag = (key: string, fallback: boolean): boolean => {
+    const hit = lines.find((entry) => entry.key === key);
+    return typeof hit?.value === 'boolean' ? hit.value : fallback;
+  };
+  const severity = lines.find((entry) => entry.key === 'slaMinSeverity')?.value;
+  return {
+    minSeverity: severity === 'critical' ? 'critical' : 'warning',
+    notifyMessages: flag('kind:sla_message_breach', DEFAULT_PREFS.notifyMessages),
+    notifyTicketFirstResponse: flag('kind:sla_ticket_first_response', true),
+    notifyTicketResolution: flag('kind:sla_ticket_resolution', true),
+    onlyAssignedToMe: flag('onlyAssignedToMe', false),
+  };
 };
 
 export const matchesPrefs = (
@@ -150,6 +170,7 @@ export const useSLANotifications = () => {
   // notification's current read-state without nesting setState calls.
   const notificationsRef = useRef<SLABreachNotification[]>([]);
   const prefsRef = useRef<UserPrefs>(DEFAULT_PREFS);
+  const linesRef = useRef<SettingsLine[]>([]);
   // BE `notificationsController` honours X-Department-Context. Force callback
   // identity to change on dept toggle so consumer effects re-fetch in scope.
   const selectedDeptKey = useDepartmentContextKey();
@@ -214,7 +235,7 @@ export const useSLANotifications = () => {
       apiClient
         .put('/api/users/me/notification-preferences', { onlyAssignedToMe: value })
         .then(() => {
-          invalidateSharedFetch(NOTIFICATION_PREFS_KEY);
+          invalidateSharedFetch(`${NOTIFICATION_PREFS_KEY}:${String(orgKey)}`);
           fetchNotifications();
         })
         .catch(() => {
@@ -223,26 +244,30 @@ export const useSLANotifications = () => {
           prefsRef.current = { ...prefsRef.current, onlyAssignedToMe: previousValue };
         });
     },
-    [fetchNotifications]
+    [fetchNotifications, orgKey]
   );
 
   // Load user preferences
   useEffect(() => {
     // Shared and held for a minute: Layout mounts this on every navigation (see sharedFetch).
+    let cancelled = false;
     sharedFetch(
-      NOTIFICATION_PREFS_KEY,
-      () => apiClient.get('/api/users/me/notification-preferences'),
+      `${NOTIFICATION_PREFS_KEY}:${String(orgKey)}`,
+      () => fetchNotificationSettings(),
       60_000
     )
-      .then((res) => {
-        const data = (res.data as { data?: Partial<UserPrefs> }).data;
-        if (data) {
-          prefsRef.current = { ...DEFAULT_PREFS, ...data };
-          setOnlyAssignedToMeState(data.onlyAssignedToMe ?? false);
-        }
+      .then((settings: NotificationSettings) => {
+        if (cancelled) return;
+        // Old backend: the service already fell back to the legacy GET (same fields as before).
+        linesRef.current = settings.lines;
+        prefsRef.current = prefsFromLines(settings.lines);
+        setOnlyAssignedToMeState(prefsRef.current.onlyAssignedToMe);
       })
       .catch(() => {});
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [orgKey]);
 
   // Keep the ref mirror in sync for the socket handler's read-state lookups.
   useEffect(() => {
@@ -264,7 +289,7 @@ export const useSLANotifications = () => {
       // Arrival kinds also emit `sla_breach` (shared notify path) — ignore them here (P3 guard).
       if (isNonSlaBellKind((data as { kind?: string }).kind)) return;
       const breach = data as Omit<SLABreachNotification, 'receivedAt'>;
-      if (!matchesPrefs(breach, prefsRef.current)) return;
+      if (!matchesPrefs(breach, prefsRef.current, linesRef.current)) return;
 
       const disposition = classifyBreach(seenSeverity.current.get(breach.id), breach.severity);
       if (disposition === 'duplicate') return;

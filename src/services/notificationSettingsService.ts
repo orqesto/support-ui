@@ -139,3 +139,8 @@ export const resetNotificationSettings = async (keys?: string[]): Promise<Notifi
   if (legacyMode) return fetchNotificationSettings();
   return normaliseSettings(unwrap(await apiClient.post(`${SETTINGS_URL}/reset`, keys ? { keys } : {})));
 };
+
+/** Test-only: forget the remembered legacy mode. */
+export const resetNotificationSettingsModeForTests = (): void => {
+  legacyMode = false;
+};

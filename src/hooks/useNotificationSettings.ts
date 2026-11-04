@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAuthStore } from '@/stores/authStore';
 import {
   fetchNotificationSettings,
   resetNotificationSettings,
@@ -12,7 +13,15 @@ export const useNotificationSettings = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Same workspace key as useSLANotifications: lines are per workspace, so a switch re-fetches.
+  const orgKey = useAuthStore(
+    (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
+  );
+
   useEffect(() => {
+    setSettings(null);
+    setError(null);
+    setLoading(true);
     let cancelled = false;
     fetchNotificationSettings()
       .then((next) => !cancelled && setSettings(next))
@@ -21,7 +30,7 @@ export const useNotificationSettings = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [orgKey]);
 
   const save = useCallback(async (lines: Record<string, unknown>) => {
     const result = await saveNotificationSettings(lines);
