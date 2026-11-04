@@ -54,9 +54,12 @@ const draftFrom = (retention: SlackPostRetention): RetentionDraft => ({
 export const RetentionCard = ({
   retention,
   serialSave,
+  locked = false,
 }: {
   retention: SlackPostRetention;
   serialSave: SerialSave;
+  /** Out of use while the page disconnects Slack. */
+  locked?: boolean;
 }) => {
   const [draft, setDraft] = useState<RetentionDraft>(() => draftFrom(retention));
   const [errors, setErrors] = useState<Partial<Record<RetentionKey, string>>>({});
@@ -65,7 +68,7 @@ export const RetentionCard = ({
   const savingRef = useRef(false);
 
   const save = () => {
-    if (savingRef.current) return;
+    if (savingRef.current || locked) return;
     const found: Partial<Record<RetentionKey, string>> = {};
     for (const field of RETENTION_FIELDS) {
       const message = fieldError(field, draft[field.path]);
@@ -120,7 +123,7 @@ export const RetentionCard = ({
               label={field.label}
               value={draft[field.path]}
               error={errors[field.path]}
-              disabled={saving}
+              disabled={saving || locked}
               onChange={(event) => {
                 setDraft({ ...draft, [field.path]: event.target.value });
                 setErrors(({ [field.path]: _dropped, ...rest }) => rest);
@@ -133,7 +136,7 @@ export const RetentionCard = ({
             <AlertDescription>{saveError}</AlertDescription>
           </Alert>
         )}
-        <Button onClick={save} isLoading={saving} disabled={saving}>
+        <Button onClick={save} isLoading={saving} disabled={saving || locked}>
           Save retention
         </Button>
       </CardContent>

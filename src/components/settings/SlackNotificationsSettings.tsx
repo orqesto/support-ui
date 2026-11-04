@@ -180,7 +180,7 @@ const ChannelCard = ({
       });
 
   const persist = (next: Draft) => {
-    if (savingRef.current) return;
+    if (savingRef.current || readOnly) return;
     setDraft(next);
     setTestResult(null);
     // No channel picked yet: keep the choice on the page; it is saved with the channel.
@@ -457,6 +457,9 @@ const SlackNotificationsPanel = () => {
   // pending PUT could write one back for a connection that is gone.
   const inFlightRef = useRef(0);
   const [savesInFlight, setSavesInFlight] = useState(0);
+  // While a Disconnect runs the cards are read-only: a route PUT then could write a route back
+  // for a connection that is being removed.
+  const [disconnecting, setDisconnecting] = useState(false);
   const onSavingChange = (saving: boolean) => {
     inFlightRef.current += saving ? 1 : -1;
     setSavesInFlight(inFlightRef.current);
@@ -520,7 +523,11 @@ const SlackNotificationsPanel = () => {
   };
 
   const disconnect = () => {
-    if (inFlightRef.current > 0) return;
+    if (inFlightRef.current > 0) {
+      toast.error('A save is still on its way. Disconnect again once it has finished.');
+      return;
+    }
+    setDisconnecting(true);
     slackNotificationsService
       .disconnect()
       .then(() => {
@@ -528,7 +535,8 @@ const SlackNotificationsPanel = () => {
         setChannelList(null);
         toast.success('Slack disconnected');
       })
-      .catch((err: unknown) => toast.failure('disconnect Slack', err));
+      .catch((err: unknown) => toast.failure('disconnect Slack', err))
+      .finally(() => setDisconnecting(false));
   };
 
   const connection = status?.connection ?? null;
@@ -596,7 +604,7 @@ const SlackNotificationsPanel = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setConfirmDisconnect(true)}
-                  disabled={savesInFlight > 0}
+                  disabled={savesInFlight > 0 || disconnecting}
                 >
                   Disconnect
                 </Button>
@@ -649,7 +657,7 @@ const SlackNotificationsPanel = () => {
                 channel={channel}
                 route={status?.routes.find((each) => each.channel === channel)}
                 channelList={channelList}
-                readOnly={!isConnected}
+                readOnly={!isConnected || disconnecting}
                 onSavingChange={onSavingChange}
               />
             ))}

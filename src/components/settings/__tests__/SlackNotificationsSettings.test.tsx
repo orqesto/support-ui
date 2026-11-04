@@ -4,7 +4,7 @@
  * read the admin-channel warning, and get the invite hint when the bot is not in the channel.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
 import {
@@ -281,6 +281,52 @@ describe('SlackNotificationsSettings — saves (fix round 1)', () => {
       'hold_recheck_due',
       'conversation_assigned',
     ]);
+  });
+
+  it('while a Disconnect runs the channel cards are out of use and a switch sends nothing', async () => {
+    vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(connected([route({})]));
+    const pendingDisconnect = deferred<void>();
+    const disconnect = vi
+      .spyOn(slackNotificationsService, 'disconnect')
+      .mockReturnValue(pendingDisconnect.promise);
+    const save = vi.spyOn(slackNotificationsService, 'saveRoute');
+    renderPage();
+    const hold = await switchNamed(/hold recheck due/i);
+    fireEvent.click(screen.getByRole('button', { name: /^disconnect$/i }));
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: /^disconnect$/i })
+    );
+    await waitFor(() => expect(disconnect).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(hold).toBeInactive());
+    fireEvent.click(hold);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(save).not.toHaveBeenCalled();
+    pendingDisconnect.resolve();
+    await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Slack disconnected'));
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('a Disconnect confirmed while a route save is still on its way is refused with a message', async () => {
+    vi.spyOn(slackNotificationsService, 'getStatus').mockResolvedValue(connected([route({})]));
+    const pendingSave = deferred<SlackRoute | null>();
+    const save = vi
+      .spyOn(slackNotificationsService, 'saveRoute')
+      .mockReturnValue(pendingSave.promise);
+    const disconnect = vi.spyOn(slackNotificationsService, 'disconnect').mockResolvedValue();
+    renderPage();
+    const hold = await switchNamed(/hold recheck due/i);
+    fireEvent.click(screen.getByRole('button', { name: /^disconnect$/i }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(hold);
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    fireEvent.click(within(dialog).getByRole('button', { name: /^disconnect$/i }));
+    await waitFor(() =>
+      expect(toastMock.error).toHaveBeenCalledWith(
+        'A save is still on its way. Disconnect again once it has finished.'
+      )
+    );
+    expect(disconnect).not.toHaveBeenCalled();
+    pendingSave.resolve(route({}));
   });
 
   it('Disconnect is blocked while a channel save is in flight', async () => {

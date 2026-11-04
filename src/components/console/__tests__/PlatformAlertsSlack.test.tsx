@@ -268,6 +268,112 @@ describe('PlatformAlertsSlack', () => {
     });
   });
 
+  it('while a Disconnect runs every save control is out of use and a save click sends nothing', async () => {
+    vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(
+      connected({ postRetention: { days: 30, chunkSize: 500, maxChunksPerWorkspace: 20 } })
+    );
+    const pendingDisconnect = deferred<void>();
+    const disconnect = vi
+      .spyOn(platformSlackAlertsService, 'disconnect')
+      .mockReturnValue(pendingDisconnect.promise);
+    const save = vi.spyOn(platformSlackAlertsService, 'saveSettings');
+    renderPage();
+    const disk = await screen.findByRole('switch', { name: /^disk usage$/i });
+    const cpu = screen.getByLabelText(/^CPU above \(%\)$/i);
+    const days = screen.getByLabelText(/^Delete ended Slack posts after \(days\)$/i);
+    const saveThresholds = screen.getByRole('button', { name: /save thresholds/i });
+    const saveRetention = screen.getByRole('button', { name: /save retention/i });
+    fireEvent.click(screen.getByRole('button', { name: /^disconnect$/i }));
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: /^disconnect$/i })
+    );
+    await waitFor(() => expect(disconnect).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(saveThresholds).toBeInactive());
+    for (const control of [disk, cpu, days, saveRetention]) expect(control).toBeInactive();
+    fireEvent.click(saveThresholds);
+    fireEvent.click(saveRetention);
+    fireEvent.click(disk);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(save).not.toHaveBeenCalled();
+    pendingDisconnect.resolve();
+    await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Slack disconnected'));
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('a Disconnect confirmed while a save is still on its way is refused with a message', async () => {
+    vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(connected());
+    const pendingSave = deferred<PlatformSlackStatus>();
+    const save = vi
+      .spyOn(platformSlackAlertsService, 'saveSettings')
+      .mockReturnValue(pendingSave.promise);
+    const disconnect = vi.spyOn(platformSlackAlertsService, 'disconnect').mockResolvedValue();
+    renderPage();
+    const disk = await screen.findByRole('switch', { name: /^disk usage$/i });
+    // The dialog opens while nothing is saving; a save then starts behind it.
+    fireEvent.click(screen.getByRole('button', { name: /^disconnect$/i }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(disk);
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    fireEvent.click(within(dialog).getByRole('button', { name: /^disconnect$/i }));
+    await waitFor(() =>
+      expect(toastMock.error).toHaveBeenCalledWith(
+        'A save is still on its way. Disconnect again once it has finished.'
+      )
+    );
+    expect(disconnect).not.toHaveBeenCalled();
+    pendingSave.resolve(connected());
+  });
+
+  it('ANOTHER Slack workspace with the SAME name (told apart by team id) restarts the channel card', async () => {
+    // The old connection is broken; a pasted token connects a different Slack workspace whose
+    // name is the same. Its signals differ — only a fresh card shows the server's.
+    vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue({
+      ...connected(),
+      connection: {
+        teamId: 'T1',
+        teamName: 'Odly Ops',
+        status: 'broken',
+        brokenReason: 'token_revoked',
+        source: 'db',
+      },
+    });
+    vi.spyOn(platformSlackAlertsService, 'connectWithToken').mockResolvedValue({
+      ...connected({
+        enabledSignals: PLATFORM_SLACK_SIGNALS.filter((signal) => signal !== 'disk'),
+      }),
+      connection: { teamId: 'T2', teamName: 'Odly Ops', status: 'connected', source: 'db' },
+    });
+    renderPage();
+    expect(await screen.findByRole('switch', { name: /^disk usage$/i })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    fireEvent.click(screen.getByRole('button', { name: /paste a bot token/i }));
+    fireEvent.change(screen.getByLabelText('Bot token'), { target: { value: 'xoxb-other-1' } });
+    fireEvent.click(screen.getByRole('button', { name: /connect with this token/i }));
+    await screen.findByText('Connected');
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: /^disk usage$/i })).toHaveAttribute(
+        'aria-checked',
+        'false'
+      )
+    );
+  });
+
+  it('a "below the critical level" error goes away once the critical level is raised', async () => {
+    vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(connected());
+    renderPage();
+    fireEvent.change(await screen.findByLabelText(/^Pool use warning \(%\)$/i), {
+      target: { value: '95' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save thresholds/i }));
+    expect(await screen.findByText(/must be below the critical level/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/^Pool use critical \(%\)$/i), {
+      target: { value: '99' },
+    });
+    expect(screen.queryByText(/must be below the critical level/i)).not.toBeInTheDocument();
+  });
+
   it('Disconnect is blocked while a channel save is in flight', async () => {
     vi.spyOn(platformSlackAlertsService, 'getStatus').mockResolvedValue(connected());
     vi.spyOn(platformSlackAlertsService, 'listChannels').mockResolvedValue({

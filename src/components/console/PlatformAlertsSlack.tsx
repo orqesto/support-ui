@@ -59,6 +59,10 @@ const SIGNAL_LABELS: Record<PlatformSlackSignal, string> = {
   process_start: 'API or worker process started or unhealthy',
 };
 
+/** Shown when a Disconnect is confirmed while a save is still on its way. */
+export const DISCONNECT_WAITS =
+  'A save is still on its way. Disconnect again once it has finished.';
+
 const UNSET_SECRET: SecretStatus = { configured: false, source: 'none', last4: null };
 
 /** Used when the backend sends a code without its own hint. */
@@ -101,11 +105,14 @@ const ChannelAndSignalsCard = ({
   connected,
   onConnection,
   serialSave,
+  locked,
 }: {
   status: PlatformSlackStatus;
   channelList: SlackChannelList | null;
   connected: boolean;
   serialSave: SerialSave;
+  /** Out of use while the page disconnects Slack. */
+  locked: boolean;
   /** The connection as the server now reports it (a channel save or a test post may clear it). */
   onConnection: (connection: PlatformSlackConnection | null) => void;
 }) => {
@@ -127,7 +134,7 @@ const ChannelAndSignalsCard = ({
   };
 
   const persist = (body: Parameters<typeof platformSlackAlertsService.saveSettings>[0]) => {
-    if (savingRef.current) return;
+    if (savingRef.current || locked) return;
     savingRef.current = true;
     setSaving(true);
     setTestResult(null);
@@ -158,7 +165,7 @@ const ChannelAndSignalsCard = ({
   const picked = channelList?.channels.find((chan) => chan.id === channel.id);
 
   const onPick = (slackChannelId: string) => {
-    if (!slackChannelId || savingRef.current) return;
+    if (!slackChannelId || savingRef.current || locked) return;
     const found = channelList?.channels.find((chan) => chan.id === slackChannelId);
     setChannel({ id: slackChannelId, name: found?.name });
     persist({ slackChannelId, slackChannelName: found?.name ?? slackChannelId });
@@ -216,7 +223,7 @@ const ChannelAndSignalsCard = ({
               value={channel.id}
               onChange={onPick}
               placeholder="Pick a channel"
-              disabled={saving}
+              disabled={saving || locked}
             />
             {picked && picked.isPrivate && !picked.isMember && (
               <p className="mt-1 text-xs text-muted-foreground">
@@ -242,7 +249,7 @@ const ChannelAndSignalsCard = ({
                 checked={signals.includes(signal)}
                 onChange={(on) => setSignal(signal, on)}
                 ariaLabel={SIGNAL_LABELS[signal]}
-                disabled={saving}
+                disabled={saving || locked}
               />
             </div>
           ))}
@@ -255,7 +262,7 @@ const ChannelAndSignalsCard = ({
               size="sm"
               onClick={sendTest}
               isLoading={testing}
-              disabled={saving || !hasChannel}
+              disabled={saving || locked || !hasChannel}
             >
               Send test message
             </Button>
@@ -390,6 +397,9 @@ const PlatformAlertsPanel = () => {
   const queueRef = useRef<Promise<unknown>>(Promise.resolve());
   const inFlightRef = useRef(0);
   const [savesInFlight, setSavesInFlight] = useState(0);
+  // While a Disconnect runs every save control is out of use: the Disconnect and a save would
+  // both read, merge and write the same stored setting.
+  const [disconnecting, setDisconnecting] = useState(false);
 
   const serialSave: SerialSave = (task) => {
     inFlightRef.current += 1;
@@ -469,15 +479,22 @@ const PlatformAlertsPanel = () => {
 
   const disconnect = () => {
     // Disconnect also rewrites the stored settings: never while a save is still on its way.
-    if (inFlightRef.current > 0) return;
-    platformSlackAlertsService
-      .disconnect()
+    if (inFlightRef.current > 0) {
+      toast.error(DISCONNECT_WAITS);
+      return;
+    }
+    setDisconnecting(true);
+    // Through the queue as well, so no save can start before it has finished.
+    const run = queueRef.current.then(() => platformSlackAlertsService.disconnect());
+    queueRef.current = run.catch(() => undefined);
+    run
       .then(() => {
         setChannelList(null);
         toast.success('Slack disconnected');
         load();
       })
-      .catch((err: unknown) => toast.failure('disconnect Slack', err));
+      .catch((err: unknown) => toast.failure('disconnect Slack', err))
+      .finally(() => setDisconnecting(false));
   };
 
   return (
@@ -541,7 +558,7 @@ const PlatformAlertsPanel = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => setConfirmDisconnect(true)}
-                    disabled={savesInFlight > 0}
+                    disabled={savesInFlight > 0 || disconnecting}
                   >
                     Disconnect
                   </Button>
@@ -619,12 +636,21 @@ const PlatformAlertsPanel = () => {
             connected={tokenWorks}
             onConnection={setConnection}
             serialSave={serialSave}
+            locked={disconnecting}
           />
           {/* The service already filled any missing threshold with its default. */}
-          <ThresholdsCard thresholds={status.settings.thresholds} serialSave={serialSave} />
+          <ThresholdsCard
+            thresholds={status.settings.thresholds}
+            serialSave={serialSave}
+            locked={disconnecting}
+          />
           {/* An older backend sends no retention: nothing to show or save. */}
           {status.settings.postRetention && (
-            <RetentionCard retention={status.settings.postRetention} serialSave={serialSave} />
+            <RetentionCard
+              retention={status.settings.postRetention}
+              serialSave={serialSave}
+              locked={disconnecting}
+            />
           )}
         </>
       )}

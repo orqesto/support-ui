@@ -194,11 +194,14 @@ const thresholdsFromDraft = (draft: ThresholdDraft): PlatformSlackThresholds => 
 export const ThresholdsCard = ({
   thresholds,
   serialSave,
+  locked = false,
 }: {
   /** As the service normalised them (defaults already filled). */
   thresholds: PlatformSlackThresholds;
   /** The page's one save queue: this card's PUT never overlaps the channel and signals card's. */
   serialSave: SerialSave;
+  /** Out of use while the page disconnects Slack (the Disconnect rewrites the same setting). */
+  locked?: boolean;
 }) => {
   const [draft, setDraft] = useState<ThresholdDraft>(() => draftFromThresholds(thresholds));
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -208,7 +211,7 @@ export const ThresholdsCard = ({
   const savingRef = useRef(false);
 
   const save = () => {
-    if (savingRef.current) return;
+    if (savingRef.current || locked) return;
     const found: Record<string, string> = {};
     for (const field of ALL_THRESHOLD_FIELDS) {
       const message = fieldError(field, draft[field.path] ?? '');
@@ -263,10 +266,19 @@ export const ThresholdsCard = ({
                   label={field.label}
                   value={draft[field.path] ?? ''}
                   error={errors[field.path]}
-                  disabled={saving}
+                  disabled={saving || locked}
                   onChange={(event) => {
                     setDraft({ ...draft, [field.path]: event.target.value });
-                    setErrors(({ [field.path]: _dropped, ...rest }) => rest);
+                    // A pair's "below the critical level" sits on the warning field: changing
+                    // either field of the pair clears it (Save checks the pair again).
+                    const pair = WARN_BELOW_CRIT.find((each) => each.includes(field.path));
+                    setErrors(({ [field.path]: _dropped, ...rest }) =>
+                      pair && rest[pair[0]] === BELOW_CRIT_MESSAGE
+                        ? Object.fromEntries(
+                            Object.entries(rest).filter(([path]) => path !== pair[0])
+                          )
+                        : rest
+                    );
                   }}
                 />
               ))}
@@ -278,7 +290,7 @@ export const ThresholdsCard = ({
             <AlertDescription>{saveError}</AlertDescription>
           </Alert>
         )}
-        <Button onClick={save} isLoading={saving} disabled={saving}>
+        <Button onClick={save} isLoading={saving} disabled={saving || locked}>
           Save thresholds
         </Button>
       </CardContent>
