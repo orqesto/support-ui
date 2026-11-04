@@ -1,4 +1,4 @@
-import { memo, useRef, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import { User } from 'lucide-react';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { Button } from '@/components/ui/Button';
@@ -28,6 +28,8 @@ type Props = {
   msg: MessageEvent;
   attachments?: Attachment[];
   onOpenAttachment?: (id: number) => void;
+  /** A picture in this message's text was pressed — open it in the file viewer. */
+  onOpenInlineImage?: (eventId: number, image: HTMLImageElement) => void;
   /** "from ODL-MKT-1" when this message arrived through a merge. */
   mergedFrom?: string | null;
   /** Address the reply to this message's writer ("Reply to this message"). */
@@ -38,9 +40,15 @@ function ThreadMessageItemView({
   msg,
   attachments = [],
   onOpenAttachment,
+  onOpenInlineImage,
   mergedFrom,
   onReplyTo,
 }: Props) {
+  const msgId = msg.id;
+  const openInlineImage = useCallback(
+    (image: HTMLImageElement) => onOpenInlineImage?.(msgId, image),
+    [onOpenInlineImage, msgId]
+  );
   const [translatedContent, setTranslatedContent] = useState<string | null>(null);
   // The language the agent picked, for the "Translated · XX" notice (v3). `translateKey`
   // remounts the TranslateButton when the notice's own "Show original" is pressed, so the
@@ -228,6 +236,7 @@ function ThreadMessageItemView({
                   isAgent={true}
                   html={translatedContent === null ? originalHtml : null}
                   eventId={msg.id}
+                  onOpenImage={onOpenInlineImage ? openInlineImage : undefined}
                 />
               </div>
               {translate(true)}
@@ -303,6 +312,7 @@ function ThreadMessageItemView({
                 isAgent={false}
                 html={translatedContent === null ? originalHtml : null}
                 eventId={msg.id}
+                onOpenImage={onOpenInlineImage ? openInlineImage : undefined}
               />
             </div>
             {translate(false)}

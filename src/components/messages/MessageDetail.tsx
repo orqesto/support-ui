@@ -73,6 +73,7 @@ import { useSocketReconnected } from '@/hooks/useSocketReconnected';
 import { useIsPhone } from './useIsPhone';
 import { Permission } from '@/types/roles';
 import { ThreadMessageItem } from './ThreadMessageItem';
+import { useThreadFileViewer } from './useThreadFileViewer';
 import { ThreadNoteItem } from './ThreadNoteItem';
 import type { KBAttachment } from './AiTabPanel';
 import { MessagePanelTabs } from './MessagePanelTabs';
@@ -623,7 +624,6 @@ export function MessageDetail({
   const twoColumn = fullPage && isWide;
   // v4 mobile (<640px). Structure that moves on a phone keys on this; pure styling uses `max-sm:`.
   const isPhone = useIsPhone();
-  const [highlightAttachmentId, setHighlightAttachmentId] = useState<number | null>(null);
   // Phone scrolling: a new message and a new tab start at their top (usePhoneDetailScroll).
   const detailRootRef = useRef<HTMLDivElement>(null);
   usePhoneDetailScroll(detailRootRef, isPhone && !twoColumn, panelOpen ? tab : 'thread');
@@ -632,7 +632,6 @@ export function MessageDetail({
   useEffect(() => {
     setPanelOpen(false);
     setTab('ai');
-    setHighlightAttachmentId(null);
   }, [message.id]);
 
   /*
@@ -1341,11 +1340,16 @@ export function MessageDetail({
     },
     [refuseReplyOverNote]
   );
-  const handleOpenAttachment = useCallback((id: number) => {
-    setTab('attachments');
-    setPanelOpen(true);
-    setHighlightAttachmentId(id);
-  }, []);
+  // Pressing a file in the thread opens it in the viewer, over the thread, with the whole
+  // conversation to step through — no detour to the Files tab (owner request 2026-11-04).
+  const threadFileViewer = useThreadFileViewer(
+    threadScrollerRef,
+    sortedThread,
+    attachmentsByMessageId,
+    message.id
+  );
+  const handleOpenAttachment = threadFileViewer.openAttachment;
+  const handleOpenInlineImage = threadFileViewer.openInlineImage;
 
   useDetailShortcuts(shortcutContext, {
     reply: () => {
@@ -1615,7 +1619,6 @@ export function MessageDetail({
       messageActivity={messageActivity}
       sortedThread={sortedThread}
       threadRefreshKey={threadRefreshKey + attachmentsBump}
-      highlightAttachmentId={highlightAttachmentId}
       attachments={flatAttachments}
       currentUserId={currentUserId}
       leadState={leadState}
@@ -1831,6 +1834,7 @@ export function MessageDetail({
                     onReplyTo={supportsRecipients && isActive ? handleReplyToMessage : undefined}
                     attachments={attachmentsByMessageId.get(row.msg.id) ?? NO_ATTACHMENTS}
                     onOpenAttachment={handleOpenAttachment}
+                    onOpenInlineImage={handleOpenInlineImage}
                   />
                 ) : (
                   <ThreadNoteItem note={row.note} />
@@ -2040,6 +2044,9 @@ export function MessageDetail({
           }}
         />
       )}
+
+      {/* The file viewer — over the thread, which stays mounted and where it was. */}
+      {threadFileViewer.viewer}
     </div>
   );
 }

@@ -1,12 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowDownLeft, Download, Eye, FileText, Image, Video, Volume2 } from 'lucide-react';
 import { relativeTime } from './messageDetailConstants';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
-import {
-  AttachmentPreviewDialog,
-  isPreviewable,
-} from '@/components/shared/AttachmentPreviewDialog';
+import { FileViewer } from '@/components/shared/fileViewer/FileViewer';
+import { attachmentItem, isViewable } from '@/components/shared/fileViewer/fileViewerModel';
 import { apiClient } from '@/lib/api-client';
 import { attachmentDownloadUrl } from '@/lib/attachmentUrl';
 import { useAuthStore } from '@/stores/authStore';
@@ -102,7 +100,14 @@ export const MessageAttachments = ({
   const [brokenThumbnails, setBrokenThumbnails] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(!preloadedAttachments);
   const [activeHighlight, setActiveHighlight] = useState<number | null>(null);
-  const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
+  /** Index into `viewerItems` of the file open in the viewer; null = closed. */
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  // The same viewer the thread opens, stepping through this tab's files in the tab's order.
+  const viewerItems = useMemo(() => attachments.map((att) => attachmentItem(att)), [attachments]);
+  const openViewer = (att: Attachment) => {
+    const index = attachments.findIndex((candidate) => candidate.id === att.id);
+    if (index !== -1) setViewerIndex(index);
+  };
   const rowRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const eventsById = new Map((sortedThread ?? []).map((event) => [event.id, event] as const));
   const [alertDialog, setAlertDialog] = useState<{
@@ -216,11 +221,11 @@ export const MessageAttachments = ({
 
             {/* Name + meta */}
             <div className="flex flex-col flex-1 min-w-0 leading-[1.3]">
-              {isPreviewable(att.mimeType) ? (
+              {isViewable(att.mimeType, att.originalFilename) ? (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setPreviewAttachment(att)}
+                  onClick={() => openViewer(att)}
                   title="Preview"
                   className="block p-0 w-full h-auto text-left font-sans text-[12.5px] font-medium truncate leading-[1.3] hover:bg-transparent hover:underline"
                 >
@@ -252,12 +257,12 @@ export const MessageAttachments = ({
               </span>
             </div>
 
-            {isPreviewable(att.mimeType) && (
+            {isViewable(att.mimeType, att.originalFilename) && (
               <Button
                 variant="ghost"
                 size="icon"
                 aria-label={`Preview ${att.originalFilename}`}
-                onClick={() => setPreviewAttachment(att)}
+                onClick={() => openViewer(att)}
                 title="Preview"
                 className={FILE_ACTION}
               >
@@ -278,10 +283,14 @@ export const MessageAttachments = ({
         );
       })}
 
-      <AttachmentPreviewDialog
-        attachment={previewAttachment}
-        onClose={() => setPreviewAttachment(null)}
-      />
+      {viewerIndex !== null && viewerItems.length > 0 && (
+        <FileViewer
+          items={viewerItems}
+          index={viewerIndex}
+          onIndexChange={setViewerIndex}
+          onClose={() => setViewerIndex(null)}
+        />
+      )}
 
       <AlertDialog
         open={alertDialog.open}

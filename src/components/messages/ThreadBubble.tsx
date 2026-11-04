@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { Button } from '@/components/ui/Button';
 import { API_BASE_URL } from '@/lib/config';
 import { sanitizeEmailHtml } from '@/lib/emailHtml';
 import { useAuthStore } from '@/stores/authStore';
+import { isViewableInlineImage } from '@/components/shared/fileViewer/fileViewerModel';
 import {
   THREAD_SANITIZE,
   addNoopenerHook,
@@ -24,7 +25,15 @@ export function ThreadBubble({
   html,
   eventId,
   quoteExpanded = false,
+  onOpenImage,
 }: {
+  /**
+   * Pressing a picture in the message text opens it in the file viewer. Set ⇒ the bubble's
+   * root carries `data-viewer-event={eventId}`, so the thread can list every picture of the
+   * conversation in body order; images in links and tiny ones are left alone
+   * (`isViewableInlineImage`).
+   */
+  onOpenImage?: (image: HTMLImageElement) => void;
   content: string | null | undefined;
   isAgent: boolean;
   /**
@@ -268,9 +277,75 @@ export function ThreadBubble({
       }}
     />
   );
+  /*
+    Pictures in the message text open the viewer. ONE delegated listener on the bubble's root,
+    because the images live in sanitized html React does not own. Each eligible image is made a
+    keyboard stop (tabindex + role=button) so Enter/Space open it too; re-checked after every
+    render and every image load, since an image's natural size is only known once it loads.
+  */
+  const viewerRootRef = useRef<HTMLDivElement>(null);
+  const onOpenImageRef = useRef(onOpenImage);
+  onOpenImageRef.current = onOpenImage;
+  const viewerEnabled = onOpenImage !== undefined;
+  useEffect(() => {
+    const root = viewerRootRef.current;
+    if (!root) return;
+    for (const image of Array.from(root.querySelectorAll('img'))) {
+      if (isViewableInlineImage(image)) {
+        image.setAttribute('data-viewable', 'true');
+        image.setAttribute('role', 'button');
+        image.setAttribute('tabindex', '0');
+        image.classList.add('cursor-zoom-in');
+      } else if (image.hasAttribute('data-viewable')) {
+        image.removeAttribute('data-viewable');
+        image.removeAttribute('role');
+        image.removeAttribute('tabindex');
+        image.classList.remove('cursor-zoom-in');
+      }
+    }
+  });
+  useEffect(() => {
+    const root = viewerRootRef.current;
+    if (!root || !viewerEnabled) return;
+    const imageOf = (target: EventTarget | null): HTMLImageElement | null =>
+      target instanceof HTMLImageElement && root.contains(target) ? target : null;
+    const open = (event: Event, image: HTMLImageElement) => {
+      if (!isViewableInlineImage(image)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onOpenImageRef.current?.(image);
+    };
+    const onClick = (event: MouseEvent) => {
+      const image = imageOf(event.target);
+      if (image) open(event, image);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const image = imageOf(event.target);
+      if (image) open(event, image);
+    };
+    // `load` does not bubble; capture sees it. A picture that loads tiny stops being a button.
+    const onLoad = (event: Event) => {
+      const image = imageOf(event.target);
+      if (!image || isViewableInlineImage(image)) return;
+      image.removeAttribute('data-viewable');
+      image.removeAttribute('role');
+      image.removeAttribute('tabindex');
+      image.classList.remove('cursor-zoom-in');
+    };
+    root.addEventListener('click', onClick);
+    root.addEventListener('keydown', onKeyDown);
+    root.addEventListener('load', onLoad, true);
+    return () => {
+      root.removeEventListener('click', onClick);
+      root.removeEventListener('keydown', onKeyDown);
+      root.removeEventListener('load', onLoad, true);
+    };
+  }, [viewerEnabled]);
+
   const render = (chunk: string) => (isHtml ? renderHtml(chunk) : renderText(chunk));
 
-  return (
+  const body = (
     <>
       {render(main)}
       {quote && (
@@ -301,5 +376,12 @@ export function ThreadBubble({
         </div>
       )}
     </>
+  );
+  if (!viewerEnabled) return body;
+  // `contents`: the wrapper adds no box, so the bubble lays out exactly as before.
+  return (
+    <div ref={viewerRootRef} className="contents" data-viewer-event={eventId}>
+      {body}
+    </div>
   );
 }
