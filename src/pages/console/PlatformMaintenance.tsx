@@ -12,6 +12,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Toggle } from '@/components/ui/Toggle';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { GlobalAdminMembershipsCard } from '@/components/console/maintenance/GlobalAdminMembershipsCard';
+import { SearchDiagnosticsCard } from '@/components/console/maintenance/SearchDiagnosticsCard';
 import { SyncCheckpointsCard } from '@/components/console/maintenance/SyncCheckpointsCard';
 import { SpoofedSenderReportView } from '@/components/console/maintenance/SpoofedSenderReportView';
 import { TrustedAddressesCard } from '@/components/console/maintenance/TrustedAddressesCard';
@@ -623,6 +624,9 @@ export const PlatformMaintenance = () => {
           queryKey={MAINTENANCE_KEY}
         />
       )}
+
+      {/* Why a workspace's search is slow: plans and data sizes, read-only (2026-11-04). */}
+      <SearchDiagnosticsCard />
 
       {/* Platform-wide tools moved here from Console → System (2026-10-20). */}
       <SyncCheckpointsCard />
