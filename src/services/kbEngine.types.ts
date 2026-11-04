@@ -39,7 +39,18 @@ export type KbQuestionChoiceKey =
   | 'remove'
   | 'both_wrong';
 
-export type KbQuestionChoice = { key: KbQuestionChoiceKey; label: string; needsText: boolean };
+/**
+ * `secondary`: a rare choice shown small under the main ones, with no number key (a rewrite
+ * question's Remove). `prefill`: the text box of a needsText choice starts with this text (a
+ * rewrite question's Edit: the current answer, full text).
+ */
+export type KbQuestionChoice = {
+  key: KbQuestionChoiceKey;
+  label: string;
+  needsText: boolean;
+  secondary?: true;
+  prefill?: string;
+};
 
 export type KbQuestion = {
   suggestionId: number;
