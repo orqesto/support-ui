@@ -196,6 +196,44 @@ describe('MessageDetail — a file in the thread opens the viewer', () => {
     expect(panel.getAttribute('data-open')).toBe('false');
   });
 
+  it("a message's files follow the email's order (id), whatever order the API sends", async () => {
+    const shuffled = [
+      {
+        id: 80,
+        messageEventId: 501,
+        originalFilename: 'third.jpg',
+        mimeType: 'image/jpeg',
+        size: 9,
+      },
+      {
+        id: 78,
+        messageEventId: 501,
+        originalFilename: 'first.jpg',
+        mimeType: 'image/jpeg',
+        size: 9,
+      },
+      {
+        id: 79,
+        messageEventId: 501,
+        originalFilename: 'second.jpg',
+        mimeType: 'image/jpeg',
+        size: 9,
+      },
+    ];
+    apiGetOverride.fn = (path: string) =>
+      Promise.resolve(
+        path === '/api/messages/101/attachments'
+          ? { data: { success: true, data: shuffled } }
+          : { data: [] }
+      );
+    renderDetail();
+    await screen.findByRole('button', { name: 'chip first.jpg' });
+    const chips = screen.getAllByRole('button', { name: /^chip / }).map((chip) => chip.textContent);
+    expect(chips).toEqual(['chip first.jpg', 'chip second.jpg', 'chip third.jpg']);
+    fireEvent.click(screen.getByRole('button', { name: 'chip first.jpg' }));
+    expect(within(screen.getByRole('dialog')).getByText('1 of 3')).toBeTruthy();
+  });
+
   it('closing the viewer leaves the thread where it was', async () => {
     renderDetail();
     const chip = await screen.findByRole('button', { name: 'chip parcel.jpg' });
