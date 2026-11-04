@@ -77,3 +77,52 @@ export const captureQuestion = (
   openedAt: '2026-10-29T10:00:00Z',
   ...overrides,
 });
+
+/** An entry review where the engine rewrote the answer: A is the entry, B the engine's text. */
+export const rewriteQuestion = (
+  suggestionId = 4,
+  overrides: Partial<KbQuestion> = {}
+): KbQuestion => ({
+  suggestionId,
+  kind: 'entry_review',
+  departmentId: 3,
+  prompt: 'Engine suggests rewriting this answer (unclear question).',
+  answers: [
+    {
+      entryId: 40,
+      label: 'A',
+      question: 'Customs wants papers. What now?',
+      answer: 'Send the details to the shop team, who prepare the form.',
+      evidence: {
+        threads: 1,
+        customers: 1,
+        firstAt: '2026-10-07T10:00:00Z',
+        lastAt: '2026-10-07T10:00:00Z',
+        countries: [],
+      },
+    },
+    {
+      entryId: null,
+      label: 'B',
+      question: 'Customs wants papers. What now?',
+      answer: 'Send the details, and the logistics team prepare the form.',
+      evidence: { threads: 0, customers: 0, firstAt: null, lastAt: null, countries: [] },
+    },
+  ],
+  ruledOut: [],
+  guess: null,
+  usedInDraftsLast7d: null,
+  choices: [
+    { key: 'keep', label: 'Keep current', needsText: false },
+    { key: 'accept', label: "Use engine's version", needsText: false },
+    {
+      key: 'both_wrong',
+      label: 'Edit…',
+      needsText: true,
+      prefill: 'Send the details to the shop team, who prepare the form.',
+    },
+    { key: 'remove', label: 'Remove this answer', needsText: false, secondary: true },
+  ],
+  openedAt: '2026-10-08T10:00:00Z',
+  ...overrides,
+});

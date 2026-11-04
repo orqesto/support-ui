@@ -4,7 +4,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { KbQuestionCard } from '../KbQuestionCard';
-import { captureQuestion, mergeQuestion } from './kbQuestionFixtures';
+import { captureQuestion, mergeQuestion, rewriteQuestion } from './kbQuestionFixtures';
 
 afterEach(cleanup);
 
@@ -185,5 +185,84 @@ describe('KbQuestionCard', () => {
       .forEach((button) => expect(button.className).toMatch(/(^| )w-full( |$)/));
     expect(save().className).toMatch(/(^| )w-full( |$)/);
     expect(screen.getByTestId('kb-question-answers').className).toMatch(/grid-cols-1/);
+  });
+
+  describe('a rewrite question', () => {
+    it('names the panels and marks only the changed words', () => {
+      renderCard(rewriteQuestion());
+      const answers = screen.getAllByTestId('kb-question-answer');
+      expect(within(answers[0]).getByText('Current answer')).toBeInTheDocument();
+      expect(within(answers[1]).getByText("Engine's version")).toBeInTheDocument();
+      expect(within(answers[0]).queryByText('A')).toBeNull();
+      const removed = within(answers[0])
+        .getAllByTestId('kb-question-removed')
+        .map((node) => node.textContent)
+        .join(' ');
+      const added = within(answers[1])
+        .getAllByTestId('kb-question-added')
+        .map((node) => node.textContent)
+        .join(' ');
+      expect(removed).toContain('shop');
+      expect(added).toContain('logistics');
+      // Shared words are not marked.
+      expect(removed).not.toMatch(/Send|prepare|form/);
+      expect(added).not.toMatch(/Send|prepare|form/);
+      expect(within(answers[0]).queryByTestId('kb-question-added')).toBeNull();
+      expect(within(answers[1]).queryByTestId('kb-question-removed')).toBeNull();
+      // Each side still reads as its whole text.
+      expect(answers[0]).toHaveTextContent(
+        'Send the details to the shop team, who prepare the form.'
+      );
+      expect(answers[1]).toHaveTextContent(
+        'Send the details, and the logistics team prepare the form.'
+      );
+    });
+
+    it("shows Keep current / Use engine's version / Edit… numbered, and Remove small with no number", () => {
+      const { onAnswer } = renderCard(rewriteQuestion());
+      const group = within(screen.getByRole('group', { name: 'Your answer' }));
+      expect(group.getAllByRole('button').map((button) => button.textContent)).toEqual([
+        '1Keep current',
+        "2Use engine's version",
+        '3Edit…',
+      ]);
+      fireEvent.keyDown(window, { key: '4' });
+      expect(save()).toHaveAttribute('aria-disabled', 'true');
+      fireEvent.keyDown(window, { key: '2' });
+      fireEvent.click(save());
+      expect(onAnswer).toHaveBeenLastCalledWith('accept', undefined);
+      fireEvent.click(screen.getByRole('button', { name: 'Remove this answer' }));
+      expect(screen.getByRole('button', { name: 'Remove this answer' })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+      fireEvent.click(save());
+      expect(onAnswer).toHaveBeenLastCalledWith('remove', undefined);
+    });
+
+    it('Edit… starts from the current answer and saves the edited text', () => {
+      const { onAnswer } = renderCard(rewriteQuestion());
+      fireEvent.keyDown(window, { key: '3' });
+      const box = screen.getByRole('textbox', { name: 'The right answer' });
+      expect(box).toHaveValue('Send the details to the shop team, who prepare the form.');
+      fireEvent.change(box, { target: { value: 'Send the details to the logistics team.' } });
+      // Going away and back keeps what was typed.
+      fireEvent.keyDown(window, { key: '1' });
+      fireEvent.keyDown(window, { key: '3' });
+      expect(screen.getByRole('textbox', { name: 'The right answer' })).toHaveValue(
+        'Send the details to the logistics team.'
+      );
+      fireEvent.click(save());
+      expect(onAnswer).toHaveBeenCalledWith(
+        'both_wrong',
+        'Send the details to the logistics team.'
+      );
+    });
+
+    it('a merge card is unchanged: letters, no marks', () => {
+      renderCard();
+      expect(screen.queryByText('Current answer')).toBeNull();
+      expect(screen.queryByTestId('kb-question-removed')).toBeNull();
+    });
   });
 });
