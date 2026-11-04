@@ -25,6 +25,7 @@ import {
 import { useIngestionDarkAlerts } from '@/hooks/useIngestionDarkAlerts';
 import { useIngestionGapAlerts } from '@/hooks/useIngestionGapAlerts';
 import { useWorkAlerts } from '@/hooks/useWorkAlerts';
+import { useTabTitleCount } from '@/hooks/useTabTitleCount';
 import { useKbReviewAlerts } from '@/hooks/useKbReviewAlerts';
 import { formatStaleAge } from '@/lib/kbStaleness';
 import { IngestionDarkSection } from '@/components/layout/IngestionDarkSection';
@@ -195,6 +196,7 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
     tokenLimits.badged +
     // #957: both personal kinds are addressed to this reader.
     work.unread;
+  useTabTitleCount(badgeCount);
   // With multiple content types present, label each section; otherwise stay minimal.
   const sectionCount =
     (hasQueues ? 1 : 0) +
