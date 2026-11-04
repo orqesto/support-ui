@@ -9,6 +9,7 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/types/api';
 import { fetchNotificationsOfKind } from '@/services/notificationsByKind.service';
+import { rowsBeyondPage } from '@/lib/notificationPageCounts';
 
 /**
  * Two kinds that both mean "a message did not reach the person who should have seen it".
@@ -109,6 +110,9 @@ export const useUnansweredOutboundAlerts = () => {
    * the reason this flag almost never fires now is that it is measuring the right thing.
    */
   const [truncated, setTruncated] = useState(false);
+  // Rows the server holds beyond its 20-row page (`total`; 0 from a server that ignored the kind):
+  // the badge counts every standing alert, not only the loaded ones.
+  const [beyond, setBeyond] = useState(0);
   const orgKey = useAuthStore(
     (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
   );
@@ -147,6 +151,15 @@ export const useUnansweredOutboundAlerts = () => {
             ).data
         );
         setTruncated(payloads.some((payload) => payload.hasMore === true));
+        setBeyond(
+          payloads.reduce((sum, payload, index) => {
+            const kind = index === 0 ? ONE_SIDED_OUTBOUND_KIND : CUSTOMER_REPLY_IN_SPAM_KIND;
+            const kept = payload.notifications.filter(
+              (row) => (row as { kind?: string }).kind === kind
+            ).length;
+            return sum + rowsBeyondPage(payload, kept);
+          }, 0)
+        );
         setAlerts(
           dedupeById(payloads.flatMap((payload) => payload.notifications))
             // Kept even though the request names its kinds: if a backend ever ignored
@@ -235,5 +248,5 @@ export const useUnansweredOutboundAlerts = () => {
     apiClient.patch(`/api/notifications/${id}/dismiss`).catch(() => {});
   }, []);
 
-  return { alerts, truncated, dismiss, refresh: fetchAlerts };
+  return { alerts, count: alerts.length + beyond, truncated, dismiss, refresh: fetchAlerts };
 };

@@ -11,6 +11,8 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/types/api';
 import { fetchNotificationsOfKind } from '@/services/notificationsByKind.service';
+import { NOTIFICATION_SETTINGS_CHANGED_EVENT } from '@/hooks/notificationPrefsKey';
+import { unreadBeyondPage } from '@/lib/notificationPageCounts';
 
 /**
  * #957 — the two notification kinds addressed to ONE person: "assigned to you" and "new unassigned
@@ -123,6 +125,9 @@ export const useWorkAlerts = () => {
   const [alerts, setAlerts] = useState<WorkAlert[]>([]);
   // The server's per-kind totals (LIMIT 20 per kind): "+N more" counts these, not the loaded rows.
   const [serverTotal, setServerTotal] = useState(0);
+  // Unread rows the server counted beyond each kind's 20-row page (its `unreadTotal`; 0 from an
+  // older server): the badge is the loaded unread rows plus these, so it is exact past 20.
+  const [unreadBeyond, setUnreadBeyond] = useState(0);
   // Only the newest request may write: an answer from before an org / department switch, or a refetch
   // started before a dismiss, must not overwrite newer state.
   const requestSeq = useRef(0);
@@ -146,9 +151,24 @@ export const useWorkAlerts = () => {
             0
           )
         );
-        const rows = responses.flatMap(
-          (res) => (res.data as { data: { notifications: Notification[] } }).data.notifications
+        const pages = responses.map((res, index) => ({
+          kind: KINDS[index],
+          payload: (
+            res.data as {
+              data: { notifications: Notification[]; total?: number; unreadTotal?: number };
+            }
+          ).data,
+        }));
+        setUnreadBeyond(
+          pages.reduce((sum, { kind, payload }) => {
+            const kept = payload.notifications.filter(
+              (row) => (row as { kind?: string }).kind === kind
+            );
+            const unreadOnPage = kept.filter((row) => !(row.isRead ?? false)).length;
+            return sum + unreadBeyondPage(payload, kept.length, unreadOnPage);
+          }, 0)
         );
+        const rows = pages.flatMap(({ payload }) => payload.notifications);
         const seen = new Set<number>();
         setAlerts(
           rows
@@ -168,6 +188,12 @@ export const useWorkAlerts = () => {
   useEffect(() => {
     refresh();
   }, [refresh, orgKey, deptKey]);
+
+  // Saved settings (minimum priority, a kind off) change which rows count: re-read.
+  useEffect(() => {
+    window.addEventListener(NOTIFICATION_SETTINGS_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(NOTIFICATION_SETTINGS_CHANGED_EVENT, refresh);
+  }, [refresh]);
 
   // Coalesced like the inbox refresh (R15): the first ping schedules one refetch, later ones join it.
   const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -238,6 +264,7 @@ export const useWorkAlerts = () => {
     requestSeq.current += 1;
     setAlerts([]);
     setServerTotal(0);
+    setUnreadBeyond(0);
     await Promise.all(
       KINDS.map((kind) =>
         apiClient
@@ -253,6 +280,7 @@ export const useWorkAlerts = () => {
   /** Opening the bell marks these read, by kind (BE R18 — the unfiltered read-all no longer reaches them). */
   const markAllRead = useCallback(() => {
     setAlerts((current) => current.map((item) => ({ ...item, isRead: true })));
+    setUnreadBeyond(0); // read-all by kind reaches every visible row, beyond the page too
     for (const kind of KINDS) {
       apiClient
         .patch('/api/notifications/read-all', undefined, { params: { kind } })
@@ -263,7 +291,7 @@ export const useWorkAlerts = () => {
   return {
     alerts,
     total: Math.max(serverTotal, alerts.length),
-    unread: alerts.filter((alert) => !alert.isRead).length,
+    unread: alerts.filter((alert) => !alert.isRead).length + unreadBeyond,
     dismiss,
     open,
     refresh,

@@ -9,6 +9,7 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/types/api';
 import { fetchNotificationsOfKind } from '@/services/notificationsByKind.service';
+import { rowsBeyondPage } from '@/lib/notificationPageCounts';
 
 /**
  * "Mail may be missing" — the ONLY signal in the product that reports mail we do NOT have.
@@ -110,6 +111,9 @@ export type UseIngestionGapAlertsResult = ReturnType<typeof useIngestionGapAlert
 
 export const useIngestionGapAlerts = () => {
   const [alerts, setAlerts] = useState<IngestionGapAlert[]>([]);
+  // Rows the server holds beyond its 20-row page (`total`; 0 from a server that ignored the kind):
+  // the badge counts every standing alert, not only the loaded ones.
+  const [beyond, setBeyond] = useState(0);
   const orgKey = useAuthStore(
     (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
   );
@@ -128,11 +132,14 @@ export const useIngestionGapAlerts = () => {
       .then((res) => {
         const payload = (res.data as { data: { notifications: Notification[]; total: number } })
           .data;
+        // Belt and braces: the server filters. A server that ignored the param would
+        // otherwise hand this section every kind in the bell.
+        const kept = payload.notifications.filter(
+          (row) => (row as { kind?: string }).kind === INGESTION_GAP_KIND
+        );
+        setBeyond(rowsBeyondPage(payload, kept.length));
         setAlerts(
-          payload.notifications
-            // Belt and braces: the server filters. A server that ignored the param would
-            // otherwise hand this section every kind in the bell.
-            .filter((row) => (row as { kind?: string }).kind === INGESTION_GAP_KIND)
+          kept
             .map(toAlert)
             // Worst skew first — the biggest hole is the one to act on.
             .sort((left, right) => (right.minutesAhead ?? 0) - (left.minutesAhead ?? 0))
@@ -178,5 +185,5 @@ export const useIngestionGapAlerts = () => {
     apiClient.patch(`/api/notifications/${id}/dismiss`).catch(() => {});
   }, []);
 
-  return { alerts, dismiss, refresh: fetchAlerts };
+  return { alerts, count: alerts.length + beyond, dismiss, refresh: fetchAlerts };
 };

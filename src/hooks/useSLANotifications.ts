@@ -10,7 +10,11 @@ import {
 import { apiClient } from '@/lib/api-client';
 import { invalidateSharedFetch, sharedFetch } from '@/lib/sharedFetch';
 import { useAuthStore } from '@/stores/authStore';
-import { notificationPrefsFetchKey } from '@/hooks/notificationPrefsKey';
+import {
+  NOTIFICATION_SETTINGS_CHANGED_EVENT,
+  notificationPrefsFetchKey,
+} from '@/hooks/notificationPrefsKey';
+import { unreadBeyondPage } from '@/lib/notificationPageCounts';
 
 import type { Notification } from '@/types/api';
 import {
@@ -151,6 +155,15 @@ const NON_SLA_BELL_KINDS = new Set([
 ]);
 const isNonSlaBellKind = (kind: unknown): boolean =>
   typeof kind === 'string' && NON_SLA_BELL_KINDS.has(kind);
+/**
+ * Sent as `?excludeKinds=`: the server leaves these out of the rows, `total` and `unreadTotal`, so
+ * the badge is EXACT (every unread row this section shows, not the unread rows that happened to
+ * land on the 20-row page) and nothing another section counts is counted here too. An older
+ * server ignores the parameter; the client filter above still applies and the page count stays.
+ */
+export const SLA_BELL_EXCLUDE_KINDS = [...NON_SLA_BELL_KINDS].join(',');
+/** Socket-driven re-reads inside this window join one request. */
+export const SLA_RECOUNT_MS = 500;
 
 export type UseSLANotificationsResult = ReturnType<typeof useSLANotifications>;
 
@@ -172,6 +185,10 @@ export const useSLANotifications = () => {
   // Synchronous mirror of `notifications` so the socket handler can read a
   // notification's current read-state without nesting setState calls.
   const notificationsRef = useRef<SLABreachNotification[]>([]);
+  // Unread rows the server counted beyond the loaded page (its `unreadTotal` minus the page's
+  // unread). A read or removal of a row NOT in the list can only be reflected by re-reading while
+  // this is above zero; at zero the list holds every unread row and the live -1 is exact.
+  const unreadBeyondRef = useRef(0);
   const prefsRef = useRef<UserPrefs>(DEFAULT_PREFS);
   const linesRef = useRef<SettingsLine[]>([]);
   // BE `notificationsController` honours X-Department-Context. Force callback
@@ -187,10 +204,13 @@ export const useSLANotifications = () => {
 
   const fetchNotifications = useCallback(() => {
     apiClient
-      .get('/api/notifications')
+      .get('/api/notifications', { params: { excludeKinds: SLA_BELL_EXCLUDE_KINDS } })
       .then((res) => {
-        const payload = (res.data as { data: { notifications: NotificationRow[]; total: number } })
-          .data;
+        const payload = (
+          res.data as {
+            data: { notifications: NotificationRow[]; total: number; unreadTotal?: number };
+          }
+        ).data;
         // Drop arrival kinds — this is the SLA bell, not the unified center (P3 guard).
         const rows = payload.notifications.filter(
           (row) => !isNonSlaBellKind((row as { kind?: string }).kind)
@@ -219,7 +239,11 @@ export const useSLANotifications = () => {
         notificationsRef.current = loaded;
         setNotifications(loaded);
         setTotal(totalCount);
-        setUnreadCount(loaded.filter((notif) => !notif.isRead).length);
+        // Exact when the server sent `unreadTotal` (and honoured excludeKinds — no row dropped
+        // above); otherwise the page's own count, as before.
+        const unreadOnPage = loaded.filter((notif) => !notif.isRead).length;
+        unreadBeyondRef.current = unreadBeyondPage(payload, rows.length, unreadOnPage);
+        setUnreadCount(unreadOnPage + unreadBeyondRef.current);
         setFetchError(false);
       })
       .catch(() => {
@@ -302,6 +326,29 @@ export const useSLANotifications = () => {
   // Real-time WebSocket delivery.
   // Depends on Layout.tsx having already called joinOrganizationRoom() so the socket
   // is subscribed to `org-<id>` before sla_breach events arrive.
+  // A coalesced re-read: a bulk change sends many events, one request answers them all.
+  const recountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleRecount = useCallback(() => {
+    if (recountTimer.current !== null) return;
+    recountTimer.current = setTimeout(() => {
+      recountTimer.current = null;
+      fetchNotifications();
+    }, SLA_RECOUNT_MS);
+  }, [fetchNotifications]);
+  useEffect(
+    () => () => {
+      if (recountTimer.current !== null) clearTimeout(recountTimer.current);
+      recountTimer.current = null;
+    },
+    []
+  );
+
+  // Saved settings change which rows this section may count (a kind off, only mine): re-read.
+  useEffect(() => {
+    window.addEventListener(NOTIFICATION_SETTINGS_CHANGED_EVENT, fetchNotifications);
+    return () => window.removeEventListener(NOTIFICATION_SETTINGS_CHANGED_EVENT, fetchNotifications);
+  }, [fetchNotifications]);
+
   useEffect(() => {
     getSocket();
 
@@ -364,6 +411,14 @@ export const useSLANotifications = () => {
     // self-echo (and any duplicate echo) can't double-count. Mirrors dismiss()'s pattern.
     const handleNotificationRead = (data: unknown) => {
       const { notificationId } = data as { notificationId: number };
+      // A row beyond the loaded page: only the server knows whether it was an unread one of ours.
+      if (
+        unreadBeyondRef.current > 0 &&
+        !notificationsRef.current.some((notif) => notif.id === notificationId)
+      ) {
+        scheduleRecount();
+        return;
+      }
       setNotifications((prev) => {
         const target = prev.find((notif) => notif.id === notificationId);
         if (target && !target.isRead) {
@@ -380,6 +435,7 @@ export const useSLANotifications = () => {
     const handleNotificationReadAll = (data?: unknown) => {
       if (isNonSlaBellKind((data as { kind?: unknown } | undefined)?.kind)) return;
       setNotifications((prev) => prev.map((notif) => ({ ...notif, isRead: true })));
+      unreadBeyondRef.current = 0;
       setUnreadCount(0);
     };
 
@@ -388,6 +444,8 @@ export const useSLANotifications = () => {
     const handleNotificationRemoved = (data: unknown) => {
       const { conversationIds } = data as { conversationIds: number[] };
       if (!conversationIds?.length) return;
+      // Removed rows may sit beyond the page too: re-read so the count drops for them as well.
+      if (unreadBeyondRef.current > 0) scheduleRecount();
       const removedSet = new Set(conversationIds);
       const matches = (notif: SLABreachNotification) =>
         (notif.type === 'message' || notif.type === 'conversation') &&
@@ -420,7 +478,7 @@ export const useSLANotifications = () => {
       unsubscribeFromEvent('connect', handleReconnect);
       releaseSocket();
     };
-  }, [fetchNotifications]);
+  }, [fetchNotifications, scheduleRecount]);
 
   const dismiss = useCallback((id: number) => {
     apiClient.patch(`/api/notifications/${id}/dismiss`).catch(() => {});
@@ -437,17 +495,21 @@ export const useSLANotifications = () => {
 
   // Settles once the server has answered, so a caller can re-read what dismiss-all touched.
   const clearAll = useCallback((): Promise<void> => {
+    // Re-read once the server answered: "Clear all" leaves some rows standing (a KB review, the
+    // token-limit notice, rows a non-admin may not dismiss), and they still count.
     const done = apiClient
       .patch('/api/notifications/dismiss-all')
       .then(() => {})
-      .catch(() => {});
+      .catch(() => {})
+      .then(() => fetchNotifications());
     // Don't clear seenSeverity — dismissed IDs must stay tracked so re-broadcast
     // socket events don't re-add them immediately after dismiss-all.
     setNotifications([]);
     setTotal(0);
+    unreadBeyondRef.current = 0;
     setUnreadCount(0);
     return done;
-  }, []);
+  }, [fetchNotifications]);
 
   const markRead = useCallback((id: number) => {
     apiClient.patch(`/api/notifications/${id}/read`).catch(() => {});
@@ -460,12 +522,16 @@ export const useSLANotifications = () => {
   const markAllRead = useCallback(() => {
     // W1-M43/L43: persist to the BE (was state-only, so a refresh resurrected the badge).
     // Optimistic update with rollback — don't swallow the failure and leave the UI lying.
+    // Read-all marks every visible row, the ones beyond the page included: zero is exact.
     const snapshot = notificationsRef.current;
+    const beyondSnapshot = unreadBeyondRef.current;
     setNotifications((prev) => prev.map((notif) => ({ ...notif, isRead: true })));
+    unreadBeyondRef.current = 0;
     setUnreadCount(0);
     apiClient.patch('/api/notifications/read-all').catch(() => {
       setNotifications(snapshot);
-      setUnreadCount(snapshot.filter((notif) => !notif.isRead).length);
+      unreadBeyondRef.current = beyondSnapshot;
+      setUnreadCount(snapshot.filter((notif) => !notif.isRead).length + beyondSnapshot);
     });
   }, []);
 

@@ -42,7 +42,12 @@ vi.mock('@/hooks/useIngestionGapAlerts', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('@/hooks/useIngestionGapAlerts');
   return {
     ...actual,
-    useIngestionGapAlerts: () => ({ alerts: gapAlerts, dismiss: vi.fn(), refresh: vi.fn() }),
+    useIngestionGapAlerts: () => ({
+      alerts: gapAlerts,
+      count: gapAlerts.length,
+      dismiss: vi.fn(),
+      refresh: vi.fn(),
+    }),
   };
 });
 
@@ -51,7 +56,7 @@ vi.mock('@/hooks/useNotificationCounts', () => ({
   useNotificationCounts: () => ({ counts: {}, clearKind: vi.fn(), refresh: vi.fn() }),
 }));
 vi.mock('@/hooks/useAiProviderAlerts', () => ({
-  useAiProviderAlerts: () => ({ alerts: [], dismiss: vi.fn() }),
+  useAiProviderAlerts: () => ({ alerts: [], count: 0, dismiss: vi.fn() }),
   AI_PROVIDER_DOWN_KIND: 'ai_provider_down',
 }));
 vi.mock('@/hooks/useStaleKbAlerts', () => ({
@@ -66,6 +71,7 @@ vi.mock('@/hooks/useUnansweredOutboundAlerts', async () => {
     ...actual,
     useUnansweredOutboundAlerts: () => ({
       alerts: [],
+      count: 0,
       truncated: false,
       dismiss: vi.fn(),
       refresh: vi.fn(),
