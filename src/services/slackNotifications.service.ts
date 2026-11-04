@@ -288,7 +288,7 @@ export type PlatformSlackConnection = {
 };
 
 /**
- * How long ENDED workspace Slack posts are kept (round 2, `alerts.platform_slack.postRetention`).
+ * How long ENDED workspace Slack posts are kept (round 2, `notifications.slack_post_retention (its own platform setting since round 2)`).
  * Bounds and defaults mirror support-service `slackPostRetentionSchema`.
  */
 export type SlackPostRetention = { days: number; chunkSize: number; maxChunksPerWorkspace: number };
