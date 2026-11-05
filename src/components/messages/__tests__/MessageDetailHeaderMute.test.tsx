@@ -47,4 +47,14 @@ describe('Mute this thread', () => {
     const menu = await openMenu();
     expect(within(menu).queryByText(/mute this thread/i)).toBeNull();
   });
+
+  it('on a closed thread the item is disabled, says it is paused, and sends no request', async () => {
+    svc.setThreadMute.mockReset();
+    renderHeader({ message: { ...withMute(true), status: 'closed' } as unknown as Message });
+    const menu = await openMenu();
+    const item = within(menu).getByRole('menuitem', { name: /paused while this thread is closed/i });
+    expect(item).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(item);
+    expect(svc.setThreadMute).not.toHaveBeenCalled();
+  });
 });

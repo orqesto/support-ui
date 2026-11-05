@@ -89,16 +89,29 @@ describe('useConversationMute', () => {
     expect(result.current.muted).toBe(false);
   });
 
-  it('closed or filtered only pauses the mute: off while the status lasts, muted again when open (no refetch)', () => {
+  it('closed or filtered only pauses the mute: the stored state keeps showing, marked suspended, and comes back live when open', () => {
     const { result, rerender } = renderHook(
       ({ paused }) => useConversationMute(1, true, { suspended: paused }),
       { initialProps: { paused: false } }
     );
-    expect(result.current.muted).toBe(true);
+    expect(result.current.suspended).toBe(false);
     rerender({ paused: true });
-    expect(result.current.muted).toBe(false);
-    rerender({ paused: false });
+    expect(result.current.suspended).toBe(true);
     expect(result.current.muted).toBe(true);
+    rerender({ paused: false });
+    expect(result.current.suspended).toBe(false);
+    expect(result.current.muted).toBe(true);
+  });
+
+  it('a click while suspended sends nothing and changes nothing', async () => {
+    mute.setThreadMute.mockReset();
+    const { result } = renderHook(() => useConversationMute(1, false, { suspended: true }));
+    await act(async () => {
+      await result.current.toggle();
+      await result.current.toggle();
+    });
+    expect(mute.setThreadMute).not.toHaveBeenCalled();
+    expect(result.current.muted).toBe(false);
   });
 
   it('a mute call that answers after the backend ended the mute asks for a re-read', async () => {

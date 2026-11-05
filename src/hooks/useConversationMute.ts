@@ -16,10 +16,12 @@ type Override = { id: number; initial: boolean | undefined; value: boolean };
  * (two requests in flight can land in either order, and the newest click would lose).
  *
  * What the backend does to a mute as the thread changes (so the header need not wait for a read):
- * - `ended`: the mute is gone for good (the thread was resolved, or assigned to this person). When it
- *   turns true the mute shows as off and stays off until the server says otherwise.
- * - `suspended`: closed / filtered threads pause a mute without deleting it. The mute shows as off
- *   while the status lasts and comes back when the thread is open again.
+ * - `ended`: the mute is gone for good (the thread was resolved, or assigned to this person; a reopen
+ *   afterwards is a new start). When it turns true the mute shows as off and stays off until the
+ *   server says otherwise.
+ * - `suspended`: closed / filtered threads pause a mute without deleting it. The stored state keeps
+ *   showing (`muted` is unchanged) and `suspended` is returned so the screen can say it is paused;
+ *   `toggle` does nothing meanwhile, so one click never means a request with no visible change.
  * - `onReconcile`: called when a mute call answered AFTER `ended` turned true. The reply cannot say
  *   whether the assignment or the call came last, so the thread is read again.
  *
@@ -75,12 +77,10 @@ export const useConversationMute = (
   }, [conversationId, initial, ended]);
 
   const active = override?.id === conversationId && override.initial === initial;
-  const stored = active ? override.value : (initial ?? false);
-  // A suspended mute is only hidden: the stored state is kept for when the thread is open again.
-  const muted = stored && !suspended;
+  const muted = active ? override.value : (initial ?? false);
 
   const toggle = useCallback(async () => {
-    if (initial === undefined) return;
+    if (initial === undefined || suspended) return;
     const known = confirmed.current;
     const base = known?.id === conversationId && known.initial === initial ? known.value : initial;
     const next = !muted;
@@ -103,7 +103,7 @@ export const useConversationMute = (
       setOverride({ id: conversationId, initial, value: back });
       toast.error(next ? 'Could not mute this thread' : 'Could not unmute this thread');
     }
-  }, [conversationId, initial, muted]);
+  }, [conversationId, initial, muted, suspended]);
 
-  return { muted, toggle, available: initial !== undefined };
+  return { muted, suspended, toggle, available: initial !== undefined };
 };

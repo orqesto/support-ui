@@ -971,11 +971,20 @@ export function MessageDetailHeader({
         },
       },
     threadMute.available && {
-      label: threadMute.muted ? 'Unmute this thread' : 'Mute this thread',
+      label: threadMute.suspended
+        ? threadMute.muted
+          ? `Muted (paused while this thread is ${message.status})`
+          : 'Mute this thread'
+        : threadMute.muted
+          ? 'Unmute this thread'
+          : 'Mute this thread',
       icon: threadMute.muted ? <Bell className="w-3 h-3" /> : <BellOff className="w-3 h-3" />,
-      tooltip: threadMute.muted
-        ? undefined
-        : "You won't get live alerts for this thread until it's resolved. It stays in your bell.",
+      disabled: threadMute.suspended,
+      tooltip: threadMute.suspended
+        ? `Paused while this thread is ${message.status}. You can change it once the thread is open again.`
+        : threadMute.muted
+          ? undefined
+          : "You won't get live alerts for this thread until it's resolved. It stays in your bell.",
       action: () => {
         void threadMute.toggle();
         setMoreOpen(false);
