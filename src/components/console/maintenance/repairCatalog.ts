@@ -66,6 +66,14 @@ export const REPAIRS: RepairEntry[] = [
     scope: 'workspace',
   },
   {
+    id: 'repair-held-and-merged-threads',
+    label:
+      'Put threads back to work where the customer wrote, and fix response times after a merge',
+    does: 'Threads still on hold, or resolved/closed, although the customer wrote afterwards and nobody answered: the hold is cleared or the thread is reopened, so it waits on us again. A thank-you alone, spam, and mail older than the open window are left alone. Merged threads whose first reply looks older than the thread itself (shown as a negative SLA): the response time is recalculated from the customer’s first message.',
+    path: 'repair-held-and-merged-threads',
+    scope: 'workspace',
+  },
+  {
     id: 'repair-buried-conversations',
     label: 'Reopen threads a sweep closed while a customer waited',
     does: 'Reopens threads the KB before-cutoff sweep resolved while the customer was still waiting.',

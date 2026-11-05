@@ -362,23 +362,33 @@ export const computeSlaInfo = (message: Message, nowMs: number = Date.now()): Sl
       ? new Date((message.metadata as Record<string, unknown>).receivedAt as string)
       : new Date(message.createdAt);
   if (message.firstResponseAt) {
-    const elapsed = Math.round(
-      (new Date(message.firstResponseAt).getTime() - startTime.getTime()) / 60000
-    );
-    const breached = message.slaResponseBreached === true || elapsed > target;
+    // The backend's recorded seconds, whenever it has them: the minutes AND "missed" from one
+    // source. Computing the minutes here (arrival → first reply) while "missed" came from the
+    // stored flag drew "SLA 18m/1h missed" on staging 2026-09-24.
+    // Same rule as messageSLAService: Math.floor(seconds / 60) > target.
+    const recorded =
+      typeof message.actualResponseSeconds === 'number'
+        ? Math.floor(message.actualResponseSeconds / 60)
+        : null;
+    const elapsed =
+      recorded ??
+      Math.round((new Date(message.firstResponseAt).getTime() - startTime.getTime()) / 60000);
+    // A first reply dated BEFORE the clock start has no honest number. A merge that kept the newer
+    // thread did this (a customer workspace, 2026-11: a negative SLA); the backend now times it from
+    // the customer's first message, and until a thread is recomputed it shows nothing, not a
+    // negative.
+    if (elapsed < 0) return null;
+    // Finished: the record's minutes AND verdict from one source (above). Open: unchanged — the
+    // stored flag OR the minutes (the flag is judged in seconds, the chip in whole minutes).
+    const breached =
+      finished && recorded !== null
+        ? recorded > target
+        : message.slaResponseBreached === true || elapsed > target;
     if (finished) {
-      // The RECORD comes from the backend's own numbers when it has them: the minutes AND
-      // "missed" from one source. Computing the minutes here (arrival → first reply) while
-      // "missed" came from the stored flag drew "SLA 18m/1h missed" on staging 2026-09-24.
-      // Same rule as messageSLAService: Math.floor(seconds / 60) > target.
-      const recorded =
-        typeof message.actualResponseSeconds === 'number'
-          ? Math.floor(message.actualResponseSeconds / 60)
-          : null;
       return {
-        elapsed: recorded ?? elapsed,
+        elapsed,
         target,
-        breached: recorded !== null ? recorded > target : breached,
+        breached,
         atRisk: false,
         done: true,
         record: true,
@@ -399,7 +409,8 @@ export const computeSlaInfo = (message: Message, nowMs: number = Date.now()): Sl
         : 'text-success border-success-line bg-success-muted',
     };
   }
-  const elapsed = Math.floor((nowMs - startTime.getTime()) / 60000);
+  // Never negative: an arrival time ahead of the clock (sender skew) reads as "just arrived".
+  const elapsed = Math.max(0, Math.floor((nowMs - startTime.getTime()) / 60000));
   const breached = message.slaResponseBreached === true || elapsed > target;
   const atRisk = !breached && elapsed > target * 0.8;
   return {
