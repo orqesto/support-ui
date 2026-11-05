@@ -258,6 +258,7 @@ export interface components {
             organizationId: number;
             resolvedByName: string | null;
             detectedLanguage: string | null;
+            mutedByMe?: boolean;
         };
         CurrentUser: {
             id: number;
@@ -322,6 +323,7 @@ export interface components {
         NotificationList: {
             notifications: components["schemas"]["Notification"][];
             total: number;
+            unreadTotal: number;
             hasMore: boolean;
         };
         Attachment: {

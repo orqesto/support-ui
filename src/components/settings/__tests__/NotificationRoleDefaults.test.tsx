@@ -10,6 +10,8 @@ vi.mock('@/services/notificationSettingsService', async (orig) => ({
   saveRoleDefaults: (role: string, lines: Record<string, unknown>) => saveRoles(role, lines),
 }));
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: () => new Promise(() => undefined) } }));
+const toastMock = vi.hoisted(() => ({ error: vi.fn(), warning: vi.fn(), success: vi.fn(), info: vi.fn(), failure: vi.fn() }));
+vi.mock('@/lib/toast', () => ({ toast: toastMock }));
 const perms = { isAdmin: false, isOrgAdmin: true, hasPermission: () => true };
 vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => perms }));
 
@@ -17,6 +19,7 @@ const { NotificationRoleDefaults } = await import('../NotificationRoleDefaults')
 const { OrganizationSettings } = await import('../OrganizationSettings');
 const { MemoryRouter } = await import('react-router-dom');
 const { invalidateSharedFetch } = await import('@/lib/sharedFetch');
+const { useAuthStore } = await import('@/stores/authStore');
 
 const overview = (differing: Array<{ id: number; name: string; value: unknown }> = []): RoleDefaults => ({
   roles: ['org_admin', 'moderator', 'support', 'associate'].map((role) => ({
@@ -143,5 +146,57 @@ describe('notifications by role', () => {
     pickRole('Moderator');
     expect(screen.getByRole('switch', { name: 'Spam arrived' })).toBeChecked();
     expect(saveRoles).not.toHaveBeenCalled();
+  });
+
+  it('leaving the page with unsaved changes says they were not saved; a clean leave says nothing', async () => {
+    fetchRoles.mockResolvedValue(overview());
+    const clean = render(<NotificationRoleDefaults />);
+    await screen.findByText('Spam arrived');
+    clean.unmount();
+    expect(toastMock.warning).not.toHaveBeenCalled();
+    const dirty = render(<NotificationRoleDefaults />);
+    await screen.findByText('Spam arrived');
+    fireEvent.click(screen.getByRole('switch', { name: 'Spam arrived' }));
+    dirty.unmount();
+    expect(toastMock.warning).toHaveBeenCalledTimes(1);
+    expect(toastMock.warning.mock.calls[0][0]).toMatch(/not saved/);
+  });
+
+  it('a workspace switch with unsaved changes says they were discarded because of the switch', async () => {
+    useAuthStore.setState({ selectedOrganizationId: 1 });
+    fetchRoles.mockResolvedValue(overview());
+    render(<NotificationRoleDefaults />);
+    await screen.findByText('Spam arrived');
+    fireEvent.click(screen.getByRole('switch', { name: 'Spam arrived' }));
+    useAuthStore.setState({ selectedOrganizationId: 2 });
+    await waitFor(() => expect(toastMock.warning).toHaveBeenCalledTimes(1));
+    expect(toastMock.warning.mock.calls[0][0]).toMatch(/switched workspace/);
+    useAuthStore.setState({ selectedOrganizationId: null });
+  });
+
+  it('a server error on the probe keeps the tab, and the page offers Try again', async () => {
+    fetchRoles.mockRejectedValue(new Error('503'));
+    render(
+      <MemoryRouter>
+        <OrganizationSettings section="notification-roles" />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('Could not load the role defaults.')).toBeInTheDocument();
+    expect(screen.getAllByText('Notifications by role').length).toBeGreaterThan(0);
+    fetchRoles.mockResolvedValue(overview());
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await screen.findByText('Spam arrived');
+  });
+
+  it('signing out with unsaved changes does not blame a workspace switch', async () => {
+    useAuthStore.setState({ selectedOrganizationId: 1 });
+    fetchRoles.mockResolvedValue(overview());
+    render(<NotificationRoleDefaults />);
+    await screen.findByText('Spam arrived');
+    fireEvent.click(screen.getByRole('switch', { name: 'Spam arrived' }));
+    useAuthStore.setState({ selectedOrganizationId: null, user: null });
+    await waitFor(() => expect(toastMock.warning).toHaveBeenCalledTimes(1));
+    expect(toastMock.warning.mock.calls[0][0]).not.toMatch(/switched workspace/);
+    useAuthStore.setState(useAuthStore.getInitialState());
   });
 });

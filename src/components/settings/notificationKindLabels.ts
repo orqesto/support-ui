@@ -40,6 +40,26 @@ export const NOTIFICATION_KIND_LABELS: Record<string, string> = {
   slack_connection_broken: 'Slack connection broken',
 };
 
+/**
+ * Slack words these alerts as the message a channel sees, so a few differ from the bell's names.
+ * Every other kind uses the shared name (notificationKindLabels.ts) — one definition, no drift.
+ * An entry here must differ from the shared name; the same words twice is a copy that can rot.
+ */
+export const SLACK_KIND_WORDING: Record<string, string> = {
+  new_unassigned_message: 'New customer message on an unassigned conversation',
+  customer_message_on_assigned: 'New customer message on an assigned conversation',
+  conversation_reopened: 'Conversation reopened by the customer',
+  sla_message_breach: 'Conversation SLA about to breach or breached',
+  sla_ticket_first_response: 'Ticket first-response SLA about to breach or breached',
+  sla_ticket_resolution: 'Ticket resolution SLA about to breach or breached',
+  conversation_assigned: 'Conversation assigned to someone',
+  customer_reply_in_spam: 'Customer reply landed in the spam folder',
+};
+export const SLACK_KIND_LABELS: Record<string, string> = {
+  ...NOTIFICATION_KIND_LABELS,
+  ...SLACK_KIND_WORDING,
+};
+
 const sentenceCase = (raw: string): string => {
   const words = raw.replace(/[_:-]+/g, ' ').trim();
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : raw;

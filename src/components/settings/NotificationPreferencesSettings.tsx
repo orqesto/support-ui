@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Toggle } from '@/components/ui/Toggle';
+import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationSettings } from '@/hooks/useNotificationSettings';
 import {
@@ -98,6 +99,11 @@ const legacyPrefs = (settings: NotificationSettings): Partial<Prefs> => {
 
 const DEBOUNCE_MS = 600;
 
+const selectedOrgKey = (): number | string | null => {
+  const state = useAuthStore.getState();
+  return state.selectedOrganizationId ?? state.user?.organizationId ?? null;
+};
+
 /** Keyed on the workspace so every bit of local state (drafts, pending values, notices) starts clean on a switch. */
 export const NotificationPreferencesSettings = () => {
   const orgKey = useAuthStore((state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null);
@@ -109,10 +115,33 @@ const NotificationPreferencesBody = () => {
   const sendCount = useRef(0);
   const latestFor = useRef<Record<string, number>>({});
   const hoursTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Dropped, not flushed, on unmount: a flush after a workspace switch would write A's hours into B.
+  // The working-hours edit waiting for its 600 ms pause, so leaving the page can still save it.
+  const hoursWaiting = useRef<{ key: string; value: WorkingHours | null } | null>(null);
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  const orgAtMount = useRef(selectedOrgKey());
+  // Leaving within the pause: the edit is saved, not dropped, but only into the workspace it was
+  // made in (a request after a switch would write A's hours into B). After a switch the person is
+  // told it was not saved; on sign-out (no workspace) the copy stays neutral.
   useEffect(
     () => () => {
       if (hoursTimer.current) clearTimeout(hoursTimer.current);
+      hoursTimer.current = null;
+      const waiting = hoursWaiting.current;
+      hoursWaiting.current = null;
+      if (!waiting) return;
+      const nowOrg = selectedOrgKey();
+      if (nowOrg === orgAtMount.current) {
+        saveRef.current({ [waiting.key]: waiting.value }).catch((err: unknown) => {
+          toast.failure('save your last working-hours change', err);
+        });
+      } else {
+        toast.warning(
+          nowOrg === null
+            ? 'Your last change to the working hours was not saved.'
+            : 'Your last change to the working hours was not saved because you switched workspace.'
+        );
+      }
     },
     []
   );
@@ -165,7 +194,15 @@ const NotificationPreferencesBody = () => {
     if (hoursTimer.current) clearTimeout(hoursTimer.current);
     // Only valid values are sent, and only once typing pauses.
     if (next === null || validateWorkingHours(next) === null) {
-      hoursTimer.current = setTimeout(() => void change(key, next), DEBOUNCE_MS);
+      hoursWaiting.current = { key, value: next };
+      hoursTimer.current = setTimeout(() => {
+        hoursWaiting.current = null;
+        void change(key, next);
+      }, DEBOUNCE_MS);
+    } else {
+      // An invalid draft (the editor says why) is never sent; it also replaces the valid edit that
+      // was waiting, so leaving the page does not save a value the screen no longer shows.
+      hoursWaiting.current = null;
     }
   };
 

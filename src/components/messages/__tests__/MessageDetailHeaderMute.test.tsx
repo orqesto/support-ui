@@ -47,4 +47,40 @@ describe('Mute this thread', () => {
     const menu = await openMenu();
     expect(within(menu).queryByText(/mute this thread/i)).toBeNull();
   });
+
+  it.each(['resolved', 'closed', 'filtered'])('on a %s thread the Mute item is inactive and sends no request', async (status) => {
+    svc.setThreadMute.mockReset();
+    renderHeader({ message: { ...withMute(false), status } as unknown as Message });
+    const menu = await openMenu();
+    const item = within(menu).getByRole('menuitem', { name: 'Mute this thread' });
+    expect(item).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(item);
+    expect(svc.setThreadMute).not.toHaveBeenCalled();
+  });
+
+  it('a muted thread that gets filtered or closed shows Mute (the backend deleted the mute), also once open again', async () => {
+    const { MessageDetailHeader } = await import('../MessageDetailHeader');
+    const { ThemeProvider } = await import('@/contexts/ThemeContext');
+    const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+    const { MemoryRouter } = await import('react-router-dom');
+    const client = new QueryClient();
+    const tree = (msg: Message) => (
+      <ThemeProvider>
+        <QueryClientProvider client={client}>
+          <MemoryRouter>
+            <MessageDetailHeader message={msg} showFullPageButton={false} isFullPage threadCount={1} />
+          </MemoryRouter>
+        </QueryClientProvider>
+      </ThemeProvider>
+    );
+    const { render } = await import('@testing-library/react');
+    const view = render(tree(withMute(true)));
+    let menu = await openMenu();
+    expect(within(menu).getByRole('menuitem', { name: 'Unmute this thread' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' })); // close
+    view.rerender(tree({ ...withMute(true), status: 'filtered' } as unknown as Message));
+    view.rerender(tree({ ...withMute(true), status: 'open' } as unknown as Message));
+    menu = await openMenu();
+    expect(within(menu).getByRole('menuitem', { name: 'Mute this thread' })).toBeInTheDocument();
+  });
 });

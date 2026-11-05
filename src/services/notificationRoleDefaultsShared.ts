@@ -1,4 +1,5 @@
 import { invalidateSharedFetch, sharedFetch } from '@/lib/sharedFetch';
+import { useAuthStore } from '@/stores/authStore';
 import { roleDefaultsUnavailable } from './notificationRoleDefaultsMemory';
 import { fetchRoleDefaults, type RoleDefaults } from './notificationSettingsService';
 
@@ -6,12 +7,15 @@ import { fetchRoleDefaults, type RoleDefaults } from './notificationSettingsServ
  * One read of the role defaults per workspace, shared by the Workspace-settings tab probe and the
  * page itself, so opening the tab does not fetch again. Short TTL (the overview carries "who differs"
  * counts); dropped after a save. A workspace whose server has no such endpoint is remembered for the
- * session and never probed again.
+ * session and never probed again. Everything is keyed by person AND workspace.
  */
 const TTL_MS = 60_000;
 const unavailable = roleDefaultsUnavailable;
 
-const keyOf = (orgKey: number | string | null): string => `notification-roles:${String(orgKey)}`;
+// Per person and workspace: another user on the same browser (sign-out, sign-in) must not inherit
+// the last user's answer or the "unavailable" memory.
+const keyOf = (orgKey: number | string | null): string =>
+  `notification-roles:${String(useAuthStore.getState().user?.id ?? 'anon')}:${String(orgKey)}`;
 
 export const loadRoleDefaults = (orgKey: number | string | null): Promise<RoleDefaults | null> => {
   const key = keyOf(orgKey);

@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { ContactProfilePanel } from '@/components/contacts/ContactProfilePanel';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useAuthStore } from '@/stores/authStore';
 import { useLeadsHidden } from '@/hooks/useLeadsHidden';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
@@ -258,7 +259,19 @@ export function MessageDetailHeader({
   }, [onApprove, navigate, message.id]);
 
   const [moreOpen, setMoreOpen] = useState(false);
-  const threadMute = useConversationMute(message.id, message.mutedByMe);
+  const myUserId = useAuthStore((state) => state.user?.id);
+  // The backend deletes my mute when the thread is resolved, closed or filtered, or assigned to me.
+  const muteEndedByStatus =
+    message.status === 'resolved' || message.status === 'closed' || message.status === 'filtered';
+  const muteEnded =
+    muteEndedByStatus ||
+    (myUserId !== undefined && message.assigneeId === myUserId);
+  // A finished thread (resolved, closed, filtered) cannot be muted: the backend answers 409.
+  const muteBlocked = muteEndedByStatus;
+  const threadMute = useConversationMute(message.id, message.mutedByMe, {
+    ended: muteEnded,
+    onReconcile: onRefresh,
+  });
   // Phones: the More sheet is modal (scrim over the page) — Tab stays on its items and the first
   // takes focus, as in a menu. Desktop keeps the plain popover (click-outside closes it).
   const moreSheetRef = useRef<HTMLDivElement>(null);
@@ -961,9 +974,12 @@ export function MessageDetailHeader({
     threadMute.available && {
       label: threadMute.muted ? 'Unmute this thread' : 'Mute this thread',
       icon: threadMute.muted ? <Bell className="w-3 h-3" /> : <BellOff className="w-3 h-3" />,
-      tooltip: threadMute.muted
-        ? undefined
-        : "You won't get live alerts for this thread until it's resolved. It stays in your bell.",
+      disabled: muteBlocked && !threadMute.muted,
+      tooltip: muteBlocked && !threadMute.muted
+        ? "Finished threads can't be muted."
+        : threadMute.muted
+          ? undefined
+          : "Mutes this thread's alerts for you until it's resolved or closed. It stays in your bell.",
       action: () => {
         void threadMute.toggle();
         setMoreOpen(false);
