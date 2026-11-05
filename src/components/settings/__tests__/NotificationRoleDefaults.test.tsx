@@ -187,4 +187,16 @@ describe('notifications by role', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await screen.findByText('Spam arrived');
   });
+
+  it('signing out with unsaved changes does not blame a workspace switch', async () => {
+    useAuthStore.setState({ selectedOrganizationId: 1 });
+    fetchRoles.mockResolvedValue(overview());
+    render(<NotificationRoleDefaults />);
+    await screen.findByText('Spam arrived');
+    fireEvent.click(screen.getByRole('switch', { name: 'Spam arrived' }));
+    useAuthStore.setState({ selectedOrganizationId: null, user: null });
+    await waitFor(() => expect(toastMock.warning).toHaveBeenCalledTimes(1));
+    expect(toastMock.warning.mock.calls[0][0]).not.toMatch(/switched workspace/);
+    useAuthStore.setState(useAuthStore.getInitialState());
+  });
 });

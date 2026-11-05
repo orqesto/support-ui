@@ -15,15 +15,45 @@ type Override = { id: number; initial: boolean | undefined; value: boolean };
  * Calls are sent one after another, so the server applies them in the order the person clicked
  * (two requests in flight can land in either order, and the newest click would lose).
  *
- * `serverEnds` is true while the thread is in a state that ends the person's mute on the backend
- * (resolved / closed / filtered, or assigned to them). When it turns true the mute shows as off at
- * once instead of waiting for the next read of the thread.
+ * What the backend does to a mute as the thread changes (so the header need not wait for a read):
+ * - `ended`: the mute is gone for good (the thread was resolved, or assigned to this person). When it
+ *   turns true the mute shows as off and stays off until the server says otherwise.
+ * - `suspended`: closed / filtered threads pause a mute without deleting it. The mute shows as off
+ *   while the status lasts and comes back when the thread is open again.
+ * - `onReconcile`: called when a mute call answered AFTER `ended` turned true. The reply cannot say
+ *   whether the assignment or the call came last, so the thread is read again.
+ *
+ * A call that hangs gives up after `CALL_TIMEOUT_MS`, so it cannot hold up later toggles.
  */
+export const CALL_TIMEOUT_MS = 15_000;
+
+export type MuteThreadState = { ended?: boolean; suspended?: boolean; onReconcile?: () => void };
+
+const withTimeout = <T,>(work: Promise<T>): Promise<T> =>
+  new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('mute call timed out')), CALL_TIMEOUT_MS);
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error('mute call failed'));
+      }
+    );
+  });
+
 export const useConversationMute = (
   conversationId: number,
   initial: boolean | undefined,
-  serverEnds = false
+  thread: MuteThreadState = {}
 ) => {
+  const { ended = false, suspended = false } = thread;
+  const reconcileRef = useRef(thread.onReconcile);
+  reconcileRef.current = thread.onReconcile;
+  // Counts the times the backend ended the mute while this hook was mounted.
+  const endedCount = useRef(0);
   const [override, setOverride] = useState<Override | null>(null);
   const latestCall = useRef(0);
   const confirmed = useRef<{ id: number; initial: boolean | undefined; value: boolean } | null>(
@@ -32,19 +62,22 @@ export const useConversationMute = (
   const currentId = useRef(conversationId);
   currentId.current = conversationId;
   const queue = useRef<Promise<unknown>>(Promise.resolve());
-  const endsBefore = useRef({ id: conversationId, ends: serverEnds });
+  const endsBefore = useRef({ id: conversationId, ends: ended });
 
   useEffect(() => {
     const before = endsBefore.current;
-    endsBefore.current = { id: conversationId, ends: serverEnds };
-    if (initial === undefined || before.id !== conversationId || before.ends || !serverEnds) return;
+    endsBefore.current = { id: conversationId, ends: ended };
+    if (initial === undefined || before.id !== conversationId || before.ends || !ended) return;
+    endedCount.current += 1;
     // The backend just ended the mute (the thread was resolved, or assigned to this person).
     confirmed.current = { id: conversationId, initial, value: false };
     setOverride({ id: conversationId, initial, value: false });
-  }, [conversationId, initial, serverEnds]);
+  }, [conversationId, initial, ended]);
 
   const active = override?.id === conversationId && override.initial === initial;
-  const muted = active ? override.value : (initial ?? false);
+  const stored = active ? override.value : (initial ?? false);
+  // A suspended mute is only hidden: the stored state is kept for when the thread is open again.
+  const muted = stored && !suspended;
 
   const toggle = useCallback(async () => {
     if (initial === undefined) return;
@@ -52,12 +85,18 @@ export const useConversationMute = (
     const base = known?.id === conversationId && known.initial === initial ? known.value : initial;
     const next = !muted;
     const call = ++latestCall.current;
+    const endedAtStart = endedCount.current;
     setOverride({ id: conversationId, initial, value: next });
     try {
-      const sent = queue.current.then(() => messageService.setThreadMute(conversationId, next));
+      const sent = queue.current.then(() =>
+        withTimeout(messageService.setThreadMute(conversationId, next))
+      );
       queue.current = sent.catch(() => undefined);
       await sent;
       confirmed.current = { id: conversationId, initial, value: next };
+      if (endedCount.current !== endedAtStart && currentId.current === conversationId) {
+        reconcileRef.current?.();
+      }
     } catch {
       if (call !== latestCall.current || currentId.current !== conversationId) return;
       const back = confirmed.current?.id === conversationId ? confirmed.current.value : base;

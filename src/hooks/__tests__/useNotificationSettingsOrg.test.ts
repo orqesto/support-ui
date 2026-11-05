@@ -28,11 +28,7 @@ describe('useNotificationSettings workspace switch', () => {
     await waitFor(() => expect(hook.result.current.settings?.lines).toHaveLength(1));
 
     let release: (value: unknown) => void = () => {};
-    fetchSettings.mockReturnValueOnce(
-      new Promise((resolve) => {
-        release = resolve;
-      })
-    );
+    fetchSettings.mockReturnValueOnce(new Promise((resolve) => { release = resolve; }));
     org = 2;
     hook.rerender();
     await waitFor(() => expect(fetchSettings).toHaveBeenCalledTimes(2));
@@ -77,5 +73,50 @@ describe('useNotificationSettings workspace switch', () => {
     });
     expect(hook.result.current.settings?.role).toBe('moderator');
     expect(hook.result.current.settings?.lines.map((line) => line.key)).toEqual(['z']);
+  });
+
+  it('a late save from the old workspace does not clear the new workspace in-flight count', async () => {
+    const lineA = (value: unknown) => ({
+      key: 'a', value, default: null, source: 'own', locked: false, alwaysOn: false,
+    });
+    const snap = (value: unknown, bValue: unknown) => ({
+      role: 'support', legacy: false,
+      lines: [lineA(value), { ...lineA(bValue), key: 'b' }],
+    });
+    fetchSettings.mockResolvedValueOnce(snap(0, 0));
+    const hook = renderHook(() => useNotificationSettings());
+    await waitFor(() => expect(hook.result.current.settings?.lines).toHaveLength(2));
+    const value = (key: string) => hook.result.current.settings?.lines.find((line) => line.key === key)?.value;
+    // A save of "a" starts in workspace 1 and hangs.
+    let releaseOld: (reply: unknown) => void = () => {};
+    saveSettings.mockReturnValueOnce(new Promise((resolve) => { releaseOld = resolve; }));
+    let savingOld: Promise<unknown> = Promise.resolve();
+    act(() => { savingOld = hook.result.current.save({ a: 1 }); });
+    // Switch to workspace 2, which shows a=5, and start a save of "a" there that also hangs.
+    fetchSettings.mockResolvedValueOnce(snap(5, 0));
+    org = 2;
+    hook.rerender();
+    await waitFor(() => expect(value('a')).toBe(5));
+    let releaseNew: (reply: unknown) => void = () => {};
+    saveSettings.mockReturnValueOnce(new Promise((resolve) => { releaseNew = resolve; }));
+    let savingNew: Promise<unknown> = Promise.resolve();
+    act(() => { savingNew = hook.result.current.save({ a: 6 }); });
+    // The old workspace's save answers late: it must not count as the new "a" save having settled.
+    await act(async () => {
+      releaseOld(snap(1, 0));
+      await savingOld;
+    });
+    // Another save in workspace 2 answers with a stale "a" while the new "a" save is in flight.
+    saveSettings.mockResolvedValueOnce(snap(0, 9));
+    await act(async () => {
+      await hook.result.current.save({ b: 9 });
+    });
+    expect(value('b')).toBe(9);
+    expect(value('a')).toBe(5); // not the stale 0
+    await act(async () => {
+      releaseNew(snap(6, 9));
+      await savingNew;
+    });
+    expect(value('a')).toBe(6);
   });
 });

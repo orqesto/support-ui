@@ -49,7 +49,7 @@ const RoleDefaultsBody = ({ orgKey }: { orgKey: number | string | null }) => {
       const state = useAuthStore.getState();
       const nowOrg = state.selectedOrganizationId ?? state.user?.organizationId ?? null;
       toast.warning(
-        nowOrg !== orgKey
+        nowOrg !== orgKey && nowOrg !== null
           ? 'Your unsaved changes to the notification defaults were discarded because you switched workspace.'
           : 'Your unsaved changes to the notification defaults were not saved.'
       );

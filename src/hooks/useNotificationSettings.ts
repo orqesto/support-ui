@@ -28,6 +28,9 @@ export const useNotificationSettings = () => {
   const lastApplied = useRef(0);
   const lineApplied = useRef<Record<string, number>>({});
   const inFlight = useRef<Record<string, number>>({});
+  // Bumped on every workspace switch: a save that started in an earlier workspace must not touch
+  // the counters of the current one when it settles late.
+  const epoch = useRef(0);
   // Mirror of `settings` so a reply is merged outside a state updater (updaters may run twice).
   const shown = useRef<NotificationSettings | null>(null);
   const show = useCallback((next: NotificationSettings | null) => {
@@ -79,15 +82,13 @@ export const useNotificationSettings = () => {
     lastApplied.current = 0;
     lineApplied.current = {};
     inFlight.current = {};
+    epoch.current += 1;
     setError(null);
     setLoading(true);
     let cancelled = false;
     fetchNotificationSettings()
       .then((next) => !cancelled && show(next))
-      .catch(
-        (err: unknown) =>
-          !cancelled && setError(err instanceof Error ? err.message : 'Could not load settings')
-      )
+      .catch((err: unknown) => !cancelled && setError(err instanceof Error ? err.message : 'Could not load settings'))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -100,7 +101,9 @@ export const useNotificationSettings = () => {
       const keys = Object.keys(lines);
       const startOrg = orgRef.current;
       keys.forEach((key) => (inFlight.current[key] = (inFlight.current[key] ?? 0) + 1));
+      const startEpoch = epoch.current;
       const settle = () =>
+        epoch.current === startEpoch &&
         keys.forEach(
           (key) => (inFlight.current[key] = Math.max(0, (inFlight.current[key] ?? 1) - 1))
         );

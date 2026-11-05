@@ -299,4 +299,30 @@ describe('notification preferences: save ordering and local state', () => {
     expect(saveSettings).not.toHaveBeenCalled();
     useAuthStore.setState({ selectedOrganizationId: null });
   });
+
+  it('sign-out within the pause does not blame a workspace switch', async () => {
+    useAuthStore.setState({ selectedOrganizationId: 1 });
+    fetchSettings.mockResolvedValue(settings([hoursLine([1])]));
+    render(<NotificationPreferencesSettings />);
+    fireEvent.change(await screen.findByLabelText('From'), { target: { value: '10:15' } });
+    useAuthStore.setState({ selectedOrganizationId: null, user: null });
+    await waitFor(() => expect(toastMock.warning).toHaveBeenCalledTimes(1));
+    expect(toastMock.warning.mock.calls[0][0]).not.toMatch(/switched workspace/);
+    expect(saveSettings).not.toHaveBeenCalled();
+    useAuthStore.setState(useAuthStore.getInitialState());
+  });
+
+  it('an invalid edit after a valid one cancels the waiting save: leaving saves nothing', async () => {
+    useAuthStore.setState({ selectedOrganizationId: 1 });
+    fetchSettings.mockResolvedValue(settings([hoursLine([1])]));
+    saveSettings.mockResolvedValue(settings([hoursLine([1])]));
+    const view = render(<NotificationPreferencesSettings />);
+    fireEvent.change(await screen.findByLabelText('From'), { target: { value: '10:15' } });
+    fireEvent.click(screen.getByRole('switch', { name: 'Mon' })); // no days left: invalid, the editor says why
+    expect(await screen.findByText('Pick at least one day.')).toBeTruthy();
+    view.unmount();
+    await new Promise((done) => setTimeout(done, 800));
+    expect(saveSettings).not.toHaveBeenCalled();
+    useAuthStore.setState({ selectedOrganizationId: null });
+  });
 });

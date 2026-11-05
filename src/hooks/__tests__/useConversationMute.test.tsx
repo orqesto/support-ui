@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { toast } from '@/lib/toast';
-import { useConversationMute } from '../useConversationMute';
+import { useConversationMute, CALL_TIMEOUT_MS } from '../useConversationMute';
 
 const mute = vi.hoisted(() => ({ setThreadMute: vi.fn() }));
 vi.mock('@/services/message.service', () => ({
@@ -63,7 +63,7 @@ describe('useConversationMute', () => {
   });
 
   it('shows the mute as off at once when the backend ends it (resolved / assigned to me)', () => {
-    const { result, rerender } = renderHook(({ ends }) => useConversationMute(1, true, ends), {
+    const { result, rerender } = renderHook(({ ends }) => useConversationMute(1, true, { ended: ends }), {
       initialProps: { ends: false },
     });
     expect(result.current.muted).toBe(true);
@@ -72,7 +72,7 @@ describe('useConversationMute', () => {
   });
 
   it('CONTROL: a thread that already starts in an ending state keeps the mute the backend reports', () => {
-    const { result } = renderHook(() => useConversationMute(1, true, true));
+    const { result } = renderHook(() => useConversationMute(1, true, { ended: true }));
     expect(result.current.muted).toBe(true);
   });
 
@@ -87,5 +87,64 @@ describe('useConversationMute', () => {
     expect(result.current.muted).toBe(true);
     rerender({ id: 2, init: false });
     expect(result.current.muted).toBe(false);
+  });
+
+  it('closed or filtered only pauses the mute: off while the status lasts, muted again when open (no refetch)', () => {
+    const { result, rerender } = renderHook(
+      ({ paused }) => useConversationMute(1, true, { suspended: paused }),
+      { initialProps: { paused: false } }
+    );
+    expect(result.current.muted).toBe(true);
+    rerender({ paused: true });
+    expect(result.current.muted).toBe(false);
+    rerender({ paused: false });
+    expect(result.current.muted).toBe(true);
+  });
+
+  it('a mute call that answers after the backend ended the mute asks for a re-read', async () => {
+    mute.setThreadMute.mockReset();
+    let release: (v: boolean) => void = () => {};
+    mute.setThreadMute.mockImplementation(() => new Promise<boolean>((resolve) => { release = resolve; }));
+    const onReconcile = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ ended }) => useConversationMute(1, false, { ended, onReconcile }),
+      { initialProps: { ended: false } }
+    );
+    let pending: Promise<void> = Promise.resolve();
+    act(() => { pending = result.current.toggle(); });
+    await waitFor(() => expect(mute.setThreadMute).toHaveBeenCalledTimes(1));
+    rerender({ ended: true }); // assigned to me while the call is in flight
+    await act(async () => { release(true); await pending; });
+    expect(onReconcile).toHaveBeenCalledTimes(1);
+  });
+
+  it('CONTROL: a mute call with no ending in between asks for no re-read', async () => {
+    mute.setThreadMute.mockReset();
+    mute.setThreadMute.mockResolvedValue(true);
+    const onReconcile = vi.fn();
+    const { result } = renderHook(() => useConversationMute(1, false, { onReconcile }));
+    await act(async () => { await result.current.toggle(); });
+    expect(onReconcile).not.toHaveBeenCalled();
+  });
+
+  it('a hung call gives up, tells the person, and does not block the next toggle', async () => {
+    vi.useFakeTimers();
+    try {
+      mute.setThreadMute.mockReset();
+      mute.setThreadMute.mockImplementationOnce(() => new Promise<boolean>(() => undefined));
+      mute.setThreadMute.mockResolvedValue(true);
+      vi.mocked(toast.error).mockClear();
+      const { result } = renderHook(() => useConversationMute(1, false));
+      let first: Promise<void> = Promise.resolve();
+      act(() => { first = result.current.toggle(); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(CALL_TIMEOUT_MS + 10); await first; });
+      expect(toast.error).toHaveBeenCalled();
+      expect(result.current.muted).toBe(false); // back to the last confirmed state
+      await act(async () => { await result.current.toggle(); });
+      expect(mute.setThreadMute).toHaveBeenCalledTimes(2); // the queue moved on
+      expect(result.current.muted).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

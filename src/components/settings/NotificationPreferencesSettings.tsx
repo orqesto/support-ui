@@ -22,12 +22,7 @@ const GROUPS: Array<{ title: string; hint: string; kinds: string[] }> = [
   {
     title: 'Personal',
     hint: 'Threads that are yours.',
-    kinds: [
-      'conversation_assigned',
-      'customer_message_on_assigned',
-      'conversation_reopened',
-      'hold_recheck_due',
-    ],
+    kinds: ['conversation_assigned', 'customer_message_on_assigned', 'conversation_reopened', 'hold_recheck_due'],
   },
   {
     title: 'Team',
@@ -62,10 +57,7 @@ const GROUPS: Array<{ title: string; hint: string; kinds: string[] }> = [
 const SETTING_KEYS = ['onlyAssignedToMe', 'slaMinSeverity', 'minPriority', 'workingHours'];
 
 const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <div
-    data-line-row
-    className="flex flex-wrap justify-between items-center gap-2 py-3 border-b border-border last:border-0"
-  >
+  <div data-line-row className="flex flex-wrap justify-between items-center gap-2 py-3 border-b border-border last:border-0">
     <p className="text-sm font-medium">{label}</p>
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">{children}</div>
   </div>
@@ -86,12 +78,7 @@ const Status = ({ each, onReset }: { each: SettingsLine; onReset: (key: string) 
       </span>
     )}
     {!each.alwaysOn && !each.locked && each.source === 'own' && (
-      <Button
-        size="sm"
-        variant="ghost"
-        aria-label={`Reset ${lineLabel(each.key)} to default`}
-        onClick={() => onReset(each.key)}
-      >
+      <Button size="sm" variant="ghost" aria-label={`Reset ${lineLabel(each.key)} to default`} onClick={() => onReset(each.key)}>
         Reset to default
       </Button>
     )}
@@ -119,9 +106,7 @@ const selectedOrgKey = (): number | string | null => {
 
 /** Keyed on the workspace so every bit of local state (drafts, pending values, notices) starts clean on a switch. */
 export const NotificationPreferencesSettings = () => {
-  const orgKey = useAuthStore(
-    (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
-  );
+  const orgKey = useAuthStore((state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null);
   return <NotificationPreferencesBody key={orgKey ?? 'none'} />;
 };
 
@@ -135,9 +120,9 @@ const NotificationPreferencesBody = () => {
   const saveRef = useRef(save);
   saveRef.current = save;
   const orgAtMount = useRef(selectedOrgKey());
-  // Leaving within the pause: the edit is saved, not dropped — but only into the workspace it was
+  // Leaving within the pause: the edit is saved, not dropped, but only into the workspace it was
   // made in (a request after a switch would write A's hours into B). After a switch the person is
-  // told it was not saved.
+  // told it was not saved; on sign-out (no workspace) the copy stays neutral.
   useEffect(
     () => () => {
       if (hoursTimer.current) clearTimeout(hoursTimer.current);
@@ -145,13 +130,16 @@ const NotificationPreferencesBody = () => {
       const waiting = hoursWaiting.current;
       hoursWaiting.current = null;
       if (!waiting) return;
-      if (selectedOrgKey() === orgAtMount.current) {
+      const nowOrg = selectedOrgKey();
+      if (nowOrg === orgAtMount.current) {
         saveRef.current({ [waiting.key]: waiting.value }).catch((err: unknown) => {
           toast.failure('save your last working-hours change', err);
         });
       } else {
         toast.warning(
-          'Your last change to the working hours was not saved because you switched workspace.'
+          nowOrg === null
+            ? 'Your last change to the working hours was not saved.'
+            : 'Your last change to the working hours was not saved because you switched workspace.'
         );
       }
     },
@@ -166,16 +154,11 @@ const NotificationPreferencesBody = () => {
   // Old server (or a reply without lines): exactly today's page.
   if (!settings || settings.legacy || settings.lines.length === 0) {
     if (error && !settings) return <p className="text-sm text-destructive">{error}</p>;
-    return (
-      <NotificationPreferencesLegacy
-        initial={settings?.legacy ? legacyPrefs(settings) : undefined}
-      />
-    );
+    return <NotificationPreferencesLegacy initial={settings?.legacy ? legacyPrefs(settings) : undefined} />;
   }
 
   const byKey = new Map(settings.lines.map((each) => [each.key, each]));
-  const valueOf = (each: SettingsLine): unknown =>
-    each.key in pending ? pending[each.key] : each.value;
+  const valueOf = (each: SettingsLine): unknown => (each.key in pending ? pending[each.key] : each.value);
 
   const change = async (key: string, value: unknown) => {
     const call = ++sendCount.current;
@@ -250,17 +233,12 @@ const NotificationPreferencesBody = () => {
     );
   };
 
-  const known = new Set([
-    ...GROUPS.flatMap((grp) => grp.kinds.map((kind) => `kind:${kind}`)),
-    ...SETTING_KEYS,
-  ]);
+  const known = new Set([...GROUPS.flatMap((grp) => grp.kinds.map((kind) => `kind:${kind}`)), ...SETTING_KEYS]);
   const others = settings.lines.filter((each) => !known.has(each.key));
   const sections = [
     ...GROUPS.map((grp) => ({
       ...grp,
-      rows: grp.kinds
-        .map((kind) => byKey.get(`kind:${kind}`))
-        .filter((each): each is SettingsLine => !!each),
+      rows: grp.kinds.map((kind) => byKey.get(`kind:${kind}`)).filter((each): each is SettingsLine => !!each),
     })),
     { title: 'Other', hint: '', kinds: [], rows: others },
   ].filter((section) => section.rows.length > 0);
@@ -276,16 +254,14 @@ const NotificationPreferencesBody = () => {
       <div>
         <h2 className="font-display text-lg font-semibold">Notification preferences</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          What reaches your alert center. Lines your admin set are marked; the rest are yours to
-          change.
+          What reaches your alert center. Lines your admin set are marked; the rest are yours to change.
         </p>
       </div>
 
       {lockedNames.length > 0 && (
         <Alert variant="warning">
           <AlertDescription>
-            Set by your admin: {lockedNames.join(', ')}. Those were not changed; your other changes
-            were saved.
+            Set by your admin: {lockedNames.join(', ')}. Those were not changed; your other changes were saved.
           </AlertDescription>
         </Alert>
       )}
@@ -295,9 +271,7 @@ const NotificationPreferencesBody = () => {
         <div key={section.title}>
           <h3 className="font-display text-sm font-semibold mb-1">{section.title}</h3>
           {section.hint && <p className="text-xs text-muted-foreground mb-3">{section.hint}</p>}
-          <div className="rounded-lg border border-border bg-card px-4">
-            {section.rows.map(switchRow)}
-          </div>
+          <div className="rounded-lg border border-border bg-card px-4">{section.rows.map(switchRow)}</div>
         </div>
       ))}
 
@@ -331,9 +305,7 @@ const NotificationPreferencesBody = () => {
                   <Select
                     aria-label="Minimum priority"
                     options={PRIORITY_OPTIONS}
-                    value={
-                      typeof valueOf(priority) === 'string' ? (valueOf(priority) as string) : 'low'
-                    }
+                    value={typeof valueOf(priority) === 'string' ? (valueOf(priority) as string) : 'low'}
                     disabled={priority.locked}
                     onChange={(next) => change(priority.key, next)}
                     hint="Applies to new unassigned mail only."
