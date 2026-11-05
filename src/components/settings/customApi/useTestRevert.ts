@@ -45,6 +45,13 @@ export const useTestRevert = (
           // hint or reference name edited, Tested and Cancelled stayed live for agents.
           referenceLabel: endpoint.referenceLabel ?? null,
           ...('noMatchHint' in endpoint ? { noMatchHint: endpoint.noMatchHint ?? null } : {}),
+          ...('botAnswersStatus' in endpoint
+            ? {
+                botAnswersStatus: endpoint.botAnswersStatus === true,
+                botStatusReply: endpoint.botStatusReply ?? null,
+                botNotFoundReply: endpoint.botNotFoundReply ?? null,
+              }
+            : {}),
           ...(supportsFlexibleRequests(connection)
             ? requestSettingsPayload(
                 readRequestSettings(endpoint),

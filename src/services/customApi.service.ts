@@ -32,6 +32,10 @@ type FlexibleEndpointKey =
   | 'noMatchHint'
   // 2026-10-14: absent from a backend before the lookups UX pass.
   | 'referenceLabel'
+  // 2026-11-05 (ODL-25): the Telegram bot's status answer; absent from an older backend.
+  | 'botAnswersStatus'
+  | 'botStatusReply'
+  | 'botNotFoundReply'
   | 'health';
 type FlexibleConnectionKey = 'failureStatusPath' | 'failureStatusValues' | 'failureMessagePath';
 type GeneratedEndpoint = components['schemas']['CustomApiEndpoint'];
