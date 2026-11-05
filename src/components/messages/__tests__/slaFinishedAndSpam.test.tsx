@@ -157,6 +157,34 @@ describe('computeSlaInfo — the detail header chip', () => {
   });
 });
 
+describe('computeSlaInfo — a first reply dated before the clock start', () => {
+  // A merge kept the NEWER thread: received 3 h ago, but our first reply (from the folded-in
+  // older thread) was 11 days ago. The page drew a negative SLA from that.
+  const merged = (over: Partial<Message> = {}) =>
+    thread({ firstResponseAt: new Date(NOW - 11 * 24 * HOUR).toISOString(), ...over });
+
+  it('no chip rather than a negative number — open and finished', () => {
+    expect(computeSlaInfo(merged(), NOW)).toBeNull();
+    expect(computeSlaInfo(merged({ status: 'closed' }), NOW)).toBeNull();
+  });
+
+  it("the backend's recorded seconds win once it has them (timed from the first message)", () => {
+    const info = computeSlaInfo(
+      merged({ actualResponseSeconds: 18 * 60 * 60 } as Partial<Message>),
+      NOW
+    );
+    expect(info).toMatchObject({ elapsed: 18 * 60, breached: true, record: false, done: true });
+  });
+
+  it('CONTROL: an ordinary answered thread still shows its number', () => {
+    const info = computeSlaInfo(
+      thread({ firstResponseAt: new Date(NOW - 2.5 * HOUR).toISOString() }),
+      NOW
+    );
+    expect(info?.elapsed).toBe(30);
+  });
+});
+
 describe('getSlaCardText — the card', () => {
   // These read Date.now(); the fixtures are dated against NOW.
   beforeEach(() => {
