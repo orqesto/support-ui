@@ -14,7 +14,7 @@ vi.mock('@/hooks/useNotificationCounts', () => ({
   useNotificationCounts: () => ({ counts: {}, clearKind: vi.fn(), refresh: vi.fn() }),
 }));
 vi.mock('@/hooks/useAiProviderAlerts', () => ({
-  useAiProviderAlerts: () => ({ alerts: [], dismiss: vi.fn() }),
+  useAiProviderAlerts: () => ({ alerts: [], count: 0, dismiss: vi.fn() }),
   AI_PROVIDER_DOWN_KIND: 'ai_provider_down',
 }));
 vi.mock('@/hooks/useStaleKbAlerts', () => ({

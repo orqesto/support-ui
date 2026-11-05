@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import { invalidateSharedFetch } from '@/lib/sharedFetch';
-import { notificationPrefsFetchKey } from '@/hooks/notificationPrefsKey';
+import {
+  announceNotificationSettingsChanged,
+  notificationPrefsFetchKey,
+} from '@/hooks/notificationPrefsKey';
 import {
   fetchNotificationSettings,
   resetNotificationSettings,
@@ -50,6 +53,7 @@ export const useNotificationSettings = () => {
     // The bell reads the same lines through a shared fetch held for a minute: drop it so its live
     // filter sees this change now (allowed keys are saved even when another one was locked).
     invalidateSharedFetch(notificationPrefsFetchKey(orgKey));
+    announceNotificationSettingsChanged();
     if ('lockedKeys' in result) {
       // Allowed keys were still saved: show what the server holds now.
       const fresh = await fetchNotificationSettings();
@@ -64,6 +68,7 @@ export const useNotificationSettings = () => {
     const call = ++callCounter.current;
     const next = await resetNotificationSettings(keys);
     invalidateSharedFetch(notificationPrefsFetchKey(orgKey));
+    announceNotificationSettingsChanged();
     apply(call, next);
     return next;
   }, [apply, orgKey]);

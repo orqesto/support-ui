@@ -9,6 +9,7 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/types/api';
 import { fetchNotificationsOfKind } from '@/services/notificationsByKind.service';
+import { rowsBeyondPage } from '@/lib/notificationPageCounts';
 
 /**
  * "Support saved this thread to the knowledge base — approve or reject it."
@@ -113,6 +114,10 @@ export type UseKbReviewAlertsResult = ReturnType<typeof useKbReviewAlerts>;
 export const useKbReviewAlerts = () => {
   const [alerts, setAlerts] = useState<KbReviewAlert[]>([]);
   const [consolidations, setConsolidations] = useState<KbConsolidationAlert[]>([]);
+  // Capture reviews the server holds beyond its 20-row page (`total`). Merge rows are not
+  // counted this way: the client drops ones with nothing pending and dedupes them, so only the
+  // rows it keeps can be counted.
+  const [reviewsBeyond, setReviewsBeyond] = useState(0);
   const orgKey = useAuthStore(
     (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
   );
@@ -129,12 +134,13 @@ export const useKbReviewAlerts = () => {
     fetchNotificationsOfKind(KB_REVIEW_KIND)
       .then((res) => {
         if (requestId !== reviewsRequest.current) return;
-        const payload = (res.data as { data: { notifications: Notification[] } }).data;
-        setAlerts(
-          payload.notifications
-            .filter((row) => (row as { kind?: string }).kind === KB_REVIEW_KIND)
-            .map(toAlert)
+        const payload = (res.data as { data: { notifications: Notification[]; total?: number } })
+          .data;
+        const kept = payload.notifications.filter(
+          (row) => (row as { kind?: string }).kind === KB_REVIEW_KIND
         );
+        setReviewsBeyond(rowsBeyondPage(payload, kept.length));
+        setAlerts(kept.map(toAlert));
       })
       // A failed poll must not clear standing reviews — empty would read as "nothing to review".
       .catch(() => {});
@@ -168,6 +174,7 @@ export const useKbReviewAlerts = () => {
   useEffect(() => {
     setAlerts([]);
     setConsolidations([]);
+    setReviewsBeyond(0);
     fetchAlerts();
   }, [fetchAlerts, orgKey]);
 
@@ -199,7 +206,7 @@ export const useKbReviewAlerts = () => {
   }, [fetchConsolidations]);
 
   // What the bell counts: one per capture review, one per department's merge summary row.
-  const rowCount = alerts.length + consolidations.length;
+  const rowCount = alerts.length + reviewsBeyond + consolidations.length;
 
   return { alerts, consolidations, rowCount, refresh: fetchAlerts };
 };

@@ -9,6 +9,7 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import type { Notification } from '@/types/api';
 import { fetchNotificationsOfKind } from '@/services/notificationsByKind.service';
+import { rowsBeyondPage } from '@/lib/notificationPageCounts';
 
 /**
  * "Your AI provider has stopped answering" — the one notification kind whose whole point
@@ -62,6 +63,9 @@ export type UseAiProviderAlertsResult = ReturnType<typeof useAiProviderAlerts>;
 
 export const useAiProviderAlerts = () => {
   const [alerts, setAlerts] = useState<AiProviderAlert[]>([]);
+  // Rows the server holds beyond its 20-row page (`total`; 0 from a server that ignored the kind):
+  // the badge counts every standing alert, not only the loaded ones.
+  const [beyond, setBeyond] = useState(0);
   const orgKey = useAuthStore(
     (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
   );
@@ -82,11 +86,11 @@ export const useAiProviderAlerts = () => {
       .then((res) => {
         const payload = (res.data as { data: { notifications: Notification[]; total: number } })
           .data;
-        setAlerts(
-          payload.notifications
-            .filter((row) => (row as { kind?: string }).kind === AI_PROVIDER_DOWN_KIND)
-            .map(toAlert)
+        const kept = payload.notifications.filter(
+          (row) => (row as { kind?: string }).kind === AI_PROVIDER_DOWN_KIND
         );
+        setBeyond(rowsBeyondPage(payload, kept.length));
+        setAlerts(kept.map(toAlert));
       })
       // A failed poll must not clear a standing alert: an empty list here would read as
       // "the provider recovered", which is the opposite of what a fetch error means.
@@ -134,5 +138,5 @@ export const useAiProviderAlerts = () => {
     apiClient.patch(`/api/notifications/${id}/dismiss`).catch(() => {});
   }, []);
 
-  return { alerts, dismiss, refresh: fetchAlerts };
+  return { alerts, count: alerts.length + beyond, dismiss, refresh: fetchAlerts };
 };

@@ -96,16 +96,24 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   const navigate = useNavigate();
   const work = useWorkAlerts();
   const { counts: arrivalCounts, clearKind } = useNotificationCounts();
-  const { alerts: aiAlerts, dismiss: dismissAiAlert } = useAiProviderAlerts();
+  const { alerts: aiAlerts, count: aiAlertCount, dismiss: dismissAiAlert } = useAiProviderAlerts();
   const { alerts: staleKbAlerts, dismiss: dismissStaleKbAlert } = useStaleKbAlerts();
   const {
     alerts: outboundAlerts,
+    count: outboundCount,
     truncated: outboundTruncated,
     dismiss: dismissOutboundAlert,
   } = useUnansweredOutboundAlerts();
-  const { alerts: ingestionGapAlerts, dismiss: dismissIngestionGapAlert } = useIngestionGapAlerts();
-  const { alerts: ingestionDarkAlerts, dismiss: dismissIngestionDarkAlert } =
-    useIngestionDarkAlerts();
+  const {
+    alerts: ingestionGapAlerts,
+    count: ingestionGapCount,
+    dismiss: dismissIngestionGapAlert,
+  } = useIngestionGapAlerts();
+  const {
+    alerts: ingestionDarkAlerts,
+    count: ingestionDarkCount,
+    dismiss: dismissIngestionDarkAlert,
+  } = useIngestionDarkAlerts();
   const kbReview = useKbReviewAlerts();
   const tokenLimits = useTokenLimitAlerts();
 
@@ -181,14 +189,19 @@ export const NotificationCenter = ({ sla, learning }: Props) => {
   // assumed — the spam kind DOES opt into resurfacing, which is why only it comes back.
   // ⛔ `ingestion_gap` IS badged — the only kind reporting mail we do NOT have; on petro it ran
   // fourteen hours behind `failed: 0`, and an unbadged bell reproduces exactly that.
+  // ⛔ EXACT, not page counts (2026-11-04): each part is the server's count of the rows it covers
+  // when the server sends one (`unreadTotal` / `total`), else the loaded rows. A part counted from
+  // the 20-row page moved with whatever landed on the page: an admin lock hid a kind and the tab
+  // title went UP. The SLA part asks the server to leave out every kind another part counts
+  // (useSLANotifications `excludeKinds`), so no row is counted twice.
   const badgeCount =
     sla.unreadCount +
     arrivalTotal +
     learningUnread +
-    aiAlerts.length +
-    outboundAlerts.length +
-    ingestionGapAlerts.length +
-    ingestionDarkAlerts.length +
+    aiAlertCount +
+    outboundCount +
+    ingestionGapCount +
+    ingestionDarkCount +
     // Badged: unlike a stale document, this is a request addressed to THIS reader, and until
     // they act the capture is unused. It clears the moment they (or anyone) decide it.
     // KB merges count once per department row, however many proposals it summarises.
