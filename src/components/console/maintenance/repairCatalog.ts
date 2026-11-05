@@ -67,8 +67,9 @@ export const REPAIRS: RepairEntry[] = [
   },
   {
     id: 'repair-held-and-merged-threads',
-    label: 'Take threads off hold where the customer wrote, and fix response times after a merge',
-    does: 'Threads still on hold although the customer wrote after the hold and nobody answered since: the hold is cleared so they show as waiting on us (a thank-you alone or spam keeps the hold). Merged threads whose first reply looks older than the thread itself (shown as a negative SLA): the response time is recalculated from the customer’s first message.',
+    label:
+      'Put threads back to work where the customer wrote, and fix response times after a merge',
+    does: 'Threads still on hold, or resolved/closed, although the customer wrote afterwards and nobody answered: the hold is cleared or the thread is reopened, so it waits on us again. A thank-you alone, spam, and mail older than the open window are left alone. Merged threads whose first reply looks older than the thread itself (shown as a negative SLA): the response time is recalculated from the customer’s first message.',
     path: 'repair-held-and-merged-threads',
     scope: 'workspace',
   },

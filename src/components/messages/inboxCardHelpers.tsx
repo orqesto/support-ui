@@ -378,8 +378,10 @@ export const computeSlaInfo = (message: Message, nowMs: number = Date.now()): Sl
     // the customer's first message, and until a thread is recomputed it shows nothing, not a
     // negative.
     if (elapsed < 0) return null;
+    // Finished: the record's minutes AND verdict from one source (above). Open: unchanged — the
+    // stored flag OR the minutes (the flag is judged in seconds, the chip in whole minutes).
     const breached =
-      recorded !== null
+      finished && recorded !== null
         ? recorded > target
         : message.slaResponseBreached === true || elapsed > target;
     if (finished) {
@@ -407,7 +409,8 @@ export const computeSlaInfo = (message: Message, nowMs: number = Date.now()): Sl
         : 'text-success border-success-line bg-success-muted',
     };
   }
-  const elapsed = Math.floor((nowMs - startTime.getTime()) / 60000);
+  // Never negative: an arrival time ahead of the clock (sender skew) reads as "just arrived".
+  const elapsed = Math.max(0, Math.floor((nowMs - startTime.getTime()) / 60000));
   const breached = message.slaResponseBreached === true || elapsed > target;
   const atRisk = !breached && elapsed > target * 0.8;
   return {

@@ -176,6 +176,24 @@ describe('computeSlaInfo — a first reply dated before the clock start', () => 
     expect(info).toMatchObject({ elapsed: 18 * 60, breached: true, record: false, done: true });
   });
 
+  it('an open thread keeps the stored breach flag (judged in seconds) next to the recorded minutes', () => {
+    // 3601 s on a 60-minute target: the backend says breached; the chip must not say met.
+    const info = computeSlaInfo(
+      merged({ actualResponseSeconds: 3601, slaResponseBreached: true } as Partial<Message>),
+      NOW
+    );
+    expect(info).toMatchObject({ elapsed: 60, breached: true });
+  });
+
+  it('the live clock never goes negative when the arrival time is ahead of now', () => {
+    const ahead = new Date(NOW + 2 * HOUR).toISOString();
+    const info = computeSlaInfo(
+      thread({ metadata: { receivedAt: ahead } } as Partial<Message>),
+      NOW
+    );
+    expect(info?.elapsed).toBe(0);
+  });
+
   it('CONTROL: an ordinary answered thread still shows its number', () => {
     const info = computeSlaInfo(
       thread({ firstResponseAt: new Date(NOW - 2.5 * HOUR).toISOString() }),
