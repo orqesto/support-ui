@@ -49,7 +49,16 @@ export type WorkspaceSizes = {
   wordListBytes: Spread | null;
   resolvedOver90DaysShare: number | null;
   tables: { conversations: TableSize | null; messageEvents: TableSize | null };
+  /** Messages still without a stored word list; null on an older backend. */
+  wordListsMissing: number | null;
+  /** The indexes search reads; empty on an older backend. */
+  searchIndexes: SearchIndex[];
+  /** When the planner last learnt each table's statistics; empty on an older backend. */
+  tableStats: TableStat[];
 };
+
+export type SearchIndex = { name: string; exists: boolean; valid: boolean | null; bytes: number | null };
+export type TableStat = { table: string; liveRows: number | null; lastAnalyze: string | null };
 
 export type DiagnosticsOutcome<T> =
   | { kind: 'ok'; data: T }
@@ -115,6 +124,24 @@ export const normaliseSizes = (raw: unknown): WorkspaceSizes => {
       conversations: tableSize(tables.conversations),
       messageEvents: tableSize(tables.messageEvents),
     },
+    wordListsMissing: num(data.wordListsMissing),
+    searchIndexes: (Array.isArray(data.searchIndexes) ? data.searchIndexes : [])
+      .filter(isRecord)
+      .map((row) => ({
+        name: text(row.name) ?? '',
+        exists: row.exists === true,
+        valid: bool(row.valid),
+        bytes: num(row.bytes),
+      }))
+      .filter((row) => row.name !== ''),
+    tableStats: (Array.isArray(data.tableStats) ? data.tableStats : [])
+      .filter(isRecord)
+      .map((row) => ({
+        table: text(row.table) ?? '',
+        liveRows: num(row.liveRows),
+        lastAnalyze: text(row.lastAnalyze) ?? null,
+      }))
+      .filter((row) => row.table !== ''),
   };
 };
 
