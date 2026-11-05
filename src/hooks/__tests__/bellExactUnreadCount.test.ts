@@ -198,6 +198,36 @@ describe('SLA bell: the exact unread count', () => {
     await waitFor(() => expect(result.current.unreadCount).toBe(38));
   });
 
+  it('an escalation of a READ row on the page shows +1 at once, then settles to the server number', async () => {
+    // Row 1 is read on the page. It escalates (same id). The server drops read marks only for a
+    // new occurrence, so it still counts row 1 as read: the number must go back to 18.
+    slaPayload = { notifications: page(2), total: 20, unreadTotal: 18, hasMore: false };
+    const { result } = await mountSla(18);
+    vi.useFakeTimers();
+    act(() => handlers.get('sla_breach')?.({ ...breach(1, false), severity: 'critical' }));
+    expect(result.current.unreadCount).toBe(19);
+    expect(listCalls()).toHaveLength(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SLA_RECOUNT_MS);
+    });
+    vi.useRealTimers();
+    await waitFor(() => expect(result.current.unreadCount).toBe(18));
+    expect(listCalls()).toHaveLength(2); // one coalesced re-read
+  });
+
+  it('CONTROL: an escalation of an UNREAD row on the page sends no re-read', async () => {
+    slaPayload = { notifications: page(2), total: 20, unreadTotal: 18, hasMore: false };
+    const { result } = await mountSla(18);
+    vi.useFakeTimers();
+    act(() => handlers.get('sla_breach')?.({ ...breach(5, false), severity: 'critical' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SLA_RECOUNT_MS * 2);
+    });
+    vi.useRealTimers();
+    expect(result.current.unreadCount).toBe(18);
+    expect(listCalls()).toHaveLength(1);
+  });
+
   it('a read of another kind (an arrival, a work alert) re-reads nothing', async () => {
     slaPayload = { notifications: page(2), total: 40, unreadTotal: 37, hasMore: true };
     const { result } = await mountSla(37);

@@ -95,7 +95,10 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
     let live = true;
     loadRoleDefaults(orgKey)
       .then((res) => live && setRolesAvailable(res !== null))
-      .catch(() => undefined);
+      // A server error (5xx, network) says nothing about the endpoint: keep the tab so the admin can
+      // open it and press Try again, rather than hiding it until the next reload. (An older server
+      // answers 400/403/404, which the read turns into null above.)
+      .catch(() => live && setRolesAvailable(true));
     return () => {
       live = false;
     };

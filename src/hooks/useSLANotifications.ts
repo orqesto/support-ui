@@ -372,8 +372,12 @@ export const useSLANotifications = () => {
         // Re-surface: update severity/breachAmount in place, mark unread, move
         // to top. Bump unreadCount only if it was previously read (or has since
         // been evicted from the list) so an already-unread item isn't counted twice.
+        // The +1 is a guess: the server drops a row's read marks only for a NEW occurrence, not for
+        // an escalation, so it may still count this row as read. Show the +1 at once, then settle to
+        // the server's number with one coalesced re-read (no request unless a read row escalated).
         if (!countUnknown && (!existing || existing.isRead)) {
           setUnreadCount((prev) => prev + 1);
+          scheduleRecount();
         }
         setNotifications((prev) => {
           const rest = prev.filter((notif) => notif.id !== breach.id);

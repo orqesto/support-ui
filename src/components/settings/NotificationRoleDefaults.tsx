@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Toggle } from '@/components/ui/Toggle';
+import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { roleDisplayNames } from '@/types/roles';
 import {
@@ -36,6 +37,25 @@ const RoleDefaultsBody = ({ orgKey }: { orgKey: number | string | null }) => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+
+  // Unsaved drafts live only on this page: leaving it (another tab, another workspace) drops them,
+  // so the person is told instead of losing them silently.
+  const dirtyRef = useRef(false);
+  dirtyRef.current = Object.values(drafts).some((roleDraft) => Object.keys(roleDraft).length > 0);
+  useEffect(
+    () => () => {
+      if (!dirtyRef.current) return;
+      const state = useAuthStore.getState();
+      const nowOrg = state.selectedOrganizationId ?? state.user?.organizationId ?? null;
+      toast.warning(
+        nowOrg !== orgKey
+          ? 'Your unsaved changes to the notification defaults were discarded because you switched workspace.'
+          : 'Your unsaved changes to the notification defaults were not saved.'
+      );
+    },
+    [orgKey]
+  );
 
   useEffect(() => {
     let live = true;
@@ -46,9 +66,24 @@ const RoleDefaultsBody = ({ orgKey }: { orgKey: number | string | null }) => {
     return () => {
       live = false;
     };
-  }, [orgKey]);
+  }, [orgKey, attempt]);
 
-  if (loadError) return <p className="text-sm text-destructive">{loadError}</p>;
+  if (loadError)
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-destructive">{loadError}</p>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setLoadError(null);
+            setAttempt((prev) => prev + 1);
+          }}
+        >
+          Try again
+        </Button>
+      </div>
+    );
   if (data === undefined) return <Spinner />;
   if (data === null)
     return <p className="text-sm text-muted-foreground">Notifications by role are not available on this server yet.</p>;

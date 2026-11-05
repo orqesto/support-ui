@@ -1,6 +1,6 @@
 /** The mute hook: optimistic, newest call wins, revert on failure, reset per thread. */
 import { describe, it, expect, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { toast } from '@/lib/toast';
 import { useConversationMute } from '../useConversationMute';
 
@@ -30,6 +30,7 @@ describe('useConversationMute', () => {
   });
 
   it('a double click ends in the last state asked for', async () => {
+    mute.setThreadMute.mockReset();
     const resolvers: Array<(v: boolean) => void> = [];
     mute.setThreadMute.mockImplementation(
       () => new Promise<boolean>((resolve) => resolvers.push(resolve))
@@ -44,14 +45,35 @@ describe('useConversationMute', () => {
       second = result.current.toggle();
     });
     expect(result.current.muted).toBe(false);
-    // Replies arrive out of order: the older one last.
+    // The second request is not sent while the first is in flight: the server cannot apply them
+    // in the opposite order.
+    await waitFor(() => expect(mute.setThreadMute).toHaveBeenCalledTimes(1));
+    expect(mute.setThreadMute).toHaveBeenLastCalledWith(1, true);
     await act(async () => {
-      resolvers[1](false);
-      await second;
       resolvers[0](true);
       await first;
     });
+    await waitFor(() => expect(mute.setThreadMute).toHaveBeenCalledTimes(2));
+    expect(mute.setThreadMute).toHaveBeenLastCalledWith(1, false);
+    await act(async () => {
+      resolvers[1](false);
+      await second;
+    });
     expect(result.current.muted).toBe(false);
+  });
+
+  it('shows the mute as off at once when the backend ends it (resolved / assigned to me)', () => {
+    const { result, rerender } = renderHook(({ ends }) => useConversationMute(1, true, ends), {
+      initialProps: { ends: false },
+    });
+    expect(result.current.muted).toBe(true);
+    rerender({ ends: true });
+    expect(result.current.muted).toBe(false);
+  });
+
+  it('CONTROL: a thread that already starts in an ending state keeps the mute the backend reports', () => {
+    const { result } = renderHook(() => useConversationMute(1, true, true));
+    expect(result.current.muted).toBe(true);
   });
 
   it('resets to the new thread when the conversation changes', () => {

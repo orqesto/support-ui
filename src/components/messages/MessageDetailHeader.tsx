@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { ContactProfilePanel } from '@/components/contacts/ContactProfilePanel';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useAuthStore } from '@/stores/authStore';
 import { useLeadsHidden } from '@/hooks/useLeadsHidden';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
@@ -258,7 +259,14 @@ export function MessageDetailHeader({
   }, [onApprove, navigate, message.id]);
 
   const [moreOpen, setMoreOpen] = useState(false);
-  const threadMute = useConversationMute(message.id, message.mutedByMe);
+  const myUserId = useAuthStore((state) => state.user?.id);
+  // States in which the backend ends my mute of this thread (resolved / closed / filtered, or it is assigned to me).
+  const muteEndsHere =
+    message.status === 'resolved' ||
+    message.status === 'closed' ||
+    message.status === 'filtered' ||
+    (myUserId !== undefined && message.assigneeId === myUserId);
+  const threadMute = useConversationMute(message.id, message.mutedByMe, muteEndsHere);
   // Phones: the More sheet is modal (scrim over the page) — Tab stays on its items and the first
   // takes focus, as in a menu. Desktop keeps the plain popover (click-outside closes it).
   const moreSheetRef = useRef<HTMLDivElement>(null);

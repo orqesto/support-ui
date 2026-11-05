@@ -8,6 +8,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
+import { SLACK_KIND_LABELS as KIND_LABELS } from './notificationKindLabels';
 import { Toggle } from '@/components/ui/Toggle';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
@@ -36,29 +37,6 @@ import { useAuthStore } from '@/stores/authStore';
  * app in this workspace). Each channel has per-alert switches and a test button. Every change
  * saves the channel's whole route at once (`PUT /api/notifications/slack/routes/:channel`).
  */
-
-const KIND_LABELS: Record<string, string> = {
-  new_unassigned_message: 'New customer message on an unassigned conversation',
-  customer_message_on_assigned: 'New customer message on an assigned conversation',
-  conversation_reopened: 'Conversation reopened by the customer',
-  sla_message_breach: 'Conversation SLA about to breach or breached',
-  sla_ticket_first_response: 'Ticket first-response SLA about to breach or breached',
-  sla_ticket_resolution: 'Ticket resolution SLA about to breach or breached',
-  hold_recheck_due: 'Hold recheck due',
-  conversation_assigned: 'Conversation assigned to someone',
-  ingestion_dark: 'Mailbox stopped receiving mail',
-  ingestion_gap: 'Gap in imported mail',
-  customer_reply_in_spam: 'Customer reply landed in the spam folder',
-  ai_provider_down: "Workspace's own AI key failing",
-  ai_token_limit_reached: 'AI token limit reached',
-  mailbox_address_undeclared: 'Mailbox address not declared',
-  one_sided_outbound: 'Mail sent but no replies received',
-  suspicious_arrival: 'Suspicious mail arrived',
-  spam_arrival: 'Spam arrived',
-  kb_review_pending: 'Knowledge base capture waiting for review',
-  kb_consolidation_pending: 'Knowledge base merge waiting for review',
-  kb_document_stale: 'Knowledge base document out of date',
-};
 
 /** Why Slack stopped accepting the connection, in words (the code is kept for anything else). */
 const BROKEN_REASONS: Record<string, string> = {

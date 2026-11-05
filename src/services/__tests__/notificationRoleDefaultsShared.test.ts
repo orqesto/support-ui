@@ -5,6 +5,7 @@ vi.mock('../notificationSettingsService', () => ({ fetchRoleDefaults: () => fetc
 
 const shared = await import('../notificationRoleDefaultsShared');
 const { invalidateSharedFetch } = await import('@/lib/sharedFetch');
+const { useAuthStore } = await import('@/stores/authStore');
 
 beforeEach(() => {
   fetchRoles.mockReset();
@@ -43,5 +44,16 @@ describe('shared role defaults read', () => {
     await expect(shared.loadRoleDefaults(5)).rejects.toThrow('boom');
     fetchRoles.mockResolvedValue({ roles: [] });
     expect(await shared.loadRoleDefaults(5)).toEqual({ roles: [] });
+  });
+
+  it('another person in the same workspace and browser does not inherit the answer or the unavailable memory', async () => {
+    useAuthStore.setState({ user: { id: 1 } as never });
+    fetchRoles.mockResolvedValue(null);
+    expect(await shared.loadRoleDefaults(5)).toBeNull();
+    useAuthStore.setState({ user: { id: 2 } as never });
+    fetchRoles.mockResolvedValue({ roles: [] });
+    expect(await shared.loadRoleDefaults(5)).toEqual({ roles: [] });
+    expect(fetchRoles).toHaveBeenCalledTimes(2);
+    useAuthStore.setState(useAuthStore.getInitialState());
   });
 });
