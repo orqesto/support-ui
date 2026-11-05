@@ -1,4 +1,5 @@
 import type { CustomApiEndpoint } from '@/services/customApi.service';
+import { BotStatusFields, useBotStatus } from './BotStatusFields';
 import type { EndpointInitial } from './endpointWizardProps';
 import { NoMatchHintField, useNoMatchHint } from './NoMatchHintField';
 import { ReferenceNameField } from './ReferenceNameField';
@@ -16,7 +17,15 @@ export const useAgentWords = (
 ) => {
   const reference = useReferenceName(endpoint, initial, paramSource);
   const noMatchHint = useNoMatchHint(endpoint, initial);
-  return { reference, noMatchHint, payload: { ...reference.payload, ...noMatchHint.payload } };
+  // ODL-25 (2026-11-05): what the Telegram bot may tell a customer — the status, by number.
+  const bot = useBotStatus(endpoint);
+  return {
+    reference,
+    noMatchHint,
+    bot,
+    endpoint,
+    payload: { ...reference.payload, ...noMatchHint.payload, ...bot.payload },
+  };
 };
 
 export type AgentWords = ReturnType<typeof useAgentWords>;
@@ -30,5 +39,6 @@ export const AgentWordsFields = ({ words, saved }: { words: AgentWords; saved: b
   <>
     <ReferenceNameField reference={words.reference} />
     {saved && <NoMatchHintField hint={words.noMatchHint} />}
+    {saved && <BotStatusFields bot={words.bot} endpoint={words.endpoint} />}
   </>
 );

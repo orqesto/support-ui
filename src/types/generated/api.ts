@@ -366,6 +366,9 @@ export interface components {
             recordFormatCharset: string | null;
             referenceLabel: string | null;
             noMatchHint: string | null;
+            botAnswersStatus: boolean;
+            botStatusReply: string | null;
+            botNotFoundReply: string | null;
             health: {
                 lastOkAt: string | null;
                 lastNoMatchAt: string | null;
