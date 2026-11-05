@@ -89,29 +89,46 @@ describe('useConversationMute', () => {
     expect(result.current.muted).toBe(false);
   });
 
-  it('closed or filtered only pauses the mute: the stored state keeps showing, marked suspended, and comes back live when open', () => {
-    const { result, rerender } = renderHook(
-      ({ paused }) => useConversationMute(1, true, { suspended: paused }),
-      { initialProps: { paused: false } }
-    );
-    expect(result.current.suspended).toBe(false);
-    rerender({ paused: true });
-    expect(result.current.suspended).toBe(true);
+  it('muted, then closed/filtered/resolved (the backend deletes the mute), then open again: NOT muted', () => {
+    const { result, rerender } = renderHook(({ gone }) => useConversationMute(1, true, { ended: gone }), {
+      initialProps: { gone: false },
+    });
     expect(result.current.muted).toBe(true);
-    rerender({ paused: false });
-    expect(result.current.suspended).toBe(false);
-    expect(result.current.muted).toBe(true);
+    rerender({ gone: true }); // filtered
+    expect(result.current.muted).toBe(false);
+    rerender({ gone: false }); // opened again
+    expect(result.current.muted).toBe(false);
   });
 
-  it('a click while suspended sends nothing and changes nothing', async () => {
+  it('a 409 (finished thread) shows a toast, reads the thread again, and sends no second mute call', async () => {
     mute.setThreadMute.mockReset();
-    const { result } = renderHook(() => useConversationMute(1, false, { suspended: true }));
+    vi.mocked(toast.error).mockClear();
+    mute.setThreadMute.mockRejectedValue(Object.assign(new Error('conflict'), { status: 409 }));
+    const onReconcile = vi.fn();
+    const { result } = renderHook(() => useConversationMute(1, false, { onReconcile }));
+    await act(async () => {
+      await result.current.toggle();
+    });
+    expect(toast.error).toHaveBeenCalledWith("Finished threads can't be muted.");
+    expect(onReconcile).toHaveBeenCalledTimes(1);
+    expect(result.current.muted).toBe(false);
+    await act(async () => {
+      await result.current.toggle();
+    });
+    expect(mute.setThreadMute).toHaveBeenCalledTimes(1);
+  });
+
+  it('CONTROL: any other failure keeps the generic toast and allows another try', async () => {
+    mute.setThreadMute.mockReset();
+    vi.mocked(toast.error).mockClear();
+    mute.setThreadMute.mockRejectedValue(Object.assign(new Error('boom'), { status: 500 }));
+    const { result } = renderHook(() => useConversationMute(1, false));
     await act(async () => {
       await result.current.toggle();
       await result.current.toggle();
     });
-    expect(mute.setThreadMute).not.toHaveBeenCalled();
-    expect(result.current.muted).toBe(false);
+    expect(mute.setThreadMute).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(toast.error).mock.calls[0][0]).toBe('Could not mute this thread');
   });
 
   it('a mute call that answers after the backend ended the mute asks for a re-read', async () => {

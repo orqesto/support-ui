@@ -16,20 +16,19 @@ type Override = { id: number; initial: boolean | undefined; value: boolean };
  * (two requests in flight can land in either order, and the newest click would lose).
  *
  * What the backend does to a mute as the thread changes (so the header need not wait for a read):
- * - `ended`: the mute is gone for good (the thread was resolved, or assigned to this person; a reopen
- *   afterwards is a new start). When it turns true the mute shows as off and stays off until the
- *   server says otherwise.
- * - `suspended`: closed / filtered threads pause a mute without deleting it. The stored state keeps
- *   showing (`muted` is unchanged) and `suspended` is returned so the screen can say it is paused;
- *   `toggle` does nothing meanwhile, so one click never means a request with no visible change.
- * - `onReconcile`: called when a mute call answered AFTER `ended` turned true. The reply cannot say
- *   whether the assignment or the call came last, so the thread is read again.
+ * - `ended`: the thread was resolved, closed or filtered, or assigned to this person. The backend
+ *   deletes the mute, a reopen afterwards is a new start. When it turns true the mute shows as off
+ *   and stays off until the server says otherwise (the person may mute a closed thread again).
+ * - A 409 on the mute call means the thread is finished (resolved, closed, filtered) and cannot be muted: the person is told,
+ *   the mute shows as off, no further mute call is sent for the thread, and it is read again.
+ * - `onReconcile`: called after a 409, and when a mute call answered AFTER `ended` turned true (the
+ *   reply cannot say whether the ending or the call came last), so the screen matches the server.
  *
  * A call that hangs gives up after `CALL_TIMEOUT_MS`, so it cannot hold up later toggles.
  */
 export const CALL_TIMEOUT_MS = 15_000;
 
-export type MuteThreadState = { ended?: boolean; suspended?: boolean; onReconcile?: () => void };
+export type MuteThreadState = { ended?: boolean; onReconcile?: () => void };
 
 const withTimeout = <T,>(work: Promise<T>): Promise<T> =>
   new Promise<T>((resolve, reject) => {
@@ -51,11 +50,13 @@ export const useConversationMute = (
   initial: boolean | undefined,
   thread: MuteThreadState = {}
 ) => {
-  const { ended = false, suspended = false } = thread;
+  const { ended = false } = thread;
   const reconcileRef = useRef(thread.onReconcile);
   reconcileRef.current = thread.onReconcile;
   // Counts the times the backend ended the mute while this hook was mounted.
   const endedCount = useRef(0);
+  // Threads the backend refused a mute for (409): no second try.
+  const refused = useRef<Set<number>>(new Set());
   const [override, setOverride] = useState<Override | null>(null);
   const latestCall = useRef(0);
   const confirmed = useRef<{ id: number; initial: boolean | undefined; value: boolean } | null>(
@@ -71,7 +72,7 @@ export const useConversationMute = (
     endsBefore.current = { id: conversationId, ends: ended };
     if (initial === undefined || before.id !== conversationId || before.ends || !ended) return;
     endedCount.current += 1;
-    // The backend just ended the mute (the thread was resolved, or assigned to this person).
+    // The backend just ended the mute (the thread was resolved, closed or filtered, or assigned to this person).
     confirmed.current = { id: conversationId, initial, value: false };
     setOverride({ id: conversationId, initial, value: false });
   }, [conversationId, initial, ended]);
@@ -80,10 +81,11 @@ export const useConversationMute = (
   const muted = active ? override.value : (initial ?? false);
 
   const toggle = useCallback(async () => {
-    if (initial === undefined || suspended) return;
+    if (initial === undefined) return;
     const known = confirmed.current;
     const base = known?.id === conversationId && known.initial === initial ? known.value : initial;
     const next = !muted;
+    if (next && refused.current.has(conversationId)) return;
     const call = ++latestCall.current;
     const endedAtStart = endedCount.current;
     setOverride({ id: conversationId, initial, value: next });
@@ -97,13 +99,23 @@ export const useConversationMute = (
       if (endedCount.current !== endedAtStart && currentId.current === conversationId) {
         reconcileRef.current?.();
       }
-    } catch {
+    } catch (err) {
       if (call !== latestCall.current || currentId.current !== conversationId) return;
+      if (next && (err as { status?: number } | null)?.status === 409) {
+        refused.current.add(conversationId);
+        confirmed.current = { id: conversationId, initial, value: false };
+        setOverride({ id: conversationId, initial, value: false });
+        toast.error("Finished threads can't be muted.");
+        reconcileRef.current?.();
+        return;
+      }
       const back = confirmed.current?.id === conversationId ? confirmed.current.value : base;
       setOverride({ id: conversationId, initial, value: back });
-      toast.error(next ? 'Could not mute this thread' : 'Could not unmute this thread');
+      toast.error(next ? 'Could not mute this thread' : 'Could not unmute this thread', {
+        description: err instanceof Error ? err.message : undefined,
+      });
     }
-  }, [conversationId, initial, muted, suspended]);
+  }, [conversationId, initial, muted]);
 
-  return { muted, suspended, toggle, available: initial !== undefined };
+  return { muted, toggle, available: initial !== undefined };
 };
