@@ -18,9 +18,9 @@ type Override = { id: number; initial: boolean | undefined; value: boolean };
  * What the backend does to a mute as the thread changes (so the header need not wait for a read):
  * - `ended`: the thread was resolved, closed or filtered, or assigned to this person. The backend
  *   deletes the mute, a reopen afterwards is a new start. When it turns true the mute shows as off
- *   and stays off until the server says otherwise (the person may mute a closed thread again).
+ *   and stays off until the server says otherwise.
  * - A 409 on the mute call means the thread is finished (resolved, closed, filtered) and cannot be muted: the person is told,
- *   the mute shows as off, no further mute call is sent for the thread, and it is read again.
+ *   the mute shows as off, no further mute call is sent for it until the thread is open again, and it is read again.
  * - `onReconcile`: called after a 409, and when a mute call answered AFTER `ended` turned true (the
  *   reply cannot say whether the ending or the call came last), so the screen matches the server.
  *
@@ -68,6 +68,8 @@ export const useConversationMute = (
   const endsBefore = useRef({ id: conversationId, ends: ended });
 
   useEffect(() => {
+    // The thread is not finished (any more): a mute is allowed again, so a refusal no longer holds.
+    if (!ended) refused.current.delete(conversationId);
     const before = endsBefore.current;
     endsBefore.current = { id: conversationId, ends: ended };
     if (initial === undefined || before.id !== conversationId || before.ends || !ended) return;

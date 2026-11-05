@@ -118,6 +118,25 @@ describe('useConversationMute', () => {
     expect(mute.setThreadMute).toHaveBeenCalledTimes(1);
   });
 
+  it('after a 409 the thread opens again: a click sends exactly one mute call', async () => {
+    mute.setThreadMute.mockReset();
+    mute.setThreadMute.mockRejectedValueOnce(Object.assign(new Error('conflict'), { status: 409 }));
+    const { result, rerender } = renderHook(({ gone }) => useConversationMute(1, false, { ended: gone }), {
+      initialProps: { gone: false },
+    });
+    await act(async () => {
+      await result.current.toggle();
+    });
+    rerender({ gone: true }); // the re-read shows the thread finished
+    rerender({ gone: false }); // reopened
+    mute.setThreadMute.mockResolvedValue(true);
+    await act(async () => {
+      await result.current.toggle();
+    });
+    expect(mute.setThreadMute).toHaveBeenCalledTimes(2); // the refused one + exactly one new call
+    expect(result.current.muted).toBe(true);
+  });
+
   it('CONTROL: any other failure keeps the generic toast and allows another try', async () => {
     mute.setThreadMute.mockReset();
     vi.mocked(toast.error).mockClear();
