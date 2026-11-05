@@ -359,7 +359,15 @@ export const useSLANotifications = () => {
       if (!matchesPrefs(breach, prefsRef.current, linesRef.current)) return;
 
       const disposition = classifyBreach(seenSeverity.current.get(breach.id), breach.severity);
-      if (disposition === 'duplicate') return;
+      // The backend delivers only a new row, a warning→critical escalation, a re-surfaced row or a
+      // new occurrence, never a plain repeat. A delivery at a severity this hook already holds
+      // means this hook's copy is stale (e.g. the row changed while the page held an older load).
+      // Dropping it can leave the badge off by one until a reload; only the server knows the
+      // count, so re-read it once (coalesced with any other recount).
+      if (disposition === 'duplicate') {
+        scheduleRecount();
+        return;
+      }
       const existing = notificationsRef.current.find((notif) => notif.id === breach.id);
       // A row NOT in the list while the server counted unread rows beyond the page: it may be one
       // of them (an escalation keeps its id, and `seenSeverity` only knows the loaded page), and
