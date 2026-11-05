@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Gauge } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -11,6 +12,8 @@ import searchDiagnosticsService, {
   type DiagnosticsOutcome,
   type ExplainedStatement,
   type SearchExplain,
+  type SearchIndex,
+  type TableStat,
   type WorkspaceSizes,
 } from '@/services/searchDiagnostics.service';
 
@@ -144,7 +147,44 @@ const SizesView = ({ sizes }: { sizes: WorkspaceSizes }) => (
       {formatBytes(sizes.tables.conversations?.bytes)} ·{' '}
       {formatBytes(sizes.tables.messageEvents?.bytes)}
     </dd>
+    {sizes.wordListsMissing !== null && (
+      <>
+        <dt className="text-muted-foreground">Messages without a stored word list</dt>
+        <dd>{formatNumber(sizes.wordListsMissing)}</dd>
+      </>
+    )}
+    {sizes.searchIndexes.map((index) => (
+      <IndexRow key={index.name} index={index} />
+    ))}
+    {sizes.tableStats.map((stat) => (
+      <TableStatRow key={stat.table} stat={stat} />
+    ))}
   </dl>
+);
+
+const IndexRow = ({ index }: { index: SearchIndex }) => {
+  const state = !index.exists ? 'missing' : index.valid === false ? 'invalid' : 'valid';
+  return (
+    <>
+      <dt className="font-mono text-xs text-muted-foreground break-all">{index.name}</dt>
+      <dd className="flex gap-2 items-center">
+        <Badge variant={state === 'valid' ? 'success' : 'danger'}>{state}</Badge>
+        {state !== 'missing' && <span>{formatBytes(index.bytes)}</span>}
+      </dd>
+    </>
+  );
+};
+
+const TableStatRow = ({ stat }: { stat: TableStat }) => (
+  <>
+    <dt className="text-muted-foreground">
+      Planner statistics: <span className="font-mono text-xs">{stat.table}</span>
+    </dt>
+    <dd>
+      {formatNumber(stat.liveRows)} rows, analysed{' '}
+      {stat.lastAnalyze ? new Date(stat.lastAnalyze).toLocaleString() : 'never'}
+    </dd>
+  </>
 );
 
 type Shown =

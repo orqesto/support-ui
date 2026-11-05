@@ -15,6 +15,7 @@ vi.mock('@/hooks/usePlatformAdmin', () => ({
 }));
 
 import { SearchDiagnosticsCard } from '../SearchDiagnosticsCard';
+import { normaliseSizes } from '@/services/searchDiagnostics.service';
 
 const pickWorkspace = () =>
   chooseOption(
@@ -119,6 +120,18 @@ describe('SearchDiagnosticsCard', () => {
           conversations: { bytes: 217399296, rowsEstimate: 12010 },
           messageEvents: { bytes: 2771140608, rowsEstimate: 36050 },
         },
+        wordListsMissing: 42,
+        searchIndexes: [
+          {
+            name: 'message_events_content_words_stored_idx',
+            exists: true,
+            valid: true,
+            bytes: 52428800,
+          },
+          { name: 'conversations_org_activity_idx', exists: false, valid: null, bytes: null },
+          { name: 'comments_message_id_idx', exists: true, valid: false, bytes: 8192 },
+        ],
+        tableStats: [{ table: 'comments', liveRows: 7600, lastAnalyze: null }],
       },
     });
     render(<SearchDiagnosticsCard />);
@@ -130,5 +143,19 @@ describe('SearchDiagnosticsCard', () => {
     expect(sizes.textContent).toContain('1.5 KB');
     expect(sizes.textContent).toContain('69%');
     expect(sizes.textContent).toContain('2.6 GB');
+    expect(sizes.textContent).toContain('Messages without a stored word list42');
+    // Each index says whether search can use it.
+    const stateOf = (name: string) => screen.getByText(name).nextElementSibling?.textContent;
+    expect(stateOf('message_events_content_words_stored_idx')).toBe('valid50.0 MB');
+    expect(stateOf('conversations_org_activity_idx')).toBe('missing');
+    expect(stateOf('comments_message_id_idx')).toBe('invalid8.0 KB');
+    expect(sizes.textContent).toContain('7,600 rows, analysed never');
+  });
+
+  it('an older backend without index status still shows the sizes', () => {
+    const sizes = normaliseSizes({ threads: 5, messages: 7, tables: {} });
+    expect(sizes.searchIndexes).toEqual([]);
+    expect(sizes.tableStats).toEqual([]);
+    expect(sizes.wordListsMissing).toBeNull();
   });
 });
