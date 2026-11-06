@@ -547,6 +547,14 @@ export const ListScopeNotice = ({
                     <span className="block mt-0.5">
                       So many threads match that only the newest were counted: each figure is at
                       least this many.
+                      {/*
+                        Capped figures still overlap (a resolved thread mined from the knowledge
+                        base counts under both): on a customer's workspace (2026-11) 3+, 2+, 1+
+                        and 140+ summed past the 144+ on the button with nothing saying why.
+                        No number here: a floor cannot carry a sum claim.
+                      */}
+                      {destinations.length > 1 &&
+                        ' A thread can count under more than one, so they will not add up to the total.'}
                     </span>
                   )}
                 </div>

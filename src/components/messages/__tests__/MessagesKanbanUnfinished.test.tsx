@@ -135,7 +135,9 @@ describe('Board: a column that did not finish', () => {
     const onTotalChange = vi.fn();
     render(board(0, onTotalChange));
     await screen.findByText(/Not loaded\. Refresh to try again/);
-    expect(onTotalChange).toHaveBeenLastCalledWith(0, true);
+    // The total is reported from an effect that runs after the text renders: on a loaded CI
+    // runner the last call could still be the earlier (0, false) (PR #853, run 42227392594).
+    await waitFor(() => expect(onTotalChange).toHaveBeenLastCalledWith(0, true));
   });
 });
 

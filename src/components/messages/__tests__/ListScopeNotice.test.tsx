@@ -566,7 +566,9 @@ describe('ListScopeNotice — a capped searched scope', () => {
     const menu = screen.getByRole('menu').textContent ?? '';
     expect(menu).toContain('only the newest were counted');
     // A sum claim needs exact figures.
-    expect(menu).not.toContain('will not add up to');
+    expect(menu).not.toContain('will not add up to 176');
+    // ...but the figures still overlap, and summing them past the button needs saying.
+    expect(menu).toContain('A thread can count under more than one');
   });
 
   it('the board stays silent: its sentence is arithmetic on the two floors', () => {
