@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import { logger } from '@/lib/logger';
-import { healthService, type HealthResponse } from '@/services/health.service';
+import { healthService, type HealthResponse } from '@/features/dashboard/services/health.service';
 
 type SystemHealth = {
   health: HealthResponse | null;

@@ -34,7 +34,7 @@ vi.mock('@/services/kb.service', () => ({
 vi.mock('@/services/documentation.service', () => ({
   documentationService: { getStats: () => Promise.resolve({ totalDocs: 5 }) },
 }));
-vi.mock('@/services/ingestion.service', () => ({ ingestionService: {} }));
+vi.mock('@/features/dashboard/services/ingestion.service', () => ({ ingestionService: {} }));
 vi.mock('@/services/integrations.service', () => ({ integrationsService: {} }));
 vi.mock('@/lib/socketManager', () => ({
   subscribeToEvent: vi.fn(),
@@ -42,8 +42,10 @@ vi.mock('@/lib/socketManager', () => ({
 }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'ctx' }));
 vi.mock('@/hooks/useEmailProcessing', () => ({ useEmailProcessing: () => ({}) }));
-vi.mock('@/hooks/useSystemHealth', () => ({ useSystemHealth: () => ({}) }));
-vi.mock('@/hooks/useTelegramProcessing', () => ({ useTelegramProcessing: () => ({}) }));
+vi.mock('@/features/dashboard/hooks/useSystemHealth', () => ({ useSystemHealth: () => ({}) }));
+vi.mock('@/features/dashboard/hooks/useTelegramProcessing', () => ({
+  useTelegramProcessing: () => ({}),
+}));
 vi.mock('@/stores/messagesStore', () => ({ useMessagesStore: () => ({}) }));
 vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({

@@ -9,11 +9,11 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { TONE_BORDER, TONE_FILL } from '../dashboardTones';
 
-const root = join(__dirname, '../../../..');
+const root = join(__dirname, '../../../../..');
 const files = [
   'src/pages/DashboardPage.tsx',
-  'src/components/dashboard/DashboardStatCards.tsx',
-  'src/components/dashboard/DashboardKBSection.tsx',
+  'src/features/dashboard/components/DashboardStatCards.tsx',
+  'src/features/dashboard/components/DashboardKBSection.tsx',
 ];
 const codeOnly = (text: string) =>
   text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
