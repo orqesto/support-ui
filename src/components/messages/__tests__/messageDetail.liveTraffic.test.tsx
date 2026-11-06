@@ -98,7 +98,9 @@ vi.mock('../MessageComposer', () => ({
 }));
 vi.mock('../MessagePanelTabs', () => ({ MessagePanelTabs: () => null }));
 vi.mock('../MessageGhostBubble', () => ({ MessageGhostBubble: () => null }));
-vi.mock('@/components/contacts/ContactProfilePanel', () => ({ ContactProfilePanel: () => null }));
+vi.mock('@/features/contacts/components/ContactProfilePanel', () => ({
+  ContactProfilePanel: () => null,
+}));
 vi.mock('@/components/modals/SimilarMessagesDialog', () => ({ SimilarMessagesDialog: () => null }));
 vi.mock('../PromoteToKbDialog', () => ({ PromoteToKbDialog: () => null }));
 // Every render of a message on screen passes through its bubble: count them.

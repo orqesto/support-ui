@@ -33,7 +33,7 @@ vi.mock('../AiTabPanel', () => ({
     return null;
   },
 }));
-vi.mock('@/components/contacts/useContactProfile', () => ({
+vi.mock('@/features/contacts/hooks/useContactProfile', () => ({
   useContactProfile: () => ({ loading: false, contact: null }),
 }));
 const availability = vi.fn();

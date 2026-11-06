@@ -7,7 +7,7 @@ import {
   notifyContactNotesChanged,
   type LatestNotePreview,
 } from '../ContactNotesIndicator';
-import { useCustomerNotesMark } from '../useCustomerNoteSummary';
+import { useCustomerNotesMark } from '../../hooks/useCustomerNoteSummary';
 import { ContactsView } from '@/components/messages/ContactsView';
 
 /**
@@ -27,7 +27,7 @@ vi.mock('@/services/message.service', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   messageService: { getContacts, getContactSubjects: vi.fn(), getById: vi.fn() },
 }));
-vi.mock('@/components/contacts/ContactProfilePanel', () => ({
+vi.mock('@/features/contacts/components/ContactProfilePanel', () => ({
   ContactProfilePanel: (props: { email: string; initialSection?: string }) => {
     panelProps(props);
     return <div data-testid="profile-drawer">{`${props.email}|${props.initialSection ?? ''}`}</div>;

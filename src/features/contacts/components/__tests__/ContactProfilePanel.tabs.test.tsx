@@ -33,21 +33,21 @@ vi.mock('@/components/messages/CustomApiLookupPanel', () => ({
     <div data-testid="lookup-panel">{contactId}</div>
   ),
 }));
-vi.mock('@/components/contacts/ContactProfileDetails', () => ({
+vi.mock('@/features/contacts/components/ContactProfileDetails', () => ({
   ContactProfileDetails: () => (
     <div data-testid="contact-details">
       <div data-testid="notes-section" data-contact-notes="" />
     </div>
   ),
 }));
-vi.mock('@/components/contacts/ContactProfileActivity', async (importOriginal) => ({
+vi.mock('@/features/contacts/components/ContactProfileActivity', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   ContactProfileActivity: () => <div data-testid="contact-activity" />,
 }));
-vi.mock('@/components/contacts/ContactAvatar', () => ({ ContactAvatar: () => null }));
-vi.mock('@/components/contacts/contactFacts', () => ({ customerSince: () => null }));
+vi.mock('@/features/contacts/components/ContactAvatar', () => ({ ContactAvatar: () => null }));
+vi.mock('@/features/contacts/components/contactFacts', () => ({ customerSince: () => null }));
 // Every key ContactProfilePanel destructures; booleans false, inputs empty.
-vi.mock('@/components/contacts/useContactProfile', () => ({
+vi.mock('@/features/contacts/hooks/useContactProfile', () => ({
   useContactProfile: () => ({
     contact: CONTACT,
     loading: false,

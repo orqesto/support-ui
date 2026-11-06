@@ -33,7 +33,7 @@ import { Select } from '@/components/ui/Select';
 import type { LabelsStatus } from '@/components/shared/labelPickerText';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
-import { ContactProfilePanel } from '@/components/contacts/ContactProfilePanel';
+import { ContactProfilePanel } from '@/features/contacts';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthStore } from '@/stores/authStore';
 import { useLeadsHidden } from '@/hooks/useLeadsHidden';

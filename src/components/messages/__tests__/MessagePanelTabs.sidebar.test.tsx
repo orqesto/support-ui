@@ -28,7 +28,7 @@ vi.mock('@/services/message.service', async () => {
     },
   };
 });
-vi.mock('@/components/contacts/useContactProfile', () => ({
+vi.mock('@/features/contacts/hooks/useContactProfile', () => ({
   useContactProfile: () => ({ loading: false, contact: null }),
 }));
 vi.mock('@/services/customApiLookup.service', () => ({

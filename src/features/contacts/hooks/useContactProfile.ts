@@ -10,9 +10,9 @@ import {
   CONTACT_NOTES_CHANGED,
   type ContactNotesChange,
   notifyContactNotesChanged,
-} from '@/components/contacts/ContactNotesIndicator';
+} from '@/features/contacts/components/ContactNotesIndicator';
 import { useAuthStore } from '@/stores/authStore';
-import type { OrgLabel, OrgUser } from '@/components/contacts/ContactProfileDetails';
+import type { OrgLabel, OrgUser } from '@/features/contacts/components/ContactProfileDetails';
 import type { ApiResponse } from '@/types';
 import {
   type ContactProfile,

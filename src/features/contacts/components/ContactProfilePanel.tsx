@@ -3,15 +3,15 @@ import { Settings2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { ContactAvatar } from '@/components/contacts/ContactAvatar';
+import { ContactAvatar } from '@/features/contacts/components/ContactAvatar';
 import {
   ContactProfileActivity,
   type ActivityItem,
-} from '@/components/contacts/ContactProfileActivity';
-import { ContactProfileDetails } from '@/components/contacts/ContactProfileDetails';
-import { CONTACT_NOTES_ATTR } from '@/components/contacts/ContactNotesIndicator';
+} from '@/features/contacts/components/ContactProfileActivity';
+import { ContactProfileDetails } from '@/features/contacts/components/ContactProfileDetails';
+import { CONTACT_NOTES_ATTR } from '@/features/contacts/components/ContactNotesIndicator';
 import { CustomApiLookupPanel } from '@/components/messages/CustomApiLookupPanel';
-import { useContactProfile } from '@/components/contacts/useContactProfile';
+import { useContactProfile } from '@/features/contacts/hooks/useContactProfile';
 import { useLookupsTab } from '@/components/messages/lookupsTab';
 import { avatarColor, formatAge, getInitials, safeCssColor } from '@/lib/utils';
 import { customerSince } from './contactFacts';

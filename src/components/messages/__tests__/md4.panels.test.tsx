@@ -41,7 +41,7 @@ vi.mock('@/services/ticket.service', () => ({
   ticketService: { getAll: vi.fn().mockResolvedValue({ data: [] }) },
 }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => undefined }));
-vi.mock('@/components/contacts/useContactProfile', () => ({
+vi.mock('@/features/contacts/hooks/useContactProfile', () => ({
   useContactProfile: () => ({ loading: false, contact: null }),
 }));
 vi.mock('@/services/customApiLookup.service', () => ({

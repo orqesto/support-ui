@@ -8,7 +8,7 @@ import { renderHeader, setPhone, svc } from './md4.header.utils';
 import { screen, fireEvent, waitFor, within, cleanup } from '@testing-library/react';
 
 // The drawer itself is another component's (contacts); here only its opening is the subject.
-vi.mock('@/components/contacts/ContactProfilePanel', () => ({
+vi.mock('@/features/contacts/components/ContactProfilePanel', () => ({
   ContactProfilePanel: (props: { email?: string | null }) => (
     <div data-testid="contact-profile">{props.email}</div>
   ),

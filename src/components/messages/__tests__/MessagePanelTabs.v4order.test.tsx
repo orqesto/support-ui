@@ -20,14 +20,14 @@ const noteSummary = vi.hoisted(() => vi.fn());
 vi.mock('@/services/contact.service', () => ({
   contactService: { getNoteSummary: (email: string) => noteSummary(email) as unknown },
 }));
-vi.mock('@/components/contacts/useContactProfile', () => ({
+vi.mock('@/features/contacts/hooks/useContactProfile', () => ({
   useContactProfile: (email: string) => {
     lookedUp(email);
     return { loading: false, contact: profile.contact };
   },
 }));
-vi.mock('@/components/contacts/ContactFactRows', () => ({ ContactFactRows: () => null }));
-vi.mock('@/components/contacts/ContactProfileDetails', () => ({
+vi.mock('@/features/contacts/components/ContactFactRows', () => ({ ContactFactRows: () => null }));
+vi.mock('@/features/contacts/components/ContactProfileDetails', () => ({
   ContactProfileDetails: () => null,
 }));
 // The tab badges fetch KB references on mount; every message-service call answers empty here so no

@@ -105,7 +105,7 @@ describe('a note change is announced (2026-10-17)', () => {
   });
 
   it('adding and deleting a note each fire the notes-changed signal the list and tab label follow', async () => {
-    const { CONTACT_NOTES_CHANGED } = await import('../ContactNotesIndicator');
+    const { CONTACT_NOTES_CHANGED } = await import('../../components/ContactNotesIndicator');
     const heard = vi.fn();
     window.addEventListener(CONTACT_NOTES_CHANGED, heard);
     try {
@@ -180,7 +180,7 @@ describe('a note changed in another view reloads this one (review 2026-10-19)', 
   };
 
   it('the drawer adds a note for the same contact: this view shows it', async () => {
-    const { notifyContactNotesChanged } = await import('../ContactNotesIndicator');
+    const { notifyContactNotesChanged } = await import('../../components/ContactNotesIndicator');
     const result = await loaded();
     const added = { id: 7, content: 'from the drawer', createdAt: '2026-10-03T00:00:00Z' };
     getByEmail.mockResolvedValue({ ...profile, notes: [added, ...profile.notes] });
@@ -190,7 +190,7 @@ describe('a note changed in another view reloads this one (review 2026-10-19)', 
   });
 
   it('[control] its own add does not reload; another contact or no detail is ignored', async () => {
-    const { notifyContactNotesChanged } = await import('../ContactNotesIndicator');
+    const { notifyContactNotesChanged } = await import('../../components/ContactNotesIndicator');
     const result = await loaded();
     expect(getByEmail).toHaveBeenCalledTimes(1);
     addNote.mockResolvedValue({ id: 8, content: 'mine', createdAt: '2026-10-04T00:00:00Z' });

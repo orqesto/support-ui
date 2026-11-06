@@ -16,9 +16,12 @@ import {
   type MessageActivityEntry,
 } from '@/services/message.service';
 import { buildTimeline, ACTIVITY_DOT } from './messageActivityTimeline';
-import { ContactProfileDetails } from '@/components/contacts/ContactProfileDetails';
-import { useContactProfile } from '@/components/contacts/useContactProfile';
-import { ContactFactRows } from '@/components/contacts/ContactFactRows';
+import {
+  ContactProfileDetails,
+  useContactProfile,
+  ContactFactRows,
+  useCustomerNotesMark,
+} from '@/features/contacts';
 import type { LeadQualificationFieldConfig } from '@/services/organization.service';
 
 import type { Message, MessageEvent } from '@/types';
@@ -31,7 +34,6 @@ import { LABEL, PHONE_CONTACT, relativeTime, type PanelTab } from './messageDeta
 import { hasLookupEmailIdentity } from './CustomApiLookupPanel';
 import { useTabBadges } from './useTabBadges';
 import { TabBadge } from './TabBadge';
-import { useCustomerNotesMark } from '@/components/contacts/useCustomerNoteSummary';
 import { STRIP_FADE, useStripFade } from './useStripFade';
 import { useLeadsHidden } from '@/hooks/useLeadsHidden';
 
