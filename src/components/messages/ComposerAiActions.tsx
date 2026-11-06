@@ -169,14 +169,26 @@ export function ComposerAiActions({
    * `restoreTo` is what Undo brings back: the editor as it is now on a first draft, the original
    * text on Try again (so Undo after three retries is still the agent's own words).
    */
-  const request = (mode: Mode, input: string) =>
+  /*
+    `fresh` is Try again: a NEW draft. Without it the backend hands every agent on the thread the
+    draft already written for this customer message (one shared draft per message, owner
+    2026-11-06, after taco MOR-SUP-6093 drafted three different replies to one question), and
+    for an hour it handed back the cached text even on Try again.
+  */
+  const request = (mode: Mode, input: string, fresh: boolean) =>
     messageService.composeReply(messageId, {
       mode,
       ...(mode === 'guided' ? { instructions: input } : {}),
       ...(mode === 'polish' ? { draft: input } : {}),
+      ...(fresh ? { fresh: true } : {}),
     });
 
-  const run = async (requestedMode: Mode, requestedInput: string, restoreTo: string) => {
+  const run = async (
+    requestedMode: Mode,
+    requestedInput: string,
+    restoreTo: string,
+    fresh = false
+  ) => {
     const before = latestComposer.current;
     let mode = requestedMode;
     let input = requestedInput;
@@ -185,7 +197,7 @@ export function ComposerAiActions({
     try {
       let response;
       try {
-        response = await request(mode, input);
+        response = await request(mode, input, fresh);
       } catch (err) {
         /*
           A thread with no customer message (it opens with our own outbound mail) has nothing for
@@ -195,7 +207,7 @@ export function ComposerAiActions({
         if (mode !== 'guided' || !isNoInbound(err) || !mounted.current) throw err;
         mode = 'polish';
         input = before;
-        response = await request(mode, input);
+        response = await request(mode, input, fresh);
       }
       // The editor's schema (TipTap) is loaded with the editor, not with the inbox; by the time a
       // draft is asked for, the composer has it — this resolves from the module cache.
@@ -284,7 +296,7 @@ export function ComposerAiActions({
 
   const retry = () => {
     if (!applied || previous === null) return;
-    void run(applied.mode, applied.input, previous);
+    void run(applied.mode, applied.input, previous, true);
   };
 
   const undo = () => {
