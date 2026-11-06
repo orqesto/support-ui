@@ -26,7 +26,9 @@ import { SystemSettings } from '@/components/settings/SystemSettings';
 import { SSOConfigSettings } from '@/components/settings/SSOConfigSettings';
 import { SCIMConfigSettings } from '@/components/settings/SCIMConfigSettings';
 import { TeamsSettings } from '@/components/settings/TeamsSettings';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthStore } from '@/stores/authStore';
+import { Permission } from '@/types/roles';
 
 export type SettingsTabContext = {
   isGlobalAdmin: boolean;
@@ -38,6 +40,9 @@ export type SettingsTabContext = {
    *  default. Drives deep-linking (e.g. `/settings#ai/learning`,
    *  `/settings#rules/spam`). */
   section: string;
+  /** Does the caller hold `permission` in the active workspace (role + overrides)? UX gate —
+   *  each tab mirrors the permission the server checks on that tab's reads. */
+  can: (permission: Permission) => boolean;
 };
 
 type SettingsTabDef = {
@@ -52,6 +57,10 @@ type SettingsTabDef = {
 
 const SETTINGS_TABS: SettingsTabDef[] = [
   {
+    // Personal settings (account, signature, notification preferences): every member. The
+    // workspace tabs below need the permission the server checks on their reads — before
+    // 2026-11-06 only the sidebar link was hidden, so an Associate who opened /settings by
+    // URL saw the Workspace, AI, Integrations and Rules tabs.
     id: 'profile',
     label: 'Profile',
     icon: User,
@@ -69,6 +78,7 @@ const SETTINGS_TABS: SettingsTabDef[] = [
     icon: Layers,
     description: 'Manage categories and labels',
     render: (ctx) => <OrganizationSettings section={ctx.section} />,
+    visible: (ctx) => ctx.can(Permission.VIEW_ORGANIZATION_SETTINGS),
   },
   {
     id: 'teams',
@@ -84,6 +94,7 @@ const SETTINGS_TABS: SettingsTabDef[] = [
     icon: BrainCog,
     description: 'Configure AI prompts and lead qualification',
     render: (ctx) => <AIConfigSettings section={ctx.section} />,
+    visible: (ctx) => ctx.can(Permission.VIEW_AI_SETTINGS),
   },
   {
     id: 'integrations',
@@ -91,6 +102,7 @@ const SETTINGS_TABS: SettingsTabDef[] = [
     icon: Plug,
     description: 'Connect channels, ticket systems, and AI providers',
     render: (ctx) => <ConnectedServicesSettings section={ctx.section} />,
+    visible: (ctx) => ctx.can(Permission.VIEW_INTEGRATIONS),
   },
   {
     // The Slack connect callback returns to `/settings?tab=notifications`; the bell's
@@ -110,6 +122,7 @@ const SETTINGS_TABS: SettingsTabDef[] = [
     icon: ShieldAlert,
     description: 'Configure spam, detection, and KB extraction rules',
     render: (ctx) => <RulesSettings section={ctx.section} />,
+    visible: (ctx) => ctx.can(Permission.VIEW_AI_SETTINGS),
   },
   {
     id: 'system',
@@ -147,6 +160,7 @@ export const SettingsPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
+  const { hasPermission } = usePermissions();
   const isGlobalAdmin = user?.role === 'admin';
   const isOrgAdmin = user?.organizationRole === 'org_admin';
 
@@ -166,7 +180,12 @@ export const SettingsPage = () => {
   const hashTab = hashTabRaw || queryTab;
   const hashSection = hashRest.join('/');
 
-  const ctx: SettingsTabContext = { isGlobalAdmin, isOrgAdmin, section: hashSection };
+  const ctx: SettingsTabContext = {
+    isGlobalAdmin,
+    isOrgAdmin,
+    section: hashSection,
+    can: hasPermission,
+  };
 
   const visibleTabs = SETTINGS_TABS.filter((tab) => (tab.visible ? tab.visible(ctx) : true));
   const validIds = visibleTabs.map((tab) => tab.id);

@@ -5,12 +5,14 @@ import { ROUTER_FUTURE } from '@/test/routerFuture';
 
 // Mock authStore before importing the page
 vi.mock('@/stores/authStore', () => ({
-  useAuthStore: vi.fn((selector: (state: { user: { id: number; email: string; role: string; firstName: string; lastName: string; position: string | null; createdAt: string } | null }) => unknown) =>
+  useAuthStore: vi.fn((selector: (state: { user: { id: number; email: string; role: string; organizationRole: string; firstName: string; lastName: string; position: string | null; createdAt: string } | null }) => unknown) =>
     selector({
       user: {
         id: 1,
         email: 'admin@example.com',
         role: 'user',
+        // A moderator: the workspace tabs need view permissions a role-less member lacks.
+        organizationRole: 'moderator',
         firstName: 'Test',
         lastName: 'User',
         position: null,
@@ -153,7 +155,7 @@ describe('SettingsSmoke', () => {
         <SettingsPage />
       </MemoryRouter>
     );
-    // Non-admin user sees 5 tabs (no System tab)
+    // A moderator sees 5 tabs (no System tab)
     expect(screen.getByText('Profile')).toBeTruthy();
     expect(screen.getByText('Workspace')).toBeTruthy();
     expect(screen.getByText('AI')).toBeTruthy();
