@@ -27,11 +27,17 @@ vi.mock('@/components/layout/Layout', () => ({
 // Each chart renders the window it was handed, so the assertion is on what the page
 // actually passes down rather than on which button looks active.
 const spy = (name: string) => ({ days }: { days: number }) => <div>{`${name}:${days}`}</div>;
-vi.mock('@/components/sla/SLAOverviewCards', () => ({ SLAOverviewCards: spy('overview') }));
-vi.mock('@/components/sla/SLAByChannelChart', () => ({ SLAByChannelChart: spy('channel') }));
-vi.mock('@/components/sla/SLATrendChart', () => ({ SLATrendChart: spy('trend') }));
-vi.mock('@/components/sla/SLABreachList', () => ({ SLABreachList: spy('breaches') }));
-vi.mock('@/components/sla/SLAByPriorityTable', () => ({
+vi.mock('@/features/statistics/components/SLAOverviewCards', () => ({
+  SLAOverviewCards: spy('overview'),
+}));
+vi.mock('@/features/statistics/components/SLAByChannelChart', () => ({
+  SLAByChannelChart: spy('channel'),
+}));
+vi.mock('@/features/statistics/components/SLATrendChart', () => ({ SLATrendChart: spy('trend') }));
+vi.mock('@/features/statistics/components/SLABreachList', () => ({
+  SLABreachList: spy('breaches'),
+}));
+vi.mock('@/features/statistics/components/SLAByPriorityTable', () => ({
   SLAByPriorityTable: spy('priority'),
   SLA_DEFAULT_DAYS: 30,
 }));

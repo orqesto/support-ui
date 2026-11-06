@@ -4,7 +4,7 @@ import type {
   MessageStatsData,
   LabelStatEntry,
   BusinessHoursStats,
-} from '@/services/statistics.service';
+} from '@/features/statistics/services/statistics.service';
 
 function formatAvgReply(hours: number | null | undefined): string {
   if (hours === null || hours === undefined) return '—';

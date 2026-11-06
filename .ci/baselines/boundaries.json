@@ -1,6 +1,6 @@
 {
   "featureToFeature": {
-    "total": 129,
+    "total": 124,
     "pairs": {
       "components/billing -> components/onboarding": 1,
       "components/console -> components/budget": 2,
@@ -38,7 +38,6 @@
       "components/settings -> components/subscription": 6,
       "components/shared -> components/subscription": 1,
       "components/spam -> components/admin": 2,
-      "components/statistics -> components/sla": 5,
       "components/tickets -> components/admin": 1,
       "components/tickets -> components/list": 3,
       "components/tickets -> components/messages": 5

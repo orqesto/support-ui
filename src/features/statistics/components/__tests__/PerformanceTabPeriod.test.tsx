@@ -13,7 +13,7 @@ const record = (params?: Record<string, unknown>) => {
   calls.push(params);
   return new Promise(() => undefined); // stay loading: only the request matters
 };
-vi.mock('@/services/sla.service', () => ({
+vi.mock('@/features/statistics/services/sla.service', () => ({
   slaService: {
     getSummary: record,
     getStatistics: record,

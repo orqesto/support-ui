@@ -21,7 +21,7 @@ const isUpperLayer = (area) =>
 const toPosix = (path) => path.split(sep).join('/');
 
 /** `src/…` for an import of the src tree, else null (a package). */
-const srcPathOf = (cwd, filename, specifier) => {
+export const srcPathOf = (cwd, filename, specifier) => {
   let absolute;
   if (specifier.startsWith('@/')) absolute = join(cwd, 'src', specifier.slice(2));
   else if (specifier.startsWith('./') || specifier.startsWith('../')) {

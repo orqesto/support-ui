@@ -1,13 +1,17 @@
 import { Clock, Timer, Zap } from 'lucide-react';
-import { SLAOverviewCards } from '@/components/sla/SLAOverviewCards';
-import { SLAByChannelChart } from '@/components/sla/SLAByChannelChart';
-import { SLAByPriorityTable } from '@/components/sla/SLAByPriorityTable';
-import { SLATrendChart } from '@/components/sla/SLATrendChart';
-import { SLABreachList } from '@/components/sla/SLABreachList';
+import { SLAOverviewCards } from '@/features/statistics/components/SLAOverviewCards';
+import { SLAByChannelChart } from '@/features/statistics/components/SLAByChannelChart';
+import { SLAByPriorityTable } from '@/features/statistics/components/SLAByPriorityTable';
+import { SLATrendChart } from '@/features/statistics/components/SLATrendChart';
+import { SLABreachList } from '@/features/statistics/components/SLABreachList';
 import type { ReportPeriod } from '@/lib/reportPeriod';
-import { StatisticsMessagesTab } from '@/components/statistics/StatisticsMessagesTab';
-import { SpeedToLeadTab } from '@/components/statistics/SpeedToLeadTab';
-import type { MessageStatsData, LabelStatEntry, SpeedToLeadData } from '@/services/statistics.service';
+import { StatisticsMessagesTab } from '@/features/statistics/components/StatisticsMessagesTab';
+import { SpeedToLeadTab } from '@/features/statistics/components/SpeedToLeadTab';
+import type {
+  MessageStatsData,
+  LabelStatEntry,
+  SpeedToLeadData,
+} from '@/features/statistics/services/statistics.service';
 
 interface Props {
   days: number;

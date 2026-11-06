@@ -28,7 +28,7 @@ vi.mock('@/components/layout/Layout', () => ({
 vi.mock('@/services/message.service', () => ({
   messageService: { getThreads, getThreadBoard: () => Promise.resolve(null) },
 }));
-vi.mock('@/services/sla.service', () => ({
+vi.mock('@/features/statistics/services/sla.service', () => ({
   slaService: { getSummary: () => Promise.resolve(null) },
 }));
 vi.mock('@/services/ticket.service', () => ({

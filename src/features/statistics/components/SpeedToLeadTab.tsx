@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import type { SpeedToLeadData } from '@/services/statistics.service';
+import type { SpeedToLeadData } from '@/features/statistics/services/statistics.service';
 import { cn } from '@/lib/utils';
 
 /** seconds → "40s" / "3m 15s" / "5h 12m" */
