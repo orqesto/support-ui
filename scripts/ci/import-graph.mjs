@@ -17,6 +17,10 @@
  * Tests are left out (`*.test.*`, `*.spec.*`, `__tests__/`, `__mocks__/`, `src/test/`): nothing
  * imports a suite back, so it cannot close a cycle, and a test reaching into another feature is not
  * product coupling.
+ *
+ * `{ includeTests: true }` (select-tests.mjs) walks the tests and their helpers too, and also counts
+ * the module named in `vi.mock` / `vi.doMock` / `vi.importActual` / `vi.importMock` as an edge: a
+ * test that mocks a module still depends on its shape (and `importOriginal` loads it for real).
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve, dirname, sep } from 'node:path';
@@ -44,13 +48,27 @@ const listFiles = (dir) => {
 };
 
 /** Every module specifier in one file, with the 1-based line it sits on. */
-const specifiersOf = (fileName, text) => {
+const VI_MODULE_CALLS = new Set([
+  'mock',
+  'doMock',
+  'unmock',
+  'doUnmock',
+  'importActual',
+  'importMock',
+]);
+const isViModuleCall = (expression) =>
+  ts.isPropertyAccessExpression(expression) &&
+  ts.isIdentifier(expression.expression) &&
+  expression.expression.text === 'vi' &&
+  VI_MODULE_CALLS.has(expression.name.text);
+
+const specifiersOf = (fileName, text, { viCalls = false } = {}) => {
   const source = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true);
   const found = [];
-  const add = (literal) => {
+  const add = (literal, mock = false) => {
     if (!literal || !ts.isStringLiteralLike(literal)) return;
     const { line } = source.getLineAndCharacterOfPosition(literal.getStart(source));
-    found.push({ specifier: literal.text, line: line + 1 });
+    found.push({ specifier: literal.text, line: line + 1, mock });
   };
   const visit = (node) => {
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
@@ -62,6 +80,8 @@ const specifiersOf = (fileName, text) => {
       add(node.moduleReference.expression);
     } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
       add(node.arguments[0]);
+    } else if (viCalls && ts.isCallExpression(node) && isViModuleCall(node.expression)) {
+      add(node.arguments[0], true);
     } else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) {
       add(node.argument.literal);
     }
@@ -72,15 +92,16 @@ const specifiersOf = (fileName, text) => {
 };
 
 /**
- * Build the graph for `<root>/src`.
- * @returns {{ files: string[], edges: Array<{from: string, to: string, line: number, specifier: string}>, unresolved: string[] }}
- *   Paths are `src/…`, posix.
+ * Build the graph for `<root>/src`. `includeTests` walks test files and their helpers as well.
+ * @returns {{ files: string[], edges: Array<{from: string, to: string, line: number, specifier: string}>, unresolved: string[], unresolvedMocks: string[] }}
+ *   Paths are `src/…`, posix. `unresolvedMocks` are `vi.mock` targets that no longer exist (a stale
+ *   mock of a removed module is harmless to vitest, so it is reported apart from real imports).
  */
-export const buildImportGraph = (root) => {
+export const buildImportGraph = (root, { includeTests = false } = {}) => {
   const srcDir = resolve(root, 'src');
   const all = listFiles(srcDir)
     .map((full) => toPosix(relative(srcDir, full)))
-    .filter((path) => SOURCE.test(path) && !isTestFile(path));
+    .filter((path) => SOURCE.test(path) && (includeTests || !isTestFile(path)));
   const known = new Set(all);
 
   const resolveTarget = (fromPath, specifier) => {
@@ -100,19 +121,20 @@ export const buildImportGraph = (root) => {
 
   const edges = [];
   const unresolved = [];
+  const unresolvedMocks = [];
   for (const path of all) {
     const text = readFileSync(join(srcDir, path), 'utf8');
-    for (const { specifier, line } of specifiersOf(path, text)) {
+    for (const { specifier, line, mock } of specifiersOf(path, text, { viCalls: includeTests })) {
       const target = resolveTarget(path, specifier);
       if (target.external) continue;
       if (target.path === null) {
-        unresolved.push(`src/${path}:${line}  '${specifier}'`);
+        (mock ? unresolvedMocks : unresolved).push(`src/${path}:${line}  '${specifier}'`);
         continue;
       }
       edges.push({ from: `src/${path}`, to: `src/${target.path}`, line, specifier });
     }
   }
-  return { files: all.map((path) => `src/${path}`), edges, unresolved };
+  return { files: all.map((path) => `src/${path}`), edges, unresolved, unresolvedMocks };
 };
 
 /**

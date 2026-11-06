@@ -75,9 +75,40 @@ jobs:
             echo 'envs=["staging"]' >> "$GITHUB_OUTPUT"
           fi
 
+  # F6 (owner 2026-11-06): the FULL vitest suite runs before every production deploy. PRs into
+  # `staging` run only affected tests (pr-checks.yml), and a release is a direct push to `main`
+  # (`ship:prod` / `ship:hotfix` → scripts/release*.sh), not a PR — so this job is the one place
+  # that sees exactly the commit production is built from. A staging-only run skips it, so staging
+  # deploys are not delayed (pr-checks.yml runs the full suite on that push instead).
+  tests:
+    name: Full test suite (before production)
+    needs: plan
+    if: contains(needs.plan.outputs.envs, 'production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Test (full suite)
+        run: npm test
+
   deploy-frontend:
     name: Deploy Frontend (${{ matrix.environment }})
-    needs: plan
+    needs: [plan, tests]
+    # Production waits for a green suite; a staging-only run has `tests` skipped and goes ahead.
+    if: >-
+      !cancelled() && needs.plan.result == 'success' &&
+      (needs.tests.result == 'success' || needs.tests.result == 'skipped')
     runs-on: ubuntu-latest
     strategy:
       # Production first, one at a time: prod must not queue behind staging, and two
