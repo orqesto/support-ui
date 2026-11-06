@@ -205,8 +205,9 @@ export type ListScope = {
   columnCounts?: Record<string, number>;
   /**
    * A searching scope the backend stopped counting at its cap (search plan step 3½d): EVERY
-   * number here is "at least", never exact — chips show `10,000+`, hidden-rows sentences stay
-   * silent (`hiddenKnown`). Absent on an older backend, which never caps: exact.
+   * number here is "at least", never exact — chips and the "Not shown" notice show `200+`;
+   * sentences that need an exact figure stay silent (`hiddenKnown`). Absent on an older backend,
+   * which never caps: exact.
    */
   capped?: boolean;
   hiddenBecause: {

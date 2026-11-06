@@ -509,3 +509,87 @@ describe('a chip is a destination, not a share of the hidden count', () => {
     });
   });
 });
+
+/**
+ * A common word's scope stops at its cap (backend: the newest 200 matches) and comes back
+ * `capped`. It used to render nothing, so every match outside the view was invisible exactly
+ * when there were many (owner 2026-11-05). Now every number is a floor, "N+".
+ */
+describe('ListScopeNotice — a capped searched scope', () => {
+  const capped: ListScope = {
+    withoutLens: 200,
+    hidden: 176,
+    capped: true,
+    hiddenBecause: {
+      terminal: 150,
+      knowledgeBase: 0,
+      spam: 0,
+      awaitingOrReplied: 20,
+      needsRouting: 0,
+      archived: 0,
+      suspicious: 0,
+      notAnalysed: 0,
+      other: 6,
+    },
+  };
+
+  it('🔴 the caption shows "Not shown 176+" and no "X of Y" built on a floor', () => {
+    render(
+      <ListScopeNotice
+        scope={capped}
+        shown={1000}
+        shownCapped
+        onJump={vi.fn()}
+        surface="caption"
+        lensActive
+      />
+    );
+    const text = screen.getByTestId('list-scope-notice').textContent ?? '';
+    expect(screen.getByRole('button', { name: /Not shown/ }).textContent).toContain('176+');
+    expect(text).toContain('1,000+ shown');
+    // "1,000+ of 200+" is the nonsense a walked list (counted to 1,000) over its scope would say.
+    expect(text).not.toMatch(/ of /);
+  });
+
+  it('🔴 every menu figure is a floor, and the footnote says only the newest were counted', () => {
+    render(<ListScopeNotice scope={capped} shown={24} onJump={vi.fn()} lensActive />);
+    expect(screen.getByTestId('list-scope-notice').textContent).toContain(
+      '176+ hidden by the current view'
+    );
+    openMenu();
+    expect(screen.getByRole('menuitem', { name: /resolved or closed/ }).textContent).toContain(
+      '150+'
+    );
+    expect(screen.getByRole('menuitem', { name: /waiting on a reply/ }).textContent).toContain(
+      '20+'
+    );
+    const menu = screen.getByRole('menu').textContent ?? '';
+    expect(menu).toContain('only the newest were counted');
+    // A sum claim needs exact figures.
+    expect(menu).not.toContain('will not add up to');
+  });
+
+  it('the board stays silent: its sentence is arithmetic on the two floors', () => {
+    const { container } = render(
+      <ListScopeNotice scope={capped} shown={1000} onJump={vi.fn()} surface="board" />
+    );
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('a capped scope with none hidden in its sample stays silent', () => {
+    const { container } = render(
+      <ListScopeNotice scope={{ ...capped, hidden: 0 }} shown={24} onJump={vi.fn()} />
+    );
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('[control] not capped: exact figures, "X of Y", no "+"', () => {
+    render(
+      <ListScopeNotice scope={{ ...capped, capped: false }} shown={24} onJump={vi.fn()} />
+    );
+    const text = screen.getByTestId('list-scope-notice').textContent ?? '';
+    expect(text).toContain('of');
+    expect(text).toContain('176 hidden');
+    expect(text).not.toContain('+');
+  });
+});

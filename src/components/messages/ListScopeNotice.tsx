@@ -29,7 +29,7 @@
 import { ChevronDown, EyeOff } from 'lucide-react';
 import { useCallback, useId, useRef, useState } from 'react';
 import { useClickOutside } from '@/hooks/useClickOutside';
-import { formatTotal, hiddenKnown } from '@/lib/listTotals';
+import { formatTotal } from '@/lib/listTotals';
 import type { ListScope } from '@/services/message.service';
 import type { FilterState } from '@/stores/messagesStore';
 
@@ -231,9 +231,18 @@ export const ListScopeNotice = ({
 
   // No information, or nothing hidden. In both cases the honest thing is silence:
   // the pagination line already states the count, and inventing a reassurance here
-  // would be the same species of claim the component was written to stop. A scope counted to
-  // its cap (`capped`) holds lower bounds only — no sentence can be built from them either.
-  if (!scope || hiddenKnown(scope) <= 0) return null;
+  // would be the same species of claim the component was written to stop.
+  if (!scope || scope.hidden <= 0) return null;
+  /**
+   * A searching scope counted to its cap (`capped`): every number is "at least", shown `N+`
+   * (owner 2026-11-05 — a common word's scope stops at 200, and silence there hid every match
+   * outside the view). No "X of Y" is built from it: a walked list counts further than its scope
+   * (1,000+ against 200+), so the phrase could read "1,000+ of 200+". The board's sentence is
+   * arithmetic on the two (lane for X of Y, Z have none) — it stays silent when capped.
+   */
+  const capped = scope.capped === true;
+  if (capped && surface === 'board') return null;
+  const atLeast = (count: number) => formatTotal(count, capped);
 
   const isBoard = surface === 'board';
   const isCaption = surface === 'caption';
@@ -345,24 +354,34 @@ export const ListScopeNotice = ({
          */
         <span className="truncate min-w-0">
           <strong className="font-mono text-foreground">{formatTotal(shown, shownCapped)}</strong>{' '}
-          of{' '}
-          <strong className="font-mono text-foreground">
-            {scope.withoutLens.toLocaleString()}
-          </strong>
+          {capped ? (
+            'shown'
+          ) : (
+            <>
+              of{' '}
+              <strong className="font-mono text-foreground">
+                {scope.withoutLens.toLocaleString()}
+              </strong>
+            </>
+          )}
           <span className="sr-only">
             {' '}
-            — {scope.hidden.toLocaleString()} hidden by the current view
+            — {atLeast(scope.hidden)} hidden by the current view
           </span>
         </span>
       ) : (
         <span className="truncate min-w-0">
           Showing{' '}
           <strong className="font-mono text-foreground">{formatTotal(shown, shownCapped)}</strong>{' '}
-          of{' '}
-          <strong className="font-mono text-foreground">
-            {scope.withoutLens.toLocaleString()}
-          </strong>{' '}
-          — {scope.hidden.toLocaleString()} hidden by the current view
+          {!capped && (
+            <>
+              of{' '}
+              <strong className="font-mono text-foreground">
+                {scope.withoutLens.toLocaleString()}
+              </strong>{' '}
+            </>
+          )}
+          — {atLeast(scope.hidden)} hidden by the current view
         </span>
       )}
       {hasMenu && (
@@ -386,9 +405,7 @@ export const ListScopeNotice = ({
               leaving the misleading badge as the only number visible. Reported exactly that
               way from the board.
             */}
-            <b className="font-mono font-semibold text-foreground">
-              {scope.hidden.toLocaleString()}
-            </b>
+            <b className="font-mono font-semibold text-foreground">{atLeast(scope.hidden)}</b>
             {newTotal > 0 && (
               <span className={NEW_BADGE_CLASS} aria-label={`${newTotal} new in hidden queues`}>
                 {formatNew(newTotal)}
@@ -443,7 +460,7 @@ export const ListScopeNotice = ({
                       <span className={NEW_BADGE_CLASS}>{formatNew(newFor(reason.key))}</span>
                     )}
                     <span className="font-mono ml-auto font-semibold text-muted-foreground">
-                      {reason.count.toLocaleString()}
+                      {atLeast(reason.count)}
                     </span>
                   </button>
                 ) : (
@@ -456,7 +473,7 @@ export const ListScopeNotice = ({
                   >
                     <span className="truncate">{reason.label}</span>
                     <span className="font-mono ml-auto font-semibold">
-                      {reason.count.toLocaleString()}
+                      {atLeast(reason.count)}
                     </span>
                   </div>
                 )
@@ -485,7 +502,7 @@ export const ListScopeNotice = ({
                       clear the view
                     </span>
                     <span className="font-mono ml-auto font-semibold">
-                      {reason.count.toLocaleString()}
+                      {atLeast(reason.count)}
                     </span>
                   </button>
                 ) : (
@@ -496,7 +513,7 @@ export const ListScopeNotice = ({
                   >
                     <span className="truncate">{reason.label}</span>
                     <span className="font-mono ml-auto font-semibold">
-                      {reason.count.toLocaleString()}
+                      {atLeast(reason.count)}
                     </span>
                   </div>
                 )
@@ -520,10 +537,16 @@ export const ListScopeNotice = ({
                     data does not guarantee puts a falsifiable claim on screen, which is the
                     same class of bug as the badge this PR fixes.
                   */}
-                  {destinations.length > 1 && (
+                  {destinations.length > 1 && !capped && (
                     <span className="block mt-0.5">
                       Each figure is the size of its whole bucket, so they will not add up to{' '}
                       {scope.hidden.toLocaleString()}.
+                    </span>
+                  )}
+                  {capped && (
+                    <span className="block mt-0.5">
+                      So many threads match that only the newest were counted: each figure is at
+                      least this many.
                     </span>
                   )}
                 </div>
