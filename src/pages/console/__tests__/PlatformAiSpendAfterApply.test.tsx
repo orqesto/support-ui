@@ -11,7 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ManagedAiUsageResult } from '@/services/managedAiUsage.service';
 
 let budgetsActive = true;
-vi.mock('@/services/budgets.service', () => ({
+vi.mock('@/features/subscription/services/budgets.service', () => ({
   budgetsService: {
     getState: () =>
       Promise.resolve({

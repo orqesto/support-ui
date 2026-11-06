@@ -5,9 +5,13 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
-import { loadAiKeyState, loadAiStatus, type AiStatus } from '@/components/subscription/aiStatus';
-import { StarterAllowanceLine } from '@/components/subscription/StarterAllowanceLine';
-import { aiSourceFrom } from '@/components/subscription/MessagesSummary';
+import {
+  loadAiKeyState,
+  loadAiStatus,
+  type AiStatus,
+  StarterAllowanceLine,
+  aiSourceFrom,
+} from '@/features/subscription';
 import { useAuthStore } from '@/stores/authStore';
 import { isOrgAdminOrHigher } from '@/types/roles';
 import { subscriptionService } from '@/services/subscription.service';

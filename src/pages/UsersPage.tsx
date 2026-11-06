@@ -41,7 +41,7 @@ import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
 import { InviteUserModal } from '@/components/modals/InviteUserModal';
 import { CreateUserModal } from '@/components/modals/CreateUserModal';
 import { UserSkillsModal } from '@/components/modals/UserSkillsModal';
-import { PlanOverLimitNote } from '@/components/subscription/PlanOverLimitNote';
+import { PlanOverLimitNote } from '@/features/subscription';
 import { userFullName } from '@/lib/userName';
 
 /** Match the console tables' page size so every user/workspace list paginates identically. */

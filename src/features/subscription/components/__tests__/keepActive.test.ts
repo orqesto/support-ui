@@ -4,7 +4,7 @@ import {
   isOverPlan,
   keepProblem,
   toggleId,
-} from '@/components/subscription/keepActive';
+} from '@/features/subscription/components/keepActive';
 import { normalizePlanFit, type PlanFit } from '@/services/subscription.service';
 
 /** Task #8 — the keep-active choice, mirroring the backend's default and rules. */

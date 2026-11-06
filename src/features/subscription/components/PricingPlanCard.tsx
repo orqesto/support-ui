@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { VAT_NOTE, formatMoney } from '@/lib/money';
 import { isUnlimited, teamLimitLine } from '@/components/onboarding/planSummary';
-import { FREE_PLAN_AI_LINE } from '@/components/subscription/starterAllowance';
+import { FREE_PLAN_AI_LINE } from '@/features/subscription/components/starterAllowance';
 
 export interface Plan {
   id: number;

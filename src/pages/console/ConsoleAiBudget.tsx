@@ -3,14 +3,14 @@ import { toast } from 'sonner';
 import { Alert } from '@/components/ui/Alert';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
-import { BudgetGroupView } from '@/components/budget/BudgetGroupView';
 import {
+  BudgetGroupView,
   useAllianceBudget,
   useRequestAllianceExtra,
   useSetAllianceMode,
   useSetAllianceWorkspaceLimits,
   useUpdateAllianceBudget,
-} from '@/hooks/useBudgets';
+} from '@/features/subscription';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 
 const failed = (fallback: string) => (error: unknown) =>

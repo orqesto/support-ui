@@ -10,14 +10,14 @@ import { cleanup, render, screen } from '@testing-library/react';
 import type { ZendeskRun } from '@/services/zendeskImport.service';
 
 let usage: unknown;
-vi.mock('@/hooks/useBudgets', () => ({
+vi.mock('@/features/subscription/hooks/useBudgets', () => ({
   useMyAiUsage: () => ({ data: usage, isLoading: false, error: null }),
   useUpdateMyBudget: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useRequestMyExtra: () => ({ isPending: false, mutateAsync: vi.fn() }),
 }));
 
 const { WorkspaceAiUsage } = await import('../WorkspaceAiUsage');
-const { parseFreeAllowanceView } = await import('@/services/budgets.service');
+const { parseFreeAllowanceView } = await import('@/features/subscription');
 const { ZendeskImportReport } = await import('../zendeskImport/ZendeskImportReport');
 const { anotherRunBusyText, attachmentsStoppedText, canCopyAttachments } = await import(
   '../zendeskImport/zendeskImportSummary'

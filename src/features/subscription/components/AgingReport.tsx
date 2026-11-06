@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Alert } from '@/components/ui/Alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { billingService } from '@/services/billing.service';
+import { billingService } from '@/features/subscription/services/billing.service';
 
 const BAR_COLORS = ['#3B82F6', '#F59E0B', '#EF4444'];
 

@@ -33,7 +33,7 @@ vi.mock('sonner', () => ({ toast: { success: () => {}, warning: () => {}, error:
 // The old limits UI shows only while the monthly budgets are not switched on: a backend without
 // the budget API here.
 let budgetState: unknown = { available: false };
-vi.mock('@/services/budgets.service', () => ({
+vi.mock('@/features/subscription/services/budgets.service', () => ({
   budgetsService: {
     getState: () => Promise.resolve(budgetState),
     getMigration: () => Promise.resolve({ rows: [], alreadyActive: false }),

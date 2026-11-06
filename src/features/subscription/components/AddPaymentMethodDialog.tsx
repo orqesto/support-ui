@@ -3,7 +3,7 @@ import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { Alert } from '@/components/ui/Alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { Spinner } from '@/components/ui/Spinner';
-import { CheckoutSessionForm } from '@/components/billing/CheckoutSessionForm';
+import { CheckoutSessionForm } from '@/features/subscription/components/CheckoutSessionForm';
 import { getApiErrorMessage, getErrorStatus, getErrorBody, SUBSCRIPTION_ALREADY_LIVE } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { formatMoneyExVat } from '@/lib/money';

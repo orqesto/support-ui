@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import type { StatusLine } from '@/services/budgets.service';
+import type { StatusLine } from '@/features/subscription/services/budgets.service';
 
 export type Tone = StatusLine['tone'];
 

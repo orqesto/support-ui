@@ -9,7 +9,7 @@
  *  - "No estimate" is never a 0. "All time" (0 days) is never "last 0 days".
  *  - Narrowing keeps the knowledge base; an unconfirmed skip count is never "complete".
  */
-import { fmtMoney } from '@/components/budget/budget.rules';
+import { fmtMoney } from '@/features/subscription';
 import { apiErrorMessage, apiErrorStatus } from '@/lib/apiError';
 import type {
   KbLastSweep,

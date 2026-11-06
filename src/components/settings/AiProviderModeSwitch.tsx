@@ -5,7 +5,7 @@ import {
   FREE_AI_ALLOWANCE_USED,
   starterAllowanceLine,
   type StarterAllowance,
-} from '@/components/subscription/starterAllowance';
+} from '@/features/subscription';
 
 /**
  * Why a switch of the AI mode was refused. "Your free AI allowance is used" ONLY when the refusal

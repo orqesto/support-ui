@@ -6,7 +6,7 @@ import { Permission } from '@/types/roles';
 import { useAuthStore } from '@/stores/authStore';
 import { useOnboardingStore } from '@/stores/onboardingStore';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
-import { PAST_DUE_AGENT_TEXT, PAST_DUE_TEXT } from '@/components/subscription/cancelCopy';
+import { PAST_DUE_AGENT_TEXT, PAST_DUE_TEXT } from '@/features/subscription';
 
 /**
  * Trial countdown banner for all members while the org subscription is

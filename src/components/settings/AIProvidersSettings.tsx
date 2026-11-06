@@ -4,9 +4,12 @@ import {
   AiProviderModeSwitch,
   modeSwitchErrorText,
 } from '@/components/settings/AiProviderModeSwitch';
-import { loadAiStatus, type AiStatus } from '@/components/subscription/aiStatus';
-import { AiUnavailableNotice } from '@/components/subscription/AiUnavailableNotice';
-import { FREE_AI_ALLOWANCE_USED } from '@/components/subscription/starterAllowance';
+import {
+  loadAiStatus,
+  type AiStatus,
+  AiUnavailableNotice,
+  FREE_AI_ALLOWANCE_USED,
+} from '@/features/subscription';
 import { AIProviderHealthCheck } from '@/components/settings/AIProviderHealthCheck';
 import { AckReplyPerSourceList } from '@/components/settings/AckReplyPerSourceList';
 import { AINoProviderBanner } from '@/components/settings/AINoProviderBanner';

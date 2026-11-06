@@ -3,16 +3,24 @@ import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
-import { BudgetBar } from '@/components/budget/BudgetBar';
-import { BudgetField } from '@/components/budget/BudgetGroupView';
-import { BulkLimitField, FieldLabel } from '@/components/budget/BulkLimitField';
-import { RequestExtraBox } from '@/components/budget/RequestExtraBox';
-import { StatusText } from '@/components/budget/StatusText';
-import { extraEndsText, fmtMoney } from '@/components/budget/budget.rules';
-import { useMyAiUsage, useRequestMyExtra, useUpdateMyBudget } from '@/hooks/useBudgets';
+import {
+  BudgetBar,
+  BudgetField,
+  BulkLimitField,
+  FieldLabel,
+  RequestExtraBox,
+  StatusText,
+  extraEndsText,
+  fmtMoney,
+  useMyAiUsage,
+  useRequestMyExtra,
+  useUpdateMyBudget,
+  type FreeAllowanceView,
+  type WorkspaceBudgetUpdate,
+  kbAllowanceLine,
+  starterAllowanceLine,
+} from '@/features/subscription';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
-import type { FreeAllowanceView, WorkspaceBudgetUpdate } from '@/services/budgets.service';
-import { kbAllowanceLine, starterAllowanceLine } from '@/components/subscription/starterAllowance';
 
 /**
  * A Free workspace's allowances (release audit D-L1): what is left, and whether AI stopped — so a

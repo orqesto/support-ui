@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import type { GroupDetail, GroupUpdate } from '@/services/budgets.service';
+import type { GroupDetail, GroupUpdate } from '@/features/subscription/services/budgets.service';
 import {
   dollarsText,
   fmtMoney,

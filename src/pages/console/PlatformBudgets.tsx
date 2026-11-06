@@ -8,11 +8,17 @@ import { DataTable } from '@/components/ui/DataTable';
 import { Progress } from '@/components/ui/Progress';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
-import { StatusText } from '@/components/budget/StatusText';
-import { fmtMoney, fmtTokenCount } from '@/components/budget/budget.rules';
-import { useBudgetGroups, useBudgetState } from '@/hooks/useBudgets';
+import {
+  StatusText,
+  fmtMoney,
+  fmtTokenCount,
+  useBudgetGroups,
+  useBudgetState,
+  type BudgetState,
+  type GroupListParams,
+  type GroupSummary,
+} from '@/features/subscription';
 import { getApiErrorMessage } from '@/lib/errorMessages';
-import type { BudgetState, GroupListParams, GroupSummary } from '@/services/budgets.service';
 import { BudgetAdvancedCard } from './BudgetAdvancedCard';
 import { BudgetMigrationPanel } from './BudgetMigrationPanel';
 import { BudgetRequestsCard } from './BudgetRequestsCard';

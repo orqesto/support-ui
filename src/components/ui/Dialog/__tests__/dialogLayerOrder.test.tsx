@@ -5,7 +5,7 @@ import { Dialog } from '../Dialog';
 import { tooltipVariants } from '../../Tooltip/tooltip.styles';
 import contactPanelSource from '@/features/contacts/components/ContactProfilePanel.tsx?raw';
 import layoutSource from '@/components/layout/Layout.tsx?raw';
-import gateSource from '@/components/subscription/SubscriptionGateOverlay.tsx?raw';
+import gateSource from '@/features/subscription/components/SubscriptionGateOverlay.tsx?raw';
 
 /**
  * FE audit 2026-09-29 C-H1: a Dialog (z-60) opened from an open Drawer (68/70) rendered UNDER the

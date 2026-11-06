@@ -8,10 +8,17 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DataTable } from '@/components/ui/DataTable';
 import { Input } from '@/components/ui/Input';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
-import { dollarsText, fmtTokenCount, parseDollars } from '@/components/budget/budget.rules';
-import { useApplyMigration, useBudgetMigration } from '@/hooks/useBudgets';
+import {
+  dollarsText,
+  fmtTokenCount,
+  parseDollars,
+  useApplyMigration,
+  useBudgetMigration,
+  type MigrationBasis,
+  type MigrationOverrides,
+  type MigrationRow,
+} from '@/features/subscription';
 import { getApiErrorMessage } from '@/lib/errorMessages';
-import type { MigrationBasis, MigrationOverrides, MigrationRow } from '@/services/budgets.service';
 
 /**
  * Before the switch: the dry run of the AI budgets (what each group would get, from what),

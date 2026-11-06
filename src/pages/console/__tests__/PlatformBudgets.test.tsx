@@ -15,7 +15,7 @@ import type {
   GroupPage,
   GroupSummary,
   RequestRow,
-} from '@/services/budgets.service';
+} from '@/features/subscription';
 
 const MLN = 1_000_000;
 
@@ -32,7 +32,7 @@ let declineHold: Promise<void> | null = null;
 /** An organisation's mode, as its detail answers (the list page reads it for an org-wide request). */
 let orgMode: 'separate' | 'shared' = 'shared';
 
-vi.mock('@/services/budgets.service', () => ({
+vi.mock('@/features/subscription/services/budgets.service', () => ({
   budgetsService: {
     getState: () => Promise.resolve(stateResult),
     getMigration: () => Promise.resolve(migration),

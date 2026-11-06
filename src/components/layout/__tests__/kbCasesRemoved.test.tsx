@@ -52,7 +52,7 @@ vi.mock('@/components/layout/LicenseExpiryBanner', () => ({ LicenseExpiryBanner:
 vi.mock('@/components/layout/ResumeSetupBanner', () => ({ ResumeSetupBanner: nothing }));
 vi.mock('@/components/layout/TrialBanner', () => ({ TrialBanner: nothing }));
 vi.mock('@/components/layout/MessageCapBanner', () => ({ MessageCapBanner: nothing }));
-vi.mock('@/components/subscription/SubscriptionGateOverlay', () => ({
+vi.mock('@/features/subscription/components/SubscriptionGateOverlay', () => ({
   SubscriptionGateOverlay: nothing,
 }));
 vi.mock('@/components/shared/WebSocketStatus', () => ({ WebSocketStatus: nothing }));

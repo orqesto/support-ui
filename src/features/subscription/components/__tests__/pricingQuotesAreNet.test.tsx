@@ -13,7 +13,11 @@
  */
 import { describe, expect, it } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
-import { BasePlanCard, EnterprisePlanCard, type Plan } from '@/components/pricing/PricingPlanCard';
+import {
+  BasePlanCard,
+  EnterprisePlanCard,
+  type Plan,
+} from '@/features/subscription/components/PricingPlanCard';
 import { VAT_NOTE, formatMoney } from '@/lib/money';
 
 const plan = (overrides: Partial<Plan> = {}): Plan => ({

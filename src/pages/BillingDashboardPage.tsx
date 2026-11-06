@@ -1,7 +1,9 @@
-import { ActiveSubscriptionsTable } from '@/components/billing/ActiveSubscriptionsTable';
-import { AgingReport } from '@/components/billing/AgingReport';
-import { AnomalyAlertsList } from '@/components/billing/AnomalyAlertsList';
-import { BillingOverviewCards } from '@/components/billing/BillingOverviewCards';
+import {
+  ActiveSubscriptionsTable,
+  AgingReport,
+  AnomalyAlertsList,
+  BillingOverviewCards,
+} from '@/features/subscription';
 
 export const BillingDashboardPage = () => (
   <>

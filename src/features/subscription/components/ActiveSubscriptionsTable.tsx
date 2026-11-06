@@ -6,7 +6,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Pagination } from '@/components/ui/Pagination';
-import { billingService } from '@/services/billing.service';
+import { billingService } from '@/features/subscription/services/billing.service';
 
 const LIMIT = 10;
 

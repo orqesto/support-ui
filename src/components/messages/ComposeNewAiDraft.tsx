@@ -13,7 +13,7 @@ import {
   getErrorStatus,
   isAiDraftsOffError,
 } from '@/lib/errorMessages';
-import { useAiRefusalText } from '@/components/subscription/useAiRefusalText';
+import { useAiRefusalText } from '@/features/subscription';
 import { messageService } from '@/services/message.service';
 import { answerToEditorHtml, COMPOSER_AI_TOOL, COMPOSER_TOOL } from './messageDetailConstants';
 

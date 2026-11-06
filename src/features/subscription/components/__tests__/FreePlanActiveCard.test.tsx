@@ -16,7 +16,9 @@ vi.mock('@/services/subscription.service', () => ({
 }));
 vi.mock('@/lib/toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-const { FreePlanActiveCard } = await import('@/components/subscription/FreePlanActiveCard');
+const { FreePlanActiveCard } = await import(
+  '@/features/subscription/components/FreePlanActiveCard'
+);
 
 const fit = (over: Partial<PlanFit> = {}): PlanFit => ({
   enforced: true,

@@ -10,7 +10,7 @@ import { useGmailOAuthAvailability } from '@/hooks/useGmailOAuthAvailability';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
-import { PlanOverLimitNote } from '@/components/subscription/PlanOverLimitNote';
+import { PlanOverLimitNote } from '@/features/subscription';
 
 export const MessageSourcesSettings = () => {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
