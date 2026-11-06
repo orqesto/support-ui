@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
+import { invalidateSharedFetch, sharedFetch } from '@/lib/sharedFetch';
+import { useAuthStore } from '@/stores/authStore';
 import { savedViewService } from '@/services/savedView.service';
 import {
   loadSavedViews,
@@ -9,6 +11,9 @@ import {
 } from './savedViews';
 import type { FilterState } from '@/stores/messagesStore';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+
+/** Opening the threads screen again within this window reuses the list instead of re-reading it. */
+const SAVED_VIEWS_REUSE_MS = 30_000;
 
 /**
  * The user's own saved views, and the two ways of writing them.
@@ -32,11 +37,17 @@ export const useSavedViews = (): {
   const [source, setSource] = useState<SavedViewSource>('remote');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
+  const userId = useAuthStore((state) => state.user?.id);
+  // The person's own views in this workspace; every write below forgets the held list.
+  const cacheKey = `saved-views:${selectedOrganizationId ?? ''}:${userId ?? ''}`;
 
   useEffect(() => {
     let live = true;
-    loadSavedViews()
+    sharedFetch(cacheKey, loadSavedViews, SAVED_VIEWS_REUSE_MS)
       .then((loaded) => {
+        // The browser-only fallback is not held: the next mount tries the server again.
+        if (loaded.source === 'local') invalidateSharedFetch(cacheKey);
         if (!live) return;
         setViews(loaded.views);
         setSource(loaded.source);
@@ -52,7 +63,7 @@ export const useSavedViews = (): {
     return () => {
       live = false;
     };
-  }, []);
+  }, [cacheKey]);
 
   const saveView = useCallback(
     async (name: string, filters: Partial<FilterState>) => {
@@ -65,6 +76,7 @@ export const useSavedViews = (): {
         persistSavedViews(next);
         return;
       }
+      invalidateSharedFetch(cacheKey);
       try {
         const saved = await savedViewService.save(name, filters);
         setViews([...withoutName, { id: saved.id, name: saved.name, filters: saved.filters }]);
@@ -77,7 +89,7 @@ export const useSavedViews = (): {
         );
       }
     },
-    [source, views]
+    [source, views, cacheKey]
   );
 
   const removeView = useCallback(
@@ -88,6 +100,7 @@ export const useSavedViews = (): {
         persistSavedViews(next);
         return;
       }
+      invalidateSharedFetch(cacheKey);
       try {
         await savedViewService.remove(view.id);
         setViews(next);
@@ -99,7 +112,7 @@ export const useSavedViews = (): {
         setError(getApiErrorMessage(err) ?? `“${view.name}” could not be deleted.`);
       }
     },
-    [source, views]
+    [source, views, cacheKey]
   );
 
   return { views, source, loading, error, saveView, removeView };
