@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useDepartmentContextKey } from './useDepartmentContextKey';
+import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { periodKey, type ReportPeriod } from '@/lib/reportPeriod';
 
 type FetchFn<T> = (period: ReportPeriod, channel?: string) => Promise<{ success: boolean; data?: T }>;

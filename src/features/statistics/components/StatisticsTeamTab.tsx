@@ -1,6 +1,6 @@
 import { Users, MessageSquare, Clock, Ticket, StickyNote, Globe } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import type { UserStatEntry } from '@/services/statistics.service';
+import type { UserStatEntry } from '@/features/statistics/services/statistics.service';
 import { userFullName } from '@/lib/userName';
 
 function formatAvgReply(hours: number | null): string {

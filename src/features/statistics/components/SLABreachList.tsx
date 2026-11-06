@@ -5,8 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import type { SLABreach } from '@/services/sla.service';
-import { slaService } from '@/services/sla.service';
+import type { SLABreach } from '@/features/statistics/services/sla.service';
+import { slaService } from '@/features/statistics/services/sla.service';
 import { SLA_DEFAULT_DAYS } from './SLAByPriorityTable';
 import { isCustomPeriod, periodKey, periodParams, type ReportPeriod } from '@/lib/reportPeriod';
 

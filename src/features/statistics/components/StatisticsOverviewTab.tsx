@@ -15,7 +15,10 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import type { StatisticsData, AIStatsData } from '@/services/statistics.service';
+import type {
+  StatisticsData,
+  AIStatsData,
+} from '@/features/statistics/services/statistics.service';
 
 type DrillTab = 'overview' | 'performance' | 'team' | 'diagnostics';
 

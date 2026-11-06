@@ -1,6 +1,6 @@
 import { Brain, Cpu, BarChart3, Lightbulb } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import type { StatisticsData } from '@/services/statistics.service';
+import type { StatisticsData } from '@/features/statistics/services/statistics.service';
 
 interface Props {
   stats: StatisticsData;

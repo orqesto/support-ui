@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { SLAOverviewCards } from '@/components/sla/SLAOverviewCards';
-import { SLAByChannelChart } from '@/components/sla/SLAByChannelChart';
-import { SLAByPriorityTable, SLA_DEFAULT_DAYS } from '@/components/sla/SLAByPriorityTable';
-import { SLATrendChart } from '@/components/sla/SLATrendChart';
-import { SLABreachList } from '@/components/sla/SLABreachList';
+import {
+  SLAOverviewCards,
+  SLAByChannelChart,
+  SLAByPriorityTable,
+  SLA_DEFAULT_DAYS,
+  SLATrendChart,
+  SLABreachList,
+} from '@/features/statistics';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import {
   dayPresets,

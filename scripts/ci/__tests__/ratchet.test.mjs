@@ -1,7 +1,7 @@
 // @vitest-environment node
 /**
  * The boundary and cycle ratchets (scripts/ci/check-*.mjs) and the ESLint rule
- * (scripts/eslint/no-upward-imports.js), run against a small invented src/ tree in a temp folder.
+ * (scripts/eslint/no-upward-imports.js, api-only-features.js), run against a small invented src/ tree in a temp folder.
  */
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -12,6 +12,7 @@ import { Linter } from 'eslint';
 import tseslint from 'typescript-eslint';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import noUpwardImports from '../../eslint/no-upward-imports.js';
+import apiOnlyFeatures, { API_ONLY_FEATURES } from '../../eslint/api-only-features.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BOUNDARIES = resolve(here, '../check-boundaries.mjs');
@@ -249,6 +250,79 @@ describe('boundaries/no-upward-imports', () => {
       lint(
         'src/lib/format.ts',
         "import { other } from './other';\nimport type { Shape } from '@/types';"
+      )
+    ).toEqual([]);
+  });
+});
+
+describe('boundaries/api-only-features', () => {
+  // A real API-only feature name, so the test follows the list in the rule.
+  const feature = API_ONLY_FEATURES[0];
+  const lint = (file, code) => {
+    write(`src/features/${feature}/index.ts`, "export { Panel } from './components/Panel';\n");
+    write(`src/features/${feature}/components/Panel.tsx`, 'export const Panel = () => null;\n');
+    write(`src/features/${feature}/services/data.service.ts`, 'export const load = () => 1;\n');
+    const linter = new Linter({ configType: 'flat', cwd: root });
+    return linter
+      .verify(
+        code,
+        [
+          {
+            files: ['**/*.{ts,tsx}'],
+            languageOptions: { parser: tseslint.parser },
+            plugins: { boundaries: { rules: { 'api-only-features': apiOnlyFeatures } } },
+            rules: { 'boundaries/api-only-features': 'error' },
+          },
+        ],
+        { filename: join(root, file) }
+      )
+      .map((message) => `${message.line}: ${message.message}`);
+  };
+
+  it('flags a deep import from outside the feature, in every import form', () => {
+    const messages = lint(
+      'src/pages/AlphaPage.tsx',
+      [
+        `import { Panel } from '@/features/${feature}/components/Panel';`,
+        `import type { load } from '../features/${feature}/services/data.service';`,
+        `export { load } from '@/features/${feature}/services/data.service';`,
+        `const lazyPanel = () => import('@/features/${feature}/components/Panel');`,
+      ].join('\n')
+    );
+    expect(messages).toHaveLength(4);
+    expect(messages[0]).toMatch(
+      new RegExp(`^1: '@/features/${feature}/components/Panel' reaches inside features/${feature}`)
+    );
+    // A test outside the feature is held to the same rule.
+    expect(
+      lint(
+        'src/pages/__tests__/AlphaPage.test.tsx',
+        `import { load } from '@/features/${feature}/services/data.service';`
+      )
+    ).toHaveLength(1);
+  });
+
+  it('allows the index from outside, and any path inside the feature', () => {
+    expect(
+      lint(
+        'src/pages/AlphaPage.tsx',
+        `import { Panel } from '@/features/${feature}';\nimport { Same } from '../features/${feature}/index';`
+      )
+    ).toEqual([]);
+    expect(
+      lint(
+        `src/features/${feature}/components/Other.tsx`,
+        `import { Panel } from './Panel';\nimport { load } from '@/features/${feature}/services/data.service';`
+      )
+    ).toEqual([]);
+  });
+
+  it('leaves a feature that is not on the list alone', () => {
+    write('src/features/unlisted-example/deep/Thing.ts', 'export const Thing = 1;\n');
+    expect(
+      lint(
+        'src/pages/AlphaPage.tsx',
+        "import { Thing } from '@/features/unlisted-example/deep/Thing';"
       )
     ).toEqual([]);
   });

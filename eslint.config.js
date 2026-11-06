@@ -6,6 +6,12 @@ import jsxA11yPlugin from 'eslint-plugin-jsx-a11y';
 import importPlugin from 'eslint-plugin-import';
 import prettierConfig from 'eslint-config-prettier';
 import noUpwardImports from './scripts/eslint/no-upward-imports.js';
+import apiOnlyFeatures from './scripts/eslint/api-only-features.js';
+
+// One plugin object for the custom rules: flat config refuses two different objects under one name.
+const boundariesPlugin = {
+  rules: { 'no-upward-imports': noUpwardImports, 'api-only-features': apiOnlyFeatures },
+};
 
 export default [
   eslint.configs.recommended,
@@ -163,8 +169,14 @@ export default [
   {
     files: ['src/components/ui/**/*.{ts,tsx}', 'src/lib/**/*.{ts,tsx}'],
     ignores: ['**/*.test.{ts,tsx}', '**/__tests__/**'],
-    plugins: { boundaries: { rules: { 'no-upward-imports': noUpwardImports } } },
+    plugins: { boundaries: boundariesPlugin },
     rules: { 'boundaries/no-upward-imports': 'error' },
+  },
+  {
+    // Moved features (F4) are imported from outside only through their index.ts. Tests included.
+    files: ['src/**/*.{ts,tsx}'],
+    plugins: { boundaries: boundariesPlugin },
+    rules: { 'boundaries/api-only-features': 'error' },
   },
   prettierConfig,
 ];

@@ -1,6 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useStatisticsFetch } from '@/hooks/useStatisticsFetch';
+import {
+  useStatisticsFetch,
+  statisticsService,
+  type StatisticsData,
+  type UserStatEntry,
+  type MessageStatsData,
+  type AIStatsData,
+  type LabelStatEntry,
+  type SpeedToLeadData,
+  type SLASummary,
+  StatisticsOverviewTab,
+  StatisticsTeamTab,
+  PerformanceTab,
+  DiagnosticsTab,
+  TokenUsageTab,
+} from '@/features/statistics';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { BarChart3, Users, Activity, RefreshCw, Cpu, Coins } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -17,12 +32,6 @@ import {
   type ReportPeriod,
 } from '@/lib/reportPeriod';
 import { cn } from '@/lib/utils';
-import { statisticsService, type StatisticsData, type UserStatEntry, type MessageStatsData, type AIStatsData, type LabelStatEntry, type SpeedToLeadData, type SLASummary } from '@/services/statistics.service';
-import { StatisticsOverviewTab } from '@/components/statistics/StatisticsOverviewTab';
-import { StatisticsTeamTab } from '@/components/statistics/StatisticsTeamTab';
-import { PerformanceTab } from '@/components/statistics/PerformanceTab';
-import { DiagnosticsTab } from '@/components/statistics/DiagnosticsTab';
-import { TokenUsageTab } from '@/components/statistics/TokenUsageTab';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { logger } from '@/lib/logger';
 

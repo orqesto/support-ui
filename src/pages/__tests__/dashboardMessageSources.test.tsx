@@ -34,7 +34,7 @@ vi.mock('@/services/message.service', () => ({
     getThreadBoard: () => Promise.resolve(null),
   },
 }));
-vi.mock('@/services/sla.service', () => ({
+vi.mock('@/features/statistics/services/sla.service', () => ({
   slaService: { getSummary: () => Promise.resolve(null) },
 }));
 vi.mock('@/services/ticket.service', () => ({

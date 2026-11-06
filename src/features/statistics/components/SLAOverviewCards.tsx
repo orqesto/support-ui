@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Clock, AlertCircle, CheckCircle2, TrendingUp, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { slaService } from '@/services/sla.service';
+import { slaService } from '@/features/statistics/services/sla.service';
 import { SLA_DEFAULT_DAYS } from './SLAByPriorityTable';
 import { periodKey, periodParams, type ReportPeriod } from '@/lib/reportPeriod';
 

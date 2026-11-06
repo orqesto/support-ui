@@ -15,7 +15,10 @@ import { Coins, Cpu, Layers, Hash } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
-import { statisticsService, type TokenUsageData } from '@/services/statistics.service';
+import {
+  statisticsService,
+  type TokenUsageData,
+} from '@/features/statistics/services/statistics.service';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { periodKey, type ReportPeriod } from '@/lib/reportPeriod';

@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
-import { StatisticsMessagesTab } from '@/components/statistics/StatisticsMessagesTab';
-import type { MessageStatsData } from '@/services/statistics.service';
+import { StatisticsMessagesTab } from '@/features/statistics/components/StatisticsMessagesTab';
+import type { MessageStatsData } from '@/features/statistics/services/statistics.service';
 
 /**
  * Two failure modes, both silent.
