@@ -21,7 +21,7 @@
  * - a real (non-mock) import in src/ does not resolve, so the graph may be missing edges;
  * - a smoke entry does not exist, git fails, or anything else throws (fail safe).
  *
- * The full suite still runs on every push to `staging`, nightly, on a PR into `main`, and before
+ * The full suite still runs on every push to `staging`, on a PR into `main`, and before
  * every production deploy (deploy-production.yml): the graph follows imports only.
  *
  * Writes the selected files, one per line, to --out (all test files in full mode). Prints the reason
@@ -244,7 +244,7 @@ export const selectTests = ({
     if (full)
       return {
         mode: 'full',
-        reason: 'full run requested (push to staging / nightly / release / manual)',
+        reason: 'full run requested (push to staging / release / manual)',
         selected: allTests,
         allTests,
       };

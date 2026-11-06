@@ -23,7 +23,7 @@ name: PR Checks (type-check + lint + tests)
 # F6 (owner 2026-11-06): a PR into `staging` runs only the tests its change can reach
 # (scripts/ci/select-tests.mjs: the import graph + changed tests + .ci/smoke-tests.txt + every
 # test that reads files from disk; a change in .ci/full-run-triggers.txt, a deleted/renamed file
-# or any doubt runs everything). The FULL suite runs on every push to `staging`, nightly, on any
+# or any doubt runs everything). The FULL suite runs on every push to `staging` (owner 2026-11-06: no nightly — it re-tested an unchanged branch), on any
 # PR into `main`, on a manual run, and before every production deploy (deploy-production.yml).
 
 on:
@@ -45,10 +45,6 @@ on:
       - "scripts/eslint/**"
       - ".ci/**"
       - ".github/workflows/pr-checks.yml"
-  schedule:
-    # 02:30 UTC nightly. Scheduled runs use the workflow file on the DEFAULT branch (`main`), so
-    # this starts after the next release; the checkout below tests `staging`, not `main`.
-    - cron: "30 2 * * *"
   workflow_dispatch:
   pull_request:
     paths:
@@ -87,8 +83,6 @@ jobs:
           # A PR checks out GitHub's merge commit; its first parent is the base tip, so depth 2 is
           # enough for the selector to diff exactly what the PR adds (HEAD^1...HEAD).
           fetch-depth: 2
-          # Nightly runs check out the default branch (`main`) unless told otherwise.
-          ref: ${{ github.event_name == 'schedule' && 'staging' || '' }}
 
       - name: Setup Node
         uses: actions/setup-node@v5
