@@ -29,6 +29,9 @@ on:
       - "tsconfig*.json"
       - "eslint.config.js"
       - "vitest.config.ts"
+      - "scripts/ci/**"
+      - "scripts/eslint/**"
+      - ".ci/**"
       - ".github/workflows/pr-checks.yml"
 
 concurrency:
@@ -60,6 +63,15 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      # Module-boundary and import-cycle ratchets (scripts/ci/check-*.mjs): fail when an area pair,
+      # an upward import or a cycle group grows past .ci/baselines/, printing file:line of each
+      # offending import. A drop passes; lock it in with `npm run check:boundaries -- --update`.
+      - name: Import boundaries
+        run: npm run check:boundaries
+
+      - name: Import cycles
+        run: npm run check:cycles
 
       - name: Test
         run: npm test

@@ -5,6 +5,7 @@ import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import jsxA11yPlugin from 'eslint-plugin-jsx-a11y';
 import importPlugin from 'eslint-plugin-import';
 import prettierConfig from 'eslint-config-prettier';
+import noUpwardImports from './scripts/eslint/no-upward-imports.js';
 
 export default [
   eslint.configs.recommended,
@@ -155,6 +156,27 @@ export default [
       '@typescript-eslint/no-unsafe-return': 'off',
       '@typescript-eslint/no-unsafe-argument': 'off',
     },
+  },
+  // Module boundaries (modularity task F1): the design system and lib never import a component,
+  // page or feature. scripts/ci/check-boundaries.mjs counts the same imports for every lower layer
+  // and holds them to .ci/baselines/boundaries.json; this makes any NEW one in ui/ or lib/ an error.
+  {
+    files: ['src/components/ui/**/*.{ts,tsx}', 'src/lib/**/*.{ts,tsx}'],
+    ignores: ['**/*.test.{ts,tsx}', '**/__tests__/**'],
+    plugins: { boundaries: { rules: { 'no-upward-imports': noUpwardImports } } },
+    rules: { 'boundaries/no-upward-imports': 'error' },
+  },
+  // The upward imports that existed when the rule came in. Task F2 removes them (move the shared
+  // piece down) and then deletes this block; the ratchet baseline already stops each of these
+  // files from gaining another one. Do not add files here.
+  {
+    files: [
+      'src/components/ui/DateRangePicker/dateRangeValue.ts',
+      'src/lib/api-client.ts',
+      'src/lib/importRange.ts',
+      'src/lib/reportPeriod.ts',
+    ],
+    rules: { 'boundaries/no-upward-imports': 'off' },
   },
   prettierConfig,
 ];
