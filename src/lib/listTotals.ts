@@ -28,9 +28,10 @@ export const counterTotal = (pagination: TotalMeta | undefined): Count | undefin
 };
 
 /**
- * How many rows a list scope says are hidden, as far as it is worth saying: a searching scope the
- * backend counted to its cap (`capped`) holds lower bounds only, so "N hidden" and "24 of 550"
- * would be invented arithmetic — 0, and the hidden-rows notices stay silent.
+ * How many rows a list scope says are hidden, as an EXACT number: a searching scope the backend
+ * counted to its cap (`capped`) holds lower bounds only, so sentences built on an exact figure
+ * (the empty list's "N are outside this view", the search notice's "found N in other views") get
+ * 0 and stay silent. ListScopeNotice reads `capped` itself and shows those as "N+".
  */
 export const hiddenKnown = (
   scope: { hidden: number; capped?: boolean } | null | undefined
