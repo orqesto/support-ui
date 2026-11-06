@@ -1,58 +1,13 @@
 import { logger } from '@/lib/logger';
 import { aiService } from '@/services/ai.service';
-import { subscriptionService } from '@/services/subscription.service';
-import type { AiUnavailableReason, StarterAllowance } from './starterAllowance';
+import {
+  subscriptionService,
+  type AiPauseReason,
+  type AiStatus,
+} from '@/services/subscription.service';
 
-/** Why the API says AI is stopped (`/api/usage/current` → `ai.reason`). */
-export type AiPauseReason =
-  | 'not_in_plan'
-  | 'server_ceiling'
-  | 'budget_used'
-  | 'bulk_share_used'
-  | 'workspace_bulk_limit'
-  /** Free on our key, its one-time starter allowance used up (starterAllowance.ts). */
-  | 'free_allowance_used';
-
-/** `ai` block of `GET /api/usage/current`. Optional on the wire: an older backend sends none. */
-export type AiStatus = {
-  currency: 'USD';
-  /** The money budgets are switched on; false ⇒ the figures are null. */
-  active: boolean;
-  usedMicros: number | null;
-  budgetMicros: number | null;
-  /** Live AI is stopped. */
-  paused: boolean;
-  /**
-   * Only history import / KB building are stopped: the bulk share is used, the plan has no AI on
-   * our key, or `kbPaused`. Since BE #1112 a used-up LIVE allowance no longer sets it.
-   */
-  bulkPaused: boolean;
-  reason: AiPauseReason | null;
-  /** The reason as a sentence, from the API. */
-  message: string | null;
-  resetsAt: string | null;
-  /**
-   * Free only (also on its own key): the one-time starter allowance. Parsed by
-   * `parseStarterAllowance` in the service (null, absent or malformed ⇒ undefined).
-   */
-  starterAllowance?: StarterAllowance;
-  /**
-   * Free on our AI: the one-time knowledge-base / history-import allowance (BE #1112). Parsed by
-   * `parseKbStarterAllowance` in the service (null, absent or malformed ⇒ undefined).
-   */
-  kbStarterAllowance?: StarterAllowance;
-  /** The KB allowance is used up on our key; live mail still runs (never sets `paused`). */
-  kbPaused?: boolean;
-  /** The server's sentence for kbPaused (English; admins read it). */
-  kbMessage?: string | null;
-  /** A Free workspace with no AI at all, and why (both allowances are then absent). */
-  unavailableReason?: AiUnavailableReason;
-  /**
-   * Free: whether the allowances are drawn on now (on our key). Absent (older backend, not Free,
-   * not a boolean) ⇒ the provider settings decide, as before.
-   */
-  starterOnOurKey?: boolean;
-};
+// Moved to `@/services/subscription.service` (modularity task F2); re-exported for existing importers.
+export type { AiPauseReason, AiStatus };
 
 /** The `ai` block of /api/usage/current; undefined when the call fails or the backend sends none. */
 export const loadAiStatus = async (): Promise<AiStatus | undefined> => {

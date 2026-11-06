@@ -1,4 +1,4 @@
-import type { DateRangeValue } from '@/components/ui/DateRangePicker';
+import type { DateRangeValue } from '@/lib/dateRangeValue';
 
 /**
  * A mailbox's first-sync range as stored (`gmail.*` / `email.*`): `bulkImportDays` (0 = all

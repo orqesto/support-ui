@@ -1,5 +1,5 @@
-import type { WhatsAppWindow } from '@/components/messages/whatsappWindowState';
-import type { ReplyBlock } from '@/components/messages/replyBlockState';
+import type { WhatsAppWindow } from '@/lib/whatsappWindowState';
+import type { ReplyBlock } from '@/lib/replyBlockState';
 import type { GlobalRole, OrganizationRole, AllianceRole, PermissionOverrides } from './roles';
 
 export type Department = {

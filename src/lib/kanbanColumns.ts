@@ -1,0 +1,266 @@
+import {
+  Inbox,
+  PlayCircle,
+  Hourglass,
+  PauseCircle,
+  CheckCircle2,
+  HelpCircle,
+  Ban,
+  Archive,
+  FileQuestion,
+} from 'lucide-react';
+
+// Two orthogonal axes (see .planning/status-model-rework-2026-07-09.md):
+//   - lifecycle: the work board (Open → In Progress → Pending → On-hold → Resolved)
+//   - triage:    pre-lifecycle classification (Not Analysed · Needs Routing · Suspicious · Spam)
+// Rendered on separate tabs. This ONE tagged model + declarative VALID_TARGETS keeps
+// A (tabs) vs B (one board + divider) a view-layer flag — no data/DnD rewrite to switch.
+export type ColumnAxis = 'lifecycle' | 'triage';
+
+export type KanbanColumnDef = {
+  id: string;
+  axis: ColumnAxis;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  fixedFilters: Record<string, string>;
+  accentColor: string;
+  iconClass: string;
+  emptyText: string;
+};
+
+export const COLUMNS: KanbanColumnDef[] = [
+  // --- Lifecycle axis (the work board) ---
+  {
+    id: 'open',
+    axis: 'lifecycle',
+    label: 'Open',
+    icon: Inbox,
+    // lifecycle='open' = unreviewed + client-replied (needs our action). It used to carry
+    // excludeSuspicious to keep suspicious-but-open messages off the work board; #756 made
+    // suspicion a MARK, so those threads belong in this lane wearing a Suspicious badge.
+    fixedFilters: { lifecycle: 'open' },
+    accentColor: '#3b82f6',
+    iconClass: 'text-muted-foreground',
+    emptyText: 'No open threads',
+  },
+  {
+    id: 'in_progress',
+    axis: 'lifecycle',
+    label: 'In Progress',
+    icon: PlayCircle,
+    fixedFilters: { lifecycle: 'in_progress' },
+    accentColor: '#8b5cf6',
+    iconClass: 'text-muted-foreground',
+    emptyText: 'Nothing in progress',
+  },
+  {
+    id: 'awaiting',
+    axis: 'lifecycle',
+    label: 'Pending',
+    icon: Hourglass,
+    // "Pending" = awaiting the customer's response (BE lifecycle='awaiting').
+    fixedFilters: { lifecycle: 'awaiting' },
+    accentColor: '#f97316',
+    iconClass: 'text-warning',
+    emptyText: 'Nothing awaiting the customer',
+  },
+  {
+    id: 'on_hold',
+    axis: 'lifecycle',
+    label: 'On-hold',
+    icon: PauseCircle,
+    // "On-hold" = parked overlay (BE lifecycle='pending' → parked_at IS NOT NULL).
+    fixedFilters: { lifecycle: 'pending' },
+    accentColor: '#f59e0b',
+    iconClass: 'text-warning',
+    emptyText: 'Nothing on hold',
+  },
+  {
+    id: 'resolved',
+    axis: 'lifecycle',
+    label: 'Resolved',
+    icon: CheckCircle2,
+    // lifecycle='resolved' returns resolved + closed (single terminal state).
+    fixedFilters: { lifecycle: 'resolved' },
+    accentColor: '#10b981',
+    iconClass: 'text-success',
+    emptyText: 'No resolved threads',
+  },
+  // --- Triage axis (pre-lifecycle classification) ---
+  {
+    id: 'not_analysed',
+    axis: 'triage',
+    label: 'Not Analysed',
+    icon: HelpCircle,
+    fixedFilters: { view: 'not_analysed' },
+    accentColor: '#6b7280',
+    iconClass: 'text-muted-foreground',
+    emptyText: 'No unanalysed threads',
+  },
+  // Needs Routing intentionally NOT a Triage column. `needs_routing` is a MARK on an
+  // ordinary thread, not a lane: the thread sits in Open / In Progress / Pending with a
+  // routing badge (see `routingMark.test.ts`), the sidebar badge and NeedsRoutingPage count
+  // the same rows, and the department picker's "Needs routing" entry narrows THIS board to
+  // them (`kanbanSharedFilters.ts` → `queue=needs_routing`). A dedicated column would show
+  // the same cards a second time under a lane they are not in.
+  // Suspicious is NOT a column either, for the same reason and since 2026-09-18. It is a
+  // VERDICT MARK on an ordinary thread: the thread sits in Open / In Progress / Awaiting and
+  // carries a Suspicious badge (`getSuspicionBadge`, fed by the backend's `isSuspicious`,
+  // which is the very predicate the Suspicious chip claims rows by). It used to have a
+  // collapsed column AND `excludeSuspicious` pinned into those three work columns, so the
+  // thread appeared in neither place anyone was looking. The chip in the filter bar is how
+  // you ask to see them alone.
+  // ⛔ SPAM IS DIFFERENT and keeps its column: 37 spam against 6 suspicious on the measured
+  // workspace, so inlining spam would bury the work this board exists to show.
+  {
+    id: 'archived',
+    axis: 'triage',
+    label: 'Archived',
+    icon: Archive,
+    // Transactional notification noise (Google alerts, delivery receipts, reports)
+    // that not_analysed hides. Visible here so a mis-classified real inbound request
+    // can be found & rescued. Orphan-outgoing (own sent mail) is NOT here — see BE.
+    fixedFilters: { view: 'archived' },
+    accentColor: '#64748b',
+    iconClass: 'text-muted-foreground',
+    emptyText: 'Nothing archived',
+  },
+  {
+    id: 'spam',
+    axis: 'triage',
+    label: 'Spam',
+    icon: Ban,
+    fixedFilters: { showSpam: 'true' },
+    accentColor: '#ef4444',
+    iconClass: 'text-destructive',
+    emptyText: 'No spam threads',
+  },
+  {
+    /**
+     * The lane for everything the other nine refuse — so the board hides nothing.
+     *
+     * ⛔ Its filter is a COMPLEMENT (`queue=no_lane` → `NOT (union of the nine)`), never a
+     * list of classifications. Every attempt to enumerate these rows has gone stale within
+     * weeks, because they have no shared property: they are defined by the other predicates
+     * declining them. Two classes are known and they arrived a month apart — own sent mail
+     * with no inbound parent, and KB-sourced mail in the `filtered` state, which all four
+     * triage lanes refuse via `notKb`.
+     *
+     * Before this column the board COUNTED them and offered no way to open them: 114 rows
+     * on TraumaTeam, of which 111 were claimed by a "1,322 from the knowledge base" chip
+     * whose own lens returned zero. Measured on the client deploy 2026-09-14.
+     *
+     * ⚠️ It can be large and it is mostly not work: 1,267 outbound echoes on one production
+     * workspace. That is the argued trade, made deliberately: a noisy lane beats a
+     * conversation the product knows about and will not show. It is VISIBLE by default —
+     * a lane nobody opens hides the rows again by another route.
+     *
+     * ⛔ Not draggable and not a drop target. These rows have no classification to move
+     * between; the action is to open one and let it acquire a real state.
+     *
+     * ⛔ `view`, NOT `queue`, and the two are not interchangeable here. The board merges
+     * `{...sharedFilters, ...fixedFilters}`, and the department picker's "Needs routing"
+     * sentinel puts `queue=needs_routing` into the SHARED half (`kanbanSharedFilters.ts`).
+     * A `queue` spelling here would overwrite it and leave this column showing every
+     * lane-less row in the org while the other nine narrowed — a filter that visibly does
+     * nothing on one column, which is the defect that file's comment was written to fix.
+     * On `view` it composes, exactly as Archived / Not Analysed / Spam do. The backend
+     * accepts both spellings and compiles them to one predicate.
+     */
+    id: 'no_lane',
+    axis: 'triage',
+    label: 'Other',
+    icon: FileQuestion,
+    fixedFilters: { view: 'no_lane' },
+    accentColor: '#94a3b8',
+    iconClass: 'text-faint-foreground',
+    emptyText: 'Every thread has a lane',
+  },
+];
+
+// Badge shown on a kanban card = its COLUMN's lifecycle state, not the raw DB
+// status. The columns are derived lifecycle buckets that legitimately cross raw
+// statuses (e.g. an `in_progress` thread we replied to lands in Pending), so a
+// raw-status badge contradicts the column it sits in. Keyed by column id; only
+// lifecycle columns have one — triage columns (not_analysed/suspicious/archived/
+// spam) show their signal badges instead, so they map to nothing here.
+export const LIFECYCLE_COLUMN_BADGE: Record<string, { label: string; className: string }> = {
+  open: { label: 'Open', className: 'bg-muted text-muted-foreground' },
+  in_progress: { label: 'In Progress', className: 'bg-muted text-muted-foreground' },
+  awaiting: { label: 'Pending', className: 'bg-warning/15 text-warning' },
+  on_hold: { label: 'On-hold', className: 'bg-warning/15 text-warning' },
+  resolved: { label: 'Resolved', className: 'bg-success/15 text-success' },
+};
+
+// Triage/queue columns where the shared org-wide read/unread indicator applies. The
+// lifecycle columns (open…resolved) already convey "handled" via workflow status,
+// so read/unread is only meaningful for these review piles.
+// ⛔ `no_lane` is absent DELIBERATELY, not by oversight. The read/unread indicator marks a
+// pile an agent is working through, and this set must agree with `countsTowardTriageBadge`
+// in `MessagesKanbanView`: a column withheld from the unread BADGE while its cards advertise
+// unread state tells the agent two different things about the same rows. The Other lane is
+// coverage, not a queue — mostly our own outbound echoes — so both say the same thing here.
+// ⛔ `suspicious` STAYS in this set even though no column carries that id any more (#756
+// made suspicion a mark). This set is keyed by TWO spaces, not one: `readAppliesTo` in
+// `filters/filterSchema.ts` tests it against `filters.queue` / `filters.columnId`, and
+// `queue='suspicious'` is live — it is what the Suspicious chip and the arrival notice jump
+// to. Removing the string here would hide the read/unread control on exactly that lens,
+// which is the defect the comment in `filterSchema.ts` was written to fix. It is the
+// COLUMN-keyed sets below that no longer need it.
+/**
+ * ⛔ THE TWO SPAM HALVES BELONG HERE TOO. This set decides where the read/unread control and
+ * the unread dot appear, and `spam_unconfirmed` is the lens an agent actually works — leaving
+ * it out would hide the control on exactly the queue it is for, which is the defect
+ * `readAppliesTo` was already fixed for once when the quick chips set `columnId` and zeroed
+ * `queue`. The halves partition `spam`, so anything true of spam here is true of both.
+ */
+export const TRIAGE_READ_COLUMN_IDS = new Set([
+  'suspicious',
+  'not_analysed',
+  'archived',
+  'spam',
+  'spam_unconfirmed',
+  'spam_confirmed',
+]);
+
+// Special drop target on the Triage tab: approve a triaged message → it leaves triage
+// and enters the lifecycle at "Open". Not a column (the lifecycle board is another tab).
+export const APPROVE_TARGET = 'approve_inbox';
+
+// Cards that can be dragged (drag sources).
+export const DRAGGABLE_COLS = new Set(['resolved', 'not_analysed', 'spam', 'archived']);
+// Columns that can receive a drop (drop targets). APPROVE_TARGET is handled separately.
+export const DROPPABLE_COLS = new Set(['open', 'spam']);
+
+// Valid drop targets per source column (+ APPROVE_TARGET). Cross-axis transitions
+// (approve) only happen on the Triage tab via the APPROVE_TARGET zone; lifecycle-tab
+// drag is limited to reopen (resolved → open).
+export const VALID_TARGETS: Record<string, Set<string>> = {
+  resolved: new Set(['open']), // reopen
+  not_analysed: new Set(['spam', APPROVE_TARGET]),
+  spam: new Set([APPROVE_TARGET]), // approve = "not spam"
+  archived: new Set(['spam', APPROVE_TARGET]), // rescue a mis-archived real request, or hard-classify as spam
+};
+
+export type DndAction = 'approve' | 'move_to_spam' | 'reopen';
+
+/**
+ * A drag onto Spam is an agent's decision, so it records CONFIRMED spam (owner, 2026-09-22:
+ * what our filters bin is unconfirmed; a person moving it there confirms it).
+ */
+export const dndConfirmsSpam = (action: DndAction): boolean => action === 'move_to_spam';
+
+export function getDndAction(from: string, to: string): DndAction | null {
+  if (from === 'resolved' && to === 'open') return 'reopen';
+  if (
+    to === APPROVE_TARGET &&
+    (from === 'not_analysed' || from === 'spam' || from === 'archived')
+  )
+    return 'approve';
+  if (
+    to === 'spam' &&
+    (from === 'not_analysed' || from === 'archived')
+  )
+    return 'move_to_spam';
+  return null;
+}

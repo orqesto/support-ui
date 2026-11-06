@@ -1,4 +1,4 @@
-import { renderValue } from './customApiRowFields';
+import { renderValue } from './customApiValue';
 import {
   CATEGORY_RECORD_LABELS,
   type CustomApiCategory,

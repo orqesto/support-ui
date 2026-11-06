@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { KB_FILTER_STATUSES, type KbFilterStatus } from '@/components/kb/KbStatusFilter';
+import { KB_FILTER_STATUSES, type KbFilterStatus } from '@/lib/kbFilterStatus';
 
 /**
  * The Knowledge Base status filter, kept in `?status=` as its single source of truth, so a link,

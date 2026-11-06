@@ -1,5 +1,5 @@
-import { COLUMNS } from '@/components/messages/kanbanColumns';
-import { readAppliesTo } from '@/components/messages/filters/filterSchema';
+import { COLUMNS } from '@/lib/kanbanColumns';
+import { readAppliesTo } from '@/lib/triageRead';
 import { searchIsTheOnlyFilter } from '@/hooks/searchIsTheOnlyFilter';
 import type { FilterState } from '@/stores/messagesStore';
 import { assigneeApiParams } from './assigneeApiParams';

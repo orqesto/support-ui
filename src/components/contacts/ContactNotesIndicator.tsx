@@ -2,16 +2,10 @@ import { StickyNote } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { formatDate } from '@/lib/utils';
+import type { LatestNotePreview } from '@/services/contact.service';
 
-/** The newest note as a list row or a loaded profile carries it. */
-export type LatestNotePreview = {
-  content: string;
-  /** The server cut the note for the preview. */
-  truncated?: boolean;
-  createdAt: string;
-  authorFirstName: string | null;
-  authorLastName: string | null;
-};
+// Moved to `@/services/contact.service` (modularity task F2); re-exported for existing importers.
+export type { LatestNotePreview };
 
 /** Longest preview shown on hover, whatever the source sends (a loaded profile sends whole notes). */
 export const NOTE_PREVIEW_CHARS = 280;

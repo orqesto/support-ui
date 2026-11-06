@@ -1,4 +1,5 @@
 import type { Integration } from '@/services/integrations.service';
+import type { AlertState } from '@/types/alert';
 
 export type IntegrationCardProps = {
   integrations: Integration[];
@@ -7,12 +8,8 @@ export type IntegrationCardProps = {
   defaultKB?: boolean; // when set, card shows only that KB mode and seeds the form accordingly
 };
 
-export type AlertState = {
-  open: boolean;
-  title: string;
-  description: string;
-  variant: 'success' | 'error' | 'warning' | 'info';
-};
+// Moved to `@/types/alert` (modularity task F2): a hook names it too.
+export type { AlertState };
 
 export type DeleteConfirmState = {
   id: number;

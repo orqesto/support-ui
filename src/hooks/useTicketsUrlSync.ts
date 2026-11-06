@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ticketService } from '@/services/ticket.service';
-import { filtersFromParams, filtersToParams } from '@/components/tickets/list/ticketFilters';
-import { DEFAULT_VIEW_FILTERS, filtersOfView } from '@/components/tickets/list/ticketViews';
+import { filtersFromParams, filtersToParams } from '@/lib/ticketFilters';
+import { DEFAULT_VIEW_FILTERS, filtersOfView } from '@/lib/ticketViews';
 import { useTicketsStore, defaultFilters } from '@/stores/ticketsStore';
 import type { Ticket } from '@/types';
 import { logger } from '@/lib/logger';

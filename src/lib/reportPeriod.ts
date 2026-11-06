@@ -3,7 +3,7 @@ import {
   spanDays,
   type DateRangePreset,
   type DateRangeValue,
-} from '@/components/ui/DateRangePicker';
+} from '@/lib/dateRangeValue';
 
 /**
  * A report's window: the last `days`, or a custom range of the user's local days (`fromDay`,

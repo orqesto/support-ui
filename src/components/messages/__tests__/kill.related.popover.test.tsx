@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 const phone = vi.hoisted(() => ({ value: false }));
-vi.mock('../useIsPhone', () => ({ useIsPhone: () => phone.value }));
+vi.mock('@/hooks/useIsPhone', () => ({ useIsPhone: () => phone.value }));
 
 import { RelatedPopover, popoverShift } from '../RelatedPopover';
 

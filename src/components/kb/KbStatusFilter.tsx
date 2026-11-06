@@ -1,19 +1,9 @@
 import { Button } from '@/components/ui/Button';
-import type { KbListStatus } from '@/services/kb.service';
+import { KB_FILTER_STATUSES, type KbFilterStatus } from '@/lib/kbFilterStatus';
 
-export type KbFilterStatus = 'all' | KbListStatus;
-export const KB_FILTER_STATUSES: readonly KbFilterStatus[] = [
-  'needs_decision',
-  'suggested_change',
-  'set_aside',
-  'auto_removed',
-  'auto_changed',
-  'approved',
-  'pending',
-  'hidden',
-  'rejected',
-  'all',
-];
+// Moved to `@/lib/kbFilterStatus` (modularity task F2); re-exported for existing importers.
+export { KB_FILTER_STATUSES, type KbFilterStatus };
+
 /**
  * What the page calls each status — the agent words (KB engine §8). Anything naming a status on
  * this page uses these. The URL values (the keys) stay as they are: old links and the API use them.

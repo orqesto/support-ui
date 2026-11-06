@@ -38,3 +38,25 @@ export const VAT_NOTE = 'excl. VAT';
  */
 export const formatMoneyExVat = (amountInMinorUnits: number, currency: string): string =>
   `${formatMoney(amountInMinorUnits, currency)} ${VAT_NOTE}`;
+
+/** Micro-dollars in one dollar. */
+export const MICROS_PER_USD = 1_000_000;
+
+/**
+ * Money from micro-dollars: "≈ $12.40" (2 decimals). A positive amount under one cent is
+ * "<$0.01" (under half a cent), never "≈ $0.00" (it was spent). Thousands are grouped: "≈ $1,234.50".
+ * Kept by design (M7): always en-US, whatever the browser locale — the amount is US dollars and a
+ * "$1.234,50" would misread. The server's texts drop "≈"; this adds it.
+ */
+export const fmtMoney = (micros: number): string => {
+  // Same rule as the backend: under half a cent (and above nothing) is "<$0.01"; a tiny negative
+  // is "$0.00", never "-$0.00".
+  if (micros > 0 && micros < 5_000) return '<$0.01';
+  const dollars = micros / MICROS_PER_USD;
+  const text = Math.abs(dollars).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const negative = dollars < 0 && text !== '0.00';
+  return `≈ ${negative ? '-' : ''}$${text}`;
+};

@@ -15,7 +15,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useScopeStore } from '@/stores/scopeStore';
 import { useDepartmentContextStore } from '@/stores/departmentContextStore';
 import { useSubscriptionGateStore } from '@/stores/subscriptionGateStore';
-import { AI_REFUSAL_CODES } from '@/components/subscription/starterAllowance';
+import { AI_REFUSAL_CODES } from '@/lib/starterAllowance';
 import { isDatabasePauseCode, useDatabaseStatusStore } from '@/stores/databaseStatusStore';
 
 /** 402 codes that are a step-level or AI refusal, never the app-wide subscription gate. */

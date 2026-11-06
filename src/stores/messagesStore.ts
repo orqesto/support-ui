@@ -8,7 +8,7 @@ import {
 } from '@/stores/workspaceScopedStorage';
 // Value import, but not a cycle: filterSchema's reference back to this module is
 // `import type` and erases at build time.
-import { scopeReadToTriage } from '@/components/messages/filters/filterSchema';
+import { scopeReadToTriage } from '@/lib/triageRead';
 import type {
   PaginationMeta,
   MessageThread,

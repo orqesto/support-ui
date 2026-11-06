@@ -1,4 +1,4 @@
-import type { FieldSource, ResolvedField } from '@/services/platformSettings.service';
+import type { FieldSource, ResolvedField } from '@/services/resolvedField';
 
 /**
  * The seven routing-proposal platform settings (spec 2026-10-14 §5). Keys, defaults and ranges

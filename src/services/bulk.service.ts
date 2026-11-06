@@ -6,11 +6,7 @@
  * line cap. Adding two more would be exactly the silent ignoring that note asks for. This is
  * the first of those domain files: thread actions over a SELECTION.
  */
-import type {
-  BulkAction,
-  BulkPreview,
-  BulkResult,
-} from '@/components/messages/bulk/bulkActions';
+import type { BulkAction, BulkPreview, BulkResult } from '@/lib/bulkActions';
 import { apiClient } from '@/lib/api-client';
 import type { ApiResponse } from '@/types';
 

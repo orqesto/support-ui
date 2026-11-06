@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
 
 vi.mock('@/lib/socketManager', () => ({ forceDisconnect: vi.fn() }));
-vi.mock('@/components/messages/similarResultsCache', () => ({
+vi.mock('@/lib/similarResultsCache', () => ({
   similarResultsCache: { clear: vi.fn() },
 }));
 vi.mock('@/stores/processingPanelStore', () => ({ logoutClearsProcessingPanels: vi.fn() }));

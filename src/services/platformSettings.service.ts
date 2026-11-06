@@ -36,9 +36,11 @@ export type {
   SecretStatus,
   SecretVerification,
 } from './platformSecrets';
+import type { FieldSource, ResolvedField } from './resolvedField';
 
-export type FieldSource = 'db' | 'env' | 'default';
-export type ResolvedField<T> = { value: T | null; source: FieldSource };
+// FieldSource and ResolvedField live in `./resolvedField` (modularity task F2): routingSettings
+// uses them and this file imports routingSettings. Re-exported for existing importers.
+export type { FieldSource, ResolvedField };
 /** Storage fields resolve through the same three layers as the AI fields. */
 export type StorageFieldSource = FieldSource;
 export type ResolvedStorageField<T> = ResolvedField<T>;
