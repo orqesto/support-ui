@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ConfigCardState } from '@/components/ui/ConfigCard';
+import type { ConfigCardState } from '@/types/configCard';
 
 /**
  * Which of the three states a configuration card is showing.

@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import { endOfDayIso, startOfDayIso } from '@/components/messages/filters/receivedRange';
+import { endOfDayIso, startOfDayIso } from '@/lib/receivedRange';
 
 export type AuditLog = {
   id: number;

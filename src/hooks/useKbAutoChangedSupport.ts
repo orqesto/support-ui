@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { KbFilterStatus } from '@/components/kb/KbStatusFilter';
+import type { KbFilterStatus } from '@/lib/kbFilterStatus';
 import { useAuthStore } from '@/stores/authStore';
 
 /**

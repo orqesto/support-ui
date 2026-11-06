@@ -6,7 +6,7 @@ import {
   parseUnavailableReason,
   type AiUnavailableReason,
   type StarterAllowance,
-} from '@/components/subscription/starterAllowance';
+} from '@/lib/starterAllowance';
 
 /*
  * The AI budgets API (budgets follow the billing period). The types below are copied VERBATIM from the backend contract

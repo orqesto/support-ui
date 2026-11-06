@@ -1,35 +1,11 @@
 {
   "groups": [
     [
-      "src/components/budget/budget.rules.ts",
-      "src/components/messages/AiTabPanel.tsx",
-      "src/components/messages/similarResultsCache.ts",
-      "src/components/modals/SimilarMessagesDialog.tsx",
-      "src/components/subscription/starterAllowance.ts",
-      "src/components/subscription/useAiRefusalText.ts",
-      "src/hooks/useAiConfigured.ts",
-      "src/hooks/useAiDraftsOff.ts",
-      "src/hooks/useTranslation.ts",
       "src/lib/api-client.ts",
       "src/lib/scopedLookup.ts",
       "src/lib/socketManager.ts",
-      "src/services/ai.service.ts",
-      "src/services/budgets.service.ts",
-      "src/services/message.service.ts",
-      "src/services/organization.service.ts",
-      "src/services/threadsQuery.ts",
       "src/stores/authStore.ts",
       "src/stores/departmentContextStore.ts"
-    ],
-    [
-      "src/components/messages/CustomApiRecordInsert.tsx",
-      "src/components/messages/customApiRecordNote.ts",
-      "src/components/messages/customApiRowFields.tsx"
-    ],
-    ["src/components/messages/filters/filterSchema.ts", "src/stores/messagesStore.ts"],
-    ["src/components/subscription/aiStatus.ts", "src/services/subscription.service.ts"],
-    ["src/services/integrations.service.ts", "src/services/mailboxCountApi.ts"],
-    ["src/services/platform.service.ts", "src/services/systemStatus.ts"],
-    ["src/services/platformSettings.service.ts", "src/services/routingSettings.ts"]
+    ]
   ]
 }

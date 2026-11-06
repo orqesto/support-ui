@@ -1,6 +1,5 @@
 import { apiClient } from '@/lib/api-client';
 import type { ApiResponse } from '@/types';
-import type { LatestNotePreview } from '@/components/contacts/ContactNotesIndicator';
 // Domain shapes are generated from the backend zod contract (../BE-service/openapi.json).
 // Imported for local use (ContactListResponse) and re-exported for existing call sites.
 import type {
@@ -14,6 +13,16 @@ import type {
   ContactProfile,
   ContactListItem,
 } from '@/types/api';
+
+/** The newest note as a list row or a loaded profile carries it. */
+export type LatestNotePreview = {
+  content: string;
+  /** The server cut the note for the preview. */
+  truncated?: boolean;
+  createdAt: string;
+  authorFirstName: string | null;
+  authorLastName: string | null;
+};
 
 export type {
   ContactNote,

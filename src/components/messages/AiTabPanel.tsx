@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react';
-import { similarResultsCache } from './similarResultsCache';
+import { similarResultsCache } from '@/lib/similarResultsCache';
 import { BookOpen, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { Message } from '@/types';
+import type {
+  ChunkReference,
+  KBAttachment,
+  KBReference,
+  SimilarResult,
+} from '@/types/similarResult';
 import { getSpamCheck, humanizeSignalFlag, spamClassLabel } from '@/lib/messageHelpers';
 import { SIMILAR_RESULTS_LIMIT, SIMILAR_RESULTS_MIN_SIMILARITY } from '@/lib/constants';
 import { messageService } from '@/services/message.service';
@@ -18,6 +24,9 @@ import { stripGreetingName } from '@/lib/depersonalise';
 import { priorityLabel } from './messageDetailConstants';
 import { AnalysisDegradedHint, analysisInfoValue } from './AnalysisDegradedHint';
 import { useIsWorkspaceAdmin } from '@/components/subscription/useAiRefusalText';
+
+// Moved to `@/types/similarResult` (modularity task F2); re-exported for existing importers.
+export type { KBAttachment, SimilarResult };
 
 type Analysis = {
   isTicketWorthy?: boolean;
@@ -41,14 +50,6 @@ type KBSourceRef = {
   parentDocId?: number;
 };
 
-export type KBAttachment = {
-  id: number;
-  filename: string;
-  originalFilename: string;
-  url: string;
-  mimeType: string;
-};
-
 type SuggestedAnswer = {
   answer: string;
   confidence?: number;
@@ -69,25 +70,8 @@ type SuggestedAnswer = {
 
 type AutoReply = { sent?: boolean };
 
-type KBReference = { documentationId: number; documentTitle: string; similarity: number };
-
-type ChunkReference = { chunkId: number; chunkIndex: number; metadata: unknown };
 const isKBReference = (ref: KBReference | ChunkReference): ref is KBReference =>
   'documentationId' in ref;
-
-export type SimilarResult = {
-  messageId?: number;
-  documentationId?: number;
-  directReply: string;
-  similarity: number;
-  source: 'documentation' | 'message';
-  documentTitle?: string;
-  content?: string;
-  subject?: string | null;
-  sender?: string;
-  references?: KBReference[] | ChunkReference[];
-  attachments?: KBAttachment[];
-};
 
 /**
  * The bare address from a `Name <addr@host>` sender string, for attributing a past reply

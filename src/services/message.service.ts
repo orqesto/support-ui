@@ -10,7 +10,7 @@ import {
   receivedAtFailure,
   type ReceivedAtOption,
 } from './receivedAtOption';
-import type { LatestNotePreview } from '@/components/contacts/ContactNotesIndicator';
+import type { LatestNotePreview } from '@/services/contact.service';
 import { fetchThreadBoard, fetchThreads, type ThreadBoardRequest } from './threadsQuery';
 import {
   normaliseThreadNewEvents,
@@ -80,7 +80,7 @@ export type ReceivedAddresses = {
   coverage: AddressCoverage;
 };
 
-import type { WhatsAppTemplate } from '@/components/messages/whatsappTemplates';
+import type { WhatsAppTemplate } from '@/lib/whatsappTemplates';
 import type { MessageListItem, MessageDetail } from '@/types/api';
 import { postOrGet } from '@/services/searchPost';
 

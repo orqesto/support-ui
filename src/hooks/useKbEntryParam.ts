@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import type { KbFilterStatus } from '@/components/kb/KbStatusFilter';
+import type { KbFilterStatus } from '@/lib/kbFilterStatus';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { useSharedLinkWorkspace } from '@/hooks/useSharedLinkWorkspace';
 import { logger } from '@/lib/logger';

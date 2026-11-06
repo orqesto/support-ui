@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { buildRecordNote, defaultSelection, offerableFields } from './customApiRecordNote';
-import { renderValue } from './customApiRowFields';
+import { renderValue } from './customApiValue';
 import type { CustomApiCategory } from '@/components/settings/customApi/categories';
 import type { AddOutcome } from './recordInsertOutcome';
 import type { LookupField } from '@/services/customApiLookup.service';

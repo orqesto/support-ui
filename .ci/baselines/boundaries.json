@@ -1,6 +1,6 @@
 {
   "featureToFeature": {
-    "total": 130,
+    "total": 129,
     "pairs": {
       "components/billing -> components/onboarding": 1,
       "components/console -> components/budget": 2,
@@ -39,41 +39,13 @@
       "components/shared -> components/subscription": 1,
       "components/spam -> components/admin": 2,
       "components/statistics -> components/sla": 5,
-      "components/subscription -> components/budget": 1,
       "components/tickets -> components/admin": 1,
       "components/tickets -> components/list": 3,
       "components/tickets -> components/messages": 5
     }
   },
   "upward": {
-    "total": 30,
-    "files": {
-      "src/components/ui/DateRangePicker/dateRangeValue.ts -> components/messages": 1,
-      "src/hooks/threadApiFilters.ts -> components/messages": 2,
-      "src/hooks/useConfigCardState.ts -> components/ui": 1,
-      "src/hooks/useCustomApiLookup.ts -> components/messages": 1,
-      "src/hooks/useIntegrationCard.ts -> components/settings": 1,
-      "src/hooks/useKbAutoChangedSupport.ts -> components/kb": 1,
-      "src/hooks/useKbEntryParam.ts -> components/kb": 1,
-      "src/hooks/useKbStatusParam.ts -> components/kb": 1,
-      "src/hooks/useMessagesUrlSync.ts -> components/messages": 1,
-      "src/hooks/usePhoneOpensMessageAsPage.ts -> components/messages": 1,
-      "src/hooks/useTicketsUrlSync.ts -> components/tickets": 2,
-      "src/lib/api-client.ts -> components/subscription": 1,
-      "src/lib/importRange.ts -> components/ui": 1,
-      "src/lib/reportPeriod.ts -> components/ui": 1,
-      "src/services/auditLog.service.ts -> components/messages": 1,
-      "src/services/budgets.service.ts -> components/subscription": 1,
-      "src/services/bulk.service.ts -> components/messages": 1,
-      "src/services/contact.service.ts -> components/contacts": 1,
-      "src/services/message.service.ts -> components/contacts": 1,
-      "src/services/message.service.ts -> components/messages": 1,
-      "src/services/platform.service.ts -> components/console": 1,
-      "src/services/subscription.service.ts -> components/subscription": 2,
-      "src/services/ticketSavedViews.service.ts -> components/tickets": 1,
-      "src/stores/authStore.ts -> components/messages": 1,
-      "src/stores/messagesStore.ts -> components/messages": 1,
-      "src/types/index.ts -> components/messages": 2
-    }
+    "total": 0,
+    "files": {}
   }
 }

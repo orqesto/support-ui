@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { COLUMNS } from '@/components/messages/kanbanColumns';
+import { COLUMNS } from '@/lib/kanbanColumns';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { logger } from '@/lib/logger';
 import { getConvUrlId } from '@/lib/messageHelpers';

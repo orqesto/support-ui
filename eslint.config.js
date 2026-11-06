@@ -166,17 +166,5 @@ export default [
     plugins: { boundaries: { rules: { 'no-upward-imports': noUpwardImports } } },
     rules: { 'boundaries/no-upward-imports': 'error' },
   },
-  // The upward imports that existed when the rule came in. Task F2 removes them (move the shared
-  // piece down) and then deletes this block; the ratchet baseline already stops each of these
-  // files from gaining another one. Do not add files here.
-  {
-    files: [
-      'src/components/ui/DateRangePicker/dateRangeValue.ts',
-      'src/lib/api-client.ts',
-      'src/lib/importRange.ts',
-      'src/lib/reportPeriod.ts',
-    ],
-    rules: { 'boundaries/no-upward-imports': 'off' },
-  },
   prettierConfig,
 ];

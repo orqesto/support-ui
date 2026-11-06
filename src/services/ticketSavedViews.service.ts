@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import type { TicketViewFilters } from '@/components/tickets/list/ticketViews';
+import type { TicketViewFilters } from '@/lib/ticketViews';
 
 /** A named tickets-list filter preset belonging to the signed-in user, in this workspace. */
 export type RemoteTicketView = {

@@ -1,11 +1,8 @@
 import type { ReactNode } from 'react';
+import type { ConfigCardState } from '@/types/configCard';
 
-/**
- * A configuration object is always in exactly one of three conditions. Modelling
- * them explicitly is what stops a form from showing a draft as though it were the
- * live config — the ambiguity every one of these forms had.
- */
-export type ConfigCardState = 'empty' | 'stored' | 'editing';
+// Moved to `@/types/configCard` (modularity task F2): a hook names it too.
+export type { ConfigCardState };
 
 /**
  * One row of the read-only view.

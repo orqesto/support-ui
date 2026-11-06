@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useIsPhone } from '@/components/messages/useIsPhone';
+import { useIsPhone } from '@/hooks/useIsPhone';
 
 /**
  * Below the `sm` breakpoint the message detail is a PAGE (`/messages/:id`), not the slide-in

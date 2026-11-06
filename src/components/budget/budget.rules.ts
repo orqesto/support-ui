@@ -1,4 +1,5 @@
 import type { ExtraView, GiveExtraBody } from '@/services/budgets.service';
+import { MICROS_PER_USD, fmtMoney } from '@/lib/money';
 
 /**
  * Formatting and constants shared by the budget components. The API speaks money in integer
@@ -6,8 +7,8 @@ import type { ExtraView, GiveExtraBody } from '@/services/budgets.service';
  * the admins' secondary figure ("106M tokens") where the API gives them.
  */
 
-/** Micro-dollars in one dollar. */
-export const MICROS_PER_USD = 1_000_000;
+// Moved to `@/lib/money` (modularity task F2); re-exported for existing importers.
+export { MICROS_PER_USD, fmtMoney };
 
 /** Id of the Advanced card on Platform → AI Spend; the group page links to it. */
 export const ADVANCED_ANCHOR = 'budget-advanced';
@@ -55,25 +56,6 @@ export const limitSliderTop = ({
     LIMIT_SLIDER_FLOOR * MICROS_PER_USD
   );
   return Math.ceil(micros / MICROS_PER_USD / 5) * 5;
-};
-
-/**
- * Money from micro-dollars: "≈ $12.40" (2 decimals). A positive amount under one cent is
- * "<$0.01" (under half a cent), never "≈ $0.00" (it was spent). Thousands are grouped: "≈ $1,234.50".
- * Kept by design (M7): always en-US, whatever the browser locale — the amount is US dollars and a
- * "$1.234,50" would misread. The server's texts drop "≈"; this adds it.
- */
-export const fmtMoney = (micros: number): string => {
-  // Same rule as the backend: under half a cent (and above nothing) is "<$0.01"; a tiny negative
-  // is "$0.00", never "-$0.00".
-  if (micros > 0 && micros < 5_000) return '<$0.01';
-  const dollars = micros / MICROS_PER_USD;
-  const text = Math.abs(dollars).toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  const negative = dollars < 0 && text !== '0.00';
-  return `≈ ${negative ? '-' : ''}$${text}`;
 };
 
 /** Whole dollars from micros, for an input or slider: 12_400_000 -> 12.4. */

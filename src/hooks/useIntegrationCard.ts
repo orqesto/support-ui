@@ -2,7 +2,7 @@ import { apiErrorMessage } from '@/lib/apiError';
 import { useState, useCallback } from 'react';
 import { integrationsService } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
-import type { AlertState } from '@/components/settings/integrations/types';
+import type { AlertState } from '@/types/alert';
 
 type UseIntegrationCardOptions<T> = {
   integrationType: string;

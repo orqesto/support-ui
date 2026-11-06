@@ -45,7 +45,7 @@ vi.mock('@/services/replyTemplates.service', () => ({
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 vi.mock('@/lib/toast', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
 vi.mock('../ComposerAiActions', () => ({ ComposerAiActions: () => null }));
-vi.mock('../useIsPhone', () => ({ useIsPhone: () => phone.on }));
+vi.mock('@/hooks/useIsPhone', () => ({ useIsPhone: () => phone.on }));
 
 // jsdom has no layout; the translate path focuses the editor and ProseMirror scrolls through these.
 const layoutStubs = {
