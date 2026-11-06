@@ -223,9 +223,11 @@ describe('ComposerAiActions — the editor is the only input', () => {
       composeReply.mockResolvedValueOnce({ data: { text: 'Second version.', language: 'en' } });
       fireEvent.click(screen.getByTitle('Write another version from the same text'));
       await waitFor(() => expect(composerNow).toContain('Second version.'));
+      // fresh: a NEW draft, not the shared one / the cached text (taco MOR-SUP-6093).
       expect(composeReply).toHaveBeenLastCalledWith(42, {
         mode: 'guided',
         instructions: 'refund ok',
+        fresh: true,
       });
       fireEvent.click(screen.getByTitle('Restore what you had written'));
       expect(composerNow).toBe('<p>refund ok</p>');
@@ -276,7 +278,9 @@ describe('ComposerAiActions — the editor is the only input', () => {
       await waitFor(() => expect(composerNow).toContain('border'));
       fireEvent.click(screen.getByTitle('Write another version from the same text'));
       await waitFor(() => expect(composeReply).toHaveBeenCalledTimes(2));
-      expect(composeReply).toHaveBeenLastCalledWith(42, { mode: 'generate' });
+      // The first press asks for the thread's shared draft; Try again for a new one.
+      expect(composeReply).toHaveBeenNthCalledWith(1, 42, { mode: 'generate' });
+      expect(composeReply).toHaveBeenLastCalledWith(42, { mode: 'generate', fresh: true });
     });
 
     it('⛔ the reply changed while drafting (a template, a lookup record): not overwritten', async () => {

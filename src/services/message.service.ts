@@ -1047,12 +1047,20 @@ export const messageService = {
    */
   composeReply: async (
     id: number,
-    payload: { mode: 'generate' | 'guided' | 'polish'; instructions?: string; draft?: string }
+    payload: {
+      mode: 'generate' | 'guided' | 'polish';
+      instructions?: string;
+      draft?: string;
+      /** Try again: a new draft, past the thread's shared one and the reply cache. */
+      fresh?: boolean;
+    }
   ) => {
     const response = await apiClient.post<
       ApiResponse<{
         mode: 'generate' | 'guided' | 'polish';
         text: string | null;
+        /** generate: the draft already written for this customer message, handed back unchanged. */
+        shared?: boolean;
         language?: string;
         provider?: string;
         confidence?: number;
