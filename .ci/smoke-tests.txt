@@ -1,0 +1,13 @@
+# Run on EVERY PR, whatever it changes (scripts/ci/select-tests.mjs). Repo-wide guards: each one
+# scans many files, so no import edge ties it to the file a PR touched. Tests that read files from
+# disk (readFileSync, readdirSync, import.meta.glob, ...) are added automatically on top of this list.
+src/test/buildGatesTypeCheck.test.ts
+src/test/credentialFieldsOptOutOfAutofill.test.ts
+src/test/editorLoadsLazily.test.ts
+src/test/fixturesUseInventedAddresses.test.ts
+src/test/iconOnlyControlsHaveNames.test.ts
+src/test/noAttributesRenderedAsText.test.ts
+src/test/noDepartmentInCustomerText.test.ts
+src/test/noRegexLookbehind.test.ts
+src/test/odlyWidgetReplies.test.ts
+src/test/selectsAreUnified.test.ts

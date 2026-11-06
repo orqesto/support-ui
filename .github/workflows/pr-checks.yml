@@ -19,8 +19,37 @@ name: PR Checks (type-check + lint + tests)
 # string. NOTE: neither `staging` nor `main` is a protected branch, so this reports
 # failures but does not BLOCK a merge; making it blocking needs branch protection
 # with "type-check + lint + tests" as a required status check.
+#
+# F6 (owner 2026-11-06): a PR into `staging` runs only the tests its change can reach
+# (scripts/ci/select-tests.mjs: the import graph + changed tests + .ci/smoke-tests.txt + every
+# test that reads files from disk; a change in .ci/full-run-triggers.txt, a deleted/renamed file
+# or any doubt runs everything). The FULL suite runs on every push to `staging`, nightly, on any
+# PR into `main`, on a manual run, and before every production deploy (deploy-production.yml).
 
 on:
+  push:
+    branches: [staging]
+    paths:
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig*.json"
+      - "eslint.config.js"
+      - "vitest.config.ts"
+      - "vite.config*.ts"
+      - "tailwind.config.*"
+      - "postcss.config.*"
+      - "index.html"
+      - "public/**"
+      - "scripts/ci/**"
+      - "scripts/eslint/**"
+      - ".ci/**"
+      - ".github/workflows/pr-checks.yml"
+  schedule:
+    # 02:30 UTC nightly. Scheduled runs use the workflow file on the DEFAULT branch (`main`), so
+    # this starts after the next release; the checkout below tests `staging`, not `main`.
+    - cron: "30 2 * * *"
+  workflow_dispatch:
   pull_request:
     paths:
       - "src/**"
@@ -29,13 +58,19 @@ on:
       - "tsconfig*.json"
       - "eslint.config.js"
       - "vitest.config.ts"
+      - "vite.config*.ts"
+      - "tailwind.config.*"
+      - "postcss.config.*"
+      - "index.html"
+      - "public/**"
       - "scripts/ci/**"
       - "scripts/eslint/**"
       - ".ci/**"
       - ".github/workflows/pr-checks.yml"
 
 concurrency:
-  group: fe-pr-checks-${{ github.head_ref }}
+  # head_ref is empty outside PRs; a newer staging push cancels an older one's run.
+  group: fe-pr-checks-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -48,6 +83,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          # A PR checks out GitHub's merge commit; its first parent is the base tip, so depth 2 is
+          # enough for the selector to diff exactly what the PR adds (HEAD^1...HEAD).
+          fetch-depth: 2
+          # Nightly runs check out the default branch (`main`) unless told otherwise.
+          ref: ${{ github.event_name == 'schedule' && 'staging' || '' }}
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -73,5 +114,18 @@ jobs:
       - name: Import cycles
         run: npm run check:cycles
 
-      - name: Test
+      # Only on a PR into `staging`: every other event (and a PR into `main`, the release path)
+      # leaves `mode` unset and runs the full suite below. The script never fails the job; on any
+      # error it selects everything.
+      - name: Select tests
+        id: select
+        if: github.event_name == 'pull_request' && github.base_ref == 'staging'
+        run: node scripts/ci/select-tests.mjs --base HEAD^1 --out "$RUNNER_TEMP/selected-tests.txt"
+
+      - name: Test (affected)
+        if: steps.select.outputs.mode == 'affected'
+        run: xargs npx vitest run < "$RUNNER_TEMP/selected-tests.txt"
+
+      - name: Test (full suite)
+        if: steps.select.outputs.mode != 'affected'
         run: npm test

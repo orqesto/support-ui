@@ -1,0 +1,26 @@
+# A PR that changes any of these runs the WHOLE vitest suite (scripts/ci/select-tests.mjs).
+# They are what the import graph cannot follow: the test harness and config, dependencies, shared
+# foundations nearly every test reaches, and the selector itself. Globs: `**` any depth, `*` one
+# path segment. A deleted or renamed file, a non-.ts file under src/ (css, svg, json) and any file
+# outside src/ that is not on the ignore list in select-tests.mjs also run everything.
+vitest.config.*
+vite.config.*
+package.json
+package-lock.json
+package.staging.json
+tsconfig*
+eslint.config.js
+.eslintrc.json
+tailwind.config.*
+postcss.config.*
+index.html
+public/**
+.github/workflows/**
+scripts/ci/**
+scripts/eslint/**
+.ci/full-run-triggers.txt
+.ci/smoke-tests.txt
+src/test/**
+src/lib/**
+src/components/ui/**
+src/ui/**
