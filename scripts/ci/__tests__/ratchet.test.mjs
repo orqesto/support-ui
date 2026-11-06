@@ -69,7 +69,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 describe('check-boundaries', () => {
   it('records the starting point and passes on it', () => {
     expect(baseline('boundaries.json')).toEqual({
-      featureToFeature: { total: 1, pairs: { 'components/alpha -> components/beta': 1 } },
+      featureToFeature: { total: 1, pairs: { 'feature:alpha -> feature:beta': 1 } },
       upward: { total: 0, files: {} },
     });
     const { status, output } = run(BOUNDARIES);
@@ -95,7 +95,7 @@ describe('check-boundaries', () => {
     );
     const { status, output } = run(BOUNDARIES);
     expect(status).toBe(1);
-    expect(output).toContain('components/beta -> components/alpha: 0 → 1');
+    expect(output).toContain('feature:beta -> feature:alpha: 0 → 1');
     expect(output).toContain("src/components/beta/BetaBadge.tsx:1  '../alpha/AlphaCard'");
   });
 
@@ -128,6 +128,81 @@ describe('check-boundaries', () => {
   it('fails without a baseline', () => {
     remove('.ci/baselines/boundaries.json');
     expect(run(BOUNDARIES).status).toBe(1);
+  });
+
+  it('a folder moved from components/ to features/ keeps its pair: no growth', () => {
+    remove('src/components/beta/BetaBadge.tsx');
+    write('src/features/beta/components/BetaBadge.tsx', 'export const BetaBadge = () => null;\n');
+    write('src/features/beta/index.ts', "export { BetaBadge } from './components/BetaBadge';\n");
+    write(
+      'src/components/alpha/AlphaCard.tsx',
+      "import { Button } from '@/components/ui/Button';\nimport { BetaBadge } from '@/features/beta';\n" +
+        'export const AlphaCard = () => [Button(), BetaBadge()];\n'
+    );
+    const { status, output } = run(BOUNDARIES);
+    expect(status).toBe(0);
+    expect(output).toContain('at the baseline');
+  });
+
+  it('sums the folders the feature map puts in one feature, and drops pairs inside it', () => {
+    // budget and billing both belong to subscription; pricing -> budget becomes internal.
+    write('src/components/budget/BudgetBar.tsx', "import '@/components/beta/BetaBadge';\n");
+    write('src/components/billing/Checkout.tsx', "import '@/components/beta/BetaBadge';\n");
+    write('src/components/pricing/Plans.tsx', "import '@/components/budget/BudgetBar';\n");
+    remove('.ci/baselines/boundaries.json');
+    expect(run(BOUNDARIES, '--update').status).toBe(0);
+    expect(baseline('boundaries.json').featureToFeature).toEqual({
+      total: 3,
+      pairs: { 'feature:alpha -> feature:beta': 1, 'feature:subscription -> feature:beta': 2 },
+    });
+  });
+
+  it('a real new pair still fails after a move', () => {
+    remove('src/components/beta/BetaBadge.tsx');
+    write(
+      'src/features/beta/components/BetaBadge.tsx',
+      "import type { AlphaCard } from '@/components/alpha/AlphaCard';\n" +
+        'export const BetaBadge = (): typeof AlphaCard | null => null;\n'
+    );
+    write(
+      'src/components/alpha/AlphaCard.tsx',
+      "import { BetaBadge } from '@/features/beta/components/BetaBadge';\nexport const AlphaCard = () => BetaBadge();\n"
+    );
+    const { status, output } = run(BOUNDARIES);
+    expect(status).toBe(1);
+    expect(output).toContain('feature:beta -> feature:alpha: 0 → 1');
+  });
+
+  it('--rekey renames pairs, sums merged ones and drops internal ones, then the check passes', () => {
+    write('src/components/budget/BudgetBar.tsx', "import '@/components/beta/BetaBadge';\n");
+    write('src/components/billing/Checkout.tsx', "import '@/components/beta/BetaBadge';\n");
+    write('src/components/pricing/Plans.tsx', "import '@/components/budget/BudgetBar';\n");
+    // A baseline written with the old folder-named keys.
+    write(
+      '.ci/baselines/boundaries.json',
+      JSON.stringify({
+        featureToFeature: {
+          total: 4,
+          pairs: {
+            'components/alpha -> components/beta': 1,
+            'components/billing -> components/beta': 1,
+            'components/budget -> components/beta': 1,
+            'components/pricing -> components/budget': 1,
+          },
+        },
+        upward: { total: 0, files: {} },
+      })
+    );
+    const rekeyed = run(BOUNDARIES, '--rekey');
+    expect(rekeyed.status).toBe(0);
+    expect(rekeyed.output).toContain('4 imports in 4 pairs → 3 in 2 pairs + 1 now internal');
+    expect(baseline('boundaries.json').featureToFeature).toEqual({
+      total: 3,
+      pairs: { 'feature:alpha -> feature:beta': 1, 'feature:subscription -> feature:beta': 2 },
+    });
+    const { status, output } = run(BOUNDARIES);
+    expect(status).toBe(0);
+    expect(output).toContain('at the baseline');
   });
 });
 
@@ -313,6 +388,15 @@ describe('boundaries/api-only-features', () => {
       lint(
         `src/features/${feature}/components/Other.tsx`,
         `import { Panel } from './Panel';\nimport { load } from '@/features/${feature}/services/data.service';`
+      )
+    ).toEqual([]);
+  });
+
+  it('skips a ?raw import: it reads the file text, not the API', () => {
+    expect(
+      lint(
+        'src/pages/__tests__/AlphaPage.test.tsx',
+        `import source from '@/features/${feature}/components/Panel.tsx?raw';`
       )
     ).toEqual([]);
   });

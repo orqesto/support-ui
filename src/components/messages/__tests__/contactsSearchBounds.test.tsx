@@ -17,7 +17,9 @@ vi.mock('@/services/message.service', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   messageService: { getContacts, getContactSubjects: vi.fn(), getById: vi.fn() },
 }));
-vi.mock('@/components/contacts/ContactProfilePanel', () => ({ ContactProfilePanel: () => null }));
+vi.mock('@/features/contacts/components/ContactProfilePanel', () => ({
+  ContactProfilePanel: () => null,
+}));
 vi.mock('@/hooks/useLeadsHidden', () => ({ useLeadsHidden: () => false }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'all' }));
 

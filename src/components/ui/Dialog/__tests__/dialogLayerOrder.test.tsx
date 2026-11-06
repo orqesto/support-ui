@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { Drawer } from '../../Drawer';
 import { Dialog } from '../Dialog';
 import { tooltipVariants } from '../../Tooltip/tooltip.styles';
-import contactPanelSource from '@/components/contacts/ContactProfilePanel.tsx?raw';
+import contactPanelSource from '@/features/contacts/components/ContactProfilePanel.tsx?raw';
 import layoutSource from '@/components/layout/Layout.tsx?raw';
 import gateSource from '@/components/subscription/SubscriptionGateOverlay.tsx?raw';
 

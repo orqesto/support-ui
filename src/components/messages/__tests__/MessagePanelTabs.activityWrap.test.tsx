@@ -12,7 +12,7 @@ import type { Message, User } from '@/types';
  * jsdom has no layout, so this pins the wrapping classes on the label span.
  */
 vi.mock('../AiTabPanel', () => ({ AiTabPanel: () => null }));
-vi.mock('@/components/contacts/useContactProfile', () => ({
+vi.mock('@/features/contacts/hooks/useContactProfile', () => ({
   useContactProfile: () => ({ loading: false, contact: null }),
 }));
 vi.mock('@/services/customApiLookup.service', () => ({

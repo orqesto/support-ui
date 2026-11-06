@@ -8,12 +8,12 @@ import {
   Ticket,
   Target,
 } from 'lucide-react';
-import { ContactProfilePanel } from '@/components/contacts/ContactProfilePanel';
-import { ContactAvatar } from '@/components/contacts/ContactAvatar';
 import {
+  ContactProfilePanel,
+  ContactAvatar,
   CONTACT_NOTES_CHANGED,
   ContactNotesIndicator,
-} from '@/components/contacts/ContactNotesIndicator';
+} from '@/features/contacts';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useLeadsHidden } from '@/hooks/useLeadsHidden';
 import { useSearchParams } from 'react-router-dom';

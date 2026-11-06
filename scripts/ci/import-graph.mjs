@@ -150,6 +150,46 @@ export const areaOf = (file) => {
   return parts[0];
 };
 
+/**
+ * `components/<folder>` → the feature it belongs to, from the owner-approved frontend feature map
+ * (task F3). Only folders whose feature has another name are listed; any other folder is its own
+ * feature. Root files in `components/` (area `components`) are not a feature folder.
+ */
+export const FEATURE_OF_FOLDER = {
+  filters: 'messages',
+  list: 'messages',
+  spam: 'messages',
+  users: 'settings',
+  'knowledge-base': 'kb',
+  sla: 'statistics',
+  budget: 'subscription',
+  billing: 'subscription',
+  pricing: 'subscription',
+};
+
+/** Shared folders: never a feature, never renamed. */
+export const SHARED_COMPONENT_AREAS = new Set([
+  'components/ui',
+  'components/shared',
+  'components/common',
+  'components/layout',
+]);
+
+/**
+ * The feature an area belongs to, for the boundary ratchet: `components/<folder>` and
+ * `features/<x>` both become `feature:<name>`, so moving a folder into `src/features/` never renames
+ * a pair, and folders that make up one feature count as one area. Shared folders and every other
+ * area (services, hooks, pages, …) are returned unchanged. Idempotent on `feature:<x>`.
+ */
+export const featureAreaOf = (area) => {
+  if (SHARED_COMPONENT_AREAS.has(area)) return area;
+  const folder = /^components\/(.+)$/.exec(area)?.[1];
+  if (folder) return `feature:${FEATURE_OF_FOLDER[folder] ?? folder}`;
+  const feature = /^features\/(.+)$/.exec(area)?.[1];
+  if (feature) return `feature:${feature}`;
+  return area;
+};
+
 /** Fail loudly on local imports the walk could not resolve (see the header). */
 export const exitOnUnresolved = (unresolved) => {
   if (unresolved.length === 0) return;

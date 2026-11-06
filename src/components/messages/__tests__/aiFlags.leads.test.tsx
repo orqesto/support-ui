@@ -27,7 +27,7 @@ vi.mock('../AiTabPanel', () => ({ AiTabPanel: () => null }));
 vi.mock('@/services/contact.service', () => ({
   contactService: { getNoteSummary: () => Promise.resolve({ count: 0, latest: null }) },
 }));
-vi.mock('@/components/contacts/useContactProfile', () => ({
+vi.mock('@/features/contacts/hooks/useContactProfile', () => ({
   useContactProfile: () => ({ loading: false, contact: null }),
 }));
 vi.mock('@/services/message.service', async (importOriginal) => ({

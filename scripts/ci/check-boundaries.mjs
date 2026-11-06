@@ -7,11 +7,14 @@
  *
  * Two measures, compared with `.ci/baselines/boundaries.json`:
  *
- * 1. featureToFeature — imports from one `components/<a>` folder into another `components/<b>`,
- *    counted per pair (`components/a -> components/b`). Shared folders are not features, so
- *    importing FROM them is fine: `ui`, `shared`, `common`, `layout` are never a target. They are
- *    still counted as importers (a layout reaching into a feature is coupling too), except `ui`,
- *    which the second measure covers. `features/<x>` folders count the same way once they exist.
+ * 1. featureToFeature — imports from one feature into another, counted per pair
+ *    (`feature:a -> feature:b`). A feature is named, not a folder (`featureAreaOf` in
+ *    import-graph.mjs): `components/<folder>` and `features/<x>` map to `feature:<name>` through
+ *    the F3 feature map, so moving a folder into `src/features/` (task F4) never renames a pair, and
+ *    folders that make up one feature (budget, billing, pricing → subscription) are one area.
+ *    Shared folders are not features, so importing FROM them is fine: `ui`, `shared`, `common`,
+ *    `layout` are never a target. They are still counted as importers (a layout reaching into a
+ *    feature is coupling too), except `ui`, which the second measure covers.
  * 2. upward — a lower layer (services, hooks, stores, lib, types, utils, contexts, components/ui)
  *    importing a component, a page, a feature or the app root, counted per importing file
  *    (`src/lib/x.ts -> components/ui`). These point the wrong way: the lower layer can no longer be
@@ -24,18 +27,24 @@
  * import in it. A drop passes, with a reminder to lock it in: `npm run check:boundaries -- --update`
  * and commit the baseline, so the room a fix made cannot be used up again later. `--update` refuses
  * to record growth.
+ *
+ * `--rekey` rewrites the baseline's featureToFeature pairs onto the current area naming without
+ * measuring the tree: each side of a key goes through `featureAreaOf`, pairs that land on the same
+ * key are summed, and a pair whose two sides become one feature is dropped (it is internal now). It
+ * prints the old total, the new total and every dropped pair. Use it when the feature map changes.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { areaOf, buildImportGraph, exitOnUnresolved, readBaseline } from './import-graph.mjs';
+import {
+  SHARED_COMPONENT_AREAS as SHARED,
+  areaOf,
+  buildImportGraph,
+  exitOnUnresolved,
+  featureAreaOf,
+  readBaseline,
+} from './import-graph.mjs';
 
 const BASELINE = '.ci/baselines/boundaries.json';
-const SHARED = new Set([
-  'components/ui',
-  'components/shared',
-  'components/common',
-  'components/layout',
-]);
 const LOWER = new Set([
   'services',
   'hooks',
@@ -47,7 +56,8 @@ const LOWER = new Set([
   'components/ui',
 ]);
 
-const isFeature = (area) => area.startsWith('components/') || area.startsWith('features/');
+const isFeature = (area) =>
+  area.startsWith('feature:') || area.startsWith('components/') || area.startsWith('features/');
 const isUpperLayer = (area) =>
   area === 'app' || area === 'pages' || area === 'components' || isFeature(area);
 
@@ -74,8 +84,11 @@ const measure = (edges) => {
       }
       continue;
     }
-    if (isFeature(from) && isFeature(to) && !SHARED.has(to)) {
-      push(featureToFeature, `${from} -> ${to}`, edge);
+    const fromFeature = featureAreaOf(from);
+    const toFeature = featureAreaOf(to);
+    if (fromFeature === toFeature) continue;
+    if (isFeature(fromFeature) && isFeature(toFeature) && !SHARED.has(toFeature)) {
+      push(featureToFeature, `${fromFeature} -> ${toFeature}`, edge);
     }
   }
   return { featureToFeature, upward };
@@ -84,9 +97,45 @@ const measure = (edges) => {
 const countsOf = (map) =>
   sortKeys(Object.fromEntries([...map].map(([key, list]) => [key, list.length])));
 
+/** `--rekey`: map the baseline's pair keys onto featureAreaOf; sum merged pairs, drop internal ones. */
+const rekey = (baselinePath, baseline) => {
+  const before = baseline.featureToFeature?.pairs ?? {};
+  const pairs = {};
+  const internal = [];
+  for (const [key, count] of Object.entries(before)) {
+    const [from, to] = key.split(' -> ').map(featureAreaOf);
+    if (from === to) {
+      internal.push(`  ${key}: ${count} (now inside ${from})`);
+      continue;
+    }
+    pairs[`${from} -> ${to}`] = (pairs[`${from} -> ${to}`] ?? 0) + count;
+  }
+  const dropped = totalOf(before) - totalOf(pairs);
+  const body = {
+    ...baseline,
+    featureToFeature: { total: totalOf(pairs), pairs: sortKeys(pairs) },
+  };
+  writeFileSync(baselinePath, `${JSON.stringify(body, null, 2)}\n`);
+  console.log(
+    `Baseline re-keyed: ${totalOf(before)} imports in ${Object.keys(before).length} pairs → ` +
+      `${totalOf(pairs)} in ${Object.keys(pairs).length} pairs + ${dropped} now internal:`
+  );
+  for (const line of internal) console.log(line);
+};
+
 const main = () => {
   const root = process.cwd();
   const update = process.argv.includes('--update');
+  if (process.argv.includes('--rekey')) {
+    const baselinePath = join(root, BASELINE);
+    const baseline = readBaseline(baselinePath);
+    if (baseline === null) {
+      console.error(`No baseline at ${BASELINE} to re-key.`);
+      process.exit(1);
+    }
+    rekey(baselinePath, baseline);
+    return;
+  }
   const { edges, unresolved } = buildImportGraph(root);
   exitOnUnresolved(unresolved);
 

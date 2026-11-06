@@ -117,7 +117,9 @@ vi.mock('../ThreadMessageItem', () => ({
   ),
 }));
 vi.mock('../MessageGhostBubble', () => ({ MessageGhostBubble: () => null }));
-vi.mock('@/components/contacts/ContactProfilePanel', () => ({ ContactProfilePanel: () => null }));
+vi.mock('@/features/contacts/components/ContactProfilePanel', () => ({
+  ContactProfilePanel: () => null,
+}));
 vi.mock('@/components/modals/SimilarMessagesDialog', () => ({ SimilarMessagesDialog: () => null }));
 vi.mock('../PromoteToKbDialog', () => ({ PromoteToKbDialog: () => null }));
 

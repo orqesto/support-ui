@@ -3,7 +3,7 @@ import {
   CONTACT_NOTES_CHANGED,
   ContactNotesIndicator,
   type LatestNotePreview,
-} from '@/components/contacts/ContactNotesIndicator';
+} from '@/features/contacts/components/ContactNotesIndicator';
 import { contactService, type ContactNote } from '@/services/contact.service';
 
 export type NoteSummary = { count: number; latest: LatestNotePreview | null };

@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Button } from '../Button';
 import { Menu, MenuItem } from '@/components/ui/Menu/Menu';
 import { Popover } from '@/components/ui/Popover/Popover';
-import { ContactProfileActivity } from '@/components/contacts/ContactProfileActivity';
+import { ContactProfileActivity } from '@/features/contacts';
 import { useModalLayer } from '@/hooks/useModalLayer';
 
 /**

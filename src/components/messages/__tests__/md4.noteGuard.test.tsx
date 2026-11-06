@@ -82,8 +82,10 @@ vi.mock('@/contexts/ThemeContext', () => ({
   useTheme: () => ({ theme: 'light', resolvedTheme: 'light', setTheme: vi.fn() }),
 }));
 vi.mock('@/components/shared/TranslateButton', () => ({ TranslateButton: () => null }));
-vi.mock('@/components/contacts/ContactProfilePanel', () => ({ ContactProfilePanel: () => null }));
-vi.mock('@/components/contacts/useContactProfile', () => ({
+vi.mock('@/features/contacts/components/ContactProfilePanel', () => ({
+  ContactProfilePanel: () => null,
+}));
+vi.mock('@/features/contacts/hooks/useContactProfile', () => ({
   useContactProfile: () => ({ loading: false, contact: null }),
 }));
 vi.mock('@/components/modals/SimilarMessagesDialog', () => ({ SimilarMessagesDialog: () => null }));

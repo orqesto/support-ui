@@ -8,12 +8,13 @@
  * Each F4 pull request that moves a feature appends it here. The rule resolves `@/x` and relative
  * specifiers the same way as no-upward-imports.js, so it also sees `import type`, `export … from`
  * and lazy `import()`. `vi.mock('…')` strings are not imports and are not checked: a mock has to
- * name the real file the code loads.
+ * name the real file the code loads. Nor is a Vite `?raw` import (`import text from 'X.tsx?raw'`):
+ * it reads the file's source text, not the module's API, so it also names the real file.
  */
 import { relative, sep } from 'node:path';
 import { srcPathOf } from './no-upward-imports.js';
 
-export const API_ONLY_FEATURES = ['statistics'];
+export const API_ONLY_FEATURES = ['statistics', 'contacts'];
 
 const toPosix = (path) => path.split(sep).join('/');
 
@@ -47,6 +48,7 @@ export default {
 
     const check = (node) => {
       if (!node || node.type !== 'Literal' || typeof node.value !== 'string') return;
+      if (node.value.endsWith('?raw')) return;
       const target = srcPathOf(cwd, filename, node.value);
       if (target === null) return;
       const feature = featureOf(target);
