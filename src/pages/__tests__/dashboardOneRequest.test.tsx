@@ -122,3 +122,34 @@ describe('the dashboard counts in two requests', () => {
     expect(getThreads).not.toHaveBeenCalled();
   });
 });
+
+describe('opening the dashboard again', () => {
+  beforeEach(() => {
+    getThreadBoard.mockReset().mockResolvedValue({ columns: {}, counts: {} });
+    fetchTicketViewCounts.mockReset().mockResolvedValue({ open: 3, inProgress: 2, pending: null });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('within 30 s reuses the tiles it read (staging 2026-11-06: every visit re-sent ~8 reads)', async () => {
+    const first = render(<DashboardPage />);
+    await waitFor(() => expect(screen.getByText('Open').parentElement).toHaveTextContent('3'));
+    first.unmount();
+
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getByText('Open').parentElement).toHaveTextContent('3'));
+    expect(getThreadBoard).toHaveBeenCalledTimes(1);
+    expect(fetchTicketViewCounts).toHaveBeenCalledTimes(1);
+  });
+
+  it('CONTROL: after 30 s it asks the server again', async () => {
+    const start = Date.now();
+    const first = render(<DashboardPage />);
+    await waitFor(() => expect(screen.getByText('Open').parentElement).toHaveTextContent('3'));
+    first.unmount();
+
+    vi.spyOn(Date, 'now').mockReturnValue(start + 31_000);
+    render(<DashboardPage />);
+    await waitFor(() => expect(getThreadBoard).toHaveBeenCalledTimes(2));
+    expect(fetchTicketViewCounts).toHaveBeenCalledTimes(2);
+  });
+});

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
+import { invalidateSharedFetch, sharedFetch } from '@/lib/sharedFetch';
 import { recentSearchService, type RecentSearch } from '@/services/recentSearch.service';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -8,6 +9,8 @@ import { useAuthStore } from '@/stores/authStore';
 const MAX_SHOWN = 8;
 /** Mirrors the backend's input bound: longer is refused, so it is not offered as remembered. */
 const MAX_QUERY_LENGTH = 200;
+/** Opening the threads screen again within this window reuses the list instead of re-reading it. */
+const RECENT_REUSE_MS = 30_000;
 
 /** Same rule as the backend: `John  Smith` and `john smith` are one search. */
 const keyOf = (query: string) => query.trim().replace(/\s+/g, ' ').toLowerCase();
@@ -21,6 +24,10 @@ const keyOf = (query: string) => query.trim().replace(/\s+/g, ' ').toLowerCase()
  */
 export const useRecentSearches = () => {
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
+  const userId = useAuthStore((state) => state.user?.id);
+  // The person's own history in this workspace; every write below forgets the held list, at
+  // its start and again when it lands, so a remount never shows a list from before it.
+  const cacheKey = `recent-searches:${selectedOrganizationId ?? ''}:${userId ?? ''}`;
   const [recent, setRecent] = useState<RecentSearch[]>([]);
   const [unsupported, setUnsupported] = useState(false);
   /**
@@ -44,8 +51,7 @@ export const useRecentSearches = () => {
   useEffect(() => {
     let cancelled = false;
     setRecent([]);
-    recentSearchService
-      .list()
+    sharedFetch(cacheKey, () => recentSearchService.list(), RECENT_REUSE_MS)
       .then((rows) => {
         if (!cancelled) setRecent(rows.slice(0, MAX_SHOWN));
       })
@@ -55,7 +61,7 @@ export const useRecentSearches = () => {
     return () => {
       cancelled = true;
     };
-  }, [selectedOrganizationId, onFailure]);
+  }, [cacheKey, onFailure]);
 
   const record = useCallback(
     (query: string) => {
@@ -73,9 +79,11 @@ export const useRecentSearches = () => {
         };
         return [top, ...rest].slice(0, MAX_SHOWN);
       });
+      invalidateSharedFetch(cacheKey);
       recentSearchService
         .record(text)
         .then((saved) => {
+          invalidateSharedFetch(cacheKey);
           const key = keyOf(saved.query);
           if (
             removedWhilePendingRef.current.has(key) ||
@@ -92,27 +100,35 @@ export const useRecentSearches = () => {
         })
         .catch((error) => onFailure('save', error));
     },
-    [unsupported, onFailure]
+    [unsupported, onFailure, cacheKey]
   );
 
   const remove = useCallback(
     (entry: RecentSearch) => {
       setRecent((rows) => rows.filter((row) => row.id !== entry.id));
+      invalidateSharedFetch(cacheKey);
       if (entry.id > 0) {
-        recentSearchService.remove(entry.id).catch((error) => onFailure('remove', error));
+        recentSearchService
+          .remove(entry.id)
+          .then(() => invalidateSharedFetch(cacheKey))
+          .catch((error) => onFailure('remove', error));
       } else {
         removedWhilePendingRef.current.add(keyOf(entry.query));
       }
     },
-    [onFailure]
+    [onFailure, cacheKey]
   );
 
   const clear = useCallback(() => {
     // Saves still on their way were made before the clear: delete them as they land.
     clearGenerationRef.current += 1;
     setRecent([]);
-    recentSearchService.clear().catch((error) => onFailure('clear', error));
-  }, [onFailure]);
+    invalidateSharedFetch(cacheKey);
+    recentSearchService
+      .clear()
+      .then(() => invalidateSharedFetch(cacheKey))
+      .catch((error) => onFailure('clear', error));
+  }, [onFailure, cacheKey]);
 
   return { recent, record, remove, clear };
 };

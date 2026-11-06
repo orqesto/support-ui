@@ -19,6 +19,8 @@ import { slaService } from '@/services/sla.service';
 import { fetchTicketViewCounts, ticketService } from '@/services/ticket.service';
 import { useMessagesStore } from '@/stores/messagesStore';
 import { logger } from '@/lib/logger';
+import { invalidateSharedFetch, sharedFetch } from '@/lib/sharedFetch';
+import { useAuthStore } from '@/stores/authStore';
 import { usePermissions } from '@/hooks/usePermissions';
 import { MESSAGE_SOURCE_TYPES } from '@/types';
 import { Permission } from '@/types/roles';
@@ -54,6 +56,9 @@ interface DashboardStats {
   kbDocuments: Count;
   kbDocumentation: Count;
 }
+
+/** How long the tiles read on opening the dashboard are reused when it is opened again. */
+const DASHBOARD_REUSE_MS = 30_000;
 
 const UNKNOWN_STATS: DashboardStats = {
   slaBreachCount: null,
@@ -271,58 +276,79 @@ export const DashboardPage = () => {
     useTelegramProcessing(true);
   const prevIsTelegramProcessing = useRef(isTelegramProcessing);
 
-  const fetchStats = useCallback(async () => {
-    const gen = ++fetchGenRef.current;
-    try {
-      // Each request settles on its own: one failure (a 403 for this role, a timeout) leaves
-      // ITS tile unknown and every other tile true. A shared `Promise.all` rejected them all.
-      const [threadCounts, slaSummary, ticketCounts, kbQARes, kbDocRes, docStatsRes] =
-        await Promise.all([
-          threadTotals(),
-          slaService.getSummary().catch(() => null),
-          ticketTotals(),
-          kbTotal(kbService.getAll({ type: 'qa_pair', limit: 1 }), 'KB Q&A'),
-          kbTotal(kbService.getAll({ type: 'document', limit: 1 }), 'KB documents'),
-          canReadDocumentationStats
-            ? settled(documentationService.getStats(), 'documentation stats').then((res) =>
-                res && typeof res.totalDocs === 'number' ? res.totalDocs : null
-              )
-            : Promise.resolve(null),
-        ]);
+  const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
+  const userId = useAuthStore((state) => state.user?.id);
 
-      if (gen !== fetchGenRef.current) return; // newer fetch already in flight — discard stale response
-      setStats({
-        slaBreachCount: threadCounts.slaBreach,
-        slaAtRiskCount: threadCounts.slaAtRisk,
-        avgFirstResponseMins: slaSummary?.messages.avgResponseTime ?? null,
-        avgFirstResponsePeriodDays: slaSummary?.messages.avgResponsePeriodDays ?? null,
-        resolvedExclKB: threadCounts.resolvedExclKB,
-        closedExclKB: threadCounts.closedExclKB,
-        activeMessages: threadCounts.active,
-        clientReplied: threadCounts.clientReplied,
-        awaitingResponse: threadCounts.awaiting,
-        suspiciousMessages: threadCounts.suspicious,
-        notAnalysed: threadCounts.notAnalysed,
-        resolvedMessages: threadCounts.resolved,
-        openTickets: ticketCounts.open,
-        inProgressTickets: ticketCounts.inProgress,
-        pendingTickets: ticketCounts.pending,
-        kbQAPairs: kbQARes,
-        kbDocuments: kbDocRes,
-        kbDocumentation: docStatsRes,
-      });
-    } catch (error) {
-      logger.error('Failed to fetch stats:', error);
-    } finally {
-      setLoading(false);
-      setLastUpdated(new Date());
-    }
-    // selectedDeptKey is a refresh trigger: read indirectly via the axios
-    // interceptor (X-Department-Context header), so eslint's exhaustive-deps
-    // can't see the link. Force callback identity to change on toggle so the
-    // consumer useEffect re-runs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDeptKey, canReadDocumentationStats]);
+  /**
+   * `reuse`: only the read on opening the page. Moving Dashboard → Threads → Dashboard re-sent all
+   * ~8 tile requests each time (staging, 2026-11-06: 34 requests for two round trips in 20 s); a
+   * snapshot under DASHBOARD_REUSE_MS old is shown instead. Every other caller — a socket
+   * `stats:update`, a finished ingest run, the "check now" poll — asks the server again.
+   */
+  const fetchStats = useCallback(
+    async (options?: { reuse?: boolean }) => {
+      const gen = ++fetchGenRef.current;
+      // Everything the answer depends on: the workspace, the person (their role picks the tiles),
+      // the department scope (sent as a header) and whether the docs tile is asked for.
+      const cacheKey = `dashboard-stats:${selectedOrganizationId ?? ''}:${userId ?? ''}:${selectedDeptKey}:${canReadDocumentationStats}`;
+      if (!options?.reuse) invalidateSharedFetch(cacheKey);
+      try {
+        // Each request settles on its own: one failure (a 403 for this role, a timeout) leaves
+        // ITS tile unknown and every other tile true. A shared `Promise.all` rejected them all.
+        const [threadCounts, slaSummary, ticketCounts, kbQARes, kbDocRes, docStatsRes] =
+          await sharedFetch(
+            cacheKey,
+            () =>
+              Promise.all([
+                threadTotals(),
+                slaService.getSummary().catch(() => null),
+                ticketTotals(),
+                kbTotal(kbService.getAll({ type: 'qa_pair', limit: 1 }), 'KB Q&A'),
+                kbTotal(kbService.getAll({ type: 'document', limit: 1 }), 'KB documents'),
+                canReadDocumentationStats
+                  ? settled(documentationService.getStats(), 'documentation stats').then((res) =>
+                      res && typeof res.totalDocs === 'number' ? res.totalDocs : null
+                    )
+                  : Promise.resolve(null),
+              ]),
+            DASHBOARD_REUSE_MS
+          );
+
+        if (gen !== fetchGenRef.current) return; // newer fetch already in flight — discard stale response
+        setStats({
+          slaBreachCount: threadCounts.slaBreach,
+          slaAtRiskCount: threadCounts.slaAtRisk,
+          avgFirstResponseMins: slaSummary?.messages.avgResponseTime ?? null,
+          avgFirstResponsePeriodDays: slaSummary?.messages.avgResponsePeriodDays ?? null,
+          resolvedExclKB: threadCounts.resolvedExclKB,
+          closedExclKB: threadCounts.closedExclKB,
+          activeMessages: threadCounts.active,
+          clientReplied: threadCounts.clientReplied,
+          awaitingResponse: threadCounts.awaiting,
+          suspiciousMessages: threadCounts.suspicious,
+          notAnalysed: threadCounts.notAnalysed,
+          resolvedMessages: threadCounts.resolved,
+          openTickets: ticketCounts.open,
+          inProgressTickets: ticketCounts.inProgress,
+          pendingTickets: ticketCounts.pending,
+          kbQAPairs: kbQARes,
+          kbDocuments: kbDocRes,
+          kbDocumentation: docStatsRes,
+        });
+      } catch (error) {
+        logger.error('Failed to fetch stats:', error);
+      } finally {
+        setLoading(false);
+        setLastUpdated(new Date());
+      }
+      // selectedDeptKey is a refresh trigger: read indirectly via the axios
+      // interceptor (X-Department-Context header), so eslint's exhaustive-deps
+      // can't see the link. Force callback identity to change on toggle so the
+      // consumer useEffect re-runs.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [selectedDeptKey, canReadDocumentationStats, selectedOrganizationId, userId]
+  );
 
   useEffect(() => {
     const wasNotComplete = prevProcessingStatus.current !== 'complete';
@@ -395,7 +421,7 @@ export const DashboardPage = () => {
   }, []);
 
   useEffect(() => {
-    fetchStats().catch((error) => {
+    fetchStats({ reuse: true }).catch((error) => {
       logger.error('Failed to fetch stats:', error);
     });
   }, [fetchStats]);

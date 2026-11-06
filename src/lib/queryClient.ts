@@ -10,6 +10,10 @@ export const queryClient = new QueryClient({
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      // A read under 30 s old is reused when a screen mounts again instead of re-sent. Keys that
+      // change less often set longer times themselves; every mutation invalidates its keys, and
+      // refetchInterval polls are not affected (FE modularity F7, 2026-11-06).
+      staleTime: 30_000,
     },
   },
 });
