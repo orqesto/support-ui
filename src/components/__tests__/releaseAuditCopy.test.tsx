@@ -46,12 +46,12 @@ vi.mock('@/hooks/useTranslation', () => ({
 }));
 
 const { TrialBanner } = await import('@/components/layout/TrialBanner');
-const { PastDueCard } = await import('@/components/subscription/PastDueCard');
+const { PastDueCard } = await import('@/features/subscription');
 const { cancelConfirmText, cancelledToast, MOVES_TO_FREE_SENTENCE } = await import(
-  '@/components/subscription/cancelCopy'
+  '@/features/subscription'
 );
-const { historyImportAiNote } = await import('@/components/pricing/PricingPlanCard');
-const { FREE_SWITCH_DESCRIPTION } = await import('@/components/subscription/starterAllowance');
+const { historyImportAiNote } = await import('@/features/subscription');
+const { FREE_SWITCH_DESCRIPTION } = await import('@/features/subscription');
 const { ONBOARDING_MANAGED_AI_TEXT } = await import('@/components/onboarding/steps/AiChoiceStep');
 const { overTeamLimitText } = await import('@/components/settings/TeamsSettings');
 const { ZENDESK_AS_THREADS } = await import(

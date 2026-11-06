@@ -10,7 +10,7 @@ import { render, screen, cleanup, waitFor } from '@testing-library/react';
  * and the button has to name it.
  */
 
-vi.mock('@/components/billing/CheckoutSessionForm', () => ({
+vi.mock('@/features/subscription/components/CheckoutSessionForm', () => ({
   CheckoutSessionForm: ({ submitLabel }: { submitLabel: string }) => (
     <button type="button">{submitLabel}</button>
   ),

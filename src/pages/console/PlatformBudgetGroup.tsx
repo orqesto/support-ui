@@ -5,8 +5,8 @@ import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
-import { BudgetGroupView } from '@/components/budget/BudgetGroupView';
 import {
+  BudgetGroupView,
   useBudgetGroup,
   useBudgetState,
   useEndExtra,
@@ -14,7 +14,7 @@ import {
   useSetGroupMode,
   useSetWorkspaceLimits,
   useUpdateBudgetGroup,
-} from '@/hooks/useBudgets';
+} from '@/features/subscription';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { BudgetRequestsCard } from './BudgetRequestsCard';
 import { groupPath } from './PlatformBudgets';

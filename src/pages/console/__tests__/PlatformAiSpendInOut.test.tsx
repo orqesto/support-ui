@@ -8,7 +8,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ManagedAiUsageResult } from '@/services/managedAiUsage.service';
 // The old limits UI shows only while the monthly budgets are not switched on: a backend without
 // the budget API here.
-vi.mock('@/services/budgets.service', () => ({
+vi.mock('@/features/subscription/services/budgets.service', () => ({
   budgetsService: { getState: () => Promise.resolve({ available: false }) },
 }));
 

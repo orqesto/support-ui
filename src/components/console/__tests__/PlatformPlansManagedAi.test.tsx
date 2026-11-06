@@ -8,7 +8,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const updates: unknown[] = [];
-vi.mock('@/services/budgets.service', () => ({
+vi.mock('@/features/subscription/services/budgets.service', () => ({
   budgetsService: { getState: () => Promise.resolve({ available: false }) },
 }));
 vi.mock('@/hooks/usePlatformAdmin', () => {

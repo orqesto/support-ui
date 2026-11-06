@@ -31,7 +31,7 @@ vi.mock('@/stores/subscriptionGateStore', () => ({
 }));
 
 const { SubscriptionGateOverlay } = await import(
-  '@/components/subscription/SubscriptionGateOverlay'
+  '@/features/subscription/components/SubscriptionGateOverlay'
 );
 
 describe('SubscriptionGateOverlay — the way back for a lapsed workspace', () => {

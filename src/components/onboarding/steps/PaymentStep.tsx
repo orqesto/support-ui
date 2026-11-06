@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import { CheckoutSessionForm } from '@/components/billing/CheckoutSessionForm';
+import { CheckoutSessionForm } from '@/features/subscription';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ChoiceCard } from '@/components/ui/ChoiceCard';
 import { ExternalLink } from '@/components/ui/ExternalLink';

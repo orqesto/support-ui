@@ -3,11 +3,16 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { ExtraBox } from '@/components/budget/ExtraBox';
-import { fmtMoney, type ExtraEndChoice } from '@/components/budget/budget.rules';
-import { useBudgetGroup, useDeclineRequest, useGiveExtra } from '@/hooks/useBudgets';
+import {
+  ExtraBox,
+  fmtMoney,
+  type ExtraEndChoice,
+  useBudgetGroup,
+  useDeclineRequest,
+  useGiveExtra,
+  type RequestRow,
+} from '@/features/subscription';
 import { getApiErrorMessage } from '@/lib/errorMessages';
-import type { RequestRow } from '@/services/budgets.service';
 
 /** Why Give is off for an organisation-wide request once its organisation is `separate`. */
 export const ORG_WIDE_SEPARATE_REASON =

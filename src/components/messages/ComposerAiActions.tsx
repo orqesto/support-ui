@@ -16,7 +16,7 @@ import {
   getErrorStatus,
   isAiDraftsOffError,
 } from '@/lib/errorMessages';
-import { useAiRefusalText } from '@/components/subscription/useAiRefusalText';
+import { useAiRefusalText } from '@/features/subscription';
 import { messageService, type AiDraft } from '@/services/message.service';
 import { answerToEditorHtml, COMPOSER_AI_TOOL, LABEL } from './messageDetailConstants';
 

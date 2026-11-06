@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { BarSegment, BarSlider } from '@/components/ui/BarSlider';
 import { Button } from '@/components/ui/Button';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
-import type { ExtraView } from '@/services/budgets.service';
+import type { ExtraView } from '@/features/subscription/services/budgets.service';
 import {
   END_CHOICES,
   EXTRA_MAX,

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { BarMarker, BarSegment, BarSlider } from '@/components/ui/BarSlider';
-import type { TokenSpend } from '@/services/budgets.service';
+import type { TokenSpend } from '@/features/subscription/services/budgets.service';
 import { clampPct, fmtMoney, fmtTokenCount } from './budget.rules';
 import { BulkLegend, BulkLimitLegend, Swatch } from './BulkLimitField';
 import { useMoney } from './tokenRate';

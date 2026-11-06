@@ -41,7 +41,9 @@ vi.mock('@/services/invitation.service', () => ({ invitationService: {} }));
 vi.mock('@/components/modals/UserSkillsModal', () => ({ UserSkillsModal: () => null }));
 vi.mock('@/components/modals/InviteUserModal', () => ({ InviteUserModal: () => null }));
 vi.mock('@/components/modals/CreateUserModal', () => ({ CreateUserModal: () => null }));
-vi.mock('@/components/subscription/PlanOverLimitNote', () => ({ PlanOverLimitNote: () => null }));
+vi.mock('@/features/subscription/components/PlanOverLimitNote', () => ({
+  PlanOverLimitNote: () => null,
+}));
 vi.mock('@/components/admin/RoleInfoCard', () => ({ RoleInfoCard: () => null }));
 vi.mock('@/components/auth/PermissionGuard', () => ({ PermissionGuard: () => null }));
 

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { cn } from '@/lib/utils';
-import type { WorkspaceRow } from '@/services/budgets.service';
+import type { WorkspaceRow } from '@/features/subscription/services/budgets.service';
 import { END_CHOICES, QUICK_EXTRA_END, fmtMoney, fmtTokenCount } from './budget.rules';
 import { TONE_CLASS } from './StatusText';
 import { useMoney } from './tokenRate';

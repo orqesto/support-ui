@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import type { ExtraView, WorkspaceRow } from '@/services/budgets.service';
+import type { ExtraView, WorkspaceRow } from '@/features/subscription/services/budgets.service';
 import { chooseOption } from '@/test/chooseOption';
 import { BudgetBar } from '../BudgetBar';
 import { BulkBar } from '../BulkBar';

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { DollarSign, TrendingUp, AlertTriangle, Ghost, Loader2 } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { billingService } from '@/services/billing.service';
+import { billingService } from '@/features/subscription/services/billing.service';
 
 export const BillingOverviewCards = () => {
   const { data, isLoading, error } = useQuery({

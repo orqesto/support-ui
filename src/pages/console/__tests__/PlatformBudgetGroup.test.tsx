@@ -13,7 +13,7 @@ import type {
   ExtraView,
   GroupDetail,
   WorkspaceRow,
-} from '@/services/budgets.service';
+} from '@/features/subscription';
 
 const MLN = 1_000_000;
 
@@ -31,7 +31,7 @@ let updateRefusal: Error | null = null;
 /** Set ⇒ giveExtra answers only when this promise settles (a write in flight). */
 let giveHold: Promise<{ grants: [] }> | null = null;
 
-vi.mock('@/services/budgets.service', () => ({
+vi.mock('@/features/subscription/services/budgets.service', () => ({
   budgetsService: {
     getState: () => Promise.resolve(stateResult),
     getGroup: (key: string) => {
@@ -72,7 +72,7 @@ vi.mock('sonner', () => ({
 }));
 
 const { PlatformBudgetGroup } = await import('../PlatformBudgetGroup');
-const { BudgetGroupView } = await import('@/components/budget/BudgetGroupView');
+const { BudgetGroupView } = await import('@/features/subscription');
 
 const state = (over: Partial<BudgetState> = {}): BudgetState => ({
   currency: 'USD',

@@ -4,8 +4,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { Alert } from '@/components/ui/Alert';
-import type { BillingRecord } from '@/services/billing.service';
-import { billingService } from '@/services/billing.service';
+import type { BillingRecord } from '@/features/subscription/services/billing.service';
+import { billingService } from '@/features/subscription/services/billing.service';
 
 const getAnomalyBadges = (record: BillingRecord) => {
   const badges: { label: string; className: string }[] = [];

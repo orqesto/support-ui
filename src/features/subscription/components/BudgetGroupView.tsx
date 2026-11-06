@@ -13,7 +13,7 @@ import type {
   GroupUpdate,
   OrganisationMode,
   WorkspaceRow,
-} from '@/services/budgets.service';
+} from '@/features/subscription/services/budgets.service';
 import { BudgetBar } from './BudgetBar';
 import { BudgetField } from './BudgetField';
 import { BulkBar } from './BulkBar';

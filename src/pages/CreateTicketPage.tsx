@@ -28,7 +28,7 @@ import { messageService } from '@/services/message.service';
 import { ticketService } from '@/services/ticket.service';
 import { ticketThreadsService } from '@/services/ticketThreads.service';
 import { useAuthStore } from '@/stores/authStore';
-import { useAiRefusalText } from '@/components/subscription/useAiRefusalText';
+import { useAiRefusalText } from '@/features/subscription';
 import { useMessagesStore } from '@/stores/messagesStore';
 import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Message, Category, TicketPriority, ApiResponse } from '@/types';

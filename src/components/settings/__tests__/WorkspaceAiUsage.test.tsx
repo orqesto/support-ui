@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { BudgetsInactive, WorkspaceUsage } from '@/services/budgets.service';
+import type { BudgetsInactive, WorkspaceUsage } from '@/features/subscription';
 
 /** One dollar in micros. */
 const MLN = 1_000_000;
@@ -17,7 +17,7 @@ const record = (name: string, args: unknown) => {
 let result: WorkspaceUsage | BudgetsInactive | Error;
 let requestRefusal: Error | null = null;
 
-vi.mock('@/services/budgets.service', () => ({
+vi.mock('@/features/subscription/services/budgets.service', () => ({
   budgetsService: {
     getMyAiUsage: () => {
       record('getMyAiUsage', null);

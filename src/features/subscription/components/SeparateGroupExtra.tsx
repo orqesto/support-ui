@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/Button';
-import type { ExtraView } from '@/services/budgets.service';
+import type { ExtraView } from '@/features/subscription/services/budgets.service';
 import { extraEndsText, extraLeft } from './budget.rules';
 import { useMoney } from './tokenRate';
 

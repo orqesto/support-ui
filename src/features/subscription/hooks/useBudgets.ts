@@ -10,7 +10,7 @@ import {
   type OrganisationMode,
   type SettingsUpdate,
   type WorkspaceBudgetUpdate,
-} from '@/services/budgets.service';
+} from '@/features/subscription/services/budgets.service';
 
 export const budgetKeys = {
   all: ['platform', 'budgets'] as const,

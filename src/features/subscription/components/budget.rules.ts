@@ -1,4 +1,4 @@
-import type { ExtraView, GiveExtraBody } from '@/services/budgets.service';
+import type { ExtraView, GiveExtraBody } from '@/features/subscription/services/budgets.service';
 import { MICROS_PER_USD, fmtMoney } from '@/lib/money';
 
 /**

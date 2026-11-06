@@ -23,7 +23,7 @@ import { languageName as languageNameOf } from '@/lib/languageName';
 import { stripGreetingName } from '@/lib/depersonalise';
 import { priorityLabel } from './messageDetailConstants';
 import { AnalysisDegradedHint, analysisInfoValue } from './AnalysisDegradedHint';
-import { useIsWorkspaceAdmin } from '@/components/subscription/useAiRefusalText';
+import { useIsWorkspaceAdmin } from '@/features/subscription';
 
 // Moved to `@/types/similarResult` (modularity task F2); re-exported for existing importers.
 export type { KBAttachment, SimilarResult };
