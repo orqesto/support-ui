@@ -6,11 +6,19 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
-import { useSystemHealth } from '@/hooks/useSystemHealth';
-import { useTelegramProcessing } from '@/hooks/useTelegramProcessing';
+import {
+  useSystemHealth,
+  useTelegramProcessing,
+  ingestionService,
+  DashboardKBSection,
+  DashboardQuickActions,
+  DashboardSkeleton,
+  DashboardSystemStatus,
+  DashboardSLASection,
+  DashboardStatusBarSection,
+} from '@/features/dashboard';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { useCoalescedRefresh } from '@/hooks/useCoalescedRefresh';
-import { ingestionService } from '@/services/ingestion.service';
 import { documentationService } from '@/services/documentation.service';
 import { kbService } from '@/services/kb.service';
 import { messageService } from '@/services/message.service';
@@ -23,14 +31,6 @@ import { useAuthStore } from '@/stores/authStore';
 import { usePermissions } from '@/hooks/usePermissions';
 import { MESSAGE_SOURCE_TYPES } from '@/types';
 import { Permission } from '@/types/roles';
-import { DashboardKBSection } from '@/components/dashboard/DashboardKBSection';
-import { DashboardQuickActions } from '@/components/dashboard/DashboardQuickActions';
-import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
-import { DashboardSystemStatus } from '@/components/dashboard/DashboardSystemStatus';
-import {
-  DashboardSLASection,
-  DashboardStatusBarSection,
-} from '@/components/dashboard/DashboardStatCards';
 import { cn } from '@/lib/utils';
 
 type Count = number | null;

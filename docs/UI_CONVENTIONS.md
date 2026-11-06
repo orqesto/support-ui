@@ -104,7 +104,7 @@ us (Client Replied), `caution` = in motion / waiting (Awaiting, In Progress), `p
 (Pending, and the third KB card); the KB tiles are `ai` · `caution` · `pending`. Each has `DEFAULT / foreground / muted / line` in light and
 dark. `attention` is magenta (330°), not orange: in dark, red/orange/amber/yellow read alike
 (measured 2026-09-22 — Client Replied and Not Analysed were indistinguishable). Use
-them through `components/dashboard/dashboardTones.ts`; never as inline hex.
+them through `features/dashboard/components/dashboardTones.ts`; never as inline hex.
 `caution` has a second, SHAPE weight: `caution-solid` (gold) for bars, dots and borders, which
 only need 3:1 — the text weight is an olive (yellow cannot reach 4.5:1 on white and still look
 yellow). The same split as `primary` / `primary-solid`.
