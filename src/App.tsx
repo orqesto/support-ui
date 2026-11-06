@@ -377,7 +377,9 @@ const AppRoutes = () => {
           path="/tickets/create"
           element={
             <PrivateRoute>
-              <CreateTicketPage />
+              <ProtectedRoute requiredPermission={Permission.CREATE_TICKETS}>
+                <CreateTicketPage />
+              </ProtectedRoute>
             </PrivateRoute>
           }
         />
@@ -385,7 +387,9 @@ const AppRoutes = () => {
           path="/tickets/edit/:id"
           element={
             <PrivateRoute>
-              <EditTicketPage />
+              <ProtectedRoute requiredPermission={Permission.MANAGE_TICKETS}>
+                <EditTicketPage />
+              </ProtectedRoute>
             </PrivateRoute>
           }
         />

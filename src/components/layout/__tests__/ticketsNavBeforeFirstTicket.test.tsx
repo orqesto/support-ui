@@ -14,11 +14,15 @@ vi.mock('@/hooks/useUiFlags', () => ({
     loading: false,
   }),
 }));
-const perms = { viewTickets: true };
+const perms = { viewTickets: true, workspaceSettings: true };
 vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({
     hasPermission: (permission: string) =>
-      permission === 'view_tickets' ? perms.viewTickets : true,
+      permission === 'view_tickets'
+        ? perms.viewTickets
+        : permission === 'view_organization_settings'
+          ? perms.workspaceSettings
+          : true,
     isOrgAdmin: false,
     orgRole: 'member',
     isAllianceAdmin: false,
@@ -78,6 +82,7 @@ const { useAuthStore } = await import('@/stores/authStore');
 afterEach(cleanup);
 beforeEach(() => {
   perms.viewTickets = true;
+  perms.workspaceSettings = true;
 });
 
 const renderLayout = () => {
@@ -108,5 +113,30 @@ describe('Tickets in the sidebar', () => {
     perms.viewTickets = false;
     renderLayout();
     expect(ticketsLinks()).toHaveLength(0);
+  });
+});
+
+// Bug 2026-11-06: the Settings nav item needs a workspace permission, so Support and Associate had
+// no way to their own Profile (signature, notification preferences) but the composer's link.
+describe('your profile from the sidebar', () => {
+  const profileLinks = () =>
+    screen
+      .queryAllByRole('link')
+      .filter((link) => link.getAttribute('href') === '/settings#profile');
+  const settingsLinks = () =>
+    screen.queryAllByRole('link').filter((link) => link.getAttribute('href') === '/settings');
+
+  it('a role without workspace settings still gets a link to its profile', () => {
+    perms.workspaceSettings = false;
+    renderLayout();
+    expect(settingsLinks()).toHaveLength(0);
+    expect(profileLinks().length).toBeGreaterThan(0);
+    expect(profileLinks()[0]).toHaveAccessibleName('Your profile settings');
+  });
+
+  it('CONTROL: a role with workspace settings keeps the Settings item too', () => {
+    renderLayout();
+    expect(settingsLinks().length).toBeGreaterThan(0);
+    expect(profileLinks().length).toBeGreaterThan(0);
   });
 });
