@@ -646,7 +646,15 @@ const LayoutShell = ({ children }: LayoutProps) => {
                   collapsed && 'lg:flex-col lg:gap-2'
                 )}
               >
-                <div className="flex gap-2 items-center min-w-0">
+                {/* Your own settings (signature, password, notification preferences). Every role
+                    reaches them here: the Settings nav item needs a workspace permission, so
+                    Support and Associate had no way in but the composer's signature link. */}
+                <Link
+                  to="/settings#profile"
+                  onClick={() => setSidebarOpen(false)}
+                  aria-label="Your profile settings"
+                  className="flex gap-2 items-center min-w-0 rounded-md hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
                   <NavTip
                     label={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim()}
                     className="inline-flex"
@@ -663,7 +671,7 @@ const LayoutShell = ({ children }: LayoutProps) => {
                       {orgRole ? roleDisplayNames[orgRole] : roleDisplayNames[user?.role ?? 'user']}
                     </p>
                   </div>
-                </div>
+                </Link>
                 <div
                   className={cn(
                     'flex flex-shrink-0 gap-1 items-center',
