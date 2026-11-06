@@ -58,6 +58,8 @@ describe('StorageStep pre-selection', () => {
     render(<StorageStep onChoiceChange={onChoiceChange} />);
 
     expect(await screen.findByTestId('byo-form')).toBeInTheDocument();
-    expect(onChoiceChange).toHaveBeenCalledWith('byo');
+    // The choice is reported from an effect that runs after the render that shows the form; on a
+    // slow CI runner the assertion could land between the two (failed twice on 2026-11-06).
+    await waitFor(() => expect(onChoiceChange).toHaveBeenCalledWith('byo'));
   });
 });
