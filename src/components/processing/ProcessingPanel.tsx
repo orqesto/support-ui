@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { kbFullHoldLine } from '@/features/settings';
+import { kbFullHoldLine } from '@/features/settings/shell';
 import { ImportProgressPanel, isImapRun } from '@/components/messages/ImportProgressPanel';
 import type { ProcessingSession } from '@/hooks/useEmailProcessingSessions';
 import {

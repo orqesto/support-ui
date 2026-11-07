@@ -17,6 +17,7 @@ import apiOnlyFeatures, { API_ONLY_FEATURES } from '../../eslint/api-only-featur
 const here = dirname(fileURLToPath(import.meta.url));
 const BOUNDARIES = resolve(here, '../check-boundaries.mjs');
 const CYCLES = resolve(here, '../check-cycles.mjs');
+const SHELL = resolve(here, '../check-shell-bundle.mjs');
 
 let root;
 const write = (path, text) => {
@@ -445,6 +446,75 @@ describe('check-boundaries --adopt, second move into a feature that already has 
   });
 });
 
+describe('check-shell-bundle', () => {
+  // main.tsx -> App -> Layout, which needs one name from feature look-up.
+  beforeEach(() => {
+    write('src/main.tsx', "import { App } from './App';\nApp();\n");
+    write(
+      'src/features/look-up/index.ts',
+      "export { LookupBadge } from './components/LookupBadge';\nexport { LookupPage } from './components/LookupPage';\n"
+    );
+    write(
+      'src/features/look-up/components/LookupBadge.tsx',
+      'export const LookupBadge = () => null;\n'
+    );
+    write(
+      'src/features/look-up/components/LookupPage.tsx',
+      'export const LookupPage = () => null;\n'
+    );
+    write(
+      'src/features/look-up/shell.ts',
+      "export { LookupBadge } from './components/LookupBadge';\n"
+    );
+  });
+  const app = (layoutImport) => {
+    write(
+      'src/App.tsx',
+      "import { Layout } from './components/layout/Layout';\nexport const App = () => Layout();\n"
+    );
+    write(
+      'src/components/layout/Layout.tsx',
+      `${layoutImport}\nexport const Layout = () => null;\n`
+    );
+  };
+
+  it('fails when the shell imports a feature index, and prints the chain', () => {
+    app("import { LookupBadge } from '@/features/look-up';");
+    const { status, output } = run(SHELL);
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/look-up/index.ts');
+    expect(output).toContain('-> src/components/layout/Layout.tsx');
+  });
+
+  it('passes when the shell imports the feature shell entry', () => {
+    app("import { LookupBadge } from '@/features/look-up/shell';");
+    const { status, output } = run(SHELL);
+    expect(status, output).toBe(0);
+    expect(output).toContain('No feature index loads with the app shell');
+  });
+
+  it('fails when a shell entry itself reaches an index (a leaf importing another feature)', () => {
+    write(
+      'src/features/look-up/components/LookupBadge.tsx',
+      "import { Other } from '@/features/other';\nexport const LookupBadge = () => Other();\n"
+    );
+    write('src/features/other/index.ts', 'export const Other = () => null;\n');
+    app("import { LookupBadge } from '@/features/look-up/shell';");
+    const { status, output } = run(SHELL);
+    expect(status).toBe(1);
+    expect(output).toContain('-> src/features/look-up/shell.ts');
+  });
+
+  it('CONTROL: a lazy import() and a type-only import of an index do not count', () => {
+    app(
+      "import type { LookupPage } from '@/features/look-up';\n" +
+        "const load = () => import('@/features/look-up');\nexport type Page = typeof LookupPage;\nvoid load;"
+    );
+    const { status, output } = run(SHELL);
+    expect(status, output).toBe(0);
+  });
+});
+
 describe('check-cycles', () => {
   const addCycle = () => {
     write(
@@ -629,6 +699,23 @@ describe('boundaries/api-only-features', () => {
         `import { Panel } from './Panel';\nimport { load } from '@/features/${feature}/services/data.service';`
       )
     ).toEqual([]);
+  });
+
+  it('allows the shell entry from outside, but not a deep path next to it', () => {
+    write(`src/features/${feature}/shell.ts`, "export { Panel } from './components/Panel';\n");
+    expect(
+      lint(
+        'src/components/layout/Layout.tsx',
+        `import { Panel } from '@/features/${feature}/shell';`
+      )
+    ).toEqual([]);
+    // The shell gets no other way in: a deep path is still flagged.
+    expect(
+      lint(
+        'src/components/layout/Layout.tsx',
+        `import { Panel } from '@/features/${feature}/components/Panel';`
+      )
+    ).toHaveLength(1);
   });
 
   it('skips a ?raw import: it reads the file text, not the API', () => {

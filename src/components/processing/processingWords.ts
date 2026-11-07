@@ -8,7 +8,7 @@ import {
   resumePhase,
   type ResumeWay,
 } from '@/lib/utcClock';
-import { kbFullHoldLine, runStoppedLine } from '@/features/settings';
+import { kbFullHoldLine, runStoppedLine } from '@/features/settings/shell';
 
 /**
  * Why a run stopped before it had looked at everything it found (support-service holdReason

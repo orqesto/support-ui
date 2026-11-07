@@ -2,8 +2,10 @@
  * ESLint rule `boundaries/api-only-features` (modularity task F4).
  *
  * A feature listed in API_ONLY_FEATURES has been moved under `src/features/<feature>/` and has an
- * `index.ts`. Code outside that folder may import it only through `@/features/<feature>` (its index),
- * never a deep path such as `@/features/<feature>/components/X`. Inside the folder anything goes.
+ * `index.ts`. Code outside that folder may import it only through `@/features/<feature>` (its index)
+ * or `@/features/<feature>/shell` (its light entry for the app shell: leaf files only, so the
+ * shell does not pull the whole feature into the main bundle; CI `check:shell`), never a deep path
+ * such as `@/features/<feature>/components/X`. Inside the folder anything goes.
  *
  * Each F4 pull request that moves a feature appends it here. The rule resolves `@/x` and relative
  * specifiers the same way as no-upward-imports.js, so it also sees `import type`, `export … from`
@@ -33,9 +35,9 @@ const featureOf = (srcPath) => {
   return match && API_ONLY_FEATURES.includes(match[1]) ? match[1] : null;
 };
 
-/** True for the feature's index: `src/features/<x>/index` with or without an extension. */
+/** True for a public entry: `src/features/<x>/index` or `…/shell`, with or without an extension. */
 const isIndex = (srcPath, feature) =>
-  /^index(\.tsx?)?$/.test(srcPath.slice(`src/features/${feature}/`.length));
+  /^(index|shell)(\.tsx?)?$/.test(srcPath.slice(`src/features/${feature}/`.length));
 
 export default {
   meta: {
@@ -45,7 +47,8 @@ export default {
     messages: {
       deep:
         "'{{specifier}}' reaches inside features/{{feature}}. Import it from '@/features/{{feature}}' " +
-        '(its index.ts); if the name is not exported there yet, add it to the index.',
+        '(its index.ts), or from its shell.ts if this file loads with the app shell; if the name is ' +
+        'not exported there yet, add it.',
     },
   },
   create(context) {
