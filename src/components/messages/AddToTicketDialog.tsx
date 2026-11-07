@@ -22,10 +22,13 @@ import {
 import { statusLabel } from './messageDetailConstants';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
-import { ticketService } from '@/services/ticket.service';
-import { ticketThreadsService, type ThreadTicket } from '@/services/ticketThreads.service';
+import {
+  ticketService,
+  ticketThreadsService,
+  type ThreadTicket,
+  TicketRef,
+} from '@/features/tickets';
 import type { Message } from '@/types';
-import { TicketRef } from '@/components/tickets/TicketRef';
 
 type Candidate = {
   id: number;

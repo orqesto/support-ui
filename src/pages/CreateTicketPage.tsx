@@ -6,11 +6,15 @@ import {
   CreateTicketFilesSection,
   CreateTicketJiraOption,
   CreateTicketQuote,
-} from '@/components/tickets/CreateTicketChrome';
-import { pickUploadableFiles } from '@/components/tickets/NewTicketFiles';
-import { TicketThreadPicker } from '@/components/tickets/TicketThreadPicker';
-import type { ThreadCandidate } from '@/services/threadCandidates.service';
-import { useTicketOwners } from '@/components/tickets/useTicketOwners';
+  pickUploadableFiles,
+  TicketThreadPicker,
+  type ThreadCandidate,
+  useTicketOwners,
+  categoryService,
+  ticketService,
+  ticketThreadsService,
+  useTicketsStore,
+} from '@/features/tickets';
 import { Alert } from '@/components/ui/Alert';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
@@ -21,16 +25,12 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { useNewTicketTeams } from '@/hooks/useTeamsEnabled';
 import { apiClient } from '@/lib/api-client';
 import { getApiErrorMessage } from '@/lib/errorMessages';
-import { categoryService } from '@/services/category.service';
 import { integrationsService } from '@/services/integrations.service';
 import { settingsService } from '@/services/settings.service';
 import { messageService } from '@/services/message.service';
-import { ticketService } from '@/services/ticket.service';
-import { ticketThreadsService } from '@/services/ticketThreads.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useAiRefusalText } from '@/features/subscription';
 import { useMessagesStore } from '@/stores/messagesStore';
-import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Message, Category, TicketPriority, ApiResponse } from '@/types';
 import RichTextEditor from '@/components/shared/LazyRichTextEditor';
 import { logger } from '@/lib/logger';

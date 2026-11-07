@@ -31,7 +31,7 @@ vi.mock('@/lib/socketManager', () => ({
   unsubscribeFromEvent: (name: string, handler: (data: unknown) => void) =>
     unsubscribeFromEvent(name, handler),
 }));
-vi.mock('@/services/ticketThreads.service', () => ({
+vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
   ticketThreadsService: { ticketsOfThread: (id: number) => ticketsOfThread(id) },
 }));
 vi.mock('@/services/message.service', () => ({
@@ -43,7 +43,7 @@ vi.mock('@/services/conversationMerge.service', () => ({
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 
 const { useThreadTicketsState } = await import('../useThreadTicketsState');
-const { THREAD_TICKETS_CHANGED } = await import('@/services/ticketThreadsEvents');
+const { THREAD_TICKETS_CHANGED } = await import('@/features/tickets');
 
 const row = (ticketId: number) => ({
   ticketId,

@@ -42,10 +42,10 @@ vi.mock('@/services/message.service', () => ({
     }
   ),
 }));
-vi.mock('@/services/ticketThreads.service', () => ({
+vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
   ticketThreadsService: { ticketsOfThread, threadsOfTicket },
 }));
-vi.mock('@/services/category.service', () => ({
+vi.mock('@/features/tickets/services/category.service', () => ({
   categoryService: new Proxy({}, { get: () => () => Promise.resolve([]) }),
 }));
 vi.mock('@/services/settings.service', () => ({
@@ -67,7 +67,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 import { MessageDetailHeader } from '../MessageDetailHeader';
-import { THREAD_TICKETS_CHANGED } from '@/services/ticketThreadsEvents';
+import { THREAD_TICKETS_CHANGED } from '@/features/tickets';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 
 afterEach(cleanup);

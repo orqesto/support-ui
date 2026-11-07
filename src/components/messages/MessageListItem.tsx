@@ -60,7 +60,7 @@ import {
   hasAttachments,
   deriveWorkflowStatus,
 } from './inboxCardHelpers';
-import { PriorityIcon } from '@/components/tickets/list/ticketRowBits';
+import { PriorityIcon } from '@/features/tickets';
 import { envelopeBadge, eventEnvelope } from '@/lib/messageEnvelope';
 import { THREAD_TABLE_GRID, ThreadStatusCell } from './list/threadTableParts';
 

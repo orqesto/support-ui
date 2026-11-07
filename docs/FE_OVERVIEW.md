@@ -184,8 +184,6 @@ On page reload, `App.tsx` detects that the persisted user has no `role` (intenti
 | `useStatisticsFetch` | Statistics data fetching for the stats page |
 | `useSystemHealth` | Polls system health endpoint |
 | `useTranslation` | Per-message translation via AI service |
-| `useFilterPanel` | Shared filter panel open/close state |
-| `useResolveMessageToKB` | Handles resolving a message thread to a KB entry |
 
 ---
 
@@ -240,7 +238,6 @@ One file per domain entity; all return typed `ApiResponse<T>` objects.
 | `detectionRule.service.ts` | Spam/classification detection rules |
 | `documentation.service.ts` | Knowledge base document management |
 | `gmail-oauth.service.ts` | Gmail OAuth flow: `connectWithPopup(config)` (opens about:blank synchronously to preserve user-gesture, then navigates), `redirectToOAuth(config)` (full-page fallback when popup hard-blocked; stashes config in sessionStorage), `consumePendingRedirectResult()` (mount-effect helper that finishes the redirect-flow OAuth after the page returns) |
-| `ticketingSystems.service.ts` | External ticketing system integrations (Jira) |
 | `chatWidget.service.ts` | Chat widget configuration |
 | `assignment.service.ts` | Bulk assignment operations |
 

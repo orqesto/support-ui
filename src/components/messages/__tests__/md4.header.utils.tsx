@@ -44,7 +44,7 @@ const svc = vi.hoisted(() => ({
   getThreads: vi.fn(),
   setThreadMute: vi.fn(),
 }));
-vi.mock('@/services/ticketThreads.service', () => ({
+vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
   ticketThreadsService: {
     ticketsOfThread: svc.ticketsOfThread,
     threadsOfTicket: svc.threadsOfTicket,
@@ -61,7 +61,9 @@ vi.mock('@/services/conversationMerge.service', () => ({
   },
   MergeAssigneeConflictError: class extends Error {},
 }));
-vi.mock('@/services/ticket.service', () => ({ ticketService: { getAll: svc.getAll } }));
+vi.mock('@/features/tickets/services/ticket.service', () => ({
+  ticketService: { getAll: svc.getAll },
+}));
 vi.mock('@/services/message.service', () => ({
   messageService: new Proxy(
     {},
@@ -77,7 +79,7 @@ vi.mock('@/services/message.service', () => ({
     }
   ),
 }));
-vi.mock('@/services/category.service', () => ({
+vi.mock('@/features/tickets/services/category.service', () => ({
   categoryService: new Proxy({}, { get: () => () => Promise.resolve([]) }),
 }));
 vi.mock('@/services/settings.service', () => ({

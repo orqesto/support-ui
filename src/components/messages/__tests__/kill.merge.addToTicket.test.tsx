@@ -6,10 +6,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 const mocks = vi.hoisted(() => ({ addThreads: vi.fn(), getAll: vi.fn() }));
-vi.mock('@/services/ticketThreads.service', () => ({
+vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
   ticketThreadsService: { addThreads: mocks.addThreads },
 }));
-vi.mock('@/services/ticket.service', () => ({ ticketService: { getAll: mocks.getAll } }));
+vi.mock('@/features/tickets/services/ticket.service', () => ({
+  ticketService: { getAll: mocks.getAll },
+}));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 
 const { AddToTicketDialog } = await import('../AddToTicketDialog');

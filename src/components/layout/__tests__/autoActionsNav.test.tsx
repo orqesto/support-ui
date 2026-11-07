@@ -38,7 +38,6 @@ vi.mock('@/hooks/useNotificationCounts', () => ({
 }));
 const overviewCall = vi.hoisted(() => ({ getOverview: vi.fn() }));
 vi.mock('@/services/kbAutoActions.service', () => ({ kbAutoActionsService: overviewCall }));
-vi.mock('@/hooks/useTicketsCount', () => ({ useTicketsCount: () => ({ data: 0 }) }));
 vi.mock('@/hooks/useSLANotifications', () => ({ useSLANotifications: () => ({}) }));
 vi.mock('@/hooks/useLearningNotifications', () => ({ useLearningNotifications: () => ({}) }));
 vi.mock('@/lib/socketManager', () => ({

@@ -1,7 +1,7 @@
 import { useState, useCallback, type ReactNode } from 'react';
 import type { AddOutcome } from './recordInsertOutcome';
 import { StickyNote, Pencil, Trash2 } from 'lucide-react';
-import { LeadQualificationPanel } from '@/components/tickets/LeadQualificationPanel';
+import { LeadQualificationPanel } from '@/features/tickets';
 import { Button } from '@/components/ui/Button';
 import { ConflictTabPanel } from './ConflictTabPanel';
 import { MessageAttachments, type Attachment } from './MessageAttachments';

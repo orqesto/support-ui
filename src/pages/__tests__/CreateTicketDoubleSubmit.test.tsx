@@ -22,7 +22,7 @@ vi.mock('@/lib/api-client', () => ({ apiClient: empty() }));
 vi.mock('@/services/assignment.service', () => ({
   assignmentService: { getAssignableUsers: () => Promise.resolve([]) },
 }));
-vi.mock('@/services/category.service', () => ({ categoryService: empty() }));
+vi.mock('@/features/tickets/services/category.service', () => ({ categoryService: empty() }));
 vi.mock('@/services/integrations.service', () => ({ integrationsService: empty() }));
 vi.mock('@/services/settings.service', () => ({ settingsService: empty() }));
 vi.mock('@/services/message.service', () => ({
@@ -36,8 +36,8 @@ vi.mock('@/services/message.service', () => ({
     getThreads: () => Promise.resolve({ success: true, data: [] }),
   },
 }));
-vi.mock('@/services/ticket.service', () => ({ ticketService: { create } }));
-vi.mock('@/services/ticketThreads.service', () => ({
+vi.mock('@/features/tickets/services/ticket.service', () => ({ ticketService: { create } }));
+vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
   ticketThreadsService: { addThreads: vi.fn() },
 }));
 vi.mock('@/hooks/useDepartments', () => ({ useDepartments: () => ({ data: [] }) }));

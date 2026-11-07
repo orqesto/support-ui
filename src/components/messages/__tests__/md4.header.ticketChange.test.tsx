@@ -11,11 +11,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import type { Message } from '@/types';
-import { announceThreadTicketsChanged } from '@/services/ticketThreadsEvents';
+import { announceThreadTicketsChanged, type ThreadTicket } from '@/features/tickets';
 import { MessageDetailHeader } from '../MessageDetailHeader';
 import { withTicketChange } from '../useThreadTicketsState';
 import type { HeaderTickets } from '../RelatedPopover';
-import type { ThreadTicket } from '@/services/ticketThreads.service';
 
 // In each test file, not the shared utils: the apiClient path scanner
 // (servicePathsCarryApiPrefix.test.ts) reads every module that is not itself a test.

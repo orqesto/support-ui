@@ -3,7 +3,7 @@
  *
  * `['departments']` alone kept serving workspace A's list for the five-minute staleTime
  * after an in-place org switch, so workspace B's threads wore A's department labels.
- * `useTicketsCount` and `useNotificationCounts` already key on the org. Audit u40 #7.
+ * `useNotificationCounts` already keys on the org. Audit u40 #7.
  */
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
