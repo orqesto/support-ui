@@ -90,6 +90,11 @@ export const DataSizeCard = () => {
                 <TableList database={report.platform} />
               </div>
             )}
+            {!report.threads && report.threadsError && (
+              <Alert variant="warning">
+                Old resolved conversations could not be measured: {report.threadsError}
+              </Alert>
+            )}
             {report.threads && (
               <div className="space-y-2">
                 <h3 className="text-sm font-medium">Old resolved conversations</h3>
@@ -103,6 +108,13 @@ export const DataSizeCard = () => {
                   </span>
                   .
                 </p>
+                {report.threads.workspacesWithThreads !== undefined &&
+                  report.threads.workspacesWithThreads > report.threads.topWorkspaces.length && (
+                    <p className="text-xs text-muted-foreground">
+                      The {report.threads.topWorkspaces.length} workspaces with the most
+                      conversations, of {count(report.threads.workspacesWithThreads)}.
+                    </p>
+                  )}
                 {report.threads.topWorkspaces.length > 0 && (
                   <table className="w-full text-sm">
                     <thead>
@@ -127,6 +139,11 @@ export const DataSizeCard = () => {
                 )}
               </div>
             )}
+            {!report.bodies && report.bodiesError && (
+              <Alert variant="warning">
+                Message content could not be measured: {report.bodiesError}
+              </Alert>
+            )}
             {report.bodies && (
               <div className="space-y-1">
                 <h3 className="text-sm font-medium">Message content</h3>
@@ -142,6 +159,11 @@ export const DataSizeCard = () => {
                   .
                 </p>
               </div>
+            )}
+            {report.byodbError && (
+              <Alert variant="warning">
+                Workspaces with their own database could not be listed: {report.byodbError}
+              </Alert>
             )}
             {report.byodb.length > 0 && (
               <div className="space-y-2">
