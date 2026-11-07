@@ -5,7 +5,7 @@
  * The old merges review page is retired: `/knowledge-base/merges` sends old links to the list, which decides.
  */
 import { Navigate, Route } from 'react-router-dom';
-import { AUTO_ACTIONS_HREF } from '@/features/kb';
+import { AUTO_ACTIONS_HREF } from '@/features/kb/shell';
 
 /** The old Automatic actions page. It is now a section of Settings › AI (owner, 2026-10-22). */
 export const KB_AUTO_ACTIONS_PATH = '/knowledge-base/automatic';

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { formatUtcAndLocal, formatUtcDateAndLocal, pausePhase, resumePhase } from '@/lib/utcClock';
 import type { ProcessingSummaryEntry } from '@/services/importProgress.service';
-import { kbFullHeldLine } from '@/features/settings';
+import { kbFullHeldLine } from '@/features/settings/shell';
 import { plural } from './processingWords';
 
 /**

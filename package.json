@@ -30,7 +30,8 @@
     "test:coverage": "vitest run --coverage",
     "prepare": "husky",
     "check:boundaries": "node scripts/ci/check-boundaries.mjs",
-    "check:cycles": "node scripts/ci/check-cycles.mjs"
+    "check:cycles": "node scripts/ci/check-cycles.mjs",
+    "check:shell": "node scripts/ci/check-shell-bundle.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

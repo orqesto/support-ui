@@ -108,6 +108,11 @@ jobs:
       - name: Import cycles
         run: npm run check:cycles
 
+      # No feature index may load with the app shell (scripts/ci/check-shell-bundle.mjs): it would
+      # put the whole feature into the main bundle every page downloads first.
+      - name: Shell bundle
+        run: npm run check:shell
+
       # Only on a PR into `staging`: every other event (and a PR into `main`, the release path)
       # leaves `mode` unset and runs the full suite below. The script never fails the job; on any
       # error it selects everything.
