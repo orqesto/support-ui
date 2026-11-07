@@ -85,7 +85,8 @@ jobs:
     needs: plan
     if: contains(needs.plan.outputs.envs, 'production')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Same suite and budget as pr-checks.yml (see the note there): 25 covers a slow runner.
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v6
