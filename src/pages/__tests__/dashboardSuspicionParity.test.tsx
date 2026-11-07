@@ -49,10 +49,10 @@ vi.mock('@/features/tickets/services/ticket.service', () => ({
   ticketService: { getAll: () => Promise.resolve({ success: true, pagination: { total: 0 } }) },
   fetchTicketViewCounts: () => Promise.resolve(null),
 }));
-vi.mock('@/services/kb.service', () => ({
+vi.mock('@/features/kb/services/kb.service', () => ({
   kbService: { getAll: () => Promise.resolve({ success: true, pagination: { total: 0 } }) },
 }));
-vi.mock('@/services/documentation.service', () => ({
+vi.mock('@/features/kb/services/documentation.service', () => ({
   documentationService: { getStats: () => Promise.resolve({ success: true, data: {} }) },
 }));
 vi.mock('@/features/dashboard/services/ingestion.service', () => ({ ingestionService: {} }));

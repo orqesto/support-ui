@@ -32,7 +32,7 @@ import type {
   Documentation,
   DocumentType,
   DocumentationProgress,
-} from '@/services/documentation.service';
+} from '@/features/kb';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 
 type DocumentationListProps = {

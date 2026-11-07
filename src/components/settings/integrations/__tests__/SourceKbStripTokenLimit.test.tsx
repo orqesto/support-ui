@@ -6,12 +6,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useProcessingPanelStore } from '@/stores/processingPanelStore';
-import type { KbMiningForecast } from '@/services/kb.service';
+import type { KbMiningForecast } from '@/features/kb';
 
 /** Plain functions, not module-level vi.fn (vitest 4 fails a test on their caught rejections). */
 let forecast: () => Promise<KbMiningForecast> = () => Promise.reject(new Error('none'));
 let reprocess: () => Promise<unknown> = () => Promise.resolve({});
-vi.mock('@/services/kb.service', () => ({
+vi.mock('@/features/kb/services/kb.service', () => ({
   kbService: {
     getMiningForecast: () => forecast(),
     reprocessSource: () => reprocess(),

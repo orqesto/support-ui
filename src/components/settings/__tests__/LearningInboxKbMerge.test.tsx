@@ -41,7 +41,7 @@ vi.mock('@/hooks/useSuggestionDomainAccess', () => ({
     canActOnAnyDomain: true,
   }),
 }));
-vi.mock('@/components/kb/KbConsolidationReview', () => ({
+vi.mock('@/features/kb/components/KbConsolidationReview', () => ({
   KbConsolidationReview: ({
     suggestionId,
     onDecided,

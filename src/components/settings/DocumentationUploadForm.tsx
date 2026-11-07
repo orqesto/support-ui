@@ -12,7 +12,7 @@ import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { useDepartments } from '@/hooks/useDepartments';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
-import type { DocumentType } from '@/services/documentation.service';
+import type { DocumentType } from '@/features/kb';
 
 type FileUploadProgress = {
   status: 'pending' | 'uploading' | 'success' | 'error';

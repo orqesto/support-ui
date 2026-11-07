@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type * as KbServiceModule from '@/services/kb.service';
+import type * as KbServiceModule from '@/features/kb';
 
 const getAllCalls: Array<Record<string, unknown>> = [];
 /**
@@ -18,16 +18,16 @@ let secondPage: unknown[] | null = null;
 
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
 // KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
-vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
+vi.mock('@/features/kb/components/page/useKbEngineSummary', () => ({
   useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: false }),
 }));
 // No real network calls: "Automatic actions" asks the backend whether its routes exist.
-vi.mock('@/hooks/useAutoActionsAvailable', () => ({
+vi.mock('@/features/kb/hooks/useAutoActionsAvailable', () => ({
   useAutoActionsAvailable: () => false,
   resetAutoActionsAvailability: () => undefined,
 }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
-vi.mock('@/services/kb.service', async (importOriginal) => {
+vi.mock('@/features/kb/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
   return {
     ...actual,
@@ -62,7 +62,7 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
     },
   };
 });
-vi.mock('@/components/kb/KbDecisionDialog', () => ({
+vi.mock('@/features/kb/components/KbDecisionDialog', () => ({
   KbDecisionDialog: ({
     decision,
     onClose,
@@ -87,7 +87,7 @@ vi.mock('@/components/kb/KbDecisionDialog', () => ({
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('@/components/knowledge-base/ConfluenceCatalogSection', () => ({
+vi.mock('@/features/kb/components/ConfluenceCatalogSection', () => ({
   ConfluenceCatalogSection: () => null,
 }));
 vi.mock('@/components/settings/DocumentationSettings', () => ({
@@ -104,15 +104,15 @@ vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => canReview, isOrgAdmin: true }),
 }));
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => ({ isSurfaceVisibleToMe: () => true }) }));
-vi.mock('@/components/kb/KbExportButton', () => ({ KbExportButton: () => null }));
+vi.mock('@/features/kb/components/KbExportButton', () => ({ KbExportButton: () => null }));
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({ data: [{ id: 3, name: 'Support' }] }),
   useDepartmentById: () => undefined,
 }));
 
 const { KnowledgeBasePage } = await import('../KnowledgeBasePage');
-const { KB_STATUS_IGNORED_NOTICE: NOTICE } = await import('@/components/kb/KbStatusIgnoredNotice');
-const { CANNOT_DECIDE } = await import('@/components/kb/KbPendingDecisionBadge');
+const { KB_STATUS_IGNORED_NOTICE: NOTICE } = await import('@/features/kb');
+const { CANNOT_DECIDE } = await import('@/features/kb');
 const entry = (over: Record<string, unknown>) => ({
   id: 10,
   title: 'Example entry',
