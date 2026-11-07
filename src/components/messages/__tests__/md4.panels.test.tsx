@@ -37,7 +37,7 @@ vi.mock('@/services/message.service', () => ({
   },
 }));
 // The ticket picker's first read and the merge section's org code, for the P4 control below.
-vi.mock('@/services/ticket.service', () => ({
+vi.mock('@/features/tickets/services/ticket.service', () => ({
   ticketService: { getAll: vi.fn().mockResolvedValue({ data: [] }) },
 }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => undefined }));

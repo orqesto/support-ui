@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const { getThreadMessages } = vi.hoisted(() => ({ getThreadMessages: vi.fn() }));
 // The thread's tickets (the header chip, 2026-09-30) — hermetic: an unmocked request
 // fails after the test and logs during teardown.
-vi.mock('@/services/ticketThreads.service', () => ({
+vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
   ticketThreadsService: {
     ticketsOfThread: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),
     threadsOfTicket: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),

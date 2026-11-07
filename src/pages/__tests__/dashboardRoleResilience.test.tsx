@@ -31,7 +31,7 @@ vi.mock('@/services/message.service', () => ({
 vi.mock('@/features/statistics/services/sla.service', () => ({
   slaService: { getSummary: () => Promise.resolve(null) },
 }));
-vi.mock('@/services/ticket.service', () => ({
+vi.mock('@/features/tickets/services/ticket.service', () => ({
   ticketService: { getAll: getAllTickets },
   fetchTicketViewCounts: () => Promise.resolve(null),
 }));

@@ -21,7 +21,8 @@ import {
   ticketThreadsService,
   type ThreadTicket,
   type TicketThread,
-} from '@/services/ticketThreads.service';
+  TicketRef,
+} from '@/features/tickets';
 import type { Message } from '@/types';
 import {
   REL_BTN,
@@ -43,7 +44,6 @@ import { createTicketLabel, priorityLabel, statusLabel } from './messageDetailCo
 import { bareStatusLabel } from './inboxCardHelpers';
 import { useIsPhone } from './useIsPhone';
 import { useModalLayer } from '@/hooks/useModalLayer';
-import { TicketRef } from '@/components/tickets/TicketRef';
 import { ticketDisplayId } from '@/lib/ticketReference';
 
 /**

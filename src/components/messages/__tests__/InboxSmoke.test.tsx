@@ -9,7 +9,7 @@ import type { MessageThread } from '@/services/message.service';
 // Mock dependencies used by MessageListItem
 // The thread's tickets (the header chip, 2026-09-30) — hermetic: an unmocked request
 // fails after the test and logs during teardown.
-vi.mock('@/services/ticketThreads.service', () => ({
+vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
   ticketThreadsService: {
     ticketsOfThread: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),
     threadsOfTicket: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),
@@ -53,7 +53,7 @@ vi.mock('@/lib/stripHtml', async (importOriginal) => ({
   stripHtml: (str: string) => str,
 }));
 
-vi.mock('@/components/tickets/LeadQualificationPanel', () => ({
+vi.mock('@/features/tickets/components/LeadQualificationPanel', () => ({
   STAGE_COLORS: {},
 }));
 

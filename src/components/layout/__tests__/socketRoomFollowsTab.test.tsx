@@ -35,7 +35,6 @@ vi.mock('@/hooks/useNotificationCounts', () => ({
   NOTIFICATION_COUNTS_KEY: ['notification-counts'],
   useNotificationCounts: () => ({ counts: {} }),
 }));
-vi.mock('@/hooks/useTicketsCount', () => ({ useTicketsCount: () => ({ data: 0 }) }));
 vi.mock('@/hooks/useSLANotifications', () => ({ useSLANotifications: () => ({}) }));
 vi.mock('@/hooks/useLearningNotifications', () => ({ useLearningNotifications: () => ({}) }));
 const joinOrganizationRoom = vi.fn();

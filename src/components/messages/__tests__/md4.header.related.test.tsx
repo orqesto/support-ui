@@ -7,7 +7,7 @@ import { perms, svc, ticket, renderHeader, twoTickets, message } from './md4.hea
 import { screen, fireEvent, waitFor, within, act, cleanup } from '@testing-library/react';
 import type { Message } from '@/types';
 import { Permission } from '@/types/roles';
-import { THREAD_TICKETS_CHANGED } from '@/services/ticketThreadsEvents';
+import { THREAD_TICKETS_CHANGED } from '@/features/tickets';
 import { toast } from '@/lib/toast';
 
 // In each test file, not the shared utils: the apiClient path scanner

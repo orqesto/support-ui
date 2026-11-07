@@ -15,7 +15,7 @@ import { computeSlaInfo, getSlaCardText, slaClockRuns } from '../inboxCardHelper
 import { MessageSignalBadges } from '../MessageSignalBadges';
 import type { Message } from '@/types';
 
-vi.mock('@/services/category.service', () => ({
+vi.mock('@/features/tickets/services/category.service', () => ({
   categoryService: { getCategories: () => Promise.resolve([]) },
 }));
 vi.mock('@/services/settings.service', () => ({

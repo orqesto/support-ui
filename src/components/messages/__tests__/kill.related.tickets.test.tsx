@@ -30,7 +30,7 @@ const hoist = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'TES' }));
-vi.mock('@/services/ticketThreads.service', () => ({
+vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
   ticketThreadsService: {
     threadsOfTicket: (id: number) => {
       hoist.threadsCalls.push(id);
@@ -62,7 +62,7 @@ vi.mock('@/lib/toast', () => ({ toast: { success: () => {}, error: () => {} } })
 import { TicketsSection, type HeaderTickets } from '../RelatedPopover';
 import { REL_GROUP_ROW } from '../relatedStyles';
 import { priorityLabel, statusLabel } from '../messageDetailConstants';
-import type { ThreadTicket, TicketThread } from '@/services/ticketThreads.service';
+import type { ThreadTicket, TicketThread } from '@/features/tickets';
 
 beforeEach(() => {
   hoist.threadsCalls = [];

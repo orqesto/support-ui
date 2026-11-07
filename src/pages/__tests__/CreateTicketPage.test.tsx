@@ -49,7 +49,7 @@ vi.mock('@/lib/api-client', () => ({
     }
   ),
 }));
-vi.mock('@/services/category.service', () => ({ categoryService: empty() }));
+vi.mock('@/features/tickets/services/category.service', () => ({ categoryService: empty() }));
 const integrations: { list: unknown[] } = { list: [] };
 vi.mock('@/services/integrations.service', () => ({
   integrationsService: {
@@ -57,13 +57,13 @@ vi.mock('@/services/integrations.service', () => ({
   },
 }));
 vi.mock('@/services/settings.service', () => ({ settingsService: empty() }));
-vi.mock('@/services/ticket.service', () => ({
+vi.mock('@/features/tickets/services/ticket.service', () => ({
   ticketService: {
     create: (...args: unknown[]) => create(...args),
     uploadAttachments: (...args: unknown[]) => uploadAttachments(...args),
   },
 }));
-vi.mock('@/services/ticketThreads.service', () => ({
+vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
   ticketThreadsService: { addThreads: (...args: unknown[]) => addThreads(...args) },
 }));
 vi.mock('@/services/message.service', () => ({
@@ -100,7 +100,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 const { CreateTicketPage } = await import('@/pages/CreateTicketPage');
-const { NewTicketButton } = await import('@/components/tickets/NewTicketButton');
+const { NewTicketButton } = await import('@/features/tickets');
 const { ThemeProvider } = await import('@/contexts/ThemeContext');
 
 const thread = (id: number, sender: string, subject: string) => ({

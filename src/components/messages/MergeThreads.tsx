@@ -19,7 +19,7 @@ import { queryClient } from '@/lib/queryClient';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import { conversationMergeService, type ManualMerge } from '@/services/conversationMerge.service';
 import { messageService } from '@/services/message.service';
-import { threadRowMessage } from '@/services/threadCandidates.service';
+import { threadRowMessage } from '@/features/tickets';
 import type { Message } from '@/types';
 import { MergeConfirmDialog, type MergeRow } from './MergeConfirmDialog';
 import {

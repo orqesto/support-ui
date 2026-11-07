@@ -6,8 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { apiClient } from '@/lib/api-client';
 import { installTransport, ok, routeAbsent, type WireHandler } from '@/test/apiTransport';
 import { replyTemplatesService } from '@/services/replyTemplates.service';
-import { ticketDraftsService } from '@/services/ticketDrafts.service';
-import { ticketRepliesService } from '@/services/ticketReplies.service';
+import { ticketDraftsService, ticketRepliesService } from '@/features/tickets';
 
 let handler: WireHandler = routeAbsent;
 let wire: ReturnType<typeof installTransport>;

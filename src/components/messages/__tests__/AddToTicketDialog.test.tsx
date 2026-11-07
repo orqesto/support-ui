@@ -12,10 +12,10 @@ import { useState } from 'react';
 const addThreads = vi.fn();
 const getAll = vi.fn();
 
-vi.mock('@/services/ticketThreads.service', () => ({
+vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
   ticketThreadsService: { addThreads },
 }));
-vi.mock('@/services/ticket.service', () => ({ ticketService: { getAll } }));
+vi.mock('@/features/tickets/services/ticket.service', () => ({ ticketService: { getAll } }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 
 const { AddToTicketDialog } = await import('@/components/messages/AddToTicketDialog');

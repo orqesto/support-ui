@@ -33,7 +33,7 @@ vi.mock('@/hooks/useDepartments', () => ({
 }));
 vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ aiConfigured: true }) }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'TES' }));
-vi.mock('@/services/ticketThreads.service', () => ({
+vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
   ticketThreadsService: {
     ticketsOfThread: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),
   },
@@ -60,7 +60,7 @@ vi.mock('@/services/message.service', () => ({
     }
   ),
 }));
-vi.mock('@/services/category.service', () => ({
+vi.mock('@/features/tickets/services/category.service', () => ({
   categoryService: { getAll: () => Promise.resolve({ success: true, data: [] }) },
 }));
 vi.mock('@/services/settings.service', () => ({

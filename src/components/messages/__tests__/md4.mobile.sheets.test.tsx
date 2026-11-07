@@ -13,7 +13,7 @@ import { MergePickerDialog } from '../MergeThreads';
 import { MergeConfirmDialog } from '../MergeConfirmDialog';
 import { AddToTicketDialog } from '../AddToTicketDialog';
 import { Select } from '@/components/ui/Select';
-import { categoryService } from '@/services/category.service';
+import { categoryService } from '@/features/tickets';
 
 // In each test file, not the shared utils: the apiClient path scanner
 // (servicePathsCarryApiPrefix.test.ts) reads every module that is not itself a test.

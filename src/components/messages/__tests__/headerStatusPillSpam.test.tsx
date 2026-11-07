@@ -28,7 +28,7 @@ vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'TES' }))
 vi.mock('@/services/message.service', () => ({
   messageService: new Proxy({}, { get: () => () => Promise.resolve({ success: true, data: [] }) }),
 }));
-vi.mock('@/services/category.service', () => ({
+vi.mock('@/features/tickets/services/category.service', () => ({
   categoryService: new Proxy({}, { get: () => () => Promise.resolve([]) }),
 }));
 vi.mock('@/services/settings.service', () => ({

@@ -42,7 +42,7 @@ import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { messageService } from '@/services/message.service';
 import type { ManualMerge } from '@/services/conversationMerge.service';
-import { categoryService } from '@/services/category.service';
+import { categoryService, TicketRef } from '@/features/tickets';
 import { labelService, type Label } from '@/services/settings.service';
 import {
   closedStatusMeta,
@@ -89,7 +89,6 @@ import { asManualMerge, type MergeChange } from './useThreadMergeContext';
 import { useThreadTicketsState } from './useThreadTicketsState';
 import { useConversationMute } from '@/hooks/useConversationMute';
 import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
-import { TicketRef } from '@/components/tickets/TicketRef';
 import { ticketDisplayId } from '@/lib/ticketReference';
 
 // ─── Props ────────────────────────────────────────────────────────────────────

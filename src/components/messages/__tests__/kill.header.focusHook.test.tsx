@@ -17,7 +17,7 @@ const svc = vi.hoisted(() => ({
   getLinkedTicket: vi.fn(),
   listMerges: vi.fn(),
 }));
-vi.mock('@/services/ticketThreads.service', () => ({
+vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
   ticketThreadsService: { ticketsOfThread: svc.ticketsOfThread },
 }));
 vi.mock('@/services/message.service', () => ({

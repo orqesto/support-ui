@@ -23,7 +23,7 @@ import { documentationService } from '@/services/documentation.service';
 import { kbService } from '@/services/kb.service';
 import { messageService } from '@/services/message.service';
 import { SLA_DEFAULT_DAYS, slaService } from '@/features/statistics';
-import { fetchTicketViewCounts, ticketService } from '@/services/ticket.service';
+import { fetchTicketViewCounts, ticketService } from '@/features/tickets';
 import { useMessagesStore } from '@/stores/messagesStore';
 import { logger } from '@/lib/logger';
 import { invalidateSharedFetch, sharedFetch } from '@/lib/sharedFetch';

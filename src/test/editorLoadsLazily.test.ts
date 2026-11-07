@@ -31,7 +31,7 @@ const SCHEMA = /from '@\/lib\/editorSchema'/;
 const SCHEMA_ALLOWED = [
   'components/shared/RichTextEditor.tsx',
   'lib/zendeskMacros.ts', // Settings → Zendesk macro import
-  'components/tickets/TicketUpdateAssist.tsx', // Tickets
+  'features/tickets/components/TicketUpdateAssist.tsx', // Tickets
 ];
 
 const offenders = (module: RegExp, allowed: string[]) =>

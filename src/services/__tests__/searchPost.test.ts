@@ -32,8 +32,7 @@ const serverError = Object.assign(new Error('Boom'), { status: 500 });
 import { kbService } from '@/services/kb.service';
 import { messageService } from '@/services/message.service';
 import { resetSearchPostSupport } from '@/services/searchPost';
-import { ticketService } from '@/services/ticket.service';
-import type { TicketSortBy } from '@/stores/ticketsStore';
+import { ticketService, type TicketSortBy } from '@/features/tickets';
 
 describe('searched lists in a POST body', () => {
   beforeEach(() => {

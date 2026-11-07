@@ -46,7 +46,7 @@ vi.mock('@/features/custom-api/services/customApiLookup.service', () => ({
   },
 }));
 vi.mock('@/services/organization.service', () => ({ organizationService: serviceMock() }));
-vi.mock('@/services/category.service', () => ({ categoryService: serviceMock() }));
+vi.mock('@/features/tickets/services/category.service', () => ({ categoryService: serviceMock() }));
 vi.mock('@/services/settings.service', () => ({ labelService: serviceMock() }));
 vi.mock('@/services/assignment.service', () => ({ assignmentService: serviceMock() }));
 vi.mock('@/lib/logger', () => ({
