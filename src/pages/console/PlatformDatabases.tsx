@@ -14,7 +14,7 @@ import { usePlatformSettings, useUpdatePlatformDatabase } from '@/hooks/usePlatf
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { toast } from '@/lib/toast';
 import { formatDate } from '@/lib/utils';
-import { STATUS_BADGE, STATUS_LABEL } from '@/components/settings/providers/DatabaseConfigCard';
+import { STATUS_BADGE, STATUS_LABEL } from '@/features/settings';
 
 /**
  * The managed-database retention window for workspaces with no active plan (BYODB §3.4). Applies to workspaces stamped from now

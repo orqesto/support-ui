@@ -1,0 +1,698 @@
+import { useState } from 'react';
+import { useResultFor } from '@/hooks/useResultFor';
+import {
+  Mail,
+  Plus,
+  TestTube2,
+  Trash2,
+  Edit,
+  Calendar,
+  Building2,
+  MessageSquareReply,
+  AtSign,
+  GitCompare,
+  MessageCircleReply,
+} from 'lucide-react';
+import { AckReplyEditor } from '@/features/settings/components/integrations/AckReplyEditor';
+import { EmailForm } from '@/features/settings/components/integrations/EmailForm';
+import { ImapCompareReview } from '@/features/settings/components/integrations/MailboxReconciliation';
+import { apiErrorMessage } from '@/lib/apiError';
+import {
+  SourceAliasEditor,
+  declaredAliases,
+} from '@/features/settings/components/integrations/SourceAliasEditor';
+import { SourceDepartmentEditor } from '@/features/settings/components/integrations/SourceDepartmentEditor';
+import { SourceRowBadges } from '@/features/settings/components/integrations/SourceRowBadges';
+import { SourceRowStrips } from '@/features/settings/components/integrations/SourceRowStrips';
+import type { IntegrationCardProps } from '@/features/settings/components/integrations/types';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
+import { integrationsService } from '@/services/integrations.service';
+import { useKbRangeDialogStore } from '@/stores/kbRangeDialogStore';
+import {
+  KB_MINING_DEFERRED_LINE,
+  KB_RANGE_MENU_LABEL,
+} from '@/features/settings/components/integrations/kbRangeCopy';
+import { logger } from '@/lib/logger';
+import { Label } from '@/components/ui/Label';
+import { DateRangePicker, formatRangeLabel, type DateRangeValue } from '@/components/ui/DateRangePicker';
+import { countLookbackDays, imapEarliestDay, importRangePatch, importRangeValue } from '@/lib/importRange';
+
+type EmailConfig = {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  secure: boolean;
+  isKnowledgeBase?: boolean;
+  searchCriteria?: string;
+  maxResults?: number;
+  lookbackDays?: number;
+  bulkImportDays?: number;
+  /** The import start day (YYYY-MM-DD); wins over bulkImportDays on the server. */
+  bulkImportSince?: string | null;
+  bulkImportMaxResults?: number;
+  markImported?: { enabled: boolean; label?: string }; // support-service#1229
+  smtp?: {
+    host: string;
+    port: number;
+    user: string;
+    password: string;
+    secure: boolean;
+  };
+};
+
+const defaultConfig: EmailConfig = {
+  host: '',
+  port: 993,
+  user: '',
+  password: '',
+  secure: true,
+  isKnowledgeBase: false,
+  searchCriteria: 'ALL',
+  maxResults: 500,
+  lookbackDays: 30,
+  bulkImportDays: 0,
+  bulkImportMaxResults: 500,
+};
+
+
+const IMPORT_RANGE_OPTIONS = [
+  { value: '7', label: 'Last 7 days' },
+  { value: '30', label: 'Last 30 days' },
+  { value: '90', label: 'Last 90 days' },
+  { value: '0', label: 'All time (may take long)' },
+];
+
+export const EmailIntegrationCard = ({
+  integrations,
+  onRefresh,
+  onShowAlert,
+  defaultKB,
+}: IntegrationCardProps) => {
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState<number | null>(null);
+  const [checkingCount, setCheckingCount] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingEnabled, setEditingEnabled] = useState(true);
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [config, setConfig] = useState<EmailConfig>(defaultConfig);
+  const imapCheckInput = () => ({
+    host: config.host,
+    port: config.port,
+    user: config.user,
+    password: config.password,
+    secure: config.secure,
+    searchCriteria: config.searchCriteria,
+    // A Custom since day counts from that day, as the import will read (and keys the result).
+    lookbackDays: countLookbackDays(config),
+    // Editing an existing source: the form holds the MASKED password it was seeded with,
+    // so the backend needs the id to substitute the stored secret before dialling.
+    ...(editingId !== null ? { integrationId: editingId } : {}),
+  });
+  // "Found N messages matching your criteria" is about the criteria the check ran with, and a
+  // check that lands after the form changed must not claim it for the new ones.
+  const {
+    result: messageCount,
+    keep: keepMessageCount,
+    clear: clearMessageCount,
+    isCurrent: imapCheckIsCurrent,
+  } = useResultFor<number | null>(JSON.stringify(imapCheckInput()));
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [editBulkImport, setEditBulkImport] = useState<{
+    id: number;
+    name: string;
+    currentDays: number;
+  } | null>(null);
+  const [importRange, setImportRange] = useState<DateRangeValue>({ kind: 'preset', value: '7' });
+  const [editDepts, setEditDepts] = useState<number | null>(null);
+  const [editAliases, setEditAliases] = useState<number | null>(null);
+  const [editAckReply, setEditAckReply] = useState<number | null>(null);
+  const [compareId, setCompareId] = useState<number | null>(null);
+
+  // Centralized create-form department picker state.
+  const deptPicker = useCreateSourceDepartments();
+
+  const emailIntegrations = integrations.filter(
+    (int) =>
+      int.type === 'email' &&
+      (defaultKB === undefined || (int.isKnowledgeBase ?? false) === defaultKB)
+  );
+
+  const handleCheckMessagesCount = async () => {
+    setCheckingCount(true);
+    clearMessageCount();
+    const input = imapCheckInput();
+    const checkedKey = JSON.stringify(input);
+    try {
+      const result = await integrationsService.testImapConfig(input);
+      // The form changed while the check ran: its answer is about settings no longer on screen.
+      if (!imapCheckIsCurrent(checkedKey)) return;
+
+      if (result.success && result.data) {
+        keepMessageCount(result.data.details?.messageCount ?? null, checkedKey);
+        onShowAlert({
+          open: true,
+          title: 'Connection Successful',
+          description: result.data.message,
+          variant: 'success',
+        });
+      } else {
+        onShowAlert({
+          open: true,
+          title: 'Connection Failed',
+          description: result.data?.message ?? 'Failed to connect to IMAP server',
+          variant: 'error',
+        });
+      }
+    } catch (error) {
+      if (!imapCheckIsCurrent(checkedKey)) return;
+      onShowAlert({
+        open: true,
+        title: 'Connection Failed',
+        description: error instanceof Error ? error.message : 'Failed to test IMAP connection',
+        variant: 'error',
+      });
+    } finally {
+      setCheckingCount(false);
+    }
+  };
+
+  const handleUpdateBulkImportDays = async () => {
+    if (!editBulkImport) return;
+
+    setSaving(true);
+    try {
+      await integrationsService.update(editBulkImport.id, {
+        type: 'email',
+        config: {
+          email: importRangePatch(importRange),
+        },
+      });
+
+      await onRefresh();
+      setEditBulkImport(null);
+
+      onShowAlert({
+        open: true,
+        title: 'Sync Range Updated',
+        description: `Will sync emails from ${formatRangeLabel(importRange, IMPORT_RANGE_OPTIONS).toLowerCase()} on next polling cycle.`,
+        variant: 'success',
+      });
+    } catch (error) {
+      logger.error('Failed to update sync range:', error);
+      onShowAlert({
+        open: true,
+        title: 'Update Failed',
+        description: error instanceof Error ? error.message : 'Failed to update sync range',
+        variant: 'error',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetForm = () => {
+    setConfig({ ...defaultConfig, isKnowledgeBase: defaultKB ?? false });
+    setShowForm(false);
+    setEditingId(null);
+    setEditingEnabled(true);
+    setEditingName(null);
+    clearMessageCount();
+    setShowAdvanced(false);
+  };
+
+  const loadForEdit = (
+    id: number,
+    currentConfig: Record<string, unknown>,
+    currentName: string,
+    isKB: boolean,
+    isEnabled: boolean = true
+  ) => {
+    setEditingId(id);
+    setEditingName(currentName);
+    setEditingEnabled(isEnabled);
+    const emailConfig = (currentConfig as { email?: EmailConfig }).email ?? currentConfig;
+    setConfig({ ...(emailConfig as EmailConfig), isKnowledgeBase: isKB });
+    setShowForm(true);
+  };
+
+  const saveIntegration = async () => {
+    setSaving(true);
+    try {
+      const integrationName =
+        editingId !== null && editingName ? editingName : `Email-${config.user}`;
+      const { isKnowledgeBase, ...emailConfigOnly } = config;
+
+      // On CREATE, departments ride along with the insert so the BE links them in the
+      // same transaction. Previously this was a second call made after the source was
+      // already created and ENABLED, so anything arriving in between — or a failure of
+      // that call — left a live source with zero links, sending everything it ingested
+      // to needs_routing under an arbitrary department. Updates omit them: link edits go
+      // through the per-source editor, which diffs instead of replacing.
+      const isCreate = editingId === null;
+      const response = await integrationsService.upsert({
+        name: integrationName,
+        type: 'email',
+        // An EDIT keeps the row's flag: a paused mailbox stays paused (B-H4). A CREATE is on.
+        enabled: isCreate ? true : editingEnabled,
+        isKnowledgeBase: isKnowledgeBase ?? false,
+        config: { email: emailConfigOnly },
+        ...(isCreate
+          ? {
+              departmentIds: deptPicker.selectedIds,
+              defaultDepartmentId: deptPicker.defaultId,
+            }
+          : {}),
+      });
+
+      if (response.success) {
+        await onRefresh();
+        resetForm();
+
+        const actionMessage = `${
+          response.action === 'updated'
+            ? 'Email integration updated successfully! (Credentials refreshed for existing integration)'
+            : 'Email integration created successfully!'
+        }${response.kbMiningDeferred ? `\n\n${KB_MINING_DEFERRED_LINE}` : ''}`;
+
+        onShowAlert({
+          open: true,
+          title: response.action === 'updated' ? 'Updated' : 'Created',
+          description: actionMessage,
+          // Nothing is mined yet when mining was deferred: a green/blue alert reads as "all good".
+          variant: response.kbMiningDeferred
+            ? 'warning'
+            : response.action === 'updated'
+              ? 'info'
+              : 'success',
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to save Email integration:', error);
+      /*
+       * Show what the SERVER said. It now refuses an unreachable mailbox and passes the IMAP
+       * probe's own guidance back — the wrong port for the TLS mode, an app-password hint —
+       * and replacing that with "Failed to save Email integration" throws away the only part
+       * an admin can act on.
+       *
+       * 🪤 `apiErrorMessage` reads `err.data`, never `err.response`: the api-client
+       * interceptor builds a fresh Error and copies status/body onto it, so the axios shape
+       * is always undefined by the time a caller sees it.
+       */
+      onShowAlert({
+        open: true,
+        title: 'Could not save this mailbox',
+        description: apiErrorMessage(error, 'Failed to save Email integration'),
+        variant: 'error',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const testConnection = async (id: number, name: string) => {
+    setTesting(id);
+    try {
+      const response = await integrationsService.test(id, 'email');
+      if (response.success) {
+        onShowAlert({
+          open: true,
+          title: 'Test Successful',
+          description: `${name} connection test successful!`,
+          variant: 'success',
+        });
+      } else {
+        onShowAlert({
+          open: true,
+          title: 'Test Failed',
+          description: `${name} connection test failed: ${response.message}`,
+          variant: 'error',
+        });
+      }
+    } catch (error) {
+      logger.error(`Failed to test ${name} connection:`, error);
+      onShowAlert({
+        open: true,
+        title: 'Test Failed',
+        description: `Failed to test ${name} connection`,
+        variant: 'error',
+      });
+    } finally {
+      setTesting(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+
+    const { id, name } = deleteConfirm;
+    setDeleting(id);
+    setDeleteConfirm(null);
+
+    try {
+      const response = await integrationsService.delete(id, 'email');
+      if (response.success) {
+        await onRefresh();
+      } else {
+        onShowAlert({
+          open: true,
+          title: 'Error',
+          description: `Failed to delete ${name}: ${response.error ?? 'Unknown error'}`,
+          variant: 'error',
+        });
+      }
+    } catch (error) {
+      logger.error(`Failed to delete ${name}:`, error);
+      onShowAlert({
+        open: true,
+        title: 'Error',
+        description: `Failed to delete ${name}. Check console for details.`,
+        variant: 'error',
+      });
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex gap-2 items-center">
+              <Mail className="w-5 h-5 text-muted-foreground" />
+              {defaultKB ? 'Email KB Sources (IMAP)' : 'Email Accounts (IMAP)'}
+            </CardTitle>
+            <Button
+              size="sm"
+              onClick={() => {
+                resetForm();
+                setShowForm(!showForm);
+              }}
+            >
+              <Plus className="mr-1 w-4 h-4" />
+              Add Email
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {emailIntegrations.length > 0 && (
+            <div className="space-y-2">
+              {emailIntegrations.map((integration) => (
+                <div key={integration.id}>
+                  <div className="flex flex-col gap-3 p-3 rounded-lg border sm:flex-row sm:justify-between sm:items-center">
+                    <div className="flex flex-1 gap-3 items-center min-w-0">
+                      <div
+                        className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-success' : 'bg-faint-foreground'}`}
+                      />
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <p className="font-medium break-all">
+                            {(integration.config as { email?: EmailConfig }).email?.user ??
+                              integration.name}
+                          </p>
+                          <SourceRowBadges source={integration} />
+                        </div>
+                        <p className="text-xs break-all text-muted-foreground">
+                          {(integration.config as { email?: EmailConfig }).email?.host ??
+                            'Not configured'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (integration.isKnowledgeBase) {
+                            useKbRangeDialogStore.getState().open(integration.id);
+                            return;
+                          }
+                          const emailConfig = (integration.config as { email?: EmailConfig }).email;
+                          const currentDays = emailConfig?.bulkImportDays ?? 0;
+                          setEditBulkImport({
+                            id: integration.id,
+                            name: integration.name,
+                            currentDays,
+                          });
+                          // The saved range, not a fixed 7: the dialog shows what is set.
+                          setImportRange(importRangeValue(emailConfig, 7));
+                        }}
+                        title={
+                          integration.isKnowledgeBase
+                            ? KB_RANGE_MENU_LABEL
+                            : 'Bulk import historical emails'
+                        }
+                        aria-label={
+                          integration.isKnowledgeBase
+                            ? KB_RANGE_MENU_LABEL
+                            : 'Bulk import historical emails'
+                        }
+                      >
+                        <Calendar className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        aria-label="Edit this mailbox"
+                        title="Edit this mailbox"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          loadForEdit(
+                            integration.id,
+                            integration.config as Record<string, unknown>,
+                            integration.name,
+                            integration.isKnowledgeBase ?? false,
+                            integration.enabled
+                          )
+                        }
+                        disabled={editingId === integration.id}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => testConnection(integration.id, integration.name)}
+                        isLoading={testing === integration.id}
+                        disabled={!integration.hasCredentials}
+                      >
+                        <TestTube2 className="w-4 h-4" />
+                        Poke
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCompareId(integration.id)}
+                        disabled={!integration.hasCredentials}
+                        title="Compare with Odly"
+                        aria-label="Compare with Odly"
+                      >
+                        <GitCompare className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditAliases(integration.id)}
+                        title="Mailbox addresses"
+                        aria-label="Mailbox addresses"
+                      >
+                        <AtSign className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditDepts(integration.id)}
+                        title={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply'}
+                        aria-label={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply'}
+                      >
+                        {deptPicker.teamsEnabled ? (
+                          <Building2 className="w-4 h-4" />
+                        ) : (
+                          <MessageCircleReply className="w-4 h-4" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditAckReply(integration.id)}
+                        title="Auto-reply template"
+                        aria-label="Auto-reply template"
+                      >
+                        <MessageSquareReply className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setDeleteConfirm({ id: integration.id, name: integration.name })
+                        }
+                        isLoading={deleting === integration.id}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                        <span className="sr-only">Delete</span>
+                      </Button>
+                    </div>
+                  </div>
+                  <SourceRowStrips
+                    source={integration}
+                    onShowAlert={onShowAlert}
+                    onRefresh={onRefresh}
+                    editing={showForm && editingId === integration.id}
+                  />
+                  {compareId === integration.id && (
+                    <ImapCompareReview
+                      sourceId={integration.id}
+                      onClose={() => setCompareId(null)}
+                      onShowAlert={onShowAlert}
+                    />
+                  )}
+                  {editAliases === integration.id && (
+                    <SourceAliasEditor
+                      sourceId={integration.id}
+                      sourceType={integration.type}
+                      declared={declaredAliases(integration.config)}
+                      onClose={() => setEditAliases(null)}
+                      onSaved={() => {
+                        setEditAliases(null);
+                        void onRefresh();
+                      }}
+                    />
+                  )}
+                  {editDepts === integration.id && (
+                    <SourceDepartmentEditor
+                      sourceId={integration.id}
+                      onClose={() => setEditDepts(null)}
+                      onSaved={() => {
+                        setEditDepts(null);
+                        void onRefresh();
+                      }}
+                    />
+                  )}
+                  {editAckReply === integration.id && (
+                    <AckReplyEditor
+                      sourceId={integration.id}
+                      initial={{
+                        autoReplyEnabled: integration.autoReplyEnabled,
+                        autoReplySubject: integration.autoReplySubject,
+                        autoReplyBody: integration.autoReplyBody,
+                      }}
+                      onClose={() => setEditAckReply(null)}
+                      onSaved={async () => {
+                        setEditAckReply(null);
+                        await onRefresh();
+                      }}
+                      onShowAlert={onShowAlert}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {showForm && (
+            <EmailForm
+              config={config}
+              editingId={editingId}
+              saving={saving}
+              checkingCount={checkingCount}
+              messageCount={messageCount}
+              showAdvanced={showAdvanced}
+              departments={deptPicker.departments}
+              departmentsLoading={deptPicker.loading}
+              teamsEnabled={deptPicker.teamsEnabled}
+              selectedDepartmentIds={deptPicker.selectedIds}
+              defaultDepartmentId={deptPicker.defaultId}
+              defaultKB={defaultKB}
+              onConfigChange={setConfig}
+              onToggleAdvanced={() => setShowAdvanced(!showAdvanced)}
+              onCheckMessagesCount={handleCheckMessagesCount}
+              onSelectedDepartmentsChange={deptPicker.setSelectedIds}
+              onDefaultDepartmentChange={deptPicker.setDefaultId}
+              onSave={saveIntegration}
+              onCancel={resetForm}
+            />
+          )}
+
+          {emailIntegrations.length === 0 && !showForm && (
+            <p className="py-4 text-sm text-center text-muted-foreground">
+              No email accounts configured
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
+          <div className="p-6 mx-4 w-full max-w-md rounded-lg shadow-xl bg-card">
+            <h3 className="font-display mb-2 text-lg font-semibold">Delete Integration?</h3>
+            <p className="mb-4 text-muted-foreground">
+              Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?
+            </p>
+            <p className="mb-6 text-sm text-destructive">This action cannot be undone.</p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleting === deleteConfirm.id}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                isLoading={deleting === deleteConfirm.id}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Initial Sync Range Modal */}
+      {editBulkImport && (
+        <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
+          <div className="p-6 mx-4 w-full max-w-md rounded-lg shadow-xl bg-card">
+            <h3 className="font-display mb-2 text-lg font-semibold">Initial Sync Range</h3>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Configure historical import range for <strong>{editBulkImport.name}</strong>
+            </p>
+
+            <div className="mb-4">
+              <Label className="mb-1">Fetch emails from:</Label>
+              <div>
+                <DateRangePicker
+                  ariaLabel="Fetch emails from"
+                  minDay={imapEarliestDay()}
+                  mode="single"
+                  presets={IMPORT_RANGE_OPTIONS}
+                  value={importRange}
+                  onChange={setImportRange}
+                />
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                How far back to fetch emails on first connect. After the initial sync, normal
+                incremental polling resumes.
+              </p>
+            </div>
+
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setEditBulkImport(null)} disabled={saving}>
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateBulkImportDays} isLoading={saving}>
+                Start Import
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};

@@ -128,7 +128,7 @@ vi.mock('@/components/layout/Layout', () => ({
 vi.mock('@/features/kb/components/ConfluenceCatalogSection', () => ({
   ConfluenceCatalogSection: () => <p>confluence catalog</p>,
 }));
-vi.mock('@/components/settings/DocumentationSettings', () => ({
+vi.mock('@/features/settings/components/DocumentationSettings', () => ({
   DocumentationSettings: () => <p>documentation settings</p>,
 }));
 vi.mock('@/components/messages/MessageSourceFilter', () => ({
@@ -157,28 +157,28 @@ vi.mock('@/hooks/useDepartments', () => ({
   useDepartmentById: () => undefined,
 }));
 const nothing = () => null;
-vi.mock('@/components/settings/PromptsSettings', () => ({ PromptsSettings: nothing }));
-vi.mock('@/components/settings/AutoReplyConfiguration', () => ({
+vi.mock('@/features/settings/components/PromptsSettings', () => ({ PromptsSettings: nothing }));
+vi.mock('@/features/settings/components/AutoReplyConfiguration', () => ({
   AutoReplyConfiguration: nothing,
 }));
-vi.mock('@/components/settings/AiDraftsSettings', () => ({ AiDraftsSettings: nothing }));
-vi.mock('@/components/settings/LeadQualificationSection', () => ({
+vi.mock('@/features/settings/components/AiDraftsSettings', () => ({ AiDraftsSettings: nothing }));
+vi.mock('@/features/settings/components/LeadQualificationSection', () => ({
   LeadQualificationSection: nothing,
 }));
-vi.mock('@/components/settings/LearningNotificationsInbox', () => ({
+vi.mock('@/features/settings/components/LearningNotificationsInbox', () => ({
   LearningNotificationsInbox: nothing,
 }));
-vi.mock('@/components/settings/LearningEvidenceCard', () => ({ LearningEvidenceCard: nothing }));
-vi.mock('@/components/settings/LearningSuggestionsSettings', () => ({
+vi.mock('@/features/settings/components/LearningEvidenceCard', () => ({ LearningEvidenceCard: nothing }));
+vi.mock('@/features/settings/components/LearningSuggestionsSettings', () => ({
   LearningSuggestionsSettings: nothing,
 }));
-vi.mock('@/components/settings/LearningTrustSettings', () => ({ LearningTrustSettings: nothing }));
+vi.mock('@/features/settings/components/LearningTrustSettings', () => ({ LearningTrustSettings: nothing }));
 vi.mock('@/features/kb/components/autoActions/KbAutoActionsPanel', () => ({
   KbAutoActionsPanel: nothing,
 }));
 
 const { KnowledgeBasePage } = await import('../KnowledgeBasePage');
-const { AIConfigSettings } = await import('@/components/settings/AIConfigSettings');
+const { AIConfigSettings } = await import('@/features/settings');
 const { KB_FILTER_STATUS_LABEL } = await import('@/features/kb');
 const { kbPageViewFromSearch } = await import('@/features/kb');
 

@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { TemplateGuide } from '@/components/settings/customApi/TemplateGuide';
-import { CUSTOM_APIS_SETTINGS_PATH } from '@/components/settings/customApi/lookupPaths';
+import { TemplateGuide, CUSTOM_APIS_SETTINGS_PATH } from '@/features/settings';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';

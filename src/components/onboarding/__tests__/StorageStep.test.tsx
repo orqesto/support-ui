@@ -12,7 +12,7 @@ const get = vi.fn<(url: string) => Promise<{ data: { success: boolean; data: unk
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: (url: string) => get(url) } }));
 
 // The BYO form has its own tests; here it only marks that BYO is selected.
-vi.mock('@/components/settings/providers/ObjectStorageConfigCard', () => ({
+vi.mock('@/features/settings/components/providers/ObjectStorageConfigCard', () => ({
   ObjectStorageConfigCard: () => <div data-testid="byo-form" />,
 }));
 

@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import { Layout } from '@/components/layout/Layout';
-import { WorkspaceDetailsSettings } from '@/components/settings/WorkspaceDetailsSettings';
+import { WorkspaceDetailsSettings } from '@/features/settings';
 
 /**
  * Current-workspace details view/editor. The customer-facing home for this is now

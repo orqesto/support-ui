@@ -1,4 +1,4 @@
-import { CATEGORY_TAB_LABELS, readCategory } from '@/components/settings/customApi/categories';
+import { CATEGORY_TAB_LABELS, readCategory } from '@/features/settings';
 import {
   useCustomApiLookupAvailability,
   useCustomApiLookupOptions,

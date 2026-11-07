@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { EndpointWizard } from '@/components/settings/customApi/EndpointWizard';
-import {
-  CUSTOM_APIS_SETTINGS_PATH,
-  customApiLookupPath,
-} from '@/components/settings/customApi/lookupPaths';
+import { EndpointWizard, CUSTOM_APIS_SETTINGS_PATH, customApiLookupPath, hostOf } from '@/features/settings';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
@@ -17,7 +13,6 @@ import {
   type CustomApiEndpoint,
 } from '@/features/custom-api';
 import { Permission } from '@/types/roles';
-import { hostOf } from '@/components/settings/customApi/LookupHealthLine';
 
 type Loaded =
   | { state: 'loading' }

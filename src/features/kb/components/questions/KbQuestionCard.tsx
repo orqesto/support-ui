@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Kbd } from '@/components/ui/Kbd';
 import { Textarea } from '@/components/ui/Textarea';
-import { diffWords, type DiffSegment } from '@/components/settings/replyStyleDiff';
+import { diffWords, type DiffSegment } from '@/lib/replyStyleDiff';
 import { cn } from '@/lib/utils';
 import type {
   KbQuestion,

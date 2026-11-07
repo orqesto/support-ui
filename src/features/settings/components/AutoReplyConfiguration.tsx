@@ -1,0 +1,751 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AlertTriangle,
+  MessageCircle,
+  Plus,
+  X,
+} from 'lucide-react';
+import type { AlertState } from '@/features/settings/components/integrations/types';
+import { Alert } from '@/components/ui/Alert';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Toggle } from '@/components/ui/Toggle';
+import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
+import { useDepartments } from '@/hooks/useDepartments';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
+import { usePermissions } from '@/hooks/usePermissions';
+import { logger } from '@/lib/logger';
+import { organizationService } from '@/services/organization.service';
+import { getApiErrorMessage } from '@/lib/errorMessages';
+import { FeatureSuggestions } from './FeatureSuggestions';
+
+/* eslint-disable max-lines -- single cohesive component; splitting would
+   require threading 6+ pieces of state through child props or context. */
+// Unified AI Auto-Reply. Default row at top applies to every dept; per-dept
+// rows override individual fields. Same PATCH /api/organizations/auto-reply
+// endpoint as before — no BE change.
+
+type Settings = {
+  autoReplyEnabled?: boolean;
+  autoReplyRequestMissingInfo?: boolean;
+  autoReplySuggestSolutions?: boolean;
+  autoReplyHighConfidenceThreshold?: number;
+  escalationPhrases?: string[];
+};
+
+const DEFAULT_THRESHOLD = 0.9;
+const DEPT_MIN_THRESHOLD = 0.9;
+const DEPT_MAX_THRESHOLD = 1.0;
+const MAX_ESCALATION_PHRASES = 50;
+
+type Props = {
+  onShowAlert: (alert: AlertState) => void;
+};
+
+const formatThreshold = (value: number): string => `${Math.round(value * 100)}%`;
+
+export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
+  const { isOrgAdmin } = usePermissions();
+  const { off: aiDraftsOff } = useAiDraftsOff();
+  const { data: departments = [], teamsEnabled: teamsMode } = useDepartments();
+  // Teams off: no per-team rows, except one that still carries an override (so it can be reset).
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
+  const activeDepts = useMemo(
+    () => departments.filter((dept) => dept.active),
+    [departments]
+  );
+
+  // Org-level (the "Default" row). Source-of-truth lives on the server; this is
+  // the local mirror. Ref guards against concurrent toggle races at the org
+  // level just like perDeptRef does at the dept level (rapid double-click).
+  const [org, setOrg] = useState<Settings>({});
+  const orgRef = useRef<Settings>({});
+  // Per-dept overrides keyed by stringified dept id. Same race-safe ref pattern
+  // as the original DepartmentAutoReplySettings — overlapping saves on
+  // different rows must each read the latest merged map, not a stale closure.
+  const [perDept, setPerDept] = useState<Record<string, Settings>>({});
+  const perDeptRef = useRef<Record<string, Settings>>({});
+
+  const [loading, setLoading] = useState(true);
+  const [savingScope, setSavingScope] = useState<'org' | number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [phraseDrafts, setPhraseDrafts] = useState<Record<string, string>>({});
+
+  // Threshold is editable via a slider that triggers a save on mouse/touch up;
+  // mid-drag we hold the value locally so the slider stays responsive.
+  const [tempThresholdOrg, setTempThresholdOrg] = useState<number | null>(null);
+  const [tempThresholdDept, setTempThresholdDept] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    void (async () => {
+      try {
+        const [auto, orgRow] = await Promise.all([
+          organizationService.getAutoReply(),
+          organizationService.getCurrent(),
+        ]);
+        if (cancelled) return;
+        const initialOrg: Settings = {
+          autoReplyEnabled: auto.enabled,
+          autoReplyRequestMissingInfo: auto.requestMissingInfo,
+          autoReplySuggestSolutions: auto.suggestSolutions,
+          autoReplyHighConfidenceThreshold: auto.highConfidenceThreshold,
+        };
+        setOrg(initialOrg);
+        orgRef.current = initialOrg;
+        const settings: Record<string, unknown> = orgRow.settings ?? {};
+        const dept = (settings.departmentSettings ?? {}) as Record<string, Settings>;
+        setPerDept(dept);
+        perDeptRef.current = dept;
+      } catch (err) {
+        if (cancelled) return;
+        logger.error('Failed to load auto-reply settings:', err);
+        setError(getApiErrorMessage(err) ?? 'Failed to load auto-reply settings.');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const saveOrg = useCallback(
+    async (patch: Partial<{
+      enabled: boolean;
+      requestMissingInfo: boolean;
+      suggestSolutions: boolean;
+      highConfidenceThreshold: number;
+    }>) => {
+      setSavingScope('org');
+      setError(null);
+      // Mirror perDeptRef's pattern at the org level: write through the ref
+      // synchronously *before* the await so a second rapid save reads the
+      // pending state, not stale closure state.
+      const previous = orgRef.current;
+      const optimistic: Settings = {
+        ...previous,
+        ...(patch.enabled !== undefined && { autoReplyEnabled: patch.enabled }),
+        ...(patch.requestMissingInfo !== undefined && {
+          autoReplyRequestMissingInfo: patch.requestMissingInfo,
+        }),
+        ...(patch.suggestSolutions !== undefined && {
+          autoReplySuggestSolutions: patch.suggestSolutions,
+        }),
+        ...(patch.highConfidenceThreshold !== undefined && {
+          autoReplyHighConfidenceThreshold: patch.highConfidenceThreshold,
+        }),
+      };
+      orgRef.current = optimistic;
+      try {
+        await organizationService.updateAutoReply(patch);
+        setOrg(optimistic);
+        // Success toast — covers the field that changed. Old AIAutoReplyCard
+        // emitted these per-handler; restoring parity so admins see a "yes,
+        // that saved" confirmation.
+        const field = patch.enabled !== undefined
+          ? `AI auto-reply ${patch.enabled ? 'enabled' : 'disabled'}`
+          : patch.requestMissingInfo !== undefined
+            ? `Missing-info requests ${patch.requestMissingInfo ? 'on' : 'off'}`
+            : patch.suggestSolutions !== undefined
+              ? `Suggest-solutions ${patch.suggestSolutions ? 'on' : 'off'}`
+              : patch.highConfidenceThreshold !== undefined
+                ? `Threshold set to ${Math.round(patch.highConfidenceThreshold * 100)}%`
+                : 'Default updated';
+        onShowAlert({
+          open: true,
+          title: 'Saved',
+          description: field,
+          variant: 'success',
+        });
+      } catch (err) {
+        orgRef.current = previous;
+        logger.error('Failed to save org auto-reply:', err);
+        setError(getApiErrorMessage(err) ?? 'Failed to save the default. Please try again.');
+        onShowAlert({
+          open: true,
+          title: 'Save failed',
+          description: 'Could not save the org-level auto-reply default.',
+          variant: 'error',
+        });
+      } finally {
+        setSavingScope(null);
+      }
+    },
+    [onShowAlert]
+  );
+
+  const saveDept = useCallback(
+    async (deptId: number, next: Settings) => {
+      const key = String(deptId);
+      setSavingScope(deptId);
+      setError(null);
+      const previous = perDeptRef.current[key];
+      const merged: Record<string, Settings> = {
+        ...perDeptRef.current,
+        [key]: next,
+      };
+      perDeptRef.current = merged;
+      try {
+        await organizationService.updateAutoReply({ departmentSettings: merged });
+        setPerDept(merged);
+      } catch (err) {
+        logger.error(`Failed to save dept ${deptId} auto-reply:`, err);
+        if (previous === undefined) {
+          const rolled = { ...perDeptRef.current };
+          delete rolled[key];
+          perDeptRef.current = rolled;
+        } else {
+          perDeptRef.current = { ...perDeptRef.current, [key]: previous };
+        }
+        setError(getApiErrorMessage(err) ?? 'Failed to save the override. Please try again.');
+        onShowAlert({
+          open: true,
+          title: 'Save failed',
+          description: `Could not save the override for this team.`,
+          variant: 'error',
+        });
+      } finally {
+        setSavingScope(null);
+      }
+    },
+    [onShowAlert]
+  );
+
+  const inheritDeptEnabled = (deptId: number) => {
+    const key = String(deptId);
+    const current = perDeptRef.current[key];
+    if (!current) return;
+    const { autoReplyEnabled: _omit, ...rest } = current;
+    const hasRemaining =
+      rest.autoReplyRequestMissingInfo !== undefined ||
+      rest.autoReplySuggestSolutions !== undefined ||
+      rest.autoReplyHighConfidenceThreshold !== undefined ||
+      (rest.escalationPhrases !== undefined && rest.escalationPhrases.length > 0);
+    if (!hasRemaining) {
+      // Avoid leaving an empty row that means nothing on the BE.
+      resetDept(deptId);
+      return;
+    }
+    void saveDept(deptId, rest);
+  };
+
+  const resetDept = (deptId: number) => {
+    const key = String(deptId);
+    if (!perDeptRef.current[key]) return;
+    setSavingScope(deptId);
+    setError(null);
+    const previous = perDeptRef.current[key];
+    const merged = { ...perDeptRef.current };
+    delete merged[key];
+    perDeptRef.current = merged;
+    organizationService
+      .updateAutoReply({ departmentSettings: merged })
+      .then(() => {
+        setPerDept(merged);
+      })
+      .catch((err: unknown) => {
+        logger.error(`Failed to reset dept ${deptId} auto-reply:`, err);
+        perDeptRef.current = { ...perDeptRef.current, [key]: previous };
+        setError(getApiErrorMessage(err) ?? 'Failed to reset the override. Please try again.');
+      })
+      .finally(() => setSavingScope(null));
+  };
+
+  if (!isOrgAdmin) {
+    // Old AIAutoReplyCard was visible (read-only) to non-org-admins so they
+    // could at least see what was configured. Preserve that visibility with
+    // a non-interactive summary instead of hiding the section entirely.
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex gap-2 items-center">
+            <MessageCircle className="w-5 h-5" />
+            AI Auto-Reply
+          </CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Default: <strong>{org.autoReplyEnabled ? 'Enabled' : 'Disabled'}</strong>
+            {org.autoReplyEnabled && org.autoReplyHighConfidenceThreshold !== undefined &&
+              ` · threshold ${formatThreshold(org.autoReplyHighConfidenceThreshold)}`}
+            . Only workspace admins can change auto-reply settings.
+          </p>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center text-muted-foreground">
+          Loading auto-reply settings…
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const orgEnabled = org.autoReplyEnabled ?? false;
+  const orgThreshold = tempThresholdOrg ?? org.autoReplyHighConfidenceThreshold ?? DEFAULT_THRESHOLD;
+  const orgRequestMissing = org.autoReplyRequestMissingInfo ?? true;
+  const orgSuggest = org.autoReplySuggestSolutions ?? true;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex gap-2 items-center">
+          <MessageCircle className="w-5 h-5" />
+          AI Auto-Reply
+        </CardTitle>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Drafts a real reply when the AI is confident.
+          {teamsEnabled
+            ? ' The Default row applies to every team. A team row uses the default unless overridden.'
+            : ''}
+        </p>
+      </CardHeader>
+      <CardContent>
+        <div className="mb-4 empty:hidden">
+          <FeatureSuggestions
+            domains={['auto_reply']}
+            title="Suggestions"
+            description="Changes the engine suggests to when the AI replies on its own."
+          />
+        </div>
+        {/* The settings below are kept, not cleared: they apply again the moment drafts are
+            switched back on. So say plainly that nothing here sends while they are off. */}
+        {aiDraftsOff && (
+          <Alert variant="warning" className="mb-4">
+            AI drafts are switched off for this workspace, so the AI sends no reply of its own —
+            whatever is set below. These settings apply again when AI drafts are switched back on.
+            The prepared acknowledgment (&quot;we got your message&quot;) is not AI-written and still
+            goes out.
+          </Alert>
+        )}
+        {error && (
+          <div className="flex gap-2 items-start px-3 py-2 mb-4 text-sm text-destructive rounded-md border border-destructive-line bg-destructive-muted">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="rounded-md border divide-y">
+          {/* Default row */}
+          <div className="bg-muted/30">
+            <div className="flex justify-between items-center px-3 py-2.5">
+              <div className="flex gap-2 items-center min-w-0">
+                <span className="text-sm font-semibold">Default</span>
+                <span className="text-xs text-muted-foreground">
+                  · applies to every dept unless overridden
+                </span>
+              </div>
+              <div className="flex gap-3 items-center shrink-0">
+                <span
+                  className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                    orgEnabled
+                      ? 'bg-success/10 text-success'
+                      : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {orgEnabled ? 'On' : 'Off'}
+                </span>
+                {orgEnabled && (
+                  <span className="text-[10px] font-medium text-muted-foreground">
+                    {formatThreshold(orgThreshold)}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="px-3 pt-1 pb-3 space-y-3 bg-background">
+                <div className="flex justify-between items-center pt-2">
+                  <div>
+                    <p className="text-sm font-medium">Enable AI auto-reply</p>
+                    <p className="text-xs text-muted-foreground">
+                      Master switch for the default. Each team can override below.
+                    </p>
+                  </div>
+                  <Toggle
+                    checked={orgEnabled}
+                    disabled={savingScope === 'org'}
+                    onChange={(next) => void saveOrg({ enabled: next })}
+                  />
+                </div>
+
+                {orgEnabled && (
+                  <>
+                    <div className="flex justify-between items-center pt-3 border-t">
+                      <div>
+                        <p className="text-sm font-medium">Request missing info</p>
+                        <p className="text-xs text-muted-foreground">
+                          AI asks customers for more details when messages are incomplete.
+                        </p>
+                      </div>
+                      <Toggle
+                        checked={orgRequestMissing}
+                        disabled={savingScope === 'org'}
+                        onChange={(next) => void saveOrg({ requestMissingInfo: next })}
+                      />
+                    </div>
+                    <div className="flex justify-between items-center pt-3 border-t">
+                      <div>
+                        <p className="text-sm font-medium">Suggest solutions</p>
+                        <p className="text-xs text-muted-foreground">
+                          AI searches the knowledge base and drafts an answer.
+                        </p>
+                      </div>
+                      <Toggle
+                        checked={orgSuggest}
+                        disabled={savingScope === 'org'}
+                        onChange={(next) => void saveOrg({ suggestSolutions: next })}
+                      />
+                    </div>
+                    {orgSuggest && (
+                      <div className="pt-3 space-y-2 border-t">
+                        <div className="flex justify-between items-center">
+                          <label
+                            htmlFor="org-threshold"
+                            className="text-sm font-medium"
+                          >
+                            Auto-send threshold
+                          </label>
+                          <span className="text-sm font-medium text-foreground">
+                            {formatThreshold(orgThreshold)}
+                          </span>
+                        </div>
+                        <input
+                          id="org-threshold"
+                          type="range"
+                          min={70}
+                          max={100}
+                          step={5}
+                          value={Math.round(orgThreshold * 100)}
+                          disabled={savingScope === 'org'}
+                          onChange={(ev) => setTempThresholdOrg(Number(ev.target.value) / 100)}
+                          onMouseUp={() => {
+                            if (tempThresholdOrg !== null) {
+                              void saveOrg({ highConfidenceThreshold: tempThresholdOrg });
+                              setTempThresholdOrg(null);
+                            }
+                          }}
+                          onTouchEnd={() => {
+                            if (tempThresholdOrg !== null) {
+                              void saveOrg({ highConfidenceThreshold: tempThresholdOrg });
+                              setTempThresholdOrg(null);
+                            }
+                          }}
+                          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                        />
+                        <p className="text-[10px] text-muted-foreground">
+                          ≥ threshold: auto-send. Below: surface to an agent. &lt;70%: skip.
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+          </div>
+
+          {/* Team rows */}
+          {teamsEnabled && activeDepts.length === 0 && (
+            <div className="px-3 py-3 text-xs text-muted-foreground">
+              No active teams configured.
+            </div>
+          )}
+          {(teamsEnabled
+            ? activeDepts
+            : activeDepts.filter((dept) => perDept[String(dept.id)] !== undefined)
+          ).map((dept) => {
+            const key = String(dept.id);
+            const isSaving = savingScope === dept.id;
+            const settings = perDept[key];
+            const hasOverride = !!settings;
+            const overrideEnabled = settings?.autoReplyEnabled;
+            const overrideThreshold = settings?.autoReplyHighConfidenceThreshold;
+            const overrideRequestMissing = settings?.autoReplyRequestMissingInfo;
+            const overrideSuggest = settings?.autoReplySuggestSolutions;
+            const phrases = settings?.escalationPhrases ?? [];
+            const sliderThreshold =
+              tempThresholdDept[key] ?? overrideThreshold ?? orgThreshold;
+
+            const summary = (() => {
+              if (!hasOverride) return { label: 'Inherits default', tone: 'muted' as const };
+              if (overrideEnabled === false) return { label: 'Override: off', tone: 'red' as const };
+              if (overrideEnabled === true) return { label: 'Override: on', tone: 'green' as const };
+              if (
+                overrideThreshold !== undefined ||
+                overrideRequestMissing !== undefined ||
+                overrideSuggest !== undefined ||
+                phrases.length > 0
+              ) {
+                return { label: 'Partial override', tone: 'amber' as const };
+              }
+              return { label: 'Inherits default', tone: 'muted' as const };
+            })();
+
+            const summaryClass =
+              summary.tone === 'green'
+                ? 'bg-success/10 text-success'
+                : summary.tone === 'red'
+                  ? 'bg-destructive/10 text-destructive'
+                  : summary.tone === 'amber'
+                    ? 'bg-warning/10 text-warning'
+                    : 'bg-muted text-muted-foreground';
+
+            return (
+              <div key={dept.id}>
+                <div className="flex justify-between items-center px-3 py-2.5">
+                  <div className="flex gap-2 items-center min-w-0">
+                    <span className="text-sm font-medium truncate">{dept.name}</span>
+                    <span className="text-[10px] text-muted-foreground">{dept.slug}</span>
+                  </div>
+                  <div className="flex gap-3 items-center shrink-0">
+                    {isSaving && (
+                      <span className="text-[10px] text-muted-foreground">Saving…</span>
+                    )}
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${summaryClass}`}>
+                      {summary.label}
+                    </span>
+                  </div>
+                </div>
+                <div className="px-3 pt-1 pb-3 space-y-3 bg-muted/10">
+                    {/* Override toggle: tri-state via two explicit choices */}
+                    <div className="flex flex-wrap gap-2 items-center pt-2">
+                      <span className="text-xs text-muted-foreground">Auto-reply for this team:</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isSaving}
+                        onClick={() => inheritDeptEnabled(dept.id)}
+                        className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
+                          !hasOverride
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-background hover:bg-muted'
+                        }`}
+                      >
+                        Inherit default {orgEnabled ? '(on)' : '(off)'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isSaving}
+                        onClick={() => void saveDept(dept.id, { ...settings, autoReplyEnabled: true })}
+                        className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
+                          overrideEnabled === true
+                            ? 'bg-success/15 text-success border-success/40'
+                            : 'bg-background hover:bg-muted'
+                        }`}
+                      >
+                        Override: on
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isSaving}
+                        onClick={() => void saveDept(dept.id, { ...settings, autoReplyEnabled: false })}
+                        className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
+                          overrideEnabled === false
+                            ? 'bg-destructive/15 text-destructive border-destructive/40'
+                            : 'bg-background hover:bg-muted'
+                        }`}
+                      >
+                        Override: off
+                      </Button>
+                    </div>
+
+                    {/* Threshold override only available when this dept will fire auto-reply */}
+                    {(overrideEnabled ?? orgEnabled) && (
+                      <div className="pt-3 space-y-2 border-t">
+                        <div className="flex justify-between items-center">
+                          <label htmlFor={`dept-threshold-${dept.id}`} className="text-xs font-medium">
+                            Auto-send threshold
+                            {overrideThreshold === undefined && (
+                              <span className="ml-1 text-[10px] text-muted-foreground">
+                                (inheriting {formatThreshold(orgThreshold)})
+                              </span>
+                            )}
+                          </label>
+                          <span className="text-xs font-medium text-foreground">
+                            {formatThreshold(sliderThreshold)}
+                          </span>
+                        </div>
+                        <input
+                          id={`dept-threshold-${dept.id}`}
+                          type="range"
+                          min={Math.round(DEPT_MIN_THRESHOLD * 100)}
+                          max={Math.round(DEPT_MAX_THRESHOLD * 100)}
+                          step={1}
+                          value={Math.round(sliderThreshold * 100)}
+                          disabled={isSaving}
+                          onChange={(ev) =>
+                            setTempThresholdDept((prev) => ({
+                              ...prev,
+                              [key]: Number(ev.target.value) / 100,
+                            }))
+                          }
+                          onMouseUp={() => {
+                            const value = tempThresholdDept[key];
+                            if (value !== undefined) {
+                              void saveDept(dept.id, {
+                                ...settings,
+                                autoReplyHighConfidenceThreshold: value,
+                              });
+                              setTempThresholdDept((prev) => {
+                                const next = { ...prev };
+                                delete next[key];
+                                return next;
+                              });
+                            }
+                          }}
+                          onTouchEnd={() => {
+                            const value = tempThresholdDept[key];
+                            if (value !== undefined) {
+                              void saveDept(dept.id, {
+                                ...settings,
+                                autoReplyHighConfidenceThreshold: value,
+                              });
+                              setTempThresholdDept((prev) => {
+                                const next = { ...prev };
+                                delete next[key];
+                                return next;
+                              });
+                            }
+                          }}
+                          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                        />
+                        <p className="text-[10px] text-muted-foreground">Range 90–100%.</p>
+                      </div>
+                    )}
+
+                    {/* Escalation phrases — per dept only */}
+                    <div className="pt-3 space-y-2 border-t">
+                      <label className="text-xs font-medium">
+                        Escalation phrases (hard-block){' '}
+                        {phrases.length > 0 && (
+                          <span className="text-[10px] text-muted-foreground">
+                            ({phrases.length})
+                          </span>
+                        )}
+                      </label>
+                      <p className="text-[10px] text-muted-foreground">
+                        When any of these appears in inbound content, auto-send is blocked. The
+                        reply is still generated and surfaced for an agent.
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {phrases.length === 0 && (
+                          <span className="text-xs italic text-muted-foreground">No phrases</span>
+                        )}
+                        {phrases.map((phrase) => (
+                          <span
+                            key={phrase}
+                            className="flex gap-1 items-center px-2 py-0.5 text-xs text-warning bg-warning-muted rounded-full"
+                          >
+                            {phrase}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={isSaving}
+                              onClick={() =>
+                                void saveDept(dept.id, {
+                                  ...settings,
+                                  escalationPhrases: phrases.filter((entry) => entry !== phrase),
+                                })
+                              }
+                              aria-label={`Remove phrase ${phrase}`}
+                              className="p-0 w-auto h-auto hover:text-destructive data-[inactive]:opacity-50"
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={phraseDrafts[key] ?? ''}
+                          placeholder='e.g. "speak to a human", "urgent"'
+                          disabled={isSaving}
+                          onChange={(ev) =>
+                            setPhraseDrafts((prev) => ({ ...prev, [key]: ev.target.value }))
+                          }
+                          onKeyDown={(ev) => {
+                            if (ev.key === 'Enter') {
+                              ev.preventDefault();
+                              const draft = (phraseDrafts[key] ?? '').trim();
+                              if (!draft) return;
+                              if (phrases.includes(draft)) {
+                                setPhraseDrafts((prev) => ({ ...prev, [key]: '' }));
+                                return;
+                              }
+                              if (phrases.length >= MAX_ESCALATION_PHRASES) {
+                                setError(
+                                  `Maximum ${MAX_ESCALATION_PHRASES} escalation phrases per team.`
+                                );
+                                return;
+                              }
+                              void saveDept(dept.id, {
+                                ...settings,
+                                escalationPhrases: [...phrases, draft],
+                              });
+                              setPhraseDrafts((prev) => ({ ...prev, [key]: '' }));
+                            }
+                          }}
+                          className="flex-1 px-2 py-1 text-xs rounded border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={isSaving || !(phraseDrafts[key] ?? '').trim()}
+                          onClick={() => {
+                            const draft = (phraseDrafts[key] ?? '').trim();
+                            if (!draft) return;
+                            if (phrases.includes(draft)) {
+                              setPhraseDrafts((prev) => ({ ...prev, [key]: '' }));
+                              return;
+                            }
+                            if (phrases.length >= MAX_ESCALATION_PHRASES) {
+                              setError(
+                                `Maximum ${MAX_ESCALATION_PHRASES} escalation phrases per team.`
+                              );
+                              return;
+                            }
+                            void saveDept(dept.id, {
+                              ...settings,
+                              escalationPhrases: [...phrases, draft],
+                            });
+                            setPhraseDrafts((prev) => ({ ...prev, [key]: '' }));
+                          }}
+                          className="gap-1 items-center px-2 py-1 h-auto text-xs"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+
+                    {hasOverride && (
+                      <div className="pt-3 border-t">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={isSaving}
+                          onClick={() => resetDept(dept.id)}
+                          className="p-0 h-auto text-xs text-muted-foreground hover:text-foreground hover:underline hover:bg-transparent"
+                        >
+                          Reset all overrides for {dept.name}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};

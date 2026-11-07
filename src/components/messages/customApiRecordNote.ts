@@ -2,7 +2,7 @@ import { renderValue } from './customApiValue';
 import {
   CATEGORY_RECORD_LABELS,
   type CustomApiCategory,
-} from '@/components/settings/customApi/categories';
+} from '@/features/settings';
 import type { LookupField } from '@/features/custom-api';
 import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
 
