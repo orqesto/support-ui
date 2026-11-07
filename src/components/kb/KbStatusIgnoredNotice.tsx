@@ -10,7 +10,8 @@ export type KbDecisionFilterStatus =
   | 'suggested_change'
   | 'set_aside'
   | 'auto_removed'
-  | 'auto_changed';
+  | 'auto_changed'
+  | 'deleted';
 /** The statuses an older backend does not know: it ignores them and returns the unfiltered list. */
 const NEW_STATUSES: readonly string[] = [
   'needs_decision',
@@ -18,6 +19,7 @@ const NEW_STATUSES: readonly string[] = [
   'set_aside',
   'auto_removed',
   'auto_changed',
+  'deleted',
 ];
 export const isNewStatus = (status: string): status is KbDecisionFilterStatus =>
   NEW_STATUSES.includes(status);
@@ -52,6 +54,11 @@ const FALLBACK: Record<KbDecisionFilterStatus, { text: string; to: string; label
     text: 'Automatic changes are listed on the Automatic actions page.',
     to: AUTO_ACTIONS_HREF,
     label: 'Open Automatic actions',
+  },
+  deleted: {
+    text: 'This server deletes entries for good, so there is nothing to restore.',
+    to: '/knowledge-base',
+    label: 'Show the knowledge base',
   },
 };
 

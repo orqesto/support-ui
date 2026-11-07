@@ -14,6 +14,7 @@ import {
   Loader2,
   XCircle,
   Split,
+  RotateCcw,
 } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
@@ -96,6 +97,8 @@ type KBEntryDetailProps = {
   onUnhide: (id: number) => void;
   onReject: (id: number) => void;
   onDelete: (entry: KBEntry) => void;
+  /** A deleted entry (soft delete): Restore is its only action. */
+  onRestoreDeleted?: (entry: KBEntry) => void;
   onUpdate?: (entry: KBEntry) => void;
   /** May approve / reject / hide / edit (manage_knowledge_base). Without it the server answers 403. */
   canReview: boolean;
@@ -157,6 +160,7 @@ export const KBEntryDetail = ({
   onUnhide,
   onReject,
   onDelete,
+  onRestoreDeleted,
   onUpdate,
   canReview,
   onUnmerge,
@@ -530,7 +534,10 @@ export const KBEntryDetail = ({
               <div className="pt-6">
                 <KbEntryVersions
                   entryId={displayEntry.id}
-                  canRestore={offersReviewActions(displayEntry) || isMergedOriginal(displayEntry)}
+                  canRestore={
+                    !displayEntry.deletedAt &&
+                    (offersReviewActions(displayEntry) || isMergedOriginal(displayEntry))
+                  }
                   onRestored={changed}
                 />
               </div>
@@ -542,77 +549,104 @@ export const KBEntryDetail = ({
               link has no row at all), and acting on it would offer what the server refuses. */}
           <div className="flex-none p-6 border-t bg-muted/20">
             <div className="flex flex-wrap gap-3 justify-end">
-              <KbEntryCaseActions entry={displayEntry} canReview={canReview} onChanged={changed} />
-              {canReview && isCaseRow(displayEntry) && mayRemoveCase(displayEntry) && onUnmerge && (
-                <Button
-                  variant="outline"
-                  onClick={() => onUnmerge(displayEntry)}
-                  title="Undo this case and restore its original entries"
-                >
-                  <Split className="mr-2 w-4 h-4" />
-                  Unmerge
-                </Button>
-              )}
-              {canReview && offersReviewActions(displayEntry) && (
-                <Button variant="outline" onClick={handleEditClick}>
-                  <Edit className="mr-2 w-4 h-4" />
-                  Edit
-                </Button>
-              )}
-              {canReview &&
-                offersReviewActions(displayEntry) &&
-                !displayEntry.approved &&
-                !displayEntry.hidden && (
-                  <>
-                    {mayRemoveCase(displayEntry) && (
-                      <Button
-                        variant="outline"
-                        onClick={() => onReject(displayEntry.id)}
-                        title={`Hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`}
-                      >
-                        <XCircle className="mr-2 w-4 h-4" />
-                        Reject
-                      </Button>
-                    )}
-                    <Button variant="primary" onClick={() => onApprove(displayEntry.id)}>
-                      <CheckCircle className="mr-2 w-4 h-4" />
-                      Approve
-                    </Button>
-                  </>
-                )}
-              {canReview &&
-                offersReviewActions(displayEntry) &&
-                (displayEntry.hidden || mayRemoveCase(displayEntry)) &&
-                (!displayEntry.hidden ? (
-                  <Button variant="outline" onClick={() => onHide(displayEntry.id)}>
-                    <EyeOff className="mr-2 w-4 h-4" />
-                    Hide
-                  </Button>
-                ) : (
+              {displayEntry.deletedAt ? (
+                // Deleted: every other write is refused (409); Restore is the only way back.
+                canReview &&
+                onRestoreDeleted && (
                   <Button
                     variant="outline"
-                    onClick={() =>
-                      displayEntry.rejectedAt
-                        ? onApprove(displayEntry.id)
-                        : onUnhide(displayEntry.id)
-                    }
+                    onClick={() => {
+                      onClose();
+                      onRestoreDeleted(displayEntry);
+                    }}
+                    title="Puts the entry back as it was before it was deleted"
                   >
-                    <Eye className="mr-2 w-4 h-4" />
-                    {displayEntry.rejectedAt ? 'Approve again' : 'Unhide'}
+                    <RotateCcw className="mr-2 w-4 h-4" />
+                    Restore
                   </Button>
-                ))}
-              {!isMergedOriginal(displayEntry) && mayRemoveCase(displayEntry) && (
-                <Button
-                  variant="outline"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => {
-                    onClose();
-                    onDelete(displayEntry);
-                  }}
-                >
-                  <Trash2 className="mr-2 w-4 h-4" />
-                  Delete
-                </Button>
+                )
+              ) : (
+                <>
+                  <KbEntryCaseActions
+                    entry={displayEntry}
+                    canReview={canReview}
+                    onChanged={changed}
+                  />
+                  {canReview &&
+                    isCaseRow(displayEntry) &&
+                    mayRemoveCase(displayEntry) &&
+                    onUnmerge && (
+                      <Button
+                        variant="outline"
+                        onClick={() => onUnmerge(displayEntry)}
+                        title="Undo this case and restore its original entries"
+                      >
+                        <Split className="mr-2 w-4 h-4" />
+                        Unmerge
+                      </Button>
+                    )}
+                  {canReview && offersReviewActions(displayEntry) && (
+                    <Button variant="outline" onClick={handleEditClick}>
+                      <Edit className="mr-2 w-4 h-4" />
+                      Edit
+                    </Button>
+                  )}
+                  {canReview &&
+                    offersReviewActions(displayEntry) &&
+                    !displayEntry.approved &&
+                    !displayEntry.hidden && (
+                      <>
+                        {mayRemoveCase(displayEntry) && (
+                          <Button
+                            variant="outline"
+                            onClick={() => onReject(displayEntry.id)}
+                            title={`Hidden now, deleted after ${REJECTED_RETENTION_DAYS} days unless approved again`}
+                          >
+                            <XCircle className="mr-2 w-4 h-4" />
+                            Reject
+                          </Button>
+                        )}
+                        <Button variant="primary" onClick={() => onApprove(displayEntry.id)}>
+                          <CheckCircle className="mr-2 w-4 h-4" />
+                          Approve
+                        </Button>
+                      </>
+                    )}
+                  {canReview &&
+                    offersReviewActions(displayEntry) &&
+                    (displayEntry.hidden || mayRemoveCase(displayEntry)) &&
+                    (!displayEntry.hidden ? (
+                      <Button variant="outline" onClick={() => onHide(displayEntry.id)}>
+                        <EyeOff className="mr-2 w-4 h-4" />
+                        Hide
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          displayEntry.rejectedAt
+                            ? onApprove(displayEntry.id)
+                            : onUnhide(displayEntry.id)
+                        }
+                      >
+                        <Eye className="mr-2 w-4 h-4" />
+                        {displayEntry.rejectedAt ? 'Approve again' : 'Unhide'}
+                      </Button>
+                    ))}
+                  {!isMergedOriginal(displayEntry) && mayRemoveCase(displayEntry) && (
+                    <Button
+                      variant="outline"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => {
+                        onClose();
+                        onDelete(displayEntry);
+                      }}
+                    >
+                      <Trash2 className="mr-2 w-4 h-4" />
+                      Delete
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           </div>

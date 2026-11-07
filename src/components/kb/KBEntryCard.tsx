@@ -4,6 +4,7 @@ import {
   Eye,
   EyeOff,
   Maximize2,
+  RotateCcw,
   Split,
   Trash2,
   MessageSquare,
@@ -69,6 +70,8 @@ type KBEntryCardProps = {
   onReviewDecision?: (decision: KbPendingDecision) => void;
   /** Under "Removed automatically": a removed row's Restore undoes the automatic removal. */
   autoRestore?: KbAutoRestore;
+  /** A row a person deleted (soft delete): its one action, Restore. */
+  onRestoreDeleted?: (entry: KBEntry) => void;
   /** The typed search's words (the list's `search.terms`), marked in the title and preview. */
   searchTerms?: string[];
 };
@@ -85,6 +88,7 @@ export const KBEntryCard = ({
   onUnmerge,
   onReviewDecision,
   autoRestore,
+  onRestoreDeleted,
   searchTerms,
 }: KBEntryCardProps) => (
   <Card className="p-4">
@@ -166,93 +170,111 @@ export const KBEntryCard = ({
             <Maximize2 className="w-4 h-4 mr-1" />
             View
           </Button>
-          <KbReviewDecisionButton entry={entry} onReview={onReviewDecision} />
-          <KbAutoUndoButton entry={entry} autoRestore={autoRestore} />
-          {canReview && offersReviewActions(entry) && !entry.approved && !entry.hidden && (
-            <>
+          {entry.deletedAt ? (
+            // Deleted: no decision applies to it; Restore is the only way back.
+            canReview &&
+            onRestoreDeleted && (
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onApprove(entry.id)}
-                title="Approve"
-                aria-label="Approve"
+                onClick={() => onRestoreDeleted(entry)}
+                title="Restore — puts the entry back as it was before it was deleted"
               >
-                <CheckCircle className="w-4 h-4" />
+                <RotateCcw className="w-4 h-4 mr-1" />
+                Restore
               </Button>
-              {mayRemoveCase(entry) && (
+            )
+          ) : (
+            <>
+              <KbReviewDecisionButton entry={entry} onReview={onReviewDecision} />
+              <KbAutoUndoButton entry={entry} autoRestore={autoRestore} />
+              {canReview && offersReviewActions(entry) && !entry.approved && !entry.hidden && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onApprove(entry.id)}
+                    title="Approve"
+                    aria-label="Approve"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                  </Button>
+                  {mayRemoveCase(entry) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onReject(entry.id)}
+                      title={`Reject — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days`}
+                      aria-label="Reject"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </Button>
+                  )}
+                </>
+              )}
+              {canReview &&
+                offersReviewActions(entry) &&
+                (entry.hidden || mayRemoveCase(entry)) &&
+                (!entry.hidden ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onHide(entry.id)}
+                    title="Hide"
+                    aria-label="Hide"
+                  >
+                    <EyeOff className="w-4 h-4" />
+                  </Button>
+                ) : autoRestore && autoUndoOf(entry) ? null : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      entry.rejectedAt && autoRestore
+                        ? autoRestore.restore(entry.id)
+                        : entry.rejectedAt
+                          ? onApprove(entry.id)
+                          : onUnhide(entry.id)
+                    }
+                    title={
+                      entry.rejectedAt && autoRestore
+                        ? RESTORE_AUTO_TITLE
+                        : entry.rejectedAt
+                          ? 'Approve again — restores the rejected entry'
+                          : 'Unhide'
+                    }
+                    disabled={autoRestore?.pending.has(entry.id) === true}
+                    aria-label={
+                      entry.rejectedAt ? (autoRestore ? 'Restore' : 'Approve again') : 'Unhide'
+                    }
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                ))}
+              {canReview && isCaseRow(entry) && mayRemoveCase(entry) && onUnmerge && (
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => onReject(entry.id)}
-                  title={`Reject — hidden now, deleted after ${REJECTED_RETENTION_DAYS} days`}
-                  aria-label="Reject"
+                  onClick={() => onUnmerge(entry)}
+                  title="Unmerge — undo this case and restore its original entries"
+                  aria-label="Unmerge"
                 >
-                  <XCircle className="w-4 h-4" />
+                  <Split className="w-4 h-4" />
+                </Button>
+              )}
+              {!isMergedOriginal(entry) && mayRemoveCase(entry) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onDelete(entry)}
+                  title="Delete"
+                  aria-label="Delete"
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               )}
             </>
-          )}
-          {canReview &&
-            offersReviewActions(entry) &&
-            (entry.hidden || mayRemoveCase(entry)) &&
-            (!entry.hidden ? (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onHide(entry.id)}
-                title="Hide"
-                aria-label="Hide"
-              >
-                <EyeOff className="w-4 h-4" />
-              </Button>
-            ) : autoRestore && autoUndoOf(entry) ? null : (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  entry.rejectedAt && autoRestore
-                    ? autoRestore.restore(entry.id)
-                    : entry.rejectedAt
-                      ? onApprove(entry.id)
-                      : onUnhide(entry.id)
-                }
-                title={
-                  entry.rejectedAt && autoRestore
-                    ? RESTORE_AUTO_TITLE
-                    : entry.rejectedAt
-                      ? 'Approve again — restores the rejected entry'
-                      : 'Unhide'
-                }
-                disabled={autoRestore?.pending.has(entry.id) === true}
-                aria-label={
-                  entry.rejectedAt ? (autoRestore ? 'Restore' : 'Approve again') : 'Unhide'
-                }
-              >
-                <Eye className="w-4 h-4" />
-              </Button>
-            ))}
-          {canReview && isCaseRow(entry) && mayRemoveCase(entry) && onUnmerge && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onUnmerge(entry)}
-              title="Unmerge — undo this case and restore its original entries"
-              aria-label="Unmerge"
-            >
-              <Split className="w-4 h-4" />
-            </Button>
-          )}
-          {!isMergedOriginal(entry) && mayRemoveCase(entry) && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onDelete(entry)}
-              title="Delete"
-              aria-label="Delete"
-              className="text-destructive hover:text-destructive"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
           )}
         </div>
       </div>

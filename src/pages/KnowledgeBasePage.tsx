@@ -40,6 +40,7 @@ import { KbStatusIgnoredNotice, isNewStatus } from '@/components/kb/KbStatusIgno
 import { useKbAutoRestore } from '@/components/kb/useKbAutoRestore';
 import { useKbUnhide } from '@/components/kb/useKbUnhide';
 import { KBDeleteDialog } from '@/components/kb/KBDeleteDialog';
+import { confirmKbDelete, makeKbRestoreDeleted } from '@/components/kb/kbRestoreDeleted';
 import { KbDecisionDialog } from '@/components/kb/KbDecisionDialog';
 import { KbBulkDecisionBar, bulkModeFor } from '@/components/kb/KbBulkDecisionBar';
 import { useKbBulkDecisions } from '@/hooks/useKbBulkDecisions';
@@ -108,6 +109,8 @@ const KnowledgeBaseViews = () => {
     applied: boolean;
     /** The backend's own word on "Changed automatically", on every list answer. */
     autoChanged: boolean;
+    /** The backend's delete is soft and it lists deleted rows (`filters.deletedStatus`). */
+    softDelete: boolean;
   } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
@@ -197,6 +200,7 @@ const KnowledgeBaseViews = () => {
           requested: filterStatus,
           applied: response.data.filters?.statusApplied === true,
           autoChanged: response.data.filters?.autoChangedStatus === true,
+          softDelete: response.data.filters?.deletedStatus === true,
         });
       } catch (error) {
         logger.error('Failed to fetch KB entries:', error);
@@ -223,10 +227,13 @@ const KnowledgeBaseViews = () => {
   }, [listShown, filterType, filterStatus, searchQuery, fetchEntries]);
 
   const autoChangedSupported = useKbAutoChangedSupport(appliedStatus, setFilterStatus);
+  // Last list answer's word on soft delete (false until a list has answered).
+  const softDeleteSupported = appliedStatus?.softDelete === true;
 
   const bulkMode = canReview ? bulkModeFor(filterStatus) : null;
   // Re-read the page after a decision; a page the decided rows emptied falls back in fetchEntries.
   const rereadPage = () => void fetchEntries(pagination.page);
+  const restoreDeleted = makeKbRestoreDeleted(rereadPage, setAlertDialog);
   const bulk = useKbBulkDecisions(entries, rereadPage, bulkMode);
 
   const decideLink = useKbDecideLink(setAlertDialog);
@@ -463,35 +470,16 @@ const KnowledgeBaseViews = () => {
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = async () => {
-    if (!entryToDelete) {
-      return;
-    }
-
-    setDeleting(true);
-    try {
-      await kbService.delete(entryToDelete.id);
-      setDeleteDialogOpen(false);
-      setEntryToDelete(null);
-      await fetchEntries();
-      setAlertDialog({
-        open: true,
-        title: 'Success',
-        description: 'KB entry deleted',
-        variant: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to delete entry:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Delete Failed',
-        description: 'Failed to delete entry',
-        variant: 'error',
-      });
-    } finally {
-      setDeleting(false);
-    }
-  };
+  const handleDeleteConfirm = () =>
+    confirmKbDelete(entryToDelete, softDeleteSupported, {
+      setDeleting,
+      close: () => {
+        setDeleteDialogOpen(false);
+        setEntryToDelete(null);
+      },
+      reread: fetchEntries,
+      showAlert: setAlertDialog,
+    });
 
   // Engine activity: collapsed under the card, expanded on its own tab (reads only when expanded).
   const engineActivity = (expanded: boolean) => (
@@ -562,6 +550,7 @@ const KnowledgeBaseViews = () => {
             status={filterStatus}
             onStatus={setFilterStatus}
             autoChanged={autoChangedSupported}
+            softDelete={softDeleteSupported}
             source={filterSource}
             onSource={setFilterSource}
             finding={finding.filter?.finding ?? null}
@@ -650,6 +639,7 @@ const KnowledgeBaseViews = () => {
                       onUnmerge={handleUnmerge}
                       onReviewDecision={setDecision}
                       autoRestore={autoRestore}
+                      onRestoreDeleted={restoreDeleted}
                       searchTerms={searchTerms}
                     />
                   ))
@@ -672,6 +662,7 @@ const KnowledgeBaseViews = () => {
                 onUnmerge={handleUnmerge}
                 onReviewDecision={setDecision}
                 autoRestore={autoRestore}
+                onRestoreDeleted={restoreDeleted}
                 searchTerms={searchTerms}
                 selection={bulkMode ? bulk : undefined}
               />
@@ -708,6 +699,7 @@ const KnowledgeBaseViews = () => {
           entry={entryToDelete}
           deleting={deleting}
           onConfirm={handleDeleteConfirm}
+          restorable={softDeleteSupported}
         />
 
         <KBEntryDetail
@@ -718,6 +710,7 @@ const KnowledgeBaseViews = () => {
           onUnhide={(id) => void handleUnhide(id)}
           onReject={handleReject}
           onDelete={handleDeleteClick}
+          onRestoreDeleted={restoreDeleted}
           onUpdate={handleUpdate}
           canReview={canReview}
           onUnmerge={handleUnmerge}

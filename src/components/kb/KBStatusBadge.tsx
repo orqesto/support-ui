@@ -50,6 +50,34 @@ export const KBStatusBadge = ({
   // a `rounded-full` blob.
   const cls = compact ? `whitespace-nowrap ${className}` : className;
   const wrapCls = compact ? `rounded-md ${className}` : className;
+  // Deleted by a person (soft delete): first — it is out of every answer and on a 90-day clock
+  // to deletion for good, whatever else it says; Restore (under Deleted) puts it back.
+  if (entry.deletedAt) {
+    const gone = formatPurgeDate(entry.deletedAt);
+    const deletedOn = new Date(entry.deletedAt).toLocaleDateString(undefined, {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+    const by = entry.deletedByName ? ` by ${entry.deletedByName}` : '';
+    return (
+      <>
+        <Badge
+          variant="danger"
+          className={cls}
+          title={`Deleted${by} on ${deletedOn} — the AI never uses it.${gone ? ` Gone for good after ${gone} unless restored.` : ''}`}
+        >
+          {gone && !compact ? `Deleted · restore before ${gone}` : 'Deleted'}
+        </Badge>
+        {compact && (
+          <span className="w-full text-xs text-muted-foreground">
+            {by ? `${by.trim()}, ` : ''}
+            {deletedOn}
+          </span>
+        )}
+      </>
+    );
+  }
   // Source removed: never used, whatever else it says — not "Approved · Case", and not "merged
   // into #X" as if that case were live.
   if (isSourceRemoved(entry)) {
