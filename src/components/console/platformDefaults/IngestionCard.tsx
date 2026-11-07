@@ -3,10 +3,12 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { Inbox } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { Input } from '@/components/ui/Input';
 import { useUpdatePlatformIngestion } from '@/hooks/usePlatformSettings';
 import type {
   BoundedField,
+  FairOrderSetting,
   IngestionSettings,
   PlatformIngestionInput,
 } from '@/services/platformSettings.service';
@@ -103,9 +105,24 @@ const GMAIL_FIELDS: FieldDef[] = [
     hint: 'How many messages are downloaded at the same time when checking for new mail.',
   },
 ];
+/** Fairness between workspaces in the job queues (`queue.fairness`, 2026-11-07). */
+const FAIR_FIELDS: FieldDef[] = [
+  {
+    key: 'workspaceActiveCap',
+    label: 'Jobs one workspace may run at once',
+    hint: 'While another workspace has work waiting, one workspace runs at most this many background jobs of the same kind at once. 0 = automatic (one less than the queue runs at once).',
+  },
+];
 /** Google's own per-minute limit for one mailbox; paced + burst must stay below it. */
 const GMAIL_UNIT_LIMIT = 15000;
-const FIELDS: FieldDef[] = [...RATE_FIELDS, ...PAUSE_FIELDS, ...SEND_FIELDS, ...NOTIFY_FIELDS, ...GMAIL_FIELDS];
+const FIELDS: FieldDef[] = [
+  ...RATE_FIELDS,
+  ...PAUSE_FIELDS,
+  ...SEND_FIELDS,
+  ...NOTIFY_FIELDS,
+  ...GMAIL_FIELDS,
+  ...FAIR_FIELDS,
+];
 
 /** The text as a whole number inside the field's bounds, or null. */
 const asBounded = (text: string, field: BoundedField): number | null => {
@@ -121,8 +138,17 @@ const asBounded = (text: string, field: BoundedField): number | null => {
  * ingestion (only the fields that changed). Each field shows only when the backend reports it; with
  * none reported (an older backend) the card says why instead of offering a save with no route.
  */
-export const IngestionCard = ({ ingestion }: { ingestion: IngestionSettings | undefined }) => {
+export const IngestionCard = ({
+  ingestion,
+  fairOrder,
+}: {
+  ingestion: IngestionSettings | undefined;
+  fairOrder?: FairOrderSetting;
+}) => {
   const save = useUpdatePlatformIngestion();
+  const [fairOn, setFairOn] = useState<boolean | undefined>(fairOrder?.value);
+  // Re-seed when the saved switch arrives or changes (the query refetches after a save).
+  useEffect(() => setFairOn(fairOrder?.value), [fairOrder?.value]);
   const shown = FIELDS.filter((field) => ingestion?.[field.key] !== undefined);
   const seed = () =>
     Object.fromEntries(shown.map((field) => [field.key, String(ingestion?.[field.key]?.value)]));
@@ -135,6 +161,7 @@ export const IngestionCard = ({ ingestion }: { ingestion: IngestionSettings | un
   }, [seedKey]);
 
   const changed: PlatformIngestionInput = {};
+  if (fairOrder && fairOn !== undefined && fairOn !== fairOrder.value) changed.fairOrder = fairOn;
   let invalid = false;
   for (const field of shown) {
     const saved = ingestion?.[field.key];
@@ -246,6 +273,34 @@ export const IngestionCard = ({ ingestion }: { ingestion: IngestionSettings | un
                   attachments that quota made fail.
                 </p>
                 {renderGrid(GMAIL_FIELDS)}
+              </>
+            )}
+            {(fairOrder !== undefined ||
+              FAIR_FIELDS.some((field) => ingestion?.[field.key] !== undefined)) && (
+              <>
+                <h3 className="text-sm font-medium pt-2">Fairness between workspaces</h3>
+                <p className="text-sm text-muted-foreground">
+                  One workspace&rsquo;s large import or knowledge-base rebuild does not make other
+                  workspaces wait behind it. A workspace working alone runs at full speed.
+                </p>
+                {fairOrder && (
+                  <div className="space-y-1">
+                    <Checkbox
+                      label="Share background work fairly between workspaces"
+                      checked={fairOn ?? fairOrder.value}
+                      onChange={(event) => {
+                        save.reset();
+                        setFairOn(event.target.checked);
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Off: background jobs run in the order they arrived, and a long queue pauses
+                      every workspace&rsquo;s import, as before.
+                    </p>
+                    <SourceBadge source={fairOrder.source} />
+                  </div>
+                )}
+                {renderGrid(FAIR_FIELDS)}
               </>
             )}
             {serverError && (
