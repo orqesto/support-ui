@@ -489,7 +489,54 @@ export const normalizeWorkspaceHealth = (raw: unknown): WorkspaceHealthReport =>
   };
 };
 
+/** GET /api/admin/platform/data-size (architecture M7 Z11a). Estimates are sampled; see the card. */
+export type DataSizeTable = { table: string; totalBytes: number; rowEstimate: number };
+export type DataSizeDatabase = {
+  organizationId: number | null;
+  workspaceName: string | null;
+  deploymentType: 'platform' | 'dedicated' | 'external';
+  totalBytes: number | null;
+  tables: DataSizeTable[];
+  error: string | null;
+};
+export type DataSizeReport = {
+  sampledAt: string;
+  platform: DataSizeDatabase;
+  threads: {
+    days: number;
+    sampledPct: number;
+    sampledThreads: number;
+    estimatedThreads: number;
+    estimatedOldResolved: number;
+    oldResolvedShare: number;
+    topWorkspaces: Array<{
+      organizationId: number;
+      name: string | null;
+      estimatedThreads: number;
+      oldResolvedShare: number;
+    }>;
+  } | null;
+  bodies: {
+    sampledPct: number;
+    sampledMessages: number;
+    estimatedMessages: number;
+    estimatedContentBytes: number;
+    estimatedRawDataBytes: number;
+    estimatedHeaderBytes: number;
+    messageEventsTotalBytes: number | null;
+  } | null;
+  byodb: DataSizeDatabase[];
+};
+
 export const platformService = {
+  /** `fresh`: measure again instead of the server's up-to-5-minute-old reading. */
+  getDataSize: async (fresh = false): Promise<DataSizeReport> => {
+    const res = await apiClient.get<{ data: DataSizeReport }>(`${PLATFORM}/data-size`, {
+      params: fresh ? { fresh: '1' } : undefined,
+    });
+    return res.data.data;
+  },
+
   getOverview: async (): Promise<PlatformOverview> => {
     const res = await apiClient.get<{ data: PlatformOverview }>(`${PLATFORM}/overview`);
     return res.data.data;

@@ -17,6 +17,7 @@ import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { FailureAnalysisCard } from '@/components/console/FailureAnalysisCard';
 import { WorkspaceHealthCard } from '@/components/console/WorkspaceHealthCard';
 import { DatabaseStatusPanel } from '@/components/console/DatabaseStatusPanel';
+import { DataSizeCard } from '@/components/console/DataSizeCard';
 import { ResourceSummary } from '@/components/console/ResourceSummary';
 import { QueueHistoryPanel } from '@/components/console/QueueHistoryPanel';
 import {
@@ -247,6 +248,7 @@ export const PlatformSystem = () => {
         </CardContent>
       </Card>
 
+      <DataSizeCard />
       <WorkspaceHealthCard />
       <FailureAnalysisCard />
       <Dialog open={!!failedQueue} onOpenChange={(open) => !open && setFailedQueue(null)}>
