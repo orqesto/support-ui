@@ -56,6 +56,21 @@ describe('readSignupSource', () => {
     expect(source).toEqual({ utm_term: 'a'.repeat(200) });
   });
 
+  it('falls back to the URL when the cookie has no usable key', () => {
+    expect(readSignupSource(cookie({ email: 'x@y.z' }), '?utm_source=url')).toEqual({
+      utm_source: 'url',
+    });
+  });
+
+  it('drops NUL / control characters and lone surrogates, and never splits an emoji at 200', () => {
+    expect(readSignupSource('', '?utm_source=a%00b&utm_medium=%01')).toEqual({ utm_source: 'ab' });
+    expect(readSignupSource(cookie({ utm_source: 'x\ud800y', utm_term: '\udc00' }), '')).toEqual({
+      utm_source: 'xy',
+    });
+    const term = readSignupSource(cookie({ utm_term: `${'a'.repeat(199)}😀tail` }), '')?.utm_term;
+    expect(term).toBe('a'.repeat(199));
+  });
+
   it('returns undefined when there is nothing to send', () => {
     expect(readSignupSource('locale=en', '?plan=pro')).toBeUndefined();
   });
