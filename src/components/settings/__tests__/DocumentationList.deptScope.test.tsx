@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DocumentationList } from '@/components/settings/DocumentationList';
-import type { Documentation } from '@/services/documentation.service';
+import type { Documentation } from '@/features/kb';
 
 afterEach(cleanup);
 

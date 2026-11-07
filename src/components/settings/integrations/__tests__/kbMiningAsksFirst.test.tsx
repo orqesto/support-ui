@@ -8,7 +8,7 @@ import type { ReactElement } from 'react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 
 const reprocessSource = vi.fn();
-vi.mock('@/services/kb.service', () => ({
+vi.mock('@/features/kb/services/kb.service', () => ({
   kbService: {
     // The confirmation asks for a forecast; an older backend has none (rejects) — the strip copes.
     getMiningForecast: () => Promise.reject(new Error('no forecast')),

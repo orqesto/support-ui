@@ -18,7 +18,7 @@ import {
   type Documentation,
   type DocumentType,
   type DocumentationProgress,
-} from '@/services/documentation.service';
+} from '@/features/kb';
 import { logger } from '@/lib/logger';
 
 type DocumentationSettingsProps = {
