@@ -7,10 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render as rtlRender, screen, waitFor } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
-import { useKbRangeDialogStore } from '@/stores/kbRangeDialogStore';
+import { useKbRangeDialogStore } from '@/features/settings/stores/kbRangeDialogStore';
 
 const connectWithPopup = vi.fn(() => Promise.resolve({ success: false, error: 'CANCELLED' }));
-vi.mock('@/services/gmail-oauth.service', () => ({
+vi.mock('@/features/settings/services/gmail-oauth.service', () => ({
   gmailOAuthService: {
     connectWithPopup: () => connectWithPopup(),
     hasPendingRedirectResult: () => false,
@@ -26,7 +26,7 @@ vi.mock('@/services/integrations.service', () => ({
     getIntegrations: () => Promise.resolve({ success: true, data: [] }),
   },
 }));
-vi.mock('@/hooks/useCreateSourceDepartments', () => ({
+vi.mock('@/features/settings/hooks/useCreateSourceDepartments', () => ({
   useCreateSourceDepartments: () => ({
     departments: [],
     loading: false,

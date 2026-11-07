@@ -1,6 +1,6 @@
 import { Database, RefreshCw, TestTube2, Trash2, Unplug } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useResultFor } from '@/hooks/useResultFor';
+import { useResultFor } from '@/features/settings/hooks/useResultFor';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';

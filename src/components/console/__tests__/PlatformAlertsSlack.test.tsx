@@ -17,7 +17,7 @@ import {
   PLATFORM_SLACK_SIGNALS,
   DEFAULT_PLATFORM_THRESHOLDS,
   type PlatformSlackStatus,
-} from '@/services/slackNotifications.service';
+} from '@/features/settings';
 import {
   platformSettingsService,
   type PlatformSettings,

@@ -17,7 +17,7 @@ vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
     removeThread: () => Promise.resolve(false),
   },
 }));
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
 }));

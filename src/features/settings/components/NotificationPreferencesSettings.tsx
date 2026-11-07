@@ -7,7 +7,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Toggle } from '@/components/ui/Toggle';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
-import { useNotificationSettings } from '@/hooks/useNotificationSettings';
+import { useNotificationSettings } from '@/features/settings/hooks/useNotificationSettings';
 import {
   LEGACY_LINES,
   type NotificationSettings,

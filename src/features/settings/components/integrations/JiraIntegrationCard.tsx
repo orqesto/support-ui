@@ -5,7 +5,7 @@ import type { IntegrationCardProps } from '@/features/settings/components/integr
 import { Button } from '@/components/ui/Button';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { useIntegrationCard } from '@/hooks/useIntegrationCard';
+import { useIntegrationCard } from '@/features/settings/hooks/useIntegrationCard';
 import { integrationsService } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
 import { apiErrorMessage } from '@/lib/apiError';

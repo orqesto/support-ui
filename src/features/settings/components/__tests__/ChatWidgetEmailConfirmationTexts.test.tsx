@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ChatWidget } from '@/services/chatWidget.service';
+import type { ChatWidget } from '@/features/settings/services/chatWidget.service';
 
 /**
  * The email confirmation (one-time code) texts the widget shows, edited in the widget settings
@@ -8,14 +8,14 @@ import type { ChatWidget } from '@/services/chatWidget.service';
  * column is replaced) and must not send an email text the backend would refuse (no {code}).
  */
 
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
 }));
 const update = vi.fn((_id: number, _data: Record<string, unknown>) =>
   Promise.resolve({ success: true, data: {} })
 );
-vi.mock('@/services/chatWidget.service', () => ({
+vi.mock('@/features/settings/services/chatWidget.service', () => ({
   chatWidgetService: {
     getAll: () => Promise.resolve({ success: true, data: [] }),
     update: (id: number, data: Record<string, unknown>) => update(id, data),

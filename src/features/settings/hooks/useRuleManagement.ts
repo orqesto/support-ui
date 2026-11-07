@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useDepartmentContextKey } from './useDepartmentContextKey';
+import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { logger } from '@/lib/logger';
 
 type UseRuleManagementOptions<T, TFormData> = {

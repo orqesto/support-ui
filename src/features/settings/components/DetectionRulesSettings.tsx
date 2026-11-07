@@ -8,13 +8,13 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
-import { useRuleManagement } from '@/hooks/useRuleManagement';
+import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import {
   detectionRuleService,
   type DetectionRule,
   type DetectionRuleCategory,
-} from '@/services/detectionRule.service';
+} from '@/features/settings/services/detectionRule.service';
 
 type RuleFilter = 'all' | 'manual' | 'feedback';
 

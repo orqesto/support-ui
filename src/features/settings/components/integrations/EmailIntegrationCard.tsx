@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useResultFor } from '@/hooks/useResultFor';
+import { useResultFor } from '@/features/settings/hooks/useResultFor';
 import {
   Mail,
   Plus,
@@ -27,9 +27,9 @@ import { SourceRowStrips } from '@/features/settings/components/integrations/Sou
 import type { IntegrationCardProps } from '@/features/settings/components/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
+import { useCreateSourceDepartments } from '@/features/settings/hooks/useCreateSourceDepartments';
 import { integrationsService } from '@/services/integrations.service';
-import { useKbRangeDialogStore } from '@/stores/kbRangeDialogStore';
+import { useKbRangeDialogStore } from '@/features/settings/stores/kbRangeDialogStore';
 import {
   KB_MINING_DEFERRED_LINE,
   KB_RANGE_MENU_LABEL,

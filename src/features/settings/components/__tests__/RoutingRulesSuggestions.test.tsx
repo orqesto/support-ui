@@ -9,7 +9,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const fetches = vi.hoisted(() => ({ count: 0 }));
-vi.mock('@/services/routingRule.service', () => ({
+vi.mock('@/features/settings/services/routingRule.service', () => ({
   ROUTING_RULE_TYPES: ['subject_contains', 'subject_regex', 'sender_email', 'sender_domain', 'body_contains', 'header_match'],
   routingRuleService: {
     list: () => {

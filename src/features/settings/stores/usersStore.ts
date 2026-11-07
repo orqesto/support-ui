@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { User } from '@/types';
-import { onOrganizationSwitch } from './identityScope';
+import { onOrganizationSwitch } from '@/stores/identityScope';
 
 type UsersState = {
   users: User[];

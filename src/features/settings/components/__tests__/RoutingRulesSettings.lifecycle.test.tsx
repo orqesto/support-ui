@@ -161,7 +161,7 @@ const RULES = [
     },
   },
 ];
-vi.mock('@/services/routingRule.service', () => ({
+vi.mock('@/features/settings/services/routingRule.service', () => ({
   ROUTING_RULE_TYPES: [
     'subject_contains',
     'subject_regex',

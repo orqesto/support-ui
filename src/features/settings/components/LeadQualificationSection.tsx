@@ -1,5 +1,5 @@
 import { Alert } from '@/components/ui/Alert';
-import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
+import { useAiDraftsOff } from '@/features/settings/hooks/useAiDraftsOff';
 import { LeadQualificationSettings } from './LeadQualificationSettings';
 
 /**

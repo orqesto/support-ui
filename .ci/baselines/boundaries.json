@@ -1,11 +1,11 @@
 {
   "featureToFeature": {
-    "total": 130,
+    "total": 143,
     "pairs": {
       "components/layout -> feature:processing": 2,
       "components/layout -> feature:subscription": 3,
       "components/shared -> feature:subscription": 1,
-      "feature:console -> feature:settings": 2,
+      "feature:console -> feature:settings": 5,
       "feature:console -> feature:subscription": 2,
       "feature:contacts -> feature:messages": 4,
       "feature:kb -> feature:admin": 3,
@@ -14,12 +14,12 @@
       "feature:messages -> feature:contacts": 3,
       "feature:messages -> feature:custom-api": 8,
       "feature:messages -> feature:modals": 2,
-      "feature:messages -> feature:settings": 5,
+      "feature:messages -> feature:settings": 13,
       "feature:messages -> feature:subscription": 4,
       "feature:messages -> feature:tickets": 8,
       "feature:modals -> feature:messages": 1,
       "feature:modals -> feature:subscription": 1,
-      "feature:onboarding -> feature:settings": 6,
+      "feature:onboarding -> feature:settings": 7,
       "feature:onboarding -> feature:subscription": 1,
       "feature:processing -> feature:messages": 2,
       "feature:processing -> feature:settings": 4,
@@ -31,7 +31,8 @@
       "feature:settings -> feature:subscription": 5,
       "feature:subscription -> feature:onboarding": 2,
       "feature:tickets -> feature:admin": 1,
-      "feature:tickets -> feature:messages": 8
+      "feature:tickets -> feature:messages": 8,
+      "feature:tickets -> feature:settings": 1
     }
   },
   "upward": {

@@ -26,7 +26,7 @@ import {
   type SlackRouteInput,
   type SlackStatus,
   type SlackTestResult,
-} from '@/services/slackNotifications.service';
+} from '@/features/settings/services/slackNotifications.service';
 import { useAuthStore } from '@/stores/authStore';
 
 /**

@@ -5,7 +5,7 @@
  * their replies leave from somewhere they don't.
  */
 import { describe, expect, it } from 'vitest';
-import { deriveSmtpDefaults } from '@/utils/imapProviders';
+import { deriveSmtpDefaults } from '@/features/settings/utils/imapProviders';
 
 describe('deriveSmtpDefaults', () => {
   it('swaps the imap prefix for smtp', () => {

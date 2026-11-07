@@ -5,7 +5,7 @@ vi.mock('@/lib/api-client', () => ({
   apiClient: { post: (...args: unknown[]) => post(...args), get: vi.fn() },
 }));
 
-const { gmailOAuthService } = await import('@/services/gmail-oauth.service');
+const { gmailOAuthService } = await import('@/features/settings/services/gmail-oauth.service');
 
 const request = { code: 'c', state: 's', redirectUri: 'https://x/cb' };
 

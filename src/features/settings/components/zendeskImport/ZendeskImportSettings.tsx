@@ -27,7 +27,7 @@ import {
   uploadZendeskExport,
   zendeskImportService,
   type ZendeskRun,
-} from '@/services/zendeskImport.service';
+} from '@/features/settings/services/zendeskImport.service';
 
 /** How often a running step is re-read. */
 const POLL_MS = 3000;

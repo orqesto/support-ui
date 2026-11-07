@@ -15,7 +15,7 @@ import { SecuritySettings } from './SecuritySettings';
 import { WorkspaceDetailsSettings } from './WorkspaceDetailsSettings';
 import { WorkspaceAiUsage } from './WorkspaceAiUsage';
 import { NotificationRoleDefaults } from './NotificationRoleDefaults';
-import { loadRoleDefaults } from '@/services/notificationRoleDefaultsShared';
+import { loadRoleDefaults } from '@/features/settings/services/notificationRoleDefaultsShared';
 import { useAuthStore } from '@/stores/authStore';
 
 type OrgSection =

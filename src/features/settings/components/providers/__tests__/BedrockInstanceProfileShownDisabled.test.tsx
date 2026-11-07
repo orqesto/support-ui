@@ -13,7 +13,7 @@ import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 const backendVersion = vi.fn<() => { data: { bedrockInstanceProfile: boolean } | undefined }>();
 vi.mock('@/lib/api-client', () => ({ apiClient: { post: vi.fn(), get: vi.fn() } }));
 vi.mock('@/lib/logger', () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() } }));
-vi.mock('@/hooks/useBedrockModels', () => ({ useBedrockModels: () => ({ data: undefined }) }));
+vi.mock('@/features/settings/hooks/useBedrockModels', () => ({ useBedrockModels: () => ({ data: undefined }) }));
 vi.mock('@/hooks/useBackendVersion', () => ({ useBackendVersion: () => backendVersion() }));
 vi.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ theme: 'light' }) }));
 

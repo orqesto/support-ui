@@ -7,7 +7,7 @@ import { useProcessingPanelStore } from '@/stores/processingPanelStore';
 import { logger } from '@/lib/logger';
 import { fallbackLayer } from '@/lib/limitFallback';
 import { describeNextReset, formatUtcDateAndLocal } from '@/lib/utcClock';
-import { useKbRangeDialogStore } from '@/stores/kbRangeDialogStore';
+import { useKbRangeDialogStore } from '@/features/settings/stores/kbRangeDialogStore';
 import { KbHistoryRangeDialog } from '@/features/settings/components/integrations/KbHistoryRangeDialog';
 import { KB_RANGE_MENU_LABEL, errorText } from '@/features/settings/components/integrations/kbRangeCopy';
 import type { AlertState } from '@/features/settings/components/integrations/types';

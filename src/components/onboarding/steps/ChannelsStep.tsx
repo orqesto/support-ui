@@ -5,7 +5,7 @@ import { isConnectedChannel } from '@/components/onboarding/connectedChannel';
 import { EmailIntegrationCard, GmailIntegrationCard, SlackIntegrationCard, TelegramIntegrationCard, WhatsAppIntegrationCard, type AlertState } from '@/features/settings';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
-import { useGmailOAuthAvailability } from '@/hooks/useGmailOAuthAvailability';
+import { useGmailOAuthAvailability } from '@/features/settings';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';

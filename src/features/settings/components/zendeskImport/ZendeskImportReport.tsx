@@ -5,7 +5,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { apiErrorMessage } from '@/lib/apiError';
 import { toast } from '@/lib/toast';
-import { zendeskImportService, type ZendeskRun } from '@/services/zendeskImport.service';
+import { zendeskImportService, type ZendeskRun } from '@/features/settings/services/zendeskImport.service';
 
 type Props = {
   run: ZendeskRun;

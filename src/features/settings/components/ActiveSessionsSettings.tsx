@@ -7,7 +7,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { describeUserAgent } from '@/lib/userAgentLabel';
-import { sessionsService, type ActiveSession } from '@/services/sessions.service';
+import { sessionsService, type ActiveSession } from '@/features/settings/services/sessions.service';
 
 /** What the confirm dialog is currently asking about. `null` = nothing is being confirmed. */
 type Pending = { kind: 'one'; session: ActiveSession } | { kind: 'all' } | null;

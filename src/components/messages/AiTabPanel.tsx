@@ -17,7 +17,7 @@ import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
-import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
+import { useAiDraftsOff } from '@/features/settings';
 import { logger } from '@/lib/logger';
 import { languageName as languageNameOf } from '@/lib/languageName';
 import { stripGreetingName } from '@/lib/depersonalise';

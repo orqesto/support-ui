@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/Input';
 import { Toggle } from '@/components/ui/Toggle';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Select } from '@/components/ui/Select';
-import { detectImapConfig, deriveSmtpDefaults, isProviderSupported } from '@/utils/imapProviders';
+import { detectImapConfig, deriveSmtpDefaults, isProviderSupported } from '@/features/settings/utils/imapProviders';
 import { SourceKbToggle } from '@/features/settings/components/integrations/SourceKbToggle';
 import { MarkImportedControl } from '@/features/settings/components/integrations/MarkImportedControl';
 import {
@@ -17,7 +17,7 @@ import {
   hostError,
   mailboxError,
   portError,
-} from '@/utils/mailboxValidation';
+} from '@/features/settings/utils/mailboxValidation';
 import type { Department } from '@/services/department.service';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import { imapEarliestDay, sinceDay, sinceInstant } from '@/lib/importRange';

@@ -9,7 +9,7 @@ import {
 } from '@/features/settings/components/integrations/markImported';
 import type { AlertState } from '@/features/settings/components/integrations/types';
 import { integrationsService, type Integration } from '@/services/integrations.service';
-import { gmailOAuthService } from '@/services/gmail-oauth.service';
+import { gmailOAuthService } from '@/features/settings/services/gmail-oauth.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 

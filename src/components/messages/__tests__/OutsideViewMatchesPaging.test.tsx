@@ -14,7 +14,7 @@ const getThreads = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 vi.mock('@/services/message.service', () => ({
   messageService: { getThreads: (...args: unknown[]) => getThreads(...args) },
 }));
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
 }));

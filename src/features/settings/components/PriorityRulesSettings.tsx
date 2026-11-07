@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { Toggle } from '@/components/ui/Toggle';
-import { useRuleManagement } from '@/hooks/useRuleManagement';
+import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
 import { logger } from '@/lib/logger';
 import {
   PRIORITY_LEVELS,
@@ -15,7 +15,7 @@ import {
   priorityRuleService,
   type PriorityLevel,
   type PriorityRule,
-} from '@/services/priorityRule.service';
+} from '@/features/settings/services/priorityRule.service';
 
 /**
  * Priority rules have no `pattern` — a message is matched against `exampleText` by

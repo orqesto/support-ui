@@ -31,13 +31,13 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Spinner } from '@/components/ui/Spinner';
-import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
+import { useCreateSourceDepartments } from '@/features/settings/hooks/useCreateSourceDepartments';
 import { detectBrowser, getPopupUnblockInstructions } from '@/lib/browserDetect';
 import { logger } from '@/lib/logger';
 import { sinceDay } from '@/lib/importRange';
-import { gmailOAuthService } from '@/services/gmail-oauth.service';
+import { gmailOAuthService } from '@/features/settings/services/gmail-oauth.service';
 import { integrationsService } from '@/services/integrations.service';
-import { useKbRangeDialogStore } from '@/stores/kbRangeDialogStore';
+import { useKbRangeDialogStore } from '@/features/settings/stores/kbRangeDialogStore';
 import { formatRangeLabel } from '@/components/ui/DateRangePicker';
 import {
   KB_MINING_DEFERRED_LINE,

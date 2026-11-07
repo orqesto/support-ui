@@ -24,7 +24,7 @@ import {
   type ScimTokenMeta,
   type ScimGroupMapping,
   type OrgRole,
-} from '@/services/scim.service';
+} from '@/features/settings/services/scim.service';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';

@@ -14,7 +14,7 @@ import { toast } from '@/lib/toast';
 import { departmentService } from '@/services/department.service';
 import { integrationsService } from '@/services/integrations.service';
 import { userService } from '@/services/user.service';
-import { zendeskImportService, type ZendeskRun } from '@/services/zendeskImport.service';
+import { zendeskImportService, type ZendeskRun } from '@/features/settings/services/zendeskImport.service';
 import type { Department } from '@/types';
 
 type Props = {

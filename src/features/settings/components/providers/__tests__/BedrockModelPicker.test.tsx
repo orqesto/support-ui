@@ -15,7 +15,7 @@ vi.mock('@/lib/api-client', () => ({
 }));
 vi.mock('@/lib/logger', () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 let discovery: { data?: BedrockDiscovery; isLoading?: boolean } = { data: undefined };
-vi.mock('@/hooks/useBedrockModels', () => ({ useBedrockModels: () => discovery }));
+vi.mock('@/features/settings/hooks/useBedrockModels', () => ({ useBedrockModels: () => discovery }));
 vi.mock('@/hooks/useBackendVersion', () => ({ useBackendVersion: () => ({ data: undefined }) }));
 vi.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ theme: 'light' }) }));
 

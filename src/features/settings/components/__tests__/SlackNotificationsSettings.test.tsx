@@ -12,7 +12,7 @@ import {
   DEFAULT_TEAM_ON,
   type SlackRoute,
   type SlackStatus,
-} from '@/services/slackNotifications.service';
+} from '@/features/settings/services/slackNotifications.service';
 import { isInactive } from '@/test/inactive';
 
 type MockUser = { id: number; role: string; organizationRole?: string } | null;

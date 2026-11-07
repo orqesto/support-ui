@@ -35,9 +35,14 @@ vi.mock('@/features/tickets/services/ticketReplies.service', async (importOrigin
 vi.mock('@/features/tickets/services/ticketDrafts.service', () => ({
   ticketDraftsService: { draftsOfTicket, create, update, discard, adapt },
 }));
-vi.mock('@/services/replyTemplates.service', () => ({ replyTemplatesService: { list } }));
+vi.mock('@/services/replyTemplates.service', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  replyTemplatesService: { list },
+}));
 const aiDrafts = vi.hoisted(() => ({ off: false }));
-vi.mock('@/hooks/useAiDraftsOff', () => ({ useAiDraftsOff: () => ({ off: aiDrafts.off }) }));
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
+  useAiDraftsOff: () => ({ off: aiDrafts.off }),
+}));
 vi.mock('@/services/message.service', () => ({ messageService: { getThreads: vi.fn() } }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACME' }));
 // Translate has its own tests; its language list needs a query client this page test has none of.

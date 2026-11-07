@@ -9,7 +9,7 @@ import type { MessageThread } from '@/services/message.service';
  * PROMISE — not their pixels.
  */
 
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
 }));

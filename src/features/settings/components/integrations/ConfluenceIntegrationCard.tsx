@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Toggle } from '@/components/ui/Toggle';
 import { getErrorStatus } from '@/lib/errorMessages';
-import { useIntegrationCard } from '@/hooks/useIntegrationCard';
+import { useIntegrationCard } from '@/features/settings/hooks/useIntegrationCard';
 import { integrationsService, type ConfluenceConfig } from '@/services/integrations.service';
 import { useAuthStore } from '@/stores/authStore';
 

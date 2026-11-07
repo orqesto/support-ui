@@ -38,8 +38,11 @@ vi.mock('@/hooks/useTranslation', () => ({
 vi.mock('@/hooks/useAiConfigured', () => ({
   useAiConfigured: () => ({ aiConfigured: true, isLoading: false }),
 }));
-vi.mock('@/hooks/useAiDraftsOff', () => ({ useAiDraftsOff: () => ({ off: false }) }));
-vi.mock('@/services/replyTemplates.service', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
+  useAiDraftsOff: () => ({ off: false }),
+}));
+vi.mock('@/services/replyTemplates.service', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   replyTemplatesService: { list: () => Promise.resolve({ unavailable: true, templates: [] }) },
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));

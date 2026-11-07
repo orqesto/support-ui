@@ -13,7 +13,7 @@ import {
   type RoleDefaults,
   type RoleDefaultsLine,
 } from '@/services/notificationSettingsService';
-import { invalidateRoleDefaults, loadRoleDefaults } from '@/services/notificationRoleDefaultsShared';
+import { invalidateRoleDefaults, loadRoleDefaults } from '@/features/settings/services/notificationRoleDefaultsShared';
 import { isHours, lineLabel, PRIORITY_OPTIONS, SEVERITY_OPTIONS } from './notificationKindLabels';
 import { WorkingHoursEditor, validateWorkingHours } from './WorkingHoursEditor';
 

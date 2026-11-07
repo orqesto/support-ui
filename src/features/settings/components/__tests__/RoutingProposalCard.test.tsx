@@ -47,7 +47,7 @@ vi.mock('@/services/learning.service', async (importOriginal) => {
     },
   };
 });
-vi.mock('@/services/routingRule.service', () => ({
+vi.mock('@/features/settings/services/routingRule.service', () => ({
   routingRuleService: {
     update: async (...args: unknown[]) => {
       calls.update.push(args);

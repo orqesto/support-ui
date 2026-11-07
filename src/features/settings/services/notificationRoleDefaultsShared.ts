@@ -1,7 +1,7 @@
 import { invalidateSharedFetch, sharedFetch } from '@/lib/sharedFetch';
 import { useAuthStore } from '@/stores/authStore';
-import { roleDefaultsUnavailable } from './notificationRoleDefaultsMemory';
-import { fetchRoleDefaults, type RoleDefaults } from './notificationSettingsService';
+import { roleDefaultsUnavailable } from '@/services/notificationRoleDefaultsMemory';
+import { fetchRoleDefaults, type RoleDefaults } from '@/services/notificationSettingsService';
 
 /**
  * One read of the role defaults per workspace, shared by the Workspace-settings tab probe and the
@@ -34,4 +34,4 @@ export const loadRoleDefaults = (orgKey: number | string | null): Promise<RoleDe
 export const invalidateRoleDefaults = (orgKey: number | string | null): void =>
   invalidateSharedFetch(keyOf(orgKey));
 
-export { resetRoleDefaultsUnavailableForTests } from './notificationRoleDefaultsMemory';
+export { resetRoleDefaultsUnavailableForTests } from '@/services/notificationRoleDefaultsMemory';

@@ -1,10 +1,10 @@
 /**
- * The settings feature (workspace settings screens: profile, workspace, teams and users, AI,
- * integrations and channels, storage providers, Zendesk import, custom-API settings UI, and the
- * user/organisation modals). This file is its only public entry: code outside
- * `src/features/settings/` imports from `@/features/settings`, never a deep path (ESLint
- * `boundaries/api-only-features`). Export only what pages or other features use. Files inside the
- * feature import each other directly, never through this index.
+ * The settings feature: the workspace settings screens (profile, workspace, teams and users, AI,
+ * integrations and channels, storage providers, Zendesk import, custom-API settings UI), the
+ * user/organisation modals, and the settings services, hooks, stores and utils. This file is its
+ * only public entry: code outside `src/features/settings/` imports from `@/features/settings`,
+ * never a deep path (ESLint `boundaries/api-only-features`). Export only what pages or other
+ * features use. Files inside the feature import each other directly, never through this index.
  */
 export { AIConfigSettings } from './components/AIConfigSettings';
 export { AIProvidersSettings } from './components/AIProvidersSettings';
@@ -64,4 +64,24 @@ export {
 } from './components/providers/ObjectStorageConfigCard';
 export { UserDepartmentsField } from './components/users/UserDepartmentsField';
 export { UserRoutingSkillsCard } from './components/users/UserRoutingSkillsCard';
+export { useAiDraftsOff, useRefreshAiDrafts } from './hooks/useAiDraftsOff';
+export { useGmailOAuthAvailability } from './hooks/useGmailOAuthAvailability';
+export { invitationService } from './services/invitation.service';
+export {
+  DEFAULT_PLATFORM_THRESHOLDS,
+  fillPlatformThresholds,
+  PLATFORM_SLACK_SIGNALS,
+  platformSlackAlertsService,
+  type PlatformSlackConnection,
+  type PlatformSlackSignal,
+  type PlatformSlackStatus,
+  type PlatformSlackThresholds,
+  SLACK_BOT_SCOPES,
+  type SlackChannelList,
+  type SlackPostRetention,
+  slackTeamKey,
+  type SlackTestResult,
+} from './services/slackNotifications.service';
+export { useUsersStore } from './stores/usersStore';
+export { getUserRowCapabilities } from './utils/userListCapabilities';
 export { ZENDESK_AS_THREADS } from './components/zendeskImport/zendeskImportSummary';

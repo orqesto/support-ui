@@ -8,7 +8,7 @@ import { Toggle } from '@/components/ui/Toggle';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { organizationService } from '@/services/organization.service';
 import type { RoutingKey, RoutingKeyType } from '@/types/skillRouting';
-import { isLanguageKeyName } from '@/utils/routing/languageKeyNames';
+import { isLanguageKeyName } from '@/features/settings/utils/routing/languageKeyNames';
 
 const TYPE_LABEL: Record<RoutingKeyType, string> = { language: 'Language', topic: 'Topic' };
 type AutoAssignMode = 'off' | 'match_only' | 'always';

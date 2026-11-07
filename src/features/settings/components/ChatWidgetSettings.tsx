@@ -2,7 +2,7 @@ import { safeCssColor } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 import { Plus, Code, Trash2, Edit, Power, Globe, Palette, MessageSquare, Copy, Check } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
-import { chatWidgetService, type ChatWidget } from '@/services/chatWidget.service';
+import { chatWidgetService, type ChatWidget } from '@/features/settings/services/chatWidget.service';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -11,7 +11,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ChatWidgetModal } from './modals/ChatWidgetModal';
 import { EmbedCodeModal } from './modals/EmbedCodeModal';
 import { logger } from '@/lib/logger';
-import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
+import { useAiDraftsOff } from '@/features/settings/hooks/useAiDraftsOff';
 
 export const ChatWidgetSettings = () => {
   const [widgets, setWidgets] = useState<ChatWidget[]>([]);

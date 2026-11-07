@@ -347,6 +347,104 @@ describe('check-boundaries --adopt', () => {
   });
 });
 
+describe('check-boundaries --adopt, second move into a feature that already has an index', () => {
+  const gitIn = (...args) => {
+    const result = spawnSync(
+      'git',
+      [
+        '-c',
+        'user.name=Ratchet Test',
+        '-c',
+        'user.email=ratchet@example.com',
+        '-c',
+        'commit.gpgsign=false',
+        ...args,
+      ],
+      { cwd: root, encoding: 'utf8' }
+    );
+    expect(result.status, result.stderr).toBe(0);
+  };
+
+  // Base tree: an earlier move already put LookupBadge (and LookupChip) in the feature, and
+  // AlphaBadge takes LookupBadge through the index. The service is still outside the feature.
+  beforeEach(() => {
+    write(
+      'src/features/look-up/components/LookupBadge.tsx',
+      'export const LookupBadge = () => null;\nexport const LookupChip = () => null;\n'
+    );
+    write(
+      'src/features/look-up/index.ts',
+      "export { LookupBadge, LookupChip } from './components/LookupBadge';\n"
+    );
+    write(
+      'src/components/alpha/AlphaBadge.tsx',
+      "import { LookupBadge } from '@/features/look-up';\nexport const AlphaBadge = () => LookupBadge();\n"
+    );
+    write('src/services/lookup.service.ts', 'export const lookupService = { run: () => 1 };\n');
+    write(
+      'src/components/alpha/AlphaLookup.tsx',
+      "import { lookupService } from '@/services/lookup.service';\nexport const AlphaLookup = () => lookupService.run();\n"
+    );
+    // The baseline as the earlier move left it (--update only ever lowers it).
+    write(
+      '.ci/baselines/boundaries.json',
+      `${JSON.stringify(
+        {
+          featureToFeature: {
+            total: 2,
+            pairs: { 'feature:alpha -> feature:beta': 1, 'feature:alpha -> feature:look-up': 1 },
+          },
+          upward: { total: 0, files: {} },
+        },
+        null,
+        2
+      )}\n`
+    );
+    expect(run(BOUNDARIES).status).toBe(0);
+    gitIn('init', '-q');
+    gitIn('add', '-A');
+    gitIn('commit', '-q', '-m', 'base');
+    // The second move: the service joins the feature; AlphaLookup now goes through the index.
+    mkdirSync(join(root, 'src/features/look-up/services'), { recursive: true });
+    gitIn(
+      'mv',
+      'src/services/lookup.service.ts',
+      'src/features/look-up/services/lookup.service.ts'
+    );
+    write(
+      'src/features/look-up/index.ts',
+      "export { LookupBadge, LookupChip } from './components/LookupBadge';\nexport { lookupService } from './services/lookup.service';\n"
+    );
+    write(
+      'src/components/alpha/AlphaLookup.tsx',
+      "import { lookupService } from '@/features/look-up';\nexport const AlphaLookup = () => lookupService.run();\n"
+    );
+  });
+  const adopt = () => {
+    gitIn('add', '-A');
+    return run(BOUNDARIES, '--adopt', '--base', 'HEAD');
+  };
+
+  it('proves an unchanged index import of a name that was already in the feature', () => {
+    expect(run(BOUNDARIES).output).toContain('feature:alpha -> feature:look-up: 1 → 2');
+    const { status, output } = adopt();
+    expect(status, output).toBe(0);
+    expect(output).toContain('feature:alpha -> feature:look-up: 1 → 2');
+    expect(run(BOUNDARIES).status).toBe(0);
+  });
+
+  it('CONTROL: a name already in the feature that the importer did not take before is new', () => {
+    write(
+      'src/components/alpha/AlphaBadge.tsx',
+      "import { LookupBadge, LookupChip } from '@/features/look-up';\nexport const AlphaBadge = () => [LookupBadge(), LookupChip()];\n"
+    );
+    const { status, output } = adopt();
+    expect(status).toBe(1);
+    expect(output).toContain('src/components/alpha/AlphaBadge.tsx:1');
+    expect(output).toContain('--adopt wrote nothing.');
+  });
+});
+
 describe('check-cycles', () => {
   const addCycle = () => {
     write(

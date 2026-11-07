@@ -7,7 +7,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import type { ZendeskRun } from '@/services/zendeskImport.service';
+import type { ZendeskRun } from '@/features/settings/services/zendeskImport.service';
 
 let usage: unknown;
 vi.mock('@/features/subscription/hooks/useBudgets', () => ({

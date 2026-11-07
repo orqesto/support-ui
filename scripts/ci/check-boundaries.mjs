@@ -42,6 +42,9 @@
  * path. An edge to a feature's index is resolved per imported name through the index's
  * `export { … } from` lines to the file that defines it; a name it cannot resolve (a namespace
  * import, `export *`) is proven when the importer imported ANY file that moved into that feature.
+ * A name whose file was already inside the feature before this change (an earlier move put it
+ * there) is proven when the importer's base version took that same name from the same specifier:
+ * the import went through the index then too, so only its count is new.
  * A pair with one unproven edge is not adopted. Upward imports never accept adoption (and cycles
  * live in check-cycles.mjs, which has no such mode): any upward growth fails `--adopt` too.
  */
@@ -210,6 +213,32 @@ const indexMapOf = (root, index, edges) => {
 
 const INDEX = /^src\/features\/([^/]+)\/index\.tsx?$/;
 
+/** The names `file` (as it was at `base`) takes from `specifier`; empty if it did not exist. */
+const namesTakenAtBase = (root, base, file, specifier) => {
+  const names = new Set();
+  let text;
+  try {
+    text = execFileSync('git', ['show', `${base}:${file}`], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  } catch {
+    return names;
+  }
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
+  for (const statement of source.statements) {
+    const literal = statement.moduleSpecifier;
+    if (!literal || !ts.isStringLiteralLike(literal) || literal.text !== specifier) continue;
+    const bindings = ts.isImportDeclaration(statement)
+      ? statement.importClause?.namedBindings
+      : statement.exportClause;
+    if (!bindings || !(ts.isNamedImports(bindings) || ts.isNamedExports(bindings))) continue;
+    for (const element of bindings.elements) names.add((element.propertyName ?? element.name).text);
+  }
+  return names;
+};
+
 /** `--adopt`: record grown feature → feature pairs whose every edge existed before the move. */
 const adopt = ({ root, baselinePath, baseline, measured, edges }) => {
   const at = process.argv.indexOf('--base');
@@ -233,9 +262,14 @@ const adopt = ({ root, baselinePath, baseline, measured, edges }) => {
     const anyMoved = movedIn.some((was) => before.has(was));
     const names = namesTaken(root, edge);
     if (names === null) return anyMoved;
+    let takenAtBase = null;
     return names.every((name) => {
       const file = indexMaps.get(edge.to).get(name);
-      return file ? before.has(old(file)) : anyMoved;
+      if (!file) return anyMoved;
+      if (before.has(old(file))) return true;
+      if (oldOf.has(file)) return false;
+      takenAtBase ??= namesTakenAtBase(root, base, old(edge.from), edge.specifier);
+      return takenAtBase.has(name);
     });
   };
 

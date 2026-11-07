@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Tooltip } from '@/components/ui/Tooltip';
-import type { RoutingRule } from '@/services/routingRule.service';
+import type { RoutingRule } from '@/features/settings/services/routingRule.service';
 import {
   acceptEffectsOf,
   isApprovedRule,

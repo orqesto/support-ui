@@ -5,7 +5,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 import { KB_MINING_DEFERRED_LINE } from '../kbRangeCopy';
 
 const connectWithPopup = vi.fn<(...args: unknown[]) => Promise<unknown>>();
-vi.mock('@/services/gmail-oauth.service', () => ({
+vi.mock('@/features/settings/services/gmail-oauth.service', () => ({
   gmailOAuthService: {
     connectWithPopup: (...args: unknown[]) => connectWithPopup(...args),
     hasPendingRedirectResult: () => false,
@@ -15,7 +15,7 @@ vi.mock('@/services/gmail-oauth.service', () => ({
 vi.mock('@/services/integrations.service', () => ({
   integrationsService: { countGmailMessages: () => Promise.resolve({ count: 1 }), update: vi.fn() },
 }));
-vi.mock('@/hooks/useCreateSourceDepartments', () => ({
+vi.mock('@/features/settings/hooks/useCreateSourceDepartments', () => ({
   useCreateSourceDepartments: () => ({
     departments: [{ id: 1, name: 'Support' }],
     loading: false,

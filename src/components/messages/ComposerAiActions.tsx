@@ -3,7 +3,7 @@ import { RotateCcw, Sparkles, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
-import { useAiDraftsOff, useRefreshAiDrafts } from '@/hooks/useAiDraftsOff';
+import { useAiDraftsOff, useRefreshAiDrafts } from '@/features/settings';
 import { editorHtmlToText } from '@/lib/editorText';
 import { SEARCH_CUT_SHORT_COPY, searchCutShort } from '@/lib/searchCutShort';
 import { isBlankRichText } from '@/lib/stripHtml';
