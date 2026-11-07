@@ -29,7 +29,7 @@ import { integrationsService } from '@/services/integrations.service';
 import { settingsService } from '@/services/settings.service';
 import { messageService } from '@/services/message.service';
 import { useAuthStore } from '@/stores/authStore';
-import { useAiRefusalText } from '@/features/subscription';
+import { useAiRefusalText } from '@/features/subscription/shell';
 import { useMessagesStore } from '@/stores/messagesStore';
 import type { Message, Category, TicketPriority, ApiResponse } from '@/types';
 import RichTextEditor from '@/components/shared/LazyRichTextEditor';

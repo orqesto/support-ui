@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { CATEGORY_RECORD_LABELS, readCategory } from '@/features/settings';
+import { CATEGORY_RECORD_LABELS, readCategory } from '@/features/settings/shell';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { usePermissions } from '@/hooks/usePermissions';

@@ -2,10 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/Button';
 import { ExternalLink } from '@/components/ui/ExternalLink';
 import { CustomApiRecordInsert } from './CustomApiRecordInsert';
-import {
-  CATEGORY_RECORD_LABELS,
-  type CustomApiCategory,
-} from '@/features/settings';
+import { CATEGORY_RECORD_LABELS, type CustomApiCategory } from '@/features/settings/shell';
 import { listOf, renderItems, renderValue } from './customApiValue';
 import { LABEL } from './messageDetailConstants';
 import type { AddOutcome } from './recordInsertOutcome';
