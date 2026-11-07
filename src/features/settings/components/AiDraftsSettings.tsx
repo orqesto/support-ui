@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Toggle } from '@/components/ui/Toggle';
-import { useAiDraftsOff, useRefreshAiDrafts } from '@/hooks/useAiDraftsOff';
+import { useAiDraftsOff, useRefreshAiDrafts } from '@/features/settings/hooks/useAiDraftsOff';
 import { usePermissions } from '@/hooks/usePermissions';
 import { formatError } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';

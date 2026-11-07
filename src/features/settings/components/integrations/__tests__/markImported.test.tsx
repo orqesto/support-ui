@@ -11,7 +11,7 @@ type Integration = IntegrationsService.Integration;
 
 const update = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const connectWithPopup = vi.fn<(...args: unknown[]) => Promise<Record<string, unknown>>>();
-vi.mock('@/services/gmail-oauth.service', () => ({
+vi.mock('@/features/settings/services/gmail-oauth.service', () => ({
   gmailOAuthService: { connectWithPopup: (...args: unknown[]) => connectWithPopup(...args) },
 }));
 vi.mock('@/services/integrations.service', async (importOriginal) => {

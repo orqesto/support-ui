@@ -6,7 +6,7 @@ vi.mock('@/lib/api-client', () => ({
   apiClient: { post: (...args: unknown[]) => post(...args), get: vi.fn() },
 }));
 vi.mock('@/lib/logger', () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() } }));
-vi.mock('@/hooks/useBedrockModels', () => ({ useBedrockModels: () => ({ data: undefined }) }));
+vi.mock('@/features/settings/hooks/useBedrockModels', () => ({ useBedrockModels: () => ({ data: undefined }) }));
 vi.mock('@/hooks/useBackendVersion', () => ({ useBackendVersion: () => ({ data: undefined }) }));
 vi.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ theme: 'light' }) }));
 

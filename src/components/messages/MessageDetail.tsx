@@ -63,7 +63,7 @@ import { shortcutHint, useDetailShortcuts, type ShortcutContext } from './detail
 import { dayLabel, dayStarts, threadTimeOf } from './threadDays';
 import { MessageDetailConfirmDialogs } from './MessageDetailConfirmDialogs';
 import { PromoteToKbDialog } from './PromoteToKbDialog';
-import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
+import { useAiDraftsOff } from '@/features/settings';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useThreadMessageRefresh } from '@/hooks/useThreadMessageRefresh';

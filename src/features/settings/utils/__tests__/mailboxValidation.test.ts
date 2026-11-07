@@ -18,7 +18,7 @@ import {
   isEmailSourceComplete,
   mailboxError,
   portError,
-} from '@/utils/mailboxValidation';
+} from '@/features/settings/utils/mailboxValidation';
 
 describe('mailboxError', () => {
   it('rejects the reported mailto: paste', () => {

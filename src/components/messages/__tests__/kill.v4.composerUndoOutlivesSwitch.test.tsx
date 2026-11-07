@@ -18,7 +18,7 @@ vi.mock('@/hooks/useAiConfigured', () => ({
   useAiConfigured: () => ({ aiConfigured: aiConfigured.value, isLoading: false }),
 }));
 const aiDrafts = { off: false };
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: aiDrafts.off, resolved: true }),
   useRefreshAiDrafts: () => vi.fn(),
 }));

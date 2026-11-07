@@ -4,7 +4,7 @@
  * `lifecycle` is state only: `enabled` stays the routing gate. A missing lifecycle means an older
  * backend (the FE can ship first), so the rule reads as active, as every rule was before proposals.
  */
-import type { RoutingRule } from '@/services/routingRule.service';
+import type { RoutingRule } from '@/features/settings/services/routingRule.service';
 
 export type Lifecycle = 'proposed' | 'active' | 'declined' | 'archived';
 export type RuleFilter = 'all' | 'manual' | 'learned' | 'proposed' | 'declined' | 'archived';

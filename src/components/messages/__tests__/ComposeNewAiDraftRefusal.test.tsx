@@ -19,7 +19,7 @@ vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: 
 vi.mock('@/hooks/useAiConfigured', () => ({
   useAiConfigured: () => ({ aiConfigured: true, isLoading: false }),
 }));
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => vi.fn(),
 }));

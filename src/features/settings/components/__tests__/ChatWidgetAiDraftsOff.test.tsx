@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ChatWidget } from '@/services/chatWidget.service';
+import type { ChatWidget } from '@/features/settings/services/chatWidget.service';
 
 /**
  * With AI drafts off the chat widget is a contact form: it asks for an email, hands the chat to
@@ -9,7 +9,7 @@ import type { ChatWidget } from '@/services/chatWidget.service';
  */
 
 const aiDrafts = { off: true };
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: aiDrafts.off, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
 }));
@@ -17,7 +17,7 @@ const update = vi.fn((_id: number, _data: Record<string, unknown>) =>
   Promise.resolve({ success: true, data: {} })
 );
 const getAll = vi.fn(() => Promise.resolve({ success: true, data: [] as ChatWidget[] }));
-vi.mock('@/services/chatWidget.service', () => ({
+vi.mock('@/features/settings/services/chatWidget.service', () => ({
   chatWidgetService: {
     getAll: () => getAll(),
     update: (id: number, data: Record<string, unknown>) => update(id, data),

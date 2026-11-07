@@ -1,4 +1,4 @@
-import type { ZendeskCounts, ZendeskRunStatus } from '@/services/zendeskImport.service';
+import type { ZendeskCounts, ZendeskRunStatus } from '@/features/settings/services/zendeskImport.service';
 
 /**
  * What a Zendesk import preview / report means in plain words. Pure, so the arithmetic is tested

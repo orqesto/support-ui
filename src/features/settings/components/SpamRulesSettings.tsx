@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { usePermissions } from '@/hooks/usePermissions';
-import { useRuleManagement } from '@/hooks/useRuleManagement';
+import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
 import { settingsService, type SpamRule } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
 import { prettifyRulePattern } from '@/lib/prettifyRulePattern';

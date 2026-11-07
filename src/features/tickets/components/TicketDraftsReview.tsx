@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
 import RichTextEditor from '@/components/shared/LazyRichTextEditor';
-import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
+import { useAiDraftsOff } from '@/features/settings';
 import { AI_DRAFTS_OFF_MESSAGE, getApiErrorMessage, isAiDraftsOffError } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { isBlankRichText, stripHtml } from '@/lib/stripHtml';

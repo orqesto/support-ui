@@ -8,7 +8,7 @@ import type { MessageThread, SearchMatch } from '@/services/message.service';
  * that passage instead of the latest message's preview.
  */
 
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
 }));

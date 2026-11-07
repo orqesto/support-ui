@@ -10,7 +10,7 @@ import type { MessageThread } from '@/services/message.service';
  * - the From column is the sender's name, not the whole `Name <addr>` line.
  */
 
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
 }));

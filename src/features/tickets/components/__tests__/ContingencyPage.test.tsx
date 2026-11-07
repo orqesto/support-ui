@@ -40,10 +40,13 @@ vi.mock('@/services/message.service', () => ({ messageService: { getThreads: vi.
 vi.mock('@/features/tickets/services/ticketDrafts.service', () => ({
   ticketDraftsService: { draftsOfTicket: vi.fn().mockResolvedValue({ unavailable: true }) },
 }));
-vi.mock('@/services/replyTemplates.service', () => ({
+vi.mock('@/services/replyTemplates.service', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   replyTemplatesService: { list: vi.fn().mockResolvedValue({ unavailable: true }) },
 }));
-vi.mock('@/hooks/useAiDraftsOff', () => ({ useAiDraftsOff: () => ({ off: false }) }));
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
+  useAiDraftsOff: () => ({ off: false }),
+}));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACME' }));
 // Translate has its own tests; its language list needs a query client this page test has none of.
 vi.mock('@/components/shared/TranslateButton', () => ({ TranslateButton: () => null }));

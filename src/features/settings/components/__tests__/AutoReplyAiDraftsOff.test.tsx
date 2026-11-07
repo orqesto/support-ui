@@ -8,7 +8,7 @@ import { render, screen } from '@testing-library/react';
  */
 
 const aiDrafts = { off: true };
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: aiDrafts.off, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
 }));

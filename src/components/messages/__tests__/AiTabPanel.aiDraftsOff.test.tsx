@@ -12,7 +12,7 @@ import type { Message } from '@/types';
 
 const aiDrafts = { off: false, resolved: true };
 vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ aiConfigured: true }) }));
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: aiDrafts.off, resolved: aiDrafts.resolved }),
   useRefreshAiDrafts: () => () => undefined,
 }));

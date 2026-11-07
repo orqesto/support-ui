@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const fetchRoles = vi.fn<() => Promise<unknown>>();
-vi.mock('../notificationSettingsService', () => ({ fetchRoleDefaults: () => fetchRoles() }));
+vi.mock('@/services/notificationSettingsService', () => ({ fetchRoleDefaults: () => fetchRoles() }));
 
 const shared = await import('../notificationRoleDefaultsShared');
 const { invalidateSharedFetch } = await import('@/lib/sharedFetch');

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
-import { useRuleManagement } from '@/hooks/useRuleManagement';
+import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
 import { settingsService, type KnowledgeDetectionRule } from '@/services/settings.service';
 
 type RuleFilter = 'all' | 'manual' | 'feedback';

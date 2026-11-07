@@ -4,7 +4,7 @@ import {
   SLACK_KIND_LABELS,
   SLACK_KIND_WORDING,
 } from '../notificationKindLabels';
-import { kindsForChannel } from '@/services/slackNotifications.service';
+import { kindsForChannel } from '@/features/settings/services/slackNotifications.service';
 
 describe('kind labels are defined once', () => {
   it('Slack uses the shared name for every kind it does not word differently', () => {

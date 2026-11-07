@@ -5,7 +5,7 @@ import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/re
 
 const fetches = vi.hoisted(() => ({ count: 0 }));
 
-vi.mock('@/services/detectionRule.service', () => ({
+vi.mock('@/features/settings/services/detectionRule.service', () => ({
   detectionRuleService: {
     getAll: () => {
       fetches.count += 1;

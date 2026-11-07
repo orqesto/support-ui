@@ -10,7 +10,7 @@ import {
   platformSlackAlertsService,
   type PlatformSlackStatus,
   type PlatformSlackThresholds,
-} from '@/services/slackNotifications.service';
+} from '@/features/settings';
 
 /**
  * Admin console › Platform › Alerts › Thresholds. One form, one save at a time; it sends the FULL

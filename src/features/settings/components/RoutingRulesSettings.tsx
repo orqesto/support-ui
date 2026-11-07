@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { RuleEditor } from '@/components/shared/RuleEditor';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
-import { useRuleManagement } from '@/hooks/useRuleManagement';
+import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
@@ -18,7 +18,7 @@ import {
   routingRuleService,
   type RoutingRule,
   type RoutingRuleType,
-} from '@/services/routingRule.service';
+} from '@/features/settings/services/routingRule.service';
 import { AcceptFromRulesDialog, RoutingRuleLifecycleBadges } from './RoutingRuleLifecycleBadges';
 import { FeatureSuggestions } from './FeatureSuggestions';
 import {

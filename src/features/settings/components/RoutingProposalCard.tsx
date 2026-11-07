@@ -25,7 +25,7 @@ import {
   type ReplaySummary,
   type RoutingProposalEvidence,
 } from '@/services/learning.service';
-import { routingRuleService, type RoutingRuleType } from '@/services/routingRule.service';
+import { routingRuleService, type RoutingRuleType } from '@/features/settings/services/routingRule.service';
 
 /** Same words as the BE card summary (routingProposals.ts RULE_TYPE_WORDS). */
 export const RULE_TYPE_WORDS: Record<string, string> = {

@@ -37,7 +37,7 @@ vi.mock('@/services/user.service', () => ({
 vi.mock('@/services/department.service', () => ({
   departmentService: { getAll: () => Promise.resolve([]) },
 }));
-vi.mock('@/services/invitation.service', () => ({ invitationService: {} }));
+vi.mock('@/features/settings/services/invitation.service', () => ({ invitationService: {} }));
 vi.mock('@/features/settings/components/modals/UserSkillsModal', () => ({ UserSkillsModal: () => null }));
 vi.mock('@/features/settings/components/modals/InviteUserModal', () => ({ InviteUserModal: () => null }));
 vi.mock('@/features/settings/components/modals/CreateUserModal', () => ({ CreateUserModal: () => null }));

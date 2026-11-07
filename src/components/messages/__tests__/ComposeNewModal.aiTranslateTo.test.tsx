@@ -29,7 +29,7 @@ vi.mock('@/services/integrations.service', () => ({
 vi.mock('@/hooks/useAiConfigured', () => ({
   useAiConfigured: () => ({ aiConfigured: ai.configured, isLoading: false }),
 }));
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: ai.draftsOff, resolved: true }),
   useRefreshAiDrafts: () => vi.fn(),
 }));

@@ -20,7 +20,7 @@ import { KanbanCard } from '../KanbanCard';
 import { MessageListItem } from '../MessageListItem';
 import { LONG_PRESS_MS } from '../bulk/useLongPress';
 
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
 }));

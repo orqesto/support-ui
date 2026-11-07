@@ -26,7 +26,7 @@ const similar = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const kbRefs = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 
 vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ aiConfigured: true }) }));
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
 }));

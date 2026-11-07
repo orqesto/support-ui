@@ -8,7 +8,7 @@ import {
 } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
 import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
-import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
+import { useAiDraftsOff } from '@/features/settings/hooks/useAiDraftsOff';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 
 type Props = {

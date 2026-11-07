@@ -16,14 +16,17 @@ vi.mock('@/services/user.service', () => ({ userService: { confirmSignature } })
 vi.mock('@/services/organization.service', () => ({
   organizationService: { getCurrent: vi.fn().mockResolvedValue({ name: 'Northwind Example' }) },
 }));
-vi.mock('@/services/replyTemplates.service', () => ({
+vi.mock('@/services/replyTemplates.service', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   replyTemplatesService: { list: vi.fn().mockResolvedValue([]), downloadAttachment: vi.fn() },
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 vi.mock('../ComposerAiActions', () => ({ ComposerAiActions: () => null }));
 vi.mock('@/hooks/useIsPhone', () => ({ useIsPhone: () => false }));
 vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ aiConfigured: true }) }));
-vi.mock('@/hooks/useAiDraftsOff', () => ({ useAiDraftsOff: () => ({ off: false }) }));
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
+  useAiDraftsOff: () => ({ off: false }),
+}));
 vi.mock('@/components/shared/RichTextEditor', () => ({
   default: () => <div aria-label="Reply text" />,
   extractImageFiles: () => [],

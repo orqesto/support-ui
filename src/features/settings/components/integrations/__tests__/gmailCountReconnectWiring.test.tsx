@@ -10,7 +10,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 
 const connectWithPopup = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const countGmailMessages = vi.fn<(...args: unknown[]) => Promise<unknown>>();
-vi.mock('@/services/gmail-oauth.service', () => ({
+vi.mock('@/features/settings/services/gmail-oauth.service', () => ({
   gmailOAuthService: {
     connectWithPopup: (...args: unknown[]) => connectWithPopup(...args),
     hasPendingRedirectResult: () => false,
@@ -23,7 +23,7 @@ vi.mock('@/services/integrations.service', () => ({
     update: vi.fn(),
   },
 }));
-vi.mock('@/hooks/useCreateSourceDepartments', () => ({
+vi.mock('@/features/settings/hooks/useCreateSourceDepartments', () => ({
   useCreateSourceDepartments: () => ({
     departments: [{ id: 1, name: 'Support' }],
     loading: false,

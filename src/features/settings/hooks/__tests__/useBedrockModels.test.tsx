@@ -14,7 +14,7 @@ vi.mock('@/services/bedrockDiscovery.service', () => ({
   fetchWorkspaceBedrockModels: () => Promise.resolve(answer),
 }));
 
-import { useBedrockModels } from '@/hooks/useBedrockModels';
+import { useBedrockModels } from '@/features/settings/hooks/useBedrockModels';
 
 const wrapperFor = (client: QueryClient) =>
   function Wrapper({ children }: { children: ReactNode }) {

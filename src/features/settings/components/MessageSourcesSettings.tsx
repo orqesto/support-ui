@@ -6,7 +6,7 @@ import { SlackIntegrationCard } from '@/features/settings/components/integration
 import { TelegramIntegrationCard } from '@/features/settings/components/integrations/TelegramIntegrationCard';
 import { WhatsAppIntegrationCard } from '@/features/settings/components/integrations/WhatsAppIntegrationCard';
 import type { AlertState } from '@/features/settings/components/integrations/types';
-import { useGmailOAuthAvailability } from '@/hooks/useGmailOAuthAvailability';
+import { useGmailOAuthAvailability } from '@/features/settings/hooks/useGmailOAuthAvailability';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';

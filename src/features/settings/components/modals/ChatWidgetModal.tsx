@@ -4,14 +4,14 @@ import {
   chatWidgetService,
   type ChatWidget,
   type CreateChatWidgetRequest,
-} from '@/services/chatWidget.service';
+} from '@/features/settings/services/chatWidget.service';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
-import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
+import { useAiDraftsOff } from '@/features/settings/hooks/useAiDraftsOff';
 import { departmentService, type Department } from '@/services/department.service';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { messageService, type MessageSourceOption } from '@/services/message.service';

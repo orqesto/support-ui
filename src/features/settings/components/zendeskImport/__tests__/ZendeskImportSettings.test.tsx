@@ -14,7 +14,7 @@ import {
   PART_BYTES,
   uploadZendeskExport,
   zendeskImportService,
-} from '@/services/zendeskImport.service';
+} from '@/features/settings/services/zendeskImport.service';
 import { chooseOption } from '@/test/chooseOption';
 import {
   apiError,

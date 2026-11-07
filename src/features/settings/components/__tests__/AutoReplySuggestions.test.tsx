@@ -3,7 +3,7 @@ import { vi, describe, it, expect, afterEach, beforeEach } from 'vitest';
 import type * as LearningServiceModule from '@/services/learning.service';
 import { render, screen, cleanup } from '@testing-library/react';
 
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
 }));

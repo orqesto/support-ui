@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { KbRangeRequest } from '@/services/kbRangeTypes';
-import { useKbRangeDialogStore } from '@/stores/kbRangeDialogStore';
+import { useKbRangeDialogStore } from '@/features/settings/stores/kbRangeDialogStore';
 
 let handler: (id: number, body: KbRangeRequest) => Promise<unknown> = () =>
   Promise.reject(new Error('no handler'));

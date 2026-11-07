@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useResultFor } from '@/hooks/useResultFor';
+import { useResultFor } from '@/features/settings/hooks/useResultFor';
 import { Link } from 'react-router-dom';
 import { KeyRound, Copy, Check, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';

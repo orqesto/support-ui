@@ -2,7 +2,7 @@ import { safeCssColor } from '@/lib/utils';
 import { useState } from 'react';
 import { X, Copy, Check } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
-import type { ChatWidget } from '@/services/chatWidget.service';
+import type { ChatWidget } from '@/features/settings/services/chatWidget.service';
 import { Button } from '@/components/ui/Button';
 import { logger } from '@/lib/logger';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';

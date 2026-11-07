@@ -4,7 +4,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
-import type { ZendeskRun } from '@/services/zendeskImport.service';
+import type { ZendeskRun } from '@/features/settings/services/zendeskImport.service';
 import { previewedRun } from './zendeskImportFixtures';
 
 const { ZendeskImportReport } = await import('../ZendeskImportReport');

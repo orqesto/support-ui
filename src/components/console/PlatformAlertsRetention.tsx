@@ -13,7 +13,7 @@ import { toast } from '@/lib/toast';
 import {
   platformSlackAlertsService,
   type SlackPostRetention,
-} from '@/services/slackNotifications.service';
+} from '@/features/settings';
 
 /**
  * Admin console › Platform › Alerts › Slack post retention (deployment-wide). The daily cleanup

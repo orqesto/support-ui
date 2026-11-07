@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/Button';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
-import { useCustomProviderModels } from '@/hooks/useCustomProviderModels';
+import { useCustomProviderModels } from '@/features/settings/hooks/useCustomProviderModels';
 import type { CustomConfig, Integration } from '@/services/integrations.service';
 
 type Props = {

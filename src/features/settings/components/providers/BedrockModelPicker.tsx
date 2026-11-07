@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { useBedrockModels } from '@/hooks/useBedrockModels';
+import { useBedrockModels } from '@/features/settings/hooks/useBedrockModels';
 import { bedrockModelSourceLabel, toPickerModels } from '@/services/bedrockDiscovery.service';
 import type { AIModel } from '@/types/aiProviders';
 import { BEDROCK_MODELS } from '@/types/aiProviders';

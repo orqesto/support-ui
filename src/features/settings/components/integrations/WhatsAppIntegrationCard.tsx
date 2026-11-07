@@ -19,8 +19,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { useCreateSourceDepartments } from '@/hooks/useCreateSourceDepartments';
-import { useIntegrationCard } from '@/hooks/useIntegrationCard';
+import { useCreateSourceDepartments } from '@/features/settings/hooks/useCreateSourceDepartments';
+import { useIntegrationCard } from '@/features/settings/hooks/useIntegrationCard';
 import { API_BASE_URL } from '@/lib/config';
 import { integrationsService, type WhatsAppConfig } from '@/services/integrations.service';
 

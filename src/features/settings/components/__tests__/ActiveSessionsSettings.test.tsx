@@ -6,7 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { ActiveSessionsSettings } from '@/features/settings/components/ActiveSessionsSettings';
-import { sessionsService, type ActiveSession } from '@/services/sessions.service';
+import { sessionsService, type ActiveSession } from '@/features/settings/services/sessions.service';
 
 const CHROME_MAC =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';

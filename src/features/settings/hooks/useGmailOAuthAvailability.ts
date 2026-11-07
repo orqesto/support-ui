@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { gmailOAuthService } from '@/services/gmail-oauth.service';
+import { gmailOAuthService } from '@/features/settings/services/gmail-oauth.service';
 
 /**
  * Gmail OAuth is Enterprise-only pre-CASA (Google shows an "unverified app" warning and

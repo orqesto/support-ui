@@ -5,7 +5,7 @@ import {
   zendeskImportService,
   type ZendeskImportOptions,
   type ZendeskRun,
-} from '@/services/zendeskImport.service';
+} from '@/features/settings/services/zendeskImport.service';
 
 /**
  * Saves of the import's choices, one at a time, each built from the LAST SAVED run: the backend

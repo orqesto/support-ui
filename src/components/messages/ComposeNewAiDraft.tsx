@@ -4,7 +4,7 @@ import { Sparkles, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
-import { useAiDraftsOff, useRefreshAiDrafts } from '@/hooks/useAiDraftsOff';
+import { useAiDraftsOff, useRefreshAiDrafts } from '@/features/settings';
 import { editorHtmlToText } from '@/lib/editorText';
 import { logger } from '@/lib/logger';
 import {

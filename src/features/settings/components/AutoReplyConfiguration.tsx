@@ -10,7 +10,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Toggle } from '@/components/ui/Toggle';
-import { useAiDraftsOff } from '@/hooks/useAiDraftsOff';
+import { useAiDraftsOff } from '@/features/settings/hooks/useAiDraftsOff';
 import { useDepartments } from '@/hooks/useDepartments';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { usePermissions } from '@/hooks/usePermissions';

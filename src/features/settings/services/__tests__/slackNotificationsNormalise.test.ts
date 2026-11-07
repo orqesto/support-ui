@@ -9,7 +9,7 @@ import {
   platformSlackAlertsService,
   slackNotificationsService,
   slackTeamKey,
-} from '@/services/slackNotifications.service';
+} from '@/features/settings/services/slackNotifications.service';
 
 const answer = (data: unknown) => ({ data: { success: true, data } }) as never;
 

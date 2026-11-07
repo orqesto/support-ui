@@ -21,7 +21,7 @@ vi.mock('@/services/integrations.service', () => ({
   },
 }));
 
-vi.mock('@/hooks/useIntegrationCard', () => ({
+vi.mock('@/features/settings/hooks/useIntegrationCard', () => ({
   useIntegrationCard: () => ({
     showForm: false,
     saving: false,
@@ -47,7 +47,7 @@ vi.mock('@/hooks/useIntegrationCard', () => ({
   }),
 }));
 
-vi.mock('@/hooks/useCreateSourceDepartments', () => ({
+vi.mock('@/features/settings/hooks/useCreateSourceDepartments', () => ({
   useCreateSourceDepartments: () => ({
     departments: [],
     selectedIds: [],

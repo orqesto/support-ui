@@ -21,14 +21,17 @@ const renderOpen = (ui: Parameters<typeof render>[0]) => {
 
 const list = vi.fn();
 const downloadAttachment = vi.fn();
-vi.mock('@/services/replyTemplates.service', () => ({
+vi.mock('@/services/replyTemplates.service', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   replyTemplatesService: { list, downloadAttachment },
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 vi.mock('../ComposerAiActions', () => ({ ComposerAiActions: () => null }));
 vi.mock('@/hooks/useIsPhone', () => ({ useIsPhone: () => false }));
 vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ aiConfigured: true }) }));
-vi.mock('@/hooks/useAiDraftsOff', () => ({ useAiDraftsOff: () => ({ off: false }) }));
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
+  useAiDraftsOff: () => ({ off: false }),
+}));
 vi.mock('@/components/shared/RichTextEditor', () => ({
   default: forwardRef((props: { content?: string; onChange?: (html: string) => void }, ref) => {
     useImperativeHandle(ref, () => ({

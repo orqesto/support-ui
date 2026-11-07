@@ -13,7 +13,7 @@ vi.mock('@/services/integrations.service', () => ({
 
 // The card's department picker would fetch over the real network (a leaked request fails a loaded
 // full run with a teardown error); the checks here never read it.
-vi.mock('@/hooks/useCreateSourceDepartments', () => ({
+vi.mock('@/features/settings/hooks/useCreateSourceDepartments', () => ({
   useCreateSourceDepartments: () => ({
     departments: [],
     loading: false,

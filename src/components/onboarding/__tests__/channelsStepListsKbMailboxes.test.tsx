@@ -32,15 +32,15 @@ vi.mock('@/services/integrations.service', () => ({
     update: vi.fn(),
   },
 }));
-vi.mock('@/services/gmail-oauth.service', () => ({
+vi.mock('@/features/settings/services/gmail-oauth.service', () => ({
   gmailOAuthService: {
     connectWithPopup: vi.fn(),
     hasPendingRedirectResult: () => false,
     consumePendingRedirectResult: () => Promise.resolve(null),
   },
 }));
-vi.mock('@/hooks/useGmailOAuthAvailability', () => ({ useGmailOAuthAvailability: () => true }));
-vi.mock('@/hooks/useCreateSourceDepartments', () => ({
+vi.mock('@/features/settings/hooks/useGmailOAuthAvailability', () => ({ useGmailOAuthAvailability: () => true }));
+vi.mock('@/features/settings/hooks/useCreateSourceDepartments', () => ({
   useCreateSourceDepartments: () => ({
     departments: [{ id: 1, name: 'Info' }],
     loading: false,

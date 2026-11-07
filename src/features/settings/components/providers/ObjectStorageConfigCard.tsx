@@ -1,6 +1,6 @@
 import { HardDrive, Save, TestTube2, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useResultFor } from '@/hooks/useResultFor';
+import { useResultFor } from '@/features/settings/hooks/useResultFor';
 import { Button } from '@/components/ui/Button';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';

@@ -16,7 +16,7 @@ import type { MessageThread } from '@/services/message.service';
 import { KanbanCard } from '../KanbanCard';
 
 const aiDrafts = vi.hoisted(() => ({ off: false }));
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: aiDrafts.off, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
 }));

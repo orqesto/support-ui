@@ -27,18 +27,22 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { formatDate } from '@/lib/utils';
 import { departmentService, type Department } from '@/services/department.service';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
-import { invitationService } from '@/services/invitation.service';
+import {
+  CreateUserModal,
+  getUserRowCapabilities,
+  invitationService,
+  InviteUserModal,
+  UserSkillsModal,
+  useUsersStore,
+} from '@/features/settings';
 import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/stores/authStore';
-import { useUsersStore } from '@/stores/usersStore';
 import type { User } from '@/types';
 import { Permission, roleDisplayNames } from '@/types/roles';
 import { canManageMemberSkills } from '@/lib/skillPermissions';
 import type { OrganizationRole } from '@/types/roles';
-import { getUserRowCapabilities } from '@/utils/userListCapabilities';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
-import { InviteUserModal, CreateUserModal, UserSkillsModal } from '@/features/settings';
 import { PlanOverLimitNote } from '@/features/subscription';
 import { userFullName } from '@/lib/userName';
 
