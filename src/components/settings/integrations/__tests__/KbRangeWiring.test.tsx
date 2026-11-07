@@ -38,7 +38,7 @@ vi.mock('@/hooks/useCreateSourceDepartments', () => ({
   }),
 }));
 let reprocess: () => Promise<unknown> = () => Promise.resolve({});
-vi.mock('@/services/kb.service', () => ({
+vi.mock('@/features/kb/services/kb.service', () => ({
   kbService: {
     getMiningForecast: () => Promise.reject(new Error('no forecast')),
     reprocessSource: () => reprocess(),

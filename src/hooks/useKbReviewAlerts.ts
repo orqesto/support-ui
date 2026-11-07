@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { KB_CONSOLIDATION_DECIDED_EVENT } from '@/lib/kbConsolidation';
+import { KB_CONSOLIDATION_DECIDED_EVENT } from '@/lib/kbConsolidationEvent';
 import {
   getSocket,
   releaseSocket,

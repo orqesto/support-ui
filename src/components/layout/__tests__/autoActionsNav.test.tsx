@@ -37,7 +37,9 @@ vi.mock('@/hooks/useNotificationCounts', () => ({
   useNotificationCounts: () => ({ counts: {} }),
 }));
 const overviewCall = vi.hoisted(() => ({ getOverview: vi.fn() }));
-vi.mock('@/services/kbAutoActions.service', () => ({ kbAutoActionsService: overviewCall }));
+vi.mock('@/features/kb/services/kbAutoActions.service', () => ({
+  kbAutoActionsService: overviewCall,
+}));
 vi.mock('@/hooks/useSLANotifications', () => ({ useSLANotifications: () => ({}) }));
 vi.mock('@/hooks/useLearningNotifications', () => ({ useLearningNotifications: () => ({}) }));
 vi.mock('@/lib/socketManager', () => ({
@@ -75,7 +77,7 @@ vi.mock('@/stores/onboardingStore', () => ({
 
 const { Layout } = await import('../Layout');
 const { useAuthStore } = await import('@/stores/authStore');
-const { resetAutoActionsAvailability } = await import('@/hooks/useAutoActionsAvailable');
+const { resetAutoActionsAvailability } = await import('@/features/kb');
 
 afterEach(cleanup);
 beforeEach(() => {

@@ -12,7 +12,7 @@ let handler: (id: number, body: KbRangeRequest) => Promise<unknown> = () =>
 vi.mock('@/services/integrations.service', () => ({
   integrationsService: { kbHistoryRange: (id: number, body: KbRangeRequest) => handler(id, body) },
 }));
-vi.mock('@/services/kb.service', () => ({
+vi.mock('@/features/kb/services/kb.service', () => ({
   kbService: {
     getMiningForecast: () => Promise.reject(new Error('none')),
     reprocessSource: () => Promise.resolve({}),

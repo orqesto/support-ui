@@ -9,7 +9,7 @@
  * shapes differ (the detail has `similarity`, `timesReferenced`, `topics`…), and a mock in the
  * list's shape once hid that the detail lacked the consolidation fields entirely (FE audit H1).
  */
-import type { KBEntry } from '@/services/kb.service';
+import type { KBEntry } from '@/features/kb';
 
 type DetailOptions = {
   id: number;

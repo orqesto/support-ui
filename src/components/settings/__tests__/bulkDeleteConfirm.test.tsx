@@ -9,7 +9,7 @@ import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DocumentationList } from '@/components/settings/DocumentationList';
 import { bulkDeleteSummary } from '@/components/settings/bulkDeleteSummary';
-import type { Documentation } from '@/services/documentation.service';
+import type { Documentation } from '@/features/kb';
 
 afterEach(cleanup);
 

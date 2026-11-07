@@ -7,11 +7,13 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 const overviewCall = vi.hoisted(() => ({ getOverview: vi.fn() }));
-vi.mock('@/services/kbAutoActions.service', () => ({ kbAutoActionsService: overviewCall }));
+vi.mock('@/features/kb/services/kbAutoActions.service', () => ({
+  kbAutoActionsService: overviewCall,
+}));
 
 const { kbSubRoutes } = await import('../kbConsolidationRoutes');
-const { KbAutoActionsButton } = await import('@/components/kb/autoActions/KbAutoActionsButton');
-const { resetAutoActionsAvailability } = await import('@/hooks/useAutoActionsAvailable');
+const { KbAutoActionsButton } = await import('@/features/kb');
+const { resetAutoActionsAvailability } = await import('@/features/kb');
 
 const Where = () => {
   const loc = useLocation();

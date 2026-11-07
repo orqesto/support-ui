@@ -21,7 +21,9 @@ vi.mock('@/lib/api-client', () => ({
   apiClient: { get: () => Promise.reject(new Error('no plan in this test')) },
 }));
 const overviewCall = vi.hoisted(() => ({ getOverview: vi.fn() }));
-vi.mock('@/services/kbAutoActions.service', () => ({ kbAutoActionsService: overviewCall }));
+vi.mock('@/features/kb/services/kbAutoActions.service', () => ({
+  kbAutoActionsService: overviewCall,
+}));
 const nothing = () => null;
 vi.mock('../PromptsSettings', () => ({ PromptsSettings: nothing }));
 vi.mock('../AutoReplyConfiguration', () => ({ AutoReplyConfiguration: nothing }));
@@ -31,12 +33,12 @@ vi.mock('../LearningNotificationsInbox', () => ({ LearningNotificationsInbox: no
 vi.mock('../LearningEvidenceCard', () => ({ LearningEvidenceCard: nothing }));
 vi.mock('../LearningSuggestionsSettings', () => ({ LearningSuggestionsSettings: nothing }));
 vi.mock('../LearningTrustSettings', () => ({ LearningTrustSettings: nothing }));
-vi.mock('@/components/kb/autoActions/KbAutoActionsPanel', () => ({
+vi.mock('@/features/kb/components/autoActions/KbAutoActionsPanel', () => ({
   KbAutoActionsPanel: () => <div data-testid="auto-actions-panel" />,
 }));
 
 const { AIConfigSettings } = await import('../AIConfigSettings');
-const { resetAutoActionsAvailability } = await import('@/hooks/useAutoActionsAvailable');
+const { resetAutoActionsAvailability } = await import('@/features/kb');
 
 const renderAt = (section?: string) =>
   render(

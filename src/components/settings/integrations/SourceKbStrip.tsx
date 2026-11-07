@@ -2,7 +2,7 @@ import { BookOpen, Calendar, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { kbService, type KbMiningForecast } from '@/services/kb.service';
+import { kbService, type KbMiningForecast } from '@/features/kb';
 import { useProcessingPanelStore } from '@/stores/processingPanelStore';
 import { logger } from '@/lib/logger';
 import { fallbackLayer } from '@/lib/limitFallback';

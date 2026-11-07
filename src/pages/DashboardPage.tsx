@@ -19,8 +19,7 @@ import {
 } from '@/features/dashboard';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { useCoalescedRefresh } from '@/hooks/useCoalescedRefresh';
-import { documentationService } from '@/services/documentation.service';
-import { kbService } from '@/services/kb.service';
+import { documentationService, kbService } from '@/features/kb';
 import { messageService } from '@/services/message.service';
 import { SLA_DEFAULT_DAYS, slaService } from '@/features/statistics';
 import { fetchTicketViewCounts, ticketService } from '@/features/tickets';
