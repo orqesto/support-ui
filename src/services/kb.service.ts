@@ -119,7 +119,9 @@ export type KbListStatus =
   /** Removed by the nightly automatic removal and not restored (BE sends `filters.autoRemovedStatus`). */
   | 'auto_removed'
   /** Everything the system did by itself in the last 90 days (BE sends `filters.autoChangedStatus`). */
-  | 'auto_changed';
+  | 'auto_changed'
+  /** Deleted by a person in the last 90 days, restorable (BE sends `filters.deletedStatus`). */
+  | 'deleted';
 
 export type KBEntry = {
   id: number;
@@ -157,6 +159,13 @@ export type KBEntry = {
    */
   rejectedAt?: string | null;
   rejectedBy?: number | null;
+  /**
+   * A person DELETED it (soft delete, BE #1400): out of every answer, listed under Deleted with
+   * who and when, restorable for 90 days. Absent on a backend that deletes for good.
+   */
+  deletedAt?: string | null;
+  deletedBy?: number | null;
+  deletedByName?: string | null;
   usageCount: number;
   createdAt: string;
   publicId?: string | null;
@@ -276,6 +285,8 @@ export type PaginatedResponse<T> = {
       autoRemovedStatus?: boolean;
       /** Present on a backend that applies `status=auto_changed`. */
       autoChangedStatus?: boolean;
+      /** Present on a backend whose delete is soft (restorable 90 days) and applies `status=deleted`. */
+      deletedStatus?: boolean;
       /**
        * Set by `kbService.getAll`: did the server apply the requested status? A new status reads its
        * own capability flag (`decisionStatuses` / `autoRemovedStatus`); the four old ones always are.
@@ -337,9 +348,15 @@ const DECISION_STATUSES: readonly string[] = ['needs_decision', 'suggested_chang
 const statusApplied = (
   status: string | undefined,
   filters:
-    | { decisionStatuses?: boolean; autoRemovedStatus?: boolean; autoChangedStatus?: boolean }
+    | {
+        decisionStatuses?: boolean;
+        autoRemovedStatus?: boolean;
+        autoChangedStatus?: boolean;
+        deletedStatus?: boolean;
+      }
     | undefined
 ): boolean => {
+  if (status === 'deleted') return filters?.deletedStatus === true;
   if (status === 'auto_removed') return filters?.autoRemovedStatus === true;
   if (status === 'auto_changed') return filters?.autoChangedStatus === true;
   if (status && DECISION_STATUSES.includes(status)) return filters?.decisionStatuses === true;
@@ -411,6 +428,7 @@ export const kbService = {
           decisionStatuses: body.data.filters?.decisionStatuses === true,
           autoRemovedStatus: body.data.filters?.autoRemovedStatus === true,
           autoChangedStatus: body.data.filters?.autoChangedStatus === true,
+          deletedStatus: body.data.filters?.deletedStatus === true,
           statusApplied: statusApplied(params?.status, body.data.filters),
         },
       },
@@ -481,6 +499,17 @@ export const kbService = {
     const response = await apiClient.patch<ApiResponse<KBEntry>>(
       `/api/knowledge-base/entries/${id}`,
       data
+    );
+    return response.data;
+  },
+
+  /**
+   * Restore an entry or document a person deleted (soft delete, BE #1400): back as it was before
+   * the delete. 403 outside the caller's teams; 404 when it is not deleted (any more).
+   */
+  restoreDeleted: async (id: number) => {
+    const response = await apiClient.post<ApiResponse<{ id: number; restored: true }>>(
+      `/api/knowledge-base/entries/${id}/restore`
     );
     return response.data;
   },

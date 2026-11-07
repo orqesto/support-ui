@@ -51,6 +51,7 @@ export const KbMoreFilters = ({
   status,
   onStatus,
   autoChanged,
+  softDelete = false,
   source,
   onSource,
   finding,
@@ -61,6 +62,8 @@ export const KbMoreFilters = ({
   status: KbFilterStatus;
   onStatus: (next: KbFilterStatus) => void;
   autoChanged: boolean | null;
+  /** The backend's delete is soft: offer 'Deleted' (`filters.deletedStatus`). */
+  softDelete?: boolean;
   source: string;
   onSource: (next: string) => void;
   finding: KbFinding | null;
@@ -69,7 +72,14 @@ export const KbMoreFilters = ({
   findingTeamId: number | null;
 }) => (
   <section aria-label="More filters" className="flex flex-col gap-3 p-3 rounded-lg border">
-    {canReview && <KbStatusFilter value={status} onChange={onStatus} autoChanged={autoChanged} />}
+    {canReview && (
+      <KbStatusFilter
+        value={status}
+        onChange={onStatus}
+        autoChanged={autoChanged}
+        softDelete={softDelete}
+      />
+    )}
     <div className="flex flex-wrap gap-4">
       <div className="flex flex-col gap-2">
         <span className="text-xs font-semibold text-muted-foreground">Source</span>

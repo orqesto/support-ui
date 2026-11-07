@@ -71,6 +71,7 @@ describe('kbService.getAll filters.decisionStatuses', () => {
       decisionStatuses: false,
       autoRemovedStatus: false,
       autoChangedStatus: false,
+      deletedStatus: false,
       statusApplied: false,
     });
     expect(result.data.entries[0].setAsideReason).toBe('other');

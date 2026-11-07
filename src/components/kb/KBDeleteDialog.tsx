@@ -16,12 +16,18 @@ export const KBDeleteDialog = ({
   entry,
   deleting,
   onConfirm,
+  restorable = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   entry: KBEntry | null;
   deleting: boolean;
   onConfirm: () => void | Promise<void>;
+  /**
+   * The backend keeps a deleted entry 90 days (soft delete, `filters.deletedStatus`). Without it
+   * the delete is for good and the dialog says so.
+   */
+  restorable?: boolean;
 }) => (
   <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogHeader>
@@ -29,7 +35,11 @@ export const KBDeleteDialog = ({
       <DialogClose onClose={() => onOpenChange(false)} />
     </DialogHeader>
     <DialogContent>
-      <p>Are you sure you want to delete this entry? This action cannot be undone.</p>
+      <p>
+        {restorable
+          ? 'Delete this entry? The AI stops using it at once. You can restore it from Deleted for 90 days; after that it is gone for good.'
+          : 'Are you sure you want to delete this entry? This action cannot be undone.'}
+      </p>
       {entry && (
         <div className="p-3 mt-3 bg-muted rounded-md border border-border">
           <p className="text-sm font-semibold text-foreground">{entry.title}</p>

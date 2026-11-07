@@ -365,6 +365,7 @@ describe('Knowledge Base page: three views', () => {
       auto_changed: 'Changed by the engine',
       hidden: 'Hidden',
       rejected: 'Turned down',
+      deleted: 'Deleted',
       all: 'Everything',
     });
     renderAt('/knowledge-base?view=live&status=set_aside');

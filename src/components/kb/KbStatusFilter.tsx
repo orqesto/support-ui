@@ -18,6 +18,7 @@ export const KB_FILTER_STATUS_LABEL: Record<KbFilterStatus, string> = {
   auto_changed: 'Changed by the engine',
   hidden: 'Hidden',
   rejected: 'Turned down',
+  deleted: 'Deleted',
   all: 'Everything',
 };
 /** The Restore button's title on a "Removed by the engine" row. */
@@ -35,6 +36,8 @@ const TITLE: Partial<Record<KbFilterStatus, string>> = {
     'Everything the engine did by itself in the last 90 days — removed, held, cleaned of customer details or made live. Each row has its own undo.',
   rejected:
     'Turned down by a person or by the engine — deleted 90 days later; Approve restores one before then.',
+  deleted:
+    'Deleted by a person in the last 90 days — Restore puts one back as it was. After 90 days it is gone for good.',
 };
 
 /**
@@ -47,10 +50,16 @@ export const KbStatusFilter = ({
   value,
   onChange,
   autoChanged = true,
+  softDelete = false,
 }: {
   value: KbFilterStatus;
   onChange: (next: KbFilterStatus) => void;
   autoChanged?: boolean | null;
+  /**
+   * The backend's delete is soft and it lists deleted rows (`filters.deletedStatus`). Without it
+   * 'Deleted' is not offered (a link to it still lands on the "cannot filter" notice).
+   */
+  softDelete?: boolean;
 }) => (
   <div className="flex flex-col gap-2">
     <span className="text-xs font-semibold text-muted-foreground">Status</span>
@@ -58,6 +67,7 @@ export const KbStatusFilter = ({
       {KB_FILTER_STATUSES.filter((status) => {
         if (autoChanged === null && (status === 'auto_changed' || status === 'auto_removed'))
           return false;
+        if (status === 'deleted' && !softDelete && value !== 'deleted') return false;
         return (
           status !== (autoChanged && value !== 'auto_removed' ? 'auto_removed' : 'auto_changed')
         );

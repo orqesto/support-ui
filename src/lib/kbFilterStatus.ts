@@ -12,5 +12,6 @@ export const KB_FILTER_STATUSES: readonly KbFilterStatus[] = [
   'pending',
   'hidden',
   'rejected',
+  'deleted',
   'all',
 ];
