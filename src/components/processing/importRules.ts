@@ -1,4 +1,4 @@
-import { awaitingHistoryRead, isImapRun } from '@/components/messages/ImportProgressPanel';
+import { awaitingHistoryRead, isImapRun } from './ImportProgressPanel';
 import type { ImportProgress, StageEta } from '@/services/importProgress.service';
 
 /**

@@ -1,5 +1,5 @@
 import type { ContactProfile } from '@/types/api';
-import { LABEL } from '@/components/messages/messageDetailConstants';
+import { LABEL } from '@/features/messages/shell';
 import { customerSince, lifetimeLabel } from './contactFacts';
 
 /**

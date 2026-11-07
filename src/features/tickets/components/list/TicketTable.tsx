@@ -11,7 +11,8 @@ import { useState, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { MenuItem, MenuLabel, MenuSeparator } from '@/components/ui/Menu';
-import { ColumnMenu } from '@/components/list/ColumnMenu';
+import { ColumnMenu } from '@/components/shared/ColumnMenu';
+import { LiveBadge } from '@/components/shared/LiveBadge';
 import { Select } from '@/components/ui/Select';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
@@ -21,7 +22,6 @@ import type {
   TicketSorting,
 } from '@/features/tickets/stores/ticketsStore';
 import type { Ticket, TicketStatus } from '@/types';
-import { LiveBadge } from '@/components/list/LiveBadge';
 import { TicketCard } from './TicketCard';
 import { TicketRow } from './TicketRow';
 import { STATUS_ORDER, filterValue, withoutFilter, type TicketFilterKey } from './ticketFilterKeys';

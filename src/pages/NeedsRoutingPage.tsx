@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Pagination } from '@/components/ui/Pagination';
 import { Select } from '@/components/ui/Select';
 import { SearchInput } from '@/components/ui/SearchInput';
-import { ALL_SOURCES, MessageSourceFilter } from '@/components/messages/MessageSourceFilter';
+import { ALL_SOURCES, MessageSourceFilter } from '@/components/shared/MessageSourceFilter';
 import { RoutingBarScorecard } from '@/components/routing/RoutingBarScorecard';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';

@@ -141,10 +141,10 @@ vi.mock('@/components/shared/PageHeader', () => ({
     </div>
   ),
 }));
-vi.mock('@/components/messages/filters/MessageFilterBar', () => ({
+vi.mock('@/features/messages/components/filters/MessageFilterBar', () => ({
   MessageFilterBar: ({ viewSwitch }: { viewSwitch?: ReactNode }) => <div>{viewSwitch}</div>,
 }));
-vi.mock('@/components/messages/MessagesViewToggle', () => ({
+vi.mock('@/features/messages/components/MessagesViewToggle', () => ({
   MessagesViewToggle: ({ onModeChange }: { onModeChange: (mode: string) => void }) => (
     <div>
       <span
@@ -158,22 +158,21 @@ vi.mock('@/components/messages/MessagesViewToggle', () => ({
     </div>
   ),
 }));
-vi.mock('@/components/messages/ListScopeNotice', () => ({ ListScopeNotice: () => null }));
-vi.mock('@/components/messages/QuickFilterChips', () => ({ QuickFilterChips: () => null }));
+vi.mock('@/features/messages/components/ListScopeNotice', () => ({ ListScopeNotice: () => null }));
 // The list caption's Sort is a Select, which needs a ThemeProvider this page test does not mount.
 vi.mock('@/components/ui/Select', () => ({ Select: () => null }));
-vi.mock('@/components/messages/ComposeNewModal', () => ({ ComposeNewModal: () => null }));
-vi.mock('@/components/messages/ContactsView', () => ({
+vi.mock('@/features/messages/components/ComposeNewModal', () => ({ ComposeNewModal: () => null }));
+vi.mock('@/features/messages/components/ContactsView', () => ({
   ContactsView: () => <div data-testid="contacts-view" />,
 }));
-vi.mock('@/components/messages/MessagesKanbanView', () => ({ MessagesKanbanView: () => null }));
-vi.mock('@/components/messages/MessageDetail', () => ({
+vi.mock('@/features/messages/components/MessagesKanbanView', () => ({ MessagesKanbanView: () => null }));
+vi.mock('@/features/messages/components/MessageDetail', () => ({
   MessageDetail: ({ message }: { message: { id: number } }) => (
     <div data-testid="detail-pane">{message.id}</div>
   ),
 }));
 
-import { ThreadBubble } from '@/components/messages/ThreadBubble';
+import { ThreadBubble } from '@/features/messages';
 import { MessagesPage } from '../MessagesPage';
 
 const renderPage = () =>

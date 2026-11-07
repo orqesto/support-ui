@@ -47,7 +47,7 @@ export {
   runStoppedLine,
 } from './components/integrations/kbRangeCopy';
 export { formatRetry, HOLD_LABEL, holdSeverity } from './components/integrations/syncHold';
-export { type AlertState } from './components/integrations/types';
+export type { AlertState } from './components/integrations/types';
 export { CreateOrganizationModal } from './components/modals/CreateOrganizationModal';
 export { CreateUserModal } from './components/modals/CreateUserModal';
 export { InviteUserModal } from './components/modals/InviteUserModal';

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { MessagesSquare, RefreshCw, Send } from 'lucide-react';
-import { NewItemsBar } from '@/components/list/NewItemsBar';
+import { SearchReadingNotice } from '@/components/shared/SearchReadingNotice';
+import { NewItemsBar } from '@/components/shared/NewItemsBar';
 import {
   TicketDeleteDialog,
   TicketSyncAllDialog,
@@ -47,7 +48,6 @@ import { PAGINATION } from '@/lib/constants';
 import { type JiraIntegration } from '@/services/integrations.service';
 import type { SearchReading } from '@/services/message.service';
 import { highlightTermsFor } from '@/lib/highlightTerms';
-import { SearchReadingNotice } from '@/components/messages/SearchReadingNotice';
 import { useAuthStore } from '@/stores/authStore';
 import type { Ticket as TicketType, TicketsDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';

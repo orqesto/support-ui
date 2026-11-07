@@ -446,6 +446,123 @@ describe('check-boundaries --adopt, second move into a feature that already has 
   });
 });
 
+describe('check-boundaries --adopt through a shell entry or a deleted re-export shim', () => {
+  const gitIn = (...args) => {
+    const result = spawnSync(
+      'git',
+      [
+        '-c',
+        'user.name=Ratchet Test',
+        '-c',
+        'user.email=ratchet@example.com',
+        '-c',
+        'commit.gpgsign=false',
+        ...args,
+      ],
+      { cwd: root, encoding: 'utf8' }
+    );
+    expect(result.status, result.stderr).toBe(0);
+  };
+  const baselineWith = (pairs) =>
+    write(
+      '.ci/baselines/boundaries.json',
+      `${JSON.stringify(
+        {
+          featureToFeature: {
+            total: Object.values(pairs).reduce((sum, count) => sum + count, 0),
+            pairs,
+          },
+          upward: { total: 0, files: {} },
+        },
+        null,
+        2
+      )}\n`
+    );
+  const commitBase = () => {
+    expect(run(BOUNDARIES).status).toBe(0);
+    gitIn('init', '-q');
+    gitIn('add', '-A');
+    gitIn('commit', '-q', '-m', 'base');
+  };
+  const adopt = () => {
+    gitIn('add', '-A');
+    return run(BOUNDARIES, '--adopt', '--base', 'HEAD');
+  };
+
+  it('proves a name taken from the shell entry of the feature its file moved into', () => {
+    write('src/services/lookup.service.ts', 'export const lookupService = { run: () => 1 };\n');
+    write(
+      'src/components/alpha/AlphaLookup.tsx',
+      "import { lookupService } from '@/services/lookup.service';\nexport const AlphaLookup = () => lookupService.run();\n"
+    );
+    commitBase();
+    mkdirSync(join(root, 'src/features/look-up/services'), { recursive: true });
+    gitIn(
+      'mv',
+      'src/services/lookup.service.ts',
+      'src/features/look-up/services/lookup.service.ts'
+    );
+    write(
+      'src/features/look-up/index.ts',
+      "export { lookupService } from './services/lookup.service';\n"
+    );
+    write(
+      'src/features/look-up/shell.ts',
+      "export { lookupService } from './services/lookup.service';\n"
+    );
+    write(
+      'src/components/alpha/AlphaLookup.tsx',
+      "import { lookupService } from '@/features/look-up/shell';\nexport const AlphaLookup = () => lookupService.run();\n"
+    );
+    const { status, output } = adopt();
+    expect(status, output).toBe(0);
+    expect(output).toContain('feature:alpha -> feature:look-up: 0 → 1');
+  });
+
+  // Base: the feature already exists; AlphaText reaches its lib file through a shim in beta.
+  const shimBase = (shimText) => {
+    write('src/features/look-up/lib/lookupText.ts', "export const lookupText = 'found';\n");
+    write('src/features/look-up/index.ts', "export { lookupText } from './lib/lookupText';\n");
+    write('src/components/beta/lookupShim.ts', shimText);
+    write(
+      'src/components/alpha/AlphaText.tsx',
+      "import { lookupText } from '../beta/lookupShim';\nexport const AlphaText = () => lookupText;\n"
+    );
+    baselineWith({ 'feature:alpha -> feature:beta': 2, 'feature:beta -> feature:look-up': 1 });
+    commitBase();
+    // The change: the shim is deleted and AlphaText imports the feature directly.
+    gitIn('rm', '-q', 'src/components/beta/lookupShim.ts');
+    write(
+      'src/components/alpha/AlphaText.tsx',
+      "import { lookupText } from '@/features/look-up';\nexport const AlphaText = () => lookupText;\n"
+    );
+  };
+
+  it('proves an import that reached the file before through a deleted re-export shim', () => {
+    shimBase("export { lookupText } from '@/features/look-up/lib/lookupText';\n");
+    const { status, output } = adopt();
+    expect(status, output).toBe(0);
+    expect(output).toContain('feature:alpha -> feature:look-up: 0 → 1');
+  });
+
+  it('proves it when the shim re-exported the name from the feature index', () => {
+    shimBase("export { lookupText } from '@/features/look-up';\n");
+    const { status, output } = adopt();
+    expect(status, output).toBe(0);
+    expect(output).toContain('feature:alpha -> feature:look-up: 0 → 1');
+  });
+
+  it('CONTROL: a middle file that does more than re-export is not a shim', () => {
+    shimBase(
+      "export { lookupText } from '@/features/look-up/lib/lookupText';\nexport const extra = 1;\n"
+    );
+    const { status, output } = adopt();
+    expect(status).toBe(1);
+    expect(output).toContain('src/components/alpha/AlphaText.tsx:1');
+    expect(output).toContain('--adopt wrote nothing.');
+  });
+});
+
 describe('check-shell-bundle', () => {
   // main.tsx -> App -> Layout, which needs one name from feature look-up.
   beforeEach(() => {
@@ -503,6 +620,23 @@ describe('check-shell-bundle', () => {
     const { status, output } = run(SHELL);
     expect(status).toBe(1);
     expect(output).toContain('-> src/features/look-up/shell.ts');
+  });
+
+  it('fails on an index re-export whose names are all inline type, and passes on export type', () => {
+    app("import { LookupBadge } from '@/features/look-up/shell';");
+    write(
+      'src/features/look-up/index.ts',
+      "export { LookupBadge } from './components/LookupBadge';\nexport { type Page } from './components/LookupPage';\n"
+    );
+    write('src/features/look-up/components/LookupPage.tsx', 'export type Page = { id: number };\n');
+    const failed = run(SHELL);
+    expect(failed.status).toBe(1);
+    expect(failed.output).toContain('src/features/look-up/index.ts:2');
+    write(
+      'src/features/look-up/index.ts',
+      "export { LookupBadge } from './components/LookupBadge';\nexport type { Page } from './components/LookupPage';\n"
+    );
+    expect(run(SHELL).status).toBe(0);
   });
 
   it('CONTROL: a lazy import() and a type-only import of an index do not count', () => {

@@ -21,7 +21,9 @@ vi.mock('@/services/contact.service', () => ({
 vi.mock('@/services/user.service', () => ({ userService: { getAllPages } }));
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: apiGet } }));
 vi.mock('@/services/settings.service', () => ({ labelService: {} }));
-vi.mock('@/components/messages/inboxCardHelpers', () => ({ hashNameToLabelColor: () => '#000' }));
+vi.mock('@/features/messages/components/inboxCardHelpers', () => ({
+  hashNameToLabelColor: () => '#000',
+}));
 vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({
     hasPermission: (permission: string) => permissions[permission] ?? false,

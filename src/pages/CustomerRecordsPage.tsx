@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CustomApiResultCard } from '@/components/messages/CustomApiResultCard';
 import {
   CONTACT_NOT_VISIBLE,
+  CustomApiResultCard,
   DEFAULT_REFERENCE_NAME,
   LOOKUPS_NOT_ON_SERVER,
   referenceNameOf,
-} from '@/components/messages/customApiLookupText';
+} from '@/features/custom-api';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';

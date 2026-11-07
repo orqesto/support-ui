@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import DOMPurify from 'dompurify';
-import { addNoopenerHook } from '@/components/messages/messageDetailConstants';
+import { addNoopenerHook } from '@/features/messages/shell';
 
 addNoopenerHook(DOMPurify);
 import { Lock, Maximize2, Pencil } from 'lucide-react';

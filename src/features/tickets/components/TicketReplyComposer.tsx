@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { MenuItem } from '@/components/ui/Menu';
-import { COMPOSER_TOOL } from '@/components/messages/messageDetailConstants';
+import { COMPOSER_TOOL } from '@/features/messages/shell';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/LazyRichTextEditor';
 import { TemplatePicker } from '@/components/shared/TemplatePicker';

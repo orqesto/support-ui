@@ -2,7 +2,7 @@ import { editorHtmlToText } from './editorText';
 
 /**
  * Internal notes are PLAIN TEXT: the Notes tab writes them from a textarea, and both views
- * (`ThreadNoteItem`, `MessageNotes`) print them as text.
+ * (`ThreadNoteItem`, the Notes tab in `MessagePanelTabs`) print them as text.
  *
  * 🔴 The thread composer's "Internal note" mode is the rich-text editor, and it posted its HTML
  * as is — so a note written there showed as `<p>Customer moved to the new site…</p>` in the

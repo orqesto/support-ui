@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
-import { ViewPill } from '@/components/list/ViewPill';
+import { ViewPill } from '@/components/shared/ViewPill';
 import { Label } from '@/components/ui/Label';
 import type { TicketFilters } from '@/features/tickets/stores/ticketsStore';
 import { activeView, filtersOfView, viewFiltersOf, type TicketView } from '../../lib/ticketViews';

@@ -13,12 +13,7 @@ import {
   DialogClose,
   DialogContent,
 } from '@/components/ui/Dialog/Dialog';
-import {
-  documentationService,
-  type Documentation,
-  type DocumentType,
-  type DocumentationProgress,
-} from '@/features/kb';
+import { documentationService, type Documentation, type DocumentType, type DocumentationProgress } from '@/features/kb/shell';
 import { logger } from '@/lib/logger';
 
 type DocumentationSettingsProps = {

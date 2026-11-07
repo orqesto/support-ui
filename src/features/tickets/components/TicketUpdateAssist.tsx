@@ -18,7 +18,7 @@ import {
   COMPOSER_TOOL,
   LABEL,
   answerToEditorHtml,
-} from '@/components/messages/messageDetailConstants';
+} from '@/features/messages/shell';
 import { Spinner } from '@/components/ui/Spinner';
 import { editorHtmlToText } from '@/lib/editorText';
 import { normalizeEditorHtml } from '@/lib/editorSchema';

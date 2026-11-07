@@ -1,0 +1,563 @@
+/**
+ * Message detail v3, rendered for real (header + confirm dialogs + shortcuts) — the wiring the
+ * unit tests of resolveMode / detailShortcuts cannot see.
+ *
+ *   - ONE request per press. "Resolve" on an unreviewed thread and "Not customer work" each used
+ *     to post `markAsProcessed` twice (the page posted it again in onReject), writing a second
+ *     `mark_processed` audit entry. The detail posts it; onReject must be told, not repeat it.
+ *   - The decisions sit UNDER THE REPLY (design v3, 2026-09-23): a row at the foot of the
+ *     composer, reply mode only, absent for a resolved or binned thread. The header carries none,
+ *     and "Assign to me" is gone (owner, 2026-09-23).
+ *   - U toggles read/unread exactly where the header's toggle is shown.
+ *   - Esc while the ACTIONS menu is open closes the MENU, not the rail behind it.
+ *   - No shortcut acts while a resolve request is in flight — its dialog has already closed, and
+ *     J there made the request's callback move the conversation just opened.
+ *
+ * Heavy children (composer editor, side panel, bubbles) are stubbed; everything on the decision
+ * path is real.
+ */
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { render, screen, cleanup, fireEvent, act, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { Message } from '@/types';
+
+// Any service method: a mock resolving to an empty list unless a test overrides it.
+const { serviceMock, svc } = vi.hoisted(() => {
+  const serviceMock = () => {
+    const fns: Record<string, ReturnType<typeof vi.fn>> = {};
+    return new Proxy(fns, {
+      get: (target, key: string) => {
+        if (!(key in target)) target[key] = vi.fn().mockResolvedValue([]);
+        return target[key];
+      },
+    });
+  };
+  return {
+    serviceMock,
+    svc: { message: null as unknown as Record<string, ReturnType<typeof vi.fn>> },
+  };
+});
+
+vi.mock('@/services/message.service', () => {
+  svc.message = serviceMock();
+  return { messageService: svc.message };
+});
+vi.mock('@/services/organization.service', () => ({ organizationService: serviceMock() }));
+vi.mock('@/features/tickets/services/category.service', () => ({ categoryService: serviceMock() }));
+vi.mock('@/services/settings.service', () => ({ labelService: serviceMock() }));
+vi.mock('@/services/assignment.service', () => ({ assignmentService: serviceMock() }));
+vi.mock('@/lib/api-client', () => ({ apiClient: serviceMock() }));
+vi.mock('@/lib/socketManager', () => ({
+  getSocket: vi.fn(() => null),
+  releaseSocket: vi.fn(),
+  subscribeToEvent: vi.fn(),
+  unsubscribeFromEvent: vi.fn(),
+}));
+vi.mock('@/hooks/usePermissions', () => ({
+  usePermissions: () => ({ hasPermission: () => true, isGlobalAdmin: false }),
+}));
+const depts = vi.hoisted(() => ({
+  list: [] as Array<{ id: number; name: string; active: boolean }>,
+}));
+vi.mock('@/hooks/useDepartments', () => ({
+  useDepartments: () => ({ departments: [], data: depts.list, teamsEnabled: true }),
+  useDepartmentById: () => null,
+}));
+vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ configured: true }) }));
+const media = vi.hoisted(() => ({ wide: false }));
+vi.mock('@/hooks/useMediaQuery', () => ({ useMediaQuery: () => media.wide }));
+vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'acme' }));
+vi.mock('@/stores/authStore', () => ({
+  useAuthStore: (select: (store: unknown) => unknown) => select({ user: { id: 7 } }),
+}));
+
+vi.mock('../MessageComposer', () => ({
+  MessageComposer: ({
+    shortcutHint,
+    decisions,
+    setComposer,
+    onSend,
+  }: {
+    shortcutHint?: string;
+    decisions?: React.ReactNode;
+    setComposer: (value: string) => void;
+    onSend: () => void;
+  }) => (
+    <div data-testid="composer">
+      {shortcutHint}
+      <button type="button" onClick={() => setComposer('<p>Label is on its way</p>')}>
+        type draft
+      </button>
+      <button type="button" onClick={onSend}>
+        send draft
+      </button>
+      {decisions}
+    </div>
+  ),
+}));
+vi.mock('@/contexts/ThemeContext', () => ({
+  useTheme: () => ({ theme: 'light', resolvedTheme: 'light', setTheme: vi.fn() }),
+}));
+vi.mock('../MessagePanelTabs', () => ({
+  MessagePanelTabs: ({ variant }: { variant?: string }) => (
+    <div data-testid="panel-tabs" data-variant={variant ?? 'rail'} />
+  ),
+}));
+vi.mock('../ThreadMessageItem', () => ({ ThreadMessageItem: () => null }));
+vi.mock('../MessageGhostBubble', () => ({ MessageGhostBubble: () => null }));
+vi.mock('@/features/contacts/components/ContactProfilePanel', () => ({
+  ContactProfilePanel: () => null,
+}));
+vi.mock('@/features/messages/components/SimilarMessagesDialog', () => ({ SimilarMessagesDialog: () => null }));
+vi.mock('../PromoteToKbDialog', () => ({ PromoteToKbDialog: () => null }));
+
+const note = vi.hoisted(() => ({ show: vi.fn() }));
+vi.mock('@/lib/routingCopy', () => ({ showRouteLearningNote: note.show }));
+
+import { MessageDetail } from '../MessageDetail';
+
+const baseMessage = {
+  id: 101,
+  subject: 'Where is my order?',
+  content: 'Hello',
+  fromEmail: 'cust@example.com',
+  fromName: 'Cust',
+  sender: 'Cust <cust@example.com>',
+  status: 'open',
+  lastReplyFromClient: null,
+  assigneeId: null,
+  metadata: {},
+  createdAt: '2026-09-22T10:00:00Z',
+} as unknown as Message;
+
+const renderDetail = (
+  overrides: Partial<Message> = {},
+  props: Partial<React.ComponentProps<typeof MessageDetail>> = {}
+) => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <MessageDetail message={{ ...baseMessage, ...overrides }} onClose={vi.fn()} {...props} />
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+};
+
+beforeEach(() => {
+  svc.message.markAsProcessed = vi.fn().mockResolvedValue({ success: true });
+  svc.message.markAsNotCustomerWork = vi.fn().mockResolvedValue({ success: true });
+});
+afterEach(() => {
+  depts.list = [];
+  media.wide = false;
+  cleanup();
+  vi.clearAllMocks();
+});
+
+const press = (key: string) => fireEvent.keyDown(document.body, { key });
+
+describe('one request per press', () => {
+  it('Resolve on an unreviewed thread posts markAsProcessed ONCE, then tells onReject', async () => {
+    const onReject = vi.fn();
+    renderDetail({}, { onReject });
+    fireEvent.click(screen.getByRole('button', { name: /^Resolve$/ }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Resolve' }));
+    await waitFor(() => expect(onReject).toHaveBeenCalledTimes(1));
+    expect(svc.message.markAsProcessed).toHaveBeenCalledTimes(1);
+    expect(svc.message.markAsProcessed).toHaveBeenCalledWith(101);
+  });
+
+  it('Not customer work posts ONE request and no markAsProcessed', async () => {
+    const onReject = vi.fn();
+    renderDetail({}, { onReject });
+    fireEvent.click(screen.getByRole('button', { name: 'Not customer work' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', {
+        name: /Not customer work|Clear|Confirm/,
+      })
+    );
+    await waitFor(() => expect(onReject).toHaveBeenCalledTimes(1));
+    expect(svc.message.markAsNotCustomerWork).toHaveBeenCalledTimes(1);
+    expect(svc.message.markAsProcessed).not.toHaveBeenCalled();
+  });
+});
+
+const activeThread = { status: 'in_progress' as Message['status'], lastReplyFromClient: true };
+const decisionsRow = () => screen.queryByRole('group', { name: 'Resolve decisions' });
+
+describe('the decisions sit under the reply (v3, 2026-09-23)', () => {
+  it('an active thread shows the row INSIDE the composer, and the hint names E', () => {
+    renderDetail(activeThread);
+    const row = decisionsRow();
+    expect(row).toBeTruthy();
+    expect(screen.getByTestId('composer').contains(row)).toBe(true);
+    expect(within(row!).getByRole('button', { name: 'Resolve' })).toBeTruthy();
+    expect(within(row!).getByRole('button', { name: 'Resolve & save to KB' })).toBeTruthy();
+    expect(screen.getByTestId('composer').textContent).toContain('E resolve');
+  });
+
+  it('the header carries no decision: no Resolve, no caret, no Assign to me anywhere', () => {
+    renderDetail({ ...activeThread, assigneeId: null });
+    const subject = screen.getByRole('heading', { level: 2 });
+    // Exactly one Resolve on the page, and it is the composer's.
+    const resolves = screen.getAllByRole('button', { name: 'Resolve' });
+    expect(resolves).toHaveLength(1);
+    expect(screen.getByTestId('composer').contains(resolves[0])).toBe(true);
+    expect(
+      subject.compareDocumentPosition(resolves[0]) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Other resolve options' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Assign to me' })).toBeNull();
+  });
+
+  it.each([
+    ['resolved', { status: 'resolved' }],
+    ['filtered (binned)', { status: 'filtered', metadata: { filtered: true } }],
+  ])('a %s thread renders no decisions row', (_label, overrides) => {
+    renderDetail(overrides as Partial<Message>);
+    expect(decisionsRow()).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Resolve' })).toBeNull();
+  });
+
+  it('⛔ note mode hides the row — a note is not an answer; R brings it back', async () => {
+    renderDetail(activeThread);
+    expect(decisionsRow()).toBeTruthy();
+    press('n');
+    await waitFor(() => expect(decisionsRow()).toBeNull());
+    press('r');
+    await waitFor(() => expect(decisionsRow()).toBeTruthy());
+  });
+});
+
+describe('U toggles read/unread where the header toggle is shown', () => {
+  it('a triage thread: U marks it read, U again marks it unread', async () => {
+    svc.message.markRead = vi.fn().mockResolvedValue({ success: true });
+    svc.message.markUnread = vi.fn().mockResolvedValue({ success: true });
+    renderDetail({
+      status: 'filtered',
+      metadata: { filtered: true },
+      isRead: false,
+    } as Partial<Message>);
+    press('u');
+    await waitFor(() => expect(svc.message.markRead).toHaveBeenCalledWith(101));
+    press('u');
+    await waitFor(() => expect(svc.message.markUnread).toHaveBeenCalledWith(101));
+  });
+
+  it('CONTROL: a non-triage thread has no toggle, so U does nothing', async () => {
+    svc.message.markRead = vi.fn().mockResolvedValue({ success: true });
+    svc.message.markUnread = vi.fn().mockResolvedValue({ success: true });
+    renderDetail(activeThread);
+    press('u');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(svc.message.markRead).not.toHaveBeenCalled();
+    expect(svc.message.markUnread).not.toHaveBeenCalled();
+  });
+});
+
+describe('Resolve as spam = CONFIRMED spam (owner, 2026-09-22)', () => {
+  it('sends move_to_spam WITH confirm, so it lands in the confirmed layer', async () => {
+    const onClassify = vi.fn().mockResolvedValue(undefined);
+    renderDetail(activeThread, { onClassify });
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve as spam' }));
+    await waitFor(() => expect(onClassify).toHaveBeenCalledTimes(1));
+    expect(onClassify).toHaveBeenCalledWith('move_to_spam', undefined, undefined, true);
+  });
+
+  it('CONTROL: without a classify handler there is no spam exit to press', () => {
+    renderDetail(activeThread);
+    expect(screen.queryByRole('button', { name: 'Resolve as spam' })).toBeNull();
+  });
+});
+
+describe('v3 header keeps every action it moved', () => {
+  it('History (was a link beside the sender) is in the More menu; Copy link is an icon', () => {
+    renderDetail({ status: 'in_progress' as Message['status'] });
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(within(screen.getByRole('menu')).getByText('Thread history')).toBeTruthy();
+    // Owner, 2026-09-22: no "Move to Spam" in this menu — the caret's confirmed path is the one.
+    expect(within(screen.getByRole('menu')).queryByText(/move to spam/i)).toBeNull();
+  });
+
+  it('shows the sender name bold and the address beside it', () => {
+    renderDetail({ sender: '"Marta K" <marta@northwind.example>' } as Partial<Message>);
+    expect(screen.getByText('Marta K').tagName).toBe('B');
+    expect(screen.getByText('marta@northwind.example')).toBeTruthy();
+  });
+});
+
+describe('full page (v3) = two columns on a wide screen', () => {
+  it('moves Dept/Assigned/Category/Labels and the context tabs into the right sidebar', () => {
+    media.wide = true;
+    renderDetail({ status: 'in_progress' as Message['status'] }, { isFullPage: true });
+    const aside = document.querySelector('aside');
+    expect(aside).not.toBeNull();
+    const side = within(aside as HTMLElement);
+    expect(side.getByText('Team')).toBeTruthy();
+    expect(side.getByText('Labels')).toBeTruthy();
+    // The context tabs render IN the sidebar, in their sidebar form (no Thread tab — the
+    // thread is always beside them)…
+    expect(side.getByTestId('panel-tabs').getAttribute('data-variant')).toBe('sidebar');
+    expect(screen.getAllByTestId('panel-tabs')).toHaveLength(1);
+    // …and the meta block is not ALSO inline in the header.
+    expect(screen.getAllByText('Team')).toHaveLength(1);
+  });
+
+  it('CONTROL: narrow full page keeps the slide-over layout — nothing hidden', () => {
+    media.wide = false;
+    renderDetail({ status: 'in_progress' as Message['status'] }, { isFullPage: true });
+    expect(document.querySelector('aside')).toBeNull();
+    expect(screen.getByText('Team')).toBeTruthy();
+    expect(screen.getByTestId('panel-tabs').getAttribute('data-variant')).toBe('rail');
+  });
+});
+
+describe('Esc and in-flight guards', () => {
+  it('Esc with the ACTIONS menu open closes the menu, not the rail', () => {
+    const onClose = vi.fn();
+    renderDetail({}, { onClose });
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(screen.getByRole('menu')).toBeTruthy();
+    press('Escape');
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('Esc with the label picker open closes the picker, not the rail — focus off its search box', () => {
+    const onClose = vi.fn();
+    renderDetail({}, { onClose });
+    fireEvent.click(screen.getByRole('button', { name: 'Add label' }));
+    expect(screen.getByRole('dialog', { name: 'Labels' })).toBeTruthy();
+    press('Escape');
+    expect(screen.queryByRole('dialog', { name: 'Labels' })).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL: Esc with nothing open does close the rail', () => {
+    const onClose = vi.fn();
+    renderDetail({}, { onClose });
+    press('Escape');
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('J and E do nothing while the resolve request is in flight', async () => {
+    let finish: (value: unknown) => void = () => {};
+    svc.message.markAsProcessed = vi.fn(() => new Promise((resolve) => (finish = resolve)));
+    const onNavigate = vi.fn();
+    const onReject = vi.fn();
+    renderDetail({}, { onNavigate, onReject });
+    fireEvent.click(screen.getByRole('button', { name: /^Resolve$/ }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Resolve' }));
+    await waitFor(() => expect(svc.message.markAsProcessed).toHaveBeenCalledTimes(1));
+
+    press('j');
+    press('e');
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    await act(async () => {
+      finish({ success: true });
+      await Promise.resolve();
+    });
+    expect(onReject).toHaveBeenCalledTimes(1);
+    press('j');
+    expect(onNavigate).toHaveBeenCalledWith('next');
+  });
+});
+
+describe('"Resolve & save to KB" shows its progress (demo, 2026-10-15)', () => {
+  it('🔴 after the confirm, the row reads "Saving to KB…" until the save returns', async () => {
+    let finish: (value: unknown) => void = () => {};
+    svc.message.resolve = vi.fn(() => new Promise((resolve) => (finish = resolve)));
+    const onResolve = vi.fn();
+    renderDetail(activeThread, { onResolve });
+    fireEvent.click(within(decisionsRow()!).getByRole('button', { name: 'Resolve & save to KB' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Resolve & Save to KB' })
+    );
+    await waitFor(() => expect(svc.message.resolve).toHaveBeenCalledTimes(1));
+
+    const saving = within(decisionsRow()!).getByRole('button', { name: /Saving to KB…/ });
+    expect(saving.getAttribute('aria-busy')).toBe('true');
+
+    await act(async () => {
+      finish({ success: true });
+      await Promise.resolve();
+    });
+    expect(onResolve).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Saving to KB…/)).toBeNull();
+  });
+
+  it('control: the plain Resolve never says "Saving to KB"', async () => {
+    let finish: (value: unknown) => void = () => {};
+    svc.message.close = vi.fn(() => new Promise((resolve) => (finish = resolve)));
+    renderDetail(activeThread, { onResolve: vi.fn() });
+    fireEvent.click(within(decisionsRow()!).getByRole('button', { name: 'Resolve' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Resolve/ }));
+    await waitFor(() => expect(svc.message.close).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/Saving to KB…/)).toBeNull();
+    await act(async () => {
+      finish({ success: true });
+      await Promise.resolve();
+    });
+  });
+});
+
+describe('Send failed bar (v3)', () => {
+  // The thread is already mine, so no "assign on reply?" prompt stands between Send and the call.
+  const mine = { ...activeThread, assigneeId: 7 };
+  const typeAndSend = () => {
+    fireEvent.click(screen.getByRole('button', { name: 'type draft' }));
+    fireEvent.click(screen.getByRole('button', { name: 'send draft' }));
+  };
+
+  it('a server error: labelled, and Retry resends the SAME draft with the SAME idempotency key', async () => {
+    svc.message.reply = vi
+      .fn()
+      .mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }))
+      .mockResolvedValueOnce({ success: true });
+    renderDetail(mine);
+    typeAndSend();
+    const bar = await screen.findByRole('alert');
+    expect(within(bar).getByText('Send failed')).toBeTruthy();
+    fireEvent.click(within(bar).getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    const [first, second] = svc.message.reply.mock.calls;
+    expect(second[1]).toBe('<p>Label is on its way</p>');
+    // ⛔ A new key would let the BE send the reply twice if the first attempt did land.
+    expect(second[5]).toBe(first[5]);
+    expect(typeof first[5]).toBe('string');
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
+
+  it('a 4xx: the server’s own reason, and NO Retry — resending cannot change a refusal', async () => {
+    svc.message.reply = vi
+      .fn()
+      .mockRejectedValue(
+        Object.assign(new Error('The 24-hour WhatsApp window has closed.'), { status: 422 })
+      );
+    renderDetail(mine);
+    typeAndSend();
+    const bar = await screen.findByRole('alert');
+    expect(within(bar).getByText('The 24-hour WhatsApp window has closed.')).toBeTruthy();
+    expect(within(bar).queryByRole('button', { name: 'Retry' })).toBeNull();
+    // CONTROL: the bar still dismisses.
+    fireEvent.click(within(bar).getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('⛔ no Retry after switching to Internal note — it would post the reply as a note', async () => {
+    svc.message.reply = vi.fn().mockRejectedValue(Object.assign(new Error('x'), { status: 503 }));
+    renderDetail(mine);
+    typeAndSend();
+    const bar = await screen.findByRole('alert');
+    expect(within(bar).getByRole('button', { name: 'Retry' })).toBeTruthy();
+    press('n');
+    await waitFor(() => expect(within(bar).queryByRole('button', { name: 'Retry' })).toBeNull());
+    press('r');
+    await waitFor(() => expect(within(bar).getByRole('button', { name: 'Retry' })).toBeTruthy());
+  });
+
+  it('sits under the header, above the thread — not down by the composer', async () => {
+    svc.message.reply = vi.fn().mockRejectedValue(Object.assign(new Error('x'), { status: 503 }));
+    renderDetail(mine);
+    typeAndSend();
+    const bar = await screen.findByRole('alert');
+    const subject = screen.getByRole('heading', { level: 2 });
+    expect(subject.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      bar.compareDocumentPosition(screen.getByTestId('composer')) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    // Above the context tabs and the thread (the design's .errbar sits right under the header).
+    expect(
+      bar.compareDocumentPosition(screen.getByTestId('panel-tabs')) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+});
+
+describe('routing hint (v3): dismissable', () => {
+  it('shows the hint, and its X hides it for this thread', () => {
+    renderDetail({ ...activeThread, id: 9101, nearMissDepts: [3] } as Partial<Message>);
+    expect(screen.getByText('Also matched')).toBeTruthy();
+    // No department list loaded in this harness: the sentence counts it instead of naming it.
+    expect(screen.getByText('Routing also scored this for another team.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss routing suggestion' }));
+    expect(screen.queryByText('Also matched')).toBeNull();
+  });
+
+  it('stays dismissed when the same thread is opened again; another thread still shows it', () => {
+    renderDetail({ ...activeThread, id: 9102, nearMissDepts: [3] } as Partial<Message>);
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss routing suggestion' }));
+    cleanup();
+    renderDetail({ ...activeThread, id: 9102, nearMissDepts: [3] } as Partial<Message>);
+    expect(screen.queryByText('Also matched')).toBeNull();
+    cleanup();
+    // CONTROL: the dismissal is per thread, not global.
+    renderDetail({ ...activeThread, id: 9103, nearMissDepts: [3] } as Partial<Message>);
+    expect(screen.getByText('Also matched')).toBeTruthy();
+  });
+});
+
+describe('routing hint: never the team the thread is already in (demo, 2026-10-14)', () => {
+  it('🔴 a thread in team 3 is not offered "Move to" team 3', () => {
+    renderDetail({
+      ...activeThread,
+      id: 9111,
+      departmentId: 3,
+      nearMissDepts: [3],
+    } as Partial<Message>);
+    expect(screen.queryByText('Also matched')).toBeNull();
+  });
+
+  it('control: the same scores on a thread in another team still show the hint', () => {
+    renderDetail({
+      ...activeThread,
+      id: 9112,
+      departmentId: 5,
+      nearMissDepts: [3],
+    } as Partial<Message>);
+    expect(screen.getByText('Also matched')).toBeTruthy();
+  });
+});
+
+describe('routing hint: switching threads in the SAME panel', () => {
+  it('a dismissal on thread A does not hide the hint on thread B shown in its place', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = (id: number) => (
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <MessageDetail
+            message={{ ...baseMessage, ...activeThread, id, nearMissDepts: [3] } as Message}
+            onClose={vi.fn()}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const { rerender } = render(tree(9201));
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss routing suggestion' }));
+    expect(screen.queryByText('Also matched')).toBeNull();
+    rerender(tree(9202));
+    expect(screen.getByText('Also matched')).toBeTruthy();
+  });
+});
+
+describe('routing hint: no "+ rule" (spec 2026-10-14 §4.1)', () => {
+  it('offers Move only, and Move routes with (id, departmentId) then shows the note', async () => {
+    depts.list = [{ id: 3, name: 'Billing', active: true }];
+    svc.message.manualRoute = vi.fn().mockResolvedValue({ learningRecorded: true });
+    const invalidate = vi.spyOn(QueryClient.prototype, 'invalidateQueries');
+    renderDetail({ ...activeThread, id: 9301, nearMissDepts: [3] } as Partial<Message>);
+    expect(screen.queryByRole('button', { name: '+ rule' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Move to Billing →' }));
+    await waitFor(() => expect(svc.message.manualRoute).toHaveBeenCalledWith(9301, 3));
+    expect(svc.message.manualRoute.mock.calls[0]).toHaveLength(2);
+    await waitFor(() => expect(note.show).toHaveBeenCalledWith({ learningRecorded: true }));
+    // It left its queue: the sidebar badge's own key (useNotificationCounts) refreshes at once.
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['notification-counts'] });
+    invalidate.mockRestore();
+  });
+});

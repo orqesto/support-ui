@@ -1,7 +1,7 @@
 import { Plus, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { labelPickerEmptyText, type LabelsStatus } from '@/components/shared/labelPickerText';
-import { hashNameToLabelColor } from '@/components/messages/inboxCardHelpers';
+import { hashNameToLabelColor } from '@/features/messages/shell';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Tooltip } from '@/components/ui/Tooltip';

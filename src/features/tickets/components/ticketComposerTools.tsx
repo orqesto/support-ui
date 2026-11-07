@@ -1,6 +1,6 @@
 import { useState, type RefObject } from 'react';
 import { Paperclip } from 'lucide-react';
-import { COMPOSER_TOOL } from '@/components/messages/messageDetailConstants';
+import { COMPOSER_TOOL } from '@/features/messages/shell';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { TemplatePicker } from '@/components/shared/TemplatePicker';
 import { TranslateButton } from '@/components/shared/TranslateButton';

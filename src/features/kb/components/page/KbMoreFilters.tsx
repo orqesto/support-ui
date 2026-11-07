@@ -2,7 +2,7 @@ import { Filter } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
-import { MessageSourceFilter } from '@/components/messages/MessageSourceFilter';
+import { MessageSourceFilter } from '@/components/shared/MessageSourceFilter';
 import { KbStatusFilter, type KbFilterStatus } from '@/features/kb/components/KbStatusFilter';
 import { KB_FINDINGS, type KbFinding } from '@/features/kb/services/kb.service';
 

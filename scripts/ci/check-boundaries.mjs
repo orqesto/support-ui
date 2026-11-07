@@ -44,7 +44,9 @@
  * import, `export *`) is proven when the importer imported ANY file that moved into that feature.
  * A name whose file was already inside the feature before this change (an earlier move put it
  * there) is proven when the importer's base version took that same name from the same specifier:
- * the import went through the index then too, so only its count is new.
+ * the import went through the index then too, so only its count is new. A name is also proven when
+ * the importer reached its file before through a re-export shim (a file of only `export … from`),
+ * e.g. a shim this change deleted. The index's light `shell.ts` entry is proven the same way.
  * A pair with one unproven edge is not adopted. Upward imports never accept adoption (and cycles
  * live in check-cycles.mjs, which has no such mode): any upward growth fails `--adopt` too.
  */
@@ -211,7 +213,32 @@ const indexMapOf = (root, index, edges) => {
   return map;
 };
 
-const INDEX = /^src\/features\/([^/]+)\/index\.tsx?$/;
+/** A feature's public entry: its index, or its light shell entry (both re-export by name). */
+const INDEX = /^src\/features\/([^/]+)\/(?:index|shell)\.tsx?$/;
+
+/** True when `file` at `base` holds only `export … from` statements (a re-export shim). */
+const shimCache = new Map();
+const reExportsOnly = (root, base, file) => {
+  if (shimCache.has(file)) return shimCache.get(file);
+  let result = false;
+  try {
+    const text = execFileSync('git', ['show', `${base}:${file}`], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
+    result =
+      source.statements.length > 0 &&
+      source.statements.every(
+        (statement) => ts.isExportDeclaration(statement) && statement.moduleSpecifier !== undefined
+      );
+  } catch {
+    result = false;
+  }
+  shimCache.set(file, result);
+  return result;
+};
 
 /** The names `file` (as it was at `base`) takes from `specifier`; empty if it did not exist. */
 const namesTakenAtBase = (root, base, file, specifier) => {
@@ -267,6 +294,24 @@ const adopt = ({ root, baselinePath, baseline, measured, edges }) => {
       const file = indexMaps.get(edge.to).get(name);
       if (!file) return anyMoved;
       if (before.has(old(file))) return true;
+      // Reached before through a re-export shim (a file of nothing but `export … from`) that this
+      // change deleted: the dependency is the same, only the hop is gone. A feature's index or
+      // shell is not a shim here: names taken through it are proven by name above and below.
+      const ownerFeature = /^src\/features\/([^/]+)\//.exec(file)?.[1];
+      const viaShim = [...before].some((via) => {
+        if (INDEX.test(via) || !reExportsOnly(root, base, via)) return false;
+        const targets = importsBefore.get(via) ?? new Set();
+        if (targets.has(old(file))) return true;
+        // …or a shim that re-exported this very name from the owning feature's public entry.
+        return (
+          ownerFeature !== undefined &&
+          [...targets].some(
+            (target) => INDEX.test(target) && target.startsWith(`src/features/${ownerFeature}/`)
+          ) &&
+          namesTakenAtBase(root, base, via, `@/features/${ownerFeature}`).has(name)
+        );
+      });
+      if (viaShim) return true;
       if (oldOf.has(file)) return false;
       takenAtBase ??= namesTakenAtBase(root, base, old(edge.from), edge.specifier);
       return takenAtBase.has(name);

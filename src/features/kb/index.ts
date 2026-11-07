@@ -64,7 +64,7 @@ export { useKbEntryParam } from './hooks/useKbEntryParam';
 export { useKbFindingFilter } from './hooks/useKbFindingFilter';
 export { useKbStatusParam } from './hooks/useKbStatusParam';
 export { isCaseRow, unmergeConsequence } from './lib/kbConsolidation';
-export { type KbFilterStatus } from './lib/kbFilterStatus';
+export type { KbFilterStatus } from './lib/kbFilterStatus';
 export { kbFindingFromSearch, kbFindingHref, withoutKbFinding } from './lib/kbFinding';
 export { summarizeKbQuality } from './lib/kbQuality';
 export {
@@ -84,5 +84,5 @@ export {
   normaliseIdMatch,
   type PaginationMeta,
 } from './services/kb.service';
-export { type KbConsolidationRunState } from './services/kbConsolidation.service';
-export { type KbEngineSummary, type KbQuestion } from './services/kbEngine.types';
+export type { KbConsolidationRunState } from './services/kbConsolidation.service';
+export type { KbEngineSummary, KbQuestion } from './services/kbEngine.types';

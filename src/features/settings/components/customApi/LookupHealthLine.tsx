@@ -1,10 +1,7 @@
 import { useState } from 'react';
 import { Circle } from 'lucide-react';
-import {
-  failureSentence,
-  SHAPE_CHANGED_FOR_AGENTS,
-} from '@/components/messages/customApiLookupText';
-import { relativeTime } from '@/components/messages/messageDetailConstants';
+import { relativeTime } from '@/features/messages/shell';
+import { failureSentence, SHAPE_CHANGED_FOR_AGENTS } from '@/features/custom-api';
 import { Button } from '@/components/ui/Button';
 import { usePermissions } from '@/hooks/usePermissions';
 import type { CustomApiEndpoint } from '@/features/custom-api';
