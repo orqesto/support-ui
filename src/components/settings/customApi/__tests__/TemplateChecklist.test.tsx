@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { TemplateChecklist } from '../TemplateChecklist';
-import type { FieldPick } from '@/services/customApi.service';
+import type { FieldPick } from '@/features/custom-api';
 
 const checklist = [
   { role: 'identifier', label: 'Order number', required: true },

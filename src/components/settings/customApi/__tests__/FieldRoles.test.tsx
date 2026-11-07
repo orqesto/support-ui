@@ -10,7 +10,7 @@ import userEvent from '@testing-library/user-event';
 import { chooseOption } from '@/test/chooseOption';
 import { EndpointWizard } from '../EndpointWizard';
 import { ROLE_OPTIONS, applyRole, fieldWithRole, roleOption, roleOptionsFor } from '../fieldRoles';
-import type * as Svc from '@/services/customApi.service';
+import type * as Svc from '@/features/custom-api';
 
 type Connection = Svc.CustomApiConnection;
 
@@ -28,12 +28,14 @@ const sendTest =
 
 // The wizard drops the thread panel's cached availability after a save; that needs a
 // QueryClient these tests do not mount, and what it invalidates is covered in EndpointWizard.test.
-vi.mock('@/hooks/useCustomApiLookup', () => ({
+vi.mock('@/features/custom-api/hooks/useCustomApiLookup', () => ({
   useInvalidateCustomApiAvailability: () => () => undefined,
 }));
 
-vi.mock('@/services/customApi.service', async () => {
-  const actual = await vi.importActual<typeof Svc>('@/services/customApi.service');
+vi.mock('@/features/custom-api/services/customApi.service', async () => {
+  const actual = await vi.importActual<typeof Svc>(
+    '@/features/custom-api/services/customApi.service'
+  );
   return {
     ...actual,
     customApiService: {

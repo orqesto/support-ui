@@ -8,8 +8,11 @@ import {
   type LookupRequest,
   type LookupSurface,
   type RunnableLookup,
-} from '@/services/customApiLookup.service';
-import { CONTACT_NOT_VISIBLE, CONVERSATION_NOT_VISIBLE } from '@/lib/customApiLookupText';
+} from '@/features/custom-api/services/customApiLookup.service';
+import {
+  CONTACT_NOT_VISIBLE,
+  CONVERSATION_NOT_VISIBLE,
+} from '@/features/custom-api/lib/customApiLookupText';
 
 /**
  * State for the custom-API lookup panel (CA-3).

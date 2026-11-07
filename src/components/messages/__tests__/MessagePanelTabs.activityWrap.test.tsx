@@ -15,7 +15,7 @@ vi.mock('../AiTabPanel', () => ({ AiTabPanel: () => null }));
 vi.mock('@/features/contacts/hooks/useContactProfile', () => ({
   useContactProfile: () => ({ loading: false, contact: null }),
 }));
-vi.mock('@/services/customApiLookup.service', () => ({
+vi.mock('@/features/custom-api/services/customApiLookup.service', () => ({
   customApiLookupService: {
     run: vi.fn(),
     availability: () => Promise.resolve(false),

@@ -8,7 +8,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { RowFields } from '../customApiRowFields';
-import type { LookupField } from '@/services/customApiLookup.service';
+import type { LookupField } from '@/features/custom-api';
 
 afterEach(cleanup);
 

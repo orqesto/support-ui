@@ -8,7 +8,7 @@ import { useLookupsTab } from '../lookupsTab';
 
 const availability = vi.fn<(surface: string) => Promise<boolean>>();
 const lookupOptions = vi.fn<(surface: string) => Promise<unknown>>();
-vi.mock('@/services/customApiLookup.service', () => ({
+vi.mock('@/features/custom-api/services/customApiLookup.service', () => ({
   customApiLookupService: {
     availability: (surface: string) => availability(surface),
     lookupOptions: (surface: string) => lookupOptions(surface),

@@ -10,7 +10,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RowFields } from '../customApiRowFields';
-import type { LookupField } from '@/services/customApiLookup.service';
+import type { LookupField } from '@/features/custom-api';
 
 afterEach(cleanup);
 

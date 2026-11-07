@@ -6,14 +6,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CustomApiSettings } from '../CustomApiSettings';
-import type * as Svc from '@/services/customApi.service';
+import type * as Svc from '@/features/custom-api';
 
 type Connection = Svc.CustomApiConnection;
 
 const list = vi.fn<() => Promise<Connection[]>>();
 
-vi.mock('@/services/customApi.service', async () => {
-  const actual = await vi.importActual<typeof Svc>('@/services/customApi.service');
+vi.mock('@/features/custom-api/services/customApi.service', async () => {
+  const actual = await vi.importActual<typeof Svc>(
+    '@/features/custom-api/services/customApi.service'
+  );
   return {
     ...actual,
     customApiService: { ...actual.customApiService, list: () => list() },

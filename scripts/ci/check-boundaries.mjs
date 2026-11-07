@@ -32,9 +32,24 @@
  * measuring the tree: each side of a key goes through `featureAreaOf`, pairs that land on the same
  * key are summed, and a pair whose two sides become one feature is dropped (it is internal now). It
  * prints the old total, the new total and every dropped pair. Use it when the feature map changes.
+ *
+ * `--adopt [--base <ref>]` records feature → feature imports that a move made COUNTABLE without
+ * adding them: a service or hook (not a feature area) moved under `src/features/<x>/` turns its
+ * existing importers into a new `feature:a -> feature:x` pair. Every edge of every grown pair must
+ * be proven to have existed in the base tree (default: the merge base with origin/staging), or
+ * nothing is written and it exits 1. An edge is proven when, in the base tree, the same importer
+ * (mapped back through the renames of `git diff --cached -M <base>`) imported the target's old
+ * path. An edge to a feature's index is resolved per imported name through the index's
+ * `export { … } from` lines to the file that defines it; a name it cannot resolve (a namespace
+ * import, `export *`) is proven when the importer imported ANY file that moved into that feature.
+ * A pair with one unproven edge is not adopted. Upward imports never accept adoption (and cycles
+ * live in check-cycles.mjs, which has no such mode): any upward growth fails `--adopt` too.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import ts from 'typescript';
 import {
   SHARED_COMPONENT_AREAS as SHARED,
   areaOf,
@@ -123,6 +138,153 @@ const rekey = (baselinePath, baseline) => {
   for (const line of internal) console.log(line);
 };
 
+const git = (root, ...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+
+/** The base tree's `src/`, extracted into a temp folder, and its import graph. */
+const baseGraphOf = (root, base) => {
+  const dir = mkdtempSync(join(tmpdir(), 'boundaries-base-'));
+  try {
+    const tar = join(dir, 'base.tar');
+    git(root, 'archive', '--format=tar', '-o', tar, base, 'src');
+    execFileSync('tar', ['-xf', tar, '-C', dir]);
+    return buildImportGraph(dir).edges;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+};
+
+/** new path -> old path, from the renames between the base and the index (staged or committed). */
+const renamesSince = (root, base) => {
+  const oldOf = new Map();
+  for (const row of git(root, 'diff', '--cached', '-M', '--name-status', base).split('\n')) {
+    const [kind, from, to] = row.split('\t');
+    if (kind?.startsWith('R')) oldOf.set(to, from);
+  }
+  return oldOf;
+};
+
+const parse = (root, file) =>
+  ts.createSourceFile(file, readFileSync(join(root, file), 'utf8'), ts.ScriptTarget.Latest, true);
+
+/** The names an import / re-export at `line` with `specifier` takes; null when not by name. */
+const namesTaken = (root, edge) => {
+  const source = parse(root, edge.from);
+  for (const statement of source.statements) {
+    const literal = statement.moduleSpecifier;
+    if (!literal || !ts.isStringLiteralLike(literal) || literal.text !== edge.specifier) continue;
+    const { line } = source.getLineAndCharacterOfPosition(literal.getStart(source));
+    if (line + 1 !== edge.line) continue;
+    if (ts.isImportDeclaration(statement)) {
+      const clause = statement.importClause;
+      if (!clause || clause.name) return null;
+      const bindings = clause.namedBindings;
+      if (!bindings || !ts.isNamedImports(bindings)) return null;
+      return bindings.elements.map((element) => (element.propertyName ?? element.name).text);
+    }
+    if (ts.isExportDeclaration(statement)) {
+      const clause = statement.exportClause;
+      if (!clause || !ts.isNamedExports(clause)) return null;
+      return clause.elements.map((element) => (element.propertyName ?? element.name).text);
+    }
+  }
+  return null;
+};
+
+/** name -> the `src/…` file an index re-exports it from (`export { a } from './x'` lines). */
+const indexMapOf = (root, index, edges) => {
+  const map = new Map();
+  const source = parse(root, index);
+  for (const statement of source.statements) {
+    if (!ts.isExportDeclaration(statement) || !statement.moduleSpecifier) continue;
+    const clause = statement.exportClause;
+    if (!clause || !ts.isNamedExports(clause)) continue;
+    const { line } = source.getLineAndCharacterOfPosition(
+      statement.moduleSpecifier.getStart(source)
+    );
+    const target = edges.find((edge) => edge.from === index && edge.line === line + 1)?.to;
+    if (!target) continue;
+    for (const element of clause.elements) map.set(element.name.text, target);
+  }
+  return map;
+};
+
+const INDEX = /^src\/features\/([^/]+)\/index\.tsx?$/;
+
+/** `--adopt`: record grown feature → feature pairs whose every edge existed before the move. */
+const adopt = ({ root, baselinePath, baseline, measured, edges }) => {
+  const at = process.argv.indexOf('--base');
+  const base = at > 0 ? process.argv[at + 1] : git(root, 'merge-base', 'HEAD', 'origin/staging');
+  const oldOf = renamesSince(root, base);
+  const importsBefore = new Map();
+  for (const edge of baseGraphOf(root, base)) {
+    importsBefore.set(edge.from, (importsBefore.get(edge.from) ?? new Set()).add(edge.to));
+  }
+  const old = (file) => oldOf.get(file) ?? file;
+  const indexMaps = new Map();
+  const unproven = [];
+  const proven = (edge) => {
+    const before = importsBefore.get(old(edge.from)) ?? new Set();
+    const feature = INDEX.exec(edge.to)?.[1];
+    if (!feature) return before.has(old(edge.to));
+    if (!indexMaps.has(edge.to)) indexMaps.set(edge.to, indexMapOf(root, edge.to, edges));
+    const movedIn = [...oldOf]
+      .filter(([now]) => now.startsWith(`src/features/${feature}/`))
+      .map(([, was]) => was);
+    const anyMoved = movedIn.some((was) => before.has(was));
+    const names = namesTaken(root, edge);
+    if (names === null) return anyMoved;
+    return names.every((name) => {
+      const file = indexMaps.get(edge.to).get(name);
+      return file ? before.has(old(file)) : anyMoved;
+    });
+  };
+
+  const before = baseline.featureToFeature?.pairs ?? {};
+  const pairs = { ...before };
+  const adopted = [];
+  for (const [key, list] of measured.featureToFeature) {
+    if (list.length <= (before[key] ?? 0)) continue;
+    const failing = list.filter((edge) => !proven(edge));
+    if (failing.length > 0) {
+      for (const edge of failing)
+        unproven.push(`  ${key}: ${edge.from}:${edge.line}  '${edge.specifier}'`);
+      continue;
+    }
+    adopted.push(`  ${key}: ${before[key] ?? 0} → ${list.length}`);
+    pairs[key] = list.length;
+  }
+  const upwardBefore = baseline.upward?.files ?? {};
+  const upwardGrew = [...measured.upward].filter(
+    ([key, list]) => list.length > (upwardBefore[key] ?? 0)
+  );
+  console.log(`Base ${base}, ${oldOf.size} renames.`);
+  console.log(
+    adopted.length > 0 ? 'Adoptable (every edge existed before the move):' : 'Nothing to adopt.'
+  );
+  for (const line of adopted) console.log(line);
+  if (unproven.length > 0 || upwardGrew.length > 0) {
+    if (unproven.length > 0) {
+      console.error(`✗ ${unproven.length} feature → feature import(s) not in the base tree:`);
+      for (const line of unproven) console.error(line);
+    }
+    for (const [key, list] of upwardGrew) {
+      console.error(
+        `✗ Upward import grew, never adopted: ${key}: ${upwardBefore[key] ?? 0} → ${list.length}`
+      );
+    }
+    console.error('--adopt wrote nothing.');
+    process.exit(1);
+  }
+  const body = {
+    ...baseline,
+    featureToFeature: { total: totalOf(pairs), pairs: sortKeys(pairs) },
+  };
+  writeFileSync(baselinePath, `${JSON.stringify(body, null, 2)}\n`);
+  console.log(
+    `Baseline feature → feature: ${totalOf(before)} → ${totalOf(pairs)} (+${totalOf(pairs) - totalOf(before)} adopted).`
+  );
+};
+
 const main = () => {
   const root = process.cwd();
   const update = process.argv.includes('--update');
@@ -151,6 +313,14 @@ const main = () => {
 
   const baselinePath = join(root, BASELINE);
   const baseline = readBaseline(baselinePath);
+  if (process.argv.includes('--adopt')) {
+    if (baseline === null) {
+      console.error(`No baseline at ${BASELINE} to adopt into.`);
+      process.exit(1);
+    }
+    adopt({ root, baselinePath, baseline, measured, edges });
+    return;
+  }
   const writeBaseline = () => {
     mkdirSync(dirname(baselinePath), { recursive: true });
     const body = {

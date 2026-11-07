@@ -39,7 +39,7 @@ vi.mock('@/features/contacts/hooks/useContactProfile', () => ({
 const availability = vi.fn();
 const lookupOptions = vi.fn();
 const runLookup = vi.fn();
-vi.mock('@/services/customApiLookup.service', () => ({
+vi.mock('@/features/custom-api/services/customApiLookup.service', () => ({
   customApiLookupService: {
     run: (body: unknown) => runLookup(body) as unknown,
     availability: () => availability() as unknown,

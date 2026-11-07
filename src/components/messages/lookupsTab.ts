@@ -3,8 +3,8 @@ import {
   useCustomApiLookupAvailability,
   useCustomApiLookupOptions,
   useCustomApiLookupOptionsSettled,
-} from '@/hooks/useCustomApiLookup';
-import type { LookupSurface } from '@/services/customApiLookup.service';
+  type LookupSurface,
+} from '@/features/custom-api';
 
 export const LOOKUPS_TAB_FALLBACK = 'Lookups';
 

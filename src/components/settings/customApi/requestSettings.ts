@@ -1,4 +1,4 @@
-import type { CustomApiConnection, CustomApiEndpoint } from '@/services/customApi.service';
+import type { CustomApiConnection, CustomApiEndpoint } from '@/features/custom-api';
 import type { components } from '@/types/generated/api';
 
 /**

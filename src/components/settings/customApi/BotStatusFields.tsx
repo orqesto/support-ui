@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Alert, AlertTitle } from '@/components/ui/Alert';
 import { Input } from '@/components/ui/Input';
 import { Toggle } from '@/components/ui/Toggle';
-import type { CustomApiEndpoint } from '@/services/customApi.service';
+import type { CustomApiEndpoint } from '@/features/custom-api';
 
 /** The backend's limit; the field stops at it rather than failing the save. */
 export const BOT_REPLY_MAX = 300;

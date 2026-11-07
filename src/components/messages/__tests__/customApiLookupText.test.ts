@@ -9,7 +9,7 @@ import {
   referenceNameOf,
   skippedText,
 } from '../customApiLookupText';
-import type { CustomApiLookupResult } from '@/services/customApiLookup.service';
+import type { CustomApiLookupResult } from '@/features/custom-api';
 
 const result = (over: Partial<CustomApiLookupResult>): CustomApiLookupResult =>
   ({

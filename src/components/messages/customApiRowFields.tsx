@@ -9,7 +9,7 @@ import {
 import { listOf, renderItems, renderValue } from './customApiValue';
 import { LABEL } from './messageDetailConstants';
 import type { AddOutcome } from './recordInsertOutcome';
-import type { CustomApiLookupResult, LookupField } from '@/services/customApiLookup.service';
+import type { CustomApiLookupResult, LookupField } from '@/features/custom-api';
 
 /**
  * Rendering ONE vendor row as labelled fields — shared by the thread panel and the customer

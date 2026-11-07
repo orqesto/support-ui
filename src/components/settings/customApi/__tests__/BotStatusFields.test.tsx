@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BLOCKER_TEXT, botStatusBlockers } from '../BotStatusFields';
 import { EndpointWizard } from '../EndpointWizard';
-import type * as Svc from '@/services/customApi.service';
+import type * as Svc from '@/features/custom-api';
 
 /**
  * ODL-25 (2026-11-05): the per-lookup switch "the Telegram bot may answer the order status". It
@@ -15,8 +15,10 @@ type Endpoint = Svc.CustomApiEndpoint;
 const updateEndpoint =
   vi.fn<(connectionId: number, endpointId: number, input: unknown) => Promise<Connection>>();
 
-vi.mock('@/services/customApi.service', async () => {
-  const actual = await vi.importActual<typeof Svc>('@/services/customApi.service');
+vi.mock('@/features/custom-api/services/customApi.service', async () => {
+  const actual = await vi.importActual<typeof Svc>(
+    '@/features/custom-api/services/customApi.service'
+  );
   return {
     ...actual,
     customApiService: {
@@ -26,7 +28,7 @@ vi.mock('@/services/customApi.service', async () => {
     },
   };
 });
-vi.mock('@/hooks/useCustomApiLookup', () => ({
+vi.mock('@/features/custom-api/hooks/useCustomApiLookup', () => ({
   useInvalidateCustomApiAvailability: () => () => undefined,
 }));
 

@@ -13,7 +13,7 @@ import {
   customApiTemplateAdminService,
   type AdminCustomApiTemplate,
   type TemplateDefinition,
-} from '@/services/customApiTemplates.service';
+} from '@/features/custom-api';
 
 /**
  * Custom API templates (spec CUSTOM-API-TEMPLATES 2026-10-09): platform-managed set-ups a workspace

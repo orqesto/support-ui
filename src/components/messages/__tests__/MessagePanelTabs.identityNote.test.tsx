@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { MessagePanelTabs, type MessagePanelTabsProps } from '../MessagePanelTabs';
 import { NO_EMAIL_IDENTITY_NOTE } from '../CustomApiLookupPanel';
-import type * as LookupService from '@/services/customApiLookup.service';
+import type * as LookupService from '@/features/custom-api';
 import { useAuthStore } from '@/stores/authStore';
 import type { Message, User } from '@/types';
 import type * as MessageService from '@/services/message.service';
@@ -20,8 +20,10 @@ import type * as MessageService from '@/services/message.service';
 
 const availability = vi.fn<(surface: string) => Promise<boolean>>();
 
-vi.mock('@/services/customApiLookup.service', async () => {
-  const actual = await vi.importActual<typeof LookupService>('@/services/customApiLookup.service');
+vi.mock('@/features/custom-api/services/customApiLookup.service', async () => {
+  const actual = await vi.importActual<typeof LookupService>(
+    '@/features/custom-api/services/customApiLookup.service'
+  );
   return {
     ...actual,
     customApiLookupService: {

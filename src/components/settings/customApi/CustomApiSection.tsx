@@ -4,7 +4,7 @@ import { CustomApiSettings } from './CustomApiSettings';
 import { CustomApiVendorForm } from './CustomApiVendorForm';
 import { customApiLookupPath, customApiTemplatePath } from './lookupPaths';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
-import type { CustomApiConnection } from '@/services/customApi.service';
+import type { CustomApiConnection } from '@/features/custom-api';
 
 /**
  * Settings → Integrations → Custom APIs — the section, and everything it can open

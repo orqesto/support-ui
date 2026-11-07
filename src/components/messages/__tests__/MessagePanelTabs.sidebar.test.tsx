@@ -31,7 +31,7 @@ vi.mock('@/services/message.service', async () => {
 vi.mock('@/features/contacts/hooks/useContactProfile', () => ({
   useContactProfile: () => ({ loading: false, contact: null }),
 }));
-vi.mock('@/services/customApiLookup.service', () => ({
+vi.mock('@/features/custom-api/services/customApiLookup.service', () => ({
   customApiLookupService: { run: vi.fn(), availability: vi.fn().mockResolvedValue(false) },
 }));
 

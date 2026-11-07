@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Checkbox } from '@/components/ui/Checkbox';
-import type { FieldPick } from '@/services/customApi.service';
+import type { FieldPick } from '@/features/custom-api';
 
 /**
  * The vendor's real response as a TICKABLE TREE — CA-5 Task 3, and the reason the phase exists.

@@ -1,4 +1,4 @@
-import type { CustomApiLookupResult } from '@/services/customApiLookup.service';
+import type { CustomApiLookupResult } from '../services/customApiLookup.service';
 
 /**
  * Every agent-facing sentence for a lookup's outcome (2026-10-14). The backend sends CLASSES and

@@ -7,7 +7,7 @@ import {
 import { relativeTime } from '@/components/messages/messageDetailConstants';
 import { Button } from '@/components/ui/Button';
 import { usePermissions } from '@/hooks/usePermissions';
-import type { CustomApiEndpoint } from '@/services/customApi.service';
+import type { CustomApiEndpoint } from '@/features/custom-api';
 import { Permission } from '@/types/roles';
 
 /** Absent from a backend before 2026-10-14. */

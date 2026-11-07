@@ -7,7 +7,7 @@ import type { User } from '@/types';
 import { useCustomApiLookupCount, useInvalidateCustomApiAvailability } from '../useCustomApiLookup';
 
 const lookupOptions = vi.fn();
-vi.mock('@/services/customApiLookup.service', () => ({
+vi.mock('@/features/custom-api/services/customApiLookup.service', () => ({
   customApiLookupService: {
     availability: vi.fn(),
     lookupOptions: (surface: string) => lookupOptions(surface) as unknown,

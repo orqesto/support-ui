@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Spinner } from '@/components/ui/Spinner';
-import { customApiService, type CustomApiConnection } from '@/services/customApi.service';
+import { customApiService, type CustomApiConnection } from '@/features/custom-api';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { LookupHealthLine } from './LookupHealthLine';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';

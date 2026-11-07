@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Textarea } from '@/components/ui/Textarea';
-import type { CustomApiEndpoint } from '@/services/customApi.service';
+import type { CustomApiEndpoint } from '@/features/custom-api';
 import type { EndpointInitial } from './endpointWizardProps';
 
 /** The backend's limit; the field stops at it rather than failing the save. */

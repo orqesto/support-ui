@@ -16,8 +16,8 @@ import {
   NO_EMAIL_IDENTITY_NOTE,
   LOOKUPS_NOT_ON_SERVER,
 } from '../CustomApiLookupPanel';
-import { useCustomApiLookup } from '@/hooks/useCustomApiLookup';
-import type * as LookupService from '@/services/customApiLookup.service';
+import { useCustomApiLookup } from '@/features/custom-api';
+import type * as LookupService from '@/features/custom-api';
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
 
@@ -34,8 +34,10 @@ type CustomApiLookupResult = LookupService.CustomApiLookupResult;
 const run = vi.fn<(body: unknown) => Promise<CustomApiLookupResult[]>>();
 const availability = vi.fn<(surface: string) => Promise<boolean>>();
 
-vi.mock('@/services/customApiLookup.service', async () => {
-  const actual = await vi.importActual<typeof LookupService>('@/services/customApiLookup.service');
+vi.mock('@/features/custom-api/services/customApiLookup.service', async () => {
+  const actual = await vi.importActual<typeof LookupService>(
+    '@/features/custom-api/services/customApiLookup.service'
+  );
   return {
     ...actual,
     customApiLookupService: {

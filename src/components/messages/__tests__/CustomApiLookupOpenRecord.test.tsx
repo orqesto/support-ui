@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { CustomApiLookupPanel } from '../CustomApiLookupPanel';
 import { RowFields, trackingOf } from '../customApiRowFields';
-import type * as LookupService from '@/services/customApiLookup.service';
+import type * as LookupService from '@/features/custom-api';
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
 
@@ -23,8 +23,10 @@ const run = vi.fn<(body: unknown) => Promise<CustomApiLookupResult[]>>();
 const lookupOptions = vi.fn<(surface: string) => Promise<RunnableLookup[]>>();
 const scrollIntoView = vi.fn();
 
-vi.mock('@/services/customApiLookup.service', async () => {
-  const actual = await vi.importActual<typeof LookupService>('@/services/customApiLookup.service');
+vi.mock('@/features/custom-api/services/customApiLookup.service', async () => {
+  const actual = await vi.importActual<typeof LookupService>(
+    '@/features/custom-api/services/customApiLookup.service'
+  );
   return {
     ...actual,
     customApiLookupService: {

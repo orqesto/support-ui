@@ -3,7 +3,7 @@ import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Message, MessageEvent } from '@/types';
 import type { MessageNote } from '@/services/message.service';
-import type { LookupField } from '@/services/customApiLookup.service';
+import type { LookupField } from '@/features/custom-api';
 import { CustomApiRecordInsert } from '../CustomApiRecordInsert';
 import { CustomerSenderBlock, ConversationFacts } from '../CustomerTabPanels';
 import { appendReplyParagraph, replyHasSentence } from '../customApiRecordNote';

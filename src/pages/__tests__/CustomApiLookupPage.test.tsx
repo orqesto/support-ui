@@ -13,7 +13,7 @@ import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-rou
 import { CustomApiLookupPage } from '../CustomApiLookupPage';
 import { Button } from '@/components/ui/Button';
 import { CUSTOM_API_LOOKUP_ROUTE } from '@/components/settings/customApi/lookupPaths';
-import type * as Svc from '@/services/customApi.service';
+import type * as Svc from '@/features/custom-api';
 
 type Connection = Svc.CustomApiConnection;
 type Endpoint = Svc.CustomApiEndpoint;
@@ -23,8 +23,10 @@ const createEndpoint = vi.fn<(connectionId: number, input: unknown) => Promise<C
 const sendTest = vi.fn<() => Promise<Svc.EndpointTestResult>>();
 let allowed = true;
 
-vi.mock('@/services/customApi.service', async () => {
-  const actual = await vi.importActual<typeof Svc>('@/services/customApi.service');
+vi.mock('@/features/custom-api/services/customApi.service', async () => {
+  const actual = await vi.importActual<typeof Svc>(
+    '@/features/custom-api/services/customApi.service'
+  );
   return {
     ...actual,
     customApiService: {
@@ -35,7 +37,7 @@ vi.mock('@/services/customApi.service', async () => {
     },
   };
 });
-vi.mock('@/hooks/useCustomApiLookup', () => ({
+vi.mock('@/features/custom-api/hooks/useCustomApiLookup', () => ({
   useInvalidateCustomApiAvailability: () => () => {},
 }));
 vi.mock('@/hooks/usePermissions', () => ({

@@ -14,7 +14,7 @@ import {
   defaultSelection,
   offerableFields,
 } from '../customApiRecordNote';
-import type { LookupField } from '@/services/customApiLookup.service';
+import type { LookupField } from '@/features/custom-api';
 
 const field = (over: {
   path: string;

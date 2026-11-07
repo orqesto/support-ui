@@ -10,7 +10,7 @@ import {
   customApiService,
   type CustomApiConnection,
   type CustomApiEndpoint,
-} from '@/services/customApi.service';
+} from '@/features/custom-api';
 
 /**
  * ⛔ TEST IS A WRITE, SO CANCEL MUST UNDO IT (FE audit H7, 2026-09-29). Test runs the SAVED lookup,

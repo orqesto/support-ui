@@ -44,7 +44,7 @@ vi.mock('@/services/message.service', () => {
   svc.message = serviceMock();
   return { messageService: svc.message };
 });
-vi.mock('@/services/customApiLookup.service', () => ({
+vi.mock('@/features/custom-api/services/customApiLookup.service', () => ({
   customApiLookupService: {
     availability: () => Promise.resolve(false),
     lookupOptions: () => Promise.resolve([]),

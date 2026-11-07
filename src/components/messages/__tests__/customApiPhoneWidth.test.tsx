@@ -14,7 +14,7 @@ import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { RowFields } from '../customApiRowFields';
 import { CustomApiResultCard } from '../CustomApiResultCard';
-import type { CustomApiLookupResult, LookupField } from '@/services/customApiLookup.service';
+import type { CustomApiLookupResult, LookupField } from '@/features/custom-api';
 
 afterEach(cleanup);
 

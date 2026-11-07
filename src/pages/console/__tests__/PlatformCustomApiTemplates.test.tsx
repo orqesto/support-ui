@@ -1,10 +1,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type {
-  AdminCustomApiTemplate,
-  CustomApiTemplate,
-} from '@/services/customApiTemplates.service';
+import type { AdminCustomApiTemplate, CustomApiTemplate } from '@/features/custom-api';
 import { apiError } from '@/test/apiError';
 
 const definition = {
@@ -44,7 +41,7 @@ const broken = (over: Partial<AdminCustomApiTemplate> = {}): AdminCustomApiTempl
 const list = vi.fn((): Promise<AdminCustomApiTemplate[]> => Promise.resolve([tpl()]));
 const update = vi.fn((id: number, patch: object) => Promise.resolve(tpl({ id, ...patch })));
 const create = vi.fn((input: object) => Promise.resolve(tpl({ id: 2, ...input })));
-vi.mock('@/services/customApiTemplates.service', () => ({
+vi.mock('@/features/custom-api/services/customApiTemplates.service', () => ({
   customApiTemplateAdminService: {
     list: () => list(),
     update: (id: number, patch: object) => update(id, patch),
