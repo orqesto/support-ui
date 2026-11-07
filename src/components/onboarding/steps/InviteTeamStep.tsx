@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle, UserPlus, UserRoundPlus } from 'lucide-react';
-import { CreateUserModal } from '@/components/modals/CreateUserModal';
-import { InviteUserModal } from '@/components/modals/InviteUserModal';
+import { CreateUserModal, InviteUserModal } from '@/features/settings';
 import { Button } from '@/components/ui/Button';
 import { invitationService } from '@/services/invitation.service';
 import { subscriptionService } from '@/services/subscription.service';

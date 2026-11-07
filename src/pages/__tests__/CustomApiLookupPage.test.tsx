@@ -12,7 +12,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { CustomApiLookupPage } from '../CustomApiLookupPage';
 import { Button } from '@/components/ui/Button';
-import { CUSTOM_API_LOOKUP_ROUTE } from '@/components/settings/customApi/lookupPaths';
+import { CUSTOM_API_LOOKUP_ROUTE } from '@/features/settings';
 import type * as Svc from '@/features/custom-api';
 
 type Connection = Svc.CustomApiConnection;

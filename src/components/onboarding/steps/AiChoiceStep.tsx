@@ -1,5 +1,5 @@
 import { Bot, Check, KeyRound } from 'lucide-react';
-import { AIProvidersSettings } from '@/components/settings/AIProvidersSettings';
+import { AIProvidersSettings } from '@/features/settings';
 import { Card, CardContent } from '@/components/ui/Card';
 import { ChoiceCard } from '@/components/ui/ChoiceCard';
 

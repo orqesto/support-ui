@@ -53,10 +53,8 @@ const { cancelConfirmText, cancelledToast, MOVES_TO_FREE_SENTENCE } = await impo
 const { historyImportAiNote } = await import('@/features/subscription');
 const { FREE_SWITCH_DESCRIPTION } = await import('@/features/subscription');
 const { ONBOARDING_MANAGED_AI_TEXT } = await import('@/components/onboarding/steps/AiChoiceStep');
-const { overTeamLimitText } = await import('@/components/settings/TeamsSettings');
-const { ZENDESK_AS_THREADS } = await import(
-  '@/components/settings/zendeskImport/zendeskImportSummary'
-);
+const { overTeamLimitText } = await import('@/features/settings');
+const { ZENDESK_AS_THREADS } = await import('@/features/settings');
 const { TranslateButton } = await import('@/components/shared/TranslateButton');
 
 beforeEach(() => {

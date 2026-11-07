@@ -23,7 +23,7 @@ const Fallback = () => (
 export {
   CUSTOM_API_LOOKUP_ROUTE,
   CUSTOM_API_TEMPLATE_ROUTE,
-} from '@/components/settings/customApi/lookupPaths';
+} from '@/features/settings';
 
 export const CustomApiLookupRoute = () => (
   <ProtectedRoute>

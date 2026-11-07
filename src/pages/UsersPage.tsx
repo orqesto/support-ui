@@ -38,9 +38,7 @@ import type { OrganizationRole } from '@/types/roles';
 import { getUserRowCapabilities } from '@/utils/userListCapabilities';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
-import { InviteUserModal } from '@/components/modals/InviteUserModal';
-import { CreateUserModal } from '@/components/modals/CreateUserModal';
-import { UserSkillsModal } from '@/components/modals/UserSkillsModal';
+import { InviteUserModal, CreateUserModal, UserSkillsModal } from '@/features/settings';
 import { PlanOverLimitNote } from '@/features/subscription';
 import { userFullName } from '@/lib/userName';
 

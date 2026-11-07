@@ -4,7 +4,7 @@
  * standing alerts and the last completed check.
  */
 import { describe, it, expect } from 'vitest';
-import { HOLD_LABEL } from '@/components/settings/integrations/syncHold';
+import { HOLD_LABEL } from '@/features/settings';
 import type {
   WorkspaceHealthReport,
   WorkspaceHealthRow,

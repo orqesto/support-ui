@@ -15,17 +15,7 @@ import {
 import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
-import { AIConfigSettings } from '@/components/settings/AIConfigSettings';
-import { ConnectedServicesSettings } from '@/components/settings/ConnectedServicesSettings';
-import { OrganizationSettings } from '@/components/settings/OrganizationSettings';
-import { ProfileSettings } from '@/components/settings/ProfileSettings';
-import { NotificationPreferencesSettings } from '@/components/settings/NotificationPreferencesSettings';
-import { RulesSettings } from '@/components/settings/RulesSettings';
-import { SlackNotificationsSettings } from '@/components/settings/SlackNotificationsSettings';
-import { SystemSettings } from '@/components/settings/SystemSettings';
-import { SSOConfigSettings } from '@/components/settings/SSOConfigSettings';
-import { SCIMConfigSettings } from '@/components/settings/SCIMConfigSettings';
-import { TeamsSettings } from '@/components/settings/TeamsSettings';
+import { AIConfigSettings, ConnectedServicesSettings, OrganizationSettings, ProfileSettings, NotificationPreferencesSettings, RulesSettings, SlackNotificationsSettings, SystemSettings, SSOConfigSettings, SCIMConfigSettings, TeamsSettings } from '@/features/settings';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthStore } from '@/stores/authStore';
 import { Permission } from '@/types/roles';

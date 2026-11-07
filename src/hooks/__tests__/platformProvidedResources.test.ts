@@ -13,7 +13,7 @@
  * renders an empty customer form for an org whose bytes are in the platform bucket.
  */
 import { describe, it, expect } from 'vitest';
-import { isPlatformStorage } from '../../components/settings/providers/ObjectStorageConfigCard';
+import { isPlatformStorage } from '@/features/settings';
 import { aiIsConfigured } from '../useAiConfigured';
 
 describe('aiIsConfigured', () => {

@@ -64,7 +64,7 @@ vi.mock('@/components/layout/Layout', () => ({
 vi.mock('@/features/kb/components/ConfluenceCatalogSection', () => ({
   ConfluenceCatalogSection: () => null,
 }));
-vi.mock('@/components/settings/DocumentationSettings', () => ({
+vi.mock('@/features/settings/components/DocumentationSettings', () => ({
   DocumentationSettings: () => null,
 }));
 vi.mock('@/components/messages/MessageSourceFilter', () => ({

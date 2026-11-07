@@ -1,0 +1,103 @@
+import { Save } from 'lucide-react';
+import { useState } from 'react';
+import type { AlertState } from '@/features/settings/components/integrations/types';
+import { Button } from '@/components/ui/Button';
+import { DateRangePicker, formatRangeLabel, type DateRangeValue } from '@/components/ui/DateRangePicker';
+import { Label } from '@/components/ui/Label';
+import { importRangePatch, importRangeValue } from '@/lib/importRange';
+import { logger } from '@/lib/logger';
+import { integrationsService } from '@/services/integrations.service';
+
+/**
+ * "Change Initial Sync Range" for a Gmail source. Moved out of `GmailIntegrationCard` unchanged
+ * in behaviour when the card reached its `max-lines` ceiling (2026-09-16).
+ */
+type Props = {
+  source: { id: number; name: string; currentDays: number; currentSince?: string | null };
+  onClose: () => void;
+  onRefresh: () => Promise<void>;
+  onShowAlert: (alert: AlertState) => void;
+};
+
+const RANGE_OPTIONS = [
+  { value: '0', label: 'All Time' },
+  { value: '1', label: 'Last 1 Day' },
+  { value: '7', label: 'Last 7 Days' },
+  { value: '30', label: 'Last 30 Days' },
+  { value: '90', label: 'Last 90 Days' },
+  { value: '180', label: 'Last 6 Months' },
+  { value: '365', label: 'Last Year' },
+];
+
+export const GmailSyncRangeDialog = ({ source, onClose, onRefresh, onShowAlert }: Props) => {
+  const [range, setRange] = useState<DateRangeValue>(() =>
+    importRangeValue({ bulkImportDays: source.currentDays, bulkImportSince: source.currentSince }, 30)
+  );
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await integrationsService.update(source.id, {
+        type: 'gmail',
+        config: { gmail: importRangePatch(range) },
+      });
+
+      await onRefresh();
+      onClose();
+
+      onShowAlert({
+        open: true,
+        title: 'Success',
+        description: `Initial sync range updated to ${formatRangeLabel(range, RANGE_OPTIONS)}`,
+        variant: 'success',
+      });
+    } catch (error) {
+      logger.error('Failed to update initial sync range:', error);
+      onShowAlert({
+        open: true,
+        title: 'Update Failed',
+        description: error instanceof Error ? error.message : 'Failed to update initial sync range',
+        variant: 'error',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex fixed inset-0 z-50 justify-center items-center bg-black/50">
+      <div className="p-6 w-full max-w-md rounded-lg border shadow-lg bg-card">
+        <h3 className="font-display mb-4 text-lg font-semibold">Change Initial Sync Range</h3>
+        <p className="mb-4 text-sm text-muted-foreground">{source.name}</p>
+        <div className="space-y-4">
+          <div>
+            <Label className="mb-1">Historical Import Range</Label>
+            <div>
+              <DateRangePicker
+                ariaLabel="Historical Import Range"
+                mode="single"
+                presets={RANGE_OPTIONS}
+                value={range}
+                onChange={setRange}
+              />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              How far back to fetch emails on first connect — a period, or Custom… to start from a
+              day. Set to &quot;All Time&quot; to fetch everything (may take a while).
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <Button onClick={() => void save()} isLoading={saving}>
+              <Save className="mr-2 w-4 h-4" />
+              Update
+            </Button>
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

@@ -77,7 +77,7 @@ let perms: { isAdmin: boolean; canManageUsers: boolean; hasPermission: (permissi
   hasPermission: () => false,
 };
 vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => perms }));
-vi.mock('@/components/users/UserRoutingSkillsCard', () => ({
+vi.mock('@/features/settings/components/users/UserRoutingSkillsCard', () => ({
   UserRoutingSkillsCard: () => <div data-testid="routing-skills-card" />,
 }));
 

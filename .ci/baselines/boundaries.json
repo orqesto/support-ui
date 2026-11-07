@@ -1,6 +1,6 @@
 {
   "featureToFeature": {
-    "total": 139,
+    "total": 130,
     "pairs": {
       "components/layout -> feature:processing": 2,
       "components/layout -> feature:subscription": 3,
@@ -10,7 +10,6 @@
       "feature:contacts -> feature:messages": 4,
       "feature:kb -> feature:admin": 3,
       "feature:kb -> feature:messages": 1,
-      "feature:kb -> feature:settings": 1,
       "feature:messages -> feature:admin": 5,
       "feature:messages -> feature:contacts": 3,
       "feature:messages -> feature:custom-api": 8,
@@ -19,10 +18,8 @@
       "feature:messages -> feature:subscription": 4,
       "feature:messages -> feature:tickets": 8,
       "feature:modals -> feature:messages": 1,
-      "feature:modals -> feature:settings": 2,
       "feature:modals -> feature:subscription": 1,
-      "feature:onboarding -> feature:modals": 2,
-      "feature:onboarding -> feature:settings": 10,
+      "feature:onboarding -> feature:settings": 6,
       "feature:onboarding -> feature:subscription": 1,
       "feature:processing -> feature:messages": 2,
       "feature:processing -> feature:settings": 4,

@@ -14,7 +14,7 @@ import { EditWorkspaceModal } from '@/components/console/EditWorkspaceModal';
 import { WorkspaceDatabaseDialog } from '@/components/console/WorkspaceDatabaseDialog';
 import { CONSOLE_PAGE_SIZE as PAGE_SIZE } from '@/components/console/consoleConstants';
 import { formatMemberCount, formatPlanLabel } from '@/pages/console/platformOrganizations.format';
-import { CreateOrganizationModal } from '@/components/modals/CreateOrganizationModal';
+import { CreateOrganizationModal } from '@/features/settings';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { useMyAlliances } from '@/hooks/useAllianceAdmin';
 import { organizationService } from '@/services/organization.service';

@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import App from '@/App';
-import { customApiLookupPath } from '@/components/settings/customApi/lookupPaths';
+import { customApiLookupPath } from '@/features/settings';
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
 

@@ -10,7 +10,7 @@
  * nowhere). A mailbox with none of those reads "No problem reported", which is what is true.
  */
 import { formatDuration } from '@/components/console/failureAnalysis.format';
-import { HOLD_LABEL, formatRetry, holdSeverity } from '@/components/settings/integrations/syncHold';
+import { HOLD_LABEL, formatRetry, holdSeverity } from '@/features/settings';
 import { normalizeSyncHold } from '@/services/integrations.service';
 import type {
   WorkspaceHealthReport,

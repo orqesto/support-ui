@@ -8,7 +8,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { CustomApiTemplatePage } from '../CustomApiTemplatePage';
-import { CUSTOM_API_TEMPLATE_ROUTE } from '@/components/settings/customApi/lookupPaths';
+import { CUSTOM_API_TEMPLATE_ROUTE } from '@/features/settings';
 import type * as Svc from '@/features/custom-api';
 
 type Connection = Svc.CustomApiConnection;
@@ -36,7 +36,7 @@ vi.mock('@/hooks/usePermissions', () => ({
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('../../components/settings/customApi/TemplateGuide', () => ({
+vi.mock('@/features/settings/components/customApi/TemplateGuide', () => ({
   TemplateGuide: ({
     template,
     onCancel,

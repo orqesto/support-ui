@@ -5,7 +5,7 @@ import { CustomApiRecordInsert } from './CustomApiRecordInsert';
 import {
   CATEGORY_RECORD_LABELS,
   type CustomApiCategory,
-} from '@/components/settings/customApi/categories';
+} from '@/features/settings';
 import { listOf, renderItems, renderValue } from './customApiValue';
 import { LABEL } from './messageDetailConstants';
 import type { AddOutcome } from './recordInsertOutcome';
