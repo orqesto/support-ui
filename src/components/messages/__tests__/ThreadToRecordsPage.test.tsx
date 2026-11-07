@@ -15,7 +15,7 @@ const resolve = vi.fn();
 vi.mock('@/services/conversationContact.service', () => ({
   conversationContactService: { resolve },
 }));
-vi.mock('@/hooks/useCustomApiLookup', () => ({
+vi.mock('@/features/custom-api/hooks/useCustomApiLookup', () => ({
   useCustomApiLookup: () => ({ results: [], loading: false, error: null, run: vi.fn() }),
   useCustomApiLookupAvailability: () => true,
   useCustomApiLookupAvailabilityState: () => 'available',

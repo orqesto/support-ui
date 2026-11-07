@@ -23,7 +23,7 @@ import {
   type CustomApiLookupResult,
   type CustomApiStoredRecord,
   type RunnableLookup,
-} from '@/services/customApiLookup.service';
+} from '@/features/custom-api';
 
 /**
  * CA-6 — THE CUSTOMER RECORDS PAGE.

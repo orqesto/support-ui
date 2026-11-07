@@ -32,9 +32,9 @@ import {
   customApiService,
   type EndpointTestResult,
   type FieldPick,
-} from '@/services/customApi.service';
+  useInvalidateCustomApiAvailability,
+} from '@/features/custom-api';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
-import { useInvalidateCustomApiAvailability } from '@/hooks/useCustomApiLookup';
 
 /**
  * Add or edit a LOOKUP, and pick what an agent sees — CA-5 Task 3.

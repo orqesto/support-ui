@@ -18,7 +18,7 @@ const run = vi.fn();
 vi.mock('@/services/contact.service', () => ({
   contactService: { getById },
 }));
-vi.mock('@/services/customApiLookup.service', () => ({
+vi.mock('@/features/custom-api/services/customApiLookup.service', () => ({
   customApiLookupService: { storedRecords, lookupOptions, run },
 }));
 vi.mock('@/components/layout/Layout', () => ({

@@ -1,4 +1,4 @@
-import type { LookupField } from '@/services/customApiLookup.service';
+import type { LookupField } from '@/features/custom-api';
 
 /**
  * One vendor value as text (moved out of `customApiRowFields` in modularity task F2): shared by

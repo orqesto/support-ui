@@ -15,7 +15,7 @@ import {
   projectFields,
   LIST_ITEM_PREVIEW,
 } from '../customApiRowFields';
-import type { LookupField } from '@/services/customApiLookup.service';
+import type { LookupField } from '@/features/custom-api';
 
 afterEach(cleanup);
 

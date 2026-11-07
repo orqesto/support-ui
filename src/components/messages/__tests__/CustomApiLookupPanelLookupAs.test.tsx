@@ -14,7 +14,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE } from '../CustomApiLookupPanel';
-import type * as LookupService from '@/services/customApiLookup.service';
+import type * as LookupService from '@/features/custom-api';
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
 
@@ -23,8 +23,10 @@ type Result = LookupService.CustomApiLookupResult;
 const runDetailed = vi.fn<(body: Record<string, unknown>) => Promise<LookupService.LookupRun>>();
 let echo = true;
 
-vi.mock('@/services/customApiLookup.service', async () => {
-  const actual = await vi.importActual<typeof LookupService>('@/services/customApiLookup.service');
+vi.mock('@/features/custom-api/services/customApiLookup.service', async () => {
+  const actual = await vi.importActual<typeof LookupService>(
+    '@/features/custom-api/services/customApiLookup.service'
+  );
   return {
     ...actual,
     customApiLookupService: {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { initialFromTemplate } from '../templateInitial';
-import type { TemplateLookup } from '@/services/customApiTemplates.service';
+import type { TemplateLookup } from '@/features/custom-api';
 
 const lookup = (over: Partial<TemplateLookup> = {}): TemplateLookup =>
   ({

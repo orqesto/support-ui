@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import type { CustomApiEndpoint, FieldPick } from '@/services/customApi.service';
+import type { CustomApiEndpoint, FieldPick } from '@/features/custom-api';
 
 /**
  * D21 — "take the value from another lookup's answer".

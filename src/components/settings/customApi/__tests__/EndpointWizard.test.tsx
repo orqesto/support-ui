@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { chooseOption, listOptions } from '@/test/chooseOption';
 import { EndpointWizard, labelFromPath } from '../EndpointWizard';
 import { ResponseTree } from '../ResponseTree';
-import type * as Svc from '@/services/customApi.service';
+import type * as Svc from '@/features/custom-api';
 
 type Connection = Svc.CustomApiConnection;
 
@@ -30,8 +30,10 @@ const shapeSample =
     (connectionId: number, endpointId: number, sample: string) => Promise<Svc.EndpointTestResult>
   >();
 
-vi.mock('@/services/customApi.service', async () => {
-  const actual = await vi.importActual<typeof Svc>('@/services/customApi.service');
+vi.mock('@/features/custom-api/services/customApi.service', async () => {
+  const actual = await vi.importActual<typeof Svc>(
+    '@/features/custom-api/services/customApi.service'
+  );
   return {
     ...actual,
     customApiService: {
@@ -55,7 +57,7 @@ vi.mock('@/services/customApi.service', async () => {
  * after a failed one. The hook itself is tested against a real client in its own file.
  */
 const invalidate = vi.fn<() => void>();
-vi.mock('@/hooks/useCustomApiLookup', () => ({
+vi.mock('@/features/custom-api/hooks/useCustomApiLookup', () => ({
   useInvalidateCustomApiAvailability: () => invalidate,
 }));
 

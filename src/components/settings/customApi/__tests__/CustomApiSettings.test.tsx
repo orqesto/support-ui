@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { CustomApiSettings } from '../CustomApiSettings';
-import type * as Svc from '@/services/customApi.service';
+import type * as Svc from '@/features/custom-api';
 import { AxiosHeaders, type AxiosResponse } from 'axios';
 import { noteSessionFromResponse } from '@/lib/api-client';
 
@@ -11,8 +11,10 @@ const list = vi.fn<() => Promise<Connection[]>>();
 const remove = vi.fn<(id: number) => Promise<void>>();
 const removeEndpoint = vi.fn<(connectionId: number, endpointId: number) => Promise<void>>();
 
-vi.mock('@/services/customApi.service', async () => {
-  const actual = await vi.importActual<typeof Svc>('@/services/customApi.service');
+vi.mock('@/features/custom-api/services/customApi.service', async () => {
+  const actual = await vi.importActual<typeof Svc>(
+    '@/features/custom-api/services/customApi.service'
+  );
   return {
     ...actual,
     customApiService: {

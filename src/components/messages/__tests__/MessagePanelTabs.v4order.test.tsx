@@ -37,7 +37,7 @@ vi.mock('@/services/message.service', async (importOriginal) => ({
   messageService: new Proxy({}, { get: () => () => Promise.resolve({ success: true, data: [] }) }),
 }));
 const availability = vi.fn<(surface: string) => Promise<boolean>>();
-vi.mock('@/services/customApiLookup.service', () => ({
+vi.mock('@/features/custom-api/services/customApiLookup.service', () => ({
   customApiLookupService: {
     run: vi.fn(),
     availability: (surface: string) => availability(surface),

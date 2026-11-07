@@ -4,7 +4,7 @@ import { CATEGORY_RECORD_LABELS, readCategory } from '@/components/settings/cust
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { usePermissions } from '@/hooks/usePermissions';
-import type { CustomApiLookupResult } from '@/services/customApiLookup.service';
+import type { CustomApiLookupResult } from '@/features/custom-api';
 import { Permission } from '@/types/roles';
 import {
   ADMIN_CAN_SEE_DETAILS,

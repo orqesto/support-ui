@@ -15,7 +15,7 @@ import {
   customApiService,
   type CustomApiConnection,
   type CustomApiEndpoint,
-} from '@/services/customApi.service';
+} from '@/features/custom-api';
 import { Permission } from '@/types/roles';
 import { hostOf } from '@/components/settings/customApi/LookupHealthLine';
 

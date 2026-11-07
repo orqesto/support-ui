@@ -14,7 +14,13 @@
 import { relative, sep } from 'node:path';
 import { srcPathOf } from './no-upward-imports.js';
 
-export const API_ONLY_FEATURES = ['statistics', 'contacts', 'subscription', 'dashboard'];
+export const API_ONLY_FEATURES = [
+  'statistics',
+  'contacts',
+  'subscription',
+  'dashboard',
+  'custom-api',
+];
 
 const toPosix = (path) => path.split(sep).join('/');
 

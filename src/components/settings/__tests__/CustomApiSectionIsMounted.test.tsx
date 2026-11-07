@@ -61,7 +61,7 @@ vi.mock('@/components/settings/providers/ObjectStorageConfigCard', () => ({
 }));
 
 // ⛔ The custom-API section is NOT mocked — it is the thing under test. Only its network call is.
-vi.mock('@/services/customApi.service', () => ({
+vi.mock('@/features/custom-api/services/customApi.service', () => ({
   customApiService: {
     list: () => Promise.resolve([]),
     create: vi.fn(),

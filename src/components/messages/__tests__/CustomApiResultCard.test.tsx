@@ -8,7 +8,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { CustomApiResultCard } from '../CustomApiResultCard';
-import type { CustomApiLookupResult } from '@/services/customApiLookup.service';
+import type { CustomApiLookupResult } from '@/features/custom-api';
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
 

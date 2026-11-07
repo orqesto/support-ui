@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import type { EndpointWizardProps } from '../endpointWizardProps';
-import type { CustomApiConnection } from '@/services/customApi.service';
-import type { CustomApiTemplate } from '@/services/customApiTemplates.service';
+import { type CustomApiConnection, type CustomApiTemplate } from '@/features/custom-api';
 
 const mounted: EndpointWizardProps[] = [];
 vi.mock('../EndpointWizard', () => ({
@@ -26,7 +25,7 @@ vi.mock('../EndpointWizard', () => ({
   },
 }));
 const list = vi.fn<() => Promise<unknown[]>>();
-vi.mock('@/services/customApi.service', async (importActual) => ({
+vi.mock('@/features/custom-api/services/customApi.service', async (importActual) => ({
   ...(await importActual<object>()),
   customApiService: { list: () => list() },
 }));

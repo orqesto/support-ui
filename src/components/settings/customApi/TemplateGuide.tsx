@@ -5,8 +5,8 @@ import {
   customApiService,
   type CustomApiConnection,
   type FieldPick,
-} from '@/services/customApi.service';
-import type { CustomApiTemplate } from '@/services/customApiTemplates.service';
+  type CustomApiTemplate,
+} from '@/features/custom-api';
 import { EndpointWizard } from './EndpointWizard';
 import { TemplateChecklist } from './TemplateChecklist';
 import { initialFromTemplate } from './templateInitial';

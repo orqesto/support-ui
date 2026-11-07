@@ -9,23 +9,25 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { CustomApiTemplatePage } from '../CustomApiTemplatePage';
 import { CUSTOM_API_TEMPLATE_ROUTE } from '@/components/settings/customApi/lookupPaths';
-import type * as Svc from '@/services/customApi.service';
-import type { CustomApiTemplate } from '@/services/customApiTemplates.service';
+import type * as Svc from '@/features/custom-api';
 
 type Connection = Svc.CustomApiConnection;
+type CustomApiTemplate = Svc.CustomApiTemplate;
 
 const list = vi.fn<() => Promise<Connection[]>>();
 const listPublished = vi.fn<() => Promise<CustomApiTemplate[]>>();
 let allowed = true;
 
-vi.mock('@/services/customApi.service', async () => {
-  const actual = await vi.importActual<typeof Svc>('@/services/customApi.service');
+vi.mock('@/features/custom-api/services/customApi.service', async () => {
+  const actual = await vi.importActual<typeof Svc>(
+    '@/features/custom-api/services/customApi.service'
+  );
   return {
     ...actual,
     customApiService: { ...actual.customApiService, list: () => list() },
   };
 });
-vi.mock('@/services/customApiTemplates.service', () => ({
+vi.mock('@/features/custom-api/services/customApiTemplates.service', () => ({
   customApiTemplateService: { listPublished: () => listPublished() },
 }));
 vi.mock('@/hooks/usePermissions', () => ({

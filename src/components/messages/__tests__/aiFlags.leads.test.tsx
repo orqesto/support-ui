@@ -34,7 +34,7 @@ vi.mock('@/services/message.service', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   messageService: new Proxy({}, { get: () => () => Promise.resolve({ success: true, data: [] }) }),
 }));
-vi.mock('@/services/customApiLookup.service', () => ({
+vi.mock('@/features/custom-api/services/customApiLookup.service', () => ({
   customApiLookupService: {
     run: vi.fn(),
     availability: () => Promise.resolve(false),

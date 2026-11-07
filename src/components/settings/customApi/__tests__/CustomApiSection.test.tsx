@@ -12,7 +12,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { CustomApiSection } from '../CustomApiSection';
-import type * as Svc from '@/services/customApi.service';
+import type * as Svc from '@/features/custom-api';
 
 type Connection = Svc.CustomApiConnection;
 
@@ -20,15 +20,17 @@ const list = vi.fn<() => Promise<Connection[]>>();
 
 // The dialogs drop the thread panel's cached availability after a save; this suite tests which
 // dialog opens, not that, so the hook is stubbed rather than a QueryClient mounted for it.
-vi.mock('@/hooks/useCustomApiLookup', () => ({
+vi.mock('@/features/custom-api/hooks/useCustomApiLookup', () => ({
   useInvalidateCustomApiAvailability: () => () => {},
 }));
 
 vi.mock('@/services/department.service', () => ({
   departmentService: { getAll: () => Promise.resolve([]) },
 }));
-vi.mock('@/services/customApi.service', async () => {
-  const actual = await vi.importActual<typeof Svc>('@/services/customApi.service');
+vi.mock('@/features/custom-api/services/customApi.service', async () => {
+  const actual = await vi.importActual<typeof Svc>(
+    '@/features/custom-api/services/customApi.service'
+  );
   return {
     ...actual,
     customApiService: { ...actual.customApiService, list: () => list() },

@@ -3,7 +3,7 @@ import {
   CATEGORY_RECORD_LABELS,
   type CustomApiCategory,
 } from '@/components/settings/customApi/categories';
-import type { LookupField } from '@/services/customApiLookup.service';
+import type { LookupField } from '@/features/custom-api';
 import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
 
 /**

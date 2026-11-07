@@ -8,15 +8,15 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactElement, ReactNode } from 'react';
-import type { CustomApiLookupResult } from '@/services/customApiLookup.service';
+import type { CustomApiLookupResult } from '@/features/custom-api';
 import type { User } from '@/types';
 import { useAuthStore } from '@/stores/authStore';
 
 const run = vi.fn<(body: unknown) => Promise<CustomApiLookupResult[]>>();
 const availability = vi.fn<(surface: string) => Promise<boolean>>();
-vi.mock('@/services/customApiLookup.service', async () => {
+vi.mock('@/features/custom-api/services/customApiLookup.service', async () => {
   const actual = await vi.importActual<Record<string, unknown>>(
-    '@/services/customApiLookup.service'
+    '@/features/custom-api/services/customApiLookup.service'
   );
   return {
     ...actual,

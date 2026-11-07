@@ -1,4 +1,4 @@
-import type { CustomApiEndpoint } from '@/services/customApi.service';
+import type { CustomApiEndpoint } from '@/features/custom-api';
 import { BotStatusFields, useBotStatus } from './BotStatusFields';
 import type { EndpointInitial } from './endpointWizardProps';
 import { NoMatchHintField, useNoMatchHint } from './NoMatchHintField';

@@ -8,12 +8,13 @@ import {
   useCustomApiLookup,
   useCustomApiLookupAvailabilityState,
   useCustomApiLookupOptions,
-} from '@/hooks/useCustomApiLookup';
+  type CustomApiLookupResult,
+  type RunnableLookup,
+} from '@/features/custom-api';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { conversationContactService } from '@/services/conversationContact.service';
 import type { AddOutcome } from './recordInsertOutcome';
-import type { CustomApiLookupResult, RunnableLookup } from '@/services/customApiLookup.service';
 import { relativeTime } from './messageDetailConstants';
 import { CustomApiResultCard } from './CustomApiResultCard';
 import { referenceOf, trackingOf, type TrackingItem } from './customApiRowFields';

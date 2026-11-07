@@ -3,7 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { EndpointWizard } from '../EndpointWizard';
-import type * as Svc from '@/services/customApi.service';
+import type * as Svc from '@/features/custom-api';
 
 type Connection = Svc.CustomApiConnection;
 
@@ -11,8 +11,10 @@ const createEndpoint = vi.fn<(connectionId: number, input: unknown) => Promise<C
 const updateEndpoint =
   vi.fn<(connectionId: number, endpointId: number, input: unknown) => Promise<Connection>>();
 
-vi.mock('@/services/customApi.service', async () => {
-  const actual = await vi.importActual<typeof Svc>('@/services/customApi.service');
+vi.mock('@/features/custom-api/services/customApi.service', async () => {
+  const actual = await vi.importActual<typeof Svc>(
+    '@/features/custom-api/services/customApi.service'
+  );
   return {
     ...actual,
     customApiService: {
@@ -24,7 +26,7 @@ vi.mock('@/services/customApi.service', async () => {
   };
 });
 
-vi.mock('@/hooks/useCustomApiLookup', () => ({
+vi.mock('@/features/custom-api/hooks/useCustomApiLookup', () => ({
   useInvalidateCustomApiAvailability: () => vi.fn(),
 }));
 

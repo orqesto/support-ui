@@ -41,7 +41,7 @@ const { getNoteSummary } = vi.hoisted(() => ({
   getNoteSummary: vi.fn(() => Promise.resolve({ count: 0, latest: null as unknown })),
 }));
 vi.mock('@/services/contact.service', () => ({ contactService: { getNoteSummary } }));
-vi.mock('@/services/customApiLookup.service', () => ({
+vi.mock('@/features/custom-api/services/customApiLookup.service', () => ({
   customApiLookupService: { run: vi.fn(), availability: vi.fn().mockResolvedValue(false) },
 }));
 

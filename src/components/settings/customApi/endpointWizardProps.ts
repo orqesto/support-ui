@@ -1,8 +1,4 @@
-import type {
-  CustomApiConnection,
-  CustomApiEndpoint,
-  FieldPick,
-} from '@/services/customApi.service';
+import type { CustomApiConnection, CustomApiEndpoint, FieldPick } from '@/features/custom-api';
 import type { CustomApiCategory } from './categories';
 
 /** Starting values for a NEW lookup (a template). Ignored when `endpoint` is given (edit). */

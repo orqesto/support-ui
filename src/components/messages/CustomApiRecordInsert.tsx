@@ -7,7 +7,7 @@ import { buildRecordNote, defaultSelection, offerableFields } from './customApiR
 import { renderValue } from './customApiValue';
 import type { CustomApiCategory } from '@/components/settings/customApi/categories';
 import type { AddOutcome } from './recordInsertOutcome';
-import type { LookupField } from '@/services/customApiLookup.service';
+import type { LookupField } from '@/features/custom-api';
 
 /** v4 `.k-ob`: the outcome chip beside the buttons. */
 const OUTCOME = 'rounded-[5px] px-[7px] py-0.5 font-sans text-[10.5px] font-medium cursor-default';

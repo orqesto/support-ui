@@ -1,4 +1,4 @@
-import type { CustomApiEndpoint } from '@/services/customApi.service';
+import type { CustomApiEndpoint } from '@/features/custom-api';
 
 export type ParamSource = 'identity' | 'manual' | 'endpoint';
 
