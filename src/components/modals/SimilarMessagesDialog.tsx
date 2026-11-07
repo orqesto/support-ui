@@ -24,7 +24,7 @@ import { Select } from '@/components/ui/Select';
 import { apiClient } from '@/lib/api-client';
 import { toast } from '@/lib/toast';
 import { isAiDraftsOffError, AI_DRAFTS_OFF_MESSAGE } from '@/lib/errorMessages';
-import { useAiRefusalText } from '@/features/subscription';
+import { useAiRefusalText } from '@/features/subscription/shell';
 import { logger } from '@/lib/logger';
 import { SEARCH_CUT_SHORT_COPY, searchCutShort } from '@/lib/searchCutShort';
 import { AnswerPreview } from '@/components/messages/AnswerPreview';

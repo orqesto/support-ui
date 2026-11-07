@@ -61,7 +61,7 @@ import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import { showRouteLearningNote } from '@/lib/routingCopy';
-import { useAiRefusalText, useIsWorkspaceAdmin } from '@/features/subscription';
+import { useAiRefusalText, useIsWorkspaceAdmin } from '@/features/subscription/shell';
 import {
   LABEL,
   CHIP_SENTENCE,

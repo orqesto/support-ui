@@ -4,7 +4,7 @@ import { Sparkles, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
-import { useAiDraftsOff, useRefreshAiDrafts } from '@/features/settings';
+import { useAiDraftsOff, useRefreshAiDrafts } from '@/features/settings/shell';
 import { editorHtmlToText } from '@/lib/editorText';
 import { logger } from '@/lib/logger';
 import {
@@ -13,7 +13,7 @@ import {
   getErrorStatus,
   isAiDraftsOffError,
 } from '@/lib/errorMessages';
-import { useAiRefusalText } from '@/features/subscription';
+import { useAiRefusalText } from '@/features/subscription/shell';
 import { messageService } from '@/services/message.service';
 import { answerToEditorHtml, COMPOSER_AI_TOOL, COMPOSER_TOOL } from './messageDetailConstants';
 

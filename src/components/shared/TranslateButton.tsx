@@ -11,7 +11,7 @@ import {
   AI_DRAFTS_OFF_MESSAGE,
 } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
-import { useAiRefusalText, useIsWorkspaceAdmin } from '@/features/subscription';
+import { useAiRefusalText, useIsWorkspaceAdmin } from '@/features/subscription/shell';
 
 type TranslateButtonProps = {
   messageId?: number;

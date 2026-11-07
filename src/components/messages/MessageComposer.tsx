@@ -23,7 +23,7 @@ import { COMPOSER_TOOL, LABEL, SEND_SHORTCUT } from './messageDetailConstants';
 import { useIsPhone } from './useIsPhone';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
-import { useAiDraftsOff } from '@/features/settings';
+import { useAiDraftsOff } from '@/features/settings/shell';
 import { ComposerSendButton, type SendAction } from './ComposerSendButton';
 import { SignatureReviewNotice } from './SignatureReviewNotice';
 import { useOpenOnNewAddress } from './useOpenOnNewAddress';

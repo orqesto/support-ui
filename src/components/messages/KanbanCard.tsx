@@ -36,7 +36,7 @@ import {
   hasAttachments,
 } from './inboxCardHelpers';
 import { TRIAGE_READ_COLUMN_IDS } from './kanbanColumns';
-import { useAiDraftsOff } from '@/features/settings';
+import { useAiDraftsOff } from '@/features/settings/shell';
 import {
   SELECT_GROUP_CLASS,
   TOUCH_PRESS_GUARD_CLASS,

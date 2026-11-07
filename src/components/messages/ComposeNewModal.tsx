@@ -19,7 +19,7 @@ import { logger } from '@/lib/logger';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
-import { useAiDraftsOff } from '@/features/settings';
+import { useAiDraftsOff } from '@/features/settings/shell';
 import { ComposeNewAiDraft, type ComposeAiNote } from './ComposeNewAiDraft';
 import { COMPOSER_SEND, COMPOSER_TOOL, SEND_SHORTCUT } from './messageDetailConstants';
 

@@ -1,4 +1,4 @@
-import { CATEGORY_TAB_LABELS, readCategory } from '@/features/settings';
+import { CATEGORY_TAB_LABELS, readCategory } from '@/features/settings/shell';
 import {
   useCustomApiLookupAvailability,
   useCustomApiLookupOptions,

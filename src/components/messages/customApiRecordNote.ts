@@ -1,8 +1,5 @@
 import { renderValue } from './customApiValue';
-import {
-  CATEGORY_RECORD_LABELS,
-  type CustomApiCategory,
-} from '@/features/settings';
+import { CATEGORY_RECORD_LABELS, type CustomApiCategory } from '@/features/settings/shell';
 import type { LookupField } from '@/features/custom-api';
 import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
 

@@ -17,13 +17,13 @@ import { SimilarMessagesDialog } from '@/components/modals/SimilarMessagesDialog
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
-import { useAiDraftsOff } from '@/features/settings';
+import { useAiDraftsOff } from '@/features/settings/shell';
 import { logger } from '@/lib/logger';
 import { languageName as languageNameOf } from '@/lib/languageName';
 import { stripGreetingName } from '@/lib/depersonalise';
 import { priorityLabel } from './messageDetailConstants';
 import { AnalysisDegradedHint, analysisInfoValue } from './AnalysisDegradedHint';
-import { useIsWorkspaceAdmin } from '@/features/subscription';
+import { useIsWorkspaceAdmin } from '@/features/subscription/shell';
 
 // Moved to `@/types/similarResult` (modularity task F2); re-exported for existing importers.
 export type { KBAttachment, SimilarResult };

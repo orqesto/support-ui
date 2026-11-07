@@ -39,7 +39,7 @@ import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
 import { RowAssignee } from './RowAssignee';
 import type { ListDensity } from './useListPresentation';
-import { useAiDraftsOff } from '@/features/settings';
+import { useAiDraftsOff } from '@/features/settings/shell';
 import {
   SELECT_GROUP_CLASS,
   TOUCH_PRESS_GUARD_CLASS,
