@@ -31,7 +31,8 @@
     "prepare": "husky",
     "check:boundaries": "node scripts/ci/check-boundaries.mjs",
     "check:cycles": "node scripts/ci/check-cycles.mjs",
-    "check:shell": "node scripts/ci/check-shell-bundle.mjs"
+    "check:shell": "node scripts/ci/check-shell-bundle.mjs",
+    "check:bundle": "node scripts/ci/check-bundle.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
