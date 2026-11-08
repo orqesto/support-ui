@@ -1,7 +1,6 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Send, Paperclip, BookOpen, FileText, Search, X } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Paperclip, BookOpen, Search } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -10,139 +9,38 @@ import { useComposerHeight } from './useComposerHeight';
 import RichTextEditor from '@/components/shared/LazyRichTextEditor';
 import { extractImageFiles } from '@/components/shared/extractImageFiles';
 import { ComposerAiActions } from './ComposerAiActions';
-import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { isBlankRichText } from '@/lib/stripHtml';
-import { logger } from '@/lib/logger';
 import { InsertFieldMenu } from '@/components/shared/InsertFieldMenu';
 import { TemplatePicker } from '@/components/shared/TemplatePicker';
-import { replyTemplatesService, type ReplyTemplate } from '@/services/replyTemplates.service';
-import { RecipientFields, replyToLabel, type RecipientDraft } from './RecipientFields';
-import type { AiDraft } from '@/services/message.service';
-import type { Message } from '@/types';
-import { COMPOSER_TOOL, LABEL, SEND_SHORTCUT } from './messageDetailConstants';
+import { RecipientFields, replyToLabel } from './RecipientFields';
 import { useIsPhone } from './useIsPhone';
 import { TranslateButton } from '@/components/shared/TranslateButton';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff } from '@/features/settings/shell';
-import { ComposerSendButton, type SendAction } from './ComposerSendButton';
+import { ComposerSendButton } from './ComposerSendButton';
 import { SignatureReviewNotice } from './SignatureReviewNotice';
 import { useOpenOnNewAddress } from './useOpenOnNewAddress';
+import type { MessageComposerProps } from './composer/types';
+import {
+  AI_AT_REST,
+  IBTN,
+  isTextEntry,
+  PHONE_TOOLS,
+  TOOL_DIVIDER,
+} from './composer/composerConstants';
+import { useOutsidePressFold } from './composer/useOutsidePressFold';
+import { useComposerTemplates } from './composer/useComposerTemplates';
+import {
+  ComposerFileChips,
+  ComposerModeTabs,
+  ComposerPlainSend,
+  ComposerSignature,
+  ComposerWindowNotice,
+} from './composer/ComposerParts';
 
-// ─── Props ────────────────────────────────────────────────────────────────────
-
-export type MessageComposerProps = {
-  message: Message;
-  composer: string;
-  setComposer: React.Dispatch<React.SetStateAction<string>>;
-  composerMode: 'reply' | 'note';
-  setComposerMode: React.Dispatch<React.SetStateAction<'reply' | 'note'>>;
-  submitting: boolean;
-  onSend: () => void;
-  richEditorRef: React.RefObject<RichTextEditorHandle>;
-  noteEditorRef: React.RefObject<RichTextEditorHandle>;
-  onOpenSimilarMessages: () => void;
-  selectedFiles: File[];
-  onFilesChange: (files: File[]) => void;
-  /** Single-key shortcuts that act in this view (detailShortcuts.ts); omitted, no hint shows. */
-  shortcutHint?: string;
-  /** The resolve decisions (ResolveDecisions), rendered last — under the reply. */
-  decisions?: React.ReactNode;
-  /**
-   * Set when the channel forbids sending right now (WhatsApp's 24-hour window). Disables
-   * send and is shown above the composer. Never set for internal notes — those are not
-   * delivered to the customer, so no channel rule applies.
-   */
-  sendBlockedReason?: string | null;
-  /** e.g. "2h 30m" — how long a WhatsApp reply window has left. */
-  windowRemaining?: string | null;
-  windowTone?: 'none' | 'info' | 'warning' | 'blocked';
-  /**
-   * Opens the approved-template picker. Offered ONLY from the blocked notice: a template
-   * is what the agent needs precisely when free-form is refused, and putting it in the
-   * toolbar would invite a billable send on conversations where a free reply was legal.
-   * Absent when the channel has no templates to offer.
-   */
-  onUseTemplate?: (() => void) | null;
-  /**
-   * To/Cc/Bcc for this reply. Absent for channels with no addressing — the
-   * fields are only meaningful on email, and a Cc box on a Telegram thread
-   * would be a promise the transport can't keep.
-   */
-  recipientDraft?: RecipientDraft;
-  onRecipientDraftChange?: (draft: RecipientDraft) => void;
-  /** Everyone on the thread who is not us — offered as Reply all and one-click Cc. */
-  participants?: string[];
-  /**
-   * Reports which AI mode produced the text now in the composer (null when the
-   * agent undoes back to their own text), so the send can be stamped with its
-   * true author. The second argument is that draft as applied, carried on the
-   * send for reply_style capture (undefined on undo).
-   */
-  onAiSourceChange?: (source: string | null, draft?: AiDraft) => void;
-  /**
-   * v4 "Look up": takes the agent to the Connected systems block on the Lookups tab. The host
-   * passes it ONLY when this workspace has a lookup the agent could run on a thread (the same
-   * cached availability answer the lookup panel renders on) — absent, no button, because a
-   * button that opens an empty tab is the dead control the availability check exists to remove.
-   * Reply mode only: a lookup feeds the reply, an internal note has no use for it.
-   */
-  onLookUp?: (() => void) | null;
-  /** Hidden but kept mounted (v4 mobile: a phone shows the composer under Thread / Notes only). */
-  hidden?: boolean;
-  /**
-   * Send-and-then (2026-10-29): the reply's Send becomes a split button offering these. Absent,
-   * a plain Send. `sendAction` is the face — the agent's last choice.
-   */
-  sendActions?: SendAction[];
-  sendAction?: SendAction;
-  /** The Send ▾ face: send with what it shows. */
-  onSendWith?: (action: SendAction) => void;
-  /** A Send ▾ menu pick: the agent's choice — send with it and remember it. */
-  onSendPick?: (action: SendAction) => void;
-  /** Told when the box opens or folds, so the host can shrink its header while a reply is written. */
-  onOpenChange?: (open: boolean) => void;
-};
-
-/*
-  v4 mobile (M7). What may stay open on an outside press: a menu, list, dialog or sheet the
-  composer opened (AI panel options, the similar-messages dialog, a select menu) is not "outside".
-*/
-const KEEPS_COMPOSER_OPEN = '[role="dialog"], [role="menu"], [role="listbox"], [aria-modal="true"]';
-
-/** Inputs that take typed text — where a focus means the agent is about to write. */
-const NON_TEXT_INPUTS = new Set([
-  'button',
-  'checkbox',
-  'file',
-  'hidden',
-  'image',
-  'radio',
-  'range',
-  'reset',
-  'submit',
-]);
-const isTextEntry = (target: EventTarget): boolean => {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target instanceof HTMLInputElement) return !NON_TEXT_INPUTS.has(target.type);
-  return (
-    target instanceof HTMLTextAreaElement ||
-    target.isContentEditable ||
-    Boolean(target.closest('[contenteditable="true"]'))
-  );
-};
+export type { MessageComposerProps } from './composer/types';
 
 // ─── Component ────────────────────────────────────────────────────────────────
-
-// v3 ".ibtn" — shared with Compose new message (messageDetailConstants).
-const IBTN = COMPOSER_TOOL;
-// Between the toolbar's three groups — write (AI draft, Translate), insert (Templates, Insert
-// field, Attach), find (KB, Look up) — so the row reads as three tools, not nine, on one line.
-const TOOL_DIVIDER = 'w-px h-4 bg-border mx-0.5 max-sm:hidden';
-// The open toolbar on a phone: tools wrap, 6px apart; the AI draft button is tool-sized too.
-const PHONE_TOOLS = 'max-sm:gap-1.5 max-sm:[&_button]:min-h-9';
-// At rest on a phone: only the AI draft button — the off note, undo and messages wait for open.
-const AI_AT_REST =
-  '[&>span]:hidden [&>div]:hidden [&>p]:hidden [&>button:not([data-ai-draft])]:hidden [&>button]:!h-10 sm:[&>button]:!h-8 [&>button]:!rounded-full [&>button]:!px-3.5 [&>button]:!text-[13px]';
 
 export function MessageComposer({
   message,
@@ -296,68 +194,15 @@ export function MessageComposer({
       </Tooltip>
     );
   const aiActiveRef = useRef(false);
-  /*
-    Open on a press inside, fold on a press outside — decided by where the press BEGAN.
-
-    ⛔ Not by the click's target. React 18 re-renders in a microtask between its root listener and
-    a document listener, so by the time a document click listener runs, a control that removed
-    itself (Write reply → spinner, Close AI panel, Edit recipients, Remove file) is DETACHED:
-    `root.contains(target)` is false and an inside tap read as outside, folding an empty composer
-    mid-action. The pointerdown (capture phase, before anything re-renders) records where the
-    press began; the click's capture phase takes that record (or, for a click with no pointer —
-    the keyboard — judges the still-attached target), and the bubble phase acts on it after the
-    page has handled the click. Taking it in the CAPTURE phase means a handler that stops the
-    click's propagation cannot leave a stale record for the next one.
-  */
-  useEffect(() => {
-    type Press = 'composer' | 'keep' | 'outside';
-    let pointerPress: Press | null = null;
-    let clickPress: Press | null = null;
-    const judge = (target: EventTarget | null): Press | null => {
-      if (!(target instanceof Node) || !target.isConnected) return null;
-      if (rootRef.current?.contains(target)) return 'composer';
-      const element = target instanceof Element ? target : target.parentElement;
-      return element?.closest(KEEPS_COMPOSER_OPEN) ? 'keep' : 'outside';
-    };
-    const onPointerDown = (event: PointerEvent) => {
-      pointerPress = judge(event.target);
-    };
-    const onPointerCancel = () => {
-      pointerPress = null;
-    };
-    const onClickCapture = (event: MouseEvent) => {
-      clickPress = pointerPress ?? judge(event.target);
-      pointerPress = null;
-    };
-    const onClick = () => {
-      const press = clickPress;
-      clickPress = null;
-      // This click is the Collapse that just folded the box: it must not reopen it.
-      if (foldedByThisClickRef.current) {
-        foldedByThisClickRef.current = false;
-        return;
-      }
-      if (press === 'composer') {
-        if (!openRef.current) setOpen(true);
-        return;
-      }
-      if (press !== 'outside' || !openRef.current) return;
-      // A draft is never folded away — nor an AI request in flight.
-      if (!draftEmptyRef.current || aiActiveRef.current) return;
-      setOpen(false);
-      setRestGeneration((gen) => gen + 1);
-    };
-    document.addEventListener('pointerdown', onPointerDown, true);
-    document.addEventListener('pointercancel', onPointerCancel, true);
-    document.addEventListener('click', onClickCapture, true);
-    document.addEventListener('click', onClick);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown, true);
-      document.removeEventListener('pointercancel', onPointerCancel, true);
-      document.removeEventListener('click', onClickCapture, true);
-      document.removeEventListener('click', onClick);
-    };
-  }, []);
+  useOutsidePressFold({
+    rootRef,
+    foldedByThisClickRef,
+    openRef,
+    draftEmptyRef,
+    aiActiveRef,
+    setOpen,
+    setRestGeneration,
+  });
   /*
     Focus opens it only when it lands where text is typed. Chrome Android focuses a button on
     the PRESS, so opening on any focus grew the composer between press and release and the tap
@@ -383,43 +228,13 @@ export function MessageComposer({
     ? 'flex-1 min-w-0 h-10 sm:h-8 py-0 px-3 text-base sm:text-sm rounded-full'
     : '';
 
-  /*
-    Reply templates (2026-10-09): the body goes into the editor — in place of a blank draft, after
-    the agent's own words otherwise — and the template's files are attached. Placeholders stay as
-    tokens (filled at send); AI draft on a template adapts it (polish), which fills them first.
-    ⛔ The files download after the text lands: if the agent has moved to another conversation by
-    then, they are NOT attached — they would go to a different customer.
-  */
-  const [templateError, setTemplateError] = useState<string | null>(null);
-  const filesRef = useRef(selectedFiles);
-  filesRef.current = selectedFiles;
-  const messageIdRef = useRef(message.id);
-  messageIdRef.current = message.id;
-  useEffect(() => setTemplateError(null), [message.id]);
-  const insertTemplate = async (template: ReplyTemplate) => {
-    setTemplateError(null);
-    setComposer((prev) => (isBlankRichText(prev) ? template.body : `${prev}${template.body}`));
-    setTimeout(() => richEditorRef.current?.focus(), 0);
-    if (template.attachments.length === 0) return;
-    const startedOn = message.id;
-    const results = await Promise.allSettled(
-      template.attachments.map((file) =>
-        replyTemplatesService.downloadAttachment(template.id, file)
-      )
-    );
-    if (messageIdRef.current !== startedOn) return;
-    const files = results
-      .filter((row): row is PromiseFulfilledResult<File> => row.status === 'fulfilled')
-      .map((row) => row.value);
-    if (files.length > 0) onFilesChange([...filesRef.current, ...files]);
-    const failed = template.attachments.filter((_, idx) => results[idx].status === 'rejected');
-    if (failed.length > 0) {
-      logger.error('Failed to attach a reply template’s files', { templateId: template.id });
-      setTemplateError(
-        `Could not attach ${failed.map((file) => file.filename).join(', ')} from “${template.name}”.`
-      );
-    }
-  };
+  const { templateError, insertTemplate } = useComposerTemplates({
+    message,
+    selectedFiles,
+    setComposer,
+    richEditorRef,
+    onFilesChange,
+  });
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) onFilesChange([...selectedFiles, ...Array.from(event.target.files)]);
@@ -476,71 +291,25 @@ export function MessageComposer({
       {/* v3: the two things this box can do, as tabs — the mode used to be reachable only from
           the Notes tab or the N key, so nothing on screen said a note was an option here. The
           key hint sits on the right, built from the same context the shortcuts read. */}
-      <div
-        className={`flex items-center gap-[15px] mb-1.5 ${atRest ? 'hidden' : ''}`}
-        role="group"
-        aria-label="Composer mode"
-      >
-        {(['reply', 'note'] as const).map((mode) => (
-          <button
-            key={mode}
-            type="button"
-            aria-pressed={composerMode === mode}
-            onClick={() => {
-              setComposerMode(mode);
-              setTimeout(
-                () => (mode === 'note' ? noteEditorRef : richEditorRef).current?.focus(),
-                0
-              );
-            }}
-            className={`pb-1 border-b-2 ${LABEL} tracking-[0.1em] transition-colors ${
-              composerMode === mode
-                ? mode === 'note'
-                  ? 'border-note text-note'
-                  : 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            {mode === 'reply' ? 'Reply' : 'Internal note'}
-          </button>
-        ))}
-        {/* The send key joined the R/N/E hint here so the toolbar fits on one row with Send. */}
-        <span className="ml-auto font-mono text-[10px] text-muted-foreground hidden sm:inline">
-          {shortcutHint ? `${shortcutHint} · ` : ''}
-          {SEND_SHORTCUT} {composerMode === 'note' ? 'post' : 'send'}
-        </span>
-      </div>
+      <ComposerModeTabs
+        atRest={atRest}
+        composerMode={composerMode}
+        setComposerMode={setComposerMode}
+        noteEditorRef={noteEditorRef}
+        richEditorRef={richEditorRef}
+        shortcutHint={shortcutHint}
+      />
 
       {/* WhatsApp 24-hour window. Shown ABOVE the input so the agent reads it before
           typing, not after pressing send. Only rendered when there is something to say —
           a permanent banner would train people to ignore this space. */}
       {(sendBlockedReason || windowRemaining) && windowTone !== 'info' && (
-        <div
-          role={windowTone === 'blocked' ? 'alert' : 'status'}
-          className={`mb-2 px-2.5 py-[7px] text-[12.5px] rounded-[9px] border ${
-            windowTone === 'blocked'
-              ? 'border-destructive-line bg-destructive-muted text-destructive'
-              : 'border-warning-line bg-warning-muted text-warning'
-          }`}
-        >
-          {sendBlockedReason}
-          {windowRemaining && !sendBlockedReason && (
-            <span>
-              {' '}
-              Closes in <strong>{windowRemaining}</strong>.
-            </span>
-          )}
-          {sendBlockedReason && onUseTemplate && (
-            <Button
-              variant="ghost"
-              onClick={onUseTemplate}
-              className="mt-1.5 flex items-center gap-1.5 px-2 py-0.5 h-auto rounded border border-current text-[11px] font-semibold"
-            >
-              <FileText className="w-3 h-3" />
-              Use an approved template
-            </Button>
-          )}
-        </div>
+        <ComposerWindowNotice
+          windowTone={windowTone}
+          sendBlockedReason={sendBlockedReason}
+          windowRemaining={windowRemaining}
+          onUseTemplate={onUseTemplate}
+        />
       )}
 
       {/* Input frame — `relative` anchors the AI panel, which opens upward. */}
@@ -598,25 +367,7 @@ export function MessageComposer({
         {composerMode === 'reply' && recipientDraft && !atRest && user?.signature?.trim() && (
           // One line (2026-10-29): the full block took four lines of the conversation's room. The
           // whole signature is in the hover title and goes out in full on send.
-          <div
-            data-testid="composer-signature"
-            className="flex items-baseline gap-2 px-3 pb-1.5 text-xs text-muted-foreground select-none"
-            title={user.signature.trim()}
-          >
-            <span className="truncate min-w-0">
-              --{' '}
-              {user.signature
-                .trim()
-                .split(/\s*\n\s*/)
-                .join(' · ')}
-            </span>
-            <Link
-              to="/settings#profile"
-              className="flex-none text-[11px] underline hover:text-foreground"
-            >
-              Edit signature in Profile
-            </Link>
-          </div>
+          <ComposerSignature signature={user.signature} />
         )}
         {composerMode === 'note' && (
           <RichTextEditor
@@ -755,31 +506,16 @@ export function MessageComposer({
               title={sendTitle}
             />
           ) : (
-            <Button
-              variant="ghost"
-              onClick={atRest && !draftEmpty ? openForReview : onSend}
-              disabled={sendDisabled}
-              title={sendTitle}
-              className={`flex items-center gap-1 px-[13px] py-[5px] h-auto rounded-[7px] font-display text-[10.5px] font-semibold uppercase tracking-[0.07em] transition-colors data-[inactive]:opacity-50 ${
-                composerMode === 'note'
-                  ? 'bg-note hover:bg-note/90 text-note-foreground'
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
-              } ${atRest ? '!w-10 !h-10 sm:!w-8 sm:!h-8 !p-0 !rounded-full justify-center flex-none' : 'max-sm:h-9 max-sm:px-3.5'}`}
-            >
-              <Send className={atRest ? 'w-4 h-4 sm:w-3.5 sm:h-3.5' : 'w-2.5 h-2.5'} />
-              {/* The round Send at rest keeps its name for screen readers. */}
-              {atRest ? (
-                <span className="sr-only">
-                  {composerMode === 'note' ? 'POST NOTE' : submitting ? 'SENDING…' : 'SEND'}
-                </span>
-              ) : composerMode === 'note' ? (
-                'POST NOTE'
-              ) : submitting ? (
-                'SENDING…'
-              ) : (
-                'SEND'
-              )}
-            </Button>
+            <ComposerPlainSend
+              atRest={atRest}
+              draftEmpty={draftEmpty}
+              openForReview={openForReview}
+              onSend={onSend}
+              sendDisabled={sendDisabled}
+              sendTitle={sendTitle}
+              composerMode={composerMode}
+              submitting={submitting}
+            />
           )}
         </div>
       </div>
@@ -792,26 +528,7 @@ export function MessageComposer({
 
       {/* Selected files */}
       {selectedFiles.length > 0 && !atRest && (
-        <div className="flex flex-wrap gap-1.5 mt-1.5">
-          {selectedFiles.map((file, idx) => (
-            <div
-              key={`${file.name}-${file.size}-${idx}`}
-              className="inline-flex items-center gap-1.5 max-w-full text-[11.5px] text-muted-foreground border border-border bg-raised rounded-md px-2 py-[3px]"
-            >
-              <Paperclip className="w-2.5 h-2.5 flex-shrink-0" />
-              <span className="truncate">{file.name}</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Remove file"
-                onClick={() => handleRemoveFile(idx)}
-                className="p-0 w-auto h-auto text-faint-foreground hover:text-destructive"
-              >
-                <X className="w-2.5 h-2.5" />
-              </Button>
-            </div>
-          ))}
-        </div>
+        <ComposerFileChips selectedFiles={selectedFiles} handleRemoveFile={handleRemoveFile} />
       )}
       {/* While a reply is typed, Send ▾ carries the resolve choices: the row returns when the
           box is empty again (owner, 2026-10-29). Text only: an address alone (Reply to this
