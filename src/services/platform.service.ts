@@ -535,11 +535,43 @@ export type DataSizeReport = {
   byodbError?: string | null;
 };
 
+/** One API copy alive now (architecture M7 B1): its presence key, refreshed every 15 s. */
+export type ApiCopyPresence = {
+  copy: number;
+  host: string;
+  startedAt: string;
+  /** The copy count the deploy that started it had set. */
+  copiesAtStart: number;
+  gitSha: string;
+};
+
+/** GET/PUT /admin/platform/api-copies (architecture M7 B1). */
+export type ApiCopiesState = {
+  copies: { value: number; source: 'db' | 'default'; min: number; max: number };
+  running: ApiCopyPresence[];
+  /** The count set differs from the copies running: the next deploy applies it. */
+  appliesAtNextDeploy: boolean;
+  /** A self-hosted install runs one API copy; the setting has no effect there. */
+  selfHosted: boolean;
+};
+
 export const platformService = {
   /** `fresh`: measure again instead of the server's up-to-5-minute-old reading. */
   getDataSize: async (fresh = false): Promise<DataSizeReport> => {
     const res = await apiClient.get<{ data: DataSizeReport }>(`${PLATFORM}/data-size`, {
       params: fresh ? { fresh: '1' } : undefined,
+    });
+    return res.data.data;
+  },
+
+  getApiCopies: async (): Promise<ApiCopiesState> => {
+    const res = await apiClient.get<{ data: ApiCopiesState }>(`${PLATFORM}/api-copies`);
+    return res.data.data;
+  },
+
+  setApiCopies: async (copies: number): Promise<ApiCopiesState> => {
+    const res = await apiClient.put<{ data: ApiCopiesState }>(`${PLATFORM}/api-copies`, {
+      copies,
     });
     return res.data.data;
   },
