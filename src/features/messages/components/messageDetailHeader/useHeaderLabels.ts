@@ -154,7 +154,7 @@ export function useHeaderLabelHandlers({
         endLabelWrite();
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps unchanged from MessageDetailHeader; the setters and refs passed in are stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps unchanged from MessageDetailHeader; beginLabelWrite/endLabelWrite are new each render, so listing them would re-create this handler every render
     [message.id, messageLabels]
   );
 
@@ -188,7 +188,7 @@ export function useHeaderLabelHandlers({
         endLabelWrite();
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps unchanged from MessageDetailHeader; the setters and refs passed in are stable
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps unchanged from MessageDetailHeader; beginLabelWrite/endLabelWrite are new each render, so listing them would re-create this handler every render
     [message.id, message.departmentId]
   );
 
