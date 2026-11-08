@@ -72,6 +72,7 @@ vi.mock('@/services/message.service', () => ({
     markUnread: vi.fn(() => Promise.resolve()),
     delete: mocks.del,
     classify: mocks.classify,
+    reopen: vi.fn(() => Promise.resolve()),
   },
 }));
 vi.mock('@/lib/toast', () => ({
@@ -197,14 +198,18 @@ vi.mock('@/features/messages/components/MessageDetail', () => ({
     onNavigate,
     onOptimisticMove,
     onClassify,
+    onRefresh,
+    onReopen,
   }: {
-    message: { id: number };
+    message: { id: number; subject?: string };
+    onRefresh?: () => Promise<void>;
+    onReopen?: () => Promise<void>;
     onDelete?: () => void;
     onClassify?: (action: string) => Promise<void>;
     onNavigate?: (direction: 'next' | 'prev') => void;
     onOptimisticMove?: (columnId: string) => void;
   }) => (
-    <div data-testid="detail-pane">
+    <div data-testid="detail-pane" data-subject={message.subject}>
       {message.id}
       {onDelete && (
         <button type="button" onClick={onDelete}>
@@ -224,11 +229,18 @@ vi.mock('@/features/messages/components/MessageDetail', () => ({
           Move to spam
         </button>
       )}
+      <button type="button" onClick={() => void onRefresh?.()}>
+        Refresh thread
+      </button>
+      <button type="button" onClick={() => void onReopen?.()}>
+        Reopen thread
+      </button>
     </div>
   ),
 }));
 
 import { MessagesPage } from '../MessagesPage';
+import { messageService } from '@/services/message.service';
 import { subscribeToEvent } from '@/lib/socketManager';
 import { SERVER_EVENT_REFRESH_MS } from '@/hooks/useCoalescedRefresh';
 
@@ -511,6 +523,61 @@ describe('MessagesPage — slide-over More → Delete thread', () => {
     await openDetail(12);
     expect(screen.getByRole('button', { name: 'More → Delete thread' })).toBeInTheDocument();
   });
+});
+
+// A re-read of the open thread (after a reply / header change, or a Reopen) that lands after the
+// agent moved to another thread (J/K, a row click) used to put the OLD thread back on screen.
+describe('MessagesPage — a late answer for a thread the agent left', () => {
+  const holdNextRead = () => {
+    let land: () => void = () => {};
+    vi.mocked(messageService.getById).mockImplementationOnce(
+      (id) =>
+        new Promise((resolve) => {
+          land = () =>
+            resolve({
+              success: true,
+              data: { ...messageFor(Number(id)), subject: 'Re-read' },
+            } as never);
+        })
+    );
+    return () => land();
+  };
+
+  it.each(['Refresh thread', 'Reopen thread'])(
+    '%s on 12, then 11 opened: 12’s answer does not take the panel back',
+    async (button) => {
+      renderPage();
+      await openDetail(12);
+      const land = holdNextRead();
+      fireEvent.click(screen.getByRole('button', { name: button }));
+      await waitFor(() => expect(messageService.getById).toHaveBeenLastCalledWith(12));
+      await openDetail(11);
+      await act(async () => {
+        land();
+        await Promise.resolve();
+      });
+      expect(screen.getByTestId('detail-pane')).toHaveTextContent('11');
+    }
+  );
+
+  it.each(['Refresh thread', 'Reopen thread'])(
+    'CONTROL: %s while still on 12 applies its answer',
+    async (button) => {
+      renderPage();
+      await openDetail(12);
+      const land = holdNextRead();
+      fireEvent.click(screen.getByRole('button', { name: button }));
+      await waitFor(() => expect(messageService.getById).toHaveBeenLastCalledWith(12));
+      await act(async () => {
+        land();
+        await Promise.resolve();
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('detail-pane')).toHaveAttribute('data-subject', 'Re-read')
+      );
+      expect(screen.getByTestId('detail-pane')).toHaveTextContent('12');
+    }
+  );
 });
 
 // Every action here that can empty a queue refreshes the sidebar badge's own query

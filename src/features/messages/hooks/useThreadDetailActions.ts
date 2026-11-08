@@ -124,6 +124,10 @@ export const useThreadDetailActions = ({
     }
   };
 
+  // The open thread's id NOW, for an answer that lands after the agent moved on.
+  const selectedMessageIdRef = useRef<number | undefined>(undefined);
+  selectedMessageIdRef.current = selectedMessage?.id;
+
   const handleReopen = async (message: Message) => {
     try {
       const reopenedMessageId = message.id;
@@ -133,7 +137,9 @@ export const useThreadDetailActions = ({
       await fetchMessages(messagesPagination.page, true);
 
       const response = await messageService.getById(reopenedMessageId);
-      if (response.success && response.data) {
+      // Only if the agent is still on that thread: J/K or a row click while this ran must not
+      // put the reopened thread back on screen.
+      if (response.success && response.data && selectedMessageIdRef.current === reopenedMessageId) {
         setSelectedMessage(response.data);
 
         const params = new URLSearchParams(searchParams);
@@ -153,9 +159,6 @@ export const useThreadDetailActions = ({
   };
 
   const refreshAbortRef = useRef<AbortController | null>(null);
-  // The open thread's id NOW, for an answer that lands after the agent moved on.
-  const selectedMessageIdRef = useRef<number | undefined>(undefined);
-  selectedMessageIdRef.current = selectedMessage?.id;
 
   /**
    * Re-read ONLY the open thread after the backend changed its status (useConversationStatusRefresh).
@@ -213,8 +216,16 @@ export const useThreadDetailActions = ({
       // refreshKey bumps, so bump it here too — otherwise the card stays in the
       // old column until the agent manually changes a filter.
       bumpKanban();
-      const response = await messageService.getById(selectedMessage.id);
-      if (!abortController.signal.aborted && response.success && response.data) {
+      const openId = selectedMessage.id;
+      const response = await messageService.getById(openId);
+      // A newer refresh aborts this one; moving to another thread (J/K, a row click) does not, so
+      // the answer is applied only if the agent is still on this thread.
+      if (
+        !abortController.signal.aborted &&
+        selectedMessageIdRef.current === openId &&
+        response.success &&
+        response.data
+      ) {
         const data: Message = response.data;
         setSelectedMessage({
           ...data,
