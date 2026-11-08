@@ -387,9 +387,7 @@ export const MessagesPage = () => {
     } else if (pending.counts) {
       bumpCounts();
     }
-    // bumpCounts is useBoardAndBulkState's useReducer dispatch (stable): the deps stay as they were inline.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
+  }, [clearCache, fetchMessages, messagesPagination.page, bumpKanban, bumpCounts]);
   const flushServerEvents = useCoalescedRefresh(applyServerEvents);
   const refreshFromServerEvent = useServerEventRouting({
     displayMode,

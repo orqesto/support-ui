@@ -93,9 +93,7 @@ export const useKanbanBoardRefresh = ({
         boardScopeLoadedRef.current = true;
       },
     });
-    // The state setters and refs come from useKanbanBoardData: stable, so the deps stay as they were inline.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterKey, refreshKey, selectedDeptKey, loadBoard]);
+  }, [filterKey, refreshKey, selectedDeptKey, loadBoard, setColStates]);
 
   // A tab opened: load its columns unless they already answered for the current scope/refresh.
   useEffect(() => {
@@ -131,47 +129,48 @@ export const useKanbanBoardRefresh = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [colSortKey, loadColumn]);
 
-  const loadMore = useCallback((colId: string) => {
-    const col = COLUMNS.find((kanbanCol) => kanbanCol.id === colId);
-    if (!col) return;
-    setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: true } }));
-    const nextPage = colStatesRef.current[colId].page + 1;
-    const filterSnapshot = { ...sharedFiltersRef.current, ...col.fixedFilters };
-    const sort = colSortRef.current[colId] ?? { sortBy: 'time', sortOrder: 'desc' };
-    void (async () => {
-      try {
-        const res = await messageService.getThreads(
-          filterSnapshot,
-          nextPage,
-          PAGE_SIZE,
-          sort.sortOrder,
-          sort.sortBy
-        );
-        if (!res.success) return;
-        setColStates((prev) => ({
-          ...prev,
-          [colId]: {
-            // Offset pages shift when a row leaves the column, so the next page can
-            // repeat one already shown; a duplicate key would confuse React's reconcile.
-            threads: uniqueThreads([
-              ...prev[colId].threads,
-              ...res.data.filter((thread) => thread.latestMessage !== null),
-            ]),
-            total: res.pagination.total,
-            totalCapped: res.pagination.totalCapped === true,
-            loading: false,
-            hasMore: res.pagination.page < res.pagination.totalPages,
-            page: res.pagination.page,
-          },
-        }));
-      } catch (err) {
-        logger.error(`Failed to load more for column ${colId}:`, err);
-        setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: false } }));
-      }
-    })();
-    // The state setters and refs come from useKanbanBoardData: stable, so the deps stay as they were inline.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const loadMore = useCallback(
+    (colId: string) => {
+      const col = COLUMNS.find((kanbanCol) => kanbanCol.id === colId);
+      if (!col) return;
+      setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: true } }));
+      const nextPage = colStatesRef.current[colId].page + 1;
+      const filterSnapshot = { ...sharedFiltersRef.current, ...col.fixedFilters };
+      const sort = colSortRef.current[colId] ?? { sortBy: 'time', sortOrder: 'desc' };
+      void (async () => {
+        try {
+          const res = await messageService.getThreads(
+            filterSnapshot,
+            nextPage,
+            PAGE_SIZE,
+            sort.sortOrder,
+            sort.sortBy
+          );
+          if (!res.success) return;
+          setColStates((prev) => ({
+            ...prev,
+            [colId]: {
+              // Offset pages shift when a row leaves the column, so the next page can
+              // repeat one already shown; a duplicate key would confuse React's reconcile.
+              threads: uniqueThreads([
+                ...prev[colId].threads,
+                ...res.data.filter((thread) => thread.latestMessage !== null),
+              ]),
+              total: res.pagination.total,
+              totalCapped: res.pagination.totalCapped === true,
+              loading: false,
+              hasMore: res.pagination.page < res.pagination.totalPages,
+              page: res.pagination.page,
+            },
+          }));
+        } catch (err) {
+          logger.error(`Failed to load more for column ${colId}:`, err);
+          setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: false } }));
+        }
+      })();
+    },
+    [colSortRef, colStatesRef, setColStates, sharedFiltersRef]
+  );
 
   return { activeTabRef, loadMore };
 };

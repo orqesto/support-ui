@@ -24,8 +24,7 @@ export function useLookupFlash({
   // An admin can remove the last lookup while an agent sits on its tab; fall back, never blank.
   useEffect(() => {
     if (tab === 'lookups' && !lookupAvailable) setTab('ai');
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  }, [tab, lookupAvailable]);
+  }, [tab, lookupAvailable, setTab]);
   const lookupFlash = useRef<{
     frame: number | null;
     timer: ReturnType<typeof setTimeout> | null;
@@ -81,8 +80,7 @@ export function useLookupFlash({
       }, LOOKUP_FLASH_MS);
     };
     lookupFlash.current.frame = requestAnimationFrame(seek);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  }, [twoColumn, cancelLookupFlash]);
+  }, [twoColumn, cancelLookupFlash, setPanelOpen, setTab]);
   return {
     handleLookUp,
   };

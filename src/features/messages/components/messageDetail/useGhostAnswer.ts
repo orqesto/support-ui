@@ -62,8 +62,7 @@ export function useGhostAnswer({
       // as suggestedAnswerSource on the send.
       handleAiSourceChange(source || 'suggested_answer', { text: applied });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-    [handleAiSourceChange, showComposerForShortcut, writeComposer]
+    [handleAiSourceChange, showComposerForShortcut, writeComposer, richEditorRef, setComposerMode]
   );
   /*
     A suggested answer (KB "Use in reply", the AI tab's sources, the similar-messages dialog, the
@@ -90,8 +89,7 @@ export function useGhostAnswer({
       }
       setPendingGhost({ answer, source });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-    [applyGhostAnswer]
+    [applyGhostAnswer, lastEditMode, latestComposer]
   );
   return {
     applyGhostAnswer,

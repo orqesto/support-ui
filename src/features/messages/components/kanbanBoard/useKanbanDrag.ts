@@ -45,15 +45,16 @@ export const useKanbanDrag = ({
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   );
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const threadId = event.active.id as string;
-    const colId = event.active.data.current?.colId as string;
-    const thread = colStatesRef.current[colId]?.threads.find((thr) => thr.threadId === threadId);
-    setActiveThread(thread ?? null);
-    setActiveDragColId(colId);
-    // The state setters and refs come from useKanbanBoardData: stable, so the deps stay as they were inline.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const threadId = event.active.id as string;
+      const colId = event.active.data.current?.colId as string;
+      const thread = colStatesRef.current[colId]?.threads.find((thr) => thr.threadId === threadId);
+      setActiveThread(thread ?? null);
+      setActiveDragColId(colId);
+    },
+    [colStatesRef, setActiveDragColId, setActiveThread]
+  );
 
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
@@ -167,9 +168,15 @@ export const useKanbanDrag = ({
         });
       }
     },
-    // The state setters and refs come from useKanbanBoardData: stable, so the deps stay as they were inline.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [queryClient, loadBoard]
+    [
+      queryClient,
+      loadBoard,
+      activeTabRef,
+      colStatesRef,
+      setActiveDragColId,
+      setActiveThread,
+      setColStates,
+    ]
   );
 
   return { sensors, handleDragStart, handleDragEnd };

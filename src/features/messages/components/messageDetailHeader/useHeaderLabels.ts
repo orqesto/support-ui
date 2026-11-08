@@ -110,8 +110,17 @@ export function useHeaderLabelsLoad({
     return () => {
       live = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps unchanged from MessageDetailHeader; the setters and refs passed in are stable
-  }, [message.id, labelsRefreshKey, labelsAttempt]);
+  }, [
+    message.id,
+    labelsRefreshKey,
+    labelsAttempt,
+    labelWrites,
+    refetchWhenWritesSettle,
+    setAllLabels,
+    setLabelsAttempt,
+    setLabelsStatus,
+    setMessageLabels,
+  ]);
 }
 
 /** Tick / untick a label on this thread, and create one (assigned at once). */

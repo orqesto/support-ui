@@ -69,8 +69,7 @@ export function useThreadPanelsData({
     (noteId: number) => notesRef.current.some((note) => note.id === noteId),
     []
   );
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  const bumpNotes = useCallback(() => setNotesBump((key) => key + 1), []);
+  const bumpNotes = useCallback(() => setNotesBump((key) => key + 1), [setNotesBump]);
   useConversationNotesRefresh(message.id, isKnownNote, bumpNotes);
 
   // …and the activity log — also after a live incoming message (activityBump): saving one can

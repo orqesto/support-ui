@@ -211,7 +211,6 @@ export function useReplySend({
         setAssignPrompt(null);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
     [
       aiDraft,
       aiSource,
@@ -227,6 +226,20 @@ export function useReplySend({
       selectedFiles,
       supportsRecipients,
       writeComposer,
+      afterSendRef,
+      lastAssignRef,
+      lastSendModeRef,
+      sendIdempotencyKeyRef,
+      setAiDraft,
+      setAiSource,
+      setAssignPrompt,
+      setNotesBump,
+      setRecipientDraft,
+      setSelectedFiles,
+      setSendFailedError,
+      setSendFailureRetryable,
+      setSubmitting,
+      setThreadRefreshKey,
     ]
   );
 
@@ -250,7 +263,6 @@ export function useReplySend({
       }
     }
     await performSend();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
   }, [
     composer,
     composerMode,
@@ -259,6 +271,7 @@ export function useReplySend({
     message.assigneeId,
     message.assigneeName,
     performSend,
+    setAssignPrompt,
   ]);
 
   // Resolving rides on any thread the Resolve row could resolve — an UNREVIEWED one too: its
@@ -279,16 +292,14 @@ export function useReplySend({
       afterSendRef.current = { action };
       void handleSend();
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-    [composer, handleSend]
+    [composer, handleSend, afterSendRef, setSendHoldOpen]
   );
   const rememberSendAction = useCallback(
     (action: SendAction) => {
       setSendAction(action);
       writeSendAction(currentUserId ?? undefined, action);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-    [currentUserId]
+    [currentUserId, setSendAction]
   );
   // A Send ▾ menu pick: the agent's choice. Remembered as the face — On hold only once its dialog
   // is confirmed, so a cancelled hold does not turn every later Send into a hold dialog.
@@ -311,8 +322,7 @@ export function useReplySend({
       // shows its "nothing approved yet" state rather than an error the agent cannot act on.
       setTemplatesLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  }, [message.id]);
+  }, [message.id, setTemplateError, setTemplates, setTemplatesLoading, setTemplatesOpen]);
 
   const handleSendTemplate = useCallback(
     async (templateId: number, parameters: string[]) => {
@@ -346,8 +356,16 @@ export function useReplySend({
         setSubmitting(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-    [message.id, onRefresh, onReplied]
+    [
+      message.id,
+      onRefresh,
+      onReplied,
+      sendIdempotencyKeyRef,
+      setSubmitting,
+      setTemplateError,
+      setTemplatesOpen,
+      setThreadRefreshKey,
+    ]
   );
   return {
     performSend,

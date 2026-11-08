@@ -61,8 +61,7 @@ export function useAiReanalysisSync({
     };
     subscribeToEvent('conversation:ai_reanalysis', handler);
     return () => unsubscribeFromEvent('conversation:ai_reanalysis', handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps unchanged from MessageDetailHeader; the setter passed in is stable
-  }, [message.id]);
+  }, [message.id, setAiReanalysisInFlight]);
 }
 
 /** Focus return after the More menu closes, and Esc for the More menu and the label picker. */
@@ -101,6 +100,5 @@ export function useMoreMenuDismissal({
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps unchanged from MessageDetailHeader; the setters passed in are stable
-  }, [moreOpen, showLabelPicker]);
+  }, [moreOpen, showLabelPicker, setMoreOpen, setShowLabelPicker]);
 }

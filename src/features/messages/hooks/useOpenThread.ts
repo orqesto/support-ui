@@ -48,68 +48,69 @@ export const useOpenThread = ({
   orgCodeRef.current = orgCode;
   const isPhoneRef = useRef(isPhone);
   isPhoneRef.current = isPhone;
-  const handleOpenThread = useCallback(async (thread: MessageThread) => {
-    if (thread.threadId.startsWith('spamlog_')) {
-      // spamLog rows carry the captured body in latestMessage.content — show
-      // it read-only rather than routing a synthetic row through MessageDetail.
-      setSpamPreview(thread);
-      return;
-    }
-    // Preferred starting message: same one the list shows analysis badges for.
-    const rowMessage = thread.latestIncomingMessage ?? thread.latestMessage;
-    if (!thread.latestMessage?.id || !rowMessage) return;
-    const seq = ++openSeqRef.current;
-    // Remember which card this is so status actions can move it optimistically.
-    selectedThreadIdRef.current = thread.threadId;
-    const openedId = rowMessage.id;
-    const urlId = getConvUrlId(rowMessage, orgCodeRef.current);
-    fetchedMessageIdRef.current = urlId;
-    const params = new URLSearchParams(searchParamsRef.current);
-    params.set('id', urlId);
-    setSearchParamsRef.current(params);
-    // A phone opens the thread as its own page, which reads the record itself; the row's record
-    // only carries it there.
-    if (isPhoneRef.current) {
-      setSelectedMessage({
-        ...rowMessage,
-        lastReplyFromClient: rowMessage.lastReplyFromClient ?? thread.lastReplyFromClient,
-      });
-      return;
-    }
-    // The detail mounts on the FULL record, never the row's: a list row carries no `sender`,
-    // reply block, WhatsApp window or Reply-To, and the header read `sender` on mount — J on
-    // staging 2026-10-31 blanked the page. The row shows busy meanwhile; the sequence number
-    // still stops a slower earlier open from winning.
-    setPendingThreadId(thread.threadId);
-    try {
-      const res = await messageService.getById(openedId);
-      if (seq !== openSeqRef.current || !res.success || !res.data) return;
-      // Widen to the tolerant app Message type: `lastReplyFromClient` is not returned by
-      // getById, so it is optional here and falls back to the thread's value.
-      const full: Message = res.data;
-      setSelectedMessage({
-        ...full,
-        lastReplyFromClient: full.lastReplyFromClient ?? thread.lastReplyFromClient,
-      });
-      const fullUrlId = getConvUrlId(full, orgCodeRef.current);
-      if (fullUrlId !== urlId && searchParamsRef.current.get('id') === urlId) {
-        fetchedMessageIdRef.current = fullUrlId;
-        setSearchParamsRef.current(
-          (prev) => {
-            prev.set('id', fullUrlId);
-            return prev;
-          },
-          { replace: true }
-        );
+  const handleOpenThread = useCallback(
+    async (thread: MessageThread) => {
+      if (thread.threadId.startsWith('spamlog_')) {
+        // spamLog rows carry the captured body in latestMessage.content — show
+        // it read-only rather than routing a synthetic row through MessageDetail.
+        setSpamPreview(thread);
+        return;
       }
-    } catch (error) {
-      if (seq === openSeqRef.current) logger.error('Failed to fetch thread messages:', error);
-    } finally {
-      if (seq === openSeqRef.current) setPendingThreadId(null);
-    }
-    // The setters and refs passed in are the page's own (stable): the deps stay as they were inline.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      // Preferred starting message: same one the list shows analysis badges for.
+      const rowMessage = thread.latestIncomingMessage ?? thread.latestMessage;
+      if (!thread.latestMessage?.id || !rowMessage) return;
+      const seq = ++openSeqRef.current;
+      // Remember which card this is so status actions can move it optimistically.
+      selectedThreadIdRef.current = thread.threadId;
+      const openedId = rowMessage.id;
+      const urlId = getConvUrlId(rowMessage, orgCodeRef.current);
+      fetchedMessageIdRef.current = urlId;
+      const params = new URLSearchParams(searchParamsRef.current);
+      params.set('id', urlId);
+      setSearchParamsRef.current(params);
+      // A phone opens the thread as its own page, which reads the record itself; the row's record
+      // only carries it there.
+      if (isPhoneRef.current) {
+        setSelectedMessage({
+          ...rowMessage,
+          lastReplyFromClient: rowMessage.lastReplyFromClient ?? thread.lastReplyFromClient,
+        });
+        return;
+      }
+      // The detail mounts on the FULL record, never the row's: a list row carries no `sender`,
+      // reply block, WhatsApp window or Reply-To, and the header read `sender` on mount — J on
+      // staging 2026-10-31 blanked the page. The row shows busy meanwhile; the sequence number
+      // still stops a slower earlier open from winning.
+      setPendingThreadId(thread.threadId);
+      try {
+        const res = await messageService.getById(openedId);
+        if (seq !== openSeqRef.current || !res.success || !res.data) return;
+        // Widen to the tolerant app Message type: `lastReplyFromClient` is not returned by
+        // getById, so it is optional here and falls back to the thread's value.
+        const full: Message = res.data;
+        setSelectedMessage({
+          ...full,
+          lastReplyFromClient: full.lastReplyFromClient ?? thread.lastReplyFromClient,
+        });
+        const fullUrlId = getConvUrlId(full, orgCodeRef.current);
+        if (fullUrlId !== urlId && searchParamsRef.current.get('id') === urlId) {
+          fetchedMessageIdRef.current = fullUrlId;
+          setSearchParamsRef.current(
+            (prev) => {
+              prev.set('id', fullUrlId);
+              return prev;
+            },
+            { replace: true }
+          );
+        }
+      } catch (error) {
+        if (seq === openSeqRef.current) logger.error('Failed to fetch thread messages:', error);
+      } finally {
+        if (seq === openSeqRef.current) setPendingThreadId(null);
+      }
+    },
+    [fetchedMessageIdRef, selectedThreadIdRef, setSelectedMessage, setSpamPreview]
+  );
 
   return { handleOpenThread, pendingThreadId };
 };

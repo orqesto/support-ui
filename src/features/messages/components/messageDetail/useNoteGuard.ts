@@ -23,15 +23,17 @@ export function useNoteGuard({
     put the note one Send from the customer (and made "Add to my reply" append to it). A blank
     composer still flips. Stable identity, like the setter it wraps; reads the ref, not the state.
   */
-  const setPanelComposerMode = useCallback((next: React.SetStateAction<'reply' | 'note'>) => {
-    setComposerMode((prev) => {
-      const mode = typeof next === 'function' ? next(prev) : next;
-      return holdsUnsentNote(latestComposer.current, lastEditMode.current) && mode === 'reply'
-        ? prev
-        : mode;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  }, []);
+  const setPanelComposerMode = useCallback(
+    (next: React.SetStateAction<'reply' | 'note'>) => {
+      setComposerMode((prev) => {
+        const mode = typeof next === 'function' ? next(prev) : next;
+        return holdsUnsentNote(latestComposer.current, lastEditMode.current) && mode === 'reply'
+          ? prev
+          : mode;
+      });
+    },
+    [lastEditMode, latestComposer, setComposerMode]
+  );
   /*
     "Reply to this message" and R: refused (toast, nothing switched, recipients untouched) while an
     internal note is being written. True when refused.
@@ -40,8 +42,7 @@ export function useNoteGuard({
     if (!holdsUnsentNote(latestComposer.current, lastEditMode.current)) return false;
     toast.info(NOTE_IN_PROGRESS);
     return true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  }, []);
+  }, [lastEditMode, latestComposer]);
 
   const handleReplyToMessage = useCallback(
     (addresses: string[]) => {
@@ -49,8 +50,7 @@ export function useNoteGuard({
       setComposerMode('reply');
       setRecipientDraft((draft) => ({ ...draft, to: addresses.join(', ') }));
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-    [refuseReplyOverNote]
+    [refuseReplyOverNote, setComposerMode, setRecipientDraft]
   );
   return {
     setPanelComposerMode,

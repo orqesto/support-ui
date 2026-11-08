@@ -84,9 +84,17 @@ export const useBulkActionRunner = ({
         setBulkRunning(false);
       }
     },
-    // The setters and refs passed in are the page's own (stable): the deps stay as they were inline.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bulkAction, bulkSelection, bumpKanban, fetchMessages, messagesPagination.page, orgCode]
+    [
+      bulkAction,
+      bulkSelection,
+      bumpKanban,
+      fetchMessages,
+      messagesPagination.page,
+      orgCode,
+      kanbanRef,
+      setBulkAction,
+      setBulkRunning,
+    ]
   );
   return runBulkAction;
 };

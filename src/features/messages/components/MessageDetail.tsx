@@ -328,8 +328,7 @@ export function MessageDetail({
   */
   const showComposerForShortcut = useCallback(() => {
     if (isPhone && panelOpen && tab !== 'notes') setPanelOpen(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs from the hooks above are stable
-  }, [isPhone, panelOpen, tab]);
+  }, [isPhone, panelOpen, tab, setPanelOpen]);
   /*
     A lookup record's "Use in reply": the ticked sentence goes into the REPLY — a new paragraph at
     its end, the composer switched to Reply, shown (phone: back to the Thread tab, where the
@@ -355,8 +354,14 @@ export function MessageDetail({
       setTimeout(() => richEditorRef.current?.focus('end'), 0);
       return 'added';
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs from the hooks above are stable
-    [showComposerForShortcut, writeComposer]
+    [
+      showComposerForShortcut,
+      writeComposer,
+      lastEditMode,
+      latestComposer,
+      richEditorRef,
+      setComposerMode,
+    ]
   );
   const { setPanelComposerMode, refuseReplyOverNote, handleReplyToMessage } = useNoteGuard({
     setComposerMode,

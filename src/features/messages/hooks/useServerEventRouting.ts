@@ -41,9 +41,7 @@ export const useServerEventRouting = ({
       else pendingEventsRef.current.counts = true;
       flushServerEvents();
     },
-    // The setters and refs passed in are the page's own (stable): the deps stay as they were inline.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [flushServerEvents]
+    [flushServerEvents, pendingEventsRef]
   );
   /*
     The socket came back after a drop: every event sent meanwhile is lost. Re-read the list, the
@@ -55,9 +53,7 @@ export const useServerEventRouting = ({
       pendingEventsRef.current.changed = true;
       if (document.visibilityState === 'hidden') flushServerEvents();
       else applyServerEvents();
-      // The setters and refs passed in are the page's own (stable): the deps stay as they were inline.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [applyServerEvents, flushServerEvents])
+    }, [applyServerEvents, flushServerEvents, pendingEventsRef])
   );
   return refreshFromServerEvent;
 };

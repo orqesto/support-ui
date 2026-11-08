@@ -64,9 +64,7 @@ export const useThreadDetailActions = ({
     if (selectedThreadIdRef.current) return;
     const recovered = threadIdForMessage(threads, selectedMessage.id);
     if (recovered) selectedThreadIdRef.current = recovered;
-    // The setters and refs passed in are the page's own (stable): the deps stay as they were inline.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMessage, threads]);
+  }, [selectedMessage, threads, selectedThreadIdRef]);
 
   // J/K from the detail rail — neighbourThread (detailShortcuts.ts) has the rules.
   const handleNavigate = useCallback(
@@ -74,9 +72,7 @@ export const useThreadDetailActions = ({
       const target = neighbourThread(drawnThreads, selectedThreadIdRef.current, direction);
       if (target) void handleOpenThread(target);
     },
-    // The setters and refs passed in are the page's own (stable): the deps stay as they were inline.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [drawnThreads, handleOpenThread]
+    [drawnThreads, handleOpenThread, selectedThreadIdRef]
   );
 
   const handleApprove = (message: Message) => {
@@ -180,9 +176,7 @@ export const useThreadDetailActions = ({
       }
       logger.error('Failed to re-read the open thread after a status change:', error);
     }
-    // The setters and refs passed in are the page's own (stable): the deps stay as they were inline.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMessage?.id, setSearchParams]);
+  }, [selectedMessage?.id, setSearchParams, selectedThreadIdRef, setSelectedMessage]);
 
   const handleRefreshMessage = useCallback(async () => {
     if (!selectedMessage) return;
@@ -215,9 +209,14 @@ export const useThreadDetailActions = ({
         logger.error('Failed to refresh message:', error);
       }
     }
-    // The setters and refs passed in are the page's own (stable): the deps stay as they were inline.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedMessage, clearCache, fetchMessages, messagesPagination.page, bumpKanban]);
+  }, [
+    selectedMessage,
+    clearCache,
+    fetchMessages,
+    messagesPagination.page,
+    bumpKanban,
+    setSelectedMessage,
+  ]);
 
   return {
     handleNavigate,

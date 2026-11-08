@@ -42,8 +42,7 @@ export function useThreadActions({
     } finally {
       setResolving(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  }, [message.id, onReject]);
+  }, [message.id, onReject, setResolving]);
 
   /**
    * Bin the thread as not customer work.
@@ -65,8 +64,7 @@ export function useThreadActions({
         setResolving(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-    [message.id, onReject]
+    [message.id, onReject, setResolving]
   );
 
   const handleReopen = useCallback(async () => {
@@ -102,8 +100,7 @@ export function useThreadActions({
   const handleRefresh = useCallback(() => {
     setThreadRefreshKey((key) => key + 1);
     onRefresh?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  }, [onRefresh]);
+  }, [onRefresh, setThreadRefreshKey]);
 
   // Contact label edits (from the CUSTOMER tab or the header's contact drawer)
   // change the message's inherited labels but not message.id, so the header's
@@ -127,8 +124,7 @@ export function useThreadActions({
         },
       ]);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-    [user]
+    [user, setNoteActivityLog, setNotes]
   );
 
   const handleNoteDeleted = useCallback(
@@ -143,16 +139,14 @@ export function useThreadActions({
         },
       ]);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-    [user]
+    [user, setNoteActivityLog, setNotes]
   );
 
   const handleCheckContradiction = useCallback(async () => {
     await messageService.checkContradiction(message.id);
     setThreadRefreshKey((key) => key + 1);
     onRefresh?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  }, [message.id, onRefresh]);
+  }, [message.id, onRefresh, setThreadRefreshKey]);
 
   // "Not a contradiction" (dismissContradiction.ts). True on success — the tab hides the alert at
   // once, before the refetch lands; failures (incl. a 404 from an older backend) are toasted there.
@@ -163,8 +157,7 @@ export function useThreadActions({
       onRefresh?.();
     }
     return dismissed;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  }, [message.id, onRefresh]);
+  }, [message.id, onRefresh, setThreadRefreshKey]);
   return {
     handleReject,
     handleNotCustomerWork,

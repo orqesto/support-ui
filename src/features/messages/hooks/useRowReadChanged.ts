@@ -37,9 +37,7 @@ export const useRowReadChanged = ({
       patchThread(thread.threadId, { isRead });
       bumpCounts();
     },
-    // The setters and refs passed in are the page's own (stable): the deps stay as they were inline.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bumpKanban, fetchMessages, messagesPagination.page, patchThread]
+    [bumpKanban, fetchMessages, messagesPagination.page, patchThread, bumpCounts]
   );
   return handleRowReadChanged;
 };

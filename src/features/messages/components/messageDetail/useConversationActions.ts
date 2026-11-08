@@ -48,8 +48,7 @@ export function useConversationActions({
       setResolving(false);
       setSavingToKb(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  }, [message.id, onResolve]);
+  }, [message.id, onResolve, setResolving, setSavingToKb]);
 
   const handleClose = useCallback(async () => {
     setResolving(true);
@@ -61,8 +60,7 @@ export function useConversationActions({
     } finally {
       setResolving(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  }, [message.id, onResolve]);
+  }, [message.id, onResolve, setResolving]);
 
   // Per-user read/unread (triage). Optimistic with revert on failure; onReadChanged
   // lets the board refresh the unread dot without tearing down the detail.
@@ -79,8 +77,7 @@ export function useConversationActions({
         toast.error(getApiErrorMessage(err) ?? 'Could not update read state');
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-    [message.id, onReadChanged]
+    [message.id, onReadChanged, setReadState]
   );
 
   const handleToggleRead = useCallback(() => {
@@ -95,8 +92,7 @@ export function useConversationActions({
     } else {
       onClose?.();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  }, [isTriage, readState, onClose]);
+  }, [isTriage, readState, onClose, setMarkReadPromptOpen]);
 
   // Expose the prompt-aware close to the parent so out-of-panel close gestures
   // (the backdrop) go through the same "Mark as read?" prompt as the header X.
@@ -114,8 +110,7 @@ export function useConversationActions({
     if (resolveMode === null) return;
     if (noKbResolveDialog(resolveMode) === 'reject') setRejectDialogOpen(true);
     else setCloseConfirmOpen(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  }, [resolveMode]);
+  }, [resolveMode, setCloseConfirmOpen, setRejectDialogOpen]);
   return {
     handleResolveWithoutReply,
     handleClose,

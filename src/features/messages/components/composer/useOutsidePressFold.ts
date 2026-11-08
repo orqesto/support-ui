@@ -83,6 +83,13 @@ export function useOutsidePressFold({
       document.removeEventListener('click', onClickCapture, true);
       document.removeEventListener('click', onClick);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  }, []);
+  }, [
+    aiActiveRef,
+    draftEmptyRef,
+    foldedByThisClickRef,
+    openRef,
+    rootRef,
+    setOpen,
+    setRestGeneration,
+  ]);
 }

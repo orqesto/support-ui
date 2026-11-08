@@ -48,8 +48,7 @@ export function useHeaderFieldHandlers({
         setUpdatingStatus(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps unchanged from MessageDetailHeader; the setters and refs passed in are stable
-    [message.id, onRefresh, onOptimisticMove]
+    [message.id, onRefresh, onOptimisticMove, setHoldOpen, setUpdatingStatus]
   );
 
   const handleSetPriority = useCallback(
@@ -64,8 +63,7 @@ export function useHeaderFieldHandlers({
         setUpdatingPriority(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps unchanged from MessageDetailHeader; the setters and refs passed in are stable
-    [message.id, onRefresh]
+    [message.id, onRefresh, setUpdatingPriority]
   );
 
   const handleSetCategory = useCallback(
@@ -80,8 +78,7 @@ export function useHeaderFieldHandlers({
         setUpdatingCategory(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps unchanged from MessageDetailHeader; the setters and refs passed in are stable
-    [message.id, onRefresh]
+    [message.id, onRefresh, setUpdatingCategory]
   );
 
   const handleToggleLead = useCallback(async () => {
@@ -94,8 +91,7 @@ export function useHeaderFieldHandlers({
     } finally {
       setTogglingLead(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps unchanged from MessageDetailHeader; the setters and refs passed in are stable
-  }, [message.id, message.isLead, onRefresh]);
+  }, [message.id, message.isLead, onRefresh, setTogglingLead]);
 
   return { handleSetStatus, handleSetPriority, handleSetCategory, handleToggleLead };
 }
@@ -156,8 +152,7 @@ export function useHeaderActionHandlers({
           toast.error(`Could not copy the link${reason} — copy it from the address bar.`);
         });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps unchanged from MessageDetailHeader; the setters and refs passed in are stable
-    [message, orgCode]
+    [message, orgCode, linkCopiedTimer, setLinkCopied]
   );
 
   const handleCheckContradiction = useCallback(async () => {
@@ -174,8 +169,7 @@ export function useHeaderActionHandlers({
     } finally {
       setCheckingContradiction(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps unchanged from MessageDetailHeader; the setters and refs passed in are stable
-  }, [message.id, onRefresh, refusalText]);
+  }, [message.id, onRefresh, refusalText, setCheckingContradiction]);
 
   const handleManualRoute = useCallback(
     // Every route is learning evidence on the backend (spec 2026-10-14, D3) — no "+ rule" variant.
@@ -192,8 +186,7 @@ export function useHeaderActionHandlers({
         setRoutingTo(null);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps unchanged from MessageDetailHeader; the setters and refs passed in are stable
-    [message.id, onRefresh, queryClient]
+    [message.id, onRefresh, queryClient, setRoutingTo]
   );
 
   const handleReanalyze = useCallback(async () => {
@@ -206,8 +199,7 @@ export function useHeaderActionHandlers({
     } finally {
       setReanalyzing(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps unchanged from MessageDetailHeader; the setters and refs passed in are stable
-  }, [message.id, onRefresh]);
+  }, [message.id, onRefresh, setReanalyzing]);
 
   return { handleCopyLink, handleCheckContradiction, handleManualRoute, handleReanalyze };
 }

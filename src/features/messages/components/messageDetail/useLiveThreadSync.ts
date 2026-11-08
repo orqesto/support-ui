@@ -69,8 +69,7 @@ export function useLiveThreadSync({
     useCallback(() => {
       setThreadRefreshKey((key) => key + 1);
       rereadHeaderRef.current?.();
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-    }, [])
+    }, [rereadHeaderRef, setThreadRefreshKey])
   );
 
   // ── Real-time reply events ─────────────────────────────────────────────────
@@ -117,6 +116,14 @@ export function useLiveThreadSync({
       unsubscribeFromEvent('message:replied', handleReplied);
       releaseSocket();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps as before the split; the setters/refs passed in are stable
-  }, [message.id, message.channel]);
+  }, [
+    message.id,
+    message.channel,
+    onRefreshRef,
+    pullNewEventsRef,
+    rereadHeaderRef,
+    setSendFailedError,
+    setSendFailureRetryable,
+    setThreadRefreshKey,
+  ]);
 }
