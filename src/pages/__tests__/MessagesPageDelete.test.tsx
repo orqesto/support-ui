@@ -96,7 +96,9 @@ vi.mock('@/lib/socketManager', () => ({
   subscribeToEvent: vi.fn(),
   unsubscribeFromEvent: vi.fn(),
 }));
-vi.mock('@/features/messages/hooks/usePhoneOpensMessageAsPage', () => ({ usePhoneOpensMessageAsPage: () => false }));
+vi.mock('@/features/messages/hooks/usePhoneOpensMessageAsPage', () => ({
+  usePhoneOpensMessageAsPage: () => false,
+}));
 // Captures the page's setter so a test can change the open message the way Back / ?id= does —
 // without going through a card click, so the captured card goes stale.
 vi.mock('@/features/messages/hooks/useMessagesUrlSync', () => ({
@@ -112,7 +114,9 @@ vi.mock('@/hooks/useNotificationCounts', () => ({
   NOTIFICATION_COUNTS_KEY: ['notification-counts'],
   useNotificationCounts: () => ({ counts: {}, clearKind: vi.fn() }),
 }));
-vi.mock('@/features/messages/hooks/useSharedLinkWorkspace', () => ({ useSharedLinkWorkspace: () => undefined }));
+vi.mock('@/features/messages/hooks/useSharedLinkWorkspace', () => ({
+  useSharedLinkWorkspace: () => undefined,
+}));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'COR' }));
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
@@ -416,6 +420,22 @@ describe('MessagesPage — slide-over More → Delete thread', () => {
       await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('12'));
       pressDelete();
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+      await waitFor(() => expect(screen.queryByTestId('detail-pane')).toBeNull());
+      mocks.optimisticMove.mockClear();
+      act(() => mocks.setSelected?.(messageFor(13)));
+      await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('13'));
+      fireEvent.click(screen.getByRole('button', { name: 'Set awaiting' }));
+      expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_13', 'awaiting');
+    });
+
+    // The backdrop's fallback close (the detail has not registered its prompt-aware close yet)
+    // used to leave the closed card remembered, so the next thread's move went to that card.
+    it('board: after a backdrop close, a status change moves the card now open, not the closed one', async () => {
+      localStorage.setItem('messages_view_mode', 'kanban');
+      renderPage();
+      fireEvent.click(await screen.findByRole('button', { name: 'open card 12' }));
+      await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('12'));
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
       await waitFor(() => expect(screen.queryByTestId('detail-pane')).toBeNull());
       mocks.optimisticMove.mockClear();
       act(() => mocks.setSelected?.(messageFor(13)));

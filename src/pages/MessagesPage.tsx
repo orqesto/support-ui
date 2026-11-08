@@ -742,6 +742,9 @@ export const MessagesPage = () => {
               const params = new URLSearchParams(searchParams);
               params.delete('id');
               setSearchParams(params);
+              // Forget the closed card too, as the detail's own onClose does; otherwise the next
+              // thread's status change moves this card.
+              selectedThreadIdRef.current = null;
               setSelectedMessage(null);
             }}
           />
