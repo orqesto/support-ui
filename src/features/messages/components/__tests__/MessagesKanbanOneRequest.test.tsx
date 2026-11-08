@@ -169,6 +169,35 @@ describe('Board in one request', () => {
     await waitFor(() => expect(getThreads).toHaveBeenCalledTimes(11));
   });
 
+  // The one-search-per-column path counts the Triage badge itself: a refused count was added
+  // as 0, so the badge dropped (2 + 2 + 2 = 6 → 4) though nothing was read.
+  it('without the route, a refused unread count keeps the previous Triage badge', async () => {
+    getThreadBoard.mockResolvedValue(null);
+    let refuseOne = false;
+    getThreads.mockImplementation((filters) => {
+      if ((filters as { read?: string }).read !== 'unread') return Promise.resolve(page('col', 1));
+      if (refuseOne) {
+        refuseOne = false;
+        return Promise.resolve({ success: false } as never);
+      }
+      return Promise.resolve({
+        success: true,
+        data: [],
+        pagination: { page: 1, limit: 1, total: 2, totalPages: 2 },
+      } as never);
+    });
+    const view = render(renderBoard(0));
+    // CONTROL: every count answered → their sum.
+    expect(await screen.findByTitle('6 unread')).toBeInTheDocument();
+    refuseOne = true;
+    const before = getThreads.mock.calls.length;
+    view.rerender(renderBoard(1));
+    await waitFor(() => expect(getThreads.mock.calls.length).toBeGreaterThanOrEqual(before + 3));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByTitle('4 unread')).toBeNull();
+    expect(screen.getByTitle('6 unread')).toBeInTheDocument();
+  });
+
   it('CONTROL: a backend without the route is read one search per column, as before', async () => {
     getThreadBoard.mockResolvedValue(null);
     render(renderBoard(0));

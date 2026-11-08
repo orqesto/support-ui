@@ -200,8 +200,9 @@ export const useKanbanBoardData = (
               1,
               1
             );
-            // A capped or cut-short count is not a number to add up: keep the previous badge.
-            return res.success ? exactTotal(res.pagination) : 0;
+            // A refused, capped or cut-short count is not a number to add up: keep the previous
+            // badge (a refusal used to count as 0, so the badge dropped though nothing was read).
+            return res.success ? exactTotal(res.pagination) : undefined;
           })
         );
         if (totals.some((num) => num === undefined)) return;
