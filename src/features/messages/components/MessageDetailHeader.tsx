@@ -62,18 +62,8 @@ import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import { showRouteLearningNote } from '@/lib/routingCopy';
 import { useAiRefusalText, useIsWorkspaceAdmin } from '@/features/subscription/shell';
-import {
-  LABEL,
-  CHIP_SENTENCE,
-  HEADER_PRIORITY_OPTIONS,
-  sentenceCase,
-  CHANNEL_ICONS,
-  channelName,
-  getInitials,
-  fmtMin,
-  type InboxBadge,
-  createTicketLabel,
-} from './messageDetailConstants';
+import { LABEL, CHIP_SENTENCE, HEADER_PRIORITY_OPTIONS, sentenceCase, CHANNEL_ICONS, channelName, fmtMin, type InboxBadge, createTicketLabel } from './messageDetailConstants';
+import { getInitials } from '@/lib/initials';
 import { HeaderMetaStrip } from './HeaderMetaStrip';
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 import { AddToTicketDialog } from './AddToTicketDialog';
