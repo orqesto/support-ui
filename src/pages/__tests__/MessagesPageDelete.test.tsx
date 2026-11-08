@@ -525,6 +525,26 @@ describe('MessagesPage — slide-over More → Delete thread', () => {
   });
 });
 
+// Where the browser refuses storage (private mode, blocked site data) reading the saved view
+// threw while the page rendered, so Messages did not render at all.
+describe('MessagesPage — storage refused', () => {
+  it('renders the list view when localStorage throws', () => {
+    const blocked = () => {
+      throw new DOMException('blocked', 'SecurityError');
+    };
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(blocked);
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(blocked);
+    try {
+      renderPage();
+      expect(row(11)).toBeTruthy();
+      expect(screen.queryByTestId('board')).toBeNull();
+    } finally {
+      get.mockRestore();
+      set.mockRestore();
+    }
+  });
+});
+
 // A re-read of the open thread (after a reply / header change, or a Reopen) that lands after the
 // agent moved to another thread (J/K, a row click) used to put the OLD thread back on screen.
 describe('MessagesPage — a late answer for a thread the agent left', () => {

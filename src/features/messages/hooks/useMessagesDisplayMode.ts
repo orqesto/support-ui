@@ -18,8 +18,14 @@ export const useMessagesDisplayMode = (
     // these URLs in kanban look like a no-op. Bookmarks that explicitly
     // request ?mode=kanban still win above.
     if (LIST_ONLY_FILTER_PARAMS.some((key) => searchParams.get(key))) return 'threads';
-    const stored = localStorage.getItem('messages_view_mode');
-    if (stored === 'contacts' || stored === 'kanban') return stored;
+    // Storage can throw (private mode, blocked site data): the list view then, as with nothing
+    // saved — the page must still render (the sibling preferences guard it the same way).
+    try {
+      const stored = localStorage.getItem('messages_view_mode');
+      if (stored === 'contacts' || stored === 'kanban') return stored;
+    } catch {
+      // fall through to the list view
+    }
     return 'threads';
   });
   const displayModeSyncedRef = useRef(false);
@@ -38,7 +44,11 @@ export const useMessagesDisplayMode = (
       setDisplayMode('threads');
   }, [searchParams]);
   useEffect(() => {
-    localStorage.setItem('messages_view_mode', displayMode);
+    try {
+      localStorage.setItem('messages_view_mode', displayMode);
+    } catch {
+      // Storage refused: the choice lives for this visit only.
+    }
   }, [displayMode]);
   // Keep URL in sync with displayMode so the address bar is always bookmarkable
   useEffect(() => {
