@@ -36,12 +36,12 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { ContactProfilePanel } from '@/features/contacts';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthStore } from '@/stores/authStore';
-import { useLeadsHidden } from '@/hooks/useLeadsHidden';
+import { useLeadsHidden } from '@/features/messages/hooks/useLeadsHidden';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { messageService } from '@/services/message.service';
-import type { ManualMerge } from '@/services/conversationMerge.service';
+import type { ManualMerge } from '@/features/messages/services/conversationMerge.service';
 import { categoryService, TicketRef } from '@/features/tickets';
 import { labelService, type Label } from '@/services/settings.service';
 import {
@@ -77,7 +77,7 @@ import { MOBILE_SHEET, MOBILE_SHEET_ITEM } from './relatedStyles';
 import { useHeaderFocusReturn } from './useHeaderFocusReturn';
 import { asManualMerge, type MergeChange } from './useThreadMergeContext';
 import { useThreadTicketsState } from './useThreadTicketsState';
-import { useConversationMute } from '@/hooks/useConversationMute';
+import { useConversationMute } from '@/features/messages/hooks/useConversationMute';
 import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
 import { ticketDisplayId } from '@/lib/ticketReference';
 

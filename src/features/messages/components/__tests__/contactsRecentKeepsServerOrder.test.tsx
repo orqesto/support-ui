@@ -19,7 +19,7 @@ vi.mock('@/services/message.service', async (importOriginal) => ({
 vi.mock('@/features/contacts/components/ContactProfilePanel', () => ({
   ContactProfilePanel: () => null,
 }));
-vi.mock('@/hooks/useLeadsHidden', () => ({ useLeadsHidden: () => false }));
+vi.mock('@/features/messages/hooks/useLeadsHidden', () => ({ useLeadsHidden: () => false }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'all' }));
 
 const row = (sender: string, lastMessageAt: string, hasUnread = false) => ({

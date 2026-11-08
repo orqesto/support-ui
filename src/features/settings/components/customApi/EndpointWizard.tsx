@@ -28,12 +28,7 @@ import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Textarea } from '@/components/ui/Textarea';
-import {
-  customApiService,
-  type EndpointTestResult,
-  type FieldPick,
-  useInvalidateCustomApiAvailability,
-} from '@/features/custom-api';
+import { customApiService, type EndpointTestResult, type FieldPick, useInvalidateCustomApiAvailability } from '@/features/custom-api/shell';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 
 /**

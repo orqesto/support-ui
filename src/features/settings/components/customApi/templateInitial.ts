@@ -1,4 +1,4 @@
-import type { TemplateLookup } from '@/features/custom-api';
+import type { TemplateLookup } from '@/features/custom-api/shell';
 import type { EndpointInitial } from './endpointWizardProps';
 
 /**

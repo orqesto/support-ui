@@ -11,8 +11,8 @@
  * staging), and the source for the one-time upload of what people already saved.
  */
 import { logger } from '@/lib/logger';
-import { savedViewService, type RemoteSavedView } from '@/services/savedView.service';
-import type { FilterState } from '@/stores/messagesStore';
+import { savedViewService, type RemoteSavedView } from '@/features/messages/services/savedView.service';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 import { keyAppliesInMode } from './filterSchema';
 
 export type SavedView = {

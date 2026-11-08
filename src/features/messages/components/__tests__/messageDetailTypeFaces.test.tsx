@@ -12,7 +12,7 @@ import type { MessageEvent } from '@/types';
 import { LABEL, CHIP_BASE } from '../messageDetailConstants';
 import { ThreadMessageItem } from '../ThreadMessageItem';
 
-vi.mock('@/hooks/useMessageHtml', () => ({
+vi.mock('@/features/messages/hooks/useMessageHtml', () => ({
   useMessageHtml: () => ({ data: null, isLoading: false }),
 }));
 vi.mock('@/components/shared/TranslateButton', () => ({

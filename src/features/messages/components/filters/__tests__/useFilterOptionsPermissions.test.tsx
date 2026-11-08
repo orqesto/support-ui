@@ -25,7 +25,7 @@ vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () 
 vi.mock('@/services/assignment.service', () => ({
   assignmentService: { getAssignableUsers: () => Promise.resolve([]) },
 }));
-vi.mock('@/services/messageSourceOptions.service', () => ({
+vi.mock('@/features/messages/services/messageSourceOptions.service', () => ({
   getMessageSourceOptions: () => getMessageSourceOptions(),
 }));
 vi.mock('@/services/settings.service', () => ({ labelService: { getLabels: () => getLabels() } }));

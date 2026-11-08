@@ -52,7 +52,7 @@ vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
     addThreads: svc.addThreads,
   },
 }));
-vi.mock('@/services/conversationMerge.service', () => ({
+vi.mock('@/features/messages/services/conversationMerge.service', () => ({
   conversationMergeService: {
     listMerges: svc.listMerges,
     unmerge: svc.unmerge,

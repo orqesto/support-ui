@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useBulkSelection } from '../useBulkSelection';
 
 const preview = vi.fn<(action: string, ids: number[]) => Promise<unknown>>();
-vi.mock('@/services/bulk.service', () => ({
+vi.mock('@/features/messages/services/bulk.service', () => ({
   bulkService: {
     preview: (action: string, ids: number[]) => preview(action, ids),
     run: vi.fn(),

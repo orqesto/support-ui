@@ -13,7 +13,7 @@ import {
   viewIsActive,
   type SavedView,
 } from '../savedViews';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 const KEY = 'odly-inbox-saved-views';
 

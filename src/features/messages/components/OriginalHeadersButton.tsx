@@ -12,7 +12,7 @@ import {
 import { Spinner } from '@/components/ui/Spinner';
 import { usePermissions } from '@/hooks/usePermissions';
 import { apiErrorMessage } from '@/lib/apiError';
-import { getMessageHeaders } from '@/services/message-html.service';
+import { getMessageHeaders } from '@/features/messages/services/message-html.service';
 
 /**
  * "Headers" on a message in the thread: the stored original headers, read-only, for workspace

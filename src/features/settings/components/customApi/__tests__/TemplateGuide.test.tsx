@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import type { EndpointWizardProps } from '../endpointWizardProps';
-import { type CustomApiConnection, type CustomApiTemplate } from '@/features/custom-api';
+import { type CustomApiConnection, type CustomApiTemplate } from '@/features/custom-api/shell';
 
 const mounted: EndpointWizardProps[] = [];
 vi.mock('../EndpointWizard', () => ({

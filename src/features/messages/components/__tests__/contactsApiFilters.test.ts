@@ -11,7 +11,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { buildContactsApiFilters } from '../contactsApiFilters';
-import { defaultFilters } from '@/stores/messagesStore';
+import { defaultFilters } from '@/features/messages/stores/messagesStore';
 
 describe('the contacts view and the symbolic assignee values', () => {
   it('sends "Mine" as the boolean the API resolves against the caller', () => {

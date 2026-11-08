@@ -1,4 +1,4 @@
-import type { SortingState } from '@/stores/messagesStore';
+import type { SortingState } from '@/features/messages/stores/messagesStore';
 
 // Shared sort presets — used by the standalone list-view Sort control
 // (MessagesPage) and by the per-column sort in MessagesKanbanView. Single source

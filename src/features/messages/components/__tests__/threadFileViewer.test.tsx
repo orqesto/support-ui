@@ -15,7 +15,7 @@ import type { MessageEvent } from '@/types';
 import type { Attachment } from '@/types/ai';
 
 const htmlById = vi.hoisted(() => new Map<number, string>());
-vi.mock('@/hooks/useMessageHtml', () => ({
+vi.mock('@/features/messages/hooks/useMessageHtml', () => ({
   useMessageHtml: (eventId: number | undefined) => ({
     data: eventId === undefined ? null : (htmlById.get(eventId) ?? null),
     isLoading: false,

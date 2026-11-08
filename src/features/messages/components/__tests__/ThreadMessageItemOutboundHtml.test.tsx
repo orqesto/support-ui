@@ -23,7 +23,7 @@ import { ThreadMessageItem } from '../ThreadMessageItem';
 const calls: { eventId: number | undefined; enabled: boolean }[] = [];
 let htmlForNext: string | null = null;
 
-vi.mock('@/hooks/useMessageHtml', () => ({
+vi.mock('@/features/messages/hooks/useMessageHtml', () => ({
   useMessageHtml: (eventId: number | undefined, enabled: boolean) => {
     calls.push({ eventId, enabled });
     return { data: enabled ? htmlForNext : null, isLoading: false };

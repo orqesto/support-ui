@@ -12,7 +12,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const resolve = vi.fn();
-vi.mock('@/services/conversationContact.service', () => ({
+vi.mock('@/features/custom-api/services/conversationContact.service', () => ({
   conversationContactService: { resolve },
 }));
 vi.mock('@/features/custom-api/hooks/useCustomApiLookup', () => ({

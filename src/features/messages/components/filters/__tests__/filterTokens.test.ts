@@ -14,7 +14,7 @@ import {
   type DynamicOptions,
 } from '../filterSchema';
 import { suggestionsFor, tokensOf, tokenText } from '../filterTokens';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 const dynamic: DynamicOptions = {
   ...EMPTY_DYNAMIC_OPTIONS,

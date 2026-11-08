@@ -1,6 +1,6 @@
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Select } from '@/components/ui/Select';
-import type { CustomApiEndpoint, FieldPick } from '@/features/custom-api';
+import type { CustomApiEndpoint, FieldPick } from '@/features/custom-api/shell';
 
 /**
  * D35 — "Which lookup lists this customer's orders?" — CA-5 Task 5.

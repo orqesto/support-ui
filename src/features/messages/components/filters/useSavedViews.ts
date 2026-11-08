@@ -2,14 +2,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { invalidateSharedFetch, sharedFetch } from '@/lib/sharedFetch';
 import { useAuthStore } from '@/stores/authStore';
-import { savedViewService } from '@/services/savedView.service';
+import { savedViewService } from '@/features/messages/services/savedView.service';
 import {
   loadSavedViews,
   persistSavedViews,
   type SavedView,
   type SavedViewSource,
 } from './savedViews';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 
 /** Opening the threads screen again within this window reuses the list instead of re-reading it. */

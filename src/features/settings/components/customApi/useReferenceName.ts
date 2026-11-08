@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CustomApiEndpoint } from '@/features/custom-api';
+import type { CustomApiEndpoint } from '@/features/custom-api/shell';
 import type { EndpointInitial } from './endpointWizardProps';
 
 /**

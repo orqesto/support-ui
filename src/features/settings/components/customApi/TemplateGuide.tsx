@@ -1,12 +1,7 @@
 import { useRef, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
-import {
-  customApiService,
-  type CustomApiConnection,
-  type FieldPick,
-  type CustomApiTemplate,
-} from '@/features/custom-api';
+import { customApiService, type CustomApiConnection, type FieldPick, type CustomApiTemplate } from '@/features/custom-api/shell';
 import { EndpointWizard } from './EndpointWizard';
 import { TemplateChecklist } from './TemplateChecklist';
 import { initialFromTemplate } from './templateInitial';

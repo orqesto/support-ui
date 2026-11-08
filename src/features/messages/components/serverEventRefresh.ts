@@ -1,5 +1,5 @@
 import type { MessageThread } from '@/services/message.service';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 /** The org-wide socket events the Threads page follows, besides new mail. */
 export type ServerChangeEvent =

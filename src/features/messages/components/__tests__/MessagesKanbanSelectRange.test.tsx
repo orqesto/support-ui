@@ -8,7 +8,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, within, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { defaultFilters } from '@/stores/messagesStore';
+import { defaultFilters } from '@/features/messages/stores/messagesStore';
 import { messageService, type MessageThread } from '@/services/message.service';
 import { MessagesKanbanView } from '../MessagesKanbanView';
 

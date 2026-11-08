@@ -10,7 +10,7 @@ import { useDepartments } from '@/hooks/useDepartments';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { usePermissions } from '@/hooks/usePermissions';
 import { assignmentService } from '@/services/assignment.service';
-import { getMessageSourceOptions } from '@/services/messageSourceOptions.service';
+import { getMessageSourceOptions } from '@/features/messages/services/messageSourceOptions.service';
 import { labelService, type Label } from '@/services/settings.service';
 import { ReceivedAtOptionsError, describeReceivedAt } from '@/services/receivedAtOption';
 import { messageService } from '@/services/message.service';

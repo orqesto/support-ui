@@ -12,7 +12,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { buildSharedFilters } from '../kanbanSharedFilters';
-import { defaultFilters } from '@/stores/messagesStore';
+import { defaultFilters } from '@/features/messages/stores/messagesStore';
 
 describe('the board and the Needs routing sentinel', () => {
   it('turns the sentinel into the additive needs_routing queue', () => {

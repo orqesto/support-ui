@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { MessageThread } from '@/services/message.service';
-import { defaultFilters, type FilterState } from '@/stores/messagesStore';
+import { defaultFilters, type FilterState } from '@/features/messages/stores/messagesStore';
 
 /**
  * A customer's workspace, 2026-11-02: an address searched under Needs us showed nothing while

@@ -38,7 +38,7 @@ vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
     ticketsOfThread: () => Promise.resolve({ unavailable: false, rows: [], hiddenCount: 0 }),
   },
 }));
-vi.mock('@/services/conversationMerge.service', () => ({
+vi.mock('@/features/messages/services/conversationMerge.service', () => ({
   conversationMergeService: { listMerges: () => Promise.resolve([]) },
   MergeAssigneeConflictError: class extends Error {},
 }));

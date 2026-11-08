@@ -67,7 +67,7 @@ vi.mock('@/features/messages/components/MessageDetail', () => ({
 }));
 
 import { MessageDetailPage } from '@/pages/MessageDetailPage';
-import { useMessagesStore } from '@/stores/messagesStore';
+import { useMessagesStore } from '@/features/messages/stores/messagesStore';
 import { isInactive } from '@/test/inactive';
 
 // Stands in for browser history: moves the agent while a DELETE is still running.

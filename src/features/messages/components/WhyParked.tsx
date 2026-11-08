@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Info } from 'lucide-react';
-import { routingDecisionService } from '@/services/routingDecision.service';
+import { routingDecisionService } from '@/features/messages/services/routingDecision.service';
 import { Tooltip } from '@/components/ui/Tooltip';
 
 /**

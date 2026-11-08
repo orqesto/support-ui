@@ -6,7 +6,7 @@ import type {
   KbPromoteResult,
   KbQaCandidate,
   KbQaPairInput,
-} from '@/services/kbPromote.service';
+} from '@/features/messages/services/kbPromote.service';
 
 /**
  * Promoting a resolved thread is the only path where a person reads KB content BEFORE it is
@@ -45,7 +45,7 @@ const promoted = (ids: number[], outcome: Partial<KbPromoteOutcome> = {}): KbPro
 const success = vi.fn<(message: string) => void>();
 const error = vi.fn<(message: string) => void>();
 
-vi.mock('@/services/kbPromote.service', () => ({
+vi.mock('@/features/messages/services/kbPromote.service', () => ({
   kbPromoteService: {
     candidates: (id: number) => kbCandidates(id),
     promote: (id: number, pairs: KbQaPairInput[]) => promoteToKb(id, pairs),

@@ -12,7 +12,7 @@
  * `receivedAt`, which are two DIFFERENT filters that the design prototype conflated.
  */
 import { rangeValue } from './receivedRange';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 import { readAppliesTo, scopeReadToTriage } from '@/lib/triageRead';
 
 export type FilterGroup = 'Queue' | 'Routing' | 'AI & links' | 'Flags';

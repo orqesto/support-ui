@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { invalidateSharedFetch, sharedFetch } from '@/lib/sharedFetch';
-import { recentSearchService, type RecentSearch } from '@/services/recentSearch.service';
+import { recentSearchService, type RecentSearch } from '@/features/messages/services/recentSearch.service';
 import { useAuthStore } from '@/stores/authStore';
 
 /** Mirrors the backend bound, so the list does not grow past it between reloads. */

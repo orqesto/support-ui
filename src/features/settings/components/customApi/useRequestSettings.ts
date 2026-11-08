@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CustomApiConnection, CustomApiEndpoint } from '@/features/custom-api';
+import type { CustomApiConnection, CustomApiEndpoint } from '@/features/custom-api/shell';
 import {
   readRequestSettings,
   requestSettingsPayload,

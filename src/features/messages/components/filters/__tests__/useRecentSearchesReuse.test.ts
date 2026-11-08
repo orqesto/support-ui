@@ -5,7 +5,7 @@
  */
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { recentSearchService } from '@/services/recentSearch.service';
+import { recentSearchService } from '@/features/messages/services/recentSearch.service';
 import { useRecentSearches } from '../useRecentSearches';
 
 afterEach(() => vi.restoreAllMocks());

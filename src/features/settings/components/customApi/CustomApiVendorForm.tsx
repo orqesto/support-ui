@@ -14,11 +14,7 @@ import { Select } from '@/components/ui/Select';
 import { Toggle } from '@/components/ui/Toggle';
 import { departmentService, type Department } from '@/services/department.service';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
-import {
-  customApiService,
-  type CustomApiConnection,
-  useInvalidateCustomApiAvailability,
-} from '@/features/custom-api';
+import { customApiService, type CustomApiConnection, useInvalidateCustomApiAvailability } from '@/features/custom-api/shell';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { FailureAdvancedSettings } from './AdvancedSettings';
 import {

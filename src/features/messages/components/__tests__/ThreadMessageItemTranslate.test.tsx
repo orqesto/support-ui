@@ -20,7 +20,7 @@ const TRANSLATED_TEXT = 'Descuento: -16.50';
 // Simulates real react-query behaviour: cached `data` for the queryKey survives `enabled`
 // flipping to false, so this mock ignores the `enabled` argument entirely, same as the cache
 // would once it has already fetched once.
-vi.mock('@/hooks/useMessageHtml', () => ({
+vi.mock('@/features/messages/hooks/useMessageHtml', () => ({
   useMessageHtml: () => ({ data: ORIGINAL_HTML, isLoading: false }),
 }));
 

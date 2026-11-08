@@ -8,7 +8,7 @@ import { useCustomApiLookup, useCustomApiLookupAvailabilityState, useCustomApiLo
 import { type CustomApiLookupResult, type RunnableLookup } from '@/features/custom-api/services/customApiLookup.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
-import { conversationContactService } from '@/services/conversationContact.service';
+import { conversationContactService } from '@/features/custom-api/services/conversationContact.service';
 import type { AddOutcome } from './recordInsertOutcome';
 import { relativeTime } from '@/features/messages/shell';
 import { CustomApiResultCard } from './CustomApiResultCard';

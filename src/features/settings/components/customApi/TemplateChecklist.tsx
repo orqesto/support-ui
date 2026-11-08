@@ -1,5 +1,5 @@
 import { fieldWithRole } from './fieldRoles';
-import { type FieldPick, type TemplateChecklistItem } from '@/features/custom-api';
+import { type FieldPick, type TemplateChecklistItem } from '@/features/custom-api/shell';
 
 /**
  * F3: the warning names the identifier in THIS template's words (its checklist item with role

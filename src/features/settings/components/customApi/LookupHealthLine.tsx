@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Circle } from 'lucide-react';
 import { relativeTime } from '@/features/messages/shell';
-import { failureSentence, SHAPE_CHANGED_FOR_AGENTS } from '@/features/custom-api';
+import { failureSentence, SHAPE_CHANGED_FOR_AGENTS } from '@/features/custom-api/shell';
 import { Button } from '@/components/ui/Button';
 import { usePermissions } from '@/hooks/usePermissions';
-import type { CustomApiEndpoint } from '@/features/custom-api';
+import type { CustomApiEndpoint } from '@/features/custom-api/shell';
 import { Permission } from '@/types/roles';
 
 /** Absent from a backend before 2026-10-14. */

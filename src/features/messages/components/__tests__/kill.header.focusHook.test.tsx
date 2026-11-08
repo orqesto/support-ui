@@ -23,7 +23,7 @@ vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
 vi.mock('@/services/message.service', () => ({
   messageService: { getLinkedTicket: svc.getLinkedTicket },
 }));
-vi.mock('@/services/conversationMerge.service', () => ({
+vi.mock('@/features/messages/services/conversationMerge.service', () => ({
   conversationMergeService: { listMerges: svc.listMerges },
 }));
 vi.mock('@/lib/socketManager', () => ({

@@ -9,7 +9,7 @@ import {
 import { getAiState, getRiskSignals } from '../inboxCardHelpers';
 import { analysisInfoValue } from '../AnalysisDegradedHint';
 import { buildFilterDefs, EMPTY_DYNAMIC_OPTIONS } from '../filters/filterSchema';
-import { normalizeAiState, VALID_AI_STATES } from '@/hooks/useMessagesUrlSync';
+import { normalizeAiState, VALID_AI_STATES } from '@/features/messages/hooks/useMessagesUrlSync';
 import type { Message } from '@/types';
 import type { ContradictionCheckMetadata } from '@/types/ai';
 import type { MessageThread } from '@/services/message.service';

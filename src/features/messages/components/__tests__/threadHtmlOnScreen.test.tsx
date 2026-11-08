@@ -11,7 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { MessageEvent } from '@/types';
 
 const getMessageHtml = vi.fn<(eventId: number) => Promise<string | null>>();
-vi.mock('@/services/message-html.service', () => ({
+vi.mock('@/features/messages/services/message-html.service', () => ({
   getMessageHtml: (eventId: number) => getMessageHtml(eventId),
 }));
 vi.mock('@/components/shared/TranslateButton', () => ({ TranslateButton: () => null }));

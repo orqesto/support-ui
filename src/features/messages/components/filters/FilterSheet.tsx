@@ -17,7 +17,7 @@ import { optionSelected } from './FilterMenu';
 import { isRangeValue, rangeFromValue } from './receivedRange';
 import { DateRangeFields, NegateSwitch } from './ValueControls';
 import { OptionsLoadErrorNotice } from './OptionsLoadErrorNotice';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 /**
  * The filter surface for narrow screens.

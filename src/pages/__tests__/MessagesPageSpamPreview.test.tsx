@@ -73,7 +73,7 @@ const threads = [
   } as unknown as MessageThread,
 ];
 
-vi.mock('@/hooks/useMessagesData', () => ({
+vi.mock('@/features/messages/hooks/useMessagesData', () => ({
   useMessagesData: () => ({
     threads,
     loading: false,
@@ -94,7 +94,7 @@ vi.mock('@/services/message.service', () => ({
     markUnread: vi.fn(() => Promise.resolve()),
   },
 }));
-vi.mock('@/services/bulk.service', () => ({
+vi.mock('@/features/messages/services/bulk.service', () => ({
   bulkService: {
     preview: vi.fn(() => new Promise(() => undefined)),
     run: vi.fn(),
@@ -109,13 +109,13 @@ vi.mock('@/lib/socketManager', () => ({
   subscribeToEvent: vi.fn(),
   unsubscribeFromEvent: vi.fn(),
 }));
-vi.mock('@/hooks/usePhoneOpensMessageAsPage', () => ({ usePhoneOpensMessageAsPage: () => false }));
-vi.mock('@/hooks/useMessagesUrlSync', () => ({ useMessagesUrlSync: () => undefined }));
+vi.mock('@/features/messages/hooks/usePhoneOpensMessageAsPage', () => ({ usePhoneOpensMessageAsPage: () => false }));
+vi.mock('@/features/messages/hooks/useMessagesUrlSync', () => ({ useMessagesUrlSync: () => undefined }));
 vi.mock('@/hooks/useNotificationCounts', () => ({
   NOTIFICATION_COUNTS_KEY: ['notification-counts'],
   useNotificationCounts: () => ({ counts: {}, clearKind: vi.fn() }),
 }));
-vi.mock('@/hooks/useSharedLinkWorkspace', () => ({ useSharedLinkWorkspace: () => undefined }));
+vi.mock('@/features/messages/hooks/useSharedLinkWorkspace', () => ({ useSharedLinkWorkspace: () => undefined }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'COR' }));
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),

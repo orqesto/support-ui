@@ -18,7 +18,7 @@ import { parseSender } from '@/lib/messageHelpers';
  * proper-noun channel in a sentence.
  */
 
-vi.mock('@/hooks/useMessageHtml', () => ({
+vi.mock('@/features/messages/hooks/useMessageHtml', () => ({
   useMessageHtml: () => ({ data: null, isLoading: false }),
 }));
 vi.mock('@/components/shared/TranslateButton', () => ({ TranslateButton: () => null }));

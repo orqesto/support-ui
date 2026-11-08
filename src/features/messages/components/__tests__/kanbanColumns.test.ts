@@ -10,7 +10,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { COLUMNS, DRAGGABLE_COLS, DROPPABLE_COLS, VALID_TARGETS } from '../kanbanColumns';
-import { QUEUE_FILTERS } from '@/stores/messagesStore';
+import { QUEUE_FILTERS } from '@/features/messages/stores/messagesStore';
 
 const noLane = COLUMNS.find((col) => col.id === 'no_lane');
 

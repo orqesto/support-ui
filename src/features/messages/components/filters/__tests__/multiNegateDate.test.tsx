@@ -20,7 +20,7 @@ import {
 } from '../filterSchema';
 import { clearPatch, tokenText, tokensOf } from '../filterTokens';
 import { endOfDayIso, startOfDayIso } from '../receivedRange';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 afterEach(cleanup);
 

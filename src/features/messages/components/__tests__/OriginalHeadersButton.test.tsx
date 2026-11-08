@@ -14,7 +14,7 @@ const permissions = { isAdmin: false, isOrgAdmin: false };
 vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => permissions }));
 
 const fetched: number[] = [];
-vi.mock('@/services/message-html.service', () => ({
+vi.mock('@/features/messages/services/message-html.service', () => ({
   getMessageHeaders: (eventId: number) => {
     fetched.push(eventId);
     return Promise.resolve({
@@ -28,7 +28,7 @@ vi.mock('@/services/message-html.service', () => ({
   },
   getMessageHtml: () => Promise.resolve(null),
 }));
-vi.mock('@/hooks/useMessageHtml', () => ({
+vi.mock('@/features/messages/hooks/useMessageHtml', () => ({
   useMessageHtml: () => ({ data: null, isLoading: false }),
 }));
 vi.mock('@/components/shared/TranslateButton', () => ({ TranslateButton: () => null }));

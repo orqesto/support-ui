@@ -16,7 +16,7 @@ import { tokenText, type Suggestion } from './filterTokens';
 import { isRangeValue, rangeFromValue } from './receivedRange';
 import { DateRangeFields, NegateSwitch } from './ValueControls';
 import { OptionsLoadErrorNotice } from './OptionsLoadErrorNotice';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 /**
  * The menu under the token bar. Three states, one component:

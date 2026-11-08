@@ -1,4 +1,4 @@
-import type { FieldPick } from '@/features/custom-api';
+import type { FieldPick } from '@/features/custom-api/shell';
 
 /**
  * D35/D37: what a picked field IS to us, beyond how it renders — CA-5 Task 4.

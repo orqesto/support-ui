@@ -13,20 +13,69 @@ import {
   useMemo,
   useReducer,
 } from 'react';
-import { ThreadTableHeader, ThreadStatusCell, threadSections, ThreadPrimaryViews, TRIAGE_IDS, TriageMenu, type TriageId, primaryViewsOn, MessagesViewToggle, buildContactsApiFilters, BulkActionBar, BULK_MERGE_MAX, BulkMergeDialog, BulkConfirmDialog, type BulkConfirmValues, describeResult, useBulkSelection, useSelectionShortcuts, type ToggleSelected, MessageFilterBar, MessagesListCaption, SurfaceCount, useListPresentation, MessageListItem, OutsideViewMatches, DeleteMessageDialog, neighbourThread, threadIdForMessage, ThreadBubble, quickFilterWouldChange, type MessagesKanbanHandle, refreshForServerEvent, type ServerChangeEvent, sortingToPreset, presetToSorting } from '@/features/messages';
+import {
+  ThreadTableHeader,
+  ThreadStatusCell,
+  threadSections,
+  ThreadPrimaryViews,
+  TRIAGE_IDS,
+  TriageMenu,
+  type TriageId,
+  primaryViewsOn,
+  MessagesViewToggle,
+  buildContactsApiFilters,
+  BulkActionBar,
+  BULK_MERGE_MAX,
+  BulkMergeDialog,
+  BulkConfirmDialog,
+  type BulkConfirmValues,
+  describeResult,
+  useBulkSelection,
+  useSelectionShortcuts,
+  type ToggleSelected,
+  MessageFilterBar,
+  MessagesListCaption,
+  SurfaceCount,
+  useListPresentation,
+  MessageListItem,
+  OutsideViewMatches,
+  DeleteMessageDialog,
+  neighbourThread,
+  threadIdForMessage,
+  ThreadBubble,
+  quickFilterWouldChange,
+  type MessagesKanbanHandle,
+  refreshForServerEvent,
+  type ServerChangeEvent,
+  sortingToPreset,
+  presetToSorting,
+  useNewThreadsBar,
+  useThreadViewCounts,
+  usePhoneOpensMessageAsPage,
+  defaultFilters,
+  type FilterState,
+  useDropTeamFilterWhenTeamsOff,
+  bulkService,
+  useSocketReconnected,
+  scopeJumpUrl,
+  useMessagesData,
+  useMessagesUrlSync,
+  useConversationNewRefresh,
+} from '@/features/messages';
 import { SearchReadingNotice } from '@/components/shared/SearchReadingNotice';
 import { NewItemsBar } from '@/components/shared/NewItemsBar';
 import { similarResultsCache } from '@/lib/similarResultsCache';
 import { type BulkAction } from '@/lib/bulkActions';
-import { useSafeMediaQuery } from '@/hooks/useIsPhone';
+import {
+  useSafeMediaQuery,
+  useSharedLinkWorkspace,
+  useMessagesStore,
+} from '@/features/messages/shell';
 import { useQueryClient } from '@tanstack/react-query';
 import { Inbox, MoreHorizontal, PenSquare, RefreshCw } from 'lucide-react';
 import { Menu, MenuItem, MenuSeparator } from '@/components/ui/Menu';
 import { Tooltip } from '@/components/ui/Tooltip';
-import { useNewThreadsBar } from '@/hooks/useNewThreadsBar';
-import { useThreadViewCounts } from '@/hooks/useThreadViewCounts';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { usePhoneOpensMessageAsPage } from '@/hooks/usePhoneOpensMessageAsPage';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { AlertDialog } from '@/components/ui/AlertDialog';
@@ -48,25 +97,16 @@ import { messageService, type MessageThread } from '@/services/message.service';
 import { highlightTermsFor } from '@/lib/highlightTerms';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
-import { useSharedLinkWorkspace } from '@/hooks/useSharedLinkWorkspace';
 import { cn, formatDate } from '@/lib/utils';
-import { defaultFilters, useMessagesStore, type FilterState } from '@/stores/messagesStore';
-import { useDropTeamFilterWhenTeamsOff } from '@/hooks/useDropTeamFilterWhenTeamsOff';
 import type { Message, MessagesDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';
-import { bulkService } from '@/services/bulk.service';
 import { toast } from '@/lib/toast';
 import { SPAM_LOG_CARD_COPY, spamLogTruncationNotice } from '@/lib/spamLogCardCopy';
 import { Spinner } from '@/components/ui/Spinner';
 import { lazyWithReload } from '@/lib/lazyWithReload';
-import { useSocketReconnected } from '@/hooks/useSocketReconnected';
-import { scopeJumpUrl } from '@/hooks/scopeJumpUrl';
-import { useMessagesData } from '@/hooks/useMessagesData';
-import { useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
 import { NOTIFICATION_COUNTS_KEY, useNotificationCounts } from '@/hooks/useNotificationCounts';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { isOwnSendEcho } from '@/lib/ownSends';
-import { useConversationNewRefresh } from '@/hooks/useConversationNewRefresh';
 import { useCoalescedRefresh } from '@/hooks/useCoalescedRefresh';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';

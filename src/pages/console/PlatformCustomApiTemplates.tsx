@@ -9,11 +9,7 @@ import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsoleEmpty } from '@/components/console/ConsoleEmpty';
 import { getApiErrorMessage } from '@/lib/errorMessages';
-import {
-  customApiTemplateAdminService,
-  type AdminCustomApiTemplate,
-  type TemplateDefinition,
-} from '@/features/custom-api';
+import { customApiTemplateAdminService, type AdminCustomApiTemplate, type TemplateDefinition } from '@/features/custom-api/shell';
 
 /**
  * Custom API templates (spec CUSTOM-API-TEMPLATES 2026-10-09): platform-managed set-ups a workspace

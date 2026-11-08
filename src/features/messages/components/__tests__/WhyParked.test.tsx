@@ -10,7 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WhyParked } from '../WhyParked';
 
 const get = vi.fn();
-vi.mock('@/services/routingDecision.service', () => ({
+vi.mock('@/features/messages/services/routingDecision.service', () => ({
   routingDecisionService: { get: (id: number | string) => get(id) as unknown },
 }));
 

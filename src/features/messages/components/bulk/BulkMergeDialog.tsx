@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
-import { conversationMergeService } from '@/services/conversationMerge.service';
+import { conversationMergeService } from '@/features/messages/services/conversationMerge.service';
 import { messageService } from '@/services/message.service';
 import type { Message } from '@/types';
 import { MergeConfirmDialog, type MergeRow } from '../MergeConfirmDialog';

@@ -2,7 +2,7 @@ import { vi, describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { ListScopeNotice } from '@/features/messages/components/ListScopeNotice';
 import type { ListScope } from '@/services/message.service';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 /**
  * "from the knowledge base — 2,402" was a figure with nothing to click, sitting under a

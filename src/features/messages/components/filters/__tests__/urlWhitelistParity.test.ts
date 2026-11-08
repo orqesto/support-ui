@@ -21,7 +21,7 @@ import {
   VALID_QUEUES,
   VALID_READ,
   VALID_THREAD_STATUSES,
-} from '@/hooks/useMessagesUrlSync';
+} from '@/features/messages/hooks/useMessagesUrlSync';
 import {
   NEGATABLE_KEYS,
   buildFilterDefs,

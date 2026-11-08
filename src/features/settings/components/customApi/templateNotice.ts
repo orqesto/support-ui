@@ -1,4 +1,4 @@
-import type { TemplateLookup } from '@/features/custom-api';
+import type { TemplateLookup } from '@/features/custom-api/shell';
 
 /** A template step that ended with a lookup: saved in this run, or an existing one reused. */
 export interface KeptStep {
