@@ -25,6 +25,7 @@ export const API_ONLY_FEATURES = [
   'tickets',
   'kb',
   'settings',
+  'messages',
 ];
 
 const toPosix = (path) => path.split(sep).join('/');

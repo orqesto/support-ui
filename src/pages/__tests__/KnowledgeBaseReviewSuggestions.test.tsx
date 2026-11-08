@@ -47,7 +47,7 @@ vi.mock('@/features/kb/components/ConfluenceCatalogSection', () => ({
 vi.mock('@/features/settings/components/DocumentationSettings', () => ({
   DocumentationSettings: () => null,
 }));
-vi.mock('@/components/messages/MessageSourceFilter', () => ({
+vi.mock('@/components/shared/MessageSourceFilter', () => ({
   ALL_SOURCES: 'all',
   NO_SOURCE: 'none',
   MessageSourceFilter: () => null,

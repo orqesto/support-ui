@@ -8,7 +8,7 @@ import {
   type LatestNotePreview,
 } from '../ContactNotesIndicator';
 import { useCustomerNotesMark } from '../../hooks/useCustomerNoteSummary';
-import { ContactsView } from '@/components/messages/ContactsView';
+import { ContactsView } from '@/features/messages';
 
 /**
  * The "this customer has notes" icon (2026-10-16): a count and the newest note on hover — a button

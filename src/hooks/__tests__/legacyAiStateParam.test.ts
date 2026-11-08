@@ -6,7 +6,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { legacyAiStateParam } from '../legacyAiStateParam';
-import { buildFilterDefs, EMPTY_DYNAMIC_OPTIONS } from '@/components/messages/filters/filterSchema';
+import { buildFilterDefs, EMPTY_DYNAMIC_OPTIONS } from '@/features/messages';
 
 const aiStates =
   buildFilterDefs(EMPTY_DYNAMIC_OPTIONS)

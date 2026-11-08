@@ -13,27 +13,20 @@ import {
   useMemo,
   useReducer,
 } from 'react';
-import { ThreadTableHeader } from '@/components/messages/list/ThreadTableHeader';
-import { ThreadStatusCell } from '@/components/messages/list/threadTableParts';
-import { threadSections } from '@/components/messages/list/threadSections';
+import { ThreadTableHeader, ThreadStatusCell, threadSections, ThreadPrimaryViews, TRIAGE_IDS, TriageMenu, type TriageId, primaryViewsOn, MessagesViewToggle, buildContactsApiFilters, BulkActionBar, BULK_MERGE_MAX, BulkMergeDialog, BulkConfirmDialog, type BulkConfirmValues, describeResult, useBulkSelection, useSelectionShortcuts, type ToggleSelected, MessageFilterBar, MessagesListCaption, SurfaceCount, useListPresentation, MessageListItem, OutsideViewMatches, DeleteMessageDialog, neighbourThread, threadIdForMessage, ThreadBubble, quickFilterWouldChange, type MessagesKanbanHandle, refreshForServerEvent, type ServerChangeEvent, sortingToPreset, presetToSorting } from '@/features/messages';
+import { SearchReadingNotice } from '@/components/shared/SearchReadingNotice';
+import { NewItemsBar } from '@/components/shared/NewItemsBar';
+import { similarResultsCache } from '@/lib/similarResultsCache';
+import { type BulkAction } from '@/lib/bulkActions';
+import { useSafeMediaQuery } from '@/hooks/useIsPhone';
 import { useQueryClient } from '@tanstack/react-query';
 import { Inbox, MoreHorizontal, PenSquare, RefreshCw } from 'lucide-react';
-import { NewItemsBar } from '@/components/list/NewItemsBar';
 import { Menu, MenuItem, MenuSeparator } from '@/components/ui/Menu';
 import { Tooltip } from '@/components/ui/Tooltip';
-import {
-  ThreadPrimaryViews,
-  TRIAGE_IDS,
-  TriageMenu,
-  type TriageId,
-  primaryViewsOn,
-} from '@/components/messages/list/ThreadViews';
 import { useNewThreadsBar } from '@/hooks/useNewThreadsBar';
 import { useThreadViewCounts } from '@/hooks/useThreadViewCounts';
-import { MessagesViewToggle } from '@/components/messages/MessagesViewToggle';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { usePhoneOpensMessageAsPage } from '@/hooks/usePhoneOpensMessageAsPage';
-import { buildContactsApiFilters } from '@/components/messages/contactsApiFilters';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { AlertDialog } from '@/components/ui/AlertDialog';
@@ -47,7 +40,6 @@ import {
   DialogContent,
   DialogFooter,
 } from '@/components/ui/Dialog';
-import { SearchReadingNotice } from '@/components/messages/SearchReadingNotice';
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
 import { Pagination } from '@/components/ui/Pagination';
 import { apiClient } from '@/lib/api-client';
@@ -56,48 +48,18 @@ import { messageService, type MessageThread } from '@/services/message.service';
 import { highlightTermsFor } from '@/lib/highlightTerms';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
-import { similarResultsCache } from '@/components/messages/similarResultsCache';
 import { useSharedLinkWorkspace } from '@/hooks/useSharedLinkWorkspace';
 import { cn, formatDate } from '@/lib/utils';
 import { defaultFilters, useMessagesStore, type FilterState } from '@/stores/messagesStore';
 import { useDropTeamFilterWhenTeamsOff } from '@/hooks/useDropTeamFilterWhenTeamsOff';
 import type { Message, MessagesDisplayMode } from '@/types';
 import { Permission } from '@/types/roles';
-import { BulkActionBar } from '@/components/messages/bulk/BulkActionBar';
-import { BULK_MERGE_MAX, BulkMergeDialog } from '@/components/messages/bulk/BulkMergeDialog';
-import {
-  BulkConfirmDialog,
-  type BulkConfirmValues,
-} from '@/components/messages/bulk/BulkConfirmDialog';
-import { describeResult } from '@/components/messages/bulk/bulkResultMessage';
-import { type BulkAction } from '@/components/messages/bulk/bulkActions';
-import { useBulkSelection } from '@/components/messages/bulk/useBulkSelection';
-import { useSelectionShortcuts } from '@/components/messages/bulk/selectionShortcuts';
-import type { ToggleSelected } from '@/components/messages/bulk/selectMode';
 import { bulkService } from '@/services/bulk.service';
 import { toast } from '@/lib/toast';
-import { MessageFilterBar } from '@/components/messages/filters/MessageFilterBar';
-import { MessagesListCaption } from '@/components/messages/MessagesListCaption';
-import { SurfaceCount } from '@/components/messages/filters/SurfaceCount';
-import { useListPresentation } from '@/components/messages/useListPresentation';
-import { useSafeMediaQuery } from '@/components/messages/useIsPhone';
-import { MessageListItem } from '@/components/messages/MessageListItem';
-import { OutsideViewMatches } from '@/components/messages/list/OutsideViewMatches';
-import { DeleteMessageDialog } from '@/components/messages/DeleteMessageDialog';
-import { neighbourThread } from '@/components/messages/detailShortcuts';
-import { threadIdForMessage } from '@/components/messages/threadForMessage';
-import { ThreadBubble } from '@/components/messages/ThreadBubble';
 import { SPAM_LOG_CARD_COPY, spamLogTruncationNotice } from '@/lib/spamLogCardCopy';
-import { quickFilterWouldChange } from '@/components/messages/quickFilterPatch';
-import type { MessagesKanbanHandle } from '@/components/messages/MessagesKanbanView';
-import {
-  refreshForServerEvent,
-  type ServerChangeEvent,
-} from '@/components/messages/serverEventRefresh';
 import { Spinner } from '@/components/ui/Spinner';
 import { lazyWithReload } from '@/lib/lazyWithReload';
 import { useSocketReconnected } from '@/hooks/useSocketReconnected';
-import { sortingToPreset, presetToSorting } from '@/components/messages/sortPresets';
 import { scopeJumpUrl } from '@/hooks/scopeJumpUrl';
 import { useMessagesData } from '@/hooks/useMessagesData';
 import { useMessagesUrlSync } from '@/hooks/useMessagesUrlSync';
@@ -130,7 +92,9 @@ const BULK_TARGET_COLUMN: Partial<Record<BulkAction, string>> = {
   an agent landing on the list needs none of them yet. The thread view is fetched ahead as soon as
   a row is pointed at or focused, so opening one rarely waits for it.
 */
-const loadMessageDetail = () => import('@/components/messages/MessageDetail');
+// A lazy chunk: imported through the index it would load with the page instead of on demand.
+// eslint-disable-next-line boundaries/api-only-features
+const loadMessageDetail = () => import('@/features/messages/components/MessageDetail');
 const MessageDetail = lazyWithReload(() =>
   loadMessageDetail().then((mod) => ({ default: mod.MessageDetail }))
 );
@@ -142,15 +106,23 @@ const prefetchMessageDetail = () => {
   });
 };
 const MessagesKanbanView = lazyWithReload(() =>
-  import('@/components/messages/MessagesKanbanView').then((mod) => ({
+  // A lazy chunk (see loadMessageDetail).
+  // eslint-disable-next-line boundaries/api-only-features
+  import('@/features/messages/components/MessagesKanbanView').then((mod) => ({
     default: mod.MessagesKanbanView,
   }))
 );
 const ContactsView = lazyWithReload(() =>
-  import('@/components/messages/ContactsView').then((mod) => ({ default: mod.ContactsView }))
+  // A lazy chunk (see loadMessageDetail).
+  // eslint-disable-next-line boundaries/api-only-features
+  import('@/features/messages/components/ContactsView').then((mod) => ({
+    default: mod.ContactsView,
+  }))
 );
 const ComposeNewModal = lazyWithReload(() =>
-  import('@/components/messages/ComposeNewModal').then((mod) => ({
+  // A lazy chunk (see loadMessageDetail).
+  // eslint-disable-next-line boundaries/api-only-features
+  import('@/features/messages/components/ComposeNewModal').then((mod) => ({
     default: mod.ComposeNewModal,
   }))
 );

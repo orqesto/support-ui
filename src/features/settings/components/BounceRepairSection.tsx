@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { MailWarning } from 'lucide-react';
-import { bareStatusLabel } from '@/components/messages/inboxCardHelpers';
+import { bareStatusLabel } from '@/features/messages/shell';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';

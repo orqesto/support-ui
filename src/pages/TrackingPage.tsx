@@ -16,7 +16,7 @@ import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { formatConvId } from '@/lib/messageHelpers';
-import { channelName } from '@/components/messages/messageDetailConstants';
+import { channelName } from '@/features/messages/shell';
 
 type TrackingPayload = {
   // `code` and `channel` are optional: a backend before 2026-10-14 does not send them.

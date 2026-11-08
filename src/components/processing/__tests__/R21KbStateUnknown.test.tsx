@@ -42,7 +42,7 @@ vi.mock('@/services/importProgress.service', async (importOriginal) => {
 const { normaliseEta, normaliseImportProgress, normaliseSummary } = await import(
   '@/services/importProgress.service'
 );
-const { describeEta } = await import('@/components/messages/ImportProgressPanel');
+const { describeEta } = await import('../ImportProgressPanel');
 const { ProcessingPanels } = await import('../ProcessingPanels');
 const { ProcessingIndicator } = await import('../ProcessingIndicator');
 const { RunDetails } = await import('../RunDetails');

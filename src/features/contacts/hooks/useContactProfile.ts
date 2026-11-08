@@ -4,7 +4,7 @@ import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';
-import { hashNameToLabelColor } from '@/components/messages/inboxCardHelpers';
+import { hashNameToLabelColor } from '@/features/messages/shell';
 import { labelService } from '@/services/settings.service';
 import {
   CONTACT_NOTES_CHANGED,

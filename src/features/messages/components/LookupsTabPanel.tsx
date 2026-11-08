@@ -1,0 +1,35 @@
+import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE, type AddOutcome } from '@/features/custom-api';
+import { PHONE_CONTACT } from './messageDetailConstants';
+import type { Message } from '@/types';
+
+/**
+ * The LOOKUPS tab (spec 2026-10-09): the connected-system lookups, moved out of the Customer tab.
+ * CA-3: nothing is fetched until the agent presses Look up (SC1).
+ */
+export const LookupsTabPanel = ({
+  message,
+  hasEmailIdentity,
+  onUseInReply,
+  customerEmail,
+  onFoundChange,
+}: {
+  message: Message;
+  hasEmailIdentity: boolean;
+  /** The address a press looks up, named before the press (2026-10-15). */
+  customerEmail?: string;
+  /** The tab badge: how many lookups found something (2026-10-15). */
+  onFoundChange?: (found: number) => void;
+  /** L2 P4: a record joins the agent's note for the AI draft. It answers added / duplicate / full. */
+  onUseInReply?: (note: string) => AddOutcome;
+}) => (
+  <div data-testid="lookups-tab-panel" className={`space-y-2 ${PHONE_CONTACT}`}>
+    <CustomApiLookupPanel
+      className="pt-1"
+      conversationId={message.id}
+      identityNote={hasEmailIdentity ? undefined : NO_EMAIL_IDENTITY_NOTE}
+      onUseInReply={onUseInReply}
+      customerEmail={hasEmailIdentity ? customerEmail : undefined}
+      onFoundChange={onFoundChange}
+    />
+  </div>
+);

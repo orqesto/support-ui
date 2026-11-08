@@ -40,10 +40,10 @@ const { lookupsTab, CONTACT, noop } = vi.hoisted(() => ({
   noop: () => {},
 }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'TES' }));
-vi.mock('@/components/messages/lookupsTab', () => ({
+vi.mock('@/features/custom-api/components/lookupsTab', () => ({
   useLookupsTab: (surface: string) => lookupsTab(surface) as unknown,
 }));
-vi.mock('@/components/messages/CustomApiLookupPanel', () => ({
+vi.mock('@/features/custom-api/components/CustomApiLookupPanel', () => ({
   CustomApiLookupPanel: ({ contactId }: { contactId: number }) => (
     <div data-testid="lookup-panel">{contactId}</div>
   ),

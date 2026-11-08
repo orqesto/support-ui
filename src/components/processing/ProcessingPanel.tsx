@@ -11,7 +11,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { kbFullHoldLine } from '@/features/settings/shell';
-import { ImportProgressPanel, isImapRun } from '@/components/messages/ImportProgressPanel';
+import { ImportProgressPanel, isImapRun } from './ImportProgressPanel';
 import type { ProcessingSession } from '@/hooks/useEmailProcessingSessions';
 import {
   IMPORT_LISTING_THRESHOLD,

@@ -28,11 +28,7 @@ import { Card } from '@/components/ui/Card';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { daysSince, formatStaleAge, isStale, KB_STALE_AFTER_DAYS } from '@/lib/kbStaleness';
 import { formatDate } from '@/lib/utils';
-import type {
-  Documentation,
-  DocumentType,
-  DocumentationProgress,
-} from '@/features/kb';
+import type { Documentation, DocumentType, DocumentationProgress } from '@/features/kb/shell';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 
 type DocumentationListProps = {

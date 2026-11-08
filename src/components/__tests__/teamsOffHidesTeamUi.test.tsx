@@ -48,7 +48,7 @@ vi.mock('@/services/message.service', () => ({
 
 const { default: DepartmentBadge } = await import('@/components/admin/DepartmentBadge');
 const { DepartmentSwitcher } = await import('@/components/layout/DepartmentSwitcher');
-const { useFilterOptions } = await import('@/components/messages/filters/useFilterOptions');
+const { useFilterOptions } = await import('@/features/messages');
 const { useAuthStore } = await import('@/stores/authStore');
 const { useDepartmentContextStore } = await import('@/stores/departmentContextStore');
 

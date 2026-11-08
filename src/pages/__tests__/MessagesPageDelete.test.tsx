@@ -138,10 +138,10 @@ vi.mock('@/components/shared/PageHeader', () => ({
     </div>
   ),
 }));
-vi.mock('@/components/messages/filters/MessageFilterBar', () => ({
+vi.mock('@/features/messages/components/filters/MessageFilterBar', () => ({
   MessageFilterBar: ({ viewSwitch }: { viewSwitch?: ReactNode }) => <div>{viewSwitch}</div>,
 }));
-vi.mock('@/components/messages/MessagesViewToggle', () => ({
+vi.mock('@/features/messages/components/MessagesViewToggle', () => ({
   MessagesViewToggle: ({ onModeChange }: { onModeChange: (mode: string) => void }) => (
     <div>
       <span
@@ -155,17 +155,16 @@ vi.mock('@/components/messages/MessagesViewToggle', () => ({
     </div>
   ),
 }));
-vi.mock('@/components/messages/ListScopeNotice', () => ({ ListScopeNotice: () => null }));
-vi.mock('@/components/messages/QuickFilterChips', () => ({ QuickFilterChips: () => null }));
+vi.mock('@/features/messages/components/ListScopeNotice', () => ({ ListScopeNotice: () => null }));
 // The list caption's Sort is a Select, which needs a ThemeProvider this page test does not mount.
 vi.mock('@/components/ui/Select', () => ({ Select: () => null }));
-vi.mock('@/components/messages/ComposeNewModal', () => ({ ComposeNewModal: () => null }));
-vi.mock('@/components/messages/ThreadBubble', () => ({ ThreadBubble: () => null }));
-vi.mock('@/components/messages/ContactsView', () => ({
+vi.mock('@/features/messages/components/ComposeNewModal', () => ({ ComposeNewModal: () => null }));
+vi.mock('@/features/messages/components/ThreadBubble', () => ({ ThreadBubble: () => null }));
+vi.mock('@/features/messages/components/ContactsView', () => ({
   ContactsView: () => <div data-testid="contacts-view" />,
 }));
 // The board: opens a card the way a click does, and exposes its optimistic move to the page.
-vi.mock('@/components/messages/MessagesKanbanView', async () => {
+vi.mock('@/features/messages/components/MessagesKanbanView', async () => {
   const { forwardRef, useImperativeHandle } = await import('react');
   return {
     MessagesKanbanView: forwardRef(
@@ -187,7 +186,7 @@ vi.mock('@/components/messages/MessagesKanbanView', async () => {
 });
 // Stand-in for the detail: its More → Delete message calls the page's onDelete, when given one;
 // J and a status change call the page's onNavigate / onOptimisticMove.
-vi.mock('@/components/messages/MessageDetail', () => ({
+vi.mock('@/features/messages/components/MessageDetail', () => ({
   MessageDetail: ({
     message,
     onDelete,
