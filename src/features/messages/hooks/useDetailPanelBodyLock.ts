@@ -6,18 +6,15 @@ export const useDetailPanelBodyLock = (
   isPhone: boolean,
   split: boolean
 ) => {
-  // Lock body scroll while the detail panel is open + notify Layout to hide header. Not in
-  // split: there the detail is a pane beside the list and both scroll on their own.
+  // Lock body scroll while the detail panel is open. Not in split: there the detail is a pane
+  // beside the list and both scroll on their own. Keyed on WHETHER a thread is open, not on its
+  // record: a re-read of the open thread is a new object and used to unlock and relock the body.
+  // (It also announced 'detail-panel-change' to the Layout, which no longer listens.)
+  const open = selectedMessage !== null;
   useEffect(() => {
-    if (selectedMessage && !isPhone && !split) {
-      document.body.style.overflow = 'hidden';
-      window.dispatchEvent(new CustomEvent('detail-panel-change', { detail: { open: true } }));
-    } else {
-      document.body.style.overflow = '';
-      window.dispatchEvent(new CustomEvent('detail-panel-change', { detail: { open: false } }));
-    }
+    document.body.style.overflow = open && !isPhone && !split ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
-  }, [selectedMessage, isPhone, split]);
+  }, [open, isPhone, split]);
 };

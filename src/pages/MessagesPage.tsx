@@ -184,7 +184,7 @@ export const MessagesPage = () => {
   const wideEnoughToSplit = useSafeMediaQuery('(min-width: 1024px)');
   const split = layout === 'split' && wideEnoughToSplit && !isPhone && displayMode === 'threads';
 
-  // Lock body scroll while the detail panel is open + notify Layout to hide header. Not in
+  // Lock body scroll while the detail panel is open. Not in
   // split: there the detail is a pane beside the list and both scroll on their own.
   useDetailPanelBodyLock(selectedMessage, isPhone, split);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
