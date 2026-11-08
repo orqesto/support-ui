@@ -74,9 +74,6 @@ vi.mock('@/features/subscription/components/SubscriptionGateOverlay', () => ({
 }));
 vi.mock('@/components/shared/WebSocketStatus', () => ({ WebSocketStatus: nothing }));
 vi.mock('@/components/shared/WebSocketDebug', () => ({ WebSocketDebug: nothing }));
-vi.mock('@/components/messages/MessageProcessingProgress', () => ({
-  MessageProcessingProgress: nothing,
-}));
 const screenWidth = vi.hoisted(() => ({ desktop: true }));
 vi.mock('@/hooks/useMediaQuery', () => ({ useMediaQuery: () => screenWidth.desktop }));
 // The shell's mount counter: useSidebarShell runs once per <Layout> shell, so an effect in it

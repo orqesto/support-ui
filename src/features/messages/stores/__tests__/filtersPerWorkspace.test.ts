@@ -17,7 +17,7 @@ const load = async () => {
   vi.resetModules();
   const { useAuthStore } = await import('@/stores/authStore');
   const { useMessagesStore } = await import('@/features/messages/stores/messagesStore');
-  const { useTicketsStore } = await import('@/features/tickets');
+  const { useTicketsStore } = await import('@/features/tickets/shell');
   return { useAuthStore, useMessagesStore, useTicketsStore };
 };
 const dept = (store: Awaited<ReturnType<typeof load>>) =>

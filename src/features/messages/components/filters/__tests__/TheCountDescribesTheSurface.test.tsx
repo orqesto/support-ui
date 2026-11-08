@@ -17,9 +17,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MessageFilterBar } from '../MessageFilterBar';
 import type { FilterState } from '@/features/messages/stores/messagesStore';
 
-vi.mock('@/hooks/useSavedViews', () => ({
-  useSavedViews: () => ({ userViews: [], saveView: vi.fn(), removeView: vi.fn(), viewSource: 'server' }),
-}));
 
 afterEach(cleanup);
 
