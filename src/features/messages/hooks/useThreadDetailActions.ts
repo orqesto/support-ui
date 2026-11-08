@@ -28,6 +28,7 @@ export const useThreadDetailActions = ({
   drawnThreads,
   handleOpenThread,
   selectedThreadIdRef,
+  selectedThreadMessageIdRef,
   navigate,
   clearCache,
   moveSelectedCard,
@@ -45,6 +46,7 @@ export const useThreadDetailActions = ({
   drawnThreads: MessageThread[];
   handleOpenThread: (thread: MessageThread) => Promise<void>;
   selectedThreadIdRef: MutableRefObject<string | null>;
+  selectedThreadMessageIdRef: MutableRefObject<number | null>;
   navigate: NavigateFunction;
   clearCache: Data['clearCache'];
   moveSelectedCard: (targetColId: string | null) => void;
@@ -56,6 +58,19 @@ export const useThreadDetailActions = ({
   orgCode: string | null | undefined;
   setAlertDialog: SetMessagesPageAlert;
 }) => {
+  // The remembered card belongs to one message. Once the open message is another one, or none,
+  // forget it — whatever changed it (a close, a classification, Back removing ?id, a link to
+  // another thread). It used to be cleared only by the detail's own close, so the next thread's
+  // status change moved the OLD card. Keyed on the id, so a re-read of the same thread keeps it,
+  // and a card being opened (remembered before its record arrives) is kept for that record.
+  // Declared before the recovery below, which then finds the ref empty and fills it.
+  const openMessageId = selectedMessage?.id ?? null;
+  useEffect(() => {
+    if (selectedThreadMessageIdRef.current === openMessageId) return;
+    selectedThreadIdRef.current = null;
+    selectedThreadMessageIdRef.current = null;
+  }, [openMessageId, selectedThreadIdRef, selectedThreadMessageIdRef]);
+
   // A thread opened from a deep link / reload never went through `handleOpenThread`, so the ref
   // below was null: J/K had nothing to step from, and a status change could not move the card.
   // Recover it from the loaded threads (threadForMessage.ts has the matching rule).
@@ -63,8 +78,11 @@ export const useThreadDetailActions = ({
     if (!selectedMessage) return;
     if (selectedThreadIdRef.current) return;
     const recovered = threadIdForMessage(threads, selectedMessage.id);
-    if (recovered) selectedThreadIdRef.current = recovered;
-  }, [selectedMessage, threads, selectedThreadIdRef]);
+    if (recovered) {
+      selectedThreadIdRef.current = recovered;
+      selectedThreadMessageIdRef.current = selectedMessage.id;
+    }
+  }, [selectedMessage, threads, selectedThreadIdRef, selectedThreadMessageIdRef]);
 
   // J/K from the detail rail — neighbourThread (detailShortcuts.ts) has the rules.
   const handleNavigate = useCallback(

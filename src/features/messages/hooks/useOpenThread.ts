@@ -20,6 +20,7 @@ export const useOpenThread = ({
   setSpamPreview,
   setSelectedMessage,
   selectedThreadIdRef,
+  selectedThreadMessageIdRef,
   fetchedMessageIdRef,
 }: {
   searchParams: URLSearchParams;
@@ -29,6 +30,7 @@ export const useOpenThread = ({
   setSpamPreview: Dispatch<SetStateAction<MessageThread | null>>;
   setSelectedMessage: Dispatch<SetStateAction<Message | null>>;
   selectedThreadIdRef: MutableRefObject<string | null>;
+  selectedThreadMessageIdRef: MutableRefObject<number | null>;
   fetchedMessageIdRef: MutableRefObject<string | null>;
 }) => {
   /*
@@ -63,6 +65,8 @@ export const useOpenThread = ({
       // Remember which card this is so status actions can move it optimistically.
       selectedThreadIdRef.current = thread.threadId;
       const openedId = rowMessage.id;
+      // …and which message it belongs to: the card is forgotten once another one is open.
+      selectedThreadMessageIdRef.current = openedId;
       const urlId = getConvUrlId(rowMessage, orgCodeRef.current);
       fetchedMessageIdRef.current = urlId;
       const params = new URLSearchParams(searchParamsRef.current);
@@ -88,6 +92,7 @@ export const useOpenThread = ({
         // Widen to the tolerant app Message type: `lastReplyFromClient` is not returned by
         // getById, so it is optional here and falls back to the thread's value.
         const full: Message = res.data;
+        selectedThreadMessageIdRef.current = full.id;
         setSelectedMessage({
           ...full,
           lastReplyFromClient: full.lastReplyFromClient ?? thread.lastReplyFromClient,
@@ -109,7 +114,13 @@ export const useOpenThread = ({
         if (seq === openSeqRef.current) setPendingThreadId(null);
       }
     },
-    [fetchedMessageIdRef, selectedThreadIdRef, setSelectedMessage, setSpamPreview]
+    [
+      fetchedMessageIdRef,
+      selectedThreadIdRef,
+      selectedThreadMessageIdRef,
+      setSelectedMessage,
+      setSpamPreview,
+    ]
   );
 
   return { handleOpenThread, pendingThreadId };

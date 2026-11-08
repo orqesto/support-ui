@@ -351,21 +351,22 @@ describe('MessagesPage — slide-over More → Delete thread', () => {
     expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_12', null);
   });
 
-  it('board: the open message changed without a click (Back): no LIVE card is taken; the board refetches', async () => {
+  // The card opened before (12) is forgotten when the open message changes; the one now open
+  // (11) is recovered from the list, so the deleted thread's own card leaves — never 12.
+  it('board: the open message changed without a click (Back): no LIVE card is taken; the deleted one leaves', async () => {
     localStorage.setItem('messages_view_mode', 'kanban');
     renderPage();
     // The board is downloaded when first shown (lazy): wait for it.
     fireEvent.click(await screen.findByRole('button', { name: 'open card 12' }));
     await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('12'));
-    const keyBefore = Number(screen.getByTestId('board').dataset.refreshKey);
     act(() => mocks.setSelected?.(messageFor(11)));
     await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('11'));
     pressDelete();
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(screen.queryByTestId('detail-pane')).toBeNull());
     expect(mocks.del).toHaveBeenCalledWith(11);
-    expect(mocks.optimisticMove).not.toHaveBeenCalled();
-    expect(Number(screen.getByTestId('board').dataset.refreshKey)).toBeGreaterThan(keyBefore);
+    expect(mocks.optimisticMove).not.toHaveBeenCalledWith('conv_12', expect.anything());
+    expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_11', null);
   });
 
   it('CONTROL board: Cancel leaves the card where it is', async () => {
@@ -442,6 +443,65 @@ describe('MessagesPage — slide-over More → Delete thread', () => {
       await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('13'));
       fireEvent.click(screen.getByRole('button', { name: 'Set awaiting' }));
       expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_13', 'awaiting');
+    });
+  });
+
+  // The remembered card belongs to the thread it was opened for. It used to be forgotten only by
+  // the detail's own close, so any other way the open thread changed (a classification, Back
+  // removing ?id, a link to another thread) left it pointing at the old card — and the next
+  // thread's status change moved THAT card.
+  describe('board: the remembered card follows the open thread, however it changed', () => {
+    const openCard12 = async () => {
+      localStorage.setItem('messages_view_mode', 'kanban');
+      renderPage();
+      fireEvent.click(await screen.findByRole('button', { name: 'open card 12' }));
+      await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('12'));
+    };
+    const showByUrl = async (id: number) => {
+      act(() => mocks.setSelected?.(messageFor(id)));
+      await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent(String(id)));
+    };
+    const setAwaiting = () => {
+      mocks.optimisticMove.mockClear();
+      fireEvent.click(screen.getByRole('button', { name: 'Set awaiting' }));
+    };
+
+    it('after Move to spam closes the detail', async () => {
+      await openCard12();
+      fireEvent.click(screen.getByRole('button', { name: 'Move to spam' }));
+      await waitFor(() => expect(screen.queryByTestId('detail-pane')).toBeNull());
+      await showByUrl(13);
+      setAwaiting();
+      expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_13', 'awaiting');
+    });
+
+    it('after Back removes ?id (the open message goes to none)', async () => {
+      await openCard12();
+      act(() => mocks.setSelected?.(null));
+      await waitFor(() => expect(screen.queryByTestId('detail-pane')).toBeNull());
+      await showByUrl(13);
+      setAwaiting();
+      expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_13', 'awaiting');
+    });
+
+    it('after a link switches straight to another thread', async () => {
+      await openCard12();
+      await showByUrl(13);
+      setAwaiting();
+      expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_13', 'awaiting');
+    });
+
+    it('CONTROL: the card just opened is the one moved (its record arrives after the click)', async () => {
+      await openCard12();
+      setAwaiting();
+      expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_12', 'awaiting');
+    });
+
+    it('CONTROL: a refresh of the same thread keeps the card', async () => {
+      await openCard12();
+      await showByUrl(12);
+      setAwaiting();
+      expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_12', 'awaiting');
     });
   });
 
