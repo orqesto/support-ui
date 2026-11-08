@@ -27,7 +27,7 @@ import {
   useBulkActionRunner,
   useListSelection,
   useFilterBarHandlers,
-  useThreadActions,
+  useMessagesPageThreadActions,
   useTicketRoutingStatusEvents,
   useConversationUpdateEvents,
   useNotifyTriage,
@@ -334,7 +334,7 @@ export const MessagesPage = () => {
     handleSyncEmails,
     handleDeleteClick,
     handleDeleteConfirm,
-  } = useThreadActions({
+  } = useMessagesPageThreadActions({
     searchParams,
     setSearchParams,
     orgCode,
