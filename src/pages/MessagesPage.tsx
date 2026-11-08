@@ -505,9 +505,11 @@ export const MessagesPage = () => {
     </Suspense>
   ) : null;
 
-  /** The thread the split pane is reading, so its row can say so. */
+  // The split pane's row: trust the card only if remembered for THIS message (render runs first).
+  const ownCard = selectedThreadMessageIdRef.current === selectedMessage?.id;
   const openThreadId = selectedMessage
-    ? (selectedThreadIdRef.current ?? threadIdForMessage(threads, selectedMessage.id))
+    ? ((ownCard ? selectedThreadIdRef.current : null) ??
+      threadIdForMessage(threads, selectedMessage.id))
     : null;
   const compactRows = density === 'compact';
   // The header's action buttons drop their words where the column is narrow (split) or on a
