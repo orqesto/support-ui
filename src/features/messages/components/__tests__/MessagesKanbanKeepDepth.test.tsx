@@ -4,7 +4,7 @@
  * cards and jumped the scroll back to the top on every mark-as-read.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, within, waitFor, fireEvent } from '@testing-library/react';
+import { act, render, within, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { defaultFilters } from '@/features/messages/stores/messagesStore';
 import { messageService, type MessageThread } from '@/services/message.service';
@@ -129,6 +129,46 @@ describe('Kanban refresh keeps the pages already loaded', () => {
 
     await waitFor(() => expect(cards()).toHaveLength(PAGE));
     expect(getThreads.mock.calls.some(([, page]) => page === 2)).toBe(false);
+  });
+});
+
+describe('Load more', () => {
+  const loadMoreButton = () => within(openColumn()).queryByRole('button', { name: /load more/i });
+
+  it('a refused page stops "Loading…": the button is back and the cards stay', async () => {
+    render(renderBoard(0));
+    await waitFor(() => expect(cards()).toHaveLength(PAGE));
+    getThreads.mockImplementationOnce(() => Promise.resolve({ success: false } as never));
+    fireEvent.click(loadMoreButton()!);
+    await waitFor(() => expect(getThreads.mock.calls.some(([, page]) => page === 2)).toBe(true));
+    await waitFor(() => expect(loadMoreButton()).toBeTruthy());
+    expect(cards()).toHaveLength(PAGE);
+  });
+
+  it('a page that lands after a filter change is not added to the new filter’s column', async () => {
+    const view = render(renderBoard(0));
+    await waitFor(() => expect(cards()).toHaveLength(PAGE));
+    const ok = getThreads.getMockImplementation()!;
+    let land: () => void = () => {};
+    getThreads.mockImplementationOnce(
+      (...args) =>
+        new Promise((resolve) => {
+          land = () => resolve(ok(...args));
+        })
+    );
+    fireEvent.click(loadMoreButton()!);
+    await waitFor(() => expect(getThreads.mock.calls.some(([, page]) => page === 2)).toBe(true));
+    view.rerender(renderBoard(0, { ...defaultFilters, search: 'refund' } as never));
+    await waitFor(() => expect(cards()).toHaveLength(PAGE));
+    await act(async () => {
+      land();
+      await Promise.resolve();
+    });
+    expect(cards()).toHaveLength(PAGE);
+    // CONTROL: Load more in the new scope still adds its page.
+    await waitFor(() => expect(loadMoreButton()).toBeTruthy());
+    fireEvent.click(loadMoreButton()!);
+    await waitFor(() => expect(cards()).toHaveLength(PAGE * 2));
   });
 });
 

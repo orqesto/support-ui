@@ -27,7 +27,7 @@ import {
   useBulkActionRunner,
   useListSelection,
   useFilterBarHandlers,
-  useThreadActions,
+  useMessagesPageThreadActions,
   useTicketRoutingStatusEvents,
   useConversationUpdateEvents,
   useNotifyTriage,
@@ -145,6 +145,7 @@ export const MessagesPage = () => {
     bumpKanban,
     kanbanRef,
     selectedThreadIdRef,
+    selectedThreadMessageIdRef,
     detailRequestCloseRef,
     moveSelectedCard,
   } = useBoardAndBulkState();
@@ -183,7 +184,7 @@ export const MessagesPage = () => {
   const wideEnoughToSplit = useSafeMediaQuery('(min-width: 1024px)');
   const split = layout === 'split' && wideEnoughToSplit && !isPhone && displayMode === 'threads';
 
-  // Lock body scroll while the detail panel is open + notify Layout to hide header. Not in
+  // Lock body scroll while the detail panel is open. Not in
   // split: there the detail is a pane beside the list and both scroll on their own.
   useDetailPanelBodyLock(selectedMessage, isPhone, split);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -333,7 +334,7 @@ export const MessagesPage = () => {
     handleSyncEmails,
     handleDeleteClick,
     handleDeleteConfirm,
-  } = useThreadActions({
+  } = useMessagesPageThreadActions({
     searchParams,
     setSearchParams,
     orgCode,
@@ -341,6 +342,7 @@ export const MessagesPage = () => {
     setSpamPreview,
     setSelectedMessage,
     selectedThreadIdRef,
+    selectedThreadMessageIdRef,
     fetchedMessageIdRef,
     selectedMessage,
     threads,
@@ -454,6 +456,18 @@ export const MessagesPage = () => {
   const highlightTerms = useMemo(() => highlightTermsFor(searchReading), [searchReading]);
 
   /**
+   * Closing the detail: its own close and the backdrop's fallback (the detail has not registered
+   * its prompt-aware close yet) are this one function, so neither can forget a step.
+   */
+  const closeDetail = () => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('id');
+    setSearchParams(params);
+    selectedThreadIdRef.current = null;
+    setSelectedMessage(null);
+  };
+
+  /**
    * The open thread's detail. One element, two homes: the slide-over over the list (list
    * layout, the board, contacts) or the pane beside it (split). The props are the same either
    * way — only where it is mounted differs.
@@ -464,9 +478,7 @@ export const MessagesPage = () => {
         key={selectedMessage.id}
         message={selectedMessage}
         {...detailPanelProps(selectedMessage, {
-          searchParams,
-          setSearchParams,
-          selectedThreadIdRef,
+          closeDetail,
           setSelectedMessage,
           moveSelectedCard,
           rereadSelectedMessage,
@@ -493,9 +505,11 @@ export const MessagesPage = () => {
     </Suspense>
   ) : null;
 
-  /** The thread the split pane is reading, so its row can say so. */
+  // The split pane's row: trust the card only if remembered for THIS message (render runs first).
+  const ownCard = selectedThreadMessageIdRef.current === selectedMessage?.id;
   const openThreadId = selectedMessage
-    ? (selectedThreadIdRef.current ?? threadIdForMessage(threads, selectedMessage.id))
+    ? ((ownCard ? selectedThreadIdRef.current : null) ??
+      threadIdForMessage(threads, selectedMessage.id))
     : null;
   const compactRows = density === 'compact';
   // The header's action buttons drop their words where the column is narrow (split) or on a
@@ -737,13 +751,7 @@ export const MessagesPage = () => {
                 detailRequestCloseRef.current();
                 return;
               }
-              const params = new URLSearchParams(searchParams);
-              params.delete('id');
-              setSearchParams(params);
-              // Forget the closed card too, as the detail's own onClose does; otherwise the next
-              // thread's status change moves this card.
-              selectedThreadIdRef.current = null;
-              setSelectedMessage(null);
+              closeDetail();
             }}
           />
         )}

@@ -1,6 +1,5 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
-import type { SetURLSearchParams } from 'react-router-dom';
 import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
 import { messageService, type MessageThread } from '@/services/message.service';
 import type { Message, MessagesDisplayMode } from '@/types';
@@ -10,9 +9,8 @@ import type { MessageDetailProps } from '../MessageDetail';
 type Data = ReturnType<typeof useMessagesData>;
 
 export type DetailPanelDeps = {
-  searchParams: URLSearchParams;
-  setSearchParams: SetURLSearchParams;
-  selectedThreadIdRef: MutableRefObject<string | null>;
+  /** The page's one close (the backdrop's fallback uses the same). */
+  closeDetail: () => void;
   setSelectedMessage: Dispatch<SetStateAction<Message | null>>;
   moveSelectedCard: (targetColId: string | null) => void;
   rereadSelectedMessage: () => Promise<void>;
@@ -44,9 +42,7 @@ export type DetailPanelDeps = {
 export const detailPanelProps = (
   selectedMessage: Message,
   {
-    searchParams,
-    setSearchParams,
-    selectedThreadIdRef,
+    closeDetail,
     setSelectedMessage,
     moveSelectedCard,
     rereadSelectedMessage,
@@ -70,13 +66,7 @@ export const detailPanelProps = (
     queryClient,
   }: DetailPanelDeps
 ): Omit<MessageDetailProps, 'message'> => ({
-  onClose: () => {
-    const params = new URLSearchParams(searchParams);
-    params.delete('id');
-    setSearchParams(params);
-    selectedThreadIdRef.current = null;
-    setSelectedMessage(null);
-  },
+  onClose: closeDetail,
   onReplied: () => moveSelectedCard('awaiting'),
   onStatusChanged: () => void rereadSelectedMessage(),
   // Only the threads view has one unambiguous order; in kanban "next" could mean

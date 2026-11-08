@@ -137,6 +137,11 @@ export const useKanbanBoardRefresh = ({
       const nextPage = colStatesRef.current[colId].page + 1;
       const filterSnapshot = { ...sharedFiltersRef.current, ...col.fixedFilters };
       const sort = colSortRef.current[colId] ?? { sortBy: 'time', sortOrder: 'desc' };
+      // The scope this page belongs to. A filter / team change resets the column to page 1 of
+      // the new scope (the effect above); a page of the old scope landing after that is dropped,
+      // not appended to the new one — the reset's own load owns the column's state now.
+      const scopeAt = () => `${prevFilterKeyRef.current}|${prevDeptKeyRef.current}`;
+      const scope = scopeAt();
       void (async () => {
         try {
           const res = await messageService.getThreads(
@@ -146,7 +151,12 @@ export const useKanbanBoardRefresh = ({
             sort.sortOrder,
             sort.sortBy
           );
-          if (!res.success) return;
+          if (scopeAt() !== scope) return;
+          if (!res.success) {
+            // Refused: stop "Loading…" so Load more can be pressed again (it stayed on forever).
+            setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: false } }));
+            return;
+          }
           setColStates((prev) => ({
             ...prev,
             [colId]: {
@@ -165,6 +175,7 @@ export const useKanbanBoardRefresh = ({
           }));
         } catch (err) {
           logger.error(`Failed to load more for column ${colId}:`, err);
+          if (scopeAt() !== scope) return;
           setColStates((prev) => ({ ...prev, [colId]: { ...prev[colId], loading: false } }));
         }
       })();

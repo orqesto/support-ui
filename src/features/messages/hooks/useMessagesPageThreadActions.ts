@@ -2,7 +2,7 @@ import { useOpenThread } from './useOpenThread';
 import { useThreadDeleteAndSync } from './useThreadDeleteAndSync';
 import { useThreadDetailActions } from './useThreadDetailActions';
 
-type ThreadActionsDeps = Parameters<typeof useOpenThread>[0] &
+type MessagesPageThreadActionsDeps = Parameters<typeof useOpenThread>[0] &
   Omit<Parameters<typeof useThreadDetailActions>[0], 'handleOpenThread'> &
   Parameters<typeof useThreadDeleteAndSync>[0];
 
@@ -10,7 +10,7 @@ type ThreadActionsDeps = Parameters<typeof useOpenThread>[0] &
  * Opening a thread, what its detail asks the page to do, and delete / "Check mailboxes now" —
  * the three hooks in the order MessagesPage called them inline.
  */
-export const useThreadActions = (deps: ThreadActionsDeps) => {
+export const useMessagesPageThreadActions = (deps: MessagesPageThreadActionsDeps) => {
   const { handleOpenThread, pendingThreadId } = useOpenThread(deps);
   const detailActions = useThreadDetailActions({ ...deps, handleOpenThread });
   const deleteAndSync = useThreadDeleteAndSync(deps);

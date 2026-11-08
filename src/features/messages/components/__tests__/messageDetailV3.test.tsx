@@ -109,8 +109,22 @@ vi.mock('../MessageGhostBubble', () => ({ MessageGhostBubble: () => null }));
 vi.mock('@/features/contacts/components/ContactProfilePanel', () => ({
   ContactProfilePanel: () => null,
 }));
-vi.mock('@/features/messages/components/SimilarMessagesDialog', () => ({ SimilarMessagesDialog: () => null }));
+vi.mock('@/features/messages/components/SimilarMessagesDialog', () => ({
+  SimilarMessagesDialog: () => null,
+}));
 vi.mock('../PromoteToKbDialog', () => ({ PromoteToKbDialog: () => null }));
+// The template picker reduced to one button that sends template 5 — the send path is what matters.
+vi.mock('@/features/messages/components/WhatsAppTemplatePicker', () => ({
+  WhatsAppTemplatePicker: ({
+    onSend,
+  }: {
+    onSend: (templateId: number, parameters: string[]) => void;
+  }) => (
+    <button type="button" onClick={() => onSend(5, ['Ann'])}>
+      send template
+    </button>
+  ),
+}));
 
 const note = vi.hoisted(() => ({ show: vi.fn() }));
 vi.mock('@/lib/routingCopy', () => ({ showRouteLearningNote: note.show }));
@@ -459,6 +473,99 @@ describe('Send failed bar (v3)', () => {
     await waitFor(() => expect(within(bar).queryByRole('button', { name: 'Retry' })).toBeNull());
     press('r');
     await waitFor(() => expect(within(bar).getByRole('button', { name: 'Retry' })).toBeTruthy());
+  });
+
+  // Idempotency keys (BE dedups on org + key: a repeated key returns the send already accepted).
+  const timeout = () =>
+    Object.assign(new Error('timeout of 30000ms exceeded'), { code: 'ECONNABORTED' });
+  const retry = async () => {
+    fireEvent.click(
+      within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+    );
+  };
+
+  it('🔴 a note posted after a failed reply does not use up the reply’s key — re-sending reuses it', async () => {
+    svc.message.reply = vi
+      .fn()
+      .mockRejectedValueOnce(timeout())
+      .mockResolvedValueOnce({ success: true });
+    svc.message.addNote = vi.fn().mockResolvedValue({ success: true });
+    renderDetail(mine);
+    typeAndSend();
+    await screen.findByRole('alert');
+    press('n');
+    typeAndSend();
+    await waitFor(() => expect(svc.message.addNote).toHaveBeenCalledTimes(1));
+    press('r');
+    typeAndSend();
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    const [first, second] = svc.message.reply.mock.calls;
+    expect(typeof first[5]).toBe('string');
+    expect(second[5]).toBe(first[5]);
+  });
+
+  it('control: after a SUCCESSFUL reply the next reply gets a new key', async () => {
+    svc.message.reply = vi.fn().mockResolvedValue({ success: true });
+    renderDetail(mine);
+    typeAndSend();
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(1));
+    typeAndSend();
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    const [first, second] = svc.message.reply.mock.calls;
+    expect(typeof second[5]).toBe('string');
+    expect(second[5]).not.toBe(first[5]);
+  });
+
+  it('🔴 a template sent after a failed reply gets its own key, and Retry still reuses the reply’s', async () => {
+    svc.message.reply = vi
+      .fn()
+      .mockRejectedValueOnce(timeout()) // the text reply
+      .mockResolvedValueOnce({ success: true }) // the template
+      .mockResolvedValueOnce({ success: true }); // Retry of the text reply
+    renderDetail(mine);
+    typeAndSend();
+    await screen.findByRole('alert');
+    fireEvent.click(screen.getByRole('button', { name: 'send template' }));
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    await retry();
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(3));
+    const [replyCall, templateCall, retryCall] = svc.message.reply.mock.calls;
+    expect(templateCall[7]).toEqual({ templateId: 5, parameters: ['Ann'] });
+    expect(typeof templateCall[5]).toBe('string');
+    expect(templateCall[5]).not.toBe(replyCall[5]);
+    expect(retryCall[1]).toBe('<p>Label is on its way</p>');
+    expect(retryCall[5]).toBe(replyCall[5]);
+  });
+
+  it('a failed template’s retry reuses ITS key; the next text reply does not take it', async () => {
+    svc.message.reply = vi
+      .fn()
+      .mockRejectedValueOnce(timeout()) // the template
+      .mockResolvedValueOnce({ success: true }) // its retry
+      .mockResolvedValueOnce({ success: true }); // a text reply
+    renderDetail(mine);
+    fireEvent.click(screen.getByRole('button', { name: 'send template' }));
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'send template' }));
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    const [failed, retried] = svc.message.reply.mock.calls;
+    expect(typeof failed[5]).toBe('string');
+    expect(retried[5]).toBe(failed[5]);
+  });
+
+  it('🔴 a text reply after a FAILED template does not reuse the template’s key', async () => {
+    svc.message.reply = vi
+      .fn()
+      .mockRejectedValueOnce(timeout()) // the template
+      .mockResolvedValueOnce({ success: true }); // a text reply
+    renderDetail(mine);
+    fireEvent.click(screen.getByRole('button', { name: 'send template' }));
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(1));
+    typeAndSend();
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    const [template, reply] = svc.message.reply.mock.calls;
+    expect(typeof reply[5]).toBe('string');
+    expect(reply[5]).not.toBe(template[5]);
   });
 
   it('sits under the header, above the thread — not down by the composer', async () => {

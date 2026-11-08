@@ -76,6 +76,7 @@ export function useReplySend({
     lastAssignRef,
     lastSendModeRef,
     sendIdempotencyKeyRef,
+    templateIdempotencyKeyRef,
     setTemplateError,
     setTemplatesOpen,
     setTemplatesLoading,
@@ -89,12 +90,15 @@ export function useReplySend({
       setSendFailureRetryable(false);
       lastAssignRef.current = assign;
       lastSendModeRef.current = composerMode;
-      // Notes aren't emails — no idempotency needed. For replies, reuse a prior failed attempt's
-      // token (retry) so the BE dedups; otherwise mint a fresh one for this logical send.
+      // Notes aren't emails — no idempotency needed, and a note must not read, register or clear
+      // the reply's token: one kept from a failed reply has to survive the note so that reply's
+      // retry still dedups. For replies, reuse a prior failed attempt's token (retry) so the BE
+      // dedups; otherwise mint a fresh one for this logical send.
       if (composerMode !== 'note' && !sendIdempotencyKeyRef.current) {
         sendIdempotencyKeyRef.current = crypto.randomUUID();
       }
-      const idempotencyKey = sendIdempotencyKeyRef.current ?? undefined;
+      const idempotencyKey =
+        composerMode === 'note' ? undefined : (sendIdempotencyKeyRef.current ?? undefined);
       // Before the request: the `message:replied` echo can beat the HTTP answer.
       if (idempotencyKey) rememberOwnSend(idempotencyKey);
       // Undefined unless the agent actually addressed this reply somewhere, which
@@ -137,7 +141,8 @@ export function useReplySend({
             assign
           );
         }
-        sendIdempotencyKeyRef.current = null; // success — the next send is a new logical send
+        // success — the next reply is a new logical send
+        if (composerMode !== 'note') sendIdempotencyKeyRef.current = null;
         writeComposer('');
         setAiSource(null);
         setAiDraft(null);
@@ -329,8 +334,9 @@ export function useReplySend({
       setSubmitting(true);
       setTemplateError(null);
       // Same idempotency contract as a normal reply: reuse the token on a retry so a
-      // success-but-timeout cannot bill the tenant for a second template.
-      sendIdempotencyKeyRef.current ??= crypto.randomUUID();
+      // success-but-timeout cannot bill the tenant for a second template. Its own token, never
+      // the text reply's (templateIdempotencyKeyRef).
+      templateIdempotencyKeyRef.current ??= crypto.randomUUID();
       try {
         await messageService.reply(
           message.id,
@@ -338,11 +344,11 @@ export function useReplySend({
           false,
           false,
           undefined,
-          sendIdempotencyKeyRef.current,
+          templateIdempotencyKeyRef.current,
           undefined,
           { templateId, parameters }
         );
-        sendIdempotencyKeyRef.current = null;
+        templateIdempotencyKeyRef.current = null;
         setTemplatesOpen(false);
         setThreadRefreshKey((key) => key + 1);
         onReplied?.();
@@ -360,7 +366,7 @@ export function useReplySend({
       message.id,
       onRefresh,
       onReplied,
-      sendIdempotencyKeyRef,
+      templateIdempotencyKeyRef,
       setSubmitting,
       setTemplateError,
       setTemplatesOpen,

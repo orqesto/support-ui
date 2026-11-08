@@ -36,6 +36,10 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
   // M06: idempotency token for the in-flight reply. Minted per logical send, REUSED on a
   // retry after failure (so the BE dedups a duplicate), cleared on success.
   const sendIdempotencyKeyRef = useRef<string | null>(null);
+  // The same contract for a WhatsApp template send, kept apart: a template is a different send, so
+  // it must neither carry a failed reply's token (the BE would answer with that reply and never send
+  // the template) nor leave its own for the next reply.
+  const templateIdempotencyKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!message.whatsappWindow) return;
@@ -78,6 +82,7 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     richEditorRef,
     noteEditorRef,
     sendIdempotencyKeyRef,
+    templateIdempotencyKeyRef,
     composerWindow,
   };
 }

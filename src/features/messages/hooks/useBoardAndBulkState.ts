@@ -36,6 +36,9 @@ export const useBoardAndBulkState = () => {
   // card to move without a full board refetch.
   const kanbanRef = useRef<MessagesKanbanHandle>(null);
   const selectedThreadIdRef = useRef<string | null>(null);
+  // The message the remembered card was captured for. The card is forgotten as soon as the open
+  // message is no longer that one (useThreadDetailActions), however it changed.
+  const selectedThreadMessageIdRef = useRef<number | null>(null);
   // The open detail panel registers its prompt-aware close here, so the backdrop
   // routes through the same "Mark as read?" prompt as the header X (triage threads).
   const detailRequestCloseRef = useRef<(() => void) | null>(null);
@@ -70,6 +73,7 @@ export const useBoardAndBulkState = () => {
     bumpKanban,
     kanbanRef,
     selectedThreadIdRef,
+    selectedThreadMessageIdRef,
     detailRequestCloseRef,
     moveSelectedCard,
   };

@@ -28,6 +28,7 @@ export const useThreadDetailActions = ({
   drawnThreads,
   handleOpenThread,
   selectedThreadIdRef,
+  selectedThreadMessageIdRef,
   navigate,
   clearCache,
   moveSelectedCard,
@@ -45,6 +46,7 @@ export const useThreadDetailActions = ({
   drawnThreads: MessageThread[];
   handleOpenThread: (thread: MessageThread) => Promise<void>;
   selectedThreadIdRef: MutableRefObject<string | null>;
+  selectedThreadMessageIdRef: MutableRefObject<number | null>;
   navigate: NavigateFunction;
   clearCache: Data['clearCache'];
   moveSelectedCard: (targetColId: string | null) => void;
@@ -56,6 +58,19 @@ export const useThreadDetailActions = ({
   orgCode: string | null | undefined;
   setAlertDialog: SetMessagesPageAlert;
 }) => {
+  // The remembered card belongs to one message. Once the open message is another one, or none,
+  // forget it — whatever changed it (a close, a classification, Back removing ?id, a link to
+  // another thread). It used to be cleared only by the detail's own close, so the next thread's
+  // status change moved the OLD card. Keyed on the id, so a re-read of the same thread keeps it,
+  // and a card being opened (remembered before its record arrives) is kept for that record.
+  // Declared before the recovery below, which then finds the ref empty and fills it.
+  const openMessageId = selectedMessage?.id ?? null;
+  useEffect(() => {
+    if (selectedThreadMessageIdRef.current === openMessageId) return;
+    selectedThreadIdRef.current = null;
+    selectedThreadMessageIdRef.current = null;
+  }, [openMessageId, selectedThreadIdRef, selectedThreadMessageIdRef]);
+
   // A thread opened from a deep link / reload never went through `handleOpenThread`, so the ref
   // below was null: J/K had nothing to step from, and a status change could not move the card.
   // Recover it from the loaded threads (threadForMessage.ts has the matching rule).
@@ -63,8 +78,11 @@ export const useThreadDetailActions = ({
     if (!selectedMessage) return;
     if (selectedThreadIdRef.current) return;
     const recovered = threadIdForMessage(threads, selectedMessage.id);
-    if (recovered) selectedThreadIdRef.current = recovered;
-  }, [selectedMessage, threads, selectedThreadIdRef]);
+    if (recovered) {
+      selectedThreadIdRef.current = recovered;
+      selectedThreadMessageIdRef.current = selectedMessage.id;
+    }
+  }, [selectedMessage, threads, selectedThreadIdRef, selectedThreadMessageIdRef]);
 
   // J/K from the detail rail — neighbourThread (detailShortcuts.ts) has the rules.
   const handleNavigate = useCallback(
@@ -106,6 +124,10 @@ export const useThreadDetailActions = ({
     }
   };
 
+  // The open thread's id NOW, for an answer that lands after the agent moved on.
+  const selectedMessageIdRef = useRef<number | undefined>(undefined);
+  selectedMessageIdRef.current = selectedMessage?.id;
+
   const handleReopen = async (message: Message) => {
     try {
       const reopenedMessageId = message.id;
@@ -115,7 +137,9 @@ export const useThreadDetailActions = ({
       await fetchMessages(messagesPagination.page, true);
 
       const response = await messageService.getById(reopenedMessageId);
-      if (response.success && response.data) {
+      // Only if the agent is still on that thread: J/K or a row click while this ran must not
+      // put the reopened thread back on screen.
+      if (response.success && response.data && selectedMessageIdRef.current === reopenedMessageId) {
         setSelectedMessage(response.data);
 
         const params = new URLSearchParams(searchParams);
@@ -135,9 +159,6 @@ export const useThreadDetailActions = ({
   };
 
   const refreshAbortRef = useRef<AbortController | null>(null);
-  // The open thread's id NOW, for an answer that lands after the agent moved on.
-  const selectedMessageIdRef = useRef<number | undefined>(undefined);
-  selectedMessageIdRef.current = selectedMessage?.id;
 
   /**
    * Re-read ONLY the open thread after the backend changed its status (useConversationStatusRefresh).
@@ -195,8 +216,16 @@ export const useThreadDetailActions = ({
       // refreshKey bumps, so bump it here too — otherwise the card stays in the
       // old column until the agent manually changes a filter.
       bumpKanban();
-      const response = await messageService.getById(selectedMessage.id);
-      if (!abortController.signal.aborted && response.success && response.data) {
+      const openId = selectedMessage.id;
+      const response = await messageService.getById(openId);
+      // A newer refresh aborts this one; moving to another thread (J/K, a row click) does not, so
+      // the answer is applied only if the agent is still on this thread.
+      if (
+        !abortController.signal.aborted &&
+        selectedMessageIdRef.current === openId &&
+        response.success &&
+        response.data
+      ) {
         const data: Message = response.data;
         setSelectedMessage({
           ...data,

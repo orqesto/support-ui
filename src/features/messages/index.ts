@@ -79,7 +79,7 @@ export { useMessagesDisplayMode } from './hooks/useMessagesDisplayMode';
 export { useNotifyTriage } from './hooks/useNotifyTriage';
 export { useRowReadChanged } from './hooks/useRowReadChanged';
 export { useScopeJump } from './hooks/useScopeJump';
-export { useThreadActions } from './hooks/useThreadActions';
+export { useMessagesPageThreadActions } from './hooks/useMessagesPageThreadActions';
 export { BulkDialogs } from './components/messagesPage/BulkDialogs';
 export { ThreadsFilterBar } from './components/messagesPage/ThreadsFilterBar';
 export { useBoardAndBulkState } from './hooks/useBoardAndBulkState';
