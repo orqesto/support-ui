@@ -57,7 +57,7 @@ const threads = IDS.map(
     }) as unknown as MessageThread
 );
 
-vi.mock('@/hooks/useMessagesData', () => ({
+vi.mock('@/features/messages/hooks/useMessagesData', () => ({
   useMessagesData: () => ({
     threads,
     loading: false,
@@ -88,7 +88,7 @@ vi.mock('@/lib/toast', () => ({
 vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: (permission: string) => mocks.granted.has(permission) }),
 }));
-vi.mock('@/services/bulk.service', () => ({
+vi.mock('@/features/messages/services/bulk.service', () => ({
   bulkService: {
     preview: vi.fn(() => new Promise(() => undefined)),
     run: vi.fn(),
@@ -109,10 +109,10 @@ vi.mock('@/lib/socketManager', () => ({
     mocks.listeners.get(event)?.delete(handler);
   },
 }));
-vi.mock('@/hooks/usePhoneOpensMessageAsPage', () => ({ usePhoneOpensMessageAsPage: () => false }));
+vi.mock('@/features/messages/hooks/usePhoneOpensMessageAsPage', () => ({ usePhoneOpensMessageAsPage: () => false }));
 // Captures the page's setter so a test can change the open message the way Back / ?id= does —
 // without going through a card click, so the captured card goes stale.
-vi.mock('@/hooks/useMessagesUrlSync', () => ({
+vi.mock('@/features/messages/hooks/useMessagesUrlSync', () => ({
   useMessagesUrlSync: ({
     setSelectedMessage,
   }: {
@@ -125,7 +125,7 @@ vi.mock('@/hooks/useNotificationCounts', () => ({
   NOTIFICATION_COUNTS_KEY: ['notification-counts'],
   useNotificationCounts: () => ({ counts: {}, clearKind: vi.fn() }),
 }));
-vi.mock('@/hooks/useSharedLinkWorkspace', () => ({ useSharedLinkWorkspace: () => undefined }));
+vi.mock('@/features/messages/hooks/useSharedLinkWorkspace', () => ({ useSharedLinkWorkspace: () => undefined }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'COR' }));
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
@@ -203,7 +203,7 @@ vi.mock('@/features/messages/components/MessageDetail', () => ({
 import { MessagesPage } from '../MessagesPage';
 import { SERVER_EVENT_REFRESH_MS } from '@/hooks/useCoalescedRefresh';
 import { SOCKET_RECONNECTED_EVENT } from '@/lib/socketEvents';
-import { useMessagesStore } from '@/stores/messagesStore';
+import { useMessagesStore } from '@/features/messages/shell';
 
 /** A getById that answers only when the test says so. */
 const deferredGetById = () => {

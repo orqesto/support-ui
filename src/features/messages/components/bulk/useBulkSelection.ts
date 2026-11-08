@@ -11,7 +11,7 @@
  * `bulkActions.ts`.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { bulkService } from '@/services/bulk.service';
+import { bulkService } from '@/features/messages/services/bulk.service';
 import { logger } from '@/lib/logger';
 import { BULK_ACTIONS, type BulkAction, type BulkPreview } from './bulkActions';
 

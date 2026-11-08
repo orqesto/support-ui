@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { AdminCustomApiTemplate, CustomApiTemplate } from '@/features/custom-api';
+import type { AdminCustomApiTemplate, CustomApiTemplate } from '@/features/custom-api/shell';
 import { apiError } from '@/test/apiError';
 
 const definition = {

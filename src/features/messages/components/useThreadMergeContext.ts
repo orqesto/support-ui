@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { getConvUrlId } from '@/lib/messageHelpers';
-import { conversationMergeService, type ManualMerge } from '@/services/conversationMerge.service';
+import { conversationMergeService, type ManualMerge } from '@/features/messages/services/conversationMerge.service';
 import type { MessageEvent } from '@/types';
 
 /** The ticket a message was merged in from — the LAST entry of its trail (a stack; see BE). */

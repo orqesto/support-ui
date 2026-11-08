@@ -8,7 +8,7 @@ import { render, screen, fireEvent, waitFor, within, act } from '@testing-librar
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Message } from '@/types';
-import type { ManualMerge } from '@/services/conversationMerge.service';
+import type { ManualMerge } from '@/features/messages/services/conversationMerge.service';
 import { MessageDetailHeader } from '../MessageDetailHeader';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { Permission } from '@/types/roles';

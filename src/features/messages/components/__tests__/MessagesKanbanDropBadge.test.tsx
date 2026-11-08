@@ -11,7 +11,7 @@ import type { ReactNode } from 'react';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type * as DndKit from '@dnd-kit/core';
-import { defaultFilters } from '@/stores/messagesStore';
+import { defaultFilters } from '@/features/messages/stores/messagesStore';
 import { messageService, type MessageThread } from '@/services/message.service';
 
 const drag = vi.hoisted(() => ({ end: null as null | ((event: DndKit.DragEndEvent) => void) }));

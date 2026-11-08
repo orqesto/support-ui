@@ -19,7 +19,7 @@ vi.mock('@/features/contacts/components/ContactProfilePanel', () => ({
   ContactProfilePanel: () => null,
 }));
 // Lead UI visibility reads the workspace's lead config through react-query; not under test here.
-vi.mock('@/hooks/useLeadsHidden', () => ({ useLeadsHidden: () => false }));
+vi.mock('@/features/messages/hooks/useLeadsHidden', () => ({ useLeadsHidden: () => false }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'all' }));
 
 const row = (sender: string, hasOpen: boolean | undefined) => ({

@@ -17,7 +17,7 @@ vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: 
 const workspace = vi.hoisted(() => ({ code: 'ACM' as string | undefined }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => workspace.code }));
 const locate = vi.fn();
-vi.mock('@/services/sharedLink.service', () => ({ sharedLinkService: { locate } }));
+vi.mock('@/features/messages/services/sharedLink.service', () => ({ sharedLinkService: { locate } }));
 vi.mock('@/lib/toast', () => ({ toast: { error: vi.fn(), info: vi.fn() } }));
 const store = vi.hoisted(() => ({
   selectedOrganizationId: 1 as number | null,

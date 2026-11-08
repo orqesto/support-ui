@@ -16,3 +16,6 @@ export {
   proxyRemoteImages,
   relativeTime,
 } from './components/messageDetailConstants';
+export { useIsPhone, useSafeMediaQuery } from './hooks/useIsPhone';
+export { useSharedLinkWorkspace } from './hooks/useSharedLinkWorkspace';
+export { useMessagesStore } from './stores/messagesStore';

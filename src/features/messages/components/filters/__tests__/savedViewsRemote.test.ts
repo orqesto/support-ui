@@ -14,7 +14,7 @@ const service = vi.hoisted(() => ({
   remove: vi.fn(),
   rename: vi.fn(),
 }));
-vi.mock('@/services/savedView.service', () => ({ savedViewService: service }));
+vi.mock('@/features/messages/services/savedView.service', () => ({ savedViewService: service }));
 
 const { loadSavedViews, readLocalSavedViews } = await import('../savedViews');
 

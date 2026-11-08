@@ -37,7 +37,7 @@ vi.mock('@/features/tickets/services/ticketThreads.service', () => ({
 vi.mock('@/services/message.service', () => ({
   messageService: { getLinkedTicket: () => Promise.resolve({ data: null }) },
 }));
-vi.mock('@/services/conversationMerge.service', () => ({
+vi.mock('@/features/messages/services/conversationMerge.service', () => ({
   conversationMergeService: { listMerges: () => Promise.resolve([]) },
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));

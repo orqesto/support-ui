@@ -1,0 +1,509 @@
+import { useEffect, useRef } from 'react';
+import { COLUMNS } from '@/lib/kanbanColumns';
+import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
+import { logger } from '@/lib/logger';
+import { getConvUrlId } from '@/lib/messageHelpers';
+import type { MutableRefObject } from 'react';
+import { NavigationType, useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
+import { recalledSearch, rememberSearch } from '@/lib/searchMemory';
+import { useAuthStore } from '@/stores/authStore';
+import { messageService } from '@/services/message.service';
+import {
+  useMessagesStore,
+  defaultFilters,
+  QUEUE_FILTERS,
+  type FilterState,
+} from '@/features/messages/stores/messagesStore';
+import type { Message } from '@/types';
+
+export const VALID_STATUSES = [
+  'all',
+  'active',
+  'awaiting_response',
+  'client_replied',
+  'suspicious',
+  'not_analysed',
+  'archived',
+  'spam',
+  'resolved',
+] as const;
+export const VALID_THREAD_STATUSES = ['all', 'open', 'in_progress', 'pending', 'closed'] as const;
+// 'open' is what the Status control actually SENDS (unreviewed + replied fold into it)
+// and it was missing here, so `?lifecycle=open` failed the whitelist and was dropped on
+// every URL read. The dropdown has had this bug all along — it only became obvious once
+// the saved views leaned on it, since Inbox / Mine / Unassigned all set lifecycle=open.
+export const VALID_LIFECYCLES = [
+  'all',
+  'open',
+  'unreviewed',
+  'in_progress',
+  'awaiting',
+  'replied',
+  'pending',
+  'resolved',
+  'closed',
+  'needs_us',
+] as const;
+// Re-exported, NOT redeclared. A local copy of this list silently reset any queue value it
+// had not been taught about — the filter applied, then the next URL sync wiped it.
+export const VALID_QUEUES = QUEUE_FILTERS;
+export const VALID_READ = ['all', 'read', 'unread'] as const;
+export const VALID_AI_STATES = [
+  'all',
+  'needs_review',
+  'needs_info',
+  'bot_handled',
+  'lead',
+  'contradiction',
+] as const;
+
+/**
+ * AI-state values that are no longer offered, mapped to what an old link or saved view meant.
+ * `ai_suggested` (Needs Review with a draft, removed 2026-10-21) was a subset of Needs Review, so
+ * it opens Needs Review rather than the whole inbox. `in_human_work` never had a control; it is
+ * dropped (null ⇒ no AI-state filter).
+ */
+const RETIRED_AI_STATES: Record<string, (typeof VALID_AI_STATES)[number] | null> = {
+  ai_suggested: 'needs_review',
+  in_human_work: null,
+};
+
+/** A raw `aiState` (URL or saved view) → a value the filter still offers, or undefined. */
+export const normalizeAiState = (
+  raw: string | null | undefined
+): (typeof VALID_AI_STATES)[number] | undefined => {
+  if (!raw) return undefined;
+  if ((VALID_AI_STATES as readonly string[]).includes(raw)) {
+    return raw as (typeof VALID_AI_STATES)[number];
+  }
+  return RETIRED_AI_STATES[raw] ?? undefined;
+};
+export const VALID_LINKED = ['all', 'has_ticket', 'has_jira'] as const;
+export const VALID_LINKED_TICKET_STATUSES = [
+  'all',
+  'pending',
+  'open',
+  'in_progress',
+  'resolved',
+  'closed',
+] as const;
+export const VALID_PRIORITIES = ['all', 'low', 'medium', 'high', 'critical'] as const;
+/** The three filters the API can invert — `NEGATABLE_FILTERS` server-side. Anything
+ *  else in the param is dropped there, so it is dropped here too rather than round-tripping
+ *  a name that will never do anything. */
+export const VALID_NEGATE_KEYS = ['lifecycle', 'queue', 'aiState'] as const;
+/** The API's four arrival buckets. Read unvalidated before, so `?ageRange=today` was
+ *  stored and drew a token reading "today" over a list it was not filtering. */
+export const VALID_AGE_RANGES = ['all', 'lt24h', '1to7d', '1to4w', 'gt1mo'] as const;
+
+/** Keep the values a whitelist recognises, drop the rest. A CSV filter is several values
+ *  in one param, and one bad entry must not cost the others. */
+const validCsv = (raw: string | null, whitelist: readonly string[]): string | undefined => {
+  if (!raw) return undefined;
+  const kept = [...new Set(raw.split(',').map((part) => part.trim()).filter(Boolean))].filter(
+    (value) => whitelist.includes(value)
+  );
+  return kept.length > 0 ? kept.join(',') : undefined;
+};
+
+/** A date param is only kept if it is one. `NaN` reaching the API as a timestamp is a
+ *  500, and a silently wrong window is worse than no window. */
+const validIso = (raw: string | null): string | undefined =>
+  raw && !Number.isNaN(Date.parse(raw)) ? raw : undefined;
+
+interface UseMessagesUrlSyncProps {
+  urlSyncedRef: MutableRefObject<boolean>;
+  // Holds the URL form of the last-fetched conv id (either the numeric id as a
+  // string or a publicId like 'SUP-42'). Stored as string so the dedup compare
+  // against `searchParams.get('id')` is a single equality check that works
+  // identically for both URL forms.
+  fetchedMessageIdRef: MutableRefObject<string | null>;
+  fetchMessages: (page?: number, force?: boolean) => Promise<void>;
+  selectedMessage: Message | null;
+  setSelectedMessage: (msg: Message | null) => void;
+  onFetchError?: (error: unknown) => void;
+}
+
+/**
+ * The display id to put in the URL when `?id=` resolved to a DIFFERENT ticket than it named —
+ * which the backend does for a merged-away ticket (#830). Null when the link named this ticket
+ * (by display id, stored public id or numeric id), so an ordinary open never rewrites the URL.
+ */
+export const displayIdIfRedirected = (
+  requested: string,
+  shown: { id: number; publicId?: string | null },
+  orgCode: string | null | undefined
+): string | null => {
+  const wanted = requested.trim().toUpperCase();
+  const names = [
+    String(shown.id),
+    shown.publicId ?? '',
+    orgCode && shown.publicId ? `${orgCode}-${shown.publicId}` : '',
+  ]
+    .filter(Boolean)
+    .map((name) => name.toUpperCase());
+  // `ADM-INF-25` names `INF-25` whether or not the workspace code has loaded yet — without this
+  // an ordinary open could be rewritten to the bare id in that first moment.
+  const sameByPublicId =
+    !!shown.publicId && wanted.endsWith(`-${shown.publicId.toUpperCase()}`);
+  return names.includes(wanted) || sameByPublicId ? null : getConvUrlId(shown, orgCode);
+};
+
+export { rememberSearch } from '@/lib/searchMemory';
+
+export const useMessagesUrlSync = ({
+  urlSyncedRef,
+  fetchedMessageIdRef,
+  fetchMessages,
+  setSelectedMessage,
+  onFetchError,
+}: UseMessagesUrlSyncProps) => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigationType = useNavigationType();
+  const location = useLocation();
+  /**
+   * Back to the list: a history step (POP) to an entry this app created, or the thread page's own
+   * Back (`state.restoreSearch`, a PUSH). ⚠️ A RELOAD of such an entry restores too: the router
+   * reads the entry's key (and state) from history.state. Only a tab's first entry — a pasted or
+   * opened link — has key "default" and does not. Same tab, same person: that is intended.
+   */
+  const backToList =
+    (navigationType === NavigationType.Pop && location.key !== 'default') ||
+    (location.state as { restoreSearch?: boolean } | null)?.restoreSearch === true;
+  const organizationId = useAuthStore((state) => state.selectedOrganizationId);
+  const urlIsBare = searchParams.toString() === '';
+  const orgCode = useCurrentOrgCode();
+  // Read when the fetch ANSWERS, not when it started: on a cold load the fetch starts before the
+  // workspace code has loaded, and the closure's `undefined` wrote the bare `INF-25` into the URL.
+  const orgCodeRef = useRef(orgCode);
+  orgCodeRef.current = orgCode;
+  // A redirect seen before the workspace code loaded — applied once it does (effect below).
+  const pendingRedirectRef = useRef<{ requested: string; shown: Message } | null>(null);
+  const searchParamsRef = useRef(searchParams);
+  searchParamsRef.current = searchParams;
+
+  const filters = useMessagesStore((state) => state.filters);
+  const setFilters = useMessagesStore((state) => state.setFilters);
+  const updateFilter = useMessagesStore((state) => state.updateFilter);
+
+  // On mount: read URL params → store, then trigger initial fetch
+  useEffect(() => {
+    const init = async () => {
+      const urlFilters: Partial<FilterState> = {};
+
+      const urlStatus = searchParams.get('status');
+      if (urlStatus && (VALID_STATUSES as readonly string[]).includes(urlStatus)) {
+        urlFilters.status = urlStatus as FilterState['status'];
+      }
+
+      const urlThreadStatus = searchParams.get('threadStatus');
+      if (
+        urlThreadStatus &&
+        (VALID_THREAD_STATUSES as readonly string[]).includes(urlThreadStatus)
+      ) {
+        urlFilters.threadStatus = urlThreadStatus as FilterState['threadStatus'];
+      }
+
+      const urlLifecycle = searchParams.get('lifecycle');
+      if (urlLifecycle && (VALID_LIFECYCLES as readonly string[]).includes(urlLifecycle)) {
+        urlFilters.lifecycle = urlLifecycle as FilterState['lifecycle'];
+      }
+
+      const urlQueue = searchParams.get('queue');
+      if (urlQueue && (VALID_QUEUES as readonly string[]).includes(urlQueue)) {
+        urlFilters.queue = urlQueue as FilterState['queue'];
+      }
+
+      // A quick-filter chip is a real filter, so it belongs in the URL like every other one.
+      // Without this, `setFilters({ ...defaultFilters, ...urlFilters })` below silently resets
+      // the chip to "All" on every URL sync — the selection would survive a click and vanish on
+      // the next navigation, and a shared link would carry the wrong list.
+      const urlColumn = searchParams.get('column');
+      if (urlColumn && COLUMNS.some((col) => col.id === urlColumn)) {
+        urlFilters.columnId = urlColumn;
+      }
+
+      const urlRead = searchParams.get('read');
+      if (urlRead && (VALID_READ as readonly string[]).includes(urlRead)) {
+        urlFilters.read = urlRead as FilterState['read'];
+      }
+
+      const urlAiState = normalizeAiState(searchParams.get('aiState'));
+      if (urlAiState) {
+        urlFilters.aiState = urlAiState;
+      }
+
+      const urlLinked = searchParams.get('linked');
+      if (urlLinked && (VALID_LINKED as readonly string[]).includes(urlLinked)) {
+        urlFilters.linked = urlLinked as FilterState['linked'];
+      }
+
+      const urlLinkedTicketStatus = searchParams.get('linkedTicketStatus');
+      if (
+        urlLinkedTicketStatus &&
+        (VALID_LINKED_TICKET_STATUSES as readonly string[]).includes(urlLinkedTicketStatus)
+      ) {
+        urlFilters.linkedTicketStatus = urlLinkedTicketStatus as FilterState['linkedTicketStatus'];
+      }
+
+      const urlSource = searchParams.get('source');
+      if (urlSource) urlFilters.messageSourceId = urlSource;
+
+      const urlReceivedAt = searchParams.get('receivedAt');
+      if (urlReceivedAt) urlFilters.receivedAt = urlReceivedAt;
+
+      const urlAgeRange = searchParams.get('ageRange');
+      if (urlAgeRange && (VALID_AGE_RANGES as readonly string[]).includes(urlAgeRange)) {
+        urlFilters.ageRange = urlAgeRange as FilterState['ageRange'];
+      }
+
+      const urlDepartmentId = searchParams.get('departmentId');
+      if (urlDepartmentId) urlFilters.departmentId = urlDepartmentId;
+
+      // CSV: `?priority=high,critical` is one filter with two values.
+      const urlPriority = validCsv(searchParams.get('priority'), VALID_PRIORITIES);
+      if (urlPriority) urlFilters.priority = urlPriority;
+
+      const urlNegate = validCsv(searchParams.get('negate'), VALID_NEGATE_KEYS);
+      if (urlNegate) urlFilters.negate = urlNegate;
+
+      const urlReceivedFrom = validIso(searchParams.get('receivedFrom'));
+      if (urlReceivedFrom) urlFilters.receivedFrom = urlReceivedFrom;
+      const urlReceivedTo = validIso(searchParams.get('receivedTo'));
+      if (urlReceivedTo) urlFilters.receivedTo = urlReceivedTo;
+
+      const urlAssigneeId = searchParams.get('assigneeId');
+      if (urlAssigneeId) {
+        urlFilters.assigneeId = urlAssigneeId === '0' ? 'unassigned' : urlAssigneeId;
+      }
+
+      const urlLabelId = searchParams.get('labelId');
+      if (urlLabelId) urlFilters.labelId = urlLabelId;
+
+      const urlSearch = searchParams.get('search');
+      if (urlSearch) urlFilters.search = urlSearch;
+
+      const urlSlaBreached = searchParams.get('slaBreached');
+      const urlSlaAtRisk = searchParams.get('slaAtRisk');
+      if (urlSlaBreached === 'true') urlFilters.slaBreached = true;
+      if (urlSlaAtRisk === 'true') urlFilters.slaAtRisk = true;
+
+      const urlHasAttachments = searchParams.get('hasAttachments');
+      if (urlHasAttachments === 'true') urlFilters.hasAttachments = true;
+      // Shared links and reloads must keep the KB lens, or the not-shown menu's jump
+      // silently reverts to the default lens on the next render.
+      const urlShowKBOnly = searchParams.get('showKBOnly');
+      if (urlShowKBOnly === 'true') urlFilters.showKBOnly = true;
+
+      // A link that names no filter opens the thread list on "Needs us" (Threads v4, as the
+      // tickets list does); the board and contacts keep their own defaults.
+      const mode = searchParams.get('mode');
+      if (Object.keys(urlFilters).length === 0 && (!mode || mode === 'threads')) {
+        urlFilters.lifecycle = 'needs_us';
+      }
+      // Back/Forward/reload onto the list: the search it showed (tab memory, never the URL). After
+      // the default lens above, so a remembered search does not turn "no filter named" into All.
+      if (!urlFilters.search && backToList) {
+        const recalled = recalledSearch(organizationId);
+        if (recalled) urlFilters.search = recalled;
+      }
+      setFilters({ ...defaultFilters, ...urlFilters });
+
+      urlSyncedRef.current = true;
+
+      try {
+        await fetchMessages(1);
+      } catch (error) {
+        logger.error('Failed to fetch messages:', error);
+        onFetchError?.(error);
+      }
+    };
+    init().catch((error) => {
+      logger.error('Failed to initialize messages page:', error);
+    });
+  }, []);
+
+  // Re-apply the `queue` filter from the URL on POST-mount navigations. The mount
+  // effect above has [] deps so it runs once; when the Notification Center's
+  // Suspicious/Spam queue rows navigate to ?queue=... while the Messages page is
+  // already mounted, the URL changes but the store filter would otherwise stay
+  // stale (list shows "all messages" until a full reload). Loop-safe: fires only
+  // when the store and URL differ, and the filters→URL effect keeps them converged;
+  // changing filters.queue drives the refetch in useMessagesData.
+  useEffect(() => {
+    if (!urlSyncedRef.current) return; // the mount effect owns the first pass
+    const store = useMessagesStore.getState().filters;
+
+    const urlQueue = searchParams.get('queue');
+    const queue: FilterState['queue'] =
+      urlQueue && (VALID_QUEUES as readonly string[]).includes(urlQueue)
+        ? (urlQueue as FilterState['queue'])
+        : 'all';
+    if ((store.queue ?? 'all') !== queue) updateFilter('queue', queue);
+
+    const urlRead = searchParams.get('read');
+    const read: FilterState['read'] =
+      urlRead && (VALID_READ as readonly string[]).includes(urlRead)
+        ? (urlRead as FilterState['read'])
+        : 'all';
+    if ((store.read ?? 'all') !== read) updateFilter('read', read);
+  }, [searchParams, updateFilter, urlSyncedRef]);
+
+  // Sync filters → URL whenever they change. Read searchParams via ref to avoid a write→read loop.
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    const messageIdParam = searchParamsRef.current.get('id');
+    if (messageIdParam) params.set('id', messageIdParam);
+
+    const modeParam = searchParamsRef.current.get('mode');
+    if (modeParam) params.set('mode', modeParam);
+    const senderParam = searchParamsRef.current.get('sender');
+    if (senderParam) params.set('sender', senderParam);
+
+    if (filters.status && filters.status !== 'all') params.set('status', filters.status);
+    if (filters.threadStatus && filters.threadStatus !== 'all')
+      params.set('threadStatus', filters.threadStatus);
+    // "All" is written too: a link with no filter opens on Needs us, so an unwritten All came
+    // back from a reload (or a shared link) as Needs us, minus the pending and on-hold threads.
+    if (filters.lifecycle) params.set('lifecycle', filters.lifecycle);
+    if (filters.queue && filters.queue !== 'all') params.set('queue', filters.queue);
+    if (filters.columnId && filters.columnId !== 'all') params.set('column', filters.columnId);
+    if (filters.read && filters.read !== 'all') params.set('read', filters.read);
+    if (filters.aiState && filters.aiState !== 'all') params.set('aiState', filters.aiState);
+    if (filters.linked && filters.linked !== 'all') params.set('linked', filters.linked);
+    if (
+      filters.linked &&
+      filters.linked !== 'all' &&
+      filters.linkedTicketStatus &&
+      filters.linkedTicketStatus !== 'all'
+    ) {
+      params.set('linkedTicketStatus', filters.linkedTicketStatus);
+    }
+    if (filters.messageSourceId && filters.messageSourceId !== 'all')
+      params.set('source', filters.messageSourceId);
+    // 🔒 Deliberately NOT written to the URL. This value is a correspondent's email
+    // address; putting it here would leave it in the address bar, in history, and in
+    // every link the user shares or saves. It is still READ below, so a link made
+    // before this change keeps working — the point is that no new one carries PII.
+    // The cost is that this one filter does not survive being copied out of the bar,
+    // which is a smaller price than a third party's address in someone's history.
+    if (filters.ageRange && filters.ageRange !== 'all') params.set('ageRange', filters.ageRange);
+    if (filters.receivedFrom) params.set('receivedFrom', filters.receivedFrom);
+    if (filters.receivedTo) params.set('receivedTo', filters.receivedTo);
+    if (filters.negate) params.set('negate', filters.negate);
+    if (filters.departmentId && filters.departmentId !== 'all')
+      params.set('departmentId', filters.departmentId);
+    if (filters.priority && filters.priority !== 'all') params.set('priority', filters.priority);
+    if (filters.assigneeId && filters.assigneeId !== 'all') {
+      params.set('assigneeId', filters.assigneeId === 'unassigned' ? '0' : filters.assigneeId);
+    }
+    if (filters.labelId && filters.labelId !== 'all') params.set('labelId', filters.labelId);
+    rememberSearch(organizationId, filters.search ?? '');
+    // 🔒 Deliberately NOT written, as `receivedAt` above: a typed search is routinely a customer's
+    // address or name, and the URL keeps it in the address bar, history, every shared link and the
+    // access log — the reason the list itself is a POST (threadsQuery.ts). Still READ on mount, so
+    // an old link keeps working (release review, 2026-11-02).
+    if (filters.slaBreached) params.set('slaBreached', 'true');
+    if (filters.slaAtRisk) params.set('slaAtRisk', 'true');
+    if (filters.hasAttachments) params.set('hasAttachments', 'true');
+    if (filters.showKBOnly) params.set('showKBOnly', 'true');
+
+    setSearchParams(params, { replace: true });
+    // `urlIsBare`: a bare /threads (the sidebar link) while already here does not remount the page
+    // or change the filters, so the URL lost e.g. lifecycle=all and a reload opened Needs us
+    // (review of #724). Re-written once; then the URL is not bare and this settles.
+  }, [filters, setSearchParams, urlIsBare, organizationId]);
+
+  // Auto-open message from ?id= param. The param can be a numeric conv id
+  // (legacy / unstamped) OR a publicId like 'SUP-42' (current). Pass the raw
+  // string straight to messageService.getById — the BE's resolveConvIdFromParam
+  // dual-resolves both forms. Avoids the prior `parseInt` path that turned
+  // 'SUP-42' into NaN and silently dropped the open.
+  useEffect(() => {
+    const paramId = searchParams.get('id');
+    const paramKind = searchParams.get('kind');
+    // Cache key includes kind so a link with kind=event doesn't get blocked by
+    // a prior non-kind fetch for the same id (would silently mis-resolve).
+    const cacheKey = paramKind ? `${paramId}::${paramKind}` : paramId;
+
+    if (paramId !== null && paramId !== '') {
+      if (cacheKey === fetchedMessageIdRef.current) return;
+      fetchedMessageIdRef.current = cacheKey;
+      // A different link now: an older redirect waiting on the workspace code no longer applies.
+      pendingRedirectRef.current = null;
+
+      messageService
+        .getById(paramId, paramKind === 'event' ? 'event' : undefined)
+        .then((response) => {
+          if (response.success && response.data) {
+            setSelectedMessage(response.data);
+            // A link to a MERGED-AWAY ticket opens the ticket it was merged into (support-service
+            // #830). Put THAT ticket's id in the URL, so a copied link, a refresh or the next
+            // share names what is on screen — not a ticket that no longer exists.
+            const code = orgCodeRef.current;
+            const shownId = displayIdIfRedirected(paramId, response.data, code);
+            if (shownId && !paramKind) {
+              if (!code) {
+                // Every other link carries the workspace code; the bare id would be the odd one
+                // out. Wait for the code rather than write it (staging check, 2026-09-24).
+                pendingRedirectRef.current = { requested: paramId, shown: response.data };
+                return;
+              }
+              fetchedMessageIdRef.current = shownId;
+              setSearchParams(
+                (prev) => {
+                  prev.set('id', shownId);
+                  return prev;
+                },
+                { replace: true }
+              );
+            }
+          } else {
+            fetchedMessageIdRef.current = null;
+            setSearchParams(
+              (prev) => {
+                prev.delete('id');
+                return prev;
+              },
+              { replace: true }
+            );
+          }
+        })
+        .catch((error) => {
+          logger.error('Failed to fetch message:', error);
+          fetchedMessageIdRef.current = null;
+          setSearchParams(
+            (prev) => {
+              prev.delete('id');
+              return prev;
+            },
+            { replace: true }
+          );
+        });
+    } else {
+      fetchedMessageIdRef.current = null;
+      setSelectedMessage(null);
+    }
+  }, [searchParams, setSearchParams, fetchedMessageIdRef, setSelectedMessage]); // onFetchError intentionally excluded — callback ref is stable
+
+  // The workspace code arrived after a redirect: name the survivor the way every other link does.
+  // ⚠️ A workspace with no code at all never gets here, and its URL keeps the merged-away id —
+  // which still opens the survivor. `useCurrentOrgCode` cannot tell "not loaded" from "none".
+  useEffect(() => {
+    const pending = pendingRedirectRef.current;
+    if (!orgCode || !pending) return;
+    pendingRedirectRef.current = null;
+    // Only if the URL still names that link — the agent may have opened something else since.
+    if (searchParamsRef.current.get('id') !== pending.requested) return;
+    const shownId = getConvUrlId(pending.shown, orgCode);
+    fetchedMessageIdRef.current = shownId;
+    setSearchParams(
+      (prev) => {
+        prev.set('id', shownId);
+        return prev;
+      },
+      { replace: true }
+    );
+  }, [orgCode, fetchedMessageIdRef, setSearchParams]);
+};

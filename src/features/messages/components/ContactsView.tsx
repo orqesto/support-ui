@@ -15,7 +15,7 @@ import {
   ContactNotesIndicator,
 } from '@/features/contacts';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
-import { useLeadsHidden } from '@/hooks/useLeadsHidden';
+import { useLeadsHidden } from '@/features/messages/hooks/useLeadsHidden';
 import { useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';

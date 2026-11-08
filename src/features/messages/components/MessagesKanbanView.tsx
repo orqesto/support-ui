@@ -40,7 +40,7 @@ import {
   type ThreadsResponse,
 } from '@/services/message.service';
 import { ListScopeNotice } from './ListScopeNotice';
-import { type FilterState, type SortingState } from '@/stores/messagesStore';
+import { type FilterState, type SortingState } from '@/features/messages/stores/messagesStore';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';

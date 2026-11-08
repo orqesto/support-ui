@@ -28,10 +28,10 @@
  */
 import { ChevronDown, EyeOff } from 'lucide-react';
 import { useCallback, useId, useRef, useState } from 'react';
-import { useClickOutside } from '@/hooks/useClickOutside';
+import { useClickOutside } from '@/features/messages/hooks/useClickOutside';
 import { formatTotal } from '@/lib/listTotals';
 import type { ListScope } from '@/services/message.service';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 type Props = {
   scope: ListScope | null;

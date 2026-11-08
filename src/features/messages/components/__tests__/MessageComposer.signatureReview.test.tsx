@@ -22,7 +22,7 @@ vi.mock('@/services/replyTemplates.service', async (importOriginal) => ({
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 vi.mock('../ComposerAiActions', () => ({ ComposerAiActions: () => null }));
-vi.mock('@/hooks/useIsPhone', () => ({ useIsPhone: () => false }));
+vi.mock('@/features/messages/hooks/useIsPhone', () => ({ useIsPhone: () => false }));
 vi.mock('@/hooks/useAiConfigured', () => ({ useAiConfigured: () => ({ aiConfigured: true }) }));
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false }),

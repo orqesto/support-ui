@@ -6,7 +6,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type * as MergeServiceModule from '@/services/conversationMerge.service';
+import type * as MergeServiceModule from '@/features/messages/services/conversationMerge.service';
 import type { MessageEvent } from '@/types';
 
 type Deferred = { promise: Promise<unknown>; resolve: (value: unknown) => void };
@@ -24,9 +24,9 @@ const listMerges = (id: number) => {
   reads.push({ id, read });
   return read.promise;
 };
-vi.mock('@/services/conversationMerge.service', async () => {
+vi.mock('@/features/messages/services/conversationMerge.service', async () => {
   const real = await vi.importActual<typeof MergeServiceModule>(
-    '@/services/conversationMerge.service'
+    '@/features/messages/services/conversationMerge.service'
   );
   return {
     ...real,

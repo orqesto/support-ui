@@ -11,8 +11,8 @@ import {
   type FilterKey,
 } from './filterSchema';
 import { Button } from '@/components/ui/Button';
-import type { RecentSearch } from '@/services/recentSearch.service';
-import type { FilterState } from '@/stores/messagesStore';
+import type { RecentSearch } from '@/features/messages/services/recentSearch.service';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 /** Search as you type: this long after the last keystroke, the typed text is searched. */
 export const LIVE_SEARCH_DELAY_MS = 300;

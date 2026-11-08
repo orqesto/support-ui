@@ -3,14 +3,14 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
-import type * as MergeServiceModule from '@/services/conversationMerge.service';
+import type * as MergeServiceModule from '@/features/messages/services/conversationMerge.service';
 
 const merge = vi.fn();
 const listMerges = vi.fn();
 const participants = vi.fn();
-vi.mock('@/services/conversationMerge.service', async () => {
+vi.mock('@/features/messages/services/conversationMerge.service', async () => {
   const real = await vi.importActual<typeof MergeServiceModule>(
-    '@/services/conversationMerge.service'
+    '@/features/messages/services/conversationMerge.service'
   );
   return {
     ...real,
@@ -23,7 +23,7 @@ vi.mock('@/services/message.service', () => ({
   messageService: { getById: (...args: unknown[]): unknown => getById(...args) },
 }));
 
-const { MergeAssigneeConflictError } = await import('@/services/conversationMerge.service');
+const { MergeAssigneeConflictError } = await import('@/features/messages/services/conversationMerge.service');
 const { MergeConfirmDialog } = await import('../MergeConfirmDialog');
 const { RecipientFields } = await import('../RecipientFields');
 const { BulkActionBar } = await import('../bulk/BulkActionBar');

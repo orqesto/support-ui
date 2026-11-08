@@ -1,0 +1,130 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { renderHook } from '@testing-library/react';
+
+const handlers = vi.hoisted(() => new Map<string, (data: unknown) => void>());
+vi.mock('@/lib/socketManager', () => ({
+  getSocket: () => ({}),
+  releaseSocket: () => {},
+  subscribeToEvent: (event: string, handler: (data: unknown) => void) => {
+    handlers.set(event, handler);
+  },
+  unsubscribeFromEvent: (event: string) => {
+    handlers.delete(event);
+  },
+}));
+
+const { useConversationStatusRefresh, CONV_STATUS_REFRESH_MS } = await import(
+  '@/features/messages/hooks/useConversationStatusRefresh'
+);
+const fire = (conversationId: number) =>
+  handlers.get('conv:status_changed')?.({
+    organizationId: 7,
+    conversationId,
+    status: 'client_replied',
+    previousStatus: 'closed',
+    reason: 'resurface',
+  });
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  handlers.clear();
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe('useConversationStatusRefresh — the open thread header follows a reopen without a reload', () => {
+  it('a status change on THIS thread re-reads it', () => {
+    const refresh = vi.fn();
+    renderHook(() => useConversationStatusRefresh(41, refresh));
+    fire(41);
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('CONTROL: a status change on another thread does nothing', () => {
+    const refresh = vi.fn();
+    renderHook(() => useConversationStatusRefresh(41, refresh));
+    fire(42);
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS * 4);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('two changes from one save ⇒ one re-read', () => {
+    const refresh = vi.fn();
+    renderHook(() => useConversationStatusRefresh(41, refresh));
+    fire(41);
+    vi.advanceTimersByTime(200);
+    fire(41);
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('a parent that passes no refresh is fine (nothing to call)', () => {
+    renderHook(() => useConversationStatusRefresh(41, undefined));
+    fire(41);
+    expect(() => vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS)).not.toThrow();
+  });
+
+  // A customer's workspace, 2026-11-02: a thread closed elsewhere (bulk, approve, close) kept its
+  // open panel on "In progress" — the list heard `conversation:updated`, the panel did not.
+  it('an update to THIS thread (conversation:updated) re-reads it too; another thread\'s does not', () => {
+    const refresh = vi.fn();
+    renderHook(() => useConversationStatusRefresh(41, refresh));
+    handlers.get('conversation:updated')?.({ conversationId: 99, status: 'closed' });
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).not.toHaveBeenCalled();
+    handlers.get('conversation:updated')?.({ conversationId: 41, status: 'closed' });
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Review of #1306/#805: a bulk run or a merge sends ONE event naming only its first (or surviving)
+// thread; `conversationIds` names every thread it stands for.
+describe('useConversationStatusRefresh — one event for many threads', () => {
+  const fireUpdated = (data: unknown) => handlers.get('conversation:updated')?.(data);
+
+  it('🔴 a bulk event that names this thread among others re-reads it', () => {
+    const refresh = vi.fn();
+    renderHook(() => useConversationStatusRefresh(41, refresh));
+    fireUpdated({ conversationId: 7, conversationIds: [7, 41, 52], status: 'resolved', action: 'bulk_resolve' });
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('[control] a bulk event that does not name this thread re-reads nothing', () => {
+    const refresh = vi.fn();
+    renderHook(() => useConversationStatusRefresh(41, refresh));
+    fireUpdated({ conversationId: 7, conversationIds: [7, 52], status: 'resolved', action: 'bulk_resolve' });
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('an older backend (no conversationIds) still matches on conversationId', () => {
+    const refresh = vi.fn();
+    renderHook(() => useConversationStatusRefresh(41, refresh));
+    fireUpdated({ conversationId: 41, status: 'closed', action: 'close' });
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('useConversationStatusRefresh — a move to another team', () => {
+  it('🔴 conversation:routed for this thread re-reads it', () => {
+    const refresh = vi.fn();
+    renderHook(() => useConversationStatusRefresh(41, refresh));
+    handlers.get('conversation:routed')?.({ conversationId: 41, departmentId: 3, routedBy: 9 });
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('[control] a move of another thread re-reads nothing', () => {
+    const refresh = vi.fn();
+    renderHook(() => useConversationStatusRefresh(41, refresh));
+    handlers.get('conversation:routed')?.({ conversationId: 7, departmentId: 3, routedBy: 9 });
+    vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+});
+

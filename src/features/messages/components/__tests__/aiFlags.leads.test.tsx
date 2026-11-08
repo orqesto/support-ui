@@ -42,7 +42,7 @@ vi.mock('@/features/custom-api/services/customApiLookup.service', () => ({
   },
 }));
 
-const { useLeadsHidden } = await import('@/hooks/useLeadsHidden');
+const { useLeadsHidden } = await import('@/features/messages/hooks/useLeadsHidden');
 const { MessagePanelTabs } = await import('../MessagePanelTabs');
 
 const wrapper = ({ children }: { children: ReactNode }) => (

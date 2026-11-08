@@ -6,7 +6,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { act, render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { FilterTokenBar, LIVE_SEARCH_DELAY_MS } from '../FilterTokenBar';
 import { buildFilterDefs, EMPTY_DYNAMIC_OPTIONS } from '../filterSchema';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => {

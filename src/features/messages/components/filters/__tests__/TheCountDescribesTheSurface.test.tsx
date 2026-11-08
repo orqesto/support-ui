@@ -15,7 +15,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MessageFilterBar } from '../MessageFilterBar';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 vi.mock('@/hooks/useSavedViews', () => ({
   useSavedViews: () => ({ userViews: [], saveView: vi.fn(), removeView: vi.fn(), viewSource: 'server' }),

@@ -16,8 +16,8 @@ import {
   scopeReadToTriage,
   visibleDefs,
 } from '../filterSchema';
-import { useMessagesStore, defaultFilters } from '@/stores/messagesStore';
-import type { FilterState } from '@/stores/messagesStore';
+import { useMessagesStore, defaultFilters } from '@/features/messages/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 const defs = buildFilterDefs(EMPTY_DYNAMIC_OPTIONS);
 const keys = (lens: Pick<FilterState, 'queue' | 'columnId'>) =>

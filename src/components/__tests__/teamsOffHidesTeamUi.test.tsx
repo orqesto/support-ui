@@ -36,7 +36,7 @@ vi.mock('@/hooks/usePermissions', () => ({
 vi.mock('@/services/assignment.service', () => ({
   assignmentService: { getAssignableUsers: () => Promise.resolve([]) },
 }));
-vi.mock('@/services/messageSourceOptions.service', () => ({
+vi.mock('@/features/messages/services/messageSourceOptions.service', () => ({
   getMessageSourceOptions: () => Promise.resolve([]),
 }));
 vi.mock('@/services/message.service', () => ({

@@ -6,8 +6,8 @@ import { buildFilterDefs, type FilterDef } from '@/features/messages/components/
 import { useFilterOptions } from '@/features/messages/components/filters/useFilterOptions';
 import { presetToSorting, sortingToPreset } from '@/features/messages/components/sortPresets';
 import { COLUMNS } from '@/features/messages/components/kanbanColumns';
-import { useLeadsHidden } from '@/hooks/useLeadsHidden';
-import type { FilterState, SortingState } from '@/stores/messagesStore';
+import { useLeadsHidden } from '@/features/messages/hooks/useLeadsHidden';
+import type { FilterState, SortingState } from '@/features/messages/stores/messagesStore';
 import { THREAD_TABLE_GRID } from './threadTableParts';
 import { TRIAGE_IDS } from './ThreadViews';
 

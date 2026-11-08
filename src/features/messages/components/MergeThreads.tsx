@@ -17,7 +17,7 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { queryClient } from '@/lib/queryClient';
 import { getConvUrlId } from '@/lib/messageHelpers';
-import { conversationMergeService, type ManualMerge } from '@/services/conversationMerge.service';
+import { conversationMergeService, type ManualMerge } from '@/features/messages/services/conversationMerge.service';
 import { messageService } from '@/services/message.service';
 import { threadRowMessage } from '@/features/tickets';
 import type { Message } from '@/types';

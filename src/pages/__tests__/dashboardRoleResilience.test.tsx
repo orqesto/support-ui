@@ -55,7 +55,7 @@ vi.mock('@/features/dashboard/hooks/useSystemHealth', () => ({ useSystemHealth: 
 vi.mock('@/features/dashboard/hooks/useTelegramProcessing', () => ({
   useTelegramProcessing: () => ({}),
 }));
-vi.mock('@/stores/messagesStore', () => ({ useMessagesStore: () => ({}) }));
+vi.mock('@/features/messages/stores/messagesStore', () => ({ useMessagesStore: () => ({}) }));
 vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({
     hasPermission: (permission: string) =>

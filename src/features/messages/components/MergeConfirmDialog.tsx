@@ -17,7 +17,7 @@ import { getConvUrlId } from '@/lib/messageHelpers';
 import {
   conversationMergeService,
   MergeAssigneeConflictError,
-} from '@/services/conversationMerge.service';
+} from '@/features/messages/services/conversationMerge.service';
 import {
   MG_BODY,
   MG_DIALOG,

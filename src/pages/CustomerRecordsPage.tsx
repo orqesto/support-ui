@@ -1,13 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  CONTACT_NOT_VISIBLE,
-  CustomApiResultCard,
-  DEFAULT_REFERENCE_NAME,
-  LOOKUPS_NOT_ON_SERVER,
-  referenceNameOf,
-} from '@/features/custom-api';
+import { CustomApiResultCard } from '@/features/custom-api';
+import { CONTACT_NOT_VISIBLE, DEFAULT_REFERENCE_NAME, LOOKUPS_NOT_ON_SERVER, referenceNameOf } from '@/features/custom-api/shell';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -18,12 +13,7 @@ import { SearchInput } from '@/components/ui/SearchInput';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { contactService, type ContactProfile } from '@/services/contact.service';
-import {
-  customApiLookupService,
-  type CustomApiLookupResult,
-  type CustomApiStoredRecord,
-  type RunnableLookup,
-} from '@/features/custom-api';
+import { customApiLookupService, type CustomApiLookupResult, type CustomApiStoredRecord, type RunnableLookup } from '@/features/custom-api/shell';
 
 /**
  * CA-6 — THE CUSTOMER RECORDS PAGE.

@@ -21,7 +21,7 @@ const { getContacts, panelProps, getNoteSummary } = vi.hoisted(() => ({
   getNoteSummary: vi.fn(),
 }));
 // Lead UI visibility reads the workspace's lead config through react-query; not under test here.
-vi.mock('@/hooks/useLeadsHidden', () => ({ useLeadsHidden: () => false }));
+vi.mock('@/features/messages/hooks/useLeadsHidden', () => ({ useLeadsHidden: () => false }));
 vi.mock('@/services/contact.service', () => ({ contactService: { getNoteSummary } }));
 vi.mock('@/services/message.service', async (importOriginal) => ({
   ...(await importOriginal<object>()),

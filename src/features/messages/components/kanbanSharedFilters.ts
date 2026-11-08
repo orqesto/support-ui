@@ -1,7 +1,7 @@
-import { assigneeApiParams } from '@/hooks/assigneeApiParams';
-import { legacyAiStateParam } from '@/hooks/legacyAiStateParam';
-import { negateApiParam } from '@/hooks/negateApiParam';
-import type { FilterState } from '@/stores/messagesStore';
+import { assigneeApiParams } from '@/features/messages/hooks/assigneeApiParams';
+import { legacyAiStateParam } from '@/features/messages/hooks/legacyAiStateParam';
+import { negateApiParam } from '@/features/messages/hooks/negateApiParam';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 /**
  * The filters every kanban column sends, before the column adds its own `fixedFilters`.

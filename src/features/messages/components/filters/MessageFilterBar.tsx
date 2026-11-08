@@ -20,10 +20,10 @@ import {
 } from './savedViews';
 import { useRecentSearches } from './useRecentSearches';
 import { useSavedViews } from './useSavedViews';
-import type { FilterState } from '@/stores/messagesStore';
-import { useLeadsHidden } from '@/hooks/useLeadsHidden';
-import { normalizeAiState } from '@/hooks/useMessagesUrlSync';
-import { useThreadViewCounts } from '@/hooks/useThreadViewCounts';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
+import { useLeadsHidden } from '@/features/messages/hooks/useLeadsHidden';
+import { normalizeAiState } from '@/features/messages/hooks/useMessagesUrlSync';
+import { useThreadViewCounts } from '@/features/messages/hooks/useThreadViewCounts';
 
 /**
  * The inbox filter surface — a token bar on desktop, a drawer on mobile.

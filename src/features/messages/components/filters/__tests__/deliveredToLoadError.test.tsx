@@ -15,7 +15,7 @@ import {
 } from '@testing-library/react';
 import { FilterTokenBar } from '../FilterTokenBar';
 import { buildFilterDefs, EMPTY_DYNAMIC_OPTIONS, type DynamicOptions } from '../filterSchema';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 import { ReceivedAtOptionsError } from '@/services/receivedAtOption';
 
 const getReceivedAtOptions = vi.fn<() => Promise<unknown[]>>();
@@ -27,7 +27,7 @@ vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () 
 vi.mock('@/services/assignment.service', () => ({
   assignmentService: { getAssignableUsers: () => Promise.resolve([]) },
 }));
-vi.mock('@/services/messageSourceOptions.service', () => ({
+vi.mock('@/features/messages/services/messageSourceOptions.service', () => ({
   getMessageSourceOptions: () => Promise.resolve([]),
 }));
 vi.mock('@/services/settings.service', () => ({

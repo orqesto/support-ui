@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { partialTemplateNotice } from '../templateNotice';
-import type { TemplateLookup } from '@/features/custom-api';
+import type { TemplateLookup } from '@/features/custom-api/shell';
 
 const lookups = [{ key: 'a' }, { key: 'b' }, { key: 'c' }] as unknown as TemplateLookup[];
 

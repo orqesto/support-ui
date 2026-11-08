@@ -5,7 +5,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import type * as MergeServiceModule from '@/services/conversationMerge.service';
+import type * as MergeServiceModule from '@/features/messages/services/conversationMerge.service';
 
 // A plain function, not a vi.fn: in vitest 4 a rejection returned by a module-level vi.fn fails
 // the test even when the component catches it.
@@ -15,9 +15,9 @@ const merge = (...args: unknown[]) => {
   mergeCalls.push(args);
   return mergeImpl(...args);
 };
-vi.mock('@/services/conversationMerge.service', async () => {
+vi.mock('@/features/messages/services/conversationMerge.service', async () => {
   const real = await vi.importActual<typeof MergeServiceModule>(
-    '@/services/conversationMerge.service'
+    '@/features/messages/services/conversationMerge.service'
   );
   return {
     ...real,

@@ -7,7 +7,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { FilterTokenBar } from '../FilterTokenBar';
 import { buildFilterDefs, EMPTY_DYNAMIC_OPTIONS } from '../filterSchema';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 afterEach(cleanup);
 

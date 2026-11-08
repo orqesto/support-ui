@@ -2,7 +2,7 @@
  * Staging, 2026-09-24 — three things the browser check of the merge found.
  */
 import { describe, expect, it } from 'vitest';
-import { displayIdIfRedirected } from '@/hooks/useMessagesUrlSync';
+import { displayIdIfRedirected } from '@/features/messages/hooks/useMessagesUrlSync';
 import { customerDomainQuery } from '../MergeThreads';
 
 describe('customerDomainQuery — public providers', () => {

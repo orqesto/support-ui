@@ -14,7 +14,7 @@ import {
   type FilterOption,
 } from './filterSchema';
 import { isRangeValue, rangeFromValue, rangeText } from './receivedRange';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 export type Token = {
   def: FilterDef;

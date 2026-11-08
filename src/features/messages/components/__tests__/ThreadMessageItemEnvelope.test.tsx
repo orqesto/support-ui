@@ -9,7 +9,7 @@ import { render, screen, cleanup } from '@testing-library/react';
 import type { MessageEvent } from '@/types';
 import { ThreadMessageItem } from '../ThreadMessageItem';
 
-vi.mock('@/hooks/useMessageHtml', () => ({
+vi.mock('@/features/messages/hooks/useMessageHtml', () => ({
   useMessageHtml: () => ({ data: null, isLoading: false }),
 }));
 

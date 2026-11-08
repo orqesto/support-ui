@@ -7,12 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { usePermissions } from '@/hooks/usePermissions';
 import { getApiErrorMessage } from '@/lib/errorMessages';
-import {
-  customApiService,
-  type CustomApiConnection,
-  customApiTemplateService,
-  type CustomApiTemplate,
-} from '@/features/custom-api';
+import { customApiService, type CustomApiConnection, customApiTemplateService, type CustomApiTemplate } from '@/features/custom-api/shell';
 import { Permission } from '@/types/roles';
 
 type Loaded =

@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { useState } from 'react';
-import type * as MergeServiceModule from '@/services/conversationMerge.service';
+import type * as MergeServiceModule from '@/features/messages/services/conversationMerge.service';
 import type { Message } from '@/types';
 
 const mocks = vi.hoisted(() => ({
@@ -16,9 +16,9 @@ const mocks = vi.hoisted(() => ({
   toastSuccess: vi.fn(),
 }));
 
-vi.mock('@/services/conversationMerge.service', async () => {
+vi.mock('@/features/messages/services/conversationMerge.service', async () => {
   const real = await vi.importActual<typeof MergeServiceModule>(
-    '@/services/conversationMerge.service'
+    '@/features/messages/services/conversationMerge.service'
   );
   return {
     ...real,

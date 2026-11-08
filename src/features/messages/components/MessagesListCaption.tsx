@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/Checkbox';
 import { Select } from '@/components/ui/Select';
 import { SegmentedControl, type Segment } from '@/components/ui/SegmentedControl';
 import type { ListScope } from '@/services/message.service';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 import { cn } from '@/lib/utils';
 import { ListScopeNotice, type ArrivalQueue } from './ListScopeNotice';
 import { SORT_PRESET_OPTIONS } from './sortPresets';

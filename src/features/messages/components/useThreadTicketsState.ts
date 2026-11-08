@@ -7,7 +7,7 @@ import {
   type ThreadTicket,
   THREAD_TICKETS_CHANGED,
 } from '@/features/tickets';
-import { conversationMergeService, type ManualMerge } from '@/services/conversationMerge.service';
+import { conversationMergeService, type ManualMerge } from '@/features/messages/services/conversationMerge.service';
 import type { HeaderTickets } from './RelatedPopover';
 import { withMergeChange, type MergeChange } from './useThreadMergeContext';
 

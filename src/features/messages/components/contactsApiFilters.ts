@@ -1,5 +1,5 @@
-import { assigneeApiParams } from '@/hooks/assigneeApiParams';
-import type { FilterState } from '@/stores/messagesStore';
+import { assigneeApiParams } from '@/features/messages/hooks/assigneeApiParams';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 /**
  * The filters the Contacts view sends.

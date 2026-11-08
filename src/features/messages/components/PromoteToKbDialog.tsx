@@ -20,7 +20,7 @@ import {
   kbPromoteService,
   type KbPromoteOutcome,
   type KbQaCandidate,
-} from '@/services/kbPromote.service';
+} from '@/features/messages/services/kbPromote.service';
 
 /**
  * Promote an already-resolved thread into the knowledge base.

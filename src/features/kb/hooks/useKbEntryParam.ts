@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import type { KbFilterStatus } from '@/features/kb/lib/kbFilterStatus';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
-import { useSharedLinkWorkspace } from '@/hooks/useSharedLinkWorkspace';
+import { useSharedLinkWorkspace } from '@/features/messages/shell';
 import { logger } from '@/lib/logger';
 import { withPendingDecision } from '@/features/kb/lib/kbDecisionLookup';
 import { kbService, type KBEntry } from '@/features/kb/services/kb.service';

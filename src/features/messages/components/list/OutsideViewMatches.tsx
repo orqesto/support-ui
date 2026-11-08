@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Spinner } from '@/components/ui/Spinner';
 import { Typography } from '@/components/ui/Typography';
-import { threadApiFilters } from '@/hooks/threadApiFilters';
+import { threadApiFilters } from '@/features/messages/hooks/threadApiFilters';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { formatTotal } from '@/lib/listTotals';
 import {
@@ -15,7 +15,7 @@ import {
   type ThreadsResponse,
 } from '@/services/message.service';
 import { useAuthStore } from '@/stores/authStore';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 type Place = keyof ListScope['hiddenBecause'];
 

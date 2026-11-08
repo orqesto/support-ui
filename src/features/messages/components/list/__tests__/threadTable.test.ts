@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { defaultFilters, type FilterState } from '@/stores/messagesStore';
+import { defaultFilters, type FilterState } from '@/features/messages/stores/messagesStore';
 import type { MessageThread } from '@/services/message.service';
 import type { FilterDef } from '@/features/messages/components/filters/filterSchema';
 import { threadSections } from '../threadSections';

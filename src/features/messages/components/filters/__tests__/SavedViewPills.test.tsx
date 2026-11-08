@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
-import type { FilterState } from '@/stores/messagesStore';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 // The user's own views come from the API now. Mocked so these tests are about the pills
 // rather than about what a request does in jsdom.
@@ -15,7 +15,7 @@ const service = vi.hoisted(() => ({
   remove: vi.fn(),
   rename: vi.fn(),
 }));
-vi.mock('@/services/savedView.service', () => ({ savedViewService: service }));
+vi.mock('@/features/messages/services/savedView.service', () => ({ savedViewService: service }));
 
 // Mutable so a test can reproduce the pre-fetch state, where a filter has no options
 // and is therefore absent from the schema entirely.
@@ -32,7 +32,7 @@ vi.mock('../useFilterOptions', () => ({
   }),
 }));
 // Lead UI visibility reads the workspace's lead config through react-query; not under test here.
-vi.mock('@/hooks/useLeadsHidden', () => ({ useLeadsHidden: () => false }));
+vi.mock('@/features/messages/hooks/useLeadsHidden', () => ({ useLeadsHidden: () => false }));
 vi.mock('@/contexts/ThemeContext', () => ({ useTheme: () => ({ theme: 'light' }) }));
 
 const { MessageFilterBar } = await import('../MessageFilterBar');

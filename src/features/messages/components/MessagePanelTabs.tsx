@@ -33,7 +33,7 @@ import { LABEL, PHONE_CONTACT, relativeTime, type PanelTab } from './messageDeta
 import { useTabBadges } from './useTabBadges';
 import { TabBadge } from './TabBadge';
 import { STRIP_FADE, useStripFade } from './useStripFade';
-import { useLeadsHidden } from '@/hooks/useLeadsHidden';
+import { useLeadsHidden } from '@/features/messages/hooks/useLeadsHidden';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
 
