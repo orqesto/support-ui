@@ -20,6 +20,7 @@ import { Save, X, AlertTriangle, Info } from 'lucide-react';
 import type { AlertState } from '@/features/settings/components/integrations/types';
 import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/LazyRichTextEditor';
 import { Button } from '@/components/ui/Button';
+import { isBlankRichText } from '@/lib/stripHtml';
 import { integrationsService } from '@/services/integrations.service';
 
 type AckReplyEditorProps = {
@@ -71,10 +72,8 @@ export const AckReplyEditor = ({
 
   // Tiptap renders empty input as `<p></p>`; the backend treats that as
   // "no body". Normalize before any "is body empty?" check.
-  const isBodyEmpty = (html: string): boolean => {
-    const stripped = html.replace(/<[^>]+>/g, '').trim();
-    return stripped.length === 0;
-  };
+  // The shared check (no visible text, `&nbsp;` included) mirrors the backend's isBlankHtml guard.
+  const isBodyEmpty = (html: string): boolean => isBlankRichText(html);
 
   const handleSave = async () => {
     if (enabled && isBodyEmpty(body)) {
