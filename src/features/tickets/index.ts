@@ -11,7 +11,6 @@ export {
   CreateTicketJiraOption,
   CreateTicketQuote,
 } from './components/CreateTicketChrome';
-export { LeadQualificationPanel } from './components/LeadQualificationPanel';
 export { NewTicketButton } from './components/NewTicketButton';
 export { pickUploadableFiles } from './components/NewTicketFiles';
 export { TicketDetail } from './components/TicketDetail';

@@ -9,7 +9,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MessageDetailHeader } from '../MessageDetailHeader';
 import { ThemeProvider } from '@/contexts/ThemeContext';
-import { THREAD_TICKETS_CHANGED } from '@/features/tickets';
+import { THREAD_TICKETS_CHANGED } from '@/features/tickets/shell';
 import { useState } from 'react';
 import { DeleteMessageDialog } from '../DeleteMessageDialog';
 

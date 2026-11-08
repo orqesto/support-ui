@@ -42,7 +42,7 @@ import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { messageService } from '@/services/message.service';
 import type { ManualMerge } from '@/features/messages/services/conversationMerge.service';
-import { categoryService, TicketRef } from '@/features/tickets';
+import { categoryService, TicketRef } from '@/features/tickets/shell';
 import { labelService, type Label } from '@/services/settings.service';
 import {
   closedStatusMeta,

@@ -67,7 +67,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 import { MessageDetailHeader } from '../MessageDetailHeader';
-import { THREAD_TICKETS_CHANGED } from '@/features/tickets';
+import { THREAD_TICKETS_CHANGED } from '@/features/tickets/shell';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 
 afterEach(cleanup);

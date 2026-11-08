@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { messageService } from '@/services/message.service';
-import type { LeadQualificationPanel } from '@/features/tickets';
+import type { LeadQualificationPanel } from './LeadQualificationPanel';
 import type { Message } from '@/types';
 
 export type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];

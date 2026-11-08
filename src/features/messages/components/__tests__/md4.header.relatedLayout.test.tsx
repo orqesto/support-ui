@@ -10,7 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Message } from '@/types';
 import { MessageDetailHeader } from '../MessageDetailHeader';
 import { ThemeProvider } from '@/contexts/ThemeContext';
-import { THREAD_TICKETS_CHANGED } from '@/features/tickets';
+import { THREAD_TICKETS_CHANGED } from '@/features/tickets/shell';
 
 // In each test file, not the shared utils: the apiClient path scanner
 // (servicePathsCarryApiPrefix.test.ts) reads every module that is not itself a test.

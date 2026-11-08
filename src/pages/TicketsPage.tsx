@@ -2,34 +2,8 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { MessagesSquare, RefreshCw, Send } from 'lucide-react';
 import { SearchReadingNotice } from '@/components/shared/SearchReadingNotice';
 import { NewItemsBar } from '@/components/shared/NewItemsBar';
-import {
-  TicketDeleteDialog,
-  TicketSyncAllDialog,
-  TicketsViewToggle,
-  useTicketsUrlSync,
-  useSearchBoxText,
-  useTicketsRealtime,
-  TicketDetail,
-  TicketFilterBar,
-  TicketViewPills,
-  buildTicketFilterKeys,
-  viewFiltersOf,
-  useTicketFilterSources,
-  useTicketViews,
-  TicketTable,
-  TicketRowMenuItems,
-  useTicketListPrefs,
-  useTicketJiraActions,
-  useNewTicketsBar,
-  TicketPanel,
-  useTicketKeys,
-  NewTicketButton,
-  TicketsKanbanView,
-  ticketService,
-  type PaginationMeta,
-  useTicketsStore,
-  ticketApiFilters,
-} from '@/features/tickets';
+import { TicketDeleteDialog, TicketSyncAllDialog, TicketsViewToggle, useTicketsUrlSync, useSearchBoxText, useTicketsRealtime, TicketDetail, TicketFilterBar, TicketViewPills, buildTicketFilterKeys, viewFiltersOf, useTicketFilterSources, useTicketViews, TicketTable, TicketRowMenuItems, useTicketListPrefs, useTicketJiraActions, useNewTicketsBar, TicketPanel, useTicketKeys, NewTicketButton, TicketsKanbanView, type PaginationMeta, useTicketsStore, ticketApiFilters } from '@/features/tickets';
+import { ticketService } from '@/features/tickets/shell';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/shared/PageHeader';
