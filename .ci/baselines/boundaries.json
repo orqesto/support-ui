@@ -1,6 +1,6 @@
 {
   "featureToFeature": {
-    "total": 129,
+    "total": 127,
     "pairs": {
       "components/layout -> feature:processing": 2,
       "components/layout -> feature:subscription": 3,
@@ -18,7 +18,7 @@
       "feature:messages -> feature:custom-api": 3,
       "feature:messages -> feature:settings": 8,
       "feature:messages -> feature:subscription": 5,
-      "feature:messages -> feature:tickets": 8,
+      "feature:messages -> feature:tickets": 6,
       "feature:onboarding -> feature:settings": 7,
       "feature:onboarding -> feature:subscription": 1,
       "feature:processing -> feature:settings": 4,

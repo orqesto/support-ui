@@ -25,8 +25,8 @@ Code outside `src/features/<x>/` imports a feature only through:
 - **`@/features/<x>`** (`index.ts`): its UI and everything else it offers. Importing it loads the
   whole feature.
 - **`@/features/<x>/shell`** (`shell.ts`): a light entry of leaf files only (never `./index`) for
-  the app shell and for other features that need a small non-UI piece: a hook, constant, helper,
-  service or type. Keep a shell leaf free of heavy imports and of top-level work: whatever it
+  the app shell and for other features that need a small piece: a hook, constant, helper,
+  service or type, or a tiny leaf component such as a chip or icon (owner, 2026-11-08). Keep a shell leaf free of heavy imports and of top-level work: whatever it
   pulls in lands in every importer, the main bundle included.
 
 Inside a feature, files import each other directly, never through their own index.

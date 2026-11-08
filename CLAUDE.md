@@ -73,7 +73,8 @@ are on you.
 Code is organised in features (`src/features/<x>/`); the full rules are in `docs/ARCHITECTURE.md`.
 
 - Outside a feature, import it only through `@/features/<x>` (its index: UI and the rest) or
-  `@/features/<x>/shell` (light leaf files: small non-UI pieces, and anything the app shell —
+  `@/features/<x>/shell` (light leaf files: small non-UI pieces or a tiny leaf component such as
+  a chip or icon, and anything the app shell —
   App, route helpers, layout, processing indicator — needs). Never a deep path; never a feature
   from `lib`/`hooks`/`services`/`stores`/`types`/`utils`/`components/ui`.
 - Type-only re-exports: `export type { T } from './x'`, never `export { type T } from './x'`

@@ -2,11 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { messageService } from '@/services/message.service';
-import {
-  ticketThreadsService,
-  type ThreadTicket,
-  THREAD_TICKETS_CHANGED,
-} from '@/features/tickets';
+import { ticketThreadsService, type ThreadTicket, THREAD_TICKETS_CHANGED } from '@/features/tickets/shell';
 import { conversationMergeService, type ManualMerge } from '@/features/messages/services/conversationMerge.service';
 import type { HeaderTickets } from './RelatedPopover';
 import { withMergeChange, type MergeChange } from './useThreadMergeContext';

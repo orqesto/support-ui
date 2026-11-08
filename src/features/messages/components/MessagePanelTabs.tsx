@@ -1,7 +1,7 @@
 import { useState, useCallback, type ReactNode } from 'react';
 import { type AddOutcome, useLookupsTab, hasLookupEmailIdentity } from '@/features/custom-api';
 import { StickyNote, Pencil, Trash2 } from 'lucide-react';
-import { LeadQualificationPanel } from '@/features/tickets';
+import { LeadQualificationPanel } from './LeadQualificationPanel';
 import { Button } from '@/components/ui/Button';
 import { ConflictTabPanel } from './ConflictTabPanel';
 import { MessageAttachments, type Attachment } from './MessageAttachments';

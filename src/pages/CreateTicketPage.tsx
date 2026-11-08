@@ -1,20 +1,8 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Sparkles } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  CreateTicketBar,
-  CreateTicketFilesSection,
-  CreateTicketJiraOption,
-  CreateTicketQuote,
-  pickUploadableFiles,
-  TicketThreadPicker,
-  type ThreadCandidate,
-  useTicketOwners,
-  categoryService,
-  ticketService,
-  ticketThreadsService,
-  useTicketsStore,
-} from '@/features/tickets';
+import { CreateTicketBar, CreateTicketFilesSection, CreateTicketJiraOption, CreateTicketQuote, pickUploadableFiles, TicketThreadPicker, type ThreadCandidate, useTicketOwners, useTicketsStore } from '@/features/tickets';
+import { categoryService, ticketService, ticketThreadsService } from '@/features/tickets/shell';
 import { Alert } from '@/components/ui/Alert';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';

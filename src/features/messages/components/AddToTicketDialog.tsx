@@ -22,12 +22,7 @@ import {
 import { statusLabel } from './messageDetailConstants';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
-import {
-  ticketService,
-  ticketThreadsService,
-  type ThreadTicket,
-  TicketRef,
-} from '@/features/tickets';
+import { ticketService, ticketThreadsService, type ThreadTicket, TicketRef } from '@/features/tickets/shell';
 import type { Message } from '@/types';
 
 type Candidate = {

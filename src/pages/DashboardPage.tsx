@@ -22,7 +22,7 @@ import { useCoalescedRefresh } from '@/hooks/useCoalescedRefresh';
 import { documentationService, kbService } from '@/features/kb/shell';
 import { messageService } from '@/services/message.service';
 import { SLA_DEFAULT_DAYS, slaService } from '@/features/statistics';
-import { fetchTicketViewCounts, ticketService } from '@/features/tickets';
+import { fetchTicketViewCounts, ticketService } from '@/features/tickets/shell';
 import { useMessagesStore } from '@/features/messages/shell';
 import { logger } from '@/lib/logger';
 import { invalidateSharedFetch, sharedFetch } from '@/lib/sharedFetch';

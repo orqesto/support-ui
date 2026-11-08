@@ -2,13 +2,8 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Link2, Loader2 } from 'lucide-react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ScrollButtons } from '@/components/shared/ScrollButtons';
-import {
-  TicketDetail,
-  TicketDeleteDialog,
-  ticketService,
-  useTicketsStore,
-  TicketRef,
-} from '@/features/tickets';
+import { TicketDetail, TicketDeleteDialog, useTicketsStore } from '@/features/tickets';
+import { ticketService, TicketRef } from '@/features/tickets/shell';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';

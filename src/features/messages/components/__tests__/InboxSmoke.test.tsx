@@ -53,7 +53,7 @@ vi.mock('@/lib/stripHtml', async (importOriginal) => ({
   stripHtml: (str: string) => str,
 }));
 
-vi.mock('@/features/tickets/components/LeadQualificationPanel', () => ({
+vi.mock('../LeadQualificationPanel', () => ({
   STAGE_COLORS: {},
 }));
 

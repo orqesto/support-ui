@@ -62,7 +62,7 @@ vi.mock('@/lib/toast', () => ({ toast: { success: () => {}, error: () => {} } })
 import { TicketsSection, type HeaderTickets } from '../RelatedPopover';
 import { REL_GROUP_ROW } from '../relatedStyles';
 import { priorityLabel, statusLabel } from '../messageDetailConstants';
-import type { ThreadTicket, TicketThread } from '@/features/tickets';
+import type { ThreadTicket, TicketThread } from '@/features/tickets/shell';
 
 beforeEach(() => {
   hoist.threadsCalls = [];

@@ -17,12 +17,7 @@ import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { formatConvId, getConvUrlId } from '@/lib/messageHelpers';
-import {
-  ticketThreadsService,
-  type ThreadTicket,
-  type TicketThread,
-  TicketRef,
-} from '@/features/tickets';
+import { ticketThreadsService, type ThreadTicket, type TicketThread, TicketRef } from '@/features/tickets/shell';
 import type { Message } from '@/types';
 import {
   REL_BTN,
