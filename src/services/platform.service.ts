@@ -509,6 +509,8 @@ export type DataSizeReport = {
     estimatedThreads: number;
     estimatedOldResolved: number;
     oldResolvedShare: number;
+    /** Workspaces seen in the sample; topWorkspaces lists at most 10 of them (older backends: absent). */
+    workspacesWithThreads?: number;
     topWorkspaces: Array<{
       organizationId: number;
       name: string | null;
@@ -526,6 +528,11 @@ export type DataSizeReport = {
     messageEventsTotalBytes: number | null;
   } | null;
   byodb: DataSizeDatabase[];
+  /** Why a part is null, or null — absent on a backend from before the 2026-11-08 review. */
+  threadsError?: string | null;
+  bodiesError?: string | null;
+  /** The BYODB workspaces could not be LISTED: an empty byodb then means "unknown", not "none". */
+  byodbError?: string | null;
 };
 
 export const platformService = {

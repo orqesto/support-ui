@@ -23,9 +23,7 @@ const { normalizeIngestion, normalizeFairOrder } = await import(
 const wrap = (node: React.ReactElement) =>
   render(<QueryClientProvider client={new QueryClient()}>{node}</QueryClientProvider>);
 const BUDGET = { value: 7, source: 'default' as const, min: 1, max: 30 };
-const CAP = { value: 0, source: 'default' as const, min: 0, max: 20 };
 const SWITCH = 'Share background work fairly between workspaces';
-const CAP_LABEL = 'Jobs one workspace may run at once';
 
 beforeEach(() => {
   puts.length = 0;
@@ -36,15 +34,18 @@ describe('Mail import: fairness between workspaces', () => {
   const card = () =>
     wrap(
       <IngestionCard
-        ingestion={normalizeIngestion({ importRunBudgetMinutes: BUDGET, workspaceActiveCap: CAP })}
+        ingestion={normalizeIngestion({ importRunBudgetMinutes: BUDGET })}
         fairOrder={normalizeFairOrder({ value: true, source: 'default' })}
       />
     );
 
-  it('shows the switch on and the cap at 0 (automatic)', () => {
+  it('shows the switch on, and no per-workspace cap field (taken out 2026-11-08)', () => {
     card();
     expect(screen.getByLabelText(SWITCH)).toBeChecked();
-    expect(screen.getByLabelText(CAP_LABEL)).toHaveValue(0);
+    expect(screen.queryByLabelText('Jobs one workspace may run at once')).toBeNull();
+    expect(
+      screen.getByText('Off: background jobs run in the order they arrived, as before.')
+    ).toBeInTheDocument();
   });
 
   it('turning it off saves only fairOrder: false', async () => {
@@ -53,14 +54,6 @@ describe('Mail import: fairness between workspaces', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(puts).toHaveLength(1));
     expect(puts[0].body).toEqual({ fairOrder: false });
-  });
-
-  it('saves a cap on its own', async () => {
-    card();
-    fireEvent.change(screen.getByLabelText(CAP_LABEL), { target: { value: '2' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(puts).toHaveLength(1));
-    expect(puts[0].body).toEqual({ workspaceActiveCap: 2 });
   });
 
   it('CONTROL: an older backend that reports neither shows no fairness section', () => {

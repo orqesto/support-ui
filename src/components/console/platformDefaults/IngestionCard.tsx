@@ -105,14 +105,6 @@ const GMAIL_FIELDS: FieldDef[] = [
     hint: 'How many messages are downloaded at the same time when checking for new mail.',
   },
 ];
-/** Fairness between workspaces in the job queues (`queue.fairness`, 2026-11-07). */
-const FAIR_FIELDS: FieldDef[] = [
-  {
-    key: 'workspaceActiveCap',
-    label: 'Jobs one workspace may run at once',
-    hint: 'While another workspace has work waiting, one workspace runs at most this many background jobs of the same kind at once. 0 = automatic (one less than the queue runs at once).',
-  },
-];
 /** Google's own per-minute limit for one mailbox; paced + burst must stay below it. */
 const GMAIL_UNIT_LIMIT = 15000;
 const FIELDS: FieldDef[] = [
@@ -121,7 +113,6 @@ const FIELDS: FieldDef[] = [
   ...SEND_FIELDS,
   ...NOTIFY_FIELDS,
   ...GMAIL_FIELDS,
-  ...FAIR_FIELDS,
 ];
 
 /** The text as a whole number inside the field's bounds, or null. */
@@ -275,32 +266,27 @@ export const IngestionCard = ({
                 {renderGrid(GMAIL_FIELDS)}
               </>
             )}
-            {(fairOrder !== undefined ||
-              FAIR_FIELDS.some((field) => ingestion?.[field.key] !== undefined)) && (
+            {fairOrder !== undefined && (
               <>
                 <h3 className="text-sm font-medium pt-2">Fairness between workspaces</h3>
                 <p className="text-sm text-muted-foreground">
                   One workspace&rsquo;s large import or knowledge-base rebuild does not make other
                   workspaces wait behind it. A workspace working alone runs at full speed.
                 </p>
-                {fairOrder && (
-                  <div className="space-y-1">
-                    <Checkbox
-                      label="Share background work fairly between workspaces"
-                      checked={fairOn ?? fairOrder.value}
-                      onChange={(event) => {
-                        save.reset();
-                        setFairOn(event.target.checked);
-                      }}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Off: background jobs run in the order they arrived, and a long queue pauses
-                      every workspace&rsquo;s import, as before.
-                    </p>
-                    <SourceBadge source={fairOrder.source} />
-                  </div>
-                )}
-                {renderGrid(FAIR_FIELDS)}
+                <div className="space-y-1">
+                  <Checkbox
+                    label="Share background work fairly between workspaces"
+                    checked={fairOn ?? fairOrder.value}
+                    onChange={(event) => {
+                      save.reset();
+                      setFairOn(event.target.checked);
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Off: background jobs run in the order they arrived, as before.
+                  </p>
+                  <SourceBadge source={fairOrder.source} />
+                </div>
               </>
             )}
             {serverError && (

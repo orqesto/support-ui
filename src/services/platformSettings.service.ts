@@ -233,11 +233,6 @@ export type IngestionSettings = {
   bulkFetchMax?: BoundedField;
   /** Parallel Gmail fetches while checking for new mail. */
   pollFetchMax?: BoundedField;
-  /**
-   * Background jobs one workspace may run at once on a queue that runs 2–3 at a time, while
-   * another workspace has work waiting (`queue.fairness`, 2026-11-07); 0 = automatic.
-   */
-  workspaceActiveCap?: BoundedField;
 };
 /** Fair order between workspaces on/off (`queue.fairness.fairOrder`, 2026-11-07). */
 export type FairOrderSetting = { value: boolean; source: FieldSource };
@@ -516,7 +511,6 @@ export const INGESTION_FIELDS = [
   'cooldownSeconds',
   'bulkFetchMax',
   'pollFetchMax',
-  'workspaceActiveCap',
 ] as const;
 
 /**

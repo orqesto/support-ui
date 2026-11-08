@@ -34,6 +34,7 @@ const report = {
     estimatedThreads: 410_000,
     estimatedOldResolved: 287_000,
     oldResolvedShare: 0.7,
+    workspacesWithThreads: 14,
     topWorkspaces: [
       { organizationId: 36, name: 'Taco', estimatedThreads: 300_000, oldResolvedShare: 0.8 },
       { organizationId: 9, name: null, estimatedThreads: 50_000, oldResolvedShare: 0.2 },
@@ -108,6 +109,42 @@ describe('Data size card', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Measure again' }));
     await waitFor(() => expect(gets).toHaveLength(2));
     expect(gets[1].params).toEqual({ fresh: '1' });
+  });
+
+  it('says how many workspaces the top list is out of', async () => {
+    wrap();
+    expect(
+      await screen.findByText('The 2 workspaces with the most conversations, of 14.')
+    ).toBeInTheDocument();
+  });
+
+  it('says WHY a part is missing, and that the BYODB list could not be read (not "none")', async () => {
+    respond = () =>
+      Promise.resolve({
+        data: {
+          data: {
+            ...report,
+            threads: null,
+            threadsError: 'canceling statement due to statement timeout',
+            bodies: null,
+            bodiesError: 'not measured: the catalog could not be read',
+            byodb: [],
+            byodbError: 'connection refused',
+          },
+        },
+      });
+    wrap();
+    expect(
+      await screen.findByText(
+        /Old resolved conversations could not be measured: canceling statement/
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Message content could not be measured: not measured/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Workspaces with their own database could not be listed: connection refused')
+    ).toBeInTheDocument();
   });
 
   it('says so when the reading fails', async () => {
