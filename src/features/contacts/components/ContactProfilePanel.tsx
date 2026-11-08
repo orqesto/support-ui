@@ -12,7 +12,8 @@ import { ContactProfileDetails } from '@/features/contacts/components/ContactPro
 import { CONTACT_NOTES_ATTR } from '@/features/contacts/components/ContactNotesIndicator';
 import { CustomApiLookupPanel, useLookupsTab } from '@/features/custom-api';
 import { useContactProfile } from '@/features/contacts/hooks/useContactProfile';
-import { avatarColor, formatAge, getInitials, safeCssColor } from '@/lib/utils';
+import { avatarColor, formatAge, safeCssColor } from '@/lib/utils';
+import { getInitials } from '@/lib/initials';
 import { customerSince } from './contactFacts';
 import { tintedChip } from '@/lib/userColor';
 import { ticketDisplayId } from '@/lib/ticketReference';

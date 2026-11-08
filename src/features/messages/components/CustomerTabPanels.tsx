@@ -1,4 +1,5 @@
-import { channelName, getInitials, priorityLabel } from './messageDetailConstants';
+import { channelName, priorityLabel } from './messageDetailConstants';
+import { getInitials } from '@/lib/initials';
 import { formatDate } from '@/lib/utils';
 import { parseSender } from '@/lib/messageHelpers';
 import type { Message, MessageEvent } from '@/types';

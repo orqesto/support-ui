@@ -25,16 +25,8 @@ import { cn, formatAge, safeCssColor } from '@/lib/utils';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
-import {
-  SPINE_BG,
-  getAiState,
-  getAvatarColor,
-  getInitials,
-  getPriorityBadge,
-  getSpine,
-  getSuspicionBadge,
-  hasAttachments,
-} from './inboxCardHelpers';
+import { SPINE_BG, getAiState, getAvatarColor, getPriorityBadge, getSpine, getSuspicionBadge, hasAttachments } from './inboxCardHelpers';
+import { getInitials } from '@/lib/initials';
 import { TRIAGE_READ_COLUMN_IDS } from './kanbanColumns';
 import { useAiDraftsOff } from '@/features/settings/shell';
 import {

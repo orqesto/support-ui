@@ -7,7 +7,8 @@ import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useAuthStore } from '@/stores/authStore';
-import { getAvatarColor, getInitials } from './inboxCardHelpers';
+import { getAvatarColor } from './inboxCardHelpers';
+import { getInitials } from '@/lib/initials';
 
 type Props = {
   thread: MessageThread;

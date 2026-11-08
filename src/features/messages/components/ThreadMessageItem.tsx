@@ -13,14 +13,8 @@ import { useInView } from '@/hooks/useInView';
 import { OriginalHeadersButton } from './OriginalHeadersButton';
 import { ThreadAttachmentChip } from './ThreadAttachmentChip';
 import { ThreadBubble } from './ThreadBubble';
-import {
-  getInitials,
-  PHONE_THREAD_AVATAR,
-  PHONE_THREAD_BUBBLE,
-  PHONE_THREAD_COL_IN,
-  PHONE_THREAD_COL_OUT,
-  PHONE_THREAD_ROW,
-} from './messageDetailConstants';
+import { PHONE_THREAD_AVATAR, PHONE_THREAD_BUBBLE, PHONE_THREAD_COL_IN, PHONE_THREAD_COL_OUT, PHONE_THREAD_ROW } from './messageDetailConstants';
+import { getInitials } from '@/lib/initials';
 import type { Attachment } from './MessageAttachments';
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 

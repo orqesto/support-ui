@@ -339,28 +339,6 @@ export type InboxBadge = { label: string; icon: React.ReactNode; cls: string };
 
 // ─── Pure helper functions ────────────────────────────────────────────────────
 
-/** `name` without its `<…>` parts (the address of `Name <addr>`), an unclosed `<` dropping the rest. */
-const withoutAngleParts = (name: string): string => {
-  let text = name;
-  for (let start = text.indexOf('<'); start >= 0; start = text.indexOf('<')) {
-    const end = text.indexOf('>', start);
-    text = `${text.slice(0, start)} ${end < 0 ? '' : text.slice(end + 1)}`;
-  }
-  return text;
-};
-
-export function getInitials(name: string | null | undefined): string {
-  // A record without the name (a list row's, an older backend's) must not take the page down.
-  const parts = withoutAngleParts(name ?? '')
-    .split(/[\s@.]+/)
-    // Punctuation is not an initial: a display name arrives quoted (`"Joel @ ngrok" <…>`), and
-    // the avatar read `"N`.
-    .map((part) => part.replace(/[^\p{L}\p{N}]/gu, ''))
-    .filter(Boolean);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return (parts[0]?.[0] ?? '?').toUpperCase();
-}
-
 export function minAgo(dateStr: string): number {
   return Math.round((Date.now() - new Date(dateStr).getTime()) / 60000);
 }
