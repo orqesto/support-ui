@@ -544,7 +544,7 @@ const KnowledgeBaseViews = () => {
                     Clear All
                   </Button>
                 )}
-                <KbExportButton filters={exportFilters} listTotal={pagination.total} />
+                <KbExportButton filters={exportFilters} listTotal={loading ? undefined : pagination.total} />
               </div>
             </div>
           </>

@@ -216,4 +216,37 @@ describe('KbExportButton', () => {
     expect(await screen.findByRole('button', { name: 'Export to CSV (0)' })).toBeInactive();
     expect(reads()).toBe(2);
   });
+
+  it('one count per filter change: the list total that follows it reads nothing; a later change under the same filters reads once', async () => {
+    let count = 41;
+    useBackend(() => ok({ count, cap: 10000, truncated: false }));
+    const reads = () => transport.calls('GET', '/api/knowledge-base/export.csv').length;
+    const all = { status: 'all', type: 'all' } as const;
+    const approved = { status: 'approved', type: 'all' } as const;
+    // Mount while the list loads, then the list answers: ONE read.
+    const { rerender } = render(<KbExportButton filters={all} listTotal={undefined} />);
+    await screen.findByRole('button', { name: 'Export to CSV (41)' });
+    rerender(<KbExportButton filters={all} listTotal={41} />);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(reads()).toBe(1);
+    // A filter change renders first with the OLD total, then loading, then the new list's total.
+    count = 12;
+    rerender(<KbExportButton filters={approved} listTotal={41} />);
+    await screen.findByRole('button', { name: 'Export to CSV (12)' });
+    rerender(<KbExportButton filters={approved} listTotal={undefined} />);
+    rerender(<KbExportButton filters={approved} listTotal={12} />);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(reads()).toBe(2);
+    // Paging (loading, same total): nothing.
+    rerender(<KbExportButton filters={approved} listTotal={undefined} />);
+    rerender(<KbExportButton filters={approved} listTotal={12} />);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(reads()).toBe(2);
+    // An entry approved out of the list under the same filters: one read.
+    count = 11;
+    rerender(<KbExportButton filters={approved} listTotal={undefined} />);
+    rerender(<KbExportButton filters={approved} listTotal={11} />);
+    expect(await screen.findByRole('button', { name: 'Export to CSV (11)' })).toBeTruthy();
+    expect(reads()).toBe(3);
+  });
 });

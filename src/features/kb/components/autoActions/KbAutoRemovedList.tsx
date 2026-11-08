@@ -64,9 +64,16 @@ export const KbAutoRemovedList = ({ refreshKey, onRestored }: Props) => {
       onRestored();
       await load(page);
     } catch (err) {
+      const status = apiErrorStatus(err);
       toast.error('Could not restore the entry', {
-        description: apiErrorMessage(err, restoreFallback(apiErrorStatus(err))),
+        description: apiErrorMessage(err, restoreFallback(status)),
       });
+      // 409/404: the entry is no longer an automatic removal here (a person deleted or restored
+      // it meanwhile) — reload, so the stale row does not keep a Restore that fails again.
+      if (status === 409 || status === 404) {
+        onRestored();
+        await load(page);
+      }
     }
   };
 
