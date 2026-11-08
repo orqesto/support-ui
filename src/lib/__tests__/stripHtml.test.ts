@@ -90,4 +90,12 @@ describe('previewText', () => {
     expect(previewText('<p>Hello <b>there</b></p>')).toBe('Hello there');
     expect(previewText(null)).toBe('');
   });
+  it('decodes &amp; last, so a literal "&lt;" in the text stays "&lt;" (no double decoding)', () => {
+    expect(stripHtml('<p>Use &amp;lt;b&amp;gt; for bold &amp; more</p>')).toBe(
+      'Use &lt;b&gt; for bold & more'
+    );
+  });
+  it('CONTROL: real entities still decode once', () => {
+    expect(stripHtml('<p>a &lt; b &amp;&amp; c &gt; d</p>')).toBe('a < b && c > d');
+  });
 });
