@@ -1,0 +1,380 @@
+import { useCallback, type MutableRefObject } from 'react';
+import { messageService, type ReplyAssignIntent } from '@/services/message.service';
+import type { organizationService } from '@/services/organization.service';
+import { forgetOwnSend, rememberOwnSend } from '@/lib/ownSends';
+import { logger } from '@/lib/logger';
+import { noteFromEditor } from '@/lib/noteText';
+import { toast } from '@/lib/toast';
+import { getApiErrorMessage } from '@/lib/errorMessages';
+import { isBlankRichText } from '@/lib/stripHtml';
+import type { Message } from '@/types';
+import { draftToRecipients, emptyRecipientDraft, type RecipientDraft } from '../RecipientFields';
+import {
+  decideAssignOnReplyPrompt,
+  readAssignOnReplySetting,
+  type AssignOnReplyPrompt,
+} from '../assignOnReplyPrompt';
+import {
+  isRetryableSendFailure,
+  resolveSendFailureMessage,
+} from '@/features/messages/components/sendErrorMessage';
+import { writeSendAction, type SendAction } from '../ComposerSendButton';
+import type { ResolveMode } from '../resolveMode';
+import type { MessageDetailProps, Setter } from './types';
+import type { useComposerText } from './useComposerText';
+import type { useDetailDialogs } from './useDetailDialogs';
+import type { useReplyComposerState } from './useReplyComposerState';
+import type { useThreadEvents } from './useThreadEvents';
+
+/** Sending: the reply / note itself, Send ▾ and its after-send step, and WhatsApp templates. */
+
+export function useReplySend({
+  message,
+  composerText,
+  dialogs,
+  replyState,
+  thread,
+  supportsRecipients,
+  recipientDraft,
+  setRecipientDraft,
+  afterSendRef,
+  setSendHoldOpen,
+  setSendAction,
+  setAssignPrompt,
+  currentUserId,
+  currentOrganization,
+  resolveMode,
+  onReplied,
+  onResolve,
+  onOptimisticMove,
+  onRefresh,
+}: {
+  message: Message;
+  composerText: ReturnType<typeof useComposerText>;
+  dialogs: ReturnType<typeof useDetailDialogs>;
+  replyState: ReturnType<typeof useReplyComposerState>;
+  thread: ReturnType<typeof useThreadEvents>;
+  supportsRecipients: boolean;
+  recipientDraft: RecipientDraft;
+  setRecipientDraft: Setter<RecipientDraft>;
+  afterSendRef: MutableRefObject<{ action: SendAction; hold?: { reason: string; until: Date } }>;
+  setSendHoldOpen: Setter<boolean>;
+  setSendAction: Setter<SendAction>;
+  setAssignPrompt: Setter<AssignOnReplyPrompt | null>;
+  currentUserId: number | null;
+  currentOrganization: Awaited<ReturnType<typeof organizationService.getCurrent>> | undefined;
+  resolveMode: ResolveMode;
+} & Pick<MessageDetailProps, 'onReplied' | 'onResolve' | 'onOptimisticMove' | 'onRefresh'>) {
+  const { composer, composerMode, aiSource, setAiSource, aiDraft, setAiDraft, writeComposer } =
+    composerText;
+  const { setSubmitting } = dialogs;
+  const {
+    selectedFiles,
+    setSelectedFiles,
+    setSendFailedError,
+    setSendFailureRetryable,
+    lastAssignRef,
+    lastSendModeRef,
+    sendIdempotencyKeyRef,
+    setTemplateError,
+    setTemplatesOpen,
+    setTemplatesLoading,
+    setTemplates,
+  } = replyState;
+  const { setNotesBump, setThreadRefreshKey, pullNewEvents } = thread;
+  const performSend = useCallback(
+    async (assign?: ReplyAssignIntent) => {
+      setSubmitting(true);
+      setSendFailedError(null);
+      setSendFailureRetryable(false);
+      lastAssignRef.current = assign;
+      lastSendModeRef.current = composerMode;
+      // Notes aren't emails — no idempotency needed. For replies, reuse a prior failed attempt's
+      // token (retry) so the BE dedups; otherwise mint a fresh one for this logical send.
+      if (composerMode !== 'note' && !sendIdempotencyKeyRef.current) {
+        sendIdempotencyKeyRef.current = crypto.randomUUID();
+      }
+      const idempotencyKey = sendIdempotencyKeyRef.current ?? undefined;
+      // Before the request: the `message:replied` echo can beat the HTTP answer.
+      if (idempotencyKey) rememberOwnSend(idempotencyKey);
+      // Undefined unless the agent actually addressed this reply somewhere, which
+      // the BE reads as "the requester and nobody else".
+      const recipients = supportsRecipients ? draftToRecipients(recipientDraft) : undefined;
+      // Send ▾: "Send, resolve & save to KB" rides on the reply itself — the server resolves and
+      // captures the Q&A in the reply's own transaction, and reverts both if delivery fails.
+      // The other choices run after the reply is out.
+      const after = afterSendRef.current;
+      afterSendRef.current = { action: 'send' };
+      const resolveInSend = composerMode !== 'note' && after.action === 'resolve_kb';
+      try {
+        if (composerMode === 'note') {
+          // The composer is the rich-text editor; a note is plain text (noteText.ts).
+          await messageService.addNote(message.id, noteFromEditor(composer));
+        } else if (selectedFiles.length > 0) {
+          await messageService.replyWithAttachments(
+            message.id,
+            composer,
+            selectedFiles,
+            resolveInSend,
+            aiSource !== null,
+            aiSource ?? undefined,
+            idempotencyKey,
+            aiDraft ?? undefined,
+            recipients,
+            assign
+          );
+        } else {
+          await messageService.reply(
+            message.id,
+            composer,
+            resolveInSend,
+            aiSource !== null,
+            aiSource ?? undefined,
+            idempotencyKey,
+            aiDraft ?? undefined,
+            undefined,
+            recipients,
+            assign
+          );
+        }
+        sendIdempotencyKeyRef.current = null; // success — the next send is a new logical send
+        writeComposer('');
+        setAiSource(null);
+        setAiDraft(null);
+        setSelectedFiles([]);
+        setRecipientDraft(emptyRecipientDraft());
+        /*
+          Read only what the send changed — not the whole thread and every panel (6 GETs):
+           - a note: the notes. It adds no event and no activity entry (its audit row is the
+             note's own), and nothing on the list or the board shows it — so no onRefresh below.
+           - a reply: the events after the newest on screen (the reply itself), its activity entry
+             (`message.reply`, and any resolve / hold that rode with it), the files when files
+             were sent, and whom it went to when the agent addressed it.
+          A failed send keeps its full re-read (the catch below).
+        */
+        if (composerMode === 'note') setNotesBump((key) => key + 1);
+        else
+          pullNewEvents({
+            activity: true,
+            attachments: selectedFiles.length > 0,
+            // {} when nobody was addressed — "the requester and nobody else".
+            participants: recipients !== undefined && Object.keys(recipients).length > 0,
+          });
+        // A sent reply (not an internal note) flips the conversation to Pending —
+        // move the board card optimistically before the heavier onRefresh reconcile.
+        if (composerMode !== 'note') onReplied?.();
+        if (resolveInSend) onResolve?.();
+        else if (composerMode !== 'note' && after.action !== 'send') {
+          try {
+            if (after.action === 'resolve') await messageService.close(message.id);
+            else if (after.action === 'hold' && after.hold) {
+              await messageService.setStatus(message.id, 'pending', after.hold);
+              onOptimisticMove?.('on_hold');
+            }
+            if (after.action !== 'hold') onResolve?.();
+          } catch (err) {
+            // The reply IS out — only the status step failed; say so instead of a send failure.
+            // A toast, not the send-failure bar: that bar is titled "Send failed", and the reply
+            // DID go out.
+            logger.error('Sent, but the status change failed:', err);
+            // With the server's own reason when it gave one (errorShape rule).
+            const reason = getApiErrorMessage(err);
+            toast.error(
+              after.action === 'hold'
+                ? `Reply sent — but putting it on hold failed${reason ? `: ${reason}` : ''}. Put it on hold from the status menu.`
+                : `Reply sent — but resolving failed${reason ? `: ${reason}` : ''}. Resolve it from the Resolve row.`
+            );
+          }
+        }
+        // The reply moved the conversation (Pending, an assignee, a resolve): the page re-reads it.
+        if (composerMode !== 'note') onRefresh?.();
+      } catch (err) {
+        // Keep the token so a retry of THIS send reuses it and the BE dedups the duplicate —
+        // and its Send ▾ choice, so Retry resolves / holds as the agent asked.
+        afterSendRef.current = after;
+        // Should the server have delivered it after all, its echo must reload like anyone's.
+        if (idempotencyKey) forgetOwnSend(idempotencyKey);
+        // …and the echo may already have come and been skipped as ours: the server emits it before
+        // it answers, so a reply delivered whose ANSWER was lost (a dropped connection, a 502 from
+        // the proxy) would never show. Re-read as the echo would have.
+        if (lastSendModeRef.current !== 'note') {
+          setThreadRefreshKey((key) => key + 1);
+          onRefresh?.();
+        }
+        logger.error('Failed to send:', err);
+        // Surface the server's own explanation for client errors — see
+        // resolveSendFailureMessage for why "please try again" is wrong for some of them.
+        setSendFailedError(resolveSendFailureMessage(err));
+        setSendFailureRetryable(isRetryableSendFailure(err));
+      } finally {
+        setSubmitting(false);
+        setAssignPrompt(null);
+      }
+    },
+    [
+      aiDraft,
+      aiSource,
+      composer,
+      composerMode,
+      message.id,
+      onOptimisticMove,
+      onRefresh,
+      onReplied,
+      onResolve,
+      pullNewEvents,
+      recipientDraft,
+      selectedFiles,
+      supportsRecipients,
+      writeComposer,
+      afterSendRef,
+      lastAssignRef,
+      lastSendModeRef,
+      sendIdempotencyKeyRef,
+      setAiDraft,
+      setAiSource,
+      setAssignPrompt,
+      setNotesBump,
+      setRecipientDraft,
+      setSelectedFiles,
+      setSendFailedError,
+      setSendFailureRetryable,
+      setSubmitting,
+      setThreadRefreshKey,
+    ]
+  );
+
+  const handleSend = useCallback(async () => {
+    // Require real text — blocks Ctrl+Shift+Enter attachment-only sends the disabled
+    // button can't (empty, whitespace, or markup-only like `<p><br></p>`).
+    if (isBlankRichText(composer)) return;
+    // A reply (not a note) first asks whether the thread becomes yours — every time on an
+    // unowned thread, as a take-over on a colleague's, never on your own. The answer is sent
+    // with the reply; the backend applies it.
+    if (composerMode !== 'note') {
+      const prompt = decideAssignOnReplyPrompt({
+        assigneeId: message.assigneeId,
+        assigneeName: message.assigneeName,
+        currentUserId,
+        assignOnReply: readAssignOnReplySetting(currentOrganization),
+      });
+      if (prompt) {
+        setAssignPrompt(prompt);
+        return;
+      }
+    }
+    await performSend();
+  }, [
+    composer,
+    composerMode,
+    currentOrganization,
+    currentUserId,
+    message.assigneeId,
+    message.assigneeName,
+    performSend,
+    setAssignPrompt,
+  ]);
+
+  // Resolving rides on any thread the Resolve row could resolve — an UNREVIEWED one too: its
+  // "dismiss without a reply" meaning is the row's, and a send IS the reply, so there is an answer
+  // to resolve on (and to save to the KB). The row hides while a reply is typed, so leaving these
+  // out left a new thread with a draft no way to resolve at all (owner, 2026-11-03). Hold always.
+  const sendActions: SendAction[] =
+    resolveMode !== null ? ['send', 'resolve', 'resolve_kb', 'hold'] : ['send', 'hold'];
+  // Sends with an action WITHOUT remembering it: the Send ▾ face, which already shows the choice.
+  const handleSendWith = useCallback(
+    (action: SendAction) => {
+      if (isBlankRichText(composer)) return;
+      // On hold needs its reason and recheck date first — asked BEFORE anything is sent.
+      if (action === 'hold') {
+        setSendHoldOpen(true);
+        return;
+      }
+      afterSendRef.current = { action };
+      void handleSend();
+    },
+    [composer, handleSend, afterSendRef, setSendHoldOpen]
+  );
+  const rememberSendAction = useCallback(
+    (action: SendAction) => {
+      setSendAction(action);
+      writeSendAction(currentUserId ?? undefined, action);
+    },
+    [currentUserId, setSendAction]
+  );
+  // A Send ▾ menu pick: the agent's choice. Remembered as the face — On hold only once its dialog
+  // is confirmed, so a cancelled hold does not turn every later Send into a hold dialog.
+  const handleSendPick = useCallback(
+    (action: SendAction) => {
+      if (action !== 'hold') rememberSendAction(action);
+      handleSendWith(action);
+    },
+    [handleSendWith, rememberSendAction]
+  );
+
+  const handleOpenTemplates = useCallback(async () => {
+    setTemplateError(null);
+    setTemplatesOpen(true);
+    setTemplatesLoading(true);
+    try {
+      setTemplates(await messageService.listWhatsAppTemplates(message.id));
+    } finally {
+      // The service already swallows a missing endpoint into an empty list, so the picker
+      // shows its "nothing approved yet" state rather than an error the agent cannot act on.
+      setTemplatesLoading(false);
+    }
+  }, [message.id, setTemplateError, setTemplates, setTemplatesLoading, setTemplatesOpen]);
+
+  const handleSendTemplate = useCallback(
+    async (templateId: number, parameters: string[]) => {
+      setSubmitting(true);
+      setTemplateError(null);
+      // Same idempotency contract as a normal reply: reuse the token on a retry so a
+      // success-but-timeout cannot bill the tenant for a second template.
+      sendIdempotencyKeyRef.current ??= crypto.randomUUID();
+      try {
+        await messageService.reply(
+          message.id,
+          '',
+          false,
+          false,
+          undefined,
+          sendIdempotencyKeyRef.current,
+          undefined,
+          { templateId, parameters }
+        );
+        sendIdempotencyKeyRef.current = null;
+        setTemplatesOpen(false);
+        setThreadRefreshKey((key) => key + 1);
+        onReplied?.();
+        onRefresh?.();
+      } catch (err) {
+        logger.error('Failed to send WhatsApp template:', err);
+        // Shown inside the picker, not as a toast: every refusal here names something the
+        // agent can fix in the dialog they are already looking at.
+        setTemplateError(resolveSendFailureMessage(err));
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [
+      message.id,
+      onRefresh,
+      onReplied,
+      sendIdempotencyKeyRef,
+      setSubmitting,
+      setTemplateError,
+      setTemplatesOpen,
+      setThreadRefreshKey,
+    ]
+  );
+  return {
+    performSend,
+    handleSend,
+    sendActions,
+    handleSendWith,
+    rememberSendAction,
+    handleSendPick,
+    handleOpenTemplates,
+    handleSendTemplate,
+  };
+}

@@ -1,188 +1,52 @@
-// Over the 650-line cap — same pattern as MessageDetailHeader. The per-user
-// read/unread toggle + close prompt pushed it over; splitting the confirm-dialog
-// wiring out is the natural follow-up refactor.
-/* eslint-disable max-lines */
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Fragment,
-  useState,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useMemo,
-  useCallback,
-} from 'react';
-import { type AddOutcome, appendReplyParagraph, replyHasSentence, useLookupsTab } from '@/features/custom-api';
-import { usePhoneDetailScroll } from './usePhoneDetailScroll';
-import { draftToRecipients, emptyRecipientDraft, type RecipientDraft } from './RecipientFields';
-import {
-  messageService,
-  type AiDraft,
-  type MessageNote,
-  type MessageActivityEntry,
-  type ReplyAssignIntent,
-} from '@/services/message.service';
-import {
-  organizationService,
-  type LeadQualificationFieldConfig,
-} from '@/services/organization.service';
-import { getSpamCheck, isOutgoingEvent, isTriageMessage } from '@/lib/messageHelpers';
-import {
-  getSocket,
-  releaseSocket,
-  subscribeToEvent,
-  unsubscribeFromEvent,
-} from '@/lib/socketManager';
-import { apiClient } from '@/lib/api-client';
-import { forgetOwnSend, isOwnSendEcho, rememberOwnSend } from '@/lib/ownSends';
+  type AddOutcome,
+  appendReplyParagraph,
+  replyHasSentence,
+  useLookupsTab,
+} from '@/features/custom-api';
+import { emptyRecipientDraft, type RecipientDraft } from './RecipientFields';
+import { organizationService } from '@/services/organization.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useQuery } from '@tanstack/react-query';
-import { AssignOnReplyDialog } from './AssignOnReplyDialog';
-import {
-  decideAssignOnReplyPrompt,
-  readAssignOnReplySetting,
-  type AssignOnReplyPrompt,
-} from './assignOnReplyPrompt';
-import type { Message, MessageEvent } from '@/types';
+import type { AssignOnReplyPrompt } from './assignOnReplyPrompt';
 import { shouldShowHistoryBanner } from './historyBanner';
 import { MessageDetailHeader } from './MessageDetailHeader';
 import { MessageComposer } from './MessageComposer';
 import { useThreadMergeContext } from './useThreadMergeContext';
-import {
-  eventAddsParticipant,
-  eventMayCarryAttachments,
-  incrementalCursor,
-  unseenEvents,
-} from './threadNewEvents';
 import { MessageActionStrip } from './MessageActionStrip';
 import { ResolveDecisions } from './ResolveDecisions';
-import { MessageGhostBubble } from './MessageGhostBubble';
-import { getResolveMode, noKbResolveDialog } from './resolveMode';
 import { shortcutHint, useDetailShortcuts, type ShortcutContext } from './detailShortcuts';
-import { dayLabel, dayStarts, threadTimeOf } from './threadDays';
-import { MessageDetailConfirmDialogs } from './MessageDetailConfirmDialogs';
-import { PromoteToKbDialog } from './PromoteToKbDialog';
 import { useAiDraftsOff } from '@/features/settings/shell';
-import { usePermissions } from '@/hooks/usePermissions';
-import { useMediaQuery } from '@/hooks/useMediaQuery';
-import { useThreadMessageRefresh } from '@/features/messages/hooks/useThreadMessageRefresh';
-import { useConversationNotesRefresh } from '@/features/messages/hooks/useConversationNotesRefresh';
-import { useConversationStatusRefresh } from '@/features/messages/hooks/useConversationStatusRefresh';
-import { useSocketReconnected } from '@/features/messages/hooks/useSocketReconnected';
-import { useIsPhone } from './useIsPhone';
 import { Permission } from '@/types/roles';
-import { ThreadMessageItem } from './ThreadMessageItem';
 import { useThreadFileViewer } from './useThreadFileViewer';
-import { ThreadNoteItem } from './ThreadNoteItem';
-import type { KBAttachment } from './AiTabPanel';
 import { MessagePanelTabs } from './MessagePanelTabs';
-import type { Attachment } from './MessageAttachments';
-import { useLeadState } from './useLeadState';
-import { SimilarMessagesDialog } from '@/features/messages/components/SimilarMessagesDialog';
-import { Button } from '@/components/ui/Button';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { logger } from '@/lib/logger';
-import { normaliseThreadPage, type ThreadPage } from '@/services/threadPage';
-import {
-  isRetryableSendFailure,
-  resolveSendFailureMessage,
-} from '@/features/messages/components/sendErrorMessage';
 import { SendFailedBar } from './SendFailedBar';
-import { resolveComposerWindow } from '@/features/messages/components/whatsappWindowState';
-import { resolveReplyBlock } from '@/features/messages/components/replyBlockState';
-import { WhatsAppTemplatePicker } from '@/features/messages/components/WhatsAppTemplatePicker';
-import type { WhatsAppTemplate } from '@/features/messages/components/whatsappTemplates';
-import { isBlankRichText, stripHtml } from '@/lib/stripHtml';
-import { noteFromEditor } from '@/lib/noteText';
-import { toast } from '@/lib/toast';
-import { dismissContradictionWithFeedback } from './dismissContradiction';
-import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
-import { getApiErrorMessage } from '@/lib/errorMessages';
-import { HoldDialog } from '@/components/shared/HoldDialog';
-import { readSendAction, writeSendAction, type SendAction } from './ComposerSendButton';
-import {
-  toGhostOption,
-  answerToEditorHtml,
-  type GhostOption,
-  type SuggestedAnswerMeta,
-  LABEL,
-  type PanelTab,
-} from './messageDetailConstants';
+import { isBlankRichText } from '@/lib/stripHtml';
+import { readSendAction, type SendAction } from './ComposerSendButton';
+import { holdsUnsentNote } from './messageDetail/detailConstants';
+import type { MessageDetailProps } from './messageDetail/types';
+import { useThreadEvents } from './messageDetail/useThreadEvents';
+import { useComposerText } from './messageDetail/useComposerText';
+import { useDetailDialogs } from './messageDetail/useDetailDialogs';
+import { useReplyComposerState } from './messageDetail/useReplyComposerState';
+import { useLiveThreadSync } from './messageDetail/useLiveThreadSync';
+import { useGhostOption } from './messageDetail/useGhostOption';
+import { usePanelTabs } from './messageDetail/usePanelTabs';
+import { useLookupFlash } from './messageDetail/useLookupFlash';
+import { useThreadScrollPin } from './messageDetail/useThreadScrollPin';
+import { useThreadPanelsData } from './messageDetail/useThreadPanelsData';
+import { deriveThreadFlags } from './messageDetail/threadFlags';
+import { useReplySend } from './messageDetail/useReplySend';
+import { useConversationActions } from './messageDetail/useConversationActions';
+import { useNoteGuard } from './messageDetail/useNoteGuard';
+import { useGhostAnswer } from './messageDetail/useGhostAnswer';
+import { useThreadActions } from './messageDetail/useThreadActions';
+import { useThreadTimeline } from './messageDetail/useThreadTimeline';
+import { ThreadScroller } from './messageDetail/ThreadScroller';
+import { MessageDetailOverlays } from './messageDetail/MessageDetailOverlays';
 
-/** v4 ".k-flash": a short ring on the Connected systems block after the composer's Look up. */
-const LOOKUP_FLASH_CLASSES = ['ring-[3px]', 'ring-primary-line', 'rounded-[8px]'];
-const LOOKUP_FLASH_MS = 1200;
-const LOOKUP_SEEK_FRAMES = 10;
-/**
- * Events per page of the thread. A thread is read latest page first; "Show earlier messages"
- * fetches the page before it. 300 is a working day of a busy ticket; the thread that made this
- * necessary held 1,887 (a mailer-daemon Gmail thread), and rendering every one on open fetched
- * every markup and spent the API limiter.
- */
-const THREAD_PAGE = 300;
-/*
-  ⛔ The composer holds ONE text for both modes: turning words WRITTEN AS A TEAM NOTE into Reply
-  would put them one Send from the customer. Every path that would (rail tabs, "Reply to this
-  message", R, the lookup insert, a KB / suggested answer) asks this ONE rule. Keyed on the mode
-  the text was last EDITED in, not the mode on screen: a reply carried into note mode by N is
-  still a reply and may go back; a blank composer always may.
-*/
-const holdsUnsentNote = (html: string, lastEditMode: 'reply' | 'note' | null) =>
-  lastEditMode === 'note' && !isBlankRichText(html);
-const NOTE_IN_PROGRESS = 'Post or clear your internal note first';
-/** One empty list for every message without files, so the memoised item sees no change. */
-const NO_ATTACHMENTS: Attachment[] = [];
-
-// ─── Props ────────────────────────────────────────────────────────────────────
-
-export type MessageDetailProps = {
-  message: Message;
-  onClose?: () => void;
-  onApprove?: () => void;
-  onReject?: () => void;
-  onReopen?: () => void;
-  onDelete?: () => void;
-  onResolve?: () => void;
-  onRefresh?: () => void;
-  /**
-   * Re-read THIS conversation after the backend changed its status on its own (a customer reply
-   * reopened it). Light on purpose — not onRefresh (useConversationStatusRefresh).
-   */
-  onStatusChanged?: () => void;
-  /** Fired after the per-user read/unread state changes, so the board can refresh
-   *  the triage unread indicator without closing the detail. */
-  onReadChanged?: (isRead?: boolean) => void;
-  /** Registers this panel's prompt-aware close handler with the parent, so that
-   *  close gestures OUTSIDE the panel (e.g. the backdrop, or the full-page Back
-   *  button) route through the same "Mark as read?" prompt as the header X.
-   *  Passed null on unmount. */
-  onRegisterRequestClose?: (requestClose: (() => void) | null) => void;
-  /** Rendered as the standalone full-page view (has its own Back bar): suppress
-   *  the header X + "open full page" button even though onClose is provided. */
-  isFullPage?: boolean;
-  /**
-   * J/K: open the next / previous conversation in the list the user is looking at. Passed only
-   * where that list has an unambiguous order (the threads view) — omitted, J/K do nothing.
-   */
-  onNavigate?: (direction: 'next' | 'prev') => void;
-  /**
-   * The detail was opened from the list row and the full record (reply block, WhatsApp window,
-   * Reply-To) is still on its way: Send stays off and the To line is not guessed until it lands.
-   */
-  recordPending?: boolean;
-  /** Fired after a customer reply is sent (not notes) — the conversation flips to
-   *  "Pending" (awaiting the customer), letting the board move the card optimistically. */
-  onReplied?: () => void;
-  /** Optimistically move the board card to a column after a manual status change
-   *  (park / resolve / reopen) from the detail header. */
-  onOptimisticMove?: (columnId: string) => void;
-  onClassify?: (
-    action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
-    createDetectionRule?: boolean,
-    trainSpamFilter?: boolean,
-    /** move_to_spam only: the agent's own decision — bin AND record it as confirmed spam. */
-    confirm?: boolean
-  ) => Promise<void>;
-};
+export type { MessageDetailProps } from './messageDetail/types';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -208,385 +72,76 @@ export function MessageDetail({
   // Full-page view has its own Back bar; the slide-over derives it from onClose.
   const fullPage = isFullPageProp ?? !onClose;
   // ── Thread state ───────────────────────────────────────────────────────────
-  const [threadMessages, setThreadMessages] = useState<MessageEvent[]>([]);
-  const [threadLoading, setThreadLoading] = useState(false);
-  const [threadError, setThreadError] = useState<string | null>(null);
-  const [threadRefreshKey, setThreadRefreshKey] = useState(0);
-  const onRefreshRef = useRef(onRefresh);
-  onRefreshRef.current = onRefresh;
-  // The light re-read of THIS conversation's header (no list, no board) — see onStatusChanged.
-  const rereadHeaderRef = useRef(onStatusChanged ?? onRefresh);
-  rereadHeaderRef.current = onStatusChanged ?? onRefresh;
-
-  // What the thread endpoint left out (threadPage.ts). A refresh re-reads as many events as are
-  // on screen, so a window the agent expanded is not folded back by a new message arriving.
-  const [threadPage, setThreadPage] = useState<ThreadPage | null>(null);
-  const [loadingEarlier, setLoadingEarlier] = useState(false);
-  const threadSize = useRef({ id: message.id, loaded: 0 });
-  const messageIdRef = useRef(message.id);
-  messageIdRef.current = message.id;
-
-  useEffect(() => {
-    let cancelled = false;
-    setThreadLoading(true);
-    setThreadError(null);
-    if (threadSize.current.id !== message.id) threadSize.current = { id: message.id, loaded: 0 };
-    messageService
-      .getThreadMessages(message.id, { limit: Math.max(THREAD_PAGE, threadSize.current.loaded) })
-      .then((res) => {
-        if (cancelled) return;
-        const rows = res.data ?? [];
-        threadSize.current = { id: message.id, loaded: rows.length };
-        setThreadMessages(rows);
-        // Normalised again here: a caller that stands in for the service hands back a bare
-        // envelope, and the window must still know what it holds.
-        setThreadPage(normaliseThreadPage(res.page, rows));
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          logger.error('Failed to load thread:', err);
-          setThreadError('Failed to load thread. Please try again.');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setThreadLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [message.id, threadRefreshKey]);
-
-  /** The page of events before the earliest one on screen, prepended. */
-  const loadEarlier = useCallback(() => {
-    const before = threadPage?.earliestId;
-    if (!threadPage?.hasEarlier || !before || loadingEarlier) return;
-    const forId = message.id;
-    setLoadingEarlier(true);
-    messageService
-      .getThreadMessages(forId, { limit: THREAD_PAGE, before })
-      .then((res) => {
-        if (messageIdRef.current !== forId) return;
-        const older = res.data ?? [];
-        threadSize.current = { id: forId, loaded: threadSize.current.loaded + older.length };
-        setThreadMessages((current) => [...older, ...current]);
-        // The older page's own bound says whether there is more before IT; the total is the
-        // thread's and does not move.
-        setThreadPage((current) => ({
-          ...normaliseThreadPage(res.page, older),
-          total: current?.total ?? older.length,
-        }));
-      })
-      .catch((err: unknown) => {
-        if (messageIdRef.current !== forId) return;
-        logger.error('Failed to load earlier messages:', err);
-        setThreadError('Could not load earlier messages. Please try again.');
-      })
-      .finally(() => {
-        if (messageIdRef.current === forId) setLoadingEarlier(false);
-      });
-  }, [message.id, threadPage, loadingEarlier]);
-
-  // Bumped by a live message's incremental read (see useThreadMessageRefresh below). Each panel
-  // keys on threadRefreshKey (a full refresh) PLUS its own bump.
-  const [panelsBump, setPanelsBump] = useState(0);
-  const [attachmentsBump, setAttachmentsBump] = useState(0);
-  const [activityBump, setActivityBump] = useState(0);
-  const [participantsBump, setParticipantsBump] = useState(0);
-  // Our own note: only the notes change (a note writes no activity — its audit row is the note's).
-  const [notesBump, setNotesBump] = useState(0);
-  const threadMessagesRef = useRef(threadMessages);
-  threadMessagesRef.current = threadMessages;
-  const participantsRef = useRef<string[]>([]);
-
-  /**
-   * `also` re-reads panels the new events alone cannot tell about: a reply writes its activity
-   * entry (`message.reply`), and an outgoing event carries no attachment metadata, so a reply
-   * sent with files — ours, or another agent's — says nothing about them on its own.
-   */
-  const pullNewEvents = useCallback(
-    (also?: { activity?: boolean; attachments?: boolean; participants?: boolean }) => {
-      const forId = message.id;
-      const bumpAlso = () => {
-        if (also?.activity) setActivityBump((key) => key + 1);
-        if (also?.attachments) setAttachmentsBump((key) => key + 1);
-        if (also?.participants) setParticipantsBump((key) => key + 1);
-      };
-      const after = incrementalCursor(threadMessagesRef.current, forId);
-      if (after === null) {
-        setThreadRefreshKey((key) => key + 1);
-        return;
-      }
-      // The same limit as a full read: an older backend ignores afterEventId and answers this
-      // window, which is then applied as one.
-      const limit = Math.max(THREAD_PAGE, threadSize.current.loaded);
-      messageService
-        .getThreadMessagesAfter(forId, after, limit)
-        .then((res) => {
-          if (messageIdRef.current !== forId) return;
-          if (!res.newEvents.incremental) {
-            threadSize.current = { id: forId, loaded: res.data.length };
-            setThreadMessages(res.data);
-            setThreadPage(res.page);
-            setPanelsBump((key) => key + 1);
-            setAttachmentsBump((key) => key + 1);
-            setParticipantsBump((key) => key + 1);
-            if (also?.activity) setActivityBump((key) => key + 1);
-            return;
-          }
-          if (res.newEvents.hasMore) {
-            setThreadRefreshKey((key) => key + 1);
-            return;
-          }
-          const fresh = unseenEvents(threadMessagesRef.current, res.data);
-          if (fresh.length === 0) {
-            bumpAlso();
-            return;
-          }
-          threadMessagesRef.current = [...threadMessagesRef.current, ...fresh];
-          setThreadMessages((current) => [...current, ...unseenEvents(current, fresh)]);
-          threadSize.current = { id: forId, loaded: threadSize.current.loaded + fresh.length };
-          setThreadPage((current) =>
-            current ? { ...current, total: current.total + fresh.length } : current
-          );
-          if (also?.attachments || fresh.some(eventMayCarryAttachments))
-            setAttachmentsBump((key) => key + 1);
-          if (also?.activity || fresh.some((event) => !isOutgoingEvent(event)))
-            setActivityBump((key) => key + 1);
-          if (
-            also?.participants ||
-            (message.channel === 'email' &&
-              fresh.some((event) => eventAddsParticipant(event, participantsRef.current)))
-          )
-            setParticipantsBump((key) => key + 1);
-        })
-        .catch((err: unknown) => {
-          if (messageIdRef.current !== forId) return;
-          logger.warn('Incremental thread read failed, re-reading the thread:', err);
-          setThreadRefreshKey((key) => key + 1);
-        });
-    },
-    [message.id, message.channel]
-  );
-  const pullNewEventsRef = useRef(pullNewEvents);
-  pullNewEventsRef.current = pullNewEvents;
-  // useThreadMessageRefresh calls it bare: a live message adds only what its events say.
-  const pullLiveEvents = useCallback(() => pullNewEvents(), [pullNewEvents]);
-
-  // ── Sorted thread ──────────────────────────────────────────────────────────
-
-  const sortedThread = useMemo<MessageEvent[]>(() => {
-    const msgs = [...threadMessages];
-    msgs.sort((ma, mb) => threadTimeOf(ma) - threadTimeOf(mb));
-    return msgs;
-  }, [threadMessages]);
-  // The last message (notes aside) is ours — an agent's reply or the auto-reply. The stored AI
-  // draft answered the customer's email, which is answered now: the thread shows no suggestion
-  // until the customer writes again (a new email gets a new draft from the backend).
-  const lastWordOurs = useMemo(() => {
-    const last = [...sortedThread].reverse().find((event) => event.type !== 'note');
-    return last ? isOutgoingEvent(last) : false;
-  }, [sortedThread]);
-  // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
-  // only ever sit between days, in order.
+  const thread = useThreadEvents(message, onRefresh, onStatusChanged);
+  const {
+    threadRefreshKey,
+    setThreadRefreshKey,
+    onRefreshRef,
+    rereadHeaderRef,
+    threadPage,
+    panelsBump,
+    attachmentsBump,
+    activityBump,
+    participantsBump,
+    notesBump,
+    setNotesBump,
+    participantsRef,
+    pullNewEventsRef,
+    pullLiveEvents,
+    sortedThread,
+  } = thread;
 
   // ── Composer state ─────────────────────────────────────────────────────────
-  const [composer, setComposer] = useState('');
-  // Which AI path produced the text currently in the composer — null when the
-  // agent wrote it themselves. Sent with the reply so captured training data
-  // records its true author instead of defaulting every reply to "human".
-  const [aiSource, setAiSource] = useState<string | null>(null);
-  // The AI draft exactly as it was applied to the composer. Sent alongside the
-  // reply so the reply_style domain can learn house voice from what the agent
-  // CHANGED — an AI-drafted stamp alone says who wrote it, not what was wrong
-  // with it.
-  const [aiDraft, setAiDraft] = useState<AiDraft | null>(null);
+  const composerText = useComposerText();
+  const {
+    composer,
+    handleAiSourceChange,
+    composerMode,
+    setComposerMode,
+    latestComposer,
+    lastEditMode,
+    writeComposer,
+  } = composerText;
+  const dialogs = useDetailDialogs(message);
+  const {
+    submitting,
+    resolving,
+    setResolving,
+    savingToKb,
+    setReopenDialogOpen,
+    setResolveConfirmOpen,
+    setNotCustomerWorkOpen,
+    setPromoteToKbOpen,
+    hasPermission,
+    isTriage,
+    readState,
+  } = dialogs;
+  const replyState = useReplyComposerState(message, composerMode);
+  const {
+    selectedFiles,
+    setSelectedFiles,
+    sendFailedError,
+    setSendFailedError,
+    sendFailureRetryable,
+    setSendFailureRetryable,
+    lastAssignRef,
+    lastSendModeRef,
+    richEditorRef,
+    noteEditorRef,
+    composerWindow,
+  } = replyState;
 
-  const handleAiSourceChange = useCallback((source: string | null, draft?: AiDraft) => {
-    setAiSource(source);
-    setAiDraft(draft ?? null);
-  }, []);
-  // Clearing the composer discards the AI text, so whatever is typed next is the
-  // agent's own. Without this, wiping a draft and writing from scratch would
-  // still be reported as AI-drafted — and the discarded draft would be handed to
-  // reply_style as if the agent had rewritten it into whatever they type next.
-  useEffect(() => {
-    if (aiSource !== null && isBlankRichText(composer)) {
-      setAiSource(null);
-      setAiDraft(null);
-    }
-  }, [aiSource, composer]);
-  const [composerMode, setComposerMode] = useState<'reply' | 'note'>('reply');
-  // Refs, not state: two writes inside one render batch must both see the first one's text.
-  const latestComposer = useRef(composer);
-  latestComposer.current = composer;
-  const composerModeRef = useRef(composerMode);
-  composerModeRef.current = composerMode;
-  // The mode the composer's words were last written in (holdsUnsentNote) — null while blank.
-  const lastEditMode = useRef<'reply' | 'note' | null>(null);
-  /*
-    EVERY composer text write goes through here. Typing counts in the mode on screen; a
-    programmatic insert passes the mode it lands in. A write that leaves the visible text as it
-    was (TipTap re-normalising the HTML when the other mode's editor mounts) is not an edit, so
-    N alone never turns a reply into a note.
-  */
-  const writeComposer = useCallback(
-    (next: React.SetStateAction<string>, landsIn?: 'reply' | 'note') => {
-      const prev = latestComposer.current;
-      const value = typeof next === 'function' ? next(prev) : next;
-      latestComposer.current = value;
-      if (isBlankRichText(value)) lastEditMode.current = null;
-      else if (landsIn || lastEditMode.current === null || stripHtml(value) !== stripHtml(prev))
-        lastEditMode.current = landsIn ?? composerModeRef.current;
-      setComposer(value);
-    },
-    []
-  );
-  const [submitting, setSubmitting] = useState(false);
-  const [resolving, setResolving] = useState(false);
-  // Which resolve is in flight when it is "Resolve & save to KB" — its row shows "Saving to KB…".
-  const [savingToKb, setSavingToKb] = useState(false);
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
-  const [resolveConfirmOpen, setResolveConfirmOpen] = useState(false);
-  const [notCustomerWorkOpen, setNotCustomerWorkOpen] = useState(false);
-  // Offered on a finished conversation: "Resolve & Save to KB" captures only while resolving.
-  const [promoteToKbOpen, setPromoteToKbOpen] = useState(false);
-  const { hasPermission } = usePermissions();
-  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
-  // Per-user read/unread state (triage queues only). Optimistically tracked so the
-  // header toggle reflects instantly; synced whenever the message prop changes.
-  const isTriage = isTriageMessage(message);
-  const [readState, setReadState] = useState<boolean>(message.isRead ?? false);
-  const [markReadPromptOpen, setMarkReadPromptOpen] = useState(false);
-  useEffect(() => {
-    setReadState(message.isRead ?? false);
-  }, [message.id, message.isRead]);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [sendFailedError, setSendFailedError] = useState<string | null>(null);
-  // Retry is offered only for a failure a resend can fix, while the draft is still in the
-  // composer (SendFailedBar). The async `send_failed` event never sets it: by then the composer
-  // was cleared and there is nothing left to resend.
-  const [sendFailureRetryable, setSendFailureRetryable] = useState(false);
-  // The ownership answer the failed send carried, so Retry does not ask the agent again.
-  const lastAssignRef = useRef<ReplyAssignIntent | undefined>(undefined);
-  // …and the MODE it was sent in: after a switch to Internal note, "Retry" would otherwise post
-  // the failed reply's text as a note — a different action under the same button.
-  const lastSendModeRef = useRef<'reply' | 'note'>('reply');
-  // Re-render each minute so a window that lapses while the thread is open disables the
-  // composer on its own. Without this the agent keeps a stale "open" composer and writes
-  // a reply that can no longer be delivered — the failure this feature exists to remove.
-  const [windowTick, setWindowTick] = useState(0);
-  // Approved-template send, reached only when the 24-hour window has closed. Templates are
-  // fetched when the picker OPENS rather than with the conversation: most threads never
-  // need them, and a request per opened conversation would buy nothing.
-  const [templatesOpen, setTemplatesOpen] = useState(false);
-  const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
-  const [templatesLoading, setTemplatesLoading] = useState(false);
-  const [templateError, setTemplateError] = useState<string | null>(null);
-  const richEditorRef = useRef<RichTextEditorHandle>(null);
-  const noteEditorRef = useRef<RichTextEditorHandle>(null);
-  // M06: idempotency token for the in-flight reply. Minted per logical send, REUSED on a
-  // retry after failure (so the BE dedups a duplicate), cleared on success.
-  const sendIdempotencyKeyRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!message.whatsappWindow) return;
-    const timer = setInterval(() => setWindowTick((tick) => tick + 1), 60_000);
-    return () => clearInterval(timer);
-  }, [message.whatsappWindow]);
-
-  const composerWindow = useMemo(
-    () => {
-      // A replyBlock (e.g. a Zendesk-imported Telegram thread) outranks the WhatsApp
-      // window: channels never overlap, and the block is unconditional, not a countdown.
-      const block = resolveReplyBlock(message.replyBlock, composerMode);
-      return block.blocked ? block : resolveComposerWindow(message.whatsappWindow, composerMode);
-    },
-    // windowTick is a deliberate dependency: it is what makes the countdown advance and
-    // the block engage when the window lapses with the view already open. ESLint calls it
-    // "unnecessary" precisely BECAUSE the body does not reference it — the 60s tick is the
-    // whole point, and removing it freezes the countdown on an open thread. Suppressed
-    // rather than left as prose, so the next lint sweep cannot quietly "clean it up".
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
-    [message.whatsappWindow, message.replyBlock, composerMode, windowTick]
-  );
-
-  // A customer's new message or the bot's answer on this thread: refetch THIS thread only.
-  // ⛔ Not onRefresh: on MessagesPage that reloads the message, the whole list and every board
-  // column — per message, for every agent with the thread open. The list already refreshes on
-  // its own (`conversation:new`, coalesced).
-  //
-  // Only the events after the newest one on screen are read and appended (threadNewEvents.ts);
-  // the side panels are re-read only when the new events can have changed them:
-  //  - attachments: when a new event may carry files (an incoming message);
-  //  - participants (Reply all): when a new event names someone not yet on the list;
-  //  - activity: when a new event is incoming — the backend's save of a customer message writes
-  //    activity entries (auto-reopen, auto-route, auto-replied, "thanks" kept finished);
-  //  - notes and merges: never — `thread:message` is emitted only for a saved message or bot
-  //    reply, which adds no note and no merge.
-  // A backend that ignores `afterEventId` answers the full window: it is applied as the full read
-  // and every panel is re-read, as before. Cut short (`hasMore`) or failed → a full re-read.
-  useThreadMessageRefresh(message.id, pullLiveEvents);
-  // The backend moved this thread's status (a customer reply reopened it): re-read the header.
-  useConversationStatusRefresh(message.id, onStatusChanged);
-  /*
-    The socket came back after a drop: whatever was said meanwhile — a customer's message, a
-    colleague's reply or note, a merge, files — never arrived. Reconnects are rare (and spread and
-    rationed by the socket manager), so the thread and every panel are read again in full, and
-    the header. The list re-reads itself (MessagesPage).
-  */
-  useSocketReconnected(
-    useCallback(() => {
-      setThreadRefreshKey((key) => key + 1);
-      rereadHeaderRef.current?.();
-    }, [])
-  );
-
-  // ── Real-time reply events ─────────────────────────────────────────────────
-  useEffect(() => {
-    getSocket();
-    const handleSendFailed = (data: unknown) => {
-      const event = data as { messageId: number; channel: string };
-      if (event.messageId === message.id) {
-        setSendFailureRetryable(false);
-        setSendFailedError(
-          `Reply could not be delivered via ${event.channel}. The message was saved but not sent — please try again.`
-        );
-        // The BE reverts the conv's status and marks the reply event undelivered on
-        // failure. Refetch so the thread reflects the real state (no longer shown as
-        // resolved/replied, and the outgoing bubble can render as undelivered) instead
-        // of the optimistic state from the earlier message:replied event.
-        setThreadRefreshKey((key) => key + 1);
-        onRefreshRef.current?.();
-      }
-    };
-    const handleReplied = (data: unknown) => {
-      const event = data as { messageId: number };
-      // Our own send already read its events and the page when the request returned; its echo
-      // would repeat both (ownSends.ts).
-      //
-      // Someone else's reply: the events after the newest on screen, the reply's activity entry,
-      // its files (an outgoing event carries no attachment metadata) and, on email, whom it went
-      // to — plus this conversation's header. ⛔ Not onRefresh: on MessagesPage that also re-reads
-      // the list and the board, and the page already schedules its own coalesced list read for
-      // this very event. No notes or merges: a reply adds neither.
-      if (event.messageId === message.id && !isOwnSendEcho(data)) {
-        pullNewEventsRef.current({
-          activity: true,
-          attachments: true,
-          participants: message.channel === 'email',
-        });
-        rereadHeaderRef.current?.();
-      }
-    };
-    subscribeToEvent('send-failed', handleSendFailed);
-    subscribeToEvent('message:replied', handleReplied);
-    return () => {
-      unsubscribeFromEvent('send-failed', handleSendFailed);
-      unsubscribeFromEvent('message:replied', handleReplied);
-      releaseSocket();
-    };
-  }, [message.id, message.channel]);
+  useLiveThreadSync({
+    message,
+    pullLiveEvents,
+    onStatusChanged,
+    setThreadRefreshKey,
+    rereadHeaderRef,
+    onRefreshRef,
+    pullNewEventsRef,
+    setSendFailureRetryable,
+    setSendFailedError,
+  });
 
   // ── AI ghost state ─────────────────────────────────────────────────────────
   const [aiLoading, setAiLoading] = useState(false);
@@ -595,49 +150,26 @@ export function MessageDetail({
   // KNOWN to be on (same rule as the AI tab's options).
   const { off: aiDraftsOff, resolved: aiDraftsKnown } = useAiDraftsOff();
   const offerStoredDraft = aiDraftsKnown && !aiDraftsOff;
-  const [ghostOption, setGhostOption] = useState<GhostOption | null>(() =>
+  const { ghostOption, alternativeCount, setAlternativeCount } = useGhostOption(
+    message,
     offerStoredDraft
-      ? toGhostOption(message.metadata?.suggestedAnswer as SuggestedAnswerMeta | undefined)
-      : null
   );
-  const [alternativeCount, setAlternativeCount] = useState(0);
-
-  // Reset the ghost when the STORED draft changes — keyed on its content, not on the metadata
-  // object: the full record replacing the row's (same thread, a new object) must not bring back
-  // a ghost the agent dismissed or used in the meantime.
-  const storedDraftKey = JSON.stringify(message.metadata?.suggestedAnswer ?? null);
-  const storedDraftRef = useRef(message.metadata?.suggestedAnswer);
-  storedDraftRef.current = message.metadata?.suggestedAnswer;
-  useEffect(() => {
-    setGhostOption(
-      offerStoredDraft
-        ? toGhostOption(storedDraftRef.current as SuggestedAnswerMeta | undefined)
-        : null
-    );
-  }, [message.id, storedDraftKey, offerStoredDraft]);
 
   // ── Similar messages dialog ────────────────────────────────────────────────
   const [similarOpen, setSimilarOpen] = useState(false);
 
   // ── Panel tab state ────────────────────────────────────────────────────────
-  const [tab, setTab] = useState<PanelTab>('ai');
-  const [panelOpen, setPanelOpen] = useState(false);
-  // v3 full page = two columns, but only where there is room for a 312px sidebar; narrower,
-  // the page keeps the slide-over layout so nothing is hidden.
-  const isWide = useMediaQuery('(min-width: 1024px)');
-  const [sideMetaEl, setSideMetaEl] = useState<HTMLDivElement | null>(null);
-  const twoColumn = fullPage && isWide;
-  // v4 mobile (<640px). Structure that moves on a phone keys on this; pure styling uses `max-sm:`.
-  const isPhone = useIsPhone();
-  // Phone scrolling: a new message and a new tab start at their top (usePhoneDetailScroll).
-  const detailRootRef = useRef<HTMLDivElement>(null);
-  usePhoneDetailScroll(detailRootRef, isPhone && !twoColumn, panelOpen ? tab : 'thread');
-
-  // Reset panel when message changes
-  useEffect(() => {
-    setPanelOpen(false);
-    setTab('ai');
-  }, [message.id]);
+  const {
+    tab,
+    setTab,
+    panelOpen,
+    setPanelOpen,
+    sideMetaEl,
+    setSideMetaEl,
+    twoColumn,
+    isPhone,
+    detailRootRef,
+  } = usePanelTabs(message, fullPage);
 
   /*
     v4 composer "Look up": open the Lookups tab and bring the Connected systems block into view.
@@ -647,66 +179,14 @@ export function MessageDetail({
   */
   // The SAME gate as the tab itself (useLookupsTab), so the button never points at a hidden tab.
   const lookupAvailable = useLookupsTab('thread').available;
-  // An admin can remove the last lookup while an agent sits on its tab; fall back, never blank.
-  useEffect(() => {
-    if (tab === 'lookups' && !lookupAvailable) setTab('ai');
-  }, [tab, lookupAvailable]);
-  const lookupFlash = useRef<{
-    frame: number | null;
-    timer: ReturnType<typeof setTimeout> | null;
-    flashed: HTMLElement | null;
-  }>({ frame: null, timer: null, flashed: null });
-  /*
-    ⛔ Cancelling must also take the ring OFF. The lookup panel stays mounted across a thread
-    switch and a second press, so a cancelled removal timer would leave the ring on for good.
-  */
-  const cancelLookupFlash = useCallback(() => {
-    const pending = lookupFlash.current;
-    if (pending.frame !== null) cancelAnimationFrame(pending.frame);
-    if (pending.timer !== null) clearTimeout(pending.timer);
-    pending.flashed?.classList.remove(...LOOKUP_FLASH_CLASSES);
-    pending.frame = null;
-    pending.timer = null;
-    pending.flashed = null;
-  }, []);
-  useEffect(() => cancelLookupFlash, [cancelLookupFlash, message.id]);
-  const handleLookUp = useCallback(() => {
-    setTab('lookups');
-    // The sidebar always shows its content; the slide-over's rail has to be opened.
-    if (!twoColumn) setPanelOpen(true);
-    cancelLookupFlash();
-    /*
-      The panel renders after this state commits, and its body can arrive a frame or two later, so
-      look for the root over a few frames. `data-lookup-root` sits on CustomApiLookupPanel's root;
-      when it is missing (lookup hidden, tab not mounted yet) nothing happens — the tab is open.
-    */
-    let attempts = 0;
-    const seek = () => {
-      lookupFlash.current.frame = null;
-      const root = document.querySelector<HTMLElement>('[data-lookup-root]');
-      if (!root) {
-        attempts += 1;
-        if (attempts < LOOKUP_SEEK_FRAMES) lookupFlash.current.frame = requestAnimationFrame(seek);
-        return;
-      }
-      root.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
-      /*
-        …and focus goes there too (the block is focusable, tabIndex -1, named "Connected
-        systems"): a screen reader lands on what the press opened, and on a phone — where the
-        Lookups tab hides the composer the press came from — focus does not fall to <body>.
-        preventScroll: the smooth scroll above already brings it into view.
-      */
-      root.focus({ preventScroll: true });
-      root.classList.add(...LOOKUP_FLASH_CLASSES);
-      lookupFlash.current.flashed = root;
-      lookupFlash.current.timer = setTimeout(() => {
-        root.classList.remove(...LOOKUP_FLASH_CLASSES);
-        lookupFlash.current.timer = null;
-        lookupFlash.current.flashed = null;
-      }, LOOKUP_FLASH_MS);
-    };
-    lookupFlash.current.frame = requestAnimationFrame(seek);
-  }, [twoColumn, cancelLookupFlash]);
+  const { handleLookUp } = useLookupFlash({
+    message,
+    tab,
+    setTab,
+    lookupAvailable,
+    twoColumn,
+    setPanelOpen,
+  });
 
   // ── Notes / activity / attachments / lead state ────────────────────────────
   const user = useAuthStore((store) => store.user);
@@ -729,59 +209,8 @@ export function MessageDetail({
   const [sendHoldOpen, setSendHoldOpen] = useState(false);
   // The header stays whole at all times (owner, 2026-11-04): it no longer folds its sender, status
   // and meta rows away while scrolling the thread or writing a reply.
-  /*
-    Opening a thread lands on its LAST message (owner, 2026-11-03): the thread is sorted oldest
-    first, so it opened at the top and the newest message — the one to answer — sat below the fold.
-    It stays pinned to the bottom while the thread settles (images and quoted blocks growing after
-    the first paint), until the reader's own scroll, press or key takes over.
-  */
-  const threadScrollerRef = useRef<HTMLDivElement>(null);
-  const threadContentRef = useRef<HTMLDivElement>(null);
-  const pinToNewestRef = useRef(true);
-  const markScrollIntent = useCallback(() => {
-    pinToNewestRef.current = false;
-  }, []);
-
-  // A newly opened thread pins to its newest message again; the pin's clock starts when its
-  // messages first arrive (a slow load must not use it up).
-  const pinUntilRef = useRef<number | null>(null);
-  useLayoutEffect(() => {
-    pinToNewestRef.current = true;
-    pinUntilRef.current = null;
-  }, [message.id]);
-  const isPhoneRef = useRef(isPhone);
-  isPhoneRef.current = isPhone;
-  const scrollToNewestIfPinned = useCallback(() => {
-    const scroller = threadScrollerRef.current;
-    if (!scroller || !pinToNewestRef.current) return;
-    if (pinUntilRef.current !== null && Date.now() > pinUntilRef.current) {
-      // Released for good after a few settled seconds even without input, so a thread whose
-      // content keeps growing never fights a reader who is just looking.
-      pinToNewestRef.current = false;
-      return;
-    }
-    // A phone scrolls the DOCUMENT, not the thread box (usePhoneDetailScroll), so the newest
-    // message is the bottom of the page there (owner, 2026-11-03: phones open at the newest too).
-    if (isPhoneRef.current) window.scrollTo({ top: document.documentElement.scrollHeight });
-    else scroller.scrollTop = scroller.scrollHeight;
-  }, []);
-  // The thread's messages arrived or changed while pinned: land on the newest.
-  useLayoutEffect(() => {
-    if (sortedThread.length === 0) return;
-    pinUntilRef.current ??= Date.now() + 4000;
-    scrollToNewestIfPinned();
-  }, [message.id, sortedThread, scrollToNewestIfPinned]);
-  // Content growing after the first paint (images, quoted history) keeps the newest in view while
-  // pinned.
-  useEffect(() => {
-    const content = threadContentRef.current;
-    if (!content || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => scrollToNewestIfPinned());
-    observer.observe(content);
-    // The box itself shrinking (the reply box opening under it) hides the last lines too.
-    if (threadScrollerRef.current) observer.observe(threadScrollerRef.current);
-    return () => observer.disconnect();
-  }, [message.id, scrollToNewestIfPinned]);
+  const scrollPin = useThreadScrollPin(message, isPhone, sortedThread);
+  const { threadScrollerRef } = scrollPin;
 
   // Ownership prompt on Send (owner decision 2026-09-07). The workspace setting rides on the
   // organization payload every member may read; cached, one read per session.
@@ -793,129 +222,36 @@ export function MessageDetail({
   });
   const [assignPrompt, setAssignPrompt] = useState<AssignOnReplyPrompt | null>(null);
 
-  const [notes, setNotes] = useState<MessageNote[]>([]);
-  const [messageActivity, setMessageActivity] = useState<MessageActivityEntry[]>([]);
-  const [noteActivityLog, setNoteActivityLog] = useState<
-    { label: string; who: string; time: string }[]
-  >([]);
-  const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Map<number, Attachment[]>>(
-    new Map()
-  );
-  // Lead state — derived from this message + thread. Guarded against a slow answer for the
-  // previously opened customer landing here (see useLeadState).
-  const [leadState, setLeadState] = useLeadState(message);
-  const [leadFieldDefs, setLeadFieldDefs] = useState<LeadQualificationFieldConfig[]>([]);
-
-  // Fetch notes alongside thread refreshes
-  useEffect(() => {
-    let cancelled = false;
-    messageService
-      .getNotes(message.id)
-      .then((notesRes) => {
-        if (!cancelled && notesRes && notesRes.success && notesRes.data) setNotes(notesRes.data);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [message.id, threadRefreshKey, panelsBump, notesBump]);
-
-  // A colleague added, edited or deleted a note on this thread: re-read the notes. The echo of a
-  // note already on screen (our own add, which re-read them itself) is skipped.
-  const notesRef = useRef(notes);
-  notesRef.current = notes;
-  const isKnownNote = useCallback(
-    (noteId: number) => notesRef.current.some((note) => note.id === noteId),
-    []
-  );
-  const bumpNotes = useCallback(() => setNotesBump((key) => key + 1), []);
-  useConversationNotesRefresh(message.id, isKnownNote, bumpNotes);
-
-  // …and the activity log — also after a live incoming message (activityBump): saving one can
-  // write activity (auto-reopen, auto-route, "thanks" kept finished) with no other signal.
-  useEffect(() => {
-    let cancelled = false;
-    messageService
-      .getActivity(message.id)
-      .catch(() => [] as MessageActivityEntry[])
-      .then((activity) => {
-        if (!cancelled) setMessageActivity(activity);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [message.id, threadRefreshKey, panelsBump, activityBump]);
-
-  // Fetch attachments for the whole thread (used by the Files tab + thread item attachment chips)
-  useEffect(() => {
-    let cancelled = false;
-    apiClient
-      .get<{ success: boolean; data: Attachment[] }>(`/api/messages/${message.id}/attachments`)
-      .then((res) => {
-        if (cancelled) return;
-        const map = new Map<number, Attachment[]>();
-        for (const att of res.data.data ?? []) {
-          if (att.messageEventId === null) continue;
-          const list = map.get(att.messageEventId) ?? [];
-          list.push(att);
-          map.set(att.messageEventId, list);
-        }
-        // The API returns a message's files in no set order. Id order is the order they were
-        // stored at ingest — the order the email carried them — so chips, the Files tab and the
-        // viewer's next/previous all follow the email (owner, 2026-11-04).
-        for (const list of map.values()) list.sort((left, right) => left.id - right.id);
-        setAttachmentsByMessageId(map);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [message.id, threadRefreshKey, attachmentsBump]);
-
-  // Lead config — fetched once
-  useEffect(() => {
-    organizationService
-      .getLeadConfig()
-      .then((cfg) => {
-        if (cfg.qualificationFields?.length) setLeadFieldDefs(cfg.qualificationFields);
-      })
-      .catch(() => {});
-  }, []);
+  const {
+    notes,
+    setNotes,
+    messageActivity,
+    noteActivityLog,
+    setNoteActivityLog,
+    attachmentsByMessageId,
+    leadState,
+    setLeadState,
+    leadFieldDefs,
+  } = useThreadPanelsData({
+    message,
+    threadRefreshKey,
+    panelsBump,
+    notesBump,
+    setNotesBump,
+    activityBump,
+    attachmentsBump,
+  });
 
   // ── Computed flags ─────────────────────────────────────────────────────────
-  const spamCheck = getSpamCheck(message);
-  void spamCheck;
-
-  const isFiltered = message.status === 'filtered';
-  const isSuspicious =
-    !isFiltered &&
-    (message.metadata?.spamCheck as Record<string, unknown> | undefined)?.category === 'suspicious';
-  /**
-   * Carries a spam verdict WITHOUT being in one of the triage states that offer a way to undo it.
-   *
-   * `isSpam: true` with `status: 'open'` is reachable, and it is the worst of both: the verdict
-   * hides the conversation from the work queue, the header shows a red SPAM badge, and neither
-   * the action strip nor the ACTIONS menu offered anything to correct it. A real customer sat
-   * behind that state for a month on a client deployment with no button to press.
-   */
-  const isSpamFlaggedOutsideTriage =
-    !isFiltered &&
-    !isSuspicious &&
-    (message.metadata?.spamCheck as { isSpam?: boolean } | undefined)?.isSpam === true;
-  const isActive =
-    !isFiltered && !isSuspicious && !isSpamFlaggedOutsideTriage && message.status !== 'closed';
-  // One predicate for the decisions row AND the strip, so the decision can never show
-  // in both places or in neither (resolveMode.ts). `hasLinkedTicket` matches the strip's call.
-  const resolveMode = getResolveMode(message, {
+  const {
     isFiltered,
     isSuspicious,
     isSpamFlaggedOutsideTriage,
-    hasLinkedTicket: false,
-  });
-  const ghostVisible = message.status !== 'resolved';
-
-  const autoReply = message.metadata?.autoReply as { sent?: boolean } | undefined;
+    isActive,
+    resolveMode,
+    ghostVisible,
+    autoReply,
+  } = deriveThreadFlags(message);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -933,343 +269,46 @@ export function MessageDetail({
   );
   participantsRef.current = mergeContext.participants;
 
-  const performSend = useCallback(
-    async (assign?: ReplyAssignIntent) => {
-      setSubmitting(true);
-      setSendFailedError(null);
-      setSendFailureRetryable(false);
-      lastAssignRef.current = assign;
-      lastSendModeRef.current = composerMode;
-      // Notes aren't emails — no idempotency needed. For replies, reuse a prior failed attempt's
-      // token (retry) so the BE dedups; otherwise mint a fresh one for this logical send.
-      if (composerMode !== 'note' && !sendIdempotencyKeyRef.current) {
-        sendIdempotencyKeyRef.current = crypto.randomUUID();
-      }
-      const idempotencyKey = sendIdempotencyKeyRef.current ?? undefined;
-      // Before the request: the `message:replied` echo can beat the HTTP answer.
-      if (idempotencyKey) rememberOwnSend(idempotencyKey);
-      // Undefined unless the agent actually addressed this reply somewhere, which
-      // the BE reads as "the requester and nobody else".
-      const recipients = supportsRecipients ? draftToRecipients(recipientDraft) : undefined;
-      // Send ▾: "Send, resolve & save to KB" rides on the reply itself — the server resolves and
-      // captures the Q&A in the reply's own transaction, and reverts both if delivery fails.
-      // The other choices run after the reply is out.
-      const after = afterSendRef.current;
-      afterSendRef.current = { action: 'send' };
-      const resolveInSend = composerMode !== 'note' && after.action === 'resolve_kb';
-      try {
-        if (composerMode === 'note') {
-          // The composer is the rich-text editor; a note is plain text (noteText.ts).
-          await messageService.addNote(message.id, noteFromEditor(composer));
-        } else if (selectedFiles.length > 0) {
-          await messageService.replyWithAttachments(
-            message.id,
-            composer,
-            selectedFiles,
-            resolveInSend,
-            aiSource !== null,
-            aiSource ?? undefined,
-            idempotencyKey,
-            aiDraft ?? undefined,
-            recipients,
-            assign
-          );
-        } else {
-          await messageService.reply(
-            message.id,
-            composer,
-            resolveInSend,
-            aiSource !== null,
-            aiSource ?? undefined,
-            idempotencyKey,
-            aiDraft ?? undefined,
-            undefined,
-            recipients,
-            assign
-          );
-        }
-        sendIdempotencyKeyRef.current = null; // success — the next send is a new logical send
-        writeComposer('');
-        setAiSource(null);
-        setAiDraft(null);
-        setSelectedFiles([]);
-        setRecipientDraft(emptyRecipientDraft());
-        /*
-          Read only what the send changed — not the whole thread and every panel (6 GETs):
-           - a note: the notes. It adds no event and no activity entry (its audit row is the
-             note's own), and nothing on the list or the board shows it — so no onRefresh below.
-           - a reply: the events after the newest on screen (the reply itself), its activity entry
-             (`message.reply`, and any resolve / hold that rode with it), the files when files
-             were sent, and whom it went to when the agent addressed it.
-          A failed send keeps its full re-read (the catch below).
-        */
-        if (composerMode === 'note') setNotesBump((key) => key + 1);
-        else
-          pullNewEvents({
-            activity: true,
-            attachments: selectedFiles.length > 0,
-            // {} when nobody was addressed — "the requester and nobody else".
-            participants: recipients !== undefined && Object.keys(recipients).length > 0,
-          });
-        // A sent reply (not an internal note) flips the conversation to Pending —
-        // move the board card optimistically before the heavier onRefresh reconcile.
-        if (composerMode !== 'note') onReplied?.();
-        if (resolveInSend) onResolve?.();
-        else if (composerMode !== 'note' && after.action !== 'send') {
-          try {
-            if (after.action === 'resolve') await messageService.close(message.id);
-            else if (after.action === 'hold' && after.hold) {
-              await messageService.setStatus(message.id, 'pending', after.hold);
-              onOptimisticMove?.('on_hold');
-            }
-            if (after.action !== 'hold') onResolve?.();
-          } catch (err) {
-            // The reply IS out — only the status step failed; say so instead of a send failure.
-            // A toast, not the send-failure bar: that bar is titled "Send failed", and the reply
-            // DID go out.
-            logger.error('Sent, but the status change failed:', err);
-            // With the server's own reason when it gave one (errorShape rule).
-            const reason = getApiErrorMessage(err);
-            toast.error(
-              after.action === 'hold'
-                ? `Reply sent — but putting it on hold failed${reason ? `: ${reason}` : ''}. Put it on hold from the status menu.`
-                : `Reply sent — but resolving failed${reason ? `: ${reason}` : ''}. Resolve it from the Resolve row.`
-            );
-          }
-        }
-        // The reply moved the conversation (Pending, an assignee, a resolve): the page re-reads it.
-        if (composerMode !== 'note') onRefresh?.();
-      } catch (err) {
-        // Keep the token so a retry of THIS send reuses it and the BE dedups the duplicate —
-        // and its Send ▾ choice, so Retry resolves / holds as the agent asked.
-        afterSendRef.current = after;
-        // Should the server have delivered it after all, its echo must reload like anyone's.
-        if (idempotencyKey) forgetOwnSend(idempotencyKey);
-        // …and the echo may already have come and been skipped as ours: the server emits it before
-        // it answers, so a reply delivered whose ANSWER was lost (a dropped connection, a 502 from
-        // the proxy) would never show. Re-read as the echo would have.
-        if (lastSendModeRef.current !== 'note') {
-          setThreadRefreshKey((key) => key + 1);
-          onRefresh?.();
-        }
-        logger.error('Failed to send:', err);
-        // Surface the server's own explanation for client errors — see
-        // resolveSendFailureMessage for why "please try again" is wrong for some of them.
-        setSendFailedError(resolveSendFailureMessage(err));
-        setSendFailureRetryable(isRetryableSendFailure(err));
-      } finally {
-        setSubmitting(false);
-        setAssignPrompt(null);
-      }
-    },
-    [
-      aiDraft,
-      aiSource,
-      composer,
-      composerMode,
-      message.id,
-      onOptimisticMove,
-      onRefresh,
-      onReplied,
-      onResolve,
-      pullNewEvents,
-      recipientDraft,
-      selectedFiles,
-      supportsRecipients,
-      writeComposer,
-    ]
-  );
-
-  const handleSend = useCallback(async () => {
-    // Require real text — blocks Ctrl+Shift+Enter attachment-only sends the disabled
-    // button can't (empty, whitespace, or markup-only like `<p><br></p>`).
-    if (isBlankRichText(composer)) return;
-    // A reply (not a note) first asks whether the thread becomes yours — every time on an
-    // unowned thread, as a take-over on a colleague's, never on your own. The answer is sent
-    // with the reply; the backend applies it.
-    if (composerMode !== 'note') {
-      const prompt = decideAssignOnReplyPrompt({
-        assigneeId: message.assigneeId,
-        assigneeName: message.assigneeName,
-        currentUserId,
-        assignOnReply: readAssignOnReplySetting(currentOrganization),
-      });
-      if (prompt) {
-        setAssignPrompt(prompt);
-        return;
-      }
-    }
-    await performSend();
-  }, [
-    composer,
-    composerMode,
-    currentOrganization,
+  const send = useReplySend({
+    message,
+    composerText,
+    dialogs,
+    replyState,
+    thread,
+    supportsRecipients,
+    recipientDraft,
+    setRecipientDraft,
+    afterSendRef,
+    setSendHoldOpen,
+    setSendAction,
+    setAssignPrompt,
     currentUserId,
-    message.assigneeId,
-    message.assigneeName,
+    currentOrganization,
+    resolveMode,
+    onReplied,
+    onResolve,
+    onOptimisticMove,
+    onRefresh,
+  });
+  const {
     performSend,
-  ]);
+    handleSend,
+    sendActions,
+    handleSendWith,
+    handleSendPick,
+    handleOpenTemplates,
+  } = send;
 
-  // Resolving rides on any thread the Resolve row could resolve — an UNREVIEWED one too: its
-  // "dismiss without a reply" meaning is the row's, and a send IS the reply, so there is an answer
-  // to resolve on (and to save to the KB). The row hides while a reply is typed, so leaving these
-  // out left a new thread with a draft no way to resolve at all (owner, 2026-11-03). Hold always.
-  const sendActions: SendAction[] =
-    resolveMode !== null ? ['send', 'resolve', 'resolve_kb', 'hold'] : ['send', 'hold'];
-  // Sends with an action WITHOUT remembering it: the Send ▾ face, which already shows the choice.
-  const handleSendWith = useCallback(
-    (action: SendAction) => {
-      if (isBlankRichText(composer)) return;
-      // On hold needs its reason and recheck date first — asked BEFORE anything is sent.
-      if (action === 'hold') {
-        setSendHoldOpen(true);
-        return;
-      }
-      afterSendRef.current = { action };
-      void handleSend();
-    },
-    [composer, handleSend]
-  );
-  const rememberSendAction = useCallback(
-    (action: SendAction) => {
-      setSendAction(action);
-      writeSendAction(currentUserId ?? undefined, action);
-    },
-    [currentUserId]
-  );
-  // A Send ▾ menu pick: the agent's choice. Remembered as the face — On hold only once its dialog
-  // is confirmed, so a cancelled hold does not turn every later Send into a hold dialog.
-  const handleSendPick = useCallback(
-    (action: SendAction) => {
-      if (action !== 'hold') rememberSendAction(action);
-      handleSendWith(action);
-    },
-    [handleSendWith, rememberSendAction]
-  );
-
-  const handleOpenTemplates = useCallback(async () => {
-    setTemplateError(null);
-    setTemplatesOpen(true);
-    setTemplatesLoading(true);
-    try {
-      setTemplates(await messageService.listWhatsAppTemplates(message.id));
-    } finally {
-      // The service already swallows a missing endpoint into an empty list, so the picker
-      // shows its "nothing approved yet" state rather than an error the agent cannot act on.
-      setTemplatesLoading(false);
-    }
-  }, [message.id]);
-
-  const handleSendTemplate = useCallback(
-    async (templateId: number, parameters: string[]) => {
-      setSubmitting(true);
-      setTemplateError(null);
-      // Same idempotency contract as a normal reply: reuse the token on a retry so a
-      // success-but-timeout cannot bill the tenant for a second template.
-      sendIdempotencyKeyRef.current ??= crypto.randomUUID();
-      try {
-        await messageService.reply(
-          message.id,
-          '',
-          false,
-          false,
-          undefined,
-          sendIdempotencyKeyRef.current,
-          undefined,
-          { templateId, parameters }
-        );
-        sendIdempotencyKeyRef.current = null;
-        setTemplatesOpen(false);
-        setThreadRefreshKey((key) => key + 1);
-        onReplied?.();
-        onRefresh?.();
-      } catch (err) {
-        logger.error('Failed to send WhatsApp template:', err);
-        // Shown inside the picker, not as a toast: every refusal here names something the
-        // agent can fix in the dialog they are already looking at.
-        setTemplateError(resolveSendFailureMessage(err));
-      } finally {
-        setSubmitting(false);
-      }
-    },
-    [message.id, onRefresh, onReplied]
-  );
-
-  const handleResolveWithoutReply = useCallback(async () => {
-    setResolving(true);
-    setSavingToKb(true);
-    try {
-      await messageService.resolve(message.id);
-      onResolve?.();
-    } catch (err) {
-      logger.error('Failed to resolve:', err);
-    } finally {
-      setResolving(false);
-      setSavingToKb(false);
-    }
-  }, [message.id, onResolve]);
-
-  const handleClose = useCallback(async () => {
-    setResolving(true);
-    try {
-      await messageService.close(message.id);
-      onResolve?.();
-    } catch (err) {
-      logger.error('Failed to close:', err);
-    } finally {
-      setResolving(false);
-    }
-  }, [message.id, onResolve]);
-
-  // Per-user read/unread (triage). Optimistic with revert on failure; onReadChanged
-  // lets the board refresh the unread dot without tearing down the detail.
-  const applyRead = useCallback(
-    async (next: boolean) => {
-      setReadState(next);
-      try {
-        if (next) await messageService.markRead(message.id);
-        else await messageService.markUnread(message.id);
-        onReadChanged?.(next);
-      } catch (err) {
-        setReadState(!next);
-        logger.error('Failed to update read state:', err);
-        toast.error(getApiErrorMessage(err) ?? 'Could not update read state');
-      }
-    },
-    [message.id, onReadChanged]
-  );
-
-  const handleToggleRead = useCallback(() => {
-    void applyRead(!readState);
-  }, [applyRead, readState]);
-
-  // Closing an unread triage thread prompts "mark as read?" first (per-user review
-  // marker). Read threads, or non-triage threads, close immediately.
-  const handleRequestClose = useCallback(() => {
-    if (isTriage && !readState) {
-      setMarkReadPromptOpen(true);
-    } else {
-      onClose?.();
-    }
-  }, [isTriage, readState, onClose]);
-
-  // Expose the prompt-aware close to the parent so out-of-panel close gestures
-  // (the backdrop) go through the same "Mark as read?" prompt as the header X.
-  // Re-registers whenever the handler identity changes (readState/isTriage), and
-  // clears on unmount so a stale handler can't fire against a torn-down panel.
-  useEffect(() => {
-    onRegisterRequestClose?.(handleRequestClose);
-    return () => onRegisterRequestClose?.(null);
-  }, [handleRequestClose, onRegisterRequestClose]);
-
-  // One-press Resolve, shared by the header button and the E shortcut so the two can never
-  // disagree. It opens the SAME confirm the old footer did (resolveMode.ts) — E never resolves
-  // in one keystroke; the dialog is the confirmation (owner decision, 2026-09-22).
-  const openResolveDialog = useCallback(() => {
-    if (resolveMode === null) return;
-    if (noKbResolveDialog(resolveMode) === 'reject') setRejectDialogOpen(true);
-    else setCloseConfirmOpen(true);
-  }, [resolveMode]);
+  const conv = useConversationActions({
+    message,
+    resolveMode,
+    dialogs,
+    onResolve,
+    onReadChanged,
+    onClose,
+    onRegisterRequestClose,
+  });
+  const { handleToggleRead, handleRequestClose, openResolveDialog } = conv;
 
   // One context for the shortcuts AND the hint line, so the hint can only name keys that act.
   const shortcutContext: ShortcutContext = {
@@ -1289,7 +328,7 @@ export function MessageDetail({
   */
   const showComposerForShortcut = useCallback(() => {
     if (isPhone && panelOpen && tab !== 'notes') setPanelOpen(false);
-  }, [isPhone, panelOpen, tab]);
+  }, [isPhone, panelOpen, tab, setPanelOpen]);
   /*
     A lookup record's "Use in reply": the ticked sentence goes into the REPLY — a new paragraph at
     its end, the composer switched to Reply, shown (phone: back to the Thread tab, where the
@@ -1315,40 +354,21 @@ export function MessageDetail({
       setTimeout(() => richEditorRef.current?.focus('end'), 0);
       return 'added';
     },
-    [showComposerForShortcut, writeComposer]
+    [
+      showComposerForShortcut,
+      writeComposer,
+      lastEditMode,
+      latestComposer,
+      richEditorRef,
+      setComposerMode,
+    ]
   );
-  /*
-    ⛔ The panel tabs' mode switch (phone rail / slide-over: any non-Notes tab, Thread, closing a
-    tab) never flips an unsent internal note to Reply — the composer holds ONE text, and the flip
-    put the note one Send from the customer (and made "Add to my reply" append to it). A blank
-    composer still flips. Stable identity, like the setter it wraps; reads the ref, not the state.
-  */
-  const setPanelComposerMode = useCallback((next: React.SetStateAction<'reply' | 'note'>) => {
-    setComposerMode((prev) => {
-      const mode = typeof next === 'function' ? next(prev) : next;
-      return holdsUnsentNote(latestComposer.current, lastEditMode.current) && mode === 'reply'
-        ? prev
-        : mode;
-    });
-  }, []);
-  /*
-    "Reply to this message" and R: refused (toast, nothing switched, recipients untouched) while an
-    internal note is being written. True when refused.
-  */
-  const refuseReplyOverNote = useCallback((): boolean => {
-    if (!holdsUnsentNote(latestComposer.current, lastEditMode.current)) return false;
-    toast.info(NOTE_IN_PROGRESS);
-    return true;
-  }, []);
-
-  const handleReplyToMessage = useCallback(
-    (addresses: string[]) => {
-      if (refuseReplyOverNote()) return;
-      setComposerMode('reply');
-      setRecipientDraft((draft) => ({ ...draft, to: addresses.join(', ') }));
-    },
-    [refuseReplyOverNote]
-  );
+  const { setPanelComposerMode, refuseReplyOverNote, handleReplyToMessage } = useNoteGuard({
+    setComposerMode,
+    latestComposer,
+    lastEditMode,
+    setRecipientDraft,
+  });
   // Pressing a file in the thread opens it in the viewer, over the thread, with the whole
   // conversation to step through — no detour to the Files tab (owner request 2026-11-04).
   const threadFileViewer = useThreadFileViewer(
@@ -1381,199 +401,42 @@ export function MessageDetail({
     close: handleRequestClose,
   });
 
-  const applyGhostAnswer = useCallback(
-    (answer: string, source: string) => {
-      // Suggested answers arrive as plain text with markdown-ish syntax; turn
-      // them into HTML so the editor holds editable rich text and the customer
-      // receives formatted output instead of literal "**bold**" / "- " runs.
-      // Shared with the composer's AI actions via answerToEditorHtml.
-      const applied = answerToEditorHtml(answer);
-      writeComposer(applied, 'reply');
-      setComposerMode('reply');
-      // Phone: the answer came from a panel (KB "Use in reply", the AI tab's sources) under which
-      // the composer is display:none — go back to the Thread tab, where it shows. Desktop: no-op.
-      showComposerForShortcut();
-      // Expand the (initially collapsed) reply editor + focus it so the agent
-      // sees the populated suggested answer immediately, instead of having to
-      // click the editor's expand button first. Deferred so it fires AFTER
-      // React mounts the reply editor — if the user was in 'note' mode, the
-      // reply ref is null until the conditional render swap settles.
-      setTimeout(() => richEditorRef.current?.focus(), 0);
-      // Suggested answers arrive from the similar-messages dialog / KB. Record the
-      // source, so the send is stamped as AI-drafted rather than reported as the
-      // agent's own writing — AND the draft itself, exactly as it was applied to
-      // the editor.
-      //
-      // This used to set the source alone. A send then said "AI-drafted" and
-      // carried nothing to compare the sent text against: recordReplyStyleEditEvent
-      // returns early on a missing draft, so every reply an agent started from the
-      // KB taught reply_style nothing while looking, in every stat we have, exactly
-      // like the ones that did. Routed through handleAiSourceChange rather than the
-      // two setters so there is ONE place that can set a source without a draft.
-      //
-      // No `mode`: that field is which compose mode wrote the text, and nothing
-      // composed this — it came out of the KB. The provenance travels separately,
-      // as suggestedAnswerSource on the send.
-      handleAiSourceChange(source || 'suggested_answer', { text: applied });
-    },
-    [handleAiSourceChange, showComposerForShortcut, writeComposer]
-  );
-  /*
-    A suggested answer (KB "Use in reply", the AI tab's sources, the similar-messages dialog, the
-    ghost bubble) REPLACES the composer's text — so it never does that silently:
-      - composer blank → inserted, as before;
-      - a reply being written → asked first ("Replace your reply with this answer?"); Cancel
-        leaves the reply exactly as it was;
-      - an internal note being written → untouched, and said so in the lookup path's own words
-        (the composer holds ONE text for both modes: switching it to Reply would turn words for
-        the team into a message to the customer).
-    The ghost bubble only shows over an empty composer, so it always inserts.
-  */
-  const [pendingGhost, setPendingGhost] = useState<{ answer: string; source: string } | null>(null);
-  const handleGhostClick = useCallback(
-    (answer: string, source: string, _attachments?: KBAttachment[]) => {
-      const current = latestComposer.current;
-      if (isBlankRichText(current)) {
-        applyGhostAnswer(answer, source);
-        return;
-      }
-      if (holdsUnsentNote(current, lastEditMode.current)) {
-        toast.info(NOTE_IN_PROGRESS);
-        return;
-      }
-      setPendingGhost({ answer, source });
-    },
-    [applyGhostAnswer]
-  );
+  const ghost = useGhostAnswer({
+    writeComposer,
+    setComposerMode,
+    showComposerForShortcut,
+    richEditorRef,
+    handleAiSourceChange,
+    latestComposer,
+    lastEditMode,
+  });
+  const { handleGhostClick } = ghost;
 
-  // `resolving` is set here too (not only on close/resolve): the header button and the
-  // shortcuts read it, and this request is just as much in flight after its dialog has closed.
-  const handleReject = useCallback(async () => {
-    setResolving(true);
-    try {
-      await messageService.markAsProcessed(message.id);
-      onReject?.();
-    } catch (err) {
-      logger.error('Failed to mark as processed:', err);
-    } finally {
-      setResolving(false);
-    }
-  }, [message.id, onReject]);
-
-  /**
-   * Bin the thread as not customer work.
-   *
-   * ⚠️ Failure is SURFACED, unlike the neighbouring `handleReject`, which logs and moves on. The
-   * backend refuses this with a 400 in one real case — combining it with a KB save — and a silent
-   * failure here would leave the thread in the queue while the agent believes it is gone.
-   */
-  const handleNotCustomerWork = useCallback(
-    async (reason: string) => {
-      setResolving(true);
-      try {
-        await messageService.markAsNotCustomerWork(message.id, reason);
-        onReject?.();
-      } catch (err) {
-        logger.error('Failed to mark as not customer work:', err);
-        toast.failure('mark as not customer work', err);
-      } finally {
-        setResolving(false);
-      }
-    },
-    [message.id, onReject]
-  );
-
-  const handleReopen = useCallback(async () => {
-    try {
-      await messageService.reopen(message.id);
-      onReopen?.();
-    } catch (err) {
-      logger.error('Failed to reopen:', err);
-      // Surface the server reason (e.g. a 409 from a non-reopenable state) instead of
-      // failing silently — formatError pulls the BE `error` string out of the response.
-      toast.failure('reopen thread', err);
-    }
-  }, [message.id, onReopen]);
-
-  const handleClassify = useCallback(
-    async (
-      action: 'approve' | 'mark_suspicious' | 'move_to_spam' | 'confirm_spam',
-      createDetectionRule?: boolean,
-      trainSpamFilter?: boolean,
-      confirm?: boolean
-    ) => {
-      if (onClassify) await onClassify(action, createDetectionRule, trainSpamFilter, confirm);
-    },
-    [onClassify]
-  );
-
-  // The host asks before deleting; its success path forgets the thread's similar-results cache
-  // (clearing it here, on the press, left Cancel with a cold cache for nothing).
-  const handleDelete = useCallback(() => {
-    onDelete?.();
-  }, [onDelete]);
-
-  const handleRefresh = useCallback(() => {
-    setThreadRefreshKey((key) => key + 1);
-    onRefresh?.();
-  }, [onRefresh]);
-
-  // Contact label edits (from the CUSTOMER tab or the header's contact drawer)
-  // change the message's inherited labels but not message.id, so the header's
-  // label list won't refetch on its own. Bump a key it depends on, and run the
-  // normal refresh so the list/kanban cards pick up the change too.
-  const [labelsRefreshKey, setLabelsRefreshKey] = useState(0);
-  const handleContactChanged = useCallback(() => {
-    setLabelsRefreshKey((key) => key + 1);
-    handleRefresh();
-  }, [handleRefresh]);
-
-  const handleNoteUpdated = useCallback(
-    (noteId: number, content: string) => {
-      setNotes((prev) => prev.map((note) => (note.id === noteId ? { ...note, content } : note)));
-      setNoteActivityLog((prev) => [
-        ...prev,
-        {
-          label: 'Note edited',
-          who: user ? `${user.firstName} ${user.lastName ?? ''}`.trim() : 'Agent',
-          time: new Date().toISOString(),
-        },
-      ]);
-    },
-    [user]
-  );
-
-  const handleNoteDeleted = useCallback(
-    (noteId: number) => {
-      setNotes((prev) => prev.filter((note) => note.id !== noteId));
-      setNoteActivityLog((prev) => [
-        ...prev,
-        {
-          label: 'Note deleted',
-          who: user ? `${user.firstName} ${user.lastName ?? ''}`.trim() : 'Agent',
-          time: new Date().toISOString(),
-        },
-      ]);
-    },
-    [user]
-  );
-
-  const handleCheckContradiction = useCallback(async () => {
-    await messageService.checkContradiction(message.id);
-    setThreadRefreshKey((key) => key + 1);
-    onRefresh?.();
-  }, [message.id, onRefresh]);
-
-  // "Not a contradiction" (dismissContradiction.ts). True on success — the tab hides the alert at
-  // once, before the refetch lands; failures (incl. a 404 from an older backend) are toasted there.
-  const handleDismissContradiction = useCallback(async (): Promise<boolean> => {
-    const dismissed = await dismissContradictionWithFeedback(message.id);
-    if (dismissed) {
-      setThreadRefreshKey((key) => key + 1);
-      onRefresh?.();
-    }
-    return dismissed;
-  }, [message.id, onRefresh]);
+  const threadActions = useThreadActions({
+    message,
+    user,
+    setResolving,
+    setThreadRefreshKey,
+    setNotes,
+    setNoteActivityLog,
+    onReject,
+    onReopen,
+    onClassify,
+    onDelete,
+    onRefresh,
+  });
+  const {
+    handleReopen,
+    handleClassify,
+    handleDelete,
+    handleRefresh,
+    labelsRefreshKey,
+    handleContactChanged,
+    handleNoteUpdated,
+    handleNoteDeleted,
+    handleCheckContradiction,
+    handleDismissContradiction,
+  } = threadActions;
 
   // ── History banner ─────────────────────────────────────────────────────────
   // The predicate lives in `historyBanner.ts` with the reasoning: it must match the backend's
@@ -1581,26 +444,8 @@ export function MessageDetail({
   // the page around this component mocks the component itself out.
   const showHistoryBanner = shouldShowHistoryBanner(sortedThread);
 
-  // v3: internal notes sit in the thread at the moment they were written, between the messages
-  // they comment on. A stable sort keeps the messages in their own order (a note tied to the
-  // millisecond with a message goes after it). Day separators group this merged list, so a
-  // separator can only ever sit between days, in order.
-  const timeline = useMemo(() => {
-    const rows: (
-      | { kind: 'message'; time: number; msg: MessageEvent }
-      | { kind: 'note'; time: number; note: MessageNote }
-    )[] = [
-      ...sortedThread.map((msg) => ({ kind: 'message' as const, time: threadTimeOf(msg), msg })),
-      ...notes.map((note) => ({ kind: 'note' as const, time: Date.parse(note.createdAt), note })),
-    ];
-    return rows.sort((left, right) => (left.time || 0) - (right.time || 0));
-  }, [sortedThread, notes]);
-  const threadDayStarts = useMemo(() => dayStarts(timeline.map((row) => row.time)), [timeline]);
-
-  const flatAttachments = useMemo(
-    () => Array.from(attachmentsByMessageId.values()).flat(),
-    [attachmentsByMessageId]
-  );
+  const timelineData = useThreadTimeline(sortedThread, notes, attachmentsByMessageId);
+  const { flatAttachments } = timelineData;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -1762,116 +607,31 @@ export function MessageDetail({
 
         {!twoColumn && panelTabs}
 
-        {/* Thread view — visible when no panel tab is open.
-          ⛔ overflow-x-hidden is deliberate: `overflow-y-auto` alone makes the browser
-          compute overflow-x as `auto` too (CSS couples the axes), so one over-wide
-          message — an unwrapped <pre> body, a fixed-width email table — turned the
-          WHOLE thread into a sideways-scrolling pane that clipped every message
-          (ZET-SUP-1358). Wide content is contained per-bubble in ThreadBubble. */}
-        <div
-          ref={threadScrollerRef}
-          data-testid="thread-scroller"
-          onWheel={markScrollIntent}
-          onTouchMove={markScrollIntent}
-          onKeyDown={markScrollIntent}
-          onPointerDown={markScrollIntent}
-          className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden bg-background max-sm:flex-none ${panelOpen && !twoColumn ? 'hidden' : ''}`}
-        >
-          {/* v3: the thread is the canvas; bubbles are the cards on it. */}
-          <div
-            ref={threadContentRef}
-            className="flex flex-col gap-3.5 px-3.5 py-4 max-sm:gap-3 max-sm:px-3 max-sm:pt-3 max-sm:pb-2"
-          >
-            {threadLoading && sortedThread.length === 0 && (
-              <div className="py-8 text-sm text-center text-muted-foreground">
-                <div className="mx-auto mb-2 w-5 h-5 rounded-full border-2 animate-spin border-primary border-t-transparent" />
-                Loading thread…
-              </div>
-            )}
-            {threadError && (
-              <div className="py-4 text-sm text-center text-destructive">
-                {threadError}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setThreadRefreshKey((key) => key + 1)}
-                  className="block p-0 mx-auto mt-1 h-auto text-xs underline hover:no-underline"
-                >
-                  Retry
-                </Button>
-              </div>
-            )}
-            {!threadLoading && !threadError && sortedThread.length === 0 && (
-              <div className="py-6 text-[12px] text-center text-muted-foreground">
-                No messages in thread yet.
-              </div>
-            )}
-            {threadPage?.hasEarlier && (
-              <div className="text-center">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={loadEarlier}
-                  isLoading={loadingEarlier}
-                  className="px-2 py-1 h-auto text-xs text-muted-foreground"
-                >
-                  Show earlier messages ({threadPage.total - threadMessages.length} more)
-                </Button>
-              </div>
-            )}
-            {timeline.map((row, index) => (
-              <Fragment key={row.kind === 'message' ? `m${row.msg.id}` : `n${row.note.id}`}>
-                {threadDayStarts.has(index) && (
-                  <div
-                    role="separator"
-                    aria-label={dayLabel(row.time)}
-                    className={`flex items-center gap-2.5 text-muted-foreground ${LABEL}`}
-                  >
-                    <span className="flex-1 h-px bg-border" aria-hidden />
-                    <span aria-hidden>{dayLabel(row.time)}</span>
-                    <span className="flex-1 h-px bg-border" aria-hidden />
-                  </div>
-                )}
-                {row.kind === 'message' ? (
-                  // Memoised, with stable props: typing in the composer re-renders this view
-                  // per keystroke and must not re-render every message on screen.
-                  <ThreadMessageItem
-                    msg={row.msg}
-                    mergedFrom={mergeContext.mergedFromLabel(row.msg)}
-                    onReplyTo={supportsRecipients && isActive ? handleReplyToMessage : undefined}
-                    attachments={attachmentsByMessageId.get(row.msg.id) ?? NO_ATTACHMENTS}
-                    onOpenAttachment={handleOpenAttachment}
-                    onOpenInlineImage={handleOpenInlineImage}
-                  />
-                ) : (
-                  <ThreadNoteItem note={row.note} />
-                )}
-              </Fragment>
-            ))}
-
-            {/* Ghost bubble — a suggested reply, so only where a reply can be written. */}
-            {isActive && (
-              <MessageGhostBubble
-                aiLoading={aiLoading}
-                ghostVisible={ghostVisible}
-                ghostOption={ghostOption}
-                autoReply={autoReply}
-                composer={composer}
-                composerMode={composerMode}
-                resolved={message.status === 'resolved'}
-                answered={lastWordOurs}
-                alternativeCount={alternativeCount}
-                onGhostClick={handleGhostClick}
-                onShowAlternatives={() => {
-                  setTab('kb');
-                  setPanelOpen(true);
-                }}
-              />
-            )}
-          </div>
-        </div>
+        <ThreadScroller
+          thread={thread}
+          scrollPin={scrollPin}
+          timelineData={timelineData}
+          panelOpen={panelOpen}
+          twoColumn={twoColumn}
+          mergeContext={mergeContext}
+          supportsRecipients={supportsRecipients}
+          isActive={isActive}
+          handleReplyToMessage={handleReplyToMessage}
+          attachmentsByMessageId={attachmentsByMessageId}
+          handleOpenAttachment={handleOpenAttachment}
+          handleOpenInlineImage={handleOpenInlineImage}
+          aiLoading={aiLoading}
+          ghostVisible={ghostVisible}
+          ghostOption={ghostOption}
+          autoReply={autoReply}
+          composer={composer}
+          composerMode={composerMode}
+          message={message}
+          alternativeCount={alternativeCount}
+          handleGhostClick={handleGhostClick}
+          setTab={setTab}
+          setPanelOpen={setPanelOpen}
+        />
 
         {/* Phone: the resolve row between the thread and the composer, Thread tab only (M6) — and,
             as on desktop, only while the composer is on Reply: a note is not an answer. */}
@@ -1961,99 +721,23 @@ export function MessageDetail({
         </aside>
       )}
 
-      <WhatsAppTemplatePicker
-        open={templatesOpen}
-        onOpenChange={setTemplatesOpen}
-        templates={templates}
-        loading={templatesLoading}
-        sending={submitting}
-        error={templateError}
-        onSend={(templateId, parameters) => void handleSendTemplate(templateId, parameters)}
-      />
-
-      <PromoteToKbDialog
-        messageId={message.id}
-        isOpen={promoteToKbOpen}
-        onClose={() => setPromoteToKbOpen(false)}
-        onPromoted={handleRefresh}
-      />
-
-      {/* Confirm dialogs */}
-      <AssignOnReplyDialog
-        prompt={assignPrompt}
-        sending={submitting}
-        onChoose={(assign) => void performSend(assign)}
-        onCancel={() => setAssignPrompt(null)}
-      />
-      <MessageDetailConfirmDialogs
+      <MessageDetailOverlays
         message={message}
-        rejectDialogOpen={rejectDialogOpen}
-        setRejectDialogOpen={setRejectDialogOpen}
-        reopenDialogOpen={reopenDialogOpen}
-        setReopenDialogOpen={setReopenDialogOpen}
-        resolveConfirmOpen={resolveConfirmOpen}
-        notCustomerWorkOpen={notCustomerWorkOpen}
-        setNotCustomerWorkOpen={setNotCustomerWorkOpen}
-        onNotCustomerWork={handleNotCustomerWork}
-        setResolveConfirmOpen={setResolveConfirmOpen}
-        closeConfirmOpen={closeConfirmOpen}
-        setCloseConfirmOpen={setCloseConfirmOpen}
-        markReadPromptOpen={markReadPromptOpen}
-        setMarkReadPromptOpen={setMarkReadPromptOpen}
-        onReject={handleReject}
-        onReopen={handleReopen}
-        onResolveToKB={handleResolveWithoutReply}
-        onCloseThread={handleClose}
-        onMarkReadAndClose={async () => {
-          // Await the mark-read so a failure surfaces (toast + revert) while the
-          // panel is still mounted, rather than as an orphaned toast post-close.
-          await applyRead(true);
-          onClose?.();
-        }}
-        onKeepUnreadAndClose={() => onClose?.()}
+        dialogs={dialogs}
+        replyState={replyState}
+        send={send}
+        conv={conv}
+        ghost={ghost}
+        threadActions={threadActions}
+        assignPrompt={assignPrompt}
+        setAssignPrompt={setAssignPrompt}
+        onClose={onClose}
+        sendHoldOpen={sendHoldOpen}
+        setSendHoldOpen={setSendHoldOpen}
+        afterSendRef={afterSendRef}
+        similarOpen={similarOpen}
+        setSimilarOpen={setSimilarOpen}
       />
-
-      <HoldDialog
-        open={sendHoldOpen}
-        onOpenChange={setSendHoldOpen}
-        title="Send and put on hold"
-        description="The reply goes out, then the thread leaves the active list until the recheck date. Say why, so whoever picks it up knows what it is waiting for."
-        confirmText="Send and put on hold"
-        busy={submitting}
-        onConfirm={(hold) => {
-          setSendHoldOpen(false);
-          rememberSendAction('hold');
-          afterSendRef.current = { action: 'hold', hold };
-          void handleSend();
-        }}
-      />
-
-      <ConfirmDialog
-        open={pendingGhost !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingGhost(null);
-        }}
-        onConfirm={() => {
-          if (pendingGhost) applyGhostAnswer(pendingGhost.answer, pendingGhost.source);
-        }}
-        title="Replace your reply with this answer?"
-        description="What you have written so far will be replaced."
-        confirmText="Replace"
-        variant="warning"
-      />
-
-      {/* Similar messages dialog */}
-      {similarOpen && (
-        <SimilarMessagesDialog
-          messageId={message.id}
-          open={similarOpen}
-          onClose={() => setSimilarOpen(false)}
-          onSelectAnswer={(answer, source) => {
-            handleGhostClick(answer, source ?? '');
-            setSimilarOpen(false);
-          }}
-        />
-      )}
 
       {/* The file viewer — over the thread, which stays mounted and where it was. */}
       {threadFileViewer.viewer}
