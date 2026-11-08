@@ -54,11 +54,28 @@ export interface TrustedAddressesState {
   selfHosted: boolean;
 }
 
+/**
+ * Workspaces that never send product analytics to PostHog (BE `analytics.excluded_workspaces`,
+ * 2026-11-07) — the owner's demo and testing workspaces. System and load-test workspaces are always
+ * excluded on top of this list. `null` when the backend predates it.
+ */
+export interface AnalyticsExclusionsState {
+  workspaceIds: number[];
+  /** A self-hosted server never sends analytics; the list then changes nothing. */
+  selfHosted: boolean;
+}
+
 export interface MaintenanceState {
   jobs: MaintenanceJob[];
   repairs: { allowed: boolean; source: 'default' | 'console' };
   trustedAddresses: TrustedAddressesState | null;
+  analyticsExclusions: AnalyticsExclusionsState | null;
 }
+
+const workspaceIdsOf = (raw: unknown): number[] =>
+  (Array.isArray(raw) ? raw : []).filter(
+    (id): id is number => typeof id === 'number' && Number.isInteger(id) && id > 0
+  );
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -115,6 +132,7 @@ export const normaliseMaintenance = (raw: unknown): MaintenanceState => {
   }));
   const repairs = isRecord(data.repairs) ? data.repairs : {};
   const trusted = isRecord(data.trustedAddresses) ? data.trustedAddresses : null;
+  const exclusions = isRecord(data.analyticsExclusions) ? data.analyticsExclusions : null;
   return {
     jobs: jobs.filter((job) => job.id !== ''),
     repairs: {
@@ -128,6 +146,12 @@ export const normaliseMaintenance = (raw: unknown): MaintenanceState => {
           ),
           yourAddress: typeof trusted.yourAddress === 'string' ? trusted.yourAddress : null,
           selfHosted: trusted.selfHosted === true,
+        }
+      : null,
+    analyticsExclusions: exclusions
+      ? {
+          workspaceIds: workspaceIdsOf(exclusions.workspaceIds),
+          selfHosted: exclusions.selfHosted === true,
         }
       : null,
   };
@@ -160,6 +184,16 @@ const maintenanceService = {
     return Array.isArray(saved)
       ? saved.filter((entry): entry is string => typeof entry === 'string')
       : entries;
+  },
+
+  /** Replaces the whole analytics exclusion list; answers the saved list. */
+  setAnalyticsExclusions: async (workspaceIds: number[]): Promise<number[]> => {
+    const response = await apiClient.put<ApiResponse<{ workspaceIds?: unknown }>>(
+      '/api/system/maintenance/analytics-exclusions',
+      { workspaceIds }
+    );
+    const saved = response.data.data?.workspaceIds;
+    return Array.isArray(saved) ? workspaceIdsOf(saved) : workspaceIds;
   },
 
   /**

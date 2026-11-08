@@ -16,6 +16,7 @@ import { SearchDiagnosticsCard } from '@/components/console/maintenance/SearchDi
 import { SyncCheckpointsCard } from '@/components/console/maintenance/SyncCheckpointsCard';
 import { SpoofedSenderReportView } from '@/components/console/maintenance/SpoofedSenderReportView';
 import { TrustedAddressesCard } from '@/components/console/maintenance/TrustedAddressesCard';
+import { AnalyticsExclusionsCard } from '@/components/console/maintenance/AnalyticsExclusionsCard';
 import {
   REPAIRS,
   REPAIRS_ELSEWHERE,
@@ -621,6 +622,16 @@ export const PlatformMaintenance = () => {
         <TrustedAddressesCard
           key={state.trustedAddresses.entries.join(',')}
           state={state.trustedAddresses}
+          queryKey={MAINTENANCE_KEY}
+        />
+      )}
+
+      {/* Absent on a backend that predates the list. Remounted on a save so the picker shows it. */}
+      {state.analyticsExclusions && (
+        <AnalyticsExclusionsCard
+          key={state.analyticsExclusions.workspaceIds.join(',')}
+          state={state.analyticsExclusions}
+          workspaceOptions={workspaceOptions}
           queryKey={MAINTENANCE_KEY}
         />
       )}

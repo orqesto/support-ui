@@ -37,10 +37,23 @@ export type SignupSource = Partial<Record<SourceKey, string>>;
 const ALLOWED: readonly SourceKey[] = [...URL_KEYS, ...COOKIE_ONLY_KEYS];
 const MAX_LENGTH = 200;
 
+/**
+ * Trimmed, ≤200 UTF-16 units, without control characters or broken surrogates. The backend
+ * stores this in a jsonb column, which refuses NUL and lone surrogates — and a naive cut at 200
+ * can split an emoji into one.
+ */
 function clean(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed ? trimmed.slice(0, MAX_LENGTH) : undefined;
+  let out = '';
+  // for…of walks code points: a lone surrogate comes out as one char in the surrogate range.
+  for (const char of value.trim()) {
+    const code = char.codePointAt(0) ?? 0;
+    if (code < 0x20 || code === 0x7f || (code >= 0xd800 && code <= 0xdfff)) continue;
+    if (out.length + char.length > MAX_LENGTH) break;
+    out += char;
+  }
+  out = out.trim();
+  return out ? out : undefined;
 }
 
 function fromCookie(cookieHeader: string): SignupSource | null {
@@ -59,7 +72,8 @@ function fromCookie(cookieHeader: string): SignupSource | null {
       const value = clean(record[key]);
       if (value) out[key] = value;
     }
-    return out;
+    // A cookie with nothing usable must not hide the URL's campaign parameters.
+    return Object.keys(out).length > 0 ? out : null;
   } catch {
     return null;
   }
