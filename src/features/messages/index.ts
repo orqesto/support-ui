@@ -62,3 +62,31 @@ export {
   messagesCacheKey,
   useMessagesStore,
 } from './stores/messagesStore';
+
+// MessagesPage's hooks and parts (F5 split: the page stays thin). The page is a lazy route, so
+// these load with it, never with the app shell.
+export { DetailSlideOver, SplitDetailPane } from './components/messagesPage/DetailPanels';
+export { countActiveFilters, countClearableFilters } from './components/messagesPage/filterCounts';
+export { MessagesPageHeader } from './components/messagesPage/MessagesPageHeader';
+export { SpamPreviewDialog } from './components/messagesPage/SpamPreviewDialog';
+export { ThreadListView } from './components/messagesPage/ThreadListView';
+export { useBulkActionRunner } from './hooks/useBulkActionRunner';
+export { useDetailPanelBodyLock } from './hooks/useDetailPanelBodyLock';
+export { useFilterBarHandlers } from './hooks/useFilterBarHandlers';
+export { useLaneCounts } from './hooks/useLaneCounts';
+export { useListSelection } from './hooks/useListSelection';
+export { useMessagesDisplayMode } from './hooks/useMessagesDisplayMode';
+export { useNotifyTriage } from './hooks/useNotifyTriage';
+export { useRowReadChanged } from './hooks/useRowReadChanged';
+export { useScopeJump } from './hooks/useScopeJump';
+export { useThreadActions } from './hooks/useThreadActions';
+export { BulkDialogs } from './components/messagesPage/BulkDialogs';
+export { ThreadsFilterBar } from './components/messagesPage/ThreadsFilterBar';
+export { useBoardAndBulkState } from './hooks/useBoardAndBulkState';
+export { useServerEventRouting } from './hooks/useServerEventRouting';
+export { detailPanelProps } from './components/messagesPage/detailPanelProps';
+export type { MessagesPageAlert } from './hooks/messagesPageAlert';
+export {
+  useConversationUpdateEvents,
+  useTicketRoutingStatusEvents,
+} from './hooks/useThreadServerEvents';
