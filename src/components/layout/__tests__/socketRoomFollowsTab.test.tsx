@@ -60,9 +60,6 @@ vi.mock('@/features/subscription/components/SubscriptionGateOverlay', () => ({
 }));
 vi.mock('@/components/shared/WebSocketStatus', () => ({ WebSocketStatus: nothing }));
 vi.mock('@/components/shared/WebSocketDebug', () => ({ WebSocketDebug: nothing }));
-vi.mock('@/components/messages/MessageProcessingProgress', () => ({
-  MessageProcessingProgress: nothing,
-}));
 vi.mock('@/hooks/useMediaQuery', () => ({ useMediaQuery: () => true }));
 vi.mock('@/components/layout/SidebarNav', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),

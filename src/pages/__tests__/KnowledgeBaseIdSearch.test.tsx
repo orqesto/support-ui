@@ -65,9 +65,6 @@ vi.mock('@/hooks/usePermissions', () => ({
 }));
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => ({ isSurfaceVisibleToMe: () => true }) }));
 vi.mock('@/features/kb/components/KbExportButton', () => ({ KbExportButton: () => null }));
-vi.mock('@/components/kb/KbReviewSuggestionsButton', () => ({
-  KbReviewSuggestionsButton: () => null,
-}));
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({ data: [{ id: 3, name: 'Support' }] }),
   useDepartmentById: () => undefined,
