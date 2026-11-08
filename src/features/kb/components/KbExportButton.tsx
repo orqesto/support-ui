@@ -8,12 +8,18 @@ import { downloadKbExport, getKbExportSize, type KbListFilters } from '@/feature
 type KbExportButtonProps = {
   /** The list's own filters (status included, 'all' too): the file holds exactly the list's rows. */
   filters: KbListFilters;
+  /**
+   * The list's total for these filters. A change means rows came or went under the same filters
+   * (the last deleted entry restored, an entry approved out of Pending), so the count is read
+   * again; paging leaves it as it is.
+   */
+  listTotal?: number;
 };
 
 /** loading ⇒ `undefined`; a backend without the export ⇒ `unsupported`; a count that failed ⇒ `unknown`. */
 type ExportSize = KbExportSize | 'unsupported' | 'unknown' | undefined;
 
-export const KbExportButton = ({ filters }: KbExportButtonProps) => {
+export const KbExportButton = ({ filters, listTotal }: KbExportButtonProps) => {
   // A new object on every render: the effect depends on what the filters say, not on identity.
   const filtersKey = JSON.stringify(filters);
   const [size, setSize] = useState<ExportSize>(undefined);
@@ -34,9 +40,10 @@ export const KbExportButton = ({ filters }: KbExportButtonProps) => {
     return () => {
       current = false;
     };
-    // Read again only when the filters change — not after every list read (paging, decisions).
+    // Read again when the filters change, or the list's total under them — not on every list read
+    // (paging keeps the total).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersKey]);
+  }, [filtersKey, listTotal]);
 
   const download = async () => {
     setDownloading(true);

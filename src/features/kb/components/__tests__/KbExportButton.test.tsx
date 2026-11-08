@@ -200,4 +200,20 @@ describe('KbExportButton', () => {
       transport.calls('GET', '/api/knowledge-base/export.csv').map((call) => call.params.status)
     ).toEqual(['all', 'approved']);
   });
+
+  it('reads the count again when the list total changes under the same filters (last deleted entry restored)', async () => {
+    let count = 2;
+    useBackend(() => ok({ count, cap: 10000, truncated: false }));
+    const filters = { status: 'deleted', type: 'all' } as const;
+    const { rerender } = render(<KbExportButton filters={filters} listTotal={2} />);
+    await screen.findByRole('button', { name: 'Export to CSV (2)' });
+    const reads = () => transport.calls('GET', '/api/knowledge-base/export.csv').length;
+    // CONTROL: another page of the same list (same total) asks for nothing.
+    rerender(<KbExportButton filters={filters} listTotal={2} />);
+    expect(reads()).toBe(1);
+    count = 0;
+    rerender(<KbExportButton filters={filters} listTotal={0} />);
+    expect(await screen.findByRole('button', { name: 'Export to CSV (0)' })).toBeInactive();
+    expect(reads()).toBe(2);
+  });
 });
