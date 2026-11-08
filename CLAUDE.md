@@ -68,6 +68,21 @@ measurements without naming whose data it was ("a customer's workspace, 2026-09"
 add a real customer's domain to that list. It only sees email addresses — names and pasted text
 are on you.
 
+## Module boundaries
+
+Code is organised in features (`src/features/<x>/`); the full rules are in `docs/ARCHITECTURE.md`.
+
+- Outside a feature, import it only through `@/features/<x>` (its index: UI and the rest) or
+  `@/features/<x>/shell` (light leaf files: small non-UI pieces, and anything the app shell —
+  App, route helpers, layout, processing indicator — needs). Never a deep path; never a feature
+  from `lib`/`hooks`/`services`/`stores`/`types`/`utils`/`components/ui`.
+- Type-only re-exports: `export type { T } from './x'`, never `export { type T } from './x'`
+  (the latter still loads `./x`).
+- Generic UI used by 2+ features goes in `components/shared`; a file used by one feature lives in it.
+- CI blocks growth of feature → feature imports, upward imports, cycles, a feature index in the
+  main bundle, the main chunk size, and lazy page chunks loaded eagerly (`npm run check:*`). Run
+  them, the type-check, lint and the full suite before pushing.
+
 ## Other
 
 - Services live in `src/services/*.service.ts` and go through `@/lib/api-client` (`apiClient`).

@@ -18,6 +18,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const BOUNDARIES = resolve(here, '../check-boundaries.mjs');
 const CYCLES = resolve(here, '../check-cycles.mjs');
 const SHELL = resolve(here, '../check-shell-bundle.mjs');
+const BUNDLE = resolve(here, '../check-bundle.mjs');
 
 let root;
 const write = (path, text) => {
@@ -646,6 +647,45 @@ describe('check-shell-bundle', () => {
     );
     const { status, output } = run(SHELL);
     expect(status, output).toBe(0);
+  });
+});
+
+describe('check-bundle', () => {
+  const build = ({ entryBytes = 100, pageCode = 'import("./Board-b.js");' } = {}) => {
+    write(
+      'dist/index.html',
+      '<script type="module" crossorigin src="/assets/index-a.js"></script>\n'
+    );
+    write('dist/assets/index-a.js', 'x'.repeat(entryBytes));
+    write('dist/assets/ListPage-c.js', pageCode);
+    write('dist/assets/Board-b.js', 'export const Board = 1;\n');
+    write('.ci/baselines/bundle.json', '{ "mainChunkBytes": 100, "marginBytes": 10 }\n');
+  };
+
+  it('passes within the budget with a lazy chunk loaded only by import()', () => {
+    build();
+    const { status, output } = run(BUNDLE);
+    expect(status, output).toBe(0);
+  });
+
+  it('fails when the main chunk grows past the budget', () => {
+    build({ entryBytes: 111 });
+    const { status, output } = run(BUNDLE);
+    expect(status).toBe(1);
+    expect(output).toContain('over the budget 100 + 10 B');
+  });
+
+  it('fails when a page also imports its lazy chunk statically', () => {
+    build({ pageCode: 'import"./Board-b.js";const load=()=>import("./Board-b.js");' });
+    const { status, output } = run(BUNDLE);
+    expect(status).toBe(1);
+    expect(output).toContain('ListPage-c.js -> Board-b.js');
+  });
+
+  it('CONTROL: inside a chunk that is not a page, a redundant import() is not flagged', () => {
+    build();
+    write('dist/assets/Editor-d.js', 'import"./Board-b.js";const load=()=>import("./Board-b.js");');
+    expect(run(BUNDLE).status).toBe(0);
   });
 });
 
