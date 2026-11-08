@@ -609,6 +609,20 @@ export const getDirectionText = (
 };
 
 /**
+ * `value` without its first `<…>` group that has something inside (`Jane <jane@x>` → `Jane `), the
+ * same as `value.replace(/<[^>]+>/, '')` but by slicing: the result only feeds avatar initials and
+ * is never HTML, and a regex "sanitizer" here reads to CodeQL as incomplete HTML sanitizing.
+ */
+const withoutFirstAngleGroup = (value: string): string => {
+  for (let open = value.indexOf('<'); open !== -1; open = value.indexOf('<', open + 1)) {
+    const close = value.indexOf('>', open + 1);
+    if (close === -1) return value;
+    if (close > open + 1) return value.slice(0, open) + value.slice(close + 1);
+  }
+  return value;
+};
+
+/**
  * Compact 2-letter initials from a name or email. Email local-parts get the
  * first two letters; "First Last" gets the first letter of each word.
  */
@@ -617,7 +631,7 @@ export const getInitials = (raw: string | null | undefined): string => {
   const trimmed = raw.trim();
   if (!trimmed) return '··';
   // strip RFC-2822 angle brackets if present
-  const stripped = trimmed.replace(/<[^>]+>/, '').trim() || trimmed;
+  const stripped = withoutFirstAngleGroup(trimmed).trim() || trimmed;
   const beforeAt = stripped.split('@')[0] ?? stripped;
   const parts = beforeAt
     .replace(/[._-]+/g, ' ')
