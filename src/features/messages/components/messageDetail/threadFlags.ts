@@ -1,12 +1,8 @@
-import { getSpamCheck } from '@/lib/messageHelpers';
 import type { Message } from '@/types';
 import { getResolveMode } from '../resolveMode';
 
 /** What the thread's state allows: triage verdicts, whether it is active, how it resolves. */
 export function deriveThreadFlags(message: Message) {
-  const spamCheck = getSpamCheck(message);
-  void spamCheck;
-
   const isFiltered = message.status === 'filtered';
   const isSuspicious =
     !isFiltered &&
