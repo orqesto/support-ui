@@ -20,6 +20,24 @@ const presetsOf = (patterns: SkillPattern[]): Set<SkillPatternPresetId> =>
 const regexesOf = (patterns: SkillPattern[]): string[] =>
   patterns.flatMap((pattern) => ('regex' in pattern ? [pattern.regex] : []));
 
+/** The list Save sends: presets in their fixed order, then the regexes (a typed, not yet added
+ *  regex included — review 2026-11-09: pressing Save without Add dropped it). */
+const patternsFrom = (
+  presets: Set<SkillPatternPresetId>,
+  regexes: string[],
+  draft: string
+): SkillPattern[] => {
+  const typed = draft.trim();
+  const all = typed && !regexes.includes(typed) ? [...regexes, typed] : regexes;
+  return [
+    ...SKILL_PATTERN_PRESETS.filter((preset) => presets.has(preset.id)).map((preset) => ({
+      preset: preset.id,
+    })),
+    ...all.map((regex) => ({ regex })),
+  ];
+};
+const keyOf = (patterns: SkillPattern[]): string => JSON.stringify(patterns);
+
 /**
  * A routing value's text patterns (BE 2026-11-09): text in the customer's mail that counts like a
  * keyword — ready-made patterns (an EVM transaction hash, a Tron address …) or the admin's own
@@ -39,8 +57,13 @@ export const RoutingValuePatterns = ({
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [savedKey, setSavedKey] = useState(() =>
+    keyOf(patternsFrom(presetsOf(initial), regexesOf(initial), ''))
+  );
 
   const total = presets.size + regexes.length;
+  const pending = patternsFrom(presets, regexes, draft);
+  const dirty = keyOf(pending) !== savedKey;
 
   const togglePreset = (id: SkillPatternPresetId, on: boolean) => {
     setNotice(null);
@@ -63,13 +86,11 @@ export const RoutingValuePatterns = ({
   const save = async () => {
     setBusy(true);
     try {
-      const patterns: SkillPattern[] = [
-        ...SKILL_PATTERN_PRESETS.filter((preset) => presets.has(preset.id)).map((preset) => ({
-          preset: preset.id,
-        })),
-        ...regexes.map((regex) => ({ regex })),
-      ];
+      const patterns = pending;
       await organizationService.setRoutingValuePatterns(routingKey, value, patterns);
+      setRegexes(regexesOf(patterns));
+      setDraft('');
+      setSavedKey(keyOf(patterns));
       setNotice('Patterns saved.');
     } catch (error) {
       // The controller's own 400s carry `message`; an ApiError (unsafe regex) carries `error`.
@@ -131,7 +152,10 @@ export const RoutingValuePatterns = ({
           maxLength={MAX_REGEX_CHARS}
           placeholder="Your own regular expression, e.g. ORD-\d{6}"
           disabled={busy || total >= MAX_PATTERNS}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            setNotice(null);
+          }}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {
               event.preventDefault();
@@ -154,12 +178,16 @@ export const RoutingValuePatterns = ({
           size="sm"
           aria-label={`Save patterns for ${value}`}
           isLoading={busy}
-          disabled={busy}
+          disabled={busy || !dirty}
           onClick={() => void save()}
         >
           Save patterns
         </Button>
-        {notice && <span className="text-xs text-muted-foreground">{notice}</span>}
+        {notice ? (
+          <span className="text-xs text-muted-foreground">{notice}</span>
+        ) : (
+          dirty && <span className="text-xs text-warning">Unsaved changes</span>
+        )}
       </div>
     </div>
   );

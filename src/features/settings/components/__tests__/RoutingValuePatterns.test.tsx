@@ -84,10 +84,41 @@ describe('RoutingValuePatterns', () => {
       status: 400,
       data: { success: false, error: 'Pattern contains nested quantifiers' },
     });
-    render(
-      <RoutingValuePatterns routingKey="payment_sys" value="usdt" initial={[{ regex: '(a+)+' }]} />
-    );
+    render(<RoutingValuePatterns routingKey="payment_sys" value="usdt" initial={[]} />);
+    fireEvent.change(screen.getByLabelText('Custom pattern for usdt'), {
+      target: { value: '(a+)+' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Save patterns for usdt' }));
     expect(await screen.findByText('Pattern contains nested quantifiers')).toBeInTheDocument();
+  });
+
+  it('a typed regex that was not added is saved too; Save is off when nothing changed (review 2026-11-09)', async () => {
+    render(
+      <RoutingValuePatterns
+        routingKey="payment_sys"
+        value="usdt"
+        initial={[{ preset: 'evm_tx_hash' }]}
+      />
+    );
+    const save = screen.getByRole('button', { name: 'Save patterns for usdt' });
+    expect(save).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByText('Unsaved changes')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Custom pattern for usdt'), {
+      target: { value: ' ORD-\\d+ ' },
+    });
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+    fireEvent.click(save);
+    await waitFor(() =>
+      expect(setRoutingValuePatterns).toHaveBeenCalledWith('payment_sys', 'usdt', [
+        { preset: 'evm_tx_hash' },
+        { regex: 'ORD-\\d+' },
+      ])
+    );
+    // Saved: the regex shows as a chip, the field is empty, Save is off again.
+    expect(await screen.findByText('Patterns saved.')).toBeInTheDocument();
+    expect(screen.getByText('ORD-\\d+')).toBeInTheDocument();
+    expect(screen.getByLabelText('Custom pattern for usdt')).toHaveValue('');
+    expect(save).toHaveAttribute('aria-disabled', 'true');
   });
 });
