@@ -6,6 +6,7 @@ import type {
   RoutingKeyType,
   RoutingTestResult,
   RoutingValue,
+  SkillPattern,
 } from '@/types/skillRouting';
 import { scopedLookup } from '@/lib/scopedLookup';
 import type { ApiResponse, PaginationMeta } from '@/types';
@@ -549,6 +550,18 @@ export const organizationService = {
     await apiClient.put(
       `/api/organizations/routing-keys/${encodeURIComponent(key)}/values/${encodeURIComponent(value)}`,
       { description }
+    );
+  },
+
+  /** Replace a value's text patterns. A 400 carries the reason in `message` (unsafe regex …). */
+  setRoutingValuePatterns: async (
+    key: string,
+    value: string,
+    patterns: SkillPattern[]
+  ): Promise<void> => {
+    await apiClient.put(
+      `/api/organizations/routing-keys/${encodeURIComponent(key)}/values/${encodeURIComponent(value)}/patterns`,
+      { patterns }
     );
   },
 

@@ -21,9 +21,27 @@ export type RoutingValue = {
   terms?: string[];
   /** Language keys: whether the router recognises the language; null for topic keys. */
   knownLanguage: boolean | null;
+  /** Text patterns that count like keywords (BE 2026-11-09); absent on an older backend. */
+  patterns?: SkillPattern[];
 };
 
-export type SkillMatchSource = 'keyword' | 'embedding' | 'language' | 'ai';
+/** Preset ids the BE knows (`src/shared/routing/skillPatterns.ts` there). */
+export const SKILL_PATTERN_PRESETS = [
+  { id: 'evm_tx_hash', label: 'EVM transaction hash', example: '0x + 64 hex characters' },
+  { id: 'evm_address', label: 'EVM address', example: '0x + 40 hex characters' },
+  { id: 'tron_address', label: 'Tron address', example: 'T + 33 characters' },
+  { id: 'btc_address', label: 'Bitcoin address', example: '1…, 3… or bc1…' },
+  {
+    id: 'hex64_hash',
+    label: 'Transaction hash without 0x',
+    example: '64 hex characters: Tron, Bitcoin and others look the same',
+  },
+] as const;
+
+export type SkillPatternPresetId = (typeof SKILL_PATTERN_PRESETS)[number]['id'];
+export type SkillPattern = { preset: SkillPatternPresetId } | { regex: string };
+
+export type SkillMatchSource = 'keyword' | 'pattern' | 'embedding' | 'language' | 'ai';
 
 export type SkillMatch = {
   key: string;

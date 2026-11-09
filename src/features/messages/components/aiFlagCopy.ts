@@ -65,6 +65,8 @@ const describeRoutedMatch = (match: RoutedMatch): string => {
   const notes: string[] = [];
   if (match.source === 'ai') notes.push('AI judged');
   if (match.source === 'language') notes.push('detected language');
+  else if (match.source === 'pattern' && match.evidence)
+    notes.push(`text pattern found “${match.evidence}”`);
   else if (match.evidence) notes.push(`mentions “${match.evidence}”`);
   return `${match.key} = ${match.value}${notes.length ? ` (${notes.join('; ')})` : ''}`;
 };

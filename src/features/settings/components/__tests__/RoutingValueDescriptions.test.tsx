@@ -130,4 +130,23 @@ describe('RoutingValueDescriptions', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Suggest usdc' }));
     expect(await screen.findByText(/could not answer/i)).toBeInTheDocument();
   });
+
+  it('topic values show the text patterns editor; language keys and an older backend do not', async () => {
+    getRoutingKeyValues.mockResolvedValue([row({ patterns: [{ preset: 'evm_tx_hash' }] })]);
+    const { unmount } = render(<RoutingValueDescriptions routingKey="payment_sys" keyType="topic" />);
+    expect(await screen.findByLabelText(/EVM transaction hash/)).toBeChecked();
+    unmount();
+
+    getRoutingKeyValues.mockResolvedValue([row({ patterns: [] })]);
+    const language = render(<RoutingValueDescriptions routingKey="lang" keyType="language" />);
+    expect(await screen.findByText('usdc')).toBeInTheDocument();
+    expect(screen.queryByText('Text patterns')).not.toBeInTheDocument();
+    language.unmount();
+
+    // CONTROL: no `patterns` field (older backend) ⇒ no editor on a topic key either.
+    getRoutingKeyValues.mockResolvedValue([row()]);
+    render(<RoutingValueDescriptions routingKey="payment_sys" keyType="topic" />);
+    expect(await screen.findByText('usdc')).toBeInTheDocument();
+    expect(screen.queryByText('Text patterns')).not.toBeInTheDocument();
+  });
 });
