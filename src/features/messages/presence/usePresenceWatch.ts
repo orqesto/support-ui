@@ -335,6 +335,18 @@ export const usePresenceWatch = (
     } else void watchIds(added);
   }, [idsKey, release, watchIds]);
 
+  // A closed tab or a reload never unmounts React, so the cleanup above never runs: without this
+  // the server learns of the leave only from the socket ping timeout (~30 s of a ghost viewer).
+  // `pagehide` covers close, reload and navigating away; unwatch is fire-and-forget.
+  useEffect(() => {
+    if (idsKey === '') return undefined;
+    const onPageHide = () => {
+      presenceClient.unwatch(unique(wanted.current.map((id) => survivorOf.current.get(id) ?? id)));
+    };
+    window.addEventListener('pagehide', onPageHide);
+    return () => window.removeEventListener('pagehide', onPageHide);
+  }, [idsKey]);
+
   // What this tab watches now (for a composer that reports without watching, usePresenceReport),
   // and the state this view wants on those threads (the arbiter sends the strongest of all).
   const [owner] = useState(() => ({}));

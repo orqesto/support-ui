@@ -405,6 +405,33 @@ describe('usePresenceWatch — who else is on these threads', () => {
     unmount();
     expect(emitted('presence:unwatch')).toEqual([{ conversationIds: [99, 11] }]);
   });
+
+  it('pagehide (tab close, reload, leaving the site) unwatches the survivors at once', async () => {
+    fake.answerWatch = (ids) => okAck(ids, {}, { 10: 99 });
+    renderHook(() => usePresenceWatch([10, 11]));
+    await settle();
+    window.dispatchEvent(new Event('pagehide'));
+    expect(emitted('presence:unwatch')).toEqual([{ conversationIds: [99, 11] }]);
+  });
+
+  it('after unmount, pagehide emits nothing more', async () => {
+    const removed = vi.spyOn(window, 'removeEventListener');
+    const { unmount } = renderHook(() => usePresenceWatch([10]));
+    await settle();
+    unmount();
+    expect(removed).toHaveBeenCalledWith('pagehide', expect.any(Function));
+    removed.mockRestore();
+    fake.emit.mockClear();
+    window.dispatchEvent(new Event('pagehide'));
+    expect(emitted('presence:unwatch')).toEqual([]);
+  });
+
+  it('a hook with no ids emits nothing on pagehide', async () => {
+    renderHook(() => usePresenceWatch([]));
+    await settle();
+    window.dispatchEvent(new Event('pagehide'));
+    expect(emitted('presence:unwatch')).toEqual([]);
+  });
 });
 
 describe('usePresenceWatch — reporting this tab’s state', () => {
