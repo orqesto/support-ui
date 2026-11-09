@@ -110,8 +110,8 @@ describe('PlatformDefaults', () => {
   it('shows the knowledge-base capture setting (absent from this backend: says so)', () => {
     render(<PlatformDefaults />);
     expect(screen.getByText('Rewrite captured questions with AI')).toBeInTheDocument();
-    // Cards that say so on this backend: knowledge base, AI drafts, custom API health, mail import, embedding threads, hourly AI calls, Free KB allowance, routing proposals, skill pattern caps.
-    expect(screen.getAllByText(/arrive?s? with the next backend release/)).toHaveLength(9);
+    // Cards that say so on this backend: knowledge base, AI drafts, custom API health, mail import, embedding threads, hourly AI calls, Free KB allowance, thread presence, routing proposals, skill pattern caps.
+    expect(screen.getAllByText(/arrive?s? with the next backend release/)).toHaveLength(10);
     // The AI drafts card, absent from this backend: no inputs (FE ahead of BE must not white-screen).
     expect(screen.getByText('AI drafts')).toBeInTheDocument();
     expect(screen.queryByLabelText(/Similarity to draft from one KB entry/)).toBeNull();

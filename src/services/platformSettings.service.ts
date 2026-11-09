@@ -4,6 +4,8 @@ import {
   type EmbeddingThreadsInput,
   type EmbeddingThreadsSettings,
 } from './embeddingThreads';
+import { normalizePresence } from './presenceSettings';
+import type { PlatformPresenceInput, PresenceSettingsView } from './presenceSettings';
 import { getErrorStatus } from '@/lib/errorMessages';
 import {
   normalizeBedrockDiscovery,
@@ -158,6 +160,8 @@ export type PlatformSettings = {
    * 2026-11-07). Absent on an older backend.
    */
   fairOrder?: FairOrderSetting;
+  /** Thread presence tunables (`presence`, under `ingestion` in the response). Absent on an older backend. */
+  presence?: PresenceSettingsView;
   /**
    * Hourly AI call limit of managed workspaces and the share kept for live mail
    * (`analysisHourly`, 2026-10-19). Absent on a backend that predates it — the card then says so.
@@ -241,7 +245,7 @@ export type IngestionSettings = {
 export type FairOrderSetting = { value: boolean; source: FieldSource };
 /** PUT /settings/ingestion — a PARTIAL body: only the fields sent are saved (at least one). */
 export type PlatformIngestionInput = Partial<Record<keyof IngestionSettings, number>> &
-  EmbeddingThreadsInput & { fairOrder?: boolean };
+  EmbeddingThreadsInput & { fairOrder?: boolean; presence?: PlatformPresenceInput };
 
 /** PUT /settings/custom-api — both thresholds, whole numbers ≥ 1 (the whole value is replaced). */
 export type PlatformCustomApiInput = { noMatchStreak: number; okWindowDays: number };
@@ -697,12 +701,10 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
   const kb = normalizeKb(raw.kb);
   const customApi = normalizeCustomApi(raw.customApi);
   const ingestion = normalizeIngestion(raw.ingestion);
-  const embeddingThreads = isRecord(raw.ingestion)
-    ? normalizeEmbeddingThreads(raw.ingestion.embeddingThreads)
-    : undefined;
-  const fairOrder = isRecord(raw.ingestion)
-    ? normalizeFairOrder(raw.ingestion.fairOrder)
-    : undefined;
+  const ing = isRecord(raw.ingestion) ? raw.ingestion : undefined;
+  const embeddingThreads = normalizeEmbeddingThreads(ing?.embeddingThreads);
+  const fairOrder = normalizeFairOrder(ing?.fairOrder);
+  const presence = normalizePresence(ing?.presence);
   const analysisHourly = normalizeAnalysisHourly(raw.analysisHourly);
   const drafts = normalizeDrafts(raw.drafts);
   const provider = field(raw.ai.provider);
@@ -770,6 +772,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
     ...(ingestion ? { ingestion } : {}),
     ...(embeddingThreads ? { embeddingThreads } : {}),
     ...(fairOrder ? { fairOrder } : {}),
+    ...(presence ? { presence } : {}),
     ...(analysisHourly ? { analysisHourly } : {}),
     ...(drafts ? { drafts } : {}),
   };

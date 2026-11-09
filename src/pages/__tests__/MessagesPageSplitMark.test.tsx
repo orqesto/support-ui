@@ -121,8 +121,11 @@ vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
 }));
 vi.mock('@/hooks/useDepartments', () => ({ useDepartments: () => ({ data: [] }) }));
 vi.mock('@/stores/authStore', () => ({
-  useAuthStore: (selector?: (state: { user: null }) => unknown) =>
-    selector ? selector({ user: null }) : { user: null },
+  useAuthStore: Object.assign(
+    (selector?: (state: { user: null }) => unknown) =>
+      selector ? selector({ user: null }) : { user: null },
+    { getState: () => ({ user: null, selectedOrganizationId: null }) }
+  ),
 }));
 vi.mock('@/components/auth/PermissionGuard', () => ({
   PermissionGuard: ({ children }: { children: ReactNode }) => <>{children}</>,
