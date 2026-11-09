@@ -1,7 +1,9 @@
 /**
  * Keeps the presence summary store (inbox rows, kanban cards) current: one `presence:snapshot`
  * on mount, on a workspace switch and after every reconnect, then `presence:summary` changes.
- * Mounted once, in MessagesPage.
+ * Mounted by the pages that show presence on a list of threads or act on one of them: MessagesPage
+ * (rows, cards, bulk confirm) and NeedsRoutingPage (the confirm before a move or a spam decision).
+ * They are separate routes, so only one is mounted at a time; each mount resets the store.
  *
  * - `available` is true only after a snapshot succeeds; false on a disconnect and on a refusal.
  * - The first snapshot of a fresh page is often refused (the server answers `{ok:false}` until the

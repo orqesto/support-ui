@@ -11,7 +11,7 @@
  * Global admins never report a state, so they are never the writer — but their own actions still
  * ask.
  */
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode, type SyntheticEvent } from 'react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useAuthStore } from '@/stores/authStore';
 import type { PresenceViewer } from './presence.types';
@@ -36,6 +36,8 @@ interface Pending {
   run: () => void;
   onCancel?: () => void;
 }
+
+const stopPropagation = (event: SyntheticEvent) => event.stopPropagation();
 
 /** The first OTHER agent writing a reply (not away) among `users`, or undefined. */
 const firstWriter = (
@@ -82,8 +84,29 @@ const useWriterConfirm = (writerOf: (conversationId?: number) => number | undefi
     else current.onCancel?.();
   }, []);
 
+  /*
+    The question is often rendered inside something clickable — a kanban card or an inbox row
+    whose onClick / onKeyDown opens the thread. The dialog portals in the DOM, but React events
+    still bubble to the React parent: a press on "Assign anyway" or Cancel opened the thread, and
+    the card's Enter handler (preventDefault) swallowed the button's own activation. This wrapper
+    stops them here, as the assignee picker's portal does. `contents`: no box of its own.
+  */
   const dialog: ReactNode = pending ? (
-    <GuardDialog pending={pending} onConfirm={() => settle(true)} onCancel={() => settle(false)} />
+    <div
+      role="presentation"
+      className="contents"
+      onClick={stopPropagation}
+      onKeyDown={stopPropagation}
+      onPointerDown={stopPropagation}
+      onMouseDown={stopPropagation}
+      onTouchStart={stopPropagation}
+    >
+      <GuardDialog
+        pending={pending}
+        onConfirm={() => settle(true)}
+        onCancel={() => settle(false)}
+      />
+    </div>
   ) : null;
   return { ask, dialog };
 };

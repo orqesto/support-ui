@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useRef, useState, type ReactNode } from 'react';
 import type { DragEndEvent } from '@dnd-kit/core';
@@ -48,6 +49,7 @@ vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'SUP' }))
 
 const { RowAssignee } = await import('../RowAssignee');
 const { KanbanCard } = await import('../KanbanCard');
+const { MessageListItem } = await import('../MessageListItem');
 const { useKanbanDrag } = await import('../kanbanBoard/useKanbanDrag');
 const { buildMoreMenuItems } = await import('../messageDetailHeader/buildMoreMenuItems');
 
@@ -119,6 +121,48 @@ describe('list row and kanban card assign', () => {
       pick();
       expect(assigned).toHaveBeenCalledTimes(1);
       expect(screen.queryByText(/is writing a reply/)).toBeNull();
+    });
+  }
+});
+
+describe('the question inside a clickable card or row does not open the thread (fix round 2)', () => {
+  const open = vi.fn();
+  const places = [
+    ['KanbanCard', () => <KanbanCard thread={thread} onOpen={open} />],
+    ['MessageListItem row', () => <MessageListItem thread={thread} onOpen={open} />],
+  ] as const;
+  const ask = (node: () => ReactNode) => {
+    writing(true);
+    wrap(node());
+    // Exact name: the row itself is a button whose name includes "Claim".
+    fireEvent.click(screen.getByRole('button', { name: 'Claim' }));
+    fireEvent.click(screen.getByRole('button', { name: 'pick Ben' }));
+    expect(screen.getByText('Anna is writing a reply — assign anyway?')).toBeInTheDocument();
+  };
+  beforeEach(() => open.mockClear());
+
+  for (const [name, node] of places) {
+    it(`${name}: pressing "Assign anyway" assigns and does not open the thread`, () => {
+      ask(node);
+      fireEvent.click(screen.getByRole('button', { name: 'Assign anyway' }));
+      expect(assigned).toHaveBeenCalledTimes(1);
+      expect(open).not.toHaveBeenCalled();
+    });
+
+    it(`${name}: pressing Cancel does not open the thread`, () => {
+      ask(node);
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(assigned).not.toHaveBeenCalled();
+      expect(open).not.toHaveBeenCalled();
+    });
+
+    it(`${name}: Enter on "Assign anyway" assigns and does not open the thread`, async () => {
+      const user = userEvent.setup();
+      ask(node);
+      screen.getByRole('button', { name: 'Assign anyway' }).focus();
+      await user.keyboard('{Enter}');
+      expect(assigned).toHaveBeenCalledTimes(1);
+      expect(open).not.toHaveBeenCalled();
     });
   }
 });
