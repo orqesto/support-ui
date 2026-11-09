@@ -214,33 +214,8 @@ export type PlatformAnalysisHourlyInput = {
 
 /** A setting with its bounds, as `describeImportRunBudget` / `describeIngestionQueueRates` answer. */
 export type BoundedField = { value: number; source: FieldSource; min: number; max: number };
-export type IngestionSettings = {
-  importRunBudgetMinutes?: BoundedField;
-  attachmentsPerMinute?: BoundedField;
-  kbMessagesPerMinute?: BoundedField;
-  /** Queue size (work units) at which new-mail checks pause — must stay >= importPauseAtUnits. */
-  livePollCeilingUnits?: BoundedField;
-  /** Queue size at which imports stop adding work. */
-  importPauseAtUnits?: BoundedField;
-  /** Queue size below which paused imports resume — must stay < importPauseAtUnits. */
-  importResumeAtUnits?: BoundedField;
-  /** Seconds between two emails of one ticket reply (`tickets.reply_send_gap`, 2026-10-19). */
-  ticketReplyGapSeconds?: BoundedField;
-  /** Minutes a new unassigned mail waits for its AI priority (`notifications.priority_wait`, 1-60). */
-  notificationPriorityWaitMinutes?: BoundedField;
-  /** Failed attachment downloads retried per mailbox check; 0 = off. */
-  attachmentRefetchPerRun?: BoundedField;
-  /** Gmail quota units spent per minute, steady state (Google's limit is 15,000). */
-  pacedUnitsPerMinute?: BoundedField;
-  /** Gmail quota units that may be spent at once; paced + burst must stay below 15,000. */
-  burstUnits?: BoundedField;
-  /** Seconds Gmail calls wait after Google refuses one. */
-  cooldownSeconds?: BoundedField;
-  /** Parallel Gmail fetches while importing. */
-  bulkFetchMax?: BoundedField;
-  /** Parallel Gmail fetches while checking for new mail. */
-  pollFetchMax?: BoundedField;
-};
+/** Every ingestion field the backend may report, each with its bounds; see INGESTION_FIELDS. */
+export type IngestionSettings = Partial<Record<(typeof INGESTION_FIELDS)[number], BoundedField>>;
 /** Fair order between workspaces on/off (`queue.fairness.fairOrder`, 2026-11-07). */
 export type FairOrderSetting = { value: boolean; source: FieldSource };
 /** PUT /settings/ingestion — a PARTIAL body: only the fields sent are saved (at least one). */
@@ -507,16 +482,29 @@ export const INGESTION_FIELDS = [
   'importRunBudgetMinutes',
   'attachmentsPerMinute',
   'kbMessagesPerMinute',
+  /** Queue size (work units) at which new-mail checks pause — must stay >= importPauseAtUnits. */
   'livePollCeilingUnits',
+  /** Queue size at which imports stop adding work. */
   'importPauseAtUnits',
+  /** Queue size below which paused imports resume — must stay < importPauseAtUnits. */
   'importResumeAtUnits',
+  /** Seconds between two emails of one ticket reply (`tickets.reply_send_gap`, 2026-10-19). */
   'ticketReplyGapSeconds',
+  /** Minutes a new unassigned mail waits for its AI priority (`notifications.priority_wait`, 1-60). */
   'notificationPriorityWaitMinutes',
+  /** Hours: no automatic reply is sent to a message older than this (`autoreply.max_message_age`, 1-720). */
+  'autoReplyMaxMessageAgeHours',
+  /** Failed attachment downloads retried per mailbox check; 0 = off. */
   'attachmentRefetchPerRun',
+  /** Gmail quota units spent per minute, steady state (Google's limit is 15,000). */
   'pacedUnitsPerMinute',
+  /** Gmail quota units that may be spent at once; paced + burst must stay below 15,000. */
   'burstUnits',
+  /** Seconds Gmail calls wait after Google refuses one. */
   'cooldownSeconds',
+  /** Parallel Gmail fetches while importing. */
   'bulkFetchMax',
+  /** Parallel Gmail fetches while checking for new mail. */
   'pollFetchMax',
 ] as const;
 
