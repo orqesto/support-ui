@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import DOMPurify from 'dompurify';
 import {
   Download,
   Eye,
@@ -13,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import RichTextEditor from '@/components/shared/LazyRichTextEditor';
+import { NoteContent } from '@/components/shared/NoteContent';
 import { holdNoteLabel, isHoldNote } from '@/lib/holdNote';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -109,7 +109,8 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
       const response = await commentsService.getAll(ticketId);
       if (response.success && response.data) {
         setComments(response.data);
-        onCountChange?.(response.data.length);
+        // Hold notes show in the list but are not counted: they record an event (owner, 2026-11-09).
+        onCountChange?.(response.data.filter((comment) => !isHoldNote(comment)).length);
       }
     } catch (error) {
       logger.error('Failed to fetch comments:', error);
@@ -459,27 +460,9 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                       </span>
                     )}
                   </div>
-                  <div
+                  <NoteContent
+                    note={comment}
                     className="max-w-none text-sm prose prose-sm text-foreground"
-                    dangerouslySetInnerHTML={{
-                      __html: DOMPurify.sanitize(comment.content, {
-                        ALLOWED_TAGS: [
-                          'p',
-                          'br',
-                          'b',
-                          'i',
-                          'u',
-                          'strong',
-                          'em',
-                          'ul',
-                          'ol',
-                          'li',
-                          'code',
-                          'pre',
-                        ],
-                        ALLOWED_ATTR: [],
-                      }),
-                    }}
                   />
                   {comment.attachments && comment.attachments.length > 0 && (
                     <ul className="mt-2 space-y-1">

@@ -457,6 +457,9 @@ export function MessageDetail({
   // the page around this component mocks the component itself out.
   const showHistoryBanner = shouldShowHistoryBanner(sortedThread);
 
+  // Re-read the notes (an admin cleared a hold note's reason). A stable identity.
+  const bumpNotes = useCallback(() => setNotesBump((key) => key + 1), [setNotesBump]);
+
   const timelineData = useThreadTimeline(sortedThread, notes, attachmentsByMessageId);
   const { flatAttachments } = timelineData;
 
@@ -482,6 +485,7 @@ export function MessageDetail({
       notes={notes}
       onNoteUpdated={handleNoteUpdated}
       onNoteDeleted={handleNoteDeleted}
+      onNotesChanged={bumpNotes}
       noteActivityLog={noteActivityLog}
       messageActivity={messageActivity}
       sortedThread={sortedThread}

@@ -81,6 +81,7 @@ export const messageService = {
   addNote: messageActionsApi.addNote,
   updateNote: messageActionsApi.updateNote,
   deleteNote: messageActionsApi.deleteNote,
+  clearHoldNoteReason: messageActionsApi.clearHoldNoteReason,
   setStatus: messageActionsApi.setStatus,
   setPriority: messageActionsApi.setPriority,
   setCategory: messageActionsApi.setCategory,

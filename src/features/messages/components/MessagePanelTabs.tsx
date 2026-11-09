@@ -29,7 +29,8 @@ import { logger } from '@/lib/logger';
 import { contactLookupKey } from '@/lib/messageHelpers';
 import RichTextEditor from '@/components/shared/LazyRichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
-import DOMPurify from 'dompurify';
+import { NoteContent } from '@/components/shared/NoteContent';
+import { ClearHoldReasonAction } from './ClearHoldReasonAction';
 import { LABEL, PHONE_CONTACT, relativeTime, type PanelTab } from './messageDetailConstants';
 import { useTabBadges } from './useTabBadges';
 import { TabBadge } from './TabBadge';
@@ -71,6 +72,8 @@ export type MessagePanelTabsProps = {
   notes: MessageNote[];
   onNoteUpdated: (noteId: number, content: string) => void;
   onNoteDeleted: (noteId: number) => void;
+  /** Re-read the thread's notes (after an admin clears a hold note's reason). */
+  onNotesChanged?: () => void;
   noteActivityLog: { label: string; who: string; time: string }[];
   messageActivity: MessageActivityEntry[];
   sortedThread: MessageEvent[];
@@ -118,6 +121,7 @@ export function MessagePanelTabs({
   setPanelOpen,
   notes,
   onNoteUpdated,
+  onNotesChanged,
   onNoteDeleted,
   noteActivityLog,
   messageActivity,
@@ -277,7 +281,12 @@ export function MessagePanelTabs({
             { id: 'kb', label: 'KB', badge: kbBadge },
             { id: 'attachments', label: 'Files', badge: attachments?.length ?? 0 },
             { id: 'activity', label: 'Activity', badge: 0 },
-            { id: 'notes', label: 'Notes', badge: notes.length },
+            // Hold notes are listed but not counted (owner, 2026-11-09): they record an event.
+            {
+              id: 'notes',
+              label: 'Notes',
+              badge: notes.filter((note) => !isHoldNote(note)).length,
+            },
             { id: 'contradiction', label: 'Conflict', badge: 0 },
             ...(showLead ? [{ id: 'lead', label: 'Lead', badge: 0 }] : []),
           ] as { id: typeof tab; label: string; badge: number; mark?: ReactNode }[]
@@ -499,6 +508,13 @@ export function MessagePanelTabs({
                         {hold && <>{holdNoteLabel(note)} · </>}
                         {who} · {relativeTime(note.createdAt)}
                       </span>
+                      {hold && onNotesChanged && (
+                        <ClearHoldReasonAction
+                          conversationId={message.id}
+                          note={note}
+                          onCleared={onNotesChanged}
+                        />
+                      )}
                       {isOwner && !isEditing && !hold && (
                         <div className="flex gap-1 items-center">
                           <Button
@@ -560,27 +576,9 @@ export function MessagePanelTabs({
                         </div>
                       </div>
                     ) : (
-                      <div
+                      <NoteContent
+                        note={note}
                         className="text-[11px] leading-snug prose prose-sm max-w-none dark:prose-invert"
-                        dangerouslySetInnerHTML={{
-                          __html: DOMPurify.sanitize(note.content, {
-                            ALLOWED_TAGS: [
-                              'p',
-                              'br',
-                              'b',
-                              'i',
-                              'u',
-                              'strong',
-                              'em',
-                              'ul',
-                              'ol',
-                              'li',
-                              'code',
-                              'pre',
-                            ],
-                            ALLOWED_ATTR: [],
-                          }),
-                        }}
                       />
                     )}
                   </div>

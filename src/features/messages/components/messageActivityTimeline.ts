@@ -3,6 +3,7 @@
  * events into one chronological feed. Extracted from MessagePanelTabs so the
  * label mapping can be unit-tested (and to keep that component under max-lines).
  */
+import { holdNoteLabel, holdNoteText, isHoldNote } from '@/lib/holdNote';
 import type { MessageActivityEntry, MessageNote } from '@/services/message.service';
 
 /**
@@ -10,8 +11,10 @@ import type { MessageActivityEntry, MessageNote } from '@/services/message.servi
  * ⛔ Derived ONLY from what the data says: the audit action, a note, or an in-session note edit.
  * `ai` has no source today — no audit action the activity endpoint returns is authored by the AI
  * (auto-routing is rule-based and stays `other`) — so nothing maps to it until one exists.
+ * `hold`: a hold note (the thread went on or came off hold) — violet, the On-hold colour, never
+ * the amber of a note someone typed.
  */
-export type ActivityKind = 'in' | 'out' | 'note' | 'ai' | 'other';
+export type ActivityKind = 'in' | 'out' | 'note' | 'hold' | 'ai' | 'other';
 
 export type TimelineItem = { label: string; time: string; who: string; kind: ActivityKind };
 
@@ -20,6 +23,7 @@ export const ACTIVITY_DOT: Record<ActivityKind, string> = {
   in: 'bg-primary-solid',
   out: 'bg-success',
   note: 'bg-warning',
+  hold: 'bg-pending',
   ai: 'bg-ai',
   other: 'bg-border-strong',
 };
@@ -199,6 +203,15 @@ export function auditEntryLabel(action: string, details: Record<string, unknown>
   return ACTION_LABEL[action] ?? action;
 }
 
+/**
+ * A hold note's Activity row: "On hold until 12 Nov 2026: <reason>" (the viewer's day, built from
+ * metadata; plain "On hold" when that is missing) or "Off hold".
+ */
+const holdActivityLabel = (note: MessageNote): string => {
+  const label = holdNoteLabel(note);
+  return label === 'Off hold' ? label : holdNoteText({ ...note, content: label });
+};
+
 export function buildTimeline(
   activity: MessageActivityEntry[],
   notes: MessageNote[],
@@ -211,12 +224,17 @@ export function buildTimeline(
     kind: activityKindOf(entry.action),
   }));
 
-  const fromNotes: TimelineItem[] = notes.map((note) => ({
-    label: 'Internal note',
-    time: note.createdAt,
-    who: note.user ? `${note.user.firstName} ${note.user.lastName ?? ''}`.trim() : note.authorName,
-    kind: 'note',
-  }));
+  const fromNotes: TimelineItem[] = notes.map((note) => {
+    const hold = isHoldNote(note);
+    return {
+      label: hold ? holdActivityLabel(note) : 'Internal note',
+      time: note.createdAt,
+      who: note.user
+        ? `${note.user.firstName} ${note.user.lastName ?? ''}`.trim()
+        : note.authorName,
+      kind: hold ? 'hold' : 'note',
+    };
+  });
 
   // In-session entries are the agent's own note edits and deletions (MessageDetail).
   const ephemeral: TimelineItem[] = inSession.map((entry) => ({ ...entry, kind: 'note' }));

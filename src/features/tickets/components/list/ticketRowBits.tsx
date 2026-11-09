@@ -25,8 +25,9 @@ export const SPINE_CLASS: Record<SpineTone, string> = {
   calm: 'bg-muted-foreground/50',
 };
 
+/** Pending (waiting on the customer) is amber, as on the thread chips; violet means On-hold. */
 export const STATUS_DOT: Record<TicketStatus, string> = {
-  pending: 'bg-pending',
+  pending: 'bg-warning',
   open: 'bg-primary',
   in_progress: 'bg-caution-solid',
   resolved: 'bg-success',

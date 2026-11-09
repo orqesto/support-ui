@@ -9,11 +9,14 @@ import { cn } from '@/lib/utils';
 export const THREAD_TABLE_GRID =
   'md:grid-cols-[18px_minmax(140px,180px)_minmax(0,1fr)_110px_96px_76px] xl:grid-cols-[18px_minmax(150px,200px)_minmax(0,1fr)_minmax(0,190px)_110px_96px_76px]';
 
-/** Status colours — the tickets table's dots, with on-hold hollow (the design's `.tst.hollow`). */
+/**
+ * Status colours — the tickets table's dots, with on-hold hollow (the design's `.tst.hollow`).
+ * Pending (waiting on the customer) is amber like its chip; violet is On-hold's alone.
+ */
 const STATUS_DOT: Record<WorkflowStatus, string> = {
   open: 'bg-primary',
   in_progress: 'bg-caution-solid',
-  pending: 'bg-pending',
+  pending: 'bg-warning',
   on_hold: 'border-2 border-pending',
   resolved: 'bg-success',
 };
