@@ -47,6 +47,16 @@ export interface PresenceReporterInput {
 }
 
 /**
+ * For a view with no composer of its own (the ticket view): it reports "viewing", or "away" by
+ * the same tab rules, on every thread it watches.
+ */
+export const VIEWER_ONLY_REPORTER: PresenceReporterInput = Object.freeze({
+  composerText: '',
+  composerMode: 'reply' as const,
+  lastAgentEditAt: Object.freeze({ current: null }),
+});
+
+/**
  * The state to report, or null when this tab reports nothing: no input (a list view), a global
  * admin (spec §5.1: never stored), or no settings yet (no watch ack).
  */

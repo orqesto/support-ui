@@ -16,14 +16,18 @@ const watch = vi.hoisted(() => ({
     settings: { ticketWatchCap: number } | null;
   },
   ids: [] as number[][],
+  reporters: [] as unknown[],
   threads: [] as unknown[],
 }));
+const VIEWER_ONLY = vi.hoisted(() => ({ viewerOnly: true }));
 
 vi.mock('@/features/messages', () => ({
   addNoopenerHook: () => {},
   useIsPhone: () => false,
-  usePresenceWatch: (ids: number[]) => {
+  VIEWER_ONLY_REPORTER: VIEWER_ONLY,
+  usePresenceWatch: (ids: number[], reporter?: unknown) => {
     watch.ids.push(ids);
+    watch.reporters.push(reporter);
     return watch.result;
   },
   PresenceEye: ({ capNote }: { capNote?: string }) => <p data-testid="cap-note">{capNote ?? ''}</p>,
@@ -117,6 +121,13 @@ describe('TicketDetail presence cap note', () => {
   afterEach(() => {
     cleanup();
     watch.ids = [];
+    watch.reporters = [];
+  });
+
+  it('the ticket view reports viewing on its watched threads itself (any tab, no composer needed)', async () => {
+    await renderWith(3);
+    expect(watch.ids.at(-1)).toEqual([3, 2, 1]);
+    expect(watch.reporters.at(-1)).toBe(VIEWER_ONLY);
   });
 
   it('more threads than the cap: the note names the cap and the total', async () => {

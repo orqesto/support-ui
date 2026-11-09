@@ -1,6 +1,6 @@
 /**
  * usePresenceReport: the ticket composer reports this tab's state on its ticked threads while the
- * ticket view (usePresenceWatch, no reporter) holds the watch on the same socket.
+ * ticket view holds the watch on the same socket (and, in the arbiter block, reports viewing).
  */
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { act, render, renderHook } from '@testing-library/react';
@@ -35,6 +35,8 @@ const { usePresenceWatch } = await import('../usePresenceWatch');
 const { usePresenceReport } = await import('../usePresenceReport');
 const { resetPresenceClientForTests } = await import('../presenceClient');
 const { resetWatchRegistryForTests } = await import('../watchRegistry');
+const { resetPresenceArbiterForTests } = await import('../presenceArbiter');
+const { VIEWER_ONLY_REPORTER } = await import('../usePresenceReporter');
 
 const SETTINGS: PresenceSettings = {
   enabled: true,
@@ -97,6 +99,7 @@ beforeEach(() => {
   );
   resetPresenceClientForTests();
   resetWatchRegistryForTests();
+  resetPresenceArbiterForTests();
   edit.current = null;
   useAuthStore.setState({ user: { id: 1, role: 'user' } as User, selectedOrganizationId: 1 });
 });
@@ -189,5 +192,112 @@ describe('usePresenceReport — state from the ticket composer', () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(reporterRenders).toBe(before);
+  });
+});
+
+describe('presence arbiter — the ticket view and its composer on one socket', () => {
+  /** The ticket view (watches + reports viewing) and, on the Threads tab, the composer. */
+  const TicketView = ({ ids }: { ids: number[] }) => {
+    usePresenceWatch(ids, VIEWER_ONLY_REPORTER);
+    return null;
+  };
+  const Composer = ({ selected, text }: { selected: number[]; text: string }) => {
+    usePresenceReport(selected, {
+      composerText: text,
+      composerMode: 'reply',
+      lastAgentEditAt: edit,
+    });
+    return null;
+  };
+  const Page = ({ composer, text = '' }: { composer: boolean; text?: string }) =>
+    createElement(
+      Fragment,
+      null,
+      createElement(TicketView, { ids: [10, 11, 12] }),
+      composer ? createElement(Composer, { selected: [11], text }) : null
+    );
+  const statesOf = (id: number) =>
+    states()
+      .filter((row) => row.conversationId === id)
+      .map((row) => row.state);
+
+  it('the ticket view on its Details tab (no composer) sends viewing for every watched thread', async () => {
+    render(createElement(Page, { composer: false }));
+    await settle(1_000);
+    expect(states()).toEqual([
+      { conversationId: 10, state: 'viewing' },
+      { conversationId: 11, state: 'viewing' },
+      { conversationId: 12, state: 'viewing' },
+    ]);
+  });
+
+  it('CONTROL: a global admin on the ticket view sends nothing', async () => {
+    useAuthStore.setState({ user: { id: 1, role: 'admin' } as User });
+    render(createElement(Page, { composer: false }));
+    await settle(20_000);
+    expect(states()).toEqual([]);
+  });
+
+  it('typing on a ticked thread: writing_reply there only, the others stay viewing — no flapping', async () => {
+    // Details tab first; the Threads tab (the composer) opens 5 s later, so the two heartbeats
+    // fall at different moments.
+    const { rerender } = render(createElement(Page, { composer: false }));
+    await settle(5_000);
+    edit.current = Date.now();
+    rerender(createElement(Page, { composer: true, text: '<p>On it</p>' }));
+    await settle(1_500);
+    await settle(2 * SETTINGS.heartbeatMs);
+    const eleven = statesOf(11);
+    const firstWriting = eleven.indexOf('writing_reply');
+    expect(firstWriting).toBeGreaterThan(-1);
+    // The ticket view's heartbeat never overwrites the composer's "writing".
+    expect(eleven.slice(firstWriting).every((state) => state === 'writing_reply')).toBe(true);
+    expect(eleven.slice(firstWriting).length).toBeGreaterThanOrEqual(3);
+    expect(statesOf(10).every((state) => state === 'viewing')).toBe(true);
+    expect(statesOf(12).every((state) => state === 'viewing')).toBe(true);
+    expect(statesOf(10).length).toBeGreaterThanOrEqual(3); // first send + heartbeats
+  });
+
+  it('the composer leaving does not drop the ticket view: its thread goes back to viewing, all stay alive', async () => {
+    edit.current = Date.now();
+    const { rerender } = render(createElement(Page, { composer: true, text: '<p>On it</p>' }));
+    await settle(1_500);
+    expect(statesOf(11).at(-1)).toBe('writing_reply');
+    rerender(createElement(Page, { composer: false }));
+    await settle(1_500);
+    expect(statesOf(11).at(-1)).toBe('viewing');
+    const before = states().length;
+    await settle(SETTINGS.heartbeatMs);
+    expect(states().slice(before)).toEqual([
+      { conversationId: 10, state: 'viewing' },
+      { conversationId: 11, state: 'viewing' },
+      { conversationId: 12, state: 'viewing' },
+    ]);
+  });
+
+  it('a second view leaving does not drop the writer: the thread view keeps writing_reply', async () => {
+    // The thread view (MessageDetail) writing on 11, and a viewer-only watcher of 11 beside it.
+    const Thread = () => {
+      usePresenceWatch([11], {
+        composerText: '<p>On it</p>',
+        composerMode: 'reply',
+        lastAgentEditAt: edit,
+      });
+      return null;
+    };
+    const Viewer = () => {
+      usePresenceWatch([10, 11], VIEWER_ONLY_REPORTER);
+      return null;
+    };
+    edit.current = Date.now();
+    const Both = ({ viewer }: { viewer: boolean }) =>
+      createElement(Fragment, null, createElement(Thread), viewer ? createElement(Viewer) : null);
+    const { rerender } = render(createElement(Both, { viewer: true }));
+    await settle(1_500);
+    expect(statesOf(11).at(-1)).toBe('writing_reply');
+    rerender(createElement(Both, { viewer: false }));
+    await settle(SETTINGS.heartbeatMs);
+    expect(statesOf(11).at(-1)).toBe('writing_reply');
+    expect(statesOf(11)).not.toContain('viewing');
   });
 });

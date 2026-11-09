@@ -48,6 +48,7 @@ export { addNoopenerHook } from './shell';
 export { PresenceEye } from './presence/PresenceEye';
 export { usePresenceWatch } from './presence/usePresenceWatch';
 export { usePresenceReport } from './presence/usePresenceReport';
+export { VIEWER_ONLY_REPORTER } from './presence/usePresenceReporter';
 export { usePresenceSummary } from './presence/usePresenceSummary';
 export { usePresenceSummaryStore } from './presence/presenceSummaryStore';
 export { useListWritingGuard, useWritingGuard } from './presence/useWritingGuard';

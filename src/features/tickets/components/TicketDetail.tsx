@@ -5,6 +5,7 @@ import {
   PresenceEye,
   useIsPhone,
   usePresenceWatch,
+  VIEWER_ONLY_REPORTER,
   useWritingGuard,
 } from '@/features/messages';
 import { DEFAULT_TICKET_WATCH_CAP, presenceWatchIds } from './presenceWatchIds';
@@ -119,15 +120,17 @@ export const TicketDetail = ({
   // Teams off: one team, so there is nowhere to move a ticket.
   const teamsEnabled = useTeamsEnabled();
 
-  // Presence is watch-only here: the ticket's reply composer lives in TicketPanelTabs, out of reach
-  // of this component, so the ticket view shows who is on its threads but reports no state itself.
+  // The ticket view reports "viewing" (or "away") on every thread it watches, on any tab and for
+  // any role (spec §5.2: an agent on a linked thread sees the ticket viewer). The reply composer
+  // (TicketPanelTabs) reports "writing" on its ticked threads; the presence arbiter sends the
+  // stronger of the two per thread.
   const presenceIsPhone = useIsPhone();
   const [watchCap, setWatchCap] = useState(DEFAULT_TICKET_WATCH_CAP);
   const watched = useMemo(
     () => presenceWatchIds(linkedMessages, watchCap),
     [linkedMessages, watchCap]
   );
-  const presence = usePresenceWatch(watched.ids);
+  const presence = usePresenceWatch(watched.ids, VIEWER_ONLY_REPORTER);
   // Resolve / close / assign / move ask first while a colleague writes a reply on any linked
   // thread (spec §5.5) — the viewers are the union across the watched threads.
   const writingGuard = useWritingGuard(presence.viewers);

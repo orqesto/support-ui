@@ -5,17 +5,16 @@
  * right now (beyond the ticket's watch cap, a watch that failed, a disconnect) is skipped; the
  * state goes out as soon as one does. Sends no watch and no unwatch, so it can never undo the
  * watcher's. Global admins report nothing (usePresenceReporter).
+ *
+ * The ticket view reports "viewing" on the same threads; the presenceArbiter sends the stronger
+ * of the two per thread, so a thread unticked (or a composer closed) while writing falls back to
+ * the ticket view's "viewing" without the two ever overwriting each other.
  */
-import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
-import { presenceClient } from './presenceClient';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { presenceArbiter } from './presenceArbiter';
+import type { PresenceState } from './presence.types';
 import { usePresenceReporter, type PresenceReporterInput } from './usePresenceReporter';
-import { usePresenceSender } from './usePresenceSender';
-import {
-  allWatchedSurvivors,
-  resolveWatched,
-  subscribeWatches,
-  watchesVersion,
-} from './watchRegistry';
+import { resolveWatched, subscribeWatches, watchesVersion } from './watchRegistry';
 
 export const usePresenceReport = (
   conversationIds: number[],
@@ -30,59 +29,16 @@ export const usePresenceReport = (
     [idsKey, version]
   );
   const state = usePresenceReporter(reporterInput, watched.settings);
-  const targetsRef = useRef(watched.targets);
-  targetsRef.current = watched.targets;
   const targetsKey = watched.targets.join(',');
-  const available = watched.targets.length > 0;
-  const sender = usePresenceSender({
-    state,
-    available,
-    heartbeatMs: watched.settings?.heartbeatMs,
-    targets: () => targetsRef.current,
-    targetsKey,
-  });
+  const heartbeatMs = watched.settings?.heartbeatMs;
 
-  // A thread left (unticked, or no longer watched): forget it. Left while writing, and still
-  // watched, it goes back to viewing at once — a stale "writing" would hold other agents' sends.
-  const previous = useRef<number[]>([]);
+  const [owner] = useState(() => ({}));
   useEffect(() => {
-    const now = new Set(targetsKey === '' ? [] : targetsKey.split(',').map(Number));
-    const gone = previous.current.filter((id) => !now.has(id));
-    previous.current = [...now];
-    if (gone.length === 0) return;
-    const lastStates = sender.forget(gone);
-    const stillWatched = allWatchedSurvivors();
-    for (const [id, last] of lastStates) {
-      if ((last === 'writing_reply' || last === 'writing_note') && stillWatched.has(id)) {
-        presenceClient.setState(id, 'viewing');
-      }
+    const wants = new Map<number, PresenceState>();
+    if (state !== null && targetsKey !== '') {
+      for (const id of targetsKey.split(',').map(Number)) wants.set(id, state);
     }
-  }, [targetsKey, sender]);
-
-  // Unmounted while writing (the composer closed, the tab switched): back to viewing, as above.
-  const stateRef = useRef(state);
-  stateRef.current = state;
-  useEffect(
-    () => () => {
-      if (stateRef.current !== 'writing_reply' && stateRef.current !== 'writing_note') return;
-      const stillWatched = allWatchedSurvivors();
-      for (const id of targetsRef.current) {
-        if (stillWatched.has(id)) presenceClient.setState(id, 'viewing');
-      }
-    },
-    []
-  );
-
-  // Nothing watched (a disconnect): what was sent is gone on the server; it goes again once watched.
-  useEffect(() => {
-    if (!available) sender.clear();
-  }, [available, sender]);
-
-  // A watch acknowledged again (a re-watch after a merge): the server wants the state again. A
-  // thread never sent to yet gets it from the sender's own change effect.
-  const ackSeq = watched.ackSeq;
-  useEffect(() => {
-    const resend = targetsRef.current.filter((id) => sender.wasSent(id));
-    if (resend.length > 0) sender.reportTo(resend, true);
-  }, [ackSeq, sender]);
+    presenceArbiter.setWants(owner, wants, heartbeatMs);
+  }, [owner, state, targetsKey, heartbeatMs]);
+  useEffect(() => () => presenceArbiter.setWants(owner, null), [owner]);
 };

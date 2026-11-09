@@ -1,13 +1,14 @@
 /**
  * Who else is on these threads (spec §5.1, §7), and — when the caller passes the composer — this
  * tab's own state, reported to the server. One hook for both: a thread or ticket view passes
- * `reporterInput`; a list view (or a global admin) watches without reporting.
+ * `reporterInput` (the ticket view passes VIEWER_ONLY_REPORTER); a global admin never reports.
  *
  * - `available` is true only after a successful watch ack; it drops on a failed or timed-out ack
  *   and on a disconnect, and comes back with the re-watch on reconnect. Unavailable ⇒ the caller
  *   renders nothing.
  * - Watch stores nothing on the server: after each ack this tab's state is sent for every watched
- *   thread, then on each change (≤ 1/s per thread) and every `heartbeatMs`.
+ *   thread, then on each change (≤ 1/s per thread) and every `heartbeatMs` — through the
+ *   presenceArbiter, which sends the strongest state any part of the page wants per thread.
  * - The server answers with survivor ids (`mapped`, after a merge); events use those ids.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -24,14 +25,15 @@ import { presenceClient, rateRetryDelay, WATCH_BATCH_SIZE } from './presenceClie
 import {
   PRESENCE_STATE_RANK,
   type PresenceSettings,
+  type PresenceState,
   type PresenceThreadEvent,
   type PresenceViewer,
 } from './presence.types';
+import { presenceArbiter } from './presenceArbiter';
 import { usePresenceReporter, type PresenceReporterInput } from './usePresenceReporter';
-import { usePresenceSender } from './usePresenceSender';
 import { publishWatch } from './watchRegistry';
 
-export { STATE_MIN_GAP_MS } from './usePresenceSender';
+export { STATE_MIN_GAP_MS } from './presenceArbiter';
 
 /**
  * A failed watch is tried again after these waits, then left until the next reconnect or id
@@ -127,14 +129,6 @@ export const usePresenceWatch = (
     []
   );
 
-  const sender = usePresenceSender({
-    state,
-    available,
-    heartbeatMs: settings?.heartbeatMs,
-    targets: survivors,
-  });
-  const { reportTo } = sender;
-
   /** Drop survivors no wanted id maps to any more: unwatch them and forget their viewers. */
   const release = useCallback(
     (candidates: number[]) => {
@@ -142,14 +136,13 @@ export const usePresenceWatch = (
       const gone = unique(candidates).filter((id) => !keep.has(id));
       if (gone.length === 0) return;
       presenceClient.unwatch(gone);
-      sender.forget(gone);
       setThreads((prev) => {
         const next = { ...prev };
         for (const id of gone) delete next[id];
         return next;
       });
     },
-    [survivors, sender]
+    [survivors]
   );
 
   const watchIds = useCallback(
@@ -223,9 +216,8 @@ export const usePresenceWatch = (
         ackSeq.current += 1;
         setAvailable(true);
       }
-      reportTo(unique(fresh), true);
     },
-    [release, reportTo]
+    [release]
   );
 
   const rewatchAll = useCallback(() => {
@@ -263,7 +255,7 @@ export const usePresenceWatch = (
       rateWait.current = false;
       awaitingConnect.current = true;
       lastWatchFailed.current = true; // the server forgot every watch of this socket
-      sender.clear();
+      presenceArbiter.forgetSent();
       setAvailable(false);
       setThreads({});
     };
@@ -310,10 +302,9 @@ export const usePresenceWatch = (
       // Reset, so a remount (StrictMode) watches from scratch.
       wanted.current = [];
       survivorMap.clear();
-      sender.clear();
       releaseSocket();
     };
-  }, [survivors, rewatchAll, sender]);
+  }, [survivors, rewatchAll]);
 
   // The caller's ids: unwatch what was dropped, watch what is new.
   const idsKey = unique(conversationIds)
@@ -344,8 +335,11 @@ export const usePresenceWatch = (
     } else void watchIds(added);
   }, [idsKey, release, watchIds]);
 
-  // What this tab watches now, for a composer that reports without watching (usePresenceReport).
+  // What this tab watches now (for a composer that reports without watching, usePresenceReport),
+  // and the state this view wants on those threads (the arbiter sends the strongest of all).
   const [owner] = useState(() => ({}));
+  const sentAckSeq = useRef(0);
+  const heartbeatMs = settings?.heartbeatMs;
   useEffect(() => {
     const mapped = new Map<number, number>();
     if (available) {
@@ -355,9 +349,24 @@ export const usePresenceWatch = (
       }
     }
     publishWatch(owner, { survivorOf: mapped, settings, ackSeq: ackSeq.current });
+    const wants = new Map<number, PresenceState>();
+    if (state !== null) for (const survivor of mapped.values()) wants.set(survivor, state);
+    presenceArbiter.setWants(owner, wants, heartbeatMs);
+    // Acknowledged again (a re-watch after a merge): the server wants the states again.
+    if (available && ackSeq.current !== sentAckSeq.current) {
+      sentAckSeq.current = ackSeq.current;
+      presenceArbiter.resend([...new Set(mapped.values())]);
+    }
     // `threads` changes with every ack and every dropped id: the survivors may have moved.
-  }, [owner, available, settings, threads, idsKey]);
-  useEffect(() => () => publishWatch(owner, null), [owner]);
+  }, [owner, available, settings, threads, idsKey, state, heartbeatMs]);
+  // Unwatched first, so the arbiter does not send "viewing" to a thread that is going away.
+  useEffect(
+    () => () => {
+      publishWatch(owner, null);
+      presenceArbiter.setWants(owner, null);
+    },
+    [owner]
+  );
 
   const viewers = useMemo(
     () => (available ? mergeViewers(threads, myId) : []),
