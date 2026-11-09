@@ -43,12 +43,42 @@ const ask = async <T extends { ok: true }>(
     const answer: unknown = await withSocket((socket) =>
       socket.timeout(PRESENCE_ACK_TIMEOUT_MS).emitWithAck(event, payload)
     );
-    const body = answer as { ok?: unknown; reason?: unknown } | null;
+    const body = answer as { ok?: unknown; reason?: unknown; retryAfterMs?: unknown } | null;
     if (body?.ok === true) return answer as T;
-    return { ok: false, reason: typeof body?.reason === 'string' ? body.reason : null };
+    const refusal: PresenceRefusal = {
+      ok: false,
+      reason: typeof body?.reason === 'string' ? body.reason : null,
+    };
+    if (typeof body?.retryAfterMs === 'number') refusal.retryAfterMs = body.retryAfterMs;
+    return refusal;
   } catch {
     return { ok: false, reason: 'timeout' }; // the ack timed out
   }
+};
+
+/** Spread over this window, so tabs refused together do not all ask again at the same moment. */
+export const RATE_RETRY_JITTER_MS = 1_000;
+/** Used when a rate refusal names no (or a nonsensical) wait; also the longest wait honoured. */
+const RATE_RETRY_FALLBACK_MS = 10_000;
+const RATE_RETRY_MAX_MS = 120_000;
+
+/**
+ * The wait before asking again after a rate refusal (`{ok:false, reason:'rate', retryAfterMs}`),
+ * or null when the refusal is not about the rate. A rate refusal says nothing about whether the
+ * ask can succeed, so callers do not count it against their retry budget.
+ */
+export const rateRetryDelay = (answer: {
+  ok: boolean;
+  reason?: string | null;
+  retryAfterMs?: number;
+}): number | null => {
+  if (answer.ok || answer.reason !== 'rate') return null;
+  const wait = answer.retryAfterMs;
+  const base =
+    typeof wait === 'number' && Number.isFinite(wait) && wait >= 0
+      ? Math.min(wait, RATE_RETRY_MAX_MS)
+      : RATE_RETRY_FALLBACK_MS;
+  return base + Math.random() * RATE_RETRY_JITTER_MS;
 };
 
 /* Paced `presence:state` sends: the latest state per thread waits its turn (one per gap). */

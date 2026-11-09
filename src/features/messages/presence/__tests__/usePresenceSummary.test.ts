@@ -85,6 +85,28 @@ describe('usePresenceSummary', () => {
     expect(fake.emitWithAck).toHaveBeenCalledTimes(1 + SNAPSHOT_RETRY_MS.length);
   });
 
+  it('a rate refusal is retried after retryAfterMs (+ ≤ 1 s), outside the 3-try budget', async () => {
+    const RATE = { ok: false, reason: 'rate', retryAfterMs: 20_000 };
+    fake.emitWithAck = vi.fn();
+    for (let count = 0; count < 5; count += 1) fake.emitWithAck.mockResolvedValueOnce(RATE);
+    fake.emitWithAck.mockResolvedValue(OK);
+    renderHook(() => usePresenceSummary());
+    await flush();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(19_999);
+    });
+    expect(fake.emitWithAck).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_001);
+    });
+    expect(fake.emitWithAck).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5 * 21_000);
+    });
+    expect(fake.emitWithAck).toHaveBeenCalledTimes(6);
+    expect(store().available).toBe(true);
+  });
+
   it('a retry that succeeds makes it available', async () => {
     fake.emitWithAck = vi.fn().mockResolvedValueOnce({ ok: false }).mockResolvedValue(OK);
     renderHook(() => usePresenceSummary());

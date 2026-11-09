@@ -20,7 +20,7 @@ import {
 import { SOCKET_RECONNECTED_EVENT } from '@/lib/socketEvents';
 import { useAuthStore } from '@/stores/authStore';
 import { eventConcerns } from '../hooks/useConversationStatusRefresh';
-import { presenceClient, WATCH_BATCH_SIZE } from './presenceClient';
+import { presenceClient, rateRetryDelay, WATCH_BATCH_SIZE } from './presenceClient';
 import {
   PRESENCE_STATE_RANK,
   type PresenceSettings,
@@ -35,7 +35,9 @@ export { STATE_MIN_GAP_MS } from './usePresenceSender';
 
 /**
  * A failed watch is tried again after these waits, then left until the next reconnect or id
- * change. The first watch of a fresh page often fails: socket.io sends emits buffered before the
+ * change. A rate refusal (`reason: 'rate'`) is not counted here: it is asked again after the
+ * server's `retryAfterMs` for as long as it takes, so fast triage never leaves the thread the
+ * agent settles on without presence. The first watch of a fresh page often fails: socket.io sends emits buffered before the
  * connect BEFORE the socket manager's join-organization, and the server answers `{ok:false}`
  * until the socket is in its workspace.
  */
@@ -110,6 +112,8 @@ export const usePresenceWatch = (
   const generation = useRef(0);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryCount = useRef(0);
+  /** A retry waiting out a rate refusal: an id change does not ask sooner (it would be refused). */
+  const rateWait = useRef(false);
   /** The last watch answered with a refusal (or timed out): its ids may not be watched. */
   const lastWatchFailed = useRef(false);
   /** A disconnect happened and no re-watch ran since: the next raw `connect` re-watches. */
@@ -166,7 +170,10 @@ export const usePresenceWatch = (
       const lists: Record<number, PresenceViewer[]> = {};
       let failed = false;
       let capHit = false;
+      let rateDelay: number | null = null;
       for (const ack of acks) {
+        const delay = rateRetryDelay(ack);
+        if (delay !== null) rateDelay = Math.max(rateDelay ?? 0, delay);
         // An ack from another workspace (a switch still in flight) is no answer for this one.
         if (!ack.ok || ack.organizationId !== useAuthStore.getState().selectedOrganizationId) {
           failed = true;
@@ -195,13 +202,21 @@ export const usePresenceWatch = (
       lastWatchFailed.current = failed;
       if (failed) {
         setAvailable(false);
-        // The cap does not lift by asking again: no retry.
-        const retry = !capHit && retryCount.current < WATCH_RETRY_MS.length;
-        if (retry && retryTimer.current === null) {
+        const retryLater = (wait: number) => {
           retryTimer.current = setTimeout(() => {
             retryTimer.current = null;
+            rateWait.current = false;
             void watchIds(wanted.current);
-          }, WATCH_RETRY_MS[retryCount.current++]);
+          }, wait);
+        };
+        if (rateDelay !== null && !capHit) {
+          // Asked too often: wait as long as the server says, outside the retry budget.
+          if (retryTimer.current !== null) clearTimeout(retryTimer.current);
+          rateWait.current = true;
+          retryLater(rateDelay);
+        } else if (!capHit && retryCount.current < WATCH_RETRY_MS.length) {
+          // The cap does not lift by asking again: no retry for it.
+          if (retryTimer.current === null) retryLater(WATCH_RETRY_MS[retryCount.current++]);
         }
       } else {
         retryCount.current = 0;
@@ -216,6 +231,7 @@ export const usePresenceWatch = (
   const rewatchAll = useCallback(() => {
     if (retryTimer.current !== null) clearTimeout(retryTimer.current);
     retryTimer.current = null;
+    rateWait.current = false;
     if (connectTimer.current !== null) clearTimeout(connectTimer.current);
     connectTimer.current = null;
     awaitingConnect.current = false;
@@ -244,6 +260,7 @@ export const usePresenceWatch = (
       }
       retryTimer.current = null;
       connectTimer.current = null;
+      rateWait.current = false;
       awaitingConnect.current = true;
       lastWatchFailed.current = true; // the server forgot every watch of this socket
       sender.clear();
@@ -286,6 +303,7 @@ export const usePresenceWatch = (
       }
       retryTimer.current = null;
       connectTimer.current = null;
+      rateWait.current = false;
       awaitingConnect.current = false;
       // Ids the server never mapped (no ack yet) are unwatched as they were asked.
       presenceClient.unwatch(unique(wanted.current.map((id) => survivorMap.get(id) ?? id)));
@@ -315,8 +333,10 @@ export const usePresenceWatch = (
       release(candidates);
     }
     // A new id set earns a fresh retry budget. After a failed watch (or with one pending) the
-    // whole set is asked again — a smaller set may now fit under the cap.
+    // whole set is asked again — a smaller set may now fit under the cap. Inside a rate wait
+    // nothing is asked: the pending retry watches whatever is wanted when it fires.
     retryCount.current = 0;
+    if (rateWait.current) return;
     if (lastWatchFailed.current || retryTimer.current !== null) {
       if (retryTimer.current !== null) clearTimeout(retryTimer.current);
       retryTimer.current = null;

@@ -34,11 +34,14 @@ export interface WatchAck {
 
 /**
  * No usable answer: the server's `{ok:false, reason?}` (`'watch_cap'`: this socket watches its
- * maximum), or `'timeout'` when no ack came. `reason` null = the server gave none.
+ * maximum; `'rate'`: too many asks, try again after `retryAfterMs`), or `'timeout'` when no ack
+ * came. `reason` null = the server gave none.
  */
 export interface PresenceRefusal {
   ok: false;
   reason: string | null;
+  /** With `reason: 'rate'`: how long the server wants the client to wait. */
+  retryAfterMs?: number;
 }
 
 /** `presence:snapshot` ack: the live threads of the caller's teams. */

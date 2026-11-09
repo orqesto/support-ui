@@ -322,6 +322,40 @@ describe('usePresenceWatch — who else is on these threads', () => {
     expect(watchCalls()[spent]).toEqual([10, 11]);
   });
 
+  it('a rate refusal is retried after retryAfterMs (+ ≤ 1 s), outside the 3-try budget', async () => {
+    let refusals = 5; // more than the 3-try budget
+    fake.answerWatch = (ids) =>
+      refusals-- > 0 ? { ok: false, reason: 'rate', retryAfterMs: 20_000 } : okAck(ids);
+    const { result } = renderHook(() => usePresenceWatch([10]));
+    await settle();
+    expect(watchCalls()).toHaveLength(1);
+    await settle(19_999);
+    expect(watchCalls()).toHaveLength(1); // not before the server's wait
+    await settle(1_001);
+    expect(watchCalls()).toHaveLength(2); // within the 1 s jitter after it
+    await settle(5 * 21_000);
+    expect(watchCalls()).toHaveLength(6);
+    expect(result.current.available).toBe(true);
+  });
+
+  it('fast j/k during a rate wait asks nothing more; the retry watches the thread the agent stays on', async () => {
+    let refusals = 1;
+    fake.answerWatch = (ids) =>
+      refusals-- > 0 ? { ok: false, reason: 'rate', retryAfterMs: 20_000 } : okAck(ids);
+    const { result, rerender } = renderHook((ids: number[]) => usePresenceWatch(ids), {
+      initialProps: [10],
+    });
+    await settle();
+    rerender([11]);
+    await settle(100);
+    rerender([12]);
+    await settle(100);
+    expect(watchCalls()).toEqual([[10]]); // no new ask inside the server's wait
+    await settle(21_000);
+    expect(watchCalls()).toEqual([[10], [12]]);
+    expect(result.current.available).toBe(true);
+  });
+
   it('a merge naming a watched thread re-watches', async () => {
     renderHook(() => usePresenceWatch([10]));
     await settle();

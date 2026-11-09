@@ -7,7 +7,8 @@
  *
  * - `available` is true only after a snapshot succeeds; false on a disconnect and on a refusal.
  * - The first snapshot of a fresh page is often refused (the server answers `{ok:false}` until the
- *   socket has joined its workspace): retried at 2/5/10 s.
+ *   socket has joined its workspace): retried at 2/5/10 s. A rate refusal waits the server's
+ *   `retryAfterMs` (+ ≤ 1 s) instead, and does not use up those tries.
  * - After a disconnect the raw `connect` re-snapshots too: SOCKET_RECONNECTED_EVENT is raised at
  *   most once per 30 s, so a second drop inside that window would leave the rows stale.
  */
@@ -20,7 +21,7 @@ import {
 } from '@/lib/socketManager';
 import { SOCKET_RECONNECTED_EVENT } from '@/lib/socketEvents';
 import { useAuthStore } from '@/stores/authStore';
-import { presenceClient } from './presenceClient';
+import { presenceClient, rateRetryDelay } from './presenceClient';
 import { usePresenceSummaryStore, type SummaryChange } from './presenceSummaryStore';
 
 export const SNAPSHOT_RETRY_MS = [2_000, 5_000, 10_000];
@@ -61,6 +62,16 @@ export const usePresenceSummary = (): void => {
         return;
       }
       usePresenceSummaryStore.getState().setAvailable(false);
+      // Asked too often: wait as long as the server says, outside the retry budget.
+      const rateDelay = rateRetryDelay(ack);
+      if (rateDelay !== null) {
+        if (retryTimer !== null) clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => {
+          retryTimer = null;
+          void snapshot();
+        }, rateDelay);
+        return;
+      }
       if (retries < SNAPSHOT_RETRY_MS.length && retryTimer === null) {
         retryTimer = setTimeout(() => {
           retryTimer = null;
