@@ -113,6 +113,7 @@ export const CreateTicketPage = () => {
       : 'No team'
     : '';
 
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const unsentTicket = useCreateTicketUnsentDraft({
     messageId,
     formData,
@@ -120,9 +121,9 @@ export const CreateTicketPage = () => {
     touched,
     setTouched,
     created,
+    fileCount: selectedFiles.length,
   });
 
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [enhancing, setEnhancing] = useState(false);
 
   // Alert dialog state
@@ -244,6 +245,7 @@ export const CreateTicketPage = () => {
         setFormData((prev) => ({
           ...prev,
           ...unsentTicket.overPrefill(
+            prev,
             data.subject?.replace(/^(?:(?:Re|Fwd?|AW|WG):\s*)+/i, '').trim() ??
               data.subject ??
               `Message from ${data.sender}`,
@@ -373,6 +375,7 @@ export const CreateTicketPage = () => {
 
     setLoading(true);
     setError(null);
+    const draftSend = unsentTicket.beginSend();
     try {
       // JSON, never multipart: POST /api/tickets reads no files (a multipart body arrived empty,
       // staging 2026-10-21) — the files go to the ticket once it exists.
@@ -390,6 +393,7 @@ export const CreateTicketPage = () => {
       });
       const ticketId = response.data?.id;
       if (!ticketId) throw new Error('The ticket was not created');
+      draftSend.settle(true);
 
       // The ticket exists from here on: a later step that fails opens it anyway, and its page
       // says what is missing (TicketDetailPage) rather than failing the whole create.
@@ -446,9 +450,9 @@ export const CreateTicketPage = () => {
           navigate(`/tickets/${ticketId}`, Object.keys(notice).length > 0 ? { state: notice } : {}),
         1500
       );
-      unsentTicket.clearDraft();
       setCreated(true);
     } catch (err) {
+      draftSend.settle(false);
       submittedRef.current = false;
       logger.error('Failed to create ticket:', err);
       setError(getApiErrorMessage(err) ?? 'The ticket could not be created. Try again.');

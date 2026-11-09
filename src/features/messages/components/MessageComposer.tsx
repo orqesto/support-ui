@@ -74,6 +74,7 @@ export function MessageComposer({
   onSendPick,
   onOpenChange,
   restoredDraft = false,
+  restoredFiles = 0,
   onDiscardRestoredDraft,
 }: MessageComposerProps) {
   const user = useAuthStore((store) => store.user);
@@ -313,6 +314,7 @@ export function MessageComposer({
       {restoredDraft && onDiscardRestoredDraft && (
         <RestoredDraftNotice
           onDiscard={onDiscardRestoredDraft}
+          fileCount={restoredFiles}
           label={
             composerMode === 'note'
               ? 'Restored your unsent internal note'

@@ -69,20 +69,31 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
     The new comment survives a closed ticket or a page change (this browser only, useUnsentDraft) —
     with its Internal tick: a note restored as a public comment would reach the customer side.
   */
+  const [restoredFiles, setRestoredFiles] = useState(0);
   const commentDraft = useMemo(
-    () => ({ html: newComment, internal: isInternal }),
-    [newComment, isInternal]
+    () => ({ html: newComment, internal: isInternal, files: selectedFiles.length }),
+    [newComment, isInternal, selectedFiles.length]
   );
-  const restoreComment = useCallback((data: { html?: unknown; internal?: unknown }) => {
-    if (typeof data?.html !== 'string') return;
-    setNewComment(data.html);
-    setIsInternal(data.internal === true);
-  }, []);
+  const restoreComment = useCallback(
+    (data: { html?: unknown; internal?: unknown; files?: unknown }) => {
+      if (typeof data?.html !== 'string') return;
+      setNewComment(data.html);
+      setIsInternal(data.internal === true);
+      setRestoredFiles(typeof data.files === 'number' ? data.files : 0);
+    },
+    []
+  );
   const unsentComment = useUnsentDraft({
     scope: `ticket:${ticketId}:comment`,
     value: commentDraft,
     isBlank: isBlankRichText(newComment),
     restore: restoreComment,
+    fingerprint: (data) => `${String(data.internal)}\n${data.html}`,
+    onSentElsewhere: () => {
+      setNewComment('');
+      setIsInternal(false);
+      toast.info('This comment was posted from another tab.');
+    },
   });
   const discardComment = () => {
     unsentComment.clearDraft();
@@ -157,9 +168,13 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
       return;
     }
 
+    // Held off while it is posted: a posted comment must never come back as "unsent", even when
+    // the agent left the ticket before the answer.
+    const draftSend = unsentComment.beginSend();
     try {
       setIsSubmitting(true);
       const response = await commentsService.create(ticketId, newComment.trim(), isInternal);
+      draftSend.settle(Boolean(response.success && response.data));
       if (response.success && response.data) {
         // If files are selected, upload them to the newly created comment
         if (selectedFiles.length > 0) {
@@ -178,6 +193,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
         await fetchComments(); // Refresh comments immediately
       }
     } catch (error) {
+      draftSend.settle(false);
       logger.error('Failed to add comment:', error);
       toast.failure('add comment', error);
     } finally {
@@ -519,7 +535,10 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
       >
         {unsentComment.restored && (
           <RestoredDraftNotice
-            label={isInternal ? 'Restored your unsent internal note' : 'Restored your unsent comment'}
+            label={
+              isInternal ? 'Restored your unsent internal note' : 'Restored your unsent comment'
+            }
+            fileCount={restoredFiles}
             onDiscard={discardComment}
           />
         )}

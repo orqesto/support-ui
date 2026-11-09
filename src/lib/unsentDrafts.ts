@@ -87,9 +87,61 @@ const ownKeys = (): string[] => {
   return keys;
 };
 
+/*
+  Places whose text is being sent right now. Module state, not the component's: the send may finish
+  after the editor closed, and until it does no save may put the text back (it would come back as
+  "unsent" after it went out).
+*/
+const sending = new Set<string>();
+export const markUnsentDraftSending = (key: string, on: boolean): void => {
+  if (on) sending.add(key);
+  else sending.delete(key);
+};
+export const isUnsentDraftSending = (key: string): boolean => sending.has(key);
+
+// Bumped by sign-out: a save queued before it (the last keystrokes, written on unmount/pagehide)
+// belongs to the signed-out person and must not land after the wipe.
+let generation = 0;
+export const unsentDraftGeneration = (): number => generation;
+
 /** Sign-out: the next person on this browser must not see the previous one's words. */
 export const clearAllUnsentDrafts = (): void => {
+  generation += 1;
+  sending.clear();
   ownKeys().forEach(removeUnsentDraft);
+};
+
+/**
+ * Sent: the copy is replaced by a marker carrying only a fingerprint of what went out (no text),
+ * so another tab still showing the same words can tell they were sent. Read as "nothing kept".
+ */
+export const markUnsentDraftSent = (key: string, fingerprint: string, now = Date.now()): void => {
+  try {
+    storage()?.setItem(key, JSON.stringify({ savedAt: now, sent: fingerprint }));
+  } catch {
+    removeUnsentDraft(key);
+  }
+};
+
+/** The fingerprint in a sent marker (a `storage` event's newValue), or null. */
+export const sentFingerprintOf = (raw: string | null): string | null => {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { sent?: unknown } | null;
+    return typeof parsed?.sent === 'string' ? parsed.sent : null;
+  } catch {
+    return null;
+  }
+};
+
+/** A short, non-reversible fingerprint (FNV-1a) — enough to compare, never the words themselves. */
+export const draftFingerprint = (text: string): string => {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `${text.length}:${(hash >>> 0).toString(36)}`;
 };
 
 /** Drops week-old entries for places never reopened (reading drops only the one it reads). */

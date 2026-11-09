@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useUnsentDraft } from '@/hooks/useUnsentDraft';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { RestoredDraftNotice } from '@/components/shared/RestoredDraftNotice';
@@ -8,8 +8,8 @@ type TicketText = { title: string; description: string };
 /*
   New ticket: what the agent wrote survives a page change or a closed tab (this browser only,
   useUnsentDraft). Only once they edited something: the thread's prefill alone is not theirs.
-  `kept` holds a restored title/description so it wins over that prefill when the thread loads
-  after it.
+  Once restored, the thread's prefill (it may load later) never replaces what is on screen —
+  restored or edited since; Discard brings that prefill back.
 */
 export function useCreateTicketUnsentDraft<T extends TicketText>({
   messageId,
@@ -18,6 +18,7 @@ export function useCreateTicketUnsentDraft<T extends TicketText>({
   touched,
   setTouched,
   created,
+  fileCount,
 }: {
   messageId: string | null;
   formData: T;
@@ -25,18 +26,22 @@ export function useCreateTicketUnsentDraft<T extends TicketText>({
   touched: boolean;
   setTouched: (touched: boolean) => void;
   created: boolean;
+  fileCount: number;
 }) {
-  const kept = useRef<TicketText | null>(null);
+  const restoredRef = useRef(false);
+  const prefillRef = useRef<TicketText>({ title: '', description: '' });
+  const [restoredFiles, setRestoredFiles] = useState(0);
   const value = useMemo(
-    () => ({ title: formData.title, description: formData.description }),
-    [formData.title, formData.description]
+    () => ({ title: formData.title, description: formData.description, files: fileCount }),
+    [formData.title, formData.description, fileCount]
   );
   const restore = useCallback(
-    (data: { title?: unknown; description?: unknown }) => {
+    (data: { title?: unknown; description?: unknown; files?: unknown }) => {
       const title = typeof data?.title === 'string' ? data.title : '';
       const description = typeof data?.description === 'string' ? data.description : '';
-      kept.current = { title, description };
+      restoredRef.current = true;
       setTouched(true);
+      setRestoredFiles(typeof data.files === 'number' ? data.files : 0);
       setFormData((prev) => ({ ...prev, title, description }));
     },
     [setFormData, setTouched]
@@ -47,22 +52,27 @@ export function useCreateTicketUnsentDraft<T extends TicketText>({
     isBlank:
       !touched || created || (!formData.title.trim() && isBlankRichText(formData.description)),
     restore,
+    fingerprint: (data) => `${data.title}\n${data.description}`,
   });
+  /** The thread's prefill: recorded for Discard; applied only when nothing was restored. */
+  const overPrefill = (prev: TicketText, title: string, description: string): TicketText => {
+    prefillRef.current = { title, description };
+    return restoredRef.current
+      ? { title: prev.title, description: prev.description }
+      : { title, description };
+  };
   const discard = () => {
     draft.clearDraft();
-    kept.current = null;
-    setFormData((prev) => ({ ...prev, title: '', description: '' }));
+    restoredRef.current = false;
+    setTouched(false);
+    setFormData((prev) => ({ ...prev, ...prefillRef.current }));
   };
-  /** The thread's prefill, unless the agent's own restored words are there to win over it. */
-  const overPrefill = (title: string, description: string): TicketText => ({
-    title: kept.current?.title ? kept.current.title : title,
-    description:
-      kept.current && !isBlankRichText(kept.current.description)
-        ? kept.current.description
-        : description,
-  });
   const notice = draft.restored ? (
-    <RestoredDraftNotice label="Restored your unsent ticket" onDiscard={discard} />
+    <RestoredDraftNotice
+      label="Restored your unsent ticket"
+      fileCount={restoredFiles}
+      onDiscard={discard}
+    />
   ) : null;
-  return { notice, overPrefill, clearDraft: draft.clearDraft };
+  return { notice, overPrefill, beginSend: draft.beginSend };
 }

@@ -1,4 +1,5 @@
-import { useCallback, useMemo, type MutableRefObject } from 'react';
+import { useCallback, useMemo, useRef, useState, type MutableRefObject } from 'react';
+import { toast } from '@/lib/toast';
 import type { AiDraft } from '@/services/message.service';
 import { useUnsentDraft } from '@/hooks/useUnsentDraft';
 import { isBlankRichText } from '@/lib/stripHtml';
@@ -25,6 +26,8 @@ type ThreadDraft = {
     keyForPayload still only reuses it for the SAME email (body, files, recipients).
   */
   sendKey?: KeptSendKey | null;
+  /** Files are not kept; their count is, so the notice can ask for them again. */
+  files?: number;
 };
 
 const isKeptSendKey = (value: unknown): value is KeptSendKey =>
@@ -48,6 +51,7 @@ export function useThreadUnsentDraft({
   setRecipientDraft,
   sendKeyRef,
   sendFailedError,
+  fileCount,
 }: {
   threadId: number;
   composerText: ReturnType<typeof useComposerText>;
@@ -56,6 +60,7 @@ export function useThreadUnsentDraft({
   sendKeyRef: MutableRefObject<KeptSendKey | null>;
   /** Set when a send fails — the moment the key is worth keeping (it lives in a ref). */
   sendFailedError: string | null;
+  fileCount: number;
 }) {
   const {
     composer,
@@ -67,6 +72,7 @@ export function useThreadUnsentDraft({
     setComposerMode,
   } = composerText;
   const { handleAiSourceChange } = composerText;
+  const [restoredFiles, setRestoredFiles] = useState(0);
   const blank =
     isBlankRichText(composer) &&
     !recipientDraft.to.trim() &&
@@ -80,12 +86,15 @@ export function useThreadUnsentDraft({
       aiDraft,
       recipients: recipientDraft,
       sendKey: sendKeyRef.current,
+      files: fileCount,
     }),
     // Two refs: lastEditMode changes together with `composer`; the send key is minted at send time
     // and kept on a failure, which `sendFailedError` marks.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
-    [composer, composerMode, aiSource, aiDraft, recipientDraft, sendFailedError]
+    [composer, composerMode, aiSource, aiDraft, recipientDraft, sendFailedError, fileCount]
   );
+  const valueRef = useRef(value);
+  valueRef.current = value;
   const restore = useCallback(
     (data: ThreadDraft) => {
       const hasText = typeof data?.html === 'string' && !isBlankRichText(data.html);
@@ -97,20 +106,48 @@ export function useThreadUnsentDraft({
       if (recipients) setRecipientDraft(recipients);
       if (data.aiSource) handleAiSourceChange(data.aiSource, data.aiDraft ?? undefined);
       if (isKeptSendKey(data.sendKey)) sendKeyRef.current = data.sendKey;
+      setRestoredFiles(typeof data.files === 'number' ? data.files : 0);
     },
     [writeComposer, setComposerMode, setRecipientDraft, handleAiSourceChange, sendKeyRef]
   );
-  const { restored, dismissRestored } = useUnsentDraft({
+  const clearComposer = useCallback(() => {
+    writeComposer('');
+    setRecipientDraft(emptyRecipientDraft());
+    handleAiSourceChange(null);
+    sendKeyRef.current = null;
+  }, [writeComposer, setRecipientDraft, handleAiSourceChange, sendKeyRef]);
+  const { restored, dismissRestored, beginSend } = useUnsentDraft({
     scope: `thread:${threadId}`,
     value,
     isBlank: blank,
     restore,
+    // The message itself: what another tab may have sent already.
+    fingerprint: (data) => `${data.mode}\n${data.html}`,
+    onSentElsewhere: () => {
+      clearComposer();
+      toast.info('This text was sent from another tab.');
+    },
   });
   const discardRestored = useCallback(() => {
-    writeComposer('');
-    setRecipientDraft(emptyRecipientDraft());
-    handleAiSourceChange(null);
+    clearComposer();
     dismissRestored();
-  }, [writeComposer, setRecipientDraft, handleAiSourceChange, dismissRestored]);
-  return { restoredDraft: restored, discardRestoredDraft: discardRestored };
+  }, [clearComposer, dismissRestored]);
+  /*
+    The send's start (useReplySend, after the key was minted). The text stays kept while it is out,
+    WITH the key: if the tab dies or the answer is lost, a resend of it dedups on the BE.
+  */
+  const beginDraftSend = useCallback(
+    () =>
+      beginSend({
+        keep: true,
+        data: { ...valueRef.current, sendKey: sendKeyRef.current },
+      }),
+    [beginSend, sendKeyRef]
+  );
+  return {
+    restoredDraft: restored,
+    restoredFiles,
+    discardRestoredDraft: discardRestored,
+    beginDraftSend,
+  };
 }

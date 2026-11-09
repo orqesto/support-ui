@@ -78,5 +78,7 @@ export type MessageComposerProps = {
   onOpenChange?: (open: boolean) => void;
   /** The text came back from this browser (useUnsentDraft): the box opens and says so. */
   restoredDraft?: boolean;
+  /** Files the restored draft had: they are not kept, so the notice asks for them again. */
+  restoredFiles?: number;
   onDiscardRestoredDraft?: () => void;
 };

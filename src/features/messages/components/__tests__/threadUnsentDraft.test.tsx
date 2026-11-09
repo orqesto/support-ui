@@ -45,6 +45,7 @@ describe('thread composer', () => {
         setRecipientDraft,
         sendKeyRef,
         sendFailedError,
+        fileCount: 0,
       }),
     };
   };
@@ -126,5 +127,51 @@ describe('thread composer', () => {
 
     const again = renderHook(useThread);
     expect(again.result.current.recipientDraft.cc).toBe('billing@example.com');
+  });
+
+  it('a reply sent after the agent left the thread does not come back', () => {
+    const first = renderHook(useThread);
+    act(() => first.result.current.composerText.writeComposer('<p>Sent already</p>', 'reply'));
+    keyForPayload(first.result.current.sendKeyRef, 'payload');
+    const send = first.result.current.beginDraftSend();
+    first.unmount(); // J/K mid-send
+    send.settle(true);
+    const again = renderHook(useThread);
+    expect(again.result.current.composerText.composer).toBe('');
+    expect(again.result.current.restoredDraft).toBe(false);
+  });
+
+  it('a reply that failed after the agent left comes back WITH its send key', () => {
+    const first = renderHook(useThread);
+    act(() => first.result.current.composerText.writeComposer('<p>Timed out</p>', 'reply'));
+    const failedKey = keyForPayload(first.result.current.sendKeyRef, 'payload');
+    const send = first.result.current.beginDraftSend();
+    first.unmount();
+    send.settle(false);
+    const again = renderHook(useThread);
+    expect(again.result.current.composerText.composer).toBe('<p>Timed out</p>');
+    expect(keyForPayload(again.result.current.sendKeyRef, 'payload')).toBe(failedKey);
+  });
+
+  it('the restored notice counts the files that must be attached again', () => {
+    const first = renderHook(() => {
+      const composerText = useComposerText();
+      const [recipientDraft, setRecipientDraft] = useState<RecipientDraft>(emptyRecipientDraft);
+      const sendKeyRef = useRef<KeptSendKey | null>(null);
+      return (
+        useThreadUnsentDraft({
+          threadId: 42,
+          composerText,
+          recipientDraft,
+          setRecipientDraft,
+          sendKeyRef,
+          sendFailedError: null,
+          fileCount: 2,
+        }) && composerText
+      );
+    });
+    act(() => first.result.current.writeComposer('<p>See attached</p>', 'reply'));
+    first.unmount();
+    expect(renderHook(useThread).result.current.restoredFiles).toBe(2);
   });
 });
