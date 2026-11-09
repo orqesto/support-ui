@@ -31,7 +31,7 @@ import {
   type PlatformSlackStatus,
   type SlackChannelList,
   type SlackTestResult,
-} from '@/services/slackNotifications.service';
+} from '@/features/settings';
 import { useAuthStore } from '@/stores/authStore';
 
 /**

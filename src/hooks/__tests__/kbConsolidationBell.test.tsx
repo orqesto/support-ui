@@ -60,7 +60,7 @@ vi.mock('@/hooks/useDepartments', () => ({
 const { useKbReviewAlerts, KB_CONSOLIDATION_KIND, KB_REVIEW_KIND } = await import(
   '../useKbReviewAlerts'
 );
-const { announceKbConsolidationDecided } = await import('@/lib/kbConsolidation');
+const { announceKbConsolidationDecided } = await import('@/lib/kbConsolidationEvent');
 const { KbReviewSection } = await import('@/components/layout/KbReviewSection');
 
 const mergeRow = (over: Record<string, unknown> = {}) => ({

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Spinner } from '@/components/ui/Spinner';
-import { dollarsText, dollarsToMicros, fmtMoney } from '@/components/budget/budget.rules';
+import { dollarsText, dollarsToMicros, fmtMoney } from '@/features/subscription';
 import { usePlatformFreeStarter, useUpdatePlatformFreeStarter } from '@/hooks/usePlatformSettings';
 import { SourceBadge } from './SourceBadge';
 

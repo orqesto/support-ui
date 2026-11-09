@@ -11,7 +11,7 @@
  */
 import { describe, expect, it, beforeEach } from 'vitest';
 import { useAuthStore } from '@/stores/authStore';
-import { useUsersStore } from '@/stores/usersStore';
+import { useUsersStore } from '@/features/settings';
 import { useAuditLogsStore } from '@/stores/auditLogsStore';
 import { useOrganizationsStore } from '@/stores/organizationsStore';
 import type { User } from '@/types';

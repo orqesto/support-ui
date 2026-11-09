@@ -74,8 +74,10 @@ jobs:
     name: type-check + lint + tests
     runs-on: ubuntu-latest
     # The job ran 9m19s–9m56s on 2026-10-16 and #619 was cancelled 12 s over a 10-minute limit
-    # with every test green; 15 leaves room for the suite to grow.
-    timeout-minutes: 15
+    # with every test green. On 2026-11-07 the same suite took 478 s on one staging push and 746 s
+    # on the next (runner speed varies ~55%), and the second was cancelled 2 s after all 985 files
+    # passed at the 15-minute limit. 25 covers a slow runner; a passing run costs the same.
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -107,6 +109,16 @@ jobs:
 
       - name: Import cycles
         run: npm run check:cycles
+
+      # No feature index may load with the app shell (scripts/ci/check-shell-bundle.mjs): it would
+      # put the whole feature into the main bundle every page downloads first.
+      - name: Shell bundle
+        run: npm run check:shell
+
+      # Production build + bundle guard (scripts/ci/check-bundle.mjs, owner 2026-11-08): the main
+      # chunk stays within .ci/baselines/bundle.json, and pages keep their lazy chunks lazy.
+      - name: Bundle budget
+        run: npx vite build --logLevel warn && npm run check:bundle
 
       # Only on a PR into `staging`: every other event (and a PR into `main`, the release path)
       # leaves `mode` unset and runs the full suite below. The script never fails the job; on any

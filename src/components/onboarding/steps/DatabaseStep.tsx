@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Check, Cloud, Database } from 'lucide-react';
-import { DatabaseConfigCard } from '@/components/settings/providers/DatabaseConfigCard';
+import { DatabaseConfigCard } from '@/features/settings';
 import { ChoiceCard } from '@/components/ui/ChoiceCard';
 import type { DatabaseDisplay } from '@/services/database.service';
 

@@ -1,0 +1,462 @@
+import { Bookmark, History, Search, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FilterMenu } from './FilterMenu';
+import { FilterToken } from './FilterToken';
+import { clearPatch, clearedValue, suggestionsFor, tokensOf } from './filterTokens';
+import {
+  filterValue,
+  toggleCsvValue,
+  withNegation,
+  type FilterDef,
+  type FilterKey,
+} from './filterSchema';
+import { Button } from '@/components/ui/Button';
+import type { RecentSearch } from '@/features/messages/services/recentSearch.service';
+import type { FilterState } from '@/features/messages/stores/messagesStore';
+
+/** Search as you type: this long after the last keystroke, the typed text is searched. */
+export const LIVE_SEARCH_DELAY_MS = 300;
+/**
+ * Shorter text waits for Enter. The backend's trigram indexes cannot serve under three
+ * characters, so a live search on "ab" would read every thread, and match most of them.
+ */
+export const LIVE_SEARCH_MIN_LENGTH = 3;
+
+/**
+ * The inbox filter bar: every active filter as a token on one line, with a menu that
+ * both searches and browses.
+ *
+ * Replaces a panel that ran ~730px open and hid the thread list. The bar is one row
+ * whether you have no filters or nine; the menu is a popover, so opening it costs the
+ * list nothing.
+ */
+export const FilterTokenBar = ({
+  defs,
+  filters,
+  isKanban,
+  onFilterChange,
+  onFilterPatch,
+  onCommitSearch,
+  recent = [],
+  onSearchSettled,
+  onRemoveRecent,
+  onClearRecent,
+  onSaveSearchAsView,
+  liveSearch = true,
+}: {
+  defs: FilterDef[];
+  filters: FilterState;
+  isKanban: boolean;
+  onFilterChange: (key: string, value: string | boolean) => void;
+  /** Several keys in ONE write. The date range and clearing a negated filter each touch
+   *  more than one field, and doing that as two writes fetches the list twice — once
+   *  for a state nobody asked for. */
+  onFilterPatch: (patch: Partial<FilterState>) => void;
+  onCommitSearch: (text: string) => void;
+  /** The person's recent searches, offered when the bar opens empty. */
+  recent?: RecentSearch[];
+  /**
+   * A search the person has SETTLED on — Enter, a recent entry, or a click away from a live
+   * search. Not every live search: those include each pause on the way ("inv", "invoi").
+   */
+  onSearchSettled?: (text: string) => void;
+  onRemoveRecent?: (entry: RecentSearch) => void;
+  onClearRecent?: () => void;
+  /** Keep a recent search as a saved view (a pill). */
+  onSaveSearchAsView?: (text: string) => void;
+  /**
+   * Search as you type. Off where each search costs a fan of requests nothing can cancel —
+   * the board refetches every column, the contacts view its own list — so there Enter searches.
+   */
+  liveSearch?: boolean;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [panelKey, setPanelKey] = useState<FilterKey | null>(null);
+  const [highlighted, setHighlighted] = useState(0);
+  /** Explains an exclusivity swap. The old panel reset the other dropdown silently. */
+  const [notice, setNotice] = useState('');
+
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Live search state. `before` is the search that was committed when typing began, so that
+   * typing which turns out to be a FILTER (`stat…` → Status) or is abandoned with Escape puts
+   * the list back; `live` is whether the typed text has been searched yet.
+   */
+  const liveRef = useRef<{ before: string | null; live: boolean; term: string }>({
+    before: null,
+    live: false,
+    term: '',
+  });
+  // Through refs: both are new on every render, and the debounce must not restart on a render.
+  const commitSearchRef = useRef(onCommitSearch);
+  commitSearchRef.current = onCommitSearch;
+  const committedSearchRef = useRef(filters.search ?? '');
+  committedSearchRef.current = filters.search ?? '';
+  const queryRef = useRef(query);
+  queryRef.current = query;
+  const settledRef = useRef(onSearchSettled);
+  settledRef.current = onSearchSettled;
+
+  /** Typing is over. `keep` = the live search stands; otherwise the earlier search returns. */
+  const endTyping = useCallback((keep: boolean) => {
+    const { before, live, term } = liveRef.current;
+    if (!keep && live && before !== null) commitSearchRef.current(before);
+    if (keep && live && term) settledRef.current?.(term);
+    liveRef.current = { before: null, live: false, term: '' };
+  }, []);
+
+  const tokens = useMemo(() => tokensOf(defs, filters, isKanban), [defs, filters, isKanban]);
+  const suggestions = useMemo(
+    () => suggestionsFor(defs, query, isKanban, filters),
+    [defs, query, isKanban, filters]
+  );
+
+  const close = useCallback(() => {
+    setOpen(false);
+    setPanelKey(null);
+    setQuery('');
+    setHighlighted(0);
+  }, []);
+
+  const openBar = useCallback(() => {
+    setOpen(true);
+    setPanelKey(null);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  }, []);
+
+  // Search as you type. The menu stays open, so a filter suggestion is still one keystroke
+  // away; Enter searches at once, as before.
+  useEffect(() => {
+    if (!open || panelKey || !liveSearch) return undefined;
+    const term = query.trim();
+    if (term && liveRef.current.before === null)
+      liveRef.current.before = committedSearchRef.current;
+    const timer = window.setTimeout(() => {
+      if (term.length >= LIVE_SEARCH_MIN_LENGTH) {
+        commitSearchRef.current(term);
+        liveRef.current.live = true;
+        liveRef.current.term = term;
+      } else if (liveRef.current.live) {
+        // Erased below the minimum: show what was there before typing, not the stale prefix.
+        commitSearchRef.current(liveRef.current.before ?? '');
+        liveRef.current.live = false;
+        liveRef.current.term = '';
+      }
+    }, LIVE_SEARCH_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [query, open, panelKey, liveSearch]);
+
+  // Click-away. Bound while open only, so a closed bar costs nothing.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (event: MouseEvent) => {
+      if (!wrapRef.current?.contains(event.target as Node)) {
+        // Usually a click on a result of the live search, so it stands — as TYPED. The pause
+        // timer dies with the close, so text typed since the last pause is searched now, not
+        // dropped in favour of the stale prefix.
+        if (liveSearch && !panelKey) {
+          const typed = queryRef.current.trim();
+          if (typed.length >= LIVE_SEARCH_MIN_LENGTH && typed !== liveRef.current.term) {
+            liveRef.current.before ??= committedSearchRef.current;
+            commitSearchRef.current(typed);
+            liveRef.current.live = true;
+            liveRef.current.term = typed;
+          } else if (typed.length < LIVE_SEARCH_MIN_LENGTH && liveRef.current.live) {
+            // Erased below the minimum, then clicked away: what was there before typing.
+            commitSearchRef.current(liveRef.current.before ?? '');
+            liveRef.current = { before: null, live: false, term: '' };
+          }
+        }
+        endTyping(true);
+        close();
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open, close, endTyping, liveSearch, panelKey]);
+
+  // "/" focuses the bar, the way it does in every tool this borrows from. Ignored
+  // while the caret is in some other field, or it would eat a typed slash.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== '/' || event.metaKey || event.ctrlKey) return;
+      const el = document.activeElement;
+      const typing =
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLTextAreaElement ||
+        (el instanceof HTMLElement && el.isContentEditable);
+      if (typing) return;
+      event.preventDefault();
+      openBar();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [openBar]);
+
+  const setValue = useCallback(
+    (def: FilterDef, value: string, options?: { keepOpen?: boolean }) => {
+      if (def.kind === 'date') {
+        // A bucket and an explicit range are alternatives, so choosing one drops the
+        // other. Both would be honoured by the API — as an intersection nobody asked for.
+        onFilterPatch({
+          ageRange: value as FilterState['ageRange'],
+          receivedFrom: undefined,
+          receivedTo: undefined,
+        });
+      } else if (def.multi) {
+        // Toggle, not replace: a second pick on a multi means "and this one too".
+        onFilterChange(
+          def.key,
+          toggleCsvValue((filters as Record<string, unknown>)[def.key], value)
+        );
+      } else {
+        onFilterChange(def.key, value);
+      }
+      // Status and Queue partition disjoint sets — together they always match nothing.
+      // Say so, rather than quietly resetting the other one.
+      if (def.exclusiveWith && filterValue(filters, def.exclusiveWith) !== undefined) {
+        const other = defs.find((row) => row.key === def.exclusiveWith);
+        onFilterChange(def.exclusiveWith, clearedValue(other ?? def));
+        setNotice(
+          `${other?.label ?? 'The other filter'} was cleared — it and ${def.label} filter different sets and cannot combine.`
+        );
+      } else {
+        setNotice('');
+      }
+      // A multi stays open so the next value is one click away, not a reopen. Picking
+      // one off the suggestion list is a finished action, so that path passes keepOpen.
+      const stayOpen = Boolean(def.sub) || (Boolean(def.multi) && options?.keepOpen === true);
+      if (!stayOpen) close();
+    },
+    [defs, filters, onFilterChange, onFilterPatch, close]
+  );
+
+  /** The explicit range half of Received — clears the bucket for the same reason. */
+  const setRange = useCallback(
+    (next: { from?: string; to?: string }) => {
+      onFilterPatch({ ageRange: 'all', receivedFrom: next.from, receivedTo: next.to });
+      setNotice('');
+    },
+    [onFilterPatch]
+  );
+
+  const setNegated = useCallback(
+    (def: FilterDef, negated: boolean) => {
+      onFilterChange('negate', withNegation(filters, def.key, negated));
+    },
+    [filters, onFilterChange]
+  );
+
+  const toggleFlag = useCallback(
+    (def: FilterDef) => {
+      const on = filterValue(filters, def.key) !== undefined;
+      onFilterChange(def.key, !on);
+    },
+    [filters, onFilterChange]
+  );
+
+  const pickSuggestion = useCallback(
+    (index: number) => {
+      const suggestion = suggestions[index];
+      if (!suggestion) return;
+      if (suggestion.kind === 'free') {
+        // Settled here, below — not again by endTyping for the live search it confirms.
+        liveRef.current = { before: null, live: false, term: '' };
+        onCommitSearch(suggestion.query);
+        onSearchSettled?.(suggestion.query);
+        close();
+        return;
+      }
+      // The typed text was the way to a filter, not a search.
+      endTyping(false);
+      if (suggestion.kind === 'flag') {
+        onFilterChange(suggestion.def.key, true);
+        close();
+        return;
+      }
+      if (suggestion.kind === 'value') {
+        setValue(suggestion.def, suggestion.option.value, { keepOpen: false });
+        return;
+      }
+      setPanelKey(suggestion.def.key);
+      setQuery('');
+    },
+    [suggestions, onCommitSearch, onSearchSettled, onFilterChange, setValue, close, endTyping]
+  );
+
+  const removeToken = useCallback(
+    (def: FilterDef) => {
+      onFilterPatch(clearPatch(def, filters));
+      setNotice('');
+    },
+    [filters, onFilterPatch]
+  );
+
+  const onInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      endTyping(false);
+      close();
+      return;
+    }
+    if (event.key === 'Backspace' && !query && tokens.length > 0) {
+      removeToken(tokens[tokens.length - 1].def);
+      return;
+    }
+    if (panelKey) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setHighlighted((prev) => Math.min(prev + 1, Math.max(0, suggestions.length - 1)));
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setHighlighted((prev) => Math.max(prev - 1, 0));
+    } else if (event.key === 'Enter') {
+      // The Enter that confirms a Japanese/Chinese composition is not a search: Enter is the only
+      // trigger now, so a half-composed word would be searched. Safari reports it as keyCode 229.
+      if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+      event.preventDefault();
+      if (query.trim()) pickSuggestion(highlighted);
+    }
+  };
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <div
+        onMouseDown={(event) => {
+          // A click on a token's own controls must not also reopen the bar.
+          if ((event.target as HTMLElement).closest('button')) return;
+          openBar();
+        }}
+        // Dark mode drops to --background rather than --input: the bar sits ON a card,
+        // and --input there is barely distinguishable from it.
+        className={`flex flex-wrap gap-1.5 items-center p-1.5 rounded-md border cursor-text min-h-[40px] transition-colors bg-input dark:bg-background ${
+          open
+            ? 'border-primary ring-2 ring-primary/10'
+            : 'border-border hover:border-accent-foreground dark:hover:border-primary/50'
+        }`}
+      >
+        <Search className="ml-1.5 w-4 h-4 text-muted-foreground shrink-0" />
+        {tokens.map((token) => (
+          <FilterToken
+            key={token.def.key}
+            token={token}
+            onEdit={() => {
+              if (token.def.kind === 'flag') return;
+              if (token.def.kind === 'free') {
+                setQuery(token.value);
+                onFilterChange('search', '');
+              }
+              setPanelKey(token.def.kind === 'free' ? null : token.def.key);
+              setOpen(true);
+              window.setTimeout(() => inputRef.current?.focus(), 0);
+            }}
+            onRemove={() => removeToken(token.def)}
+          />
+        ))}
+        <input
+          ref={inputRef}
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setHighlighted(0);
+            setPanelKey(null);
+          }}
+          onKeyDown={onInputKeyDown}
+          aria-label="Filter or search threads"
+          placeholder={
+            tokens.length
+              ? 'Add filter or search…'
+              : 'Filter by status, assignee, priority, source…'
+          }
+          className="flex-1 px-1 h-7 bg-transparent outline-none min-w-[150px] text-[13.5px] placeholder:text-muted-foreground/70"
+        />
+      </div>
+
+      {open && (
+        <div className="overflow-hidden absolute right-0 left-0 top-[52px] z-30 rounded-lg border shadow-lg max-w-[460px] bg-card border-border">
+          {!query.trim() && !panelKey && recent.length > 0 && (
+            <section aria-label="Recent searches" className="py-1.5 border-b border-border">
+              <div className="flex justify-between items-center px-3 pb-1">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Recent
+                </span>
+                {onClearRecent && (
+                  <Button
+                    variant="ghost"
+                    onClick={onClearRecent}
+                    className="px-1.5 h-6 text-[12px] text-muted-foreground"
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+              <ul>
+                {recent.map((entry) => (
+                  <li key={entry.id} className="flex items-center gap-0.5 px-1.5 group/recent">
+                    <Button
+                      variant="ghost"
+                      // Running it again IS the update: the search re-runs on current mail.
+                      onClick={() => {
+                        onCommitSearch(entry.query);
+                        onSearchSettled?.(entry.query);
+                        close();
+                      }}
+                      className="flex-1 justify-start gap-2 px-1.5 h-8 min-w-0 text-[13px] font-normal"
+                    >
+                      <History className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="truncate">{entry.query}</span>
+                    </Button>
+                    {onSaveSearchAsView && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => onSaveSearchAsView(entry.query)}
+                        aria-label={`Save “${entry.query}” as a view`}
+                        className="p-0 w-7 h-7 text-muted-foreground"
+                      >
+                        <Bookmark className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                    {onRemoveRecent && (
+                      <Button
+                        variant="ghost"
+                        onClick={() => onRemoveRecent(entry)}
+                        aria-label={`Remove “${entry.query}” from recent searches`}
+                        className="p-0 w-7 h-7 text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          <FilterMenu
+            defs={defs}
+            filters={filters}
+            isKanban={isKanban}
+            query={query}
+            suggestions={suggestions}
+            highlighted={highlighted}
+            panelKey={panelKey}
+            onOpenPanel={(key) => setPanelKey(key)}
+            onBack={() => setPanelKey(null)}
+            onPick={(def, value) => setValue(def, value, { keepOpen: true })}
+            onPickSub={(def, value) => {
+              if (def.sub) onFilterChange(def.sub.key, value);
+              close();
+            }}
+            onToggleFlag={toggleFlag}
+            onPickSuggestion={pickSuggestion}
+            onSetNegated={setNegated}
+            onSetRange={setRange}
+          />
+        </div>
+      )}
+
+      {notice && !open && <p className="mt-2 text-[12px] text-warning">{notice}</p>}
+    </div>
+  );
+};

@@ -68,7 +68,7 @@ import { LicenseExpiryBanner } from './LicenseExpiryBanner';
 import { ResumeSetupBanner } from './ResumeSetupBanner';
 import { TrialBanner } from './TrialBanner';
 import { MessageCapBanner } from './MessageCapBanner';
-import { SubscriptionGateOverlay } from '@/components/subscription/SubscriptionGateOverlay';
+import { SubscriptionGateOverlay } from '@/features/subscription/shell';
 import { useLearningNotifications } from '@/hooks/useLearningNotifications';
 import { WebSocketStatus } from '../shared/WebSocketStatus';
 import { WebSocketDebug } from '../shared/WebSocketDebug';

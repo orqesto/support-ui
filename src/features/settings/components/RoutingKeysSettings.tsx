@@ -1,0 +1,368 @@
+import { useEffect, useState } from 'react';
+import { ChevronDown, ChevronRight, Plus, Trash2, Route } from 'lucide-react';
+import { RoutingTestBox } from './RoutingTestBox';
+import { RoutingValueDescriptions } from './RoutingValueDescriptions';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Toggle } from '@/components/ui/Toggle';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { organizationService } from '@/services/organization.service';
+import type { RoutingKey, RoutingKeyType } from '@/types/skillRouting';
+import { isLanguageKeyName } from '@/features/settings/utils/routing/languageKeyNames';
+
+const TYPE_LABEL: Record<RoutingKeyType, string> = { language: 'Language', topic: 'Topic' };
+type AutoAssignMode = 'off' | 'match_only' | 'always';
+
+const AUTO_ASSIGN_OPTIONS: { value: AutoAssignMode; label: string; description: string }[] = [
+  { value: 'always', label: 'Always', description: 'Skill match first, then load-balance fallback' },
+  { value: 'match_only', label: 'Match only', description: 'Auto-assign only when a skill match is found' },
+  { value: 'off', label: 'Off', description: 'Never auto-assign — all tickets start unassigned' },
+];
+
+export const RoutingKeysSettings = () => {
+  const [routingKeys, setRoutingKeys] = useState<RoutingKey[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newKey, setNewKey] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; key: string | null }>({
+    open: false,
+    key: null,
+  });
+  const [autoAssignMode, setAutoAssignMode] = useState<AutoAssignMode>('always');
+  const [assignOnReply, setAssignOnReply] = useState(true);
+  const [savingAssignOnReply, setSavingAssignOnReply] = useState(false);
+  const [savingMode, setSavingMode] = useState(false);
+  const [allowSelfEditSkills, setAllowSelfEditSkills] = useState(false);
+  const [savingSelfEdit, setSavingSelfEdit] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [openValues, setOpenValues] = useState<string | null>(null);
+  const [typeError, setTypeError] = useState<string | null>(null);
+  // A save that fails (403, network) used to leave the control silently unchanged.
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // An older backend sends keys without a type: hide the controls it cannot serve.
+  const skillRoutingSupported = routingKeys.some((rk) => rk.typeReported);
+
+  const fetchKeys = async () => {
+    setLoading(true);
+    try {
+      const [data, assignData, selfEditData] = await Promise.all([
+        organizationService.getRoutingKeys(),
+        organizationService.getAutoAssign(),
+        organizationService.getSelfEditSkills(),
+      ]);
+      setRoutingKeys(data);
+      setAutoAssignMode(assignData.mode);
+      setAssignOnReply(assignData.assignOnReply ?? true);
+      setAllowSelfEditSkills(selfEditData.allowSelfEditSkills);
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchKeys();
+  }, []);
+
+  const handleModeChange = async (mode: AutoAssignMode) => {
+    setSavingMode(true);
+    setSaveError(null);
+    try {
+      await organizationService.updateAutoAssign(mode);
+      setAutoAssignMode(mode);
+    } catch {
+      setSaveError('Could not save the auto-assignment mode. Please try again.');
+    } finally {
+      setSavingMode(false);
+    }
+  };
+
+  const handleAssignOnReplyToggle = async () => {
+    const next = !assignOnReply;
+    setSavingAssignOnReply(true);
+    setSaveError(null);
+    try {
+      await organizationService.updateAssignOnReply(next);
+      setAssignOnReply(next);
+    } catch {
+      setSaveError('Could not save the ownership setting. Please try again.');
+    } finally {
+      setSavingAssignOnReply(false);
+    }
+  };
+
+  const handleSelfEditToggle = async () => {
+    const next = !allowSelfEditSkills;
+    setSavingSelfEdit(true);
+    setSaveError(null);
+    try {
+      await organizationService.updateSelfEditSkills(next);
+      setAllowSelfEditSkills(next);
+    } catch {
+      setSaveError('Could not save the self-edit setting. Please try again.');
+    } finally {
+      setSavingSelfEdit(false);
+    }
+  };
+
+  const handleAdd = async () => {
+    const key = newKey.trim().toLowerCase();
+    if (!key) return;
+    setSaveError(null);
+    setSaving(true);
+    try {
+      // Pre-selected from the name; the admin can switch it on the row afterwards.
+      await organizationService.addRoutingKey(
+        key,
+        newDescription.trim() || undefined,
+        isLanguageKeyName(key) ? 'language' : 'topic'
+      );
+      setNewKey('');
+      setNewDescription('');
+      await fetchKeys();
+    } catch {
+      setSaveError(`Could not add the routing key "${key}". Please try again.`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTypeToggle = async (rk: RoutingKey) => {
+    const next: RoutingKeyType = rk.type === 'language' ? 'topic' : 'language';
+    setTypeError(null);
+    setSaveError(null);
+    try {
+      await organizationService.setRoutingKeyType(rk.key, next);
+      await fetchKeys();
+    } catch {
+      setTypeError(`Could not change the type of "${rk.key}". Please try again.`);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteDialog.key) return;
+    setDeleteError(null);
+    setSaveError(null);
+    try {
+      await organizationService.deleteRoutingKey(deleteDialog.key);
+      setDeleteDialog({ open: false, key: null });
+      await fetchKeys();
+    } catch {
+      setDeleteError('Failed to delete routing key. Please try again.');
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm text-muted-foreground">
+          Define the skill attributes used for auto-routing tickets to agents. Each key (e.g.{' '}
+          <span className="font-mono text-xs">language</span>,{' '}
+          <span className="font-mono text-xs">region</span>,{' '}
+          <span className="font-mono text-xs">expertise</span>) can be assigned values per user in
+          their profile. A <strong>Language</strong> key matches the language the customer writes in;
+          a <strong>Topic</strong> key matches what the message is about, using each value&apos;s
+          description.
+        </p>
+      </div>
+
+      {saveError && (
+        <p role="alert" className="text-sm text-destructive">
+          {saveError}
+        </p>
+      )}
+
+      {/* Auto-assign mode */}
+      <div className="p-4 rounded-lg border border-border bg-muted/30">
+        <p className="font-display mb-3 text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+          Auto-assignment mode
+        </p>
+        <div className="flex gap-2">
+          {AUTO_ASSIGN_OPTIONS.map((opt) => (
+            <Button
+              key={opt.value}
+              variant="outline"
+              size="sm"
+              disabled={savingMode}
+              onClick={() => void handleModeChange(opt.value)}
+              className={`flex-1 h-auto flex-col items-start px-3 py-2 text-left ${
+                autoAssignMode === opt.value
+                  ? 'border-primary bg-primary/10 text-foreground'
+                  : 'border-border text-muted-foreground hover:text-foreground hover:border-primary/50'
+              }`}
+            >
+              <div className="font-medium">{opt.label}</div>
+              <div className="text-xs mt-0.5 text-muted-foreground">{opt.description}</div>
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Assign on reply — independent of the routing mode above (owner decision 2026-09-07) */}
+      <div className="p-4 rounded-lg border border-border bg-muted/30">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-display text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground mb-0.5">
+              Ask about ownership when replying
+            </p>
+            <p className="text-sm text-muted-foreground">
+              On Send, an agent is asked whether an unowned thread becomes theirs, or whether to take
+              over a colleague&apos;s. Off: replies never change the assignee and nobody is asked.
+            </p>
+          </div>
+          <Toggle
+            checked={assignOnReply}
+            onChange={() => void handleAssignOnReplyToggle()}
+            disabled={savingAssignOnReply}
+            data-testid="assign-on-reply-toggle"
+          />
+        </div>
+      </div>
+
+      {/* Self-edit skills */}
+      <div className="p-4 rounded-lg border border-border bg-muted/30">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-display text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground mb-0.5">
+              Allow agents to self-edit skills
+            </p>
+            <p className="text-sm text-muted-foreground">
+              When enabled, all org members can update their own routing skill values. Individual overrides still apply when this is off.
+            </p>
+          </div>
+          <Toggle
+            checked={allowSelfEditSkills}
+            onChange={() => void handleSelfEditToggle()}
+            disabled={savingSelfEdit}
+          />
+        </div>
+      </div>
+
+      {/* Add new key */}
+      <div className="p-4 rounded-lg border border-border bg-muted/30">
+        <p className="font-display mb-3 text-xs font-semibold uppercase tracking-[0.09em] text-muted-foreground">
+          Add routing key
+        </p>
+        <div className="flex gap-2">
+          <div className="flex flex-col gap-1">
+            <input
+              type="text"
+              value={newKey}
+              onChange={(event) => setNewKey(event.target.value.toLowerCase().replace(/\s+/g, '_'))}
+              onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void handleAdd(); } }}
+              placeholder="Key (e.g. language, region)"
+              className={`w-36 px-3 py-1.5 text-sm rounded-md border bg-input text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary ${newKey && !/^[a-z0-9_-]+$/.test(newKey) ? 'border-destructive' : 'border-border'}`}
+            />
+            {newKey && !/^[a-z0-9_-]+$/.test(newKey) && (
+              <span className="text-xs text-destructive">Only letters, numbers, - and _</span>
+            )}
+          </div>
+          <input
+            type="text"
+            value={newDescription}
+            onChange={(event) => setNewDescription(event.target.value)}
+            onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void handleAdd(); } }}
+            placeholder="Description (optional)"
+            className="flex-1 px-3 py-1.5 text-sm rounded-md border bg-input text-foreground border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <Button
+            size="sm"
+            onClick={() => void handleAdd()}
+            disabled={saving || !newKey.trim() || !/^[a-z0-9_-]+$/.test(newKey)}
+          >
+            <Plus className="mr-1 w-4 h-4" />
+            Add
+          </Button>
+        </div>
+      </div>
+
+      {/* Keys list */}
+      {loading ? (
+        <div className="py-8 text-sm text-center text-muted-foreground">Loading…</div>
+      ) : routingKeys.length === 0 ? (
+        <div className="py-8 text-sm text-center text-muted-foreground">
+          No routing keys defined yet.
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border divide-y divide-border">
+          {routingKeys.map((rk) => (
+            <div key={rk.id}>
+              <div className="flex items-center gap-3 px-4 py-3">
+              <Route className="flex-shrink-0 w-4 h-4 text-muted-foreground" />
+              <div className="flex-1 min-w-0">
+                <span className="font-mono text-sm font-semibold">{rk.key}</span>
+                {rk.description && (
+                  <span className="ml-2 text-sm text-muted-foreground">{rk.description}</span>
+                )}
+              </div>
+              {rk.typeReported && (
+              <Button
+                size="sm"
+                variant="outline"
+                aria-label={`Type of ${rk.key}: ${TYPE_LABEL[rk.type]}`}
+                title="Switch between Language and Topic"
+                onClick={() => void handleTypeToggle(rk)}
+              >
+                <Badge variant={rk.type === 'language' ? 'success' : 'secondary'}>
+                  {TYPE_LABEL[rk.type]}
+                </Badge>
+              </Button>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label={`Values of ${rk.key}`}
+                onClick={() => setOpenValues(openValues === rk.key ? null : rk.key)}
+              >
+                {openValues === rk.key ? (
+                  <ChevronDown className="w-4 h-4" />
+                ) : (
+                  <ChevronRight className="w-4 h-4" />
+                )}
+                Values
+              </Button>
+              <Button
+                aria-label="Delete routing key"
+                title="Delete routing key"
+                size="sm"
+                variant="ghost"
+                className="text-destructive hover:text-destructive hover:bg-destructive-muted"
+                onClick={() => setDeleteDialog({ open: true, key: rk.key })}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+              </div>
+              {openValues === rk.key && (
+                <RoutingValueDescriptions routingKey={rk.key} keyType={rk.type} />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {skillRoutingSupported && <RoutingTestBox />}
+
+      {typeError && <p className="text-sm text-destructive">{typeError}</p>}
+
+      {deleteError && (
+        <p className="text-sm text-destructive">{deleteError}</p>
+      )}
+
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => { setDeleteDialog({ open, key: null }); setDeleteError(null); }}
+        onConfirm={() => void handleDelete()}
+        title="Delete Routing Key"
+        description={
+          deleteDialog.key
+            ? `Delete key "${deleteDialog.key}"? All user skill values for this key will also be removed.`
+            : ''
+        }
+        confirmText="Delete"
+        variant="danger"
+      />
+    </div>
+  );
+};

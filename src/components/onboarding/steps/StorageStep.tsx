@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Check, Cloud, HardDrive } from 'lucide-react';
-import { ObjectStorageConfigCard } from '@/components/settings/providers/ObjectStorageConfigCard';
+import { ObjectStorageConfigCard } from '@/features/settings';
 import { apiClient } from '@/lib/api-client';
 import { ChoiceCard } from '@/components/ui/ChoiceCard';
 import { logger } from '@/lib/logger';

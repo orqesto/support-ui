@@ -40,7 +40,7 @@ vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 vi.mock('@/components/routing/RoutingBarScorecard', () => ({ RoutingBarScorecard: () => null }));
-vi.mock('@/components/messages/MessageSourceFilter', () => ({
+vi.mock('@/components/shared/MessageSourceFilter', () => ({
   ALL_SOURCES: 'all',
   MessageSourceFilter: () => null,
 }));

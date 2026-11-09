@@ -11,7 +11,7 @@
  * selectable in the UI but unrepresentable in the URL.
  */
 import { describe, expect, it } from 'vitest';
-import { COLUMNS } from '@/components/messages/kanbanColumns';
+import { COLUMNS } from '@/lib/kanbanColumns';
 
 /** Mirrors the read half of useMessagesUrlSync. */
 const readColumnFromUrl = (search: string): string | undefined => {

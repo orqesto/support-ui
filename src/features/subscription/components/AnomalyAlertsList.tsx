@@ -1,0 +1,153 @@
+import { useQuery } from '@tanstack/react-query';
+import { AlertTriangle, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Tooltip } from '@/components/ui/Tooltip';
+import { Alert } from '@/components/ui/Alert';
+import type { BillingRecord } from '@/features/subscription/services/billing.service';
+import { billingService } from '@/features/subscription/services/billing.service';
+
+const getAnomalyBadges = (record: BillingRecord) => {
+  const badges: { label: string; className: string }[] = [];
+  if (record.isGhostCharge) {
+    badges.push({
+      label: 'Ghost Charge',
+      className: 'bg-destructive-muted text-destructive',
+    });
+  }
+  if (record.isZombie) {
+    badges.push({
+      label: 'Zombie Subscription',
+      className: 'bg-warning-muted text-warning',
+    });
+  }
+  if (record.isAmountDrift) {
+    badges.push({
+      label: 'Amount Drift',
+      className: 'bg-warning-muted text-warning',
+    });
+  }
+  if (record.isDuplicate) {
+    badges.push({
+      label: 'Duplicate',
+      className: 'bg-destructive-muted text-destructive',
+    });
+  }
+  return badges;
+};
+
+export const AnomalyAlertsList = () => {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['billing-records-anomalies'],
+    queryFn: () => billingService.getBillingRecords(1, 10, true),
+    refetchInterval: 30000,
+  });
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex gap-2 items-center">
+            <AlertTriangle className="w-5 h-5 text-warning" />
+            Anomaly Alerts
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex justify-center items-center py-8">
+            <Loader2 className="w-8 h-8 text-faint-foreground animate-spin" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex gap-2 items-center">
+            <AlertTriangle className="w-5 h-5 text-warning" />
+            Anomaly Alerts
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="danger">Failed to load anomaly alerts.</Alert>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const records = data?.records ?? [];
+
+  if (records.length === 0) {
+    return (
+      <Card className="border-success-line bg-success-muted/50">
+        <CardHeader>
+          <CardTitle className="flex gap-2 items-center text-success">
+            <AlertTriangle className="w-5 h-5" />
+            Anomaly Alerts (0)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="py-12 text-center">
+            <p className="mb-2 text-lg font-medium text-success">No anomalies detected</p>
+            <p className="text-sm text-success">
+              All charges are within normal parameters. Check back after the next daily scan
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="animate-in fade-in duration-500 delay-100">
+      <CardHeader>
+        <CardTitle className="flex gap-2 items-center">
+          <AlertTriangle className="w-5 h-5 text-warning" />
+          Anomaly Alerts ({data?.total ?? 0})
+        </CardTitle>
+        {/* The count above is the server total; this list is one page of 10 with no paging,
+            so without this line the header and the rows contradict each other. */}
+        {(data?.total ?? 0) > records.length && (
+          <p className="text-xs text-muted-foreground">
+            Showing the {records.length} most recent of {data?.total}.
+          </p>
+        )}
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {records.map((record) => (
+            <div
+              key={record.id}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                }
+              }}
+              className="flex items-start justify-between p-3 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-sm truncate">{record.vendorName}</span>
+                  <span className="font-mono text-sm text-muted-foreground">
+                    {record.currency} {record.amount.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex gap-1 flex-wrap mt-1">
+                  {getAnomalyBadges(record).map((badge) => (
+                    <Tooltip key={badge.label} content={record.anomalyDetails ?? badge.label}>
+                      <Badge className={badge.className}>{badge.label}</Badge>
+                    </Tooltip>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};

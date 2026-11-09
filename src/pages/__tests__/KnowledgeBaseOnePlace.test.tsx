@@ -6,7 +6,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import type * as KbServiceModule from '@/services/kb.service';
+import type * as KbServiceModule from '@/features/kb';
 import type * as ApiClientModule from '@/lib/api-client';
 
 type Params = { status?: string; search?: string };
@@ -100,11 +100,11 @@ const expiredCapture = {
 
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
 // KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
-vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
+vi.mock('@/features/kb/components/page/useKbEngineSummary', () => ({
   useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: false }),
 }));
 // No real network calls: "Automatic actions" asks the backend whether its routes exist.
-vi.mock('@/hooks/useAutoActionsAvailable', () => ({
+vi.mock('@/features/kb/hooks/useAutoActionsAvailable', () => ({
   useAutoActionsAvailable: () => false,
   resetAutoActionsAvailability: () => undefined,
 }));
@@ -117,7 +117,7 @@ vi.mock('@/lib/api-client', async (importOriginal) => {
     apiClient: { ...actual.apiClient, post: state.post, patch: state.patch },
   };
 });
-vi.mock('@/services/kb.service', async (importOriginal) => {
+vi.mock('@/features/kb/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
   return {
     ...actual,
@@ -164,33 +164,35 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('@/components/knowledge-base/ConfluenceCatalogSection', () => ({
+vi.mock('@/features/kb/components/ConfluenceCatalogSection', () => ({
   ConfluenceCatalogSection: () => null,
 }));
-vi.mock('@/components/settings/DocumentationSettings', () => ({
+vi.mock('@/features/settings/components/DocumentationSettings', () => ({
   DocumentationSettings: () => null,
 }));
-vi.mock('@/components/messages/MessageSourceFilter', () => ({
+vi.mock('@/components/shared/MessageSourceFilter', () => ({
   ALL_SOURCES: 'all',
   NO_SOURCE: 'none',
   MessageSourceFilter: () => null,
 }));
 vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));
-vi.mock('@/components/kb/KbConsolidationReview', () => ({ KbConsolidationReview: () => null }));
-vi.mock('@/components/kb/KbQualityReview', () => ({ KbQualityReview: () => null }));
+vi.mock('@/features/kb/components/KbConsolidationReview', () => ({
+  KbConsolidationReview: () => null,
+}));
+vi.mock('@/features/kb/components/KbQualityReview', () => ({ KbQualityReview: () => null }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => '' }));
 vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => state.canReview, isOrgAdmin: true }),
 }));
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => ({ isSurfaceVisibleToMe: () => true }) }));
-vi.mock('@/components/kb/KbExportButton', () => ({ KbExportButton: () => null }));
+vi.mock('@/features/kb/components/KbExportButton', () => ({ KbExportButton: () => null }));
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({ data: [] }),
   useDepartmentById: () => undefined,
 }));
 
 const { KnowledgeBasePage } = await import('../KnowledgeBasePage');
-const { isNewStatus } = await import('@/components/kb/KbStatusIgnoredNotice');
+const { isNewStatus } = await import('@/features/kb');
 
 const renderPage = (url: string) =>
   render(

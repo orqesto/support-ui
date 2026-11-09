@@ -35,7 +35,6 @@ vi.mock('@/hooks/useNotificationCounts', () => ({
   NOTIFICATION_COUNTS_KEY: ['notification-counts'],
   useNotificationCounts: () => ({ counts: {} }),
 }));
-vi.mock('@/hooks/useTicketsCount', () => ({ useTicketsCount: () => ({ data: 0 }) }));
 vi.mock('@/hooks/useSLANotifications', () => ({ useSLANotifications: () => ({}) }));
 vi.mock('@/hooks/useLearningNotifications', () => ({ useLearningNotifications: () => ({}) }));
 const joinOrganizationRoom = vi.fn();
@@ -70,14 +69,11 @@ vi.mock('@/components/layout/LicenseExpiryBanner', () => ({ LicenseExpiryBanner:
 vi.mock('@/components/layout/ResumeSetupBanner', () => ({ ResumeSetupBanner: nothing }));
 vi.mock('@/components/layout/TrialBanner', () => ({ TrialBanner: nothing }));
 vi.mock('@/components/layout/MessageCapBanner', () => ({ MessageCapBanner: nothing }));
-vi.mock('@/components/subscription/SubscriptionGateOverlay', () => ({
+vi.mock('@/features/subscription/components/SubscriptionGateOverlay', () => ({
   SubscriptionGateOverlay: nothing,
 }));
 vi.mock('@/components/shared/WebSocketStatus', () => ({ WebSocketStatus: nothing }));
 vi.mock('@/components/shared/WebSocketDebug', () => ({ WebSocketDebug: nothing }));
-vi.mock('@/components/messages/MessageProcessingProgress', () => ({
-  MessageProcessingProgress: nothing,
-}));
 const screenWidth = vi.hoisted(() => ({ desktop: true }));
 vi.mock('@/hooks/useMediaQuery', () => ({ useMediaQuery: () => screenWidth.desktop }));
 // The shell's mount counter: useSidebarShell runs once per <Layout> shell, so an effect in it

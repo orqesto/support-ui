@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import type * as KbServiceModule from '@/services/kb.service';
+import type * as KbServiceModule from '@/features/kb';
 import { kbEntryDetailResponse } from '@/test/kbEntryDetailResponse';
 
 type KBEntry = KbServiceModule.KBEntry;
@@ -21,15 +21,15 @@ const unhide = vi.fn<(...args: unknown[]) => unknown>();
 const toastCalls: Array<{ kind: string; message: string }> = [];
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
 // KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
-vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
+vi.mock('@/features/kb/components/page/useKbEngineSummary', () => ({
   useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: false }),
 }));
 // No real network calls: "Automatic actions" asks the backend whether its routes exist.
-vi.mock('@/hooks/useAutoActionsAvailable', () => ({
+vi.mock('@/features/kb/hooks/useAutoActionsAvailable', () => ({
   useAutoActionsAvailable: () => false,
   resetAutoActionsAvailability: () => undefined,
 }));
-vi.mock('@/components/kb/KbExportButton', () => ({ KbExportButton: () => null }));
+vi.mock('@/features/kb/components/KbExportButton', () => ({ KbExportButton: () => null }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
 vi.mock('@/lib/toast', () => ({
   toast: Object.fromEntries(
@@ -40,7 +40,7 @@ vi.mock('@/lib/toast', () => ({
   ),
 }));
 
-vi.mock('@/services/kb.service', async (importOriginal) => {
+vi.mock('@/features/kb/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
   return {
     ...actual,
@@ -55,19 +55,19 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
     },
   };
 });
-vi.mock('@/services/kbConsolidation.service', () => ({
+vi.mock('@/features/kb/services/kbConsolidation.service', () => ({
   kbConsolidationService: { unmerge: (...args: unknown[]) => unmerge(...args) },
 }));
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('@/components/knowledge-base/ConfluenceCatalogSection', () => ({
+vi.mock('@/features/kb/components/ConfluenceCatalogSection', () => ({
   ConfluenceCatalogSection: () => null,
 }));
-vi.mock('@/components/settings/DocumentationSettings', () => ({
+vi.mock('@/features/settings/components/DocumentationSettings', () => ({
   DocumentationSettings: () => null,
 }));
-vi.mock('@/components/messages/MessageSourceFilter', () => ({
+vi.mock('@/components/shared/MessageSourceFilter', () => ({
   ALL_SOURCES: 'all',
   NO_SOURCE: 'none',
   MessageSourceFilter: () => null,

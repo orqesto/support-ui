@@ -12,7 +12,7 @@ import {
   type ManagedAiTier,
   type ManagedAiTierStat,
 } from '@/services/managedAiUsage.service';
-import { useBudgetState } from '@/hooks/useBudgets';
+import { useBudgetState } from '@/features/subscription';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { nextUtcMidnight } from '@/lib/utcClock';
 import { AlliancePoolsCard } from './AlliancePoolsCard';

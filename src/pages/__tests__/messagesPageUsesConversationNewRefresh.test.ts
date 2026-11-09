@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 describe('MessagesPage mounts the conversation:new refresh (#957 D1, invariant pass F-2)', () => {
   const source = readFileSync('src/pages/MessagesPage.tsx', 'utf8');
   it('imports and calls useConversationNewRefresh with the refetch trio', () => {
-    expect(source).toMatch(/from '@\/hooks\/useConversationNewRefresh'/);
+    // Imported through the messages feature's public entry (F4 moved the hook into it).
+    expect(source).toMatch(/\buseConversationNewRefresh,[^}]*\} from '@\/features\/messages';/s);
     // New mail joins the page's one server-event window (see flushServerEvents), which ends in
     // refreshOnNewMail when nothing else changed.
     expect(source).toMatch(/\buseConversationNewRefresh\(noteNewMail\)/);
@@ -25,7 +26,7 @@ describe('MessagesPage mounts the conversation:new refresh (#957 D1, invariant p
     expect(body).toMatch(/clearCache\(\);\s*void fetchMessages\(/);
   });
   it('CONTROL: the pattern does not match a file without the call', () => {
-    expect(readFileSync('src/hooks/useConversationNewRefresh.ts', 'utf8')).not.toMatch(
+    expect(readFileSync('src/features/messages/hooks/useConversationNewRefresh.ts', 'utf8')).not.toMatch(
       /\buseConversationNewRefresh\(noteNewMail\)/
     );
   });

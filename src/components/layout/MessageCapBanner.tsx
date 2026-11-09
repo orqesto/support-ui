@@ -4,9 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { usePermissions } from '@/hooks/usePermissions';
 import { subscriptionService } from '@/services/subscription.service';
-import { AiPausedBanner } from '@/components/subscription/AiPausedBanner';
-import { AiUnavailableNotice } from '@/components/subscription/AiUnavailableNotice';
-import { KbPausedBanner } from '@/components/subscription/KbPausedBanner';
+import { AiPausedBanner, AiUnavailableNotice, KbPausedBanner } from '@/features/subscription/shell';
 import { useAuthStore } from '@/stores/authStore';
 import { isOrgAdminOrHigher, Permission } from '@/types/roles';
 

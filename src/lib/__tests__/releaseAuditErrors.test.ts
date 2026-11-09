@@ -21,7 +21,7 @@ import {
   rateLimitedText,
   SUBSCRIPTION_ALREADY_LIVE_TEXT,
 } from '../errorMessages';
-import { aiRefusalText } from '@/components/subscription/starterAllowance';
+import { aiRefusalText } from '@/features/subscription';
 
 beforeEach(() => {
   useSubscriptionGateStore.getState().clear();

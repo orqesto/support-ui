@@ -38,7 +38,7 @@ vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 // Stand-in for MessageDetail: its More → Delete message calls the page's onDelete.
-vi.mock('@/components/messages/MessageDetail', () => ({
+vi.mock('@/features/messages/components/MessageDetail', () => ({
   MessageDetail: ({ onDelete }: { onDelete?: () => void }) => (
     <div>
       <span>detail</span>

@@ -1,0 +1,567 @@
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChevronDown,
+  Mail,
+  MessageSquare,
+  Ticket,
+  Target,
+} from 'lucide-react';
+import {
+  ContactProfilePanel,
+  ContactAvatar,
+  CONTACT_NOTES_CHANGED,
+  ContactNotesIndicator,
+} from '@/features/contacts';
+import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
+import { useLeadsHidden } from '@/features/messages/hooks/useLeadsHidden';
+import { useSearchParams } from 'react-router-dom';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { listsEveryLifecycle } from './contactsApiFilters';
+import { Select } from '@/components/ui/Select';
+import { Card, CardContent } from '@/components/ui/Card';
+import { Pagination } from '@/components/ui/Pagination';
+import { Alert } from '@/components/ui/Alert';
+import { formatTotal } from '@/lib/listTotals';
+import { formatAge, formatDate } from '@/lib/utils';
+import {
+  messageService,
+  type MessageContact,
+  type MessageContactSubject,
+  type PaginationMeta,
+} from '@/services/message.service';
+import type { Message } from '@/types';
+
+type ContactsViewProps = {
+  apiFilters: Record<string, string>;
+  focusSender?: string;
+  onOpenMessage: (message: Message) => void;
+  onPaginationChange?: (pagination: PaginationMeta) => void;
+};
+
+type SubjectState = {
+  loading: boolean;
+  data: MessageContactSubject[] | null;
+};
+
+type SortKey = 'recent' | 'messages' | 'name' | 'unread';
+
+const SORTS: Record<
+  string,
+  { label: string; fn: (lhs: MessageContact, rhs: MessageContact) => number }
+> = {
+  // The server's own order: newest ACTIVITY first since the backend reads contacts along the
+  // activity index (2026-11-01). Re-sorting a page by received time made the screen disagree with
+  // how pages are built. Array.sort is stable, so 0 keeps the server's order.
+  recent: { label: 'Recent', fn: () => 0 },
+  messages: { label: 'Most threads', fn: (lhs, rhs) => rhs.messageCount - lhs.messageCount },
+  name: { label: 'Name', fn: (lhs, rhs) => lhs.sender.localeCompare(rhs.sender) },
+  unread: {
+    label: 'Unread first',
+    // Unread first, then the server's order (as Recent).
+    fn: (lhs, rhs) => Number(rhs.hasUnread) - Number(lhs.hasUnread),
+  },
+};
+
+function ContactRow({
+  contact,
+  apiFilters,
+  active,
+  onOpenMessage,
+  onViewProfile,
+  leadsHidden = false,
+}: {
+  contact: MessageContact;
+  apiFilters: Record<string, string>;
+  active: boolean;
+  onOpenMessage: (message: Message) => void;
+  onViewProfile: (email: string, section?: 'notes') => void;
+  /** Lead qualification is not configured — no LEAD marks (see useLeadsHidden). */
+  leadsHidden?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [subjectState, setSubjectState] = useState<SubjectState>({ loading: false, data: null });
+  const [openingId, setOpeningId] = useState<number | null>(null);
+
+  const loadSubjects = useCallback(async () => {
+    setSubjectState({ loading: true, data: null });
+    try {
+      const response = await messageService.getContactSubjects(contact.sender, apiFilters);
+      setSubjectState({ loading: false, data: response.data ?? [] });
+    } catch {
+      setSubjectState({ loading: false, data: [] });
+    }
+  }, [contact.sender, apiFilters]);
+
+  const handleToggle = useCallback(async () => {
+    if (!expanded && subjectState.data === null) await loadSubjects();
+    setExpanded((val) => !val);
+  }, [expanded, subjectState.data, loadSubjects]);
+
+  const handleSubjectClick = useCallback(
+    async (subject: MessageContactSubject) => {
+      setOpeningId(subject.latestMessageId);
+      try {
+        const response = await messageService.getById(subject.latestMessageId);
+        if (response.success && response.data) onOpenMessage(response.data);
+      } catch {
+        // silently fail
+      } finally {
+        setOpeningId(null);
+      }
+    },
+    [onOpenMessage]
+  );
+
+  return (
+    <div className={`group transition-colors ${active ? 'bg-primary/5' : 'hover:bg-muted/50'}`}>
+      <div className="flex items-stretch">
+        {/* Full-height expand column — separate hit target from the row's open action */}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={(event) => {
+            event.stopPropagation();
+            void handleToggle();
+          }}
+          title={expanded ? 'Collapse topics' : `Show ${contact.subjectCount} topics`}
+          aria-label={expanded ? 'Collapse topics' : 'Show topics'}
+          className={`flex justify-center items-center self-stretch w-9 h-auto shrink-0 border-r transition-colors ${
+            expanded ? 'bg-muted/70 border-border' : 'border-transparent hover:bg-muted'
+          }`}
+        >
+          <ChevronDown
+            className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? '' : '-rotate-90'}`}
+          />
+        </Button>
+
+        {/* Identity / signals — click opens the profile */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => onViewProfile(contact.sender)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onViewProfile(contact.sender);
+            }
+          }}
+          className="flex flex-1 gap-3 items-center py-2 pr-3 pl-2.5 min-w-0 cursor-pointer"
+        >
+          <ContactAvatar email={contact.sender} size={30} />
+
+          <div className="flex-1 min-w-0">
+            <div className="flex gap-2 items-center min-w-0">
+              <span
+                className={`truncate text-sm ${contact.hasUnread ? 'font-bold' : 'font-semibold'} text-foreground`}
+              >
+                {contact.sender}
+              </span>
+              <ContactNotesIndicator
+                count={contact.noteCount}
+                latest={contact.latestNote}
+                onOpen={() => onViewProfile(contact.sender, 'notes')}
+              />
+              {contact.isLead && !leadsHidden && (
+                <span className="inline-flex gap-1 items-center px-1.5 h-[19px] rounded-md text-[10.5px] font-bold tracking-wide bg-primary/10 text-primary shrink-0">
+                  <Target className="w-3 h-3" /> LEAD
+                </span>
+              )}
+              {contact.hasOpen === false && listsEveryLifecycle(apiFilters) && (
+                <Badge
+                  variant="secondary"
+                  className="shrink-0"
+                  title="Every thread listed for this contact is resolved or closed"
+                >
+                  Resolved
+                </Badge>
+              )}
+              {contact.hasUnread && (
+                <span
+                  className="w-[7px] h-[7px] rounded-full bg-warning shrink-0"
+                  title="Unread threads"
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Tier-2 reference signals */}
+          <div className="hidden sm:flex gap-3 items-center text-muted-foreground shrink-0">
+            {contact.hasTicket && (
+              <span title="Has open ticket">
+                <Ticket className="w-3.5 h-3.5" />
+              </span>
+            )}
+            <span
+              className="inline-flex gap-1 items-center text-xs tabular-nums"
+              title={`${contact.messageCount} threads`}
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              {contact.messageCount}
+            </span>
+            <span
+              className="text-xs tabular-nums whitespace-nowrap w-12 text-right"
+              title={`${contact.subjectCount} topics`}
+            >
+              {contact.subjectCount} {contact.subjectCount === 1 ? 'topic' : 'topics'}
+            </span>
+          </div>
+
+          <div className="hidden sm:block w-px h-6 bg-border" />
+
+          <span
+            className="font-mono text-xs text-muted-foreground w-9 text-right shrink-0"
+            title={formatDate(contact.lastMessageAt)}
+          >
+            {formatAge(contact.lastMessageAt)}
+          </span>
+
+          <ArrowRight className="w-4 h-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+        </div>
+      </div>
+
+      {/* Expanded topics — nested under the contact */}
+      {expanded && (
+        <div className="pb-1.5 pl-[34px] pr-3">
+          <div className="pl-3 border-l border-border">
+            {subjectState.loading && (
+              <div className="py-2 space-y-2">
+                {(['s1', 's2'] as const).map((key) => (
+                  <div key={key} className="h-4 rounded animate-pulse bg-muted" />
+                ))}
+              </div>
+            )}
+            {!subjectState.loading && subjectState.data?.length === 0 && (
+              <p className="px-2 py-2.5 text-xs text-muted-foreground">No threads found.</p>
+            )}
+            {!subjectState.loading &&
+              subjectState.data?.map((subject) => (
+                <Button
+                  key={subject.normalizedSubject}
+                  type="button"
+                  variant="ghost"
+                  disabled={openingId === subject.latestMessageId}
+                  onClick={() => void handleSubjectClick(subject)}
+                  className="group/topic flex justify-start items-center gap-3 w-full px-2 py-1.5 h-auto rounded-md text-left hover:bg-muted/60 transition-colors data-[inactive]:opacity-60"
+                >
+                  <span className="w-1 h-1 rounded-full bg-muted-foreground/40 shrink-0" />
+                  <span className="flex-1 text-[12.5px] truncate text-muted-foreground group-hover/topic:text-foreground">
+                    {subject.displaySubject || '(no subject)'}
+                  </span>
+                  {subject.isLead && !leadsHidden && (
+                    <Target className="w-3 h-3 text-muted-foreground shrink-0" />
+                  )}
+                  {subject.hasTicket && (
+                    <Ticket className="w-3 h-3 text-muted-foreground shrink-0" />
+                  )}
+                  <span className="inline-flex gap-1 items-center text-[11px] text-muted-foreground tabular-nums">
+                    <MessageSquare className="w-3 h-3" />
+                    {subject.messageCount}
+                  </span>
+                  <span className="font-mono text-[11px] text-muted-foreground w-9 text-right">
+                    {openingId === subject.latestMessageId ? '…' : formatAge(subject.lastMessageAt)}
+                  </span>
+                </Button>
+              ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SenderFocusView({
+  sender,
+  apiFilters,
+  onBack,
+  onOpenMessage,
+}: {
+  sender: string;
+  apiFilters: Record<string, string>;
+  onBack: () => void;
+  onOpenMessage: (message: Message) => void;
+}) {
+  const [subjects, setSubjects] = useState<MessageContactSubject[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [openingId, setOpeningId] = useState<number | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    void messageService
+      .getContactSubjects(sender, apiFilters)
+      .then((res) => setSubjects(res.data ?? []))
+      .catch(() => setSubjects([]))
+      .finally(() => setLoading(false));
+  }, [sender, apiFilters]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2 items-center">
+        <Button variant="ghost" size="sm" onClick={onBack} className="gap-1 px-2">
+          <ArrowLeft className="w-4 h-4" />
+          All contacts
+        </Button>
+        <span className="text-sm font-medium truncate">{sender}</span>
+      </div>
+
+      {loading && (
+        <div className="space-y-2">
+          {(['s1', 's2', 's3'] as const).map((key) => (
+            <Card key={key}>
+              <CardContent className="p-4">
+                <div className="h-4 rounded animate-pulse bg-muted w-2/3" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {!loading && subjects?.length === 0 && (
+        <Card>
+          <CardContent className="p-8 text-center text-muted-foreground">
+            No threads found.
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && subjects && subjects.length > 0 && (
+        <div className="space-y-2">
+          {subjects.map((subject) => (
+            <Card
+              key={subject.normalizedSubject}
+              className="cursor-pointer transition-colors hover:bg-muted/50"
+              onClick={() => {
+                if (openingId) return;
+                setOpeningId(subject.latestMessageId);
+                void messageService
+                  .getById(subject.latestMessageId)
+                  .then((res) => {
+                    if (res.success && res.data) onOpenMessage(res.data);
+                  })
+                  .catch(() => undefined)
+                  .finally(() => setOpeningId(null));
+              }}
+            >
+              <CardContent className="flex gap-3 justify-between items-center p-4">
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{subject.displaySubject ?? '(no subject)'}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {subject.messageCount} thread{subject.messageCount !== 1 ? 's' : ''} ·{' '}
+                    {formatDate(subject.lastMessageAt)}
+                  </p>
+                </div>
+                {openingId === subject.latestMessageId && (
+                  <span className="text-xs text-muted-foreground">Opening…</span>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function ContactsView({
+  apiFilters,
+  focusSender,
+  onOpenMessage,
+  onPaginationChange,
+}: ContactsViewProps) {
+  const leadsHidden = useLeadsHidden();
+  const [, setSearchParams] = useSearchParams();
+  const [contacts, setContacts] = useState<MessageContact[]>([]);
+  const [profileEmail, setProfileEmail] = useState<string | null>(null);
+  // The note icon opens the drawer on the customer's notes.
+  const [profileSection, setProfileSection] = useState<'notes' | undefined>(undefined);
+  const openProfile = useCallback((email: string, section?: 'notes') => {
+    setProfileEmail(email);
+    setProfileSection(section);
+  }, []);
+  const [sort, setSort] = useState<SortKey>('recent');
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    page: 1,
+    limit: 50,
+    total: 0,
+    totalPages: 1,
+    hasMore: false,
+  });
+  const [loading, setLoading] = useState(true);
+  // The page ran out of time (backend: no rows and `timedOut`): "not finished", not "no match".
+  const [timedOut, setTimedOut] = useState(false);
+
+  const filtersKey = JSON.stringify(apiFilters);
+  // BE `messageContactController.getContacts` is dept-scoped via X-Department-Context.
+  const selectedDeptKey = useDepartmentContextKey();
+
+  const fetchContacts = useCallback(
+    // `quiet`: refresh in place (a note count changed) — no skeleton, expanded rows stay open.
+    async (page: number, quiet = false) => {
+      if (!quiet) setLoading(true);
+      try {
+        const response = await messageService.getContacts(apiFilters, page, 50);
+        if (response.success && response.data) {
+          setContacts(response.data);
+          setTimedOut(response.timedOut === true);
+          setPagination(response.pagination);
+          onPaginationChange?.(response.pagination);
+        }
+      } catch {
+        // silently fail
+      } finally {
+        setLoading(false);
+      }
+    },
+    // selectedDeptKey is a refresh trigger via the axios interceptor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [filtersKey, selectedDeptKey]
+  );
+
+  useEffect(() => {
+    void fetchContacts(1);
+  }, [fetchContacts]);
+
+  // A note added or deleted anywhere (the drawer, an open message's Customer tab) changes a row's
+  // note count: refresh the current page in place.
+  useEffect(() => {
+    const refresh = () => void fetchContacts(pagination.page, true);
+    window.addEventListener(CONTACT_NOTES_CHANGED, refresh);
+    return () => window.removeEventListener(CONTACT_NOTES_CHANGED, refresh);
+  }, [fetchContacts, pagination.page]);
+
+  // Sort reorders the loaded page; org-wide search/filter is handled server-side
+  // by MessagesPage's filter bar (so we don't duplicate a search input here).
+  const visible = useMemo(() => [...contacts].sort(SORTS[sort].fn), [contacts, sort]);
+
+  if (focusSender) {
+    return (
+      <SenderFocusView
+        sender={focusSender}
+        apiFilters={apiFilters}
+        onBack={() =>
+          setSearchParams(
+            (params) => {
+              params.delete('sender');
+              params.delete('mode');
+              return params;
+            },
+            { replace: true }
+          )
+        }
+        onOpenMessage={onOpenMessage}
+      />
+    );
+  }
+
+  return (
+    <div className="flex flex-col overflow-hidden rounded-xl border bg-card border-border">
+      {/* Toolbar */}
+      <div className="flex flex-shrink-0 gap-2 justify-between items-center px-4 py-3 border-b border-border">
+        <div className="flex gap-2 items-baseline">
+          <h2 className="font-display text-base font-bold tracking-tight text-foreground">
+            Contacts
+          </h2>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {formatTotal(pagination.total, pagination.totalCapped)}
+          </span>
+        </div>
+        <div className="flex gap-1 items-center px-1 h-8 rounded-lg bg-muted">
+          <span className="pl-2 pr-0.5 text-[11px] text-muted-foreground">Sort</span>
+          <Select
+            value={sort}
+            onChange={(value) => setSort(value as SortKey)}
+            aria-label="Sort"
+            // The compact inline value: it sits inside the h-8 "Sort" pill, as the old borderless select did.
+            variant="value"
+            options={Object.entries(SORTS).map(([key, sortDef]) => ({
+              value: key,
+              label: sortDef.label,
+            }))}
+          />
+        </div>
+      </div>
+
+      {/* Rows */}
+      <div className="divide-y divide-border">
+        {loading &&
+          (['c1', 'c2', 'c3', 'c4', 'c5', 'c6'] as const).map((key, idx) => (
+            <div key={key} className="flex gap-3 items-center px-4 py-2.5">
+              <div className="w-[30px] h-[30px] rounded-full animate-pulse bg-muted shrink-0" />
+              <div
+                className="h-3.5 rounded animate-pulse bg-muted"
+                style={{ width: `${35 + (idx % 3) * 15}%` }}
+              />
+            </div>
+          ))}
+
+        {!loading &&
+          visible.map((contact) => (
+            <ContactRow
+              key={contact.sender}
+              contact={contact}
+              apiFilters={apiFilters}
+              active={profileEmail === contact.sender}
+              onOpenMessage={onOpenMessage}
+              onViewProfile={openProfile}
+              leadsHidden={leadsHidden}
+            />
+          ))}
+
+        {!loading && timedOut && (
+          <div className="p-4">
+            {apiFilters.search?.trim() ? (
+              <Alert variant="warning">
+                This search took too long and was stopped, so no contacts are shown. That does not
+                mean nobody matches. Add another word, or narrow it with a filter (team, status or
+                date).
+              </Alert>
+            ) : (
+              <Alert variant="warning">
+                This list took too long to load and was stopped. Refresh to try again, or narrow it
+                with a filter (team, status or date).
+              </Alert>
+            )}
+          </div>
+        )}
+
+        {!loading && !timedOut && visible.length === 0 && (
+          <div className="grid place-items-center py-16 text-center">
+            <div>
+              <Mail className="mx-auto mb-3 w-7 h-7 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                No senders match your current filters.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {pagination.totalPages > 1 && (
+        <div className="px-4 py-3 border-t border-border">
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            total={pagination.total}
+            totalCapped={pagination.totalCapped}
+            limit={pagination.limit}
+            onPageChange={(page) => void fetchContacts(page)}
+            loading={loading}
+          />
+        </div>
+      )}
+
+      {profileEmail && (
+        <ContactProfilePanel
+          key={`${profileEmail}:${profileSection ?? ''}`}
+          email={profileEmail}
+          initialSection={profileSection}
+          onClose={() => setProfileEmail(null)}
+          onChanged={() => void fetchContacts(pagination.page)}
+        />
+      )}
+    </div>
+  );
+}

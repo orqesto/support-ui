@@ -1,4 +1,4 @@
-import { DocumentationSettings } from '@/components/settings/DocumentationSettings';
+import { DocumentationSettings } from '@/features/settings';
 
 interface KbStepProps {
   /**

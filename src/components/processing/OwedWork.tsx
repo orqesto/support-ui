@@ -3,7 +3,7 @@ import { Fragment, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
-import { retryOwedWithheldLine } from '@/components/settings/integrations/kbRangeCopy';
+import { retryOwedWithheldLine } from '@/features/settings/shell';
 import { apiErrorMessage, apiErrorStatus, isRouteAbsent } from '@/lib/apiError';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import {

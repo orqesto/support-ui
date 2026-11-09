@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import type { LoginRequest, LoginResponse, ApiResponse, User } from '@/types';
+import type { SignupSource } from '@/lib/signupSource';
 
 /** Public self-serve "create a workspace" signup (distinct from the invite-only register). */
 export type SignupRequest = {
@@ -15,6 +16,11 @@ export type SignupRequest = {
    * an unknown value is dropped, never rejected.
    */
   plan?: string;
+  /**
+   * Where the signup came from (first-touch campaign data from the marketing site's `odly_src`
+   * cookie, or this URL's utm params). Stored on the workspace; see lib/signupSource.ts.
+   */
+  source?: SignupSource;
 };
 
 type SignupCommon = {

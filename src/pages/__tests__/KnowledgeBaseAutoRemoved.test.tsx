@@ -8,7 +8,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import type * as KbServiceModule from '@/services/kb.service';
+import type * as KbServiceModule from '@/features/kb';
 import { isInactive } from '@/test/inactive';
 
 const state = vi.hoisted(() => ({
@@ -39,11 +39,11 @@ const removedEntry = {
 
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
 // KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
-vi.mock('@/components/kb/page/useKbEngineSummary', () => ({
+vi.mock('@/features/kb/components/page/useKbEngineSummary', () => ({
   useKbEngineSummary: () => ({ summary: null, settled: true, nightlyOff: false }),
 }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
-vi.mock('@/services/kb.service', async (importOriginal) => {
+vi.mock('@/features/kb/services/kb.service', async (importOriginal) => {
   const actual = await importOriginal<typeof KbServiceModule>();
   return {
     ...actual,
@@ -69,7 +69,7 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
     },
   };
 });
-vi.mock('@/services/kbAutoActions.service', () => ({
+vi.mock('@/features/kb/services/kbAutoActions.service', () => ({
   kbAutoActionsService: {
     restore: state.restore,
     getOverview: () =>
@@ -86,13 +86,13 @@ vi.mock('@/services/kbAutoActions.service', () => ({
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('@/components/knowledge-base/ConfluenceCatalogSection', () => ({
+vi.mock('@/features/kb/components/ConfluenceCatalogSection', () => ({
   ConfluenceCatalogSection: () => null,
 }));
-vi.mock('@/components/settings/DocumentationSettings', () => ({
+vi.mock('@/features/settings/components/DocumentationSettings', () => ({
   DocumentationSettings: () => null,
 }));
-vi.mock('@/components/messages/MessageSourceFilter', () => ({
+vi.mock('@/components/shared/MessageSourceFilter', () => ({
   ALL_SOURCES: 'all',
   NO_SOURCE: 'none',
   MessageSourceFilter: () => null,
@@ -106,14 +106,14 @@ vi.mock('@/hooks/usePermissions', () => ({
   }),
 }));
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => ({ isSurfaceVisibleToMe: () => true }) }));
-vi.mock('@/components/kb/KbExportButton', () => ({ KbExportButton: () => null }));
+vi.mock('@/features/kb/components/KbExportButton', () => ({ KbExportButton: () => null }));
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({ data: [] }),
   useDepartmentById: () => undefined,
 }));
 
 const { KnowledgeBasePage } = await import('../KnowledgeBasePage');
-const { resetAutoActionsAvailability } = await import('@/hooks/useAutoActionsAvailable');
+const { resetAutoActionsAvailability } = await import('@/features/kb');
 
 const renderPage = (url = '/knowledge-base') =>
   render(

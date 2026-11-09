@@ -1,71 +1,19 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { X } from 'lucide-react';
-import { KBEntryCard } from '@/components/kb/KBEntryCard';
-import { KBEntryDetail } from '@/components/kb/KBEntryDetail';
-import { KBTableView } from '@/components/kb/KBTableView';
+import { KBEntryCard, KBEntryDetail, KBTableView, KbAutoActionsButton, kbSourceParam, type KBEntry, type KbFinding, type KbIdMatch, type KbPendingDecision, type PaginationMeta, isCaseRow, unmergeConsequence, useKbEntryParam, useKbAutoChangedSupport, CASE_ACTION_TITLES, LEFT_PAGE, runCaseAction, useKbDecideLink, KbExportButton, type KbFilterStatus, withoutKbFinding, useKbStatusParam, KbFindingBanner, KbIdMatchHint, KbStatusIgnoredNotice, isNewStatus, useKbAutoRestore, useKbUnhide, KBDeleteDialog, confirmKbDelete, makeKbRestoreDeleted, KbDecisionDialog, KbBulkDecisionBar, bulkModeFor, useKbBulkDecisions, useKbFindingFilter, KbMoreFilters, KbPageToolbar, type KbListType, useKbTeams, KbEngineActivity, KbEngineOffNotice, KbDecideNotice, KbQuestionsView, KbStillLearning, useKbEngineSummary, useKbPageView, isOlderThan7d, entryFailureAlert, kbExportFilters, kbQuestionFromSearch, kbQuestionsTeamFromSearch, liveDefaultStatus, kbSearchForView, type KbPageView } from '@/features/kb';
+import { kbService } from '@/features/kb/shell';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { ALL_SOURCES } from '@/components/messages/MessageSourceFilter';
+import { ALL_SOURCES } from '@/components/shared/MessageSourceFilter';
 import { AlertDialog, type AlertDialogProps } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
 import { Pagination } from '@/components/ui/Pagination';
 import { Spinner } from '@/components/ui/Spinner';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { usePermissions } from '@/hooks/usePermissions';
-import { KbAutoActionsButton } from '@/components/kb/autoActions/KbAutoActionsButton';
 import { logger } from '@/lib/logger';
-import {
-  kbService,
-  kbSourceParam,
-  type KBEntry,
-  type KbFinding,
-  type KbIdMatch,
-  type KbPendingDecision,
-  type PaginationMeta,
-} from '@/services/kb.service';
 import { Permission } from '@/types/roles';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { isCaseRow, unmergeConsequence } from '@/lib/kbConsolidation';
-import { useKbEntryParam } from '@/hooks/useKbEntryParam';
-import { useKbAutoChangedSupport } from '@/hooks/useKbAutoChangedSupport';
-import { CASE_ACTION_TITLES, LEFT_PAGE, runCaseAction } from '@/components/kb/runCaseAction';
-import { useKbDecideLink } from '@/components/kb/page/useKbDecideLink';
-import { KbExportButton } from '@/components/kb/KbExportButton';
-import type { KbFilterStatus } from '@/components/kb/KbStatusFilter';
-import { withoutKbFinding } from '@/lib/kbFinding';
-import { useKbStatusParam } from '@/hooks/useKbStatusParam';
-import { KbFindingBanner } from '@/components/kb/KbFindingBanner';
-import { KbIdMatchHint } from '@/components/kb/KbIdMatchHint';
-import { KbStatusIgnoredNotice, isNewStatus } from '@/components/kb/KbStatusIgnoredNotice';
-import { useKbAutoRestore } from '@/components/kb/useKbAutoRestore';
-import { useKbUnhide } from '@/components/kb/useKbUnhide';
-import { KBDeleteDialog } from '@/components/kb/KBDeleteDialog';
-import { KbDecisionDialog } from '@/components/kb/KbDecisionDialog';
-import { KbBulkDecisionBar, bulkModeFor } from '@/components/kb/KbBulkDecisionBar';
-import { useKbBulkDecisions } from '@/hooks/useKbBulkDecisions';
-import { useKbFindingFilter } from '@/hooks/useKbFindingFilter';
-import { KbMoreFilters } from '@/components/kb/page/KbMoreFilters';
-import { KbPageToolbar, type KbListType } from '@/components/kb/page/KbPageToolbar';
-import { useKbTeams } from '@/components/kb/page/KbTeamFilter';
-import { KbEngineActivity } from '@/components/kb/activity/KbEngineActivity';
-import {
-  KbEngineOffNotice,
-  KbDecideNotice,
-  KbQuestionsView,
-  KbStillLearning,
-} from '@/components/kb/page/KbPageStates';
-import { useKbEngineSummary } from '@/components/kb/page/useKbEngineSummary';
-import { useKbPageView } from '@/components/kb/page/useKbPageView';
-import { isOlderThan7d } from '@/components/kb/questions/useKbQuestions';
-import {
-  entryFailureAlert,
-  kbExportFilters,
-  kbQuestionFromSearch,
-  kbQuestionsTeamFromSearch,
-  liveDefaultStatus,
-  kbSearchForView,
-  type KbPageView,
-} from '@/components/kb/page/kbPageView';
 
 /** An action on a merged CASE row — each one unmerges it, so each is confirmed first. */
 type CaseAction = { entry: KBEntry; action: keyof typeof CASE_ACTION_TITLES };
@@ -108,6 +56,8 @@ const KnowledgeBaseViews = () => {
     applied: boolean;
     /** The backend's own word on "Changed automatically", on every list answer. */
     autoChanged: boolean;
+    /** The backend's delete is soft and it lists deleted rows (`filters.deletedStatus`). */
+    softDelete: boolean;
   } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
@@ -197,6 +147,7 @@ const KnowledgeBaseViews = () => {
           requested: filterStatus,
           applied: response.data.filters?.statusApplied === true,
           autoChanged: response.data.filters?.autoChangedStatus === true,
+          softDelete: response.data.filters?.deletedStatus === true,
         });
       } catch (error) {
         logger.error('Failed to fetch KB entries:', error);
@@ -223,10 +174,13 @@ const KnowledgeBaseViews = () => {
   }, [listShown, filterType, filterStatus, searchQuery, fetchEntries]);
 
   const autoChangedSupported = useKbAutoChangedSupport(appliedStatus, setFilterStatus);
+  // Last list answer's word on soft delete (false until a list has answered).
+  const softDeleteSupported = appliedStatus?.softDelete === true;
 
   const bulkMode = canReview ? bulkModeFor(filterStatus) : null;
   // Re-read the page after a decision; a page the decided rows emptied falls back in fetchEntries.
   const rereadPage = () => void fetchEntries(pagination.page);
+  const restoreDeleted = makeKbRestoreDeleted(rereadPage, setAlertDialog);
   const bulk = useKbBulkDecisions(entries, rereadPage, bulkMode);
 
   const decideLink = useKbDecideLink(setAlertDialog);
@@ -463,35 +417,16 @@ const KnowledgeBaseViews = () => {
     setDeleteDialogOpen(true);
   };
 
-  const handleDeleteConfirm = async () => {
-    if (!entryToDelete) {
-      return;
-    }
-
-    setDeleting(true);
-    try {
-      await kbService.delete(entryToDelete.id);
-      setDeleteDialogOpen(false);
-      setEntryToDelete(null);
-      await fetchEntries();
-      setAlertDialog({
-        open: true,
-        title: 'Success',
-        description: 'KB entry deleted',
-        variant: 'success',
-      });
-    } catch (error) {
-      logger.error('Failed to delete entry:', error);
-      setAlertDialog({
-        open: true,
-        title: 'Delete Failed',
-        description: 'Failed to delete entry',
-        variant: 'error',
-      });
-    } finally {
-      setDeleting(false);
-    }
-  };
+  const handleDeleteConfirm = () =>
+    confirmKbDelete(entryToDelete, softDeleteSupported, {
+      setDeleting,
+      close: () => {
+        setDeleteDialogOpen(false);
+        setEntryToDelete(null);
+      },
+      reread: fetchEntries,
+      showAlert: setAlertDialog,
+    });
 
   // Engine activity: collapsed under the card, expanded on its own tab (reads only when expanded).
   const engineActivity = (expanded: boolean) => (
@@ -562,6 +497,7 @@ const KnowledgeBaseViews = () => {
             status={filterStatus}
             onStatus={setFilterStatus}
             autoChanged={autoChangedSupported}
+            softDelete={softDeleteSupported}
             source={filterSource}
             onSource={setFilterSource}
             finding={finding.filter?.finding ?? null}
@@ -608,7 +544,7 @@ const KnowledgeBaseViews = () => {
                     Clear All
                   </Button>
                 )}
-                <KbExportButton filters={exportFilters} />
+                <KbExportButton filters={exportFilters} listTotal={loading ? undefined : pagination.total} />
               </div>
             </div>
           </>
@@ -650,6 +586,7 @@ const KnowledgeBaseViews = () => {
                       onUnmerge={handleUnmerge}
                       onReviewDecision={setDecision}
                       autoRestore={autoRestore}
+                      onRestoreDeleted={restoreDeleted}
                       searchTerms={searchTerms}
                     />
                   ))
@@ -672,6 +609,7 @@ const KnowledgeBaseViews = () => {
                 onUnmerge={handleUnmerge}
                 onReviewDecision={setDecision}
                 autoRestore={autoRestore}
+                onRestoreDeleted={restoreDeleted}
                 searchTerms={searchTerms}
                 selection={bulkMode ? bulk : undefined}
               />
@@ -708,6 +646,7 @@ const KnowledgeBaseViews = () => {
           entry={entryToDelete}
           deleting={deleting}
           onConfirm={handleDeleteConfirm}
+          restorable={softDeleteSupported}
         />
 
         <KBEntryDetail
@@ -718,6 +657,7 @@ const KnowledgeBaseViews = () => {
           onUnhide={(id) => void handleUnhide(id)}
           onReject={handleReject}
           onDelete={handleDeleteClick}
+          onRestoreDeleted={restoreDeleted}
           onUpdate={handleUpdate}
           canReview={canReview}
           onUnmerge={handleUnmerge}

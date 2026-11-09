@@ -17,6 +17,8 @@ import apiOnlyFeatures, { API_ONLY_FEATURES } from '../../eslint/api-only-featur
 const here = dirname(fileURLToPath(import.meta.url));
 const BOUNDARIES = resolve(here, '../check-boundaries.mjs');
 const CYCLES = resolve(here, '../check-cycles.mjs');
+const SHELL = resolve(here, '../check-shell-bundle.mjs');
+const BUNDLE = resolve(here, '../check-bundle.mjs');
 
 let root;
 const write = (path, text) => {
@@ -69,7 +71,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 describe('check-boundaries', () => {
   it('records the starting point and passes on it', () => {
     expect(baseline('boundaries.json')).toEqual({
-      featureToFeature: { total: 1, pairs: { 'components/alpha -> components/beta': 1 } },
+      featureToFeature: { total: 1, pairs: { 'feature:alpha -> feature:beta': 1 } },
       upward: { total: 0, files: {} },
     });
     const { status, output } = run(BOUNDARIES);
@@ -95,7 +97,7 @@ describe('check-boundaries', () => {
     );
     const { status, output } = run(BOUNDARIES);
     expect(status).toBe(1);
-    expect(output).toContain('components/beta -> components/alpha: 0 → 1');
+    expect(output).toContain('feature:beta -> feature:alpha: 0 → 1');
     expect(output).toContain("src/components/beta/BetaBadge.tsx:1  '../alpha/AlphaCard'");
   });
 
@@ -128,6 +130,562 @@ describe('check-boundaries', () => {
   it('fails without a baseline', () => {
     remove('.ci/baselines/boundaries.json');
     expect(run(BOUNDARIES).status).toBe(1);
+  });
+
+  it('a folder moved from components/ to features/ keeps its pair: no growth', () => {
+    remove('src/components/beta/BetaBadge.tsx');
+    write('src/features/beta/components/BetaBadge.tsx', 'export const BetaBadge = () => null;\n');
+    write('src/features/beta/index.ts', "export { BetaBadge } from './components/BetaBadge';\n");
+    write(
+      'src/components/alpha/AlphaCard.tsx',
+      "import { Button } from '@/components/ui/Button';\nimport { BetaBadge } from '@/features/beta';\n" +
+        'export const AlphaCard = () => [Button(), BetaBadge()];\n'
+    );
+    const { status, output } = run(BOUNDARIES);
+    expect(status).toBe(0);
+    expect(output).toContain('at the baseline');
+  });
+
+  it('sums the folders the feature map puts in one feature, and drops pairs inside it', () => {
+    // budget and billing both belong to subscription; pricing -> budget becomes internal.
+    write('src/components/budget/BudgetBar.tsx', "import '@/components/beta/BetaBadge';\n");
+    write('src/components/billing/Checkout.tsx', "import '@/components/beta/BetaBadge';\n");
+    write('src/components/pricing/Plans.tsx', "import '@/components/budget/BudgetBar';\n");
+    remove('.ci/baselines/boundaries.json');
+    expect(run(BOUNDARIES, '--update').status).toBe(0);
+    expect(baseline('boundaries.json').featureToFeature).toEqual({
+      total: 3,
+      pairs: { 'feature:alpha -> feature:beta': 1, 'feature:subscription -> feature:beta': 2 },
+    });
+  });
+
+  it('a real new pair still fails after a move', () => {
+    remove('src/components/beta/BetaBadge.tsx');
+    write(
+      'src/features/beta/components/BetaBadge.tsx',
+      "import type { AlphaCard } from '@/components/alpha/AlphaCard';\n" +
+        'export const BetaBadge = (): typeof AlphaCard | null => null;\n'
+    );
+    write(
+      'src/components/alpha/AlphaCard.tsx',
+      "import { BetaBadge } from '@/features/beta/components/BetaBadge';\nexport const AlphaCard = () => BetaBadge();\n"
+    );
+    const { status, output } = run(BOUNDARIES);
+    expect(status).toBe(1);
+    expect(output).toContain('feature:beta -> feature:alpha: 0 → 1');
+  });
+
+  it('--rekey renames pairs, sums merged ones and drops internal ones, then the check passes', () => {
+    write('src/components/budget/BudgetBar.tsx', "import '@/components/beta/BetaBadge';\n");
+    write('src/components/billing/Checkout.tsx', "import '@/components/beta/BetaBadge';\n");
+    write('src/components/pricing/Plans.tsx', "import '@/components/budget/BudgetBar';\n");
+    // A baseline written with the old folder-named keys.
+    write(
+      '.ci/baselines/boundaries.json',
+      JSON.stringify({
+        featureToFeature: {
+          total: 4,
+          pairs: {
+            'components/alpha -> components/beta': 1,
+            'components/billing -> components/beta': 1,
+            'components/budget -> components/beta': 1,
+            'components/pricing -> components/budget': 1,
+          },
+        },
+        upward: { total: 0, files: {} },
+      })
+    );
+    const rekeyed = run(BOUNDARIES, '--rekey');
+    expect(rekeyed.status).toBe(0);
+    expect(rekeyed.output).toContain('4 imports in 4 pairs → 3 in 2 pairs + 1 now internal');
+    expect(baseline('boundaries.json').featureToFeature).toEqual({
+      total: 3,
+      pairs: { 'feature:alpha -> feature:beta': 1, 'feature:subscription -> feature:beta': 2 },
+    });
+    const { status, output } = run(BOUNDARIES);
+    expect(status).toBe(0);
+    expect(output).toContain('at the baseline');
+  });
+});
+
+describe('check-boundaries --adopt', () => {
+  const gitIn = (...args) => {
+    const result = spawnSync(
+      'git',
+      [
+        '-c',
+        'user.name=Ratchet Test',
+        '-c',
+        'user.email=ratchet@example.com',
+        '-c',
+        'commit.gpgsign=false',
+        ...args,
+      ],
+      { cwd: root, encoding: 'utf8' }
+    );
+    expect(result.status, result.stderr).toBe(0);
+  };
+  const raw = (name) => readFileSync(join(root, '.ci/baselines', name), 'utf8');
+
+  // Base tree: two services (not feature areas, so not counted) that alpha already imports.
+  beforeEach(() => {
+    write('src/services/lookup.service.ts', 'export const lookupService = { run: () => 1 };\n');
+    write(
+      'src/services/template.service.ts',
+      'export const templateService = { list: () => 2 };\n'
+    );
+    write(
+      'src/components/alpha/AlphaLookup.tsx',
+      "import { lookupService } from '@/services/lookup.service';\nexport const AlphaLookup = () => lookupService.run();\n"
+    );
+    write(
+      'src/components/alpha/AlphaTemplates.tsx',
+      "import { templateService } from '../../services/template.service';\nexport const AlphaTemplates = () => templateService.list();\n"
+    );
+    expect(run(BOUNDARIES).status).toBe(0);
+    gitIn('init', '-q');
+    gitIn('add', '-A');
+    gitIn('commit', '-q', '-m', 'base');
+    // The move: both services into the hyphenated feature folder, importers repointed at its index.
+    mkdirSync(join(root, 'src/features/look-up/services'), { recursive: true });
+    gitIn(
+      'mv',
+      'src/services/lookup.service.ts',
+      'src/features/look-up/services/lookup.service.ts'
+    );
+    gitIn(
+      'mv',
+      'src/services/template.service.ts',
+      'src/features/look-up/services/template.service.ts'
+    );
+    write(
+      'src/features/look-up/index.ts',
+      "export { lookupService } from './services/lookup.service';\nexport { templateService } from './services/template.service';\n"
+    );
+    write(
+      'src/components/alpha/AlphaLookup.tsx',
+      "import { lookupService } from '@/features/look-up';\nexport const AlphaLookup = () => lookupService.run();\n"
+    );
+    write(
+      'src/components/alpha/AlphaTemplates.tsx',
+      "import { templateService } from '@/features/look-up';\nexport const AlphaTemplates = () => templateService.list();\n"
+    );
+  });
+  const adopt = () => {
+    gitIn('add', '-A');
+    return run(BOUNDARIES, '--adopt', '--base', 'HEAD');
+  };
+
+  it('adopts the existing importers of a moved service as a new pair, then the check passes', () => {
+    const before = raw('cycles.json');
+    expect(run(BOUNDARIES).output).toContain('feature:alpha -> feature:look-up: 0 → 2');
+    const { status, output } = adopt();
+    expect(status, output).toBe(0);
+    expect(output).toContain('feature:alpha -> feature:look-up: 0 → 2');
+    expect(output).toContain('1 → 3 (+2 adopted)');
+    expect(baseline('boundaries.json').featureToFeature.pairs).toEqual({
+      'feature:alpha -> feature:beta': 1,
+      'feature:alpha -> feature:look-up': 2,
+    });
+    expect(raw('cycles.json')).toBe(before);
+    expect(run(BOUNDARIES).status).toBe(0);
+  });
+
+  it('does not adopt a genuinely new import added in the same change, and writes nothing', () => {
+    write(
+      'src/components/beta/BetaLookup.tsx',
+      "import { lookupService } from '@/features/look-up';\nexport const BetaLookup = () => lookupService.run();\n"
+    );
+    const before = raw('boundaries.json');
+    const { status, output } = adopt();
+    expect(status).toBe(1);
+    expect(output).toContain(
+      'feature:beta -> feature:look-up: src/components/beta/BetaLookup.tsx:1'
+    );
+    expect(output).toContain('--adopt wrote nothing.');
+    expect(raw('boundaries.json')).toBe(before);
+  });
+
+  it('fails a partial pair: two edges proven, one new', () => {
+    write(
+      'src/components/alpha/AlphaExtra.tsx',
+      "import { lookupService } from '@/features/look-up';\nexport const AlphaExtra = () => lookupService.run();\n"
+    );
+    const before = raw('boundaries.json');
+    const { status, output } = adopt();
+    expect(status).toBe(1);
+    expect(output).toContain(
+      'feature:alpha -> feature:look-up: src/components/alpha/AlphaExtra.tsx:1'
+    );
+    expect(output).not.toContain('feature:alpha -> feature:look-up: 0 → 3');
+    expect(raw('boundaries.json')).toBe(before);
+  });
+
+  it('resolves an index import per name: a name from a moved file the importer never used is new', () => {
+    write(
+      'src/components/alpha/AlphaLookup.tsx',
+      "import { lookupService, templateService } from '@/features/look-up';\n" +
+        'export const AlphaLookup = () => [lookupService.run(), templateService.list()];\n'
+    );
+    const { status, output } = adopt();
+    expect(status).toBe(1);
+    expect(output).toContain('src/components/alpha/AlphaLookup.tsx:1');
+  });
+
+  it('never adopts upward imports and never touches the cycle baseline', () => {
+    write(
+      'src/lib/format.ts',
+      "import { lookupService } from '@/features/look-up';\nexport const format = (value: string) => `${value.trim()}${lookupService.run()}`;\n"
+    );
+    const boundariesBefore = raw('boundaries.json');
+    const cyclesBefore = raw('cycles.json');
+    const { status, output } = adopt();
+    expect(status).toBe(1);
+    expect(output).toContain(
+      'Upward import grew, never adopted: src/lib/format.ts -> features/look-up: 0 → 1'
+    );
+    expect(raw('boundaries.json')).toBe(boundariesBefore);
+    expect(raw('cycles.json')).toBe(cyclesBefore);
+  });
+});
+
+describe('check-boundaries --adopt, second move into a feature that already has an index', () => {
+  const gitIn = (...args) => {
+    const result = spawnSync(
+      'git',
+      [
+        '-c',
+        'user.name=Ratchet Test',
+        '-c',
+        'user.email=ratchet@example.com',
+        '-c',
+        'commit.gpgsign=false',
+        ...args,
+      ],
+      { cwd: root, encoding: 'utf8' }
+    );
+    expect(result.status, result.stderr).toBe(0);
+  };
+
+  // Base tree: an earlier move already put LookupBadge (and LookupChip) in the feature, and
+  // AlphaBadge takes LookupBadge through the index. The service is still outside the feature.
+  beforeEach(() => {
+    write(
+      'src/features/look-up/components/LookupBadge.tsx',
+      'export const LookupBadge = () => null;\nexport const LookupChip = () => null;\n'
+    );
+    write(
+      'src/features/look-up/index.ts',
+      "export { LookupBadge, LookupChip } from './components/LookupBadge';\n"
+    );
+    write(
+      'src/components/alpha/AlphaBadge.tsx',
+      "import { LookupBadge } from '@/features/look-up';\nexport const AlphaBadge = () => LookupBadge();\n"
+    );
+    write('src/services/lookup.service.ts', 'export const lookupService = { run: () => 1 };\n');
+    write(
+      'src/components/alpha/AlphaLookup.tsx',
+      "import { lookupService } from '@/services/lookup.service';\nexport const AlphaLookup = () => lookupService.run();\n"
+    );
+    // The baseline as the earlier move left it (--update only ever lowers it).
+    write(
+      '.ci/baselines/boundaries.json',
+      `${JSON.stringify(
+        {
+          featureToFeature: {
+            total: 2,
+            pairs: { 'feature:alpha -> feature:beta': 1, 'feature:alpha -> feature:look-up': 1 },
+          },
+          upward: { total: 0, files: {} },
+        },
+        null,
+        2
+      )}\n`
+    );
+    expect(run(BOUNDARIES).status).toBe(0);
+    gitIn('init', '-q');
+    gitIn('add', '-A');
+    gitIn('commit', '-q', '-m', 'base');
+    // The second move: the service joins the feature; AlphaLookup now goes through the index.
+    mkdirSync(join(root, 'src/features/look-up/services'), { recursive: true });
+    gitIn(
+      'mv',
+      'src/services/lookup.service.ts',
+      'src/features/look-up/services/lookup.service.ts'
+    );
+    write(
+      'src/features/look-up/index.ts',
+      "export { LookupBadge, LookupChip } from './components/LookupBadge';\nexport { lookupService } from './services/lookup.service';\n"
+    );
+    write(
+      'src/components/alpha/AlphaLookup.tsx',
+      "import { lookupService } from '@/features/look-up';\nexport const AlphaLookup = () => lookupService.run();\n"
+    );
+  });
+  const adopt = () => {
+    gitIn('add', '-A');
+    return run(BOUNDARIES, '--adopt', '--base', 'HEAD');
+  };
+
+  it('proves an unchanged index import of a name that was already in the feature', () => {
+    expect(run(BOUNDARIES).output).toContain('feature:alpha -> feature:look-up: 1 → 2');
+    const { status, output } = adopt();
+    expect(status, output).toBe(0);
+    expect(output).toContain('feature:alpha -> feature:look-up: 1 → 2');
+    expect(run(BOUNDARIES).status).toBe(0);
+  });
+
+  it('CONTROL: a name already in the feature that the importer did not take before is new', () => {
+    write(
+      'src/components/alpha/AlphaBadge.tsx',
+      "import { LookupBadge, LookupChip } from '@/features/look-up';\nexport const AlphaBadge = () => [LookupBadge(), LookupChip()];\n"
+    );
+    const { status, output } = adopt();
+    expect(status).toBe(1);
+    expect(output).toContain('src/components/alpha/AlphaBadge.tsx:1');
+    expect(output).toContain('--adopt wrote nothing.');
+  });
+});
+
+describe('check-boundaries --adopt through a shell entry or a deleted re-export shim', () => {
+  const gitIn = (...args) => {
+    const result = spawnSync(
+      'git',
+      [
+        '-c',
+        'user.name=Ratchet Test',
+        '-c',
+        'user.email=ratchet@example.com',
+        '-c',
+        'commit.gpgsign=false',
+        ...args,
+      ],
+      { cwd: root, encoding: 'utf8' }
+    );
+    expect(result.status, result.stderr).toBe(0);
+  };
+  const baselineWith = (pairs) =>
+    write(
+      '.ci/baselines/boundaries.json',
+      `${JSON.stringify(
+        {
+          featureToFeature: {
+            total: Object.values(pairs).reduce((sum, count) => sum + count, 0),
+            pairs,
+          },
+          upward: { total: 0, files: {} },
+        },
+        null,
+        2
+      )}\n`
+    );
+  const commitBase = () => {
+    expect(run(BOUNDARIES).status).toBe(0);
+    gitIn('init', '-q');
+    gitIn('add', '-A');
+    gitIn('commit', '-q', '-m', 'base');
+  };
+  const adopt = () => {
+    gitIn('add', '-A');
+    return run(BOUNDARIES, '--adopt', '--base', 'HEAD');
+  };
+
+  it('proves a name taken from the shell entry of the feature its file moved into', () => {
+    write('src/services/lookup.service.ts', 'export const lookupService = { run: () => 1 };\n');
+    write(
+      'src/components/alpha/AlphaLookup.tsx',
+      "import { lookupService } from '@/services/lookup.service';\nexport const AlphaLookup = () => lookupService.run();\n"
+    );
+    commitBase();
+    mkdirSync(join(root, 'src/features/look-up/services'), { recursive: true });
+    gitIn(
+      'mv',
+      'src/services/lookup.service.ts',
+      'src/features/look-up/services/lookup.service.ts'
+    );
+    write(
+      'src/features/look-up/index.ts',
+      "export { lookupService } from './services/lookup.service';\n"
+    );
+    write(
+      'src/features/look-up/shell.ts',
+      "export { lookupService } from './services/lookup.service';\n"
+    );
+    write(
+      'src/components/alpha/AlphaLookup.tsx',
+      "import { lookupService } from '@/features/look-up/shell';\nexport const AlphaLookup = () => lookupService.run();\n"
+    );
+    const { status, output } = adopt();
+    expect(status, output).toBe(0);
+    expect(output).toContain('feature:alpha -> feature:look-up: 0 → 1');
+  });
+
+  // Base: the feature already exists; AlphaText reaches its lib file through a shim in beta.
+  const shimBase = (shimText) => {
+    write('src/features/look-up/lib/lookupText.ts', "export const lookupText = 'found';\n");
+    write('src/features/look-up/index.ts', "export { lookupText } from './lib/lookupText';\n");
+    write('src/components/beta/lookupShim.ts', shimText);
+    write(
+      'src/components/alpha/AlphaText.tsx',
+      "import { lookupText } from '../beta/lookupShim';\nexport const AlphaText = () => lookupText;\n"
+    );
+    baselineWith({ 'feature:alpha -> feature:beta': 2, 'feature:beta -> feature:look-up': 1 });
+    commitBase();
+    // The change: the shim is deleted and AlphaText imports the feature directly.
+    gitIn('rm', '-q', 'src/components/beta/lookupShim.ts');
+    write(
+      'src/components/alpha/AlphaText.tsx',
+      "import { lookupText } from '@/features/look-up';\nexport const AlphaText = () => lookupText;\n"
+    );
+  };
+
+  it('proves an import that reached the file before through a deleted re-export shim', () => {
+    shimBase("export { lookupText } from '@/features/look-up/lib/lookupText';\n");
+    const { status, output } = adopt();
+    expect(status, output).toBe(0);
+    expect(output).toContain('feature:alpha -> feature:look-up: 0 → 1');
+  });
+
+  it('proves it when the shim re-exported the name from the feature index', () => {
+    shimBase("export { lookupText } from '@/features/look-up';\n");
+    const { status, output } = adopt();
+    expect(status, output).toBe(0);
+    expect(output).toContain('feature:alpha -> feature:look-up: 0 → 1');
+  });
+
+  it('CONTROL: a middle file that does more than re-export is not a shim', () => {
+    shimBase(
+      "export { lookupText } from '@/features/look-up/lib/lookupText';\nexport const extra = 1;\n"
+    );
+    const { status, output } = adopt();
+    expect(status).toBe(1);
+    expect(output).toContain('src/components/alpha/AlphaText.tsx:1');
+    expect(output).toContain('--adopt wrote nothing.');
+  });
+});
+
+describe('check-shell-bundle', () => {
+  // main.tsx -> App -> Layout, which needs one name from feature look-up.
+  beforeEach(() => {
+    write('src/main.tsx', "import { App } from './App';\nApp();\n");
+    write(
+      'src/features/look-up/index.ts',
+      "export { LookupBadge } from './components/LookupBadge';\nexport { LookupPage } from './components/LookupPage';\n"
+    );
+    write(
+      'src/features/look-up/components/LookupBadge.tsx',
+      'export const LookupBadge = () => null;\n'
+    );
+    write(
+      'src/features/look-up/components/LookupPage.tsx',
+      'export const LookupPage = () => null;\n'
+    );
+    write(
+      'src/features/look-up/shell.ts',
+      "export { LookupBadge } from './components/LookupBadge';\n"
+    );
+  });
+  const app = (layoutImport) => {
+    write(
+      'src/App.tsx',
+      "import { Layout } from './components/layout/Layout';\nexport const App = () => Layout();\n"
+    );
+    write(
+      'src/components/layout/Layout.tsx',
+      `${layoutImport}\nexport const Layout = () => null;\n`
+    );
+  };
+
+  it('fails when the shell imports a feature index, and prints the chain', () => {
+    app("import { LookupBadge } from '@/features/look-up';");
+    const { status, output } = run(SHELL);
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/look-up/index.ts');
+    expect(output).toContain('-> src/components/layout/Layout.tsx');
+  });
+
+  it('passes when the shell imports the feature shell entry', () => {
+    app("import { LookupBadge } from '@/features/look-up/shell';");
+    const { status, output } = run(SHELL);
+    expect(status, output).toBe(0);
+    expect(output).toContain('No feature index loads with the app shell');
+  });
+
+  it('fails when a shell entry itself reaches an index (a leaf importing another feature)', () => {
+    write(
+      'src/features/look-up/components/LookupBadge.tsx',
+      "import { Other } from '@/features/other';\nexport const LookupBadge = () => Other();\n"
+    );
+    write('src/features/other/index.ts', 'export const Other = () => null;\n');
+    app("import { LookupBadge } from '@/features/look-up/shell';");
+    const { status, output } = run(SHELL);
+    expect(status).toBe(1);
+    expect(output).toContain('-> src/features/look-up/shell.ts');
+  });
+
+  it('fails on an index re-export whose names are all inline type, and passes on export type', () => {
+    app("import { LookupBadge } from '@/features/look-up/shell';");
+    write(
+      'src/features/look-up/index.ts',
+      "export { LookupBadge } from './components/LookupBadge';\nexport { type Page } from './components/LookupPage';\n"
+    );
+    write('src/features/look-up/components/LookupPage.tsx', 'export type Page = { id: number };\n');
+    const failed = run(SHELL);
+    expect(failed.status).toBe(1);
+    expect(failed.output).toContain('src/features/look-up/index.ts:2');
+    write(
+      'src/features/look-up/index.ts',
+      "export { LookupBadge } from './components/LookupBadge';\nexport type { Page } from './components/LookupPage';\n"
+    );
+    expect(run(SHELL).status).toBe(0);
+  });
+
+  it('CONTROL: a lazy import() and a type-only import of an index do not count', () => {
+    app(
+      "import type { LookupPage } from '@/features/look-up';\n" +
+        "const load = () => import('@/features/look-up');\nexport type Page = typeof LookupPage;\nvoid load;"
+    );
+    const { status, output } = run(SHELL);
+    expect(status, output).toBe(0);
+  });
+});
+
+describe('check-bundle', () => {
+  const build = ({ entryBytes = 100, pageCode = 'import("./Board-b.js");' } = {}) => {
+    write(
+      'dist/index.html',
+      '<script type="module" crossorigin src="/assets/index-a.js"></script>\n'
+    );
+    write('dist/assets/index-a.js', 'x'.repeat(entryBytes));
+    write('dist/assets/ListPage-c.js', pageCode);
+    write('dist/assets/Board-b.js', 'export const Board = 1;\n');
+    write('.ci/baselines/bundle.json', '{ "mainChunkBytes": 100, "marginBytes": 10 }\n');
+  };
+
+  it('passes within the budget with a lazy chunk loaded only by import()', () => {
+    build();
+    const { status, output } = run(BUNDLE);
+    expect(status, output).toBe(0);
+  });
+
+  it('fails when the main chunk grows past the budget', () => {
+    build({ entryBytes: 111 });
+    const { status, output } = run(BUNDLE);
+    expect(status).toBe(1);
+    expect(output).toContain('over the budget 100 + 10 B');
+  });
+
+  it('fails when a page also imports its lazy chunk statically', () => {
+    build({ pageCode: 'import"./Board-b.js";const load=()=>import("./Board-b.js");' });
+    const { status, output } = run(BUNDLE);
+    expect(status).toBe(1);
+    expect(output).toContain('ListPage-c.js -> Board-b.js');
+  });
+
+  it('CONTROL: inside a chunk that is not a page, a redundant import() is not flagged', () => {
+    build();
+    write('dist/assets/Editor-d.js', 'import"./Board-b.js";const load=()=>import("./Board-b.js");');
+    expect(run(BUNDLE).status).toBe(0);
   });
 });
 
@@ -313,6 +871,69 @@ describe('boundaries/api-only-features', () => {
       lint(
         `src/features/${feature}/components/Other.tsx`,
         `import { Panel } from './Panel';\nimport { load } from '@/features/${feature}/services/data.service';`
+      )
+    ).toEqual([]);
+  });
+
+  it('allows the shell entry from outside, but not a deep path next to it', () => {
+    write(`src/features/${feature}/shell.ts`, "export { Panel } from './components/Panel';\n");
+    expect(
+      lint(
+        'src/components/layout/Layout.tsx',
+        `import { Panel } from '@/features/${feature}/shell';`
+      )
+    ).toEqual([]);
+    // The shell gets no other way in: a deep path is still flagged.
+    expect(
+      lint(
+        'src/components/layout/Layout.tsx',
+        `import { Panel } from '@/features/${feature}/components/Panel';`
+      )
+    ).toHaveLength(1);
+  });
+
+  it('skips a ?raw import: it reads the file text, not the API', () => {
+    expect(
+      lint(
+        'src/pages/__tests__/AlphaPage.test.tsx',
+        `import source from '@/features/${feature}/components/Panel.tsx?raw';`
+      )
+    ).toEqual([]);
+  });
+
+  it('handles a hyphenated feature folder (custom-api)', () => {
+    expect(API_ONLY_FEATURES).toContain('custom-api');
+    write('src/features/custom-api/index.ts', "export { load } from './services/data.service';\n");
+    write('src/features/custom-api/services/data.service.ts', 'export const load = () => 1;\n');
+    const linter = new Linter({ configType: 'flat', cwd: root });
+    const lintAs = (file, code) =>
+      linter
+        .verify(
+          code,
+          [
+            {
+              files: ['**/*.{ts,tsx}'],
+              languageOptions: { parser: tseslint.parser },
+              plugins: { boundaries: { rules: { 'api-only-features': apiOnlyFeatures } } },
+              rules: { 'boundaries/api-only-features': 'error' },
+            },
+          ],
+          { filename: join(root, file) }
+        )
+        .map((message) => message.message);
+    const deep = lintAs(
+      'src/pages/AlphaPage.tsx',
+      "import { load } from '@/features/custom-api/services/data.service';"
+    );
+    expect(deep).toHaveLength(1);
+    expect(deep[0]).toContain('reaches inside features/custom-api');
+    expect(
+      lintAs('src/pages/AlphaPage.tsx', "import { load } from '@/features/custom-api';")
+    ).toEqual([]);
+    expect(
+      lintAs(
+        'src/features/custom-api/hooks/useLoad.ts',
+        "import { load } from '../services/data.service';"
       )
     ).toEqual([]);
   });

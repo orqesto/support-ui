@@ -27,7 +27,7 @@ vi.mock('@/lib/api-client', () => ({
 vi.mock('@/lib/logger', () => ({ logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 let state: unknown;
-vi.mock('@/services/budgets.service', () => ({
+vi.mock('@/features/subscription/services/budgets.service', () => ({
   budgetsService: { getState: () => Promise.resolve(state) },
 }));
 

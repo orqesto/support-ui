@@ -4,10 +4,16 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { ADVANCED_ANCHOR, dollarsText, fmtMoney, parseDollars } from '@/components/budget/budget.rules';
-import { useUpdateBudgetSettings } from '@/hooks/useBudgets';
+import {
+  ADVANCED_ANCHOR,
+  dollarsText,
+  fmtMoney,
+  parseDollars,
+  useUpdateBudgetSettings,
+  type BudgetSettingsView,
+  type SettingsUpdate,
+} from '@/features/subscription';
 import { getApiErrorMessage } from '@/lib/errorMessages';
-import type { BudgetSettingsView, SettingsUpdate } from '@/services/budgets.service';
 
 export { ADVANCED_ANCHOR };
 

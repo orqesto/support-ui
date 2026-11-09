@@ -34,7 +34,7 @@ vi.mock('@/hooks/useTeamsEnabled', async (importOriginal) => ({
   useTeamsEnabled: () => true,
   deriveTeamsEnabled: () => true,
 }));
-vi.mock('@/services/ticket.service', () => ({
+vi.mock('@/features/tickets/services/ticket.service', () => ({
   ticketService: {
     getById: () => getById(),
     update: (id: number, patch: Partial<Ticket>) => update(id, patch),
@@ -46,7 +46,7 @@ vi.mock('@/services/settings.service', () => ({
     getLabels: () => Promise.resolve([]),
   },
 }));
-vi.mock('@/services/category.service', () => ({
+vi.mock('@/features/tickets/services/category.service', () => ({
   categoryService: { getAll: () => Promise.resolve({ success: true, data: [] }) },
 }));
 vi.mock('@/services/message.service', () => ({
@@ -72,8 +72,10 @@ vi.mock('@/components/shared/ScrollButtons', () => ({ ScrollButtons: () => null 
 vi.mock('@/components/admin/AssignmentSelect', () => ({ AssignmentSelect: () => null }));
 vi.mock('@/components/shared/RichTextEditor', () => ({ default: () => null }));
 vi.mock('@/components/shared/TranslateButton', () => ({ TranslateButton: () => null }));
-vi.mock('@/components/tickets/MoveDepartmentDialog', () => ({ MoveDepartmentDialog: () => null }));
-vi.mock('@/components/tickets/TicketPanelTabs', () => ({ TicketPanelTabs: () => null }));
+vi.mock('@/features/tickets/components/MoveDepartmentDialog', () => ({
+  MoveDepartmentDialog: () => null,
+}));
+vi.mock('@/features/tickets/components/TicketPanelTabs', () => ({ TicketPanelTabs: () => null }));
 
 import { TicketDetailPage } from '../TicketDetailPage';
 

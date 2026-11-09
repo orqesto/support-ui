@@ -740,8 +740,8 @@ export const integrationsService = {
   },
 
   /**
-   * @deprecated Use ticketingSystemsService.setDefault instead
-   * This method is kept for backwards compatibility but uses the new endpoint
+   * Makes the ticketing integration the default one, through the `/api/ticketing-systems`
+   * set-default endpoint (the separate ticketing-systems service was removed as unused).
    */
   setDefaultTicketing: async (
     id: number,

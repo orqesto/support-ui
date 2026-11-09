@@ -1,0 +1,349 @@
+import {
+  Upload,
+  FileText,
+  Trash2,
+  CheckCircle,
+  AlertCircle,
+  Clock,
+  Globe,
+} from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Select } from '@/components/ui/Select';
+import { useDepartments } from '@/hooks/useDepartments';
+import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
+import type { DocumentType } from '@/features/kb/shell';
+
+type FileUploadProgress = {
+  status: 'pending' | 'uploading' | 'success' | 'error';
+  progress: number;
+  error?: string;
+};
+
+type DocumentationUploadFormProps = {
+  selectedFiles: File[];
+  // [] = shared with all depts. [a, b, …] = scoped to those depts.
+  selectedDeptIds: number[];
+  documentType: DocumentType;
+  isDragging: boolean;
+  uploading: boolean;
+  uploadProgress: Record<string, FileUploadProgress>;
+  onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onDragOver: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDragLeave: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+  onRemoveFile: (index: number) => void;
+  onSelectedDeptIdsChange: (ids: number[]) => void;
+  onDocumentTypeChange: (value: DocumentType) => void;
+  onUpload: () => void;
+};
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+};
+
+export const DocumentationUploadForm = ({
+  selectedFiles,
+  selectedDeptIds,
+  documentType,
+  isDragging,
+  uploading,
+  uploadProgress,
+  onFileSelect,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onRemoveFile,
+  onSelectedDeptIdsChange,
+  onDocumentTypeChange,
+  onUpload,
+}: DocumentationUploadFormProps) => {
+  const { data: departments = [], teamsEnabled: teamsMode } = useDepartments();
+  // Teams off: no team scope; documentation is shared with the whole workspace.
+  const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
+  const isOrgWide = selectedDeptIds.length === 0;
+  const toggleDept = (id: number) => {
+    if (selectedDeptIds.includes(id)) {
+      onSelectedDeptIdsChange(selectedDeptIds.filter((deptId) => deptId !== id));
+    } else {
+      onSelectedDeptIdsChange([...selectedDeptIds, id]);
+    }
+  };
+
+  return (
+    <Card className="p-6">
+      <h3 className="font-display mb-4 text-lg font-semibold">Upload New Documentation</h3>
+
+      <div className="flex-col space-y-4 text-center sm:items-center sm:flex-row sm:text-left">
+        <div>
+          <div className="block mb-2 text-sm font-medium">File (PDF, TXT, or Markdown)</div>
+          <div
+            role="button"
+            tabIndex={0}
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                document.getElementById('doc-file')?.click();
+              }
+            }}
+            className={`relative rounded-lg border-2 border-dashed transition-all ${
+              isDragging
+                ? 'border-primary bg-primary/5 scale-[1.02]'
+                : 'border-border bg-muted/30 hover:border-border-hover'
+            }`}
+          >
+            <div className="flex flex-col gap-3 items-center p-8 text-center">
+              <div className={`p-3 rounded-full ${isDragging ? 'bg-primary/10' : 'bg-muted'}`}>
+                <Upload
+                  className={`w-6 h-6 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`}
+                />
+              </div>
+
+              <div>
+                <input
+                  id="doc-file"
+                  type="file"
+                  accept=".pdf,.txt,.md,.docx,.doc,.xlsx,.xls,.csv"
+                  multiple={true}
+                  onChange={onFileSelect}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="doc-file"
+                  className="inline-flex gap-2 items-center px-4 py-2 text-sm font-semibold rounded-md transition-colors cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
+                >
+                  <Upload className="w-4 h-4" />
+                  {selectedFiles.length > 0 ? 'Add more files' : 'Choose file'}
+                </label>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Hold <kbd className="px-1 py-0.5 text-xs bg-muted rounded">Cmd</kbd> (Mac) or{' '}
+                  <kbd className="px-1 py-0.5 text-xs bg-muted rounded">Ctrl</kbd> (Windows) to
+                  select multiple files
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  or drag & drop multiple files • PDF, TXT, Markdown
+                </p>
+              </div>
+
+              {/* AI Helper - PDF Requirements */}
+              <div className="p-4 mt-4 bg-muted rounded-lg border border-border">
+                <div className="flex gap-2 items-start">
+                  <AlertCircle className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+                  <div className="text-left">
+                    <p className="mb-2 text-sm font-semibold text-primary">
+                      📄 PDF Requirements
+                    </p>
+                    <ul className="space-y-1 text-xs text-primary">
+                      <li>
+                        • <strong>Text-searchable PDFs:</strong> ✅ Automatic table detection &
+                        conversion
+                      </li>
+                      <li>
+                        • <strong>Scanned/Image PDFs:</strong> ✅ Automatic OCR (all pages,
+                        ~20-30s per page)
+                      </li>
+                      <li>
+                        • <strong>PDFs with tables:</strong> ✅ Auto-converted to Markdown tables
+                      </li>
+                      <li>
+                        • <strong>TXT/Markdown:</strong> ✅ Perfect support, including tables
+                      </li>
+                    </ul>
+                    <p className="mt-2 text-xs italic text-primary">
+                      💡 Scanned PDFs: All pages auto-processed. Large docs may take 3-5 minutes!
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {selectedFiles.length > 0 ? (
+                <div className="space-y-2 w-full">
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 justify-between items-center">
+                    <p className="text-sm font-medium">
+                      {selectedFiles.length} file(s) ready — not uploaded yet
+                    </p>
+                    <p className="text-xs font-medium text-primary">
+                      ↓ Click “Upload {selectedFiles.length}{' '}
+                      {selectedFiles.length === 1 ? 'file' : 'files'}” below to add{' '}
+                      {selectedFiles.length === 1 ? 'it' : 'them'}
+                    </p>
+                  </div>
+                  {selectedFiles.map((file, index) => {
+                    const progress = uploadProgress[file.name];
+                    return (
+                      <div
+                        // eslint-disable-next-line react/no-array-index-key
+                        key={`${file.name}-${index}`}
+                        className="px-3 py-2 rounded-md border bg-background"
+                      >
+                        <div className="flex gap-2 justify-between items-center mb-2">
+                          <div className="flex flex-1 gap-2 items-center min-w-0">
+                            <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+                            <span className="text-sm font-medium truncate">{file.name}</span>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              ({formatFileSize(file.size)})
+                            </span>
+                          </div>
+                          <div className="flex gap-2 items-center shrink-0">
+                            {progress?.status === 'uploading' && (
+                              <Clock className="w-4 h-4 text-muted-foreground animate-spin" />
+                            )}
+                            {progress?.status === 'success' && (
+                              <CheckCircle className="w-4 h-4 text-success" />
+                            )}
+                            {progress?.status === 'error' && (
+                              <span title={progress.error}>
+                                <AlertCircle className="w-4 h-4 text-destructive" />
+                              </span>
+                            )}
+                            {!uploading && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => onRemoveFile(index)}
+                                aria-label="Remove file"
+                                className="p-1 w-auto h-auto rounded transition-colors hover:bg-destructive/10"
+                                type="button"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        {progress?.status === 'uploading' && (
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">Uploading...</span>
+                              <span className="font-medium text-primary">
+                                {progress.progress}%
+                              </span>
+                            </div>
+                            <div className="overflow-hidden h-1.5 rounded-full bg-muted">
+                              <div
+                                className="h-full rounded-full transition-all duration-300 bg-primary"
+                                style={{ width: `${progress.progress}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {progress?.status === 'error' && progress.error && (
+                          <div className="mt-2 text-xs text-destructive">
+                            {progress.error}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Supported formats: PDF, DOCX, XLSX, XLS, CSV, TXT, Markdown
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {teamsEnabled && (
+        <div>
+          <div className="block mb-2 text-sm font-medium">Team scope</div>
+          <div className="space-y-2">
+            <label className="flex gap-2 items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isOrgWide}
+                onChange={() => onSelectedDeptIdsChange([])}
+                className="w-4 h-4"
+              />
+              <Globe className="w-4 h-4" />
+              <span className="text-sm">Shared with all teams</span>
+            </label>
+            {!isOrgWide && (
+              <div className="pl-6 space-y-1">
+                {departments.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No teams available.</p>
+                ) : (
+                  departments.map((dept) => (
+                    <label key={dept.id} className="flex gap-2 items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedDeptIds.includes(dept.id)}
+                        onChange={() => toggleDept(dept.id)}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm">{dept.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            )}
+            {!isOrgWide && departments.length > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onSelectedDeptIdsChange(departments.map((dept) => dept.id))}
+                className="p-0 pl-6 h-auto text-xs text-primary hover:underline hover:bg-transparent"
+              >
+                Select all teams
+              </Button>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {isOrgWide
+              ? 'All teams can see and use this documentation.'
+              : selectedDeptIds.length === 0
+                ? 'Pick at least one team, or check "Shared with all teams".'
+                : `Visible to ${selectedDeptIds.length} team(s).`}
+          </p>
+        </div>
+        )}
+
+        <div>
+          <Select
+            label="Document Type"
+            value={documentType}
+            onChange={(value) => onDocumentTypeChange(value as DocumentType)}
+            options={[
+              { value: 'general', label: '📄 General - Uncategorized documentation' },
+              { value: 'technical', label: '📘 Technical - Support guides, how-tos' },
+              { value: 'nda', label: '📝 NDA - Confidential agreements (no quoting)' },
+              { value: 'legal', label: '⚖️ Legal - Terms, policies (careful references)' },
+              { value: 'policy', label: '📋 Policy - Company procedures' },
+              { value: 'template', label: '📧 Template - Email/response templates' },
+            ]}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            {documentType === 'nda' &&
+              '⚠️ AI will reference this document without revealing specific terms'}
+            {documentType === 'legal' &&
+              '⚠️ AI will reference carefully without providing legal advice'}
+            {documentType === 'technical' && 'AI can quote directly from this documentation'}
+            {documentType === 'policy' && 'AI can quote company policies and procedures'}
+            {documentType === 'template' && 'Used for response formatting and templates'}
+            {documentType === 'general' && 'Standard documentation with quotable content'}
+          </p>
+        </div>
+
+        <Button
+          onClick={onUpload}
+          disabled={
+            selectedFiles.length === 0 ||
+            uploading ||
+            (!isOrgWide && selectedDeptIds.length === 0)
+          }
+        >
+          <Upload className="mr-2 w-4 h-4" />
+          {uploading
+            ? `Uploading ${selectedFiles.length} file(s)...`
+            : `Upload ${selectedFiles.length > 0 ? selectedFiles.length : ''} ${selectedFiles.length === 1 ? 'File' : 'Files'}`}
+        </Button>
+      </div>
+    </Card>
+  );
+};

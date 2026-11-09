@@ -52,7 +52,7 @@ export const PlatformDefaults = () => {
           <CustomApiHealthCard customApi={query.data.customApi} />
           <AnalysisHourlyCard analysisHourly={query.data.analysisHourly} />
           <FreeStarterCard />
-          <IngestionCard ingestion={query.data.ingestion} />
+          <IngestionCard ingestion={query.data.ingestion} fairOrder={query.data.fairOrder} />
           <EmbeddingThreadsCard embeddingThreads={query.data.embeddingThreads} />
           <RoutingProposalsCard routing={query.data.routing} />
         </div>

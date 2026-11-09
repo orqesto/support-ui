@@ -22,19 +22,19 @@ vi.mock('@/services/message.service', () => ({ messageService: { getThreads, get
 vi.mock('@/features/statistics/services/sla.service', () => ({
   slaService: { getSummary: () => Promise.resolve(null) },
 }));
-vi.mock('@/services/ticket.service', () => ({
+vi.mock('@/features/tickets/services/ticket.service', () => ({
   ticketService: { getAll: getAllTickets },
   fetchTicketViewCounts,
 }));
-vi.mock('@/services/kb.service', () => ({
+vi.mock('@/features/kb/services/kb.service', () => ({
   kbService: {
     getAll: () => Promise.resolve({ success: true, data: { pagination: { total: '12' } } }),
   },
 }));
-vi.mock('@/services/documentation.service', () => ({
+vi.mock('@/features/kb/services/documentation.service', () => ({
   documentationService: { getStats: () => Promise.resolve({ totalDocs: 5 }) },
 }));
-vi.mock('@/services/ingestion.service', () => ({ ingestionService: {} }));
+vi.mock('@/features/dashboard/services/ingestion.service', () => ({ ingestionService: {} }));
 vi.mock('@/services/integrations.service', () => ({ integrationsService: {} }));
 vi.mock('@/lib/socketManager', () => ({
   subscribeToEvent: vi.fn(),
@@ -42,9 +42,11 @@ vi.mock('@/lib/socketManager', () => ({
 }));
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'ctx' }));
 vi.mock('@/hooks/useEmailProcessing', () => ({ useEmailProcessing: () => ({}) }));
-vi.mock('@/hooks/useSystemHealth', () => ({ useSystemHealth: () => ({}) }));
-vi.mock('@/hooks/useTelegramProcessing', () => ({ useTelegramProcessing: () => ({}) }));
-vi.mock('@/stores/messagesStore', () => ({ useMessagesStore: () => ({}) }));
+vi.mock('@/features/dashboard/hooks/useSystemHealth', () => ({ useSystemHealth: () => ({}) }));
+vi.mock('@/features/dashboard/hooks/useTelegramProcessing', () => ({
+  useTelegramProcessing: () => ({}),
+}));
+vi.mock('@/features/messages/stores/messagesStore', () => ({ useMessagesStore: () => ({}) }));
 vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({
     hasPermission: () => true,

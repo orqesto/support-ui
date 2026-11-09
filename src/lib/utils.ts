@@ -61,14 +61,6 @@ export const formatDuration = (minutes: number): string => {
   return remainingWeeks > 0 ? `${months}mo ${remainingWeeks}w` : `${months}mo`;
 };
 
-export const getInitials = (name: string) =>
-  name
-    .split(' ')
-    .map((word) => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-
 // Deterministic avatar background color from any stable key (email/name).
 const AVATAR_PALETTE = [
   '#2563eb',
@@ -90,8 +82,8 @@ export const avatarColor = (key: string): string => {
 };
 
 // Initials that fall back to the email handle when there's no display name
-// (the contacts list only carries an email, so getInitials' space-split is not
-// enough — "maria@x.com" → "MA", not "M").
+// (the contacts list only carries an email, so a space-split is not enough —
+// "maria@x.com" → "MA", not "M"). Avatars elsewhere use getInitials (lib/initials).
 export const contactInitials = (name: string | null | undefined, email: string): string => {
   if (name?.trim()) {
     const parts = name

@@ -1,0 +1,472 @@
+import {
+  FileText,
+  Trash2,
+  CheckCircle,
+  AlertCircle,
+  Clock,
+  BookOpen,
+  BarChart3,
+  FileClock,
+  Globe,
+  Lock,
+  FileCode,
+  Scale,
+  ScrollText,
+  Mail,
+  Download,
+  Eye,
+  CheckSquare,
+  Power,
+  PowerOff,
+  Square,
+} from 'lucide-react';
+import { API_BASE_URL } from '@/lib/config';
+import { useState } from 'react';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { SearchInput } from '@/components/ui/SearchInput';
+import { daysSince, formatStaleAge, isStale, KB_STALE_AFTER_DAYS } from '@/lib/kbStaleness';
+import { formatDate } from '@/lib/utils';
+import type { Documentation, DocumentType, DocumentationProgress } from '@/features/kb/shell';
+import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
+
+type DocumentationListProps = {
+  docs: Documentation[];
+  selectedDocs: Set<number>;
+  docProgress: Record<number, DocumentationProgress>;
+  highlightDocId?: number;
+  onToggleDoc: (id: number) => void;
+  onToggleAll: (visibleIds: number[]) => void;
+  /** Asked with the ids the current filter SHOWS, so the confirm can say what it does not. */
+  onBulkDelete: (visibleIds: number[]) => void;
+  onViewContent: (doc: Documentation) => void;
+  onToggleEnabled: (doc: Documentation) => void;
+  onDeleteClick: (id: number) => void;
+};
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+};
+
+const getDocumentTypeBadge = (type: DocumentType) => {
+  const config = {
+    technical: { icon: FileCode, label: 'Technical', color: 'blue' },
+    nda: { icon: Lock, label: 'NDA', color: 'red' },
+    legal: { icon: Scale, label: 'Legal', color: 'purple' },
+    policy: { icon: ScrollText, label: 'Policy', color: 'indigo' },
+    template: { icon: Mail, label: 'Template', color: 'green' },
+    general: { icon: FileText, label: 'General', color: 'gray' },
+  };
+
+  const { icon: Icon, label, color } = config[type] || config.general;
+
+  const colorClasses = {
+    blue: 'text-blue-700 bg-primary-muted dark:text-blue-200',
+    red: 'text-destructive bg-destructive-muted',
+    purple: 'text-purple-700 bg-purple-100 dark:bg-purple-900 dark:text-purple-200',
+    indigo: 'text-indigo-700 bg-primary-muted dark:text-indigo-200',
+    green: 'text-success bg-success-muted',
+    gray: 'text-muted-foreground bg-muted',
+  };
+
+  return (
+    <span
+      className={`inline-flex gap-1 items-center px-2 py-1 text-xs font-medium rounded-full ${colorClasses[color as keyof typeof colorClasses]}`}
+    >
+      <Icon className="w-3 h-3" />
+      {label}
+    </span>
+  );
+};
+
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case 'ready':
+      return (
+        <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-success bg-success-muted rounded-full">
+          <CheckCircle className="w-3 h-3" />
+          Ready
+        </span>
+      );
+    case 'processing':
+      return (
+        <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-foreground bg-muted rounded-full">
+          <Clock className="w-3 h-3 animate-spin" />
+          Processing
+        </span>
+      );
+    case 'failed':
+      return (
+        <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-destructive bg-destructive-muted rounded-full">
+          <AlertCircle className="w-3 h-3" />
+          Failed
+        </span>
+      );
+    default:
+      return null;
+  }
+};
+
+export const DocumentationList = ({
+  docs,
+  selectedDocs,
+  docProgress,
+  highlightDocId,
+  onToggleDoc,
+  onToggleAll,
+  onBulkDelete,
+  onViewContent,
+  onToggleEnabled,
+  onDeleteClick,
+}: DocumentationListProps) => {
+  // Source facet (All / Uploaded / Confluence) + free-text search. Together they define the
+  // "visible" docs, which drive both the list and the bulk Select-All (so bulk works on any
+  // facet, not just All).
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'uploaded' | 'confluence'>('all');
+  // Serving facet. A disabled doc is excluded from AI answers but otherwise looks identical
+  // in this list, which is how four stale documents kept serving a customer-facing KB
+  // unnoticed. Being able to ask "what is actually serving?" is the point.
+  const [servingFilter, setServingFilter] = useState<'all' | 'serving' | 'disabled'>('all');
+  const [search, setSearch] = useState('');
+  // Teams off: no team label next to the (hidden) team badge.
+  const teamsEnabled = useTeamsEnabled();
+  const isConfluenceDoc = (doc: Documentation) =>
+    doc.externalSource?.split(':')[0] === 'confluence';
+  const hasConfluence = docs.some(isConfluenceDoc);
+  const confluenceCount = docs.filter(isConfluenceDoc).length;
+  const needle = search.trim().toLowerCase();
+  const filteredDocs = docs.filter((doc) => {
+    if (sourceFilter === 'confluence' && !isConfluenceDoc(doc)) return false;
+    if (sourceFilter === 'uploaded' && isConfluenceDoc(doc)) return false;
+    if (servingFilter === 'serving' && !doc.enabled) return false;
+    if (servingFilter === 'disabled' && doc.enabled) return false;
+    if (needle && !doc.title.toLowerCase().includes(needle)) return false;
+    return true;
+  });
+  const disabledCount = docs.filter((doc) => !doc.enabled).length;
+  const visibleIds = filteredDocs.map((doc) => doc.id);
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedDocs.has(id));
+
+  return (
+    <Card className="p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="font-display text-lg font-semibold">
+          {sourceFilter === 'confluence' ? 'Confluence Pages' : 'Documentation'}
+        </h3>
+        {filteredDocs.length > 0 && (
+          <div className="flex gap-2 items-center">
+            {selectedDocs.size > 0 && (
+              <>
+                <span className="text-sm text-muted-foreground">
+                  {selectedDocs.size} selected
+                </span>
+                <Button variant="destructive" size="sm" onClick={() => onBulkDelete(visibleIds)}>
+                  <Trash2 className="mr-2 w-4 h-4" />
+                  Delete Selected
+                </Button>
+              </>
+            )}
+            <Button variant="outline" size="sm" onClick={() => onToggleAll(visibleIds)}>
+              {allVisibleSelected ? (
+                <>
+                  <CheckSquare className="mr-2 w-4 h-4" />
+                  Deselect All
+                </>
+              ) : (
+                <>
+                  <Square className="mr-2 w-4 h-4" />
+                  Select All
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {docs.length > 0 && (
+        <div className="mb-3">
+          <SearchInput value={search} onChange={setSearch} placeholder="Search documents…" />
+        </div>
+      )}
+
+      {hasConfluence && (
+        <div className="flex flex-wrap gap-1 mb-4">
+          {(['all', 'uploaded', 'confluence'] as const).map((src) => {
+            const count =
+              src === 'all'
+                ? docs.length
+                : src === 'confluence'
+                  ? confluenceCount
+                  : docs.length - confluenceCount;
+            const label = src === 'all' ? 'All' : src === 'uploaded' ? 'Uploaded' : 'Confluence';
+            return (
+              <Button
+                key={src}
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setSourceFilter(src)}
+                className={`px-3 py-1 h-auto text-xs font-medium rounded-full ${
+                  sourceFilter === src
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'text-muted-foreground border-border hover:bg-muted'
+                }`}
+              >
+                {label} ({count})
+              </Button>
+            );
+          })}
+        </div>
+      )}
+
+      {disabledCount > 0 && (
+        <div className="flex flex-wrap gap-1 mb-4">
+          {(['all', 'serving', 'disabled'] as const).map((mode) => {
+            const count =
+              mode === 'all'
+                ? docs.length
+                : mode === 'disabled'
+                  ? disabledCount
+                  : docs.length - disabledCount;
+            const label =
+              mode === 'all' ? 'Any state' : mode === 'serving' ? 'Serving' : 'Disabled';
+            return (
+              <Button
+                key={mode}
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setServingFilter(mode)}
+                className={`px-3 py-1 h-auto text-xs font-medium rounded-full ${
+                  servingFilter === mode
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'text-muted-foreground border-border hover:bg-muted'
+                }`}
+              >
+                {label} ({count})
+              </Button>
+            );
+          })}
+        </div>
+      )}
+
+      {filteredDocs.length === 0 ? (
+        <div className="py-12 text-center text-muted-foreground">
+          <BookOpen className="mx-auto mb-4 w-12 h-12 opacity-50" />
+          {sourceFilter === 'confluence' ? (
+            <>
+              <p>No Confluence pages synced yet.</p>
+              <p className="text-sm">
+                Connect a Confluence space in Settings → Integrations, then Sync.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>No documentation uploaded yet.</p>
+              <p className="text-sm">Upload your first document to get started.</p>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredDocs.map((doc) => (
+            <div
+              key={doc.id}
+              id={`doc-${doc.id}`}
+              className={`flex justify-between items-start p-4 rounded-lg border transition-colors hover:bg-accent ${
+                doc.enabled ? '' : 'opacity-60 '
+              }${
+                highlightDocId === doc.id
+                  ? 'ring-2 ring-primary bg-primary/5 border-primary/40'
+                  : selectedDocs.has(doc.id)
+                  ? 'bg-primary-muted border-primary-line'
+                  : ''
+              }`}
+            >
+              <div className="flex gap-3 items-start flex-1 min-w-0">
+                {/* Bulk-select checkbox — available on every facet (All / Uploaded / Confluence). */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onToggleDoc(doc.id)}
+                  className="flex-shrink-0 p-0 w-auto h-auto mt-1 text-faint-foreground transition-colors hover:text-primary hover:bg-transparent focus:outline-none"
+                  aria-label={selectedDocs.has(doc.id) ? 'Deselect document' : 'Select document'}
+                >
+                  {selectedDocs.has(doc.id) ? (
+                    <CheckSquare className="w-5 h-5 text-primary" />
+                  ) : (
+                    <Square className="w-5 h-5" />
+                  )}
+                </Button>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap gap-2 items-center mb-1">
+                    <FileText className="flex-shrink-0 w-5 h-5 text-muted-foreground" />
+                    <h4 className="font-display font-semibold truncate">{doc.title}</h4>
+                    {getDocumentTypeBadge(doc.documentType)}
+                    {doc.externalSource?.split(':')[0] === 'confluence' && (
+                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-foreground bg-muted rounded-full">
+                        <BookOpen className="w-3 h-3" />
+                        Confluence
+                      </span>
+                    )}
+                    {!teamsEnabled ? null : (doc.departmentIds ?? []).length === 0 ? (
+                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-foreground bg-muted rounded-full">
+                        <Globe className="w-3 h-3" />
+                        All teams
+                      </span>
+                    ) : (
+                      (doc.departmentIds ?? []).map((deptId) => (
+                        <DepartmentBadge key={deptId} departmentId={deptId} size="sm" />
+                      ))
+                    )}
+                    {getStatusBadge(doc.status)}
+                    {!doc.enabled && (
+                      <span className="inline-flex gap-1 items-center px-2 py-1 text-xs font-medium text-warning bg-warning-muted rounded-full">
+                        <PowerOff className="w-3 h-3" />
+                        Disabled
+                      </span>
+                    )}
+                  </div>
+
+                  {doc.description && (
+                    <p className="mb-2 text-sm text-muted-foreground">{doc.description}</p>
+                  )}
+
+                  <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                    <span>{doc.originalFilename}</span>
+                    <span className="font-mono">{formatFileSize(doc.size)}</span>
+                    {doc.chunkCount > 0 && <span>{doc.chunkCount} chunks</span>}
+                    {doc.timesReferenced > 0 && (
+                      <span className="inline-flex gap-1 items-center font-medium text-muted-foreground">
+                        <BarChart3 className="w-3 h-3" />
+                        Used {doc.timesReferenced}{' '}
+                        {doc.timesReferenced === 1 ? 'time' : 'times'}
+                      </span>
+                    )}
+                    <span>Uploaded <span className="font-mono">{formatDate(doc.createdAt)}</span></span>
+                    {doc.lastReferencedAt && (
+                      <span>Last used <span className="font-mono">{formatDate(doc.lastReferencedAt)}</span></span>
+                    )}
+                    {/*
+                      The same fact the notification carries, said where the document lives.
+                      A notification can be dismissed, arrive while nobody is looking, or
+                      never be seen by the person who later opens this list — and then
+                      nothing on screen distinguishes a document maintained last week from
+                      one abandoned two years ago. `updatedAt` is the CONTENT clock (an
+                      unchanged Confluence page is skipped before any write), so this does
+                      not light up merely because a sync ran.
+
+                      ⛔ Informational only. Nothing here disables or hides the document;
+                      an unchanged document may be perfectly correct and only a person can
+                      tell.
+                    */}
+                    {isStale(doc.updatedAt) && (
+                      <span
+                        className="inline-flex gap-1 items-center font-medium text-warning"
+                        title={`Last changed ${formatDate(doc.updatedAt)}. Documents unchanged for ${KB_STALE_AFTER_DAYS} days are flagged for review — nothing is disabled.`}
+                      >
+                        <FileClock className="w-3 h-3" />
+                        Not updated in {formatStaleAge(daysSince(doc.updatedAt) ?? 0)}
+                      </span>
+                    )}
+                  </div>
+
+                  {doc.status === 'processing' && docProgress[doc.id] && (
+                    <div className="mt-3 space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">
+                          {docProgress[doc.id].message ?? 'Processing...'}
+                        </span>
+                        <span className="font-medium text-foreground">
+                          {docProgress[doc.id].percentage}%
+                        </span>
+                      </div>
+                      <div className="overflow-hidden h-2 rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full transition-all duration-300 bg-primary"
+                          style={{ width: `${docProgress[doc.id].percentage}%` }}
+                        />
+                      </div>
+                      {docProgress[doc.id].current !== undefined &&
+                        docProgress[doc.id].total && (
+                          <p className="text-xs text-muted-foreground">
+                            {docProgress[doc.id].current} / {docProgress[doc.id].total} chunks
+                          </p>
+                        )}
+                    </div>
+                  )}
+
+                  {doc.processingError && (
+                    <div className="p-2 mt-2 text-sm text-destructive bg-destructive-muted rounded border border-destructive-line">
+                      Error: {doc.processingError}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex gap-2 flex-shrink-0 ml-4">
+                {doc.status === 'ready' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onViewContent(doc)}
+                    title="View content"
+                    aria-label="View content"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                )}
+                <Button
+                  aria-label="Enable or pause this source"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onToggleEnabled(doc)}
+                  title={
+                    doc.enabled ? 'Disable in suggested answers' : 'Enable in suggested answers'
+                  }
+                  className={doc.enabled ? 'text-success' : 'text-faint-foreground'}
+                >
+                  <Power className="w-4 h-4" />
+                </Button>
+                {doc.externalSource?.split(':')[0] !== 'confluence' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const filename = encodeURIComponent(doc.url.split('/').pop() ?? '');
+                      // Absolute API origin: a relative /api/... resolves against the FE host,
+                      // and on deployments where the console and the API live on different
+                      // subdomains that returns the SPA's index.html, not the file.
+                      window.open(`${API_BASE_URL}/api/documentation/download/${filename}`, '_blank', 'noopener,noreferrer');
+                    }}
+                    title="Download file"
+                    aria-label="Download file"
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                )}
+                <Button
+                  aria-label="Delete document"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDeleteClick(doc.id)}
+                  title={
+                    doc.externalSource?.split(':')[0] === 'confluence'
+                      ? 'Synced from Confluence — it reappears on the next sync unless you remove its space from the Confluence source. Use the Power toggle to exclude it from AI answers.'
+                      : 'Delete documentation'
+                  }
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+};

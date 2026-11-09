@@ -1,0 +1,319 @@
+import { useState } from 'react';
+import {
+  MessageSquare,
+  Plus,
+  Save,
+  TestTube2,
+  Trash2,
+  Edit,
+  Building2,
+  MessageCircleReply,
+} from 'lucide-react';
+import DepartmentBadge from '@/components/admin/DepartmentBadge';
+import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
+import { SourceDepartmentEditor } from '@/features/settings/components/integrations/SourceDepartmentEditor';
+import type { IntegrationCardProps } from '@/features/settings/components/integrations/types';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { PasswordInput } from '@/components/ui/PasswordInput';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { useCreateSourceDepartments } from '@/features/settings/hooks/useCreateSourceDepartments';
+import { useIntegrationCard } from '@/features/settings/hooks/useIntegrationCard';
+
+type TelegramConfig = {
+  botToken: string;
+};
+
+/** A BotFather token is `<bot id>:<secret>`; the id part names the bot without revealing it. */
+const nameFromToken = (config: TelegramConfig): string | null => {
+  const botId = config.botToken.split(':')[0]?.trim();
+  return botId && /^\d+$/.test(botId) ? `Telegram Bot ${botId}` : null;
+};
+
+export const TelegramIntegrationCard = ({
+  integrations,
+  onRefresh,
+  onShowAlert,
+}: IntegrationCardProps) => {
+  const [editDepts, setEditDepts] = useState<number | null>(null);
+
+  // Centralized create-form department picker state.
+  const deptPicker = useCreateSourceDepartments();
+
+  const telegramIntegrations = integrations.filter((integ) => integ.type === 'telegram');
+
+  const {
+    showForm,
+    saving,
+    testing,
+    deleting,
+    deleteConfirm,
+    editingId,
+    config,
+    name,
+    setShowForm,
+    setConfig,
+    setDeleteConfirm,
+    setName,
+    resetForm,
+    loadForEdit,
+    saveIntegration,
+    testConnection,
+    deleteIntegration,
+  } = useIntegrationCard<TelegramConfig>({
+    integrationType: 'telegram',
+    integrationDisplayName: 'Telegram Bot',
+    initialConfig: { botToken: '' },
+    onRefresh,
+    onShowAlert,
+    // The BE upserts on name + type: a second bot saved under the constant display name
+    // used to overwrite the first. Default to a name derived from the bot id.
+    existingNames: telegramIntegrations.map((integ) => integ.name),
+    deriveName: nameFromToken,
+    // Departments ride along with the insert (see useIntegrationCard.createDepartments)
+    // rather than being assigned by a follow-up call, so the bot can never be committed
+    // enabled-but-unlinked if that second call fails or never runs.
+    createDepartments: {
+      departmentIds: deptPicker.selectedIds,
+      defaultDepartmentId: deptPicker.defaultId,
+    },
+  });
+
+  const handleDelete = () => {
+    if (deleteConfirm) {
+      void deleteIntegration(deleteConfirm.id, deleteConfirm.name);
+    }
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex gap-2 items-center text-md md:text-lg lg:text-xl">
+              <MessageSquare className="w-5 h-5 text-muted-foreground" />
+              Telegram Bots
+            </CardTitle>
+            <Button
+              size="sm"
+              className="py-5"
+              onClick={() => {
+                resetForm();
+                setShowForm(!showForm);
+              }}
+            >
+              <Plus className="mr-1 w-4 h-4 hidden sm:block" />
+              Add Telegram
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {telegramIntegrations.length > 0 && (
+            <div className="space-y-2">
+              {telegramIntegrations.map((integration) => (
+                <div key={integration.id}>
+                  <div className="flex flex-col gap-3 p-3 rounded-lg border sm:flex-row sm:justify-between sm:items-center">
+                    <div className="flex flex-1 gap-3 items-center min-w-0">
+                      <div
+                        className={`w-2 h-2 rounded-full shrink-0 ${integration.enabled ? 'bg-success' : 'bg-faint-foreground'}`}
+                      />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{integration.name}</p>
+                          {typeof integration.departmentId === 'number' && (
+                            <DepartmentBadge departmentId={integration.departmentId} size="sm" />
+                          )}
+                        </div>
+                        <p className="text-xs break-all text-muted-foreground">
+                          {(integration.config as TelegramConfig).botToken
+                            ? 'Token configured'
+                            : 'Not configured'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2 shrink-0">
+                      <Button
+                        aria-label="Edit this Telegram source"
+                        title="Edit this Telegram source"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          loadForEdit(
+                            integration.id,
+                            integration.config as TelegramConfig,
+                            integration.name,
+                            integration.enabled
+                          )
+                        }
+                        disabled={editingId === integration.id}
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => testConnection(integration.id, integration.name)}
+                        isLoading={testing === integration.id}
+                        disabled={!integration.hasCredentials}
+                      >
+                        <TestTube2 className="w-4 h-4" />
+                        Poke
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditDepts(integration.id)}
+                        title={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply'}
+                        aria-label={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply'}
+                      >
+                        {deptPicker.teamsEnabled ? (
+                          <Building2 className="w-4 h-4" />
+                        ) : (
+                          <MessageCircleReply className="w-4 h-4" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setDeleteConfirm({ id: integration.id, name: integration.name })
+                        }
+                        isLoading={deleting === integration.id}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                        <span className="sr-only">Delete</span>
+                      </Button>
+                    </div>
+                  </div>
+                  {editDepts === integration.id && (
+                    <SourceDepartmentEditor
+                      sourceId={integration.id}
+                      onClose={() => setEditDepts(null)}
+                      onSaved={() => {
+                        setEditDepts(null);
+                        void onRefresh();
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {showForm && (
+            <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
+              <h4 className="font-display font-medium">
+                {editingId ? 'Edit Telegram Bot' : 'Add New Telegram Bot'}
+              </h4>
+              <Input
+                label="Name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Telegram Bot"
+              />
+              <div>
+                <label htmlFor="botToken" className="text-sm font-medium">
+                  Bot Token
+                </label>
+                <PasswordInput
+                  value={config.botToken}
+                  onChange={(event) => setConfig({ ...config, botToken: event.target.value })}
+                  placeholder="123456789:ABCdefGhiJklMnoPqrsTuvWxyZ"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Get your bot token from{' '}
+                  <a
+                    href="https://t.me/BotFather"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary"
+                  >
+                    @BotFather
+                  </a>
+                </p>
+              </div>
+
+              {editingId === null && deptPicker.teamsEnabled && (
+                <div className="space-y-2 pt-1 border-t">
+                  <label className="text-sm font-medium flex items-center gap-1">
+                    <Building2 className="w-3.5 h-3.5" /> Teams
+                  </label>
+                  <DepartmentMultiPicker
+                    allDepts={deptPicker.departments}
+                    selected={deptPicker.selectedIds}
+                    defaultId={deptPicker.defaultId}
+                    loading={deptPicker.loading}
+                    onSelectedChange={deptPicker.setSelectedIds}
+                    onDefaultChange={deptPicker.setDefaultId}
+                  />
+                  {!deptPicker.loading && deptPicker.departments.length === 0 && (
+                    <p className="text-xs text-warning">
+                      No active teams. Add one in Settings › Teams before adding a channel.
+                    </p>
+                  )}
+                  {!deptPicker.loading &&
+                    deptPicker.departments.length > 0 &&
+                    !deptPicker.isValid && (
+                      <p className="text-xs text-muted-foreground">
+                        Select at least one team to route messages from this source.
+                      </p>
+                    )}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => saveIntegration()}
+                  isLoading={saving}
+                  disabled={
+                    !name.trim() || !config.botToken || (editingId === null && !deptPicker.isValid)
+                  }
+                >
+                  <Save className="mr-2 w-4 h-4" />
+                  {editingId ? 'Update' : 'Save'} Telegram
+                </Button>
+                <Button variant="outline" onClick={resetForm}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {telegramIntegrations.length === 0 && !showForm && (
+            <p className="py-2 text-sm text-center text-muted-foreground">
+              No Telegram bots configured
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      {deleteConfirm && (
+        <div className="flex fixed inset-0 z-50 justify-center items-center bg-black bg-opacity-50">
+          <div className="p-6 mx-4 w-full max-w-md rounded-lg shadow-xl bg-card">
+            <h3 className="font-display mb-2 text-lg font-semibold">Delete Integration?</h3>
+            <p className="mb-4 text-muted-foreground">
+              Are you sure you want to delete <strong>{deleteConfirm.name}</strong>?
+            </p>
+            <p className="mb-6 text-sm text-destructive">This action cannot be undone.</p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleting === deleteConfirm.id}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                isLoading={deleting === deleteConfirm.id}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};

@@ -23,9 +23,8 @@ import {
   type OrganizationRole,
   type PermissionOverrides,
 } from '@/types/roles';
-import { UserDepartmentsField } from '@/components/users/UserDepartmentsField';
+import { UserDepartmentsField, UserRoutingSkillsCard } from '@/features/settings';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
-import { UserRoutingSkillsCard } from '@/components/users/UserRoutingSkillsCard';
 import { userFullName } from '@/lib/userName';
 
 /**

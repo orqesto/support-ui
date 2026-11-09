@@ -2,20 +2,17 @@ import { useState, useEffect } from 'react';
 import { ArrowLeft, Link2, Loader2 } from 'lucide-react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ScrollButtons } from '@/components/shared/ScrollButtons';
-import { TicketDetail } from '@/components/tickets/TicketDetail';
+import { TicketDetail, TicketDeleteDialog, useTicketsStore } from '@/features/tickets';
+import { ticketService, TicketRef } from '@/features/tickets/shell';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { TicketDeleteDialog } from '@/components/tickets/TicketsJiraDialogs';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { usePermissions } from '@/hooks/usePermissions';
-import { ticketService } from '@/services/ticket.service';
-import { useTicketsStore } from '@/stores/ticketsStore';
 import type { Ticket } from '@/types';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
-import { TicketRef } from '@/components/tickets/TicketRef';
 
 export const TicketDetailPage = () => {
   const { id } = useParams<{ id: string }>();

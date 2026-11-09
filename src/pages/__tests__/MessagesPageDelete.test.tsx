@@ -52,7 +52,7 @@ const threads = IDS.map(
     }) as unknown as MessageThread
 );
 
-vi.mock('@/hooks/useMessagesData', () => ({
+vi.mock('@/features/messages/hooks/useMessagesData', () => ({
   useMessagesData: () => ({
     threads,
     loading: false,
@@ -72,6 +72,7 @@ vi.mock('@/services/message.service', () => ({
     markUnread: vi.fn(() => Promise.resolve()),
     delete: mocks.del,
     classify: mocks.classify,
+    reopen: vi.fn(() => Promise.resolve()),
   },
 }));
 vi.mock('@/lib/toast', () => ({
@@ -81,7 +82,7 @@ vi.mock('@/lib/toast', () => ({
 vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: (permission: string) => mocks.granted.has(permission) }),
 }));
-vi.mock('@/services/bulk.service', () => ({
+vi.mock('@/features/messages/services/bulk.service', () => ({
   bulkService: {
     preview: vi.fn(() => new Promise(() => undefined)),
     run: vi.fn(),
@@ -96,10 +97,12 @@ vi.mock('@/lib/socketManager', () => ({
   subscribeToEvent: vi.fn(),
   unsubscribeFromEvent: vi.fn(),
 }));
-vi.mock('@/hooks/usePhoneOpensMessageAsPage', () => ({ usePhoneOpensMessageAsPage: () => false }));
+vi.mock('@/features/messages/hooks/usePhoneOpensMessageAsPage', () => ({
+  usePhoneOpensMessageAsPage: () => false,
+}));
 // Captures the page's setter so a test can change the open message the way Back / ?id= does —
 // without going through a card click, so the captured card goes stale.
-vi.mock('@/hooks/useMessagesUrlSync', () => ({
+vi.mock('@/features/messages/hooks/useMessagesUrlSync', () => ({
   useMessagesUrlSync: ({
     setSelectedMessage,
   }: {
@@ -112,9 +115,11 @@ vi.mock('@/hooks/useNotificationCounts', () => ({
   NOTIFICATION_COUNTS_KEY: ['notification-counts'],
   useNotificationCounts: () => ({ counts: {}, clearKind: vi.fn() }),
 }));
-vi.mock('@/hooks/useSharedLinkWorkspace', () => ({ useSharedLinkWorkspace: () => undefined }));
+vi.mock('@/features/messages/hooks/useSharedLinkWorkspace', () => ({
+  useSharedLinkWorkspace: () => undefined,
+}));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'COR' }));
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
 }));
@@ -138,10 +143,10 @@ vi.mock('@/components/shared/PageHeader', () => ({
     </div>
   ),
 }));
-vi.mock('@/components/messages/filters/MessageFilterBar', () => ({
+vi.mock('@/features/messages/components/filters/MessageFilterBar', () => ({
   MessageFilterBar: ({ viewSwitch }: { viewSwitch?: ReactNode }) => <div>{viewSwitch}</div>,
 }));
-vi.mock('@/components/messages/MessagesViewToggle', () => ({
+vi.mock('@/features/messages/components/MessagesViewToggle', () => ({
   MessagesViewToggle: ({ onModeChange }: { onModeChange: (mode: string) => void }) => (
     <div>
       <span
@@ -155,17 +160,16 @@ vi.mock('@/components/messages/MessagesViewToggle', () => ({
     </div>
   ),
 }));
-vi.mock('@/components/messages/ListScopeNotice', () => ({ ListScopeNotice: () => null }));
-vi.mock('@/components/messages/QuickFilterChips', () => ({ QuickFilterChips: () => null }));
+vi.mock('@/features/messages/components/ListScopeNotice', () => ({ ListScopeNotice: () => null }));
 // The list caption's Sort is a Select, which needs a ThemeProvider this page test does not mount.
 vi.mock('@/components/ui/Select', () => ({ Select: () => null }));
-vi.mock('@/components/messages/ComposeNewModal', () => ({ ComposeNewModal: () => null }));
-vi.mock('@/components/messages/ThreadBubble', () => ({ ThreadBubble: () => null }));
-vi.mock('@/components/messages/ContactsView', () => ({
+vi.mock('@/features/messages/components/ComposeNewModal', () => ({ ComposeNewModal: () => null }));
+vi.mock('@/features/messages/components/ThreadBubble', () => ({ ThreadBubble: () => null }));
+vi.mock('@/features/messages/components/ContactsView', () => ({
   ContactsView: () => <div data-testid="contacts-view" />,
 }));
 // The board: opens a card the way a click does, and exposes its optimistic move to the page.
-vi.mock('@/components/messages/MessagesKanbanView', async () => {
+vi.mock('@/features/messages/components/MessagesKanbanView', async () => {
   const { forwardRef, useImperativeHandle } = await import('react');
   return {
     MessagesKanbanView: forwardRef(
@@ -187,21 +191,25 @@ vi.mock('@/components/messages/MessagesKanbanView', async () => {
 });
 // Stand-in for the detail: its More → Delete message calls the page's onDelete, when given one;
 // J and a status change call the page's onNavigate / onOptimisticMove.
-vi.mock('@/components/messages/MessageDetail', () => ({
+vi.mock('@/features/messages/components/MessageDetail', () => ({
   MessageDetail: ({
     message,
     onDelete,
     onNavigate,
     onOptimisticMove,
     onClassify,
+    onRefresh,
+    onReopen,
   }: {
-    message: { id: number };
+    message: { id: number; subject?: string };
+    onRefresh?: () => Promise<void>;
+    onReopen?: () => Promise<void>;
     onDelete?: () => void;
     onClassify?: (action: string) => Promise<void>;
     onNavigate?: (direction: 'next' | 'prev') => void;
     onOptimisticMove?: (columnId: string) => void;
   }) => (
-    <div data-testid="detail-pane">
+    <div data-testid="detail-pane" data-subject={message.subject}>
       {message.id}
       {onDelete && (
         <button type="button" onClick={onDelete}>
@@ -221,11 +229,18 @@ vi.mock('@/components/messages/MessageDetail', () => ({
           Move to spam
         </button>
       )}
+      <button type="button" onClick={() => void onRefresh?.()}>
+        Refresh thread
+      </button>
+      <button type="button" onClick={() => void onReopen?.()}>
+        Reopen thread
+      </button>
     </div>
   ),
 }));
 
 import { MessagesPage } from '../MessagesPage';
+import { messageService } from '@/services/message.service';
 import { subscribeToEvent } from '@/lib/socketManager';
 import { SERVER_EVENT_REFRESH_MS } from '@/hooks/useCoalescedRefresh';
 
@@ -348,21 +363,22 @@ describe('MessagesPage — slide-over More → Delete thread', () => {
     expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_12', null);
   });
 
-  it('board: the open message changed without a click (Back): no LIVE card is taken; the board refetches', async () => {
+  // The card opened before (12) is forgotten when the open message changes; the one now open
+  // (11) is recovered from the list, so the deleted thread's own card leaves — never 12.
+  it('board: the open message changed without a click (Back): no LIVE card is taken; the deleted one leaves', async () => {
     localStorage.setItem('messages_view_mode', 'kanban');
     renderPage();
     // The board is downloaded when first shown (lazy): wait for it.
     fireEvent.click(await screen.findByRole('button', { name: 'open card 12' }));
     await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('12'));
-    const keyBefore = Number(screen.getByTestId('board').dataset.refreshKey);
     act(() => mocks.setSelected?.(messageFor(11)));
     await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('11'));
     pressDelete();
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     await waitFor(() => expect(screen.queryByTestId('detail-pane')).toBeNull());
     expect(mocks.del).toHaveBeenCalledWith(11);
-    expect(mocks.optimisticMove).not.toHaveBeenCalled();
-    expect(Number(screen.getByTestId('board').dataset.refreshKey)).toBeGreaterThan(keyBefore);
+    expect(mocks.optimisticMove).not.toHaveBeenCalledWith('conv_12', expect.anything());
+    expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_11', null);
   });
 
   it('CONTROL board: Cancel leaves the card where it is', async () => {
@@ -424,6 +440,81 @@ describe('MessagesPage — slide-over More → Delete thread', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Set awaiting' }));
       expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_13', 'awaiting');
     });
+
+    // The backdrop's fallback close (the detail has not registered its prompt-aware close yet)
+    // used to leave the closed card remembered, so the next thread's move went to that card.
+    it('board: after a backdrop close, a status change moves the card now open, not the closed one', async () => {
+      localStorage.setItem('messages_view_mode', 'kanban');
+      renderPage();
+      fireEvent.click(await screen.findByRole('button', { name: 'open card 12' }));
+      await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('12'));
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      await waitFor(() => expect(screen.queryByTestId('detail-pane')).toBeNull());
+      mocks.optimisticMove.mockClear();
+      act(() => mocks.setSelected?.(messageFor(13)));
+      await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('13'));
+      fireEvent.click(screen.getByRole('button', { name: 'Set awaiting' }));
+      expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_13', 'awaiting');
+    });
+  });
+
+  // The remembered card belongs to the thread it was opened for. It used to be forgotten only by
+  // the detail's own close, so any other way the open thread changed (a classification, Back
+  // removing ?id, a link to another thread) left it pointing at the old card — and the next
+  // thread's status change moved THAT card.
+  describe('board: the remembered card follows the open thread, however it changed', () => {
+    const openCard12 = async () => {
+      localStorage.setItem('messages_view_mode', 'kanban');
+      renderPage();
+      fireEvent.click(await screen.findByRole('button', { name: 'open card 12' }));
+      await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent('12'));
+    };
+    const showByUrl = async (id: number) => {
+      act(() => mocks.setSelected?.(messageFor(id)));
+      await waitFor(() => expect(screen.getByTestId('detail-pane')).toHaveTextContent(String(id)));
+    };
+    const setAwaiting = () => {
+      mocks.optimisticMove.mockClear();
+      fireEvent.click(screen.getByRole('button', { name: 'Set awaiting' }));
+    };
+
+    it('after Move to spam closes the detail', async () => {
+      await openCard12();
+      fireEvent.click(screen.getByRole('button', { name: 'Move to spam' }));
+      await waitFor(() => expect(screen.queryByTestId('detail-pane')).toBeNull());
+      await showByUrl(13);
+      setAwaiting();
+      expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_13', 'awaiting');
+    });
+
+    it('after Back removes ?id (the open message goes to none)', async () => {
+      await openCard12();
+      act(() => mocks.setSelected?.(null));
+      await waitFor(() => expect(screen.queryByTestId('detail-pane')).toBeNull());
+      await showByUrl(13);
+      setAwaiting();
+      expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_13', 'awaiting');
+    });
+
+    it('after a link switches straight to another thread', async () => {
+      await openCard12();
+      await showByUrl(13);
+      setAwaiting();
+      expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_13', 'awaiting');
+    });
+
+    it('CONTROL: the card just opened is the one moved (its record arrives after the click)', async () => {
+      await openCard12();
+      setAwaiting();
+      expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_12', 'awaiting');
+    });
+
+    it('CONTROL: a refresh of the same thread keeps the card', async () => {
+      await openCard12();
+      await showByUrl(12);
+      setAwaiting();
+      expect(mocks.optimisticMove).toHaveBeenCalledWith('conv_12', 'awaiting');
+    });
   });
 
   it('MANAGE_ORGANIZATION alone is enough (an org admin)', async () => {
@@ -432,6 +523,81 @@ describe('MessagesPage — slide-over More → Delete thread', () => {
     await openDetail(12);
     expect(screen.getByRole('button', { name: 'More → Delete thread' })).toBeInTheDocument();
   });
+});
+
+// Where the browser refuses storage (private mode, blocked site data) reading the saved view
+// threw while the page rendered, so Messages did not render at all.
+describe('MessagesPage — storage refused', () => {
+  it('renders the list view when localStorage throws', () => {
+    const blocked = () => {
+      throw new DOMException('blocked', 'SecurityError');
+    };
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(blocked);
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(blocked);
+    try {
+      renderPage();
+      expect(row(11)).toBeTruthy();
+      expect(screen.queryByTestId('board')).toBeNull();
+    } finally {
+      get.mockRestore();
+      set.mockRestore();
+    }
+  });
+});
+
+// A re-read of the open thread (after a reply / header change, or a Reopen) that lands after the
+// agent moved to another thread (J/K, a row click) used to put the OLD thread back on screen.
+describe('MessagesPage — a late answer for a thread the agent left', () => {
+  const holdNextRead = () => {
+    let land: () => void = () => {};
+    vi.mocked(messageService.getById).mockImplementationOnce(
+      (id) =>
+        new Promise((resolve) => {
+          land = () =>
+            resolve({
+              success: true,
+              data: { ...messageFor(Number(id)), subject: 'Re-read' },
+            } as never);
+        })
+    );
+    return () => land();
+  };
+
+  it.each(['Refresh thread', 'Reopen thread'])(
+    '%s on 12, then 11 opened: 12’s answer does not take the panel back',
+    async (button) => {
+      renderPage();
+      await openDetail(12);
+      const land = holdNextRead();
+      fireEvent.click(screen.getByRole('button', { name: button }));
+      await waitFor(() => expect(messageService.getById).toHaveBeenLastCalledWith(12));
+      await openDetail(11);
+      await act(async () => {
+        land();
+        await Promise.resolve();
+      });
+      expect(screen.getByTestId('detail-pane')).toHaveTextContent('11');
+    }
+  );
+
+  it.each(['Refresh thread', 'Reopen thread'])(
+    'CONTROL: %s while still on 12 applies its answer',
+    async (button) => {
+      renderPage();
+      await openDetail(12);
+      const land = holdNextRead();
+      fireEvent.click(screen.getByRole('button', { name: button }));
+      await waitFor(() => expect(messageService.getById).toHaveBeenLastCalledWith(12));
+      await act(async () => {
+        land();
+        await Promise.resolve();
+      });
+      await waitFor(() =>
+        expect(screen.getByTestId('detail-pane')).toHaveAttribute('data-subject', 'Re-read')
+      );
+      expect(screen.getByTestId('detail-pane')).toHaveTextContent('12');
+    }
+  );
 });
 
 // Every action here that can empty a queue refreshes the sidebar badge's own query

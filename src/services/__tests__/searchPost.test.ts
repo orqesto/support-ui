@@ -29,11 +29,11 @@ const routeNotFound = Object.assign(new Error('Workspace not found'), {
 });
 const serverError = Object.assign(new Error('Boom'), { status: 500 });
 
-import { kbService } from '@/services/kb.service';
+import { kbService } from '@/features/kb';
 import { messageService } from '@/services/message.service';
 import { resetSearchPostSupport } from '@/services/searchPost';
-import { ticketService } from '@/services/ticket.service';
-import type { TicketSortBy } from '@/stores/ticketsStore';
+import { type TicketSortBy } from '@/features/tickets';
+import { ticketService } from '@/features/tickets/shell';
 
 describe('searched lists in a POST body', () => {
   beforeEach(() => {

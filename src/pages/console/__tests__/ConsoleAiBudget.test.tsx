@@ -9,7 +9,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { chooseOption } from '@/test/chooseOption';
 import { ROUTER_FUTURE } from '@/test/routerFuture';
-import type { BudgetsInactive, GroupDetail, WorkspaceRow } from '@/services/budgets.service';
+import type { BudgetsInactive, GroupDetail, WorkspaceRow } from '@/features/subscription';
 
 const MLN = 1_000_000;
 
@@ -20,7 +20,7 @@ const record = (name: string, args: unknown) => {
 let result: GroupDetail | BudgetsInactive | Error;
 let requestRefusal: Error | null = null;
 
-vi.mock('@/services/budgets.service', () => ({
+vi.mock('@/features/subscription/services/budgets.service', () => ({
   budgetsService: {
     getAllianceBudget: (id: number) => {
       record('getAllianceBudget', id);

@@ -44,7 +44,7 @@ const threads = IDS.map(
     }) as unknown as MessageThread
 );
 
-vi.mock('@/hooks/useMessagesData', () => ({
+vi.mock('@/features/messages/hooks/useMessagesData', () => ({
   useMessagesData: () => ({
     threads,
     loading: false,
@@ -64,7 +64,7 @@ vi.mock('@/services/message.service', () => ({
     markUnread: vi.fn(() => Promise.resolve()),
   },
 }));
-vi.mock('@/services/bulk.service', () => ({
+vi.mock('@/features/messages/services/bulk.service', () => ({
   bulkService: {
     preview: vi.fn(() => new Promise(() => undefined)),
     run: vi.fn(),
@@ -79,15 +79,15 @@ vi.mock('@/lib/socketManager', () => ({
   subscribeToEvent: vi.fn(),
   unsubscribeFromEvent: vi.fn(),
 }));
-vi.mock('@/hooks/usePhoneOpensMessageAsPage', () => ({ usePhoneOpensMessageAsPage: () => false }));
-vi.mock('@/hooks/useMessagesUrlSync', () => ({ useMessagesUrlSync: () => undefined }));
+vi.mock('@/features/messages/hooks/usePhoneOpensMessageAsPage', () => ({ usePhoneOpensMessageAsPage: () => false }));
+vi.mock('@/features/messages/hooks/useMessagesUrlSync', () => ({ useMessagesUrlSync: () => undefined }));
 vi.mock('@/hooks/useNotificationCounts', () => ({
   NOTIFICATION_COUNTS_KEY: ['notification-counts'],
   useNotificationCounts: () => ({ counts: {}, clearKind: vi.fn() }),
 }));
-vi.mock('@/hooks/useSharedLinkWorkspace', () => ({ useSharedLinkWorkspace: () => undefined }));
+vi.mock('@/features/messages/hooks/useSharedLinkWorkspace', () => ({ useSharedLinkWorkspace: () => undefined }));
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'COR' }));
-vi.mock('@/hooks/useAiDraftsOff', () => ({
+vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
 }));
@@ -111,10 +111,10 @@ vi.mock('@/components/shared/PageHeader', () => ({
     </div>
   ),
 }));
-vi.mock('@/components/messages/filters/MessageFilterBar', () => ({
+vi.mock('@/features/messages/components/filters/MessageFilterBar', () => ({
   MessageFilterBar: ({ viewSwitch }: { viewSwitch?: ReactNode }) => <div>{viewSwitch}</div>,
 }));
-vi.mock('@/components/messages/MessagesViewToggle', () => ({
+vi.mock('@/features/messages/components/MessagesViewToggle', () => ({
   MessagesViewToggle: ({ onModeChange }: { onModeChange: (mode: string) => void }) => (
     <div>
       <span
@@ -128,17 +128,18 @@ vi.mock('@/components/messages/MessagesViewToggle', () => ({
     </div>
   ),
 }));
-vi.mock('@/components/messages/ListScopeNotice', () => ({ ListScopeNotice: () => null }));
-vi.mock('@/components/messages/QuickFilterChips', () => ({ QuickFilterChips: () => null }));
+vi.mock('@/features/messages/components/ListScopeNotice', () => ({ ListScopeNotice: () => null }));
 // The list caption's Sort is a Select, which needs a ThemeProvider this page test does not mount.
 vi.mock('@/components/ui/Select', () => ({ Select: () => null }));
-vi.mock('@/components/messages/ComposeNewModal', () => ({ ComposeNewModal: () => null }));
-vi.mock('@/components/messages/ThreadBubble', () => ({ ThreadBubble: () => null }));
-vi.mock('@/components/messages/ContactsView', () => ({
+vi.mock('@/features/messages/components/ComposeNewModal', () => ({ ComposeNewModal: () => null }));
+vi.mock('@/features/messages/components/ThreadBubble', () => ({ ThreadBubble: () => null }));
+vi.mock('@/features/messages/components/ContactsView', () => ({
   ContactsView: () => <div data-testid="contacts-view" />,
 }));
-vi.mock('@/components/messages/MessagesKanbanView', () => ({ MessagesKanbanView: () => null }));
-vi.mock('@/components/messages/MessageDetail', () => ({
+vi.mock('@/features/messages/components/MessagesKanbanView', () => ({
+  MessagesKanbanView: () => null,
+}));
+vi.mock('@/features/messages/components/MessageDetail', () => ({
   MessageDetail: ({ message }: { message: { id: number } }) => (
     <div data-testid="detail-pane">{message.id}</div>
   ),

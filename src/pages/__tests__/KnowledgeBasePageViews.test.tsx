@@ -6,28 +6,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
-import type * as KbServiceModule from '@/services/kb.service';
-import type * as ActivityModule from '@/components/kb/activity/KbEngineActivity';
-import type { KbEngineSummary, KbQuestion } from '@/services/kbEngine.types';
-import type { KbConsolidationRunState } from '@/services/kbConsolidation.service';
+import type * as KbModule from '@/features/kb';
 
 const state = vi.hoisted(() => ({
   canManageKb: true,
   total: 3,
-  summary: null as KbEngineSummary | null,
+  summary: null as KbModule.KbEngineSummary | null,
   summaryFails: false,
   summaryHangs: false,
-  summaryLate: null as Promise<KbEngineSummary> | null,
+  summaryLate: null as Promise<KbModule.KbEngineSummary> | null,
   summaryCalls: 0,
   questionsCalls: 0,
-  runState: null as KbConsolidationRunState | null,
+  runState: null as KbModule.KbConsolidationRunState | null,
   departments: [] as { id: number; name: string; active?: boolean }[],
   teamsEnabled: undefined as boolean | undefined,
   getAllCalls: [] as Array<Record<string, unknown>>,
-  questions: [] as KbQuestion[],
+  questions: [] as KbModule.KbQuestion[],
 }));
 
-const summaryOf = (open: number, killedAll = false): KbEngineSummary => ({
+const summaryOf = (open: number, killedAll = false): KbModule.KbEngineSummary => ({
   findings: null,
   findingsComputedAt: null,
   questions: { open, olderThan7d: 0 },
@@ -47,8 +44,8 @@ const summaryOf = (open: number, killedAll = false): KbEngineSummary => ({
 });
 
 vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => 'ACM' }));
-vi.mock('@/services/kb.service', async (importOriginal) => {
-  const actual = await importOriginal<typeof KbServiceModule>();
+vi.mock('@/features/kb/services/kb.service', async (importOriginal) => {
+  const actual = await importOriginal<typeof KbModule>();
   return {
     ...actual,
     kbService: {
@@ -76,7 +73,7 @@ vi.mock('@/services/kb.service', async (importOriginal) => {
     },
   };
 });
-vi.mock('@/services/kbEngine.service', () => ({
+vi.mock('@/features/kb/services/kbEngine.service', () => ({
   getEngineSummary: () => {
     state.summaryCalls += 1;
     return state.summaryLate && state.summaryCalls === 1
@@ -100,8 +97,8 @@ vi.mock('@/services/kbEngine.service', () => ({
     Promise.resolve({ suggestionId: id, kind: 'merge', choice, result: {} }),
 }));
 // The real Engine activity, plus a test button standing in for an undo or rollback inside it.
-vi.mock('@/components/kb/activity/KbEngineActivity', async (importOriginal) => {
-  const actual = await importOriginal<typeof ActivityModule>();
+vi.mock('@/features/kb/components/activity/KbEngineActivity', async (importOriginal) => {
+  const actual = await importOriginal<typeof KbModule>();
   const Real = actual.KbEngineActivity;
   return {
     ...actual,
@@ -115,7 +112,7 @@ vi.mock('@/components/kb/activity/KbEngineActivity', async (importOriginal) => {
     ),
   };
 });
-vi.mock('@/services/kbConsolidation.service', async (importOriginal) => {
+vi.mock('@/features/kb/services/kbConsolidation.service', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return {
     ...actual,
@@ -128,13 +125,13 @@ vi.mock('@/lib/api-client', () => ({
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
-vi.mock('@/components/knowledge-base/ConfluenceCatalogSection', () => ({
+vi.mock('@/features/kb/components/ConfluenceCatalogSection', () => ({
   ConfluenceCatalogSection: () => <p>confluence catalog</p>,
 }));
-vi.mock('@/components/settings/DocumentationSettings', () => ({
+vi.mock('@/features/settings/components/DocumentationSettings', () => ({
   DocumentationSettings: () => <p>documentation settings</p>,
 }));
-vi.mock('@/components/messages/MessageSourceFilter', () => ({
+vi.mock('@/components/shared/MessageSourceFilter', () => ({
   ALL_SOURCES: 'all',
   NO_SOURCE: 'none',
   MessageSourceFilter: () => <p>source filter</p>,
@@ -149,39 +146,41 @@ vi.mock('@/hooks/usePermissions', () => ({
   }),
 }));
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => ({ isSurfaceVisibleToMe: () => true }) }));
-vi.mock('@/hooks/useAutoActionsAvailable', () => ({
+vi.mock('@/features/kb/hooks/useAutoActionsAvailable', () => ({
   useAutoActionsAvailable: () => true,
   resetAutoActionsAvailability: () => undefined,
 }));
 vi.mock('@/hooks/useBackendVersion', () => ({ useBackendVersion: () => ({ data: undefined }) }));
-vi.mock('@/components/kb/KbExportButton', () => ({ KbExportButton: () => <p>export</p> }));
+vi.mock('@/features/kb/components/KbExportButton', () => ({ KbExportButton: () => <p>export</p> }));
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({ data: state.departments, teamsEnabled: state.teamsEnabled }),
   useDepartmentById: () => undefined,
 }));
 const nothing = () => null;
-vi.mock('@/components/settings/PromptsSettings', () => ({ PromptsSettings: nothing }));
-vi.mock('@/components/settings/AutoReplyConfiguration', () => ({
+vi.mock('@/features/settings/components/PromptsSettings', () => ({ PromptsSettings: nothing }));
+vi.mock('@/features/settings/components/AutoReplyConfiguration', () => ({
   AutoReplyConfiguration: nothing,
 }));
-vi.mock('@/components/settings/AiDraftsSettings', () => ({ AiDraftsSettings: nothing }));
-vi.mock('@/components/settings/LeadQualificationSection', () => ({
+vi.mock('@/features/settings/components/AiDraftsSettings', () => ({ AiDraftsSettings: nothing }));
+vi.mock('@/features/settings/components/LeadQualificationSection', () => ({
   LeadQualificationSection: nothing,
 }));
-vi.mock('@/components/settings/LearningNotificationsInbox', () => ({
+vi.mock('@/features/settings/components/LearningNotificationsInbox', () => ({
   LearningNotificationsInbox: nothing,
 }));
-vi.mock('@/components/settings/LearningEvidenceCard', () => ({ LearningEvidenceCard: nothing }));
-vi.mock('@/components/settings/LearningSuggestionsSettings', () => ({
+vi.mock('@/features/settings/components/LearningEvidenceCard', () => ({ LearningEvidenceCard: nothing }));
+vi.mock('@/features/settings/components/LearningSuggestionsSettings', () => ({
   LearningSuggestionsSettings: nothing,
 }));
-vi.mock('@/components/settings/LearningTrustSettings', () => ({ LearningTrustSettings: nothing }));
-vi.mock('@/components/kb/autoActions/KbAutoActionsPanel', () => ({ KbAutoActionsPanel: nothing }));
+vi.mock('@/features/settings/components/LearningTrustSettings', () => ({ LearningTrustSettings: nothing }));
+vi.mock('@/features/kb/components/autoActions/KbAutoActionsPanel', () => ({
+  KbAutoActionsPanel: nothing,
+}));
 
 const { KnowledgeBasePage } = await import('../KnowledgeBasePage');
-const { AIConfigSettings } = await import('@/components/settings/AIConfigSettings');
-const { KB_FILTER_STATUS_LABEL } = await import('@/components/kb/KbStatusFilter');
-const { kbPageViewFromSearch } = await import('@/components/kb/page/kbPageView');
+const { AIConfigSettings } = await import('@/features/settings');
+const { KB_FILTER_STATUS_LABEL } = await import('@/features/kb');
+const { kbPageViewFromSearch } = await import('@/features/kb');
 
 const Where = () => {
   const location = useLocation();
@@ -365,6 +364,7 @@ describe('Knowledge Base page: three views', () => {
       auto_changed: 'Changed by the engine',
       hidden: 'Hidden',
       rejected: 'Turned down',
+      deleted: 'Deleted',
       all: 'Everything',
     });
     renderAt('/knowledge-base?view=live&status=set_aside');
@@ -413,11 +413,11 @@ describe('Knowledge Base page: three views', () => {
   });
 
   const lateSummary = () => {
-    let arrive: (summary: KbEngineSummary) => void = () => undefined;
-    state.summaryLate = new Promise<KbEngineSummary>((resolve) => {
+    let arrive: (summary: KbModule.KbEngineSummary) => void = () => undefined;
+    state.summaryLate = new Promise<KbModule.KbEngineSummary>((resolve) => {
       arrive = resolve;
     });
-    return async (summary: KbEngineSummary) => {
+    return async (summary: KbModule.KbEngineSummary) => {
       await act(async () => {
         arrive(summary);
         await Promise.resolve();

@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 let stateResult: { available: false } | { available: true; state: unknown };
 
-vi.mock('@/services/budgets.service', () => ({
+vi.mock('@/features/subscription/services/budgets.service', () => ({
   budgetsService: { getState: () => Promise.resolve(stateResult) },
 }));
 vi.mock('@/hooks/usePlatformAdmin', () => {

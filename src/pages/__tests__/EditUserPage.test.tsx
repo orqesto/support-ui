@@ -64,7 +64,7 @@ vi.mock('@/services/organization.service', () => ({
     addMember: () => Promise.resolve(),
   },
 }));
-vi.mock('@/services/scim.service', () => ({ listScimGroupMappings: () => Promise.resolve([]) }));
+vi.mock('@/features/settings/services/scim.service', () => ({ listScimGroupMappings: () => Promise.resolve([]) }));
 
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: (selector: (state: { user: { id: number } }) => unknown) =>
@@ -77,7 +77,7 @@ let perms: { isAdmin: boolean; canManageUsers: boolean; hasPermission: (permissi
   hasPermission: () => false,
 };
 vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => perms }));
-vi.mock('@/components/users/UserRoutingSkillsCard', () => ({
+vi.mock('@/features/settings/components/users/UserRoutingSkillsCard', () => ({
   UserRoutingSkillsCard: () => <div data-testid="routing-skills-card" />,
 }));
 

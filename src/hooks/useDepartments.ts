@@ -27,7 +27,7 @@ type DepartmentsQueryData = {
  */
 export const useDepartments = ({ includeInactive = false }: { includeInactive?: boolean } = {}) => {
   // Departments are per-workspace, so the cache entry must be too — same shape as
-  // `useTicketsCount` / `useNotificationCounts`. Keyed on `['departments']` alone, an
+  // `useNotificationCounts`. Keyed on `['departments']` alone, an
   // in-place org switch (the console's WorkspaceShell repoints the context on mount)
   // kept serving workspace A's list for the 5-minute staleTime, so workspace B's threads
   // wore A's department labels.

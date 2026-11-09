@@ -10,10 +10,14 @@ import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 import { SUBSCRIPTION_PAST_DUE, getApiErrorMessage, getErrorBody } from '@/lib/errorMessages';
-import { BasePlanCard, EnterprisePlanCard, type Plan } from '@/components/pricing/PricingPlanCard';
-import { KeepActiveDialog } from '@/components/subscription/KeepActiveDialog';
-import { isOverPlan } from '@/components/subscription/keepActive';
-import { FREE_SWITCH_DESCRIPTION } from '@/components/subscription/starterAllowance';
+import {
+  BasePlanCard,
+  EnterprisePlanCard,
+  type Plan,
+  KeepActiveDialog,
+  isOverPlan,
+  FREE_SWITCH_DESCRIPTION,
+} from '@/features/subscription';
 import { subscriptionService, type KeepChoice, type PlanFit } from '@/services/subscription.service';
 
 /** Subscription statuses with no active plan — their plan card is offered again, not marked current. */

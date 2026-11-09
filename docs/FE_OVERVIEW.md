@@ -184,8 +184,6 @@ On page reload, `App.tsx` detects that the persisted user has no `role` (intenti
 | `useStatisticsFetch` | Statistics data fetching for the stats page |
 | `useSystemHealth` | Polls system health endpoint |
 | `useTranslation` | Per-message translation via AI service |
-| `useFilterPanel` | Shared filter panel open/close state |
-| `useResolveMessageToKB` | Handles resolving a message thread to a KB entry |
 
 ---
 
@@ -240,7 +238,6 @@ One file per domain entity; all return typed `ApiResponse<T>` objects.
 | `detectionRule.service.ts` | Spam/classification detection rules |
 | `documentation.service.ts` | Knowledge base document management |
 | `gmail-oauth.service.ts` | Gmail OAuth flow: `connectWithPopup(config)` (opens about:blank synchronously to preserve user-gesture, then navigates), `redirectToOAuth(config)` (full-page fallback when popup hard-blocked; stashes config in sessionStorage), `consumePendingRedirectResult()` (mount-effect helper that finishes the redirect-flow OAuth after the page returns) |
-| `ticketingSystems.service.ts` | External ticketing system integrations (Jira) |
 | `chatWidget.service.ts` | Chat widget configuration |
 | `assignment.service.ts` | Bulk assignment operations |
 
@@ -445,5 +442,5 @@ The `!weRepliedLast &&` wrap around `MessageSignalBadges` that I'd accidentally 
 
 - `FE-app/src/services/gmail-oauth.service.ts` — synchronous `window.open('about:blank', ...)` to preserve user-gesture; new `redirectToOAuth()` and `consumePendingRedirectResult()` for the hard-blocked fallback path; `POPUP_BLOCKED` error marker for caller to switch into the banner UI
 - `FE-app/src/pages/OAuthCallbackPage.tsx` — when no `window.opener` AND `gmail_oauth_pending_config` in sessionStorage, redirects to `/settings#integrations` instead of attempting `window.close()` (which is blocked for windows not opened by script)
-- `FE-app/src/components/settings/integrations/GmailIntegrationCard.tsx` — detects `POPUP_BLOCKED`, shows amber banner with browser-specific copy + retry + redirect + manual-anchor escape hatch; mount effect calls `consumePendingRedirectResult()` to finish OAuth that came back via full-page redirect
+- `FE-app/src/features/settings/components/integrations/GmailIntegrationCard.tsx` — detects `POPUP_BLOCKED`, shows amber banner with browser-specific copy + retry + redirect + manual-anchor escape hatch; mount effect calls `consumePendingRedirectResult()` to finish OAuth that came back via full-page redirect
 - `FE-app/src/lib/browserDetect.ts` (new) — `detectBrowser()` + `getPopupUnblockInstructions(browser)` for the banner copy

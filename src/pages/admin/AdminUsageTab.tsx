@@ -38,7 +38,7 @@ import { Select, type Option } from '@/components/ui/Select';
 import { Label } from '@/components/ui/Label';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Pagination } from '@/components/ui/Pagination';
-import { useBudgetState } from '@/hooks/useBudgets';
+import { useBudgetState } from '@/features/subscription';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 import { OrgLimitOverridesSection } from './OrgLimitOverridesSection';

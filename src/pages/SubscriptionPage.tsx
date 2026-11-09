@@ -20,30 +20,31 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { AddPaymentMethodDialog } from '@/components/billing/AddPaymentMethodDialog';
-import { billingDateLine } from '@/components/subscription/billingDateLine';
-import { FreePlanActiveCard } from '@/components/subscription/FreePlanActiveCard';
-import { MessagePackOfferCard } from '@/components/subscription/MessagePackOfferCard';
-import { AiPausedBanner } from '@/components/subscription/AiPausedBanner';
-import { AiUnavailableNotice } from '@/components/subscription/AiUnavailableNotice';
-import { KbPausedBanner } from '@/components/subscription/KbPausedBanner';
-import { loadAiKeyState, loadAiStatus, type AiStatus } from '@/components/subscription/aiStatus';
-import { PlanLimitsCard } from '@/components/subscription/PlanLimitsCard';
 import {
+  AddPaymentMethodDialog,
+  billingDateLine,
+  FreePlanActiveCard,
+  MessagePackOfferCard,
+  AiPausedBanner,
+  AiUnavailableNotice,
+  KbPausedBanner,
+  loadAiKeyState,
+  loadAiStatus,
+  type AiStatus,
+  PlanLimitsCard,
   MessagesSummary,
   TRIAL_SENTENCE,
   aiSourceFrom,
-} from '@/components/subscription/MessagesSummary';
-import { StarterAllowanceLine } from '@/components/subscription/StarterAllowanceLine';
-import {
+  StarterAllowanceLine,
   MOVES_TO_FREE_SENTENCE,
   cancelConfirmText,
   cancelledToast,
-} from '@/components/subscription/cancelCopy';
-import { PastDueCard } from '@/components/subscription/PastDueCard';
-import { describeUsagePeriod } from '@/components/subscription/usagePeriodCopy';
-import { useMessagePackReturn } from '@/components/subscription/useMessagePackReturn';
-import { UsageTile, type UsageItem } from '@/components/subscription/UsageTile';
+  PastDueCard,
+  describeUsagePeriod,
+  useMessagePackReturn,
+  UsageTile,
+  type UsageItem,
+} from '@/features/subscription';
 import { apiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 import { VAT_NOTE, formatMoney } from '@/lib/money';

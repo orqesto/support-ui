@@ -12,6 +12,7 @@ import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/stores/authStore';
 import { readPendingSignup, writePendingSignup } from '@/lib/pendingSignup';
+import { currentSignupSource } from '@/lib/signupSource';
 
 // Mirror the BE password policy for instant UX feedback (BE re-enforces): at
 // least 8 chars, one uppercase letter, one digit.
@@ -140,6 +141,7 @@ export const CreateWorkspacePage = () => {
         password: formData.password,
         captchaToken: captchaToken ?? undefined,
         plan: selectedPlan,
+        source: currentSignupSource(),
       });
 
       if (response.success && response.data?.verificationRequired) {

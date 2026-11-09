@@ -7,7 +7,9 @@
  * whitespace collapse puts that back to single spaces, which is what a
  * single-line preview wants anyway.
  *
- * Entities are decoded before the collapse so `&nbsp;` runs don't survive it.
+ * Entities are decoded before the collapse so `&nbsp;` runs don't survive it. `&amp;` is decoded
+ * last: decoding it first turned the text `&amp;lt;` (a literal "&lt;") into `<` (CodeQL
+ * js/double-escaping).
  */
 export const stripHtml = (html: string): string => {
   if (!html) return '';
@@ -15,12 +17,12 @@ export const stripHtml = (html: string): string => {
   return html
     .replace(/<[^>]*>/g, ' ') // Tags → space, so block boundaries stay word boundaries
     .replace(/&nbsp;/g, ' ') // Replace &nbsp; with space
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&') // Last, or `&amp;lt;` would decode twice
     .replace(/\s+/g, ' ') // Collapse the separators (and any source formatting)
     .trim();
 };

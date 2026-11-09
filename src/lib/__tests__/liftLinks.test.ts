@@ -4,10 +4,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { liftLinks } from '../liftLinks';
-import {
-  renderMarkdown,
-  suggestedAnswerToHtml,
-} from '@/components/messages/messageDetailConstants';
+import { renderMarkdown, suggestedAnswerToHtml } from '@/features/messages';
 
 const SENTINEL = '';
 const linked = (raw: string, options?: { markdown?: boolean }): string => {

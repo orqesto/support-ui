@@ -37,8 +37,9 @@ vi.mock('@/hooks/useNotificationCounts', () => ({
   useNotificationCounts: () => ({ counts: {} }),
 }));
 const overviewCall = vi.hoisted(() => ({ getOverview: vi.fn() }));
-vi.mock('@/services/kbAutoActions.service', () => ({ kbAutoActionsService: overviewCall }));
-vi.mock('@/hooks/useTicketsCount', () => ({ useTicketsCount: () => ({ data: 0 }) }));
+vi.mock('@/features/kb/services/kbAutoActions.service', () => ({
+  kbAutoActionsService: overviewCall,
+}));
 vi.mock('@/hooks/useSLANotifications', () => ({ useSLANotifications: () => ({}) }));
 vi.mock('@/hooks/useLearningNotifications', () => ({ useLearningNotifications: () => ({}) }));
 vi.mock('@/lib/socketManager', () => ({
@@ -56,14 +57,11 @@ vi.mock('@/components/layout/LicenseExpiryBanner', () => ({ LicenseExpiryBanner:
 vi.mock('@/components/layout/ResumeSetupBanner', () => ({ ResumeSetupBanner: nothing }));
 vi.mock('@/components/layout/TrialBanner', () => ({ TrialBanner: nothing }));
 vi.mock('@/components/layout/MessageCapBanner', () => ({ MessageCapBanner: nothing }));
-vi.mock('@/components/subscription/SubscriptionGateOverlay', () => ({
+vi.mock('@/features/subscription/components/SubscriptionGateOverlay', () => ({
   SubscriptionGateOverlay: nothing,
 }));
 vi.mock('@/components/shared/WebSocketStatus', () => ({ WebSocketStatus: nothing }));
 vi.mock('@/components/shared/WebSocketDebug', () => ({ WebSocketDebug: nothing }));
-vi.mock('@/components/messages/MessageProcessingProgress', () => ({
-  MessageProcessingProgress: nothing,
-}));
 vi.mock('@/hooks/useMediaQuery', () => ({ useMediaQuery: () => true }));
 vi.mock('@/components/layout/SidebarNav', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -76,7 +74,7 @@ vi.mock('@/stores/onboardingStore', () => ({
 
 const { Layout } = await import('../Layout');
 const { useAuthStore } = await import('@/stores/authStore');
-const { resetAutoActionsAvailability } = await import('@/hooks/useAutoActionsAvailable');
+const { resetAutoActionsAvailability } = await import('@/features/kb');
 
 afterEach(cleanup);
 beforeEach(() => {

@@ -1,0 +1,522 @@
+import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  BookOpen,
+  Check,
+  Copy,
+  MessagesSquare,
+  Paperclip,
+  Plus,
+  Ticket,
+} from 'lucide-react';
+import { ticketChip } from './ticketChip';
+import { ReceivedAtAddresses } from './ReceivedAtAddresses';
+import type { MessageThread } from '@/services/message.service';
+import type { AssignableUser } from '@/services/assignment.service';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { Tooltip } from '@/components/ui/Tooltip';
+import { Button } from '@/components/ui/Button';
+import { useDepartments } from '@/hooks/useDepartments';
+import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
+import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
+import { useAuthStore } from '@/stores/authStore';
+import { getChannelIcon, formatConvId, getConvUrlId, parseSender } from '@/lib/messageHelpers';
+import { cn, formatAge, safeCssColor } from '@/lib/utils';
+import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
+import { DepartmentBadge } from './DepartmentBadge';
+import { MessageSignalBadges } from './MessageSignalBadges';
+import { SPINE_BG, getAiState, getAvatarColor, getPriorityBadge, getSpine, getSuspicionBadge, hasAttachments } from './inboxCardHelpers';
+import { getInitials } from '@/lib/initials';
+import { TRIAGE_READ_COLUMN_IDS } from './kanbanColumns';
+import { useAiDraftsOff } from '@/features/settings/shell';
+import {
+  SELECT_GROUP_CLASS,
+  TOUCH_PRESS_GUARD_CLASS,
+  SELECT_ID_ATTRIBUTE,
+  isRangeClick,
+  selectBoxRevealClass,
+  type ToggleSelected,
+} from './bulk/selectMode';
+import { useLongPress } from './bulk/useLongPress';
+
+type KanbanCardProps = {
+  thread: MessageThread;
+  onOpen: (thread: MessageThread) => void;
+  /**
+   * Legacy prop kept for call-site compatibility. SLA suppression is handled
+   * by lastReplyFromClient inside the shared helpers.
+   */
+  weRepliedLast?: boolean;
+  /**
+   * The kanban column this card is rendered in. Used to scope the read/unread
+   * indicator to the triage columns (suspicious, not_analysed, archived, spam).
+   */
+  colId?: string;
+  /**
+   * Bulk selection. Absent = the board is not in selection mode and no checkbox is drawn, so a
+   * card outside the inbox (or before this feature reaches a surface) renders exactly as before.
+   */
+  selected?: boolean;
+  onToggleSelected?: ToggleSelected;
+  /**
+   * Something is selected somewhere on the board: every card shows its box, not just the
+   * hovered or focused one (owner, 2026-09-28).
+   */
+  selectMode?: boolean;
+};
+
+export const KanbanCard = ({
+  thread,
+  onOpen,
+  colId,
+  selected,
+  onToggleSelected,
+  selectMode = false,
+}: KanbanCardProps) => {
+  // Before any early return — hooks must run in the same order on every render.
+  const { off: aiDraftsOff } = useAiDraftsOff();
+  const msg = thread.latestMessage;
+  // Spam-rule records (spam-log rows) have no conversation behind them: no box, no long-press, no `x`.
+  // (The drag grip is a separate element with its own TouchSensor; it never shares this press.)
+  const selectableId =
+    onToggleSelected && msg && msg.id > 0 && !thread.threadId.startsWith('spamlog_')
+      ? msg.id
+      : null;
+  // Touch long-press selects (never deselects — the box is on screen by then to untick it).
+  const longPress = useLongPress(
+    selectableId !== null && onToggleSelected
+      ? () => {
+          if (!selected) onToggleSelected(selectableId);
+        }
+      : undefined
+  );
+  const { data: allDepts = [] } = useDepartments();
+  // Teams off: no team chip on the row (one team says nothing).
+  const teamsEnabled = useTeamsEnabled();
+  const currentUser = useAuthStore((state) => state.user);
+  const orgCode = useCurrentOrgCode();
+  const [copied, setCopied] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  // Optimistic shadow of server assignee state — updated synchronously after
+  // a successful AssignmentSelect pick so the card reflects the new assignee
+  // without re-fetching the whole list. Cleared next time props update from a
+  // real refetch (the !== msg.assigneeId check below handles that).
+  const [optimisticAssignee, setOptimisticAssignee] = useState<{
+    id: number | null;
+    name: string;
+  } | null>(null);
+  const pickerWrapRef = useRef<HTMLDivElement | null>(null);
+  const pickerBtnRef = useRef<HTMLButtonElement | null>(null);
+  // The Kanban card has overflow-hidden (for the spine + rounded corners);
+  // an in-flow popover gets clipped. Portal the picker to body with
+  // viewport-relative coords from the trigger button.
+  const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
+
+  useEffect(() => {
+    if (pickerOpen && pickerBtnRef.current) {
+      const rect = pickerBtnRef.current.getBoundingClientRect();
+      const pickerWidth = 220;
+      const left = Math.min(rect.right - pickerWidth, window.innerWidth - pickerWidth - 8);
+      const top = rect.bottom + 6;
+      setPickerPos({ top, left: Math.max(left, 8) });
+    }
+  }, [pickerOpen]);
+
+  // Click-outside to close the assign picker.
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onDocClick = (ev: MouseEvent) => {
+      const target = ev.target as Node;
+      if (pickerWrapRef.current?.contains(target)) return;
+      if (document.querySelector('[data-assignee-picker]')?.contains(target)) return;
+      setPickerOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [pickerOpen]);
+
+  if (!msg) return null;
+
+  const receivedAt = (msg.metadata as { receivedAt?: string })?.receivedAt ?? msg.createdAt;
+  // The age on a card must be LATEST ACTIVITY, not when the thread started.
+  // `receivedAt` is stamped from the message that CREATED the conversation and never
+  // moves, so a thread answered minutes ago still read "6d" while the list view —
+  // same data, same request — showed the recent reply. On a board sorted newest-first
+  // that is actively misleading: the card that just moved looks like the stalest one.
+  // Mirrors MessageListItem's `thread.lastMessageAt ?? receivedAt` so the two views
+  // cannot disagree again.
+  const activityAt = thread.lastMessageAt ?? receivedAt;
+
+  const primaryDept =
+    teamsEnabled && msg.departmentId
+      ? allDepts.find((dept) => dept.id === msg.departmentId)
+      : undefined;
+  const needsRouting = msg.status === 'needs_routing';
+  const suspicionBadge = getSuspicionBadge(msg);
+
+  // The sender's name, as the list's rows and cards show it (Messages list v4); a bare address
+  // when there is no name. The full `Name <addr>` stays for the accessible names below.
+  const fullSender = thread.sender || msg.sender;
+  const parsedSender = parseSender(fullSender);
+  const customer = parsedSender.name ?? parsedSender.address;
+  const signalMessage = thread.latestIncomingMessage ?? msg;
+  const spine = getSpine(signalMessage, thread);
+  const aiState = getAiState(signalMessage, thread, aiDraftsOff);
+  const priorityBadge = getPriorityBadge(msg.priority);
+  // Per-user read/unread — only on the triage queues (suspicious, not_analysed,
+  // archived, spam), where "have I reviewed this?" is the signal. Unread shows a
+  // dot + bold sender; read is dimmed.
+  const isTriageCol = colId ? TRIAGE_READ_COLUMN_IDS.has(colId) : false;
+  const showUnreadDot = isTriageCol && thread.isRead === false;
+  const senderClass = showUnreadDot
+    ? 'font-bold'
+    : isTriageCol && thread.isRead === true
+      ? 'font-semibold text-muted-foreground'
+      : 'font-semibold';
+
+  // Optimistic state wins when it diverges from server state; clears when
+  // they converge (i.e. a fresh fetch confirmed the assignment).
+  const effectiveAssigneeId =
+    optimisticAssignee && optimisticAssignee.id !== msg.assigneeId
+      ? optimisticAssignee.id
+      : msg.assigneeId;
+  const effectiveAssigneeName =
+    optimisticAssignee && optimisticAssignee.id !== msg.assigneeId
+      ? optimisticAssignee.name
+      : (msg.assigneeName ?? null);
+  const isAssigned = effectiveAssigneeId !== null;
+  const isMine = effectiveAssigneeId === currentUser?.id;
+
+  const openPicker = (event: React.MouseEvent | React.PointerEvent) => {
+    event.stopPropagation();
+    setPickerOpen(true);
+  };
+
+  const handleAssigned = (picked: AssignableUser | null) => {
+    setPickerOpen(false);
+    if (picked === null) {
+      setOptimisticAssignee({ id: null, name: '' });
+    } else {
+      const name = `${picked.firstName} ${picked.lastName ?? ''}`.trim() || picked.email;
+      setOptimisticAssignee({ id: picked.id, name });
+    }
+  };
+
+  const labels =
+    (msg.labels as
+      | { id: number; name: string; color: string; source?: 'conversation' | 'ticket' | 'contact' }[]
+      | undefined) ?? [];
+  const visibleLabels = labels.slice(0, 2);
+  const overflowLabels = labels.slice(2);
+
+  const isFromKBSource = (msg.metadata as { isFromKBSource?: boolean })?.isFromKBSource;
+  const linkedTicketKey =
+    (msg.metadata as { linkedTicketExternalId?: string })?.linkedTicketExternalId ?? null;
+  // One ticket or several (2026-09-30) — the words for each state live in `ticketChip`.
+  const chip = ticketChip(thread, linkedTicketKey);
+
+  // Don't open the conversation if the click was the end of a text selection
+  // — agents need to be able to copy IDs, sender emails, subject text.
+  const handleCardClick = () => {
+    const sel = window.getSelection?.();
+    if (sel && sel.toString().length > 0) return;
+    onOpen(thread);
+  };
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleCardClick}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onOpen(thread);
+        }
+      }}
+      {...longPress}
+      {...(selectableId !== null ? { [SELECT_ID_ATTRIBUTE]: selectableId } : {})}
+      aria-label={`Open thread from ${fullSender}${msg.subject ? `: ${msg.subject}` : ''}`}
+      className={cn(
+        'relative w-full text-left rounded-md border bg-card pl-3.5 pr-3 py-2 shadow-sm hover:shadow-md hover:border-primary/40 transition-all space-y-1 overflow-hidden cursor-pointer',
+        SELECT_GROUP_CLASS,
+        selectableId !== null && TOUCH_PRESS_GUARD_CLASS
+      )}
+    >
+      {/* Bulk selection, TOP-RIGHT (owner's call). It shares that corner with the drag grip,
+          which moves left to `right-7` while a box is drawn — the two are the card's only
+          controls and neither may cover the other.
+          `stopPropagation` because the whole card is a button: without it,
+          ticking a box would also OPEN the thread — and opening a thread is what an agent
+          triaging fifty of them is trying to avoid. Spam-rule records (spam-log rows) have no
+          conversation behind them and cannot be acted on, so they get no box. */}
+      {selectableId !== null && onToggleSelected && (
+        <div
+          // Hidden (opacity only — still tabbable and announced) until the card is hovered or
+          // focused, or anything is selected; see bulk/selectMode.ts.
+          className={cn(
+            'absolute top-1.5 right-1.5 z-20',
+            selectBoxRevealClass(selectMode || selected === true)
+          )}
+          // ⛔ stopPropagation ONLY — the toggle itself belongs to the input's onChange. Calling
+          // it here too fired it twice for one click (input onChange, then this handler as the
+          // event bubbled), which toggled on and straight back off: every box looked dead.
+          onClick={(event) => event.stopPropagation()}
+          // Shift-click would otherwise also drag a text selection across every card between.
+          onMouseDown={(event) => {
+            if (event.shiftKey) event.preventDefault();
+          }}
+          // Only the keys the CARD acts on (Enter/Space open it). Everything else bubbles, so the
+          // page's `x` / Esc shortcuts still hear a key pressed on a focused box.
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') event.stopPropagation();
+          }}
+          role="presentation"
+        >
+          <Checkbox
+            checked={selected === true}
+            aria-label={`Select thread from ${fullSender}`}
+            onChange={(event) =>
+              isRangeClick(event.nativeEvent)
+                ? onToggleSelected(selectableId, { range: true })
+                : onToggleSelected(selectableId)
+            }
+          />
+        </div>
+      )}
+
+      {/* Status spine — 3px left border ranking urgency. */}
+      <span
+        aria-hidden="true"
+        className={`absolute left-0 top-0 bottom-0 w-[3px] ${SPINE_BG[spine]}`}
+      />
+
+      {/* Identity line — dept + channel + sender + age on ONE row.
+          The conversation id moved to the footer with the other muted
+          reference elements: it is looked up, not scanned, and giving it its
+          own header row cost every card a full line of height. pr-6 reserves
+          the top-right grip handle's space. */}
+      {/* pr-7 reserves the grip's corner; with a checkbox there too the row must clear BOTH,
+          or the age and the box sit on top of each other (owner, 2026-09-22). */}
+      <div className={cn('flex items-center gap-1.5 min-w-0', onToggleSelected ? 'pr-14' : 'pr-7')}>
+        {(primaryDept ?? needsRouting) && (
+          <div className="flex items-center gap-1 shrink-0">
+            {needsRouting ? (
+              <DepartmentBadge variant="needs" />
+            ) : (
+              primaryDept && <DepartmentBadge variant="primary" dept={primaryDept} />
+            )}
+          </div>
+        )}
+        {/* Same mark as the list row: the card sits in a work column now, not a lane of
+            its own, so the verdict has to travel with it. */}
+        {suspicionBadge && (
+          <span
+            className={`inline-flex items-center px-1.5 text-[10px] font-semibold rounded shrink-0 ${suspicionBadge.className}`}
+            title="Flagged suspicious — open it to approve or mark as spam"
+          >
+            {suspicionBadge.label}
+          </span>
+        )}
+        {showUnreadDot && (
+          <span
+            aria-label="Unread"
+            title="Unread"
+            className="w-2 h-2 rounded-full bg-primary shrink-0"
+          />
+        )}
+        <span className="text-xs shrink-0 text-muted-foreground">
+          {getChannelIcon(msg.channel)}
+        </span>
+        <span className={`flex-1 min-w-0 text-sm truncate ${senderClass}`}>{customer}</span>
+        <span className="font-mono whitespace-nowrap shrink-0 text-[11px] text-muted-foreground">
+          {formatAge(activityAt)}
+        </span>
+      </div>
+
+      {/* Which of our addresses this arrived at — see MessageListItem. */}
+      <ReceivedAtAddresses recipients={msg.recipients} />
+
+      {/* Subject row — muted, separate from sender for breathing room */}
+      {msg.subject && (
+        <p className="text-xs truncate text-muted-foreground">{msg.subject}</p>
+      )}
+
+      {/* Metadata row — one line under the separator. Loud chips first (risk, AI,
+          labels, overflow), then muted reference icons (KB, ticket, thread, paperclip),
+          then spacer pushes assign (Claim or avatar) to the right. flex-wrap so a
+          flood of labels can spill to a second visual line without breaking the
+          right-pinned assign. */}
+      <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-border/60">
+        <MessageSignalBadges message={signalMessage} size="sm" mode="card" />
+
+        {priorityBadge && (
+          <span
+            className={`inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold ${priorityBadge.className}`}
+          >
+            {priorityBadge.label}
+          </span>
+        )}
+
+        {aiState && (
+          <Tooltip content={aiState.tooltip} size="sm">
+            <span className="inline-flex items-center h-5 px-1.5 rounded text-[11px] font-semibold bg-ai-muted text-ai">
+              {aiState.label}
+            </span>
+          </Tooltip>
+        )}
+
+        {visibleLabels.map((label) => (
+          <Tooltip
+            key={label.id}
+            content={
+              label.source === 'contact'
+                ? `${label.name} — inherited from contact`
+                : label.source === 'ticket'
+                  ? `${label.name} — via linked ticket`
+                  : label.name
+            }
+            size="sm"
+          >
+            <span className="inline-flex items-center gap-1 h-5 px-1.5 rounded-full text-[11px] font-medium bg-muted text-muted-foreground">
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: safeCssColor(label.color) }}
+              />
+              {label.name}
+            </span>
+          </Tooltip>
+        ))}
+        {overflowLabels.length > 0 && (
+          <Tooltip
+            content={
+              <ul className="space-y-0.5 text-left">
+                {overflowLabels.map((label) => (
+                  <li key={label.id}>{label.name}</li>
+                ))}
+              </ul>
+            }
+            size="sm"
+          >
+            <span className="inline-flex items-center h-5 px-1.5 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground">
+              +{overflowLabels.length}
+            </span>
+          </Tooltip>
+        )}
+
+        {/* Conversation id — a muted reference element, alongside the ticket,
+            thread and attachment icons rather than on a header line of its own. */}
+        <Button
+          type="button"
+          variant="ghost"
+          className="font-mono shrink-0 inline-flex items-center gap-1 p-0 h-auto text-[11px] text-muted-foreground/70 cursor-pointer hover:text-foreground"
+          title={copied ? 'Copied!' : 'Copy link to this thread'}
+          onClick={(event) => {
+            event.stopPropagation();
+            void navigator.clipboard
+              .writeText(`${window.location.origin}/threads?id=${getConvUrlId(msg, orgCode)}`)
+              .then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              });
+          }}
+        >
+          {formatConvId(msg, orgCode)}
+          {copied ? (
+            <Check className="w-3 h-3 text-success" />
+          ) : (
+            <Copy className="w-3 h-3 opacity-50" />
+          )}
+        </Button>
+
+        {isFromKBSource && (
+          <Tooltip content="From Knowledge Base source" size="sm">
+            <span className="inline-flex items-center text-muted-foreground/70">
+              <BookOpen className="w-3 h-3" />
+            </span>
+          </Tooltip>
+        )}
+        {chip && (
+          <Tooltip content={chip.tooltip} size="sm">
+            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/70">
+              <Ticket className="w-3 h-3" />
+              {chip.label}
+            </span>
+          </Tooltip>
+        )}
+        {thread.messageCount > 1 && (
+          <Tooltip content={`${thread.messageCount} messages in thread`} size="sm">
+            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/70">
+              <MessagesSquare className="w-3 h-3" />
+              {thread.messageCount}
+            </span>
+          </Tooltip>
+        )}
+        {hasAttachments(signalMessage) && (
+          <Tooltip content={`${msg.attachmentCount ?? signalMessage.attachmentCount ?? 0} attachment(s)`} size="sm">
+            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground/70">
+              <Paperclip className="w-3 h-3" />
+              {msg.attachmentCount ?? signalMessage.attachmentCount ?? 0}
+            </span>
+          </Tooltip>
+        )}
+
+        <span className="flex-1" />
+
+        {/* Trigger stays in flow so card layout never reflows when the picker opens.
+            Picker overlays as an absolute-positioned popover anchored to the trigger. */}
+        <div ref={pickerWrapRef} className="relative">
+          {isAssigned && effectiveAssigneeName ? (
+            <Tooltip content={isMine ? 'Assigned to you · click to re-assign' : `Assigned to ${effectiveAssigneeName} · click to re-assign`} size="sm">
+              <button
+                ref={pickerBtnRef}
+                type="button"
+                onClick={openPicker}
+                onPointerDown={(event) => event.stopPropagation()}
+                aria-label="Re-assign"
+                className={`inline-flex items-center justify-center w-[22px] h-[22px] rounded-full text-[10px] font-bold text-white shrink-0 hover:ring-2 hover:ring-primary/40 ${getAvatarColor(effectiveAssigneeName)}`}
+              >
+                {getInitials(effectiveAssigneeName)}
+              </button>
+            </Tooltip>
+          ) : (
+            <Button
+              ref={pickerBtnRef}
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={openPicker}
+              onPointerDown={(event) => event.stopPropagation()}
+              disabled={!currentUser?.id}
+              className="inline-flex items-center gap-1 h-[22px] px-2 rounded text-[11px] font-semibold text-muted-foreground border border-dashed border-border hover:border-primary hover:text-primary data-[inactive]:opacity-50 data-[inactive]:cursor-not-allowed"
+            >
+              <Plus className="w-3 h-3" />
+              Claim
+            </Button>
+          )}
+          {pickerOpen && pickerPos && createPortal(
+            <div
+              data-assignee-picker
+              role="dialog"
+              aria-label="Assign to"
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+              style={{ top: pickerPos.top, left: pickerPos.left, width: 220 }}
+              className="fixed z-[9999] rounded-md border border-border bg-popover shadow-lg p-1"
+            >
+              <AssignmentSelect
+                type="thread"
+                itemId={thread.threadId}
+                currentAssigneeId={msg.assigneeId}
+                departmentId={msg.departmentId ?? null}
+                onAssign={handleAssigned}
+              />
+            </div>,
+            document.body
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

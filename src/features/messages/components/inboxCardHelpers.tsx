@@ -1,0 +1,667 @@
+import type { ReactNode } from 'react';
+import type { Message } from '@/types';
+import type { MessageThread } from '@/services/message.service';
+import { getSpamCheck, hasMessageAttachments } from '@/lib/messageHelpers';
+import { formatDuration } from '@/lib/utils';
+import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/types/ai';
+import { notCustomerWorkMark } from './notCustomerWork';
+import { hasActiveContradiction, needsReviewTooltip } from './aiFlagCopy';
+import { sentenceCase, statusLabel } from './messageDetailConstants';
+
+/**
+ * Shared derivations for the redesigned inbox cards (MessageListItem + KanbanCard).
+ *
+ * Card principle (from CLAUDE_CODE_PROMPT_inbox_cards.md): a card answers
+ * which queue, is it mine/grabbable, how urgent, whose move, is it risky.
+ * Everything else waits for the detail view.
+ */
+
+/**
+ * Is this thread SPAM, as the lane itself decides it?
+ *
+ * ⛔ THE SERVER FLAG FIRST. `message.isSpam` (support-service #799) is resolved from the newest
+ * inbound event — the same predicate the Spam lane and its halves claim rows by.
+ * `metadata.spamCheck` is frozen at thread creation, and the two disagree on real threads: three
+ * live TraumaTeam ones in 2026-09, one a customer asking about an order. Reading the frozen copy
+ * badges the wrong rows in BOTH directions — a thread that turned spam mid-thread wears no mark,
+ * and one that was cleared keeps a red one.
+ *
+ * ⚠️ `??`, so absent falls back to the frozen copy: this frontend deploys on merge while the
+ * backend ships on a tag, and an older deployment sending no flag must keep the old behaviour
+ * rather than lose every spam mark in the product.
+ *
+ * ⛔ One helper, because that frozen field was read in five places and a guard fixed in one file
+ * while its siblings keep the old answer is this repo's most repeated defect.
+ *
+ * ⛔ A PERSON's confirmation wins. "Resolve as spam" on a thread the AI read as legitimate leaves
+ * `isSpam` false (the newest event's verdict never changes), so the confirmed thread sat in Spam
+ * with no spam mark at all (staging, 2026-10-13). Moving it back to Open clears the stamp.
+ */
+export const isSpamThread = (message: Message): boolean =>
+  message.spamConfirmedAt ? true : (message.isSpam ?? getSpamCheck(message)?.isSpam === true);
+
+export type SpineColor = 'red' | 'amber' | 'blue' | 'green' | 'calm' | 'none';
+
+/**
+ * Status spine — the 3px left edge of a row, card and board card (Messages list v4 `spine()`):
+ *   - red    = SLA breached, or spam (kept from the inbox-card spec: a spam thread in a work view
+ *              must not look like ordinary work)
+ *   - amber  = SLA at risk
+ *   - blue   = open or in progress — work that is ours
+ *   - calm   = pending or on hold — waiting, not ours right now
+ *   - green  = resolved (closed is calm: its chip is grey, see closedStatusMeta)
+ *   - none   = triage mail (not analysed / archived), which has no work status
+ *
+ * The status is the THREAD's (`deriveWorkflowStatus` on its latest message, as the Status column
+ * reads it), so the edge and the Status cell never disagree.
+ */
+export const getSpine = (message: Message, thread: MessageThread): SpineColor => {
+  if (isSpamThread(message)) return 'red';
+
+  const slaTone = computeSlaTone(message);
+  if (slaTone === 'breach') return 'red';
+  if (slaTone === 'risk') return 'amber';
+
+  const statusMessage = thread.latestMessage ?? message;
+  // Closed (and not-customer-work) wears a grey chip, "never Resolved's green" (closedStatusMeta),
+  // so its edge is calm too — not the green `deriveWorkflowStatus`'s `resolved` would give it.
+  if (statusMessage.status === 'closed') return 'calm';
+  const status = deriveWorkflowStatus({
+    status: statusMessage.status,
+    parkedAt: statusMessage.parkedAt,
+    lastReplyFromClient: statusMessage.lastReplyFromClient ?? thread.lastReplyFromClient,
+  });
+  if (status === 'resolved') return 'green';
+  if (status === 'open' || status === 'in_progress') return 'blue';
+  if (status === 'pending' || status === 'on_hold') return 'calm';
+  return 'none';
+};
+
+/** Maps spine color → Tailwind classes (dark+light tuned). */
+export const SPINE_BG: Record<SpineColor, string> = {
+  red: 'bg-destructive',
+  amber: 'bg-warning',
+  blue: 'bg-primary',
+  green: 'bg-success',
+  // The design's calm edge (#8A919E light / #6B7383 dark): --border-strong was nearly the card's
+  // own border in dark (staging 2026-10-23), so the Pending lane's edge did not show.
+  calm: 'bg-muted-foreground/60',
+  none: 'bg-transparent',
+};
+
+/**
+ * The five canonical WORK statuses (locked with the user 2026-07-13). Mirrors the
+ * BE `WorkflowStatus` in `BE-service/.../services/workflowStatus.ts`. Three are
+ * AUTOMATIC (derived from replies, not settable): open/in_progress/pending; two
+ * are MANUAL agent actions: on_hold (park) and resolved.
+ */
+export type WorkflowStatus = 'open' | 'in_progress' | 'pending' | 'on_hold' | 'resolved';
+
+/** Whether a work status is set automatically (derived) vs a manual agent action. */
+export const AUTOMATIC_WORK_STATUSES: readonly WorkflowStatus[] = [
+  'open',
+  'in_progress',
+  'pending',
+];
+
+/** Single source of the label + chip colors per work status (badge, header, select all read this). */
+export const WORKFLOW_STATUS_META: Record<WorkflowStatus, { label: string; className: string }> = {
+  open: { label: 'Open', className: 'bg-foreground/10 text-foreground' },
+  in_progress: { label: 'In Progress', className: 'bg-muted text-muted-foreground' },
+  pending: { label: 'Pending', className: 'text-warning border border-warning-line' },
+  on_hold: { label: 'On-hold', className: 'bg-warning/15 text-warning' },
+  resolved: { label: 'Resolved', className: 'bg-success/15 text-success' },
+};
+
+/**
+ * CANONICAL work-status derivation — MUST mirror the BE `deriveWorkflowStatus`.
+ * Derived from ONE signal, `lastReplyFromClient` (null→Open, true→In Progress,
+ * false→Pending), plus the parked overlay (On-hold) and terminal (Resolved). It
+ * ignores the redundant raw `status` sub-values so it can never contradict the
+ * flags. Returns null for the Queue axis (filtered) — no work status.
+ *
+ * `needs_routing` is NOT a Queue value. It is a MARK on an otherwise ordinary thread — every
+ * such row already has a department, so it never meant "unrouted", it means the router wants a
+ * human to confirm. Treating it as a lane removed the thread from the board and left it in a
+ * queue nobody had open, which is how a client came to search for mail that was sitting right
+ * there and conclude it had never arrived. Use `getRoutingBadge` for the mark.
+ */
+export const deriveWorkflowStatus = (
+  message: Pick<Message, 'parkedAt' | 'lastReplyFromClient'> & {
+    status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied';
+  }
+): WorkflowStatus | null => {
+  const { status } = message;
+  if (status === 'resolved' || status === 'closed') return 'resolved';
+  if (status === 'filtered') return null; // Queue axis
+  if (message.parkedAt) return 'on_hold';
+  if (message.lastReplyFromClient === false) return 'pending';
+  if (message.lastReplyFromClient === true) return 'in_progress';
+  return 'open';
+};
+
+/**
+ * Conversation status chip for the inbox cards / kanban / detail header. Same
+ * derivation everywhere, so the badge always matches the column and filter.
+ */
+export const getStatusBadge = (
+  message: Pick<Message, 'parkedAt' | 'lastReplyFromClient'> &
+    Partial<Pick<Message, 'metadata'>> & {
+      status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied';
+    }
+): { label: string; className: string } | null => {
+  const wf = deriveWorkflowStatus(message);
+  if (!wf) return null;
+  return closedStatusMeta(message) ?? WORKFLOW_STATUS_META[wf];
+};
+
+/**
+ * The status label for a row with ONLY the raw `conversations.status` (Related popover's other
+ * threads: no parkedAt / lastReplyFromClient), as the board's chip words it in sentence case. Reply
+ * sub-values stand in for the flag; a parked thread cannot be seen and reads as its reply state,
+ * not On-hold. A status with no work status (`filtered`) keeps its raw name.
+ */
+export const bareStatusLabel = (status: string): string => {
+  const ours = ['awaiting_response', 'pending'].includes(status) ? false : null;
+  const fromClient = ['client_replied', 'in_progress'].includes(status) ? true : ours;
+  const badge = getStatusBadge({
+    status: status as Message['status'],
+    parkedAt: null,
+    lastReplyFromClient: fromClient,
+  });
+  return badge ? sentenceCase(badge.label) : statusLabel(status);
+};
+
+/**
+ * `closed` derives to the Resolved work status (it is terminal, and sits in the Resolved column),
+ * but it is NOT a resolution: an agent binned it as not customer work, or it was closed another
+ * way, and it is missing from the resolved count on purpose. Its chip says which, in the words the
+ * action strip uses, and in the muted colour closed carries elsewhere — never Resolved's green.
+ * Null for every other status.
+ */
+export const closedStatusMeta = (
+  message: { status: string } & Partial<Pick<Message, 'metadata'>>
+): { label: string; className: string } | null => {
+  if (message.status !== 'closed') return null;
+  const binned = notCustomerWorkMark({ metadata: message.metadata ?? undefined });
+  return {
+    label: binned ? 'Not customer work' : 'Closed',
+    className: 'bg-muted text-muted-foreground',
+  };
+};
+
+/**
+ * The routing mark — a SEPARATE axis from the work status, not an alternative to it.
+ *
+ * A thread can be awaiting routing and also be open, pending, suspicious or anything else;
+ * those answer different questions. Opening the thread is what completes the routing: the
+ * detail header offers the department picker and refreshes once a department is chosen.
+ */
+export const getRoutingBadge = (message: {
+  status: Message['status'] | 'new' | 'awaiting_response' | 'client_replied';
+}): { label: string; className: string } | null =>
+  message.status === 'needs_routing'
+    ? {
+        label: 'Needs Routing',
+        className: 'text-foreground border border-dashed border-border-strong',
+      }
+    : null;
+
+/**
+ * The suspicion MARK.
+ *
+ * ⛔ This exists because the thread is now SHOWN rather than hidden, and a suspicious thread
+ * rendered as ordinary mail is worse than one nobody can find. It rides alongside the work
+ * status badge, exactly as `getRoutingBadge` does — never instead of it.
+ *
+ * Reads the backend's `isSuspicious`, which is computed from the SAME predicate the
+ * Suspicious chip claims rows by (`isSuspiciousQueue`). ⛔ Do NOT switch this to
+ * `metadata.spamCheck.category`: that copy is FROZEN at thread creation, so a thread that
+ * turns suspicious mid-thread would show up unmarked — the one case the shared predicate
+ * exists for.
+ *
+ * An absent flag reads as "not marked": the FE can reach production before the backend that
+ * sends it (see the skew note in CLAUDE.md).
+ */
+export const getSuspicionBadge = (message: {
+  isSuspicious?: boolean;
+}): { label: string; className: string } | null =>
+  message.isSuspicious === true
+    ? { label: 'Suspicious', className: 'bg-warning/15 text-warning' }
+    : null;
+
+/** Priority chip for the inbox cards — all four levels. */
+export const getPriorityBadge = (
+  priority: Message['priority']
+): { label: string; className: string } | null => {
+  switch (priority) {
+    case 'critical':
+      return { label: 'Critical', className: 'bg-destructive/15 text-destructive' };
+    case 'high':
+      return { label: 'High', className: 'bg-warning/15 text-warning' };
+    case 'medium':
+      return { label: 'Medium', className: 'bg-warning/15 text-warning' };
+    case 'low':
+      return { label: 'Low', className: 'bg-muted text-muted-foreground' };
+    default:
+      return null;
+  }
+};
+
+/**
+ * SLA status with the elapsed/remaining number. Returns null when there's
+ * nothing to show (resolved, no target, or healthy).
+ */
+type SlaCard = { variant: 'breach' | 'risk'; label: string; detail: string };
+
+/** A ticket that is done: no clock runs on it, whatever it recorded while it was open. */
+export const isFinishedStatus = (status: Message['status']): boolean =>
+  status === 'resolved' || status === 'closed';
+
+/**
+ * Whether an SLA clock RUNS on this thread — the one rule every SLA renderer asks.
+ *
+ * Mirrors the backend's `slaClockRuns` (filterPredicates.ts): no clock on a finished ticket
+ * (resolved OR closed — the renderers used to check `resolved` only, so a closed ticket nobody
+ * answered kept counting up in red), none on anything filtered out of the inbox, and none on
+ * spam (owner decision 2026-09-24) — by `isSpamThread`, the one spam test every badge uses.
+ */
+export const slaClockRuns = (message: Message): boolean =>
+  !!message.slaResponseMinutes &&
+  !isFinishedStatus(message.status) &&
+  message.status !== 'filtered' &&
+  !isSpamThread(message);
+
+export const getSlaCardText = (message: Message): SlaCard | null => {
+  if (!slaClockRuns(message) || !message.slaResponseMinutes) return null;
+  // We replied last → the ball is in the customer's court, so there's no SLA
+  // clock on us (awaiting-response cards). Covers seed rows that never stamped
+  // firstResponseAt/lastReplyAt but carry lastReplyFromClient=false.
+  if (message.lastReplyFromClient === false) return null;
+  const target = message.slaResponseMinutes;
+
+  // Follow-up SLA (we already replied once; customer replied again)
+  if (message.lastReplyFromClient && message.lastReplyAt) {
+    const elapsed = Math.floor((Date.now() - new Date(message.lastReplyAt).getTime()) / 60000);
+    const breached = elapsed > target;
+    const atRisk = !breached && elapsed > target * 0.8;
+    if (breached) {
+      return {
+        variant: 'breach',
+        label: 'Breached',
+        detail: `${formatDuration(elapsed - target)} over`,
+      };
+    }
+    if (atRisk) {
+      return {
+        variant: 'risk',
+        label: 'At risk',
+        detail: `${formatDuration(target - elapsed)} left`,
+      };
+    }
+    return null;
+  }
+
+  // First-response SLA (we haven't replied yet)
+  if (!message.firstResponseAt) {
+    const slaStart =
+      typeof (message.metadata as Record<string, unknown>)?.receivedAt === 'string'
+        ? new Date((message.metadata as Record<string, unknown>).receivedAt as string)
+        : new Date(message.createdAt);
+    const elapsed = Math.floor((Date.now() - slaStart.getTime()) / 60000);
+    const breached = message.slaResponseBreached === true || elapsed > target;
+    const atRisk = !breached && elapsed > target * 0.8;
+    if (breached) {
+      return {
+        variant: 'breach',
+        label: 'Breached',
+        detail: `${formatDuration(elapsed - target)} over`,
+      };
+    }
+    if (atRisk) {
+      return {
+        variant: 'risk',
+        label: 'At risk',
+        detail: `${formatDuration(target - elapsed)} left`,
+      };
+    }
+  }
+  return null;
+};
+
+export type SlaInfo = {
+  elapsed: number;
+  target: number;
+  breached: boolean;
+  atRisk: boolean;
+  /** The first reply is in — the number is final. */
+  done: boolean;
+  /** A finished ticket's history: drawn muted, with no progress bar (a bar reads as a clock). */
+  record: boolean;
+  barColor: string;
+  colorClasses: string;
+};
+
+/**
+ * The detail header's SLA chip, decided without React so it can be tested on its own.
+ *
+ * - Spam and filtered mail: nothing — no SLA at all (owner decision 2026-09-24).
+ * - Finished (resolved / closed) and never answered: nothing. It used to fall through to the live
+ *   branch and keep counting up in red after close (34 such tickets on prod, 2026-09-24).
+ * - Finished and answered: the RECORD ("5h/1h missed"), muted, no bar — ODL-HR-1.
+ * - Otherwise: unchanged — the recorded first reply, or the live clock.
+ */
+export const computeSlaInfo = (message: Message, nowMs: number = Date.now()): SlaInfo | null => {
+  if (!message.slaResponseMinutes) return null;
+  if (isSpamThread(message) || message.status === 'filtered') return null;
+  const finished = isFinishedStatus(message.status);
+  if (finished && !message.firstResponseAt) return null;
+  const target = message.slaResponseMinutes;
+  const startTime =
+    typeof (message.metadata as Record<string, unknown>)?.receivedAt === 'string'
+      ? new Date((message.metadata as Record<string, unknown>).receivedAt as string)
+      : new Date(message.createdAt);
+  if (message.firstResponseAt) {
+    // The backend's recorded seconds, whenever it has them: the minutes AND "missed" from one
+    // source. Computing the minutes here (arrival → first reply) while "missed" came from the
+    // stored flag drew "SLA 18m/1h missed" on staging 2026-09-24.
+    // Same rule as messageSLAService: Math.floor(seconds / 60) > target.
+    const recorded =
+      typeof message.actualResponseSeconds === 'number'
+        ? Math.floor(message.actualResponseSeconds / 60)
+        : null;
+    const elapsed =
+      recorded ??
+      Math.round((new Date(message.firstResponseAt).getTime() - startTime.getTime()) / 60000);
+    // A first reply dated BEFORE the clock start has no honest number. A merge that kept the newer
+    // thread did this (a customer workspace, 2026-11: a negative SLA); the backend now times it from
+    // the customer's first message, and until a thread is recomputed it shows nothing, not a
+    // negative.
+    if (elapsed < 0) return null;
+    // Finished: the record's minutes AND verdict from one source (above). Open: unchanged — the
+    // stored flag OR the minutes (the flag is judged in seconds, the chip in whole minutes).
+    const breached =
+      finished && recorded !== null
+        ? recorded > target
+        : message.slaResponseBreached === true || elapsed > target;
+    if (finished) {
+      return {
+        elapsed,
+        target,
+        breached,
+        atRisk: false,
+        done: true,
+        record: true,
+        barColor: '',
+        colorClasses: 'text-muted-foreground border-border bg-muted',
+      };
+    }
+    return {
+      elapsed,
+      target,
+      breached,
+      atRisk: false,
+      done: true,
+      record: false,
+      barColor: breached ? 'bg-destructive' : 'bg-success',
+      colorClasses: breached
+        ? 'text-destructive border-destructive-line bg-destructive-muted'
+        : 'text-success border-success-line bg-success-muted',
+    };
+  }
+  // Never negative: an arrival time ahead of the clock (sender skew) reads as "just arrived".
+  const elapsed = Math.max(0, Math.floor((nowMs - startTime.getTime()) / 60000));
+  const breached = message.slaResponseBreached === true || elapsed > target;
+  const atRisk = !breached && elapsed > target * 0.8;
+  return {
+    elapsed,
+    target,
+    breached,
+    atRisk,
+    done: false,
+    record: false,
+    barColor: breached ? 'bg-destructive' : atRisk ? 'bg-warning' : 'bg-success',
+    colorClasses: breached
+      ? 'text-destructive border-destructive-line bg-destructive-muted'
+      : atRisk
+        ? 'text-warning border-warning-line bg-warning-muted'
+        : 'text-muted-foreground border-border bg-muted',
+  };
+};
+
+type SlaTone = 'breach' | 'risk' | null;
+const computeSlaTone = (message: Message): SlaTone => {
+  const card = getSlaCardText(message);
+  return card ? card.variant : null;
+};
+
+/**
+ * AI workflow state — single chip showing where automation left the conv.
+ * Distinct from risk signals (risk = something's wrong; AI state = where AI is).
+ * Priority order matches the AI State filter in MessageFilters.tsx so the chip
+ * label matches what filtering would surface.
+ *
+ * Sources (mirrors BE `aiSuggested` filter at messageFilters.ts:420 — needs
+ * `metadata.suggestedAnswer != null` AND `needsHumanReview = true`):
+ *   - "AI suggested"  → needsHumanReview && metadata.suggestedAnswer != null
+ *   - "Needs review"  → needsHumanReview (without suggested answer)
+ *   - "Lead"          → thread.isLead (with optional stage)
+ *   - "Auto-handled"  → metadata.autoReply.sent
+ */
+export type AiState = {
+  label: string;
+  tooltip: string;
+};
+
+export const getAiState = (
+  message: Message,
+  thread: MessageThread,
+  /**
+   * The workspace switched AI drafts off: a draft stored before the switch is no longer offered
+   * (AiTabPanel / MessageDetail), so "AI prepared a draft — review and send" would point at
+   * nothing. ⚠️ The backend's `aiSuggested` FILTER still matches these rows — the chip and the
+   * filter part ways only while drafts are off.
+   */
+  aiDraftsOff = false
+): AiState | null => {
+  const meta = message.metadata as
+    | {
+        suggestedAnswer?: unknown;
+        autoReply?: { sent?: boolean };
+        leadState?: { stage?: string };
+      }
+    | undefined;
+
+  if (message.needsHumanReview) {
+    // WHY it needs review, in words (`needsReviewReason`); the plain "Needs review" when an
+    // older backend sends no reason. Tooltip only — the card stays one short chip.
+    const why = needsReviewTooltip(message.needsReviewReason);
+    if (!aiDraftsOff && meta?.suggestedAnswer !== null && meta?.suggestedAnswer !== undefined) {
+      return {
+        label: 'AI suggested',
+        tooltip: `AI prepared a draft reply — review and send · ${why}`,
+      };
+    }
+    return {
+      label: 'Needs review',
+      tooltip: why,
+    };
+  }
+  if (thread.isLead) {
+    // "Lead", not "Qualified lead": nothing qualifies a lead before it is marked (audit
+    // 2026-10-21) — the old word claimed a judgement no code makes.
+    const stage = meta?.leadState?.stage;
+    if (stage) {
+      const stageLabel = stage.replace(/_/g, ' ');
+      return {
+        label: `Lead · ${stageLabel}`,
+        tooltip: `Lead · stage: ${stageLabel}`,
+      };
+    }
+    return { label: 'Lead', tooltip: 'Lead' };
+  }
+  if (meta?.autoReply?.sent) {
+    return {
+      label: 'Auto-handled',
+      tooltip: 'AI sent an automated reply',
+    };
+  }
+  return null;
+};
+
+/**
+ * Risk signals ordered by severity. Highest is rendered as the visible chip,
+ * the rest collapse into a `+N` overflow with a tooltip listing them.
+ *
+ * needsHumanReview is intentionally absent — it belongs in the AI state chip
+ * cluster (see getAiState). Including it both places would double-count.
+ */
+type RiskSignal = {
+  key: string;
+  label: string;
+  tone: 'breach' | 'risk';
+  tooltip: string;
+};
+
+export const getRiskSignals = (message: Message): RiskSignal[] => {
+  const signals: RiskSignal[] = [];
+
+  const spam = getSpamCheck(message);
+  if (isSpamThread(message)) {
+    /**
+     * SP-D1: whether a PERSON has agreed is a different fact from the system's verdict, and it is
+     * what the two halves of the Spam queue partition on. Saying it on the card is what stops two
+     * agents opening the same thread to decide the same thing.
+     */
+    const confirmedAt = message.spamConfirmedAt;
+    signals.push({
+      key: 'spam',
+      label: confirmedAt ? 'Spam · confirmed' : 'Spam',
+      tone: 'breach',
+      tooltip: confirmedAt
+        ? `Confirmed as spam by an agent on ${new Date(confirmedAt).toLocaleDateString()}`
+        : 'Marked as spam by the filter — nobody has confirmed it yet',
+    });
+  } else if (spam?.category === 'suspicious') {
+    signals.push({
+      key: 'suspicious',
+      label: 'Suspicious',
+      tone: 'risk',
+      tooltip: 'Suspicious sender / content',
+    });
+  }
+
+  // A dismissed contradiction is no contradiction (`dismissedAt`, 2026-10-21).
+  const contradiction = hasActiveContradiction(
+    message.metadata?.contradictionCheck as ContradictionCheckMetadata | undefined
+  );
+  if (contradiction) {
+    signals.push({
+      key: 'contradiction',
+      label: 'Contradiction',
+      tone: 'risk',
+      tooltip: 'Contradicts a previous statement',
+    });
+  }
+
+  const analysis = message.metadata?.analysis as { needsMoreInfo?: boolean } | undefined;
+  if (analysis?.needsMoreInfo) {
+    signals.push({
+      key: 'needs-info',
+      label: 'Needs info',
+      tone: 'risk',
+      tooltip: 'AI flagged as needing more information',
+    });
+  }
+
+  const unusual = (message.metadata?.attachmentsAnalyzed as MessageAttachmentsAnalyzed | undefined)
+    ?.hasUnusualAttachments;
+  if (unusual) {
+    signals.push({
+      key: 'unusual',
+      label: 'Unusual',
+      tone: 'risk',
+      tooltip: 'Unusual attachments for this workspace',
+    });
+  }
+
+  return signals;
+};
+
+/**
+ * Direction text for the list view. Kanban uses an arrow icon for the same
+ * signal (`thread.lastReplyFromClient`). Tri-state: null when there's no
+ * signal yet (single-message thread, no reply history).
+ */
+export const getDirectionText = (
+  thread: MessageThread
+): { text: string; tone: 'pending' | 'waiting' | 'new' } | null => {
+  if (thread.lastReplyFromClient === true) {
+    return { text: 'they replied', tone: 'pending' };
+  }
+  if (thread.lastReplyFromClient === false) {
+    return { text: 'awaiting them', tone: 'waiting' };
+  }
+  if (thread.messageCount <= 1) {
+    return { text: 'new', tone: 'new' };
+  }
+  return null;
+};
+
+/**
+ * Pick a stable color from a small palette by hashing the input. Used for
+ * assignee avatars when no explicit color is available.
+ */
+const AVATAR_PALETTE = [
+  'bg-primary',
+  'bg-success',
+  'bg-warning',
+  'bg-violet-500',
+  'bg-destructive',
+  'bg-cyan-500',
+  'bg-fuchsia-500',
+  'bg-teal-500',
+];
+
+export const getAvatarColor = (name: string | null | undefined): string => {
+  if (!name) return 'bg-muted-foreground';
+  let hash = 0;
+  for (let idx = 0; idx < name.length; idx++) {
+    hash = (hash * 31 + name.charCodeAt(idx)) | 0;
+  }
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length] ?? 'bg-muted-foreground';
+};
+
+// Hex equivalents of AVATAR_PALETTE for label creation. The BE requires a hex
+// color on POST /api/labels; inline label creation picks a deterministic color
+// by hashing the label name so the same name always gets the same color
+// (consistent across pickers + sessions before the user recolors).
+const LABEL_PALETTE_HEX = [
+  '#3b82f6', // blue-500
+  '#10b981', // emerald-500
+  '#f59e0b', // amber-500
+  '#8b5cf6', // violet-500
+  '#f43f5e', // rose-500
+  '#06b6d4', // cyan-500
+  '#d946ef', // fuchsia-500
+  '#14b8a6', // teal-500
+];
+
+export const hashNameToLabelColor = (name: string): string => {
+  let hash = 0;
+  for (let idx = 0; idx < name.length; idx++) {
+    hash = (hash * 31 + name.charCodeAt(idx)) | 0;
+  }
+  return LABEL_PALETTE_HEX[Math.abs(hash) % LABEL_PALETTE_HEX.length] ?? '#6b7280';
+};
+
+export const hasAttachments = (message: Message): boolean => hasMessageAttachments(message);
+
+/** Tooltip body listing overflow signals (used by the `+N` chip). */
+export const renderOverflowTooltip = (signals: RiskSignal[]): ReactNode => (
+  <ul className="space-y-0.5 text-left">
+    {signals.map((signal) => (
+      <li key={signal.key}>{signal.label}</li>
+    ))}
+  </ul>
+);

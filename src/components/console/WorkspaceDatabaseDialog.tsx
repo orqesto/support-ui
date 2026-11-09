@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
-import { describeMove, STATUS_BADGE, STATUS_LABEL } from '@/components/settings/providers/DatabaseConfigCard';
+import { describeMove, STATUS_BADGE, STATUS_LABEL } from '@/features/settings';
 import {
   useConfirmDatabaseCleanup,
   useMigrateWorkspaceDatabase,

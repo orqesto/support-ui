@@ -28,7 +28,7 @@ import {
 import { organizationService } from '@/services/organization.service';
 import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/stores/authStore';
-import { getUserRowCapabilities } from '@/utils/userListCapabilities';
+import { getUserRowCapabilities } from '@/features/settings';
 import { ORGANIZATION_ROLES, roleDisplayNames, type OrganizationRole } from '@/types/roles';
 import type { GlobalRole, PlatformUserRow } from '@/services/platform.service';
 

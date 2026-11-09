@@ -18,8 +18,8 @@
  * `identityScope()` removed from the key before it was kept.
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { messagesCacheKey, defaultFilters } from '@/stores/messagesStore';
-import { ticketsCacheKey } from '@/stores/ticketsStore';
+import { messagesCacheKey, defaultFilters } from '@/features/messages';
+import { ticketsCacheKey } from '@/features/tickets';
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
 

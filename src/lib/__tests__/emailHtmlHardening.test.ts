@@ -72,7 +72,7 @@ describe('the proxy url has ONE builder', () => {
      * the 2026-09-19 audit. A one-character drift removes every image from every email, with
      * no error raised anywhere — so the agreement is asserted rather than assumed.
      */
-    const { proxyRemoteImages } = await import('@/components/messages/messageDetailConstants');
+    const { proxyRemoteImages } = await import('@/features/messages/shell');
     for (const organizationId of [21, null]) {
       const context = { eventId: 5690, apiBaseUrl: 'https://api.test', organizationId };
       const written = proxyRemoteImages(

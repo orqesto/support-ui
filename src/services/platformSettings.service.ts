@@ -151,6 +151,11 @@ export type PlatformSettings = {
    */
   embeddingThreads?: EmbeddingThreadsSettings;
   /**
+   * Fair order between workspaces (`queue.fairness`, under `ingestion` in the response,
+   * 2026-11-07). Absent on an older backend.
+   */
+  fairOrder?: FairOrderSetting;
+  /**
    * Hourly AI call limit of managed workspaces and the share kept for live mail
    * (`analysisHourly`, 2026-10-19). Absent on a backend that predates it — the card then says so.
    */
@@ -229,9 +234,11 @@ export type IngestionSettings = {
   /** Parallel Gmail fetches while checking for new mail. */
   pollFetchMax?: BoundedField;
 };
+/** Fair order between workspaces on/off (`queue.fairness.fairOrder`, 2026-11-07). */
+export type FairOrderSetting = { value: boolean; source: FieldSource };
 /** PUT /settings/ingestion — a PARTIAL body: only the fields sent are saved (at least one). */
 export type PlatformIngestionInput = Partial<Record<keyof IngestionSettings, number>> &
-  EmbeddingThreadsInput;
+  EmbeddingThreadsInput & { fairOrder?: boolean };
 
 /** PUT /settings/custom-api — both thresholds, whole numbers ≥ 1 (the whole value is replaced). */
 export type PlatformCustomApiInput = { noMatchStreak: number; okWindowDays: number };
@@ -520,6 +527,17 @@ export const normalizeIngestion = (raw: unknown): IngestionSettings | undefined 
   return Object.keys(kept).length > 0 ? kept : undefined;
 };
 
+/** `ingestion.fairOrder` as `{ value: boolean, source }`, or undefined on an older backend. */
+export const normalizeFairOrder = (raw: unknown): FairOrderSetting | undefined => {
+  if (!isRecord(raw) || typeof raw.value !== 'boolean') return undefined;
+  return {
+    value: raw.value,
+    source: FIELD_SOURCES.includes(raw.source as FieldSource)
+      ? (raw.source as FieldSource)
+      : 'default',
+  };
+};
+
 /** Both fields as whole numbers with whole bounds, or undefined ("this backend lacks it"). */
 export const normalizeAnalysisHourly = (raw: unknown): AnalysisHourlySettings | undefined => {
   if (!isRecord(raw)) return undefined;
@@ -680,6 +698,9 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
   const embeddingThreads = isRecord(raw.ingestion)
     ? normalizeEmbeddingThreads(raw.ingestion.embeddingThreads)
     : undefined;
+  const fairOrder = isRecord(raw.ingestion)
+    ? normalizeFairOrder(raw.ingestion.fairOrder)
+    : undefined;
   const analysisHourly = normalizeAnalysisHourly(raw.analysisHourly);
   const drafts = normalizeDrafts(raw.drafts);
   const provider = field(raw.ai.provider);
@@ -746,6 +767,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
     ...(routing ? { routing } : {}),
     ...(ingestion ? { ingestion } : {}),
     ...(embeddingThreads ? { embeddingThreads } : {}),
+    ...(fairOrder ? { fairOrder } : {}),
     ...(analysisHourly ? { analysisHourly } : {}),
     ...(drafts ? { drafts } : {}),
   };

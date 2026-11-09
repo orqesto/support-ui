@@ -489,7 +489,93 @@ export const normalizeWorkspaceHealth = (raw: unknown): WorkspaceHealthReport =>
   };
 };
 
+/** GET /api/admin/platform/data-size (architecture M7 Z11a). Estimates are sampled; see the card. */
+export type DataSizeTable = { table: string; totalBytes: number; rowEstimate: number };
+export type DataSizeDatabase = {
+  organizationId: number | null;
+  workspaceName: string | null;
+  deploymentType: 'platform' | 'dedicated' | 'external';
+  totalBytes: number | null;
+  tables: DataSizeTable[];
+  error: string | null;
+};
+export type DataSizeReport = {
+  sampledAt: string;
+  platform: DataSizeDatabase;
+  threads: {
+    days: number;
+    sampledPct: number;
+    sampledThreads: number;
+    estimatedThreads: number;
+    estimatedOldResolved: number;
+    oldResolvedShare: number;
+    /** Workspaces seen in the sample; topWorkspaces lists at most 10 of them (older backends: absent). */
+    workspacesWithThreads?: number;
+    topWorkspaces: Array<{
+      organizationId: number;
+      name: string | null;
+      estimatedThreads: number;
+      oldResolvedShare: number;
+    }>;
+  } | null;
+  bodies: {
+    sampledPct: number;
+    sampledMessages: number;
+    estimatedMessages: number;
+    estimatedContentBytes: number;
+    estimatedRawDataBytes: number;
+    estimatedHeaderBytes: number;
+    messageEventsTotalBytes: number | null;
+  } | null;
+  byodb: DataSizeDatabase[];
+  /** Why a part is null, or null — absent on a backend from before the 2026-11-08 review. */
+  threadsError?: string | null;
+  bodiesError?: string | null;
+  /** The BYODB workspaces could not be LISTED: an empty byodb then means "unknown", not "none". */
+  byodbError?: string | null;
+};
+
+/** One API copy alive now (architecture M7 B1): its presence key, refreshed every 15 s. */
+export type ApiCopyPresence = {
+  copy: number;
+  host: string;
+  startedAt: string;
+  /** The copy count the deploy that started it had set. */
+  copiesAtStart: number;
+  gitSha: string;
+};
+
+/** GET/PUT /admin/platform/api-copies (architecture M7 B1). */
+export type ApiCopiesState = {
+  copies: { value: number; source: 'db' | 'default'; min: number; max: number };
+  running: ApiCopyPresence[];
+  /** The count set differs from the copies running: the next deploy applies it. */
+  appliesAtNextDeploy: boolean;
+  /** A self-hosted install runs one API copy; the setting has no effect there. */
+  selfHosted: boolean;
+};
+
 export const platformService = {
+  /** `fresh`: measure again instead of the server's up-to-5-minute-old reading. */
+  getDataSize: async (fresh = false): Promise<DataSizeReport> => {
+    const res = await apiClient.get<{ data: DataSizeReport }>(`${PLATFORM}/data-size`, {
+      params: fresh ? { fresh: '1' } : undefined,
+    });
+    return res.data.data;
+  },
+
+  getApiCopies: async (): Promise<ApiCopiesState> => {
+    const res = await apiClient.get<{ data: ApiCopiesState }>(`${PLATFORM}/api-copies`);
+    return res.data.data;
+  },
+
+  setApiCopies: async (copies: number): Promise<ApiCopiesState> => {
+    const res = await apiClient.put<{ data: ApiCopiesState }>(`${PLATFORM}/api-copies`, {
+      copies,
+    });
+    return res.data.data;
+  },
+
   getOverview: async (): Promise<PlatformOverview> => {
     const res = await apiClient.get<{ data: PlatformOverview }>(`${PLATFORM}/overview`);
     return res.data.data;
