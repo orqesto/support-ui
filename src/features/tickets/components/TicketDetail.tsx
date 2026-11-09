@@ -128,7 +128,7 @@ export const TicketDetail = ({
   }, [serverWatchCap]);
   const presenceCapNote =
     watched.total > watched.ids.length || presence.capped
-      ? `presence for the latest ${watchCap} of ${watched.total} threads`
+      ? `presence for the latest ${Math.min(watchCap, watched.total)} of ${watched.total} threads`
       : undefined;
 
   const handleCopyLink = () => {

@@ -4,6 +4,7 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { getInitials } from '@/lib/initials';
+import { useAuthStore } from '@/stores/authStore';
 import { organizationService } from '@/services/organization.service';
 import { getAvatarColor } from '../components/inboxCardHelpers';
 
@@ -26,9 +27,12 @@ const UNKNOWN_AGENT: PresenceAgent = {
 
 /** Returns a lookup that never fails: a userId missing from the list is "Another agent". */
 export const useOrgMemberNames = (): ((userId: number) => PresenceAgent) => {
+  // Keyed by the active workspace: after a switch the old workspace's list must never answer.
+  const orgId = useAuthStore((state) => state.selectedOrganizationId);
   const { data } = useQuery({
-    queryKey: ['organization-members'],
+    queryKey: ['organization-members', orgId],
     queryFn: () => organizationService.getMembers(),
+    enabled: orgId !== null,
     staleTime: MEMBERS_STALE_MS,
   });
   const byId = new Map<number, PresenceAgent>();

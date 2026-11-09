@@ -1,13 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { useAuthStore } from '@/stores/authStore';
 import { PresenceEye } from '../PresenceEye';
 import type { PresenceViewer } from '../presence.types';
 
 const members = vi.hoisted(() => ({ list: [] as unknown[] }));
+const getMembers = vi.hoisted(() => vi.fn<() => Promise<unknown[]>>());
 vi.mock('@/services/organization.service', () => ({
-  organizationService: { getMembers: () => Promise.resolve(members.list) },
+  organizationService: { getMembers: () => getMembers() },
 }));
 
 const NOW = Date.parse('2026-11-09T12:00:00Z');
@@ -24,6 +26,9 @@ const wrap = (node: ReactNode) => {
 };
 
 beforeEach(() => {
+  getMembers.mockReset();
+  useAuthStore.setState({ selectedOrganizationId: 1 });
+  getMembers.mockImplementation(() => Promise.resolve(members.list));
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(NOW);
   members.list = [
@@ -162,5 +167,30 @@ describe('PresenceEye', () => {
     expect(await screen.findByTestId('presence-sheet')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByTestId('presence-sheet')).toBeNull();
+  });
+
+  it('a workspace switch refetches the members: org A names never show in org B', async () => {
+    const orgA = [{ id: 1, userId: 7, firstName: 'Anna', lastName: 'Kim', email: 'a@x.io' }];
+    const orgB = [{ id: 9, userId: 7, firstName: 'Zoe', lastName: 'Lee', email: 'z@x.io' }];
+    getMembers.mockImplementation(() =>
+      Promise.resolve(useAuthStore.getState().selectedOrganizationId === 1 ? orgA : orgB)
+    );
+    wrap(<PresenceEye available viewers={[viewer(7, 'viewing')]} isPhone={false} />);
+    fireEvent.click(screen.getByRole('button'));
+    expect(await screen.findByText('Anna Kim')).toBeTruthy();
+    act(() => {
+      useAuthStore.setState({ selectedOrganizationId: 2 });
+    });
+    expect(await screen.findByText('Zoe Lee')).toBeTruthy();
+    expect(screen.queryByText('Anna Kim')).toBeNull();
+    expect(getMembers).toHaveBeenCalledTimes(2);
+  });
+
+  it('asks for no members while no workspace is selected', async () => {
+    useAuthStore.setState({ selectedOrganizationId: null });
+    wrap(<PresenceEye available viewers={[viewer(7, 'viewing')]} isPhone={false} />);
+    fireEvent.click(screen.getByRole('button'));
+    expect(await screen.findByText('Another agent')).toBeTruthy();
+    expect(getMembers).not.toHaveBeenCalled();
   });
 });
