@@ -321,3 +321,75 @@ describe('normalizeIngestion — Gmail', () => {
     ).toBeUndefined();
   });
 });
+
+const AUTOREPLY = {
+  autoReplyMaxMessageAgeHours: { value: 24, source: 'default' as const, min: 1, max: 720 },
+};
+const ageLimit = () => screen.getByLabelText('Auto-reply only to mail newer than (hours)');
+
+describe('IngestionCard — automatic replies age limit', () => {
+  it('shows the server value with its heading and help text', () => {
+    wrap(<IngestionCard ingestion={{ ...SETTING, ...AUTOREPLY }} />);
+    expect(screen.getByRole('heading', { name: 'Automatic replies' })).toBeTruthy();
+    expect(ageLimit()).toHaveValue(24);
+    expect(screen.getByText(/No automatic reply \(acknowledgement, AI auto-reply/)).toBeTruthy();
+    expect(save()).toBeInactive();
+  });
+
+  it('a saved console value is shown, not the default', () => {
+    wrap(
+      <IngestionCard
+        ingestion={{ autoReplyMaxMessageAgeHours: { value: 72, source: 'db', min: 1, max: 720 } }}
+      />
+    );
+    expect(ageLimit()).toHaveValue(72);
+    expect(screen.getByText('Console')).toBeTruthy();
+  });
+
+  it('outside 1-720, a fraction or blank: the bounds are said and nothing is sent', () => {
+    wrap(<IngestionCard ingestion={{ ...SETTING, ...AUTOREPLY }} />);
+    for (const bad of ['0', '721', '2.5', '']) {
+      fireEvent.change(ageLimit(), { target: { value: bad } });
+      expect(screen.getByText('Enter a whole number from 1 to 720.')).toBeInTheDocument();
+      expect(save()).toBeInactive();
+    }
+    for (const edge of ['1', '720']) {
+      fireEvent.change(ageLimit(), { target: { value: edge } });
+      expect(screen.queryByText(/Enter a whole number/)).toBeNull();
+      expect(save()).not.toBeInactive();
+    }
+    expect(puts).toHaveLength(0);
+  });
+
+  it('saving sends only the age limit, with PUT /settings/ingestion', async () => {
+    wrap(<IngestionCard ingestion={{ ...SETTING, ...AUTOREPLY }} />);
+    fireEvent.change(ageLimit(), { target: { value: '48' } });
+    fireEvent.click(save());
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toEqual({
+      url: '/api/admin/platform/settings/ingestion',
+      body: { autoReplyMaxMessageAgeHours: 48 },
+    });
+  });
+
+  it('a backend without the field: no input, no heading, the rest still works', () => {
+    wrap(<IngestionCard ingestion={SETTING} />);
+    expect(screen.queryByLabelText(/Auto-reply only to mail newer than/)).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Automatic replies' })).toBeNull();
+    expect(screen.getAllByRole('spinbutton')).toHaveLength(3);
+  });
+
+  it('normalizeIngestion keeps the field, and drops a bare number or a malformed one', () => {
+    expect(normalizeIngestion({ ...SETTING, ...AUTOREPLY })).toEqual({ ...SETTING, ...AUTOREPLY });
+    expect(
+      normalizeIngestion({ ...SETTING, autoReplyMaxMessageAgeHours: 24 })
+        ?.autoReplyMaxMessageAgeHours
+    ).toBeUndefined();
+    expect(
+      normalizeIngestion({
+        ...SETTING,
+        autoReplyMaxMessageAgeHours: { value: 24, source: 'default' },
+      })?.autoReplyMaxMessageAgeHours
+    ).toBeUndefined();
+  });
+});

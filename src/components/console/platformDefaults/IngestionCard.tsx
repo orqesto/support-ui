@@ -72,6 +72,14 @@ const NOTIFY_FIELDS: FieldDef[] = [
     hint: 'How long a new unassigned mail waits for its AI priority before people with a minimum priority see it.',
   },
 ];
+/** The age limit for every automatic reply (`autoreply.max_message_age`, 2026-11-09). */
+const AUTOREPLY_FIELDS: FieldDef[] = [
+  {
+    key: 'autoReplyMaxMessageAgeHours',
+    label: 'Auto-reply only to mail newer than (hours)',
+    hint: 'No automatic reply (acknowledgement, AI auto-reply, follow-up, Telegram bot) is sent to a message older than this. The message is still saved and becomes work.',
+  },
+];
 /** Attachment retry (Gmail and IMAP), then the pacing that keeps a Gmail mailbox under Google's quota. */
 const GMAIL_FIELDS: FieldDef[] = [
   {
@@ -112,6 +120,7 @@ const FIELDS: FieldDef[] = [
   ...PAUSE_FIELDS,
   ...SEND_FIELDS,
   ...NOTIFY_FIELDS,
+  ...AUTOREPLY_FIELDS,
   ...GMAIL_FIELDS,
 ];
 
@@ -254,6 +263,12 @@ export const IngestionCard = ({
               <>
                 <h3 className="text-sm font-medium pt-2">Alert center</h3>
                 {renderGrid(NOTIFY_FIELDS)}
+              </>
+            )}
+            {AUTOREPLY_FIELDS.some((field) => ingestion?.[field.key] !== undefined) && (
+              <>
+                <h3 className="text-sm font-medium pt-2">Automatic replies</h3>
+                {renderGrid(AUTOREPLY_FIELDS)}
               </>
             )}
             {GMAIL_FIELDS.some((field) => ingestion?.[field.key] !== undefined) && (
