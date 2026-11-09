@@ -1,8 +1,10 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, type MutableRefObject } from 'react';
 import type { AiDraft } from '@/services/message.service';
 import { useUnsentDraft } from '@/hooks/useUnsentDraft';
 import { isBlankRichText } from '@/lib/stripHtml';
+import { emptyRecipientDraft, type RecipientDraft } from '../RecipientFields';
 import type { useComposerText } from './useComposerText';
+import type { KeptSendKey } from './sendKey';
 
 type ThreadDraft = {
   html: string;
@@ -15,13 +17,46 @@ type ThreadDraft = {
   // still sees what the agent changed) instead of being reported as the agent's own text.
   aiSource: string | null;
   aiDraft: AiDraft | null;
+  recipients?: RecipientDraft;
+  /*
+    ⛔ The idempotency key a FAILED reply was sent with. A send can fail on the agent's side (a
+    timeout) yet reach the customer. Before drafts were kept, a reload threw the text away; now it
+    comes back, and pressing Send again must dedup on the BE — so the key comes back with it.
+    keyForPayload still only reuses it for the SAME email (body, files, recipients).
+  */
+  sendKey?: KeptSendKey | null;
 };
 
+const isKeptSendKey = (value: unknown): value is KeptSendKey =>
+  typeof value === 'object' &&
+  value !== null &&
+  typeof (value as KeptSendKey).key === 'string' &&
+  typeof (value as KeptSendKey).payload === 'string';
+
+const isRecipientDraft = (value: unknown): value is RecipientDraft =>
+  typeof value === 'object' &&
+  value !== null &&
+  ['to', 'cc', 'bcc'].every(
+    (field) => typeof (value as Record<string, unknown>)[field] === 'string'
+  );
+
 /** The thread composer's unsent text, kept in this browser per thread (useUnsentDraft). */
-export function useThreadUnsentDraft(
-  threadId: number,
-  composerText: ReturnType<typeof useComposerText>
-) {
+export function useThreadUnsentDraft({
+  threadId,
+  composerText,
+  recipientDraft,
+  setRecipientDraft,
+  sendKeyRef,
+  sendFailedError,
+}: {
+  threadId: number;
+  composerText: ReturnType<typeof useComposerText>;
+  recipientDraft: RecipientDraft;
+  setRecipientDraft: (draft: RecipientDraft) => void;
+  sendKeyRef: MutableRefObject<KeptSendKey | null>;
+  /** Set when a send fails — the moment the key is worth keeping (it lives in a ref). */
+  sendFailedError: string | null;
+}) {
   const {
     composer,
     aiSource,
@@ -32,27 +67,38 @@ export function useThreadUnsentDraft(
     setComposerMode,
   } = composerText;
   const { handleAiSourceChange } = composerText;
-  const blank = isBlankRichText(composer);
+  const blank =
+    isBlankRichText(composer) &&
+    !recipientDraft.to.trim() &&
+    !recipientDraft.cc.trim() &&
+    !recipientDraft.bcc.trim();
   const value = useMemo<ThreadDraft>(
     () => ({
       html: composer,
       mode: lastEditMode.current ?? composerMode,
       aiSource,
       aiDraft,
+      recipients: recipientDraft,
+      sendKey: sendKeyRef.current,
     }),
-    // lastEditMode is a ref that changes together with `composer`.
+    // Two refs: lastEditMode changes together with `composer`; the send key is minted at send time
+    // and kept on a failure, which `sendFailedError` marks.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
-    [composer, composerMode, aiSource, aiDraft]
+    [composer, composerMode, aiSource, aiDraft, recipientDraft, sendFailedError]
   );
   const restore = useCallback(
     (data: ThreadDraft) => {
-      if (typeof data?.html !== 'string' || isBlankRichText(data.html)) return;
+      const hasText = typeof data?.html === 'string' && !isBlankRichText(data.html);
+      const recipients = isRecipientDraft(data?.recipients) ? data.recipients : null;
+      if (!hasText && !recipients) return;
       const mode = data.mode === 'note' ? 'note' : 'reply';
-      writeComposer(data.html, mode);
+      if (hasText) writeComposer(data.html, mode);
       setComposerMode(mode);
+      if (recipients) setRecipientDraft(recipients);
       if (data.aiSource) handleAiSourceChange(data.aiSource, data.aiDraft ?? undefined);
+      if (isKeptSendKey(data.sendKey)) sendKeyRef.current = data.sendKey;
     },
-    [writeComposer, setComposerMode, handleAiSourceChange]
+    [writeComposer, setComposerMode, setRecipientDraft, handleAiSourceChange, sendKeyRef]
   );
   const { restored, dismissRestored } = useUnsentDraft({
     scope: `thread:${threadId}`,
@@ -62,8 +108,9 @@ export function useThreadUnsentDraft(
   });
   const discardRestored = useCallback(() => {
     writeComposer('');
+    setRecipientDraft(emptyRecipientDraft());
     handleAiSourceChange(null);
     dismissRestored();
-  }, [writeComposer, handleAiSourceChange, dismissRestored]);
+  }, [writeComposer, setRecipientDraft, handleAiSourceChange, dismissRestored]);
   return { restoredDraft: restored, discardRestoredDraft: discardRestored };
 }

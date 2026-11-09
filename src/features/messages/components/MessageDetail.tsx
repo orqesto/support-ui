@@ -103,8 +103,6 @@ export function MessageDetail({
     lastEditMode,
     writeComposer,
   } = composerText;
-  // Unsent text survives a closed panel, a page change or a killed phone tab (this browser only).
-  const { restoredDraft, discardRestoredDraft } = useThreadUnsentDraft(message.id, composerText);
   const dialogs = useDetailDialogs(message);
   const {
     submitting,
@@ -263,6 +261,15 @@ export function MessageDetail({
   // the send path cannot honour.
   const supportsRecipients = message.channel === 'email';
   const [recipientDraft, setRecipientDraft] = useState<RecipientDraft>(emptyRecipientDraft);
+  // Unsent text survives a closed panel, a page change or a killed phone tab (this browser only).
+  const { restoredDraft, discardRestoredDraft } = useThreadUnsentDraft({
+    threadId: message.id,
+    composerText,
+    recipientDraft,
+    setRecipientDraft,
+    sendKeyRef: replyState.sendIdempotencyKeyRef,
+    sendFailedError,
+  });
   // Merge labels on the timeline + everyone on the thread, for Reply all (owner, 2026-09-23).
   const mergeContext = useThreadMergeContext(
     message.id,
