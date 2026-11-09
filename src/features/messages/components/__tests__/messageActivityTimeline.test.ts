@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { auditEntryLabel, buildTimeline } from '../messageActivityTimeline';
 import type { MessageActivityEntry } from '@/services/message.service';
+import { formatDay } from '@/lib/utils';
+
+// Feed dates are the app's one day format (formatDay, the viewer's zone) — as the hold rows.
+const OCT_13 = formatDay('2026-10-13T02:00:00Z');
+const OCT_14 = formatDay('2026-10-14T09:00:00Z');
+const OCT_15 = formatDay('2026-10-15T08:00:00Z');
 
 const entry = (
   action: string,
@@ -97,7 +103,7 @@ describe('routing.decision entries (spec §4.5)', () => {
           },
         ],
       },
-      'Routed to Support by rule "loading dock" (accepted by Anna Weber, 14 Oct)',
+      `Routed to Support by rule "loading dock" (accepted by Anna Weber, ${OCT_14})`,
     ],
     [
       {
@@ -107,7 +113,7 @@ describe('routing.decision entries (spec §4.5)', () => {
           { ...rule, acceptedBy: null, acceptedAt: '2026-10-14T09:00:00Z', autoAccepted: true },
         ],
       },
-      'Routed to Support by rule "loading dock" (accepted automatically, 14 Oct)',
+      `Routed to Support by rule "loading dock" (accepted automatically, ${OCT_14})`,
     ],
     [
       {
@@ -246,16 +252,16 @@ describe('routing.decision entries (spec §4.5)', () => {
         accepted(0.417),
       ];
       expect(label('embedding_strong', rules)).toBe(
-        'Routed to Support by rule "pallet label" (accepted by Anna Weber, 15 Oct)'
+        `Routed to Support by rule "pallet label" (accepted by Anna Weber, ${OCT_15})`
       );
       expect(label('embedding_override', [accepted(0.417), manual(1, 'invoice', 0.083)])).toBe(
-        'Routed to Support by rule "pallet label" (accepted by Anna Weber, 15 Oct)'
+        `Routed to Support by rule "pallet label" (accepted by Anna Weber, ${OCT_15})`
       );
     });
 
     it('similarity route whose largest share is an auto-accepted rule names it', () => {
       expect(label('embedding_strong', [manual(1, 'invoice', 0.2), autoAccepted(0.6)])).toBe(
-        'Routed to Support by rule "pallet label" (accepted automatically, 13 Oct)'
+        `Routed to Support by rule "pallet label" (accepted automatically, ${OCT_13})`
       );
     });
 
@@ -271,7 +277,7 @@ describe('routing.decision entries (spec §4.5)', () => {
       ).toBe('Routed to Support by similarity to earlier threads');
       expect(
         label('embedding_strong', [deleted(0.9), accepted(0.3), manual(1, 'invoice', 0.1)])
-      ).toBe('Routed to Support by rule "pallet label" (accepted by Anna Weber, 15 Oct)');
+      ).toBe(`Routed to Support by rule "pallet label" (accepted by Anna Weber, ${OCT_15})`);
     });
 
     it('rule route names the largest-share live rule, not the first', () => {
@@ -279,7 +285,7 @@ describe('routing.decision entries (spec §4.5)', () => {
         label('rule_strong', [manual(1, 'invoice', 0.1), deleted(0.8), manual(2, 'freight', 0.6)])
       ).toBe('Routed to Support by rule "freight"');
       expect(label('rule_ai_agree', [manual(1, 'invoice', 0.1), accepted(0.9)])).toBe(
-        'Routed to Support by rule "pallet label" (accepted by Anna Weber, 15 Oct)'
+        `Routed to Support by rule "pallet label" (accepted by Anna Weber, ${OCT_15})`
       );
       expect(label('rule_decisive', [manual(1, 'invoice', 0.1), manual(2, 'freight', 0.9)])).toBe(
         'Routed to Support by rule "freight"'

@@ -4,6 +4,7 @@
  * label mapping can be unit-tested (and to keep that component under max-lines).
  */
 import { holdNoteLabel, holdNoteText, isHoldNote } from '@/lib/holdNote';
+import { formatDay } from '@/lib/utils';
 import type { MessageActivityEntry, MessageNote } from '@/services/message.service';
 
 /**
@@ -65,15 +66,14 @@ const ACTION_KIND: Record<string, ActivityKind> = {
 
 export const activityKindOf = (action: string): ActivityKind => ACTION_KIND[action] ?? 'other';
 
-const SHORT_DATE = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  timeZone: 'UTC',
-});
+/**
+ * A date in a feed label, in the app's ONE day format (`formatDay`, the viewer's zone) — the
+ * format the hold rows use too, so one view never shows a date two ways.
+ */
 const shortDate = (iso: unknown): string | null => {
   if (typeof iso !== 'string') return null;
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? null : SHORT_DATE.format(date);
+  return Number.isNaN(date.getTime()) ? null : formatDay(date);
 };
 
 type RoutingRuleDetail = {
@@ -212,35 +212,20 @@ export function auditEntryLabel(action: string, details: Record<string, unknown>
   return ACTION_LABEL[action] ?? action;
 }
 
-/** Why a thread came off hold, by `metadata.cause` — the backend's phrases (holdNoteText.ts). */
-const UNHOLD_CAUSE: Record<string, string> = {
-  customer_reply: 'customer replied',
-  agent_reply: 'agent replied',
-  reopened: 'reopened',
-  status_change: 'status changed',
-  recheck_due: 'recheck date reached',
-  merge: 'customer message merged in',
-  tracking_page: 'customer replied on the tracking page',
-  chat_escalation: 'customer wrote in chat',
-  repair: 'repaired',
-  ticket_status: 'reopened from the ticket',
-  split: 'thread split',
-  ticket_created: 'ticket created',
-};
-
 /** "Taken off hold: <cause>" / "Taken off hold by <name> (<cause>)", as the backend writes it. */
 const UNHOLD_TEXT = /^Taken off hold(?:: (.+)| by .+ \((.+)\))$/s;
 
 /**
- * The cause of an un-hold: from the note's text when it has the backend's shape (it can be more
- * exact than the cause: "status changed to resolved"), else from `metadata.cause`; null if neither.
+ * The cause of an un-hold, read from the note's text — the backend's own words (holdNoteText.ts,
+ * `unholdNoteContent`), which can be more exact than `metadata.cause` ("status changed to
+ * resolved"). No copy of the backend's phrase table here: a cause it adds is shown without a
+ * frontend change. Null when the text is not that shape.
  */
-const unholdCause = (note: MessageNote): string | null => {
-  const match = UNHOLD_TEXT.exec(note.content.trim());
-  const fromText = (match?.[1] ?? match?.[2])?.trim();
-  if (fromText) return fromText;
-  const cause = note.metadata?.['cause'];
-  return typeof cause === 'string' ? (UNHOLD_CAUSE[cause] ?? null) : null;
+export const unholdCause = (content: string): string | null => {
+  const match = UNHOLD_TEXT.exec(content.trim());
+  const cause = (match?.[1] ?? match?.[2])?.trim();
+  if (!cause) return null;
+  return cause;
 };
 
 /**
@@ -251,7 +236,7 @@ const unholdCause = (note: MessageNote): string | null => {
 const holdActivityLabel = (note: MessageNote): string => {
   const label = holdNoteLabel(note);
   if (label !== 'Off hold') return holdNoteText({ ...note, content: label });
-  const cause = unholdCause(note);
+  const cause = unholdCause(note.content);
   return cause ? `${label} · ${cause}` : label;
 };
 
@@ -259,10 +244,35 @@ const holdActivityLabel = (note: MessageNote): string => {
 const SAME_EVENT_MS = 60_000;
 
 /**
+ * Whether a status change and a hold note are ONE event, told by what the note itself says:
+ *  - a change TO `pending` is the hold a `kind: 'hold'` note records;
+ *  - a change FROM `pending` is an un-hold (a `kind: 'unhold'` note);
+ *  - a change made through the status control writes its un-hold note in the same request, naming
+ *    it: "… (status changed to resolved)" (a change to resolved/closed) or "… (reopened)" (to
+ *    open). ⚠ The backend's `from` there is the thread's flow status (`awaiting_response`, …),
+ *    not `pending`: hold is an overlay on it (messageNotesController.setMessageStatus), so `from`
+ *    alone cannot pair it.
+ * Any other change is never folded: a resolve right after "Taken off hold: customer replied" is
+ * its own row (review of #902).
+ */
+const sameEvent = (entry: MessageActivityEntry, note: MessageNote): boolean => {
+  const kind = note.metadata?.['kind'];
+  const { from, to } = entry.details ?? {};
+  if (to === 'pending') return kind === 'hold';
+  if (kind !== 'unhold') return false;
+  if (from === 'pending') return true;
+  const cause = unholdCause(note.content);
+  return (
+    (typeof to === 'string' && cause === `status changed to ${to}`) ||
+    (to === 'open' && cause === 'reopened')
+  );
+};
+
+/**
  * The `message.status_change` entries that ARE a hold or un-hold already shown by its hold note:
- * one hold showed twice ("Status changed from open to On hold" + "On hold until …"). A change to
- * `pending` pairs with a `kind: 'hold'` note, any other with a `kind: 'unhold'` note, within
- * SAME_EVENT_MS, each note used once (nearest first). Status changes with no such note stay.
+ * one hold showed twice ("Status changed from open to On hold" + "On hold until …"). A change
+ * pairs with a hold note of the same event (`sameEvent`) within SAME_EVENT_MS, each note used
+ * once (nearest first). Status changes with no such note stay.
  */
 const statusChangesShownByHoldNotes = (
   activity: MessageActivityEntry[],
@@ -272,12 +282,11 @@ const statusChangesShownByHoldNotes = (
   const shown = new Set<MessageActivityEntry>();
   for (const entry of activity) {
     if (entry.action !== 'message.status_change') continue;
-    const kind = entry.details?.['to'] === 'pending' ? 'hold' : 'unhold';
     const at = new Date(entry.createdAt).getTime();
     let best = -1;
     let bestGap = Infinity;
     unused.forEach((note, index) => {
-      if ((note.metadata?.['kind'] ?? null) !== kind) return;
+      if (!sameEvent(entry, note)) return;
       const gap = Math.abs(new Date(note.createdAt).getTime() - at);
       if (gap <= SAME_EVENT_MS && gap < bestGap) {
         best = index;

@@ -11,4 +11,4 @@ export { PAST_DUE_AGENT_TEXT, PAST_DUE_TEXT } from './components/cancelCopy';
 export { KbPausedBanner } from './components/KbPausedBanner';
 export { SubscriptionGateOverlay } from './components/SubscriptionGateOverlay';
 export { fmtMoney } from './components/budget.rules';
-export { useAiRefusalText, useIsWorkspaceAdmin } from './components/useAiRefusalText';
+export { useAiRefusalText } from './components/useAiRefusalText';

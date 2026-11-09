@@ -14,7 +14,7 @@ import {
 import RichTextEditor from '@/components/shared/LazyRichTextEditor';
 import { NoteContent } from '@/components/shared/NoteContent';
 import { ClearHoldReasonAction } from '@/components/shared/ClearHoldReasonAction';
-import { holdNoteLabel, isHoldNote } from '@/lib/holdNote';
+import { holdNoteLabel, holdReasonClearable, isHoldNote } from '@/lib/holdNote';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
@@ -48,9 +48,16 @@ type TicketCommentsProps = {
   ticketId: number;
   hasJiraLink: boolean;
   onCountChange?: (count: number) => void;
+  /** A hold reason was cleared here: what else shows it (the thread rows) re-reads. */
+  onHoldReasonCleared?: () => void;
 };
 
-export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketCommentsProps) => {
+export const TicketComments = ({
+  ticketId,
+  hasJiraLink,
+  onCountChange,
+  onHoldReasonCleared,
+}: TicketCommentsProps) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [newComment, setNewComment] = useState('');
@@ -435,11 +442,14 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                       {formatDate(comment.createdAt)}
                     </span>
                     {/* A hold note's reason is cleared through its thread (`messageId`). */}
-                    {isHoldNote(comment) && typeof comment.messageId === 'number' && (
+                    {holdReasonClearable(comment) && typeof comment.messageId === 'number' && (
                       <ClearHoldReasonAction
                         conversationId={comment.messageId}
                         note={comment}
-                        onCleared={() => void fetchComments()}
+                        onCleared={() => {
+                          void fetchComments();
+                          onHoldReasonCleared?.();
+                        }}
                       />
                     )}
                     {canEditComment(comment) && (
@@ -471,6 +481,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                   </div>
                   <NoteContent
                     note={comment}
+                    origin="ticket"
                     className="max-w-none text-sm prose prose-sm text-foreground"
                   />
                   {comment.attachments && comment.attachments.length > 0 && (
