@@ -29,6 +29,7 @@ import type { MessageDetailProps } from './messageDetail/types';
 import { useThreadEvents } from './messageDetail/useThreadEvents';
 import { useComposerText } from './messageDetail/useComposerText';
 import { useThreadUnsentDraft } from './messageDetail/useThreadUnsentDraft';
+import { useGuardedClassify } from './messageDetail/useGuardedClassify';
 import { useDetailDialogs } from './messageDetail/useDetailDialogs';
 import { useReplyComposerState } from './messageDetail/useReplyComposerState';
 import { useLiveThreadSync } from './messageDetail/useLiveThreadSync';
@@ -444,21 +445,8 @@ export function MessageDetail({
   });
   const { handleGhostClick } = ghost;
 
-  // Moving to spam asks first while a colleague writes a reply (§5.5). On cancel the promise
-  // resolves without classifying, so the caller's busy state ends.
-  const guardedClassify = useCallback<NonNullable<typeof onClassify>>(
-    (action, ...rest) =>
-      new Promise<void>((resolve, reject) => {
-        const run = () => {
-          Promise.resolve(onClassify?.(action, ...rest)).then(() => resolve(), reject);
-        };
-        if (action === 'move_to_spam' || action === 'confirm_spam') {
-          guard('mark as spam', run, resolve);
-        } else run();
-      }),
-    [guard, onClassify]
-  );
-  const classify = onClassify ? guardedClassify : undefined;
+  // Moving to spam asks first while a colleague writes a reply (§5.5).
+  const classify = useGuardedClassify(guard, onClassify);
 
   const threadActions = useThreadActions({
     message,
