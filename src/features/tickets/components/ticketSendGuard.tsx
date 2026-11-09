@@ -6,7 +6,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { isBlankRichText } from '@/lib/stripHtml';
+import { replyCollisionQuestion } from '@/lib/apiError';
 import type { TicketThread } from '@/features/tickets/services/ticketThreads.service';
+import { ticketRepliesService } from '@/features/tickets/services/ticketReplies.service';
 
 /**
  * When the agent last changed the box's words, for presence's "writing a reply" (null while
@@ -77,4 +79,70 @@ export const useSendCollision = <Request,>(onCancel: () => void) => {
     />
   );
   return { offer, clear, renderDialog };
+};
+
+type SendArgs = Parameters<typeof ticketRepliesService.send>;
+
+/**
+ * The ticket reply with the guard (spec §5.4): the newest event known on the ticked threads;
+ * after a 409, the agent's "send anyway". Neither known nor asked ⇒ the call exactly as before the
+ * guard existed.
+ */
+export const sendGuardedReply = (
+  threads: ReadonlyArray<Pick<TicketThread, 'conversationId' | 'lastEventId'>>,
+  ticketId: number,
+  body: SendArgs[1],
+  ids: number[],
+  resolve: boolean | undefined,
+  files: File[],
+  hold: SendArgs[5],
+  confirmOverride: boolean
+) => {
+  const seenLastEventId = seenLastEventIdOf(threads, ids);
+  const guard =
+    seenLastEventId === undefined && !confirmOverride
+      ? undefined
+      : {
+          ...(seenLastEventId !== undefined && { seenLastEventId }),
+          ...(confirmOverride && { confirmOverride: true }),
+        };
+  if (guard) {
+    return ticketRepliesService.send(
+      ticketId,
+      body,
+      ids,
+      hold ? false : resolve,
+      files,
+      hold,
+      guard
+    );
+  }
+  return hold
+    ? ticketRepliesService.send(ticketId, body, ids, false, files, hold)
+    : ticketRepliesService.send(ticketId, body, ids, resolve, files);
+};
+
+/**
+ * Thread presence on the ticket composer (spec §5.1, §5.4): `report` is the composer's input for
+ * usePresenceReport ("writing a reply" on the ticked threads); the 409 confirm, cleared when the
+ * ticket changes. `offerFromError` opens it when the error is the server's "someone got here
+ * first" (true), and leaves any other error to the caller (false).
+ */
+export const useTicketComposerPresence = <Request,>(
+  ticketId: number,
+  draft: string,
+  onCancel: () => void
+) => {
+  const lastAgentEditAt = useAgentEditStamp(draft);
+  const report = { composerText: draft, composerMode: 'reply' as const, lastAgentEditAt };
+  const { offer, clear, renderDialog } = useSendCollision<Request>(onCancel);
+  // A different ticket: no question about the previous one stays.
+  useEffect(() => clear(), [ticketId, clear]);
+  const offerFromError = (err: unknown, request: Request) => {
+    const question = replyCollisionQuestion(err);
+    if (question === null) return false;
+    offer(question, request);
+    return true;
+  };
+  return { report, offerFromError, renderDialog };
 };
