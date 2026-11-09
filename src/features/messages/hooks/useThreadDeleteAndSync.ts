@@ -27,10 +27,10 @@ export const useThreadDeleteAndSync = ({
   selectedMessage,
   clearCache,
   queryClient,
-  setSelectedMessage,
   threads,
   selectedThreadIdRef,
   moveSelectedCard,
+  closeWhenDone,
   bumpKanban,
 }: {
   setRefreshing: Data['setRefreshing'];
@@ -44,10 +44,11 @@ export const useThreadDeleteAndSync = ({
   selectedMessage: Message | null;
   clearCache: Data['clearCache'];
   queryClient: QueryClient;
-  setSelectedMessage: Dispatch<SetStateAction<Message | null>>;
   threads: MessageThread[];
   selectedThreadIdRef: MutableRefObject<string | null>;
   moveSelectedCard: (targetColId: string | null) => void;
+  /** A close after a read, only if the agent is still on that thread (useThreadDetailActions). */
+  closeWhenDone: (messageId: number | undefined) => () => void;
   bumpKanban: () => void;
 }) => {
   const handleSyncEmails = async () => {
@@ -92,6 +93,8 @@ export const useThreadDeleteAndSync = ({
     // Delete is offered from the open detail, so its card is the one captured when it opened.
     const deletingOpenThread = selectedMessage?.id === target.id;
 
+    // Taken now: the close below happens only if the agent is still on this thread then.
+    const close = closeWhenDone(target.id);
     deletingRef.current = true;
     setDeleting(true);
     try {
@@ -112,11 +115,6 @@ export const useThreadDeleteAndSync = ({
     similarResultsCache.delete(target.id);
     setMessageToDelete(null);
     /*
-      The detail stayed open behind the question (Cancel leaves it as it was); only now that the
-      thread is gone does it close — and only if it is still the deleted one.
-    */
-    setSelectedMessage((current) => (current?.id === target.id ? null : current));
-    /*
       The board too: the backend emits no delete event, so nothing else takes the card away. The
       open thread's card goes at once (a full board refetch where none was captured — list mode,
       a deep link); anything else is a refetch.
@@ -130,7 +128,13 @@ export const useThreadDeleteAndSync = ({
     } else {
       bumpKanban();
     }
-    if (deletingOpenThread) selectedThreadIdRef.current = null;
+    /*
+      The detail stayed open behind the question (Cancel leaves it as it was); only now that the
+      thread is gone does it close — only if it is still the deleted one — and `?id` goes with it,
+      as with every other close (it used to keep naming the deleted thread). After the card move,
+      which needs the remembered card.
+    */
+    close();
     await fetchMessages(1, true).catch((err) => logger.error('Failed to fetch messages:', err));
   };
 

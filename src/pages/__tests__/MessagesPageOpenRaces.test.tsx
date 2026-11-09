@@ -69,7 +69,7 @@ vi.mock('@/services/message.service', () => ({
     getById: vi.fn((id: number) => Promise.resolve({ success: true, data: messageFor(id) })),
     markRead: vi.fn(() => Promise.resolve()),
     markUnread: vi.fn(() => Promise.resolve()),
-    delete: vi.fn(),
+    delete: vi.fn(() => Promise.resolve({ success: true })),
     getThreadBoard: vi.fn(() => Promise.resolve({ success: false })),
     classify: mocks.classify,
     reopen: vi.fn(() => Promise.resolve()),
@@ -187,8 +187,10 @@ vi.mock('@/features/messages/components/MessageDetail', () => ({
     onClassify,
     onReject,
     onResolve,
+    onDelete,
   }: {
     message: { id: number };
+    onDelete?: () => void;
     onClose?: () => void;
     onClassify?: (action: string) => Promise<void>;
     onReject?: () => void;
@@ -218,6 +220,11 @@ vi.mock('@/features/messages/components/MessageDetail', () => ({
       <button type="button" onClick={() => void onClassify?.('move_to_spam')}>
         Move to spam
       </button>
+      {onDelete && (
+        <button type="button" onClick={onDelete}>
+          More → Delete thread
+        </button>
+      )}
     </div>
   ),
 }));
@@ -249,10 +256,10 @@ afterEach(() => {
   mocks.fetchMessages.mockImplementation(() => Promise.resolve());
 });
 
-const renderPage = () =>
+const renderPage = (entries = ['/threads']) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/threads']}>
+      <MemoryRouter initialEntries={entries} initialIndex={entries.length - 1}>
         <MessagesPage />
         <UrlProbe />
       </MemoryRouter>
@@ -434,5 +441,72 @@ describe('MessagesPage — closing while an open is still loading', () => {
     await land();
     await waitFor(() => expect(detail()).toHaveTextContent('12'));
     expect(row(12)).not.toHaveAttribute('aria-busy');
+  });
+});
+
+// A link (or a history entry) naming a thread is read by useMessagesUrlSync. An answer for a link
+// the agent already left used to open that thread anyway.
+describe('MessagesPage — a deep-link read for an id the URL no longer names', () => {
+  const holdOpen = (id: number) =>
+    holdNext(getById, { success: true, data: messageFor(id) } as never);
+
+  it('Back to ?id=11, then Back to no id while 11 is still loading: nothing pops open', async () => {
+    renderPage(['/threads', '/threads?id=COR-SUP-11', '/threads?id=COR-SUP-12']);
+    await waitFor(() => expect(detail()).toHaveTextContent('12'));
+    const land = holdOpen(11);
+    press('Browser Back');
+    await waitFor(() => expect(getById).toHaveBeenLastCalledWith('COR-SUP-11', undefined));
+    press('Browser Back');
+    await waitFor(() => expect(detail()).toBeNull());
+    await land();
+    expect(detail()).toBeNull();
+    expect(urlId()).toBe('');
+  });
+
+  it('a link read still loading when a row is opened: the row’s thread stays', async () => {
+    const land = holdOpen(11);
+    renderPage(['/threads?id=COR-SUP-11']);
+    await waitFor(() => expect(getById).toHaveBeenLastCalledWith('COR-SUP-11', undefined));
+    await openDetail(12);
+    await land();
+    expect(detail()).toHaveTextContent('12');
+    expect(urlId()).toBe('COR-SUP-12');
+  });
+
+  it('CONTROL: a link that stays still opens when its read lands', async () => {
+    const land = holdOpen(11);
+    renderPage(['/threads?id=COR-SUP-11']);
+    await waitFor(() => expect(getById).toHaveBeenLastCalledWith('COR-SUP-11', undefined));
+    await land();
+    await waitFor(() => expect(detail()).toHaveTextContent('11'));
+    expect(urlId()).toBe('COR-SUP-11');
+  });
+});
+
+describe('MessagesPage — delete closes the thread and drops ?id', () => {
+  const confirmDelete = async () => {
+    press('More → Delete thread');
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+  };
+
+  it('the deleted thread’s ?id leaves the address bar', async () => {
+    renderPage();
+    await openDetail(12);
+    await confirmDelete();
+    await waitFor(() => expect(detail()).toBeNull());
+    expect(urlId()).toBe('');
+  });
+
+  it('CONTROL: 11 opened while the delete of 12 ran: 11 and its ?id stay', async () => {
+    renderPage();
+    await openDetail(12);
+    const land = holdNext(vi.mocked(messageService.delete), { success: true } as never);
+    await confirmDelete();
+    await waitFor(() => expect(messageService.delete).toHaveBeenCalledWith(12));
+    await openDetail(11);
+    await land();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(detail()).toHaveTextContent('11');
+    expect(urlId()).toBe('COR-SUP-11');
   });
 });
