@@ -38,6 +38,7 @@ import { Button } from '@/components/ui/Button';
 import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
 import { RowAssignee } from './RowAssignee';
+import { RowPresence } from '../presence/RowPresence';
 import type { ListDensity } from './useListPresentation';
 import { useAiDraftsOff } from '@/features/settings/shell';
 import {
@@ -659,7 +660,8 @@ const MessageListItemRow = ({
         <div className={wide('md:block')}>
           <ThreadStatusCell status={status} />
         </div>
-        <div className={cn(wide('md:flex'), 'justify-end')}>
+        <div className={cn(wide('md:flex'), 'justify-end items-center gap-1.5')}>
+          <RowPresence conversationId={msg.id} />
           <RowAssignee thread={thread} />
         </div>
         <span
@@ -685,6 +687,7 @@ const MessageListItemRow = ({
             {signals}
           </span>
           <span className="flex-1" />
+          <RowPresence conversationId={msg.id} />
           <RowAssignee thread={thread} />
         </div>
       </div>
@@ -759,6 +762,7 @@ const MessageListItemRow = ({
           {signals}
           {refs}
           <span className="flex-1" />
+          <RowPresence conversationId={msg.id} />
           <RowAssignee thread={thread} />
         </div>
       </CardContent>

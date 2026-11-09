@@ -23,7 +23,7 @@ export interface PresenceEyeProps {
   capNote?: string;
 }
 
-const STATE_COPY: Record<PresenceState, string> = {
+export const STATE_COPY: Record<PresenceState, string> = {
   writing_reply: 'writing a reply…',
   writing_note: 'writing a note',
   viewing: 'viewing',
@@ -41,7 +41,7 @@ export const sinceCopy = (since: string, now: number): string => {
   return `since ${hours} h`;
 };
 
-const agentCountLabel = (count: number): string =>
+export const agentCountLabel = (count: number): string =>
   `${count} other ${count === 1 ? 'agent' : 'agents'} in this thread`;
 
 function ViewerList({ viewers, capNote }: { viewers: PresenceViewer[]; capNote?: string }) {

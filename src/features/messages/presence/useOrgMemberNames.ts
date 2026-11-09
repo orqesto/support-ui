@@ -25,14 +25,20 @@ const UNKNOWN_AGENT: PresenceAgent = {
   known: false,
 };
 
-/** Returns a lookup that never fails: a userId missing from the list is "Another agent". */
-export const useOrgMemberNames = (): ((userId: number) => PresenceAgent) => {
+/**
+ * Returns a lookup that never fails: a userId missing from the list is "Another agent".
+ * `fetch: false` only reads what other screens already loaded (a list row must not start the
+ * request just to draw a badge); the names then fill in when the list arrives.
+ */
+export const useOrgMemberNames = (
+  options: { fetch?: boolean } = {}
+): ((userId: number) => PresenceAgent) => {
   // Keyed by the active workspace: after a switch the old workspace's list must never answer.
   const orgId = useAuthStore((state) => state.selectedOrganizationId);
   const { data } = useQuery({
     queryKey: ['organization-members', orgId],
     queryFn: () => organizationService.getMembers(),
-    enabled: orgId !== null,
+    enabled: orgId !== null && options.fetch !== false,
     staleTime: MEMBERS_STALE_MS,
   });
   const byId = new Map<number, PresenceAgent>();

@@ -25,6 +25,7 @@ import { cn, formatAge, safeCssColor } from '@/lib/utils';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
+import { RowPresence } from '../presence/RowPresence';
 import { SPINE_BG, getAiState, getAvatarColor, getPriorityBadge, getSpine, getSuspicionBadge, hasAttachments } from './inboxCardHelpers';
 import { getInitials } from '@/lib/initials';
 import { TRIAGE_READ_COLUMN_IDS } from './kanbanColumns';
@@ -462,6 +463,8 @@ export const KanbanCard = ({
         )}
 
         <span className="flex-1" />
+
+        {msg && <RowPresence conversationId={msg.id} />}
 
         {/* Trigger stays in flow so card layout never reflows when the picker opens.
             Picker overlays as an absolute-positioned popover anchored to the trigger. */}
