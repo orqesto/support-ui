@@ -67,3 +67,15 @@ export const holdReasonClearable = (note: HoldNoteFields): boolean => {
   const meta = holdMetadataOf(note);
   return Boolean(meta?.reason) && !meta?.reasonCleared;
 };
+
+/** What a `conversation:updated` carries when an admin cleared a hold reason. */
+export const HOLD_REASON_CLEARED = 'hold_reason_cleared';
+
+/**
+ * Whether a `conversation:updated` says an admin cleared a hold reason. The backend names what
+ * happened in `reason` on some events and `action` on others; either is read.
+ */
+export const isHoldReasonCleared = (data: unknown): boolean => {
+  const event = data as { reason?: unknown; action?: unknown } | null;
+  return event?.reason === HOLD_REASON_CLEARED || event?.action === HOLD_REASON_CLEARED;
+};

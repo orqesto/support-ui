@@ -24,8 +24,9 @@ import {
 import type { LeadQualificationFieldConfig } from '@/services/organization.service';
 
 import type { Message, MessageEvent } from '@/types';
-import { holdNoteLabel, isHoldNote } from '@/lib/holdNote';
+import { holdNoteLabel, holdReasonClearable, isHoldNote } from '@/lib/holdNote';
 import { logger } from '@/lib/logger';
+import { noteFromEditor, noteToEditor } from '@/lib/noteText';
 import { contactLookupKey } from '@/lib/messageHelpers';
 import RichTextEditor from '@/components/shared/LazyRichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
@@ -191,9 +192,12 @@ export function MessagePanelTabs({
     async (noteId: number) => {
       if (!editNoteContent || editNoteContent === '<p></p>') return;
       try {
-        const res = await messageService.updateNote(message.id, noteId, editNoteContent);
+        // A thread note is plain text (noteText.ts): the editor's HTML is saved as its text, as
+        // the composer's note is — saved as HTML it showed as "<p>…</p>" (review of #902).
+        const text = noteFromEditor(editNoteContent);
+        const res = await messageService.updateNote(message.id, noteId, text);
         if (res.success) {
-          onNoteUpdated(noteId, editNoteContent);
+          onNoteUpdated(noteId, text);
           setEditingNoteId(null);
           setEditNoteContent('');
         }
@@ -508,7 +512,7 @@ export function MessagePanelTabs({
                         {hold && <>{holdNoteLabel(note)} · </>}
                         {who} · {relativeTime(note.createdAt)}
                       </span>
-                      {hold && onNotesChanged && (
+                      {onNotesChanged && holdReasonClearable(note) && (
                         <ClearHoldReasonAction
                           conversationId={message.id}
                           note={note}
@@ -523,7 +527,7 @@ export function MessagePanelTabs({
                             aria-label="Edit note"
                             onClick={() => {
                               setEditingNoteId(note.id);
-                              setEditNoteContent(note.content);
+                              setEditNoteContent(noteToEditor(note, 'thread'));
                             }}
                             className="p-0 w-auto h-auto text-note hover:text-note max-sm:min-w-10 max-sm:min-h-10"
                           >
@@ -578,6 +582,7 @@ export function MessagePanelTabs({
                     ) : (
                       <NoteContent
                         note={note}
+                        origin="thread"
                         className="text-[11px] leading-snug prose prose-sm max-w-none dark:prose-invert"
                       />
                     )}

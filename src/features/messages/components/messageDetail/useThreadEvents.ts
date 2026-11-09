@@ -11,6 +11,7 @@ import {
   unseenEvents,
 } from '../threadNewEvents';
 import { threadTimeOf } from '../threadDays';
+import { useHoldReasonClearedRefresh } from '../../hooks/useHoldReasonClearedRefresh';
 import { THREAD_PAGE } from './detailConstants';
 import type { MessageDetailProps } from './types';
 
@@ -113,6 +114,22 @@ export function useThreadEvents(
   const [participantsBump, setParticipantsBump] = useState(0);
   // Our own note: only the notes change (a note writes no activity — its audit row is the note's).
   const [notesBump, setNotesBump] = useState(0);
+  /*
+    An admin cleared a hold reason: it shows in the notes, the Activity tab and the header chip.
+    Cleared HERE (onHoldReasonCleared): all three are re-read — the header by the light re-read of
+    THIS conversation (rereadHeaderRef). Cleared anywhere (`conversation:updated`, reason
+    `hold_reason_cleared`): the notes and Activity; the header already re-reads on every
+    `conversation:updated` (useConversationStatusRefresh). Stable identities.
+  */
+  const rereadHoldPanels = useCallback(() => {
+    setNotesBump((key) => key + 1);
+    setActivityBump((key) => key + 1);
+  }, []);
+  const onHoldReasonCleared = useCallback(() => {
+    rereadHoldPanels();
+    rereadHeaderRef.current?.();
+  }, [rereadHoldPanels]);
+  useHoldReasonClearedRefresh(message.id, rereadHoldPanels);
   const threadMessagesRef = useRef(threadMessages);
   threadMessagesRef.current = threadMessages;
   const participantsRef = useRef<string[]>([]);
@@ -226,6 +243,7 @@ export function useThreadEvents(
     participantsBump,
     notesBump,
     setNotesBump,
+    onHoldReasonCleared,
     participantsRef,
     pullNewEvents,
     pullNewEventsRef,

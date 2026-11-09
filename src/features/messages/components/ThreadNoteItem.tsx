@@ -1,5 +1,5 @@
 import { ClearHoldReasonAction } from '@/components/shared/ClearHoldReasonAction';
-import { holdNoteLabel, holdNoteText, isHoldNote } from '@/lib/holdNote';
+import { holdNoteLabel, holdNoteText, holdReasonClearable, isHoldNote } from '@/lib/holdNote';
 import { noteBodyText } from '@/lib/noteText';
 import { formatDate, formatWhen } from '@/lib/utils';
 import type { MessageNote } from '@/services/message.service';
@@ -51,7 +51,7 @@ export function ThreadNoteItem({
           </span>
           <b className="font-display font-semibold">{note.authorName}</b>
           <span title={formatDate(note.createdAt)}>· {formatWhen(note.createdAt)}</span>
-          {hold && conversationId !== undefined && onNotesChanged && (
+          {conversationId !== undefined && onNotesChanged && holdReasonClearable(note) && (
             <ClearHoldReasonAction
               conversationId={conversationId}
               note={note}
@@ -62,7 +62,7 @@ export function ThreadNoteItem({
         <div
           className={`rounded-xl px-[13px] py-[11px] ${bubble} border border-l-[3px] text-foreground text-[13.5px] leading-[1.62] whitespace-pre-wrap break-words ${PHONE_THREAD_BUBBLE}`}
         >
-          {hold ? holdNoteText(note) : noteBodyText(note)}
+          {hold ? holdNoteText(note) : noteBodyText(note, 'thread')}
         </div>
       </div>
     </div>

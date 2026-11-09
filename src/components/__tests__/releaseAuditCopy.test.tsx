@@ -12,7 +12,7 @@ import { MemoryRouter } from 'react-router-dom';
 
 let trialStatus: string | undefined;
 let canViewSubscription = true;
-let viewer: { role: string; organizationRole: string } | null = null;
+let viewer: { role: string; organizationRole: string; organizationId: number } | null = null;
 let aiConfigured = true;
 
 vi.mock('@/stores/onboardingStore', () => ({
@@ -60,7 +60,7 @@ const { TranslateButton } = await import('@/components/shared/TranslateButton');
 beforeEach(() => {
   trialStatus = undefined;
   canViewSubscription = true;
-  viewer = { role: 'user', organizationRole: 'org_admin' };
+  viewer = { role: 'user', organizationRole: 'org_admin', organizationId: 1 };
   aiConfigured = true;
 });
 afterEach(cleanup);
@@ -159,7 +159,7 @@ describe('decision 5: Zendesk tickets come in as threads', () => {
 describe('B3: an agent with no AI gets no dead Translate control', () => {
   it('agent, no AI: nothing rendered', () => {
     aiConfigured = false;
-    viewer = { role: 'user', organizationRole: 'support' };
+    viewer = { role: 'user', organizationRole: 'support', organizationId: 1 };
     render(<TranslateButton messageId={5} onTranslated={vi.fn()} />);
     expect(screen.queryByRole('button', { name: 'Translate' })).toBeNull();
   });
