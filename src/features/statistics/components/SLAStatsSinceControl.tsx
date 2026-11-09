@@ -20,11 +20,7 @@ export const SLAStatsSinceControl = () => {
   const queryClient = useQueryClient();
   const { isOrgAdmin } = usePermissions();
   const [confirming, setConfirming] = useState(false);
-  const {
-    data: since,
-    isLoading,
-    isError,
-  } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: SLA_STATS_SINCE_KEY,
     queryFn: slaService.getStatsSince,
   });
@@ -38,7 +34,11 @@ export const SLAStatsSinceControl = () => {
         predicate: (query) => query.queryKey[0] !== SLA_STATS_SINCE_KEY[0],
       });
       toast.success(
-        saved ? 'SLA Performance now counts from now' : 'SLA Performance counts all history'
+        saved.isDefault
+          ? 'SLA Performance counts from when exact tracking began'
+          : saved.since
+            ? 'SLA Performance now counts from now'
+            : 'SLA Performance counts all history'
       );
     },
     onError: () => toast.error('Could not change where SLA Performance counts from'),
@@ -46,10 +46,15 @@ export const SLAStatsSinceControl = () => {
 
   // A backend without the setting (older than 0230) answers 404: show nothing rather than a
   // button that cannot work.
-  if (isLoading || isError) return null;
+  if (isLoading || isError || !data) return null;
+  const { since, isDefault } = data;
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-      <span>{since ? `Counting from ${formatSince(since)}` : 'Counting all history'}</span>
+      <span>
+        {since
+          ? `Counting from ${formatSince(since)}${isDefault ? ' (when exact tracking began)' : ''}`
+          : 'Counting all history'}
+      </span>
       {isOrgAdmin && (
         <>
           <Button
@@ -68,6 +73,16 @@ export const SLAStatsSinceControl = () => {
               onClick={() => mutation.mutate(null)}
             >
               Count everything
+            </Button>
+          )}
+          {!isDefault && (
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={mutation.isPending}
+              onClick={() => mutation.mutate('default')}
+            >
+              Back to default
             </Button>
           )}
         </>
