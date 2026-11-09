@@ -156,6 +156,25 @@ describe('the question inside a clickable card or row does not open the thread (
       expect(open).not.toHaveBeenCalled();
     });
 
+    it(`${name}: Space on "Assign anyway" assigns and does not open the thread`, async () => {
+      const user = userEvent.setup();
+      ask(node);
+      screen.getByRole('button', { name: 'Assign anyway' }).focus();
+      await user.keyboard(' ');
+      expect(assigned).toHaveBeenCalledTimes(1);
+      expect(open).not.toHaveBeenCalled();
+    });
+
+    it(`${name}: Escape closes the question without assigning or opening the thread`, async () => {
+      const user = userEvent.setup();
+      ask(node);
+      screen.getByRole('button', { name: 'Assign anyway' }).focus();
+      await user.keyboard('{Escape}');
+      expect(screen.queryByText(/is writing a reply/)).toBeNull();
+      expect(assigned).not.toHaveBeenCalled();
+      expect(open).not.toHaveBeenCalled();
+    });
+
     it(`${name}: Enter on "Assign anyway" assigns and does not open the thread`, async () => {
       const user = userEvent.setup();
       ask(node);

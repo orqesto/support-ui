@@ -27,6 +27,7 @@ import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
 import { RowPresence } from '../presence/RowPresence';
 import { useListWritingGuard } from '../presence/useWritingGuard';
+import { isFromPortal } from './isFromPortal';
 import { SPINE_BG, getAiState, getAvatarColor, getPriorityBadge, getSpine, getSuspicionBadge, hasAttachments } from './inboxCardHelpers';
 import { getInitials } from '@/lib/initials';
 import { TRIAGE_READ_COLUMN_IDS } from './kanbanColumns';
@@ -221,7 +222,8 @@ export const KanbanCard = ({
 
   // Don't open the conversation if the click was the end of a text selection
   // — agents need to be able to copy IDs, sender emails, subject text.
-  const handleCardClick = () => {
+  const handleCardClick = (event: React.MouseEvent) => {
+    if (isFromPortal(event)) return;
     const sel = window.getSelection?.();
     if (sel && sel.toString().length > 0) return;
     onOpen(thread);
@@ -233,6 +235,7 @@ export const KanbanCard = ({
       tabIndex={0}
       onClick={handleCardClick}
       onKeyDown={(event) => {
+        if (isFromPortal(event)) return;
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           onOpen(thread);

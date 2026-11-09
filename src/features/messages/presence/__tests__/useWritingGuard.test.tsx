@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { User } from '@/types';
 import { useAuthStore } from '@/stores/authStore';
@@ -100,6 +101,32 @@ describe('useWritingGuard — confirm an action while someone writes a reply (sp
     expect(screen.getByText('Anna Kim is writing a reply — close anyway?')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Close anyway' }));
     expect(first).toHaveBeenCalledTimes(1);
+  });
+
+  it('Escape on a focused dialog button closes it, reports the cancel, and never runs (fix round 3)', async () => {
+    const user = userEvent.setup();
+    mount([viewer(7, 'writing_reply')]);
+    const run = vi.fn();
+    const cancelled = vi.fn();
+    press('close', run, cancelled);
+    screen.getByRole('button', { name: 'Close anyway' }).focus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(cancelled).toHaveBeenCalledTimes(1);
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('Tab from the last dialog button stays inside the dialog (focus trap, fix round 3)', async () => {
+    const user = userEvent.setup();
+    mount([viewer(7, 'writing_reply')]);
+    press('close', vi.fn());
+    const dialog = screen.getByRole('dialog');
+    const buttons = within(dialog).getAllByRole('button');
+    buttons[buttons.length - 1].focus();
+    await user.tab();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    await user.tab({ shift: true });
+    expect(dialog.contains(document.activeElement)).toBe(true);
   });
 
   it('cancel does not run the action and tells the caller', () => {
