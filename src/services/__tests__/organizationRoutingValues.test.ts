@@ -70,7 +70,10 @@ describe('organizationService — routing keys and values', () => {
       ])
     );
     await expect(organizationService.getRoutingKeyValues('payment_sys')).resolves.toHaveLength(1);
-    expect(get).toHaveBeenCalledWith('/api/organizations/routing-keys/payment_sys/values', undefined);
+    expect(get).toHaveBeenCalledWith(
+      '/api/organizations/routing-keys/payment_sys/values',
+      undefined
+    );
     put.mockResolvedValue(reply({ value: 'usd c', description: null }));
     await organizationService.setRoutingValueDescription('payment_sys', 'usd c', null);
     expect(put).toHaveBeenCalledWith('/api/organizations/routing-keys/payment_sys/values/usd%20c', {
@@ -86,12 +89,16 @@ describe('organizationService — routing keys and values', () => {
   });
 
   it('values on an older backend (404) → null, not an error', async () => {
-    get.mockRejectedValue(Object.assign(new Error('Not found'), { status: 404, data: { error: 'Not found' } }));
+    get.mockRejectedValue(
+      Object.assign(new Error('Not found'), { status: 404, data: { error: 'Not found' } })
+    );
     await expect(organizationService.getRoutingKeyValues('payment_sys')).resolves.toBeNull();
   });
 
   it('suggest refused (409) → the reason, not an error', async () => {
-    post.mockRejectedValue(Object.assign(new Error('Conflict'), { status: 409, data: { reason: 'no_ai' } }));
+    post.mockRejectedValue(
+      Object.assign(new Error('Conflict'), { status: 409, data: { reason: 'no_ai' } })
+    );
     await expect(
       organizationService.suggestRoutingValueDescription('payment_sys', 'usdt')
     ).resolves.toEqual({ refused: 'no_ai' });
@@ -109,7 +116,10 @@ describe('organizationService — routing keys and values', () => {
   it('the reassignment count is asked for only when the caller wants it (it costs a month scan)', async () => {
     get.mockResolvedValue(reply([]));
     await organizationService.getRoutingKeyValues('payment_sys');
-    expect(get).toHaveBeenLastCalledWith('/api/organizations/routing-keys/payment_sys/values', undefined);
+    expect(get).toHaveBeenLastCalledWith(
+      '/api/organizations/routing-keys/payment_sys/values',
+      undefined
+    );
     await organizationService.getRoutingKeyValues('payment_sys', { includeReassigned: true });
     expect(get).toHaveBeenLastCalledWith('/api/organizations/routing-keys/payment_sys/values', {
       params: { include: 'reassigned' },
@@ -182,14 +192,19 @@ describe('organizationService — routing keys and values', () => {
         { label: 'no id' },
       ])
     );
-    await expect(organizationService.getRoutingPatternPresets()).resolves.toEqual([
-      { id: 'iban', label: 'IBAN', category: 'banking', caseSensitive: true, example: 'XX00 …' },
-      { id: 'phone_e164', label: 'Phone', category: 'contact', caseSensitive: false },
-    ]);
+    await expect(organizationService.getRoutingPatternPresets()).resolves.toEqual({
+      presets: [
+        { id: 'iban', label: 'IBAN', category: 'banking', caseSensitive: true, example: 'XX00 …' },
+        { id: 'phone_e164', label: 'Phone', category: 'contact', caseSensitive: false },
+      ],
+      legacy: false,
+    });
     expect(get).toHaveBeenLastCalledWith('/api/organizations/routing-pattern-presets');
 
     get.mockRejectedValueOnce(Object.assign(new Error('Not found'), { status: 404, data: {} }));
-    const fallback = await organizationService.getRoutingPatternPresets();
+    const { presets: fallback, legacy } = await organizationService.getRoutingPatternPresets();
+    // An older backend: flagged, so the editor does not offer options it would drop.
+    expect(legacy).toBe(true);
     expect(fallback.map((preset) => preset.id)).toEqual([
       'evm_tx_hash',
       'evm_address',

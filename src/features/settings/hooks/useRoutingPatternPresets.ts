@@ -16,6 +16,8 @@ export const ROUTING_PATTERN_PRESETS_KEY = 'routing-pattern-presets';
 export function useRoutingPatternPresets(): {
   presets: SkillPatternPreset[] | null;
   failed: boolean;
+  /** An older backend: it drops strength / case options on save, so they are not offered. */
+  legacy: boolean;
 } {
   const orgId = useAuthStore(
     (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
@@ -26,5 +28,9 @@ export function useRoutingPatternPresets(): {
     staleTime: 5 * 60 * 1000,
     retry: false,
   });
-  return { presets: query.data ?? null, failed: query.isError };
+  return {
+    presets: query.data?.presets ?? null,
+    failed: query.isError,
+    legacy: query.data?.legacy ?? false,
+  };
 }

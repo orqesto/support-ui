@@ -103,6 +103,7 @@ export const RoutingValuePatterns = ({
   presets: catalogue,
   presetsFailed = false,
   languageKey = false,
+  optionsSupported = true,
 }: {
   routingKey: string;
   value: string;
@@ -112,6 +113,8 @@ export const RoutingValuePatterns = ({
   presetsFailed?: boolean;
   /** A language key: a detected language still decides; patterns count for short mails. */
   languageKey?: boolean;
+  /** False on an older backend, which drops strength / case on save: the controls are hidden. */
+  optionsSupported?: boolean;
 }) => {
   const [picks, setPicks] = useState<PresetPick[]>(() => presetsOf(initial));
   const [regexes, setRegexes] = useState<RegexPick[]>(() => regexesOf(initial));
@@ -184,18 +187,19 @@ export const RoutingValuePatterns = ({
     name: string,
     current: SkillPatternStrength,
     onPick: (next: SkillPatternStrength) => void
-  ) => (
-    <div className="w-48 shrink-0">
-      <Select
-        size="sm"
-        aria-label={`Strength of ${name}`}
-        options={STRENGTH_OPTIONS}
-        value={current}
-        disabled={busy}
-        onChange={(next) => onPick(next === 'hint' ? 'hint' : 'decides')}
-      />
-    </div>
-  );
+  ) =>
+    optionsSupported && (
+      <div className="w-48 shrink-0">
+        <Select
+          size="sm"
+          aria-label={`Strength of ${name}`}
+          options={STRENGTH_OPTIONS}
+          value={current}
+          disabled={busy}
+          onChange={(next) => onPick(next === 'hint' ? 'hint' : 'decides')}
+        />
+      </div>
+    );
 
   return (
     <div className="space-y-2 rounded-md border border-border p-3">
@@ -293,15 +297,17 @@ export const RoutingValuePatterns = ({
                   <X className="h-3 w-3" />
                 </Button>
               </Badge>
-              <Checkbox
-                label="Case-sensitive"
-                aria-label={`Case-sensitive ${entry.regex}`}
-                checked={entry.caseSensitive}
-                disabled={busy}
-                onChange={(event) =>
-                  updateRegex(entry.regex, { caseSensitive: event.target.checked })
-                }
-              />
+              {optionsSupported && (
+                <Checkbox
+                  label="Case-sensitive"
+                  aria-label={`Case-sensitive ${entry.regex}`}
+                  checked={entry.caseSensitive}
+                  disabled={busy}
+                  onChange={(event) =>
+                    updateRegex(entry.regex, { caseSensitive: event.target.checked })
+                  }
+                />
+              )}
               {strengthSelect(entry.regex, entry.strength, (next) =>
                 updateRegex(entry.regex, { strength: next })
               )}

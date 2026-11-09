@@ -38,18 +38,38 @@ vi.mock('@/services/department.service', () => ({
   departmentService: { getAll: () => Promise.resolve([]) },
 }));
 vi.mock('@/features/settings/services/invitation.service', () => ({ invitationService: {} }));
-vi.mock('@/features/settings/components/modals/UserSkillsModal', () => ({ UserSkillsModal: () => null }));
-vi.mock('@/features/settings/components/modals/InviteUserModal', () => ({ InviteUserModal: () => null }));
-vi.mock('@/features/settings/components/modals/CreateUserModal', () => ({ CreateUserModal: () => null }));
+vi.mock('@/features/settings/components/modals/UserSkillsModal', () => ({
+  UserSkillsModal: () => null,
+}));
+vi.mock('@/features/settings/components/modals/InviteUserModal', () => ({
+  InviteUserModal: () => null,
+}));
+vi.mock('@/features/settings/components/modals/CreateUserModal', () => ({
+  CreateUserModal: () => null,
+}));
 vi.mock('@/features/subscription/components/PlanOverLimitNote', () => ({
   PlanOverLimitNote: () => null,
 }));
 vi.mock('@/components/admin/RoleInfoCard', () => ({ RoleInfoCard: () => null }));
 vi.mock('@/components/auth/PermissionGuard', () => ({ PermissionGuard: () => null }));
+let workspaceSkills: Record<string, Record<string, string[]>> | null | undefined;
+vi.mock('@/features/settings/hooks/useWorkspaceSkills', () => ({
+  useWorkspaceSkills: () => ({
+    skills: workspaceSkills,
+    skillsOf: (userId: number) =>
+      workspaceSkills === undefined || workspaceSkills === null
+        ? workspaceSkills
+        : (workspaceSkills[String(userId)] ?? {}),
+    refresh: vi.fn(),
+  }),
+  sameSkillKey: (left: string, right: string) => left === right,
+  sameSkillValue: (left: string, right: string) => left === right,
+}));
 
 const { UsersPage } = await import('../UsersPage');
 
 beforeEach(() => {
+  workspaceSkills = { 7: { payment_sys: ['btc', 'usdt'], lang: ['russian'] } };
   perms = {
     canManageUsers: false,
     isAdmin: false,
@@ -76,8 +96,26 @@ describe('Users page: Manage skills button', () => {
   });
 
   it('is shown to a user manager (manage_users)', async () => {
-    perms = { canManageUsers: true, isAdmin: false, hasPermission: (perm) => perm === 'view_users' };
+    perms = {
+      canManageUsers: true,
+      isAdmin: false,
+      hasPermission: (perm) => perm === 'view_users',
+    };
     render(<UsersPage />);
     expect(await screen.findAllByRole('button', { name: 'Manage skills' })).not.toHaveLength(0);
+  });
+
+  it('lists each member’s skills as chips — also for a support agent, who gets no edit button (owner 2026-11-09)', async () => {
+    render(<UsersPage />);
+    expect(await screen.findAllByText('lang: russian')).not.toHaveLength(0);
+    expect(screen.getAllByText('payment_sys: btc, usdt')).not.toHaveLength(0);
+    expect(screen.queryByRole('button', { name: 'Manage skills' })).toBeNull();
+  });
+
+  it('CONTROL — an older backend without the skills read: no chips, the column stays managers-only', async () => {
+    workspaceSkills = null;
+    render(<UsersPage />);
+    expect(await screen.findAllByText('agent@example.test')).not.toHaveLength(0);
+    expect(screen.queryByText('lang: russian')).toBeNull();
   });
 });

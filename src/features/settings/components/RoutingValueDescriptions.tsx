@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
 import { Sparkles, Trash2 } from 'lucide-react';
 import { aiRefusalText } from './routingCopy';
 import { RoutingValuePatterns } from './RoutingValuePatterns';
 import { useRoutingPatternPresets } from '../hooks/useRoutingPatternPresets';
+import { sameSkillKey, useWorkspaceSkills } from '../hooks/useWorkspaceSkills';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Textarea } from '@/components/ui/Textarea';
 import { organizationService } from '@/services/organization.service';
+import { useAuthStore } from '@/stores/authStore';
 import type { RoutingKeyType, RoutingValue } from '@/types/skillRouting';
 
 /**
@@ -30,6 +33,55 @@ export const RoutingValueDescriptions = ({
   const [deleting, setDeleting] = useState<string | null>(null);
   // Once for the page (cached per workspace), shared by every value's editor.
   const patternPresets = useRoutingPatternPresets();
+  // Who holds each value, by name (owner 2026-11-09): one read of every member's skills + the member
+  // list, shared by all values. Unknown (loading, failed, older backend) ⇒ only the count shows.
+  const { skills: workspaceSkills } = useWorkspaceSkills();
+  const orgId = useAuthStore(
+    (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
+  );
+  const members = useQuery({
+    queryKey: ['organization-members-names', orgId],
+    queryFn: () => organizationService.getMembers(),
+    staleTime: 60 * 1000,
+    retry: false,
+    enabled: workspaceSkills !== undefined && workspaceSkills !== null,
+  });
+  // Built once per data change, not per value per keystroke (review 2026-11-09).
+  const holdersByValue = useMemo(() => {
+    if (!workspaceSkills || !members.data) return null;
+    const nameOf = new Map(
+      (
+        members.data as Array<{
+          userId: number;
+          firstName?: string | null;
+          lastName?: string | null;
+          email?: string;
+        }>
+      ).map((member) => [
+        String(member.userId),
+        [member.firstName, member.lastName].filter(Boolean).join(' ') ||
+          member.email ||
+          `#${member.userId}`,
+      ])
+    );
+    const byValue = new Map<string, string[]>();
+    for (const [userId, byKey] of Object.entries(workspaceSkills)) {
+      for (const [key, held] of Object.entries(byKey)) {
+        if (!sameSkillKey(key, routingKey)) continue;
+        for (const value of held) {
+          const norm = value.trim().toLowerCase();
+          const names = byValue.get(norm) ?? [];
+          const name = nameOf.get(userId) ?? `#${userId}`;
+          if (!names.includes(name)) names.push(name);
+          byValue.set(norm, names);
+        }
+      }
+    }
+    for (const names of byValue.values()) names.sort((left, right) => left.localeCompare(right));
+    return byValue;
+  }, [workspaceSkills, members.data, routingKey]);
+  const holderNames = (value: string): string[] | null =>
+    holdersByValue ? (holdersByValue.get(value.trim().toLowerCase()) ?? []) : null;
 
   const load = async () => {
     const rows = await organizationService
@@ -112,6 +164,12 @@ export const RoutingValueDescriptions = ({
               <Badge variant="warning">Not a known language — matches by keyword only</Badge>
             )}
           </div>
+          {(() => {
+            const names = holderNames(row.value);
+            return names && names.length > 0 ? (
+              <p className="text-xs text-muted-foreground">Held by: {names.join(', ')}</p>
+            ) : null;
+          })()}
           <Textarea
             aria-label={`Description for ${row.value}`}
             value={drafts[row.value] ?? ''}
@@ -132,6 +190,7 @@ export const RoutingValueDescriptions = ({
               initial={row.patterns}
               presets={patternPresets.presets}
               presetsFailed={patternPresets.failed}
+              optionsSupported={!patternPresets.legacy}
               languageKey={keyType === 'language'}
             />
           )}

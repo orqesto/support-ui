@@ -295,6 +295,33 @@ export const organizationService = {
     return response.data.data;
   },
 
+  /**
+   * Every active member's routing skills in one read: `{ [userId]: { [key]: values[] } }` (BE
+   * 2026-11-09). null on an older backend without the endpoint (404); other errors throw.
+   */
+  getWorkspaceSkillValues: async (): Promise<Record<string, Record<string, string[]>> | null> => {
+    try {
+      const response = await apiClient.get<ApiResponse<unknown>>('/api/organizations/skill-values');
+      const raw = response.data.data;
+      const result: Record<string, Record<string, string[]>> = {};
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return result;
+      for (const [userId, byKey] of Object.entries(raw as Record<string, unknown>)) {
+        if (!byKey || typeof byKey !== 'object' || Array.isArray(byKey)) continue;
+        const keys: Record<string, string[]> = {};
+        for (const [key, values] of Object.entries(byKey as Record<string, unknown>)) {
+          if (Array.isArray(values)) {
+            keys[key] = values.filter((value): value is string => typeof value === 'string');
+          }
+        }
+        result[userId] = keys;
+      }
+      return result;
+    } catch (error) {
+      if (getErrorStatus(error) === 404) return null;
+      throw error;
+    }
+  },
+
   getMembers: async () => {
     const response = await apiClient.get<ApiResponse<OrganizationMember[]>>(
       '/api/organizations/members'
@@ -439,13 +466,15 @@ export const organizationService = {
       const response = await apiClient.get<ApiResponse<OrgLeadConfig>>(
         '/api/organizations/lead-config'
       );
-      return response.data.data ?? {
-        departments: ['sales'],
-        requiredContactFields: ['name', 'email'],
-        autoMarkNewSenders: false,
-        qualificationFields: [],
-        categories: [],
-      };
+      return (
+        response.data.data ?? {
+          departments: ['sales'],
+          requiredContactFields: ['name', 'email'],
+          autoMarkNewSenders: false,
+          qualificationFields: [],
+          categories: [],
+        }
+      );
     }),
 
   updateLeadConfig: async (data: Partial<OrgLeadConfig>) => {
@@ -506,7 +535,9 @@ export const organizationService = {
   /** An older backend answers without `type` (FE ships on merge, BE on a tag): read as topic. */
   getRoutingKeys: async (): Promise<RoutingKey[]> => {
     const response = await apiClient.get<
-      ApiResponse<Array<{ id: number; key: string; description: string | null; type?: RoutingKeyType }>>
+      ApiResponse<
+        Array<{ id: number; key: string; description: string | null; type?: RoutingKeyType }>
+      >
     >('/api/organizations/routing-keys');
     return (response.data.data ?? []).map((row) => ({
       ...row,
@@ -515,7 +546,11 @@ export const organizationService = {
     }));
   },
 
-  addRoutingKey: async (key: string, description?: string, type?: RoutingKeyType): Promise<void> => {
+  addRoutingKey: async (
+    key: string,
+    description?: string,
+    type?: RoutingKeyType
+  ): Promise<void> => {
     await apiClient.post('/api/organizations/routing-keys', {
       key,
       description,
@@ -561,14 +596,23 @@ export const organizationService = {
    * The ready-made patterns this workspace may tick (enabled catalogue rows, BE 2026-11-09). A 404
    * is an older backend whose list is hard-coded: it gets the v1.1.325 list it knows.
    */
-  getRoutingPatternPresets: async (): Promise<SkillPatternPreset[]> => {
+  /**
+   * The workspace's presets. `legacy`: an older backend without the endpoint (404) — the v1.1.325
+   * list, and that backend drops a pattern's strength / case options on save (review 2026-11-09),
+   * so the editor must not offer them.
+   */
+  getRoutingPatternPresets: async (): Promise<{
+    presets: SkillPatternPreset[];
+    legacy: boolean;
+  }> => {
     try {
       const response = await apiClient.get<ApiResponse<unknown>>(
         '/api/organizations/routing-pattern-presets'
       );
-      return normalizePresets(response.data.data);
+      return { presets: normalizePresets(response.data.data), legacy: false };
     } catch (error) {
-      if (getErrorStatus(error) === 404) return [...SKILL_PATTERN_PRESETS];
+      if (getErrorStatus(error) === 404)
+        return { presets: [...SKILL_PATTERN_PRESETS], legacy: true };
       throw error;
     }
   },
@@ -638,8 +682,13 @@ export const organizationService = {
   },
 
   /** `assignOnReply` is optional on the wire: an older backend answers without it (read as on). */
-  getAutoAssign: async (): Promise<{ mode: 'off' | 'match_only' | 'always'; assignOnReply?: boolean }> => {
-    const response = await apiClient.get<ApiResponse<{ mode: 'off' | 'match_only' | 'always'; assignOnReply?: boolean }>>('/api/organizations/auto-assign');
+  getAutoAssign: async (): Promise<{
+    mode: 'off' | 'match_only' | 'always';
+    assignOnReply?: boolean;
+  }> => {
+    const response = await apiClient.get<
+      ApiResponse<{ mode: 'off' | 'match_only' | 'always'; assignOnReply?: boolean }>
+    >('/api/organizations/auto-assign');
     return response.data.data ?? { mode: 'always' };
   },
 
@@ -653,7 +702,9 @@ export const organizationService = {
   },
 
   getSelfEditSkills: async (): Promise<{ allowSelfEditSkills: boolean }> => {
-    const response = await apiClient.get<ApiResponse<{ allowSelfEditSkills: boolean }>>('/api/organizations/self-edit-skills');
+    const response = await apiClient.get<ApiResponse<{ allowSelfEditSkills: boolean }>>(
+      '/api/organizations/self-edit-skills'
+    );
     return response.data.data ?? { allowSelfEditSkills: false };
   },
 

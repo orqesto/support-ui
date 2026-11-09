@@ -328,4 +328,19 @@ describe('RoutingValuePatterns', () => {
     expect(screen.getByLabelText('Custom pattern for usdt')).toHaveValue('');
     expect(save).toHaveAttribute('aria-disabled', 'true');
   });
+
+  it('an older backend (drops options on save): no strength or case controls (review 2026-11-09)', () => {
+    render(
+      <RoutingValuePatterns
+        routingKey="payment_sys"
+        value="usdt"
+        initial={[{ regex: 'ORD-\\d+' }]}
+        presets={CATALOGUE}
+        optionsSupported={false}
+      />
+    );
+    expect(screen.getByText('ORD-\\d+')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Case-sensitive ORD-\\d+')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Strength of ORD-\\d+')).not.toBeInTheDocument();
+  });
 });
