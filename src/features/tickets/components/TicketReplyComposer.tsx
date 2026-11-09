@@ -29,7 +29,7 @@ import {
 import { ticketDraftsService } from '@/features/tickets/services/ticketDrafts.service';
 import type { TicketThread } from '@/features/tickets/services/ticketThreads.service';
 import { TicketDraftsReview, useDraftsWorkflow } from './TicketDraftsReview';
-import { useAgentEditStamp, useSendCollision } from './ticketSendGuard';
+import { seenLastEventIdOf, useAgentEditStamp, useSendCollision } from './ticketSendGuard';
 import { TicketSentHistory, hasReviewedVersions, sentTo } from './TicketSentHistory';
 import {
   PlaceholderHints,
@@ -456,12 +456,17 @@ export const TicketReplyComposer = ({
       const resolveChoice = fresh ? request.resolve : undefined;
       const sendFiles = fresh ? files : [];
       const hold = request.kind === 'new' ? request.hold : undefined;
-      /*
-        No seenLastEventId: this page loads no thread events (only the ticket's threads and
-        replies), so it has no event id to send — the server then runs no send guard for a ticket
-        reply, as for an older client. Only "send anyway" is passed, after a 409.
-      */
-      const result = confirmOverride
+      // The guard (spec §5.4): the newest event known on the ticked threads; after a 409, the
+      // agent's "send anyway". Neither known nor asked ⇒ the call as before the guard existed.
+      const seenLastEventId = seenLastEventIdOf(threads, request.ids);
+      const guard =
+        seenLastEventId === undefined && !confirmOverride
+          ? undefined
+          : {
+              ...(seenLastEventId !== undefined && { seenLastEventId }),
+              ...(confirmOverride && { confirmOverride: true }),
+            };
+      const result = guard
         ? await ticketRepliesService.send(
             startedOn,
             body,
@@ -469,7 +474,7 @@ export const TicketReplyComposer = ({
             hold ? false : resolveChoice,
             sendFiles,
             hold,
-            { confirmOverride: true }
+            guard
           )
         : hold
           ? await ticketRepliesService.send(startedOn, body, request.ids, false, sendFiles, hold)

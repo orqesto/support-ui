@@ -103,6 +103,7 @@ const thread = (conversationId: number, over: Partial<TicketThread> = {}): Ticke
   parkedReason: null,
   parkedUntil: null,
   receivedUpdate: false,
+  lastEventId: null,
   ...over,
 });
 

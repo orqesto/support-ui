@@ -18,10 +18,29 @@ const publications = new Map<object, WatchPublication>();
 const listeners = new Set<() => void>();
 let version = 0;
 
-/** A watcher's current set; `null` when it unmounts. */
+const sameMap = (left: ReadonlyMap<number, number>, right: ReadonlyMap<number, number>) =>
+  left.size === right.size && [...left].every(([key, value]) => right.get(key) === value);
+
+/**
+ * A watcher's current set; `null` when it unmounts. A set equal to the one already published
+ * (the watcher republishes on every viewer-list event) notifies nobody: each notification
+ * re-renders every reporter, the ticket composer and its editor included.
+ */
 export const publishWatch = (owner: object, publication: WatchPublication | null): void => {
-  if (publication) publications.set(owner, publication);
-  else publications.delete(owner);
+  const before = publications.get(owner);
+  if (publication === null) {
+    if (!before) return;
+    publications.delete(owner);
+  } else {
+    if (
+      before &&
+      before.settings === publication.settings &&
+      before.ackSeq === publication.ackSeq &&
+      sameMap(before.survivorOf, publication.survivorOf)
+    )
+      return;
+    publications.set(owner, publication);
+  }
   version += 1;
   listeners.forEach((listener) => listener());
 };

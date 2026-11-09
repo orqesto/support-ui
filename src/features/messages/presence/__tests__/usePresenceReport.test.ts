@@ -3,7 +3,8 @@
  * ticket view (usePresenceWatch, no reporter) holds the watch on the same socket.
  */
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
-import { act, renderHook } from '@testing-library/react';
+import { act, render, renderHook } from '@testing-library/react';
+import { createElement, Fragment } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
 import type { PresenceSettings } from '../presence.types';
@@ -159,5 +160,34 @@ describe('usePresenceReport — state from the ticket composer', () => {
     expect(states()).toHaveLength(1);
     await settle(SETTINGS.heartbeatMs);
     expect(states()).toHaveLength(2);
+  });
+
+  it('a viewer-list event that changes no watch does not re-render the reporter', async () => {
+    let reporterRenders = 0;
+    const input = { composerText: '', composerMode: 'reply' as const, lastAgentEditAt: edit };
+    const Watcher = () => {
+      usePresenceWatch([10]);
+      return null;
+    };
+    const Reporter = () => {
+      reporterRenders += 1;
+      usePresenceReport([10], input);
+      return null;
+    };
+    render(createElement(Fragment, null, createElement(Watcher), createElement(Reporter)));
+    await settle(1_000);
+    expect(states()).toHaveLength(1); // the reporter is live: it sent its state
+    const before = reporterRenders;
+    await act(async () => {
+      fake.handlers.get('presence:thread')?.forEach((handler) =>
+        handler({
+          organizationId: 1,
+          conversationId: 10,
+          viewers: [{ userId: 2, state: 'viewing', since: '2026-11-09T10:00:00Z' }],
+        })
+      );
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(reporterRenders).toBe(before);
   });
 });

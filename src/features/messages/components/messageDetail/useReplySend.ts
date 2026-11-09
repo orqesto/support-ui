@@ -88,15 +88,18 @@ export function useReplySend({
     setTemplatesLoading,
     setTemplates,
   } = replyState;
-  const { setNotesBump, setThreadRefreshKey, pullNewEvents, threadMessages } = thread;
+  const { setNotesBump, setThreadRefreshKey, pullNewEvents, threadMessages, threadEventsFor } =
+    thread;
   /*
     Thread presence send guard (spec §5.4): the newest event the agent has loaded rides on the
-    reply; none loaded ⇒ omitted, the old-client path the server does not guard. A 409 saying
+    reply; none loaded — or the loaded ones belong to the thread shown before (a switch whose events
+    have not landed yet) — ⇒ omitted, the old-client path the server does not guard. Not filtered
+    by event.conversationId: a merged thread's events carry the absorbed threads' ids. A 409 saying
     someone got there first opens a confirm (`collision`, the server's question verbatim) instead
     of the Send failed bar.
   */
   const seenLastEventId =
-    threadMessages.length > 0
+    threadMessages.length > 0 && threadEventsFor === message.id
       ? threadMessages.reduce((max, event) => Math.max(max, event.id), threadMessages[0].id)
       : undefined;
   const [collision, setCollision] = useState<string | null>(null);

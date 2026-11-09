@@ -65,7 +65,7 @@ vi.mock('@/components/shared/RichTextEditor', () => ({
 
 const { TicketThreads } = await import('@/features/tickets/components/TicketThreads');
 
-const thread = (id: number) => ({
+const thread = (id: number, lastEventId: number | null = null) => ({
   conversationId: id,
   publicId: `SUP-${id}`,
   subject: 'Checkout is down',
@@ -76,6 +76,7 @@ const thread = (id: number) => ({
   isPrimary: id === 11,
   addedAt: '2026-10-01T10:00:00Z',
   owesReply: false,
+  lastEventId,
 });
 
 const refused = (status: number, code: string, message: string) =>
@@ -189,5 +190,59 @@ describe('ticket composer — presence', () => {
     expect(input.composerText).toBe('Hi');
     expect(input.composerMode).toBe('reply');
     expect(input.lastAgentEditAt.current).toEqual(expect.any(Number));
+  });
+});
+
+describe('ticket composer — what the agent had seen', () => {
+  it('sends seenLastEventId = the newest lastEventId over the TICKED threads', async () => {
+    threadsOfTicket.mockResolvedValue({
+      unavailable: false,
+      rows: [thread(11, 500), thread(12, 730), thread(13, 900)],
+      hiddenCount: 0,
+    });
+    send.mockResolvedValueOnce({ replyId: 9, existing: false, queued: [11, 12], skipped: [] });
+    const user = userEvent.setup();
+    renderTicket();
+    await waitFor(() => expect(box(13)).toBeChecked());
+    await user.click(box(13)); // 900 is on a thread this reply does not go to
+    await user.type(screen.getByLabelText('Reply text'), 'We fixed it.');
+    await user.click(screen.getByRole('button', { name: 'Send to 2 threads' }));
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Send' })
+    );
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(send.mock.calls[0]).toEqual([
+      4,
+      { content: 'We fixed it.' },
+      [11, 12],
+      false,
+      [],
+      undefined,
+      { seenLastEventId: 730 },
+    ]);
+  });
+
+  it('ticked threads with no lastEventId (all null) ⇒ omitted, the call as before', async () => {
+    send.mockResolvedValueOnce({ replyId: 9, existing: false, queued: [11, 12], skipped: [] });
+    await sendReply('We fixed it.');
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(send.mock.calls[0]).toEqual([4, { content: 'We fixed it.' }, [11, 12], false, []]);
+  });
+
+  it('Send anyway after a 409 carries the seen id AND the override', async () => {
+    threadsOfTicket.mockResolvedValue({
+      unavailable: false,
+      rows: [thread(11, 500), thread(12, 730)],
+      hiddenCount: 0,
+    });
+    send
+      .mockRejectedValueOnce(refused(409, 'REPLY_NEWER_EXISTS', NEWER))
+      .mockResolvedValueOnce({ replyId: 9, existing: false, queued: [11, 12], skipped: [] });
+    const user = await sendReply('We fixed it.');
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Send anyway' })
+    );
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    expect(send.mock.calls[1]?.[6]).toEqual({ seenLastEventId: 730, confirmOverride: true });
   });
 });

@@ -3,9 +3,13 @@
  * the server answers 409 REPLY_NEWER_EXISTS / REPLY_OTHER_WRITING when someone got there first,
  * and the agent decides in a confirm dialog. Through MessageDetail, as the app calls the services.
  */
-import { renderDetail, svc, event } from '../../__tests__/md4.mobile.utils';
+import { renderDetail, svc, event, baseMessage } from '../../__tests__/md4.mobile.utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { Message } from '@/types';
+import { MessageDetail } from '../../MessageDetail';
 
 const type = (text: string) =>
   fireEvent.change(screen.getByTestId('rich-text-editor'), { target: { value: text } });
@@ -145,5 +149,33 @@ describe('409 someone got there first', () => {
     await screen.findByText('Send failed');
     expect(screen.getByText('This reply is already being sent — wait a moment.')).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('a switch to another thread without a remount', () => {
+  it('sends no seenLastEventId until the new thread’s events have loaded', async () => {
+    svc.message.reply = vi.fn().mockResolvedValue({ success: true });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = (message: Message) => (
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <MessageDetail message={message} onClose={vi.fn()} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const { rerender } = render(view(baseMessage));
+    await ready();
+    // The next thread's events never arrive in this test: the old thread's (max 942) are on hand.
+    svc.message.getThreadMessages = vi.fn(() => new Promise(() => {}));
+    rerender(view({ ...baseMessage, id: 202, publicId: 'SUP-202' } as Message));
+    await waitFor(() =>
+      expect(svc.message.getThreadMessages).toHaveBeenCalledWith(202, expect.anything())
+    );
+    type('<p>On its way.</p>');
+    pressSend();
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(1));
+    const call = svc.message.reply.mock.calls[0] as Call;
+    expect(call[0]).toBe(202);
+    expect(collisionOf(call)).toBeUndefined();
   });
 });

@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { isBlankRichText } from '@/lib/stripHtml';
+import type { TicketThread } from '@/features/tickets/services/ticketThreads.service';
 
 /**
  * When the agent last changed the box's words, for presence's "writing a reply" (null while
@@ -22,6 +23,23 @@ export const useAgentEditStamp = (draft: string) => {
     lastWords.current = words;
   }, [draft]);
   return lastAgentEditAt;
+};
+
+/**
+ * The newest event the agent's page knew of across the ticked threads (event ids are one global
+ * serial, so one number covers them all); undefined when none is known, which leaves the reply
+ * unguarded like an older client's.
+ */
+export const seenLastEventIdOf = (
+  threads: ReadonlyArray<Pick<TicketThread, 'conversationId' | 'lastEventId'>>,
+  ids: number[]
+): number | undefined => {
+  const ticked = new Set(ids);
+  const known = threads
+    .filter((row) => ticked.has(row.conversationId))
+    .map((row) => row.lastEventId)
+    .filter((id): id is number => typeof id === 'number');
+  return known.length > 0 ? Math.max(...known) : undefined;
 };
 
 /**
