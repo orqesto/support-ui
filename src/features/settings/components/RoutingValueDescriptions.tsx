@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Sparkles, Trash2 } from 'lucide-react';
 import { aiRefusalText } from './routingCopy';
 import { RoutingValuePatterns } from './RoutingValuePatterns';
+import { useRoutingPatternPresets } from '../hooks/useRoutingPatternPresets';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -27,6 +28,8 @@ export const RoutingValueDescriptions = ({
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<Record<string, string>>({});
   const [deleting, setDeleting] = useState<string | null>(null);
+  // Once for the page (cached per workspace), shared by every value's editor.
+  const patternPresets = useRoutingPatternPresets();
 
   const load = async () => {
     const rows = await organizationService
@@ -122,11 +125,14 @@ export const RoutingValueDescriptions = ({
           {row.terms && row.terms.length > 0 && (
             <p className="text-xs text-muted-foreground">Matches: {row.terms.join(', ')}</p>
           )}
-          {keyType === 'topic' && row.patterns !== undefined && (
+          {row.patterns !== undefined && (
             <RoutingValuePatterns
               routingKey={routingKey}
               value={row.value}
               initial={row.patterns}
+              presets={patternPresets.presets}
+              presetsFailed={patternPresets.failed}
+              languageKey={keyType === 'language'}
             />
           )}
           <div className="flex items-center gap-2">

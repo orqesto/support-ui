@@ -115,4 +115,91 @@ describe('organizationService — routing keys and values', () => {
       params: { include: 'reassigned' },
     });
   });
+
+  it('value patterns keep strength and case options; malformed entries are dropped; no field stays absent', async () => {
+    get.mockResolvedValue(
+      reply([
+        {
+          value: 'usdt',
+          description: null,
+          holders: 1,
+          unused: false,
+          reassigned30d: null,
+          knownLanguage: null,
+          patterns: [
+            { preset: 'tron_address', strength: 'hint' },
+            { regex: 'ORD-\\d+', caseSensitive: true },
+            { regex: 'x', strength: 'loud' },
+            { nothing: true },
+            'junk',
+          ],
+        },
+        {
+          value: 'usdc',
+          description: null,
+          holders: 1,
+          unused: false,
+          reassigned30d: null,
+          knownLanguage: null,
+        },
+      ])
+    );
+    const rows = await organizationService.getRoutingKeyValues('payment_sys');
+    expect(rows?.[0].patterns).toEqual([
+      { preset: 'tron_address', strength: 'hint' },
+      { regex: 'ORD-\\d+', caseSensitive: true },
+      { regex: 'x' },
+    ]);
+    expect(rows?.[1]).not.toHaveProperty('patterns');
+  });
+
+  it('saving patterns PUTs them with default options left out', async () => {
+    put.mockResolvedValue(reply({}));
+    await organizationService.setRoutingValuePatterns('pay sys', 'usd t', [
+      { preset: 'tron_address', strength: 'decides' },
+      { preset: 'evm_address', strength: 'hint' },
+      { regex: 'A\\d', caseSensitive: false, strength: 'hint' },
+      { regex: 'B\\d', caseSensitive: true },
+    ]);
+    expect(put).toHaveBeenCalledWith(
+      '/api/organizations/routing-keys/pay%20sys/values/usd%20t/patterns',
+      {
+        patterns: [
+          { preset: 'tron_address' },
+          { preset: 'evm_address', strength: 'hint' },
+          { regex: 'A\\d', strength: 'hint' },
+          { regex: 'B\\d', caseSensitive: true },
+        ],
+      }
+    );
+  });
+
+  it('pattern presets: the backend list, normalized; an older backend (404) gets the built-in v1.1.325 list; other errors throw', async () => {
+    get.mockResolvedValueOnce(
+      reply([
+        { id: 'iban', label: 'IBAN', category: 'banking', caseSensitive: true, example: 'XX00 …' },
+        { id: 'phone_e164', label: 'Phone', category: 'contact', caseSensitive: false },
+        { label: 'no id' },
+      ])
+    );
+    await expect(organizationService.getRoutingPatternPresets()).resolves.toEqual([
+      { id: 'iban', label: 'IBAN', category: 'banking', caseSensitive: true, example: 'XX00 …' },
+      { id: 'phone_e164', label: 'Phone', category: 'contact', caseSensitive: false },
+    ]);
+    expect(get).toHaveBeenLastCalledWith('/api/organizations/routing-pattern-presets');
+
+    get.mockRejectedValueOnce(Object.assign(new Error('Not found'), { status: 404, data: {} }));
+    const fallback = await organizationService.getRoutingPatternPresets();
+    expect(fallback.map((preset) => preset.id)).toEqual([
+      'evm_tx_hash',
+      'evm_address',
+      'tron_address',
+      'btc_address',
+      'hex64_hash',
+    ]);
+    expect(fallback.every((preset) => preset.category === 'crypto')).toBe(true);
+
+    get.mockRejectedValueOnce(Object.assign(new Error('Server'), { status: 500, data: {} }));
+    await expect(organizationService.getRoutingPatternPresets()).rejects.toThrow('Server');
+  });
 });

@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import type { RoutingValue } from '@/types/skillRouting';
+import { render as rtlRender, screen, waitFor, fireEvent } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactElement } from 'react';
+import {
+  SKILL_PATTERN_PRESETS,
+  type RoutingValue,
+  type SkillPatternPreset,
+} from '@/types/skillRouting';
 
 /**
  * Settings → Routing skills → a key's values (BE spec 2026-11-02 skill routing §6.8): what each
@@ -18,8 +24,10 @@ const suggestRoutingValueDescription =
       value: string
     ) => Promise<{ description: string } | { refused: 'no_ai' | 'budget' | 'failed' }>
   >();
+const getRoutingPatternPresets = vi.fn<() => Promise<SkillPatternPreset[]>>();
 vi.mock('@/services/organization.service', () => ({
   organizationService: {
+    getRoutingPatternPresets: () => getRoutingPatternPresets(),
     getRoutingKeyValues: (key: string, options?: { includeReassigned?: boolean }) => getRoutingKeyValues(key, options),
     setRoutingValueDescription: (key: string, value: string, description: string | null) =>
       setRoutingValueDescription(key, value, description),
@@ -30,6 +38,16 @@ vi.mock('@/services/organization.service', () => ({
 }));
 
 import { RoutingValueDescriptions } from '../RoutingValueDescriptions';
+
+// The presets come through react-query (once per page): each render gets a fresh cache.
+const render = (node: ReactElement) =>
+  rtlRender(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      {node}
+    </QueryClientProvider>
+  );
 
 const row = (overrides: Partial<RoutingValue> = {}): RoutingValue => ({
   value: 'usdc',
@@ -46,6 +64,7 @@ describe('RoutingValueDescriptions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setRoutingValueDescription.mockResolvedValue();
+    getRoutingPatternPresets.mockResolvedValue([...SKILL_PATTERN_PRESETS]);
   });
 
   it('lists each value with its holders and description; saving sends the edited text', async () => {
@@ -131,22 +150,48 @@ describe('RoutingValueDescriptions', () => {
     expect(await screen.findByText(/could not answer/i)).toBeInTheDocument();
   });
 
-  it('topic values show the text patterns editor; language keys and an older backend do not', async () => {
+  it('topic and language values show the text patterns editor; only language keys get the language note; an older backend shows none', async () => {
     getRoutingKeyValues.mockResolvedValue([row({ patterns: [{ preset: 'evm_tx_hash' }] })]);
-    const { unmount } = render(<RoutingValueDescriptions routingKey="payment_sys" keyType="topic" />);
-    expect(await screen.findByLabelText(/EVM transaction hash/)).toBeChecked();
+    const { unmount } = render(
+      <RoutingValueDescriptions routingKey="payment_sys" keyType="topic" />
+    );
+    expect(await screen.findByRole('checkbox', { name: /EVM transaction hash/ })).toBeChecked();
+    expect(screen.queryByText(/language still decides/)).not.toBeInTheDocument();
     unmount();
 
-    getRoutingKeyValues.mockResolvedValue([row({ patterns: [] })]);
+    getRoutingKeyValues.mockResolvedValue([
+      row({ value: 'russian', patterns: [{ regex: '[а-яё]{3,}' }] }),
+    ]);
     const language = render(<RoutingValueDescriptions routingKey="lang" keyType="language" />);
-    expect(await screen.findByText('usdc')).toBeInTheDocument();
-    expect(screen.queryByText('Text patterns')).not.toBeInTheDocument();
+    expect(await screen.findByText('[а-яё]{3,}')).toBeInTheDocument();
+    expect(screen.getByText('Text patterns')).toBeInTheDocument();
+    expect(screen.getByText(/detected or requested language still decides/)).toBeInTheDocument();
     language.unmount();
 
-    // CONTROL: no `patterns` field (older backend) ⇒ no editor on a topic key either.
+    // CONTROL: no `patterns` field (older backend) ⇒ no editor.
     getRoutingKeyValues.mockResolvedValue([row()]);
     render(<RoutingValueDescriptions routingKey="payment_sys" keyType="topic" />);
     expect(await screen.findByText('usdc')).toBeInTheDocument();
     expect(screen.queryByText('Text patterns')).not.toBeInTheDocument();
+  });
+
+  it('loads the presets once for the whole list, not once per value', async () => {
+    getRoutingKeyValues.mockResolvedValue([
+      row({ value: 'usdc', patterns: [] }),
+      row({ value: 'usdt', patterns: [{ preset: 'tron_address' }] }),
+      row({ value: 'btc', patterns: [] }),
+    ]);
+    render(<RoutingValueDescriptions routingKey="payment_sys" keyType="topic" />);
+    expect(await screen.findByText('btc')).toBeInTheDocument();
+    expect((await screen.findAllByRole('checkbox', { name: /Tron address/ })).length).toBe(3);
+    expect(getRoutingPatternPresets).toHaveBeenCalledTimes(1);
+  });
+
+  it('a failed presets read still shows the editor, with the stored presets by id', async () => {
+    getRoutingPatternPresets.mockRejectedValue(new Error('network'));
+    getRoutingKeyValues.mockResolvedValue([row({ patterns: [{ preset: 'evm_tx_hash' }] })]);
+    render(<RoutingValueDescriptions routingKey="payment_sys" keyType="topic" />);
+    expect(await screen.findByText(/Could not load the ready-made patterns/)).toBeInTheDocument();
+    expect(screen.getByText('evm_tx_hash')).toBeInTheDocument();
   });
 });
