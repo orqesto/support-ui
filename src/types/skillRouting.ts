@@ -30,11 +30,15 @@ export const SKILL_PATTERN_PRESETS = [
   { id: 'evm_tx_hash', label: 'EVM transaction hash', example: '0x + 64 hex characters' },
   { id: 'evm_address', label: 'EVM address', example: '0x + 40 hex characters' },
   { id: 'tron_address', label: 'Tron address', example: 'T + 33 characters' },
-  { id: 'btc_address', label: 'Bitcoin address', example: '1…, 3… or bc1…' },
+  {
+    id: 'btc_address',
+    label: 'Bitcoin address',
+    example: '1…, 3… or bc1… — may also match other codes starting with 1 or 3',
+  },
   {
     id: 'hex64_hash',
     label: 'Transaction hash without 0x',
-    example: '64 hex characters: Tron, Bitcoin and others look the same',
+    example: '64 hex characters: Tron, Bitcoin and others look the same — also other 64-hex codes',
   },
 ] as const;
 
