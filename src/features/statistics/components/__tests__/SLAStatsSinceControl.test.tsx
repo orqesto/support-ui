@@ -6,13 +6,24 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup, screen, fireEvent, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-const state = { since: null as string | null, admin: true, saved: [] as Array<'now' | null> };
+const state = {
+  since: null as string | null,
+  isDefault: false,
+  admin: true,
+  saved: [] as Array<'now' | 'default' | null>,
+};
 vi.mock('@/features/statistics/services/sla.service', () => ({
   slaService: {
-    getStatsSince: () => Promise.resolve(state.since),
-    setStatsSince: (since: 'now' | null) => {
+    getStatsSince: () => Promise.resolve({ since: state.since, isDefault: state.isDefault }),
+    setStatsSince: (since: 'now' | 'default' | null) => {
       state.saved.push(since);
-      return Promise.resolve(since === 'now' ? '2026-11-09T12:00:00.000Z' : null);
+      return Promise.resolve(
+        since === 'now'
+          ? { since: '2026-11-09T12:00:00.000Z', isDefault: false }
+          : since === 'default'
+            ? { since: '2026-11-09T10:00:00.000Z', isDefault: true }
+            : { since: null, isDefault: false }
+      );
     },
   },
 }));
@@ -32,6 +43,7 @@ const mount = () =>
 afterEach(() => {
   cleanup();
   state.since = null;
+  state.isDefault = false;
   state.admin = true;
   state.saved = [];
 });
@@ -59,5 +71,19 @@ describe('SLAStatsSinceControl', () => {
     mount();
     expect(await screen.findByText(/^Counting from /)).toBeTruthy();
     expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('on the default, offers no "Back to default"; after "Count everything" it does', async () => {
+    state.since = '2026-11-09T10:00:00.000Z';
+    state.isDefault = true;
+    mount();
+    expect(await screen.findByText(/when exact tracking began/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Back to default' })).toBeNull();
+    cleanup();
+    state.since = null;
+    state.isDefault = false;
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Back to default' }));
+    await waitFor(() => expect(state.saved).toEqual(['default']));
   });
 });
