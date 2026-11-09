@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useCreateTicketUnsentDraft } from './useCreateTicketUnsentDraft';
 import { Sparkles } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CreateTicketBar, CreateTicketFilesSection, CreateTicketJiraOption, CreateTicketQuote, pickUploadableFiles, TicketThreadPicker, type ThreadCandidate, useTicketOwners, useTicketsStore } from '@/features/tickets';
@@ -113,6 +114,16 @@ export const CreateTicketPage = () => {
     : '';
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const unsentTicket = useCreateTicketUnsentDraft({
+    messageId,
+    formData,
+    setFormData,
+    touched,
+    setTouched,
+    created,
+    fileCount: selectedFiles.length,
+  });
+
   const [enhancing, setEnhancing] = useState(false);
 
   // Alert dialog state
@@ -233,11 +244,13 @@ export const CreateTicketPage = () => {
 
         setFormData((prev) => ({
           ...prev,
-          title:
+          ...unsentTicket.overPrefill(
+            prev,
             data.subject?.replace(/^(?:(?:Re|Fwd?|AW|WG):\s*)+/i, '').trim() ??
-            data.subject ??
-            `Message from ${data.sender}`,
-          description: htmlDescription,
+              data.subject ??
+              `Message from ${data.sender}`,
+            htmlDescription
+          ),
           // Pre-fill priority if AI suggested a valid enum value
           priority: (['low', 'medium', 'high', 'critical'] as TicketPriority[]).includes(
             analysis?.suggestedPriority as TicketPriority
@@ -362,6 +375,7 @@ export const CreateTicketPage = () => {
 
     setLoading(true);
     setError(null);
+    const draftSend = unsentTicket.beginSend();
     try {
       // JSON, never multipart: POST /api/tickets reads no files (a multipart body arrived empty,
       // staging 2026-10-21) — the files go to the ticket once it exists.
@@ -379,6 +393,7 @@ export const CreateTicketPage = () => {
       });
       const ticketId = response.data?.id;
       if (!ticketId) throw new Error('The ticket was not created');
+      draftSend.settle(true);
 
       // The ticket exists from here on: a later step that fails opens it anyway, and its page
       // says what is missing (TicketDetailPage) rather than failing the whole create.
@@ -437,6 +452,7 @@ export const CreateTicketPage = () => {
       );
       setCreated(true);
     } catch (err) {
+      draftSend.settle(false);
       submittedRef.current = false;
       logger.error('Failed to create ticket:', err);
       setError(getApiErrorMessage(err) ?? 'The ticket could not be created. Try again.');
@@ -483,6 +499,7 @@ export const CreateTicketPage = () => {
               </Alert>
             )}
             <form id="create-ticket-form" onSubmit={handleSubmit} className="space-y-4">
+              {unsentTicket.notice}
               <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,28%)]">
                 <div className="space-y-4 min-w-0">
                   <Input

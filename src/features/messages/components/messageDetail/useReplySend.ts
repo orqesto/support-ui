@@ -21,6 +21,7 @@ import {
 import { writeSendAction, type SendAction } from '../ComposerSendButton';
 import type { ResolveMode } from '../resolveMode';
 import { fileIdentity, keyForPayload } from './sendKey';
+import type { UnsentDraftSend } from '@/hooks/useUnsentDraft';
 import type { MessageDetailProps, Setter } from './types';
 import type { useComposerText } from './useComposerText';
 import type { useDetailDialogs } from './useDetailDialogs';
@@ -49,7 +50,10 @@ export function useReplySend({
   onResolve,
   onOptimisticMove,
   onRefresh,
+  beginDraftSend,
 }: {
+  /** The kept unsent text's send (useThreadUnsentDraft): settled whether or not the thread is open. */
+  beginDraftSend: () => UnsentDraftSend;
   message: Message;
   composerText: ReturnType<typeof useComposerText>;
   dialogs: ReturnType<typeof useDetailDialogs>;
@@ -122,6 +126,8 @@ export function useReplySend({
             );
       // Before the request: the `message:replied` echo can beat the HTTP answer.
       if (idempotencyKey) rememberOwnSend(idempotencyKey);
+      // After the key is minted: the kept copy rides with it while the send is out.
+      const draftSend = beginDraftSend();
       try {
         if (composerMode === 'note') {
           // The composer is the rich-text editor; a note is plain text (noteText.ts).
@@ -155,6 +161,8 @@ export function useReplySend({
         }
         // success — the next reply is a new logical send
         if (composerMode !== 'note') sendIdempotencyKeyRef.current = null;
+        // Out: never "unsent" again, even when the agent already left the thread.
+        draftSend.settle(true);
         writeComposer('');
         setAiSource(null);
         setAiDraft(null);
@@ -206,6 +214,7 @@ export function useReplySend({
         // The reply moved the conversation (Pending, an assignee, a resolve): the page re-reads it.
         if (composerMode !== 'note') onRefresh?.();
       } catch (err) {
+        draftSend.settle(false);
         // Keep the token so a retry of THIS send reuses it and the BE dedups the duplicate —
         // and its Send ▾ choice, so Retry resolves / holds as the agent asked.
         afterSendRef.current = after;
@@ -243,6 +252,7 @@ export function useReplySend({
       selectedFiles,
       supportsRecipients,
       writeComposer,
+      beginDraftSend,
       afterSendRef,
       lastAssignRef,
       lastSendModeRef,

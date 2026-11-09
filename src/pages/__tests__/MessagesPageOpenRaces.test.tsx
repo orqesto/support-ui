@@ -70,7 +70,9 @@ vi.mock('@/services/message.service', () => ({
     markRead: vi.fn(() => Promise.resolve()),
     markUnread: vi.fn(() => Promise.resolve()),
     delete: vi.fn(() => Promise.resolve({ success: true })),
-    getThreadBoard: vi.fn(() => Promise.resolve({ success: false })),
+    // The service answers { columns, counts } or null (no route) — never { success }: that shape
+    // threw in the view counts once they ran before the test ended (CI #892, unhandled rejection).
+    getThreadBoard: vi.fn(() => Promise.resolve({ columns: {}, counts: {} })),
     classify: mocks.classify,
     reopen: vi.fn(() => Promise.resolve()),
   },

@@ -28,6 +28,7 @@ import { holdsUnsentNote } from './messageDetail/detailConstants';
 import type { MessageDetailProps } from './messageDetail/types';
 import { useThreadEvents } from './messageDetail/useThreadEvents';
 import { useComposerText } from './messageDetail/useComposerText';
+import { useThreadUnsentDraft } from './messageDetail/useThreadUnsentDraft';
 import { useDetailDialogs } from './messageDetail/useDetailDialogs';
 import { useReplyComposerState } from './messageDetail/useReplyComposerState';
 import { useLiveThreadSync } from './messageDetail/useLiveThreadSync';
@@ -260,6 +261,17 @@ export function MessageDetail({
   // the send path cannot honour.
   const supportsRecipients = message.channel === 'email';
   const [recipientDraft, setRecipientDraft] = useState<RecipientDraft>(emptyRecipientDraft);
+  // Unsent text survives a closed panel, a page change or a killed phone tab (this browser only).
+  const { restoredDraft, restoredFiles, discardRestoredDraft, beginDraftSend } =
+    useThreadUnsentDraft({
+      threadId: message.id,
+      composerText,
+      recipientDraft,
+      setRecipientDraft,
+      sendKeyRef: replyState.sendIdempotencyKeyRef,
+      sendFailedError,
+      fileCount: selectedFiles.length,
+    });
   // Merge labels on the timeline + everyone on the thread, for Reply all (owner, 2026-09-23).
   const mergeContext = useThreadMergeContext(
     message.id,
@@ -270,6 +282,7 @@ export function MessageDetail({
   participantsRef.current = mergeContext.participants;
 
   const send = useReplySend({
+    beginDraftSend,
     message,
     composerText,
     dialogs,
@@ -652,6 +665,9 @@ export function MessageDetail({
             message={message}
             composer={composer}
             setComposer={writeComposer}
+            restoredDraft={restoredDraft}
+            restoredFiles={restoredFiles}
+            onDiscardRestoredDraft={discardRestoredDraft}
             composerMode={composerMode}
             setComposerMode={setComposerMode}
             submitting={submitting}

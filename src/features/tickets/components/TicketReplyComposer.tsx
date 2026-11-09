@@ -1,6 +1,6 @@
 import { InsertFieldMenu } from '@/components/shared/InsertFieldMenu';
 import { TicketComposerTools, useInsertTemplate } from './ticketComposerTools';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, Paperclip, X } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
@@ -14,6 +14,8 @@ import { TemplatePicker } from '@/components/shared/TemplatePicker';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { isBlankRichText } from '@/lib/stripHtml';
+import { useUnsentDraft } from '@/hooks/useUnsentDraft';
+import { RestoredDraftNotice } from '@/components/shared/RestoredDraftNotice';
 import {
   isInFlight,
   nameTokensWithoutFallback,
@@ -181,6 +183,36 @@ export const TicketReplyComposer = ({
     setError(null);
     setPreviewOpen(false);
   }, [ticketId]);
+  /*
+    The update being written survives a closed ticket or a page change (this browser only,
+    useUnsentDraft). After the reset above, so a ticket's own kept text lands on top of it.
+  */
+  const [restoredFiles, setRestoredFiles] = useState(0);
+  const updateDraft = useMemo(() => ({ html: draft, files: files.length }), [draft, files.length]);
+  const restoreUpdate = useCallback((data: { html?: unknown; files?: unknown }) => {
+    if (typeof data?.html !== 'string') return;
+    setDraft(data.html);
+    setRestoredFiles(typeof data.files === 'number' ? data.files : 0);
+  }, []);
+  const unsentUpdate = useUnsentDraft({
+    scope: `ticket:${ticketId}:update`,
+    value: updateDraft,
+    isBlank: isBlankRichText(draft),
+    restore: restoreUpdate,
+    fingerprint: (data) => data.html,
+    onSentElsewhere: () => {
+      setDraft('');
+      setBeforeAi(null);
+      editorRef.current?.setContent('');
+      setNotice('This update was sent from another tab.');
+    },
+  });
+  const discardUpdate = () => {
+    unsentUpdate.clearDraft();
+    setDraft('');
+    setBeforeAi(null);
+    editorRef.current?.setContent('');
+  };
 
   // Drafts (reply templates P2): made per ticked thread, reviewed, then sent.
   const {
@@ -344,8 +376,12 @@ export const TicketReplyComposer = ({
     setAdaptResults(new Map());
     setDraftBusy(true);
     const startedOn = ticketId;
+    // The typed text becomes drafts: held off while that runs, so it cannot come back as "unsent"
+    // once it lives in the drafts — even when the agent left the ticket meanwhile.
+    const draftSend = 'content' in source ? unsentUpdate.beginSend() : null;
     try {
       const result = await ticketDraftsService.create(startedOn, source, selected);
+      draftSend?.settle(true);
       if (currentTicket.current !== startedOn) return;
       setRefused(result.refused);
       setNotice(
@@ -359,6 +395,7 @@ export const TicketReplyComposer = ({
       }
       await drafts.refresh();
     } catch (err) {
+      draftSend?.settle(false);
       logger.error('Failed to make the drafts', err);
       if (currentTicket.current !== startedOn) return;
       setError(getApiErrorMessage(err) ?? 'The drafts could not be made.');
@@ -394,6 +431,9 @@ export const TicketReplyComposer = ({
     setSending(true);
     const startedOn = ticketId;
     const fresh = request.kind === 'new' || request.kind === 'reviewed';
+    // Only a NEW update is the typed text. Held off while it is out: one that went out must never
+    // come back as "unsent" — even when the agent left the ticket before the answer.
+    const draftSend = request.kind === 'new' ? unsentUpdate.beginSend() : null;
     try {
       const body =
         request.kind === 'new'
@@ -408,6 +448,7 @@ export const TicketReplyComposer = ({
       const result = hold
         ? await ticketRepliesService.send(startedOn, body, request.ids, false, sendFiles, hold)
         : await ticketRepliesService.send(startedOn, body, request.ids, resolveChoice, sendFiles);
+      draftSend?.settle(true);
       if (currentTicket.current !== startedOn) return;
       if (request.kind === 'new') {
         setDraft('');
@@ -441,6 +482,7 @@ export const TicketReplyComposer = ({
       );
       onSent();
     } catch (err) {
+      draftSend?.settle(false);
       logger.error('Failed to send the ticket reply', err);
       if (currentTicket.current !== startedOn) return;
       setError(getApiErrorMessage(err) ?? 'The reply could not be sent.');
@@ -479,6 +521,13 @@ export const TicketReplyComposer = ({
         )}
       </div>
       {locked && <Alert variant="info">{disabledReason}</Alert>}
+      {unsentUpdate.restored && (
+        <RestoredDraftNotice
+          label="Restored your unsent update"
+          fileCount={restoredFiles}
+          onDiscard={discardUpdate}
+        />
+      )}
       <RichTextEditor
         ref={editorRef}
         content={draft}
