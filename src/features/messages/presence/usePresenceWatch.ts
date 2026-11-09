@@ -198,9 +198,10 @@ export const usePresenceWatch = (
       let failed = false;
       let capHit = false;
       for (const ack of acks) {
-        if (!ack.ok) {
+        // An ack from another workspace (a switch still in flight) is no answer for this one.
+        if (!ack.ok || ack.organizationId !== useAuthStore.getState().selectedOrganizationId) {
           failed = true;
-          if (ack.reason === 'watch_cap') capHit = true;
+          if (!ack.ok && ack.reason === 'watch_cap') capHit = true;
           continue;
         }
         setSettings(ack.settings);
@@ -262,6 +263,7 @@ export const usePresenceWatch = (
     const onThread = (data: unknown) => {
       const event = data as PresenceThreadEvent | null;
       if (!event || !Array.isArray(event.viewers)) return;
+      if (event.organizationId !== useAuthStore.getState().selectedOrganizationId) return;
       if (!survivors().includes(event.conversationId)) return;
       setThreads((prev) => ({ ...prev, [event.conversationId]: event.viewers }));
     };

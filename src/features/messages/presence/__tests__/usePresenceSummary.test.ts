@@ -33,7 +33,7 @@ const flush = () =>
   act(async () => {
     await vi.advanceTimersByTimeAsync(0);
   });
-const OK = { ok: true, threads: { '10': [{ userId: 7, state: 'viewing' }] } };
+const OK = { ok: true, organizationId: 1, threads: { '10': [{ userId: 7, state: 'viewing' }] } };
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -56,10 +56,13 @@ describe('usePresenceSummary', () => {
   it('applies presence:summary changes, and an empty users list deletes the entry', async () => {
     renderHook(() => usePresenceSummary());
     await flush();
-    act(() => fire('presence:summary', { changes: [{ conversationId: 10, users: [] }] }));
+    act(() =>
+      fire('presence:summary', { organizationId: 1, changes: [{ conversationId: 10, users: [] }] })
+    );
     expect(10 in store().byConversation).toBe(false);
     act(() =>
       fire('presence:summary', {
+        organizationId: 1,
         changes: [{ conversationId: 12, users: [{ userId: 8, state: 'writing_reply' }] }],
       })
     );
@@ -133,7 +136,7 @@ describe('usePresenceSummary', () => {
   it('clears the store and snapshots again when the workspace changes', async () => {
     renderHook(() => usePresenceSummary());
     await flush();
-    fake.emitWithAck = vi.fn().mockResolvedValue({ ok: true, threads: {} });
+    fake.emitWithAck = vi.fn().mockResolvedValue({ ok: true, organizationId: 2, threads: {} });
     act(() => {
       useAuthStore.setState({ selectedOrganizationId: 2 });
     });
@@ -152,7 +155,7 @@ describe('usePresenceSummary', () => {
         })
     );
     renderHook(() => usePresenceSummary());
-    fake.emitWithAck.mockResolvedValue({ ok: true, threads: {} });
+    fake.emitWithAck.mockResolvedValue({ ok: true, organizationId: 2, threads: {} });
     act(() => {
       useAuthStore.setState({ selectedOrganizationId: 2 });
     });
@@ -162,6 +165,50 @@ describe('usePresenceSummary', () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(store().byConversation).toEqual({});
+  });
+
+  it('does not apply a snapshot answered for the old workspace; unavailable until the matching one', async () => {
+    renderHook(() => usePresenceSummary());
+    await flush();
+    // After the switch the server still answers from workspace 1, then from 2.
+    fake.emitWithAck = vi
+      .fn()
+      .mockResolvedValueOnce(OK)
+      .mockResolvedValue({
+        ok: true,
+        organizationId: 2,
+        threads: { '20': [{ userId: 8, state: 'viewing' }] },
+      });
+    act(() => {
+      useAuthStore.setState({ selectedOrganizationId: 2 });
+    });
+    await flush();
+    expect(store().available).toBe(false);
+    expect(store().byConversation).toEqual({});
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(SNAPSHOT_RETRY_MS[0]);
+    });
+    expect(store().available).toBe(true);
+    expect(Object.keys(store().byConversation)).toEqual(['20']);
+  });
+
+  it('drops a summary tagged with another workspace, keeps one for this workspace', async () => {
+    renderHook(() => usePresenceSummary());
+    await flush();
+    act(() =>
+      fire('presence:summary', {
+        organizationId: 2,
+        changes: [{ conversationId: 12, users: [{ userId: 8, state: 'viewing' }] }],
+      })
+    );
+    expect(12 in store().byConversation).toBe(false);
+    act(() =>
+      fire('presence:summary', {
+        organizationId: 1,
+        changes: [{ conversationId: 12, users: [{ userId: 8, state: 'viewing' }] }],
+      })
+    );
+    expect(12 in store().byConversation).toBe(true);
   });
 
   it('unsubscribes and clears on unmount', async () => {

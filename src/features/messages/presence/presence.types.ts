@@ -25,6 +25,8 @@ export interface PresenceViewer {
 /** `presence:watch` ack. Keys of `viewers` are survivor ids; `mapped` is requested → survivor. */
 export interface WatchAck {
   ok: true;
+  /** The workspace the socket had joined when the server answered. */
+  organizationId: number;
   viewers: Record<string, PresenceViewer[]>;
   settings: PresenceSettings;
   mapped: Record<string, number>;
@@ -42,11 +44,13 @@ export interface PresenceRefusal {
 /** `presence:snapshot` ack: the live threads of the caller's teams. */
 export interface SnapshotAck {
   ok: true;
+  organizationId: number;
   threads: Record<string, Array<{ userId: number; state: PresenceState }>>;
 }
 
 /** Server → client `presence:thread`: a watched thread's full viewer list (includes the caller). */
 export interface PresenceThreadEvent {
+  organizationId: number;
   conversationId: number;
   viewers: PresenceViewer[];
 }

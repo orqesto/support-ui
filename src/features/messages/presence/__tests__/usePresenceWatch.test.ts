@@ -54,6 +54,7 @@ const viewer = (userId: number, state: PresenceViewer['state'], since: string): 
 
 const okAck = (ids: number[], viewers: Record<number, PresenceViewer[]> = {}, mapped = {}) => ({
   ok: true,
+  organizationId: 1,
   viewers,
   settings: SETTINGS,
   mapped: { ...Object.fromEntries(ids.map((id) => [id, id])), ...mapped },
@@ -96,7 +97,7 @@ beforeEach(() => {
     return Promise.resolve(fake.answerWatch ? fake.answerWatch(ids) : okAck(ids));
   });
   resetPresenceClientForTests();
-  useAuthStore.setState({ user: { id: ME, role: 'user' } as User });
+  useAuthStore.setState({ user: { id: ME, role: 'user' } as User, selectedOrganizationId: 1 });
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -158,6 +159,7 @@ describe('usePresenceWatch — who else is on these threads', () => {
     await settle();
     act(() =>
       fire('presence:thread', {
+        organizationId: 1,
         conversationId: 10,
         viewers: [
           viewer(ME, 'viewing', '2026-11-09T10:00:00Z'),
@@ -168,11 +170,35 @@ describe('usePresenceWatch — who else is on these threads', () => {
     expect(result.current.viewers).toEqual([viewer(4, 'writing_reply', '2026-11-09T10:02:00Z')]);
   });
 
+  it('a presence:thread event tagged with another workspace is dropped', async () => {
+    const { result } = renderHook(() => usePresenceWatch([10]));
+    await settle();
+    act(() =>
+      fire('presence:thread', {
+        organizationId: 2,
+        conversationId: 10,
+        viewers: [viewer(4, 'viewing', '2026-11-09T10:02:00Z')],
+      })
+    );
+    expect(result.current.viewers).toEqual([]);
+  });
+
+  it('a watch ack from another workspace counts as a refusal and is retried', async () => {
+    fake.answerWatch = (ids) => ({ ...okAck(ids), organizationId: 2 });
+    const { result } = renderHook(() => usePresenceWatch([10]));
+    await settle();
+    expect(result.current.available).toBe(false);
+    fake.answerWatch = null;
+    await settle(WATCH_RETRY_MS[0]);
+    expect(result.current.available).toBe(true);
+  });
+
   it('CONTROL: a presence:thread event for a thread not watched changes nothing', async () => {
     const { result } = renderHook(() => usePresenceWatch([10]));
     await settle();
     act(() =>
       fire('presence:thread', {
+        organizationId: 1,
         conversationId: 77,
         viewers: [viewer(4, 'viewing', '2026-11-09T10:02:00Z')],
       })
@@ -186,6 +212,7 @@ describe('usePresenceWatch — who else is on these threads', () => {
     await settle();
     act(() =>
       fire('presence:thread', {
+        organizationId: 1,
         conversationId: 99,
         viewers: [viewer(5, 'viewing', '2026-11-09T10:02:00Z')],
       })

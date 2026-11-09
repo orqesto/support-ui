@@ -50,7 +50,9 @@ export const usePresenceSummary = (): void => {
       const gen = generation;
       const ack = await presenceClient.snapshot();
       if (gen !== generation) return;
-      if (ack.ok) {
+      const current = useAuthStore.getState().selectedOrganizationId;
+      // An ack for another workspace (the switch has not landed on the socket yet) = not joined.
+      if (ack.ok && ack.organizationId === current) {
         retries = 0;
         usePresenceSummaryStore.getState().applySnapshot(ack.threads);
         usePresenceSummaryStore.getState().setAvailable(true);
@@ -73,7 +75,9 @@ export const usePresenceSummary = (): void => {
     };
 
     const onSummary = (data: unknown) => {
-      const changes = (data as { changes?: unknown } | null)?.changes;
+      const body = data as { organizationId?: unknown; changes?: unknown } | null;
+      if (body?.organizationId !== useAuthStore.getState().selectedOrganizationId) return;
+      const changes = body?.changes;
       if (!Array.isArray(changes)) return;
       usePresenceSummaryStore.getState().applyChanges(changes as SummaryChange[]);
     };
