@@ -49,6 +49,7 @@ export { PresenceEye } from './presence/PresenceEye';
 export { usePresenceWatch } from './presence/usePresenceWatch';
 export { usePresenceReport } from './presence/usePresenceReport';
 export { usePresenceSummary } from './presence/usePresenceSummary';
+export { useWritingGuard } from './presence/useWritingGuard';
 export { scopeJumpUrl } from './hooks/scopeJumpUrl';
 export { useConversationNewRefresh } from './hooks/useConversationNewRefresh';
 export { useDropTeamFilterWhenTeamsOff } from './hooks/useDropTeamFilterWhenTeamsOff';

@@ -9,6 +9,15 @@ import { toast } from '@/lib/toast';
 import { showRouteLearningNote } from '@/lib/routingCopy';
 import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
 import { BE_STATUS_TO_COLUMN } from './headerStyles';
+import { useGuardAction } from '../../presence/writingGuardContext';
+import type { GuardLabel } from '../../presence/useWritingGuard';
+
+/** The status changes that ask first while a colleague writes a reply (reopen and hold do not). */
+const STATUS_GUARD_LABEL: Partial<Record<ThreadStatus, GuardLabel>> = {
+  resolved: 'resolve',
+  closed: 'close',
+  filtered: 'mark as spam',
+};
 
 type SetFlag = React.Dispatch<React.SetStateAction<boolean>>;
 
@@ -32,7 +41,8 @@ export function useHeaderFieldHandlers({
   setUpdatingCategory: SetFlag;
   setTogglingLead: SetFlag;
 }) {
-  const handleSetStatus = useCallback(
+  const guard = useGuardAction();
+  const applyStatus = useCallback(
     async (status: ThreadStatus, hold?: { reason: string; until: Date }) => {
       try {
         setUpdatingStatus(true);
@@ -49,6 +59,17 @@ export function useHeaderFieldHandlers({
       }
     },
     [message.id, onRefresh, onOptimisticMove, setHoldOpen, setUpdatingStatus]
+  );
+  // Resolve, close and spam ask first while a colleague writes a reply (thread presence, §5.5).
+  const handleSetStatus = useCallback(
+    (status: ThreadStatus, hold?: { reason: string; until: Date }) =>
+      new Promise<void>((resolve) => {
+        const label = STATUS_GUARD_LABEL[status];
+        const run = () => void applyStatus(status, hold).then(resolve);
+        if (label) guard(label, run, resolve);
+        else run();
+      }),
+    [applyStatus, guard]
   );
 
   const handleSetPriority = useCallback(
@@ -171,7 +192,8 @@ export function useHeaderActionHandlers({
     }
   }, [message.id, onRefresh, refusalText, setCheckingContradiction]);
 
-  const handleManualRoute = useCallback(
+  const guard = useGuardAction();
+  const routeTo = useCallback(
     // Every route is learning evidence on the backend (spec 2026-10-14, D3) — no "+ rule" variant.
     async (deptId: number) => {
       try {
@@ -187,6 +209,14 @@ export function useHeaderActionHandlers({
       }
     },
     [message.id, onRefresh, queryClient, setRoutingTo]
+  );
+  // A move asks first while a colleague writes a reply (thread presence, §5.5).
+  const handleManualRoute = useCallback(
+    (deptId: number) =>
+      new Promise<void>((resolve) => {
+        guard('move', () => void routeTo(deptId).then(resolve), resolve);
+      }),
+    [guard, routeTo]
   );
 
   const handleReanalyze = useCallback(async () => {

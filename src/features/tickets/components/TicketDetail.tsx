@@ -1,6 +1,12 @@
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import DOMPurify from 'dompurify';
-import { addNoopenerHook, PresenceEye, useIsPhone, usePresenceWatch } from '@/features/messages';
+import {
+  addNoopenerHook,
+  PresenceEye,
+  useIsPhone,
+  usePresenceWatch,
+  useWritingGuard,
+} from '@/features/messages';
 import { DEFAULT_TICKET_WATCH_CAP, presenceWatchIds } from './presenceWatchIds';
 
 addNoopenerHook(DOMPurify);
@@ -122,6 +128,10 @@ export const TicketDetail = ({
     [linkedMessages, watchCap]
   );
   const presence = usePresenceWatch(watched.ids);
+  // Resolve / close / assign / move ask first while a colleague writes a reply on any linked
+  // thread (spec §5.5) — the viewers are the union across the watched threads.
+  const writingGuard = useWritingGuard(presence.viewers);
+  const guard = writingGuard.confirmIfWriting;
   const serverWatchCap = presence.settings?.ticketWatchCap;
   useEffect(() => {
     if (serverWatchCap && serverWatchCap > 0) setWatchCap(serverWatchCap);
@@ -280,8 +290,13 @@ export const TicketDetail = ({
                   variant="value"
                   value={localStatus}
                   onChange={(val) => {
-                    setLocalStatus(val as TicketStatus);
-                    void handleFieldUpdate('status', val);
+                    const apply = () => {
+                      setLocalStatus(val as TicketStatus);
+                      void handleFieldUpdate('status', val);
+                    };
+                    if (val === 'resolved') guard('resolve', apply);
+                    else if (val === 'closed') guard('close', apply);
+                    else apply();
                   }}
                   // Only offer transitions the backend allows from the current status
                   // (mirrored via @/lib/ticketStatus) so the dropdown can't surface a move
@@ -348,6 +363,7 @@ export const TicketDetail = ({
               currentAssigneeId={ticket.assigneeId}
               departmentId={ticket.departmentId ?? null}
               onAssign={onRefresh}
+              beforeChange={(run) => guard('assign', run)}
             />
           )}
           {/* Teams off: one team, nothing to show or move to (as staging's Teams switch). */}
@@ -361,7 +377,7 @@ export const TicketDetail = ({
                     variant="ghost"
                     size="sm"
                     className="h-auto p-0 px-[3px] text-xs font-medium text-primary hover:bg-transparent hover:underline"
-                    onClick={() => setMoveDeptOpen(true)}
+                    onClick={() => guard('move', () => setMoveDeptOpen(true))}
                   >
                     Move
                   </Button>
@@ -413,7 +429,11 @@ export const TicketDetail = ({
         linkCopied={linkCopied}
         onCopyLink={handleCopyLink}
         copyIdOf={ticket.reference ? ticket : undefined}
-        onMove={hasManageTickets && teamsEnabled ? () => setMoveDeptOpen(true) : undefined}
+        onMove={
+          hasManageTickets && teamsEnabled
+            ? () => guard('move', () => setMoveDeptOpen(true))
+            : undefined
+        }
         onPushToJira={jiraOn && !ticket.externalId ? onPushToJira : undefined}
         onDelete={onDelete}
       />
@@ -614,6 +634,7 @@ export const TicketDetail = ({
 
             <TicketPanelTabs
               ticketId={ticket.id}
+              beforeResolve={(run) => guard('resolve', run)}
               hasJiraLink={!!ticket.externalId}
               linkedMessages={linkedMessages}
               loadingMessages={loadingMessages}
@@ -630,6 +651,7 @@ export const TicketDetail = ({
         )}
       </div>
 
+      {writingGuard.dialog}
       <MoveDepartmentDialog
         isOpen={moveDeptOpen}
         onClose={() => setMoveDeptOpen(false)}

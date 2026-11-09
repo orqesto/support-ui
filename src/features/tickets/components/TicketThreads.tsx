@@ -55,6 +55,11 @@ type Props = {
   onThreadsChange?: (threads: TicketThread[]) => void;
   /** Off where the page shows the strip itself. */
   showReachStrip?: boolean;
+  /**
+   * Thread presence (§5.5): called with the resolve before its confirm opens; it opens only if
+   * `run` is called (a colleague writing a reply asks first). Absent: it opens at once.
+   */
+  beforeResolve?: (run: () => void) => void;
 };
 
 const words = (status: string) => status.replace('_', ' ');
@@ -71,6 +76,7 @@ export const TicketThreads = ({
   ticketStatus,
   onThreadsChange,
   showReachStrip = true,
+  beforeResolve,
 }: Props) => {
   const orgCode = useCurrentOrgCode();
   // Adding, removing, sending and resolving are support and above (MANAGE_TICKETS); viewing is not.
@@ -413,7 +419,12 @@ export const TicketThreads = ({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setConfirmResolve(true)}
+                    // Thread presence (§5.5): asks first while a colleague writes a reply.
+                    onClick={() =>
+                      beforeResolve
+                        ? beforeResolve(() => setConfirmResolve(true))
+                        : setConfirmResolve(true)
+                    }
                     disabled={busy || resolvable.length === 0}
                   >
                     <Check className="mr-1 w-3 h-3" aria-hidden />

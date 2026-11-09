@@ -7,6 +7,7 @@ import type { Message } from '@/types';
 import { noKbResolveDialog, type ResolveMode } from '../resolveMode';
 import type { MessageDetailProps } from './types';
 import type { useDetailDialogs } from './useDetailDialogs';
+import { runAtOnce, type ConfirmIfWriting } from '../../presence/useWritingGuard';
 
 /** Resolve / close, the per-user read state and the prompt-aware close. */
 
@@ -18,8 +19,11 @@ export function useConversationActions({
   onReadChanged,
   onClose,
   onRegisterRequestClose,
+  guard = runAtOnce,
 }: {
   message: Message;
+  /** Thread presence (§5.5): resolve asks first while a colleague writes a reply. */
+  guard?: ConfirmIfWriting;
   resolveMode: ResolveMode;
   dialogs: ReturnType<typeof useDetailDialogs>;
 } & Pick<
@@ -35,6 +39,7 @@ export function useConversationActions({
     setMarkReadPromptOpen,
     setRejectDialogOpen,
     setCloseConfirmOpen,
+    setResolveConfirmOpen,
   } = dialogs;
   const handleResolveWithoutReply = useCallback(async () => {
     setResolving(true);
@@ -106,11 +111,20 @@ export function useConversationActions({
   // One-press Resolve, shared by the header button and the E shortcut so the two can never
   // disagree. It opens the SAME confirm the old footer did (resolveMode.ts) — E never resolves
   // in one keystroke; the dialog is the confirmation (owner decision, 2026-09-22).
+  //
+  // Thread presence (§5.5): asked BEFORE the resolve dialogs open, so the close / resolve their
+  // buttons run (handleClose, handleResolveWithoutReply) are covered with one question, not two.
   const openResolveDialog = useCallback(() => {
     if (resolveMode === null) return;
-    if (noKbResolveDialog(resolveMode) === 'reject') setRejectDialogOpen(true);
-    else setCloseConfirmOpen(true);
-  }, [resolveMode, setCloseConfirmOpen, setRejectDialogOpen]);
+    guard('resolve', () => {
+      if (noKbResolveDialog(resolveMode) === 'reject') setRejectDialogOpen(true);
+      else setCloseConfirmOpen(true);
+    });
+  }, [guard, resolveMode, setCloseConfirmOpen, setRejectDialogOpen]);
+  // "Resolve & save to KB": the same question before its dialog.
+  const openResolveToKbDialog = useCallback(() => {
+    guard('resolve', () => setResolveConfirmOpen(true));
+  }, [guard, setResolveConfirmOpen]);
   return {
     handleResolveWithoutReply,
     handleClose,
@@ -118,5 +132,6 @@ export function useConversationActions({
     handleToggleRead,
     handleRequestClose,
     openResolveDialog,
+    openResolveToKbDialog,
   };
 }

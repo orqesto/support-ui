@@ -29,6 +29,11 @@ type TicketPanelTabsProps = {
    * (as the design's Details tab). Absent: no Details tab.
    */
   details?: ReactNode;
+  /**
+   * Thread presence (§5.5): called with the resolve of linked threads (TicketThreads); it opens only if
+   * `run` is called (a colleague writing a reply asks first). Absent: it opens at once.
+   */
+  beforeResolve?: (run: () => void) => void;
 };
 
 export function TicketPanelTabs({
@@ -39,6 +44,7 @@ export function TicketPanelTabs({
   ticketStatus,
   onThreadsChange,
   details,
+  beforeResolve,
 }: TicketPanelTabsProps) {
   // Threads first (Tickets v3): a ticket is the threads it explains and the update they are owed.
   const [chosenTab, setActiveTab] = useState<Tab>('messages');
@@ -138,6 +144,7 @@ export function TicketPanelTabs({
           ticketStatus={ticketStatus}
           onThreadsChange={onThreadsChange}
           showReachStrip={false}
+          beforeResolve={beforeResolve}
           fallback={
             <>
               {loadingMessages ? (

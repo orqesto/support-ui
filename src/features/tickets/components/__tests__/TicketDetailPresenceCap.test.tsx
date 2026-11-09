@@ -27,6 +27,10 @@ vi.mock('@/features/messages', () => ({
     return watch.result;
   },
   PresenceEye: ({ capNote }: { capNote?: string }) => <p data-testid="cap-note">{capNote ?? ''}</p>,
+  useWritingGuard: () => ({
+    confirmIfWriting: (_label: string, run: () => void) => run(),
+    dialog: null,
+  }),
 }));
 vi.mock('@/services/message.service', () => ({
   messageService: { getAll: () => Promise.resolve({ data: watch.threads }) },
