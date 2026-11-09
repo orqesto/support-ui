@@ -5,6 +5,7 @@ import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { resolveComposerWindow } from '../whatsappWindowState';
 import { resolveReplyBlock } from '../replyBlockState';
 import type { WhatsAppTemplate } from '../whatsappTemplates';
+import type { KeptSendKey } from './sendKey';
 
 /** Files, send failures, the channel window, WhatsApp templates and the editor refs. */
 
@@ -34,12 +35,14 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
   const richEditorRef = useRef<RichTextEditorHandle>(null);
   const noteEditorRef = useRef<RichTextEditorHandle>(null);
   // M06: idempotency token for the in-flight reply. Minted per logical send, REUSED on a
-  // retry after failure (so the BE dedups a duplicate), cleared on success.
-  const sendIdempotencyKeyRef = useRef<string | null>(null);
+  // retry after failure (so the BE dedups a duplicate), cleared on success. Kept WITH the payload
+  // it was minted for: only a resend of that same payload may reuse it — any other reply would get
+  // the first one's accepted send back from the BE and never go out.
+  const sendIdempotencyKeyRef = useRef<KeptSendKey | null>(null);
   // The same contract for a WhatsApp template send, kept apart: a template is a different send, so
   // it must neither carry a failed reply's token (the BE would answer with that reply and never send
   // the template) nor leave its own for the next reply.
-  const templateIdempotencyKeyRef = useRef<string | null>(null);
+  const templateIdempotencyKeyRef = useRef<KeptSendKey | null>(null);
 
   useEffect(() => {
     if (!message.whatsappWindow) return;

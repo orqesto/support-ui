@@ -20,6 +20,7 @@ import {
 } from '@/features/messages/components/sendErrorMessage';
 import { writeSendAction, type SendAction } from '../ComposerSendButton';
 import type { ResolveMode } from '../resolveMode';
+import { fileIdentity, keyForPayload } from './sendKey';
 import type { MessageDetailProps, Setter } from './types';
 import type { useComposerText } from './useComposerText';
 import type { useDetailDialogs } from './useDetailDialogs';
@@ -90,17 +91,6 @@ export function useReplySend({
       setSendFailureRetryable(false);
       lastAssignRef.current = assign;
       lastSendModeRef.current = composerMode;
-      // Notes aren't emails — no idempotency needed, and a note must not read, register or clear
-      // the reply's token: one kept from a failed reply has to survive the note so that reply's
-      // retry still dedups. For replies, reuse a prior failed attempt's token (retry) so the BE
-      // dedups; otherwise mint a fresh one for this logical send.
-      if (composerMode !== 'note' && !sendIdempotencyKeyRef.current) {
-        sendIdempotencyKeyRef.current = crypto.randomUUID();
-      }
-      const idempotencyKey =
-        composerMode === 'note' ? undefined : (sendIdempotencyKeyRef.current ?? undefined);
-      // Before the request: the `message:replied` echo can beat the HTTP answer.
-      if (idempotencyKey) rememberOwnSend(idempotencyKey);
       // Undefined unless the agent actually addressed this reply somewhere, which
       // the BE reads as "the requester and nobody else".
       const recipients = supportsRecipients ? draftToRecipients(recipientDraft) : undefined;
@@ -110,6 +100,28 @@ export function useReplySend({
       const after = afterSendRef.current;
       afterSendRef.current = { action: 'send' };
       const resolveInSend = composerMode !== 'note' && after.action === 'resolve_kb';
+      // Notes aren't emails — no idempotency needed, and a note must not read, register or clear
+      // the reply's token: one kept from a failed reply has to survive the note so that reply's
+      // retry still dedups. A reply reuses a failed attempt's token only when it delivers the SAME
+      // email — body, files, recipients (a retry, so the BE dedups); any other reply mints its own:
+      // with the old token the BE would answer with the earlier send and this one would never go
+      // out. The assign / resolve flags stay out: a send that landed despite the error re-reads the
+      // thread as assigned, so re-pressing Send carries no assign answer — and must still dedup.
+      const idempotencyKey =
+        composerMode === 'note'
+          ? undefined
+          : keyForPayload(
+              sendIdempotencyKeyRef,
+              JSON.stringify([
+                composer,
+                selectedFiles.map(fileIdentity),
+                recipients?.to ?? [],
+                recipients?.cc ?? [],
+                recipients?.bcc ?? [],
+              ])
+            );
+      // Before the request: the `message:replied` echo can beat the HTTP answer.
+      if (idempotencyKey) rememberOwnSend(idempotencyKey);
       try {
         if (composerMode === 'note') {
           // The composer is the rich-text editor; a note is plain text (noteText.ts).
@@ -333,10 +345,14 @@ export function useReplySend({
     async (templateId: number, parameters: string[]) => {
       setSubmitting(true);
       setTemplateError(null);
-      // Same idempotency contract as a normal reply: reuse the token on a retry so a
-      // success-but-timeout cannot bill the tenant for a second template. Its own token, never
-      // the text reply's (templateIdempotencyKeyRef).
-      templateIdempotencyKeyRef.current ??= crypto.randomUUID();
+      // Same idempotency contract as a normal reply: reuse the token on a retry of the SAME
+      // template and parameters so a success-but-timeout cannot bill the tenant for a second one;
+      // another template or other parameters get their own. Never the text reply's token
+      // (templateIdempotencyKeyRef).
+      const idempotencyKey = keyForPayload(
+        templateIdempotencyKeyRef,
+        JSON.stringify([templateId, parameters])
+      );
       try {
         await messageService.reply(
           message.id,
@@ -344,7 +360,7 @@ export function useReplySend({
           false,
           false,
           undefined,
-          templateIdempotencyKeyRef.current,
+          idempotencyKey,
           undefined,
           { templateId, parameters }
         );

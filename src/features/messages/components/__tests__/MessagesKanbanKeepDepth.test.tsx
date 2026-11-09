@@ -23,7 +23,20 @@ vi.mock('@/hooks/useNotificationCounts', () => ({
   NOTIFICATION_COUNTS_KEY: ['notification-counts'],
   useNotificationCounts: () => ({ counts: {}, clearKind: vi.fn() }),
 }));
-vi.mock('@/components/ui/Select', () => ({ Select: () => null }));
+// A column's sort control: one press picks "Oldest First" (the real Select needs a ThemeProvider).
+vi.mock('@/components/ui/Select', () => ({
+  Select: ({
+    onChange,
+    'aria-label': label,
+  }: {
+    onChange: (value: string) => void;
+    'aria-label'?: string;
+  }) => (
+    <button type="button" onClick={() => onChange('oldest')}>
+      {label}
+    </button>
+  ),
+}));
 vi.mock('../KanbanCard', () => ({
   KanbanCard: ({ thread }: { thread: MessageThread }) => (
     <div data-testid="card">{`${thread.threadId}|${thread.sender}`}</div>
@@ -169,6 +182,43 @@ describe('Load more', () => {
     await waitFor(() => expect(loadMoreButton()).toBeTruthy());
     fireEvent.click(loadMoreButton()!);
     await waitFor(() => expect(cards()).toHaveLength(PAGE * 2));
+  });
+
+  it('a page that lands after the column’s sort changed is not added to the re-sorted column', async () => {
+    render(renderBoard(0));
+    await waitFor(() => expect(cards()).toHaveLength(PAGE));
+    const ok = getThreads.getMockImplementation()!;
+    let land: () => void = () => {};
+    getThreads.mockImplementationOnce(
+      (...args) =>
+        new Promise((resolve) => {
+          land = () => resolve(ok(...args));
+        })
+    );
+    fireEvent.click(loadMoreButton()!);
+    await waitFor(() => expect(getThreads.mock.calls.some(([, page]) => page === 2)).toBe(true));
+    getThreads.mockClear();
+    fireEvent.click(within(openColumn()).getByRole('button', { name: /^sort .* column$/i }));
+    // The column re-reads page 1 in its new order…
+    await waitFor(() =>
+      expect(getThreads.mock.calls.some(([, page, , order]) => page === 1 && order === 'asc')).toBe(
+        true
+      )
+    );
+    await waitFor(() => expect(cards()).toHaveLength(PAGE));
+    // …and the page asked for in the OLD order is dropped, not appended to it.
+    await act(async () => {
+      land();
+      await Promise.resolve();
+    });
+    expect(cards()).toHaveLength(PAGE);
+    // CONTROL: Load more in the new order still adds its page, asked for in that order.
+    await waitFor(() => expect(loadMoreButton()).toBeTruthy());
+    fireEvent.click(loadMoreButton()!);
+    await waitFor(() => expect(cards()).toHaveLength(PAGE * 2));
+    expect(getThreads.mock.calls.some(([, page, , order]) => page === 2 && order === 'asc')).toBe(
+      true
+    );
   });
 });
 

@@ -138,9 +138,13 @@ export const useKanbanBoardRefresh = ({
       const filterSnapshot = { ...sharedFiltersRef.current, ...col.fixedFilters };
       const sort = colSortRef.current[colId] ?? { sortBy: 'time', sortOrder: 'desc' };
       // The scope this page belongs to. A filter / team change resets the column to page 1 of
-      // the new scope (the effect above); a page of the old scope landing after that is dropped,
-      // not appended to the new one — the reset's own load owns the column's state now.
-      const scopeAt = () => `${prevFilterKeyRef.current}|${prevDeptKeyRef.current}`;
+      // the new scope (the effect above), and so does a change of this column's sort (its own
+      // reload); a page of the old scope or order landing after that is dropped, not appended to
+      // the new one — the reset's own load owns the column's state now.
+      const scopeAt = () => {
+        const colSortNow = colSortRef.current[colId];
+        return `${prevFilterKeyRef.current}|${prevDeptKeyRef.current}|${colSortNow?.sortBy}|${colSortNow?.sortOrder}`;
+      };
       const scope = scopeAt();
       void (async () => {
         try {
