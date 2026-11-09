@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import DOMPurify from 'dompurify';
-import { addNoopenerHook } from '@/features/messages/shell';
+import { addNoopenerHook, PresenceEye, useIsPhone, usePresenceWatch } from '@/features/messages';
+import { DEFAULT_TICKET_WATCH_CAP, presenceWatchIds } from './presenceWatchIds';
 
 addNoopenerHook(DOMPurify);
 import { Lock, Maximize2, Pencil } from 'lucide-react';
@@ -111,6 +112,24 @@ export const TicketDetail = ({
   const [moveDeptOpen, setMoveDeptOpen] = useState(false);
   // Teams off: one team, so there is nowhere to move a ticket.
   const teamsEnabled = useTeamsEnabled();
+
+  // Presence is watch-only here: the ticket's reply composer lives in TicketPanelTabs, out of reach
+  // of this component, so the ticket view shows who is on its threads but reports no state itself.
+  const presenceIsPhone = useIsPhone();
+  const [watchCap, setWatchCap] = useState(DEFAULT_TICKET_WATCH_CAP);
+  const watched = useMemo(
+    () => presenceWatchIds(linkedMessages, watchCap),
+    [linkedMessages, watchCap]
+  );
+  const presence = usePresenceWatch(watched.ids);
+  const serverWatchCap = presence.settings?.ticketWatchCap;
+  useEffect(() => {
+    if (serverWatchCap && serverWatchCap > 0) setWatchCap(serverWatchCap);
+  }, [serverWatchCap]);
+  const presenceCapNote =
+    watched.total > watched.ids.length || presence.capped
+      ? `presence for the latest ${watchCap} of ${watched.total} threads`
+      : undefined;
 
   const handleCopyLink = () => {
     const url = `${window.location.origin}/tickets?id=${ticket.id}`;
@@ -382,14 +401,23 @@ export const TicketDetail = ({
   );
 
   const moreMenu = (
-    <TicketMoreMenu
-      linkCopied={linkCopied}
-      onCopyLink={handleCopyLink}
-      copyIdOf={ticket.reference ? ticket : undefined}
-      onMove={hasManageTickets && teamsEnabled ? () => setMoveDeptOpen(true) : undefined}
-      onPushToJira={jiraOn && !ticket.externalId ? onPushToJira : undefined}
-      onDelete={onDelete}
-    />
+    <>
+      <PresenceEye
+        available={presence.available}
+        capped={presence.capped}
+        viewers={presence.viewers}
+        isPhone={presenceIsPhone}
+        capNote={presenceCapNote}
+      />
+      <TicketMoreMenu
+        linkCopied={linkCopied}
+        onCopyLink={handleCopyLink}
+        copyIdOf={ticket.reference ? ticket : undefined}
+        onMove={hasManageTickets && teamsEnabled ? () => setMoveDeptOpen(true) : undefined}
+        onPushToJira={jiraOn && !ticket.externalId ? onPushToJira : undefined}
+        onDelete={onDelete}
+      />
+    </>
   );
 
   const body = (

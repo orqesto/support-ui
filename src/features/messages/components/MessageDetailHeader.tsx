@@ -70,6 +70,7 @@ export {
 
 export function MessageDetailHeader({
   message,
+  presence,
   onClose,
   showFullPageButton,
   isFullPage,
@@ -506,6 +507,7 @@ export function MessageDetailHeader({
         moreOpen={moreOpen}
         setMoreOpen={setMoreOpen}
         moreSheet={moreSheet}
+        presence={presence}
       />
 
       {/* Subject */}

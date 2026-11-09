@@ -44,6 +44,9 @@ export { refreshForServerEvent, type ServerChangeEvent } from './components/serv
 export { presetToSorting, sortingToPreset } from './components/sortPresets';
 export { threadIdForMessage } from './components/threadForMessage';
 export { useListPresentation } from './components/useListPresentation';
+export { addNoopenerHook } from './shell';
+export { PresenceEye } from './presence/PresenceEye';
+export { usePresenceWatch } from './presence/usePresenceWatch';
 export { scopeJumpUrl } from './hooks/scopeJumpUrl';
 export { useConversationNewRefresh } from './hooks/useConversationNewRefresh';
 export { useDropTeamFilterWhenTeamsOff } from './hooks/useDropTeamFilterWhenTeamsOff';

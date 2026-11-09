@@ -26,6 +26,15 @@ const withSocket = <T>(use: (socket: ReturnType<typeof getSocket>) => T): T => {
   }
 };
 
+/** A fire-and-forget emit: a socket that cannot send must never break the thread view. */
+const emitQuietly = (use: (socket: ReturnType<typeof getSocket>) => void): void => {
+  try {
+    withSocket(use);
+  } catch {
+    // presence is best-effort; the next heartbeat or reconnect sends again
+  }
+};
+
 const ask = async <T extends { ok: true }>(
   event: string,
   payload: unknown
@@ -54,7 +63,7 @@ const drain = () => {
   const [conversationId, state] = next.value;
   pending.delete(conversationId);
   lastSentAt = Date.now();
-  withSocket((socket) => socket.emit('presence:state', { conversationId, state }));
+  emitQuietly((socket) => socket.emit('presence:state', { conversationId, state }));
   if (pending.size > 0) drainTimer = setTimeout(drain, STATE_SEND_GAP_MS);
 };
 
@@ -76,7 +85,7 @@ export const presenceClient = {
   unwatch: (conversationIds: number[]): void => {
     if (conversationIds.length === 0) return;
     for (const id of conversationIds) pending.delete(id);
-    withSocket((socket) => {
+    emitQuietly((socket) => {
       for (let start = 0; start < conversationIds.length; start += WATCH_BATCH_SIZE) {
         const batch = conversationIds.slice(start, start + WATCH_BATCH_SIZE);
         socket.emit('presence:unwatch', { conversationIds: batch });

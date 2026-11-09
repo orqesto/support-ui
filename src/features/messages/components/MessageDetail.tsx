@@ -42,6 +42,9 @@ import { useReplySend } from './messageDetail/useReplySend';
 import { useConversationActions } from './messageDetail/useConversationActions';
 import { useNoteGuard } from './messageDetail/useNoteGuard';
 import { useGhostAnswer } from './messageDetail/useGhostAnswer';
+import { PresenceEye } from '../presence/PresenceEye';
+import { usePresenceWatch } from '../presence/usePresenceWatch';
+import { useIsPhone } from '../hooks/useIsPhone';
 import { useThreadActions } from './messageDetail/useThreadActions';
 import { useThreadTimeline } from './messageDetail/useThreadTimeline';
 import { ThreadScroller } from './messageDetail/ThreadScroller';
@@ -103,6 +106,13 @@ export function MessageDetail({
     lastEditMode,
     writeComposer,
   } = composerText;
+  // Thread presence: who else is here, and this tab's own state (composer words + mode).
+  const presence = usePresenceWatch([message.id], {
+    composerText: composer,
+    composerMode,
+    lastAgentEditAt: composerText.lastAgentEditAt,
+  });
+  const presenceIsPhone = useIsPhone();
   const dialogs = useDetailDialogs(message);
   const {
     submitting,
@@ -558,6 +568,13 @@ export function MessageDetail({
         {/* Header */}
         <MessageDetailHeader
           message={message}
+          presence={
+            <PresenceEye
+              available={presence.available}
+              viewers={presence.viewers}
+              isPhone={presenceIsPhone}
+            />
+          }
           onClose={onClose ? handleRequestClose : undefined}
           showFullPageButton={!!onClose && !fullPage}
           isFullPage={fullPage}
