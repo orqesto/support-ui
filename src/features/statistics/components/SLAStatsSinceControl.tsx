@@ -32,15 +32,13 @@ export const SLAStatsSinceControl = () => {
     mutationFn: slaService.setStatsSince,
     onSuccess: async (saved) => {
       queryClient.setQueryData(SLA_STATS_SINCE_KEY, saved);
+      // Every figure that reads SLA Performance — this page, the Statistics overview and the
+      // Dashboard tiles — not only the 'sla-' keys: they all count from the new date now.
       await queryClient.invalidateQueries({
-        // Every SLA figure on the page (their keys start with 'sla-'), not this date: it is set above.
-        predicate: (query) =>
-          typeof query.queryKey[0] === 'string' &&
-          query.queryKey[0].startsWith('sla-') &&
-          query.queryKey[0] !== SLA_STATS_SINCE_KEY[0],
+        predicate: (query) => query.queryKey[0] !== SLA_STATS_SINCE_KEY[0],
       });
       toast.success(
-        saved ? 'SLA Performance now counts from today' : 'SLA Performance counts everything again'
+        saved ? 'SLA Performance now counts from now' : 'SLA Performance counts all history'
       );
     },
     onError: () => toast.error('Could not change where SLA Performance counts from'),
