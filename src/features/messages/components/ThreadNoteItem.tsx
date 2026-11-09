@@ -1,5 +1,6 @@
+import { ClearHoldReasonAction } from '@/components/shared/ClearHoldReasonAction';
 import { holdNoteLabel, holdNoteText, isHoldNote } from '@/lib/holdNote';
-import { noteText } from '@/lib/noteText';
+import { noteBodyText } from '@/lib/noteText';
 import { formatDate, formatWhen } from '@/lib/utils';
 import type { MessageNote } from '@/services/message.service';
 import {
@@ -19,8 +20,17 @@ import {
  * A hold note (written by the backend when the thread goes on or comes off hold) is violet — the
  * On-hold colour — so a reason for waiting never reads as an ordinary amber note. Its text is
  * built from metadata (`holdNoteText`), so the date is the viewer's day, not the server's UTC one.
+ * A workspace admin may clear its reason here too (`conversationId` + `onNotesChanged` given).
  */
-export function ThreadNoteItem({ note }: { note: MessageNote }) {
+export function ThreadNoteItem({
+  note,
+  conversationId,
+  onNotesChanged,
+}: {
+  note: MessageNote;
+  conversationId?: number;
+  onNotesChanged?: () => void;
+}) {
   const hold = isHoldNote(note);
   const tone = hold ? 'text-pending' : 'text-warning';
   const bubble = hold
@@ -41,11 +51,18 @@ export function ThreadNoteItem({ note }: { note: MessageNote }) {
           </span>
           <b className="font-display font-semibold">{note.authorName}</b>
           <span title={formatDate(note.createdAt)}>· {formatWhen(note.createdAt)}</span>
+          {hold && conversationId !== undefined && onNotesChanged && (
+            <ClearHoldReasonAction
+              conversationId={conversationId}
+              note={note}
+              onCleared={onNotesChanged}
+            />
+          )}
         </div>
         <div
           className={`rounded-xl px-[13px] py-[11px] ${bubble} border border-l-[3px] text-foreground text-[13.5px] leading-[1.62] whitespace-pre-wrap break-words ${PHONE_THREAD_BUBBLE}`}
         >
-          {hold ? holdNoteText(note) : noteText(note.content)}
+          {hold ? holdNoteText(note) : noteBodyText(note)}
         </div>
       </div>
     </div>

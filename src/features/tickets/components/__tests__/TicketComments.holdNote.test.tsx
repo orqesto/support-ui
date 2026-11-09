@@ -8,6 +8,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import { TicketComments } from '../TicketComments';
 import { commentsService, type Comment } from '@/features/tickets/services/comments.service';
 import { useAuthStore } from '@/stores/authStore';
+import { formatDay } from '@/lib/utils';
 import { subscribeToEvent } from '@/lib/socketManager';
 import { StatusDot } from '../list/ticketRowBits';
 import type { User } from '@/types';
@@ -85,7 +86,9 @@ describe('TicketComments — hold note review fixes', () => {
         { ...hold, metadata: { kind: 'hold', reason: 'waiting for supplier', until: LATE_UTC } },
       ]);
       expect(
-        screen.getByText('On hold until 13 Nov 2026: waiting for supplier')
+        screen.getByText(
+          `On hold until ${formatDay(LATE_UTC, 'Australia/Sydney')}: waiting for supplier`
+        )
       ).toBeInTheDocument();
     } finally {
       if (before === undefined) delete process.env.TZ;

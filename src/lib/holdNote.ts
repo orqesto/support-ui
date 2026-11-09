@@ -1,3 +1,5 @@
+import { formatDay } from '@/lib/utils';
+
 /**
  * Hold notes: internal notes the backend writes when a thread goes on hold or comes off it
  * (`comments.source = 'hold'`). They are drawn in the On-hold colour (violet, the `pending`
@@ -46,27 +48,16 @@ export const holdMetadataOf = (note: HoldNoteFields): HoldMetadata | null => {
 };
 
 /**
- * "12 Nov 2026" in the VIEWER's time zone (`timeZone` only for tests). The same short form the
- * backend writes and the rest of the app shows (day, short month, year).
- */
-export const formatHoldDate = (date: Date, timeZone?: string): string =>
-  date.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    ...(timeZone ? { timeZone } : {}),
-  });
-
-/**
  * A hold note's text: "On hold until <date>: <reason>", "On hold until <date>", "On hold:
- * <reason>" or "On hold", the date in the viewer's time zone. A reason an admin removed reads
+ * <reason>" or "On hold", the date in the viewer's time zone and the app's day format
+ * (`formatDay`, as the header chip shows the same date). A reason an admin removed reads
  * " · reason removed" instead. Anything else (an Off-hold note, missing or malformed metadata)
  * is the note's stored `content`.
  */
 export const holdNoteText = (note: HoldNoteFields, timeZone?: string): string => {
   const meta = holdMetadataOf(note);
   if (!meta) return note.content ?? '';
-  const head = meta.until ? `On hold until ${formatHoldDate(meta.until, timeZone)}` : 'On hold';
+  const head = meta.until ? `On hold until ${formatDay(meta.until, timeZone)}` : 'On hold';
   if (meta.reasonCleared) return `${head} · reason removed`;
   return meta.reason ? `${head}: ${meta.reason}` : head;
 };

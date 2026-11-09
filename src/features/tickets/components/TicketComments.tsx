@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import RichTextEditor from '@/components/shared/LazyRichTextEditor';
 import { NoteContent } from '@/components/shared/NoteContent';
+import { ClearHoldReasonAction } from '@/components/shared/ClearHoldReasonAction';
 import { holdNoteLabel, isHoldNote } from '@/lib/holdNote';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -433,6 +434,14 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                     <span className="font-mono text-xs text-muted-foreground">
                       {formatDate(comment.createdAt)}
                     </span>
+                    {/* A hold note's reason is cleared through its thread (`messageId`). */}
+                    {isHoldNote(comment) && typeof comment.messageId === 'number' && (
+                      <ClearHoldReasonAction
+                        conversationId={comment.messageId}
+                        note={comment}
+                        onCleared={() => void fetchComments()}
+                      />
+                    )}
                     {canEditComment(comment) && (
                       <span className="flex gap-0.5 opacity-0 transition-opacity group-hover/cm:opacity-100 focus-within:opacity-100">
                         <Tooltip content="Edit comment" size="sm">

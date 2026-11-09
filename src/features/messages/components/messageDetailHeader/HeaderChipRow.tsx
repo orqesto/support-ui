@@ -4,6 +4,7 @@ import { Select } from '@/components/ui/Select';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { HoldDialog } from '@/components/shared/HoldDialog';
 import { getInitials } from '@/lib/initials';
+import { formatDay } from '@/lib/utils';
 import type { Message, TicketPriority, ThreadStatus } from '@/types';
 import type { computeSlaInfo, WorkflowStatus } from '../inboxCardHelpers';
 import {
@@ -133,7 +134,7 @@ export function HeaderChipRow({
           size="sm"
         >
           <span className="text-xs text-muted-foreground" data-testid="hold-until">
-            until {new Date(message.parkedUntil).toLocaleDateString()}
+            until {formatDay(message.parkedUntil)}
           </span>
         </Tooltip>
       )}

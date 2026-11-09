@@ -30,7 +30,7 @@ import { contactLookupKey } from '@/lib/messageHelpers';
 import RichTextEditor from '@/components/shared/LazyRichTextEditor';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { NoteContent } from '@/components/shared/NoteContent';
-import { ClearHoldReasonAction } from './ClearHoldReasonAction';
+import { ClearHoldReasonAction } from '@/components/shared/ClearHoldReasonAction';
 import { LABEL, PHONE_CONTACT, relativeTime, type PanelTab } from './messageDetailConstants';
 import { useTabBadges } from './useTabBadges';
 import { TabBadge } from './TabBadge';

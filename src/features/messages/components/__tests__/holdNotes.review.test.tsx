@@ -17,7 +17,8 @@ import { ThreadNoteItem } from '../ThreadNoteItem';
 import { MessagePanelTabs, type MessagePanelTabsProps } from '../MessagePanelTabs';
 import { ACTIVITY_DOT, buildTimeline } from '../messageActivityTimeline';
 import { ThreadStatusCell } from '../list/threadTableParts';
-import { holdNoteText, formatHoldDate } from '@/lib/holdNote';
+import { holdNoteText } from '@/lib/holdNote';
+import { formatDay } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { messageService } from '@/services/message.service';
 import type { Message, User } from '@/types';
@@ -43,6 +44,9 @@ vi.mock('@/features/contacts/hooks/useContactProfile', () => ({
 const AGENT_ID = 9;
 /** 22:00 UTC on 12 Nov: already 13 Nov in Sydney, still 12 Nov in New York. */
 const LATE_UTC = '2026-11-12T22:00:00Z';
+/** The app's day format (`formatDay`, the browser's locale) in each zone. */
+const SYD_DAY = formatDay(LATE_UTC, 'Australia/Sydney');
+const NY_DAY = formatDay(LATE_UTC, 'America/New_York');
 
 const hold = (metadata: Record<string, unknown> | null, content = 'server text'): MessageNote => ({
   id: 21,
@@ -84,17 +88,18 @@ const withTz = (zone: string, run: () => void) => {
 
 describe('1. hold date in the viewer’s time zone', () => {
   it('formats a 22:00Z instant as the local day', () => {
-    expect(formatHoldDate(new Date(LATE_UTC), 'Australia/Sydney')).toBe('13 Nov 2026');
-    expect(formatHoldDate(new Date(LATE_UTC), 'America/New_York')).toBe('12 Nov 2026');
+    expect(SYD_DAY).toMatch(/\b13\b/);
+    expect(NY_DAY).toMatch(/\b12\b/);
+    expect(SYD_DAY).toMatch(/2026/);
   });
 
   it('builds every form from metadata', () => {
     const tz = 'America/New_York';
     expect(holdNoteText(hold({ kind: 'hold', reason: 'supplier', until: LATE_UTC }), tz)).toBe(
-      'On hold until 12 Nov 2026: supplier'
+      `On hold until ${NY_DAY}: supplier`
     );
     expect(holdNoteText(hold({ kind: 'hold', reason: null, until: LATE_UTC }), tz)).toBe(
-      'On hold until 12 Nov 2026'
+      `On hold until ${NY_DAY}`
     );
     expect(holdNoteText(hold({ kind: 'hold', reason: 'supplier', until: null }), tz)).toBe(
       'On hold: supplier'
@@ -118,12 +123,12 @@ describe('1. hold date in the viewer’s time zone', () => {
     );
     withTz('Australia/Sydney', () => {
       const { unmount } = render(<ThreadNoteItem note={note} />);
-      expect(screen.getByText('On hold until 13 Nov 2026: supplier')).toBeInTheDocument();
+      expect(screen.getByText(`On hold until ${SYD_DAY}: supplier`)).toBeInTheDocument();
       unmount();
     });
     withTz('America/New_York', () => {
       const { unmount } = render(<ThreadNoteItem note={note} />);
-      expect(screen.getByText('On hold until 12 Nov 2026: supplier')).toBeInTheDocument();
+      expect(screen.getByText(`On hold until ${NY_DAY}: supplier`)).toBeInTheDocument();
       unmount();
     });
   });
@@ -136,14 +141,12 @@ describe('1. hold date in the viewer’s time zone', () => {
       reasonClearedAt: '2026-11-10T09:00:00Z',
       reasonClearedBy: 1,
     });
-    expect(holdNoteText(note, 'America/New_York')).toBe(
-      'On hold until 12 Nov 2026 · reason removed'
-    );
+    expect(holdNoteText(note, 'America/New_York')).toBe(`On hold until ${NY_DAY} · reason removed`);
   });
 });
 
 describe('2. Activity tab', () => {
-  it('🔴 a hold note is a violet "On hold" row, an un-hold note "Off hold"', () => {
+  it('🔴 a hold note is a violet "On hold" row, an un-hold note "Off hold · <cause>"', () => {
     withTz('Australia/Sydney', () => {
       const items = buildTimeline(
         [],
@@ -152,8 +155,8 @@ describe('2. Activity tab', () => {
       );
       const byLabel = Object.fromEntries(items.map((item) => [item.label, item.kind]));
       expect(byLabel).toEqual({
-        'On hold until 13 Nov 2026: supplier': 'hold',
-        'Off hold': 'hold',
+        [`On hold until ${SYD_DAY}: supplier`]: 'hold',
+        'Off hold · customer replied': 'hold',
         'Internal note': 'note',
       });
     });
@@ -221,12 +224,22 @@ const notesTabButton = () => screen.getByRole('button', { name: /^Notes/ });
 const asAgent = () =>
   useAuthStore.setState({
     selectedOrganizationId: 1,
-    user: { id: AGENT_ID, role: 'user', organizationRole: 'agent' } as unknown as User,
+    user: {
+      id: AGENT_ID,
+      role: 'user',
+      organizationRole: 'agent',
+      organizationId: 1,
+    } as unknown as User,
   });
 const asOrgAdmin = () =>
   useAuthStore.setState({
     selectedOrganizationId: 1,
-    user: { id: AGENT_ID, role: 'user', organizationRole: 'org_admin' } as unknown as User,
+    user: {
+      id: AGENT_ID,
+      role: 'user',
+      organizationRole: 'org_admin',
+      organizationId: 1,
+    } as unknown as User,
   });
 
 beforeEach(asAgent);

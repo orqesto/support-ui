@@ -8,6 +8,11 @@ export type { Attachment };
 export type Comment = {
   id: number;
   ticketId: number;
+  /**
+   * The thread the comment belongs to (the conversation id), or null for a ticket-only comment.
+   * A hold note's reason is cleared through that thread's route. Absent from an older backend.
+   */
+  messageId?: number | null;
   userId: number | null;
   authorName: string;
   content: string;
@@ -18,6 +23,8 @@ export type Comment = {
   createdAt: string;
   updatedAt: string;
   metadata: Record<string, unknown> | null;
+  /** `'html'` or `'text'` — see `noteIsHtml`. Absent from an older backend. */
+  contentFormat?: string | null;
   user: {
     id: number;
     firstName: string;

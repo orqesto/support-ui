@@ -14,6 +14,7 @@ import { MessagePanelTabs, type MessagePanelTabsProps } from '../MessagePanelTab
 import { WORKFLOW_STATUS_META } from '../inboxCardHelpers';
 import { LIFECYCLE_COLUMN_BADGE } from '@/lib/kanbanColumns';
 import { useAuthStore } from '@/stores/authStore';
+import { holdNoteText } from '@/lib/holdNote';
 import type { Message, User } from '@/types';
 import type * as MessageService from '@/services/message.service';
 
@@ -76,7 +77,7 @@ const classes = (el: Element | null) => (el?.className ?? '').split(/\s+/);
 describe('ThreadNoteItem — hold notes in the thread', () => {
   it('a hold note is violet, labelled, and carries no amber', () => {
     render(<ThreadNoteItem note={holdNote} />);
-    const bubble = screen.getByText(holdNote.content);
+    const bubble = screen.getByText(holdNoteText(holdNote));
     expect(classes(bubble)).toEqual(
       expect.arrayContaining(['bg-pending-muted', 'border-pending-line'])
     );

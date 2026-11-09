@@ -1,18 +1,22 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { usePermissions } from '@/hooks/usePermissions';
-import { holdReasonClearable } from '@/lib/holdNote';
+import { useIsWorkspaceAdmin } from '@/hooks/useIsWorkspaceAdmin';
+import { holdReasonClearable, type HoldNoteFields } from '@/lib/holdNote';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
-import { messageService, type MessageNote } from '@/services/message.service';
+import { messageService } from '@/services/message.service';
 
 /**
  * "Clear reason" on a hold note (owner, 2026-11-09): a workspace admin (org admin, or a global
  * admin) may remove the reason a thread was put on hold with — the note itself stays, marked
  * "reason removed". Agents never see it; the backend refuses them too (403). Only a `kind: 'hold'`
  * note that still has a reason offers it.
+ *
+ * Shown wherever a hold note is: the thread's Notes tab, the thread itself and the ticket page
+ * (one route for all three: the note's thread, `conversationId`). The role is the one in the
+ * workspace this tab is in — what the backend checks (`useIsWorkspaceAdmin`).
  */
 export const ClearHoldReasonAction = ({
   conversationId,
@@ -20,13 +24,13 @@ export const ClearHoldReasonAction = ({
   onCleared,
 }: {
   conversationId: number;
-  note: MessageNote;
+  note: HoldNoteFields & { id: number };
   onCleared: () => void;
 }) => {
-  const { isOrgAdmin } = usePermissions();
+  const isWorkspaceAdmin = useIsWorkspaceAdmin();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  if (!isOrgAdmin || !holdReasonClearable(note)) return null;
+  if (!isWorkspaceAdmin || !holdReasonClearable(note)) return null;
 
   const clear = async () => {
     setBusy(true);
