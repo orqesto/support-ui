@@ -27,6 +27,7 @@ export const useThreadDetailActions = ({
   threads,
   drawnThreads,
   handleOpenThread,
+  openSeqRef,
   selectedThreadIdRef,
   selectedThreadMessageIdRef,
   navigate,
@@ -45,6 +46,8 @@ export const useThreadDetailActions = ({
   threads: MessageThread[];
   drawnThreads: MessageThread[];
   handleOpenThread: (thread: MessageThread) => Promise<void>;
+  /** Bumped by every open (and by a close of a pending one) — see useOpenThread. */
+  openSeqRef: MutableRefObject<number>;
   selectedThreadIdRef: MutableRefObject<string | null>;
   selectedThreadMessageIdRef: MutableRefObject<number | null>;
   navigate: NavigateFunction;
@@ -97,13 +100,53 @@ export const useThreadDetailActions = ({
     navigate(`/tickets/create?messageId=${message.id}`);
   };
 
+  // The open thread's id NOW, for an answer that lands after the agent moved on.
+  const selectedMessageIdRef = useRef<number | undefined>(undefined);
+  selectedMessageIdRef.current = selectedMessage?.id;
+
+  /**
+   * Closing the detail: its own close and the backdrop's fallback (the detail has not registered
+   * its prompt-aware close yet) are this one function, so neither can forget a step. Dropping
+   * `?id` also stops an open still loading (useOpenThread).
+   */
+  const closeDetail = () => {
+    const params = new URLSearchParams(searchParams);
+    params.delete('id');
+    setSearchParams(params);
+    selectedThreadIdRef.current = null;
+    setSelectedMessage(null);
+  };
+
+  /**
+   * For an action that closes the thread after a read (resolve, "Not customer work", a
+   * classification): take it when the action starts, call it when the read is done. It closes
+   * only if the agent is still on that thread — no open started since (J/K, a row click, even one
+   * still loading) and the same message open. It used to close whatever was open by then, so a
+   * thread opened meanwhile shut and its card was forgotten; and it left `?id` naming the closed
+   * thread. From the URL as it is NOW, like rereadSelectedMessage.
+   */
+  const closeWhenDone = (messageId: number | undefined) => {
+    const seq = openSeqRef.current;
+    return () => {
+      if (messageId === undefined || openSeqRef.current !== seq) return;
+      if (selectedMessageIdRef.current !== messageId) return;
+      setSearchParams((current) => {
+        const params = new URLSearchParams(current);
+        params.delete('id');
+        return params;
+      });
+      selectedThreadIdRef.current = null;
+      setSelectedMessage(null);
+    };
+  };
+
   const handleResolve = async () => {
+    const close = closeWhenDone(selectedMessage?.id);
     clearCache();
     // Instant Kanban move to Resolved (falls back to a full refetch in list mode).
     moveSelectedCard('resolved');
     await fetchMessages(messagesPagination.page, true);
-    selectedThreadIdRef.current = null;
-    setSelectedMessage(null);
+    close();
   };
 
   // AFTER the detail has processed the conversation — it posts `markAsProcessed` itself (for
@@ -116,17 +159,12 @@ export const useThreadDetailActions = ({
       clearCache();
       // Mark-as-processed closes the conversation → Resolved column.
       moveSelectedCard('resolved');
-      selectedThreadIdRef.current = null;
-      setSelectedMessage(null);
+      closeWhenDone(selectedMessage?.id)();
       await fetchMessages(messagesPagination.page, true);
     } catch (error) {
       logger.error('Failed to refresh after processing:', error);
     }
   };
-
-  // The open thread's id NOW, for an answer that lands after the agent moved on.
-  const selectedMessageIdRef = useRef<number | undefined>(undefined);
-  selectedMessageIdRef.current = selectedMessage?.id;
 
   const handleReopen = async (message: Message) => {
     try {
@@ -250,6 +288,8 @@ export const useThreadDetailActions = ({
   return {
     handleNavigate,
     handleApprove,
+    closeDetail,
+    closeWhenDone,
     handleResolve,
     handleRejected,
     handleReopen,

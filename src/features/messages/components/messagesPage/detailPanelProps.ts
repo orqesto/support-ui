@@ -1,4 +1,4 @@
-import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
+import type { MutableRefObject } from 'react';
 import type { QueryClient } from '@tanstack/react-query';
 import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
 import { messageService, type MessageThread } from '@/services/message.service';
@@ -11,7 +11,8 @@ type Data = ReturnType<typeof useMessagesData>;
 export type DetailPanelDeps = {
   /** The page's one close (the backdrop's fallback uses the same). */
   closeDetail: () => void;
-  setSelectedMessage: Dispatch<SetStateAction<Message | null>>;
+  /** A close after a read, only if the agent is still on that thread (useThreadDetailActions). */
+  closeWhenDone: (messageId: number | undefined) => () => void;
   moveSelectedCard: (targetColId: string | null) => void;
   rereadSelectedMessage: () => Promise<void>;
   displayMode: MessagesDisplayMode;
@@ -43,7 +44,7 @@ export const detailPanelProps = (
   selectedMessage: Message,
   {
     closeDetail,
-    setSelectedMessage,
+    closeWhenDone,
     moveSelectedCard,
     rereadSelectedMessage,
     displayMode,
@@ -74,11 +75,12 @@ export const detailPanelProps = (
   onNavigate: displayMode === 'threads' ? handleNavigate : undefined,
   onOptimisticMove: (columnId) => moveSelectedCard(columnId),
   onApprove: () => handleApprove(selectedMessage),
+  // handleRejected closes the thread itself, at once; closing again after its re-read closed
+  // whatever thread the agent had opened meanwhile.
   // Async, as the JSX handlers were (that rule does not check JSX attributes).
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   onReject: async () => {
     await handleRejected();
-    setSelectedMessage(null);
   },
   // Async, as the JSX handlers were (that rule does not check JSX attributes).
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
@@ -115,6 +117,7 @@ export const detailPanelProps = (
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   onRefresh: handleRefreshMessage,
   onClassify: async (action, createDetectionRule, trainSpamFilter, confirm) => {
+    const close = closeWhenDone(selectedMessage.id);
     await messageService.classify(
       selectedMessage.id,
       action,
@@ -126,6 +129,6 @@ export const detailPanelProps = (
     bumpKanban();
     void queryClient.invalidateQueries({ queryKey: NOTIFICATION_COUNTS_KEY });
     await fetchMessages(messagesPagination.page, true);
-    setSelectedMessage(null);
+    close();
   },
 });
