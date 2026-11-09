@@ -1,4 +1,4 @@
-import { holdNoteLabel, isHoldNote } from '@/lib/holdNote';
+import { holdNoteLabel, holdNoteText, isHoldNote } from '@/lib/holdNote';
 import { noteText } from '@/lib/noteText';
 import { formatDate, formatWhen } from '@/lib/utils';
 import type { MessageNote } from '@/services/message.service';
@@ -17,7 +17,8 @@ import {
  * of one note never disagree.
  *
  * A hold note (written by the backend when the thread goes on or comes off hold) is violet — the
- * On-hold colour — so a reason for waiting never reads as an ordinary amber note.
+ * On-hold colour — so a reason for waiting never reads as an ordinary amber note. Its text is
+ * built from metadata (`holdNoteText`), so the date is the viewer's day, not the server's UTC one.
  */
 export function ThreadNoteItem({ note }: { note: MessageNote }) {
   const hold = isHoldNote(note);
@@ -44,7 +45,7 @@ export function ThreadNoteItem({ note }: { note: MessageNote }) {
         <div
           className={`rounded-xl px-[13px] py-[11px] ${bubble} border border-l-[3px] text-foreground text-[13.5px] leading-[1.62] whitespace-pre-wrap break-words ${PHONE_THREAD_BUBBLE}`}
         >
-          {noteText(note.content)}
+          {hold ? holdNoteText(note) : noteText(note.content)}
         </div>
       </div>
     </div>

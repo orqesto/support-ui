@@ -15,5 +15,12 @@ const EDITOR_HTML = /^\s*<(p|div|ul|ol|blockquote|pre|h[1-6])[\s>]/i;
 
 export const noteFromEditor = (html: string): string => editorHtmlToText(html);
 
+/**
+ * Whether stored text is the rich editor's HTML (it always opens with a block tag). Everything
+ * else that writes a comment — the thread's note box, the Jira sync, the Zendesk import, the
+ * backend's own notes — writes plain text, so this is how a view tells the two apart.
+ */
+export const isEditorHtml = (content: string): boolean => EDITOR_HTML.test(content);
+
 export const noteText = (content: string): string =>
-  EDITOR_HTML.test(content) ? editorHtmlToText(content) : content;
+  isEditorHtml(content) ? editorHtmlToText(content) : content;

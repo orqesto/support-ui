@@ -109,6 +109,17 @@ export const messageActionsApi = {
     return response.data;
   },
 
+  /**
+   * A workspace admin removes the reason from a hold note (the note stays; its metadata gets
+   * `reasonClearedAt`). 403 for anyone else, 400 for an Off-hold note.
+   */
+  clearHoldNoteReason: async (id: number, noteId: number) => {
+    const response = await apiClient.post<ApiResponse<MessageNote>>(
+      `/api/messages/${id}/notes/${noteId}/clear-reason`
+    );
+    return response.data;
+  },
+
   /** `hold`: On-hold's reason and recheck date (only with status `pending`). */
   setStatus: async (id: number, status: ThreadStatus, hold?: { reason: string; until: Date }) => {
     const response = await apiClient.patch<ApiResponse<{ id: number; status: ThreadStatus }>>(

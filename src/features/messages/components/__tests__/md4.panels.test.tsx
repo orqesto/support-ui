@@ -589,6 +589,7 @@ describe('P7 — Activity: the dot says what kind of thing happened', () => {
       in: 'bg-primary-solid',
       out: 'bg-success',
       note: 'bg-warning',
+      hold: 'bg-pending',
       ai: 'bg-ai',
       other: 'bg-border-strong',
     });

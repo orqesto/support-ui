@@ -46,7 +46,8 @@ const holdNote = {
   createdAt: '2026-11-09T10:00:00Z',
   updatedAt: '2026-11-09T10:00:00Z',
   source: 'hold',
-  metadata: { kind: 'hold', reason: 'waiting for supplier', until: '2026-11-12T00:00:00Z' },
+  // Midday UTC: the same calendar day in every zone the suite may run in.
+  metadata: { kind: 'hold', reason: 'waiting for supplier', until: '2026-11-12T12:00:00Z' },
 } satisfies MessageNote;
 
 const unholdNote = {
