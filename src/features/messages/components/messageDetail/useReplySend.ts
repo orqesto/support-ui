@@ -1,4 +1,4 @@
-import { useCallback, type MutableRefObject } from 'react';
+import { useCallback, useRef, useState, type MutableRefObject } from 'react';
 import { messageService, type ReplyAssignIntent } from '@/services/message.service';
 import type { organizationService } from '@/services/organization.service';
 import { forgetOwnSend, rememberOwnSend } from '@/lib/ownSends';
@@ -18,6 +18,7 @@ import {
   isRetryableSendFailure,
   resolveSendFailureMessage,
 } from '@/features/messages/components/sendErrorMessage';
+import { replyCollisionQuestion } from '@/lib/apiError';
 import { writeSendAction, type SendAction } from '../ComposerSendButton';
 import type { ResolveMode } from '../resolveMode';
 import { fileIdentity, keyForPayload } from './sendKey';
@@ -87,9 +88,25 @@ export function useReplySend({
     setTemplatesLoading,
     setTemplates,
   } = replyState;
-  const { setNotesBump, setThreadRefreshKey, pullNewEvents } = thread;
+  const { setNotesBump, setThreadRefreshKey, pullNewEvents, threadMessages } = thread;
+  /*
+    Thread presence send guard (spec §5.4): the newest event the agent has loaded rides on the
+    reply; none loaded ⇒ omitted, the old-client path the server does not guard. A 409 saying
+    someone got there first opens a confirm (`collision`, the server's question verbatim) instead
+    of the Send failed bar.
+  */
+  const seenLastEventId =
+    threadMessages.length > 0
+      ? threadMessages.reduce((max, event) => Math.max(max, event.id), threadMessages[0].id)
+      : undefined;
+  const [collision, setCollision] = useState<string | null>(null);
+  const collisionRef = useRef<string | null>(null);
+  const showCollision = useCallback((question: string | null) => {
+    collisionRef.current = question;
+    setCollision(question);
+  }, []);
   const performSend = useCallback(
-    async (assign?: ReplyAssignIntent) => {
+    async (assign?: ReplyAssignIntent, confirmOverride = false) => {
       setSubmitting(true);
       setSendFailedError(null);
       setSendFailureRetryable(false);
@@ -124,6 +141,14 @@ export function useReplySend({
                 recipients?.bcc ?? [],
               ])
             );
+      // Not in the key's payload above: "Send anyway" is the same reply, so it keeps the key.
+      const guard =
+        seenLastEventId === undefined && !confirmOverride
+          ? undefined
+          : {
+              ...(seenLastEventId !== undefined && { seenLastEventId }),
+              ...(confirmOverride && { confirmOverride: true }),
+            };
       // Before the request: the `message:replied` echo can beat the HTTP answer.
       if (idempotencyKey) rememberOwnSend(idempotencyKey);
       // After the key is minted: the kept copy rides with it while the send is out.
@@ -143,7 +168,8 @@ export function useReplySend({
             idempotencyKey,
             aiDraft ?? undefined,
             recipients,
-            assign
+            assign,
+            guard
           );
         } else {
           await messageService.reply(
@@ -156,7 +182,8 @@ export function useReplySend({
             aiDraft ?? undefined,
             undefined,
             recipients,
-            assign
+            assign,
+            guard
           );
         }
         // success — the next reply is a new logical send
@@ -220,6 +247,13 @@ export function useReplySend({
         afterSendRef.current = after;
         // Should the server have delivered it after all, its echo must reload like anyone's.
         if (idempotencyKey) forgetOwnSend(idempotencyKey);
+        // Someone got there first: nothing was sent. The agent decides — Send anyway or Cancel
+        // (which re-reads the thread so the newer reply shows); not a send failure.
+        const question = composerMode === 'note' ? null : replyCollisionQuestion(err);
+        if (question !== null) {
+          showCollision(question);
+          return;
+        }
         // …and the echo may already have come and been skipped as ours: the server emits it before
         // it answers, so a reply delivered whose ANSWER was lost (a dropped connection, a 502 from
         // the proxy) would never show. Re-read as the echo would have.
@@ -249,6 +283,8 @@ export function useReplySend({
       onResolve,
       pullNewEvents,
       recipientDraft,
+      seenLastEventId,
+      showCollision,
       selectedFiles,
       supportsRecipients,
       writeComposer,
@@ -269,6 +305,20 @@ export function useReplySend({
       setThreadRefreshKey,
     ]
   );
+
+  /** The confirm's "Send anyway": the same reply, its kept key, the override flag. */
+  const sendAnyway = useCallback(() => {
+    if (collisionRef.current === null) return;
+    showCollision(null);
+    void performSend(lastAssignRef.current, true);
+  }, [lastAssignRef, performSend, showCollision]);
+  /** Cancel (or the dialog closed): the draft stays as it was; the thread is read again. */
+  const cancelCollision = useCallback(() => {
+    if (collisionRef.current === null) return;
+    showCollision(null);
+    setThreadRefreshKey((key) => key + 1);
+    onRefresh?.();
+  }, [onRefresh, setThreadRefreshKey, showCollision]);
 
   const handleSend = useCallback(async () => {
     // Require real text — blocks Ctrl+Shift+Enter attachment-only sends the disabled
@@ -401,6 +451,9 @@ export function useReplySend({
   );
   return {
     performSend,
+    collision,
+    sendAnyway,
+    cancelCollision,
     handleSend,
     sendActions,
     handleSendWith,

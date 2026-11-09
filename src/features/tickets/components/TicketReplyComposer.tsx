@@ -7,7 +7,8 @@ import { Card } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { MenuItem } from '@/components/ui/Menu';
-import { COMPOSER_TOOL } from '@/features/messages/shell';
+import { COMPOSER_TOOL, usePresenceReport } from '@/features/messages/shell';
+import { replyCollisionQuestion } from '@/lib/apiError';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/LazyRichTextEditor';
 import { TemplatePicker } from '@/components/shared/TemplatePicker';
@@ -28,6 +29,7 @@ import {
 import { ticketDraftsService } from '@/features/tickets/services/ticketDrafts.service';
 import type { TicketThread } from '@/features/tickets/services/ticketThreads.service';
 import { TicketDraftsReview, useDraftsWorkflow } from './TicketDraftsReview';
+import { useAgentEditStamp, useSendCollision } from './ticketSendGuard';
 import { TicketSentHistory, hasReviewedVersions, sentTo } from './TicketSentHistory';
 import {
   PlaceholderHints,
@@ -169,6 +171,14 @@ export const TicketReplyComposer = ({
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Thread presence (spec §5.1, §5.4): "writing" on the ticked threads; the 409 confirm.
+  const lastAgentEditAt = useAgentEditStamp(draft);
+  usePresenceReport(selected, { composerText: draft, composerMode: 'reply', lastAgentEditAt });
+  const {
+    offer: offerCollision,
+    clear: clearCollision,
+    renderDialog: collisionDialog,
+  } = useSendCollision<Exclude<Confirm, { kind: 'discard' }>>(onSent);
 
   // A different ticket: nothing written or said about the previous one stays.
   const currentTicket = useRef(ticketId);
@@ -179,10 +189,11 @@ export const TicketReplyComposer = ({
     setFiles([]);
     editorRef.current?.setContent('');
     setConfirm(null);
+    clearCollision();
     setNotice(null);
     setError(null);
     setPreviewOpen(false);
-  }, [ticketId]);
+  }, [ticketId, clearCollision]);
   /*
     The update being written survives a closed ticket or a page change (this browser only,
     useUnsentDraft). After the reset above, so a ticket's own kept text lands on top of it.
@@ -424,7 +435,7 @@ export const TicketReplyComposer = ({
     });
   };
 
-  const send = async (request: Exclude<Confirm, { kind: 'discard' }>) => {
+  const send = async (request: Exclude<Confirm, { kind: 'discard' }>, confirmOverride = false) => {
     setConfirm(null);
     setError(null);
     setNotice(null);
@@ -445,9 +456,24 @@ export const TicketReplyComposer = ({
       const resolveChoice = fresh ? request.resolve : undefined;
       const sendFiles = fresh ? files : [];
       const hold = request.kind === 'new' ? request.hold : undefined;
-      const result = hold
-        ? await ticketRepliesService.send(startedOn, body, request.ids, false, sendFiles, hold)
-        : await ticketRepliesService.send(startedOn, body, request.ids, resolveChoice, sendFiles);
+      /*
+        No seenLastEventId: this page loads no thread events (only the ticket's threads and
+        replies), so it has no event id to send — the server then runs no send guard for a ticket
+        reply, as for an older client. Only "send anyway" is passed, after a 409.
+      */
+      const result = confirmOverride
+        ? await ticketRepliesService.send(
+            startedOn,
+            body,
+            request.ids,
+            hold ? false : resolveChoice,
+            sendFiles,
+            hold,
+            { confirmOverride: true }
+          )
+        : hold
+          ? await ticketRepliesService.send(startedOn, body, request.ids, false, sendFiles, hold)
+          : await ticketRepliesService.send(startedOn, body, request.ids, resolveChoice, sendFiles);
       draftSend?.settle(true);
       if (currentTicket.current !== startedOn) return;
       if (request.kind === 'new') {
@@ -485,6 +511,11 @@ export const TicketReplyComposer = ({
       draftSend?.settle(false);
       logger.error('Failed to send the ticket reply', err);
       if (currentTicket.current !== startedOn) return;
+      const question = replyCollisionQuestion(err);
+      if (question !== null) {
+        offerCollision(question, request);
+        return;
+      }
       setError(getApiErrorMessage(err) ?? 'The reply could not be sent.');
     } finally {
       setSending(false);
@@ -719,6 +750,8 @@ export const TicketReplyComposer = ({
         description={confirm?.description ?? ''}
         confirmText={confirmButton(confirm)}
       />
+      {/* Someone replied on, or is writing in, one of the threads: the server's question. */}
+      {collisionDialog((request) => void send(request, true))}
     </Card>
   );
 };

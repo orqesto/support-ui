@@ -47,6 +47,7 @@ export { useListPresentation } from './components/useListPresentation';
 export { addNoopenerHook } from './shell';
 export { PresenceEye } from './presence/PresenceEye';
 export { usePresenceWatch } from './presence/usePresenceWatch';
+export { usePresenceReport } from './presence/usePresenceReport';
 export { usePresenceSummary } from './presence/usePresenceSummary';
 export { scopeJumpUrl } from './hooks/scopeJumpUrl';
 export { useConversationNewRefresh } from './hooks/useConversationNewRefresh';

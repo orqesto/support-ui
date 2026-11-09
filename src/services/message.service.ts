@@ -31,6 +31,7 @@ export type {
   MessageContact,
   MessageContactSubject,
   ReplyAssignIntent,
+  ReplyCollision,
   ReplyRecipients,
   MessageThread,
   AiDraft,

@@ -1,6 +1,7 @@
 import { apiClient } from '@/lib/api-client';
 import { getErrorStatus } from '@/lib/errorMessages';
 import type { ApiResponse } from '@/types';
+import type { ReplyCollision } from '@/services/message.service';
 
 /**
  * One reply written on a ticket page and sent into each of its threads separately — every
@@ -193,13 +194,22 @@ export const ticketRepliesService = {
     /** Files for a NEW reply — sent once, attached in every thread. */
     files: File[] = [],
     /** "Send & put on hold" — never together with resolve. */
-    hold?: Hold
+    hold?: Hold,
+    /**
+     * Thread presence send guard (spec §5.4): the newest event id seen across the ticket's threads
+     * (absent = unguarded, as an older client), and "send anyway" after the 409.
+     */
+    collision?: ReplyCollision
   ): Promise<SendResult> {
     const fields = {
       ...body,
       conversationIds,
       ...(resolve === undefined ? {} : { resolve }),
       ...(hold ? { holdUntil: hold.until.toISOString(), holdReason: hold.reason } : {}),
+      ...(collision?.seenLastEventId === undefined
+        ? {}
+        : { seenLastEventId: collision.seenLastEventId }),
+      ...(collision?.confirmOverride ? { confirmOverride: true } : {}),
     };
     let payload: FormData | typeof fields = fields;
     if (files.length > 0) {

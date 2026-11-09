@@ -24,11 +24,14 @@ import { presenceClient, WATCH_BATCH_SIZE } from './presenceClient';
 import {
   PRESENCE_STATE_RANK,
   type PresenceSettings,
-  type PresenceState,
   type PresenceThreadEvent,
   type PresenceViewer,
 } from './presence.types';
 import { usePresenceReporter, type PresenceReporterInput } from './usePresenceReporter';
+import { usePresenceSender } from './usePresenceSender';
+import { publishWatch } from './watchRegistry';
+
+export { STATE_MIN_GAP_MS } from './usePresenceSender';
 
 /**
  * A failed watch is tried again after these waits, then left until the next reconnect or id
@@ -37,8 +40,6 @@ import { usePresenceReporter, type PresenceReporterInput } from './usePresenceRe
  * until the socket is in its workspace.
  */
 export const WATCH_RETRY_MS = [2_000, 5_000, 10_000];
-/** At most one `presence:state` per thread per second (the BE contract). */
-export const STATE_MIN_GAP_MS = 1_000;
 /**
  * After a disconnect the hook re-watches on the socket's own `connect` (spread over this window),
  * not only on SOCKET_RECONNECTED_EVENT: the socket manager raises that one at most once per 30 s,
@@ -98,8 +99,6 @@ export const usePresenceWatch = (
   const [threads, setThreads] = useState<Record<number, PresenceViewer[]>>({});
 
   const state = usePresenceReporter(reporterInput, settings);
-  const stateRef = useRef(state);
-  stateRef.current = state;
   const availableRef = useRef(available);
   availableRef.current = available;
 
@@ -116,48 +115,21 @@ export const usePresenceWatch = (
   /** A disconnect happened and no re-watch ran since: the next raw `connect` re-watches. */
   const awaitingConnect = useRef(false);
   const connectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Per survivor: when this tab last queued a state for it, and which. */
-  const lastSent = useRef(new Map<number, { at: number; state: PresenceState }>());
-  const held = useRef(new Set<number>());
-  const heldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Successful watch acks so far (published: a reporter re-sends its state on each). */
+  const ackSeq = useRef(0);
 
   const survivors = useCallback(
     (): number[] => unique(wanted.current.flatMap((id) => survivorOf.current.get(id) ?? [])),
     []
   );
 
-  /** Send this tab's state to `ids`; `force` re-sends an unchanged state (a heartbeat, a watch). */
-  const reportTo = useCallback(
-    (ids: number[], force: boolean) => {
-      const current = stateRef.current;
-      if (!current) return;
-      const now = Date.now();
-      let wait = 0;
-      for (const id of ids) {
-        const last = lastSent.current.get(id);
-        if (!force && last?.state === current) continue;
-        if (last && now - last.at < STATE_MIN_GAP_MS) {
-          held.current.add(id);
-          wait = Math.max(wait, STATE_MIN_GAP_MS - (now - last.at));
-          continue;
-        }
-        lastSent.current.set(id, { at: now, state: current });
-        presenceClient.setState(id, current);
-      }
-      if (held.current.size === 0 || heldTimer.current !== null) return;
-      heldTimer.current = setTimeout(() => {
-        heldTimer.current = null;
-        const due = [...held.current];
-        held.current.clear();
-        const live = new Set(survivors());
-        reportTo(
-          due.filter((id) => live.has(id)),
-          false
-        );
-      }, wait);
-    },
-    [survivors]
-  );
+  const sender = usePresenceSender({
+    state,
+    available,
+    heartbeatMs: settings?.heartbeatMs,
+    targets: survivors,
+  });
+  const { reportTo } = sender;
 
   /** Drop survivors no wanted id maps to any more: unwatch them and forget their viewers. */
   const release = useCallback(
@@ -166,17 +138,14 @@ export const usePresenceWatch = (
       const gone = unique(candidates).filter((id) => !keep.has(id));
       if (gone.length === 0) return;
       presenceClient.unwatch(gone);
-      for (const id of gone) {
-        lastSent.current.delete(id);
-        held.current.delete(id);
-      }
+      sender.forget(gone);
       setThreads((prev) => {
         const next = { ...prev };
         for (const id of gone) delete next[id];
         return next;
       });
     },
-    [survivors]
+    [survivors, sender]
   );
 
   const watchIds = useCallback(
@@ -236,6 +205,7 @@ export const usePresenceWatch = (
         }
       } else {
         retryCount.current = 0;
+        ackSeq.current += 1;
         setAvailable(true);
       }
       reportTo(unique(fresh), true);
@@ -258,8 +228,6 @@ export const usePresenceWatch = (
     getSocket();
     // The same Map/Set objects for the hook's life (only cleared), named here for the cleanup.
     const survivorMap = survivorOf.current;
-    const sentMap = lastSent.current;
-    const heldSet = held.current;
     const onThread = (data: unknown) => {
       const event = data as PresenceThreadEvent | null;
       if (!event || !Array.isArray(event.viewers)) return;
@@ -278,8 +246,7 @@ export const usePresenceWatch = (
       connectTimer.current = null;
       awaitingConnect.current = true;
       lastWatchFailed.current = true; // the server forgot every watch of this socket
-      lastSent.current.clear();
-      held.current.clear();
+      sender.clear();
       setAvailable(false);
       setThreads({});
     };
@@ -314,11 +281,10 @@ export const usePresenceWatch = (
       unsubscribeFromEvent(SOCKET_RECONNECTED_EVENT, onReconnected);
       unsubscribeFromEvent('conversation:updated', onUpdated);
       generation.current += 1;
-      for (const timer of [retryTimer.current, heldTimer.current, connectTimer.current]) {
+      for (const timer of [retryTimer.current, connectTimer.current]) {
         if (timer !== null) clearTimeout(timer);
       }
       retryTimer.current = null;
-      heldTimer.current = null;
       connectTimer.current = null;
       awaitingConnect.current = false;
       // Ids the server never mapped (no ack yet) are unwatched as they were asked.
@@ -326,11 +292,10 @@ export const usePresenceWatch = (
       // Reset, so a remount (StrictMode) watches from scratch.
       wanted.current = [];
       survivorMap.clear();
-      sentMap.clear();
-      heldSet.clear();
+      sender.clear();
       releaseSocket();
     };
-  }, [survivors, rewatchAll]);
+  }, [survivors, rewatchAll, sender]);
 
   // The caller's ids: unwatch what was dropped, watch what is new.
   const idsKey = unique(conversationIds)
@@ -359,19 +324,20 @@ export const usePresenceWatch = (
     } else void watchIds(added);
   }, [idsKey, release, watchIds]);
 
-  // A changed state goes out at once (≤ 1/s per thread).
+  // What this tab watches now, for a composer that reports without watching (usePresenceReport).
+  const [owner] = useState(() => ({}));
   useEffect(() => {
-    if (state && availableRef.current) reportTo(survivors(), false);
-  }, [state, available, reportTo, survivors]);
-
-  // The heartbeat keeps this tab's entry from expiring on the server.
-  const reporting = state !== null;
-  const heartbeatMs = settings?.heartbeatMs;
-  useEffect(() => {
-    if (!available || !reporting || !heartbeatMs) return;
-    const timer = setInterval(() => reportTo(survivors(), true), heartbeatMs);
-    return () => clearInterval(timer);
-  }, [available, reporting, heartbeatMs, reportTo, survivors]);
+    const mapped = new Map<number, number>();
+    if (available) {
+      for (const id of wanted.current) {
+        const survivor = survivorOf.current.get(id);
+        if (survivor !== undefined) mapped.set(id, survivor);
+      }
+    }
+    publishWatch(owner, { survivorOf: mapped, settings, ackSeq: ackSeq.current });
+    // `threads` changes with every ack and every dropped id: the survivors may have moved.
+  }, [owner, available, settings, threads, idsKey]);
+  useEffect(() => () => publishWatch(owner, null), [owner]);
 
   const viewers = useMemo(
     () => (available ? mergeViewers(threads, myId) : []),

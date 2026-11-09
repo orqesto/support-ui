@@ -301,6 +301,13 @@ export type MessageContactSubject = {
 /** The agent's answer to "does this thread become yours?" — see assignOnReplyPrompt.ts. */
 export type ReplyAssignIntent = 'me' | 'none';
 
+/**
+ * Thread presence send guard (spec §5.4). `seenLastEventId`: the newest event id the agent had
+ * loaded — absent = no guard (an older client). `confirmOverride`: "Send anyway" after the 409.
+ * Never part of the idempotency key's payload: Send anyway is the same reply.
+ */
+export type ReplyCollision = { seenLastEventId?: number; confirmOverride?: boolean };
+
 export type ReplyRecipients = {
   to?: string[];
   cc?: string[];
