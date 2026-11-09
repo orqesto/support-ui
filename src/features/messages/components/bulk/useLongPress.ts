@@ -5,6 +5,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { isFromPortal } from '../isFromPortal';
 
 /**
  * Touch long-press on an inbox row (owner, 2026-09-28): a phone has no hover, so holding a row
@@ -20,6 +21,10 @@ import {
  * The click that follows a successful long-press is swallowed (capture phase, so neither the
  * row's open-thread handler nor a checkbox underneath sees it). The flag that swallows it is
  * reset on the next pointerdown, so a long-press that produced no click cannot eat a later tap.
+ *
+ * Events from a portal the row renders (the presence "… anyway?" confirm, a picker) are ignored:
+ * React bubbles them through the row, and a slow touch on "Assign anyway" must neither select the
+ * row behind the dialog nor have its click swallowed.
  */
 export const LONG_PRESS_MS = 450;
 export const MOVE_TOLERANCE_PX = 10;
@@ -54,6 +59,7 @@ export const useLongPress = (onLongPress: (() => void) | undefined): LongPressHa
 
   return {
     onPointerDown: (event) => {
+      if (isFromPortal(event)) return;
       firedRef.current = false;
       if (event.pointerType !== 'touch' || !event.isPrimary) return;
       cancel();
@@ -67,6 +73,7 @@ export const useLongPress = (onLongPress: (() => void) | undefined): LongPressHa
       }, LONG_PRESS_MS);
     },
     onPointerMove: (event) => {
+      if (isFromPortal(event)) return;
       const origin = originRef.current;
       if (!origin) return;
       const distance = Math.hypot(event.clientX - origin.left, event.clientY - origin.top);
@@ -75,7 +82,7 @@ export const useLongPress = (onLongPress: (() => void) | undefined): LongPressHa
     onPointerUp: cancel,
     onPointerCancel: cancel,
     onClickCapture: (event) => {
-      if (!firedRef.current) return;
+      if (isFromPortal(event) || !firedRef.current) return;
       firedRef.current = false;
       event.preventDefault();
       event.stopPropagation();
@@ -83,6 +90,7 @@ export const useLongPress = (onLongPress: (() => void) | undefined): LongPressHa
     // The OS long-press menu (Android) arrives around the same moment; during or after a press
     // that is selecting a row it would cover the row the agent just picked.
     onContextMenu: (event) => {
+      if (isFromPortal(event)) return;
       if (firedRef.current || timerRef.current !== null) event.preventDefault();
     },
   };
