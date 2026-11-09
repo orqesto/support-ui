@@ -101,7 +101,7 @@ export function useThreadUnsentDraft({
       const recipients = isRecipientDraft(data?.recipients) ? data.recipients : null;
       if (!hasText && !recipients) return;
       const mode = data.mode === 'note' ? 'note' : 'reply';
-      if (hasText) writeComposer(data.html, mode);
+      if (hasText) writeComposer(data.html, mode, { restore: true });
       setComposerMode(mode);
       if (recipients) setRecipientDraft(recipients);
       if (data.aiSource) handleAiSourceChange(data.aiSource, data.aiDraft ?? undefined);

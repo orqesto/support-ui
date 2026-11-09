@@ -194,6 +194,7 @@ export const TicketReplyComposer = ({
     draft,
     fileCount: files.length,
     setDraft,
+    restoredHtml: collision.restoredHtml,
     clearText: () => {
       setDraft('');
       setBeforeAi(null);

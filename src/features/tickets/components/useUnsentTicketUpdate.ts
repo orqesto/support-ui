@@ -15,6 +15,7 @@ export const useUnsentTicketUpdate = ({
   setDraft,
   clearText,
   setNotice,
+  restoredHtml,
 }: {
   ticketId: number;
   draft: string;
@@ -22,16 +23,19 @@ export const useUnsentTicketUpdate = ({
   setDraft: (html: string) => void;
   clearText: () => void;
   setNotice: (notice: string | null) => void;
+  /** Marks the restored text so presence does not count it as the agent writing. */
+  restoredHtml?: { current: string | null };
 }) => {
   const [restoredFiles, setRestoredFiles] = useState(0);
   const updateDraft = useMemo(() => ({ html: draft, files: fileCount }), [draft, fileCount]);
   const restoreUpdate = useCallback(
     (data: { html?: unknown; files?: unknown }) => {
       if (typeof data?.html !== 'string') return;
+      if (restoredHtml) restoredHtml.current = data.html;
       setDraft(data.html);
       setRestoredFiles(typeof data.files === 'number' ? data.files : 0);
     },
-    [setDraft]
+    [setDraft, restoredHtml]
   );
   const unsentUpdate = useUnsentDraft({
     scope: `ticket:${ticketId}:update`,

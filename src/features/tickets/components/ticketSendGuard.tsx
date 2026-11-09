@@ -13,15 +13,20 @@ import { ticketRepliesService } from '@/features/tickets/services/ticketReplies.
 /**
  * When the agent last changed the box's words, for presence's "writing a reply" (null while
  * blank). Every write to the box is the agent's own: typing, an AI draft they asked for, a
- * template, undo.
+ * template, undo. A draft restored from the kept copy (`restoredHtml`) is not.
  */
-export const useAgentEditStamp = (draft: string) => {
+export const useAgentEditStamp = (draft: string, restoredHtml?: { current: string | null }) => {
   const lastAgentEditAt = useRef<number | null>(null);
   const lastWords = useRef('');
   useEffect(() => {
     const words = isBlankRichText(draft) ? '' : draft;
     if (words === '') lastAgentEditAt.current = null;
-    else if (words !== lastWords.current) lastAgentEditAt.current = Date.now();
+    else if (words !== lastWords.current) {
+      // A kept draft coming back is not the agent writing (spec §5.1): skip its one change.
+      if (restoredHtml && restoredHtml.current === draft) lastAgentEditAt.current = null;
+      else lastAgentEditAt.current = Date.now();
+    }
+    if (restoredHtml) restoredHtml.current = null;
     lastWords.current = words;
   }, [draft]);
   return lastAgentEditAt;
@@ -133,7 +138,9 @@ export const useTicketComposerPresence = <Request,>(
   draft: string,
   onCancel: () => void
 ) => {
-  const lastAgentEditAt = useAgentEditStamp(draft);
+  // Set by the unsent-draft restore so the text that comes back is not counted as writing.
+  const restoredHtml = useRef<string | null>(null);
+  const lastAgentEditAt = useAgentEditStamp(draft, restoredHtml);
   const report = { composerText: draft, composerMode: 'reply' as const, lastAgentEditAt };
   const { offer, clear, renderDialog } = useSendCollision<Request>(onCancel);
   // A different ticket: no question about the previous one stays.
@@ -144,5 +151,5 @@ export const useTicketComposerPresence = <Request,>(
     offer(question, request);
     return true;
   };
-  return { report, offerFromError, renderDialog };
+  return { report, offerFromError, renderDialog, restoredHtml };
 };

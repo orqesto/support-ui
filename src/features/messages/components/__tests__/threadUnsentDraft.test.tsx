@@ -9,6 +9,7 @@ import { emptyRecipientDraft, type RecipientDraft } from '../RecipientFields';
 import { keyForPayload, type KeptSendKey } from '../messageDetail/sendKey';
 import { useComposerText } from '../messageDetail/useComposerText';
 import { useThreadUnsentDraft } from '../messageDetail/useThreadUnsentDraft';
+import { computePresenceState } from '../../presence/usePresenceReporter';
 
 const stored = (scope: string) => window.localStorage.getItem(unsentDraftKey(1, 5, scope)!);
 
@@ -62,6 +63,39 @@ describe('thread composer', () => {
     expect(again.result.current.composerText.composer).toBe('<p>for the team only</p>');
     expect(again.result.current.composerText.composerMode).toBe('note');
     expect(again.result.current.restoredDraft).toBe(true);
+  });
+
+  it('a restored draft is viewing, not writing; typing after it is writing (presence)', () => {
+    const settings = {
+      enabled: true,
+      heartbeatMs: 15_000,
+      expiryMs: 45_000,
+      writingIdleMs: 120_000,
+      awayAfterMs: 300_000,
+      listFlushMs: 2_000,
+      ticketWatchCap: 50,
+    };
+    const stateOf = (box: ReturnType<typeof useThread>['composerText']) =>
+      computePresenceState(
+        {
+          composerText: box.latestComposer.current,
+          composerMode: box.composerMode,
+          lastAgentEditAt: box.lastAgentEditAt.current,
+          hiddenSince: null,
+          lastInputAt: Date.now(),
+          settings,
+        },
+        Date.now()
+      );
+    const first = renderHook(useThread);
+    act(() => first.result.current.composerText.writeComposer('<p>kept</p>', 'reply'));
+    first.unmount();
+
+    const again = renderHook(useThread);
+    expect(again.result.current.composerText.composer).toBe('<p>kept</p>');
+    expect(stateOf(again.result.current.composerText)).toBe('viewing');
+    act(() => again.result.current.composerText.writeComposer('<p>kept and more</p>'));
+    expect(stateOf(again.result.current.composerText)).toBe('writing_reply');
   });
 
   it('a restored AI draft is still sent as AI-drafted', () => {

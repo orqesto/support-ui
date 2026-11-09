@@ -49,10 +49,15 @@ export function useComposerText() {
     EVERY composer text write goes through here. Typing counts in the mode on screen; a
     programmatic insert passes the mode it lands in. A write that leaves the visible text as it
     was (TipTap re-normalising the HTML when the other mode's editor mounts) is not an edit, so
-    N alone never turns a reply into a note.
+    N alone never turns a reply into a note. `{ restore: true }` (a kept draft coming back) is not
+    the agent acting, so it does not stamp lastAgentEditAt: a restored draft counts as viewing.
   */
   const writeComposer = useCallback(
-    (next: React.SetStateAction<string>, landsIn?: 'reply' | 'note') => {
+    (
+      next: React.SetStateAction<string>,
+      landsIn?: 'reply' | 'note',
+      opts?: { restore?: boolean }
+    ) => {
       const prev = latestComposer.current;
       const value = typeof next === 'function' ? next(prev) : next;
       latestComposer.current = value;
@@ -62,7 +67,7 @@ export function useComposerText() {
       else if (edited || lastEditMode.current === null)
         lastEditMode.current = landsIn ?? composerModeRef.current;
       if (blank) lastAgentEditAt.current = null;
-      else if (edited) lastAgentEditAt.current = Date.now();
+      else if (edited && !opts?.restore) lastAgentEditAt.current = Date.now();
       setComposer(value);
     },
     []
