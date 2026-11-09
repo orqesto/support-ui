@@ -28,6 +28,7 @@ import { holdsUnsentNote } from './messageDetail/detailConstants';
 import type { MessageDetailProps } from './messageDetail/types';
 import { useThreadEvents } from './messageDetail/useThreadEvents';
 import { useComposerText } from './messageDetail/useComposerText';
+import { useThreadUnsentDraft } from './messageDetail/useThreadUnsentDraft';
 import { useDetailDialogs } from './messageDetail/useDetailDialogs';
 import { useReplyComposerState } from './messageDetail/useReplyComposerState';
 import { useLiveThreadSync } from './messageDetail/useLiveThreadSync';
@@ -102,6 +103,8 @@ export function MessageDetail({
     lastEditMode,
     writeComposer,
   } = composerText;
+  // Unsent text survives a closed panel, a page change or a killed phone tab (this browser only).
+  const { restoredDraft, discardRestoredDraft } = useThreadUnsentDraft(message.id, composerText);
   const dialogs = useDetailDialogs(message);
   const {
     submitting,
@@ -652,6 +655,8 @@ export function MessageDetail({
             message={message}
             composer={composer}
             setComposer={writeComposer}
+            restoredDraft={restoredDraft}
+            onDiscardRestoredDraft={discardRestoredDraft}
             composerMode={composerMode}
             setComposerMode={setComposerMode}
             submitting={submitting}

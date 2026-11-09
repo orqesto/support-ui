@@ -14,6 +14,8 @@ import { TemplatePicker } from '@/components/shared/TemplatePicker';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { isBlankRichText } from '@/lib/stripHtml';
+import { useUnsentDraft } from '@/hooks/useUnsentDraft';
+import { RestoredDraftNotice } from '@/components/shared/RestoredDraftNotice';
 import {
   isInFlight,
   nameTokensWithoutFallback,
@@ -181,6 +183,26 @@ export const TicketReplyComposer = ({
     setError(null);
     setPreviewOpen(false);
   }, [ticketId]);
+  /*
+    The update being written survives a closed ticket or a page change (this browser only,
+    useUnsentDraft). After the reset above, so a ticket's own kept text lands on top of it.
+  */
+  const restoreUpdate = useCallback((html: string) => {
+    if (typeof html !== 'string') return;
+    setDraft(html);
+  }, []);
+  const unsentUpdate = useUnsentDraft({
+    scope: `ticket:${ticketId}:update`,
+    value: draft,
+    isBlank: isBlankRichText(draft),
+    restore: restoreUpdate,
+  });
+  const discardUpdate = () => {
+    unsentUpdate.clearDraft();
+    setDraft('');
+    setBeforeAi(null);
+    editorRef.current?.setContent('');
+  };
 
   // Drafts (reply templates P2): made per ticked thread, reviewed, then sent.
   const {
@@ -479,6 +501,9 @@ export const TicketReplyComposer = ({
         )}
       </div>
       {locked && <Alert variant="info">{disabledReason}</Alert>}
+      {unsentUpdate.restored && (
+        <RestoredDraftNotice label="Restored your unsent update" onDiscard={discardUpdate} />
+      )}
       <RichTextEditor
         ref={editorRef}
         content={draft}

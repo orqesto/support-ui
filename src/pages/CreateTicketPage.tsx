@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useCreateTicketUnsentDraft } from './useCreateTicketUnsentDraft';
 import { Sparkles } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CreateTicketBar, CreateTicketFilesSection, CreateTicketJiraOption, CreateTicketQuote, pickUploadableFiles, TicketThreadPicker, type ThreadCandidate, useTicketOwners, useTicketsStore } from '@/features/tickets';
@@ -111,6 +112,15 @@ export const CreateTicketPage = () => {
         `Team #${message.departmentId}`)
       : 'No team'
     : '';
+
+  const unsentTicket = useCreateTicketUnsentDraft({
+    messageId,
+    formData,
+    setFormData,
+    touched,
+    setTouched,
+    created,
+  });
 
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [enhancing, setEnhancing] = useState(false);
@@ -233,11 +243,12 @@ export const CreateTicketPage = () => {
 
         setFormData((prev) => ({
           ...prev,
-          title:
+          ...unsentTicket.overPrefill(
             data.subject?.replace(/^(?:(?:Re|Fwd?|AW|WG):\s*)+/i, '').trim() ??
-            data.subject ??
-            `Message from ${data.sender}`,
-          description: htmlDescription,
+              data.subject ??
+              `Message from ${data.sender}`,
+            htmlDescription
+          ),
           // Pre-fill priority if AI suggested a valid enum value
           priority: (['low', 'medium', 'high', 'critical'] as TicketPriority[]).includes(
             analysis?.suggestedPriority as TicketPriority
@@ -435,6 +446,7 @@ export const CreateTicketPage = () => {
           navigate(`/tickets/${ticketId}`, Object.keys(notice).length > 0 ? { state: notice } : {}),
         1500
       );
+      unsentTicket.clearDraft();
       setCreated(true);
     } catch (err) {
       submittedRef.current = false;
@@ -483,6 +495,7 @@ export const CreateTicketPage = () => {
               </Alert>
             )}
             <form id="create-ticket-form" onSubmit={handleSubmit} className="space-y-4">
+              {unsentTicket.notice}
               <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(300px,28%)]">
                 <div className="space-y-4 min-w-0">
                   <Input

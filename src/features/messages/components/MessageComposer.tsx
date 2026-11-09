@@ -15,6 +15,7 @@ import { TemplatePicker } from '@/components/shared/TemplatePicker';
 import { RecipientFields, replyToLabel } from './RecipientFields';
 import { useIsPhone } from './useIsPhone';
 import { TranslateButton } from '@/components/shared/TranslateButton';
+import { RestoredDraftNotice } from '@/components/shared/RestoredDraftNotice';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff } from '@/features/settings/shell';
 import { ComposerSendButton } from './ComposerSendButton';
@@ -72,6 +73,8 @@ export function MessageComposer({
   onSendWith,
   onSendPick,
   onOpenChange,
+  restoredDraft = false,
+  onDiscardRestoredDraft,
 }: MessageComposerProps) {
   const user = useAuthStore((store) => store.user);
   const [isDragging, setIsDragging] = useState(false);
@@ -121,6 +124,10 @@ export function MessageComposer({
   useEffect(() => {
     onOpenChange?.(!atRest);
   }, [atRest, onOpenChange]);
+  // Text that came back from this browser is shown open, never folded into the one-line pill.
+  useEffect(() => {
+    if (restoredDraft) setOpen(true);
+  }, [restoredDraft]);
   // Says what AI draft does with what is typed — before, only the button's hover title did, and a
   // phone has no hover. Only where the button is offered (the same conditions ComposerAiActions
   // uses), and not in the one-line pill at rest on a phone, where it would be cut off.
@@ -303,6 +310,17 @@ export function MessageComposer({
       {/* WhatsApp 24-hour window. Shown ABOVE the input so the agent reads it before
           typing, not after pressing send. Only rendered when there is something to say —
           a permanent banner would train people to ignore this space. */}
+      {restoredDraft && onDiscardRestoredDraft && (
+        <RestoredDraftNotice
+          onDiscard={onDiscardRestoredDraft}
+          label={
+            composerMode === 'note'
+              ? 'Restored your unsent internal note'
+              : 'Restored your unsent reply'
+          }
+        />
+      )}
+
       {(sendBlockedReason || windowRemaining) && windowTone !== 'info' && (
         <ComposerWindowNotice
           windowTone={windowTone}

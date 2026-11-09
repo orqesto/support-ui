@@ -1,4 +1,6 @@
-import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, type FormEvent } from 'react';
+import { useUnsentDraft } from '@/hooks/useUnsentDraft';
+import { RestoredDraftNotice } from '@/components/shared/RestoredDraftNotice';
 import { useNavigate } from 'react-router-dom';
 import { Paperclip, Send, X } from 'lucide-react';
 import {
@@ -93,6 +95,50 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
     setAiBusy(false);
   }, [open]);
 
+  /*
+    Unsent mail survives a closed dialog or a page change (this browser only, useUnsentDraft).
+    Declared after the reset above: on open, the reset runs first and the restore lands on top.
+    The From mailbox comes back too — but only one the agent may still send from.
+  */
+  const restoredSourceRef = useRef<number | null>(null);
+  const draftValue = useMemo(
+    () => ({ messageSourceId, to, cc, bcc, subject, content }),
+    [messageSourceId, to, cc, bcc, subject, content]
+  );
+  const draftBlank =
+    !to.trim() && !cc.trim() && !bcc.trim() && !subject.trim() && isBlankRichText(content);
+  const restoreDraft = useCallback(
+    (data: Partial<typeof draftValue>) => {
+      setTo(typeof data.to === 'string' ? data.to : '');
+      setCc(typeof data.cc === 'string' ? data.cc : '');
+      setBcc(typeof data.bcc === 'string' ? data.bcc : '');
+      setShowCcBcc(Boolean(data.cc || data.bcc));
+      setSubject(typeof data.subject === 'string' ? data.subject : '');
+      setContent(typeof data.content === 'string' ? data.content : '');
+      const sourceId = typeof data.messageSourceId === 'number' ? data.messageSourceId : null;
+      restoredSourceRef.current = sourceId;
+      if (sourceId !== null && sources.some((src) => src.id === sourceId))
+        setMessageSourceId(sourceId);
+    },
+    [sources]
+  );
+  const unsentDraft = useUnsentDraft({
+    scope: open ? 'compose-new' : null,
+    value: draftValue,
+    isBlank: draftBlank,
+    restore: restoreDraft,
+  });
+  const discardDraft = () => {
+    unsentDraft.clearDraft();
+    restoredSourceRef.current = null;
+    setTo('');
+    setCc('');
+    setBcc('');
+    setShowCcBcc(false);
+    setSubject('');
+    setContent('');
+  };
+
   // Lazy-load sources on open. Cached at the component level — re-opens within
   // the same session reuse the previously fetched list.
   //
@@ -118,7 +164,9 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
     load()
       .then((loaded) => {
         setSources(loaded);
-        if (loaded[0]) setMessageSourceId(loaded[0].id);
+        const restoredSource = loaded.find((src) => src.id === restoredSourceRef.current);
+        if (restoredSource) setMessageSourceId(restoredSource.id);
+        else if (loaded[0]) setMessageSourceId(loaded[0].id);
       })
       .catch((err: unknown) => {
         logger.error('[ComposeNewModal] failed to load sources', err);
@@ -177,6 +225,8 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
       });
 
       if (response.success && response.data) {
+        // Sent: the dialog closes with the text still in it — nothing may be kept for next time.
+        unsentDraft.clearDraft();
         logger.info('[ComposeNewModal] sent', {
           conversationId: response.data.conversationId,
         });
@@ -212,6 +262,9 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
           form of labelled inputs with a button footer that wrapped and jumped.
         */}
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-2">
+          {unsentDraft.restored && (
+            <RestoredDraftNotice label="Restored your unsent message" onDiscard={discardDraft} />
+          )}
           <div
             data-testid="compose-field"
             className="relative rounded-[10px] border border-border bg-raised transition-[border-color,box-shadow] focus-within:border-primary focus-within:ring-[3px] focus-within:ring-primary-muted"

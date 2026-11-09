@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import DOMPurify from 'dompurify';
 import {
   Download,
@@ -38,6 +38,9 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
+import { isBlankRichText } from '@/lib/stripHtml';
+import { useUnsentDraft } from '@/hooks/useUnsentDraft';
+import { RestoredDraftNotice } from '@/components/shared/RestoredDraftNotice';
 
 type TicketCommentsProps = {
   ticketId: number;
@@ -62,6 +65,30 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
   const [deleteAttachmentDialogOpen, setDeleteAttachmentDialogOpen] = useState(false);
   const [attachmentToDelete, setAttachmentToDelete] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  /*
+    The new comment survives a closed ticket or a page change (this browser only, useUnsentDraft) —
+    with its Internal tick: a note restored as a public comment would reach the customer side.
+  */
+  const commentDraft = useMemo(
+    () => ({ html: newComment, internal: isInternal }),
+    [newComment, isInternal]
+  );
+  const restoreComment = useCallback((data: { html?: unknown; internal?: unknown }) => {
+    if (typeof data?.html !== 'string') return;
+    setNewComment(data.html);
+    setIsInternal(data.internal === true);
+  }, []);
+  const unsentComment = useUnsentDraft({
+    scope: `ticket:${ticketId}:comment`,
+    value: commentDraft,
+    isBlank: isBlankRichText(newComment),
+    restore: restoreComment,
+  });
+  const discardComment = () => {
+    unsentComment.clearDraft();
+    setNewComment('');
+    setIsInternal(false);
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchComments = useCallback(async () => {
@@ -490,6 +517,12 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
           isInternal ? 'p-2.5 rounded-[10px] border bg-note-muted border-note-line' : ''
         }`}
       >
+        {unsentComment.restored && (
+          <RestoredDraftNotice
+            label={isInternal ? 'Restored your unsent internal note' : 'Restored your unsent comment'}
+            onDiscard={discardComment}
+          />
+        )}
         <RichTextEditor
           content={newComment}
           onChange={setNewComment}

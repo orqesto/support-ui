@@ -5,6 +5,7 @@ import { similarResultsCache } from '@/lib/similarResultsCache';
 import type { User } from '@/types';
 import { logoutClearsProcessingPanels } from '@/stores/processingPanelStore';
 import { forgetRememberedSearches } from '@/lib/searchMemory';
+import { clearAllUnsentDrafts } from '@/lib/unsentDrafts';
 import { pinTabWorkspace, readTabWorkspace, writeTabWorkspace } from '@/lib/tabWorkspace';
 
 type AuthState = {
@@ -40,6 +41,8 @@ export const useAuthStore = create<AuthState>()(
         logoutClearsProcessingPanels();
         // A searched address must not come back for the next person on this tab.
         forgetRememberedSearches();
+        // Unsent editor text kept in this browser is the previous person's words.
+        clearAllUnsentDrafts();
         forceDisconnect();
         similarResultsCache.clear();
         set({
