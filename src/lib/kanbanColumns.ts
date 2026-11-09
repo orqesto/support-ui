@@ -71,8 +71,8 @@ export const COLUMNS: KanbanColumnDef[] = [
     icon: PauseCircle,
     // "On-hold" = parked overlay (BE lifecycle='pending' → parked_at IS NOT NULL).
     fixedFilters: { lifecycle: 'pending' },
-    accentColor: '#f59e0b',
-    iconClass: 'text-warning',
+    accentColor: '#8b5cf6',
+    iconClass: 'text-pending',
     emptyText: 'Nothing on hold',
   },
   {
@@ -188,7 +188,7 @@ export const LIFECYCLE_COLUMN_BADGE: Record<string, { label: string; className: 
   open: { label: 'Open', className: 'bg-muted text-muted-foreground' },
   in_progress: { label: 'In Progress', className: 'bg-muted text-muted-foreground' },
   awaiting: { label: 'Pending', className: 'bg-warning/15 text-warning' },
-  on_hold: { label: 'On-hold', className: 'bg-warning/15 text-warning' },
+  on_hold: { label: 'On-hold', className: 'bg-pending-muted text-pending' },
   resolved: { label: 'Resolved', className: 'bg-success/15 text-success' },
 };
 

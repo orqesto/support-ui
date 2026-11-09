@@ -109,7 +109,7 @@ export const WORKFLOW_STATUS_META: Record<WorkflowStatus, { label: string; class
   open: { label: 'Open', className: 'bg-foreground/10 text-foreground' },
   in_progress: { label: 'In Progress', className: 'bg-muted text-muted-foreground' },
   pending: { label: 'Pending', className: 'text-warning border border-warning-line' },
-  on_hold: { label: 'On-hold', className: 'bg-warning/15 text-warning' },
+  on_hold: { label: 'On-hold', className: 'bg-pending-muted text-pending' },
   resolved: { label: 'Resolved', className: 'bg-success/15 text-success' },
 };
 

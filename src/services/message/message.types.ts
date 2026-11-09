@@ -87,6 +87,13 @@ export type MessageNote = {
   createdAt: string;
   updatedAt: string;
   user?: { id: number; firstName: string; lastName: string | null; email: string } | null;
+  /**
+   * Who wrote the row: `'hold'` = the note the backend writes when the thread goes on or comes
+   * off hold (`isHoldNote`). Absent from older backends — treat absent as an ordinary note.
+   */
+  source?: string | null;
+  /** Hold notes: `{ kind: 'hold', reason, until }` or `{ kind: 'unhold', cause }`. */
+  metadata?: Record<string, unknown> | null;
 };
 
 export type PaginationMeta = {

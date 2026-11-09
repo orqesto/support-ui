@@ -24,6 +24,7 @@ import {
 import type { LeadQualificationFieldConfig } from '@/services/organization.service';
 
 import type { Message, MessageEvent } from '@/types';
+import { holdNoteLabel, isHoldNote } from '@/lib/holdNote';
 import { logger } from '@/lib/logger';
 import { contactLookupKey } from '@/lib/messageHelpers';
 import RichTextEditor from '@/components/shared/LazyRichTextEditor';
@@ -476,19 +477,29 @@ export function MessagePanelTabs({
                 const isOwner = currentUserId !== null && currentUserId === note.userId;
                 const isEditing = editingNoteId === note.id;
                 const isDeleting = deletingNoteId === note.id;
+                // A hold note records an event (the thread went on or came off hold): violet,
+                // and never edited or deleted.
+                const hold = isHoldNote(note);
                 const who = note.user
                   ? `${note.user.firstName}${note.user.lastName ? ' ' + note.user.lastName : ''}`
                   : note.authorName;
                 return (
                   <div
                     key={note.id}
-                    className="px-3 py-2.5 bg-card rounded-[9px] border border-border border-l-[3px] border-l-note-line"
+                    className={`px-3 py-2.5 rounded-[9px] border border-l-[3px] ${
+                      hold
+                        ? 'bg-pending-muted border-pending-line border-l-pending'
+                        : 'bg-card border-border border-l-note-line'
+                    }`}
                   >
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-[10px] font-medium text-warning">
+                      <span
+                        className={`text-[10px] font-medium ${hold ? 'text-pending' : 'text-warning'}`}
+                      >
+                        {hold && <>{holdNoteLabel(note)} · </>}
                         {who} · {relativeTime(note.createdAt)}
                       </span>
-                      {isOwner && !isEditing && (
+                      {isOwner && !isEditing && !hold && (
                         <div className="flex gap-1 items-center">
                           <Button
                             variant="ghost"
