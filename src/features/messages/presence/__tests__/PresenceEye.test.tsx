@@ -8,8 +8,8 @@ import type { PresenceViewer } from '../presence.types';
 
 const members = vi.hoisted(() => ({ list: [] as unknown[] }));
 const getMembers = vi.hoisted(() => vi.fn<() => Promise<unknown[]>>());
-vi.mock('@/services/organization.service', () => ({
-  organizationService: { getMembers: () => getMembers() },
+vi.mock('../../services/presenceMembers.service', () => ({
+  presenceMembersService: { list: () => getMembers() },
 }));
 
 const NOW = Date.parse('2026-11-09T12:00:00Z');
@@ -32,8 +32,8 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(NOW);
   members.list = [
-    { id: 1, userId: 7, firstName: 'Anna', lastName: 'Kim', email: 'a@x.io' },
-    { id: 2, userId: 8, firstName: 'Ben', lastName: null, email: 'b@x.io' },
+    { id: 7, firstName: 'Anna', lastName: 'Kim' },
+    { id: 8, firstName: 'Ben', lastName: null },
   ];
 });
 afterEach(() => vi.useRealTimers());
@@ -170,8 +170,8 @@ describe('PresenceEye', () => {
   });
 
   it('a workspace switch refetches the members: org A names never show in org B', async () => {
-    const orgA = [{ id: 1, userId: 7, firstName: 'Anna', lastName: 'Kim', email: 'a@x.io' }];
-    const orgB = [{ id: 9, userId: 7, firstName: 'Zoe', lastName: 'Lee', email: 'z@x.io' }];
+    const orgA = [{ id: 7, firstName: 'Anna', lastName: 'Kim' }];
+    const orgB = [{ id: 7, firstName: 'Zoe', lastName: 'Lee' }];
     getMembers.mockImplementation(() =>
       Promise.resolve(useAuthStore.getState().selectedOrganizationId === 1 ? orgA : orgB)
     );

@@ -8,14 +8,14 @@ import { usePresenceSummaryStore } from '../presenceSummaryStore';
 import { RowPresence } from '../RowPresence';
 
 const getMembers = vi.hoisted(() => vi.fn<() => Promise<unknown[]>>());
-vi.mock('@/services/organization.service', () => ({
-  organizationService: { getMembers: () => getMembers() },
+vi.mock('../../services/presenceMembers.service', () => ({
+  presenceMembersService: { list: () => getMembers() },
 }));
 
 const MEMBERS = [
-  { id: 1, userId: 7, firstName: 'Anna', lastName: 'Kim', email: 'a@x.io' },
-  { id: 2, userId: 8, firstName: 'Ben', lastName: 'Ray', email: 'b@x.io' },
-  { id: 3, userId: 9, firstName: 'Cleo', lastName: 'Fox', email: 'c@x.io' },
+  { id: 7, firstName: 'Anna', lastName: 'Kim' },
+  { id: 8, firstName: 'Ben', lastName: 'Ray' },
+  { id: 9, firstName: 'Cleo', lastName: 'Fox' },
 ];
 
 let client: QueryClient;
@@ -85,7 +85,7 @@ describe('RowPresence', () => {
   it('shows at most two initials and "+n" for the rest, once the names are known', async () => {
     getMembers.mockResolvedValue(MEMBERS);
     await client.prefetchQuery({
-      queryKey: ['organization-members', 1],
+      queryKey: ['presence-members', 1],
       queryFn: () => getMembers(),
     });
     getMembers.mockClear();

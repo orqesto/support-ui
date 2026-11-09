@@ -15,13 +15,13 @@ import { usePresenceSummaryStore } from '../presenceSummaryStore';
 import { countWritingThreads, bulkWritingNote } from '../bulkWriting';
 import type { PresenceViewer } from '../presence.types';
 
-vi.mock('@/services/organization.service', () => ({
-  organizationService: { getMembers: () => Promise.resolve([]) },
+vi.mock('../../services/presenceMembers.service', () => ({
+  presenceMembersService: { list: () => Promise.resolve([]) },
 }));
 
 const MEMBERS = [
-  { id: 1, userId: 7, firstName: 'Anna', lastName: 'Kim', email: 'a@x.io' },
-  { id: 2, userId: 8, firstName: 'Ben', lastName: null, email: 'b@x.io' },
+  { id: 7, firstName: 'Anna', lastName: 'Kim' },
+  { id: 8, firstName: 'Ben', lastName: null },
 ];
 const viewer = (userId: number, state: PresenceViewer['state']): PresenceViewer => ({
   userId,
@@ -37,7 +37,7 @@ function Host({ viewers }: { viewers: PresenceViewer[] }) {
 }
 const mount = (viewers: PresenceViewer[]) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  client.setQueryData(['organization-members', 1], MEMBERS);
+  client.setQueryData(['presence-members', 1], MEMBERS);
   return render(
     <QueryClientProvider client={client}>
       <Host viewers={viewers} />
@@ -174,7 +174,7 @@ function ListHost({ conversationId }: { conversationId?: number }) {
 }
 const mountList = (conversationId?: number) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  client.setQueryData(['organization-members', 1], MEMBERS);
+  client.setQueryData(['presence-members', 1], MEMBERS);
   return render(
     <QueryClientProvider client={client}>
       <ListHost conversationId={conversationId} />

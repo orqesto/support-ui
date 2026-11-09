@@ -70,10 +70,7 @@ import { NeedsRoutingPage } from '../NeedsRoutingPage';
 
 const renderPage = () => {
   const client = new QueryClient();
-  client.setQueryData(
-    ['organization-members', 1],
-    [{ id: 1, userId: 7, firstName: 'Anna', lastName: null, email: 'a@x.example' }]
-  );
+  client.setQueryData(['presence-members', 1], [{ id: 7, firstName: 'Anna', lastName: null }]);
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>

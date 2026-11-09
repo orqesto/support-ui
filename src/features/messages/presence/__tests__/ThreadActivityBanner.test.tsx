@@ -16,16 +16,16 @@ vi.mock('@/lib/socketManager', () => ({
     handlers.delete(event);
   },
 }));
-vi.mock('@/services/organization.service', () => ({
-  organizationService: { getMembers: () => Promise.resolve(MEMBERS) },
+vi.mock('../../services/presenceMembers.service', () => ({
+  presenceMembersService: { list: () => Promise.resolve(MEMBERS) },
 }));
 vi.mock('@/services/department.service', () => ({
   departmentService: { getAll: () => Promise.resolve(DEPARTMENTS) },
 }));
 
 const MEMBERS = [
-  { id: 1, userId: 7, firstName: 'Anna', lastName: null, email: 'a@x.io' },
-  { id: 2, userId: 8, firstName: 'Ben', lastName: null, email: 'b@x.io' },
+  { id: 7, firstName: 'Anna', lastName: null },
+  { id: 8, firstName: 'Ben', lastName: null },
 ];
 const DEPARTMENTS = [{ id: 3, name: 'Billing' }];
 

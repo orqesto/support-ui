@@ -76,10 +76,7 @@ const thread = {
 
 const wrap = (node: ReactNode) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  client.setQueryData(
-    ['organization-members', 1],
-    [{ id: 1, userId: 7, firstName: 'Anna', lastName: null, email: 'a@x.example' }]
-  );
+  client.setQueryData(['presence-members', 1], [{ id: 7, firstName: 'Anna', lastName: null }]);
   return render(<QueryClientProvider client={client}>{node}</QueryClientProvider>);
 };
 const writing = (on: boolean) => {

@@ -1,12 +1,14 @@
 /**
- * Who is who in the viewer list: userId → display name, initials and avatar colour, from the
- * workspace's member list (one cached request shared by every header; 5 min stale).
+ * Who is who in the viewer list: userId → display name, initials and avatar colour, from
+ * GET /api/presence/members (any member may read it, associates included; one cached request
+ * shared by every header; 5 min stale). An older backend without the route answers "Another
+ * agent" for everyone, asked once — never a 403 per eye, banner or tooltip.
  */
 import { useQuery } from '@tanstack/react-query';
 import { getInitials } from '@/lib/initials';
 import { useAuthStore } from '@/stores/authStore';
-import { organizationService } from '@/services/organization.service';
 import { getAvatarColor } from '../components/inboxCardHelpers';
+import { presenceMembersService } from '../services/presenceMembers.service';
 
 export interface PresenceAgent {
   name: string;
@@ -36,16 +38,18 @@ export const useOrgMemberNames = (
   // Keyed by the active workspace: after a switch the old workspace's list must never answer.
   const orgId = useAuthStore((state) => state.selectedOrganizationId);
   const { data } = useQuery({
-    queryKey: ['organization-members', orgId],
-    queryFn: () => organizationService.getMembers(),
+    queryKey: ['presence-members', orgId],
+    queryFn: () => presenceMembersService.list(),
     enabled: orgId !== null && options.fetch !== false,
     staleTime: MEMBERS_STALE_MS,
+    // Names are a nicety: a failure shows "Another agent" and is not asked again at once.
+    retry: false,
   });
   const byId = new Map<number, PresenceAgent>();
   for (const member of data ?? []) {
     const name = [member.firstName, member.lastName].filter(Boolean).join(' ').trim();
     if (!name) continue;
-    byId.set(member.userId, {
+    byId.set(member.id, {
       name,
       initials: getInitials(name),
       colour: getAvatarColor(name),
