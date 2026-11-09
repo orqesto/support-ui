@@ -39,9 +39,20 @@ import { usePresenceReporter, type PresenceReporterInput } from './usePresenceRe
 export const WATCH_RETRY_MS = [2_000, 5_000, 10_000];
 /** At most one `presence:state` per thread per second (the BE contract). */
 export const STATE_MIN_GAP_MS = 1_000;
+/**
+ * After a disconnect the hook re-watches on the socket's own `connect` (spread over this window),
+ * not only on SOCKET_RECONNECTED_EVENT: the socket manager raises that one at most once per 30 s,
+ * so a second drop inside 30 s would leave presence dead for as long as the view stays open.
+ */
+export const RECONNECT_REWATCH_JITTER_MS = 1_000;
 
 export interface PresenceWatchResult {
   available: boolean;
+  /**
+   * The server refused the watch for its per-socket cap (`watch_cap`): not retried, and
+   * `available` stays false. The caller may say "presence for the latest 50 of N threads".
+   */
+  capped: boolean;
   /** Other agents only, one entry per agent across all ids: strongest state, earliest since. */
   viewers: PresenceViewer[];
   settings: PresenceSettings | null;
@@ -81,6 +92,7 @@ export const usePresenceWatch = (
 ): PresenceWatchResult => {
   const myId = useAuthStore((store) => store.user?.id);
   const [available, setAvailable] = useState(false);
+  const [capped, setCapped] = useState(false);
   const [settings, setSettings] = useState<PresenceSettings | null>(null);
   /** Viewer lists per watched survivor id, as the server sent them (me included). */
   const [threads, setThreads] = useState<Record<number, PresenceViewer[]>>({});
@@ -99,6 +111,11 @@ export const usePresenceWatch = (
   const generation = useRef(0);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryCount = useRef(0);
+  /** The last watch answered with a refusal (or timed out): its ids may not be watched. */
+  const lastWatchFailed = useRef(false);
+  /** A disconnect happened and no re-watch ran since: the next raw `connect` re-watches. */
+  const awaitingConnect = useRef(false);
+  const connectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Per survivor: when this tab last queued a state for it, and which. */
   const lastSent = useRef(new Map<number, { at: number; state: PresenceState }>());
   const held = useRef(new Set<number>());
@@ -179,9 +196,11 @@ export const usePresenceWatch = (
       const orphans: number[] = [];
       const lists: Record<number, PresenceViewer[]> = {};
       let failed = false;
+      let capHit = false;
       for (const ack of acks) {
-        if (!ack) {
+        if (!ack.ok) {
           failed = true;
+          if (ack.reason === 'watch_cap') capHit = true;
           continue;
         }
         setSettings(ack.settings);
@@ -202,9 +221,13 @@ export const usePresenceWatch = (
       }
       release([...orphans, ...replaced]);
       setThreads((prev) => ({ ...prev, ...lists }));
+      setCapped(capHit);
+      lastWatchFailed.current = failed;
       if (failed) {
         setAvailable(false);
-        if (retryCount.current < WATCH_RETRY_MS.length && retryTimer.current === null) {
+        // The cap does not lift by asking again: no retry.
+        const retry = !capHit && retryCount.current < WATCH_RETRY_MS.length;
+        if (retry && retryTimer.current === null) {
           retryTimer.current = setTimeout(() => {
             retryTimer.current = null;
             void watchIds(wanted.current);
@@ -222,6 +245,9 @@ export const usePresenceWatch = (
   const rewatchAll = useCallback(() => {
     if (retryTimer.current !== null) clearTimeout(retryTimer.current);
     retryTimer.current = null;
+    if (connectTimer.current !== null) clearTimeout(connectTimer.current);
+    connectTimer.current = null;
+    awaitingConnect.current = false;
     retryCount.current = 0;
     void watchIds(wanted.current);
   }, [watchIds]);
@@ -243,14 +269,32 @@ export const usePresenceWatch = (
       // The server dropped this socket's watches and states: all of it comes back with the
       // re-watch on reconnect.
       generation.current += 1;
-      if (retryTimer.current !== null) clearTimeout(retryTimer.current);
+      for (const timer of [retryTimer.current, connectTimer.current]) {
+        if (timer !== null) clearTimeout(timer);
+      }
       retryTimer.current = null;
+      connectTimer.current = null;
+      awaitingConnect.current = true;
+      lastWatchFailed.current = true; // the server forgot every watch of this socket
       lastSent.current.clear();
       held.current.clear();
       setAvailable(false);
       setThreads({});
     };
-    const onReconnected = () => rewatchAll();
+    // The socket is back. The server answers {ok:false} until join-organization lands; the
+    // 2/5/10 s retry covers that.
+    const onConnect = () => {
+      if (!awaitingConnect.current || connectTimer.current !== null) return;
+      connectTimer.current = setTimeout(() => {
+        connectTimer.current = null;
+        if (awaitingConnect.current) rewatchAll();
+      }, Math.random() * RECONNECT_REWATCH_JITTER_MS);
+    };
+    // Usually already done by `connect`; still needed when this tab missed it (a dropped
+    // re-watch, an unavailable view).
+    const onReconnected = () => {
+      if (!availableRef.current) rewatchAll();
+    };
     const onUpdated = (data: unknown) => {
       if ((data as { action?: unknown } | null)?.action !== 'merge') return;
       const ours = [...wanted.current, ...survivors()];
@@ -258,19 +302,23 @@ export const usePresenceWatch = (
     };
     subscribeToEvent('presence:thread', onThread);
     subscribeToEvent('disconnect', onDisconnect);
+    subscribeToEvent('connect', onConnect);
     subscribeToEvent(SOCKET_RECONNECTED_EVENT, onReconnected);
     subscribeToEvent('conversation:updated', onUpdated);
     return () => {
       unsubscribeFromEvent('presence:thread', onThread);
       unsubscribeFromEvent('disconnect', onDisconnect);
+      unsubscribeFromEvent('connect', onConnect);
       unsubscribeFromEvent(SOCKET_RECONNECTED_EVENT, onReconnected);
       unsubscribeFromEvent('conversation:updated', onUpdated);
       generation.current += 1;
-      for (const timer of [retryTimer.current, heldTimer.current]) {
+      for (const timer of [retryTimer.current, heldTimer.current, connectTimer.current]) {
         if (timer !== null) clearTimeout(timer);
       }
       retryTimer.current = null;
       heldTimer.current = null;
+      connectTimer.current = null;
+      awaitingConnect.current = false;
       // Ids the server never mapped (no ack yet) are unwatched as they were asked.
       presenceClient.unwatch(unique(wanted.current.map((id) => survivorMap.get(id) ?? id)));
       // Reset, so a remount (StrictMode) watches from scratch.
@@ -299,7 +347,14 @@ export const usePresenceWatch = (
       for (const id of removed) survivorOf.current.delete(id);
       release(candidates);
     }
-    void watchIds(added);
+    // A new id set earns a fresh retry budget. After a failed watch (or with one pending) the
+    // whole set is asked again — a smaller set may now fit under the cap.
+    retryCount.current = 0;
+    if (lastWatchFailed.current || retryTimer.current !== null) {
+      if (retryTimer.current !== null) clearTimeout(retryTimer.current);
+      retryTimer.current = null;
+      void watchIds(next);
+    } else void watchIds(added);
   }, [idsKey, release, watchIds]);
 
   // A changed state goes out at once (≤ 1/s per thread).
@@ -320,5 +375,5 @@ export const usePresenceWatch = (
     () => (available ? mergeViewers(threads, myId) : []),
     [available, threads, myId]
   );
-  return { available, viewers, settings };
+  return { available, capped, viewers, settings };
 };

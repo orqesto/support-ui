@@ -30,7 +30,9 @@ vi.mock('@/lib/socketManager', () => ({
   },
 }));
 
-const { usePresenceWatch } = await import('../usePresenceWatch');
+const { usePresenceWatch, RECONNECT_REWATCH_JITTER_MS, WATCH_RETRY_MS } = await import(
+  '../usePresenceWatch'
+);
 const { resetPresenceClientForTests, STATE_SEND_GAP_MS } = await import('../presenceClient');
 const { SOCKET_RECONNECTED_EVENT } = await import('@/lib/socketEvents');
 
@@ -236,6 +238,61 @@ describe('usePresenceWatch — who else is on these threads', () => {
     await settle();
     expect(watchCalls()).toEqual([[10], [10]]);
     expect(result.current.available).toBe(true);
+  });
+
+  it('a second drop inside 30 s (no reconnected event) still re-watches on the socket’s connect', async () => {
+    const { result } = renderHook(() => usePresenceWatch([10]));
+    await settle();
+    act(() => fire('disconnect', 'transport close'));
+    act(() => fire(SOCKET_RECONNECTED_EVENT));
+    await settle();
+    expect(watchCalls()).toHaveLength(2);
+    act(() => fire('disconnect', 'transport close'));
+    expect(result.current.available).toBe(false);
+    // The socket manager rations its reconnected event to once per 30 s: only `connect` arrives.
+    act(() => fire('connect'));
+    await settle(RECONNECT_REWATCH_JITTER_MS);
+    expect(watchCalls()).toEqual([[10], [10], [10]]);
+    expect(result.current.available).toBe(true);
+  });
+
+  it('CONTROL: a connect without a disconnect before it re-watches nothing', async () => {
+    renderHook(() => usePresenceWatch([10]));
+    await settle();
+    act(() => fire('connect'));
+    await settle(RECONNECT_REWATCH_JITTER_MS);
+    expect(watchCalls()).toEqual([[10]]);
+  });
+
+  it('a watch_cap refusal: unavailable, capped, never retried', async () => {
+    fake.answerWatch = () => ({ ok: false, reason: 'watch_cap' });
+    const { result } = renderHook(() => usePresenceWatch([10]));
+    await settle(30_000);
+    expect(result.current.available).toBe(false);
+    expect(result.current.capped).toBe(true);
+    expect(watchCalls()).toEqual([[10]]);
+  });
+
+  it('CONTROL: a refusal without a reason is not "capped" and is retried', async () => {
+    fake.answerWatch = () => ({ ok: false });
+    const { result } = renderHook(() => usePresenceWatch([10]));
+    await settle(30_000);
+    expect(result.current.capped).toBe(false);
+    expect(watchCalls().length).toBeGreaterThan(1);
+  });
+
+  it('a new id set gets a fresh retry budget after the old one was spent', async () => {
+    fake.answerWatch = () => ({ ok: false });
+    const { rerender } = renderHook((ids: number[]) => usePresenceWatch(ids), {
+      initialProps: [10],
+    });
+    await settle(60_000);
+    const spent = watchCalls().length;
+    expect(spent).toBe(1 + WATCH_RETRY_MS.length);
+    rerender([10, 11]);
+    await settle(60_000);
+    expect(watchCalls().length).toBe(spent + 1 + WATCH_RETRY_MS.length);
+    expect(watchCalls()[spent]).toEqual([10, 11]);
   });
 
   it('a merge naming a watched thread re-watches', async () => {

@@ -30,6 +30,15 @@ export interface WatchAck {
   mapped: Record<string, number>;
 }
 
+/**
+ * No usable answer: the server's `{ok:false, reason?}` (`'watch_cap'`: this socket watches its
+ * maximum), or `'timeout'` when no ack came. `reason` null = the server gave none.
+ */
+export interface PresenceRefusal {
+  ok: false;
+  reason: string | null;
+}
+
 /** `presence:snapshot` ack: the live threads of the caller's teams. */
 export interface SnapshotAck {
   ok: true;

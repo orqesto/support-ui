@@ -1,10 +1,11 @@
 /**
- * The presence socket calls (BE contract: fe-context / spec §6). Every call answers `null` when
- * presence is not there — a timeout, `{ok:false}` (presence off, the socket not yet in its
- * workspace, the watch cap) — and the caller then renders nothing. Nothing here throws.
+ * The presence socket calls (BE contract: fe-context / spec §6). A call that gets no answer it can
+ * use resolves to a `PresenceRefusal`: a timeout (`reason: 'timeout'`) or the server's `{ok:false}`
+ * (presence off, the socket not yet in its workspace, `reason: 'watch_cap'`). The caller then
+ * renders nothing. Nothing here throws.
  */
 import { getSocket, releaseSocket } from '@/lib/socketManager';
-import type { PresenceState, SnapshotAck, WatchAck } from './presence.types';
+import type { PresenceRefusal, PresenceState, SnapshotAck, WatchAck } from './presence.types';
 
 export const PRESENCE_ACK_TIMEOUT_MS = 5_000;
 /** `presence:watch` takes at most 20 ids per call. */
@@ -25,15 +26,19 @@ const withSocket = <T>(use: (socket: ReturnType<typeof getSocket>) => T): T => {
   }
 };
 
-const ask = async <T extends { ok: true }>(event: string, payload: unknown): Promise<T | null> => {
+const ask = async <T extends { ok: true }>(
+  event: string,
+  payload: unknown
+): Promise<T | PresenceRefusal> => {
   try {
     const answer: unknown = await withSocket((socket) =>
       socket.timeout(PRESENCE_ACK_TIMEOUT_MS).emitWithAck(event, payload)
     );
-    const ok = (answer as { ok?: unknown } | null)?.ok === true;
-    return ok ? (answer as T) : null;
+    const body = answer as { ok?: unknown; reason?: unknown } | null;
+    if (body?.ok === true) return answer as T;
+    return { ok: false, reason: typeof body?.reason === 'string' ? body.reason : null };
   } catch {
-    return null; // the ack timed out
+    return { ok: false, reason: 'timeout' }; // the ack timed out
   }
 };
 
@@ -55,7 +60,7 @@ const drain = () => {
 
 export const presenceClient = {
   /** One batch of ≤ 20 ids (the hook splits). */
-  watch: (conversationIds: number[]): Promise<WatchAck | null> =>
+  watch: (conversationIds: number[]): Promise<WatchAck | PresenceRefusal> =>
     ask<WatchAck>('presence:watch', { conversationIds }),
 
   /** Queued: sent as soon as the pacing allows; a newer state for the same thread replaces it. */
@@ -79,7 +84,7 @@ export const presenceClient = {
     });
   },
 
-  snapshot: (): Promise<SnapshotAck | null> => ask<SnapshotAck>('presence:snapshot', {}),
+  snapshot: (): Promise<SnapshotAck | PresenceRefusal> => ask<SnapshotAck>('presence:snapshot', {}),
 };
 
 export const resetPresenceClientForTests = (): void => {
