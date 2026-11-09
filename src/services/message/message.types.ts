@@ -94,6 +94,11 @@ export type MessageNote = {
   source?: string | null;
   /** Hold notes: `{ kind: 'hold', reason, until }` or `{ kind: 'unhold', cause }`. */
   metadata?: Record<string, unknown> | null;
+  /**
+   * `'html'` (a ticket comment from the rich editor) or `'text'` — see `noteIsHtml`. Absent from
+   * an older backend; any other value is read as absent.
+   */
+  contentFormat?: string | null;
 };
 
 export type PaginationMeta = {

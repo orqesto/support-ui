@@ -15,7 +15,7 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { getConvUrlId } from '@/lib/messageHelpers';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatDay } from '@/lib/utils';
 import { isInFlight } from '@/features/tickets/services/ticketReplies.service';
 import {
   ticketThreadsService,
@@ -538,7 +538,7 @@ export const TicketThreads = ({
                         <Badge variant="pending" size="sm">
                           on hold
                           {row.parkedUntil &&
-                            ` until ${new Date(row.parkedUntil).toLocaleDateString()}`}
+                            ` until ${formatDay(row.parkedUntil)}`}
                         </Badge>
                       </Tooltip>
                     )}

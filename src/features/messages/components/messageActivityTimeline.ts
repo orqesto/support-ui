@@ -156,11 +156,20 @@ export function routingDecisionLabel(details: Record<string, unknown> | null): s
     : `Routed to ${dept} by a rule`;
 }
 
+/**
+ * A status as the feed says it. `pending` in a status change is the On-hold overlay (the hold
+ * dialog sets it; the thread's own status is left alone), so it reads "On hold", as the app calls it.
+ */
+const statusWord = (status: unknown): string | undefined => {
+  if (typeof status !== 'string' || !status) return undefined;
+  return status === 'pending' ? 'On hold' : status;
+};
+
 export function auditEntryLabel(action: string, details: Record<string, unknown> | null): string {
   if (action === 'routing.decision') return routingDecisionLabel(details);
   if (action === 'message.status_change') {
-    const from = details?.['from'] as string | undefined;
-    const to = details?.['to'] as string | undefined;
+    const from = statusWord(details?.['from']);
+    const to = statusWord(details?.['to']);
     return to ? `Status changed${from ? ` from ${from}` : ''} to ${to}` : 'Status changed';
   }
   if (action === 'message.priority_change') {
@@ -203,13 +212,84 @@ export function auditEntryLabel(action: string, details: Record<string, unknown>
   return ACTION_LABEL[action] ?? action;
 }
 
+/** Why a thread came off hold, by `metadata.cause` — the backend's phrases (holdNoteText.ts). */
+const UNHOLD_CAUSE: Record<string, string> = {
+  customer_reply: 'customer replied',
+  agent_reply: 'agent replied',
+  reopened: 'reopened',
+  status_change: 'status changed',
+  recheck_due: 'recheck date reached',
+  merge: 'customer message merged in',
+  tracking_page: 'customer replied on the tracking page',
+  chat_escalation: 'customer wrote in chat',
+  repair: 'repaired',
+  ticket_status: 'reopened from the ticket',
+  split: 'thread split',
+  ticket_created: 'ticket created',
+};
+
+/** "Taken off hold: <cause>" / "Taken off hold by <name> (<cause>)", as the backend writes it. */
+const UNHOLD_TEXT = /^Taken off hold(?:: (.+)| by .+ \((.+)\))$/s;
+
+/**
+ * The cause of an un-hold: from the note's text when it has the backend's shape (it can be more
+ * exact than the cause: "status changed to resolved"), else from `metadata.cause`; null if neither.
+ */
+const unholdCause = (note: MessageNote): string | null => {
+  const match = UNHOLD_TEXT.exec(note.content.trim());
+  const fromText = (match?.[1] ?? match?.[2])?.trim();
+  if (fromText) return fromText;
+  const cause = note.metadata?.['cause'];
+  return typeof cause === 'string' ? (UNHOLD_CAUSE[cause] ?? null) : null;
+};
+
 /**
  * A hold note's Activity row: "On hold until 12 Nov 2026: <reason>" (the viewer's day, built from
- * metadata; plain "On hold" when that is missing) or "Off hold".
+ * metadata; plain "On hold" when that is missing) or "Off hold · <cause>" ("Off hold" alone when
+ * the cause is unknown).
  */
 const holdActivityLabel = (note: MessageNote): string => {
   const label = holdNoteLabel(note);
-  return label === 'Off hold' ? label : holdNoteText({ ...note, content: label });
+  if (label !== 'Off hold') return holdNoteText({ ...note, content: label });
+  const cause = unholdCause(note);
+  return cause ? `${label} · ${cause}` : label;
+};
+
+/** How far apart a status change and the hold note it wrote may be (same request; slack for a sweep). */
+const SAME_EVENT_MS = 60_000;
+
+/**
+ * The `message.status_change` entries that ARE a hold or un-hold already shown by its hold note:
+ * one hold showed twice ("Status changed from open to On hold" + "On hold until …"). A change to
+ * `pending` pairs with a `kind: 'hold'` note, any other with a `kind: 'unhold'` note, within
+ * SAME_EVENT_MS, each note used once (nearest first). Status changes with no such note stay.
+ */
+const statusChangesShownByHoldNotes = (
+  activity: MessageActivityEntry[],
+  notes: MessageNote[]
+): Set<MessageActivityEntry> => {
+  const unused = notes.filter(isHoldNote);
+  const shown = new Set<MessageActivityEntry>();
+  for (const entry of activity) {
+    if (entry.action !== 'message.status_change') continue;
+    const kind = entry.details?.['to'] === 'pending' ? 'hold' : 'unhold';
+    const at = new Date(entry.createdAt).getTime();
+    let best = -1;
+    let bestGap = Infinity;
+    unused.forEach((note, index) => {
+      if ((note.metadata?.['kind'] ?? null) !== kind) return;
+      const gap = Math.abs(new Date(note.createdAt).getTime() - at);
+      if (gap <= SAME_EVENT_MS && gap < bestGap) {
+        best = index;
+        bestGap = gap;
+      }
+    });
+    if (best >= 0) {
+      unused.splice(best, 1);
+      shown.add(entry);
+    }
+  }
+  return shown;
 };
 
 export function buildTimeline(
@@ -217,12 +297,15 @@ export function buildTimeline(
   notes: MessageNote[],
   inSession: { label: string; who: string; time: string }[]
 ): TimelineItem[] {
-  const fromAudit: TimelineItem[] = activity.map((entry) => ({
-    label: auditEntryLabel(entry.action, entry.details),
-    time: entry.createdAt,
-    who: entry.userEmail ?? 'System',
-    kind: activityKindOf(entry.action),
-  }));
+  const shownByNote = statusChangesShownByHoldNotes(activity, notes);
+  const fromAudit: TimelineItem[] = activity
+    .filter((entry) => !shownByNote.has(entry))
+    .map((entry) => ({
+      label: auditEntryLabel(entry.action, entry.details),
+      time: entry.createdAt,
+      who: entry.userEmail ?? 'System',
+      kind: activityKindOf(entry.action),
+    }));
 
   const fromNotes: TimelineItem[] = notes.map((note) => {
     const hold = isHoldNote(note);

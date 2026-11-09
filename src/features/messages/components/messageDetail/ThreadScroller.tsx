@@ -74,7 +74,10 @@ export function ThreadScroller({
     loadingEarlier,
     sortedThread,
     lastWordOurs,
+    setNotesBump,
   } = thread;
+  // Re-reads the notes (the thread's and the Notes tab's) after a hold reason is cleared.
+  const bumpNotes = () => setNotesBump((key) => key + 1);
   const { threadScrollerRef, threadContentRef, markScrollIntent } = scrollPin;
   const { timeline, threadDayStarts } = timelineData;
   return (
@@ -162,7 +165,11 @@ export function ThreadScroller({
                 onOpenInlineImage={handleOpenInlineImage}
               />
             ) : (
-              <ThreadNoteItem note={row.note} />
+              <ThreadNoteItem
+                note={row.note}
+                conversationId={message.id}
+                onNotesChanged={bumpNotes}
+              />
             )}
           </Fragment>
         ))}
