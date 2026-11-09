@@ -16,9 +16,13 @@ const REASON_TEXT: Record<string, string> = {
 };
 
 const describeMatch = (match: SkillMatch): string =>
-  `${match.key} = ${match.value}${match.evidence ? ` — mentions “${match.evidence}”` : ''}${
-    match.source === 'ai' ? ' (AI judged)' : ''
-  }`;
+  `${match.key} = ${match.value}${
+    match.evidence
+      ? match.source === 'pattern'
+        ? ` — text pattern found “${match.evidence}”`
+        : ` — mentions “${match.evidence}”`
+      : ''
+  }${match.source === 'ai' ? ' (AI judged)' : ''}`;
 
 /**
  * "Test a message" (BE spec 2026-11-02 skill routing §6.8): paste a message, see what matched and
