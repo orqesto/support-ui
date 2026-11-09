@@ -9,6 +9,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { useAuthStore } from '@/stores/authStore';
 import { getAvatarColor } from './inboxCardHelpers';
 import { getInitials } from '@/lib/initials';
+import { useListWritingGuard } from '../presence/useWritingGuard';
 
 type Props = {
   thread: MessageThread;
@@ -24,6 +25,8 @@ type Props = {
 export const RowAssignee = ({ thread }: Props) => {
   const msg = thread.latestMessage;
   const currentUser = useAuthStore((state) => state.user);
+  // Thread presence (§5.5): an assign asks first while a colleague writes a reply on this thread.
+  const writingGuard = useListWritingGuard(msg?.id);
   const [pickerOpen, setPickerOpen] = useState(false);
   // Optimistic shadow of server assignee state — keeps the card responsive
   // without a list refetch. See KanbanCard for the same pattern + rationale.
@@ -146,10 +149,12 @@ export const RowAssignee = ({ thread }: Props) => {
               currentAssigneeId={msg.assigneeId}
               departmentId={msg.departmentId ?? null}
               onAssign={handleAssigned}
+              beforeChange={(run) => writingGuard.confirmIfWriting('assign', run)}
             />
           </div>,
           document.body
         )}
+      {writingGuard.dialog}
     </div>
   );
 };

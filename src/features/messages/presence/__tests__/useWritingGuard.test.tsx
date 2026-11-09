@@ -1,9 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { User } from '@/types';
 import { useAuthStore } from '@/stores/authStore';
-import { useWritingGuard, type ConfirmIfWriting, type GuardLabel } from '../useWritingGuard';
+import {
+  useListWritingGuard,
+  useWritingGuard,
+  type ConfirmIfWriting,
+  type ConfirmIfWritingOn,
+  type GuardLabel,
+} from '../useWritingGuard';
+import { usePresenceSummaryStore } from '../presenceSummaryStore';
 import { countWritingThreads, bulkWritingNote } from '../bulkWriting';
 import type { PresenceViewer } from '../presence.types';
 
@@ -70,6 +77,31 @@ describe('useWritingGuard — confirm an action while someone writes a reply (sp
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('confirm runs the action exactly once and never reports a cancel (fix round 1)', () => {
+    mount([viewer(7, 'writing_reply')]);
+    const run = vi.fn();
+    const cancelled = vi.fn();
+    press('move', run, cancelled);
+    fireEvent.click(screen.getByRole('button', { name: 'Move anyway' }));
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(cancelled).toHaveBeenCalledTimes(0);
+  });
+
+  it('a second ask while the question is open is refused at once: its onCancel runs, not its action', () => {
+    mount([viewer(7, 'writing_reply')]);
+    const first = vi.fn();
+    const second = vi.fn();
+    const secondCancelled = vi.fn();
+    press('close', first);
+    press('assign', second, secondCancelled);
+    expect(second).not.toHaveBeenCalled();
+    expect(secondCancelled).toHaveBeenCalledTimes(1);
+    // The first question is still the one on screen, and still works.
+    expect(screen.getByText('Anna Kim is writing a reply — close anyway?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Close anyway' }));
+    expect(first).toHaveBeenCalledTimes(1);
+  });
+
   it('cancel does not run the action and tells the caller', () => {
     mount([viewer(7, 'writing_reply')]);
     const run = vi.fn();
@@ -103,6 +135,79 @@ describe('useWritingGuard — confirm an action while someone writes a reply (sp
     mount([viewer(1, 'writing_reply')]);
     const run = vi.fn();
     press('move', run);
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+});
+
+let listGuard: ConfirmIfWritingOn = () => {};
+function ListHost({ conversationId }: { conversationId?: number }) {
+  const { confirmIfWriting, dialog } = useListWritingGuard(conversationId);
+  listGuard = confirmIfWriting;
+  return <>{dialog}</>;
+}
+const mountList = (conversationId?: number) => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client.setQueryData(['organization-members', 1], MEMBERS);
+  return render(
+    <QueryClientProvider client={client}>
+      <ListHost conversationId={conversationId} />
+    </QueryClientProvider>
+  );
+};
+
+describe('useListWritingGuard — a list row, card or page, from the presence summary', () => {
+  beforeEach(() => {
+    usePresenceSummaryStore.getState().reset();
+    usePresenceSummaryStore.getState().applySnapshot({
+      41: [{ userId: 7, state: 'writing_reply' }],
+      42: [
+        { userId: 8, state: 'viewing' },
+        { userId: 1, state: 'writing_reply' },
+      ],
+      43: [{ userId: 7, state: 'away' }],
+    });
+    usePresenceSummaryStore.getState().setAvailable(true);
+  });
+
+  it("a colleague writing a reply on the row's thread: asks with the same copy", () => {
+    mountList(41);
+    const run = vi.fn();
+    act(() => listGuard('assign', run));
+    expect(run).not.toHaveBeenCalled();
+    expect(screen.getByText('Anna Kim is writing a reply — assign anyway?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Assign anyway' }));
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('nobody else writing (only me, a viewer, or away): runs at once', () => {
+    for (const id of [42, 43, 44]) {
+      const { unmount } = mountList(id);
+      const run = vi.fn();
+      act(() => listGuard('assign', run));
+      expect(run).toHaveBeenCalledTimes(1);
+      unmount();
+    }
+  });
+
+  it('a board passes the thread with the ask', () => {
+    mountList();
+    const run = vi.fn();
+    act(() => listGuard('mark as spam', run, undefined, 41));
+    expect(
+      screen.getByText('Anna Kim is writing a reply — mark as spam anyway?')
+    ).toBeInTheDocument();
+    const other = vi.fn();
+    cleanup();
+    mountList();
+    act(() => listGuard('mark as spam', other, undefined, 43));
+    expect(other).toHaveBeenCalledTimes(1);
+  });
+
+  it('presence summary down: runs at once, never asks', () => {
+    usePresenceSummaryStore.getState().setAvailable(false);
+    mountList(41);
+    const run = vi.fn();
+    act(() => listGuard('assign', run));
     expect(run).toHaveBeenCalledTimes(1);
   });
 });

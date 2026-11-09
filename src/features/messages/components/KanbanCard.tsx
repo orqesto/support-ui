@@ -26,6 +26,7 @@ import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
 import { RowPresence } from '../presence/RowPresence';
+import { useListWritingGuard } from '../presence/useWritingGuard';
 import { SPINE_BG, getAiState, getAvatarColor, getPriorityBadge, getSpine, getSuspicionBadge, hasAttachments } from './inboxCardHelpers';
 import { getInitials } from '@/lib/initials';
 import { TRIAGE_READ_COLUMN_IDS } from './kanbanColumns';
@@ -77,6 +78,8 @@ export const KanbanCard = ({
   // Before any early return — hooks must run in the same order on every render.
   const { off: aiDraftsOff } = useAiDraftsOff();
   const msg = thread.latestMessage;
+  // Thread presence (§5.5): an assign asks first while a colleague writes a reply on this thread.
+  const writingGuard = useListWritingGuard(msg?.id);
   // Spam-rule records (spam-log rows) have no conversation behind them: no box, no long-press, no `x`.
   // (The drag grip is a separate element with its own TouchSensor; it never shares this press.)
   const selectableId =
@@ -514,10 +517,12 @@ export const KanbanCard = ({
                 currentAssigneeId={msg.assigneeId}
                 departmentId={msg.departmentId ?? null}
                 onAssign={handleAssigned}
+                beforeChange={(run) => writingGuard.confirmIfWriting('assign', run)}
               />
             </div>,
             document.body
           )}
+          {writingGuard.dialog}
         </div>
       </div>
     </div>

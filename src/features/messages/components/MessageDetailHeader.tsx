@@ -22,6 +22,7 @@ import { toast } from '@/lib/toast';
 import { useAiRefusalText, useIsWorkspaceAdmin } from '@/features/subscription/shell';
 import { getInitials } from '@/lib/initials';
 import { HeaderMetaStrip } from './HeaderMetaStrip';
+import { useGuardAction } from '../presence/writingGuardContext';
 import { AddToTicketDialog } from './AddToTicketDialog';
 import { MergePickerDialog } from './MergeThreads';
 import { useIsPhone } from './useIsPhone';
@@ -407,6 +408,7 @@ export function MessageDetailHeader({
       setReanalyzing,
     });
 
+  const guardAction = useGuardAction();
   const moreMenuItems = buildMoreMenuItems({
     message,
     canCreateTickets,
@@ -439,6 +441,7 @@ export function MessageDetailHeader({
     isActive,
     onClassify,
     onDelete,
+    guard: guardAction,
   });
 
   // The More menu with its scrim (a bottom sheet on a phone, portalled — see where it renders).

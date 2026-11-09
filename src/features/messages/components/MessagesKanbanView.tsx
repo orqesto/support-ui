@@ -113,7 +113,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
       loadBoard,
     });
 
-    const { sensors, handleDragStart, handleDragEnd } = useKanbanDrag({
+    const { sensors, handleDragStart, handleDragEnd, writingGuardDialog } = useKanbanDrag({
       queryClient,
       colStatesRef,
       setColStates,
@@ -280,6 +280,7 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
             </div>
           ) : null}
         </DragOverlay>
+        {writingGuardDialog}
       </DndContext>
     );
   }
