@@ -272,8 +272,52 @@ export const slaClockRuns = (message: Message): boolean =>
   message.status !== 'filtered' &&
   !isSpamThread(message);
 
+/**
+ * The SLA clock (owner 2026-11-09): from the FIRST customer message with no human reply after it
+ * (`slaWaitStartedAt`, kept by the backend) — more customer messages do not move it, a bot reply
+ * does not stop it. The same clock the Breached / At-risk filters, the sort and the alerts read.
+ *
+ * - `undefined`: the backend does not send the field (older than 0230) — callers keep the old clock.
+ * - `null`: no clock running (nobody waiting, finished, spam, no SLA).
+ */
+export const slaWaitClock = (
+  message: Message,
+  nowMs: number = Date.now()
+): { elapsed: number; target: number; breached: boolean; atRisk: boolean } | null | undefined => {
+  if (message.slaWaitStartedAt === undefined) return undefined;
+  if (!slaClockRuns(message) || !message.slaResponseMinutes || !message.slaWaitStartedAt)
+    return null;
+  const target = message.slaResponseMinutes;
+  // Never negative: a start ahead of this browser's clock reads as "just started".
+  const elapsed = Math.max(
+    0,
+    Math.floor((nowMs - new Date(message.slaWaitStartedAt).getTime()) / 60000)
+  );
+  const breached = elapsed > target;
+  return { elapsed, target, breached, atRisk: !breached && elapsed > target * 0.8 };
+};
+
 export const getSlaCardText = (message: Message): SlaCard | null => {
   if (!slaClockRuns(message) || !message.slaResponseMinutes) return null;
+  const wait = slaWaitClock(message);
+  if (wait !== undefined) {
+    if (!wait) return null;
+    if (wait.breached) {
+      return {
+        variant: 'breach',
+        label: 'Breached',
+        detail: `${formatDuration(wait.elapsed - wait.target)} over`,
+      };
+    }
+    if (wait.atRisk) {
+      return {
+        variant: 'risk',
+        label: 'At risk',
+        detail: `${formatDuration(wait.target - wait.elapsed)} left`,
+      };
+    }
+    return null;
+  }
   // We replied last → the ball is in the customer's court, so there's no SLA
   // clock on us (awaiting-response cards). Covers seed rows that never stamped
   // firstResponseAt/lastReplyAt but carry lastReplyFromClient=false.
@@ -355,8 +399,12 @@ export const computeSlaInfo = (message: Message, nowMs: number = Date.now()): Sl
   if (!message.slaResponseMinutes) return null;
   if (isSpamThread(message) || message.status === 'filtered') return null;
   const finished = isFinishedStatus(message.status);
-  if (finished && !message.firstResponseAt) return null;
   const target = message.slaResponseMinutes;
+  // A customer waiting for a person right now: the live clock from their first unanswered message,
+  // whatever an earlier (or a bot's) reply recorded.
+  const wait = slaWaitClock(message, nowMs);
+  if (wait) return liveSlaInfo(wait.elapsed, target, wait.breached, wait.atRisk);
+  if (finished && !message.firstResponseAt) return null;
   const startTime =
     typeof (message.metadata as Record<string, unknown>)?.receivedAt === 'string'
       ? new Date((message.metadata as Record<string, unknown>).receivedAt as string)
@@ -409,25 +457,35 @@ export const computeSlaInfo = (message: Message, nowMs: number = Date.now()): Sl
         : 'text-success border-success-line bg-success-muted',
     };
   }
+  // The backend sends the wait clock and nobody is waiting: no live clock (the old fallback below
+  // would count from the thread's first message).
+  if (wait === null) return null;
   // Never negative: an arrival time ahead of the clock (sender skew) reads as "just arrived".
   const elapsed = Math.max(0, Math.floor((nowMs - startTime.getTime()) / 60000));
   const breached = message.slaResponseBreached === true || elapsed > target;
-  const atRisk = !breached && elapsed > target * 0.8;
-  return {
-    elapsed,
-    target,
-    breached,
-    atRisk,
-    done: false,
-    record: false,
-    barColor: breached ? 'bg-destructive' : atRisk ? 'bg-warning' : 'bg-success',
-    colorClasses: breached
-      ? 'text-destructive border-destructive-line bg-destructive-muted'
-      : atRisk
-        ? 'text-warning border-warning-line bg-warning-muted'
-        : 'text-muted-foreground border-border bg-muted',
-  };
+  return liveSlaInfo(elapsed, target, breached, !breached && elapsed > target * 0.8);
 };
+
+/** The running clock's chip. */
+const liveSlaInfo = (
+  elapsed: number,
+  target: number,
+  breached: boolean,
+  atRisk: boolean
+): SlaInfo => ({
+  elapsed,
+  target,
+  breached,
+  atRisk,
+  done: false,
+  record: false,
+  barColor: breached ? 'bg-destructive' : atRisk ? 'bg-warning' : 'bg-success',
+  colorClasses: breached
+    ? 'text-destructive border-destructive-line bg-destructive-muted'
+    : atRisk
+      ? 'text-warning border-warning-line bg-warning-muted'
+      : 'text-muted-foreground border-border bg-muted',
+});
 
 type SlaTone = 'breach' | 'risk' | null;
 const computeSlaTone = (message: Message): SlaTone => {

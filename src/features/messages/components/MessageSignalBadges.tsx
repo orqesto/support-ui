@@ -16,6 +16,7 @@ import {
   getSlaCardText,
   renderOverflowTooltip,
   slaClockRuns,
+  slaWaitClock,
 } from './inboxCardHelpers';
 import { hasActiveContradiction, needsReviewReasonLabel, needsReviewTooltip } from './aiFlagCopy';
 
@@ -46,6 +47,38 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
   const renderSla = () => {
     if (!slaClockRuns(message) || !message.slaResponseMinutes) return null;
     const target = message.slaResponseMinutes;
+
+    // The clock from the customer's first unanswered message (backend 0230) — the one the
+    // Breached filter, the sort and the alerts read. The branches below are for an older backend.
+    const wait = slaWaitClock(message);
+    if (wait !== undefined) {
+      if (!wait) return null;
+      if (wait.breached)
+        return (
+          <Tooltip
+            content={`SLA breached · target ${formatDuration(target)} · customer waiting ${formatDuration(wait.elapsed)}`}
+            size="sm"
+          >
+            <Badge variant="danger" className={bc}>
+              <AlertTriangle className={ic} />
+              SLA
+            </Badge>
+          </Tooltip>
+        );
+      if (wait.atRisk)
+        return (
+          <Tooltip
+            content={`SLA at risk · target ${formatDuration(target)} · ${formatDuration(target - wait.elapsed)} remaining`}
+            size="sm"
+          >
+            <Badge variant="warning" className={bc}>
+              <AlertTriangle className={ic} />
+              SLA
+            </Badge>
+          </Tooltip>
+        );
+      return null;
+    }
 
     if (message.lastReplyFromClient && message.lastReplyAt) {
       const elapsed = Math.floor((Date.now() - new Date(message.lastReplyAt).getTime()) / 60000);

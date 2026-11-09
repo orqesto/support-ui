@@ -192,6 +192,12 @@ export type Message = {
   parkedUntil?: string | null;
   attachmentCount?: number;
   slaResponseMinutes?: number | null;
+  /**
+   * When the customer's current wait for a PERSON began: the first customer message with no human
+   * reply after it (backend migration 0230). null = nobody is waiting. Absent (undefined) = a
+   * backend from before it; the badges then keep the old clock.
+   */
+  slaWaitStartedAt?: string | null;
   slaResponseBreached?: boolean | null;
   firstResponseAt?: string | null;
   actualResponseSeconds?: number | null;
