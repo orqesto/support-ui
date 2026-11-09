@@ -13,7 +13,10 @@ import {
  * value matches is the admin's description; Suggest drafts one with AI; an older backend without
  * the endpoint hides the section instead of erroring.
  */
-const getRoutingKeyValues = vi.fn<(key: string, options?: { includeReassigned?: boolean }) => Promise<RoutingValue[] | null>>();
+const getRoutingKeyValues =
+  vi.fn<
+    (key: string, options?: { includeReassigned?: boolean }) => Promise<RoutingValue[] | null>
+  >();
 const setRoutingValueDescription =
   vi.fn<(key: string, value: string, description: string | null) => Promise<void>>();
 const deleteRoutingValue = vi.fn<(key: string, value: string) => Promise<void>>();
@@ -24,11 +27,18 @@ const suggestRoutingValueDescription =
       value: string
     ) => Promise<{ description: string } | { refused: 'no_ai' | 'budget' | 'failed' }>
   >();
-const getRoutingPatternPresets = vi.fn<() => Promise<SkillPatternPreset[]>>();
+const getRoutingPatternPresets =
+  vi.fn<() => Promise<{ presets: SkillPatternPreset[]; legacy: boolean }>>();
+const getWorkspaceSkillValues =
+  vi.fn<() => Promise<Record<string, Record<string, string[]>> | null>>();
+const getMembers = vi.fn<() => Promise<unknown[]>>();
 vi.mock('@/services/organization.service', () => ({
   organizationService: {
+    getWorkspaceSkillValues: () => getWorkspaceSkillValues(),
+    getMembers: () => getMembers(),
     getRoutingPatternPresets: () => getRoutingPatternPresets(),
-    getRoutingKeyValues: (key: string, options?: { includeReassigned?: boolean }) => getRoutingKeyValues(key, options),
+    getRoutingKeyValues: (key: string, options?: { includeReassigned?: boolean }) =>
+      getRoutingKeyValues(key, options),
     setRoutingValueDescription: (key: string, value: string, description: string | null) =>
       setRoutingValueDescription(key, value, description),
     deleteRoutingValue: (key: string, value: string) => deleteRoutingValue(key, value),
@@ -64,7 +74,14 @@ describe('RoutingValueDescriptions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setRoutingValueDescription.mockResolvedValue();
-    getRoutingPatternPresets.mockResolvedValue([...SKILL_PATTERN_PRESETS]);
+    getRoutingPatternPresets.mockResolvedValue({
+      presets: [...SKILL_PATTERN_PRESETS],
+      legacy: false,
+    });
+    getWorkspaceSkillValues.mockReset();
+    getWorkspaceSkillValues.mockResolvedValue({});
+    getMembers.mockReset();
+    getMembers.mockResolvedValue([]);
   });
 
   it('lists each value with its holders and description; saving sends the edited text', async () => {
@@ -193,5 +210,44 @@ describe('RoutingValueDescriptions', () => {
     render(<RoutingValueDescriptions routingKey="payment_sys" keyType="topic" />);
     expect(await screen.findByText(/Could not load the ready-made patterns/)).toBeInTheDocument();
     expect(screen.getByText('evm_tx_hash')).toBeInTheDocument();
+  });
+});
+
+describe('holders by name (owner 2026-11-09)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getRoutingPatternPresets.mockResolvedValue({
+      presets: [...SKILL_PATTERN_PRESETS],
+      legacy: false,
+    });
+    getWorkspaceSkillValues.mockReset();
+    getMembers.mockReset();
+    getMembers.mockResolvedValue([]);
+  });
+  it('each value names who holds it; keys and values compare like routing does', async () => {
+    getRoutingKeyValues.mockResolvedValue([row(), row({ value: 'usdt', description: null })]);
+    getWorkspaceSkillValues.mockResolvedValue({
+      7: { 'Payment-Sys': ['USDC', 'usdt'] },
+      8: { payment_sys: ['usdc'] },
+      9: { lang: ['usdc'] },
+    });
+    getMembers.mockResolvedValue([
+      { userId: 7, firstName: 'Ann', lastName: 'Agent', email: 'ann@example.test' },
+      { userId: 8, firstName: null, lastName: null, email: 'bo@example.test' },
+      { userId: 9, firstName: 'Cy', lastName: 'Other', email: 'cy@example.test' },
+    ]);
+    render(<RoutingValueDescriptions routingKey="payment_sys" keyType="topic" />);
+    expect(await screen.findByText('Held by: Ann Agent, bo@example.test')).toBeInTheDocument();
+    expect(screen.getByText('Held by: Ann Agent')).toBeInTheDocument();
+    expect(screen.queryByText(/Cy Other/)).not.toBeInTheDocument();
+  });
+
+  it('CONTROL — an older backend without the skills read shows only the count', async () => {
+    getRoutingKeyValues.mockResolvedValue([row()]);
+    getWorkspaceSkillValues.mockResolvedValue(null);
+    render(<RoutingValueDescriptions routingKey="payment_sys" keyType="topic" />);
+    expect(await screen.findByText('usdc')).toBeInTheDocument();
+    expect(screen.queryByText(/Held by/)).not.toBeInTheDocument();
+    expect(getMembers).not.toHaveBeenCalled();
   });
 });

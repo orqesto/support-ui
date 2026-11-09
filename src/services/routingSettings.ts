@@ -114,7 +114,7 @@ export const SKILL_PATTERN_CAP_SPECS: Record<SkillPatternCapField, RoutingSettin
     help: 'How many text patterns all values of a workspace may have together.',
     defaultValue: 50,
     min: 1,
-    max: 500,
+    max: 150,
     integer: true,
   },
   skillCustomPatternsPerWorkspace: {
@@ -122,7 +122,7 @@ export const SKILL_PATTERN_CAP_SPECS: Record<SkillPatternCapField, RoutingSettin
     help: 'How many of those may be the workspace admin’s own regular expressions. 0 allows ready-made patterns only.',
     defaultValue: 20,
     min: 0,
-    max: 200,
+    max: 50,
     integer: true,
   },
 };
