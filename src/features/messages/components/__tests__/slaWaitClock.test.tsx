@@ -78,6 +78,16 @@ describe('SLA clock from the first unanswered message', () => {
     expect(getSlaCardText(message)).toMatchObject({ variant: 'risk', detail: '10m left' });
   });
 
+  it('breached the moment the target passes, to the second — as the backend filter decides', () => {
+    // 60 min 30 s into a 60-minute clock: whole minutes said "at risk, 0m left".
+    const message = thread({ slaWaitStartedAt: new Date(NOW - 60 * MIN - 30_000).toISOString() });
+    expect(slaWaitClock(message, NOW)).toMatchObject({ breached: true, elapsed: 60 });
+    expect(getSlaCardText(message)).toMatchObject({ variant: 'breach' });
+    // CONTROL: 59 min 30 s is at risk, not breached.
+    const before = thread({ slaWaitStartedAt: new Date(NOW - 59 * MIN - 30_000).toISOString() });
+    expect(slaWaitClock(before, NOW)).toMatchObject({ breached: false, atRisk: true });
+  });
+
   it('nobody waiting (null): no clock, even if the thread began long ago', () => {
     const message = thread({ slaWaitStartedAt: null, firstResponseAt: null });
     expect(slaWaitClock(message, NOW)).toBeNull();

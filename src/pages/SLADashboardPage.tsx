@@ -27,7 +27,7 @@ const DAYS_OPTIONS = [
 
 export const SLADashboardPage = () => {
   const [searchParams] = useSearchParams();
-  // Arriving from the dashboard's "Avg First Response" tile, which sends the window its
+  // Arriving from the dashboard's "Avg Response Time" tile, which sends the window its
   // number was computed over. Only a period this page can actually select is honoured —
   // anything else would leave the selector showing no active button while the charts
   // displayed a window nobody could see or change.

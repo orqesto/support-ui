@@ -22,7 +22,8 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
   const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['sla-breaches', { window: period ? periodKey(period) : days }],
-    queryFn: () => slaService.getBreaches({ limit: 20, ...(period ? periodParams(period) : { days }) }),
+    queryFn: () =>
+      slaService.getBreaches({ limit: 20, ...(period ? periodParams(period) : { days }) }),
     refetchInterval: 30000,
     refetchIntervalInBackground: false,
   });
@@ -51,7 +52,9 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
           <AlertCircle className="h-10 w-10 text-destructive mb-3" />
           <p className="text-sm font-medium text-foreground mb-1">Failed to load SLA data</p>
-          <p className="text-xs text-muted-foreground mb-4">Something went wrong while fetching data</p>
+          <p className="text-xs text-muted-foreground mb-4">
+            Something went wrong while fetching data
+          </p>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Retry
@@ -73,11 +76,10 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
         <CardContent>
           <div className="py-12 text-center">
             <CheckCircle className="h-12 w-12 text-success mb-4 mx-auto" />
-            <p className="mb-2 text-lg font-medium text-success">
-              No active SLA breaches
-            </p>
+            <p className="mb-2 text-lg font-medium text-success">No active SLA breaches</p>
             <p className="text-sm text-success">
-              No SLA breaches in the {period && isCustomPeriod(period) ? 'selected period' : windowLabel(days)}
+              No SLA breaches in the{' '}
+              {period && isCustomPeriod(period) ? 'selected period' : windowLabel(days)}
             </p>
           </div>
         </CardContent>
@@ -118,7 +120,7 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
           {data.breaches.map((breach) => (
             <Button
               type="button"
-              key={`${breach.type}-${breach.id}`}
+              key={`${breach.type}-${breach.waitId ?? breach.id}`}
               variant="ghost"
               className="flex justify-between items-center w-full h-auto text-left p-2 pb-3 rounded border-b transition-colors cursor-pointer last:border-0 hover:bg-muted"
               onClick={() => handleBreachClick(breach)}
@@ -142,9 +144,7 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
               </div>
 
               <div className="ml-4 text-right">
-                <p className="text-sm font-semibold text-destructive">
-                  +{breach.breachAmount}m
-                </p>
+                <p className="text-sm font-semibold text-destructive">+{breach.breachAmount}m</p>
                 <p className="text-xs text-muted-foreground">
                   {(() => {
                     try {

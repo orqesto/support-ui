@@ -289,12 +289,12 @@ export const slaWaitClock = (
     return null;
   const target = message.slaResponseMinutes;
   // Never negative: a start ahead of this browser's clock reads as "just started".
-  const elapsed = Math.max(
-    0,
-    Math.floor((nowMs - new Date(message.slaWaitStartedAt).getTime()) / 60000)
-  );
-  const breached = elapsed > target;
-  return { elapsed, target, breached, atRisk: !breached && elapsed > target * 0.8 };
+  const elapsedMs = Math.max(0, nowMs - new Date(message.slaWaitStartedAt).getTime());
+  // Decided in milliseconds, as the backend's filters and alerts decide (`now > start + target`);
+  // whole minutes left a thread in the Breached filter while its badge said "0m left".
+  const breached = elapsedMs > target * 60_000;
+  const atRisk = !breached && elapsedMs > target * 0.8 * 60_000;
+  return { elapsed: Math.floor(elapsedMs / 60_000), target, breached, atRisk };
 };
 
 export const getSlaCardText = (message: Message): SlaCard | null => {

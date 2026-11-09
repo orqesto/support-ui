@@ -546,7 +546,7 @@ export const DashboardPage = () => {
       isClickable: true,
     },
     {
-      title: 'Avg First Response',
+      title: 'Avg Response Time',
       value: formatMinutes(stats.avgFirstResponseMins),
       icon: Timer,
       color: 'text-primary',
