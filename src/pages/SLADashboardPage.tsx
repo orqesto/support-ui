@@ -7,6 +7,7 @@ import {
   SLA_DEFAULT_DAYS,
   SLATrendChart,
   SLABreachList,
+  SLAStatsSinceControl,
 } from '@/features/statistics';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import {
@@ -43,8 +44,12 @@ export const SLADashboardPage = () => {
           <div>
             <h1 className="font-display text-3xl font-bold text-foreground">SLA Performance</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Monitor service level agreement metrics and performance across threads and tickets
+              Each time a customer waits for a person: from their first unanswered message until
+              someone on the team replies
             </p>
+            <div className="mt-2">
+              <SLAStatsSinceControl />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Period:</span>

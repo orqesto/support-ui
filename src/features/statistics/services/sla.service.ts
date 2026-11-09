@@ -169,7 +169,24 @@ const getTrends = async (params?: {
   return response.data;
 };
 
+/**
+ * "Count SLA from" (backend 0230): SLA Performance counts customer waits that began at or after
+ * this instant. null = everything counts. Nothing is deleted by moving it.
+ */
+const getStatsSince = async (): Promise<string | null> => {
+  const response = await apiClient.get<{ since: string | null }>('/api/sla/stats-since');
+  return response.data.since;
+};
+
+/** Org admin: 'now' starts over from this moment; null counts everything again. */
+const setStatsSince = async (since: 'now' | null): Promise<string | null> => {
+  const response = await apiClient.put<{ since: string | null }>('/api/sla/stats-since', { since });
+  return response.data.since;
+};
+
 export const slaService = {
+  getStatsSince,
+  setStatsSince,
   getSummary,
   getStatistics,
   getBreaches,

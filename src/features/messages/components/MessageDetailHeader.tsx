@@ -341,6 +341,7 @@ export function MessageDetailHeader({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recomputed on the fields it reads, not on every new `message` object
     [
       message.slaResponseMinutes,
+      message.slaWaitStartedAt,
       message.firstResponseAt,
       message.slaResponseBreached,
       message.createdAt,
