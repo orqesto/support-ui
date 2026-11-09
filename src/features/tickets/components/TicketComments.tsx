@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import RichTextEditor from '@/components/shared/LazyRichTextEditor';
+import { holdNoteLabel, isHoldNote } from '@/lib/holdNote';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
@@ -269,6 +270,10 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
     if (comment.source === 'jira') {
       return false;
     }
+    // A hold note records the thread going on or off hold: an event, not an editable comment.
+    if (isHoldNote(comment)) {
+      return false;
+    }
     // Admins can edit/delete any app comment
     if (currentUserRole === 'admin') {
       return true;
@@ -325,7 +330,11 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
             <li
               key={comment.id}
               className={`group/cm p-3 rounded-[10px] border ${
-                comment.isInternal ? 'bg-note-muted border-note-line' : 'bg-card border-border'
+                isHoldNote(comment)
+                  ? 'bg-pending-muted border-pending-line'
+                  : comment.isInternal
+                    ? 'bg-note-muted border-note-line'
+                    : 'bg-card border-border'
               }`}
             >
               {editingId === comment.id ? (
@@ -353,11 +362,18 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                 <>
                   <div className="flex flex-wrap gap-2 items-center mb-1.5 text-[12.5px]">
                     <span className="font-semibold text-foreground">{authorOf(comment)}</span>
-                    {comment.isInternal && (
-                      <Badge variant="note" size="sm">
+                    {isHoldNote(comment) ? (
+                      <Badge variant="pending" size="sm">
                         <Lock className="mr-1 w-3 h-3" aria-hidden />
-                        Internal
+                        Internal · {holdNoteLabel(comment)}
                       </Badge>
+                    ) : (
+                      comment.isInternal && (
+                        <Badge variant="note" size="sm">
+                          <Lock className="mr-1 w-3 h-3" aria-hidden />
+                          Internal
+                        </Badge>
+                      )
                     )}
                     {comment.source === 'jira' && (
                       <Badge variant="secondary" size="sm">

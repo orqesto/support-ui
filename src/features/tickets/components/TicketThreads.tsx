@@ -535,7 +535,7 @@ export const TicketThreads = ({
                         content={row.parkedReason ? `On hold: ${row.parkedReason}` : 'On hold'}
                         size="sm"
                       >
-                        <Badge variant="warning" size="sm">
+                        <Badge variant="pending" size="sm">
                           on hold
                           {row.parkedUntil &&
                             ` until ${new Date(row.parkedUntil).toLocaleDateString()}`}

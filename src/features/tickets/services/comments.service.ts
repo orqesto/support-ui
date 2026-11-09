@@ -13,7 +13,8 @@ export type Comment = {
   content: string;
   isInternal: boolean;
   externalId: string | null;
-  source: 'app' | 'jira';
+  /** `'hold'`: written by the backend when a thread goes on or comes off hold. */
+  source: 'app' | 'jira' | 'hold';
   createdAt: string;
   updatedAt: string;
   metadata: Record<string, unknown> | null;

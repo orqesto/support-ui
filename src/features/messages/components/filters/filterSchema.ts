@@ -115,7 +115,7 @@ const LIFECYCLE: FilterOption[] = [
 const THREAD_STATUS: FilterOption[] = [
   { value: 'open', label: 'Open', dot: '#0ea5e9' },
   { value: 'in_progress', label: 'In Progress', dot: '#3b82f6' },
-  { value: 'pending', label: 'On-hold', dot: '#fbbf24' },
+  { value: 'pending', label: 'On-hold', dot: '#8b5cf6' },
   { value: 'closed', label: 'Closed' },
 ];
 

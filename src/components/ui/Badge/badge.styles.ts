@@ -16,6 +16,8 @@ export const badgeVariants = cva(
         attention: 'bg-attention-muted text-attention cursor-pointer',
         /** Internal-only (a note only the team sees). */
         note: 'bg-note-muted text-note border border-note-line',
+        /** On hold (parked): violet, apart from the amber of Pending and of notes. */
+        pending: 'bg-pending-muted text-pending border border-pending-line',
         /** A quiet fact with no colour of its own (a thread's origin): border only. */
         outline: 'border border-border bg-transparent text-muted-foreground',
       },
