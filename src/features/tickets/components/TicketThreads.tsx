@@ -15,6 +15,7 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { getConvUrlId } from '@/lib/messageHelpers';
+import { isHoldReasonCleared } from '@/lib/holdNote';
 import { formatDate, formatDay } from '@/lib/utils';
 import { isInFlight } from '@/features/tickets/services/ticketReplies.service';
 import {
@@ -55,6 +56,8 @@ type Props = {
   onThreadsChange?: (threads: TicketThread[]) => void;
   /** Off where the page shows the strip itself. */
   showReachStrip?: boolean;
+  /** Bumped by the page when something it did changed the rows (a hold reason cleared). */
+  refreshKey?: number;
 };
 
 const words = (status: string) => status.replace('_', ' ');
@@ -71,6 +74,7 @@ export const TicketThreads = ({
   ticketStatus,
   onThreadsChange,
   showReachStrip = true,
+  refreshKey = 0,
 }: Props) => {
   const orgCode = useCurrentOrgCode();
   // Adding, removing, sending and resolving are support and above (MANAGE_TICKETS); viewing is not.
@@ -182,6 +186,14 @@ export const TicketThreads = ({
     void load();
   }, [load]);
 
+  // A hold reason cleared on this page (the rows say "On hold: <reason>"): re-read quietly.
+  const seenRefreshKey = useRef(refreshKey);
+  useEffect(() => {
+    if (refreshKey === seenRefreshKey.current) return;
+    seenRefreshKey.current = refreshKey;
+    void loadNow.current(true);
+  }, [refreshKey]);
+
   /*
     Each delivery that finishes changes its thread: "updated", On-hold until …, Remove refused.
     The socket's message:replied fires when the mail leaves — BEFORE the thread is put on hold and
@@ -217,13 +229,24 @@ export const TicketThreads = ({
     const onReply = (data: unknown) => {
       if (ids.includes((data as { messageId: number }).messageId)) void load(true);
     };
+    // An admin cleared a hold reason on one of these threads (anywhere): its row names it.
+    const onConversation = (data: unknown) => {
+      if (!isHoldReasonCleared(data)) return;
+      const event = data as { conversationId?: unknown; conversationIds?: unknown };
+      const named = Array.isArray(event.conversationIds)
+        ? [event.conversationId, ...(event.conversationIds as unknown[])]
+        : [event.conversationId];
+      if (named.some((id) => typeof id === 'number' && ids.includes(id))) void load(true);
+    };
     subscribeToEvent('ticket:updated', onTicket);
     subscribeToEvent('message:replied', onReply);
     subscribeToEvent('send-failed', onReply);
+    subscribeToEvent('conversation:updated', onConversation);
     return () => {
       unsubscribeFromEvent('ticket:updated', onTicket);
       unsubscribeFromEvent('message:replied', onReply);
       unsubscribeFromEvent('send-failed', onReply);
+      unsubscribeFromEvent('conversation:updated', onConversation);
     };
   }, [threadIdsKey, ticketId, load]);
 

@@ -71,10 +71,15 @@ describe('TicketComments — Clear reason', () => {
     const clear = vi
       .spyOn(messageService, 'clearHoldNoteReason')
       .mockResolvedValue({ success: true, data: ticketHold as unknown as MessageNote });
-    withClient(<TicketComments ticketId={5} hasJiraLink={false} />);
+    const onHoldReasonCleared = vi.fn();
+    withClient(
+      <TicketComments ticketId={5} hasJiraLink={false} onHoldReasonCleared={onHoldReasonCleared} />
+    );
     await clickClearAndConfirm();
     await waitFor(() => expect(clear).toHaveBeenCalledWith(41, 31));
     await waitFor(() => expect(getAll).toHaveBeenCalledTimes(2));
+    // The page's thread rows say "On hold: <reason>" too (review of #902).
+    expect(onHoldReasonCleared).toHaveBeenCalledTimes(1);
   });
 
   it('ticket page: no button for an agent, nor for a comment with no thread', async () => {

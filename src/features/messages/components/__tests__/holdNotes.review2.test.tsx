@@ -16,7 +16,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { NoteContent } from '@/components/shared/NoteContent';
-import { noteBodyText, noteIsHtml } from '@/lib/noteText';
+import { noteBodyText, noteDisplay } from '@/lib/noteText';
 import { holdNoteText } from '@/lib/holdNote';
 import { formatDay } from '@/lib/utils';
 import {
@@ -88,7 +88,7 @@ beforeEach(() => asRole('support'));
 afterEach(() => vi.restoreAllMocks());
 
 const renderBody = (content: string, contentFormat?: string) =>
-  render(<NoteContent note={{ content, contentFormat }} className="body" />);
+  render(<NoteContent note={{ content, contentFormat }} origin="ticket" className="body" />);
 
 describe('1+2. HTML or text by contentFormat, with a fallback for an older backend', () => {
   it('🔴 a heading-first ticket comment ("Title<p>body</p>") renders, never shows raw tags', () => {
@@ -97,15 +97,14 @@ describe('1+2. HTML or text by contentFormat, with a fallback for an older backe
     expect(screen.getByText('Sent to the bank.').tagName).toBe('P');
   });
 
-  it('🔴 the same comment from an OLDER backend (no contentFormat) renders as HTML too', () => {
-    const { container } = renderBody('Refund status<p>Sent to the bank.</p>');
-    expect(container.textContent).not.toContain('<p>');
+  it('an OLDER backend (no contentFormat): only editor-shaped HTML renders (review of #902)', () => {
+    // The narrow test: HTML only when it opens with a block tag. A comment that opens with text
+    // is printed as typed — the widened guess rendered typed tags (review3 test).
+    const { unmount } = renderBody('<p>Refund status</p><p>Sent to the bank.</p>');
     expect(screen.getByText('Sent to the bank.').tagName).toBe('P');
-  });
-
-  it('h1–h3 kept by the server render as headings', () => {
-    renderBody('<h2>Steps</h2><p>one</p>', 'html');
-    expect(screen.getByText('Steps').tagName).toBe('H2');
+    unmount();
+    const { container } = renderBody('Refund status<p>Sent to the bank.</p>');
+    expect(container.textContent).toBe('Refund status<p>Sent to the bank.</p>');
   });
 
   it('🔴 an entity-escaped legacy comment reads "Tom & Jerry" — with and without contentFormat', () => {
@@ -121,21 +120,26 @@ describe('1+2. HTML or text by contentFormat, with a fallback for an older backe
     expect(container.textContent).toBe('<p>kept</p> and &amp; and <supplier>');
   });
 
-  it('without contentFormat, text with no known tag or entity stays plain', () => {
-    expect(noteIsHtml({ content: 'waiting for <supplier> quote' })).toBe(false);
-    expect(noteIsHtml({ content: 'a < b && c > d' })).toBe(false);
-    expect(noteIsHtml({ content: 'call <b>back</b>' })).toBe(true);
-    expect(noteIsHtml({ content: 'R&amp;D', contentFormat: 'text' })).toBe(false);
-    expect(noteIsHtml({ content: 'plain', contentFormat: 'html' })).toBe(true);
+  it('without contentFormat, a typed tag or entity never makes text HTML', () => {
+    const kind = (content: string, contentFormat?: string) =>
+      noteDisplay({ content, contentFormat }, 'ticket').kind;
+    expect(kind('waiting for <supplier> quote')).toBe('text');
+    expect(kind('a < b && c > d')).toBe('text');
+    // Review of #902: this was asserted as HTML — a typed "<b>" was bolded and lost.
+    expect(kind('call <b>back</b>')).toBe('text');
+    expect(kind('R&amp;D', 'text')).toBe('text');
+    expect(kind('plain', 'html')).toBe('html');
   });
 
   it('the thread view prints text: HTML by contentFormat is read as text, text kept', () => {
-    expect(noteBodyText({ content: 'Title<p>body &amp; more</p>', contentFormat: 'html' })).toBe(
-      'Title\n\nbody & more'
+    expect(
+      noteBodyText({ content: 'Title<p>body &amp; more</p>', contentFormat: 'html' }, 'thread')
+    ).toBe('Title\n\nbody & more');
+    expect(noteBodyText({ content: '<p>typed</p>', contentFormat: 'text' }, 'thread')).toBe(
+      '<p>typed</p>'
     );
-    expect(noteBodyText({ content: '<p>typed</p>', contentFormat: 'text' })).toBe('<p>typed</p>');
-    // Older backend: the narrow test as before — a typed "<b>" is not eaten.
-    expect(noteBodyText({ content: 'if a < 5 then <b> is fine' })).toBe(
+    // Older backend: a thread note is text — a typed "<b>" is not eaten.
+    expect(noteBodyText({ content: 'if a < 5 then <b> is fine' }, 'thread')).toBe(
       'if a < 5 then <b> is fine'
     );
   });
@@ -261,10 +265,10 @@ describe('5. Activity: one row per hold, and Off hold says why', () => {
     ).toEqual(['Off hold · status changed to resolved']);
   });
 
-  it('Off hold takes the cause from metadata when the text is not the backend’s shape', () => {
+  it('Off hold reads the cause from the note’s text only (review of #902)', () => {
     expect(
       labels([], [unholdNote({ content: 'x', metadata: { kind: 'unhold', cause: 'recheck_due' } })])
-    ).toEqual(['Off hold · recheck date reached']);
+    ).toEqual(['Off hold']);
     expect(labels([], [unholdNote({ content: 'x', metadata: { kind: 'unhold' } })])).toEqual([
       'Off hold',
     ]);
@@ -320,6 +324,7 @@ describe('6. Clear reason follows the role in the workspace this tab is in', () 
       id: ME,
       role: 'user',
       organizationRole: 'org_admin',
+      organizationId: 2,
     } as User);
     renderThreadNote();
     expect(await screen.findByRole('button', { name: 'Clear reason' })).toBeInTheDocument();

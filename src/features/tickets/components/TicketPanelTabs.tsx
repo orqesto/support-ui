@@ -45,6 +45,8 @@ export function TicketPanelTabs({
   // Details exists only while the sidebar is folded in; widening the page falls back to Threads.
   const activeTab: Tab = chosenTab === 'details' && !details ? 'messages' : chosenTab;
   const [commentCount, setCommentCount] = useState(0);
+  // Bumped when a hold reason is cleared on this page: the thread rows say "On hold: <reason>".
+  const [threadsRefresh, setThreadsRefresh] = useState(0);
   const [fileCount, setFileCount] = useState(0);
   // What the ticket's own list reports: a count, 'unavailable' (older backend — count the
   // fallback list instead), or null (loading / failed — no number).
@@ -121,6 +123,7 @@ export function TicketPanelTabs({
           ticketId={ticketId}
           hasJiraLink={hasJiraLink}
           onCountChange={setCommentCount}
+          onHoldReasonCleared={() => setThreadsRefresh((key) => key + 1)}
         />
       </div>
 
@@ -137,6 +140,7 @@ export function TicketPanelTabs({
           onCountChange={setThreadCount}
           ticketStatus={ticketStatus}
           onThreadsChange={onThreadsChange}
+          refreshKey={threadsRefresh}
           showReachStrip={false}
           fallback={
             <>

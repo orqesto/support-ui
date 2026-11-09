@@ -303,4 +303,43 @@ describe('TicketThreads', () => {
     act(() => first({ unavailable: false, rows: [thread({})], hiddenCount: 0 }));
     expect(await screen.findByText(/could not read this ticket’s threads/)).toBeInTheDocument();
   });
+
+  describe('a hold reason cleared (review of #902)', () => {
+    const held = () =>
+      threadsOfTicket.mockResolvedValue({
+        unavailable: false,
+        rows: [thread({ status: 'pending', parkedReason: 'supplier' })],
+        hiddenCount: 0,
+      });
+
+    it('🔴 the page bumps refreshKey after Clear reason: the rows re-read quietly', async () => {
+      held();
+      const view = render(
+        <MemoryRouter>
+          <TicketThreads ticketId={4} fallback={<p>legacy list</p>} refreshKey={0} />
+        </MemoryRouter>
+      );
+      expect(await screen.findByText('ada@example.com')).toBeInTheDocument();
+      expect(threadsOfTicket).toHaveBeenCalledTimes(1);
+      view.rerender(
+        <MemoryRouter>
+          <TicketThreads ticketId={4} fallback={<p>legacy list</p>} refreshKey={1} />
+        </MemoryRouter>
+      );
+      await waitFor(() => expect(threadsOfTicket).toHaveBeenCalledTimes(2));
+      // Quiet: the list stays on screen.
+      expect(screen.getByText('ada@example.com')).toBeInTheDocument();
+    });
+
+    it('🔴 conversation:updated hold_reason_cleared for one of its threads re-reads; others do not', async () => {
+      held();
+      renderList();
+      expect(await screen.findByText('ada@example.com')).toBeInTheDocument();
+      act(() => socketHandlers.get('conversation:updated')?.({ conversationId: 99, action: 'hold_reason_cleared' }));
+      act(() => socketHandlers.get('conversation:updated')?.({ conversationId: 11, action: 'close' }));
+      expect(threadsOfTicket).toHaveBeenCalledTimes(1);
+      act(() => socketHandlers.get('conversation:updated')?.({ conversationId: 11, action: 'hold_reason_cleared' }));
+      await waitFor(() => expect(threadsOfTicket).toHaveBeenCalledTimes(2));
+    });
+  });
 });

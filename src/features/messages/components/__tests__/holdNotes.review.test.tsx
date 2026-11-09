@@ -251,9 +251,24 @@ describe('5. plain-text notes keep their "<…>" text (Notes tab)', () => {
     expect(screen.getByText('waiting for <supplier> quote')).toBeInTheDocument();
   });
 
-  it('a note saved from the rich editor still renders its formatting', () => {
+  it('a note stored as editor HTML (older backend) reads as its text, never as markup', () => {
+    // A thread note is plain text (review of #902): its old editor HTML is read as text.
     renderNotesTab([plain('<p>call <strong>back</strong></p>')]);
-    expect(screen.getByText('back').tagName).toBe('STRONG');
+    expect(screen.getByText('call back').tagName).toBe('DIV');
+  });
+
+  it('🔴 editing a thread note saves it as text, never as the editor’s HTML (review of #902)', async () => {
+    const update = vi
+      .spyOn(messageService, 'updateNote')
+      .mockResolvedValue({ success: true, data: plain('x') });
+    const onNoteUpdated = vi.fn();
+    const typed = 'waiting for <supplier>\nR&amp;D';
+    renderNotesTab([plain(typed)], { onNoteUpdated });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Edit note' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(update).toHaveBeenCalledWith(41, 23, typed));
+    expect(onNoteUpdated).toHaveBeenCalledWith(23, typed);
   });
 
   it('🔴 a hold note’s reason is plain text', () => {
