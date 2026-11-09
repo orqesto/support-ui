@@ -22,6 +22,7 @@ import { ComposerSendButton } from './ComposerSendButton';
 import { SignatureReviewNotice } from './SignatureReviewNotice';
 import { useOpenOnNewAddress } from './useOpenOnNewAddress';
 import type { MessageComposerProps } from './composer/types';
+import { AssignedNote, showAssignedNote } from '../presence/AssignedNote';
 import {
   AI_AT_REST,
   IBTN,
@@ -307,6 +308,20 @@ export function MessageComposer({
         richEditorRef={richEditorRef}
         shortcutHint={shortcutHint}
       />
+
+      {/* Decision 6: a reply is being written on a thread someone else owns — say whose (it
+          blocks nothing). */}
+      {showAssignedNote({
+        assigneeId: message.assigneeId,
+        myId: user?.id,
+        composer,
+        mode: composerMode,
+      }) && (
+        <AssignedNote
+          assigneeId={message.assigneeId as number}
+          fallbackName={message.assigneeName}
+        />
+      )}
 
       {/* WhatsApp 24-hour window. Shown ABOVE the input so the agent reads it before
           typing, not after pressing send. Only rendered when there is something to say —

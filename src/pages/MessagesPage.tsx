@@ -37,6 +37,7 @@ import {
   ThreadsFilterBar,
   BulkDialogs,
   useServerEventRouting,
+  usePresenceSummary,
   detailPanelProps,
   type MessagesPageAlert,
 } from '@/features/messages';
@@ -126,6 +127,8 @@ export const MessagesPage = () => {
    * link opens the wrong conversation.
    */
   useSharedLinkWorkspace(searchParams.get('id'));
+  // Who else is on which thread: the badges on the rows and cards read it (presence unavailable ⇒ none).
+  usePresenceSummary();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [displayMode, setDisplayMode] = useMessagesDisplayMode(searchParams, setSearchParams);

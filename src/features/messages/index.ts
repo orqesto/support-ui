@@ -44,6 +44,14 @@ export { refreshForServerEvent, type ServerChangeEvent } from './components/serv
 export { presetToSorting, sortingToPreset } from './components/sortPresets';
 export { threadIdForMessage } from './components/threadForMessage';
 export { useListPresentation } from './components/useListPresentation';
+export { addNoopenerHook } from './shell';
+export { PresenceEye } from './presence/PresenceEye';
+export { usePresenceWatch } from './presence/usePresenceWatch';
+export { usePresenceReport } from './presence/usePresenceReport';
+export { VIEWER_ONLY_REPORTER } from './presence/usePresenceReporter';
+export { usePresenceSummary } from './presence/usePresenceSummary';
+export { usePresenceSummaryStore } from './presence/presenceSummaryStore';
+export { useListWritingGuard, useWritingGuard } from './presence/useWritingGuard';
 export { scopeJumpUrl } from './hooks/scopeJumpUrl';
 export { useConversationNewRefresh } from './hooks/useConversationNewRefresh';
 export { useDropTeamFilterWhenTeamsOff } from './hooks/useDropTeamFilterWhenTeamsOff';

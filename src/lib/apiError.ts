@@ -49,3 +49,26 @@ export const isRouteAbsent = (error: unknown): boolean => {
   if (typeof body !== 'object' || body === null) return true;
   return !('success' in body) && !('error' in body) && !('message' in body);
 };
+
+/**
+ * Thread presence send guard (spec §5.4): the server refused the reply because someone got there
+ * first — another reply landed since the agent loaded the thread, or another agent is writing
+ * one. Returns the server's ready-to-show question ("Anna replied 20 s ago — send anyway?"), or
+ * null for any other failure (an in-flight 409 included), which keeps its usual handling.
+ */
+const COLLISION_CODES = new Set(['REPLY_NEWER_EXISTS', 'REPLY_OTHER_WRITING']);
+
+export const replyCollisionQuestion = (err: unknown): string | null => {
+  const failed = err as
+    | { status?: number; data?: { code?: unknown; error?: unknown; message?: unknown } }
+    | null
+    | undefined;
+  if (failed?.status !== 409) return null;
+  const code = failed.data?.code;
+  if (typeof code !== 'string' || !COLLISION_CODES.has(code)) return null;
+  // The server's words as sent (the body), else what the api client put on the error.
+  const text = [failed.data?.error, failed.data?.message, (err as Error | null)?.message].find(
+    (value): value is string => typeof value === 'string' && value.trim().length > 0
+  );
+  return text ?? null;
+};

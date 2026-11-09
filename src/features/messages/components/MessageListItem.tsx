@@ -38,6 +38,8 @@ import { Button } from '@/components/ui/Button';
 import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
 import { RowAssignee } from './RowAssignee';
+import { isFromPortal } from './isFromPortal';
+import { RowPresence } from '../presence/RowPresence';
 import type { ListDensity } from './useListPresentation';
 import { useAiDraftsOff } from '@/features/settings/shell';
 import {
@@ -225,13 +227,16 @@ const MessageListItemRow = ({
 
   // Don't open the conversation if the click was the end of a text selection
   // — agents need to be able to copy IDs, sender emails, subject text.
-  const handleCardClick = () => {
+  const handleCardClick = (event: React.MouseEvent) => {
+    // A press inside a dialog or picker this row renders (portalled) is not a press on the row.
+    if (isFromPortal(event)) return;
     const sel = window.getSelection?.();
     if (sel && sel.toString().length > 0) return;
     onOpen(thread);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (isFromPortal(event)) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       onOpen(thread);
@@ -659,7 +664,8 @@ const MessageListItemRow = ({
         <div className={wide('md:block')}>
           <ThreadStatusCell status={status} />
         </div>
-        <div className={cn(wide('md:flex'), 'justify-end')}>
+        <div className={cn(wide('md:flex'), 'justify-end items-center gap-1.5')}>
+          <RowPresence conversationId={msg.id} />
           <RowAssignee thread={thread} />
         </div>
         <span
@@ -685,6 +691,7 @@ const MessageListItemRow = ({
             {signals}
           </span>
           <span className="flex-1" />
+          <RowPresence conversationId={msg.id} />
           <RowAssignee thread={thread} />
         </div>
       </div>
@@ -759,6 +766,7 @@ const MessageListItemRow = ({
           {signals}
           {refs}
           <span className="flex-1" />
+          <RowPresence conversationId={msg.id} />
           <RowAssignee thread={thread} />
         </div>
       </CardContent>

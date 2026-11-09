@@ -28,6 +28,12 @@ type AssignmentSelectProps = {
   variant?: 'default' | 'value';
   /** Phones only: the menu as a bottom sheet (Select `mobileSheet`). Off by default. */
   mobileSheet?: boolean;
+  /**
+   * Called with the assign before it runs; the assign happens only if the caller calls `run`
+   * (a confirm first — thread presence, "Anna is writing a reply — assign anyway?"). Absent:
+   * the assign runs at once.
+   */
+  beforeChange?: (run: () => void) => void;
 };
 
 export const AssignmentSelect = ({
@@ -40,6 +46,7 @@ export const AssignmentSelect = ({
   className,
   variant = 'default',
   mobileSheet = false,
+  beforeChange,
 }: AssignmentSelectProps) => {
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,6 +72,11 @@ export const AssignmentSelect = ({
       logger.error(err);
     });
   }, [fetchUsers]);
+
+  const handleChange = (value: string) => {
+    if (beforeChange) beforeChange(() => void handleAssign(value));
+    else void handleAssign(value);
+  };
 
   const handleAssign = async (value: string) => {
     const userId = value === '' ? null : Number.parseInt(value, 10);
@@ -108,7 +120,7 @@ export const AssignmentSelect = ({
       variant={variant}
       mobileSheet={mobileSheet}
       value={currentAssigneeId ? String(currentAssigneeId) : ''}
-      onChange={handleAssign}
+      onChange={handleChange}
       options={options}
       disabled={loading || assigning}
       size="sm"

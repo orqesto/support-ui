@@ -1,20 +1,19 @@
 import { InsertFieldMenu } from '@/components/shared/InsertFieldMenu';
 import { TicketComposerTools, useInsertTemplate } from './ticketComposerTools';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FileText, Paperclip, X } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Card } from '@/components/ui/Card';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { MenuItem } from '@/components/ui/Menu';
-import { COMPOSER_TOOL } from '@/features/messages/shell';
+import { COMPOSER_TOOL, usePresenceReport } from '@/features/messages/shell';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import RichTextEditor, { type RichTextEditorHandle } from '@/components/shared/LazyRichTextEditor';
 import { TemplatePicker } from '@/components/shared/TemplatePicker';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { isBlankRichText } from '@/lib/stripHtml';
-import { useUnsentDraft } from '@/hooks/useUnsentDraft';
 import { RestoredDraftNotice } from '@/components/shared/RestoredDraftNotice';
 import {
   isInFlight,
@@ -28,6 +27,8 @@ import {
 import { ticketDraftsService } from '@/features/tickets/services/ticketDrafts.service';
 import type { TicketThread } from '@/features/tickets/services/ticketThreads.service';
 import { TicketDraftsReview, useDraftsWorkflow } from './TicketDraftsReview';
+import { sendGuardedReply, useTicketComposerPresence } from './ticketSendGuard';
+import { useUnsentTicketUpdate } from './useUnsentTicketUpdate';
 import { TicketSentHistory, hasReviewedVersions, sentTo } from './TicketSentHistory';
 import {
   PlaceholderHints,
@@ -100,6 +101,7 @@ type Confirm =
   | { kind: 'here'; reply: TicketReply; ids: number[]; description: string }
   | { kind: 'reviewed'; resolve: boolean; ids: number[]; description: string }
   | { kind: 'discard'; ids: number[]; description: string };
+type SendRequest = Exclude<Confirm, { kind: 'discard' }>;
 
 /** A re-send of such a reply carries the base text, not anyone's reviewed version — say so. */
 const originalOnly = (reply: TicketReply) =>
@@ -169,6 +171,9 @@ export const TicketReplyComposer = ({
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Thread presence (spec §5.1, §5.4): "writing" on the ticked threads; the 409 confirm.
+  const collision = useTicketComposerPresence<SendRequest>(ticketId, draft, onSent);
+  usePresenceReport(selected, collision.report);
 
   // A different ticket: nothing written or said about the previous one stays.
   const currentTicket = useRef(ticketId);
@@ -183,36 +188,20 @@ export const TicketReplyComposer = ({
     setError(null);
     setPreviewOpen(false);
   }, [ticketId]);
-  /*
-    The update being written survives a closed ticket or a page change (this browser only,
-    useUnsentDraft). After the reset above, so a ticket's own kept text lands on top of it.
-  */
-  const [restoredFiles, setRestoredFiles] = useState(0);
-  const updateDraft = useMemo(() => ({ html: draft, files: files.length }), [draft, files.length]);
-  const restoreUpdate = useCallback((data: { html?: unknown; files?: unknown }) => {
-    if (typeof data?.html !== 'string') return;
-    setDraft(data.html);
-    setRestoredFiles(typeof data.files === 'number' ? data.files : 0);
-  }, []);
-  const unsentUpdate = useUnsentDraft({
-    scope: `ticket:${ticketId}:update`,
-    value: updateDraft,
-    isBlank: isBlankRichText(draft),
-    restore: restoreUpdate,
-    fingerprint: (data) => data.html,
-    onSentElsewhere: () => {
+  // The update being written survives a closed ticket or a page change (useUnsentTicketUpdate).
+  const { unsentUpdate, restoredFiles, discardUpdate } = useUnsentTicketUpdate({
+    ticketId,
+    draft,
+    fileCount: files.length,
+    setDraft,
+    restoredHtml: collision.restoredHtml,
+    clearText: () => {
       setDraft('');
       setBeforeAi(null);
       editorRef.current?.setContent('');
-      setNotice('This update was sent from another tab.');
     },
+    setNotice,
   });
-  const discardUpdate = () => {
-    unsentUpdate.clearDraft();
-    setDraft('');
-    setBeforeAi(null);
-    editorRef.current?.setContent('');
-  };
 
   // Drafts (reply templates P2): made per ticked thread, reviewed, then sent.
   const {
@@ -424,7 +413,7 @@ export const TicketReplyComposer = ({
     });
   };
 
-  const send = async (request: Exclude<Confirm, { kind: 'discard' }>) => {
+  const send = async (request: SendRequest, confirmOverride = false) => {
     setConfirm(null);
     setError(null);
     setNotice(null);
@@ -445,9 +434,17 @@ export const TicketReplyComposer = ({
       const resolveChoice = fresh ? request.resolve : undefined;
       const sendFiles = fresh ? files : [];
       const hold = request.kind === 'new' ? request.hold : undefined;
-      const result = hold
-        ? await ticketRepliesService.send(startedOn, body, request.ids, false, sendFiles, hold)
-        : await ticketRepliesService.send(startedOn, body, request.ids, resolveChoice, sendFiles);
+      // The guard (spec §5.4) rides along: see sendGuardedReply.
+      const result = await sendGuardedReply(
+        threads,
+        startedOn,
+        body,
+        request.ids,
+        resolveChoice,
+        sendFiles,
+        hold,
+        confirmOverride
+      );
       draftSend?.settle(true);
       if (currentTicket.current !== startedOn) return;
       if (request.kind === 'new') {
@@ -485,6 +482,8 @@ export const TicketReplyComposer = ({
       draftSend?.settle(false);
       logger.error('Failed to send the ticket reply', err);
       if (currentTicket.current !== startedOn) return;
+      // Someone got there first: the server's question, not an error.
+      if (collision.offerFromError(err, request)) return;
       setError(getApiErrorMessage(err) ?? 'The reply could not be sent.');
     } finally {
       setSending(false);
@@ -719,6 +718,8 @@ export const TicketReplyComposer = ({
         description={confirm?.description ?? ''}
         confirmText={confirmButton(confirm)}
       />
+      {/* Someone replied on, or is writing in, one of the threads: the server's question. */}
+      {collision.renderDialog((request) => void send(request, true))}
     </Card>
   );
 };

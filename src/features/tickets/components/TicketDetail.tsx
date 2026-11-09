@@ -1,6 +1,14 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import DOMPurify from 'dompurify';
-import { addNoopenerHook } from '@/features/messages/shell';
+import {
+  addNoopenerHook,
+  PresenceEye,
+  useIsPhone,
+  usePresenceWatch,
+  VIEWER_ONLY_REPORTER,
+  useWritingGuard,
+} from '@/features/messages';
+import { DEFAULT_TICKET_WATCH_CAP, presenceWatchIds } from './presenceWatchIds';
 
 addNoopenerHook(DOMPurify);
 import { Lock, Maximize2, Pencil } from 'lucide-react';
@@ -111,6 +119,30 @@ export const TicketDetail = ({
   const [moveDeptOpen, setMoveDeptOpen] = useState(false);
   // Teams off: one team, so there is nowhere to move a ticket.
   const teamsEnabled = useTeamsEnabled();
+
+  // The ticket view reports "viewing" (or "away") on every thread it watches, on any tab and for
+  // any role (spec §5.2: an agent on a linked thread sees the ticket viewer). The reply composer
+  // (TicketPanelTabs) reports "writing" on its ticked threads; the presence arbiter sends the
+  // stronger of the two per thread.
+  const presenceIsPhone = useIsPhone();
+  const [watchCap, setWatchCap] = useState(DEFAULT_TICKET_WATCH_CAP);
+  const watched = useMemo(
+    () => presenceWatchIds(linkedMessages, watchCap),
+    [linkedMessages, watchCap]
+  );
+  const presence = usePresenceWatch(watched.ids, VIEWER_ONLY_REPORTER);
+  // Resolve / close / assign / move ask first while a colleague writes a reply on any linked
+  // thread (spec §5.5) — the viewers are the union across the watched threads.
+  const writingGuard = useWritingGuard(presence.viewers);
+  const guard = writingGuard.confirmIfWriting;
+  const serverWatchCap = presence.settings?.ticketWatchCap;
+  useEffect(() => {
+    if (serverWatchCap && serverWatchCap > 0) setWatchCap(serverWatchCap);
+  }, [serverWatchCap]);
+  const presenceCapNote =
+    watched.total > watched.ids.length || presence.capped
+      ? `presence for the latest ${Math.min(watchCap, watched.total)} of ${watched.total} threads`
+      : undefined;
 
   const handleCopyLink = () => {
     const url = `${window.location.origin}/tickets?id=${ticket.id}`;
@@ -261,8 +293,13 @@ export const TicketDetail = ({
                   variant="value"
                   value={localStatus}
                   onChange={(val) => {
-                    setLocalStatus(val as TicketStatus);
-                    void handleFieldUpdate('status', val);
+                    const apply = () => {
+                      setLocalStatus(val as TicketStatus);
+                      void handleFieldUpdate('status', val);
+                    };
+                    if (val === 'resolved') guard('resolve', apply);
+                    else if (val === 'closed') guard('close', apply);
+                    else apply();
                   }}
                   // Only offer transitions the backend allows from the current status
                   // (mirrored via @/lib/ticketStatus) so the dropdown can't surface a move
@@ -329,6 +366,7 @@ export const TicketDetail = ({
               currentAssigneeId={ticket.assigneeId}
               departmentId={ticket.departmentId ?? null}
               onAssign={onRefresh}
+              beforeChange={(run) => guard('assign', run)}
             />
           )}
           {/* Teams off: one team, nothing to show or move to (as staging's Teams switch). */}
@@ -342,7 +380,7 @@ export const TicketDetail = ({
                     variant="ghost"
                     size="sm"
                     className="h-auto p-0 px-[3px] text-xs font-medium text-primary hover:bg-transparent hover:underline"
-                    onClick={() => setMoveDeptOpen(true)}
+                    onClick={() => guard('move', () => setMoveDeptOpen(true))}
                   >
                     Move
                   </Button>
@@ -382,14 +420,27 @@ export const TicketDetail = ({
   );
 
   const moreMenu = (
-    <TicketMoreMenu
-      linkCopied={linkCopied}
-      onCopyLink={handleCopyLink}
-      copyIdOf={ticket.reference ? ticket : undefined}
-      onMove={hasManageTickets && teamsEnabled ? () => setMoveDeptOpen(true) : undefined}
-      onPushToJira={jiraOn && !ticket.externalId ? onPushToJira : undefined}
-      onDelete={onDelete}
-    />
+    <>
+      <PresenceEye
+        available={presence.available}
+        capped={presence.capped}
+        viewers={presence.viewers}
+        isPhone={presenceIsPhone}
+        capNote={presenceCapNote}
+      />
+      <TicketMoreMenu
+        linkCopied={linkCopied}
+        onCopyLink={handleCopyLink}
+        copyIdOf={ticket.reference ? ticket : undefined}
+        onMove={
+          hasManageTickets && teamsEnabled
+            ? () => guard('move', () => setMoveDeptOpen(true))
+            : undefined
+        }
+        onPushToJira={jiraOn && !ticket.externalId ? onPushToJira : undefined}
+        onDelete={onDelete}
+      />
+    </>
   );
 
   const body = (
@@ -586,6 +637,7 @@ export const TicketDetail = ({
 
             <TicketPanelTabs
               ticketId={ticket.id}
+              beforeResolve={(run) => guard('resolve', run)}
               hasJiraLink={!!ticket.externalId}
               linkedMessages={linkedMessages}
               loadingMessages={loadingMessages}
@@ -602,6 +654,7 @@ export const TicketDetail = ({
         )}
       </div>
 
+      {writingGuard.dialog}
       <MoveDepartmentDialog
         isOpen={moveDeptOpen}
         onClose={() => setMoveDeptOpen(false)}

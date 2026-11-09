@@ -10,6 +10,7 @@ import { AnalysisHourlyCard } from '@/components/console/platformDefaults/Analys
 import { FreeStarterCard } from '@/components/console/platformDefaults/FreeStarterCard';
 import { EmbeddingThreadsCard } from '@/components/console/platformDefaults/EmbeddingThreadsCard';
 import { IngestionCard } from '@/components/console/platformDefaults/IngestionCard';
+import { PresenceCard } from '@/components/console/platformDefaults/PresenceCard';
 import { RoutingProposalsCard } from '@/components/console/platformDefaults/RoutingProposalsCard';
 import { SkillPatternsCard } from '@/components/console/platformDefaults/SkillPatternsCard';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
@@ -55,6 +56,7 @@ export const PlatformDefaults = () => {
           <FreeStarterCard />
           <IngestionCard ingestion={query.data.ingestion} fairOrder={query.data.fairOrder} />
           <EmbeddingThreadsCard embeddingThreads={query.data.embeddingThreads} />
+          <PresenceCard presence={query.data.presence} />
           <RoutingProposalsCard routing={query.data.routing} />
           <SkillPatternsCard caps={query.data.skillPatternCaps} />
         </div>

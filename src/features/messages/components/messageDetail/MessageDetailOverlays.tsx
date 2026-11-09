@@ -70,7 +70,15 @@ export function MessageDetailOverlays({
   } = dialogs;
   const { templatesOpen, setTemplatesOpen, templates, templatesLoading, templateError } =
     replyState;
-  const { performSend, handleSend, rememberSendAction, handleSendTemplate } = send;
+  const {
+    performSend,
+    handleSend,
+    rememberSendAction,
+    handleSendTemplate,
+    collision,
+    sendAnyway,
+    cancelCollision,
+  } = send;
   const { handleResolveWithoutReply, handleClose, applyRead } = conv;
   const { pendingGhost, setPendingGhost, applyGhostAnswer, handleGhostClick } = ghost;
   const { handleRefresh, handleNotCustomerWork, handleReject, handleReopen } = threadActions;
@@ -141,6 +149,20 @@ export function MessageDetailOverlays({
           afterSendRef.current = { action: 'hold', hold };
           void handleSend();
         }}
+      />
+
+      {/* Thread presence send guard: someone replied or is writing — the server's question. */}
+      <ConfirmDialog
+        open={collision !== null}
+        onOpenChange={(open) => {
+          if (!open) cancelCollision();
+        }}
+        onConfirm={sendAnyway}
+        title="Someone got here first"
+        description={collision ?? ''}
+        confirmText="Send anyway"
+        cancelText="Cancel"
+        variant="warning"
       />
 
       <ConfirmDialog

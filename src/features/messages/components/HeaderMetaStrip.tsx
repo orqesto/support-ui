@@ -22,6 +22,7 @@ import { logger } from '@/lib/logger';
 import { LABEL } from './messageDetailConstants';
 import { tintedChip } from '@/lib/userColor';
 import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
+import { useGuardAction } from '../presence/writingGuardContext';
 
 /** The label picker's drawn width — the ONE number its on-screen clamp also uses. */
 const LABEL_PICKER_WIDTH_PX = 200;
@@ -115,8 +116,9 @@ export function HeaderMetaStrip({
     .map((dept) => ({ value: String(dept.id), label: dept.name }));
 
   const queryClient = useQueryClient();
+  const guard = useGuardAction();
 
-  const handleDeptChange = async (value: string) => {
+  const handleDeptChange = (value: string) => {
     const nextId = Number(value);
     // For a needs_routing message the departmentId is only the first-active PLACEHOLDER (the
     // column is NOT NULL), so routing it to that same department is a real triage; an active
@@ -126,6 +128,15 @@ export function HeaderMetaStrip({
       setEditingDept(false);
       return;
     }
+    // Thread presence: ask first while a colleague writes a reply here (spec §5.5).
+    guard(
+      'move',
+      () => void routeTo(nextId),
+      () => setEditingDept(false)
+    );
+  };
+
+  const routeTo = async (nextId: number) => {
     setSavingDept(true);
     try {
       // `learn` is never sent (routing-proposals spec §4.2): every route is learning evidence.
@@ -237,6 +248,7 @@ export function HeaderMetaStrip({
           currentAssigneeId={message.assigneeId}
           departmentId={message.departmentId ?? null}
           onAssign={onAssign}
+          beforeChange={(run) => guard('assign', run)}
           variant="value"
           mobileSheet={card}
         />

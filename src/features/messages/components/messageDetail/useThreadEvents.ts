@@ -23,6 +23,11 @@ export function useThreadEvents(
   onStatusChanged: MessageDetailProps['onStatusChanged']
 ) {
   const [threadMessages, setThreadMessages] = useState<MessageEvent[]>([]);
+  /**
+    The conversation `threadMessages` were loaded FOR (null: nothing loaded yet). Lags `message.id`
+    after a switch until the new events land — the send guard must not use the old thread's.
+  */
+  const [threadEventsFor, setThreadEventsFor] = useState<number | null>(null);
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadError, setThreadError] = useState<string | null>(null);
   const [threadRefreshKey, setThreadRefreshKey] = useState(0);
@@ -52,6 +57,7 @@ export function useThreadEvents(
         const rows = res.data ?? [];
         threadSize.current = { id: message.id, loaded: rows.length };
         setThreadMessages(rows);
+        setThreadEventsFor(message.id);
         // Normalised again here: a caller that stands in for the service hands back a bare
         // envelope, and the window must still know what it holds.
         setThreadPage(normaliseThreadPage(res.page, rows));
@@ -156,6 +162,7 @@ export function useThreadEvents(
           if (!res.newEvents.incremental) {
             threadSize.current = { id: forId, loaded: res.data.length };
             setThreadMessages(res.data);
+            setThreadEventsFor(forId);
             setThreadPage(res.page);
             setPanelsBump((key) => key + 1);
             setAttachmentsBump((key) => key + 1);
@@ -220,6 +227,7 @@ export function useThreadEvents(
   // only ever sit between days, in order.
   return {
     threadMessages,
+    threadEventsFor,
     threadLoading,
     threadError,
     threadRefreshKey,

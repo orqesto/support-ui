@@ -24,6 +24,7 @@ import { createTicketLabel } from '../messageDetailConstants';
 import type { HeaderTickets } from '../RelatedPopover';
 import type { useThreadTicketsState } from '../useThreadTicketsState';
 import type { MessageDetailHeaderProps } from './types';
+import { runAtOnce, type ConfirmIfWriting } from '../../presence/useWritingGuard';
 
 export type MoreMenuItem = {
   label: string;
@@ -67,6 +68,8 @@ export type MoreMenuContext = {
   isActive: boolean;
   onClassify?: MessageDetailHeaderProps['onClassify'];
   onDelete?: () => void;
+  /** Thread presence (§5.5): "Not a lead — close" asks first while a colleague writes a reply. */
+  guard?: ConfirmIfWriting;
 };
 /** The More menu's items, in order, only those that apply (moved out of MessageDetailHeader). */
 export function buildMoreMenuItems({
@@ -101,6 +104,7 @@ export function buildMoreMenuItems({
   isActive,
   onClassify,
   onDelete,
+  guard = runAtOnce,
 }: MoreMenuContext): MoreMenuItem[] {
   return [
     /*
@@ -231,13 +235,16 @@ export function buildMoreMenuItems({
         label: 'Not a lead — close',
         icon: <X className="w-3 h-3" />,
         action: () => {
-          void messageService
-            .markAsLead(message.id, false)
-            .then(() => messageService.close(message.id))
-            .then(() => {
-              onRefresh?.();
-            });
           setMoreOpen(false);
+          // Thread presence (§5.5): closing asks first while a colleague writes a reply.
+          guard('close', () => {
+            void messageService
+              .markAsLead(message.id, false)
+              .then(() => messageService.close(message.id))
+              .then(() => {
+                onRefresh?.();
+              });
+          });
         },
       },
     isActive &&
