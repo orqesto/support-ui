@@ -7,7 +7,14 @@ import type {
   RoutingTestResult,
   RoutingValue,
   SkillPattern,
+  SkillPatternPreset,
 } from '@/types/skillRouting';
+import { SKILL_PATTERN_PRESETS } from '@/types/skillRouting';
+import {
+  canonicalPattern,
+  normalizePresets,
+  normalizeSkillPatterns,
+} from '@/services/skillPatterns';
 import { scopedLookup } from '@/lib/scopedLookup';
 import type { ApiResponse, PaginationMeta } from '@/types';
 
@@ -535,9 +542,33 @@ export const organizationService = {
         `/api/organizations/routing-keys/${encodeURIComponent(key)}/values`,
         options.includeReassigned ? { params: { include: 'reassigned' } } : undefined
       );
-      return response.data.data ?? [];
+      return (response.data.data ?? []).map((row) => {
+        // Patterns are optional (BE 2026-11-09) and may carry strength / case options a newer
+        // backend added: read them field by field so they round-trip unchanged.
+        const { patterns: rawPatterns, ...rest } = row as Omit<RoutingValue, 'patterns'> & {
+          patterns?: unknown;
+        };
+        const patterns = normalizeSkillPatterns(rawPatterns);
+        return patterns === undefined ? rest : { ...rest, patterns };
+      });
     } catch (error) {
       if (getErrorStatus(error) === 404) return null;
+      throw error;
+    }
+  },
+
+  /**
+   * The ready-made patterns this workspace may tick (enabled catalogue rows, BE 2026-11-09). A 404
+   * is an older backend whose list is hard-coded: it gets the v1.1.325 list it knows.
+   */
+  getRoutingPatternPresets: async (): Promise<SkillPatternPreset[]> => {
+    try {
+      const response = await apiClient.get<ApiResponse<unknown>>(
+        '/api/organizations/routing-pattern-presets'
+      );
+      return normalizePresets(response.data.data);
+    } catch (error) {
+      if (getErrorStatus(error) === 404) return [...SKILL_PATTERN_PRESETS];
       throw error;
     }
   },
@@ -553,7 +584,11 @@ export const organizationService = {
     );
   },
 
-  /** Replace a value's text patterns. A 400 carries the reason in `message` (unsafe regex …). */
+  /**
+   * Replace a value's text patterns. Default options are left out of the body (`strength:
+   * 'decides'`, case-insensitive), so an older backend that knows only `{ preset }` / `{ regex }`
+   * accepts a save that changes nothing new. A 400 carries the reason in `message` or `error`.
+   */
   setRoutingValuePatterns: async (
     key: string,
     value: string,
@@ -561,7 +596,7 @@ export const organizationService = {
   ): Promise<void> => {
     await apiClient.put(
       `/api/organizations/routing-keys/${encodeURIComponent(key)}/values/${encodeURIComponent(value)}/patterns`,
-      { patterns }
+      { patterns: patterns.map(canonicalPattern) }
     );
   },
 

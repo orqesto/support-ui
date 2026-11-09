@@ -11,6 +11,7 @@ import { FreeStarterCard } from '@/components/console/platformDefaults/FreeStart
 import { EmbeddingThreadsCard } from '@/components/console/platformDefaults/EmbeddingThreadsCard';
 import { IngestionCard } from '@/components/console/platformDefaults/IngestionCard';
 import { RoutingProposalsCard } from '@/components/console/platformDefaults/RoutingProposalsCard';
+import { SkillPatternsCard } from '@/components/console/platformDefaults/SkillPatternsCard';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { Alert } from '@/components/ui/Alert';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
@@ -28,7 +29,7 @@ export const PlatformDefaults = () => {
     <div className="space-y-6">
       <ConsolePageHeader
         title="Platform Defaults"
-        description="Managed-AI models, cost rates, default storage, knowledge-base capture, AI drafts, custom API health, mail-import limits and routing proposals — resolved DB → environment → built-in default."
+        description="Managed-AI models, cost rates, default storage, knowledge-base capture, AI drafts, custom API health, mail-import limits, routing proposals and skill routing patterns — resolved DB → environment → built-in default."
       />
 
       {query.isLoading ? (
@@ -55,6 +56,7 @@ export const PlatformDefaults = () => {
           <IngestionCard ingestion={query.data.ingestion} fairOrder={query.data.fairOrder} />
           <EmbeddingThreadsCard embeddingThreads={query.data.embeddingThreads} />
           <RoutingProposalsCard routing={query.data.routing} />
+          <SkillPatternsCard caps={query.data.skillPatternCaps} />
         </div>
       )}
     </div>

@@ -115,4 +115,34 @@ describe('platformSettingsService.get — tolerates an older backend', () => {
     get.mockResolvedValueOnce({ data: { data: OLD_PAYLOAD } });
     expect((await platformSettingsService.get()).routing).toBeUndefined();
   });
+
+  it('reads the skill pattern caps from the same routing block; an older backend without them keeps the seven', async () => {
+    const seven = Object.fromEntries(
+      [
+        'proposalMinConversations',
+        'rerouteUndoMinutes',
+        'dormantArchiveDays',
+        'autoacceptMinConversations',
+        'autoacceptMinDays',
+        'autoacceptMinReplayRatio',
+        'replayMinMatches',
+      ].map((name) => [name, { value: 3, source: 'db' }])
+    );
+    const caps = {
+      skillPatternsPerValue: { value: 12, source: 'db' },
+      skillPatternsPerWorkspace: { value: 50, source: 'default' },
+      skillCustomPatternsPerWorkspace: { value: 0, source: 'db' },
+    };
+    get.mockResolvedValueOnce({
+      data: { data: { ...OLD_PAYLOAD, routing: { ...seven, ...caps } } },
+    });
+    const both = await platformSettingsService.get();
+    expect(both.skillPatternCaps).toEqual(caps);
+    expect(both.routing).toEqual(seven);
+
+    get.mockResolvedValueOnce({ data: { data: { ...OLD_PAYLOAD, routing: seven } } });
+    const older = await platformSettingsService.get();
+    expect(older.skillPatternCaps).toBeUndefined();
+    expect(older.routing).toEqual(seven);
+  });
 });

@@ -17,9 +17,10 @@ import {
   type SecretStatus,
 } from './platformSecrets';
 import {
-  normalizeRouting,
+  normalizeRoutingBlock,
   type PlatformRoutingInput,
   type RoutingSettings,
+  type SkillPatternCaps,
 } from '@/services/routingSettings';
 
 /**
@@ -138,6 +139,8 @@ export type PlatformSettings = {
    * predates them — the card then says it arrives with the next backend release.
    */
   routing?: RoutingSettings;
+  /** Skill routing pattern caps (2026-11-09) from the `routing` block; absent on an older BE. */
+  skillPatternCaps?: SkillPatternCaps;
   /**
    * Mail-import limits (`ingestion.*`, 2026-10-18): how long one import run may hold its mailbox
    * and the per-minute rate of the attachment and KB-message queues. Each field is present only
@@ -693,7 +696,6 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
   const reasoning = normalizeReasoning(raw.reasoning);
   const kb = normalizeKb(raw.kb);
   const customApi = normalizeCustomApi(raw.customApi);
-  const routing = normalizeRouting(raw.routing);
   const ingestion = normalizeIngestion(raw.ingestion);
   const embeddingThreads = isRecord(raw.ingestion)
     ? normalizeEmbeddingThreads(raw.ingestion.embeddingThreads)
@@ -764,7 +766,7 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
     ...(reasoning ? { reasoning } : {}),
     ...(kb ? { kb } : {}),
     ...(customApi ? { customApi } : {}),
-    ...(routing ? { routing } : {}),
+    ...normalizeRoutingBlock(raw.routing),
     ...(ingestion ? { ingestion } : {}),
     ...(embeddingThreads ? { embeddingThreads } : {}),
     ...(fairOrder ? { fairOrder } : {}),
@@ -882,7 +884,7 @@ export const platformSettingsService = {
     await apiClient.put(`${BASE}/ingestion`, input);
   },
 
-  /** PATCH the routing-proposal settings (`routing.*`): any non-empty subset of the seven. */
+  /** PATCH the routing-proposal settings (`routing.*`): any non-empty subset (proposals + pattern caps). */
   updateRouting: async (input: PlatformRoutingInput): Promise<void> => {
     await apiClient.patch(`${BASE}/routing`, input);
   },
