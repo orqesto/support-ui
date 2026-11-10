@@ -248,7 +248,6 @@ const NAV_GROUP_ORDER: NavGroup[] = ['work', 'insights', 'admin', 'consoles'];
 const DEEP_ROUTE_TITLES: Record<string, string> = {
   '/pricing': 'Pricing',
   '/tickets/create': 'Create Ticket',
-  '/sla': 'SLA',
 };
 
 const getPageTitle = (pathname: string, navItems: typeof allNavigation): string => {

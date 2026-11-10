@@ -82,9 +82,6 @@ const TicketDetailPage = lazyWithReload(() =>
 const CreateTicketPage = lazyWithReload(() =>
   import('./pages/CreateTicketPage').then((mod) => ({ default: mod.CreateTicketPage }))
 );
-const EditTicketPage = lazyWithReload(() =>
-  import('./pages/EditTicketPage').then((mod) => ({ default: mod.EditTicketPage }))
-);
 const EditUserPage = lazyWithReload(() =>
   import('./pages/EditUserPage').then((mod) => ({ default: mod.EditUserPage }))
 );
@@ -126,9 +123,6 @@ const NeedsRoutingPage = lazyWithReload(() =>
 );
 const OnboardingPage = lazyWithReload(() =>
   import('./pages/OnboardingPage').then((mod) => ({ default: mod.OnboardingPage }))
-);
-const SLADashboardPage = lazyWithReload(() =>
-  import('./pages/SLADashboardPage').then((mod) => ({ default: mod.SLADashboardPage }))
 );
 // Alliance admin console (Phase 5) — org-agnostic shell above the org-switcher.
 const ConsolePage = lazyWithReload(() =>
@@ -384,16 +378,6 @@ const AppRoutes = () => {
           }
         />
         <Route
-          path="/tickets/edit/:id"
-          element={
-            <PrivateRoute>
-              <ProtectedRoute requiredPermission={Permission.MANAGE_TICKETS}>
-                <EditTicketPage />
-              </ProtectedRoute>
-            </PrivateRoute>
-          }
-        />
-        <Route
           path="/tickets/:id"
           element={
             <PrivateRoute>
@@ -406,16 +390,6 @@ const AppRoutes = () => {
           element={
             <PrivateRoute>
               <StatisticsPage />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/sla"
-          element={
-            <PrivateRoute>
-              <ProtectedRoute requiredPermission={Permission.VIEW_STATISTICS}>
-                <SLADashboardPage />
-              </ProtectedRoute>
             </PrivateRoute>
           }
         />
