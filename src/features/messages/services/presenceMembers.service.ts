@@ -13,9 +13,9 @@ const text = (value: unknown): string | null => (typeof value === 'string' ? val
 export const presenceMembersService = {
   /**
    * The workspace's members for the presence names (GET /api/presence/members): readable by any
-   * member, associates included. A backend without the route (403/404, an older release) gives an
-   * empty list, so the UI says "Another agent" and the answer is cached like any other — no
-   * request on every mount. Any other failure throws.
+   * member, associates included. A backend without the route (403/404, an older release) or a
+   * workspace whose subscription lapsed (402) gives an empty list, so the UI says "Another agent"
+   * and the answer is cached like any other — no request on every mount. Any other failure throws.
    */
   list: async (): Promise<PresenceMember[]> => {
     try {
@@ -36,7 +36,7 @@ export const presenceMembersService = {
       });
     } catch (error) {
       const status = isAxiosError(error) ? error.response?.status : undefined;
-      if (status === 403 || status === 404) return [];
+      if (status === 402 || status === 403 || status === 404) return [];
       throw error;
     }
   },

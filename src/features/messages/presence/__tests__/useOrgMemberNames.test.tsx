@@ -1,7 +1,8 @@
 /**
  * Names for the presence UI come from GET /api/presence/members, which any workspace member may
  * read (associates included). An older backend without it (403/404) gives "Another agent" for
- * everyone — asked once, never again on every mount.
+ * everyone — asked once, never again on every mount. A workspace whose subscription lapsed (402) is
+handled the same way.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
@@ -52,8 +53,8 @@ describe('useOrgMemberNames', () => {
     expect(result.current(99)).toMatchObject({ name: UNKNOWN_AGENT_NAME, known: false });
   });
 
-  it.each([403, 404])(
-    'an older backend (%s): "Another agent", one request, none again on later mounts',
+  it.each([402, 403, 404])(
+    'an older backend or a lapsed subscription (%s): "Another agent", one request, none again on later mounts',
     async (status) => {
       get.mockRejectedValue(httpError(status));
       const first = renderHook(() => useOrgMemberNames(), { wrapper });
