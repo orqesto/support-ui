@@ -253,8 +253,8 @@ const DEEP_ROUTE_TITLES: Record<string, string> = {
 const getPageTitle = (pathname: string, navItems: typeof allNavigation): string => {
   // Exact deep-route override (most specific wins).
   if (DEEP_ROUTE_TITLES[pathname]) return DEEP_ROUTE_TITLES[pathname];
-  // Sort nav items by href length descending so `/tickets/edit/:id` matches
-  // a longer `/tickets/edit` entry before the broader `/tickets`.
+  // Sort nav items by href length descending so a deeper path matches its longest
+  // nav entry before a broader prefix.
   const sorted = [...navItems].sort((left, right) => right.href.length - left.href.length);
   const match = sorted.find(
     (item) => pathname === item.href || pathname.startsWith(item.href + '/')
