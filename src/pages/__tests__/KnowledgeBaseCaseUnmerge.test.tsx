@@ -16,6 +16,7 @@ const getAll = vi.fn<(...args: unknown[]) => unknown>();
 const hide = vi.fn<(...args: unknown[]) => unknown>();
 const del = vi.fn<(...args: unknown[]) => unknown>();
 const unmerge = vi.fn<(...args: unknown[]) => unknown>();
+const getCaseOriginals = vi.fn<(...args: unknown[]) => unknown>();
 const approve = vi.fn<(...args: unknown[]) => unknown>();
 const unhide = vi.fn<(...args: unknown[]) => unknown>();
 const toastCalls: Array<{ kind: string; message: string }> = [];
@@ -55,9 +56,16 @@ vi.mock('@/features/kb/services/kb.service', async (importOriginal) => {
     },
   };
 });
-vi.mock('@/features/kb/services/kbConsolidation.service', () => ({
-  kbConsolidationService: { unmerge: (...args: unknown[]) => unmerge(...args) },
-}));
+vi.mock('@/features/kb/services/kbConsolidation.service', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    kbConsolidationService: {
+      unmerge: (...args: unknown[]) => unmerge(...args),
+      getCaseOriginals: (...args: unknown[]) => getCaseOriginals(...args),
+    },
+  };
+});
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
@@ -135,6 +143,8 @@ beforeEach(() => {
   });
   hide.mockResolvedValue({ success: true, data: { unmerged: true, restored: 3 } });
   unmerge.mockResolvedValue({ caseId: 9, restored: 3 });
+  // A backend without the originals route: the confirm keeps its generic text.
+  getCaseOriginals.mockResolvedValue(null);
   del.mockResolvedValue({ success: true, data: { unmerged: true, restored: 3 } });
 });
 afterEach(cleanup);

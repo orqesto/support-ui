@@ -264,6 +264,65 @@ export const normaliseIdMatch = (value: unknown): KbIdMatch | null => {
   };
 };
 
+/**
+ * The merged case a search names by NUMBER when that case was since split up (hidden, rejected,
+ * deleted or unmerged): its row is gone, so the list cannot show it — this says where its
+ * entries went. `entries`: the ones this viewer may see (none left ⇒ empty).
+ */
+export type KbSplitCaseEntryStatus = 'approved' | 'pending' | 'hidden' | 'rejected' | 'deleted';
+export type KbSplitCase = {
+  publicId: string;
+  caseId: number;
+  /** ISO time it was split up; null when the backend does not know. */
+  splitAt: string | null;
+  /** What split it up ('hide' / 'reject' / 'delete' / 'unmerge'), when the backend says. */
+  via: string | null;
+  entries: { id: number; publicId: string | null; title: string; status: KbSplitCaseEntryStatus }[];
+};
+const SPLIT_CASE_STATUSES: readonly KbSplitCaseEntryStatus[] = [
+  'approved',
+  'pending',
+  'hidden',
+  'rejected',
+  'deleted',
+];
+
+/** A backend without the field (or a value this app cannot read) ⇒ null: show no hint. */
+export const normaliseSplitCase = (value: unknown): KbSplitCase | null => {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.publicId !== 'string' || !raw.publicId || typeof raw.caseId !== 'number')
+    return null;
+  const entries: KbSplitCase['entries'] = [];
+  for (const item of Array.isArray(raw.entries) ? raw.entries : []) {
+    if (!item || typeof item !== 'object') continue;
+    const entry = item as Record<string, unknown>;
+    if (typeof entry.id !== 'number') continue;
+    // A status this app does not know (a newer backend) is not guessed: that entry is left out.
+    const status = SPLIT_CASE_STATUSES.includes(entry.status as KbSplitCaseEntryStatus)
+      ? (entry.status as KbSplitCaseEntryStatus)
+      : null;
+    if (!status) continue;
+    entries.push({
+      id: entry.id,
+      publicId: typeof entry.publicId === 'string' && entry.publicId ? entry.publicId : null,
+      title: typeof entry.title === 'string' ? entry.title : '',
+      status,
+    });
+  }
+  const splitAt =
+    typeof raw.splitAt === 'string' && !Number.isNaN(new Date(raw.splitAt).getTime())
+      ? raw.splitAt
+      : null;
+  return {
+    publicId: raw.publicId,
+    caseId: raw.caseId,
+    splitAt,
+    via: typeof raw.via === 'string' ? raw.via : null,
+    entries,
+  };
+};
+
 export type PaginatedResponse<T> = {
   success: boolean;
   data: {
@@ -271,6 +330,8 @@ export type PaginatedResponse<T> = {
     pagination: PaginationMeta;
     /** Absent on a backend that predates it; normalised to null by `kbService.getAll`. */
     idMatch?: KbIdMatch | null;
+    /** Absent on a backend that predates it; normalised to null by `kbService.getAll`. */
+    splitCase?: KbSplitCase | null;
     /** How a typed search was read (backend on the search engine); absent on an older one. */
     search?: { terms: string[]; asPhrase: boolean } | null;
     /**
@@ -423,6 +484,7 @@ export const kbService = {
           setAsideReason: normaliseSetAsideReason(entry.setAsideReason),
         })),
         idMatch: normaliseIdMatch(body.data.idMatch),
+        splitCase: normaliseSplitCase(body.data.splitCase),
         filters: {
           ...body.data.filters,
           decisionStatuses: body.data.filters?.decisionStatuses === true,
@@ -450,7 +512,13 @@ export const kbService = {
   /** A reviewer's "no": hidden now, deleted by the backend 90 days later unless re-approved. */
   reject: async (id: number) => {
     const response = await apiClient.patch<
-      ApiResponse<{ id: number; rejectedAt?: string; unmerged?: boolean; restored?: number }>
+      ApiResponse<{
+        id: number;
+        rejectedAt?: string;
+        unmerged?: boolean;
+        restored?: number;
+        restoredEntries?: unknown;
+      }>
     >(`/api/knowledge-base/entries/${id}/reject`);
     return response.data;
   },
@@ -458,7 +526,7 @@ export const kbService = {
   hide: async (id: number) => {
     // On a CASE row this is an Unmerge and answers `{ unmerged: true, restored }`.
     const response = await apiClient.patch<
-      ApiResponse<{ unmerged?: boolean; restored?: number } | null>
+      ApiResponse<{ unmerged?: boolean; restored?: number; restoredEntries?: unknown } | null>
     >(`/api/knowledge-base/entries/${id}/hide`);
     return response.data;
   },
@@ -516,7 +584,7 @@ export const kbService = {
 
   delete: async (id: number) => {
     const response = await apiClient.delete<
-      ApiResponse<{ unmerged?: boolean; restored?: number } | null>
+      ApiResponse<{ unmerged?: boolean; restored?: number; restoredEntries?: unknown } | null>
     >(`/api/knowledge-base/entries/${id}`);
     return response.data;
   },

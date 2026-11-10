@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { X } from 'lucide-react';
-import { KBEntryCard, KBEntryDetail, KBTableView, KbAutoActionsButton, kbSourceParam, type KBEntry, type KbFinding, type KbIdMatch, type KbPendingDecision, type PaginationMeta, isCaseRow, unmergeConsequence, useKbEntryParam, useKbAutoChangedSupport, CASE_ACTION_TITLES, LEFT_PAGE, runCaseAction, useKbDecideLink, KbExportButton, type KbFilterStatus, withoutKbFinding, useKbStatusParam, KbFindingBanner, KbIdMatchHint, KbStatusIgnoredNotice, isNewStatus, useKbAutoRestore, useKbUnhide, KBDeleteDialog, confirmKbDelete, makeKbRestoreDeleted, KbDecisionDialog, KbBulkDecisionBar, bulkModeFor, useKbBulkDecisions, useKbFindingFilter, KbMoreFilters, KbPageToolbar, type KbListType, useKbTeams, KbEngineActivity, KbEngineOffNotice, KbDecideNotice, KbQuestionsView, KbStillLearning, useKbEngineSummary, useKbPageView, isOlderThan7d, entryFailureAlert, kbExportFilters, kbQuestionFromSearch, kbQuestionsTeamFromSearch, liveDefaultStatus, kbSearchForView, type KbPageView } from '@/features/kb';
+import { KBEntryCard, KBEntryDetail, KBTableView, KbAutoActionsButton, kbSourceParam, type KBEntry, type KbFinding, type KbIdMatch, type KbSplitCase, KbSplitCaseHint, KbCaseActionConfirmText, useKbCaseOriginals, type KbPendingDecision, type PaginationMeta, isCaseRow, useKbEntryParam, useKbAutoChangedSupport, CASE_ACTION_TITLES, LEFT_PAGE, runCaseAction, useKbDecideLink, KbExportButton, type KbFilterStatus, withoutKbFinding, useKbStatusParam, KbFindingBanner, KbIdMatchHint, KbStatusIgnoredNotice, isNewStatus, useKbAutoRestore, useKbUnhide, KBDeleteDialog, confirmKbDelete, makeKbRestoreDeleted, KbDecisionDialog, KbBulkDecisionBar, bulkModeFor, useKbBulkDecisions, useKbFindingFilter, KbMoreFilters, KbPageToolbar, type KbListType, useKbTeams, KbEngineActivity, KbEngineOffNotice, KbDecideNotice, KbQuestionsView, KbStillLearning, useKbEngineSummary, useKbPageView, isOlderThan7d, entryFailureAlert, kbExportFilters, kbQuestionFromSearch, kbQuestionsTeamFromSearch, liveDefaultStatus, kbSearchForView, type KbPageView } from '@/features/kb';
 import { kbService } from '@/features/kb/shell';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ALL_SOURCES } from '@/components/shared/MessageSourceFilter';
@@ -48,6 +48,7 @@ const KnowledgeBaseViews = () => {
   const [loading, setLoading] = useState(true);
   // The entry the search names by number ("KB-134"), for the hint when this view's filters hide it.
   const [idMatch, setIdMatch] = useState<KbIdMatch | null>(null);
+  const [splitCase, setSplitCase] = useState<KbSplitCase | null>(null);
   // The words the list marks: the search as the backend read it (absent on an older backend).
   const [searchTerms, setSearchTerms] = useState<string[] | undefined>(undefined);
   // Whether the server applied the requested status (an older one echoes a new one, unapplied).
@@ -98,6 +99,8 @@ const KnowledgeBaseViews = () => {
   const [decision, setDecision] = useState<KbPendingDecision | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<KBEntry | null>(null);
   const [caseAction, setCaseAction] = useState<CaseAction | null>(null);
+  // The entries the case action in the confirm would bring back (null: not known — generic text).
+  const caseOriginals = useKbCaseOriginals(caseAction);
 
   const [alertDialog, setAlertDialog] = useState<
     Pick<AlertDialogProps, 'open' | 'title' | 'description' | 'variant'>
@@ -120,6 +123,7 @@ const KnowledgeBaseViews = () => {
       try {
         setLoading(true);
         setIdMatch(null); // hidden while loading; a failed read must not keep the previous one
+        setSplitCase(null);
         const read = (page: number) =>
           finding.fetchList({
             type: filterType === 'all' ? undefined : filterType,
@@ -139,6 +143,7 @@ const KnowledgeBaseViews = () => {
         if (!response) return; // overtaken by a newer request
         setEntries(response.data.entries);
         setIdMatch(response.data.idMatch ?? null);
+        setSplitCase(response.data.splitCase ?? null);
         setSearchTerms(
           Array.isArray(response.data.search?.terms) ? response.data.search.terms : undefined
         );
@@ -564,6 +569,7 @@ const KnowledgeBaseViews = () => {
                 source={filterSource}
                 onClearSource={() => setFilterSource(ALL_SOURCES)}
               />
+              <KbSplitCaseHint splitCase={loading ? null : splitCase} />
 
               {/* Mobile Card View */}
               <div className="space-y-3 md:hidden">
@@ -672,11 +678,9 @@ const KnowledgeBaseViews = () => {
           }}
           onConfirm={() => void confirmCaseAction()}
           title={caseAction ? CASE_ACTION_TITLES[caseAction.action] : ''}
-          description={`${
-            caseAction?.action === 'unmerge'
-              ? 'This undoes the merge.'
-              : 'This is a merged case, so this undoes the merge.'
-          } ${unmergeConsequence(null)} and removes the merged entry.`}
+          description={
+            <KbCaseActionConfirmText action={caseAction?.action ?? null} originals={caseOriginals} />
+          }
           confirmText={caseAction?.action === 'unmerge' ? 'Unmerge' : 'Undo the merge'}
           variant="warning"
         />
