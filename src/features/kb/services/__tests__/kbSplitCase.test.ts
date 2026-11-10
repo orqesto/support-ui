@@ -88,6 +88,18 @@ describe('normaliseCaseOriginals', () => {
   });
 });
 
+describe('normaliseCaseOriginals — live', () => {
+  it('keeps a boolean `live`; absent or not a boolean ⇒ no `live` key (approved stands in)', () => {
+    const read = (live: unknown) =>
+      normaliseCaseOriginals({ originals: [{ id: 4, title: 'A', approved: true, live }] })
+        ?.originals[0];
+    expect(read(false)).toMatchObject({ live: false });
+    expect(read(true)).toMatchObject({ live: true });
+    expect(read(undefined)).not.toHaveProperty('live');
+    expect(read('yes')).not.toHaveProperty('live');
+  });
+});
+
 describe('normaliseRestoredEntries', () => {
   it('absent (an older backend) ⇒ null: the outcome says the count only', () => {
     expect(normaliseRestoredEntries(undefined)).toBeNull();

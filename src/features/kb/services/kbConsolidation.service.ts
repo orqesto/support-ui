@@ -387,7 +387,15 @@ export const normalizeRunState = (raw: unknown): KbConsolidationRunState => {
 export type KbRestoredEntry = { id: number; publicId: string | null; title: string };
 
 /** One original of a merged case, as `GET /consolidation/cases/:id/originals` lists it. */
-export type KbCaseOriginal = KbRestoredEntry & { approved: boolean; hidden: boolean };
+export type KbCaseOriginal = KbRestoredEntry & {
+  approved: boolean;
+  hidden: boolean;
+  /**
+   * Goes back live once the case is unmerged (approved, and not rejected / deleted / its source
+   * removed). ABSENT on a backend before it — then `approved` stands in.
+   */
+  live?: boolean;
+};
 
 export type KbCaseOriginals = {
   caseId: number;
@@ -425,7 +433,12 @@ export const normaliseCaseOriginals = (value: unknown): KbCaseOriginals | null =
     const ref = asEntryRef(item);
     if (!ref) continue;
     const flags = item as Record<string, unknown>;
-    originals.push({ ...ref, approved: flags.approved === true, hidden: flags.hidden === true });
+    originals.push({
+      ...ref,
+      approved: flags.approved === true,
+      hidden: flags.hidden === true,
+      ...(typeof flags.live === 'boolean' ? { live: flags.live } : {}),
+    });
   }
   return {
     caseId: positiveInt(raw.caseId) ? raw.caseId : 0,

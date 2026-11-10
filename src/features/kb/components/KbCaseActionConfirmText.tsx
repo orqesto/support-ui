@@ -34,7 +34,8 @@ export const KbCaseActionConfirmText = ({
         {named.map((original) => (
           <li key={original.id}>
             {namedEntry(original)}
-            {original.approved && (
+            {/* `live` when the backend says; an older one sends only `approved`. */}
+            {(original.live ?? original.approved) && (
               <span className="text-muted-foreground"> — goes back live</span>
             )}
           </li>

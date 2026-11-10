@@ -168,8 +168,45 @@ describe('KB page — naming the entries a case gives back', () => {
     const list = await within(dialog).findByRole('list', { name: 'Entries that come back' });
     expect(getCaseOriginals).toHaveBeenCalledWith(9);
     expect(within(dialog).getByText(/This restores 2 original entries/)).toBeInTheDocument();
-    const items = within(list).getAllByRole('listitem').map((item) => item.textContent);
+    const items = within(list)
+      .getAllByRole('listitem')
+      .map((item) => item.textContent);
     expect(items).toEqual(['#KB-21 Refund window — goes back live', '#22 Return label']);
+  });
+
+  it('"goes back live" follows `live` when sent, else `approved` (an older backend)', async () => {
+    getCaseOriginals.mockResolvedValue({
+      caseId: 9,
+      casePublicId: 'KB-9',
+      originals: [
+        // Approved, but its source was removed: it does NOT go back live.
+        {
+          id: 31,
+          publicId: 'KB-31',
+          title: 'Approved not live',
+          approved: true,
+          hidden: true,
+          live: false,
+        },
+        { id: 32, publicId: 'KB-32', title: 'Live', approved: true, hidden: true, live: true },
+        { id: 33, publicId: 'KB-33', title: 'Older backend', approved: true, hidden: true },
+      ],
+    });
+    page();
+    const row = await tableRow('Refunds');
+    fireEvent.click(within(row).getByRole('button', { name: 'Hide' }));
+    const list = await within(await screen.findByRole('dialog')).findByRole('list', {
+      name: 'Entries that come back',
+    });
+    expect(
+      within(list)
+        .getAllByRole('listitem')
+        .map((item) => item.textContent)
+    ).toEqual([
+      '#KB-31 Approved not live',
+      '#KB-32 Live — goes back live',
+      '#KB-33 Older backend — goes back live',
+    ]);
   });
 
   it('a failed read of the originals keeps the generic confirm text', async () => {
@@ -192,7 +229,9 @@ describe('KB page — naming the entries a case gives back', () => {
     page();
     const row = await tableRow('Refunds');
     fireEvent.click(within(row).getByRole('button', { name: 'Hide' }));
-    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' })
+    );
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     fireEvent.click(within(row).getByRole('button', { name: 'Delete' }));
     const dialog = await screen.findByRole('dialog');
@@ -236,6 +275,8 @@ describe('KB page — naming the entries a case gives back', () => {
     fireEvent.click(
       within(await screen.findByRole('dialog')).getByRole('button', { name: 'Unmerge' })
     );
-    expect(await screen.findByText(/1 original entry is back[^]*#KB-21 Refund window/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/1 original entry is back[^]*#KB-21 Refund window/)
+    ).toBeInTheDocument();
   });
 });
