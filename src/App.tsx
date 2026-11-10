@@ -389,7 +389,11 @@ const AppRoutes = () => {
           path="/statistics"
           element={
             <PrivateRoute>
-              <StatisticsPage />
+              {/* Gated like the old /sla page it absorbed (2026-11-10): the nav already hides it
+                  without view_statistics, and the API refuses the data. */}
+              <ProtectedRoute requiredPermission={Permission.VIEW_STATISTICS}>
+                <StatisticsPage />
+              </ProtectedRoute>
             </PrivateRoute>
           }
         />
