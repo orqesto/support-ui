@@ -79,6 +79,11 @@ const AUTOREPLY_FIELDS: FieldDef[] = [
     label: 'Auto-reply only to mail newer than (hours)',
     hint: 'No automatic reply (acknowledgement, AI auto-reply, follow-up, Telegram bot) is sent to a message older than this. The message is still saved and becomes work.',
   },
+  {
+    key: 'telegramBotRenewQuietHours',
+    label: 'Telegram bot wakes after quiet (hours)',
+    hint: 'A Telegram chat the bot handed to a person: once nobody has written in it for this long, the bot answers the customer again. Each Telegram connection can set its own value.',
+  },
 ];
 /** Attachment retry (Gmail and IMAP), then the pacing that keeps a Gmail mailbox under Google's quota. */
 const GMAIL_FIELDS: FieldDef[] = [
@@ -188,7 +193,8 @@ export const IngestionCard = ({
   const paced = typed('pacedUnitsPerMinute');
   const burst = typed('burstUnits');
   if (paced !== null && burst !== null && paced + burst >= GMAIL_UNIT_LIMIT)
-    crossErrors.burstUnits = crossErrors.pacedUnitsPerMinute = `Units per minute plus burst must stay below ${GMAIL_UNIT_LIMIT.toLocaleString('en-US')}.`;
+    crossErrors.burstUnits =
+      crossErrors.pacedUnitsPerMinute = `Units per minute plus burst must stay below ${GMAIL_UNIT_LIMIT.toLocaleString('en-US')}.`;
   if (Object.keys(crossErrors).length > 0) invalid = true;
   const serverError = save.isError ? getApiErrorMessage(save.error) : undefined;
   const nothingChanged = Object.keys(changed).length === 0;
