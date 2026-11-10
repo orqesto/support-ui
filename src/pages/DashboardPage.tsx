@@ -4,12 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { AlertDialog } from '@/components/ui/AlertDialog';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import {
   useSystemHealth,
   useTelegramProcessing,
   ingestionService,
+  telegramStartNotice,
+  type StartAllResponse,
+  type StartTelegramResponse,
   DashboardKBSection,
   DashboardQuickActions,
   DashboardSkeleton,
@@ -481,6 +485,15 @@ export const DashboardPage = () => {
         : type === 'email'
           ? ingestionService.checkEmails()
           : ingestionService.startTelegram());
+      // Each Telegram bot's state after the start: a bot that is down says why (#1483).
+      if (type !== 'email') {
+        const report =
+          type === 'telegram'
+            ? (response as StartTelegramResponse).telegram
+            : (response as StartAllResponse).details?.telegram?.report;
+        const notice = telegramStartNotice(report, type);
+        if (notice) setAlertDialog({ open: true, ...notice });
+      }
       if (response.success) {
         clearMessagesCache();
         await fetchStats();
@@ -506,7 +519,8 @@ export const DashboardPage = () => {
       setAlertDialog({
         open: true,
         title: 'Ingestion Failed',
-        description: 'Failed to start ingestion',
+        // The API's own reason when it gave one (e.g. the start could not reach the worker).
+        description: getApiErrorMessage(error) ?? 'Failed to start ingestion',
         variant: 'error',
       });
     } finally {
@@ -696,7 +710,7 @@ export const DashboardPage = () => {
               <DashboardSystemStatus health={health} isWebSocketConnected={isWebSocketConnected} />
             </div>
 
-            <div className={cn("grid gap-4", hasTickets ? "lg:grid-cols-2" : "lg:grid-cols-1")}>
+            <div className={cn('grid gap-4', hasTickets ? 'lg:grid-cols-2' : 'lg:grid-cols-1')}>
               <DashboardStatusBarSection label="Threads by Status" cards={messageCards} />
               {hasTickets && (
                 <DashboardStatusBarSection label="Tickets by Status" cards={ticketCards} />

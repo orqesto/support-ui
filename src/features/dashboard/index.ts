@@ -11,4 +11,13 @@ export { DashboardSLASection, DashboardStatusBarSection } from './components/Das
 export { DashboardSystemStatus } from './components/DashboardSystemStatus';
 export { useSystemHealth } from './hooks/useSystemHealth';
 export { useTelegramProcessing } from './hooks/useTelegramProcessing';
-export { ingestionService } from './services/ingestion.service';
+export {
+  ingestionService,
+  type StartAllResponse,
+  type StartTelegramResponse,
+} from './services/ingestion.service';
+export {
+  telegramStartNotice,
+  type TelegramBotView,
+  type TelegramStartReport,
+} from './services/telegramStartNotice';
