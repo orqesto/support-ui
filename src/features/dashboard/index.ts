@@ -17,6 +17,8 @@ export {
   type StartTelegramResponse,
 } from './services/ingestion.service';
 export {
+  ingestionStartNotice,
+  START_NOT_REACHED,
   telegramStartNotice,
   type TelegramBotView,
   type TelegramStartReport,

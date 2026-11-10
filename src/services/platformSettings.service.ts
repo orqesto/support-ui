@@ -494,6 +494,8 @@ export const INGESTION_FIELDS = [
   'notificationPriorityWaitMinutes',
   /** Hours: no automatic reply is sent to a message older than this (`autoreply.max_message_age`, 1-720). */
   'autoReplyMaxMessageAgeHours',
+  /** Hours a Telegram chat must be quiet before the bot wakes on a chat it handed to a person (`telegram.bot_renew_quiet`, 1-720); each Telegram connection may override it. */
+  'telegramBotRenewQuietHours',
   /** Failed attachment downloads retried per mailbox check; 0 = off. */
   'attachmentRefetchPerRun',
   /** Gmail quota units spent per minute, steady state (Google's limit is 15,000). */

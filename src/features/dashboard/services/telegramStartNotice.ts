@@ -23,6 +23,10 @@ export type TelegramStartReport = {
   message: string;
 };
 
+/** The API answered 503: the start never reached the process that runs the bots and polling. */
+export const START_NOT_REACHED =
+  'The start could not reach the process that runs the bots and mail polling. Try again in a minute.';
+
 export type TelegramStartNotice = {
   title: string;
   description: string;
@@ -71,4 +75,25 @@ export const telegramStartNotice = (
     description: report.message,
     variant: report.bots.length > 0 ? 'success' : 'info',
   };
+};
+
+/**
+ * The notice for a Start response. "Start all" that reached email but not the bots carries no
+ * report, only the API's sentence about Telegram: shown rather than dropped (review of #909).
+ */
+export const ingestionStartNotice = (
+  pressed: 'telegram' | 'all',
+  /** The Start endpoint's body (`/telegram/start` or `/start-all`); read defensively. */
+  body: object
+): TelegramStartNotice | null => {
+  const response = body as {
+    telegram?: TelegramStartReport;
+    details?: { telegram?: { success: boolean; message: string; report?: TelegramStartReport } };
+  };
+  const report = pressed === 'telegram' ? response.telegram : response.details?.telegram?.report;
+  const notice = telegramStartNotice(report, pressed);
+  if (notice || pressed !== 'all') return notice;
+  const outcome = response.details?.telegram;
+  if (!outcome || outcome.success || !outcome.message) return null;
+  return { title: 'Telegram bots not started', description: outcome.message, variant: 'warning' };
 };

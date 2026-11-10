@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { telegramStartNotice, type TelegramBotView } from '../telegramStartNotice';
+import {
+  ingestionStartNotice,
+  telegramStartNotice,
+  type TelegramBotView,
+} from '../telegramStartNotice';
 
 const bot = (overrides: Partial<TelegramBotView>): TelegramBotView => ({
   integrationId: 1,
@@ -81,5 +85,42 @@ describe('telegramStartNotice', () => {
 
   it('an API without the report (older backend) shows nothing', () => {
     expect(telegramStartNotice(undefined, 'telegram')).toBeNull();
+  });
+});
+
+describe('ingestionStartNotice (review of #909)', () => {
+  it('Start all that reached email but not the bots shows the API sentence', () => {
+    expect(
+      ingestionStartNotice('all', {
+        details: { telegram: { success: false, message: 'The bot start could not be sent.' } },
+      })
+    ).toEqual({
+      title: 'Telegram bots not started',
+      description: 'The bot start could not be sent.',
+      variant: 'warning',
+    });
+  });
+
+  it('reads the report from where each endpoint puts it', () => {
+    const report = {
+      statusKnown: false,
+      activeBots: 0,
+      bots: [],
+      message: 'could not be read',
+    };
+    expect(ingestionStartNotice('telegram', { telegram: report })?.title).toBe(
+      'Telegram bot status unknown'
+    );
+    expect(
+      ingestionStartNotice('all', {
+        details: { telegram: { success: true, message: '', report } },
+      })?.title
+    ).toBe('Telegram bot status unknown');
+  });
+
+  it('a successful Start all with no report says nothing (control)', () => {
+    expect(
+      ingestionStartNotice('all', { details: { telegram: { success: true, message: 'ok' } } })
+    ).toBeNull();
   });
 });

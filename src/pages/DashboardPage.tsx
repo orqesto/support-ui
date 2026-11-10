@@ -4,16 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { AlertDialog } from '@/components/ui/AlertDialog';
-import { getApiErrorMessage } from '@/lib/errorMessages';
+import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import {
   useSystemHealth,
   useTelegramProcessing,
   ingestionService,
-  telegramStartNotice,
-  type StartAllResponse,
-  type StartTelegramResponse,
+  ingestionStartNotice,
+  START_NOT_REACHED,
   DashboardKBSection,
   DashboardQuickActions,
   DashboardSkeleton,
@@ -486,14 +485,8 @@ export const DashboardPage = () => {
           ? ingestionService.checkEmails()
           : ingestionService.startTelegram());
       // Each Telegram bot's state after the start: a bot that is down says why (#1483).
-      if (type !== 'email') {
-        const report =
-          type === 'telegram'
-            ? (response as StartTelegramResponse).telegram
-            : (response as StartAllResponse).details?.telegram?.report;
-        const notice = telegramStartNotice(report, type);
-        if (notice) setAlertDialog({ open: true, ...notice });
-      }
+      const notice = type === 'email' ? null : ingestionStartNotice(type, response);
+      if (notice) setAlertDialog({ open: true, ...notice });
       if (response.success) {
         clearMessagesCache();
         await fetchStats();
@@ -520,7 +513,9 @@ export const DashboardPage = () => {
         open: true,
         title: 'Ingestion Failed',
         // The API's own reason when it gave one (e.g. the start could not reach the worker).
-        description: getApiErrorMessage(error) ?? 'Failed to start ingestion',
+        description:
+          getApiErrorMessage(error) ??
+          (getErrorStatus(error) === 503 ? START_NOT_REACHED : 'Failed to start ingestion'),
         variant: 'error',
       });
     } finally {
