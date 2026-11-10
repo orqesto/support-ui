@@ -87,6 +87,18 @@ export type MessageNote = {
   createdAt: string;
   updatedAt: string;
   user?: { id: number; firstName: string; lastName: string | null; email: string } | null;
+  /**
+   * Who wrote the row: `'hold'` = the note the backend writes when the thread goes on or comes
+   * off hold (`isHoldNote`). Absent from older backends — treat absent as an ordinary note.
+   */
+  source?: string | null;
+  /** Hold notes: `{ kind: 'hold', reason, until }` or `{ kind: 'unhold', cause }`. */
+  metadata?: Record<string, unknown> | null;
+  /**
+   * `'html'` (a ticket comment from the rich editor) or `'text'` — see `noteIsHtml`. Absent from
+   * an older backend; any other value is read as absent.
+   */
+  contentFormat?: string | null;
 };
 
 export type PaginationMeta = {
@@ -288,6 +300,13 @@ export type MessageContactSubject = {
  */
 /** The agent's answer to "does this thread become yours?" — see assignOnReplyPrompt.ts. */
 export type ReplyAssignIntent = 'me' | 'none';
+
+/**
+ * Thread presence send guard (spec §5.4). `seenLastEventId`: the newest event id the agent had
+ * loaded — absent = no guard (an older client). `confirmOverride`: "Send anyway" after the 409.
+ * Never part of the idempotency key's payload: Send anyway is the same reply.
+ */
+export type ReplyCollision = { seenLastEventId?: number; confirmOverride?: boolean };
 
 export type ReplyRecipients = {
   to?: string[];

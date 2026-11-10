@@ -3,6 +3,8 @@
  * events into one chronological feed. Extracted from MessagePanelTabs so the
  * label mapping can be unit-tested (and to keep that component under max-lines).
  */
+import { holdNoteLabel, holdNoteText, isHoldNote } from '@/lib/holdNote';
+import { formatDay } from '@/lib/utils';
 import type { MessageActivityEntry, MessageNote } from '@/services/message.service';
 
 /**
@@ -10,8 +12,10 @@ import type { MessageActivityEntry, MessageNote } from '@/services/message.servi
  * ⛔ Derived ONLY from what the data says: the audit action, a note, or an in-session note edit.
  * `ai` has no source today — no audit action the activity endpoint returns is authored by the AI
  * (auto-routing is rule-based and stays `other`) — so nothing maps to it until one exists.
+ * `hold`: a hold note (the thread went on or came off hold) — violet, the On-hold colour, never
+ * the amber of a note someone typed.
  */
-export type ActivityKind = 'in' | 'out' | 'note' | 'ai' | 'other';
+export type ActivityKind = 'in' | 'out' | 'note' | 'hold' | 'ai' | 'other';
 
 export type TimelineItem = { label: string; time: string; who: string; kind: ActivityKind };
 
@@ -20,6 +24,7 @@ export const ACTIVITY_DOT: Record<ActivityKind, string> = {
   in: 'bg-primary-solid',
   out: 'bg-success',
   note: 'bg-warning',
+  hold: 'bg-pending',
   ai: 'bg-ai',
   other: 'bg-border-strong',
 };
@@ -61,15 +66,14 @@ const ACTION_KIND: Record<string, ActivityKind> = {
 
 export const activityKindOf = (action: string): ActivityKind => ACTION_KIND[action] ?? 'other';
 
-const SHORT_DATE = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  timeZone: 'UTC',
-});
+/**
+ * A date in a feed label, in the app's ONE day format (`formatDay`, the viewer's zone) — the
+ * format the hold rows use too, so one view never shows a date two ways.
+ */
 const shortDate = (iso: unknown): string | null => {
   if (typeof iso !== 'string') return null;
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? null : SHORT_DATE.format(date);
+  return Number.isNaN(date.getTime()) ? null : formatDay(date);
 };
 
 type RoutingRuleDetail = {
@@ -152,11 +156,20 @@ export function routingDecisionLabel(details: Record<string, unknown> | null): s
     : `Routed to ${dept} by a rule`;
 }
 
+/**
+ * A status as the feed says it. `pending` in a status change is the On-hold overlay (the hold
+ * dialog sets it; the thread's own status is left alone), so it reads "On hold", as the app calls it.
+ */
+const statusWord = (status: unknown): string | undefined => {
+  if (typeof status !== 'string' || !status) return undefined;
+  return status === 'pending' ? 'On hold' : status;
+};
+
 export function auditEntryLabel(action: string, details: Record<string, unknown> | null): string {
   if (action === 'routing.decision') return routingDecisionLabel(details);
   if (action === 'message.status_change') {
-    const from = details?.['from'] as string | undefined;
-    const to = details?.['to'] as string | undefined;
+    const from = statusWord(details?.['from']);
+    const to = statusWord(details?.['to']);
     return to ? `Status changed${from ? ` from ${from}` : ''} to ${to}` : 'Status changed';
   }
   if (action === 'message.priority_change') {
@@ -199,24 +212,121 @@ export function auditEntryLabel(action: string, details: Record<string, unknown>
   return ACTION_LABEL[action] ?? action;
 }
 
+/** "Taken off hold: <cause>" / "Taken off hold by <name> (<cause>)", as the backend writes it. */
+const UNHOLD_TEXT = /^Taken off hold(?:: (.+)| by .+ \((.+)\))$/s;
+
+/**
+ * The cause of an un-hold, read from the note's text — the backend's own words (holdNoteText.ts,
+ * `unholdNoteContent`), which can be more exact than `metadata.cause` ("status changed to
+ * resolved"). No copy of the backend's phrase table here: a cause it adds is shown without a
+ * frontend change. Null when the text is not that shape.
+ */
+export const unholdCause = (content: string): string | null => {
+  const match = UNHOLD_TEXT.exec(content.trim());
+  const cause = (match?.[1] ?? match?.[2])?.trim();
+  if (!cause) return null;
+  return cause;
+};
+
+/**
+ * A hold note's Activity row: "On hold until 12 Nov 2026: <reason>" (the viewer's day, built from
+ * metadata; plain "On hold" when that is missing) or "Off hold · <cause>" ("Off hold" alone when
+ * the cause is unknown).
+ */
+const holdActivityLabel = (note: MessageNote): string => {
+  const label = holdNoteLabel(note);
+  if (label !== 'Off hold') return holdNoteText({ ...note, content: label });
+  const cause = unholdCause(note.content);
+  return cause ? `${label} · ${cause}` : label;
+};
+
+/** How far apart a status change and the hold note it wrote may be (same request; slack for a sweep). */
+const SAME_EVENT_MS = 60_000;
+
+/**
+ * Whether a status change and a hold note are ONE event, told by what the note itself says:
+ *  - a change TO `pending` is the hold a `kind: 'hold'` note records;
+ *  - a change FROM `pending` is an un-hold (a `kind: 'unhold'` note);
+ *  - a change made through the status control writes its un-hold note in the same request, naming
+ *    it: "… (status changed to resolved)" (a change to resolved/closed) or "… (reopened)" (to
+ *    open). ⚠ The backend's `from` there is the thread's flow status (`awaiting_response`, …),
+ *    not `pending`: hold is an overlay on it (messageNotesController.setMessageStatus), so `from`
+ *    alone cannot pair it.
+ * Any other change is never folded: a resolve right after "Taken off hold: customer replied" is
+ * its own row (review of #902).
+ */
+const sameEvent = (entry: MessageActivityEntry, note: MessageNote): boolean => {
+  const kind = note.metadata?.['kind'];
+  const { from, to } = entry.details ?? {};
+  if (to === 'pending') return kind === 'hold';
+  if (kind !== 'unhold') return false;
+  if (from === 'pending') return true;
+  const cause = unholdCause(note.content);
+  return (
+    (typeof to === 'string' && cause === `status changed to ${to}`) ||
+    (to === 'open' && cause === 'reopened')
+  );
+};
+
+/**
+ * The `message.status_change` entries that ARE a hold or un-hold already shown by its hold note:
+ * one hold showed twice ("Status changed from open to On hold" + "On hold until …"). A change
+ * pairs with a hold note of the same event (`sameEvent`) within SAME_EVENT_MS, each note used
+ * once (nearest first). Status changes with no such note stay.
+ */
+const statusChangesShownByHoldNotes = (
+  activity: MessageActivityEntry[],
+  notes: MessageNote[]
+): Set<MessageActivityEntry> => {
+  const unused = notes.filter(isHoldNote);
+  const shown = new Set<MessageActivityEntry>();
+  for (const entry of activity) {
+    if (entry.action !== 'message.status_change') continue;
+    const at = new Date(entry.createdAt).getTime();
+    let best = -1;
+    let bestGap = Infinity;
+    unused.forEach((note, index) => {
+      if (!sameEvent(entry, note)) return;
+      const gap = Math.abs(new Date(note.createdAt).getTime() - at);
+      if (gap <= SAME_EVENT_MS && gap < bestGap) {
+        best = index;
+        bestGap = gap;
+      }
+    });
+    if (best >= 0) {
+      unused.splice(best, 1);
+      shown.add(entry);
+    }
+  }
+  return shown;
+};
+
 export function buildTimeline(
   activity: MessageActivityEntry[],
   notes: MessageNote[],
   inSession: { label: string; who: string; time: string }[]
 ): TimelineItem[] {
-  const fromAudit: TimelineItem[] = activity.map((entry) => ({
-    label: auditEntryLabel(entry.action, entry.details),
-    time: entry.createdAt,
-    who: entry.userEmail ?? 'System',
-    kind: activityKindOf(entry.action),
-  }));
+  const shownByNote = statusChangesShownByHoldNotes(activity, notes);
+  const fromAudit: TimelineItem[] = activity
+    .filter((entry) => !shownByNote.has(entry))
+    .map((entry) => ({
+      label: auditEntryLabel(entry.action, entry.details),
+      time: entry.createdAt,
+      who: entry.userEmail ?? 'System',
+      kind: activityKindOf(entry.action),
+    }));
 
-  const fromNotes: TimelineItem[] = notes.map((note) => ({
-    label: 'Internal note',
-    time: note.createdAt,
-    who: note.user ? `${note.user.firstName} ${note.user.lastName ?? ''}`.trim() : note.authorName,
-    kind: 'note',
-  }));
+  const fromNotes: TimelineItem[] = notes.map((note) => {
+    const hold = isHoldNote(note);
+    return {
+      label: hold ? holdActivityLabel(note) : 'Internal note',
+      time: note.createdAt,
+      who: note.user
+        ? `${note.user.firstName} ${note.user.lastName ?? ''}`.trim()
+        : note.authorName,
+      kind: hold ? 'hold' : 'note',
+    };
+  });
 
   // In-session entries are the agent's own note edits and deletions (MessageDetail).
   const ephemeral: TimelineItem[] = inSession.map((entry) => ({ ...entry, kind: 'note' }));

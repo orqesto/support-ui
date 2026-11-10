@@ -22,8 +22,8 @@ export const STATUS_DISPLAY: Record<ThreadStatus, { label: string; dot: string; 
   pending: {
     // The 'pending' enum value = the On-hold (park) action.
     label: 'ON-HOLD',
-    dot: 'bg-warning',
-    chip: 'text-warning  border-warning-line  bg-warning-muted   ',
+    dot: 'bg-pending',
+    chip: 'text-pending border-pending-line bg-pending-muted',
   },
   resolved: {
     label: 'RESOLVED',

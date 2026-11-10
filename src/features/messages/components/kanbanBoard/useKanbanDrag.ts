@@ -21,6 +21,7 @@ import {
 } from '../kanbanColumns';
 import type { ColumnState } from './kanbanBoardModel';
 import type { useKanbanBoardData } from './useKanbanBoardData';
+import { useListWritingGuard } from '../../presence/useWritingGuard';
 
 /** Drag-and-drop between lanes: sensors, the picked-up card, and the optimistic move + rollback. Extracted unchanged from `MessagesKanbanView`. */
 export const useKanbanDrag = ({
@@ -40,6 +41,7 @@ export const useKanbanDrag = ({
   activeTabRef: MutableRefObject<ColumnAxis>;
   loadBoard: ReturnType<typeof useKanbanBoardData>['loadBoard'];
 }) => {
+  const listGuard = useListWritingGuard();
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
@@ -57,7 +59,8 @@ export const useKanbanDrag = ({
   );
 
   const handleDragEnd = useCallback(
-    async (event: DragEndEvent) => {
+    // `askedFirst`: the agent already answered the thread-presence question for this drop.
+    async (event: DragEndEvent, askedFirst = false): Promise<void> => {
       const { active, over } = event;
       setActiveThread(null);
       setActiveDragColId(null);
@@ -83,6 +86,18 @@ export const useKanbanDrag = ({
       const msgId = thread.latestMessage.id;
       if (threadId.startsWith('spamlog_') || msgId <= 0) {
         logger.warn(`Attempted DnD on spam-log synthetic thread ${threadId} — no-op`);
+        return;
+      }
+
+      // Thread presence (§5.5): a drop onto Spam asks first while a colleague writes a reply on
+      // the thread. Nothing has moved yet, so a cancel leaves the card where it was.
+      if (action === 'move_to_spam' && !askedFirst) {
+        listGuard.confirmIfWriting(
+          'mark as spam',
+          () => void handleDragEnd(event, true),
+          undefined,
+          msgId
+        );
         return;
       }
 
@@ -169,6 +184,7 @@ export const useKanbanDrag = ({
       }
     },
     [
+      listGuard,
       queryClient,
       loadBoard,
       activeTabRef,
@@ -179,5 +195,5 @@ export const useKanbanDrag = ({
     ]
   );
 
-  return { sensors, handleDragStart, handleDragEnd };
+  return { sensors, handleDragStart, handleDragEnd, writingGuardDialog: listGuard.dialog };
 };

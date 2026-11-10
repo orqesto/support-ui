@@ -41,6 +41,9 @@ vi.mock('@/features/statistics/components/SLAByPriorityTable', () => ({
   SLAByPriorityTable: spy('priority'),
   SLA_DEFAULT_DAYS: 30,
 }));
+vi.mock('@/features/statistics/components/SLAStatsSinceControl', () => ({
+  SLAStatsSinceControl: () => null,
+}));
 
 const { SLADashboardPage } = await import('../SLADashboardPage');
 

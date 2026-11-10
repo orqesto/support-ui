@@ -120,16 +120,20 @@ export const MessageDetailPage = () => {
   );
 
   const fetchMessage = async (messageId: number | string, fullLoad = false) => {
+    // History Back/Forward keeps this page mounted: a read asked for another route must not
+    // replace the message (or end the loading) of the one the agent moved to.
+    const askedFromRoute = routeIdRef.current;
+    const stillHere = () => routeIdRef.current === askedFromRoute;
     try {
       if (fullLoad) setLoading(true);
       const response = await messageService.getById(messageId);
-      if (response.success && response.data) {
+      if (stillHere() && response.success && response.data) {
         setMessage(response.data);
       }
     } catch (error) {
-      logger.error('Failed to fetch message:', error);
+      if (stillHere()) logger.error('Failed to fetch message:', error);
     } finally {
-      if (fullLoad) setLoading(false);
+      if (fullLoad && stillHere()) setLoading(false);
     }
   };
 

@@ -19,9 +19,11 @@ import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import type { Category, ThreadStatus } from '@/types';
 import { Permission } from '@/types/roles';
 import { toast } from '@/lib/toast';
-import { useAiRefusalText, useIsWorkspaceAdmin } from '@/features/subscription/shell';
+import { useAiRefusalText } from '@/features/subscription/shell';
+import { useIsWorkspaceAdmin } from '@/hooks/useIsWorkspaceAdmin';
 import { getInitials } from '@/lib/initials';
 import { HeaderMetaStrip } from './HeaderMetaStrip';
+import { useGuardAction } from '../presence/writingGuardContext';
 import { AddToTicketDialog } from './AddToTicketDialog';
 import { MergePickerDialog } from './MergeThreads';
 import { useIsPhone } from './useIsPhone';
@@ -70,6 +72,7 @@ export {
 
 export function MessageDetailHeader({
   message,
+  presence,
   onClose,
   showFullPageButton,
   isFullPage,
@@ -341,6 +344,7 @@ export function MessageDetailHeader({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recomputed on the fields it reads, not on every new `message` object
     [
       message.slaResponseMinutes,
+      message.slaWaitStartedAt,
       message.firstResponseAt,
       message.slaResponseBreached,
       message.createdAt,
@@ -405,6 +409,7 @@ export function MessageDetailHeader({
       setReanalyzing,
     });
 
+  const guardAction = useGuardAction();
   const moreMenuItems = buildMoreMenuItems({
     message,
     canCreateTickets,
@@ -437,6 +442,7 @@ export function MessageDetailHeader({
     isActive,
     onClassify,
     onDelete,
+    guard: guardAction,
   });
 
   // The More menu with its scrim (a bottom sheet on a phone, portalled — see where it renders).
@@ -505,6 +511,7 @@ export function MessageDetailHeader({
         moreOpen={moreOpen}
         setMoreOpen={setMoreOpen}
         moreSheet={moreSheet}
+        presence={presence}
       />
 
       {/* Subject */}

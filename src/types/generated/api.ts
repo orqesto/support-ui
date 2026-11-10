@@ -213,6 +213,7 @@ export interface components {
             closedAt: string | null;
             attachmentCount: number;
             slaResponseMinutes: number | null;
+            slaWaitStartedAt?: string | null;
             slaResponseBreached: boolean;
             firstResponseAt: string | null;
             actualResponseSeconds: number | null;
@@ -251,6 +252,7 @@ export interface components {
             closedAt: string | null;
             attachmentCount: number;
             slaResponseMinutes: number | null;
+            slaWaitStartedAt?: string | null;
             slaResponseBreached: boolean;
             firstResponseAt: string | null;
             actualResponseSeconds: number | null;
@@ -589,6 +591,7 @@ export interface components {
         };
         SlaBreach: {
             id: number;
+            waitId?: number;
             /** @enum {string} */
             type: "message" | "ticket_first_response" | "ticket_resolution";
             channel?: string;

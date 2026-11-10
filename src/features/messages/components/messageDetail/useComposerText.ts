@@ -39,19 +39,35 @@ export function useComposerText() {
   // The mode the composer's words were last written in (holdsUnsentNote) — null while blank.
   const lastEditMode = useRef<'reply' | 'note' | null>(null);
   /*
+    When the agent last changed the composer's words (thread presence: "writing" vs a draft left
+    in the box, spec §5.1) — null while blank, so a cleared composer never counts as writing.
+    Every write through writeComposer is the agent's own (typing, a template, the ghost answer,
+    the AI action buttons, add-record); the clear after a send is blank, so it resets this.
+  */
+  const lastAgentEditAt = useRef<number | null>(null);
+  /*
     EVERY composer text write goes through here. Typing counts in the mode on screen; a
     programmatic insert passes the mode it lands in. A write that leaves the visible text as it
     was (TipTap re-normalising the HTML when the other mode's editor mounts) is not an edit, so
-    N alone never turns a reply into a note.
+    N alone never turns a reply into a note. `{ restore: true }` (a kept draft coming back) is not
+    the agent acting, so it does not stamp lastAgentEditAt: a restored draft counts as viewing.
   */
   const writeComposer = useCallback(
-    (next: React.SetStateAction<string>, landsIn?: 'reply' | 'note') => {
+    (
+      next: React.SetStateAction<string>,
+      landsIn?: 'reply' | 'note',
+      opts?: { restore?: boolean }
+    ) => {
       const prev = latestComposer.current;
       const value = typeof next === 'function' ? next(prev) : next;
       latestComposer.current = value;
-      if (isBlankRichText(value)) lastEditMode.current = null;
-      else if (landsIn || lastEditMode.current === null || stripHtml(value) !== stripHtml(prev))
+      const blank = isBlankRichText(value);
+      const edited = !blank && (landsIn !== undefined || stripHtml(value) !== stripHtml(prev));
+      if (blank) lastEditMode.current = null;
+      else if (edited || lastEditMode.current === null)
         lastEditMode.current = landsIn ?? composerModeRef.current;
+      if (blank) lastAgentEditAt.current = null;
+      else if (edited && !opts?.restore) lastAgentEditAt.current = Date.now();
       setComposer(value);
     },
     []
@@ -67,6 +83,7 @@ export function useComposerText() {
     setComposerMode,
     latestComposer,
     lastEditMode,
+    lastAgentEditAt,
     writeComposer,
   };
 }

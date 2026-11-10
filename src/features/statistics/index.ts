@@ -8,6 +8,7 @@ export { PerformanceTab } from './components/PerformanceTab';
 export { SLABreachList } from './components/SLABreachList';
 export { SLAByChannelChart } from './components/SLAByChannelChart';
 export { SLAByPriorityTable, SLA_DEFAULT_DAYS } from './components/SLAByPriorityTable';
+export { SLAStatsSinceControl } from './components/SLAStatsSinceControl';
 export { SLAOverviewCards } from './components/SLAOverviewCards';
 export { SLATrendChart } from './components/SLATrendChart';
 export { StatisticsOverviewTab } from './components/StatisticsOverviewTab';

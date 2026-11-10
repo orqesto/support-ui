@@ -25,6 +25,9 @@ import { cn, formatAge, safeCssColor } from '@/lib/utils';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
+import { RowPresence } from '../presence/RowPresence';
+import { useListWritingGuard } from '../presence/useWritingGuard';
+import { isFromPortal } from './isFromPortal';
 import { SPINE_BG, getAiState, getAvatarColor, getPriorityBadge, getSpine, getSuspicionBadge, hasAttachments } from './inboxCardHelpers';
 import { getInitials } from '@/lib/initials';
 import { TRIAGE_READ_COLUMN_IDS } from './kanbanColumns';
@@ -76,6 +79,8 @@ export const KanbanCard = ({
   // Before any early return — hooks must run in the same order on every render.
   const { off: aiDraftsOff } = useAiDraftsOff();
   const msg = thread.latestMessage;
+  // Thread presence (§5.5): an assign asks first while a colleague writes a reply on this thread.
+  const writingGuard = useListWritingGuard(msg?.id);
   // Spam-rule records (spam-log rows) have no conversation behind them: no box, no long-press, no `x`.
   // (The drag grip is a separate element with its own TouchSensor; it never shares this press.)
   const selectableId =
@@ -217,7 +222,8 @@ export const KanbanCard = ({
 
   // Don't open the conversation if the click was the end of a text selection
   // — agents need to be able to copy IDs, sender emails, subject text.
-  const handleCardClick = () => {
+  const handleCardClick = (event: React.MouseEvent) => {
+    if (isFromPortal(event)) return;
     const sel = window.getSelection?.();
     if (sel && sel.toString().length > 0) return;
     onOpen(thread);
@@ -229,6 +235,7 @@ export const KanbanCard = ({
       tabIndex={0}
       onClick={handleCardClick}
       onKeyDown={(event) => {
+        if (isFromPortal(event)) return;
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           onOpen(thread);
@@ -463,6 +470,8 @@ export const KanbanCard = ({
 
         <span className="flex-1" />
 
+        {msg && <RowPresence conversationId={msg.id} />}
+
         {/* Trigger stays in flow so card layout never reflows when the picker opens.
             Picker overlays as an absolute-positioned popover anchored to the trigger. */}
         <div ref={pickerWrapRef} className="relative">
@@ -511,10 +520,12 @@ export const KanbanCard = ({
                 currentAssigneeId={msg.assigneeId}
                 departmentId={msg.departmentId ?? null}
                 onAssign={handleAssigned}
+                beforeChange={(run) => writingGuard.confirmIfWriting('assign', run)}
               />
             </div>,
             document.body
           )}
+          {writingGuard.dialog}
         </div>
       </div>
     </div>

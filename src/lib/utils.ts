@@ -9,6 +9,20 @@ export const safeCssColor = (color: string): string =>
 export const formatDate = (date: string | Date) => new Date(date).toLocaleString();
 
 /**
+ * A day, no time — e.g. `12 Nov 2026` (the viewer's locale orders it): a hold's recheck date,
+ * in the header chip, the thread lists and the hold notes alike, so the one date never reads two
+ * ways. The viewer's time zone (`timeZone` only for tests). Like `formatWhen`, the browser's
+ * locale, never a hard-coded one: `en-GB` printed "Sept" where the rest of the app says "Sep".
+ */
+export const formatDay = (date: string | Date, timeZone?: string): string =>
+  new Date(date).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    ...(timeZone ? { timeZone } : {}),
+  });
+
+/**
  * Absolute timestamp plus the relative age — e.g. `18 Aug 17:50 · 2d`.
  *
  * A bare "2d ago" is fine for spotting recency but useless for the two things agents

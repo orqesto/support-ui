@@ -537,12 +537,11 @@ describe('Send failed bar (v3)', () => {
     expect(retryCall[5]).toBe(replyCall[5]);
   });
 
-  it('a failed template’s retry reuses ITS key; the next text reply does not take it', async () => {
+  it('a failed template’s retry reuses ITS key (the text reply after it: next test)', async () => {
     svc.message.reply = vi
       .fn()
       .mockRejectedValueOnce(timeout()) // the template
-      .mockResolvedValueOnce({ success: true }) // its retry
-      .mockResolvedValueOnce({ success: true }); // a text reply
+      .mockResolvedValueOnce({ success: true }); // its retry
     renderDetail(mine);
     fireEvent.click(screen.getByRole('button', { name: 'send template' }));
     await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(1));

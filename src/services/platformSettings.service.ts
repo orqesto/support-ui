@@ -4,6 +4,8 @@ import {
   type EmbeddingThreadsInput,
   type EmbeddingThreadsSettings,
 } from './embeddingThreads';
+import { normalizePresence } from './presenceSettings';
+import type { PlatformPresenceInput, PresenceSettingsView } from './presenceSettings';
 import { getErrorStatus } from '@/lib/errorMessages';
 import {
   normalizeBedrockDiscovery,
@@ -17,9 +19,10 @@ import {
   type SecretStatus,
 } from './platformSecrets';
 import {
-  normalizeRouting,
+  normalizeRoutingBlock,
   type PlatformRoutingInput,
   type RoutingSettings,
+  type SkillPatternCaps,
 } from '@/services/routingSettings';
 
 /**
@@ -138,6 +141,8 @@ export type PlatformSettings = {
    * predates them — the card then says it arrives with the next backend release.
    */
   routing?: RoutingSettings;
+  /** Skill routing pattern caps (2026-11-09) from the `routing` block; absent on an older BE. */
+  skillPatternCaps?: SkillPatternCaps;
   /**
    * Mail-import limits (`ingestion.*`, 2026-10-18): how long one import run may hold its mailbox
    * and the per-minute rate of the attachment and KB-message queues. Each field is present only
@@ -155,6 +160,8 @@ export type PlatformSettings = {
    * 2026-11-07). Absent on an older backend.
    */
   fairOrder?: FairOrderSetting;
+  /** Thread presence tunables (`presence`, under `ingestion` in the response). Absent on an older backend. */
+  presence?: PresenceSettingsView;
   /**
    * Hourly AI call limit of managed workspaces and the share kept for live mail
    * (`analysisHourly`, 2026-10-19). Absent on a backend that predates it — the card then says so.
@@ -207,38 +214,13 @@ export type PlatformAnalysisHourlyInput = {
 
 /** A setting with its bounds, as `describeImportRunBudget` / `describeIngestionQueueRates` answer. */
 export type BoundedField = { value: number; source: FieldSource; min: number; max: number };
-export type IngestionSettings = {
-  importRunBudgetMinutes?: BoundedField;
-  attachmentsPerMinute?: BoundedField;
-  kbMessagesPerMinute?: BoundedField;
-  /** Queue size (work units) at which new-mail checks pause — must stay >= importPauseAtUnits. */
-  livePollCeilingUnits?: BoundedField;
-  /** Queue size at which imports stop adding work. */
-  importPauseAtUnits?: BoundedField;
-  /** Queue size below which paused imports resume — must stay < importPauseAtUnits. */
-  importResumeAtUnits?: BoundedField;
-  /** Seconds between two emails of one ticket reply (`tickets.reply_send_gap`, 2026-10-19). */
-  ticketReplyGapSeconds?: BoundedField;
-  /** Minutes a new unassigned mail waits for its AI priority (`notifications.priority_wait`, 1-60). */
-  notificationPriorityWaitMinutes?: BoundedField;
-  /** Failed attachment downloads retried per mailbox check; 0 = off. */
-  attachmentRefetchPerRun?: BoundedField;
-  /** Gmail quota units spent per minute, steady state (Google's limit is 15,000). */
-  pacedUnitsPerMinute?: BoundedField;
-  /** Gmail quota units that may be spent at once; paced + burst must stay below 15,000. */
-  burstUnits?: BoundedField;
-  /** Seconds Gmail calls wait after Google refuses one. */
-  cooldownSeconds?: BoundedField;
-  /** Parallel Gmail fetches while importing. */
-  bulkFetchMax?: BoundedField;
-  /** Parallel Gmail fetches while checking for new mail. */
-  pollFetchMax?: BoundedField;
-};
+/** Every ingestion field the backend may report, each with its bounds; see INGESTION_FIELDS. */
+export type IngestionSettings = Partial<Record<(typeof INGESTION_FIELDS)[number], BoundedField>>;
 /** Fair order between workspaces on/off (`queue.fairness.fairOrder`, 2026-11-07). */
 export type FairOrderSetting = { value: boolean; source: FieldSource };
 /** PUT /settings/ingestion — a PARTIAL body: only the fields sent are saved (at least one). */
 export type PlatformIngestionInput = Partial<Record<keyof IngestionSettings, number>> &
-  EmbeddingThreadsInput & { fairOrder?: boolean };
+  EmbeddingThreadsInput & { fairOrder?: boolean; presence?: PlatformPresenceInput };
 
 /** PUT /settings/custom-api — both thresholds, whole numbers ≥ 1 (the whole value is replaced). */
 export type PlatformCustomApiInput = { noMatchStreak: number; okWindowDays: number };
@@ -500,16 +482,29 @@ export const INGESTION_FIELDS = [
   'importRunBudgetMinutes',
   'attachmentsPerMinute',
   'kbMessagesPerMinute',
+  /** Queue size (work units) at which new-mail checks pause — must stay >= importPauseAtUnits. */
   'livePollCeilingUnits',
+  /** Queue size at which imports stop adding work. */
   'importPauseAtUnits',
+  /** Queue size below which paused imports resume — must stay < importPauseAtUnits. */
   'importResumeAtUnits',
+  /** Seconds between two emails of one ticket reply (`tickets.reply_send_gap`, 2026-10-19). */
   'ticketReplyGapSeconds',
+  /** Minutes a new unassigned mail waits for its AI priority (`notifications.priority_wait`, 1-60). */
   'notificationPriorityWaitMinutes',
+  /** Hours: no automatic reply is sent to a message older than this (`autoreply.max_message_age`, 1-720). */
+  'autoReplyMaxMessageAgeHours',
+  /** Failed attachment downloads retried per mailbox check; 0 = off. */
   'attachmentRefetchPerRun',
+  /** Gmail quota units spent per minute, steady state (Google's limit is 15,000). */
   'pacedUnitsPerMinute',
+  /** Gmail quota units that may be spent at once; paced + burst must stay below 15,000. */
   'burstUnits',
+  /** Seconds Gmail calls wait after Google refuses one. */
   'cooldownSeconds',
+  /** Parallel Gmail fetches while importing. */
   'bulkFetchMax',
+  /** Parallel Gmail fetches while checking for new mail. */
   'pollFetchMax',
 ] as const;
 
@@ -693,14 +688,11 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
   const reasoning = normalizeReasoning(raw.reasoning);
   const kb = normalizeKb(raw.kb);
   const customApi = normalizeCustomApi(raw.customApi);
-  const routing = normalizeRouting(raw.routing);
   const ingestion = normalizeIngestion(raw.ingestion);
-  const embeddingThreads = isRecord(raw.ingestion)
-    ? normalizeEmbeddingThreads(raw.ingestion.embeddingThreads)
-    : undefined;
-  const fairOrder = isRecord(raw.ingestion)
-    ? normalizeFairOrder(raw.ingestion.fairOrder)
-    : undefined;
+  const ing = isRecord(raw.ingestion) ? raw.ingestion : undefined;
+  const embeddingThreads = normalizeEmbeddingThreads(ing?.embeddingThreads);
+  const fairOrder = normalizeFairOrder(ing?.fairOrder);
+  const presence = normalizePresence(ing?.presence);
   const analysisHourly = normalizeAnalysisHourly(raw.analysisHourly);
   const drafts = normalizeDrafts(raw.drafts);
   const provider = field(raw.ai.provider);
@@ -764,10 +756,11 @@ const normalize = (raw: RawPlatformSettings): PlatformSettings => {
     ...(reasoning ? { reasoning } : {}),
     ...(kb ? { kb } : {}),
     ...(customApi ? { customApi } : {}),
-    ...(routing ? { routing } : {}),
+    ...normalizeRoutingBlock(raw.routing),
     ...(ingestion ? { ingestion } : {}),
     ...(embeddingThreads ? { embeddingThreads } : {}),
     ...(fairOrder ? { fairOrder } : {}),
+    ...(presence ? { presence } : {}),
     ...(analysisHourly ? { analysisHourly } : {}),
     ...(drafts ? { drafts } : {}),
   };
@@ -882,7 +875,7 @@ export const platformSettingsService = {
     await apiClient.put(`${BASE}/ingestion`, input);
   },
 
-  /** PATCH the routing-proposal settings (`routing.*`): any non-empty subset of the seven. */
+  /** PATCH the routing-proposal settings (`routing.*`): any non-empty subset (proposals + pattern caps). */
   updateRouting: async (input: PlatformRoutingInput): Promise<void> => {
     await apiClient.patch(`${BASE}/routing`, input);
   },

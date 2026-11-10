@@ -15,6 +15,7 @@ import type {
   ReceivedAddresses,
   ReceivedAddressRow,
   ReplyAssignIntent,
+  ReplyCollision,
   ReplyRecipients,
   SenderCandidate,
   WhatsAppTemplateSend,
@@ -31,7 +32,8 @@ export const messageComposeApi = {
     aiDraft?: AiDraft,
     whatsappTemplate?: WhatsAppTemplateSend,
     recipients?: ReplyRecipients,
-    assign?: ReplyAssignIntent
+    assign?: ReplyAssignIntent,
+    collision?: ReplyCollision
   ) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/reply`, {
       // The agent's answer to the ownership prompt; omitted when nothing was asked.
@@ -51,6 +53,11 @@ export const messageComposeApi = {
       ...(recipients?.to?.length && { to: recipients.to }),
       ...(recipients?.cc?.length && { cc: recipients.cc }),
       ...(recipients?.bcc?.length && { bcc: recipients.bcc }),
+      // The send guard; both absent = an older client's request, unguarded.
+      ...(collision?.seenLastEventId !== undefined && {
+        seenLastEventId: collision.seenLastEventId,
+      }),
+      ...(collision?.confirmOverride && { confirmOverride: true }),
     });
     return response.data;
   },
@@ -84,7 +91,8 @@ export const messageComposeApi = {
     idempotencyKey?: string,
     aiDraft?: AiDraft,
     recipients?: ReplyRecipients,
-    assign?: ReplyAssignIntent
+    assign?: ReplyAssignIntent,
+    collision?: ReplyCollision
   ) => {
     const formData = new FormData();
     formData.append('content', content);
@@ -102,6 +110,10 @@ export const messageComposeApi = {
     if (recipients?.to?.length) formData.append('to', JSON.stringify(recipients.to));
     if (recipients?.cc?.length) formData.append('cc', JSON.stringify(recipients.cc));
     if (recipients?.bcc?.length) formData.append('bcc', JSON.stringify(recipients.bcc));
+    // The send guard, as strings (the BE coerces both from form-data).
+    if (collision?.seenLastEventId !== undefined)
+      formData.append('seenLastEventId', String(collision.seenLastEventId));
+    if (collision?.confirmOverride) formData.append('confirmOverride', 'true');
 
     files.forEach((file) => {
       formData.append('attachments', file);

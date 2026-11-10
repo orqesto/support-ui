@@ -76,4 +76,9 @@ export type MessageComposerProps = {
   onSendPick?: (action: SendAction) => void;
   /** Told when the box opens or folds, so the host can shrink its header while a reply is written. */
   onOpenChange?: (open: boolean) => void;
+  /** The text came back from this browser (useUnsentDraft): the box opens and says so. */
+  restoredDraft?: boolean;
+  /** Files the restored draft had: they are not kept, so the notice asks for them again. */
+  restoredFiles?: number;
+  onDiscardRestoredDraft?: () => void;
 };

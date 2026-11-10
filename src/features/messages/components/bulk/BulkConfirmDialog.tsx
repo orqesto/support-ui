@@ -44,6 +44,8 @@ type Props = {
   preview: BulkPreview | null;
   selectedCount: number;
   running: boolean;
+  /** Thread presence: "2 of 8 threads have someone writing a reply — continue?", or null. */
+  writingNote?: string | null;
   onOpenChange: (open: boolean) => void;
   onConfirm: (values: BulkConfirmValues) => void;
 };
@@ -54,6 +56,7 @@ export const BulkConfirmDialog = ({
   preview,
   selectedCount,
   running,
+  writingNote = null,
   onOpenChange,
   onConfirm,
 }: Props) => {
@@ -132,6 +135,10 @@ export const BulkConfirmDialog = ({
               ? 'None of the selected threads can take this action.'
               : `This will ${unassigning ? 'unassign' : ACTION_PHRASE[action]} ${describeScope(eligible, selectedCount)}.`}
           </p>
+
+          {writingNote && eligible > 0 && (
+            <p className="text-sm font-medium text-warning">{writingNote}</p>
+          )}
 
           {refusals.length > 0 && (
             <div className="p-3 rounded-md border border-border bg-muted/40">

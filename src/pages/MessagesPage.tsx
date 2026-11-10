@@ -37,6 +37,7 @@ import {
   ThreadsFilterBar,
   BulkDialogs,
   useServerEventRouting,
+  usePresenceSummary,
   detailPanelProps,
   type MessagesPageAlert,
 } from '@/features/messages';
@@ -126,6 +127,8 @@ export const MessagesPage = () => {
    * link opens the wrong conversation.
    */
   useSharedLinkWorkspace(searchParams.get('id'));
+  // Who else is on which thread: the badges on the rows and cards read it (presence unavailable ⇒ none).
+  usePresenceSummary();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [displayMode, setDisplayMode] = useMessagesDisplayMode(searchParams, setSearchParams);
@@ -326,6 +329,8 @@ export const MessagesPage = () => {
     pendingThreadId,
     handleNavigate,
     handleApprove,
+    closeDetail,
+    closeWhenDone,
     handleResolve,
     handleRejected,
     handleReopen,
@@ -456,18 +461,6 @@ export const MessagesPage = () => {
   const highlightTerms = useMemo(() => highlightTermsFor(searchReading), [searchReading]);
 
   /**
-   * Closing the detail: its own close and the backdrop's fallback (the detail has not registered
-   * its prompt-aware close yet) are this one function, so neither can forget a step.
-   */
-  const closeDetail = () => {
-    const params = new URLSearchParams(searchParams);
-    params.delete('id');
-    setSearchParams(params);
-    selectedThreadIdRef.current = null;
-    setSelectedMessage(null);
-  };
-
-  /**
    * The open thread's detail. One element, two homes: the slide-over over the list (list
    * layout, the board, contacts) or the pane beside it (split). The props are the same either
    * way — only where it is mounted differs.
@@ -479,7 +472,7 @@ export const MessagesPage = () => {
         message={selectedMessage}
         {...detailPanelProps(selectedMessage, {
           closeDetail,
-          setSelectedMessage,
+          closeWhenDone,
           moveSelectedCard,
           rereadSelectedMessage,
           displayMode,

@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import DOMPurify from 'dompurify';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Download,
   Eye,
@@ -13,6 +12,9 @@ import {
   X,
 } from 'lucide-react';
 import RichTextEditor from '@/components/shared/LazyRichTextEditor';
+import { NoteContent } from '@/components/shared/NoteContent';
+import { ClearHoldReasonAction } from '@/components/shared/ClearHoldReasonAction';
+import { holdNoteLabel, holdReasonClearable, isHoldNote } from '@/lib/holdNote';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Checkbox } from '@/components/ui/Checkbox';
@@ -38,14 +40,24 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
+import { isBlankRichText } from '@/lib/stripHtml';
+import { useUnsentDraft } from '@/hooks/useUnsentDraft';
+import { RestoredDraftNotice } from '@/components/shared/RestoredDraftNotice';
 
 type TicketCommentsProps = {
   ticketId: number;
   hasJiraLink: boolean;
   onCountChange?: (count: number) => void;
+  /** A hold reason was cleared here: what else shows it (the thread rows) re-reads. */
+  onHoldReasonCleared?: () => void;
 };
 
-export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketCommentsProps) => {
+export const TicketComments = ({
+  ticketId,
+  hasJiraLink,
+  onCountChange,
+  onHoldReasonCleared,
+}: TicketCommentsProps) => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [newComment, setNewComment] = useState('');
@@ -62,6 +74,41 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
   const [deleteAttachmentDialogOpen, setDeleteAttachmentDialogOpen] = useState(false);
   const [attachmentToDelete, setAttachmentToDelete] = useState<number | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  /*
+    The new comment survives a closed ticket or a page change (this browser only, useUnsentDraft) —
+    with its Internal tick: a note restored as a public comment would reach the customer side.
+  */
+  const [restoredFiles, setRestoredFiles] = useState(0);
+  const commentDraft = useMemo(
+    () => ({ html: newComment, internal: isInternal, files: selectedFiles.length }),
+    [newComment, isInternal, selectedFiles.length]
+  );
+  const restoreComment = useCallback(
+    (data: { html?: unknown; internal?: unknown; files?: unknown }) => {
+      if (typeof data?.html !== 'string') return;
+      setNewComment(data.html);
+      setIsInternal(data.internal === true);
+      setRestoredFiles(typeof data.files === 'number' ? data.files : 0);
+    },
+    []
+  );
+  const unsentComment = useUnsentDraft({
+    scope: `ticket:${ticketId}:comment`,
+    value: commentDraft,
+    isBlank: isBlankRichText(newComment),
+    restore: restoreComment,
+    fingerprint: (data) => `${String(data.internal)}\n${data.html}`,
+    onSentElsewhere: () => {
+      setNewComment('');
+      setIsInternal(false);
+      toast.info('This comment was posted from another tab.');
+    },
+  });
+  const discardComment = () => {
+    unsentComment.clearDraft();
+    setNewComment('');
+    setIsInternal(false);
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchComments = useCallback(async () => {
@@ -70,7 +117,8 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
       const response = await commentsService.getAll(ticketId);
       if (response.success && response.data) {
         setComments(response.data);
-        onCountChange?.(response.data.length);
+        // Hold notes show in the list but are not counted: they record an event (owner, 2026-11-09).
+        onCountChange?.(response.data.filter((comment) => !isHoldNote(comment)).length);
       }
     } catch (error) {
       logger.error('Failed to fetch comments:', error);
@@ -130,9 +178,13 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
       return;
     }
 
+    // Held off while it is posted: a posted comment must never come back as "unsent", even when
+    // the agent left the ticket before the answer.
+    const draftSend = unsentComment.beginSend();
     try {
       setIsSubmitting(true);
       const response = await commentsService.create(ticketId, newComment.trim(), isInternal);
+      draftSend.settle(Boolean(response.success && response.data));
       if (response.success && response.data) {
         // If files are selected, upload them to the newly created comment
         if (selectedFiles.length > 0) {
@@ -151,6 +203,7 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
         await fetchComments(); // Refresh comments immediately
       }
     } catch (error) {
+      draftSend.settle(false);
       logger.error('Failed to add comment:', error);
       toast.failure('add comment', error);
     } finally {
@@ -269,6 +322,10 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
     if (comment.source === 'jira') {
       return false;
     }
+    // A hold note records the thread going on or off hold: an event, not an editable comment.
+    if (isHoldNote(comment)) {
+      return false;
+    }
     // Admins can edit/delete any app comment
     if (currentUserRole === 'admin') {
       return true;
@@ -325,7 +382,11 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
             <li
               key={comment.id}
               className={`group/cm p-3 rounded-[10px] border ${
-                comment.isInternal ? 'bg-note-muted border-note-line' : 'bg-card border-border'
+                isHoldNote(comment)
+                  ? 'bg-pending-muted border-pending-line'
+                  : comment.isInternal
+                    ? 'bg-note-muted border-note-line'
+                    : 'bg-card border-border'
               }`}
             >
               {editingId === comment.id ? (
@@ -353,11 +414,18 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                 <>
                   <div className="flex flex-wrap gap-2 items-center mb-1.5 text-[12.5px]">
                     <span className="font-semibold text-foreground">{authorOf(comment)}</span>
-                    {comment.isInternal && (
-                      <Badge variant="note" size="sm">
+                    {isHoldNote(comment) ? (
+                      <Badge variant="pending" size="sm">
                         <Lock className="mr-1 w-3 h-3" aria-hidden />
-                        Internal
+                        Internal · {holdNoteLabel(comment)}
                       </Badge>
+                    ) : (
+                      comment.isInternal && (
+                        <Badge variant="note" size="sm">
+                          <Lock className="mr-1 w-3 h-3" aria-hidden />
+                          Internal
+                        </Badge>
+                      )
                     )}
                     {comment.source === 'jira' && (
                       <Badge variant="secondary" size="sm">
@@ -373,6 +441,17 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                     <span className="font-mono text-xs text-muted-foreground">
                       {formatDate(comment.createdAt)}
                     </span>
+                    {/* A hold note's reason is cleared through its thread (`messageId`). */}
+                    {holdReasonClearable(comment) && typeof comment.messageId === 'number' && (
+                      <ClearHoldReasonAction
+                        conversationId={comment.messageId}
+                        note={comment}
+                        onCleared={() => {
+                          void fetchComments();
+                          onHoldReasonCleared?.();
+                        }}
+                      />
+                    )}
                     {canEditComment(comment) && (
                       <span className="flex gap-0.5 opacity-0 transition-opacity group-hover/cm:opacity-100 focus-within:opacity-100">
                         <Tooltip content="Edit comment" size="sm">
@@ -400,27 +479,10 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
                       </span>
                     )}
                   </div>
-                  <div
+                  <NoteContent
+                    note={comment}
+                    origin="ticket"
                     className="max-w-none text-sm prose prose-sm text-foreground"
-                    dangerouslySetInnerHTML={{
-                      __html: DOMPurify.sanitize(comment.content, {
-                        ALLOWED_TAGS: [
-                          'p',
-                          'br',
-                          'b',
-                          'i',
-                          'u',
-                          'strong',
-                          'em',
-                          'ul',
-                          'ol',
-                          'li',
-                          'code',
-                          'pre',
-                        ],
-                        ALLOWED_ATTR: [],
-                      }),
-                    }}
                   />
                   {comment.attachments && comment.attachments.length > 0 && (
                     <ul className="mt-2 space-y-1">
@@ -490,6 +552,15 @@ export const TicketComments = ({ ticketId, hasJiraLink, onCountChange }: TicketC
           isInternal ? 'p-2.5 rounded-[10px] border bg-note-muted border-note-line' : ''
         }`}
       >
+        {unsentComment.restored && (
+          <RestoredDraftNotice
+            label={
+              isInternal ? 'Restored your unsent internal note' : 'Restored your unsent comment'
+            }
+            fileCount={restoredFiles}
+            onDiscard={discardComment}
+          />
+        )}
         <RichTextEditor
           content={newComment}
           onChange={setNewComment}

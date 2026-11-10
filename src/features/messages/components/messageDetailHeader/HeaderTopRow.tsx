@@ -41,6 +41,8 @@ type HeaderTopRowProps = {
   setMoreOpen: React.Dispatch<React.SetStateAction<boolean>>;
   /** The More menu (MoreMenuSheet), portalled to <body> on a phone. */
   moreSheet: React.ReactNode;
+  /** The presence eye (who else is on this thread), built by the host; absent = none. */
+  presence?: React.ReactNode;
 };
 
 /**
@@ -68,6 +70,7 @@ export function HeaderTopRow({
   moreOpen,
   setMoreOpen,
   moreSheet,
+  presence,
 }: HeaderTopRowProps) {
   return (
     <div
@@ -122,6 +125,7 @@ export function HeaderTopRow({
       )}
       {/* Phones: Copy link / Refresh / read toggle / full page / Close live in More or the Back
           button instead (v4 mobile hides these icons). */}
+      {!isPhone && presence}
       {!isPhone && (
         <Tooltip content={linkCopied ? 'Link copied' : 'Copy link'} side="bottom" size="sm">
           <button
@@ -174,6 +178,7 @@ export function HeaderTopRow({
           </Link>
         </Tooltip>
       )}
+      {isPhone && presence}
       <div className="relative">
         <Tooltip content="More actions" side="bottom" size="sm" quietFocus>
           <button

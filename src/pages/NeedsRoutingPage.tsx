@@ -20,6 +20,7 @@ import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { showRouteLearningNote } from '@/lib/routingCopy';
 import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
+import { useListWritingGuard, usePresenceSummary } from '@/features/messages';
 
 const PAGE_SIZE = 50;
 
@@ -45,6 +46,10 @@ const parseSort = (value: string): { sortBy: string; sortOrder: 'asc' | 'desc' }
 export const NeedsRoutingPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Who is writing a reply on which thread (the inbox rows' presence summary), for the confirm
+  // before a move or a spam decision. Unavailable ⇒ nothing asks.
+  usePresenceSummary();
+  const writingGuard = useListWritingGuard();
   const { data: departments = [] } = useDepartments();
   // Same gate the replay endpoint enforces, so a non-admin never renders a card that can
   // only 403.
@@ -131,9 +136,14 @@ export const NeedsRoutingPage = () => {
     setPage(1);
   };
 
-  const handleRoute = async (id: number) => {
+  // Thread presence (§5.5): a move or a spam decision asks first while a colleague writes a reply.
+  const handleRoute = (id: number) => {
     const deptId = selectedDept[id];
     if (!deptId) return;
+    writingGuard.confirmIfWriting('move', () => void routeTo(id, deptId), undefined, id);
+  };
+
+  const routeTo = async (id: number, deptId: number) => {
     setRoutingId(id);
     setRouteError(null);
     try {
@@ -178,7 +188,11 @@ export const NeedsRoutingPage = () => {
   // sight (e.g. a sophisticated phishing attempt that passed spam check). A person's decision, so
   // it is CONFIRMED spam (owner, 2026-09-22: filters bin = unconfirmed, an agent = confirmed).
   // Mirrors handleRoute's optimistic-removal + badge-invalidate flow.
-  const handleMarkSpam = async (id: number) => {
+  const handleMarkSpam = (id: number) => {
+    writingGuard.confirmIfWriting('mark as spam', () => void markSpam(id), undefined, id);
+  };
+
+  const markSpam = async (id: number) => {
     setSpamId(id);
     setRouteError(null);
     try {
@@ -386,7 +400,7 @@ export const NeedsRoutingPage = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => void handleMarkSpam(msg.id)}
+                            onClick={() => handleMarkSpam(msg.id)}
                             disabled={spamId === msg.id || routingId === msg.id}
                             aria-label="Resolve & move to spam"
                             title="Resolve & move to spam"
@@ -402,7 +416,7 @@ export const NeedsRoutingPage = () => {
                           </Button>
                           <Button
                             size="sm"
-                            onClick={() => void handleRoute(msg.id)}
+                            onClick={() => handleRoute(msg.id)}
                             disabled={
                               !selectedDept[msg.id] || routingId === msg.id || spamId === msg.id
                             }
@@ -466,7 +480,7 @@ export const NeedsRoutingPage = () => {
                         size="sm"
                         onClick={(ev) => {
                           ev.stopPropagation();
-                          void handleRoute(msg.id);
+                          handleRoute(msg.id);
                         }}
                         disabled={
                           !selectedDept[msg.id] || routingId === msg.id || spamId === msg.id
@@ -488,7 +502,7 @@ export const NeedsRoutingPage = () => {
                         variant="outline"
                         onClick={(ev) => {
                           ev.stopPropagation();
-                          void handleMarkSpam(msg.id);
+                          handleMarkSpam(msg.id);
                         }}
                         disabled={spamId === msg.id || routingId === msg.id}
                         aria-label="Resolve & move to spam"
@@ -522,6 +536,7 @@ export const NeedsRoutingPage = () => {
           </>
         )}
       </div>
+      {writingGuard.dialog}
     </>
   );
 };

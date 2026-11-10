@@ -7,6 +7,7 @@ import {
   SLA_DEFAULT_DAYS,
   SLATrendChart,
   SLABreachList,
+  SLAStatsSinceControl,
 } from '@/features/statistics';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import {
@@ -26,7 +27,7 @@ const DAYS_OPTIONS = [
 
 export const SLADashboardPage = () => {
   const [searchParams] = useSearchParams();
-  // Arriving from the dashboard's "Avg First Response" tile, which sends the window its
+  // Arriving from the dashboard's "Avg Response Time" tile, which sends the window its
   // number was computed over. Only a period this page can actually select is honoured —
   // anything else would leave the selector showing no active button while the charts
   // displayed a window nobody could see or change.
@@ -43,8 +44,12 @@ export const SLADashboardPage = () => {
           <div>
             <h1 className="font-display text-3xl font-bold text-foreground">SLA Performance</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Monitor service level agreement metrics and performance across threads and tickets
+              Each time a customer waits for a person: from their first unanswered message until
+              someone on the team replies
             </p>
+            <div className="mt-2">
+              <SLAStatsSinceControl />
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Period:</span>

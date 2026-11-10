@@ -4,6 +4,7 @@ import { invalidateSharedFetch } from '@/lib/sharedFetch';
 import { resetRoleDefaultsUnavailableForTests } from '@/services/notificationRoleDefaultsMemory';
 import { cleanup } from '@testing-library/react';
 import { toBeInactive } from '@/test/inactive';
+import { clearAllUnsentDrafts, resetUnsentDraftPruneForTests } from '@/lib/unsentDrafts';
 
 // A Button out of use is aria-disabled, never natively disabled (it keeps keyboard focus):
 // `toBeInactive()` sees both; jest-dom's `toBeDisabled()` does not (src/test/inactive.ts).
@@ -14,7 +15,13 @@ expect.extend({ toBeInactive });
 // this, every render in a file stays in document.body for the rest of the file, and a
 // getByRole that should match one element starts finding several. Silent until two tests
 // in one file render the same control.
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  // AFTER cleanup: unmounting an editor saves its unsent text (useUnsentDraft) — it must not come
+  // back in the next test that opens the same thread.
+  clearAllUnsentDrafts();
+  resetUnsentDraftPruneForTests();
+});
 // Shared answers (sharedFetch) must not leak from one test into the next.
 afterEach(() => {
   invalidateSharedFetch();

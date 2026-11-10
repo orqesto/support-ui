@@ -1,9 +1,12 @@
+import type { ReactNode } from 'react';
 import type { Message } from '@/types';
 import type { ManualMerge } from '@/features/messages/services/conversationMerge.service';
 import type { MergeChange } from '../useThreadMergeContext';
 
 export type MessageDetailHeaderProps = {
   message: Message;
+  /** The presence eye for the top row (MessageDetail owns the watch); absent = none. */
+  presence?: ReactNode;
   onClose?: () => void;
   showFullPageButton: boolean;
   isFullPage: boolean;

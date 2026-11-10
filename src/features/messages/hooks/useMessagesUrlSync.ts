@@ -100,9 +100,14 @@ export const VALID_AGE_RANGES = ['all', 'lt24h', '1to7d', '1to4w', 'gt1mo'] as c
  *  in one param, and one bad entry must not cost the others. */
 const validCsv = (raw: string | null, whitelist: readonly string[]): string | undefined => {
   if (!raw) return undefined;
-  const kept = [...new Set(raw.split(',').map((part) => part.trim()).filter(Boolean))].filter(
-    (value) => whitelist.includes(value)
-  );
+  const kept = [
+    ...new Set(
+      raw
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean)
+    ),
+  ].filter((value) => whitelist.includes(value));
   return kept.length > 0 ? kept.join(',') : undefined;
 };
 
@@ -144,8 +149,7 @@ export const displayIdIfRedirected = (
     .map((name) => name.toUpperCase());
   // `ADM-INF-25` names `INF-25` whether or not the workspace code has loaded yet — without this
   // an ordinary open could be rewritten to the bare id in that first moment.
-  const sameByPublicId =
-    !!shown.publicId && wanted.endsWith(`-${shown.publicId.toUpperCase()}`);
+  const sameByPublicId = !!shown.publicId && wanted.endsWith(`-${shown.publicId.toUpperCase()}`);
   return names.includes(wanted) || sameByPublicId ? null : getConvUrlId(shown, orgCode);
 };
 
@@ -179,6 +183,14 @@ export const useMessagesUrlSync = ({
   orgCodeRef.current = orgCode;
   // A redirect seen before the workspace code loaded — applied once it does (effect below).
   const pendingRedirectRef = useRef<{ requested: string; shown: Message } | null>(null);
+  /*
+    Which `?id` a read is for. Bumped whenever the URL's thread changes — another id, none (Back,
+    a close), or a row click that wrote it — so an answer for an id the URL no longer names is
+    dropped. It used to open its thread anyway: Back to a thread, then Back to the list while it
+    loaded, and the thread popped open. Not bumped by a filter change, which keeps the id.
+  */
+  const readSeqRef = useRef(0);
+  const readKeyRef = useRef<string | null>(null);
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;
 
@@ -426,6 +438,11 @@ export const useMessagesUrlSync = ({
     // Cache key includes kind so a link with kind=event doesn't get blocked by
     // a prior non-kind fetch for the same id (would silently mis-resolve).
     const cacheKey = paramKind ? `${paramId}::${paramKind}` : paramId;
+    if (cacheKey !== readKeyRef.current) {
+      readKeyRef.current = cacheKey;
+      readSeqRef.current += 1;
+    }
+    const seq = readSeqRef.current;
 
     if (paramId !== null && paramId !== '') {
       if (cacheKey === fetchedMessageIdRef.current) return;
@@ -436,6 +453,7 @@ export const useMessagesUrlSync = ({
       messageService
         .getById(paramId, paramKind === 'event' ? 'event' : undefined)
         .then((response) => {
+          if (seq !== readSeqRef.current) return;
           if (response.success && response.data) {
             setSelectedMessage(response.data);
             // A link to a MERGED-AWAY ticket opens the ticket it was merged into (support-service
@@ -471,6 +489,7 @@ export const useMessagesUrlSync = ({
           }
         })
         .catch((error) => {
+          if (seq !== readSeqRef.current) return;
           logger.error('Failed to fetch message:', error);
           fetchedMessageIdRef.current = null;
           setSearchParams(

@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useRef,
   useState,
   type Dispatch,
@@ -50,6 +51,17 @@ export const useOpenThread = ({
   orgCodeRef.current = orgCode;
   const isPhoneRef = useRef(isPhone);
   isPhoneRef.current = isPhone;
+  /*
+    `?id` gone means the thread was closed — the detail's X, the backdrop, Back, the phone page, a
+    refused re-read, a resolve. Every close drops it, so this is the one place that stops an open
+    still reading its record: its answer used to arrive after the close and open the thread again.
+  */
+  const urlNamesAThread = Boolean(searchParams.get('id'));
+  useEffect(() => {
+    if (urlNamesAThread) return;
+    openSeqRef.current += 1;
+    setPendingThreadId(null);
+  }, [urlNamesAThread]);
   const handleOpenThread = useCallback(
     async (thread: MessageThread) => {
       if (thread.threadId.startsWith('spamlog_')) {
@@ -62,6 +74,13 @@ export const useOpenThread = ({
       const rowMessage = thread.latestIncomingMessage ?? thread.latestMessage;
       if (!thread.latestMessage?.id || !rowMessage) return;
       const seq = ++openSeqRef.current;
+      // What this open replaces, so an open that is refused or fails can give it back.
+      const before = {
+        threadId: selectedThreadIdRef.current,
+        messageId: selectedThreadMessageIdRef.current,
+        urlId: searchParamsRef.current.get('id'),
+        fetchedId: fetchedMessageIdRef.current,
+      };
       // Remember which card this is so status actions can move it optimistically.
       selectedThreadIdRef.current = thread.threadId;
       const openedId = rowMessage.id;
@@ -86,9 +105,37 @@ export const useOpenThread = ({
       // staging 2026-10-31 blanked the page. The row shows busy meanwhile; the sequence number
       // still stops a slower earlier open from winning.
       setPendingThreadId(thread.threadId);
+      /*
+        Refused or failed: the thread on screen is still the one before, so the card refs and
+        `?id` name it again. They used to keep naming this thread, so J/K stepped from it and a
+        status change on the thread on screen moved its card. Only what still names this open.
+      */
+      const undoOpen = () => {
+        if (
+          selectedThreadIdRef.current === thread.threadId &&
+          selectedThreadMessageIdRef.current === openedId
+        ) {
+          selectedThreadIdRef.current = before.threadId;
+          selectedThreadMessageIdRef.current = before.messageId;
+        }
+        if (searchParamsRef.current.get('id') !== urlId) return;
+        fetchedMessageIdRef.current = before.fetchedId;
+        setSearchParamsRef.current(
+          (prev) => {
+            if (before.urlId) prev.set('id', before.urlId);
+            else prev.delete('id');
+            return prev;
+          },
+          { replace: true }
+        );
+      };
       try {
         const res = await messageService.getById(openedId);
-        if (seq !== openSeqRef.current || !res.success || !res.data) return;
+        if (seq !== openSeqRef.current) return;
+        if (!res.success || !res.data) {
+          undoOpen();
+          return;
+        }
         // Widen to the tolerant app Message type: `lastReplyFromClient` is not returned by
         // getById, so it is optional here and falls back to the thread's value.
         const full: Message = res.data;
@@ -109,7 +156,10 @@ export const useOpenThread = ({
           );
         }
       } catch (error) {
-        if (seq === openSeqRef.current) logger.error('Failed to fetch thread messages:', error);
+        if (seq === openSeqRef.current) {
+          logger.error('Failed to fetch thread messages:', error);
+          undoOpen();
+        }
       } finally {
         if (seq === openSeqRef.current) setPendingThreadId(null);
       }
@@ -123,5 +173,5 @@ export const useOpenThread = ({
     ]
   );
 
-  return { handleOpenThread, pendingThreadId };
+  return { handleOpenThread, pendingThreadId, openSeqRef };
 };

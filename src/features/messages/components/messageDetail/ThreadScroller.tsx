@@ -74,6 +74,7 @@ export function ThreadScroller({
     loadingEarlier,
     sortedThread,
     lastWordOurs,
+    onHoldReasonCleared,
   } = thread;
   const { threadScrollerRef, threadContentRef, markScrollIntent } = scrollPin;
   const { timeline, threadDayStarts } = timelineData;
@@ -162,7 +163,11 @@ export function ThreadScroller({
                 onOpenInlineImage={handleOpenInlineImage}
               />
             ) : (
-              <ThreadNoteItem note={row.note} />
+              <ThreadNoteItem
+                note={row.note}
+                conversationId={message.id}
+                onNotesChanged={onHoldReasonCleared}
+              />
             )}
           </Fragment>
         ))}

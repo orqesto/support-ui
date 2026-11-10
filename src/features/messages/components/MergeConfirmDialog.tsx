@@ -27,6 +27,7 @@ import {
   MG_OPTION_SELECTED,
   MG_TITLE,
 } from './relatedStyles';
+import { useGuardAction } from '../presence/writingGuardContext';
 
 /** What the dialog needs to know about each ticket. A `Message` row satisfies it. */
 export type MergeRow = {
@@ -79,6 +80,7 @@ export const MergeConfirmDialog = ({
   currentId,
 }: Props) => {
   const orgCode = useCurrentOrgCode();
+  const guard = useGuardAction();
   const [survivorId, setSurvivorId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -258,7 +260,8 @@ export const MergeConfirmDialog = ({
         </Button>
         {!conflictIds && (
           <Button
-            onClick={() => void run()}
+            // Thread presence: ask first while a colleague writes a reply here (spec §5.5).
+            onClick={() => guard('merge', () => void run())}
             isLoading={busy}
             disabled={busy || !!notice || !survivor || others.length === 0}
           >

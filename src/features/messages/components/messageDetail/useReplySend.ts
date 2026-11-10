@@ -1,4 +1,4 @@
-import { useCallback, type MutableRefObject } from 'react';
+import { useCallback, useRef, useState, type MutableRefObject } from 'react';
 import { messageService, type ReplyAssignIntent } from '@/services/message.service';
 import type { organizationService } from '@/services/organization.service';
 import { forgetOwnSend, rememberOwnSend } from '@/lib/ownSends';
@@ -18,8 +18,11 @@ import {
   isRetryableSendFailure,
   resolveSendFailureMessage,
 } from '@/features/messages/components/sendErrorMessage';
+import { replyCollisionQuestion } from '@/lib/apiError';
 import { writeSendAction, type SendAction } from '../ComposerSendButton';
 import type { ResolveMode } from '../resolveMode';
+import { fileIdentity, keyForPayload } from './sendKey';
+import type { UnsentDraftSend } from '@/hooks/useUnsentDraft';
 import type { MessageDetailProps, Setter } from './types';
 import type { useComposerText } from './useComposerText';
 import type { useDetailDialogs } from './useDetailDialogs';
@@ -48,7 +51,10 @@ export function useReplySend({
   onResolve,
   onOptimisticMove,
   onRefresh,
+  beginDraftSend,
 }: {
+  /** The kept unsent text's send (useThreadUnsentDraft): settled whether or not the thread is open. */
+  beginDraftSend: () => UnsentDraftSend;
   message: Message;
   composerText: ReturnType<typeof useComposerText>;
   dialogs: ReturnType<typeof useDetailDialogs>;
@@ -82,25 +88,33 @@ export function useReplySend({
     setTemplatesLoading,
     setTemplates,
   } = replyState;
-  const { setNotesBump, setThreadRefreshKey, pullNewEvents } = thread;
+  const { setNotesBump, setThreadRefreshKey, pullNewEvents, threadMessages, threadEventsFor } =
+    thread;
+  /*
+    Thread presence send guard (spec §5.4): the newest event the agent has loaded rides on the
+    reply; none loaded — or the loaded ones belong to the thread shown before (a switch whose events
+    have not landed yet) — ⇒ omitted, the old-client path the server does not guard. Not filtered
+    by event.conversationId: a merged thread's events carry the absorbed threads' ids. A 409 saying
+    someone got there first opens a confirm (`collision`, the server's question verbatim) instead
+    of the Send failed bar.
+  */
+  const seenLastEventId =
+    threadMessages.length > 0 && threadEventsFor === message.id
+      ? threadMessages.reduce((max, event) => Math.max(max, event.id), threadMessages[0].id)
+      : undefined;
+  const [collision, setCollision] = useState<string | null>(null);
+  const collisionRef = useRef<string | null>(null);
+  const showCollision = useCallback((question: string | null) => {
+    collisionRef.current = question;
+    setCollision(question);
+  }, []);
   const performSend = useCallback(
-    async (assign?: ReplyAssignIntent) => {
+    async (assign?: ReplyAssignIntent, confirmOverride = false) => {
       setSubmitting(true);
       setSendFailedError(null);
       setSendFailureRetryable(false);
       lastAssignRef.current = assign;
       lastSendModeRef.current = composerMode;
-      // Notes aren't emails — no idempotency needed, and a note must not read, register or clear
-      // the reply's token: one kept from a failed reply has to survive the note so that reply's
-      // retry still dedups. For replies, reuse a prior failed attempt's token (retry) so the BE
-      // dedups; otherwise mint a fresh one for this logical send.
-      if (composerMode !== 'note' && !sendIdempotencyKeyRef.current) {
-        sendIdempotencyKeyRef.current = crypto.randomUUID();
-      }
-      const idempotencyKey =
-        composerMode === 'note' ? undefined : (sendIdempotencyKeyRef.current ?? undefined);
-      // Before the request: the `message:replied` echo can beat the HTTP answer.
-      if (idempotencyKey) rememberOwnSend(idempotencyKey);
       // Undefined unless the agent actually addressed this reply somewhere, which
       // the BE reads as "the requester and nobody else".
       const recipients = supportsRecipients ? draftToRecipients(recipientDraft) : undefined;
@@ -110,6 +124,38 @@ export function useReplySend({
       const after = afterSendRef.current;
       afterSendRef.current = { action: 'send' };
       const resolveInSend = composerMode !== 'note' && after.action === 'resolve_kb';
+      // Notes aren't emails — no idempotency needed, and a note must not read, register or clear
+      // the reply's token: one kept from a failed reply has to survive the note so that reply's
+      // retry still dedups. A reply reuses a failed attempt's token only when it delivers the SAME
+      // email — body, files, recipients (a retry, so the BE dedups); any other reply mints its own:
+      // with the old token the BE would answer with the earlier send and this one would never go
+      // out. The assign / resolve flags stay out: a send that landed despite the error re-reads the
+      // thread as assigned, so re-pressing Send carries no assign answer — and must still dedup.
+      const idempotencyKey =
+        composerMode === 'note'
+          ? undefined
+          : keyForPayload(
+              sendIdempotencyKeyRef,
+              JSON.stringify([
+                composer,
+                selectedFiles.map(fileIdentity),
+                recipients?.to ?? [],
+                recipients?.cc ?? [],
+                recipients?.bcc ?? [],
+              ])
+            );
+      // Not in the key's payload above: "Send anyway" is the same reply, so it keeps the key.
+      const guard =
+        seenLastEventId === undefined && !confirmOverride
+          ? undefined
+          : {
+              ...(seenLastEventId !== undefined && { seenLastEventId }),
+              ...(confirmOverride && { confirmOverride: true }),
+            };
+      // Before the request: the `message:replied` echo can beat the HTTP answer.
+      if (idempotencyKey) rememberOwnSend(idempotencyKey);
+      // After the key is minted: the kept copy rides with it while the send is out.
+      const draftSend = beginDraftSend();
       try {
         if (composerMode === 'note') {
           // The composer is the rich-text editor; a note is plain text (noteText.ts).
@@ -125,7 +171,8 @@ export function useReplySend({
             idempotencyKey,
             aiDraft ?? undefined,
             recipients,
-            assign
+            assign,
+            guard
           );
         } else {
           await messageService.reply(
@@ -138,11 +185,14 @@ export function useReplySend({
             aiDraft ?? undefined,
             undefined,
             recipients,
-            assign
+            assign,
+            guard
           );
         }
         // success — the next reply is a new logical send
         if (composerMode !== 'note') sendIdempotencyKeyRef.current = null;
+        // Out: never "unsent" again, even when the agent already left the thread.
+        draftSend.settle(true);
         writeComposer('');
         setAiSource(null);
         setAiDraft(null);
@@ -194,11 +244,19 @@ export function useReplySend({
         // The reply moved the conversation (Pending, an assignee, a resolve): the page re-reads it.
         if (composerMode !== 'note') onRefresh?.();
       } catch (err) {
+        draftSend.settle(false);
         // Keep the token so a retry of THIS send reuses it and the BE dedups the duplicate —
         // and its Send ▾ choice, so Retry resolves / holds as the agent asked.
         afterSendRef.current = after;
         // Should the server have delivered it after all, its echo must reload like anyone's.
         if (idempotencyKey) forgetOwnSend(idempotencyKey);
+        // Someone got there first: nothing was sent. The agent decides — Send anyway or Cancel
+        // (which re-reads the thread so the newer reply shows); not a send failure.
+        const question = composerMode === 'note' ? null : replyCollisionQuestion(err);
+        if (question !== null) {
+          showCollision(question);
+          return;
+        }
         // …and the echo may already have come and been skipped as ours: the server emits it before
         // it answers, so a reply delivered whose ANSWER was lost (a dropped connection, a 502 from
         // the proxy) would never show. Re-read as the echo would have.
@@ -228,9 +286,12 @@ export function useReplySend({
       onResolve,
       pullNewEvents,
       recipientDraft,
+      seenLastEventId,
+      showCollision,
       selectedFiles,
       supportsRecipients,
       writeComposer,
+      beginDraftSend,
       afterSendRef,
       lastAssignRef,
       lastSendModeRef,
@@ -247,6 +308,20 @@ export function useReplySend({
       setThreadRefreshKey,
     ]
   );
+
+  /** The confirm's "Send anyway": the same reply, its kept key, the override flag. */
+  const sendAnyway = useCallback(() => {
+    if (collisionRef.current === null) return;
+    showCollision(null);
+    void performSend(lastAssignRef.current, true);
+  }, [lastAssignRef, performSend, showCollision]);
+  /** Cancel (or the dialog closed): the draft stays as it was; the thread is read again. */
+  const cancelCollision = useCallback(() => {
+    if (collisionRef.current === null) return;
+    showCollision(null);
+    setThreadRefreshKey((key) => key + 1);
+    onRefresh?.();
+  }, [onRefresh, setThreadRefreshKey, showCollision]);
 
   const handleSend = useCallback(async () => {
     // Require real text — blocks Ctrl+Shift+Enter attachment-only sends the disabled
@@ -333,10 +408,14 @@ export function useReplySend({
     async (templateId: number, parameters: string[]) => {
       setSubmitting(true);
       setTemplateError(null);
-      // Same idempotency contract as a normal reply: reuse the token on a retry so a
-      // success-but-timeout cannot bill the tenant for a second template. Its own token, never
-      // the text reply's (templateIdempotencyKeyRef).
-      templateIdempotencyKeyRef.current ??= crypto.randomUUID();
+      // Same idempotency contract as a normal reply: reuse the token on a retry of the SAME
+      // template and parameters so a success-but-timeout cannot bill the tenant for a second one;
+      // another template or other parameters get their own. Never the text reply's token
+      // (templateIdempotencyKeyRef).
+      const idempotencyKey = keyForPayload(
+        templateIdempotencyKeyRef,
+        JSON.stringify([templateId, parameters])
+      );
       try {
         await messageService.reply(
           message.id,
@@ -344,7 +423,7 @@ export function useReplySend({
           false,
           false,
           undefined,
-          templateIdempotencyKeyRef.current,
+          idempotencyKey,
           undefined,
           { templateId, parameters }
         );
@@ -375,6 +454,9 @@ export function useReplySend({
   );
   return {
     performSend,
+    collision,
+    sendAnyway,
+    cancelCollision,
     handleSend,
     sendActions,
     handleSendWith,

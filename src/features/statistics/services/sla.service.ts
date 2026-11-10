@@ -10,7 +10,7 @@ export type SLASummary = {
   };
   tickets: {
     avgFirstResponse: number | null; // null when no first-response data yet
-    avgResolution: number | null;    // null when no resolved tickets yet
+    avgResolution: number | null; // null when no resolved tickets yet
     firstResponseBreaches24h: number;
     resolutionBreaches24h: number;
     complianceRate: number | null; // null when no tickets with first_response_at exist yet
@@ -132,7 +132,11 @@ export type SLABreachEvent = {
 };
 
 // SLA endpoints return the resource directly (no { success, data } envelope)
-const getSummary = async (params?: { days?: number; from?: string; to?: string }): Promise<SLASummary> => {
+const getSummary = async (params?: {
+  days?: number;
+  from?: string;
+  to?: string;
+}): Promise<SLASummary> => {
   const response = await apiClient.get<SLASummary>('/api/sla/summary', { params });
   return response.data;
 };
@@ -169,7 +173,41 @@ const getTrends = async (params?: {
   return response.data;
 };
 
+/**
+ * "Count SLA from" (backend 0230): SLA Performance counts customer waits that began at or after
+ * this instant. null = everything counts. Nothing is deleted by moving it.
+ */
+export type SlaStatsSince = {
+  since: string | null;
+  /** The workspace never chose: counting from when exact tracking began (the release). */
+  isDefault: boolean;
+};
+
+/** A backend without `isDefault` (before the follow-up) reads as an explicit choice. */
+const toStatsSince = (data: { since: string | null; isDefault?: boolean }): SlaStatsSince => ({
+  since: data.since,
+  isDefault: data.isDefault === true,
+});
+
+const getStatsSince = async (): Promise<SlaStatsSince> => {
+  const response = await apiClient.get<{ since: string | null; isDefault?: boolean }>(
+    '/api/sla/stats-since'
+  );
+  return toStatsSince(response.data);
+};
+
+/** Org admin: 'now' starts over; null counts all history; 'default' goes back to the release. */
+const setStatsSince = async (since: 'now' | 'default' | null): Promise<SlaStatsSince> => {
+  const response = await apiClient.put<{ since: string | null; isDefault?: boolean }>(
+    '/api/sla/stats-since',
+    { since }
+  );
+  return toStatsSince(response.data);
+};
+
 export const slaService = {
+  getStatsSince,
+  setStatsSince,
   getSummary,
   getStatistics,
   getBreaches,

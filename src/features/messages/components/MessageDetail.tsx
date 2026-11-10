@@ -28,6 +28,8 @@ import { holdsUnsentNote } from './messageDetail/detailConstants';
 import type { MessageDetailProps } from './messageDetail/types';
 import { useThreadEvents } from './messageDetail/useThreadEvents';
 import { useComposerText } from './messageDetail/useComposerText';
+import { useThreadUnsentDraft } from './messageDetail/useThreadUnsentDraft';
+import { useGuardedClassify } from './messageDetail/useGuardedClassify';
 import { useDetailDialogs } from './messageDetail/useDetailDialogs';
 import { useReplyComposerState } from './messageDetail/useReplyComposerState';
 import { useLiveThreadSync } from './messageDetail/useLiveThreadSync';
@@ -41,6 +43,13 @@ import { useReplySend } from './messageDetail/useReplySend';
 import { useConversationActions } from './messageDetail/useConversationActions';
 import { useNoteGuard } from './messageDetail/useNoteGuard';
 import { useGhostAnswer } from './messageDetail/useGhostAnswer';
+import { PresenceEye } from '../presence/PresenceEye';
+import { usePresenceWatch } from '../presence/usePresenceWatch';
+import { useWritingGuard } from '../presence/useWritingGuard';
+import { WritingGuardContext } from '../presence/writingGuardContext';
+import { useThreadActivity } from '../presence/useThreadActivity';
+import { ThreadActivityBanner } from '../presence/ThreadActivityBanner';
+import { useIsPhone } from '../hooks/useIsPhone';
 import { useThreadActions } from './messageDetail/useThreadActions';
 import { useThreadTimeline } from './messageDetail/useThreadTimeline';
 import { ThreadScroller } from './messageDetail/ThreadScroller';
@@ -102,6 +111,18 @@ export function MessageDetail({
     lastEditMode,
     writeComposer,
   } = composerText;
+  // Thread presence: who else is here, and this tab's own state (composer words + mode).
+  const presence = usePresenceWatch([message.id], {
+    composerText: composer,
+    composerMode,
+    lastAgentEditAt: composerText.lastAgentEditAt,
+  });
+  const presenceIsPhone = useIsPhone();
+  // Close / resolve / assign / move / merge / spam ask first while a colleague writes a reply
+  // (spec §5.5); what a colleague just did shows as one live banner (§5.3).
+  const writingGuard = useWritingGuard(presence.viewers);
+  const guard = writingGuard.confirmIfWriting;
+  const threadActivity = useThreadActivity(message.id);
   const dialogs = useDetailDialogs(message);
   const {
     submitting,
@@ -109,7 +130,6 @@ export function MessageDetail({
     setResolving,
     savingToKb,
     setReopenDialogOpen,
-    setResolveConfirmOpen,
     setNotCustomerWorkOpen,
     setPromoteToKbOpen,
     hasPermission,
@@ -260,6 +280,17 @@ export function MessageDetail({
   // the send path cannot honour.
   const supportsRecipients = message.channel === 'email';
   const [recipientDraft, setRecipientDraft] = useState<RecipientDraft>(emptyRecipientDraft);
+  // Unsent text survives a closed panel, a page change or a killed phone tab (this browser only).
+  const { restoredDraft, restoredFiles, discardRestoredDraft, beginDraftSend } =
+    useThreadUnsentDraft({
+      threadId: message.id,
+      composerText,
+      recipientDraft,
+      setRecipientDraft,
+      sendKeyRef: replyState.sendIdempotencyKeyRef,
+      sendFailedError,
+      fileCount: selectedFiles.length,
+    });
   // Merge labels on the timeline + everyone on the thread, for Reply all (owner, 2026-09-23).
   const mergeContext = useThreadMergeContext(
     message.id,
@@ -270,6 +301,7 @@ export function MessageDetail({
   participantsRef.current = mergeContext.participants;
 
   const send = useReplySend({
+    beginDraftSend,
     message,
     composerText,
     dialogs,
@@ -307,8 +339,9 @@ export function MessageDetail({
     onReadChanged,
     onClose,
     onRegisterRequestClose,
+    guard,
   });
-  const { handleToggleRead, handleRequestClose, openResolveDialog } = conv;
+  const { handleToggleRead, handleRequestClose, openResolveDialog, openResolveToKbDialog } = conv;
 
   // One context for the shortcuts AND the hint line, so the hint can only name keys that act.
   const shortcutContext: ShortcutContext = {
@@ -412,6 +445,9 @@ export function MessageDetail({
   });
   const { handleGhostClick } = ghost;
 
+  // Moving to spam asks first while a colleague writes a reply (§5.5).
+  const classify = useGuardedClassify(guard, onClassify);
+
   const threadActions = useThreadActions({
     message,
     user,
@@ -421,7 +457,7 @@ export function MessageDetail({
     setNoteActivityLog,
     onReject,
     onReopen,
-    onClassify,
+    onClassify: classify,
     onDelete,
     onRefresh,
   });
@@ -469,6 +505,7 @@ export function MessageDetail({
       notes={notes}
       onNoteUpdated={handleNoteUpdated}
       onNoteDeleted={handleNoteDeleted}
+      onNotesChanged={thread.onHoldReasonCleared}
       noteActivityLog={noteActivityLog}
       messageActivity={messageActivity}
       sortedThread={sortedThread}
@@ -508,11 +545,11 @@ export function MessageDetail({
       // dismissed through the reject dialog, an active one closes through the no-KB
       // confirm. Nothing new reaches the BE.
       onResolve={openResolveDialog}
-      onResolveToKb={() => setResolveConfirmOpen(true)}
+      onResolveToKb={openResolveToKbDialog}
       onNotCustomerWork={() => setNotCustomerWorkOpen(true)}
       // Owner, 2026-09-22: the agent resolving AS spam is the CONFIRMED layer.
       onResolveAsSpam={
-        onClassify ? () => void onClassify('move_to_spam', undefined, undefined, true) : undefined
+        classify ? () => void classify('move_to_spam', undefined, undefined, true) : undefined
       }
     />
   );
@@ -527,220 +564,241 @@ export function MessageDetail({
       unlike hidden — makes no scroll container, so sticking still works): an over-wide value must
       not widen the page. Inputs are 16px on phones so iOS does not zoom on focus.
     */
-    <div
-      ref={detailRootRef}
-      data-testid="message-detail-root"
-      style={
-        {
-          '--md-sticky-top': 'var(--mobile-header-h, 0px)',
-        } as React.CSSProperties
-      }
-      className={`flex h-full min-h-0 overflow-hidden ${twoColumn ? '' : 'flex-col'} max-sm:block max-sm:h-auto max-sm:overflow-visible max-sm:overflow-x-clip max-sm:[&_input]:text-base max-sm:[&_textarea]:text-base max-sm:[&_.ProseMirror]:text-base`}
-    >
-      <div className="flex overflow-hidden flex-col flex-1 min-w-0 min-h-0 max-sm:overflow-visible max-sm:overflow-x-clip max-sm:bg-card">
-        {/* Header */}
-        <MessageDetailHeader
-          message={message}
-          onClose={onClose ? handleRequestClose : undefined}
-          showFullPageButton={!!onClose && !fullPage}
-          isFullPage={fullPage}
-          threadCount={threadPage?.total ?? sortedThread.length}
-          onRefresh={handleRefresh}
-          labelsRefreshKey={labelsRefreshKey}
-          onContactChanged={handleContactChanged}
-          onDelete={onDelete ? handleDelete : undefined}
-          onApprove={onApprove}
-          onClassify={onClassify}
-          onOptimisticMove={onOptimisticMove}
-          showReadToggle={isTriage}
-          isRead={readState}
-          onToggleRead={handleToggleRead}
-          metaTarget={twoColumn ? sideMetaEl : undefined}
-          merges={mergeContext.merges}
-          onReloadMerges={mergeContext.reloadMerges}
-          onMergeChange={mergeContext.applyMergeChange}
-        />
-
-        {/* History banner */}
-        {showHistoryBanner && (
-          <div className="flex-shrink-0 px-4 py-1.5 text-[11px] text-warning bg-warning-muted border-b border-warning-line">
-            This thread starts with an outbound message — older history may be missing.
-          </div>
-        )}
-
-        {sendFailedError && (
-          <SendFailedBar
-            reason={sendFailedError}
-            // Only while the failed draft is still there to resend (a blank composer means the
-            // agent cleared it, or the async failure came after the send cleared it).
-            onRetry={
-              sendFailureRetryable &&
-              !isBlankRichText(composer) &&
-              composerMode === lastSendModeRef.current
-                ? () => void performSend(lastAssignRef.current)
-                : undefined
-            }
-            retrying={submitting}
-            onDismiss={() => setSendFailedError(null)}
-          />
-        )}
-
-        {/* State strip (v3): under the header, where the state it explains is shown. */}
-        <MessageActionStrip
-          message={message}
-          isFiltered={isFiltered}
-          isSuspicious={isSuspicious}
-          isSpamFlaggedOutsideTriage={isSpamFlaggedOutsideTriage}
-          isActive={isActive}
-          hasLinkedTicket={false}
-          onReopen={handleReopen}
-          onDelete={onDelete ? handleDelete : undefined}
-          onClassify={handleClassify}
-          // UX gate only — the BE re-validates (MANAGE_TICKETS on both endpoints). Offering an
-          // action that answers 403 is worse than not offering it.
-          onPromoteToKb={
-            hasPermission(Permission.MANAGE_TICKETS) ? () => setPromoteToKbOpen(true) : undefined
-          }
-          setReopenDialogOpen={setReopenDialogOpen}
-          onRefresh={handleRefresh}
-        />
-
-        {!twoColumn && panelTabs}
-
-        <ThreadScroller
-          thread={thread}
-          scrollPin={scrollPin}
-          timelineData={timelineData}
-          panelOpen={panelOpen}
-          twoColumn={twoColumn}
-          mergeContext={mergeContext}
-          supportsRecipients={supportsRecipients}
-          isActive={isActive}
-          handleReplyToMessage={handleReplyToMessage}
-          attachmentsByMessageId={attachmentsByMessageId}
-          handleOpenAttachment={handleOpenAttachment}
-          handleOpenInlineImage={handleOpenInlineImage}
-          aiLoading={aiLoading}
-          ghostVisible={ghostVisible}
-          ghostOption={ghostOption}
-          autoReply={autoReply}
-          composer={composer}
-          composerMode={composerMode}
-          message={message}
-          alternativeCount={alternativeCount}
-          handleGhostClick={handleGhostClick}
-          setTab={setTab}
-          setPanelOpen={setPanelOpen}
-        />
-
-        {/* Phone: the resolve row between the thread and the composer, Thread tab only (M6) — and,
-            as on desktop, only while the composer is on Reply: a note is not an answer. */}
-        {/* Hidden while a reply is typed, as on desktop: Send ▾ carries the resolve choices. */}
-        {isPhone &&
-          isActive &&
-          !panelOpen &&
-          composerMode === 'reply' &&
-          isBlankRichText(composer) &&
-          decisionsFor('phone')}
-
-        {/* Composer — shown for active conversations. On a phone, only under the Thread or Notes
-            tab (M7) — hidden, not unmounted, so a draft and its AI undo survive a tab visit. */}
-        {isActive && (
-          <MessageComposer
-            hidden={isPhone && panelOpen && tab !== 'notes'}
-            shortcutHint={shortcutHint(shortcutContext)}
+    <WritingGuardContext.Provider value={guard}>
+      <div
+        ref={detailRootRef}
+        data-testid="message-detail-root"
+        style={
+          {
+            '--md-sticky-top': 'var(--mobile-header-h, 0px)',
+          } as React.CSSProperties
+        }
+        className={`flex h-full min-h-0 overflow-hidden ${twoColumn ? '' : 'flex-col'} max-sm:block max-sm:h-auto max-sm:overflow-visible max-sm:overflow-x-clip max-sm:[&_input]:text-base max-sm:[&_textarea]:text-base max-sm:[&_.ProseMirror]:text-base`}
+      >
+        <div className="flex overflow-hidden flex-col flex-1 min-w-0 min-h-0 max-sm:overflow-visible max-sm:overflow-x-clip max-sm:bg-card">
+          {/* Header */}
+          <MessageDetailHeader
             message={message}
-            composer={composer}
-            setComposer={writeComposer}
-            composerMode={composerMode}
-            setComposerMode={setComposerMode}
-            submitting={submitting}
-            // Ctrl+Shift+Enter (and the folded box's round Send) is always a plain Send: a keystroke never
-            // resolves or saves to the KB — that takes the Send ▾ button, as resolving takes its
-            // dialog (openResolveDialog). Notes post as before.
-            onSend={() => (composerMode === 'reply' ? handleSendWith('send') : void handleSend())}
-            sendActions={sendActions}
-            // A NEW thread starts on plain Send whatever was remembered (owner, 2026-11-03): a habit
-            // click on "Send and resolve" must not close a first contact. The ▾ menu still offers it.
-            sendAction={resolveMode === 'unreviewed' ? 'send' : sendAction}
-            onSendWith={handleSendWith}
-            onSendPick={handleSendPick}
-            richEditorRef={richEditorRef}
-            noteEditorRef={noteEditorRef}
-            onOpenSimilarMessages={() => setSimilarOpen(true)}
-            onLookUp={lookupAvailable ? handleLookUp : null}
-            selectedFiles={selectedFiles}
-            onFilesChange={setSelectedFiles}
-            onAiSourceChange={handleAiSourceChange}
-            sendBlockedReason={
-              // Until the full record lands the reply block / WhatsApp window are unknown: Send
-              // waits (a tooltip, no banner — `info` tone) rather than guess they are open.
-              recordPending
-                ? 'Loading the conversation…'
-                : composerWindow.blocked
-                  ? composerWindow.notice
-                  : null
+            presence={
+              <PresenceEye
+                available={presence.available}
+                viewers={presence.viewers}
+                isPhone={presenceIsPhone}
+              />
             }
-            windowRemaining={recordPending ? undefined : composerWindow.remaining}
-            windowTone={recordPending ? 'info' : composerWindow.tone}
-            onUseTemplate={
-              // Offered only on a blocked WhatsApp conversation — that is the one state in
-              // which a billable template send is the right move rather than an expensive
-              // way to say something a free reply could have carried.
-              composerWindow.blocked && message.channel === 'whatsapp'
-                ? () => void handleOpenTemplates()
-                : null
-            }
-            decisions={
-              // Under the reply, where the answer is written (v3, 2026-09-23). Reply mode only: a
-              // note is not an answer, and a note's Post button must not sit beside Resolve.
-              // Phones render it above the composer instead (M6).
-              composerMode === 'reply' && !isPhone ? decisionsFor('inline') : null
-            }
-            // Hidden until the full record lands: the To line would show the requester where the
-            // customer's Reply-To belongs. The draft itself is kept.
-            recipientDraft={supportsRecipients && !recordPending ? recipientDraft : undefined}
-            onRecipientDraftChange={
-              supportsRecipients && !recordPending ? setRecipientDraft : undefined
-            }
-            participants={supportsRecipients ? mergeContext.participants : undefined}
+            onClose={onClose ? handleRequestClose : undefined}
+            showFullPageButton={!!onClose && !fullPage}
+            isFullPage={fullPage}
+            threadCount={threadPage?.total ?? sortedThread.length}
+            onRefresh={handleRefresh}
+            labelsRefreshKey={labelsRefreshKey}
+            onContactChanged={handleContactChanged}
+            onDelete={onDelete ? handleDelete : undefined}
+            onApprove={onApprove}
+            onClassify={classify}
+            onOptimisticMove={onOptimisticMove}
+            showReadToggle={isTriage}
+            isRead={readState}
+            onToggleRead={handleToggleRead}
+            metaTarget={twoColumn ? sideMetaEl : undefined}
+            merges={mergeContext.merges}
+            onReloadMerges={mergeContext.reloadMerges}
+            onMergeChange={mergeContext.applyMergeChange}
           />
-        )}
-      </div>
 
-      {/* v4: the sidebar grows with the window — 312px (the v3 width, and what 1024px leaves room
+          {/* History banner */}
+          {showHistoryBanner && (
+            <div className="flex-shrink-0 px-4 py-1.5 text-[11px] text-warning bg-warning-muted border-b border-warning-line">
+              This thread starts with an outbound message — older history may be missing.
+            </div>
+          )}
+
+          {sendFailedError && (
+            <SendFailedBar
+              reason={sendFailedError}
+              // Only while the failed draft is still there to resend (a blank composer means the
+              // agent cleared it, or the async failure came after the send cleared it).
+              onRetry={
+                sendFailureRetryable &&
+                !isBlankRichText(composer) &&
+                composerMode === lastSendModeRef.current
+                  ? () => void performSend(lastAssignRef.current)
+                  : undefined
+              }
+              retrying={submitting}
+              onDismiss={() => setSendFailedError(null)}
+            />
+          )}
+
+          {/* What a colleague just did here (thread presence). "view" re-reads the thread; the
+            draft stays. */}
+          <ThreadActivityBanner
+            activity={threadActivity.activity}
+            onView={handleRefresh}
+            onDismiss={threadActivity.dismiss}
+          />
+
+          {/* State strip (v3): under the header, where the state it explains is shown. */}
+          <MessageActionStrip
+            message={message}
+            isFiltered={isFiltered}
+            isSuspicious={isSuspicious}
+            isSpamFlaggedOutsideTriage={isSpamFlaggedOutsideTriage}
+            isActive={isActive}
+            hasLinkedTicket={false}
+            onReopen={handleReopen}
+            onDelete={onDelete ? handleDelete : undefined}
+            onClassify={handleClassify}
+            // UX gate only — the BE re-validates (MANAGE_TICKETS on both endpoints). Offering an
+            // action that answers 403 is worse than not offering it.
+            onPromoteToKb={
+              hasPermission(Permission.MANAGE_TICKETS) ? () => setPromoteToKbOpen(true) : undefined
+            }
+            setReopenDialogOpen={setReopenDialogOpen}
+            onRefresh={handleRefresh}
+          />
+
+          {!twoColumn && panelTabs}
+
+          <ThreadScroller
+            thread={thread}
+            scrollPin={scrollPin}
+            timelineData={timelineData}
+            panelOpen={panelOpen}
+            twoColumn={twoColumn}
+            mergeContext={mergeContext}
+            supportsRecipients={supportsRecipients}
+            isActive={isActive}
+            handleReplyToMessage={handleReplyToMessage}
+            attachmentsByMessageId={attachmentsByMessageId}
+            handleOpenAttachment={handleOpenAttachment}
+            handleOpenInlineImage={handleOpenInlineImage}
+            aiLoading={aiLoading}
+            ghostVisible={ghostVisible}
+            ghostOption={ghostOption}
+            autoReply={autoReply}
+            composer={composer}
+            composerMode={composerMode}
+            message={message}
+            alternativeCount={alternativeCount}
+            handleGhostClick={handleGhostClick}
+            setTab={setTab}
+            setPanelOpen={setPanelOpen}
+          />
+
+          {/* Phone: the resolve row between the thread and the composer, Thread tab only (M6) — and,
+            as on desktop, only while the composer is on Reply: a note is not an answer. */}
+          {/* Hidden while a reply is typed, as on desktop: Send ▾ carries the resolve choices. */}
+          {isPhone &&
+            isActive &&
+            !panelOpen &&
+            composerMode === 'reply' &&
+            isBlankRichText(composer) &&
+            decisionsFor('phone')}
+
+          {/* Composer — shown for active conversations. On a phone, only under the Thread or Notes
+            tab (M7) — hidden, not unmounted, so a draft and its AI undo survive a tab visit. */}
+          {isActive && (
+            <MessageComposer
+              hidden={isPhone && panelOpen && tab !== 'notes'}
+              shortcutHint={shortcutHint(shortcutContext)}
+              message={message}
+              composer={composer}
+              setComposer={writeComposer}
+              restoredDraft={restoredDraft}
+              restoredFiles={restoredFiles}
+              onDiscardRestoredDraft={discardRestoredDraft}
+              composerMode={composerMode}
+              setComposerMode={setComposerMode}
+              submitting={submitting}
+              // Ctrl+Shift+Enter (and the folded box's round Send) is always a plain Send: a keystroke never
+              // resolves or saves to the KB — that takes the Send ▾ button, as resolving takes its
+              // dialog (openResolveDialog). Notes post as before.
+              onSend={() => (composerMode === 'reply' ? handleSendWith('send') : void handleSend())}
+              sendActions={sendActions}
+              // A NEW thread starts on plain Send whatever was remembered (owner, 2026-11-03): a habit
+              // click on "Send and resolve" must not close a first contact. The ▾ menu still offers it.
+              sendAction={resolveMode === 'unreviewed' ? 'send' : sendAction}
+              onSendWith={handleSendWith}
+              onSendPick={handleSendPick}
+              richEditorRef={richEditorRef}
+              noteEditorRef={noteEditorRef}
+              onOpenSimilarMessages={() => setSimilarOpen(true)}
+              onLookUp={lookupAvailable ? handleLookUp : null}
+              selectedFiles={selectedFiles}
+              onFilesChange={setSelectedFiles}
+              onAiSourceChange={handleAiSourceChange}
+              sendBlockedReason={
+                // Until the full record lands the reply block / WhatsApp window are unknown: Send
+                // waits (a tooltip, no banner — `info` tone) rather than guess they are open.
+                recordPending
+                  ? 'Loading the conversation…'
+                  : composerWindow.blocked
+                    ? composerWindow.notice
+                    : null
+              }
+              windowRemaining={recordPending ? undefined : composerWindow.remaining}
+              windowTone={recordPending ? 'info' : composerWindow.tone}
+              onUseTemplate={
+                // Offered only on a blocked WhatsApp conversation — that is the one state in
+                // which a billable template send is the right move rather than an expensive
+                // way to say something a free reply could have carried.
+                composerWindow.blocked && message.channel === 'whatsapp'
+                  ? () => void handleOpenTemplates()
+                  : null
+              }
+              decisions={
+                // Under the reply, where the answer is written (v3, 2026-09-23). Reply mode only: a
+                // note is not an answer, and a note's Post button must not sit beside Resolve.
+                // Phones render it above the composer instead (M6).
+                composerMode === 'reply' && !isPhone ? decisionsFor('inline') : null
+              }
+              // Hidden until the full record lands: the To line would show the requester where the
+              // customer's Reply-To belongs. The draft itself is kept.
+              recipientDraft={supportsRecipients && !recordPending ? recipientDraft : undefined}
+              onRecipientDraftChange={
+                supportsRecipients && !recordPending ? setRecipientDraft : undefined
+              }
+              participants={supportsRecipients ? mergeContext.participants : undefined}
+            />
+          )}
+        </div>
+
+        {/* v4: the sidebar grows with the window — 312px (the v3 width, and what 1024px leaves room
           for) up to 520px, 30% of the VIEWPORT between (vw, so the sidebar tops out at 520px
           however wide the page is). */}
-      {twoColumn && (
-        <aside
-          data-testid="detail-sidebar"
-          className="flex flex-col flex-none w-[clamp(312px,30vw,520px)] min-h-0 border-l border-border bg-card"
-        >
-          <div ref={setSideMetaEl} className="flex-none" />
-          {panelTabs}
-        </aside>
-      )}
+        {twoColumn && (
+          <aside
+            data-testid="detail-sidebar"
+            className="flex flex-col flex-none w-[clamp(312px,30vw,520px)] min-h-0 border-l border-border bg-card"
+          >
+            <div ref={setSideMetaEl} className="flex-none" />
+            {panelTabs}
+          </aside>
+        )}
 
-      <MessageDetailOverlays
-        message={message}
-        dialogs={dialogs}
-        replyState={replyState}
-        send={send}
-        conv={conv}
-        ghost={ghost}
-        threadActions={threadActions}
-        assignPrompt={assignPrompt}
-        setAssignPrompt={setAssignPrompt}
-        onClose={onClose}
-        sendHoldOpen={sendHoldOpen}
-        setSendHoldOpen={setSendHoldOpen}
-        afterSendRef={afterSendRef}
-        similarOpen={similarOpen}
-        setSimilarOpen={setSimilarOpen}
-      />
+        <MessageDetailOverlays
+          message={message}
+          dialogs={dialogs}
+          replyState={replyState}
+          send={send}
+          conv={conv}
+          ghost={ghost}
+          threadActions={threadActions}
+          assignPrompt={assignPrompt}
+          setAssignPrompt={setAssignPrompt}
+          onClose={onClose}
+          sendHoldOpen={sendHoldOpen}
+          setSendHoldOpen={setSendHoldOpen}
+          afterSendRef={afterSendRef}
+          similarOpen={similarOpen}
+          setSimilarOpen={setSimilarOpen}
+        />
 
-      {/* The file viewer — over the thread, which stays mounted and where it was. */}
-      {threadFileViewer.viewer}
-    </div>
+        {/* The file viewer — over the thread, which stays mounted and where it was. */}
+        {threadFileViewer.viewer}
+        {writingGuard.dialog}
+      </div>
+    </WritingGuardContext.Provider>
   );
 }

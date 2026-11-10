@@ -131,7 +131,7 @@ export const Popover = ({
               width,
               visibility: pos ? 'visible' : 'hidden',
             }}
-            className="z-50 rounded-md border border-border bg-popover text-popover-foreground shadow-md"
+            className="z-[9999] rounded-md border border-border bg-popover text-popover-foreground shadow-md"
           >
             {children}
           </div>,

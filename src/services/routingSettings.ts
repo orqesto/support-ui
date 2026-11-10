@@ -87,17 +87,64 @@ export const ROUTING_SETTING_SPECS: Record<RoutingSettingField, RoutingSettingSp
 };
 
 export type RoutingSettings = Record<RoutingSettingField, ResolvedField<number>>;
+
+/**
+ * Skill routing text-pattern caps (BE 2026-11-09). They live in the same `routing` block of
+ * GET /settings and are saved through the same PATCH, but are read separately: a backend that
+ * predates them must not hide the seven proposal settings.
+ */
+export const SKILL_PATTERN_CAP_FIELDS = [
+  'skillPatternsPerValue',
+  'skillPatternsPerWorkspace',
+  'skillCustomPatternsPerWorkspace',
+] as const;
+export type SkillPatternCapField = (typeof SKILL_PATTERN_CAP_FIELDS)[number];
+
+export const SKILL_PATTERN_CAP_SPECS: Record<SkillPatternCapField, RoutingSettingSpec> = {
+  skillPatternsPerValue: {
+    label: 'Patterns per value',
+    help: 'How many text patterns (ready-made and own) one skill value may have.',
+    defaultValue: 10,
+    min: 1,
+    max: 50,
+    integer: true,
+  },
+  skillPatternsPerWorkspace: {
+    label: 'Patterns per workspace',
+    help: 'How many text patterns all values of a workspace may have together.',
+    defaultValue: 50,
+    min: 1,
+    max: 150,
+    integer: true,
+  },
+  skillCustomPatternsPerWorkspace: {
+    label: 'Own regular expressions per workspace',
+    help: 'How many of those may be the workspace admin’s own regular expressions. 0 allows ready-made patterns only.',
+    defaultValue: 20,
+    min: 0,
+    max: 50,
+    integer: true,
+  },
+};
+
+export type SkillPatternCaps = Record<SkillPatternCapField, ResolvedField<number>>;
+
 /** PATCH /settings/routing — any non-empty subset. */
-export type PlatformRoutingInput = Partial<Record<RoutingSettingField, number>>;
+export type PlatformRoutingInput = Partial<
+  Record<RoutingSettingField | SkillPatternCapField, number>
+>;
 
 const SOURCES: readonly FieldSource[] = ['db', 'env', 'default'];
 
-/** All seven numeric fields with a known source, or undefined (older backend) — never guessed. */
-export const normalizeRouting = (raw: unknown): RoutingSettings | undefined => {
+/** Every listed field as a number with a known source, or undefined — never guessed. */
+const readFields = <Field extends string>(
+  raw: unknown,
+  fields: readonly Field[]
+): Record<Field, ResolvedField<number>> | undefined => {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined;
   const record = raw as Record<string, unknown>;
-  const out: Partial<RoutingSettings> = {};
-  for (const name of ROUTING_SETTING_FIELDS) {
+  const out: Partial<Record<Field, ResolvedField<number>>> = {};
+  for (const name of fields) {
     const entry = record[name];
     if (typeof entry !== 'object' || entry === null) return undefined;
     const { value, source } = entry as { value?: unknown; source?: unknown };
@@ -107,15 +154,35 @@ export const normalizeRouting = (raw: unknown): RoutingSettings | undefined => {
       source: SOURCES.includes(source as FieldSource) ? (source as FieldSource) : 'default',
     };
   }
-  return out as RoutingSettings;
+  return out as Record<Field, ResolvedField<number>>;
 };
 
-/** Why `text` cannot be saved for `name`, or null when it can. */
-export const routingFieldError = (name: RoutingSettingField, text: string): string | null => {
-  const spec = ROUTING_SETTING_SPECS[name];
+/** All seven numeric fields with a known source, or undefined (older backend) — never guessed. */
+export const normalizeRouting = (raw: unknown): RoutingSettings | undefined =>
+  readFields(raw, ROUTING_SETTING_FIELDS);
+
+/** The three pattern caps from the same `routing` block, or undefined (backend before 2026-11-09). */
+export const normalizeSkillPatternCaps = (raw: unknown): SkillPatternCaps | undefined =>
+  readFields(raw, SKILL_PATTERN_CAP_FIELDS);
+
+/** The `routing` block's two halves, each present only when this backend reports all of it. */
+export const normalizeRoutingBlock = (
+  raw: unknown
+): { routing?: RoutingSettings; skillPatternCaps?: SkillPatternCaps } => {
+  const routing = normalizeRouting(raw);
+  const skillPatternCaps = normalizeSkillPatternCaps(raw);
+  return { ...(routing ? { routing } : {}), ...(skillPatternCaps ? { skillPatternCaps } : {}) };
+};
+
+/** Why `text` cannot be saved for `spec`, or null when it can. */
+export const specFieldError = (spec: RoutingSettingSpec, text: string): string | null => {
   const value = Number(text);
   if (text.trim() === '' || !Number.isFinite(value)) return 'Enter a number.';
   if (spec.integer && !Number.isInteger(value)) return 'Use a whole number.';
   if (value < spec.min || value > spec.max) return `Use ${spec.min} to ${spec.max}.`;
   return null;
 };
+
+/** Why `text` cannot be saved for `name`, or null when it can. */
+export const routingFieldError = (name: RoutingSettingField, text: string): string | null =>
+  specFieldError(ROUTING_SETTING_SPECS[name], text);

@@ -19,3 +19,4 @@ export {
 export { useIsPhone, useSafeMediaQuery } from './hooks/useIsPhone';
 export { useSharedLinkWorkspace } from './hooks/useSharedLinkWorkspace';
 export { useMessagesStore } from './stores/messagesStore';
+export { usePresenceReport } from './presence/usePresenceReport';

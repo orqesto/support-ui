@@ -58,7 +58,7 @@ export {
 } from './components/cancelCopy';
 export { isOverPlan } from './components/keepActive';
 export { describeUsagePeriod } from './components/usagePeriodCopy';
-export { useAiRefusalText, useIsWorkspaceAdmin } from './components/useAiRefusalText';
+export { useAiRefusalText } from './components/useAiRefusalText';
 export { useMessagePackReturn } from './components/useMessagePackReturn';
 export {
   useAllianceBudget,

@@ -1,4 +1,7 @@
-import { useState, useEffect, useRef, type FormEvent } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, type FormEvent } from 'react';
+import { useUnsentDraft } from '@/hooks/useUnsentDraft';
+import { toast } from '@/lib/toast';
+import { RestoredDraftNotice } from '@/components/shared/RestoredDraftNotice';
 import { useNavigate } from 'react-router-dom';
 import { Paperclip, Send, X } from 'lucide-react';
 import {
@@ -93,6 +96,60 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
     setAiBusy(false);
   }, [open]);
 
+  /*
+    Unsent mail survives a closed dialog or a page change (this browser only, useUnsentDraft).
+    Declared after the reset above: on open, the reset runs first and the restore lands on top.
+    The From mailbox comes back too — but only one the agent may still send from.
+  */
+  const restoredSourceRef = useRef<number | null>(null);
+  // Files are not kept: the notice asks for them again.
+  const [restoredFiles, setRestoredFiles] = useState(0);
+  const draftValue = useMemo(
+    () => ({ messageSourceId, to, cc, bcc, subject, content, files: files.length }),
+    [messageSourceId, to, cc, bcc, subject, content, files.length]
+  );
+  const draftBlank =
+    !to.trim() && !cc.trim() && !bcc.trim() && !subject.trim() && isBlankRichText(content);
+  const restoreDraft = useCallback(
+    (data: Partial<typeof draftValue>) => {
+      setTo(typeof data.to === 'string' ? data.to : '');
+      setCc(typeof data.cc === 'string' ? data.cc : '');
+      setBcc(typeof data.bcc === 'string' ? data.bcc : '');
+      setShowCcBcc(Boolean(data.cc || data.bcc));
+      setSubject(typeof data.subject === 'string' ? data.subject : '');
+      setContent(typeof data.content === 'string' ? data.content : '');
+      setRestoredFiles(typeof data.files === 'number' ? data.files : 0);
+      const sourceId = typeof data.messageSourceId === 'number' ? data.messageSourceId : null;
+      restoredSourceRef.current = sourceId;
+      if (sourceId !== null && sources.some((src) => src.id === sourceId))
+        setMessageSourceId(sourceId);
+    },
+    [sources]
+  );
+  const unsentDraft = useUnsentDraft({
+    scope: open ? 'compose-new' : null,
+    value: draftValue,
+    isBlank: draftBlank,
+    restore: restoreDraft,
+    onSentElsewhere: () => {
+      clearFields();
+      toast.info('This message was sent from another tab.');
+    },
+  });
+  function clearFields() {
+    restoredSourceRef.current = null;
+    setTo('');
+    setCc('');
+    setBcc('');
+    setShowCcBcc(false);
+    setSubject('');
+    setContent('');
+  }
+  const discardDraft = () => {
+    unsentDraft.clearDraft();
+    clearFields();
+  };
+
   // Lazy-load sources on open. Cached at the component level — re-opens within
   // the same session reuse the previously fetched list.
   //
@@ -118,7 +175,9 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
     load()
       .then((loaded) => {
         setSources(loaded);
-        if (loaded[0]) setMessageSourceId(loaded[0].id);
+        const restoredSource = loaded.find((src) => src.id === restoredSourceRef.current);
+        if (restoredSource) setMessageSourceId(restoredSource.id);
+        else if (loaded[0]) setMessageSourceId(loaded[0].id);
       })
       .catch((err: unknown) => {
         logger.error('[ComposeNewModal] failed to load sources', err);
@@ -165,6 +224,9 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
     }
 
     setSubmitting(true);
+    // No idempotency key on a new mail: the kept copy is held off while it is out, so a send that
+    // lands after the dialog closed can never come back as "unsent" and go out twice.
+    const draftSend = unsentDraft.beginSend();
     try {
       const response = await messageService.composeNew({
         messageSourceId,
@@ -177,6 +239,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
       });
 
       if (response.success && response.data) {
+        draftSend.settle(true);
         logger.info('[ComposeNewModal] sent', {
           conversationId: response.data.conversationId,
         });
@@ -185,9 +248,11 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
         // verify and follow up.
         navigate(`/threads?messageId=${response.data.conversationId}`);
       } else {
+        draftSend.settle(false);
         setError(response.error ?? response.message ?? 'Failed to send');
       }
     } catch (err) {
+      draftSend.settle(false);
       logger.error('[ComposeNewModal] send failed', err);
       const message = err instanceof Error && err.message ? err.message : 'Failed to send message';
       setError(message);
@@ -212,6 +277,13 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
           form of labelled inputs with a button footer that wrapped and jumped.
         */}
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-2">
+          {unsentDraft.restored && (
+            <RestoredDraftNotice
+              label="Restored your unsent message"
+              fileCount={restoredFiles}
+              onDiscard={discardDraft}
+            />
+          )}
           <div
             data-testid="compose-field"
             className="relative rounded-[10px] border border-border bg-raised transition-[border-color,box-shadow] focus-within:border-primary focus-within:ring-[3px] focus-within:ring-primary-muted"

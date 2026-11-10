@@ -83,6 +83,9 @@ vi.mock('@/services/platformSettings.service', async (orig) => {
 vi.mock('@/components/console/platformDefaults/ManagedAiDefaultsCard', () => ({
   ManagedAiDefaultsCard: () => null,
 }));
+vi.mock('@/components/console/platformDefaults/SkillPatternsCard', () => ({
+  SkillPatternsCard: () => null,
+}));
 vi.mock('@/components/console/platformDefaults/DefaultStorageCard', () => ({
   DefaultStorageCard: () => null,
 }));

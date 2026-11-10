@@ -52,6 +52,11 @@ export type TicketThread = {
   parkedUntil: string | null;
   /** A reply from this ticket reached the thread — it can no longer be removed from the ticket. */
   receivedUpdate: boolean;
+  /**
+   * The thread's newest event id when the list was read (thread presence send guard, spec §5.4).
+   * Null: no events, or a backend that predates the field.
+   */
+  lastEventId: number | null;
 };
 
 /** What a status action did to each thread (resolve / reopen). */
@@ -70,6 +75,7 @@ export const toTicketThread = (raw: TicketThread): TicketThread => ({
   parkedReason: str(raw.parkedReason),
   parkedUntil: str(raw.parkedUntil),
   receivedUpdate: raw.receivedUpdate === true,
+  lastEventId: typeof raw.lastEventId === 'number' ? raw.lastEventId : null,
 });
 
 /** A list the caller may see only part of: `hiddenCount` rows are in departments they cannot open. */

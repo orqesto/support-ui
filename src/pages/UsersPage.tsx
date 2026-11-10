@@ -33,6 +33,8 @@ import {
   invitationService,
   InviteUserModal,
   UserSkillsModal,
+  MemberSkillChips,
+  useWorkspaceSkills,
   useUsersStore,
 } from '@/features/settings';
 import { userService } from '@/services/user.service';
@@ -66,6 +68,8 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
     user: null,
   });
   const [skillsUser, setSkillsUser] = useState<User | null>(null);
+  // Every member's skills in one read, shown in the list (owner 2026-11-09).
+  const { skills: workspaceSkills, skillsOf, refresh: refreshSkills } = useWorkspaceSkills();
 
   // Alert dialog state
   const [alertDialog, setAlertDialog] = useState<{
@@ -410,15 +414,10 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       id: 'skills',
       header: 'Skills',
       cell: (user) => (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setSkillsUser(user)}
-          title="Manage skills"
-          aria-label="Manage skills"
-        >
-          <Tag className="w-4 h-4" />
-        </Button>
+        <MemberSkillChips
+          skills={skillsOf(user.id)}
+          onEdit={canManageSkills ? () => setSkillsUser(user) : undefined}
+        />
       ),
     },
   ];
@@ -498,6 +497,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
                 {user.firstName} {user.lastName}
               </h3>
               <p className="font-mono text-sm truncate text-muted-foreground">{user.email}</p>
+              <div className="mt-1">
+                <MemberSkillChips skills={skillsOf(user.id)} />
+              </div>
             </div>
             <div className="flex gap-2">
               {canManageUser(user) && (
@@ -666,7 +668,11 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
                 columns={columns.filter(
                   (column) =>
                     (teamsEnabled || column.id !== 'departments') &&
-                    (canManageSkills || column.id !== 'skills')
+                    // Everyone who sees the list sees who holds what; only managers get the
+                    // edit button (an older backend without the skills read: managers only).
+                    (canManageSkills ||
+                      (workspaceSkills !== null && workspaceSkills !== undefined) ||
+                      column.id !== 'skills')
                 )}
                 actions={rowActions}
                 renderCard={renderUserCard}
@@ -724,7 +730,10 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       {/* User Skills Modal */}
       <UserSkillsModal
         isOpen={canManageSkills && skillsUser !== null}
-        onClose={() => setSkillsUser(null)}
+        onClose={() => {
+          setSkillsUser(null);
+          refreshSkills();
+        }}
         user={skillsUser}
       />
 

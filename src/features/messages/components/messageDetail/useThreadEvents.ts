@@ -11,6 +11,7 @@ import {
   unseenEvents,
 } from '../threadNewEvents';
 import { threadTimeOf } from '../threadDays';
+import { useHoldReasonClearedRefresh } from '../../hooks/useHoldReasonClearedRefresh';
 import { THREAD_PAGE } from './detailConstants';
 import type { MessageDetailProps } from './types';
 
@@ -22,6 +23,11 @@ export function useThreadEvents(
   onStatusChanged: MessageDetailProps['onStatusChanged']
 ) {
   const [threadMessages, setThreadMessages] = useState<MessageEvent[]>([]);
+  /**
+    The conversation `threadMessages` were loaded FOR (null: nothing loaded yet). Lags `message.id`
+    after a switch until the new events land — the send guard must not use the old thread's.
+  */
+  const [threadEventsFor, setThreadEventsFor] = useState<number | null>(null);
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadError, setThreadError] = useState<string | null>(null);
   const [threadRefreshKey, setThreadRefreshKey] = useState(0);
@@ -51,6 +57,7 @@ export function useThreadEvents(
         const rows = res.data ?? [];
         threadSize.current = { id: message.id, loaded: rows.length };
         setThreadMessages(rows);
+        setThreadEventsFor(message.id);
         // Normalised again here: a caller that stands in for the service hands back a bare
         // envelope, and the window must still know what it holds.
         setThreadPage(normaliseThreadPage(res.page, rows));
@@ -107,6 +114,22 @@ export function useThreadEvents(
   const [participantsBump, setParticipantsBump] = useState(0);
   // Our own note: only the notes change (a note writes no activity — its audit row is the note's).
   const [notesBump, setNotesBump] = useState(0);
+  /*
+    An admin cleared a hold reason: it shows in the notes, the Activity tab and the header chip.
+    Cleared HERE (onHoldReasonCleared): all three are re-read — the header by the light re-read of
+    THIS conversation (rereadHeaderRef). Cleared anywhere (`conversation:updated`, reason
+    `hold_reason_cleared`): the notes and Activity; the header already re-reads on every
+    `conversation:updated` (useConversationStatusRefresh). Stable identities.
+  */
+  const rereadHoldPanels = useCallback(() => {
+    setNotesBump((key) => key + 1);
+    setActivityBump((key) => key + 1);
+  }, []);
+  const onHoldReasonCleared = useCallback(() => {
+    rereadHoldPanels();
+    rereadHeaderRef.current?.();
+  }, [rereadHoldPanels]);
+  useHoldReasonClearedRefresh(message.id, rereadHoldPanels);
   const threadMessagesRef = useRef(threadMessages);
   threadMessagesRef.current = threadMessages;
   const participantsRef = useRef<string[]>([]);
@@ -139,6 +162,7 @@ export function useThreadEvents(
           if (!res.newEvents.incremental) {
             threadSize.current = { id: forId, loaded: res.data.length };
             setThreadMessages(res.data);
+            setThreadEventsFor(forId);
             setThreadPage(res.page);
             setPanelsBump((key) => key + 1);
             setAttachmentsBump((key) => key + 1);
@@ -203,6 +227,7 @@ export function useThreadEvents(
   // only ever sit between days, in order.
   return {
     threadMessages,
+    threadEventsFor,
     threadLoading,
     threadError,
     threadRefreshKey,
@@ -218,6 +243,7 @@ export function useThreadEvents(
     participantsBump,
     notesBump,
     setNotesBump,
+    onHoldReasonCleared,
     participantsRef,
     pullNewEvents,
     pullNewEventsRef,
