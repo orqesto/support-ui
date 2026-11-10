@@ -4,7 +4,7 @@
  * days ending now" beside message figures for 3–9 Aug. Every SLA request carries the range.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, cleanup, waitFor } from '@testing-library/react';
+import { render, cleanup, waitFor, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -19,8 +19,11 @@ vi.mock('@/features/statistics/services/sla.service', () => ({
     getStatistics: record,
     getBreaches: record,
     getTrends: record,
+    // Not a period-carrying request: kept out of `calls`.
+    getStatsSince: () => Promise.resolve({ since: null, isDefault: false }),
   },
 }));
+vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => ({ isOrgAdmin: true }) }));
 
 const { PerformanceTab } = await import('../PerformanceTab');
 
@@ -53,5 +56,26 @@ describe('PerformanceTab', () => {
       expect(params).toMatchObject({ from: new Date(2026, 7, 3).toISOString() });
       expect(params).not.toHaveProperty('days');
     }
+  });
+
+  it('shows the SLA "Start over" control (it used to live only on the old /sla page)', async () => {
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient()}>
+          <PerformanceTab
+            days={30}
+            msgStats={null}
+            msgLoading
+            labelStats={null}
+            labelLoading
+            speedData={null}
+            speedLoading
+            speedDays={30}
+          />
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+    expect(await screen.findByText('Counting all history')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Start over from now' })).toBeTruthy();
   });
 });

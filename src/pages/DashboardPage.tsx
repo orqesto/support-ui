@@ -26,6 +26,7 @@ import { useCoalescedRefresh } from '@/hooks/useCoalescedRefresh';
 import { documentationService, kbService } from '@/features/kb/shell';
 import { messageService } from '@/services/message.service';
 import { SLA_DEFAULT_DAYS, slaService } from '@/features/statistics';
+import { slaPerformancePath } from '@/lib/slaPerformancePath';
 import { fetchTicketViewCounts, ticketService } from '@/features/tickets/shell';
 import { useMessagesStore } from '@/features/messages/shell';
 import { logger } from '@/lib/logger';
@@ -580,10 +581,16 @@ export const DashboardPage = () => {
       // was already written and `isClickable: false` kept it from ever being attached
       // (`DashboardStatCards` does `onClick={card.isClickable ? card.onClick : undefined}`).
       //
-      // The window travels with the link. `/sla` otherwise opens on its own default, and a
+      // The window travels with the link (to Statistics → Performance). The page otherwise opens on its own default, and a
       // drill-down that lands on a different period than the number it came from is worse
       // than no drill-down — two figures that disagree and nothing saying why.
-      onClick: () => navigate(`/sla?days=${stats.avgFirstResponsePeriodDays ?? SLA_DEFAULT_DAYS}`),
+      onClick: () =>
+        navigate(
+          slaPerformancePath(
+            `?days=${stats.avgFirstResponsePeriodDays ?? SLA_DEFAULT_DAYS}`,
+            SLA_DEFAULT_DAYS
+          )
+        ),
       isClickable: stats.avgFirstResponseMins !== null,
     },
     {

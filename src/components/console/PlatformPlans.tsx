@@ -46,7 +46,7 @@ import {
 } from './limitFields';
 
 /**
- * Platform console → plan catalog manager. Unlike the org-scoped AdminPlansTab this is a
+ * Platform console → plan catalog manager (replaced the old org-scoped admin Plans tab). This is a
  * cross-org, platform-level view: it lists EVERY plan (incl. inactive) from
  * `GET /api/admin/plans`, shows adoption from `GET /api/admin/plans/stats`, and edits the
  * catalog via `PATCH /api/admin/plans/:id{,/toggle}`. All three authorize on the global-admin

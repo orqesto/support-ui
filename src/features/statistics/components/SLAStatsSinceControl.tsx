@@ -12,7 +12,7 @@ const formatSince = (iso: string): string =>
   new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 /**
- * "Start over" for SLA Performance (owner 2026-11-09): every figure on the page counts from this
+ * "Start over" for SLA Performance (owner 2026-11-09): every SLA figure counts from this
  * moment. Nothing is deleted — "Count everything" brings the history back. Everyone sees the date;
  * only an org admin can move it.
  */
@@ -91,7 +91,7 @@ export const SLAStatsSinceControl = () => {
         open={confirming}
         onOpenChange={setConfirming}
         title="Start SLA Performance over?"
-        description="Every figure on this page will count only customer waits from this moment on. Nothing is deleted: “Count everything” brings the earlier history back."
+        description="Every SLA figure (on Statistics and the Dashboard) will count only customer waits from this moment on. Message, Speed to Lead and label figures are not affected. Nothing is deleted: “Count everything” brings the earlier history back."
         confirmText="Start over"
         onConfirm={() => {
           setConfirming(false);

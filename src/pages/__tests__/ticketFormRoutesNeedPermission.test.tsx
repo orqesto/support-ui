@@ -1,6 +1,6 @@
 /**
  * WIRING (bug 2026-11-06, same class as Settings): the New ticket button is hidden without
- * create_tickets, but /tickets/create and /tickets/edit/:id were reachable by URL for any member —
+ * create_tickets, but /tickets/create (and the old /tickets/edit/:id, now a redirect to the ticket) were reachable by URL for any member —
  * an Associate got the form and a 403 on save. The REAL route table now gates both pages on the
  * permission their save needs.
  */
@@ -11,7 +11,6 @@ import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types';
 
 vi.mock('@/pages/CreateTicketPage', () => ({ CreateTicketPage: () => <p>create ticket page</p> }));
-vi.mock('@/pages/EditTicketPage', () => ({ EditTicketPage: () => <p>edit ticket page</p> }));
 vi.mock('@/pages/DashboardPage', () => ({
   DashboardPage: () => <p>dashboard page</p>,
   default: () => <p>dashboard page</p>,
@@ -37,7 +36,6 @@ afterEach(() => {
 describe('ticket form routes', () => {
   it.each([
     ['/tickets/create', 'create ticket page'],
-    ['/tickets/edit/7', 'edit ticket page'],
   ])('an associate opening %s by URL lands on the dashboard', async (path, page) => {
     signInAs('associate');
     at(path);
@@ -48,7 +46,6 @@ describe('ticket form routes', () => {
 
   it.each([
     ['/tickets/create', 'create ticket page'],
-    ['/tickets/edit/7', 'edit ticket page'],
   ])('CONTROL: a support agent opens %s', async (path, page) => {
     signInAs('support');
     at(path);

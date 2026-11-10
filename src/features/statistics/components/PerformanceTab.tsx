@@ -4,6 +4,7 @@ import { SLAByChannelChart } from '@/features/statistics/components/SLAByChannel
 import { SLAByPriorityTable } from '@/features/statistics/components/SLAByPriorityTable';
 import { SLATrendChart } from '@/features/statistics/components/SLATrendChart';
 import { SLABreachList } from '@/features/statistics/components/SLABreachList';
+import { SLAStatsSinceControl } from '@/features/statistics/components/SLAStatsSinceControl';
 import type { ReportPeriod } from '@/lib/reportPeriod';
 import { StatisticsMessagesTab } from '@/features/statistics/components/StatisticsMessagesTab';
 import { SpeedToLeadTab } from '@/features/statistics/components/SpeedToLeadTab';
@@ -76,6 +77,14 @@ export function PerformanceTab({
         <h2 className="font-display flex items-center gap-2 text-lg font-semibold">
           <Clock className="w-5 h-5 text-muted-foreground" />SLA
         </h2>
+        <div className="-mt-4 space-y-1">
+          <p className="text-sm text-muted-foreground">
+            Each time a customer waits for a person: from their first unanswered message until
+            someone on the team replies
+          </p>
+          {/* Start over / Count everything / Back to default — lived only on the old /sla page. */}
+          <SLAStatsSinceControl />
+        </div>
         <SLAOverviewCards days={days} period={period} />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SLAByChannelChart days={days} period={period} />
