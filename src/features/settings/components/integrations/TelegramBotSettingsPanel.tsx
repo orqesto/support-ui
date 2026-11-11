@@ -16,6 +16,22 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import type { AlertState } from '@/types/alert';
 
 /**
+ * A command row as edited: a stable id (React key, the new-language box) and whether it is one of
+ * the four built-ins — fixed when the row is created, never read from the name being typed (review
+ * of #912: typing "cancel_order" passed through "cancel" and locked the row).
+ */
+type Row = TelegramBotCommand & { uid: number; builtIn: boolean };
+let nextUid = 0;
+const toRows = (commands: TelegramBotCommand[]): Row[] =>
+  commands.map((entry) => ({
+    ...entry,
+    uid: (nextUid += 1),
+    builtIn: BUILT_IN_COMMANDS.includes(entry.command),
+  }));
+const toCommands = (rows: Row[]): TelegramBotCommand[] =>
+  rows.map(({ uid: _uid, builtIn: _builtIn, ...entry }) => entry);
+
+/**
  * A Telegram connection's bot: its menu commands with a reply per language, and how long a chat
  * must be quiet before the bot answers a chat it handed to a person (owner, 2026-11-10). Saving
  * also sets the bot's menu in Telegram.
@@ -29,7 +45,8 @@ export const TelegramBotSettingsPanel = ({
   onClose: () => void;
   onShowAlert: (alert: AlertState) => void;
 }) => {
-  const [settings, setSettings] = useState<TelegramBotSettings | null>(null);
+  const [quietHours, setQuietHours] = useState<number | null>(null);
+  const [rows, setRows] = useState<Row[] | null>(null);
   const [consoleQuiet, setConsoleQuiet] = useState<ConsoleQuietHours | null>(null);
   const [maxCommands, setMaxCommands] = useState(30);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -42,7 +59,8 @@ export const TelegramBotSettingsPanel = ({
       .get(integrationId)
       .then((data) => {
         if (!active) return;
-        setSettings(data.settings);
+        setQuietHours(data.settings.quietHours);
+        setRows(toRows(data.settings.commands));
         setConsoleQuiet(data.consoleQuietHours);
         if (data.maxCommands) setMaxCommands(data.maxCommands);
       })
@@ -62,38 +80,37 @@ export const TelegramBotSettingsPanel = ({
       </div>
     );
   }
-  if (!settings) {
+  if (!rows) {
     return <div className="p-3 mt-2 text-sm text-muted-foreground">Loading bot settings…</div>;
   }
 
-  const updateCommand = (index: number, patch: Partial<TelegramBotCommand>) =>
-    setSettings({
-      ...settings,
-      commands: settings.commands.map((entry, at) =>
-        at === index ? { ...entry, ...patch } : entry
-      ),
-    });
-  const removeCommand = (index: number) =>
-    setSettings({ ...settings, commands: settings.commands.filter((_, at) => at !== index) });
-  const addCommand = () =>
-    setSettings({
-      ...settings,
-      commands: [
-        ...settings.commands,
-        { command: '', enabled: true, description: '', replies: { en: '' } },
-      ],
-    });
-  const setReply = (index: number, language: string, text: string) =>
-    updateCommand(index, { replies: { ...settings.commands[index].replies, [language]: text } });
-  const removeReply = (index: number, language: string) => {
-    const { [language]: _removed, ...rest } = settings.commands[index].replies;
-    updateCommand(index, { replies: rest });
+  const settings: TelegramBotSettings = { quietHours, commands: toCommands(rows) };
+  const updateRow = (uid: number, patch: Partial<TelegramBotCommand>) =>
+    setRows(rows.map((row) => (row.uid === uid ? { ...row, ...patch } : row)));
+  const removeRow = (uid: number) => setRows(rows.filter((row) => row.uid !== uid));
+  const addRow = () =>
+    setRows([
+      ...rows,
+      {
+        command: '',
+        enabled: true,
+        description: '',
+        replies: { en: '' },
+        uid: (nextUid += 1),
+        builtIn: false,
+      },
+    ]);
+  const setReply = (row: Row, language: string, text: string) =>
+    updateRow(row.uid, { replies: { ...row.replies, [language]: text } });
+  const removeReply = (row: Row, language: string) => {
+    const { [language]: _removed, ...rest } = row.replies;
+    updateRow(row.uid, { replies: rest });
   };
-  const addReply = (index: number) => {
-    const code = (newLanguage[index] ?? '').trim().toLowerCase();
-    if (!/^[a-z]{2}$/.test(code) || code in settings.commands[index].replies) return;
-    setReply(index, code, '');
-    setNewLanguage({ ...newLanguage, [index]: '' });
+  const addReply = (row: Row) => {
+    const code = (newLanguage[row.uid] ?? '').trim().toLowerCase();
+    if (!/^[a-z]{2}$/.test(code) || code in row.replies) return;
+    setReply(row, code, '');
+    setNewLanguage({ ...newLanguage, [row.uid]: '' });
   };
 
   const problem = botSettingsProblem(settings, maxCommands);
@@ -103,7 +120,8 @@ export const TelegramBotSettingsPanel = ({
     setSaving(true);
     try {
       const saved = await telegramBotSettingsService.save(integrationId, settings);
-      setSettings(saved.settings);
+      setQuietHours(saved.settings.quietHours);
+      setRows(toRows(saved.settings.commands));
       onShowAlert({
         open: true,
         title: 'Bot settings saved',
@@ -139,13 +157,10 @@ export const TelegramBotSettingsPanel = ({
           type="number"
           min={1}
           max={720}
-          value={settings.quietHours ?? ''}
+          value={quietHours ?? ''}
           placeholder={consoleQuiet ? `Console default: ${consoleQuiet.value}` : ''}
           onChange={(event) =>
-            setSettings({
-              ...settings,
-              quietHours: event.target.value === '' ? null : Number(event.target.value),
-            })
+            setQuietHours(event.target.value === '' ? null : Number(event.target.value))
           }
         />
         <p className="text-xs text-muted-foreground">
@@ -155,13 +170,10 @@ export const TelegramBotSettingsPanel = ({
         </p>
       </div>
 
-      {settings.commands.map((entry, index) => {
-        const builtIn = BUILT_IN_COMMANDS.includes(entry.command);
+      {rows.map((entry) => {
+        const { builtIn } = entry;
         return (
-          <div
-            key={builtIn ? entry.command : `custom-${index}`}
-            className="p-3 space-y-2 rounded border"
-          >
+          <div key={entry.uid} className="p-3 space-y-2 rounded border">
             <div className="flex flex-wrap gap-2 justify-between items-center">
               {builtIn ? (
                 <span className="font-mono text-sm">/{entry.command}</span>
@@ -171,7 +183,7 @@ export const TelegramBotSettingsPanel = ({
                   value={entry.command}
                   placeholder="shipping"
                   onChange={(event) =>
-                    updateCommand(index, {
+                    updateRow(entry.uid, {
                       command: event.target.value.replace(/^\//, '').toLowerCase(),
                     })
                   }
@@ -180,7 +192,7 @@ export const TelegramBotSettingsPanel = ({
               <div className="flex gap-2 items-center">
                 <Toggle
                   checked={entry.enabled}
-                  onChange={(enabled) => updateCommand(index, { enabled })}
+                  onChange={(enabled) => updateRow(entry.uid, { enabled })}
                   label={entry.enabled ? 'On' : 'Off'}
                   ariaLabel={`/${entry.command || 'command'} on`}
                 />
@@ -188,7 +200,7 @@ export const TelegramBotSettingsPanel = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => removeCommand(index)}
+                    onClick={() => removeRow(entry.uid)}
                     aria-label={`Remove /${entry.command || 'command'}`}
                   >
                     <Trash2 className="w-4 h-4 text-destructive" />
@@ -206,7 +218,7 @@ export const TelegramBotSettingsPanel = ({
             <Input
               label="Menu text"
               value={entry.description}
-              onChange={(event) => updateCommand(index, { description: event.target.value })}
+              onChange={(event) => updateRow(entry.uid, { description: event.target.value })}
             />
             {Object.entries(entry.replies).map(([language, text]) => (
               <div key={language} className="flex gap-2 items-start">
@@ -215,13 +227,13 @@ export const TelegramBotSettingsPanel = ({
                   aria-label={`Reply in ${language}`}
                   rows={2}
                   value={text}
-                  onChange={(event) => setReply(index, language, event.target.value)}
+                  onChange={(event) => setReply(entry, language, event.target.value)}
                   className="flex-1"
                 />
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => removeReply(index, language)}
+                  onClick={() => removeReply(entry, language)}
                   aria-label={`Remove the ${language} reply`}
                 >
                   <X className="w-4 h-4" />
@@ -233,12 +245,12 @@ export const TelegramBotSettingsPanel = ({
                 aria-label="New reply language"
                 placeholder="de"
                 maxLength={2}
-                value={newLanguage[index] ?? ''}
+                value={newLanguage[entry.uid] ?? ''}
                 onChange={(event) =>
-                  setNewLanguage({ ...newLanguage, [index]: event.target.value })
+                  setNewLanguage({ ...newLanguage, [entry.uid]: event.target.value })
                 }
               />
-              <Button variant="outline" size="sm" onClick={() => addReply(index)}>
+              <Button variant="outline" size="sm" onClick={() => addReply(entry)}>
                 <Plus className="w-4 h-4" />
                 Language
               </Button>
@@ -248,12 +260,7 @@ export const TelegramBotSettingsPanel = ({
       })}
 
       <div className="flex flex-wrap gap-2 justify-between items-center">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={addCommand}
-          disabled={settings.commands.length >= maxCommands}
-        >
+        <Button variant="outline" size="sm" onClick={addRow} disabled={rows.length >= maxCommands}>
           <Plus className="w-4 h-4" />
           Add command
         </Button>

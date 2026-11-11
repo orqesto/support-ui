@@ -115,6 +115,34 @@ describe('TelegramBotSettingsPanel', () => {
     expect(screen.getByRole('button', { name: /Save/ })).toHaveAttribute('aria-disabled', 'true');
   });
 
+  it('a custom command typed through a built-in name stays editable (review of #912)', async () => {
+    panel();
+    await screen.findByText('/start');
+    fireEvent.click(screen.getByRole('button', { name: /Add command/ }));
+    const name = screen.getByLabelText('Command name');
+    fireEvent.change(name, { target: { value: 'cancel' } });
+    // Still the custom row's own input, still removable — not turned into the built-in /cancel.
+    expect(screen.getByLabelText('Command name')).toHaveValue('cancel');
+    fireEvent.change(screen.getByLabelText('Command name'), { target: { value: 'cancel_order' } });
+    expect(screen.getByLabelText('Command name')).toHaveValue('cancel_order');
+    expect(screen.getByRole('button', { name: 'Remove /cancel_order' })).toBeInTheDocument();
+  });
+
+  it('removing a custom row keeps the next row’s half-typed language (review of #912)', async () => {
+    panel();
+    await screen.findByText('/start');
+    fireEvent.click(screen.getByRole('button', { name: /Add command/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Add command/ }));
+    const names = screen.getAllByLabelText('Command name');
+    fireEvent.change(names[0], { target: { value: 'first' } });
+    fireEvent.change(names[1], { target: { value: 'second' } });
+    const languageBoxes = screen.getAllByLabelText('New reply language');
+    fireEvent.change(languageBoxes[3], { target: { value: 'fr' } }); // the second custom row
+    fireEvent.click(screen.getByRole('button', { name: 'Remove /first' }));
+    const remaining = screen.getAllByLabelText('New reply language');
+    expect(remaining[2]).toHaveValue('fr');
+  });
+
   it('an API that does not know the endpoint yet shows an error, not a broken page', async () => {
     get.mockRejectedValue(new Error('404'));
     panel();
