@@ -516,9 +516,9 @@ export const KanbanCard = ({
               onClick={(event) => event.stopPropagation()}
               onPointerDown={(event) => event.stopPropagation()}
               onKeyDown={(event) => {
-              onPickerEscape(event);
-              event.stopPropagation();
-            }}
+                onPickerEscape(event);
+                event.stopPropagation();
+              }}
               style={{ top: pickerPos.top, left: pickerPos.left, width: 220 }}
               className="fixed z-[9999] rounded-md border border-border bg-popover shadow-lg p-1"
             >
@@ -528,6 +528,7 @@ export const KanbanCard = ({
                 currentAssigneeId={msg.assigneeId}
                 departmentId={msg.departmentId ?? null}
                 onAssign={handleAssigned}
+                autoFocus
                 beforeChange={(run) => writingGuard.confirmIfWriting('assign', run)}
               />
             </div>,
