@@ -21,6 +21,8 @@ vi.mock('@/services/message.service', () => ({ messageService: {} }));
 
 import { MessageListItem } from '../MessageListItem';
 import { KanbanCard } from '../KanbanCard';
+import { MessageGhostBubble } from '../MessageGhostBubble';
+import { toGhostOption } from '../messageDetailConstants';
 
 const writeText = vi.fn().mockResolvedValue(undefined);
 beforeEach(() => {
@@ -90,5 +92,45 @@ describe.each(surfaces)('%s — keys', (_name, ui) => {
     const row = copyButton().closest('[role="button"][tabindex="0"]') as HTMLElement;
     fireEvent.keyDown(row, { key: 'Enter' });
     expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('AI suggestion bubble — keys', () => {
+  const renderBubble = (onGhostClick: () => void, onShowAlternatives: () => void) =>
+    render(
+      <MessageGhostBubble
+        aiLoading={false}
+        ghostVisible
+        ghostOption={toGhostOption({
+          answer: 'Hi Marta',
+          source: 'lead_qualification_kb',
+          confidence: 0.87,
+          kbSources: [{ type: 'documentation', title: 'Returns policy' }],
+        })}
+        autoReply={undefined}
+        composer=""
+        composerMode="reply"
+        resolved={false}
+        alternativeCount={3}
+        onGhostClick={onGhostClick}
+        onShowAlternatives={onShowAlternatives}
+      />
+    );
+
+  it('Enter on "+N more" does not insert the suggestion into the reply', () => {
+    const onGhostClick = vi.fn();
+    renderBubble(onGhostClick, vi.fn());
+    fireEvent.keyDown(screen.getByRole('button', { name: '+2 more' }), { key: 'Enter' });
+    expect(onGhostClick).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL: Enter on the bubble itself inserts it', () => {
+    const onGhostClick = vi.fn();
+    renderBubble(onGhostClick, vi.fn());
+    const bubble = screen
+      .getByRole('button', { name: '+2 more' })
+      .closest('[role="button"][tabindex="0"]') as HTMLElement;
+    fireEvent.keyDown(bubble, { key: 'Enter' });
+    expect(onGhostClick).toHaveBeenCalledWith('Hi Marta', expect.any(String));
   });
 });

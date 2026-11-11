@@ -96,7 +96,10 @@ export function MessageGhostBubble({
               : 'documentation'
         )
       }
+      // Only Enter on the bubble itself inserts it: Enter on its "+N more" button is that
+      // button's press, and inserting first replaced the reply as a side effect.
       onKeyDown={(event) =>
+        event.target === event.currentTarget &&
         event.key === 'Enter' &&
         onGhostClick(
           ghostOption.answer,

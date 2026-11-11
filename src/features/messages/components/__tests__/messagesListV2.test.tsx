@@ -89,7 +89,10 @@ describe('compact rows', () => {
   it('show the thread id with its copy button, as the card does (2026-11-11)', () => {
     renderRow({ density: 'compact' });
     // The wide row's subject cell and the two-line form's footer both carry it; CSS shows one.
-    expect(screen.getAllByTitle('Copy link to this thread').length).toBeGreaterThan(0);
+    // Pin the WIDE one by place: it sits in the subject cell, beside the subject.
+    const subjectCell = screen.getByText('Wrong size, need exchange').closest('div')!;
+    expect(subjectCell.querySelector('[title="Copy link to this thread"]')).not.toBeNull();
+    expect(screen.getAllByTitle('Copy link to this thread')).toHaveLength(2);
   });
 
   it('copying the id copies the thread link and does not open the thread', () => {
