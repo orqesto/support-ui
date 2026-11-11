@@ -50,9 +50,6 @@ export const unmergeConsequence = (restoreCount?: number | null): string =>
     ? `This restores ${restoreCount} original ${restoreCount === 1 ? 'entry' : 'entries'}`
     : 'This restores its original entries';
 
-/** Where an entry opens: the KB list's own detail drawer, by row id. */
-export const entryHref = (id: number): string => `/knowledge-base?id=${id}`;
-
 /** At most this many entries are named in a confirm or outcome; the rest are counted. */
 export const MAX_NAMED_ENTRIES = 10;
 

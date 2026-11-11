@@ -278,10 +278,11 @@ describe('the hint when the searched number is a merged case that was split up',
     ) as HTMLElement;
     expect(hint).toHaveTextContent(/split up on .*Nov.* 2026 \(the case was hidden\)/);
     const first = screen.getByRole('link', { name: '#KB-21 Refund window' });
-    expect(first).toHaveAttribute('href', '/knowledge-base?id=21');
+    // The link keeps the page's filters (only `id` is added), so closing the drawer comes back here.
+    expect(first).toHaveAttribute('href', '/knowledge-base?status=approved&id=21');
     expect(first.closest('li')).toHaveTextContent('#KB-21 Refund window — Live');
     const second = screen.getByRole('link', { name: '#22 Return label' });
-    expect(second).toHaveAttribute('href', '/knowledge-base?id=22');
+    expect(second).toHaveAttribute('href', '/knowledge-base?status=approved&id=22');
     expect(second.closest('li')).toHaveTextContent('— Not live yet');
   });
 
