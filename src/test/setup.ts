@@ -5,6 +5,7 @@ import { resetRoleDefaultsUnavailableForTests } from '@/services/notificationRol
 import { cleanup } from '@testing-library/react';
 import { toBeInactive } from '@/test/inactive';
 import { clearAllUnsentDrafts, resetUnsentDraftPruneForTests } from '@/lib/unsentDrafts';
+import { clearLookupCache } from '@/lib/lookupResultCache';
 
 // A Button out of use is aria-disabled, never natively disabled (it keeps keyboard focus):
 // `toBeInactive()` sees both; jest-dom's `toBeDisabled()` does not (src/test/inactive.ts).
@@ -26,6 +27,9 @@ afterEach(() => {
 afterEach(() => {
   invalidateSharedFetch();
   resetRoleDefaultsUnavailableForTests();
+  // The Lookups tab's cache and its in-flight runs (#920): a run one test left unanswered must not
+  // be joined by the next test's press.
+  clearLookupCache();
 });
 
 // The app loads the rich-text editor lazily (LazyRichTextEditor: TipTap is not in the inbox

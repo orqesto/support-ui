@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { forceDisconnect } from '@/lib/socketManager';
 import { similarResultsCache } from '@/lib/similarResultsCache';
+import { clearLookupCache } from '@/lib/lookupResultCache';
 import type { User } from '@/types';
 import { logoutClearsProcessingPanels } from '@/stores/processingPanelStore';
 import { forgetRememberedSearches } from '@/lib/searchMemory';
@@ -45,6 +46,8 @@ export const useAuthStore = create<AuthState>()(
         clearAllUnsentDrafts();
         forceDisconnect();
         similarResultsCache.clear();
+        // A customer's connected-system records (the Lookups tab's 5-minute cache, #920).
+        clearLookupCache();
         set({
           token: null,
           user: null,

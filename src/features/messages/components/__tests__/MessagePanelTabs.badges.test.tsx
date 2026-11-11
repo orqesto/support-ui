@@ -94,12 +94,12 @@ const renderTabs = (id: number, sender?: string) => {
   return render(<MessagePanelTabs {...props(id, sender)} />, { wrapper });
 };
 /** The real host owns the tab; a press needs the Lookups tab actually open. */
-const StatefulTabs = ({ id }: { id: number }) => {
+const StatefulTabs = ({ id, sender }: { id: number; sender?: string }) => {
   const [tab, setTab] = useState<MessagePanelTabsProps['tab']>('notes');
   const [panelOpen, setPanelOpen] = useState(true);
   return (
     <MessagePanelTabs
-      {...props(id)}
+      {...props(id, sender)}
       tab={tab}
       setTab={setTab}
       panelOpen={panelOpen}
@@ -107,12 +107,12 @@ const StatefulTabs = ({ id }: { id: number }) => {
     />
   );
 };
-const renderStatefulTabs = (id: number) => {
+const renderStatefulTabs = (id: number, sender?: string) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MemoryRouter>
       <QueryClientProvider client={client}>
-        <StatefulTabs id={id} />
+        <StatefulTabs id={id} sender={sender} />
       </QueryClientProvider>
     </MemoryRouter>
   );
@@ -169,7 +169,7 @@ describe('MessagePanelTabs — Lookups count (moved off Customer, 2026-10-09)', 
     Owner, 2026-10-15: the badge was the number of lookups a press COULD run, which read as "4
     results" before anything had been asked. It now counts lookups that FOUND something.
   */
-  it('no number before a press; after it, how many lookups found something; gone with the panel', async () => {
+  it('no number and no run before the tab opens; opening it runs (#920) and counts; gone with the panel', async () => {
     getKBReferences.mockResolvedValue(refs(0));
     lookupOptions.mockResolvedValue(options(4));
     const found = (endpointId: number) => ({
@@ -191,9 +191,13 @@ describe('MessagePanelTabs — Lookups count (moved off Customer, 2026-10-09)', 
     expect(within(lookupsTab()).queryByText(/\d/)).not.toBeInTheDocument();
     expect(lookupOptions).toHaveBeenCalledWith('thread');
 
+    // #920 point 2: the thread is open, the Lookups tab is not — the vendor gets nothing.
+    expect(runLookup).not.toHaveBeenCalled();
+
+    // #920 point 1: opening the tab runs it, no press.
     await userEvent.click(lookupsTab());
-    await userEvent.click(await screen.findByRole('button', { name: 'Look up' }));
     await waitFor(() => expect(within(lookupsTab()).getByText('2')).toBeInTheDocument());
+    expect(runLookup).toHaveBeenCalledTimes(1);
     expect(within(customerTab()).queryByText(/\d/)).not.toBeInTheDocument();
 
     // The results leave with the panel, so the number does too.
@@ -217,6 +221,17 @@ describe('MessagePanelTabs — Lookups count (moved off Customer, 2026-10-09)', 
     await waitFor(() => expect(lookupsTab()).toBeInTheDocument());
     await settle();
     expect(within(lookupsTab()).queryByText(/\d/)).not.toBeInTheDocument();
+  });
+
+  it('#920 — no customer email: opening the tab runs nothing, and the panel says why', async () => {
+    getKBReferences.mockResolvedValue(refs(0));
+    lookupOptions.mockResolvedValue(options(4));
+    renderStatefulTabs(41, 'anonymous@chat-widget.local');
+    await settle();
+    await userEvent.click(lookupsTab());
+    expect(await screen.findByText(/no email address/i)).toBeInTheDocument();
+    await settle();
+    expect(runLookup).not.toHaveBeenCalled();
   });
 
   it('no tab at all when lookups are unavailable', async () => {
