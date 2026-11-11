@@ -40,6 +40,7 @@ export type {
   SecretVerification,
 } from './platformSecrets';
 import type { FieldSource, ResolvedField } from './resolvedField';
+import { AGENT_NOTE_FACTS_FIELDS, type AgentNoteFactsField } from './agentNoteFacts.settings';
 
 // FieldSource and ResolvedField live in `./resolvedField` (modularity task F2): routingSettings
 // uses them and this file imports routingSettings. Re-exported for existing importers.
@@ -191,12 +192,17 @@ export type DraftSettings = {
   suggestionPipelineTimeoutMs: BoundedField;
   /** Absent on a backend that predates the switch — the card then says so. */
   draftPipeline?: DraftPipelineSetting;
+  /** The guided-draft fact check's thresholds (`ai.agent_note_facts`); absent on an older backend. */
+  agentNoteFacts?: AgentNoteFactsSettings;
 };
+export type AgentNoteFactsSettings = Record<AgentNoteFactsField, BoundedField>;
 /** PUT /settings/drafts — a non-empty subset; only the fields sent are saved. */
 export type PlatformDraftsInput = {
   kbOnlyDraftMinSimilarity?: number;
   suggestionPipelineTimeoutMs?: number;
   draftPipeline?: DraftPipelineMode;
+  /** Any non-empty subset; the server merges it over the saved thresholds. */
+  agentNoteFacts?: Partial<Record<AgentNoteFactsField, number>>;
 };
 
 export type AnalysisHourlySettings = {
@@ -597,12 +603,22 @@ export const normalizeDrafts = (raw: unknown): DraftSettings | undefined => {
   const kbOnlyDraftMinSimilarity = readBoundedNumber(raw.kbOnlyDraftMinSimilarity);
   const suggestionPipelineTimeoutMs = readBounded(raw.suggestionPipelineTimeoutMs);
   const draftPipeline = readDraftPipeline(raw.draftPipeline);
+  const agentNoteFacts = readAgentNoteFacts(raw.agentNoteFacts);
   return kbOnlyDraftMinSimilarity && suggestionPipelineTimeoutMs
     ? {
         kbOnlyDraftMinSimilarity,
         suggestionPipelineTimeoutMs,
         ...(draftPipeline ? { draftPipeline } : {}),
+        ...(agentNoteFacts ? { agentNoteFacts } : {}),
       }
+    : undefined;
+};
+
+/** All three thresholds, each a whole-number bounded field — or absent (older backend, malformed). */
+const readAgentNoteFacts = (raw: unknown): AgentNoteFactsSettings | undefined => {
+  const read = AGENT_NOTE_FACTS_FIELDS.map((key) => [key, readBounded(isRecord(raw) && raw[key])]);
+  return read.every(([, field]) => field)
+    ? (Object.fromEntries(read) as AgentNoteFactsSettings)
     : undefined;
 };
 

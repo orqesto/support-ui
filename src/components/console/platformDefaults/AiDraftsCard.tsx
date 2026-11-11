@@ -6,7 +6,9 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { useUpdatePlatformDrafts } from '@/hooks/usePlatformSettings';
+import type { AgentNoteFactsField } from '@/services/agentNoteFacts.settings';
 import type {
+  AgentNoteFactsSettings,
   DraftPipelineMode,
   DraftPipelineSetting,
   DraftSettings,
@@ -18,6 +20,30 @@ export const AI_DRAFTS_NOT_DEPLOYED =
   'This server does not have this setting yet — it arrives with the next backend release.';
 export const DRAFT_PIPELINE_NOT_DEPLOYED =
   'The draft pipeline switch arrives with the next backend release.';
+export const AGENT_NOTE_FACTS_NOT_DEPLOYED =
+  'The fact-check thresholds arrive with the next backend release.';
+
+/** Each threshold of the fact check, in the words an operator decides by. */
+export const AGENT_NOTE_FACTS_LABELS: Record<AgentNoteFactsField, { label: string; help: string }> =
+  {
+    minDigits: {
+      label: 'Digits that make a fact',
+      help: 'A number with at least this many digits must stay in the reply. Lower checks shorter numbers and redrafts more often.',
+    },
+    minJoinedLength: {
+      label: 'Length to accept re-spacing',
+      help: 'A fact at least this long still counts when the reply writes it with spaces (AB 1234 5678 XY). Lower accepts more, including accidental matches.',
+    },
+    maxRequiredFactsChars: {
+      label: 'Left-out list size (characters)',
+      help: 'How long the list of left-out facts given to the redraft may be.',
+    },
+  };
+const NOTE_FACT_FIELDS: AgentNoteFactsField[] = [
+  'minDigits',
+  'minJoinedLength',
+  'maxRequiredFactsChars',
+];
 
 /** What each pipeline is, in the words an operator decides by. */
 export const DRAFT_PIPELINE_LABELS: Record<DraftPipelineMode, string> = {
@@ -86,6 +112,89 @@ const DraftPipelineSwitch = ({
     </div>
   );
 };
+
+/**
+ * `ai.agent_note_facts` (2026-11-11): when an agent presses AI draft with text in the editor, the
+ * reply must keep its numbers and links, and a draft that drops one is asked for once more. Three
+ * whole-number thresholds, saved on their own (PUT /settings/drafts `{ agentNoteFacts }`, only the
+ * fields that changed; the server merges them over the saved ones).
+ */
+const AgentNoteFactsFields = ({
+  facts,
+  saving,
+  onSave,
+}: {
+  facts: AgentNoteFactsSettings;
+  saving: boolean;
+  onSave: (changed: Partial<Record<AgentNoteFactsField, number>>) => void;
+}) => {
+  const savedDigits = facts.minDigits.value;
+  const savedJoined = facts.minJoinedLength.value;
+  const savedListChars = facts.maxRequiredFactsChars.value;
+  const [texts, setTexts] = useState<Record<AgentNoteFactsField, string>>(() =>
+    fieldTexts(savedDigits, savedJoined, savedListChars)
+  );
+  // Re-seed when the saved values arrive or change (the query refetches after a save).
+  useEffect(() => {
+    setTexts(fieldTexts(savedDigits, savedJoined, savedListChars));
+  }, [savedDigits, savedJoined, savedListChars]);
+
+  const errors: Partial<Record<AgentNoteFactsField, string>> = {};
+  const changed: Partial<Record<AgentNoteFactsField, number>> = {};
+  for (const field of NOTE_FACT_FIELDS) {
+    const { min, max, value: saved } = facts[field];
+    const value = asNumber(texts[field]);
+    if (value === null || !Number.isInteger(value) || value < min || value > max) {
+      errors[field] = `Enter a whole number from ${min} to ${max}.`;
+    } else if (value !== saved) {
+      changed[field] = value;
+    }
+  }
+  const hasError = Object.keys(errors).length > 0;
+  const nothingChanged = Object.keys(changed).length === 0;
+
+  return (
+    <div className="pt-3 space-y-3 border-t border-border">
+      <p className="text-sm text-muted-foreground">
+        Fact check: when an agent presses AI draft with text in the editor, the reply must keep its
+        numbers and links. A draft that drops one is written once more, told what it left out.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {NOTE_FACT_FIELDS.map((field) => (
+          <div key={field} className="space-y-1">
+            <Input
+              type="number"
+              min={facts[field].min}
+              max={facts[field].max}
+              step={1}
+              label={AGENT_NOTE_FACTS_LABELS[field].label}
+              value={texts[field]}
+              error={errors[field]}
+              onChange={(event) =>
+                setTexts((current) => ({ ...current, [field]: event.target.value }))
+              }
+            />
+            <p className="text-xs text-muted-foreground">{AGENT_NOTE_FACTS_LABELS[field].help}</p>
+            <SourceBadge source={facts[field].source} envLabel="Server setting" />
+          </div>
+        ))}
+      </div>
+      <Button disabled={saving || nothingChanged || hasError} onClick={() => onSave(changed)}>
+        Save fact check
+      </Button>
+    </div>
+  );
+};
+
+const fieldTexts = (
+  minDigits: number,
+  minJoinedLength: number,
+  maxRequiredFactsChars: number
+): Record<AgentNoteFactsField, string> => ({
+  minDigits: String(minDigits),
+  minJoinedLength: String(minJoinedLength),
+  maxRequiredFactsChars: String(maxRequiredFactsChars),
+});
 
 const asNumber = (text: string): number | null => {
   const value = Number(text);
@@ -219,6 +328,17 @@ export const AiDraftsCard = ({ drafts }: { drafts: DraftSettings | undefined }) 
         ) : (
           <p className="pt-3 text-sm border-t text-muted-foreground border-border">
             {DRAFT_PIPELINE_NOT_DEPLOYED}
+          </p>
+        )}
+        {drafts.agentNoteFacts ? (
+          <AgentNoteFactsFields
+            facts={drafts.agentNoteFacts}
+            saving={save.isPending}
+            onSave={(changed) => save.mutate({ agentNoteFacts: changed })}
+          />
+        ) : (
+          <p className="pt-3 text-sm border-t text-muted-foreground border-border">
+            {AGENT_NOTE_FACTS_NOT_DEPLOYED}
           </p>
         )}
       </CardContent>
