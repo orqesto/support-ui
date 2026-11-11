@@ -12,17 +12,20 @@ const limits = {
   minImageKb: { default: 20, min: 0, max: 5000 },
 };
 let config: Record<string, unknown>;
+let configFails = false;
 const updateVisionConfig = vi.fn<(data: Record<string, unknown>) => Promise<unknown>>();
+const getProviders = vi.fn(() => Promise.resolve({ data: { enabled: [] as string[] } }));
 
 vi.mock('@/services/organization.service', () => ({
   organizationService: {
-    getVisionConfig: () => Promise.resolve(config),
+    getVisionConfig: () =>
+      configFails ? Promise.reject(new Error('network')) : Promise.resolve(config),
     updateVisionConfig: (data: Record<string, unknown>) => updateVisionConfig(data),
   },
 }));
 vi.mock('@/services/ai.service', () => ({
   aiService: {
-    getProviders: () => Promise.resolve({ data: { enabled: [] } }),
+    getProviders: () => getProviders(),
     getModels: () => Promise.resolve({ data: { chat: [] } }),
   },
 }));
@@ -35,6 +38,8 @@ describe('VisionSettings: email photo settings', () => {
   beforeEach(() => {
     config = { enabled: true, emailPhotos: true, maxImagesPerMessage: 5, minImageKb: 40, limits };
     updateVisionConfig.mockReset().mockResolvedValue({ success: true });
+    getProviders.mockClear();
+    configFails = false;
   });
   afterEach(cleanup);
 
@@ -154,5 +159,57 @@ describe('VisionSettings: email photo settings', () => {
     fireEvent.click(saveButton());
     await waitFor(() => expect(updateVisionConfig).toHaveBeenCalledTimes(1));
     expect(updateVisionConfig.mock.calls[0][0]).toHaveProperty('model', null);
+  });
+
+  it('an old backend (no email-photo fields): the new switch is absent too, not only its fields', async () => {
+    config = { enabled: true };
+    render(<VisionSettings />);
+    await screen.findByRole('button', { name: 'Save' });
+    expect(screen.queryByRole('switch', { name: 'Read photos in customer emails' })).toBeNull();
+  });
+
+  it('managed AI on an old backend: the whole card stays hidden (FE can reach prod first)', async () => {
+    config = { enabled: true };
+    const { container } = render(<VisionSettings managed />);
+    await waitFor(() => expect(container.textContent).toBe(''));
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+  });
+
+  it('managed AI does not list own-keys providers or models (no picker to fill)', async () => {
+    render(<VisionSettings managed />);
+    await screen.findByRole('switch', { name: 'Read photos in customer emails' });
+    expect(getProviders).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL — own keys still list them', async () => {
+    render(<VisionSettings />);
+    await screen.findByRole('switch', { name: 'Read photos in customer emails' });
+    expect(getProviders).toHaveBeenCalledTimes(1);
+  });
+
+  it('a failed load shows an error and no Save (defaults are never written back)', async () => {
+    configFails = true;
+    render(<VisionSettings />);
+    expect(await screen.findByText(/Image analysis settings could not be loaded/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+  });
+
+  it('an invalid number, then email photos switched off: Save works and sends no number fields', async () => {
+    render(<VisionSettings />);
+    const toggle = await screen.findByRole('switch', { name: 'Read photos in customer emails' });
+    fireEvent.change(photosField(), { target: { value: 'abc' } });
+    expect(saveButton().getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(toggle);
+    expect(saveButton().getAttribute('aria-disabled')).not.toBe('true');
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(updateVisionConfig).toHaveBeenCalledTimes(1));
+    const sent = updateVisionConfig.mock.calls[0][0];
+    expect(sent).toMatchObject({ emailPhotos: false });
+    expect(sent).not.toHaveProperty('maxImagesPerMessage');
+  });
+
+  it('the master switch has an accessible name', async () => {
+    render(<VisionSettings />);
+    expect(await screen.findByRole('switch', { name: 'Image analysis' })).toBeTruthy();
   });
 });
