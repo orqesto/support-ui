@@ -33,7 +33,7 @@ const saveButton = () => screen.getByRole('button', { name: 'Save' });
 
 describe('VisionSettings: email photo settings', () => {
   beforeEach(() => {
-    config = { enabled: true, maxImagesPerMessage: 5, minImageKb: 40, limits };
+    config = { enabled: true, emailPhotos: true, maxImagesPerMessage: 5, minImageKb: 40, limits };
     updateVisionConfig.mockReset().mockResolvedValue({ success: true });
   });
   afterEach(cleanup);
@@ -52,6 +52,7 @@ describe('VisionSettings: email photo settings', () => {
       enabled: true,
       provider: null,
       model: null,
+      emailPhotos: true,
       maxImagesPerMessage: 2,
       minImageKb: 0,
     });
@@ -92,10 +93,66 @@ describe('VisionSettings: email photo settings', () => {
   });
 
   it('image analysis off: the fields are hidden and cannot block the save', async () => {
-    config = { enabled: false, maxImagesPerMessage: 3, minImageKb: 20, limits };
+    config = { enabled: false, emailPhotos: true, maxImagesPerMessage: 3, minImageKb: 20, limits };
     render(<VisionSettings />);
     await waitFor(() => expect(saveButton()).toBeTruthy());
     expect(screen.queryByLabelText('Photos read per email')).toBeNull();
     expect(saveButton().getAttribute('aria-disabled')).not.toBe('true');
+  });
+
+  it('email photos OFF (the default): switch shown off, number fields hidden; switching on shows them and saves it', async () => {
+    config = { enabled: true, emailPhotos: false, maxImagesPerMessage: 3, minImageKb: 20, limits };
+    render(<VisionSettings />);
+    const toggle = await screen.findByRole('switch', { name: 'Read photos in customer emails' });
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(screen.queryByLabelText('Photos read per email')).toBeNull();
+
+    fireEvent.click(toggle);
+    expect(photosField().value).toBe('3');
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(updateVisionConfig).toHaveBeenCalledTimes(1));
+    expect(updateVisionConfig.mock.calls[0][0]).toMatchObject({
+      emailPhotos: true,
+      maxImagesPerMessage: 3,
+    });
+  });
+
+  it('switching email photos off saves emailPhotos: false', async () => {
+    render(<VisionSettings />);
+    const toggle = await screen.findByRole('switch', { name: 'Read photos in customer emails' });
+    fireEvent.click(toggle);
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(updateVisionConfig).toHaveBeenCalledTimes(1));
+    expect(updateVisionConfig.mock.calls[0][0]).toMatchObject({ emailPhotos: false });
+  });
+
+  it('managed AI: the switches show, the model picker does not, and a save leaves the stored model alone', async () => {
+    config = {
+      enabled: true,
+      emailPhotos: false,
+      model: 'gpt-4o',
+      maxImagesPerMessage: 3,
+      minImageKb: 20,
+      limits,
+    };
+    render(<VisionSettings managed />);
+    const toggle = await screen.findByRole('switch', { name: 'Read photos in customer emails' });
+    expect(screen.queryByText('Vision model (your own AI keys)')).toBeNull();
+    fireEvent.click(toggle);
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(updateVisionConfig).toHaveBeenCalledTimes(1));
+    const sent = updateVisionConfig.mock.calls[0][0];
+    expect(sent).toMatchObject({ enabled: true, emailPhotos: true });
+    expect(sent).not.toHaveProperty('model');
+    expect(sent).not.toHaveProperty('provider');
+  });
+
+  it('CONTROL — own keys: the model picker shows and the save carries the model fields', async () => {
+    render(<VisionSettings />);
+    await screen.findByRole('switch', { name: 'Read photos in customer emails' });
+    expect(screen.getByText('Vision model (your own AI keys)')).toBeTruthy();
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(updateVisionConfig).toHaveBeenCalledTimes(1));
+    expect(updateVisionConfig.mock.calls[0][0]).toHaveProperty('model', null);
   });
 });

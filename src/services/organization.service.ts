@@ -168,6 +168,8 @@ export type VisionConfig = {
   enabled: boolean;
   provider?: string;
   model?: string;
+  /** Email: read the photos customers send at all. Off unless an admin turns it on. */
+  emailPhotos?: boolean;
   /** Email: most customer photos the AI reads per message (largest first). */
   maxImagesPerMessage?: number;
   /** Email: images smaller than this (KB) are not read — logos, icons, tracking pixels. */
@@ -523,6 +525,7 @@ export const organizationService = {
     enabled?: boolean;
     provider?: string | null;
     model?: string | null;
+    emailPhotos?: boolean;
     /** null = back to the default. */
     maxImagesPerMessage?: number | null;
     minImageKb?: number | null;
