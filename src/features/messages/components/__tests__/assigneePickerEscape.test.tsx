@@ -1,13 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { MessageThread } from '@/services/message.service';
 
 /**
- * Escape closes a row's assignee picker (list row, Kanban card) and puts focus back on Claim.
- * Until 2026-11-11 only a click outside closed it. An Escape that closed the assignee list must not
- * close the picker too; every other Escape in it must (react-select marks them ALL defaultPrevented,
- * which the first version read — and so never closed once focus was in the assignee box).
+ * A row's assignee picker (list row, Kanban card) by keyboard, with the REAL AssignmentSelect and
+ * Select — only the network is mocked. A hand-made stand-in for the Select hid two bugs on
+ * 2026-11-11: react-select marks EVERY Escape defaultPrevented (so the picker never closed from
+ * the box), and nothing moved focus into the picker (so a keyboard user could not reach it).
+ *
+ *   Claim → focus lands in the assignee box → ArrowDown opens the list → Escape closes only the
+ *   list → Escape closes the picker, focus back on Claim — and the page's own Escape never fires.
  */
 
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
@@ -27,26 +30,32 @@ vi.mock('../../presence/useWritingGuard', async (importOriginal) => ({
     dialog: null,
   }),
 }));
-// The real Select fetches assignees; a stand-in that treats Escape the way it does: react-select
-// prevents default on EVERY Escape, open or not, and the Select stops the native event only when
-// the Escape closed its open list.
-vi.mock('@/components/admin/AssignmentSelect', () => ({
-  AssignmentSelect: () => (
-    <input
-      aria-label="Assignee"
-      onKeyDown={(event) => {
-        if (event.key !== 'Escape') return;
-        event.preventDefault();
-        if (event.currentTarget.value === 'list open') event.nativeEvent.stopPropagation();
-      }}
-    />
-  ),
+const assignment = vi.hoisted(() => ({
+  getAssignableUsers: vi.fn(),
+  assignThread: vi.fn(),
+  assignMessage: vi.fn(),
+  assignTicket: vi.fn(),
 }));
+vi.mock('@/services/assignment.service', () => ({ assignmentService: assignment }));
 
 import { RowAssignee } from '../RowAssignee';
 import { KanbanCard } from '../KanbanCard';
 
-afterEach(cleanup);
+const pageEscape = vi.fn();
+const onPageKey = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') pageEscape();
+};
+beforeEach(() => {
+  assignment.getAssignableUsers.mockResolvedValue([
+    { id: 9, firstName: 'Dana', lastName: 'Lee', email: 'dana@northwind.example', role: 'agent' },
+  ]);
+  document.addEventListener('keydown', onPageKey);
+});
+afterEach(() => {
+  document.removeEventListener('keydown', onPageKey);
+  cleanup();
+  vi.clearAllMocks();
+});
 
 const thread = (): MessageThread =>
   ({
@@ -78,42 +87,67 @@ const surfaces = [
   ['Kanban card', () => <KanbanCard thread={thread()} onOpen={() => {}} />],
 ] as const;
 
-const openPicker = () => {
+const picker = () => screen.queryByRole('dialog', { name: 'Assign to' });
+const box = () => screen.getByRole('combobox', { name: 'Assignee' });
+const listOpen = () => screen.queryByRole('listbox') !== null;
+const escape = (target: Element) =>
+  act(() => {
+    fireEvent.keyDown(target, { key: 'Escape' });
+  });
+
+/** Claim pressed (Enter on a button is its click) → wait for the box to hold the focus. */
+const openFromClaim = async () => {
   const claim = screen.getByRole('button', { name: /Claim/ });
+  claim.focus();
   fireEvent.click(claim);
-  expect(screen.getByRole('dialog', { name: 'Assign to' })).toBeTruthy();
+  expect(picker()).not.toBeNull();
+  await waitFor(() => expect(document.activeElement).toBe(box()));
   return claim;
 };
 
-describe.each(surfaces)('%s — assignee picker and Escape', (_name, ui) => {
-  it('Escape in the assignee box (list closed) closes it and puts focus back on Claim', () => {
+describe.each(surfaces)('%s — assignee picker by keyboard', (_name, ui) => {
+  it('opening it from Claim puts the focus in the assignee box', async () => {
     render(<MemoryRouter>{ui()}</MemoryRouter>);
-    const claim = openPicker();
-    fireEvent.keyDown(screen.getByLabelText('Assignee'), { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'Assign to' })).toBeNull();
+    await openFromClaim();
+  });
+
+  it('Escape with the list open closes only the list; the next one closes the picker', async () => {
+    render(<MemoryRouter>{ui()}</MemoryRouter>);
+    const claim = await openFromClaim();
+    fireEvent.keyDown(box(), { key: 'ArrowDown' });
+    expect(listOpen()).toBe(true);
+
+    escape(box());
+    expect(listOpen()).toBe(false);
+    expect(picker()).not.toBeNull();
+
+    escape(box());
+    expect(picker()).toBeNull();
     expect(document.activeElement).toBe(claim);
+    expect(pageEscape).not.toHaveBeenCalled();
   });
 
-  it('Escape on Claim itself (picker open) closes it', () => {
+  it('Escape in the box with the list closed closes the picker at once', async () => {
     render(<MemoryRouter>{ui()}</MemoryRouter>);
-    const claim = openPicker();
-    fireEvent.keyDown(claim, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'Assign to' })).toBeNull();
+    const claim = await openFromClaim();
+    escape(box());
+    expect(picker()).toBeNull();
+    expect(document.activeElement).toBe(claim);
+    expect(pageEscape).not.toHaveBeenCalled();
   });
 
-  it('an Escape that closed the open assignee list leaves the picker open', () => {
+  it('Escape on Claim itself (picker open) closes it', async () => {
     render(<MemoryRouter>{ui()}</MemoryRouter>);
-    openPicker();
-    const select = screen.getByLabelText('Assignee');
-    fireEvent.change(select, { target: { value: 'list open' } });
-    fireEvent.keyDown(select, { key: 'Escape' });
-    expect(screen.getByRole('dialog', { name: 'Assign to' })).toBeTruthy();
+    const claim = await openFromClaim();
+    claim.focus();
+    escape(claim);
+    expect(picker()).toBeNull();
   });
 
-  it('CONTROL: another key leaves the picker open', () => {
+  it('CONTROL: another key leaves the picker open', async () => {
     render(<MemoryRouter>{ui()}</MemoryRouter>);
-    openPicker();
-    fireEvent.keyDown(screen.getByLabelText('Assignee'), { key: 'a' });
-    expect(screen.getByRole('dialog', { name: 'Assign to' })).toBeTruthy();
+    await openFromClaim();
+    fireEvent.keyDown(box(), { key: 'a' });
+    expect(picker()).not.toBeNull();
   });
 });

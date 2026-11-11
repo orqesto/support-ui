@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Select } from '@/components/ui/Select';
 import { assignmentService, type AssignableUser } from '@/services/assignment.service';
 import { logger } from '@/lib/logger';
@@ -34,6 +34,13 @@ type AssignmentSelectProps = {
    * the assign runs at once.
    */
   beforeChange?: (run: () => void) => void;
+  /**
+   * Put the focus in the assignee box once the list has loaded — for a picker opened from a
+   * button (a row's Claim), where a keyboard user otherwise stays on the button and cannot Tab
+   * into the picker (it is portaled to the end of the page). Waits for the load: the box is
+   * disabled until then and a disabled box takes no focus.
+   */
+  autoFocus?: boolean;
 };
 
 export const AssignmentSelect = ({
@@ -47,10 +54,15 @@ export const AssignmentSelect = ({
   variant = 'default',
   mobileSheet = false,
   beforeChange,
+  autoFocus = false,
 }: AssignmentSelectProps) => {
   const [users, setUsers] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (autoFocus && !loading) boxRef.current?.querySelector<HTMLInputElement>('input')?.focus();
+  }, [autoFocus, loading]);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -115,18 +127,21 @@ export const AssignmentSelect = ({
   ];
 
   return (
-    <Select
-      className={className}
-      variant={variant}
-      mobileSheet={mobileSheet}
-      value={currentAssigneeId ? String(currentAssigneeId) : ''}
-      onChange={handleChange}
-      options={options}
-      disabled={loading || assigning}
-      size="sm"
-      aria-label="Assignee"
-      placeholder={loading ? 'Loading...' : 'Select assignee'}
-      searchable
-    />
+    // `contents`: no box of its own, so callers lay the Select out exactly as before.
+    <div ref={boxRef} className="contents">
+      <Select
+        className={className}
+        variant={variant}
+        mobileSheet={mobileSheet}
+        value={currentAssigneeId ? String(currentAssigneeId) : ''}
+        onChange={handleChange}
+        options={options}
+        disabled={loading || assigning}
+        size="sm"
+        aria-label="Assignee"
+        placeholder={loading ? 'Loading...' : 'Select assignee'}
+        searchable
+      />
+    </div>
   );
 };

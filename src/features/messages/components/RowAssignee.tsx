@@ -155,6 +155,7 @@ export const RowAssignee = ({ thread }: Props) => {
               currentAssigneeId={msg.assigneeId}
               departmentId={msg.departmentId ?? null}
               onAssign={handleAssigned}
+              autoFocus
               beforeChange={(run) => writingGuard.confirmIfWriting('assign', run)}
             />
           </div>,
