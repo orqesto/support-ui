@@ -86,6 +86,23 @@ describe('compact rows', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
+  it('show the thread id with its copy button, as the card does (2026-11-11)', () => {
+    renderRow({ density: 'compact' });
+    // The wide row's subject cell and the two-line form's footer both carry it; CSS shows one.
+    expect(screen.getAllByTitle('Copy link to this thread').length).toBeGreaterThan(0);
+  });
+
+  it('copying the id copies the thread link and does not open the thread', () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+    const onOpen = vi.fn();
+    renderRow({ density: 'compact', onOpen });
+    fireEvent.click(screen.getAllByTitle('Copy link to this thread')[0]);
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(String(writeText.mock.calls[0][0])).toContain('/threads?id=');
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
   it('CONTROL: the comfortable card is still the default, with the thread id on it', () => {
     renderRow();
     expect(screen.getByTitle('Copy link to this thread')).toBeTruthy();
