@@ -33,7 +33,8 @@ const toCommands = (rows: Row[]): TelegramBotCommand[] =>
 
 /**
  * A Telegram connection's bot: its menu commands with a reply per language, and how long a chat
- * must be quiet before the bot answers a chat it handed to a person (owner, 2026-11-10). Saving
+ * must be quiet (no message at all; closing does not count) before the bot answers a chat it
+ * handed to a person (owner, 2026-11-10/11). Saving
  * also sets the bot's menu in Telegram.
  */
 export const TelegramBotSettingsPanel = ({
@@ -157,6 +158,7 @@ export const TelegramBotSettingsPanel = ({
           type="number"
           min={1}
           max={720}
+          step={1}
           value={quietHours ?? ''}
           placeholder={consoleQuiet ? `Console default: ${consoleQuiet.value}` : ''}
           onChange={(event) =>
@@ -164,9 +166,10 @@ export const TelegramBotSettingsPanel = ({
           }
         />
         <p className="text-xs text-muted-foreground">
-          A chat the bot handed to a person: once nobody has written in it for this long, the bot
-          answers the customer again. Order-number statuses are always answered. Empty = the console
-          default.
+          A chat the bot handed to a person stays with people — also after it is closed or resolved
+          — until there has been no message in it (from the customer, an agent or the bot) for this
+          long; then the bot answers the customer again. Order-number statuses are always answered.
+          Empty = the console default (one week).
         </p>
       </div>
 

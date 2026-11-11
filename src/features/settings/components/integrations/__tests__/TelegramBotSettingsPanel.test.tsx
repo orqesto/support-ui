@@ -159,7 +159,22 @@ describe('botSettingsProblem', () => {
   };
   it('accepts valid settings and names each problem (controls)', () => {
     expect(botSettingsProblem({ quietHours: null, commands: [ok] })).toBeNull();
-    expect(botSettingsProblem({ quietHours: 0, commands: [] })).toContain('between 1 and 720');
+    expect(botSettingsProblem({ quietHours: 0, commands: [] })).toContain('from 1 to 720');
+    // Release audit of 1.1.326, item 6: the API refuses both of these.
+    expect(botSettingsProblem({ quietHours: 1.5, commands: [] })).toContain('whole number');
+    expect(
+      botSettingsProblem({ quietHours: null, commands: [{ ...ok, replies: { en: ' ' } }] })
+    ).toContain('has no reply');
+    // CONTROLS: switched off, or a built-in, needs no reply of its own.
+    expect(
+      botSettingsProblem({ quietHours: null, commands: [{ ...ok, enabled: false, replies: {} }] })
+    ).toBeNull();
+    expect(
+      botSettingsProblem({
+        quietHours: null,
+        commands: [{ ...ok, command: 'start', replies: {} }],
+      })
+    ).toBeNull();
     expect(botSettingsProblem({ quietHours: null, commands: [ok, ok] })).toContain('listed twice');
     expect(
       botSettingsProblem({ quietHours: null, commands: [{ ...ok, description: ' ' }] })
