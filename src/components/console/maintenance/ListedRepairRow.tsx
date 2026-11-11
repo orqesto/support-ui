@@ -132,7 +132,10 @@ export const LISTED_REPAIRS: ListedRepairDef[] = [
             {
               id: 'kb',
               header: 'KB entries',
-              cell: (row: ResultRow) => String(row.kbEntries ?? 0),
+              cell: (row: ResultRow) =>
+                row.kbEntriesFlagged !== null && row.kbEntriesFlagged > 0
+                  ? `${row.kbEntries ?? 0} (${row.kbEntriesFlagged} sent back for review)`
+                  : String(row.kbEntries ?? 0),
             },
           ]
         : []),
@@ -215,11 +218,18 @@ const ResultView = ({
           .
         </p>
       )}
-      {kbTotal > 0 && (
+      {result.dryRun && kbTotal > 0 && (
         <p data-testid={`${testid}-kb`}>
           {kbTotal === 1
-            ? '1 KB entry was made from these messages. It stays as it is.'
-            : `${kbTotal.toLocaleString()} KB entries were made from these messages. They stay as they are.`}
+            ? '1 knowledge-base entry was made from these messages. It is never deleted.'
+            : `${kbTotal.toLocaleString()} knowledge-base entries were made from these messages. They are never deleted.`}
+        </p>
+      )}
+      {!result.dryRun && result.kbEntriesFlagged !== null && result.kbEntriesFlagged > 0 && (
+        <p data-testid={`${testid}-kb-flagged`}>
+          {result.kbEntriesFlagged === 1
+            ? '1 knowledge-base entry sent back for review (Needs your decision). It was not deleted.'
+            : `${result.kbEntriesFlagged.toLocaleString()} knowledge-base entries sent back for review (Needs your decision). They were not deleted.`}
         </p>
       )}
       {result.skippedSent && result.skippedSent.count > 0 && (
@@ -238,6 +248,7 @@ const ResultView = ({
                 publicId: null,
                 outcome: 'skipped_sent',
                 kbEntries: null,
+                kbEntriesFlagged: null,
                 attachmentsRemoved: null,
                 detail: null,
               }))}

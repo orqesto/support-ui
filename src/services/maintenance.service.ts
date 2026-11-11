@@ -177,6 +177,11 @@ export interface ListedRepairRow {
   outcome: string;
   /** KB entries made from this message (wrong-label; kept as they are). Null when not sent. */
   kbEntries: number | null;
+  /**
+   * Apply (wrong-label): KB entries made from this removed message, sent back to review ("Needs
+   * your decision"), never deleted. Null when not sent (a dry run, or an older backend).
+   */
+  kbEntriesFlagged: number | null;
   attachmentsRemoved: number | null;
   detail: string | null;
 }
@@ -192,6 +197,8 @@ export interface ListedRepairResult {
   rows: ListedRepairRow[];
   /** Set when the page stopped at its limit: the next page starts after this id. */
   nextAfterId: number | null;
+  /** Apply (wrong-label): KB entries sent back to review in total; null on an older backend. */
+  kbEntriesFlagged: number | null;
   /** Wrong-label only: mail that also carries SENT — real replies, never removed. */
   skippedSent: {
     count: number;
@@ -217,6 +224,7 @@ const normaliseListedRow = (raw: Record<string, unknown>): ListedRepairRow => ({
   createdAt: stringOr(raw.createdAt, null),
   outcome: stringOr(raw.outcome, 'selected'),
   kbEntries: numberOr(raw.kbEntries, null),
+  kbEntriesFlagged: numberOr(raw.kbEntriesFlagged, null),
   attachmentsRemoved: numberOr(raw.attachmentsRemoved, null),
   detail: stringOr(raw.detail, null),
 });
@@ -240,6 +248,12 @@ export const normaliseListedRepair = (raw: unknown): ListedRepairResult => {
     counts,
     rows,
     nextAfterId: numberOr(data.nextAfterId, null),
+    kbEntriesFlagged: numberOr(
+      data.kbEntriesFlagged,
+      rows.some((row) => row.kbEntriesFlagged !== null)
+        ? rows.reduce((sum, row) => sum + (row.kbEntriesFlagged ?? 0), 0)
+        : null
+    ),
     skippedSent: sent
       ? {
           count: numberOr(sent.count, 0),

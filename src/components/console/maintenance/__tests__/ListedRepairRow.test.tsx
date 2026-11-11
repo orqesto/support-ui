@@ -89,7 +89,7 @@ describe('ListedRepairRow — wrong-label replies', () => {
     expect(within(result).getAllByText('#101').length).toBeGreaterThan(0);
     expect(within(result).getAllByText('#1001').length).toBeGreaterThan(0); // its thread
     expect(within(result).getByTestId('repair-wrong-label-replies-check-kb').textContent).toMatch(
-      /2 KB entries were made from these messages/
+      /2 knowledge-base entries were made from these messages/
     );
     expect(within(result).getByTestId('repair-wrong-label-replies-check-sent').textContent).toMatch(
       /1 sent message also carries Trash, Spam or Draft\. Sent mail was our real reply and is never removed/
@@ -131,10 +131,11 @@ describe('ListedRepairRow — wrong-label replies', () => {
             limit: 20,
             counts: { removed: 1, skipped_odly_sent: 1 },
             rows: [
-              messageRow(101, { outcome: 'removed' }),
+              messageRow(101, { outcome: 'removed', kbEntries: 2, kbEntriesFlagged: 2 }),
               messageRow(102, { outcome: 'skipped_odly_sent' }),
             ],
             nextAfterId: null,
+            kbEntriesFlagged: 2,
           },
         },
       })
@@ -163,6 +164,12 @@ describe('ListedRepairRow — wrong-label replies', () => {
     const applied = await screen.findByTestId('repair-wrong-label-replies-applied');
     expect(within(applied).getByText('Removed')).toBeTruthy();
     expect(within(applied).getByText('Kept — sent from Odly')).toBeTruthy();
+    expect(
+      within(applied).getByTestId('repair-wrong-label-replies-applied-kb-flagged').textContent
+    ).toBe(
+      '2 knowledge-base entries sent back for review (Needs your decision). They were not deleted.'
+    );
+    expect(within(applied).getAllByText('2 (2 sent back for review)').length).toBeGreaterThan(0);
     // Checked again: what is left.
     await waitFor(() =>
       expect(api.post).toHaveBeenNthCalledWith(
@@ -175,6 +182,34 @@ describe('ListedRepairRow — wrong-label replies', () => {
     expect(await screen.findByText('Checked again: what is left (nothing changed)')).toBeTruthy();
     // The next Apply is the rest of the checked list.
     expect(screen.getByRole('button', { name: 'Apply the rest (1)' })).not.toBeInactive();
+  });
+
+  it('an older backend without kbEntriesFlagged: no review line after Apply', async () => {
+    api.post
+      .mockResolvedValueOnce(wrongLabelCheck())
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            dryRun: false,
+            totalInScope: 2,
+            selected: 1,
+            counts: { removed: 1 },
+            rows: [messageRow(101, { outcome: 'removed', kbEntries: 2 })],
+            nextAfterId: null,
+          },
+        },
+      })
+      .mockResolvedValueOnce(wrongLabelCheck({ totalInScope: 0, selected: 0, rows: [] }));
+    renderRow();
+    fireEvent.click(screen.getByRole('button', { name: 'Check' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Apply first 2' }));
+    await confirmApply();
+    const applied = await screen.findByTestId('repair-wrong-label-replies-applied');
+    expect(within(applied).getByText('Removed')).toBeTruthy();
+    expect(
+      within(applied).queryByTestId('repair-wrong-label-replies-applied-kb-flagged')
+    ).toBeNull();
+    expect(within(applied).queryByText(/sent back for review/)).toBeNull();
   });
 
   it('a failed Check shows the error and leaves Apply off', async () => {
