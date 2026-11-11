@@ -6,9 +6,14 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { useUpdatePlatformDrafts } from '@/hooks/usePlatformSettings';
-import type { AgentNoteFactsField } from '@/services/agentNoteFacts.settings';
+import { toast } from '@/lib/toast';
+import {
+  AGENT_NOTE_FACTS_FIELDS,
+  type AgentNoteFactsField,
+  type AgentNoteFactsInput,
+  type AgentNoteFactsSettings,
+} from '@/services/agentNoteFacts.settings';
 import type {
-  AgentNoteFactsSettings,
   DraftPipelineMode,
   DraftPipelineSetting,
   DraftSettings,
@@ -39,11 +44,6 @@ export const AGENT_NOTE_FACTS_LABELS: Record<AgentNoteFactsField, { label: strin
       help: 'How long the list of left-out facts given to the redraft may be.',
     },
   };
-const NOTE_FACT_FIELDS: AgentNoteFactsField[] = [
-  'minDigits',
-  'minJoinedLength',
-  'maxRequiredFactsChars',
-];
 
 /** What each pipeline is, in the words an operator decides by. */
 export const DRAFT_PIPELINE_LABELS: Record<DraftPipelineMode, string> = {
@@ -126,27 +126,40 @@ const AgentNoteFactsFields = ({
 }: {
   facts: AgentNoteFactsSettings;
   saving: boolean;
-  onSave: (changed: Partial<Record<AgentNoteFactsField, number>>) => void;
+  onSave: (changed: AgentNoteFactsInput) => void;
 }) => {
-  const savedDigits = facts.minDigits.value;
-  const savedJoined = facts.minJoinedLength.value;
-  const savedListChars = facts.maxRequiredFactsChars.value;
-  const [texts, setTexts] = useState<Record<AgentNoteFactsField, string>>(() =>
-    fieldTexts(savedDigits, savedJoined, savedListChars)
-  );
-  // Re-seed when the saved values arrive or change (the query refetches after a save).
+  const [texts, setTexts] = useState(() => savedTexts(facts));
+  // The saved values the inputs were last seeded from, as text.
+  const [seeded, setSeeded] = useState(() => savedTexts(facts));
+  const savedKey = AGENT_NOTE_FACTS_FIELDS.map((field) => facts[field].value).join('|');
+  // When the saved values change (the query refetches after a save), re-seed ONLY the fields the
+  // operator has not edited: an edit typed while another field was saving must survive the refetch.
   useEffect(() => {
-    setTexts(fieldTexts(savedDigits, savedJoined, savedListChars));
-  }, [savedDigits, savedJoined, savedListChars]);
+    const next = savedTexts(facts);
+    setTexts(
+      (current) =>
+        Object.fromEntries(
+          AGENT_NOTE_FACTS_FIELDS.map((field) => [
+            field,
+            current[field] === seeded[field] ? next[field] : current[field],
+          ])
+        ) as Record<AgentNoteFactsField, string>
+    );
+    setSeeded(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- savedKey is the saved values
+  }, [savedKey]);
 
+  // Only a field the operator changed is checked and sent: a saved value outside bounds the server
+  // narrowed later must not block saving the other two.
   const errors: Partial<Record<AgentNoteFactsField, string>> = {};
-  const changed: Partial<Record<AgentNoteFactsField, number>> = {};
-  for (const field of NOTE_FACT_FIELDS) {
-    const { min, max, value: saved } = facts[field];
+  const changed: AgentNoteFactsInput = {};
+  for (const field of AGENT_NOTE_FACTS_FIELDS) {
+    if (texts[field] === String(facts[field].value)) continue;
+    const { min, max } = facts[field];
     const value = asNumber(texts[field]);
     if (value === null || !Number.isInteger(value) || value < min || value > max) {
       errors[field] = `Enter a whole number from ${min} to ${max}.`;
-    } else if (value !== saved) {
+    } else {
       changed[field] = value;
     }
   }
@@ -160,7 +173,7 @@ const AgentNoteFactsFields = ({
         numbers and links. A draft that drops one is written once more, told what it left out.
       </p>
       <div className="grid gap-3 sm:grid-cols-3">
-        {NOTE_FACT_FIELDS.map((field) => (
+        {AGENT_NOTE_FACTS_FIELDS.map((field) => (
           <div key={field} className="space-y-1">
             <Input
               type="number"
@@ -186,15 +199,10 @@ const AgentNoteFactsFields = ({
   );
 };
 
-const fieldTexts = (
-  minDigits: number,
-  minJoinedLength: number,
-  maxRequiredFactsChars: number
-): Record<AgentNoteFactsField, string> => ({
-  minDigits: String(minDigits),
-  minJoinedLength: String(minJoinedLength),
-  maxRequiredFactsChars: String(maxRequiredFactsChars),
-});
+const savedTexts = (facts: AgentNoteFactsSettings): Record<AgentNoteFactsField, string> =>
+  Object.fromEntries(
+    AGENT_NOTE_FACTS_FIELDS.map((field) => [field, String(facts[field].value)])
+  ) as Record<AgentNoteFactsField, string>;
 
 const asNumber = (text: string): number | null => {
   const value = Number(text);
@@ -334,7 +342,13 @@ export const AiDraftsCard = ({ drafts }: { drafts: DraftSettings | undefined }) 
           <AgentNoteFactsFields
             facts={drafts.agentNoteFacts}
             saving={save.isPending}
-            onSave={(changed) => save.mutate({ agentNoteFacts: changed })}
+            onSave={(changed) =>
+              save.mutate(
+                { agentNoteFacts: changed },
+                // The shared mutation only reports failures; this save changes every workspace.
+                { onSuccess: () => toast.success('Fact check saved. Applies within a minute.') }
+              )
+            }
           />
         ) : (
           <p className="pt-3 text-sm border-t text-muted-foreground border-border">

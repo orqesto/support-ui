@@ -39,12 +39,13 @@ export type {
   SecretStatus,
   SecretVerification,
 } from './platformSecrets';
-import type { FieldSource, ResolvedField } from './resolvedField';
-import { AGENT_NOTE_FACTS_FIELDS, type AgentNoteFactsField } from './agentNoteFacts.settings';
+import type { BoundedField, FieldSource, ResolvedField } from './resolvedField';
+import { AGENT_NOTE_FACTS_FIELDS } from './agentNoteFacts.settings';
+import type { AgentNoteFactsInput, AgentNoteFactsSettings } from './agentNoteFacts.settings';
 
 // FieldSource and ResolvedField live in `./resolvedField` (modularity task F2): routingSettings
 // uses them and this file imports routingSettings. Re-exported for existing importers.
-export type { FieldSource, ResolvedField };
+export type { BoundedField, FieldSource, ResolvedField };
 /** Storage fields resolve through the same three layers as the AI fields. */
 export type StorageFieldSource = FieldSource;
 export type ResolvedStorageField<T> = ResolvedField<T>;
@@ -195,14 +196,13 @@ export type DraftSettings = {
   /** The guided-draft fact check's thresholds (`ai.agent_note_facts`); absent on an older backend. */
   agentNoteFacts?: AgentNoteFactsSettings;
 };
-export type AgentNoteFactsSettings = Record<AgentNoteFactsField, BoundedField>;
 /** PUT /settings/drafts — a non-empty subset; only the fields sent are saved. */
 export type PlatformDraftsInput = {
   kbOnlyDraftMinSimilarity?: number;
   suggestionPipelineTimeoutMs?: number;
   draftPipeline?: DraftPipelineMode;
   /** Any non-empty subset; the server merges it over the saved thresholds. */
-  agentNoteFacts?: Partial<Record<AgentNoteFactsField, number>>;
+  agentNoteFacts?: AgentNoteFactsInput;
 };
 
 export type AnalysisHourlySettings = {
@@ -218,8 +218,6 @@ export type PlatformAnalysisHourlyInput = {
   liveReserveCallsPerHour?: number;
 };
 
-/** A setting with its bounds, as `describeImportRunBudget` / `describeIngestionQueueRates` answer. */
-export type BoundedField = { value: number; source: FieldSource; min: number; max: number };
 /** Every ingestion field the backend may report, each with its bounds; see INGESTION_FIELDS. */
 export type IngestionSettings = Partial<Record<(typeof INGESTION_FIELDS)[number], BoundedField>>;
 /** Fair order between workspaces on/off (`queue.fairness.fairOrder`, 2026-11-07). */
