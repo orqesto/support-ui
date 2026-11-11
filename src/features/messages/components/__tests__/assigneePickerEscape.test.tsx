@@ -5,8 +5,9 @@ import type { MessageThread } from '@/services/message.service';
 
 /**
  * Escape closes a row's assignee picker (list row, Kanban card) and puts focus back on Claim.
- * Until 2026-11-11 only a click outside closed it. An Escape the picker's own dropdown already
- * handled (it marks it defaultPrevented) must not close the picker as well.
+ * Until 2026-11-11 only a click outside closed it. An Escape that closed the assignee list must not
+ * close the picker too; every other Escape in it must (react-select marks them ALL defaultPrevented,
+ * which the first version read — and so never closed once focus was in the assignee box).
  */
 
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
@@ -26,15 +27,17 @@ vi.mock('../../presence/useWritingGuard', async (importOriginal) => ({
     dialog: null,
   }),
 }));
-// The real Select fetches assignees; a stand-in with one control that, like the real list,
-// handles its own Escape first.
+// The real Select fetches assignees; a stand-in that treats Escape the way it does: react-select
+// prevents default on EVERY Escape, open or not, and the Select stops the native event only when
+// the Escape closed its open list.
 vi.mock('@/components/admin/AssignmentSelect', () => ({
   AssignmentSelect: () => (
     <input
       aria-label="Assignee"
       onKeyDown={(event) => {
-        if (event.key === 'Escape' && event.currentTarget.value === 'list open')
-          event.preventDefault();
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        if (event.currentTarget.value === 'list open') event.nativeEvent.stopPropagation();
       }}
     />
   ),
@@ -83,7 +86,7 @@ const openPicker = () => {
 };
 
 describe.each(surfaces)('%s — assignee picker and Escape', (_name, ui) => {
-  it('Escape inside the picker closes it and puts focus back on Claim', () => {
+  it('Escape in the assignee box (list closed) closes it and puts focus back on Claim', () => {
     render(<MemoryRouter>{ui()}</MemoryRouter>);
     const claim = openPicker();
     fireEvent.keyDown(screen.getByLabelText('Assignee'), { key: 'Escape' });
@@ -98,7 +101,7 @@ describe.each(surfaces)('%s — assignee picker and Escape', (_name, ui) => {
     expect(screen.queryByRole('dialog', { name: 'Assign to' })).toBeNull();
   });
 
-  it('an Escape the dropdown already handled leaves the picker open', () => {
+  it('an Escape that closed the open assignee list leaves the picker open', () => {
     render(<MemoryRouter>{ui()}</MemoryRouter>);
     openPicker();
     const select = screen.getByLabelText('Assignee');
