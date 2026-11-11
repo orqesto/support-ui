@@ -470,6 +470,9 @@ export const AIProvidersSettings = ({
             </p>
           </div>
           <AckReplyPerSourceList onShowAlert={setAlertDialog} />
+          {/* Managed AI has no provider row of its own, but image analysis still runs (on the
+              platform's vision model): its switches must be reachable here too (#1489). */}
+          <VisionSettings managed />
         </>
       )}
 

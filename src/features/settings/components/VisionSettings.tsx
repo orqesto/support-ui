@@ -35,7 +35,7 @@ const parseSetting = (raw: string, limit: VisionLimit): number | null => {
  * Email photos (support-service#1489): how many of a customer email's photos the AI reads
  * (largest first) and the smallest image it reads, so logos and icons cost nothing.
  */
-export const VisionSettings = () => {
+export const VisionSettings = ({ managed = false }: { managed?: boolean } = {}) => {
   const [enabled, setEnabled] = useState(true);
   const [model, setModel] = useState('');
   const [options, setOptions] = useState<VisionOption[]>([]);
@@ -116,8 +116,8 @@ export const VisionSettings = () => {
       // and leave the stale designated model in place).
       await organizationService.updateVisionConfig({
         enabled,
-        provider: model ? provider ?? null : null,
-        model: model || null,
+        // Managed AI shows no model picker: leave a model chosen for own keys as it is.
+        ...(managed ? {} : { provider: model ? provider ?? null : null, model: model || null }),
         ...(emailPhotoSettings ? { emailPhotos } : {}),
         ...(emailPhotoSettings && maxImagesValue !== null
           ? { maxImagesPerMessage: maxImagesValue }
@@ -163,7 +163,8 @@ export const VisionSettings = () => {
         />
       </div>
 
-      {enabled && (
+      {/* Managed AI picks its own vision model: only the switches apply there. */}
+      {enabled && !managed && (
         <div className="space-y-1.5">
           <Select
             label="Vision model (your own AI keys)"

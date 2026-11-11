@@ -125,4 +125,34 @@ describe('VisionSettings: email photo settings', () => {
     await waitFor(() => expect(updateVisionConfig).toHaveBeenCalledTimes(1));
     expect(updateVisionConfig.mock.calls[0][0]).toMatchObject({ emailPhotos: false });
   });
+
+  it('managed AI: the switches show, the model picker does not, and a save leaves the stored model alone', async () => {
+    config = {
+      enabled: true,
+      emailPhotos: false,
+      model: 'gpt-4o',
+      maxImagesPerMessage: 3,
+      minImageKb: 20,
+      limits,
+    };
+    render(<VisionSettings managed />);
+    const toggle = await screen.findByRole('switch', { name: 'Read photos in customer emails' });
+    expect(screen.queryByText('Vision model (your own AI keys)')).toBeNull();
+    fireEvent.click(toggle);
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(updateVisionConfig).toHaveBeenCalledTimes(1));
+    const sent = updateVisionConfig.mock.calls[0][0];
+    expect(sent).toMatchObject({ enabled: true, emailPhotos: true });
+    expect(sent).not.toHaveProperty('model');
+    expect(sent).not.toHaveProperty('provider');
+  });
+
+  it('CONTROL — own keys: the model picker shows and the save carries the model fields', async () => {
+    render(<VisionSettings />);
+    await screen.findByRole('switch', { name: 'Read photos in customer emails' });
+    expect(screen.getByText('Vision model (your own AI keys)')).toBeTruthy();
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(updateVisionConfig).toHaveBeenCalledTimes(1));
+    expect(updateVisionConfig.mock.calls[0][0]).toHaveProperty('model', null);
+  });
 });

@@ -47,7 +47,11 @@ vi.mock('@/lib/socketManager', () => ({
 vi.mock('@/features/settings/components/AckReplyPerSourceList', () => ({
   AckReplyPerSourceList: () => null,
 }));
-vi.mock('@/features/settings/components/VisionSettings', () => ({ VisionSettings: () => null }));
+vi.mock('@/features/settings/components/VisionSettings', () => ({
+  VisionSettings: ({ managed }: { managed?: boolean }) => (
+    <div>{managed ? 'Image analysis (managed)' : 'Image analysis (own keys)'}</div>
+  ),
+}));
 vi.mock('@/features/settings/components/AIProviderHealthCheck', () => ({
   AIProviderHealthCheck: () => <div>AI provider health panel</div>,
 }));
@@ -83,6 +87,18 @@ describe('AIProvidersSettings: the resolved mode (A-F1)', () => {
     await waitFor(() =>
       expect(screen.getByRole('button', { pressed: true }).textContent).toMatch(/Use our AI/)
     );
+  });
+
+  it('managed AI shows Image analysis (switches only) — it has no provider row of its own (#1489)', async () => {
+    modeState = { resolved: 'managed', stored: undefined };
+    renderPage();
+    expect(await screen.findByText('Image analysis (managed)')).toBeTruthy();
+  });
+
+  it('CONTROL: own keys and no provider configured — no Image analysis (nothing to read images with)', async () => {
+    renderPage();
+    await screen.findByRole('button', { name: /Bring your own keys/ });
+    expect(screen.queryByText(/Image analysis/)).toBeNull();
   });
 
   it('nothing stored, resolved to own keys: "Bring your own keys" still writes the choice', async () => {
