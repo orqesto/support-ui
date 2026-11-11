@@ -112,7 +112,9 @@ export const useKanbanBoardRefresh = ({
 
   // When ONE column's sort changes, reload only that column (diff vs the previous
   // snapshot). Avoids refetching all seven columns on a single per-column change.
-  const prevColSortRef = useRef<Record<string, SortingState>>({});
+  // Starts from the sorts the board opened with (remembered ones included): the first board
+  // load already uses them, so a remembered sort is not a change to reload for.
+  const prevColSortRef = useRef<Record<string, SortingState>>(colSort);
   useEffect(() => {
     const prev = prevColSortRef.current;
     const cancels: Array<() => void> = [];

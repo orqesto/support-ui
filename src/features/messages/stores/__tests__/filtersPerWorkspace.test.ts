@@ -104,4 +104,67 @@ describe('saved filters per workspace', () => {
     store.useAuthStore.getState().setSelectedOrganization(2); // in place
     await vi.waitFor(() => expect(store.useTicketsStore.getState().filters.categoryId).toBe('all'));
   });
+
+  // Owner 2026-11-11: a sort the user picks stays for THIS user until they change it.
+  describe('per user', () => {
+    const signIn = (id: number) =>
+      window.localStorage.setItem(
+        'auth-storage',
+        JSON.stringify({ state: { user: { id, email: `u${id}@example.com` } }, version: 0 })
+      );
+    const sorting = (store: Awaited<ReturnType<typeof load>>) =>
+      store.useMessagesStore.getState().sorting;
+    const oldest = { sortBy: 'time', sortOrder: 'asc' } as const;
+
+    it('a reload keeps the sort this user picked', async () => {
+      signIn(7);
+      openTab(1);
+      let store = await load();
+      store.useMessagesStore.getState().setSorting(oldest);
+      store = await load();
+      expect(sorting(store)).toEqual(oldest);
+      expect(window.localStorage.getItem('messages-filters:1:u7')).toContain('"asc"');
+    });
+
+    it('another person on the same browser and workspace keeps their own sort', async () => {
+      signIn(7);
+      openTab(1);
+      let store = await load();
+      store.useMessagesStore.getState().setSorting(oldest);
+
+      signIn(8);
+      store = await load();
+      store.useMessagesStore.getState().setSorting({ sortBy: 'priority', sortOrder: 'desc' });
+
+      signIn(7);
+      store = await load();
+      expect(sorting(store)).toEqual(oldest);
+    });
+
+    it('signing in as someone else in place loads their sort, not the previous person’s', async () => {
+      signIn(7);
+      openTab(1);
+      const store = await load();
+      store.useMessagesStore.getState().setSorting(oldest);
+
+      store.useAuthStore.getState().setUser({ id: 8, email: 'u8@example.com' } as never);
+      await vi.waitFor(() => expect(sorting(store)).toEqual({ sortBy: 'time', sortOrder: 'desc' }));
+    });
+
+    it('the earlier per-workspace entry is read until this user saves their own', async () => {
+      window.localStorage.setItem(
+        'messages-filters:1',
+        JSON.stringify({ state: { sorting: oldest }, version: 0 })
+      );
+      signIn(7);
+      openTab(1);
+      expect(sorting(await load())).toEqual(oldest);
+    });
+
+    it('CONTROL: without a saved entry the list opens newest first', async () => {
+      signIn(7);
+      openTab(1);
+      expect(sorting(await load())).toEqual({ sortBy: 'time', sortOrder: 'desc' });
+    });
+  });
 });
