@@ -1,4 +1,3 @@
-import { InsertFieldMenu } from '@/components/shared/InsertFieldMenu';
 import { TicketComposerTools, useInsertTemplate } from './ticketComposerTools';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FileText, Paperclip, X } from 'lucide-react';
@@ -536,9 +535,6 @@ export const TicketReplyComposer = ({
         initiallyHidden={false}
         editable={!sending && !composing && !locked}
       />
-      <div className="flex items-center">
-        <InsertFieldMenu disabled={busy || locked} editor={editorRef} />
-      </div>
       <PlaceholderHints unnamed={unnamed.length} />
       {previewOpen && (
         <TicketUpdatePreview

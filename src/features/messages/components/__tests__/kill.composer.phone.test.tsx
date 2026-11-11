@@ -55,7 +55,7 @@ const spacer = () =>
 describe('phone toolbar and Send classes', () => {
   it('open: tool buttons are 36px, tools wrap 6px apart, Send is tool-sized', () => {
     setViewport(true);
-    render(<MessageComposer {...props({ onLookUp: vi.fn() })} />);
+    render(<MessageComposer {...props()} />);
     openIt();
     expect(classOf(within(composer()).getByTestId('composer-attach'))).toContain('max-sm:h-9');
     expect(classOf(within(composer()).getByRole('button', { name: 'KB' }))).toContain('max-sm:h-9');

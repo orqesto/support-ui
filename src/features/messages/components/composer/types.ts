@@ -54,14 +54,6 @@ export type MessageComposerProps = {
    * send for reply_style capture (undefined on undo).
    */
   onAiSourceChange?: (source: string | null, draft?: AiDraft) => void;
-  /**
-   * v4 "Look up": takes the agent to the Connected systems block on the Lookups tab. The host
-   * passes it ONLY when this workspace has a lookup the agent could run on a thread (the same
-   * cached availability answer the lookup panel renders on) — absent, no button, because a
-   * button that opens an empty tab is the dead control the availability check exists to remove.
-   * Reply mode only: a lookup feeds the reply, an internal note has no use for it.
-   */
-  onLookUp?: (() => void) | null;
   /** Hidden but kept mounted (v4 mobile: a phone shows the composer under Thread / Notes only). */
   hidden?: boolean;
   /**
