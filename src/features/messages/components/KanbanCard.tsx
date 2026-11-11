@@ -28,6 +28,7 @@ import { MessageSignalBadges } from './MessageSignalBadges';
 import { RowPresence } from '../presence/RowPresence';
 import { useListWritingGuard } from '../presence/useWritingGuard';
 import { isFromPortal } from './isFromPortal';
+import { closePickerOnEscape } from './assigneePickerKeys';
 import { SPINE_BG, getAiState, getAvatarColor, getPriorityBadge, getSpine, getSuspicionBadge, hasAttachments } from './inboxCardHelpers';
 import { getInitials } from '@/lib/initials';
 import { TRIAGE_READ_COLUMN_IDS } from './kanbanColumns';
@@ -191,6 +192,8 @@ export const KanbanCard = ({
       : (msg.assigneeName ?? null);
   const isAssigned = effectiveAssigneeId !== null;
   const isMine = effectiveAssigneeId === currentUser?.id;
+
+  const onPickerEscape = closePickerOnEscape(pickerOpen, () => setPickerOpen(false), pickerBtnRef);
 
   const openPicker = (event: React.MouseEvent | React.PointerEvent) => {
     event.stopPropagation();
@@ -476,7 +479,7 @@ export const KanbanCard = ({
 
         {/* Trigger stays in flow so card layout never reflows when the picker opens.
             Picker overlays as an absolute-positioned popover anchored to the trigger. */}
-        <div ref={pickerWrapRef} className="relative">
+        <div ref={pickerWrapRef} className="relative" role="presentation" onKeyDown={onPickerEscape}>
           {isAssigned && effectiveAssigneeName ? (
             <Tooltip content={isMine ? 'Assigned to you · click to re-assign' : `Assigned to ${effectiveAssigneeName} · click to re-assign`} size="sm">
               <button
@@ -512,7 +515,10 @@ export const KanbanCard = ({
               aria-label="Assign to"
               onClick={(event) => event.stopPropagation()}
               onPointerDown={(event) => event.stopPropagation()}
-              onKeyDown={(event) => event.stopPropagation()}
+              onKeyDown={(event) => {
+              onPickerEscape(event);
+              event.stopPropagation();
+            }}
               style={{ top: pickerPos.top, left: pickerPos.left, width: 220 }}
               className="fixed z-[9999] rounded-md border border-border bg-popover shadow-lg p-1"
             >
