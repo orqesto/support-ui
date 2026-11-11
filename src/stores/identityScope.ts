@@ -51,6 +51,25 @@ export const onOrganizationSwitch = (listener: () => void): void => {
   });
 };
 
+/**
+ * Run `listener` whenever the selected organization OR the signed-in user changes — for state
+ * saved per user and workspace (`workspaceScopedStorage`). Same defensive shape as
+ * `onOrganizationSwitch`.
+ */
+export const onIdentitySwitch = (listener: () => void): void => {
+  const store = useAuthStore as unknown as {
+    subscribe?: (fn: (state: Partial<AuthSnapshot>, prev: Partial<AuthSnapshot>) => void) => void;
+  };
+  if (typeof store.subscribe !== 'function') return;
+  store.subscribe((state, prev) => {
+    if (
+      state.selectedOrganizationId !== prev.selectedOrganizationId ||
+      (state.user?.id ?? null) !== (prev.user?.id ?? null)
+    )
+      listener();
+  });
+};
+
 export const identityScope = (): { org: number | null; user: number | null } => {
   // Total by construction: this runs on every list render, so it must never be the thing
   // that throws. Sixteen test files mock `@/stores/authStore` as a bare selector function
