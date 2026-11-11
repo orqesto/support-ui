@@ -348,16 +348,11 @@ export const CustomApiLookupPanel = ({
   };
 
   return (
-    // `data-lookup-root`: the composer's "Look up" button opens the Lookups tab, then scrolls this
-    // into view, focuses it (tabIndex -1: reachable by script, not a Tab stop) and flashes it.
-    // Harmless in the contact drawer.
     <div
       ref={rootRef}
-      data-lookup-root
       role="group"
       aria-label="Connected systems"
-      tabIndex={-1}
-      className={`focus:outline-none ${className ? `space-y-2 ${className}` : 'space-y-2'}`}
+      className={className ? `space-y-2 ${className}` : 'space-y-2'}
     >
       {/*
         No visible heading: the tab that holds this panel names it (spec 2026-10-09).

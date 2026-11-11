@@ -236,19 +236,11 @@ describe('v4 summary row — how the press went, counted by outcome (P5)', () =>
     expect(screen.queryByText(/ of /)).toBeNull();
   });
 
-  it('the root carries data-lookup-root, which the composer "Look up" button scrolls to', async () => {
-    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
+  it('the root is a group named "Connected systems", not a Tab stop', async () => {
+    render(<CustomApiLookupPanel conversationId={1} />);
     await screen.findAllByRole('button', { name: /look up/i });
-    expect(container.querySelector('[data-lookup-root]')).not.toBeNull();
-  });
-
-  it('the root takes focus from the Look up button: tabIndex -1 and named "Connected systems"', async () => {
-    const { container } = render(<CustomApiLookupPanel conversationId={1} />);
-    await screen.findAllByRole('button', { name: /look up/i });
-    const root = container.querySelector<HTMLElement>('[data-lookup-root]')!;
-    expect(root).toHaveAttribute('tabindex', '-1');
-    expect(screen.getByRole('group', { name: 'Connected systems' })).toBe(root);
-    root.focus();
-    expect(document.activeElement).toBe(root);
+    expect(screen.getByRole('group', { name: 'Connected systems' })).not.toHaveAttribute(
+      'tabindex'
+    );
   });
 });
