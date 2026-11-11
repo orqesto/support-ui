@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { getAvatarColor } from './inboxCardHelpers';
 import { getInitials } from '@/lib/initials';
 import { useListWritingGuard } from '../presence/useWritingGuard';
+import { closePickerOnEscape } from './assigneePickerKeys';
 
 type Props = {
   thread: MessageThread;
@@ -79,6 +80,8 @@ export const RowAssignee = ({ thread }: Props) => {
   const isAssigned = effectiveAssigneeId !== null;
   const isMine = effectiveAssigneeId === currentUser?.id;
 
+  const onPickerEscape = closePickerOnEscape(pickerOpen, () => setPickerOpen(false), pickerBtnRef);
+
   const openPicker = (event: React.MouseEvent) => {
     event.stopPropagation();
     setPickerOpen(true);
@@ -97,7 +100,7 @@ export const RowAssignee = ({ thread }: Props) => {
   return (
     // Trigger stays in flow so row layout never reflows when the picker opens.
     // Picker overlays as an absolute-positioned popover anchored to the trigger.
-    <div ref={pickerWrapRef} className="relative">
+    <div ref={pickerWrapRef} className="relative" role="presentation" onKeyDown={onPickerEscape}>
       {isAssigned && effectiveAssigneeName ? (
         <Tooltip
           content={
@@ -139,7 +142,10 @@ export const RowAssignee = ({ thread }: Props) => {
             role="dialog"
             aria-label="Assign to"
             onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              onPickerEscape(event);
+              event.stopPropagation();
+            }}
             style={{ top: pickerPos.top, left: pickerPos.left, width: 220 }}
             className="fixed z-[9999] rounded-md border border-border bg-popover shadow-lg p-1"
           >
