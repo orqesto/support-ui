@@ -11,6 +11,7 @@ import type { ReactNode } from 'react';
 const puts: { url: string; body: unknown }[] = [];
 let putFails: Error | null = null;
 const toastFailure = vi.fn<(scope: string, error: unknown) => void>();
+const toastSuccess = vi.fn<(message: string) => void>();
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
     put: (url: string, body: unknown) => {
@@ -23,7 +24,7 @@ vi.mock('@/lib/api-client', () => ({
 vi.mock('@/lib/toast', () => ({
   toast: {
     failure: (scope: string, error: unknown) => toastFailure(scope, error),
-    success: () => undefined,
+    success: (message: string) => toastSuccess(message),
   },
 }));
 
@@ -71,6 +72,7 @@ beforeEach(() => {
   puts.length = 0;
   putFails = null;
   toastFailure.mockReset();
+  toastSuccess.mockReset();
 });
 afterEach(cleanup);
 
@@ -338,6 +340,66 @@ describe('AiDraftsCard — fact-check thresholds (ai.agent_note_facts)', () => {
     fireEvent.click(save());
     await waitFor(() => expect(puts).toHaveLength(1));
     expect(puts[0].body).toEqual({ kbOnlyDraftMinSimilarity: 0.9 });
+  });
+
+  it('a successful save says so (it changes every workspace)', async () => {
+    wrap(<AiDraftsCard drafts={WITH_FACTS} />);
+    fireEvent.change(digits(), { target: { value: '4' } });
+    fireEvent.click(saveFacts());
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(1));
+    expect(toastSuccess.mock.calls[0][0]).toMatch(/Fact check saved/);
+  });
+
+  it('an edit typed while another field saved survives the refetch (review of #926)', () => {
+    const view = wrap(<AiDraftsCard drafts={WITH_FACTS} />);
+    fireEvent.change(digits(), { target: { value: '4' } });
+    const listSize = screen.getByLabelText(/Left-out list size/);
+    fireEvent.change(listSize, { target: { value: '800' } });
+    // The refetch after saving minDigits brings 4 back as the saved value.
+    const refetched = {
+      ...WITH_FACTS,
+      agentNoteFacts: {
+        ...FACTS,
+        minDigits: { ...FACTS.minDigits, value: 4, source: 'db' as const },
+      },
+    };
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <AiDraftsCard drafts={refetched} />
+      </QueryClientProvider>
+    );
+    expect(digits()).toHaveValue(4);
+    expect(screen.getByLabelText(/Left-out list size/)).toHaveValue(800);
+    expect(saveFacts()).not.toBeInactive();
+  });
+
+  it('CONTROL: a field NOT edited takes the new saved value on refetch', () => {
+    const view = wrap(<AiDraftsCard drafts={WITH_FACTS} />);
+    const refetched = {
+      ...WITH_FACTS,
+      agentNoteFacts: { ...FACTS, minJoinedLength: { ...FACTS.minJoinedLength, value: 9 } },
+    };
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <AiDraftsCard drafts={refetched} />
+      </QueryClientProvider>
+    );
+    expect(joined()).toHaveValue(9);
+  });
+
+  it("a saved value outside today's bounds does not block saving another field", async () => {
+    const narrowed = {
+      ...WITH_FACTS,
+      agentNoteFacts: {
+        ...FACTS,
+        minJoinedLength: { value: 4, source: 'db' as const, min: 5, max: 12 },
+      },
+    };
+    wrap(<AiDraftsCard drafts={narrowed} />);
+    fireEvent.change(digits(), { target: { value: '4' } });
+    fireEvent.click(saveFacts());
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].body).toEqual({ agentNoteFacts: { minDigits: 4 } });
   });
 
   it('no block (older backend): no inputs, says it arrives with the next release', () => {
