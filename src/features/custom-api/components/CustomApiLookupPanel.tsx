@@ -4,8 +4,16 @@ import { RotateCw, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { useCustomApiLookup, useCustomApiLookupAvailabilityState, useCustomApiLookupOptions } from '@/features/custom-api/hooks/useCustomApiLookup';
-import { type CustomApiLookupResult, type RunnableLookup } from '@/features/custom-api/services/customApiLookup.service';
+import {
+  useCustomApiLookup,
+  useCustomApiLookupAvailabilityState,
+  useCustomApiLookupOptions,
+} from '@/features/custom-api/hooks/useCustomApiLookup';
+import {
+  type CustomApiLookupResult,
+  type RunnableLookup,
+} from '@/features/custom-api/services/customApiLookup.service';
+import { lookupConfigVersionOf, lookupMethodOf } from '@/features/custom-api/lib/lookupMethods';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { conversationContactService } from '@/features/custom-api/services/conversationContact.service';
@@ -69,6 +77,9 @@ export const hasLookupEmailIdentity = (value: string): boolean => {
   return LOOKUP_EMAIL_RE.test(email) && !email.toLowerCase().endsWith('@chat-widget.local');
 };
 
+/** #920 (8b F2): how long a thread must stay open before the tab's automatic run starts. */
+export const AUTO_RUN_SETTLE_MS = 400;
+
 interface Props {
   conversationId?: number;
   contactId?: number;
@@ -95,6 +106,13 @@ interface Props {
    * before a press and when the panel goes away, because its results go with it.
    */
   onFoundChange?: (found: number) => void;
+  /**
+   * #920 (owner 2026-11-11): run for the customer as soon as the panel is shown, reusing a fresh
+   * result (5 min, this browser) instead of calling the vendor again. ONLY the thread's Lookups tab
+   * sets it — the panel mounts when that tab opens, so J/K browsing sends nothing. The contact
+   * drawer and the records page leave it off and stay press-only (SC1).
+   */
+  autoRun?: boolean;
 }
 
 /**
@@ -195,11 +213,34 @@ export const CustomApiLookupPanel = ({
   onUseInReply,
   customerEmail,
   onFoundChange,
+  autoRun = false,
 }: Props) => {
-  const { results, loading, hasRun, ranAt, error, run, lookedUpAs } = useCustomApiLookup({
-    conversationId,
-    contactId,
-  });
+  // #920: the lookups this caller could run here — configuration only, the same cached query as the
+  // tab's badge (SC1). Their methods decide what the tab may run on its own; their config version
+  // keys the cache, so a lookup an admin changed is not served from before the change (8b F3).
+  const tabOptions = useCustomApiLookupOptions(conversationId ? 'thread' : 'contact');
+  const methodsKnown =
+    !!tabOptions && tabOptions.length > 0 && tabOptions.every((option) => !!lookupMethodOf(option));
+  const getLookups = methodsKnown
+    ? (tabOptions ?? []).filter((option) => lookupMethodOf(option) === 'GET')
+    : [];
+  const { results, loading, hasRun, ranAt, error, run, runOrReuse, lookedUpAs } =
+    useCustomApiLookup({
+      conversationId,
+      contactId,
+      customerEmail,
+      configVersion: tabOptions ? lookupConfigVersionOf(tabOptions) : undefined,
+    });
+  // Lookups the tab does not run on its own (POST) that have no card yet: named, so the agent knows.
+  const pressOnlyNotRun = methodsKnown
+    ? (tabOptions ?? [])
+        .filter(
+          (option) =>
+            lookupMethodOf(option) !== 'GET' &&
+            !results.some((card) => card.endpointId === option.endpointId)
+        )
+        .map((option) => option.label)
+    : [];
   /**
    * LOOK UP ANOTHER EMAIL (2026-09-29). A shop's order notification names the buyer only in its
    * body, so the ticket's customer is the shop and every identity lookup keys on the wrong address.
@@ -224,13 +265,37 @@ export const CustomApiLookupPanel = ({
   // The results leave with the panel, so the badge does too.
   useEffect(() => () => onFoundChange?.(0), [onFoundChange]);
   const runAsTyped = () => {
-    if (typedEmailValid) void run(undefined, typedEmail);
+    // Enter as well as the button: not while a run is answering (the button is disabled then too).
+    if (typedEmailValid && !loading) void run(undefined, typedEmail);
   };
 
   // ⛔ ASK FIRST, RENDER ONLY ON A YES. Mirrors the backend: a conversation runs the THREAD
   // surface, anything else the CONTACT surface. Nothing is looked up by asking (SC1).
   const surface = conversationId ? 'thread' : 'contact';
   const availability = useCustomApiLookupAvailabilityState(surface);
+  /*
+    #920: the automatic run — once per shown thread, after the hook has cleared the previous
+    customer (its effect runs first). Only when lookups are available here (no connected system ⇒
+    no call) and the host asked for it. No focus is moved (the phone tab replaces the composer).
+    ⛔ No retry: a failed run shows its error and waits for "Look up again"; nothing in the
+    dependencies changes because of the failure, so this does not loop.
+  */
+  // `runOrReuse` changes exactly when the thread, the customer, the workspace or the user does — so
+  // it runs once per thread shown, and again when any of those change under the open tab.
+  //
+  // #920 owner 2026-11-11: ONLY GET lookups run on their own (methods: ['GET']); POST lookups wait
+  // for a press. A backend that does not report methods (older than this) ⇒ nothing runs on its
+  // own and the button stays — it would ignore the filter and run the POSTs too.
+  // ⛔ SETTLE FIRST (8b F2): J/K through threads with the tab open must not fire a full run per
+  // thread passed — the workspace's lookup rate limit is shared by every agent. The run starts
+  // only once the agent has stayed on a thread for AUTO_RUN_SETTLE_MS; a thread left sooner sends
+  // nothing, and a run for a thread already left is dropped by the hook's generation guard.
+  const canAutoRun = autoRun && availability === 'available' && getLookups.length > 0;
+  useEffect(() => {
+    if (!canAutoRun) return undefined;
+    const timer = setTimeout(() => void runOrReuse(['GET']), AUTO_RUN_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [canAutoRun, runOrReuse]);
   // Configuration only, the same cached query as the tab's badge — no vendor call (SC1).
   const options = useCustomApiLookupOptions(surface);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -395,6 +460,12 @@ export const CustomApiLookupPanel = ({
       </div>
 
       {identityNote && <p className="text-[11px] text-muted-foreground">{identityNote}</p>}
+      {hasRun && pressOnlyNotRun.length > 0 && (
+        <p className="text-[11px] text-muted-foreground" data-testid="lookups-press-only">
+          Not run on their own (they send data to your system): {pressOnlyNotRun.join(', ')}. Press
+          Look up again to run them too.
+        </p>
+      )}
 
       {showEmailField ? (
         <div className="flex gap-1.5">

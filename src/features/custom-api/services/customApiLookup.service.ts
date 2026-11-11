@@ -44,6 +44,12 @@ export interface LookupRequest {
    * order notification names the buyer only in its body, so the agent types them in.
    */
   lookupEmail?: string;
+  /**
+   * #920 (owner 2026-11-11): run only lookups with these HTTP methods — the Lookups tab's automatic
+   * run sends ['GET']; POST lookups wait for a press. A backend that predates it ignores the field
+   * and runs everything, so the panel sends it only when the options say the backend knows methods.
+   */
+  methods?: string[];
 }
 
 /** A run's results, plus the email the BACKEND confirms it ran as (null: the ticket's customer). */
