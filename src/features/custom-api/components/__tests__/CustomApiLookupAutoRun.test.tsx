@@ -360,4 +360,25 @@ describe('#920 — edge cases', () => {
     render(<CustomApiLookupPanel conversationId={1} autoRun />, client);
     await waitFor(() => expect(run).toHaveBeenCalledTimes(2));
   });
+
+  it('a press while the GET-only run is still answering runs every lookup, not joining it', async () => {
+    optionsReply = [GET_LOOKUP, POST_LOOKUP];
+    let answerGet: (rows: CustomApiLookupResult[]) => void = () => undefined;
+    run.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          answerGet = resolve;
+        })
+    );
+    run.mockResolvedValueOnce([card('A-100'), { ...card('R-1'), endpointId: 30 }]);
+    const client = newClient();
+    const first = render(<CustomApiLookupPanel conversationId={1} autoRun />, client);
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    first.unmount();
+    render(<CustomApiLookupPanel conversationId={1} autoRun />, client);
+    await userEvent.click(await screen.findByRole('button', { name: /^look up$/i }));
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(2));
+    expect(run).toHaveBeenLastCalledWith({ conversationId: 1 });
+    answerGet([card('A-100')]);
+  });
 });
