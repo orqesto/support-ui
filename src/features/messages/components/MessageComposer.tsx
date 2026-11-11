@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { Paperclip, BookOpen, Search } from 'lucide-react';
+import { Paperclip, BookOpen } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -10,7 +10,6 @@ import RichTextEditor from '@/components/shared/LazyRichTextEditor';
 import { extractImageFiles } from '@/components/shared/extractImageFiles';
 import { ComposerAiActions } from './ComposerAiActions';
 import { isBlankRichText } from '@/lib/stripHtml';
-import { InsertFieldMenu } from '@/components/shared/InsertFieldMenu';
 import { TemplatePicker } from '@/components/shared/TemplatePicker';
 import { RecipientFields, replyToLabel } from './RecipientFields';
 import { useIsPhone } from './useIsPhone';
@@ -65,7 +64,6 @@ export function MessageComposer({
   windowTone = 'none',
   onUseTemplate = null,
   onAiSourceChange,
-  onLookUp = null,
   shortcutHint,
   decisions,
   hidden = false,
@@ -92,21 +90,6 @@ export function MessageComposer({
   */
   const isPhone = useIsPhone();
   const rootRef = useRef<HTMLDivElement>(null);
-  /*
-    The tools keep their names only where the box is wide enough for all of them and Send on ONE
-    row (a full-page thread); in the slide-over they are icons, named on hover and for screen
-    readers. Measured on the box itself — the slide-over is narrow on any window size.
-  */
-  const [wideTools, setWideTools] = useState(true);
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(([entry]) => {
-      setWideTools(entry.contentRect.width >= 780);
-    });
-    observer.observe(root);
-    return () => observer.disconnect();
-  }, []);
   const [open, setOpen] = useState(false);
   // Bumped on each close so the editor remounts in its collapsed one-line form.
   const [restGeneration, setRestGeneration] = useState(0);
@@ -462,7 +445,7 @@ export function MessageComposer({
               // While an AI draft is being written the editor holds the agent's note: translating
               // it then made the draft land on changed text and be refused.
               disabled={submitting || aiBusy}
-              label={isPhone || !wideTools ? undefined : 'Translate'}
+              label={isPhone ? undefined : 'Translate'}
               buttonClassName={`${IBTN} !w-auto !h-auto max-sm:!w-9 max-sm:justify-center max-sm:!px-0`}
             />
           )}
@@ -473,16 +456,7 @@ export function MessageComposer({
               onPick={(template) => void insertTemplate(template)}
               disabled={submitting}
               triggerClassName={`${IBTN} h-auto`}
-              iconOnly={isPhone || !wideTools}
-            />
-          )}
-          {composerMode === 'reply' && !atRest && (
-            <InsertFieldMenu
-              editor={richEditorRef}
-              disabled={submitting || aiBusy}
-              triggerClassName={`${IBTN} h-auto`}
-              iconOnly={isPhone || !wideTools}
-              ticketIdHint="Its ticket’s number — only when the thread is on a ticket"
+              iconOnly={isPhone}
             />
           )}
           {withTip(
@@ -493,7 +467,7 @@ export function MessageComposer({
             >
               <Paperclip className="w-3 h-3 max-sm:w-4 max-sm:h-4" />
               {/* Icon only on a phone (v4 mobile); the name stays for screen readers. */}
-              {isPhone || !wideTools ? <span className="sr-only">Attach</span> : 'Attach'}
+              {isPhone ? <span className="sr-only">Attach</span> : 'Attach'}
               <input
                 type="file"
                 multiple
@@ -513,20 +487,7 @@ export function MessageComposer({
                 className={`${IBTN} h-auto ${atRest ? 'hidden' : ''}`}
               >
                 <BookOpen className="w-3 h-3" />
-                {isPhone || !wideTools ? <span className="sr-only">KB</span> : 'KB'}
-              </Button>
-            )}
-          {composerMode === 'reply' &&
-            onLookUp &&
-            withTip(
-              'Look up this customer in connected systems',
-              <Button
-                variant="ghost"
-                onClick={onLookUp}
-                className={`${IBTN} h-auto ${atRest ? 'hidden' : ''}`}
-              >
-                <Search className="w-3 h-3" />
-                {isPhone || !wideTools ? <span className="sr-only">Look up</span> : 'Look up'}
+                {isPhone ? <span className="sr-only">KB</span> : 'KB'}
               </Button>
             )}
           <span className={`flex-1 ${atRest ? 'hidden' : ''}`} />

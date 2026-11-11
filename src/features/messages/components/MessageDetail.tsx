@@ -35,7 +35,6 @@ import { useReplyComposerState } from './messageDetail/useReplyComposerState';
 import { useLiveThreadSync } from './messageDetail/useLiveThreadSync';
 import { useGhostOption } from './messageDetail/useGhostOption';
 import { usePanelTabs } from './messageDetail/usePanelTabs';
-import { useLookupFlash } from './messageDetail/useLookupFlash';
 import { useThreadScrollPin } from './messageDetail/useThreadScrollPin';
 import { useThreadPanelsData } from './messageDetail/useThreadPanelsData';
 import { deriveThreadFlags } from './messageDetail/threadFlags';
@@ -191,22 +190,12 @@ export function MessageDetail({
     detailRootRef,
   } = usePanelTabs(message, fullPage);
 
-  /*
-    v4 composer "Look up": open the Lookups tab and bring the Connected systems block into view.
-    ⛔ Offered only when the lookup panel itself would render — the SAME cached availability query
-    (react-query key shared with CustomApiLookupPanel's thread surface), so this adds no request.
-    It fails closed exactly like the panel: loading, error or an older backend ⇒ no button.
-  */
-  // The SAME gate as the tab itself (useLookupsTab), so the button never points at a hidden tab.
+  // The SAME gate as the tab itself (useLookupsTab). An admin can remove the last lookup while an
+  // agent sits on its tab; fall back, never blank.
   const lookupAvailable = useLookupsTab('thread').available;
-  const { handleLookUp } = useLookupFlash({
-    message,
-    tab,
-    setTab,
-    lookupAvailable,
-    twoColumn,
-    setPanelOpen,
-  });
+  useEffect(() => {
+    if (tab === 'lookups' && !lookupAvailable) setTab('ai');
+  }, [tab, lookupAvailable, setTab]);
 
   // ── Notes / activity / attachments / lead state ────────────────────────────
   const user = useAuthStore((store) => store.user);
@@ -724,7 +713,6 @@ export function MessageDetail({
               richEditorRef={richEditorRef}
               noteEditorRef={noteEditorRef}
               onOpenSimilarMessages={() => setSimilarOpen(true)}
-              onLookUp={lookupAvailable ? handleLookUp : null}
               selectedFiles={selectedFiles}
               onFilesChange={setSelectedFiles}
               onAiSourceChange={handleAiSourceChange}

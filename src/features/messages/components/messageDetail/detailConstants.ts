@@ -1,10 +1,6 @@
 import { isBlankRichText } from '@/lib/stripHtml';
 import type { Attachment } from '../MessageAttachments';
 
-/** v4 ".k-flash": a short ring on the Connected systems block after the composer's Look up. */
-export const LOOKUP_FLASH_CLASSES = ['ring-[3px]', 'ring-primary-line', 'rounded-[8px]'];
-export const LOOKUP_FLASH_MS = 1200;
-export const LOOKUP_SEEK_FRAMES = 10;
 /**
  * Events per page of the thread. A thread is read latest page first; "Show earlier messages"
  * fetches the page before it. 300 is a working day of a busy ticket; the thread that made this
