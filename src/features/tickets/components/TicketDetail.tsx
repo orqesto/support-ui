@@ -37,7 +37,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { formatAge } from '@/lib/utils';
 import { useDepartmentById } from '@/hooks/useDepartments';
-import { useElementWidth } from '@/features/tickets/hooks/useElementWidth';
+import { useElementWidth } from '@/hooks/useElementWidth';
 import type { TicketThread } from '@/features/tickets/services/ticketThreads.service';
 import { categoryService } from '@/features/tickets/services/category.service';
 import { messageService } from '@/services/message.service';
