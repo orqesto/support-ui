@@ -160,6 +160,99 @@ export const normaliseMaintenance = (raw: unknown): MaintenanceState => {
 /** What a repair answered: the backend's `data`, shown as it came. */
 export type RepairResult = Record<string, unknown>;
 
+/**
+ * A repair that lists every row it would change, paged by id (BE `repair-wrong-label-replies`,
+ * `repair-outbound-only-new-threads`, 2026-11-10). Request: `organizationId` in the body, a dry
+ * run unless `dryRun` is exactly `false`, `limit` (max 1000) and `afterId` (where a page starts).
+ */
+export interface ListedRepairRow {
+  /** The message (wrong-label) or thread (outbound-only) id. */
+  id: number;
+  /** The thread the message sits in (wrong-label); null for a thread row. */
+  threadId: number | null;
+  /** The thread's public id (outbound-only); null when the backend sent none. */
+  publicId: string | null;
+  labels: string[];
+  createdAt: string | null;
+  outcome: string;
+  /** KB entries made from this message (wrong-label; kept as they are). Null when not sent. */
+  kbEntries: number | null;
+  attachmentsRemoved: number | null;
+  detail: string | null;
+}
+
+export interface ListedRepairResult {
+  dryRun: boolean;
+  /** Every row the repair would touch in the workspace, ignoring the page. */
+  totalInScope: number;
+  /** Rows on this page. */
+  selected: number;
+  limit: number;
+  counts: Record<string, number>;
+  rows: ListedRepairRow[];
+  /** Set when the page stopped at its limit: the next page starts after this id. */
+  nextAfterId: number | null;
+  /** Wrong-label only: mail that also carries SENT — real replies, never removed. */
+  skippedSent: {
+    count: number;
+    rows: Array<Pick<ListedRepairRow, 'id' | 'threadId' | 'labels' | 'createdAt'>>;
+    truncated: boolean;
+  } | null;
+}
+
+const numberOr = <T>(value: unknown, fallback: T): number | T =>
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+
+const stringOr = <T>(value: unknown, fallback: T): string | T =>
+  typeof value === 'string' ? value : fallback;
+
+const labelsOf = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((label): label is string => typeof label === 'string') : [];
+
+const normaliseListedRow = (raw: Record<string, unknown>): ListedRepairRow => ({
+  id: numberOr(raw.id, 0),
+  threadId: numberOr(raw.conversationId, null),
+  publicId: stringOr(raw.publicId, null),
+  labels: labelsOf(raw.labels),
+  createdAt: stringOr(raw.createdAt, null),
+  outcome: stringOr(raw.outcome, 'selected'),
+  kbEntries: numberOr(raw.kbEntries, null),
+  attachmentsRemoved: numberOr(raw.attachmentsRemoved, null),
+  detail: stringOr(raw.detail, null),
+});
+
+export const normaliseListedRepair = (raw: unknown): ListedRepairResult => {
+  const data = isRecord(raw) ? raw : {};
+  const rows = (Array.isArray(data.rows) ? data.rows : []).filter(isRecord).map(normaliseListedRow);
+  const counts = isRecord(data.counts)
+    ? Object.fromEntries(
+        Object.entries(data.counts).filter(
+          (entry): entry is [string, number] => typeof entry[1] === 'number'
+        )
+      )
+    : {};
+  const sent = isRecord(data.skippedSent) ? data.skippedSent : null;
+  return {
+    dryRun: data.dryRun !== false,
+    totalInScope: numberOr(data.totalInScope, rows.length),
+    selected: numberOr(data.selected, rows.length),
+    limit: numberOr(data.limit, rows.length),
+    counts,
+    rows,
+    nextAfterId: numberOr(data.nextAfterId, null),
+    skippedSent: sent
+      ? {
+          count: numberOr(sent.count, 0),
+          rows: (Array.isArray(sent.rows) ? sent.rows : [])
+            .filter(isRecord)
+            .map(normaliseListedRow)
+            .map(({ id, threadId, labels, createdAt }) => ({ id, threadId, labels, createdAt })),
+          truncated: sent.truncated === true,
+        }
+      : null,
+  };
+};
+
 const maintenanceService = {
   get: async (): Promise<MaintenanceState> => {
     const response = await apiClient.get<ApiResponse<unknown>>('/api/system/maintenance');
@@ -214,6 +307,29 @@ const maintenanceService = {
         : await apiClient.post<ApiResponse<unknown>>(route, body, config);
     const data = response.data.data;
     return isRecord(data) ? data : { result: data };
+  },
+
+  /**
+   * Run a listed repair (see `ListedRepairResult`). The workspace goes in the body AND as the
+   * request's `X-Organization-Context` (the backend requires them to agree when both are sent).
+   */
+  runListedRepair: async (
+    path: string,
+    organizationId: number,
+    options: { dryRun: boolean; limit: number; afterId: number | null }
+  ): Promise<ListedRepairResult> => {
+    const body: Record<string, unknown> = {
+      organizationId,
+      dryRun: options.dryRun,
+      limit: options.limit,
+    };
+    if (options.afterId !== null) body.afterId = options.afterId;
+    const response = await apiClient.post<ApiResponse<unknown>>(
+      `/api/system/${encodeURIComponent(path)}`,
+      body,
+      { organizationContext: organizationId }
+    );
+    return normaliseListedRepair(response.data.data);
   },
 };
 

@@ -17,6 +17,7 @@ import { SyncCheckpointsCard } from '@/components/console/maintenance/SyncCheckp
 import { SpoofedSenderReportView } from '@/components/console/maintenance/SpoofedSenderReportView';
 import { TrustedAddressesCard } from '@/components/console/maintenance/TrustedAddressesCard';
 import { AnalyticsExclusionsCard } from '@/components/console/maintenance/AnalyticsExclusionsCard';
+import { LISTED_REPAIRS, ListedRepairRow } from '@/components/console/maintenance/ListedRepairRow';
 import {
   REPAIRS,
   REPAIRS_ELSEWHERE,
@@ -599,6 +600,14 @@ export const PlatformMaintenance = () => {
               <RepairRow
                 key={repair.id}
                 repair={repair}
+                organizationId={organizationId}
+                allowed={allowed}
+              />
+            ))}
+            {LISTED_REPAIRS.map((def) => (
+              <ListedRepairRow
+                key={def.id}
+                def={def}
                 organizationId={organizationId}
                 allowed={allowed}
               />
