@@ -26,6 +26,9 @@ const runDetailed =
     (body: unknown) => Promise<{ results: CustomApiLookupResult[]; lookedUpAs: string | null }>
   >();
 const availability = vi.fn<(surface: string) => Promise<boolean>>();
+const GET_LOOKUP = { endpointId: 20, label: 'Their orders', method: 'GET', updatedAt: 'v1' };
+const POST_LOOKUP = { endpointId: 30, label: 'Create return', method: 'POST', updatedAt: 'v1' };
+let optionsReply: unknown[] = [GET_LOOKUP];
 
 vi.mock('@/features/custom-api/services/customApiLookup.service', async () => {
   const actual = await vi.importActual<typeof LookupService>(
@@ -37,7 +40,7 @@ vi.mock('@/features/custom-api/services/customApiLookup.service', async () => {
       run: (body: unknown) => run(body),
       runDetailed: (body: unknown) => runDetailed(body),
       availability: (surface: string) => availability(surface),
-      lookupOptions: () => Promise.resolve([]),
+      lookupOptions: () => Promise.resolve(optionsReply),
     },
   };
 });
@@ -66,6 +69,7 @@ const render = (ui: ReactElement, client = newClient()) =>
   rtlRender(ui, { wrapper: wrapperFor(client) });
 
 beforeEach(() => {
+  optionsReply = [GET_LOOKUP];
   clearLookupCache();
   run.mockReset();
   runDetailed.mockReset();
@@ -85,7 +89,7 @@ describe('#920 — the Lookups tab runs when it opens', () => {
     render(<CustomApiLookupPanel conversationId={1} autoRun />);
     expect(await screen.findByText('A-100')).toBeInTheDocument();
     expect(run).toHaveBeenCalledTimes(1);
-    expect(run).toHaveBeenCalledWith({ conversationId: 1 });
+    expect(run).toHaveBeenCalledWith({ conversationId: 1, methods: ['GET'] });
   });
 
   it('2. CONTROL — a panel without autoRun (contact drawer, records page) calls nothing', async () => {
@@ -107,7 +111,7 @@ describe('#920 — the Lookups tab runs when it opens', () => {
     await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
     view.rerender(<CustomApiLookupPanel conversationId={2} autoRun />);
     expect(await screen.findByText('B-200')).toBeInTheDocument();
-    expect(run).toHaveBeenLastCalledWith({ conversationId: 2 });
+    expect(run).toHaveBeenLastCalledWith({ conversationId: 2, methods: ['GET'] });
     // Thread 1's answer lands late: dropped by the generation guard.
     resolveFirst([card('A-100')]);
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -286,6 +290,74 @@ describe('#920 — edge cases', () => {
       <CustomApiLookupPanel conversationId={1} autoRun customerEmail="second@example.com" />,
       client
     );
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(2));
+  });
+
+  // Owner 2026-11-11: GET only; 8b review F1–F3.
+  it('an older backend (no methods reported) ⇒ nothing runs on its own; the button stays', async () => {
+    optionsReply = [{ endpointId: 20, label: 'Their orders' }];
+    render(<CustomApiLookupPanel conversationId={1} autoRun />);
+    expect(await screen.findByRole('button', { name: /^look up$/i })).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('only POST lookups ⇒ nothing runs on its own', async () => {
+    optionsReply = [POST_LOOKUP];
+    render(<CustomApiLookupPanel conversationId={1} autoRun />);
+    await screen.findByRole('button', { name: /^look up$/i });
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('GET and POST ⇒ runs GET only, and names the POST lookup still to press', async () => {
+    optionsReply = [GET_LOOKUP, POST_LOOKUP];
+    run.mockResolvedValue([card('A-100')]);
+    render(<CustomApiLookupPanel conversationId={1} autoRun />);
+    expect(await screen.findByText('A-100')).toBeInTheDocument();
+    expect(run).toHaveBeenCalledWith({ conversationId: 1, methods: ['GET'] });
+    expect(screen.getByTestId('lookups-press-only')).toHaveTextContent('Create return');
+  });
+
+  it('F1 — tab left before a slow answer: the answer is still cached, reopening calls nothing', async () => {
+    let answer: (rows: CustomApiLookupResult[]) => void = () => undefined;
+    run.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        })
+    );
+    const client = newClient();
+    const first = render(<CustomApiLookupPanel conversationId={1} autoRun />, client);
+    await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+    first.unmount();
+    answer([card('A-100')]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    render(<CustomApiLookupPanel conversationId={1} autoRun />, client);
+    expect(await screen.findByText('A-100')).toBeInTheDocument();
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('F2 — J/K through threads with the tab open runs only for the thread settled on', async () => {
+    run.mockResolvedValue([card('C-300')]);
+    const view = render(<CustomApiLookupPanel conversationId={1} autoRun />);
+    await screen.findByRole('button', { name: /^look up$/i });
+    view.rerender(<CustomApiLookupPanel conversationId={2} autoRun />);
+    view.rerender(<CustomApiLookupPanel conversationId={3} autoRun />);
+    expect(await screen.findByText('C-300')).toBeInTheDocument();
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(run).toHaveBeenCalledWith({ conversationId: 3, methods: ['GET'] });
+  });
+
+  it('F3 — a lookup changed by an admin (new config version) is not served from the cache', async () => {
+    run.mockResolvedValue([card('A-100')]);
+    const client = newClient();
+    const first = render(<CustomApiLookupPanel conversationId={1} autoRun />, client);
+    await screen.findByText('A-100');
+    first.unmount();
+    optionsReply = [{ ...GET_LOOKUP, updatedAt: 'v2' }];
+    await client.invalidateQueries();
+    render(<CustomApiLookupPanel conversationId={1} autoRun />, client);
     await waitFor(() => expect(run).toHaveBeenCalledTimes(2));
   });
 });

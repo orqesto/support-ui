@@ -47,7 +47,12 @@ vi.mock('@/features/custom-api/services/customApiLookup.service', () => ({
   },
 }));
 const options = (count: number) =>
-  Array.from({ length: count }, (_, idx) => ({ endpointId: idx + 1, label: `l${idx}` }));
+  Array.from({ length: count }, (_, idx) => ({
+    endpointId: idx + 1,
+    label: `l${idx}`,
+    method: 'GET',
+    updatedAt: '2026-11-01T00:00:00Z',
+  }));
 const getKBReferences = vi.fn();
 vi.mock('@/services/message.service', () => ({
   messageService: { getKBReferences: (id: number) => getKBReferences(id) as unknown },
