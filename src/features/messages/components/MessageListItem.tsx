@@ -579,10 +579,10 @@ const MessageListItemRow = ({
 
   if (compact) {
     /*
-      Messages list v4 table row (v3 `.row.rowt`): P · From · Subject (+ ticket, messages,
-      attachments) · Signals · Status · Assignee · Updated, on the header's grid. Narrow — a split
+      Messages list v4 table row (v3 `.row.rowt`): P · From · Subject (+ thread id, ticket,
+      messages, attachments) · Signals · Status · Assignee · Updated, on the header's grid. Narrow — a split
       pane too narrow for the columns (`fit` two-line), or below md — is the design's two-line
-      form: from · updated / subject / priority, status, two signals · assignee.
+      form: from · updated / subject / priority, status, two signals · thread id, assignee.
     */
     const narrow = fit === 'two-line';
     const two = (cls: string) =>
@@ -662,6 +662,7 @@ const MessageListItemRow = ({
                 'gap-2 items-center self-center ml-auto shrink-0'
               )}
             >
+              {copyRef}
               {ticketRef}
               {countRef}
               {attachRef}
@@ -708,6 +709,7 @@ const MessageListItemRow = ({
             {signals}
           </span>
           <span className="flex-1" />
+          {copyRef}
           <RowPresence conversationId={msg.id} />
           <RowAssignee thread={thread} />
         </div>
