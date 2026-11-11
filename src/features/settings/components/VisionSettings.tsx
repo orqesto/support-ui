@@ -45,8 +45,9 @@ export const VisionSettings = () => {
   const [limits, setLimits] = useState(FALLBACK_LIMITS);
   const [maxImages, setMaxImages] = useState(String(FALLBACK_LIMITS.maxImagesPerMessage.default));
   const [minKb, setMinKb] = useState(String(FALLBACK_LIMITS.minImageKb.default));
-  // A backend from before the email-photo settings sends neither: the fields stay hidden.
+  // A backend from before the email-photo settings sends none of them: the section stays hidden.
   const [emailPhotoSettings, setEmailPhotoSettings] = useState(false);
+  const [emailPhotos, setEmailPhotos] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -83,6 +84,7 @@ export const VisionSettings = () => {
         setOptions(opts);
         if (typeof cfg.maxImagesPerMessage === 'number' && typeof cfg.minImageKb === 'number') {
           setEmailPhotoSettings(true);
+          setEmailPhotos(cfg.emailPhotos === true);
           setMaxImages(String(cfg.maxImagesPerMessage));
           setMinKb(String(cfg.minImageKb));
           if (cfg.limits) setLimits(cfg.limits);
@@ -101,7 +103,8 @@ export const VisionSettings = () => {
   const maxImagesValue = parseSetting(maxImages, limits.maxImagesPerMessage);
   const minKbValue = parseSetting(minKb, limits.minImageKb);
   // Only a visible field can block the save; a hidden invalid one is simply not sent.
-  const invalid = enabled && emailPhotoSettings && (maxImagesValue === null || minKbValue === null);
+  const invalid =
+    enabled && emailPhotoSettings && emailPhotos && (maxImagesValue === null || minKbValue === null);
 
   const save = async () => {
     if (invalid) return;
@@ -115,6 +118,7 @@ export const VisionSettings = () => {
         enabled,
         provider: model ? provider ?? null : null,
         model: model || null,
+        ...(emailPhotoSettings ? { emailPhotos } : {}),
         ...(emailPhotoSettings && maxImagesValue !== null
           ? { maxImagesPerMessage: maxImagesValue }
           : {}),
@@ -180,11 +184,25 @@ export const VisionSettings = () => {
 
       {enabled && emailPhotoSettings && (
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-foreground">Email photos</h4>
-          <p className="text-xs text-muted-foreground">
-            Read when the email arrives, largest first. Signature logos and images that arrive on
-            many conversations are skipped. Each photo read is one AI call.
-          </p>
+          <div className="flex gap-4 justify-between items-start">
+            <div>
+              <h4 className="text-sm font-medium text-foreground">Read photos in customer emails</h4>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Read when the email arrives, largest first, so the draft and auto-reply know what is
+                on them. Signature logos and images that arrive on many conversations are skipped.
+                Each photo read is one AI call.
+              </p>
+            </div>
+            <Toggle
+              checked={emailPhotos}
+              ariaLabel="Read photos in customer emails"
+              onChange={(checked) => {
+                setEmailPhotos(checked);
+                setSaved(false);
+              }}
+            />
+          </div>
+          {emailPhotos && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
               label="Photos read per email"
@@ -223,6 +241,7 @@ export const VisionSettings = () => {
               }
             />
           </div>
+          )}
         </div>
       )}
 
