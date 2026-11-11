@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { ReactElement, ReactNode } from 'react';
-import { render as rtlRender, screen, waitFor } from '@testing-library/react';
+import { render as rtlRender, cleanup, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -379,6 +379,14 @@ describe('#920 — edge cases', () => {
     await userEvent.click(await screen.findByRole('button', { name: /^look up$/i }));
     await waitFor(() => expect(run).toHaveBeenCalledTimes(2));
     expect(run).toHaveBeenLastCalledWith({ conversationId: 1 });
+    expect(await screen.findByText('R-1')).toBeInTheDocument();
+    // The closed panel's GET-only run answers LAST: it must not replace the full result in the
+    // cache, or the next opening would lose the POST card (8b review).
     answerGet([card('A-100')]);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    cleanup();
+    render(<CustomApiLookupPanel conversationId={1} autoRun />, client);
+    expect(await screen.findByText('R-1')).toBeInTheDocument();
+    expect(run).toHaveBeenCalledTimes(2);
   });
 });

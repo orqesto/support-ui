@@ -296,7 +296,8 @@ export function useCustomApiLookup(
         // slow vendor answered, React drops that update — and the next opening would call again
         // (8b review F1). A merged one-lookup re-run needs the cards on screen, so it is cached in
         // the update (it can only happen while the panel is open).
-        if (!manual && cacheable(data)) writeLookupCache(cacheKey, data, now);
+        if (!manual && cacheable(data))
+          writeLookupCache(cacheKey, data, now, Date.now(), Boolean(methods));
         setResults((previous) => {
           if (!manual) return data;
           const next = previous.map(

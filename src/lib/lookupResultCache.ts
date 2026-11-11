@@ -22,7 +22,8 @@
 export const LOOKUP_CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_ENTRIES = 50;
 
-type Entry = { results: unknown[]; ranAt: string; storedAt: number };
+/** `partial`: a run of only some methods (the tab's GET-only run) — it never replaces a full one. */
+type Entry = { results: unknown[]; ranAt: string; storedAt: number; partial: boolean };
 
 const entries = new Map<string, Entry>();
 const inFlight = new Map<string, Promise<unknown[]>>();
@@ -56,14 +57,19 @@ export const writeLookupCache = (
   key: string | null,
   results: unknown[],
   ranAt: string,
-  now: number = Date.now()
+  now: number = Date.now(),
+  partial = false
 ): void => {
   if (!key) return;
   for (const [entryKey, entry] of entries) {
     if (now - entry.storedAt >= LOOKUP_CACHE_TTL_MS) entries.delete(entryKey);
   }
+  // ⛔ A GET-ONLY RUN NEVER REPLACES A FRESH FULL ONE (8b review of #933): the tab's GET-only run
+  // from a panel already closed can answer AFTER a press ran every lookup — writing it would drop
+  // the POST cards from the next opening.
+  if (partial && entries.get(key)?.partial === false) return;
   entries.delete(key); // re-insert so the newest is last (Map keeps insertion order)
-  entries.set(key, { results, ranAt, storedAt: now });
+  entries.set(key, { results, ranAt, storedAt: now, partial });
   while (entries.size > MAX_ENTRIES) {
     const oldest = entries.keys().next().value;
     if (oldest === undefined) break;
