@@ -64,7 +64,12 @@ import {
 } from './inboxCardHelpers';
 import { PriorityIcon } from '@/features/tickets/shell';
 import { envelopeBadge, eventEnvelope } from '@/lib/messageEnvelope';
-import { THREAD_TABLE_GRID, ThreadStatusCell } from './list/threadTableParts';
+import {
+  fitClass,
+  threadTableGrid,
+  ThreadStatusCell,
+  type TableFit,
+} from './list/threadTableParts';
 
 type MessageListItemProps = {
   thread: MessageThread;
@@ -90,8 +95,11 @@ type MessageListItemProps = {
   density?: ListDensity;
   /** The thread open in the split pane — the row shows it is the one being read. */
   current?: boolean;
-  /** The list column is narrow (split layout): the compact line wraps to two. */
-  narrow?: boolean;
+  /**
+   * Table rows only: how the table fits a measured column (the split pane) — two-line, the md
+   * columns, or the xl columns with signals. Unset: the window breakpoints decide (full width).
+   */
+  fit?: TableFit;
   /** The typed search as the backend read it: marked in the sender, subject and preview. */
   highlightTerms?: readonly string[];
   /** Opened, its full record still on the way: the row says it is busy (aria-busy). */
@@ -113,7 +121,7 @@ const MessageListItemRow = ({
   selectMode = false,
   density = 'comfortable',
   current = false,
-  narrow = false,
+  fit,
   highlightTerms,
   pending = false,
 }: MessageListItemProps) => {
@@ -285,12 +293,13 @@ const MessageListItemRow = ({
   // The open (split-pane) row is marked by its own 3px primary edge; a spine painted over it hid
   // that marker on almost every row once spines followed the status (review of #721).
   // …but a warning edge (breached / spam red, at-risk amber) stays even there.
-  const spineBar = current && spine !== 'red' && spine !== 'amber' ? null : (
-    <span
-      aria-hidden="true"
-      className={`absolute left-0 top-0 bottom-0 w-[3px] ${SPINE_BG[spine]}`}
-    />
-  );
+  const spineBar =
+    current && spine !== 'red' && spine !== 'amber' ? null : (
+      <span
+        aria-hidden="true"
+        className={`absolute left-0 top-0 bottom-0 w-[3px] ${SPINE_BG[spine]}`}
+      />
+    );
 
   const readToggle = isTriage && (
     <Tooltip content={effectiveIsRead ? 'Mark as unread' : 'Mark as read'} size="sm">
@@ -328,11 +337,7 @@ const MessageListItemRow = ({
       >
         {/* The sender's name alone, in the table and on the card (Messages list v4); no name (or
             a name that IS the address) → the address. The address is in the opened thread. */}
-        <Highlight
-          text={senderShort(thread.sender)}
-          terms={highlightTerms}
-          mode="anywhere"
-        />
+        <Highlight text={senderShort(thread.sender)} terms={highlightTerms} mode="anywhere" />
       </p>
       {readToggle}
     </>
@@ -575,18 +580,21 @@ const MessageListItemRow = ({
   if (compact) {
     /*
       Messages list v4 table row (v3 `.row.rowt`): P · From · Subject (+ ticket, messages,
-      attachments) · Signals · Status · Assignee · Updated, on the header's grid. Narrow — the
-      split pane, or below md — is the design's two-line form: from · updated / subject / priority,
-      status, two signals · assignee.
+      attachments) · Signals · Status · Assignee · Updated, on the header's grid. Narrow — a split
+      pane too narrow for the columns (`fit` two-line), or below md — is the design's two-line
+      form: from · updated / subject / priority, status, two signals · assignee.
     */
+    const narrow = fit === 'two-line';
     const two = (cls: string) =>
-      narrow
+      fit === undefined
         ? cls
-        : cls
             .split(' ')
             .map((token) => `max-md:${token}`)
-            .join(' ');
-    const wide = (cls: string) => (narrow ? 'hidden' : `hidden ${cls}`);
+            .join(' ')
+        : narrow
+          ? cls
+          : '';
+    const wide = (cls: `${'md' | 'xl'}:${string}`) => fitClass(fit, cls);
     const status = deriveWorkflowStatus({
       status: msg.status,
       parkedAt: msg.parkedAt,
@@ -601,7 +609,9 @@ const MessageListItemRow = ({
           'hover:bg-raised focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
           narrow
             ? 'grid-cols-[minmax(0,1fr)_auto] gap-y-1 py-2.5'
-            : `max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-y-1 max-md:py-2.5 ${THREAD_TABLE_GRID}`,
+            : fit === undefined
+              ? `max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-y-1 max-md:py-2.5 ${threadTableGrid(fit)}`
+              : threadTableGrid(fit),
           (selected === true || current) && 'bg-primary-muted hover:bg-primary-muted',
           current && 'shadow-[inset_3px_0_0_hsl(var(--primary))]',
           pending && 'opacity-80',
@@ -646,7 +656,12 @@ const MessageListItemRow = ({
           )}
           <span className="text-muted-foreground truncate flex-1 min-w-0">{previewNode}</span>
           {!narrow && (
-            <span className="hidden md:flex gap-2 items-center self-center ml-auto shrink-0">
+            <span
+              className={cn(
+                fitClass(fit, 'md:flex'),
+                'gap-2 items-center self-center ml-auto shrink-0'
+              )}
+            >
               {ticketRef}
               {countRef}
               {attachRef}
@@ -682,7 +697,9 @@ const MessageListItemRow = ({
             'items-center gap-2 min-w-0',
             narrow
               ? 'flex col-span-2 row-start-3'
-              : 'hidden max-md:flex max-md:col-span-2 max-md:row-start-3'
+              : fit === undefined
+                ? 'hidden max-md:flex max-md:col-span-2 max-md:row-start-3'
+                : 'hidden'
           )}
         >
           {msg.priority && <PriorityIcon priority={msg.priority} />}
