@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
@@ -48,16 +49,19 @@ export const VisionSettings = ({ managed = false }: { managed?: boolean } = {}) 
   // A backend from before the email-photo settings sends none of them: the section stays hidden.
   const [emailPhotoSettings, setEmailPhotoSettings] = useState(false);
   const [emailPhotos, setEmailPhotos] = useState(false);
+  // A failed load must not render defaults a Save would write back (vision OFF → ON).
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     let active = true;
     void (async () => {
       try {
+        // Managed AI shows no model picker: no need to list own-keys providers and models.
         const [cfg, providers] = await Promise.all([
           organizationService.getVisionConfig(),
-          aiService.getProviders(),
+          managed ? Promise.resolve(null) : aiService.getProviders(),
         ]);
-        const enabledProviders = providers.data.enabled ?? [];
+        const enabledProviders = providers?.data.enabled ?? [];
         const lists = await Promise.all(
           enabledProviders.map((providerName) =>
             aiService
@@ -91,6 +95,7 @@ export const VisionSettings = ({ managed = false }: { managed?: boolean } = {}) 
         }
       } catch (error) {
         logger.error('Failed to load vision settings', error);
+        if (active) setLoadFailed(true);
       } finally {
         if (active) setLoading(false);
       }
@@ -98,7 +103,7 @@ export const VisionSettings = ({ managed = false }: { managed?: boolean } = {}) 
     return () => {
       active = false;
     };
-  }, []);
+  }, [managed]);
 
   const maxImagesValue = parseSetting(maxImages, limits.maxImagesPerMessage);
   const minKbValue = parseSetting(minKb, limits.minImageKb);
@@ -133,6 +138,16 @@ export const VisionSettings = ({ managed = false }: { managed?: boolean } = {}) 
   };
 
   if (loading) return null;
+  if (loadFailed) {
+    return (
+      <Alert variant="danger">
+        Image analysis settings could not be loaded. Reload the page to change them.
+      </Alert>
+    );
+  }
+  // Managed AI on a backend from before the email-photo settings: the card is new there and has
+  // nothing to offer yet, so it stays hidden (FE can reach prod before the backend release).
+  if (managed && !emailPhotoSettings) return null;
 
   // "Use my default model" (empty) + discovered vision models. Keep a stale-but-set model visible
   // even if its provider was since disabled, so the user still sees what's configured.
@@ -156,6 +171,7 @@ export const VisionSettings = ({ managed = false }: { managed?: boolean } = {}) 
         </div>
         <Toggle
           checked={enabled}
+          ariaLabel="Image analysis"
           onChange={(checked) => {
             setEnabled(checked);
             setSaved(false);
