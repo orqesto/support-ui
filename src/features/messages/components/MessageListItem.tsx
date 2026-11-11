@@ -245,6 +245,9 @@ const MessageListItemRow = ({
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (isFromPortal(event)) return;
+    // Only a key pressed on the ROW opens it. Enter on a button inside it (copy id, Claim) is that
+    // button's own press — preventDefault here cancelled it and opened the thread instead.
+    if (event.target !== event.currentTarget) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       onOpen(thread);
