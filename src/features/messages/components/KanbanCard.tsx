@@ -236,6 +236,8 @@ export const KanbanCard = ({
       onClick={handleCardClick}
       onKeyDown={(event) => {
         if (isFromPortal(event)) return;
+        // Only a key pressed on the CARD opens it; Enter on its copy-id or Claim button is theirs.
+        if (event.target !== event.currentTarget) return;
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           onOpen(thread);
