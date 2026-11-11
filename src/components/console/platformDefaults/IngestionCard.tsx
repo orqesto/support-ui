@@ -82,7 +82,7 @@ const AUTOREPLY_FIELDS: FieldDef[] = [
   {
     key: 'telegramBotRenewQuietHours',
     label: 'Telegram bot wakes after quiet (hours)',
-    hint: 'A Telegram chat the bot handed to a person: once nobody has written in it for this long, the bot answers the customer again. Each Telegram connection can set its own value.',
+    hint: 'A Telegram chat the bot handed to a person stays with people, also after it is closed or resolved, until there has been no message in it (customer, agent or bot) for this long; then the bot answers the customer again. Default one week (168). Each Telegram connection can set its own value.',
   },
 ];
 /** Attachment retry (Gmail and IMAP), then the pacing that keeps a Gmail mailbox under Google's quota. */

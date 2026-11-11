@@ -60,8 +60,12 @@ export const LANGUAGE_CODE = /^[a-z]{2}$/;
 
 /** What is wrong with the settings before they are sent, or null. Mirrors the backend's checks. */
 export const botSettingsProblem = (settings: TelegramBotSettings, max = 30): string | null => {
-  if (settings.quietHours !== null && (settings.quietHours < 1 || settings.quietHours > 720)) {
-    return 'Quiet hours must be between 1 and 720, or empty for the console default.';
+  // Whole hours only: the API refuses 1.5 (release audit of 1.1.326, item 6).
+  if (
+    settings.quietHours !== null &&
+    (!Number.isInteger(settings.quietHours) || settings.quietHours < 1 || settings.quietHours > 720)
+  ) {
+    return 'Quiet hours must be a whole number from 1 to 720, or empty for the console default.';
   }
   if (settings.commands.length > max) return `At most ${max} commands.`;
   const seen = new Set<string>();
@@ -72,6 +76,15 @@ export const botSettingsProblem = (settings: TelegramBotSettings, max = 30): str
     if (seen.has(entry.command)) return `/${entry.command} is listed twice.`;
     seen.add(entry.command);
     if (!entry.description.trim()) return `/${entry.command} needs a menu text.`;
+    // A custom command that is on shows in the menu; with no reply a customer tapping it gets
+    // nothing. Built-ins answer with their own text. The API refuses it too.
+    if (
+      entry.enabled &&
+      !BUILT_IN_COMMANDS.includes(entry.command) &&
+      !Object.values(entry.replies).some((reply) => reply.trim() !== '')
+    ) {
+      return `/${entry.command} is on but has no reply — write one, or switch it off.`;
+    }
     for (const code of Object.keys(entry.replies)) {
       if (!LANGUAGE_CODE.test(code))
         return `/${entry.command}: "${code}" is not a two-letter language code.`;
