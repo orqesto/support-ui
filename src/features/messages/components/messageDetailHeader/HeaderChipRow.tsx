@@ -42,6 +42,26 @@ type HeaderChipRowProps = {
   related: React.ReactNode;
 };
 
+type SlaClock = NonNullable<ReturnType<typeof computeSlaInfo>>;
+
+/** A running SLA clock: "<label> elapsed/target" and a bar — the reply clock and the Resolve clock. */
+function SlaClockChip({ label, info, testId }: { label: string; info: SlaClock; testId: string }) {
+  return (
+    <div className={`${CHIP_SENTENCE} ${PHONE_CHIP} ${info.colorClasses}`} data-testid={testId}>
+      <span>{label}</span>
+      <span className="tabular-nums">
+        {fmtMin(info.elapsed)}/{fmtMin(info.target)}
+      </span>
+      <div className="overflow-hidden w-10 h-1 rounded-full bg-muted">
+        <div
+          className={`h-full rounded-full transition-all ${info.barColor}`}
+          style={{ width: `${Math.min(100, (info.elapsed / info.target) * 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 /** Action chip row: the sender line, status, hold, SLA, priority, Related chips and badges. */
 export function HeaderChipRow({
   message,
@@ -167,41 +187,9 @@ export function HeaderChipRow({
           </div>
         </Tooltip>
       )}
-      {slaInfo && !slaInfo.record && (
-        <div
-          className={`${CHIP_SENTENCE} ${PHONE_CHIP} ${slaInfo.colorClasses}`}
-          data-testid="sla-clock"
-        >
-          <span>SLA</span>
-          <span className="tabular-nums">
-            {fmtMin(slaInfo.elapsed)}/{fmtMin(slaInfo.target)}
-          </span>
-          <div className="overflow-hidden w-10 h-1 rounded-full bg-muted">
-            <div
-              className={`h-full rounded-full transition-all ${slaInfo.barColor}`}
-              style={{ width: `${Math.min(100, (slaInfo.elapsed / slaInfo.target) * 100)}%` }}
-            />
-          </div>
-        </div>
-      )}
+      {slaInfo && !slaInfo.record && <SlaClockChip label="SLA" info={slaInfo} testId="sla-clock" />}
       {resolutionInfo && (
-        <div
-          className={`${CHIP_SENTENCE} ${PHONE_CHIP} ${resolutionInfo.colorClasses}`}
-          data-testid="sla-resolution-clock"
-        >
-          <span>Resolve</span>
-          <span className="tabular-nums">
-            {fmtMin(resolutionInfo.elapsed)}/{fmtMin(resolutionInfo.target)}
-          </span>
-          <div className="overflow-hidden w-10 h-1 rounded-full bg-muted">
-            <div
-              className={`h-full rounded-full transition-all ${resolutionInfo.barColor}`}
-              style={{
-                width: `${Math.min(100, (resolutionInfo.elapsed / resolutionInfo.target) * 100)}%`,
-              }}
-            />
-          </div>
-        </div>
+        <SlaClockChip label="Resolve" info={resolutionInfo} testId="sla-resolution-clock" />
       )}
       {message.priority && (
         <Select

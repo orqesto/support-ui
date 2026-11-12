@@ -9,6 +9,14 @@ import { formatDuration } from '@/lib/utils';
 
 export const SLA_DEFAULT_DAYS = 30;
 
+/** The priority rows of the SLA tables, in order, with their badge — shared by both tables. */
+export const SLA_PRIORITIES = [
+  { name: 'Critical', key: 'critical', variant: 'danger' },
+  { name: 'High', key: 'high', variant: 'warning' },
+  { name: 'Medium', key: 'medium', variant: 'default' },
+  { name: 'Low', key: 'low', variant: 'secondary' },
+] as const;
+
 type SLAByPriorityTableProps = {
   days?: number;
   /** A custom window (the date picker); wins over `days`. */
@@ -54,18 +62,7 @@ export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS, period }: SLAByPri
 
   if (!data) return null;
 
-  const priorities: Array<{
-    name: string;
-    key: 'critical' | 'high' | 'medium' | 'low';
-    variant: 'danger' | 'warning' | 'default' | 'secondary';
-  }> = [
-    { name: 'Critical', key: 'critical', variant: 'danger' },
-    { name: 'High', key: 'high', variant: 'warning' },
-    { name: 'Medium', key: 'medium', variant: 'default' },
-    { name: 'Low', key: 'low', variant: 'secondary' },
-  ];
-
-  const rows = priorities
+  const rows = SLA_PRIORITIES
     .map((priority) => {
       const stats = data.tickets[priority.key];
       if (!stats || stats.total === 0) return null;

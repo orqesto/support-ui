@@ -126,32 +126,43 @@ const Where = () => {
   return <output data-testid="where">{location.pathname + location.search}</output>;
 };
 
-const renderHeader = (over: Partial<Parameters<typeof MessageDetailHeader>[0]> = {}) =>
-  render(
-    <ThemeProvider>
-      <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter initialEntries={['/threads/1']}>
-          <Routes>
-            <Route
-              path="*"
-              element={
-                <>
-                  <MessageDetailHeader
-                    message={message}
-                    showFullPageButton={false}
-                    isFullPage
-                    threadCount={1}
-                    {...over}
-                  />
-                  <Where />
-                </>
-              }
-            />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>
-    </ThemeProvider>
-  );
+type HeaderProps = Partial<Parameters<typeof MessageDetailHeader>[0]>;
+
+const headerTree = (client: QueryClient, over: HeaderProps = {}) => (
+  <ThemeProvider>
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={['/threads/1']}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <>
+                <MessageDetailHeader
+                  message={message}
+                  showFullPageButton={false}
+                  isFullPage
+                  threadCount={1}
+                  {...over}
+                />
+                <Where />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
+  </ThemeProvider>
+);
+
+/** Renders the header; `rerenderHeader` re-renders the SAME tree with new props (state kept). */
+const renderHeader = (over: HeaderProps = {}) => {
+  const client = new QueryClient();
+  const result = render(headerTree(client, over));
+  return {
+    ...result,
+    rerenderHeader: (next: HeaderProps = {}) => result.rerender(headerTree(client, next)),
+  };
+};
 
 const setPhone = (phone: boolean) => {
   Object.defineProperty(window, 'matchMedia', {

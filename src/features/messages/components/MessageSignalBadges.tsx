@@ -51,9 +51,11 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
 
     // The clock from the customer's first unanswered message (backend 0230) — the one the
     // Breached filter, the sort and the alerts read. The branches below are for an older backend.
-    const wait = slaWaitClock(message);
+    // Both clocks read at ONE time, so they cannot disagree about the same moment.
+    const now = Date.now();
+    const wait = slaWaitClock(message, now);
     // The resolution clock (backend 0238): shown when it is the worse of the two.
-    const res = computeResolutionInfo(message);
+    const res = computeResolutionInfo(message, now);
     const resolutionBadge =
       res && (res.breached || res.atRisk) ? (
         <Tooltip

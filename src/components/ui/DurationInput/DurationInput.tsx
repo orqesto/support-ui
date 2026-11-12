@@ -46,6 +46,8 @@ export const DurationInput = ({
   };
   const initial = value === null ? null : split(value);
   const [invalid, setInvalid] = useState(false);
+  const invalidRef = useRef(false);
+  invalidRef.current = invalid;
   const [amountText, setAmountText] = useState(initial ? String(initial.amount) : '');
   const [unit, setUnit] = useState<DurationUnit>(initial?.unit ?? 'hour');
   // The value this control last emitted: a parent echoing it back must not re-split what was typed
@@ -54,9 +56,14 @@ export const DurationInput = ({
 
   useEffect(() => {
     if (value === lastEmitted.current) return;
+    // A different value from the parent: forget the echo, so the parent coming BACK to the value
+    // last emitted (60 → 120 → 60) is shown again instead of being taken for an echo.
+    lastEmitted.current = undefined;
     const next = value === null ? null : split(value);
     setAmountText(next ? String(next.amount) : '');
     if (next) setUnit(next.unit);
+    // The parent's value replaces what was typed, so a red mark on the old text goes with it.
+    if (invalidRef.current) report(true);
   }, [value]);
 
   const report = (valid: boolean) => {
