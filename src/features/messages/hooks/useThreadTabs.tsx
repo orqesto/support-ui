@@ -39,12 +39,15 @@ export const useThreadTabs = ({
   activate,
   closeShown,
   keyboard,
+  preview,
 }: {
   shown: Message | null;
   orgCode: string | null | undefined;
   activate: (tab: OpenTab) => void;
   closeShown: () => void;
   keyboard?: boolean;
+  /** The list is live beside the thread (split view): plain clicks open preview tabs. */
+  preview?: boolean;
 }) => {
   const target = useMemo(
     () =>
@@ -67,6 +70,7 @@ export const useThreadTabs = ({
     noun: 'thread',
     newsEvents: THREAD_NEWS,
     keyboard,
+    preview,
   });
 };
 
@@ -77,7 +81,7 @@ export const useThreadTabs = ({
  */
 export const useThreadsPageTabs = ({
   selectedMessage,
-  isPhone,
+  opensIn,
   orgCode,
   selectedThreadIdRef,
   selectedThreadMessageIdRef,
@@ -85,7 +89,11 @@ export const useThreadsPageTabs = ({
   closeDetail,
 }: {
   selectedMessage: Message | null;
-  isPhone: boolean;
+  /**
+   * Where a thread opens: its own page (a phone — MessageDetailPage has the row), beside the
+   * list (split: preview tabs, see useOpenTabs) or over it (the slide-over).
+   */
+  opensIn: 'page' | 'split' | 'over';
   orgCode: string | null | undefined;
   selectedThreadIdRef: MutableRefObject<string | null>;
   selectedThreadMessageIdRef: MutableRefObject<number | null>;
@@ -93,7 +101,8 @@ export const useThreadsPageTabs = ({
   closeDetail: () => void;
 }) => {
   const threadTabs = useThreadTabs({
-    shown: isPhone ? null : selectedMessage,
+    shown: opensIn === 'page' ? null : selectedMessage,
+    preview: opensIn === 'split',
     orgCode,
     activate: (tab) => {
       selectedThreadIdRef.current = null;

@@ -44,6 +44,13 @@ type UseOpenTabsOptions = {
   newsEvents?: OpenTabNewsEvent[];
   /** `[` / `]` and Ctrl+Alt shortcuts on the window. Off for a second row on the same page. */
   keyboard?: boolean;
+  /**
+   * The list stays live beside the item (split view): a plain click opens a preview tab that
+   * the next click replaces, as in an editor. Anywhere else (a slide-over over the list, a
+   * page of its own) every open is kept — the list cannot be clicked while the item is up, so
+   * a preview was dropped on every close and the row never held more than one tab.
+   */
+  preview?: boolean;
 };
 
 /** Typing somewhere: a shortcut key is text there. */
@@ -102,6 +109,7 @@ export const useOpenTabs = ({
   noun,
   newsEvents,
   keyboard = true,
+  preview = false,
 }: UseOpenTabsOptions): OpenTabsHandle => {
   const userId = useAuthStore((state) => state.user?.id ?? null);
   const workspaceId = useAuthStore((state) => state.selectedOrganizationId);
@@ -133,7 +141,7 @@ export const useOpenTabs = ({
       const pending = store.finishActivating(kind);
       // A tab was picked but the page landed elsewhere (a merged thread's survivor).
       if (pending && pending.key !== target.key) store.redirect(kind, pending.key, target);
-      const touch = everyOpenKept();
+      const touch = !preview || everyOpenKept();
       const evicted = store.show(kind, target, hasDraft, touch);
       const draftKept = evicted.some((tab) => hasDraft(tab.key));
       if (evicted.length > 0 && (!touch || draftKept)) {
@@ -156,7 +164,7 @@ export const useOpenTabs = ({
     }
     store.hide(kind);
     // The label and title are part of the target: a renamed subject refreshes the tab.
-  }, [kind, shownKey, shown?.label, shown?.title, shown?.urlId, hasDraft, noun]);
+  }, [kind, shownKey, shown?.label, shown?.title, shown?.urlId, hasDraft, noun, preview]);
 
   // The page itself goes (another route): nothing is active any more.
   const lastShownKey = useRef<string | null>(null);
