@@ -711,6 +711,7 @@ export const MessagesPage = () => {
                 highlightTerms={highlightTerms}
                 refreshKey={countsRefreshKey}
                 enabled={countsReady}
+                split={split}
               />
             )}
 
