@@ -1,4 +1,8 @@
-import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axios';
+import axios, {
+  type AxiosAdapter,
+  type AxiosResponse,
+  type InternalAxiosRequestConfig,
+} from 'axios';
 import { loginPathFor } from '@/lib/postLoginRedirect';
 import { API_BASE_URL } from './config';
 import { isPlanLimitBody, withFailedFields } from '@/lib/errorMessages';
@@ -49,6 +53,24 @@ export const apiClient = axios.create({
   },
   withCredentials: true, // Enable sending cookies with requests
 });
+
+/*
+  The thread header's side reads (labels, tickets, merges, participants, KB references) that one
+  render asks for together go out as ONE request (threadContextBatch, loaded on its first use);
+  everything else goes straight to the browser's transport. The test here is only a cheap
+  pre-filter — the batching module decides.
+*/
+const MAY_FOLD =
+  /\/api\/(labels\/messages\/\d+|messages\/\d+\/(tickets|merges|participants|kb-references))$/;
+const browserTransport = axios.getAdapter(axios.defaults.adapter);
+let foldingTransport: Promise<AxiosAdapter> | null = null;
+apiClient.defaults.adapter = (config) => {
+  if (!MAY_FOLD.test(config.url ?? '')) return browserTransport(config);
+  foldingTransport ??= import('./threadContextBatch').then((mod) =>
+    mod.withThreadContextBatching(browserTransport)
+  );
+  return foldingTransport.then((transport) => transport(config));
+};
 
 /**
  * Request-context interceptor (exported for unit testing — see api-client.scope.test.ts).
