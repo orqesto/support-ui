@@ -18,6 +18,8 @@ export const typeLabel = (type: SLABreachNotification['type']): string => {
     case 'message':
     case 'conversation':
       return 'Thread SLA';
+    case 'message_resolution':
+      return 'Thread — Resolution';
     case 'ticket':
       return 'Ticket SLA';
     case 'ticket_first_response':
@@ -47,7 +49,9 @@ export const SLABreachItem = ({
     notification.type === 'slack_connection' || notification.type === 'slack_channel_route';
   const href = isSlack
     ? '/settings#notifications'
-    : notification.type === 'message' || notification.type === 'conversation'
+    : notification.type === 'message' ||
+        notification.type === 'message_resolution' ||
+        notification.type === 'conversation'
       ? `/threads/${notification.entityId}`
       : `/tickets/${notification.entityId}`;
   return (

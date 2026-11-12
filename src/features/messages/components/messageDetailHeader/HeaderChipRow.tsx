@@ -33,6 +33,8 @@ type HeaderChipRowProps = {
   setHoldOpen: (open: boolean) => void;
   handleSetStatus: (status: ThreadStatus, hold?: { reason: string; until: Date }) => Promise<void>;
   slaInfo: ReturnType<typeof computeSlaInfo>;
+  /** The resolution clock's chip (backend 0238); null when the thread has none. */
+  resolutionInfo?: ReturnType<typeof computeSlaInfo>;
   updatingPriority: boolean;
   handleSetPriority: (priority: TicketPriority) => Promise<void>;
   inboxBadge: InboxBadge | null;
@@ -57,6 +59,7 @@ export function HeaderChipRow({
   setHoldOpen,
   handleSetStatus,
   slaInfo,
+  resolutionInfo = null,
   updatingPriority,
   handleSetPriority,
   inboxBadge,
@@ -177,6 +180,23 @@ export function HeaderChipRow({
             <div
               className={`h-full rounded-full transition-all ${slaInfo.barColor}`}
               style={{ width: `${Math.min(100, (slaInfo.elapsed / slaInfo.target) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+      {resolutionInfo && (
+        <div
+          className={`${CHIP_SENTENCE} ${PHONE_CHIP} ${resolutionInfo.colorClasses}`}
+          data-testid="sla-resolution-clock"
+        >
+          <span>Resolve</span>
+          <span className="tabular-nums">
+            {fmtMin(resolutionInfo.elapsed)}/{fmtMin(resolutionInfo.target)}
+          </span>
+          <div className="overflow-hidden w-10 h-1 rounded-full bg-muted">
+            <div
+              className={`h-full rounded-full transition-all ${resolutionInfo.barColor}`}
+              style={{ width: `${Math.min(100, (resolutionInfo.elapsed / resolutionInfo.target) * 100)}%` }}
             />
           </div>
         </div>

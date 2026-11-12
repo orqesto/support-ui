@@ -215,6 +215,8 @@ export interface components {
             attachmentCount: number;
             slaResponseMinutes: number | null;
             slaWaitStartedAt?: string | null;
+            slaResolutionMinutes?: number | null;
+            slaResolutionStartedAt?: string | null;
             slaResponseBreached: boolean;
             firstResponseAt: string | null;
             actualResponseSeconds: number | null;
@@ -254,6 +256,8 @@ export interface components {
             attachmentCount: number;
             slaResponseMinutes: number | null;
             slaWaitStartedAt?: string | null;
+            slaResolutionMinutes?: number | null;
+            slaResolutionStartedAt?: string | null;
             slaResponseBreached: boolean;
             firstResponseAt: string | null;
             actualResponseSeconds: number | null;
@@ -292,7 +296,7 @@ export interface components {
             organizationId: number;
             kind: string;
             /** @enum {string} */
-            entityType: "message" | "ticket_first_response" | "ticket_resolution" | "conversation" | "ticket" | "slack_connection" | "slack_channel_route";
+            entityType: "message" | "message_resolution" | "ticket_first_response" | "ticket_resolution" | "conversation" | "ticket" | "slack_connection" | "slack_channel_route";
             entityId: number;
             assigneeId: number | null;
             departmentId: number | null;
@@ -596,7 +600,7 @@ export interface components {
             id: number;
             waitId?: number;
             /** @enum {string} */
-            type: "message" | "ticket_first_response" | "ticket_resolution";
+            type: "message" | "message_resolution" | "ticket_first_response" | "ticket_resolution";
             channel?: string;
             priority?: string;
             sender: string;
@@ -615,6 +619,7 @@ export interface components {
             /** @enum {string} */
             key: "low" | "medium" | "high" | "critical" | "email" | "telegram" | "slack" | "chat" | "whatsapp" | "other";
             firstResponseMinutes: number;
+            resolutionMinutes: number | null;
             resolutionHours: number | null;
             isCustom: boolean;
         };

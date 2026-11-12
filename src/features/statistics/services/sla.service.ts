@@ -115,7 +115,7 @@ export type SLATrendsResponse = {
 
 export type SLABreachEvent = {
   id: number;
-  type: 'message' | 'ticket_first_response' | 'ticket_resolution';
+  type: 'message' | 'message_resolution' | 'ticket_first_response' | 'ticket_resolution';
   organizationId: number;
   severity: 'warning' | 'critical';
   breachAmount: number;
@@ -159,7 +159,11 @@ const getBreaches = async (params?: {
   from?: string;
   to?: string;
 }): Promise<SLABreachesResponse> => {
-  const response = await apiClient.get<SLABreachesResponse>('/api/sla/breaches', { params });
+  // `include=resolution` (backend 0238): threads' resolution-clock breaches too. An older backend
+  // ignores the parameter.
+  const response = await apiClient.get<SLABreachesResponse>('/api/sla/breaches', {
+    params: { ...params, include: 'resolution' },
+  });
   return response.data;
 };
 

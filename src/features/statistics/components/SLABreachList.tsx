@@ -88,7 +88,7 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
   }
 
   const getVariant = (type: string): 'default' | 'secondary' | 'success' | 'warning' | 'danger' => {
-    if (type === 'message') return 'default';
+    if (type === 'message' || type === 'message_resolution') return 'default';
     return 'secondary';
   };
 
@@ -100,7 +100,7 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
   };
 
   const handleBreachClick = (breach: SLABreach) => {
-    if (breach.type === 'message') {
+    if (breach.type === 'message' || breach.type === 'message_resolution') {
       navigate(`/threads/${breach.id}`);
     } else {
       navigate(`/tickets/${breach.id}`);
