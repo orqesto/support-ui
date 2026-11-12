@@ -478,6 +478,7 @@ export const PlatformUserPage = () => {
                     currentRole={org.role}
                     currentDepartmentIds={org.departmentIds}
                     idpManaged={org.idpManaged}
+                    teamsUnavailable={org.teamsUnavailable === true}
                     userId={user.id}
                     userEmail={user.email}
                     onChanged={refreshMemberships}

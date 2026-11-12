@@ -14,6 +14,11 @@ export type UserWorkspaceMembership = {
    * for it, so the controls are shown disabled rather than offered and then rejected.
    */
   idpManaged: boolean;
+  /**
+   * The workspace's own database could not be read (provisioning, unreachable, suspended):
+   * `departmentIds` is empty because nothing could be read, not because there are none.
+   */
+  teamsUnavailable?: boolean;
 };
 
 export const userService = {
