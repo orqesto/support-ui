@@ -95,6 +95,7 @@ export { useBoardAndBulkState } from './hooks/useBoardAndBulkState';
 export { useServerEventRouting } from './hooks/useServerEventRouting';
 export { detailPanelProps } from './components/messagesPage/detailPanelProps';
 export type { MessagesPageAlert } from './hooks/messagesPageAlert';
+export { CLOSED_MESSAGES_PAGE_ALERT } from './hooks/messagesPageAlert';
 export {
   useConversationUpdateEvents,
   useTicketRoutingStatusEvents,
