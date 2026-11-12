@@ -18,6 +18,8 @@ import {
 } from '@/components/shared/AttachmentPreviewDialog';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
+import { useSeededState } from '@/lib/seededState';
+import { heldThumbnails, loadThumbnails } from '@/lib/attachmentThumbnails';
 
 type TicketAttachmentsProps = {
   ticketId: number;
@@ -26,12 +28,17 @@ type TicketAttachmentsProps = {
 };
 
 export const TicketAttachments = ({ ticketId, onCountChange }: TicketAttachmentsProps) => {
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  // From the last read of this ticket (seededState): a tab switch draws the files at once.
+  const [attachments, setAttachments, attachmentsSeeded] = useSeededState<Attachment[]>(
+    ['ticket', ticketId, 'attachments'],
+    []
+  );
   useEffect(() => {
     onCountChange?.(attachments.length);
   }, [attachments, onCountChange]);
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!attachmentsSeeded);
+  const attachmentsShownFor = useRef<number | null>(attachmentsSeeded ? ticketId : null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -39,21 +46,25 @@ export const TicketAttachments = ({ ticketId, onCountChange }: TicketAttachments
     null
   );
 
-  const [imageBlobUrls, setImageBlobUrls] = useState<Record<number, string>>({});
+  // Thumbnails already fetched (attachmentThumbnails): kept across refreshes and tab switches.
+  const [imageBlobUrls, setImageBlobUrls] = useState<Record<number, string>>(() =>
+    heldThumbnails(attachments)
+  );
 
   const fetchAttachments = useCallback(async () => {
     try {
-      setIsLoading(true);
+      if (attachmentsShownFor.current !== ticketId) setIsLoading(true);
       const response = await commentsService.getTicketAttachments(ticketId);
       if (response.success && response.data) {
         setAttachments(response.data);
+        attachmentsShownFor.current = ticketId;
       }
     } catch (error) {
       logger.error('Failed to fetch ticket attachments:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [ticketId]);
+  }, [ticketId, setAttachments]);
 
   // Effect 1: socket lifecycle — keyed only to ticketId so a change in
   // fetchAttachments identity never causes a spurious socket reconnect.
@@ -84,36 +95,19 @@ export const TicketAttachments = ({ ticketId, onCountChange }: TicketAttachments
     };
   }, [ticketId, fetchAttachments]);
 
-  // Load blob URLs for image thumbnails via authenticated fetch
+  /*
+    Thumbnails come through an authenticated fetch (the route needs the token), as blob URLs held
+    by ticketThumbnails: each image is fetched once, not again on every refresh of the list (a
+    socket event re-reads it) or every return to the ticket — that re-downloaded every image.
+  */
   useEffect(() => {
-    const imageAttachments = attachments.filter((att) => att.mimeType.startsWith('image/'));
-    if (imageAttachments.length === 0) return;
-
-    const blobUrls: Record<number, string> = {};
     let cancelled = false;
-
-    const load = async () => {
-      for (const attachment of imageAttachments) {
-        if (cancelled) break;
-        try {
-          const path =
-            attachment.externalId && attachment.url.startsWith('http')
-              ? `/api/attachments/jira/${attachment.id}/download`
-              : `/api/attachments/${attachment.id}/download`;
-          const response = await apiClient.get(path, { responseType: 'blob' });
-          blobUrls[attachment.id] = URL.createObjectURL(response.data as Blob);
-        } catch {
-          // thumbnail load failure is non-fatal — icon fallback renders instead
-        }
-      }
-      if (!cancelled) setImageBlobUrls(blobUrls);
-    };
-
-    void load();
-
+    setImageBlobUrls(heldThumbnails(attachments));
+    void loadThumbnails(attachments).then((urls) => {
+      if (!cancelled) setImageBlobUrls(urls);
+    });
     return () => {
       cancelled = true;
-      Object.values(blobUrls).forEach((url) => URL.revokeObjectURL(url));
     };
   }, [attachments]);
 

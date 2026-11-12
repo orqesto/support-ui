@@ -36,6 +36,7 @@ import {
   useGenerateTicketUpdate,
   useSendingNotice,
 } from './TicketUpdateAssist';
+import { useShownTicketRef } from '../hooks/useShownTicketRef';
 
 /**
  * Reply to a ticket's threads from the ticket page (owner, 2026-09-23): one text, a SEPARATE
@@ -175,8 +176,7 @@ export const TicketReplyComposer = ({
   usePresenceReport(selected, collision.report);
 
   // A different ticket: nothing written or said about the previous one stays.
-  const currentTicket = useRef(ticketId);
-  currentTicket.current = ticketId;
+  const currentTicket = useShownTicketRef(ticketId);
   useEffect(() => {
     setDraft('');
     setBeforeAi(null);

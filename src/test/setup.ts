@@ -31,6 +31,18 @@ afterEach(() => {
   // be joined by the next test's press.
   clearLookupCache();
 });
+// The last values views read (seededState) and the held thumbnails: a thread one test opened must
+// not seed the next. Imported here, after the test, never at the top: both load the auth store
+// (and the thumbnails the api client), and a static import would load them before a test file's
+// vi.mock of those modules could apply.
+afterEach(async () => {
+  const [{ forgetSeeds }, { forgetThumbnails }] = await Promise.all([
+    import('@/lib/seededState'),
+    import('@/lib/attachmentThumbnails'),
+  ]);
+  forgetSeeds();
+  forgetThumbnails();
+});
 
 // The app loads the rich-text editor lazily (LazyRichTextEditor: TipTap is not in the inbox
 // bundle). Tests render it synchronously, as before — through whatever a test file mocks

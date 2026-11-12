@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { logger } from '@/lib/logger';
+import { useSeededState } from '@/lib/seededState';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 import { messageService } from '@/services/message.service';
-import { ticketThreadsService, type ThreadTicket, THREAD_TICKETS_CHANGED } from '@/features/tickets/shell';
-import { conversationMergeService, type ManualMerge } from '@/features/messages/services/conversationMerge.service';
+import {
+  ticketThreadsService,
+  type ThreadTicket,
+  THREAD_TICKETS_CHANGED,
+} from '@/features/tickets/shell';
+import {
+  conversationMergeService,
+  type ManualMerge,
+} from '@/features/messages/services/conversationMerge.service';
 import type { HeaderTickets } from './RelatedPopover';
 import { withMergeChange, type MergeChange } from './useThreadMergeContext';
 
@@ -53,7 +61,11 @@ export const useThreadTicketsState = ({
   /** Called when the thread changes, before its tickets are read again. Must be stable. */
   onThreadChange: () => void;
 }) => {
-  const [tickets, setTickets] = useState<HeaderTickets>(NO_TICKETS);
+  // From the last read of this thread (seededState); another thread starts from its own.
+  const [tickets, setTickets] = useSeededState<HeaderTickets>(
+    ['thread', messageId, 'tickets'],
+    NO_TICKETS
+  );
   // The thread shown NOW — a change confirmed after a switch belongs to the thread it was made on.
   const shownThread = useRef(messageId);
 
@@ -92,11 +104,10 @@ export const useThreadTicketsState = ({
         // a first read that fails says it failed.
         setTickets((prev) => (prev.state === 'loading' ? { ...prev, state: 'failed' } : prev));
       });
-  }, [messageId]);
+  }, [messageId, setTickets]);
 
   useEffect(() => {
     shownThread.current = messageId;
-    setTickets(NO_TICKETS);
     onThreadChange();
     loadTickets();
   }, [loadTickets, onThreadChange, messageId]);
@@ -107,10 +118,13 @@ export const useThreadTicketsState = ({
    * it fails it keeps what is shown — which must not be the state the server just contradicted.
    * ⛔ The read in flight is NOT disowned: it started after the change and is the server's truth.
    */
-  const applyTicketChange = useCallback((change: TicketChange) => {
-    if (change.conversationId !== shownThread.current) return;
-    setTickets((prev) => withTicketChange(prev, change));
-  }, []);
+  const applyTicketChange = useCallback(
+    (change: TicketChange) => {
+      if (change.conversationId !== shownThread.current) return;
+      setTickets((prev) => withTicketChange(prev, change));
+    },
+    [setTickets]
+  );
 
   const ticketIds = useMemo(
     () => (tickets.legacy ? [tickets.legacy.id] : tickets.rows.map((row) => row.ticketId)),

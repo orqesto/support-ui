@@ -172,7 +172,7 @@ export function MessageDetailHeader({
     refetchWhenWritesSettle,
     beginLabelWrite,
     endLabelWrite,
-  } = useHeaderLabelState();
+  } = useHeaderLabelState(message.id);
   const [categories, setCategories] = useState<Category[]>([]);
   const [linkCopied, setLinkCopied] = useState(false);
   // "Link copied" reverts after 2 s — cleared on unmount, so it never fires into an unmounted header.
