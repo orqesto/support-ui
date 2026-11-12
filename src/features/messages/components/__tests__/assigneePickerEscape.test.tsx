@@ -86,8 +86,8 @@ const thread = (): MessageThread =>
   }) as unknown as MessageThread;
 
 const surfaces = [
-  ['list row', () => <RowAssignee thread={thread()} />],
-  ['Kanban card', () => <KanbanCard thread={thread()} onOpen={() => {}} />],
+  ['list row', (item = thread()) => <RowAssignee thread={item} />],
+  ['Kanban card', (item = thread()) => <KanbanCard thread={item} onOpen={() => {}} />],
 ] as const;
 
 const picker = () => screen.queryByRole('dialog', { name: 'Assign to' });
@@ -179,12 +179,13 @@ const lateList = () => {
     });
 };
 
-const stubPointer = (coarse: boolean) =>
+/** `touchOnly`: no fine pointer at all (a phone); otherwise a mouse or trackpad is present too. */
+const stubPointer = (touchOnly: boolean) =>
   vi.stubGlobal(
     'matchMedia',
     (query: string) =>
       ({
-        matches: coarse && query === '(pointer: coarse)',
+        matches: query === '(any-pointer: fine)' ? !touchOnly : false,
         media: query,
         addEventListener: () => undefined,
         removeEventListener: () => undefined,
@@ -207,22 +208,36 @@ describe.each(surfaces)('%s — when the focus moves into the picker', (_name, u
     await waitFor(() => expect(document.activeElement).toBe(box()));
   });
 
-  it('touch-first screen: the box is NOT focused (no on-screen keyboard over the list)', async () => {
+  it('touch only (no fine pointer): the box is NOT focused — no on-screen keyboard over the list', async () => {
     stubPointer(true);
     const release = lateList();
     render(<MemoryRouter>{ui()}</MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: /Claim/ }));
     await release();
-    await waitFor(() => box()); // enabled again: the list has loaded
+    expect(box()).not.toBeInactive(); // the list has loaded
     expect(document.activeElement).not.toBe(box());
   });
 
-  it('CONTROL: fine pointer, same steps — the box IS focused', async () => {
+  it('CONTROL: touch plus a fine pointer (tablet + trackpad), same steps — the box IS focused', async () => {
     stubPointer(false);
     const release = lateList();
     render(<MemoryRouter>{ui()}</MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: /Claim/ }));
     await release();
     await waitFor(() => expect(document.activeElement).toBe(box()));
+  });
+
+  it('a later refetch (the thread changed team) does not pull the focus back', async () => {
+    const { rerender } = render(<MemoryRouter>{ui()}</MemoryRouter>);
+    const claim = await openFromClaim();
+    claim.focus(); // the agent has moved on
+
+    const moved = thread();
+    (moved.latestMessage as { departmentId?: number }).departmentId = 3;
+    rerender(<MemoryRouter>{ui(moved)}</MemoryRouter>);
+    await waitFor(() => expect(assignment.getAssignableUsers).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(box()).not.toBeInactive());
+    expect(picker()).not.toBeNull();
+    expect(document.activeElement).toBe(claim);
   });
 });
