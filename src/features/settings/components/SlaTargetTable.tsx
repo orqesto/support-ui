@@ -1,4 +1,4 @@
-import { DurationInput } from '@/components/ui/DurationInput';
+import { DurationInput, type DurationUnit } from '@/components/ui/DurationInput';
 import type { SlaTargetRow } from '../services/slaConfig.service';
 
 const KEY_LABELS: Record<string, string> = {
@@ -26,6 +26,10 @@ type Props = {
   resolutionOptional?: boolean;
   /** Default true. */
   showResolution?: boolean;
+  /** Units the resolution field offers (an older backend stores ticket resolution in hours). */
+  resolutionUnits?: DurationUnit[];
+  /** A field's validity changed (`<type>:<key>:<first|resolution>`). */
+  onValidity: (field: string, valid: boolean) => void;
   onChange: (
     row: SlaTargetRow,
     patch: Partial<Pick<SlaTargetRow, 'firstResponseMinutes' | 'resolutionMinutes'>>
@@ -40,6 +44,8 @@ export const SlaTargetTable = ({
   rows,
   resolutionOptional = false,
   showResolution = true,
+  resolutionUnits,
+  onValidity,
   onChange,
 }: Props) => (
   <div>
@@ -74,6 +80,7 @@ export const SlaTargetTable = ({
                     aria-label={`${title} ${label} first response`}
                     value={row.firstResponseMinutes}
                     max={MAX_MINUTES}
+                    onValidChange={(valid) => onValidity(`${row.type}:${row.key}:first`, valid)}
                     onChange={(minutes) => {
                       if (minutes !== null) onChange(row, { firstResponseMinutes: minutes });
                     }}
@@ -86,6 +93,10 @@ export const SlaTargetTable = ({
                       value={row.resolutionMinutes}
                       max={MAX_MINUTES}
                       allowEmpty={resolutionOptional}
+                      units={resolutionUnits}
+                      onValidChange={(valid) =>
+                        onValidity(`${row.type}:${row.key}:resolution`, valid)
+                      }
                       onChange={(minutes) => onChange(row, { resolutionMinutes: minutes })}
                     />
                   </td>

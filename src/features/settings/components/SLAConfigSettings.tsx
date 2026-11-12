@@ -21,6 +21,16 @@ export const SLAConfigSettings = () => {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Fields holding a value they refuse: saving then would send the previous value as if saved.
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
+  const onValidity = (field: string, valid: boolean) =>
+    setInvalidFields((prev) => {
+      if (valid === !prev.has(field)) return prev;
+      const next = new Set(prev);
+      if (valid) next.delete(field);
+      else next.add(field);
+      return next;
+    });
 
   useEffect(() => {
     getSlaConfig()
@@ -45,6 +55,10 @@ export const SLAConfigSettings = () => {
 
   const save = () => {
     if (!config) return;
+    if (invalidFields.size > 0) {
+      setError('Fix the highlighted values before saving: each must be a whole number above zero.');
+      return;
+    }
     setError(null);
     setSaving(true);
     setSaved(false);
@@ -82,6 +96,9 @@ export const SLAConfigSettings = () => {
       {config && (
         <>
           <SlaTargetTable
+            onValidity={onValidity}
+            // An older backend stores ticket resolution in whole hours.
+            resolutionUnits={config.supportsThreadPriority ? undefined : ['hour', 'day']}
             title="Ticket SLA"
             keyHeader="Priority"
             rows={group('ticket')}
@@ -89,6 +106,7 @@ export const SLAConfigSettings = () => {
           />
           {config.supportsThreadPriority && (
             <SlaTargetTable
+              onValidity={onValidity}
               title="Thread SLA by priority"
               keyHeader="Priority"
               rows={group('threadPriority')}
@@ -96,6 +114,7 @@ export const SLAConfigSettings = () => {
             />
           )}
           <SlaTargetTable
+            onValidity={onValidity}
             title="Thread SLA by channel"
             hint="Optional caps: for each clock, the shorter of the priority's target and the channel's applies. Leave resolution empty for no cap."
             keyHeader="Channel"

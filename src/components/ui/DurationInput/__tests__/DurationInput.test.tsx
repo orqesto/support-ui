@@ -75,4 +75,34 @@ describe('DurationInput', () => {
     render(<Harness initial={null} onChange={vi.fn()} allowEmpty />);
     expect(amount()).toHaveValue(null);
   });
+
+  it('reports validity: an invalid amount marks the field and calls onValidChange(false)', () => {
+    const onValidChange = vi.fn();
+    render(
+      <DurationInput
+        aria-label="Resolution"
+        value={60}
+        onChange={vi.fn()}
+        onValidChange={onValidChange}
+      />
+    );
+    fireEvent.change(amount(), { target: { value: '0' } });
+    expect(onValidChange).toHaveBeenLastCalledWith(false);
+    expect(amount()).toHaveAttribute('aria-invalid', 'true');
+    fireEvent.change(amount(), { target: { value: '3' } });
+    expect(onValidChange).toHaveBeenLastCalledWith(true);
+  });
+
+  it('offers only the units it is given', async () => {
+    render(
+      <DurationInput
+        aria-label="Resolution"
+        value={240}
+        onChange={vi.fn()}
+        units={['hour', 'day']}
+      />
+    );
+    const { listOptions } = await import('@/test/chooseOption');
+    expect(await listOptions(unit())).toEqual(['hours', 'days']);
+  });
 });

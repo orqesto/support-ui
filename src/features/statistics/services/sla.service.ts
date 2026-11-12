@@ -174,7 +174,8 @@ const getStatistics = async (params?: {
     !!resolution &&
     typeof resolution === 'object' &&
     typeof (resolution as ResolutionTotals).total === 'number' &&
-    typeof (resolution as ThreadResolutionStats).byPriority === 'object';
+    typeof (resolution as ThreadResolutionStats).byPriority === 'object' &&
+    (resolution as ThreadResolutionStats).byPriority !== null;
   return data?.messages
     ? {
         ...data,

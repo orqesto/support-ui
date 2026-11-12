@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { splitMinutes, toMinutes, type DurationUnit } from './durationUnits';
+import { UNIT_MINUTES, splitMinutes, toMinutes, type DurationUnit } from './durationUnits';
 import type { DurationInputProps } from './durationInput.types';
 
 const UNIT_OPTIONS: { value: DurationUnit; label: string }[] = [
@@ -30,9 +30,22 @@ export const DurationInput = ({
   disabled,
   id,
   size = 'sm',
+  onValidChange,
+  units,
   'aria-label': ariaLabel,
 }: DurationInputProps) => {
-  const initial = value === null ? null : splitMinutes(value);
+  const options = units
+    ? UNIT_OPTIONS.filter((option) => units.includes(option.value))
+    : UNIT_OPTIONS;
+  // A stored value in a unit this control does not offer is shown in the first one it does.
+  const split = (minutes: number) => {
+    const best = splitMinutes(minutes);
+    if (!units || units.includes(best.unit)) return best;
+    const unit = units[0];
+    return { amount: minutes / UNIT_MINUTES[unit], unit };
+  };
+  const initial = value === null ? null : split(value);
+  const [invalid, setInvalid] = useState(false);
   const [amountText, setAmountText] = useState(initial ? String(initial.amount) : '');
   const [unit, setUnit] = useState<DurationUnit>(initial?.unit ?? 'hour');
   // The value this control last emitted: a parent echoing it back must not re-split what was typed
@@ -41,13 +54,19 @@ export const DurationInput = ({
 
   useEffect(() => {
     if (value === lastEmitted.current) return;
-    const next = value === null ? null : splitMinutes(value);
+    const next = value === null ? null : split(value);
     setAmountText(next ? String(next.amount) : '');
     if (next) setUnit(next.unit);
   }, [value]);
 
+  const report = (valid: boolean) => {
+    setInvalid(!valid);
+    onValidChange?.(valid);
+  };
+
   const emit = (text: string, nextUnit: DurationUnit) => {
     if (text.trim() === '') {
+      report(allowEmpty);
       if (allowEmpty) {
         lastEmitted.current = null;
         onChange(null);
@@ -55,9 +74,12 @@ export const DurationInput = ({
       return;
     }
     const amount = parseAmount(text);
-    if (amount === null) return;
-    const minutes = toMinutes(amount, nextUnit);
-    if (max !== undefined && minutes > max) return;
+    const minutes = amount === null ? null : toMinutes(amount, nextUnit);
+    if (minutes === null || (max !== undefined && minutes > max)) {
+      report(false);
+      return;
+    }
+    report(true);
     lastEmitted.current = minutes;
     onChange(minutes);
   };
@@ -73,6 +95,8 @@ export const DurationInput = ({
         size={size}
         className="w-20"
         aria-label={ariaLabel}
+        aria-invalid={invalid}
+        error={invalid ? ' ' : undefined}
         value={amountText}
         disabled={disabled}
         onChange={(event) => {
@@ -84,7 +108,7 @@ export const DurationInput = ({
         aria-label={`${ariaLabel} unit`}
         size={size}
         className="w-28"
-        options={UNIT_OPTIONS}
+        options={options}
         value={unit}
         disabled={disabled}
         searchable={false}

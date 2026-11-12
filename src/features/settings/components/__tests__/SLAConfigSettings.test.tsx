@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { chooseOption } from '@/test/chooseOption';
+import { chooseOption, listOptions } from '@/test/chooseOption';
 
 const put = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const get = vi.fn<(...args: unknown[]) => Promise<unknown>>();
@@ -116,5 +116,26 @@ describe('SLA settings: tickets, threads by priority, threads by channel', () =>
     get.mockRejectedValue(new Error('boom'));
     render(<SLAConfigSettings />);
     expect(await screen.findByText(/boom|Failed to load SLA configuration/)).toBeInTheDocument();
+  });
+
+  it('a value the field refuses blocks Save with a message (review)', async () => {
+    get.mockResolvedValue({ data: { success: true, data: newBackend } });
+    render(<SLAConfigSettings />);
+    const first = await screen.findByRole('spinbutton', {
+      name: 'Ticket SLA Critical first response',
+    });
+    fireEvent.change(first, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText(/Fix the highlighted values/)).toBeInTheDocument();
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it('against an older backend, ticket resolution offers hours and days only (it stores hours)', async () => {
+    get.mockResolvedValue({ data: { success: true, data: oldBackend } });
+    render(<SLAConfigSettings />);
+    const control = await screen.findByRole('combobox', {
+      name: 'Ticket SLA Critical resolution unit',
+    });
+    expect(await listOptions(control)).toEqual(['hours', 'days']);
   });
 });

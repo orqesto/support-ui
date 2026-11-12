@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { ThreadResolutionByPriorityTable } from '../ThreadResolutionByPriorityTable';
 import { SLAByPriorityTable } from '../SLAByPriorityTable';
 
@@ -93,5 +94,38 @@ describe('SLA Performance: thread resolution', () => {
     expect(get).toHaveBeenCalledWith('/api/sla/breaches', {
       params: { limit: 5, include: 'resolution' },
     });
+  });
+
+  it('a malformed resolution (byPriority null) is dropped, not rendered into a crash (review)', async () => {
+    get.mockResolvedValue({ data: stats({ resolution: { ...totals(), byPriority: null } }, {}) });
+    const { slaService } = await import('@/features/statistics/services/sla.service');
+    expect((await slaService.getStatistics({ days: 30 })).messages.resolution).toBeNull();
+  });
+
+  it('two resolution breaches of one thread render as two rows (review: duplicate keys)', async () => {
+    const row = (createdAt: string) => ({
+      id: 7,
+      type: 'message_resolution',
+      channel: 'email',
+      priority: 'high',
+      sender: 'customer@example.com',
+      targetMinutes: 240,
+      actualMinutes: 300,
+      breachAmount: 60,
+      createdAt,
+    });
+    get.mockResolvedValue({
+      data: { total: 2, breaches: [row('2026-11-01T10:00:00Z'), row('2026-11-05T10:00:00Z')] },
+    });
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { SLABreachList } = await import('../SLABreachList');
+    renderWith(
+      <MemoryRouter>
+        <SLABreachList days={30} />
+      </MemoryRouter>
+    );
+    expect(await screen.findAllByText('From: customer@example.com')).toHaveLength(2);
+    expect(errors.mock.calls.some((call) => String(call[0]).includes('same key'))).toBe(false);
+    errors.mockRestore();
   });
 });

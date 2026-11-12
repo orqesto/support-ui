@@ -120,7 +120,8 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
           {data.breaches.map((breach) => (
             <Button
               type="button"
-              key={`${breach.type}-${breach.waitId ?? breach.id}`}
+              // A thread can breach more than once (waits, resolution cycles): the start disambiguates.
+              key={`${breach.type}-${breach.waitId ?? breach.id}-${breach.createdAt}`}
               variant="ghost"
               className="flex justify-between items-center w-full h-auto text-left p-2 pb-3 rounded border-b transition-colors cursor-pointer last:border-0 hover:bg-muted"
               onClick={() => handleBreachClick(breach)}
