@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
+import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { slaService } from '@/features/statistics/services/sla.service';
+import { slaService, type ResolutionTotals } from '@/features/statistics/services/sla.service';
 import { periodKey, periodParams, type ReportPeriod } from '@/lib/reportPeriod';
 import { formatDuration } from '@/lib/utils';
 import { SLA_DEFAULT_DAYS, SLA_PRIORITIES } from './SLAByPriorityTable';
@@ -16,6 +17,51 @@ type Props = {
 const minutesOf = (seconds: number | null) =>
   seconds === null ? '—' : formatDuration(Math.round(seconds / 60));
 const rateOf = (rate: number | null) => (rate === null ? '—' : `${rate.toFixed(1)}%`);
+
+type Row = (typeof SLA_PRIORITIES)[number] & { stats?: ResolutionTotals };
+
+const CENTER = { headerClassName: 'text-center', cellClassName: 'text-center' };
+const columns: ColumnDef<Row>[] = [
+  {
+    id: 'priority',
+    header: 'Priority',
+    cell: (row) => <Badge variant={row.variant}>{row.name}</Badge>,
+  },
+  {
+    id: 'cycles',
+    header: 'Cycles',
+    ...CENTER,
+    cellClassName: 'text-center font-medium',
+    cell: (row) => row.stats?.total,
+  },
+  {
+    id: 'within',
+    header: 'Within target',
+    ...CENTER,
+    cell: (row) => rateOf(row.stats?.complianceRate ?? null),
+  },
+  {
+    id: 'avg',
+    header: 'Avg resolution',
+    ...CENTER,
+    cellClassName: 'text-center font-medium',
+    cell: (row) => minutesOf(row.stats?.avgResolutionSeconds ?? null),
+  },
+  {
+    id: 'breached',
+    header: 'Breached',
+    ...CENTER,
+    cell: (row) => (
+      <span
+        className={
+          (row.stats?.breached ?? 0) > 0 ? 'text-destructive font-bold' : 'text-success font-bold'
+        }
+      >
+        {row.stats?.breached}
+      </span>
+    ),
+  },
+];
 
 /**
  * Thread resolution (owner 2026-11-11/12, backend 0238): one cycle per resolve, from the first
@@ -52,49 +98,12 @@ export const ThreadResolutionByPriorityTable = ({ days = SLA_DEFAULT_DAYS, perio
             No thread resolution data in this period yet.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
-                  <th className="text-left py-3 px-3 font-semibold">Priority</th>
-                  <th className="text-center py-3 px-3 font-semibold">Cycles</th>
-                  <th className="text-center py-3 px-3 font-semibold">Within target</th>
-                  <th className="text-center py-3 px-3 font-semibold">Avg resolution</th>
-                  <th className="text-center py-3 px-3 font-semibold">Breached</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr
-                    key={row.key}
-                    className="border-b last:border-0 hover:bg-muted/30 transition-colors"
-                  >
-                    <td className="py-3 px-3">
-                      <Badge variant={row.variant}>{row.name}</Badge>
-                    </td>
-                    <td className="text-center py-3 px-3 font-medium">{row.stats?.total}</td>
-                    <td className="text-center py-3 px-3">
-                      {rateOf(row.stats?.complianceRate ?? null)}
-                    </td>
-                    <td className="text-center py-3 px-3 font-medium">
-                      {minutesOf(row.stats?.avgResolutionSeconds ?? null)}
-                    </td>
-                    <td className="text-center py-3 px-3">
-                      <span
-                        className={
-                          (row.stats?.breached ?? 0) > 0
-                            ? 'text-destructive font-bold'
-                            : 'text-success font-bold'
-                        }
-                      >
-                        {row.stats?.breached}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            rows={rows}
+            rowKey={(row) => row.key}
+            columns={columns}
+            pagination={{ mode: 'client', pageSize: Math.max(rows.length, 1) }}
+          />
         )}
       </CardContent>
     </Card>

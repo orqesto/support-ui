@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { chooseOption, listOptions } from '@/test/chooseOption';
+import type * as DataTableModule from '@/components/ui/DataTable';
 
 const put = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const get = vi.fn<(...args: unknown[]) => Promise<unknown>>();
@@ -10,6 +11,19 @@ vi.mock('@/lib/api-client', () => ({
     get: (...args: unknown[]) => get(...args),
   },
 }));
+
+// The real DataTable, counted: the target tables must come from the design system.
+const dataTableRenders = vi.fn();
+vi.mock('@/components/ui/DataTable', async (importOriginal) => {
+  const actual = await importOriginal<typeof DataTableModule>();
+  return {
+    ...actual,
+    DataTable: (props: Parameters<typeof actual.DataTable>[0]) => {
+      dataTableRenders();
+      return actual.DataTable(props);
+    },
+  };
+});
 
 const { SLAConfigSettings } = await import('../SLAConfigSettings');
 
@@ -61,6 +75,16 @@ describe('SLA settings: tickets, threads by priority, threads by channel', () =>
     expect(
       screen.getByRole('spinbutton', { name: 'Thread SLA by priority Low resolution' })
     ).toHaveValue(3);
+  });
+
+  it('draws each target table with the design-system DataTable', async () => {
+    dataTableRenders.mockClear();
+    get.mockResolvedValue({ data: { success: true, data: newBackend } });
+    render(<SLAConfigSettings />);
+    expect(await screen.findByText('Thread SLA by priority')).toBeInTheDocument();
+    expect(dataTableRenders).toHaveBeenCalled();
+    expect(screen.getAllByRole('columnheader', { name: 'First response' })).toHaveLength(3);
+    expect(screen.getByRole('columnheader', { name: 'Resolution (optional)' })).toBeInTheDocument();
   });
 
   it('hides the thread-priority table and channel resolution against an older backend', async () => {

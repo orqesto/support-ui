@@ -1,3 +1,4 @@
+import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import { DurationInput, type DurationUnit } from '@/components/ui/DurationInput';
 import type { SlaTargetRow } from '../services/slaConfig.service';
 
@@ -47,65 +48,72 @@ export const SlaTargetTable = ({
   resolutionUnits,
   onValidity,
   onChange,
-}: Props) => (
-  <div>
-    <p className="font-display text-xs font-medium text-muted-foreground uppercase tracking-[0.09em] mb-1">
-      {title}
-    </p>
-    {hint && <p className="text-xs text-muted-foreground mb-2">{hint}</p>}
-    <div className="rounded-lg border border-border bg-card overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border bg-muted/40">
-            <th className="px-4 py-2 text-left font-medium">{keyHeader}</th>
-            <th className="px-4 py-2 text-left font-medium">First response</th>
-            {showResolution && (
-              <th className="px-4 py-2 text-left font-medium">
-                Resolution{resolutionOptional ? ' (optional)' : ''}
-              </th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const label = KEY_LABELS[row.key] ?? row.key;
-            return (
-              <tr key={`${row.type}:${row.key}`} className="border-b border-border last:border-0">
-                <td className="px-4 py-2.5 font-medium">
-                  {label}
-                  {row.isCustom && <span className="ml-2 text-xs text-foreground">(custom)</span>}
-                </td>
-                <td className="px-4 py-2.5">
-                  <DurationInput
-                    aria-label={`${title} ${label} first response`}
-                    value={row.firstResponseMinutes}
-                    max={MAX_MINUTES}
-                    onValidChange={(valid) => onValidity(`${row.type}:${row.key}:first`, valid)}
-                    onChange={(minutes) => {
-                      if (minutes !== null) onChange(row, { firstResponseMinutes: minutes });
-                    }}
-                  />
-                </td>
-                {showResolution && (
-                  <td className="px-4 py-2.5">
-                    <DurationInput
-                      aria-label={`${title} ${label} resolution`}
-                      value={row.resolutionMinutes}
-                      max={MAX_MINUTES}
-                      allowEmpty={resolutionOptional}
-                      units={resolutionUnits}
-                      onValidChange={(valid) =>
-                        onValidity(`${row.type}:${row.key}:resolution`, valid)
-                      }
-                      onChange={(minutes) => onChange(row, { resolutionMinutes: minutes })}
-                    />
-                  </td>
-                )}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+}: Props) => {
+  const labelOf = (row: SlaTargetRow) => KEY_LABELS[row.key] ?? row.key;
+  const columns: ColumnDef<SlaTargetRow>[] = [
+    {
+      id: 'key',
+      header: keyHeader,
+      cellClassName: 'font-medium align-middle',
+      cell: (row) => (
+        <>
+          {labelOf(row)}
+          {row.isCustom && <span className="ml-2 text-xs text-foreground">(custom)</span>}
+        </>
+      ),
+    },
+    {
+      id: 'first',
+      header: 'First response',
+      cellClassName: 'align-middle',
+      cell: (row) => (
+        <DurationInput
+          aria-label={`${title} ${labelOf(row)} first response`}
+          value={row.firstResponseMinutes}
+          max={MAX_MINUTES}
+          onValidChange={(valid) => onValidity(`${row.type}:${row.key}:first`, valid)}
+          onChange={(minutes) => {
+            if (minutes !== null) onChange(row, { firstResponseMinutes: minutes });
+          }}
+        />
+      ),
+    },
+  ];
+  if (showResolution) {
+    columns.push({
+      id: 'resolution',
+      header: `Resolution${resolutionOptional ? ' (optional)' : ''}`,
+      cellClassName: 'align-middle',
+      cell: (row) => (
+        <DurationInput
+          aria-label={`${title} ${labelOf(row)} resolution`}
+          value={row.resolutionMinutes}
+          max={MAX_MINUTES}
+          allowEmpty={resolutionOptional}
+          units={resolutionUnits}
+          onValidChange={(valid) => onValidity(`${row.type}:${row.key}:resolution`, valid)}
+          onChange={(minutes) => onChange(row, { resolutionMinutes: minutes })}
+        />
+      ),
+    });
+  }
+
+  return (
+    <div>
+      <p className="font-display text-xs font-medium text-muted-foreground uppercase tracking-[0.09em] mb-1">
+        {title}
+      </p>
+      {hint && <p className="text-xs text-muted-foreground mb-2">{hint}</p>}
+      <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <DataTable
+          rows={rows}
+          rowKey={(row) => `${row.type}:${row.key}`}
+          columns={columns}
+          // Every row on one page: a target table is a handful of priorities or channels.
+          pagination={{ mode: 'client', pageSize: Math.max(rows.length, 1) }}
+          empty={{ message: 'No targets.' }}
+        />
+      </div>
     </div>
-  </div>
-);
+  );
+};

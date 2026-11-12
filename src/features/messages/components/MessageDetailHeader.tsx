@@ -33,6 +33,7 @@ import { AddToTicketDialog } from './AddToTicketDialog';
 import { MergePickerDialog } from './MergeThreads';
 import { useIsPhone } from './useIsPhone';
 import { useModalLayer } from '@/hooks/useModalLayer';
+import { useNow } from '@/hooks/useNow';
 import { MobileSenderCard } from './MobileSenderCard';
 import { useHeaderFocusReturn } from './useHeaderFocusReturn';
 import { asManualMerge, type MergeChange } from './useThreadMergeContext';
@@ -344,10 +345,15 @@ export function MessageDetailHeader({
   // The current work status is DERIVED (canonical), not the raw enum.
   const currentWorkflowStatus: WorkflowStatus = deriveWorkflowStatus(message) ?? 'open';
 
+  // The chips are clocks: one tick a minute keeps them moving while the thread stays on screen.
+  // The tick only triggers a recompute; each one reads the current time, so a message change
+  // between ticks is not judged at the last tick's (up to a minute old) time.
+  const tick = useNow(60_000);
   const resolutionInfo = useMemo(
     () => computeResolutionInfo(message),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recomputed on the fields it reads
     [
+      tick,
       message.slaResolutionMinutes,
       message.slaResolutionStartedAt,
       message.slaResponseMinutes,
@@ -361,6 +367,7 @@ export function MessageDetailHeader({
     () => computeSlaInfo(message),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recomputed on the fields it reads, not on every new `message` object
     [
+      tick,
       message.slaResponseMinutes,
       message.slaWaitStartedAt,
       message.firstResponseAt,
