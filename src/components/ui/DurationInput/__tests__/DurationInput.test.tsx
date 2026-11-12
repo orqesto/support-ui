@@ -105,4 +105,19 @@ describe('DurationInput', () => {
     const { listOptions } = await import('@/test/chooseOption');
     expect(await listOptions(unit())).toEqual(['hours', 'days']);
   });
+
+  it('after the parent moved elsewhere, a value equal to the last emitted one is shown again', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <DurationInput aria-label="Resolution" value={120} onChange={onChange} />
+    );
+    fireEvent.change(amount(), { target: { value: '1' } });
+    expect(onChange).toHaveBeenLastCalledWith(60);
+    rerender(<DurationInput aria-label="Resolution" value={60} onChange={onChange} />);
+    rerender(<DurationInput aria-label="Resolution" value={120} onChange={onChange} />);
+    expect(amount()).toHaveValue(2);
+    rerender(<DurationInput aria-label="Resolution" value={60} onChange={onChange} />);
+    expect(amount()).toHaveValue(1);
+    expect(screen.getByText('hours')).toBeInTheDocument();
+  });
 });

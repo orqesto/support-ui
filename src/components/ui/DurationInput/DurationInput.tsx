@@ -54,6 +54,9 @@ export const DurationInput = ({
 
   useEffect(() => {
     if (value === lastEmitted.current) return;
+    // A different value from the parent: forget the echo, so the parent coming BACK to the value
+    // last emitted (60 → 120 → 60) is shown again instead of being taken for an echo.
+    lastEmitted.current = undefined;
     const next = value === null ? null : split(value);
     setAmountText(next ? String(next.amount) : '');
     if (next) setUnit(next.unit);

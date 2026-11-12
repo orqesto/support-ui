@@ -353,6 +353,8 @@ export function MessageDetailHeader({
       message.slaResponseMinutes,
       message.status,
       message.metadata,
+      message.isSpam,
+      message.spamConfirmedAt,
     ]
   );
   const slaInfo = useMemo(
@@ -367,6 +369,7 @@ export function MessageDetailHeader({
       message.metadata,
       message.status,
       message.isSpam,
+      message.spamConfirmedAt,
     ]
   );
 

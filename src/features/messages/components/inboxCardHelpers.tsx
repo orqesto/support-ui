@@ -298,9 +298,9 @@ export const slaWaitClock = (
   return { elapsed: Math.floor(elapsedMs / 60_000), target, breached, atRisk };
 };
 
-const replyCardText = (message: Message): SlaCard | null => {
+const replyCardText = (message: Message, nowMs: number): SlaCard | null => {
   if (!slaClockRuns(message) || !message.slaResponseMinutes) return null;
-  const wait = slaWaitClock(message);
+  const wait = slaWaitClock(message, nowMs);
   if (wait !== undefined) {
     if (!wait) return null;
     if (wait.breached) {
@@ -327,7 +327,7 @@ const replyCardText = (message: Message): SlaCard | null => {
 
   // Follow-up SLA (we already replied once; customer replied again)
   if (message.lastReplyFromClient && message.lastReplyAt) {
-    const elapsed = Math.floor((Date.now() - new Date(message.lastReplyAt).getTime()) / 60000);
+    const elapsed = Math.floor((nowMs - new Date(message.lastReplyAt).getTime()) / 60000);
     const breached = elapsed > target;
     const atRisk = !breached && elapsed > target * 0.8;
     if (breached) {
@@ -353,7 +353,7 @@ const replyCardText = (message: Message): SlaCard | null => {
       typeof (message.metadata as Record<string, unknown>)?.receivedAt === 'string'
         ? new Date((message.metadata as Record<string, unknown>).receivedAt as string)
         : new Date(message.createdAt);
-    const elapsed = Math.floor((Date.now() - slaStart.getTime()) / 60000);
+    const elapsed = Math.floor((nowMs - slaStart.getTime()) / 60000);
     const breached = message.slaResponseBreached === true || elapsed > target;
     const atRisk = !breached && elapsed > target * 0.8;
     if (breached) {
@@ -380,7 +380,7 @@ const replyCardText = (message: Message): SlaCard | null => {
  * card shows. The same rule as the backend's Breached / At-risk filters.
  */
 export const getSlaCardText = (message: Message, nowMs: number = Date.now()): SlaCard | null => {
-  const reply = replyCardText(message);
+  const reply = replyCardText(message, nowMs);
   const res = resolutionClock(message, slaClockRuns(message), nowMs);
   const resolution: SlaCard | null = !res
     ? null

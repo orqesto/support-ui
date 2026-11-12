@@ -126,32 +126,42 @@ const Where = () => {
   return <output data-testid="where">{location.pathname + location.search}</output>;
 };
 
-const renderHeader = (over: Partial<Parameters<typeof MessageDetailHeader>[0]> = {}) =>
-  render(
-    <ThemeProvider>
-      <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter initialEntries={['/threads/1']}>
-          <Routes>
-            <Route
-              path="*"
-              element={
-                <>
-                  <MessageDetailHeader
-                    message={message}
-                    showFullPageButton={false}
-                    isFullPage
-                    threadCount={1}
-                    {...over}
-                  />
-                  <Where />
-                </>
-              }
-            />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>
-    </ThemeProvider>
-  );
+type HeaderProps = Partial<Parameters<typeof MessageDetailHeader>[0]>;
+
+const headerTree = (over: HeaderProps = {}) => (
+  <ThemeProvider>
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={['/threads/1']}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <>
+                <MessageDetailHeader
+                  message={message}
+                  showFullPageButton={false}
+                  isFullPage
+                  threadCount={1}
+                  {...over}
+                />
+                <Where />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
+  </ThemeProvider>
+);
+
+/** Renders the header; `rerenderHeader` re-renders the SAME tree with new props (state kept). */
+const renderHeader = (over: HeaderProps = {}) => {
+  const result = render(headerTree(over));
+  return {
+    ...result,
+    rerenderHeader: (next: HeaderProps = {}) => result.rerender(headerTree(next)),
+  };
+};
 
 const setPhone = (phone: boolean) => {
   Object.defineProperty(window, 'matchMedia', {

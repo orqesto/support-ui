@@ -5,20 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { slaService } from '@/features/statistics/services/sla.service';
 import { periodKey, periodParams, type ReportPeriod } from '@/lib/reportPeriod';
 import { formatDuration } from '@/lib/utils';
-import { SLA_DEFAULT_DAYS } from './SLAByPriorityTable';
+import { SLA_DEFAULT_DAYS, SLA_PRIORITIES } from './SLAByPriorityTable';
 
 type Props = {
   days?: number;
   /** A custom window (the date picker); wins over `days`. */
   period?: ReportPeriod;
 };
-
-const PRIORITIES = [
-  { name: 'Critical', key: 'critical', variant: 'danger' },
-  { name: 'High', key: 'high', variant: 'warning' },
-  { name: 'Medium', key: 'medium', variant: 'default' },
-  { name: 'Low', key: 'low', variant: 'secondary' },
-] as const;
 
 const minutesOf = (seconds: number | null) =>
   seconds === null ? '—' : formatDuration(Math.round(seconds / 60));
@@ -36,7 +29,7 @@ export const ThreadResolutionByPriorityTable = ({ days = SLA_DEFAULT_DAYS, perio
   });
   const resolution = data?.messages.resolution;
   if (!resolution) return null;
-  const rows = PRIORITIES.map((priority) => ({
+  const rows = SLA_PRIORITIES.map((priority) => ({
     ...priority,
     stats: resolution.byPriority[priority.key],
   })).filter((row) => row.stats && row.stats.total > 0);
