@@ -87,35 +87,37 @@ export const SLAConfigSettings = () => {
     const sentOf = (row: SlaTargetRow) =>
       changed.find((entry) => entry.row.type === row.type && entry.row.key === row.key);
     saveSlaConfig(changed, config)
-      .then(() => {
-        // What was sent is now stored as custom, and is the new baseline.
-        setBaseline(sentRows);
-        setConfig((prev) =>
-          prev
-            ? {
-                ...prev,
-                rows: prev.rows.map((row) => {
-                  const sent = sentOf(row);
-                  if (!sent) return row;
-                  // As the backend reads it: a value sent is an override, a null resolution is
-                  // the default ("no cap" on a channel). An older backend was sent both fields.
-                  const both = !prev.supportsFieldSave;
-                  const firstResponseIsCustom =
-                    row.firstResponseIsCustom || sent.firstResponse || both;
-                  const resolutionIsCustom =
-                    sent.resolution || both
-                      ? row.resolutionMinutes !== null
-                      : row.resolutionIsCustom;
-                  return {
-                    ...row,
-                    isCustom: firstResponseIsCustom || resolutionIsCustom,
-                    firstResponseIsCustom,
-                    resolutionIsCustom,
-                  };
-                }),
-              }
-            : prev
-        );
+      // What is stored now, from the server: a value equal to the current default is stored as
+      // "follows the default", which only the server knows. The PUT's answer when it carries the
+      // config, else one GET. An older backend has no per-field flags: reckoned here as before.
+      .then(async (answered) => {
+        if (!config.supportsFieldSave) return null;
+        return answered ?? (await getSlaConfig().catch(() => null));
+      })
+      .then((stored) => {
+        const storedOf = (row: SlaTargetRow) =>
+          stored?.rows.find((entry) => entry.type === row.type && entry.key === row.key);
+        // A sent row takes the server's values and flags; the rest keep what is on screen.
+        const settle = (row: SlaTargetRow): SlaTargetRow => {
+          const sent = sentOf(row);
+          if (!sent) return row;
+          const fromServer = storedOf(row);
+          if (fromServer) return fromServer;
+          // As the backend reads it: a value sent is an override, a null resolution is the
+          // default ("no cap" on a channel). An older backend was sent both fields.
+          const both = !config.supportsFieldSave;
+          const firstResponseIsCustom = row.firstResponseIsCustom || sent.firstResponse || both;
+          const resolutionIsCustom =
+            sent.resolution || both ? row.resolutionMinutes !== null : row.resolutionIsCustom;
+          return {
+            ...row,
+            isCustom: firstResponseIsCustom || resolutionIsCustom,
+            firstResponseIsCustom,
+            resolutionIsCustom,
+          };
+        };
+        setBaseline(sentRows.map((row) => (sentOf(row) ? (storedOf(row) ?? row) : row)));
+        setConfig((prev) => (prev ? { ...prev, rows: prev.rows.map(settle) } : prev));
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
       })

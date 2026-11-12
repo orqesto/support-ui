@@ -417,20 +417,19 @@ describe('SLA settings: tickets, threads by priority, threads by channel', () =>
   });
 
   describe('review fixes', () => {
-    it('2: a field saved as null (no cap) is not marked custom, and its row offers no reset', async () => {
-      get.mockResolvedValue({
-        data: {
-          success: true,
-          data: perField({ 'message:email': [false, true] }).map((entry) =>
-            entry.key === 'email' ? { ...entry, resolutionMinutes: 300 } : entry
-          ),
-        },
-      });
+    // After a save the marks are the server's (one GET; the PUT answers null): a value equal to
+    // the current default is stored as "follows the default", which only the server knows.
+    const loaded = (data: unknown) => ({ data: { success: true, data } });
+
+    it('2: a field saved as null (no cap) shows the server’s answer: no mark, no reset', async () => {
+      const before = perField({ 'message:email': [false, true] }).map((entry) =>
+        entry.key === 'email' ? { ...entry, resolutionMinutes: 300 } : entry
+      );
+      get.mockResolvedValueOnce(loaded(before)).mockResolvedValueOnce(loaded(perField()));
       render(<SLAConfigSettings />);
       expect(
         await screen.findByRole('button', { name: 'Reset Thread SLA by channel Email to default' })
       ).toBeInTheDocument();
-      expect(screen.getAllByText('custom')).toHaveLength(1);
       fireEvent.change(
         screen.getByRole('spinbutton', { name: 'Thread SLA by channel Email resolution' }),
         { target: { value: '' } }
@@ -440,15 +439,51 @@ describe('SLA settings: tickets, threads by priority, threads by channel', () =>
       expect(configsSent()).toEqual([
         { type: 'message', key: 'email', resolutionMinutes: null, resolutionHours: null },
       ]);
+      expect(get).toHaveBeenCalledTimes(2);
       expect(screen.queryAllByText('custom')).toHaveLength(0);
-      expect(screen.queryByText('(custom)')).toBeNull();
       expect(
         screen.queryByRole('button', { name: 'Reset Thread SLA by channel Email to default' })
       ).toBeNull();
     });
 
-    it('2 CONTROL: a field saved with a value is marked custom', async () => {
-      get.mockResolvedValue({ data: { success: true, data: perField() } });
+    it('2: a value typed equal to the default is stored as the default: no mark, no reset', async () => {
+      // An override of 30 on a default of 15; the admin types 15 back.
+      const overridden = perField({ 'ticket:critical': [true, false] }).map((entry) =>
+        entry.type === 'ticket' && entry.key === 'critical'
+          ? { ...entry, firstResponseMinutes: 30 }
+          : entry
+      );
+      get.mockResolvedValueOnce(loaded(overridden)).mockResolvedValueOnce(loaded(perField()));
+      render(<SLAConfigSettings />);
+      expect(
+        await screen.findByRole('button', { name: 'Reset Ticket SLA Critical to default' })
+      ).toBeInTheDocument();
+      fireEvent.change(
+        screen.getByRole('spinbutton', { name: 'Ticket SLA Critical first response' }),
+        { target: { value: '15' } }
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+      await screen.findByText('Saved');
+      expect(configsSent()).toEqual([
+        { type: 'ticket', key: 'critical', firstResponseMinutes: 15 },
+      ]);
+      expect(screen.queryAllByText('custom')).toHaveLength(0);
+      expect(screen.queryByText('(custom)')).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Reset Ticket SLA Critical to default' })
+      ).toBeNull();
+    });
+
+    it('2 CONTROL: when the server says the saved value is an override, it is marked', async () => {
+      get
+        .mockResolvedValueOnce(loaded(perField()))
+        .mockResolvedValueOnce(
+          loaded(
+            perField({ 'message:email': [false, true] }).map((entry) =>
+              entry.key === 'email' ? { ...entry, resolutionMinutes: 300 } : entry
+            )
+          )
+        );
       render(<SLAConfigSettings />);
       fireEvent.change(
         await screen.findByRole('spinbutton', { name: 'Thread SLA by channel Email resolution' }),
@@ -457,6 +492,23 @@ describe('SLA settings: tickets, threads by priority, threads by channel', () =>
       fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
       await screen.findByText('Saved');
       expect(screen.getAllByText('custom')).toHaveLength(1);
+      expect(
+        screen.getByRole('button', { name: 'Reset Thread SLA by channel Email to default' })
+      ).toBeInTheDocument();
+    });
+
+    it('2: a PUT that answers with the config is used, with no extra GET', async () => {
+      get.mockResolvedValueOnce(loaded(perField()));
+      put.mockResolvedValue(loaded(perField({ 'ticket:critical': [true, false] })));
+      render(<SLAConfigSettings />);
+      fireEvent.change(
+        await screen.findByRole('spinbutton', { name: 'Ticket SLA Critical first response' }),
+        { target: { value: '30' } }
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+      await screen.findByText('Saved');
+      expect(get).toHaveBeenCalledTimes(1);
+      expect(screen.getByText('(custom)')).toBeInTheDocument();
     });
 
     it('4: a reset answer without the row reads the config back, never leaving the override', async () => {

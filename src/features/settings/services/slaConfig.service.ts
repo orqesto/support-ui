@@ -111,7 +111,7 @@ export const changedSlaRows = (rows: SlaTargetRow[], baseline: SlaTargetRow[]): 
 export const saveSlaConfig = async (
   changes: SlaRowChange[],
   caps: { supportsThreadPriority: boolean; supportsFieldSave: boolean }
-): Promise<void> => {
+): Promise<SlaConfig | null> => {
   const configs = changes
     .filter(({ row }) => caps.supportsThreadPriority || row.group !== 'threadPriority')
     .map(({ row, firstResponse, resolution }) => {
@@ -136,8 +136,11 @@ export const saveSlaConfig = async (
       };
     });
   // The backend refuses an empty list; nothing to send is nothing to save.
-  if (configs.length === 0) return;
-  await apiClient.put('/api/organizations/sla-config', { configs });
+  if (configs.length === 0) return null;
+  const result = await apiClient.put('/api/organizations/sla-config', { configs });
+  // A backend that answers with the config (as GET) is used as is; one that answers null is not.
+  const data = (result.data as { data?: unknown } | undefined)?.data;
+  return Array.isArray(data) ? normaliseSlaConfig(data) : null;
 };
 
 /** Removes a row's override (both fields); the backend answers with the whole config, as GET. */
