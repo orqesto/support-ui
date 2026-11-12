@@ -8,6 +8,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { logger } from '@/lib/logger';
 import { solidChip } from '@/lib/userColor';
 import { labelService, type Label } from '@/services/settings.service';
+import { useSeededState } from '@/lib/seededState';
 
 /**
  * The ticket's labels in the properties sidebar: chips, and "+ Label" — a search-or-create picker
@@ -21,8 +22,12 @@ export const TicketLabelsField = ({
   canManage: boolean;
 }) => {
   const hasManageLabels = canManage;
-  const [ticketLabels, setTicketLabels] = useState<Label[]>([]);
-  const [allLabels, setAllLabels] = useState<Label[]>([]);
+  // From the last read (seededState): a tab switch draws the chips at once.
+  const [ticketLabels, setTicketLabels] = useSeededState<Label[]>(
+    ['ticket', ticketId, 'labels'],
+    []
+  );
+  const [allLabels, setAllLabels] = useSeededState<Label[]>(['workspace', 'labels', 'all'], []);
   const [labelsStatus, setLabelsStatus] = useState<LabelsStatus>('loading');
   /** Bumped to fetch the labels again (the picker reopened after a failed load). */
   const [labelsAttempt, setLabelsAttempt] = useState(0);
@@ -72,7 +77,7 @@ export const TicketLabelsField = ({
     return () => {
       live = false;
     };
-  }, [ticketId, labelsAttempt]);
+  }, [ticketId, labelsAttempt, setTicketLabels, setAllLabels]);
 
   const handleToggleLabel = async (label: Label) => {
     const assigned = ticketLabels.some((lbl) => lbl.id === label.id);
