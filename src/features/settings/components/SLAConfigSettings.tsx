@@ -6,6 +6,7 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import {
   changedSlaRows,
   getSlaConfig,
+  resetSlaRow,
   saveSlaConfig,
   type SlaConfig,
   type SlaTargetRow,
@@ -24,6 +25,10 @@ export const SLAConfigSettings = () => {
   const [noChanges, setNoChanges] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // The row whose "Reset to default" is in flight (`<type>:<key>`).
+  const [resetting, setResetting] = useState<string | null>(null);
+  // Bumped per row on a reset: its inputs start over from the default (dropping typed text).
+  const [resetCounts, setResetCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
   // Fields holding a value they refuse: saving then would send the previous value as if saved.
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
@@ -79,8 +84,8 @@ export const SLAConfigSettings = () => {
     setNoChanges(false);
     setSaving(true);
     const sentRows = config.rows;
-    const isSent = (row: SlaTargetRow) =>
-      changed.some((entry) => entry.type === row.type && entry.key === row.key);
+    const sentOf = (row: SlaTargetRow) =>
+      changed.find((entry) => entry.row.type === row.type && entry.row.key === row.key);
     saveSlaConfig(changed, config)
       .then(() => {
         // What was sent is now stored as custom, and is the new baseline.
@@ -89,7 +94,18 @@ export const SLAConfigSettings = () => {
           prev
             ? {
                 ...prev,
-                rows: prev.rows.map((row) => (isSent(row) ? { ...row, isCustom: true } : row)),
+                rows: prev.rows.map((row) => {
+                  const sent = sentOf(row);
+                  if (!sent) return row;
+                  // An older backend was sent both fields, so both are stored as custom.
+                  const both = !prev.supportsFieldSave;
+                  return {
+                    ...row,
+                    isCustom: true,
+                    firstResponseIsCustom: row.firstResponseIsCustom || sent.firstResponse || both,
+                    resolutionIsCustom: row.resolutionIsCustom || sent.resolution || both,
+                  };
+                }),
               }
             : prev
         );
@@ -99,6 +115,38 @@ export const SLAConfigSettings = () => {
       .catch((err) => setError(getApiErrorMessage(err) ?? 'Failed to save SLA configuration'))
       .finally(() => setSaving(false));
   };
+
+  /**
+   * Removes the row's override: it shows the defaults the backend answers with, and any unsaved
+   * edit on that row is dropped. Other rows keep what is typed into them.
+   */
+  const reset = (target: SlaTargetRow) => {
+    const id = `${target.type}:${target.key}`;
+    setError(null);
+    setSaved(false);
+    setNoChanges(false);
+    setResetting(id);
+    resetSlaRow(target)
+      .then((fresh) => {
+        const next = fresh.rows.find((row) => row.type === target.type && row.key === target.key);
+        if (!next) return;
+        const swap = (rows: SlaTargetRow[]) =>
+          rows.map((row) => (row.type === target.type && row.key === target.key ? next : row));
+        setConfig((prev) => (prev ? { ...prev, rows: swap(prev.rows) } : prev));
+        setBaseline(swap);
+        setInvalidFields((prev) => {
+          if (![...prev].some((field) => field.startsWith(`${id}:`))) return prev;
+          return new Set([...prev].filter((field) => !field.startsWith(`${id}:`)));
+        });
+        setResetCounts((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
+      })
+      .catch((err) => setError(getApiErrorMessage(err) ?? 'Failed to reset the SLA target'))
+      .finally(() => setResetting(null));
+  };
+  // An older backend has no per-row reset (see `supportsFieldSave`).
+  const resetProps = config?.supportsFieldSave
+    ? { onReset: reset, resetting, resetCounts, busy: saving || resetting !== null }
+    : {};
 
   const group = (name: SlaTargetRow['group']) =>
     config?.rows.filter((row) => row.group === name) ?? [];
@@ -132,6 +180,7 @@ export const SLAConfigSettings = () => {
             keyHeader="Priority"
             rows={group('ticket')}
             onChange={update}
+            {...resetProps}
           />
           {config.supportsThreadPriority && (
             <SlaTargetTable
@@ -140,6 +189,7 @@ export const SLAConfigSettings = () => {
               keyHeader="Priority"
               rows={group('threadPriority')}
               onChange={update}
+              {...resetProps}
             />
           )}
           <SlaTargetTable
@@ -152,13 +202,14 @@ export const SLAConfigSettings = () => {
             // An older backend has no channel resolution cap.
             showResolution={config.supportsThreadPriority}
             onChange={update}
+            {...resetProps}
           />
 
           {saving && <p className="text-xs text-muted-foreground">Saving…</p>}
           {saved && <p className="text-xs text-success">Saved</p>}
           {noChanges && <p className="text-xs text-muted-foreground">No changes to save</p>}
 
-          <Button onClick={save} disabled={saving} className="text-sm">
+          <Button onClick={save} disabled={saving || resetting !== null} className="text-sm">
             Save changes
           </Button>
         </>

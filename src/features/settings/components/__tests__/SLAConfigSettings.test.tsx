@@ -5,10 +5,12 @@ import type * as DataTableModule from '@/components/ui/DataTable';
 
 const put = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const get = vi.fn<(...args: unknown[]) => Promise<unknown>>();
+const del = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
     put: (...args: unknown[]) => put(...args),
     get: (...args: unknown[]) => get(...args),
+    delete: (...args: unknown[]) => del(...args),
   },
 }));
 
@@ -62,6 +64,7 @@ describe('SLA settings: tickets, threads by priority, threads by channel', () =>
   beforeEach(() => {
     put.mockReset();
     get.mockReset();
+    del.mockReset();
     put.mockResolvedValue({ data: { success: true } });
   });
 
@@ -240,6 +243,166 @@ describe('SLA settings: tickets, threads by priority, threads by channel', () =>
       fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
       expect(await screen.findByText('No changes to save')).toBeInTheDocument();
       expect(put).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  /** A backend that sends per-field override flags (and so keeps omitted fields, and resets). */
+  const perField = (custom: Record<string, [boolean, boolean]> = {}) =>
+    newBackend.map((entry) => {
+      const flags = custom[`${entry.type}:${entry.key}`] ?? [false, false];
+      return {
+        ...entry,
+        isCustom: flags[0] || flags[1],
+        firstResponseIsCustom: flags[0],
+        resolutionIsCustom: flags[1],
+      };
+    });
+  const configsSent = (call = 0) =>
+    (put.mock.calls[call][1] as { configs: Array<Record<string, unknown>> }).configs;
+
+  describe('L1: Save sends only the changed field', () => {
+    it('changing a first response sends that field only: the resolution is omitted', async () => {
+      get.mockResolvedValue({ data: { success: true, data: perField() } });
+      render(<SLAConfigSettings />);
+      const first = await screen.findByRole('spinbutton', {
+        name: 'Ticket SLA Critical first response',
+      });
+      fireEvent.change(first, { target: { value: '30' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+      await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+      expect(configsSent()).toEqual([
+        { type: 'ticket', key: 'critical', firstResponseMinutes: 30 },
+      ]);
+    });
+
+    it('changing a resolution sends that field only: the first response is omitted', async () => {
+      get.mockResolvedValue({ data: { success: true, data: perField() } });
+      render(<SLAConfigSettings />);
+      const amount = await screen.findByRole('spinbutton', {
+        name: 'Thread SLA by priority Low resolution',
+      });
+      fireEvent.change(amount, { target: { value: '2' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+      await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+      // 2 in the field's unit (days, as 4320 minutes was shown) = 2880 minutes.
+      expect(configsSent()).toEqual([
+        { type: 'message', key: 'low', resolutionMinutes: 2880, resolutionHours: 48 },
+      ]);
+    });
+
+    it('CONTROL: an older backend (no per-field flags) is still sent both fields', async () => {
+      get.mockResolvedValue({ data: { success: true, data: newBackend } });
+      render(<SLAConfigSettings />);
+      const first = await screen.findByRole('spinbutton', {
+        name: 'Ticket SLA Critical first response',
+      });
+      fireEvent.change(first, { target: { value: '30' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+      await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+      expect(configsSent()[0]).toMatchObject({ firstResponseMinutes: 30, resolutionMinutes: 240 });
+    });
+  });
+
+  describe('L2: Reset to default per row', () => {
+    const resetButton = (name: string) => screen.queryByRole('button', { name });
+
+    it('only a row with an override offers it', async () => {
+      get.mockResolvedValue({
+        data: { success: true, data: perField({ 'message:low': [false, true] }) },
+      });
+      render(<SLAConfigSettings />);
+      expect(
+        await screen.findByRole('button', { name: 'Reset Thread SLA by priority Low to default' })
+      ).toBeInTheDocument();
+      expect(resetButton('Reset Thread SLA by priority Critical to default')).toBeNull();
+      expect(resetButton('Reset Ticket SLA Critical to default')).toBeNull();
+      // The overridden field is marked; the row's other field is not.
+      expect(screen.getAllByText('custom')).toHaveLength(1);
+    });
+
+    it('CONTROL: an older backend (no DELETE route) offers no reset, even on a custom row', async () => {
+      get.mockResolvedValue({
+        data: {
+          success: true,
+          data: newBackend.map((entry) =>
+            entry.key === 'low' ? { ...entry, isCustom: true } : entry
+          ),
+        },
+      });
+      render(<SLAConfigSettings />);
+      expect(await screen.findByText('(custom)')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /to default/ })).toBeNull();
+    });
+
+    it('DELETEs the row, shows the defaults it answers with, and drops that row’s unsaved edit only', async () => {
+      get.mockResolvedValue({
+        data: {
+          success: true,
+          data: perField({ 'message:low': [true, false] }).map((entry) =>
+            entry.key === 'low' && entry.type === 'message'
+              ? { ...entry, firstResponseMinutes: 10 }
+              : entry
+          ),
+        },
+      });
+      let answer: (value: unknown) => void = () => undefined;
+      del.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+      render(<SLAConfigSettings />);
+      const lowFirst = await screen.findByRole('spinbutton', {
+        name: 'Thread SLA by priority Low first response',
+      });
+      expect(lowFirst).toHaveValue(10);
+      // Unsaved edits: one on the row being reset, one on another row.
+      fireEvent.change(lowFirst, { target: { value: '0' } });
+      const ticketFirst = screen.getByRole('spinbutton', {
+        name: 'Ticket SLA Critical first response',
+      });
+      fireEvent.change(ticketFirst, { target: { value: '30' } });
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Reset Thread SLA by priority Low to default' })
+      );
+      expect(del).toHaveBeenCalledWith('/api/organizations/sla-config/message/low');
+      // In flight: Save and the reset itself wait.
+      expect(screen.getByRole('button', { name: 'Save changes' })).toHaveAttribute(
+        'aria-disabled',
+        'true'
+      );
+      answer({ data: { success: true, data: perField() } });
+
+      // The defaults (240 minutes = 4 hours), the override marks gone, no reset on the row now.
+      await vi.waitFor(() =>
+        expect(
+          screen.getByRole('spinbutton', { name: 'Thread SLA by priority Low first response' })
+        ).toHaveValue(4)
+      );
+      expect(screen.queryByText('(custom)')).toBeNull();
+      expect(resetButton('Reset Thread SLA by priority Low to default')).toBeNull();
+      // The other row keeps its edit, and Save sends only it (the reset row's refused "0" is gone).
+      expect(
+        screen.getByRole('spinbutton', { name: 'Ticket SLA Critical first response' })
+      ).toHaveValue(30);
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+      await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+      expect(configsSent()).toEqual([
+        { type: 'ticket', key: 'critical', firstResponseMinutes: 30 },
+      ]);
+    });
+
+    it('a failed reset shows the error and leaves the row as it was', async () => {
+      get.mockResolvedValue({
+        data: { success: true, data: perField({ 'message:low': [false, true] }) },
+      });
+      del.mockRejectedValue(new Error('reset refused'));
+      render(<SLAConfigSettings />);
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Reset Thread SLA by priority Low to default' })
+      );
+      expect(await screen.findByText(/reset refused|Failed to reset/)).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Reset Thread SLA by priority Low to default' })
+      ).not.toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByText('(custom)')).toBeInTheDocument();
     });
   });
 });

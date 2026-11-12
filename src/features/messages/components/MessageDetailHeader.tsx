@@ -17,9 +17,11 @@ import {
   deriveWorkflowStatus,
   computeResolutionInfo,
   computeSlaInfo,
+  isSpamThread,
   type WorkflowStatus,
 } from './inboxCardHelpers';
-import { getSpamCheck, isSuspiciousThread, parseSender } from '@/lib/messageHelpers';
+import { parseSender } from '@/lib/messageHelpers';
+import { deriveThreadFlags } from './messageDetail/threadFlags';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import type { Category, ThreadStatus } from '@/types';
 import { Permission } from '@/types/roles';
@@ -326,12 +328,9 @@ export function MessageDetailHeader({
 
   // ── Computed ──────────────────────────────────────────────────────────────
 
-  const spamCheck = getSpamCheck(message);
-  const isFiltered = message.status === 'filtered';
-  // Same reading as the detail's flags (threadFlags.ts): the queue's answer, snapshot as fallback.
-  const isSuspicious = isSuspiciousThread(message);
-  const isActive =
-    message.status !== 'resolved' && !isFiltered && !isSuspicious && message.status !== 'closed';
+  // One source of truth with the detail (threadFlags.ts): suspicious is the queue's answer (the
+  // newest inbound verdict), and a spam verdict outside triage makes the thread inactive here too.
+  const { isFiltered, isSuspicious, isActive } = deriveThreadFlags(message);
 
   useMoreMenuDismissal({
     moreOpen,
@@ -381,7 +380,8 @@ export function MessageDetailHeader({
   );
 
   const inboxBadge = getInboxBadge(message, {
-    spamCheck,
+    // The lane's answer (the newest inbound verdict), as the action strip reads it.
+    isSpam: isSpamThread(message),
     isFiltered,
     isSuspicious,
     aiReanalysisInFlight,

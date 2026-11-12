@@ -1,7 +1,6 @@
 import { ShieldAlert, AlertTriangle, Sparkles } from 'lucide-react';
 import type { Message } from '@/types';
 import { ticketDisplayId } from '@/lib/ticketReference';
-import type { getSpamCheck } from '@/lib/messageHelpers';
 import {
   closedStatusMeta,
   getStatusBadge,
@@ -84,18 +83,22 @@ export function getTicketChipState(tickets: HeaderTickets, orgCode: string | und
 export function getInboxBadge(
   message: Message,
   {
-    spamCheck,
+    isSpam,
     isFiltered,
     isSuspicious,
     aiReanalysisInFlight,
   }: {
-    spamCheck: ReturnType<typeof getSpamCheck>;
+    /**
+     * The thread's spam verdict as the lane reads it: the NEWEST inbound mail's (`isSpamThread`),
+     * not the first mail's frozen `metadata.spamCheck`.
+     */
+    isSpam: boolean;
     isFiltered: boolean;
     isSuspicious: boolean;
     aiReanalysisInFlight: boolean;
   }
 ): InboxBadge | null {
-  if (spamCheck?.isSpam === true || isFiltered)
+  if (isSpam || isFiltered)
     return {
       label: message.spamConfirmedAt ? 'Spam · confirmed' : 'Spam',
       icon: <ShieldAlert className="w-2.5 h-2.5" />,

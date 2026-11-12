@@ -202,7 +202,12 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
         >
           <Badge variant="danger" className={bc}>
             <ShieldX className={ic} />
-            {spamCheck?.category ? getFilteredCategoryLabel(spamCheck.category) : 'Spam'}
+            {/* The first mail's category names the verdict only when that mail was spam too:
+                a thread turned spam by a follow-up is not labelled with its first mail's
+                "Legitimate". */}
+            {spamCheck?.isSpam === true && spamCheck.category
+              ? getFilteredCategoryLabel(spamCheck.category)
+              : 'Spam'}
           </Badge>
         </Tooltip>
       )}

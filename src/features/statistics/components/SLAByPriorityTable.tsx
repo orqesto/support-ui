@@ -3,6 +3,7 @@ import { Loader2, Ticket, AlertCircle, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import { slaService } from '@/features/statistics/services/sla.service';
 import { periodKey, periodParams, type ReportPeriod } from '@/lib/reportPeriod';
 import { formatDuration } from '@/lib/utils';
@@ -16,6 +17,99 @@ export const SLA_PRIORITIES = [
   { name: 'Medium', key: 'medium', variant: 'default' },
   { name: 'Low', key: 'low', variant: 'secondary' },
 ] as const;
+
+type PriorityRow = {
+  key: string;
+  /** Position in SLA_PRIORITIES: critical first. */
+  rank: number;
+  priority: string;
+  variant: (typeof SLA_PRIORITIES)[number]['variant'];
+  total: number;
+  firstResponseTarget: number;
+  avgFirstResponseValue: number | null;
+  avgFirstResponse: string;
+  firstResponseBreached: number;
+  resolutionTargetMinutes: number | null | undefined;
+  resolutionTarget: string;
+  avgResolutionValue: number | null;
+  avgResolution: string;
+  resolutionBreached: number;
+};
+
+const asNumber = (value: unknown): number | null =>
+  value === null || value === undefined || !Number.isFinite(Number(value)) ? null : Number(value);
+
+const breachedCell = (count: number) => (
+  <span className={count > 0 ? 'text-destructive font-bold' : 'text-success font-bold'}>
+    {count}
+  </span>
+);
+
+const CENTER = { headerClassName: 'text-center', cellClassName: 'text-center' };
+// Every column sorts from its header. The rows come in priority order (critical → low), which is
+// also what a third click returns to; Priority itself sorts by that order, not alphabetically.
+const columns: ColumnDef<PriorityRow>[] = [
+  {
+    id: 'priority',
+    header: 'Priority',
+    sortValue: (row) => row.rank,
+    cell: (row) => <Badge variant={row.variant}>{row.priority}</Badge>,
+  },
+  {
+    id: 'total',
+    header: 'Total',
+    sortValue: (row) => row.total,
+    ...CENTER,
+    cellClassName: 'text-center font-medium',
+    cell: (row) => row.total,
+  },
+  {
+    id: 'firstResponseTarget',
+    header: 'First Response Target (min)',
+    sortValue: (row) => row.firstResponseTarget,
+    ...CENTER,
+    cellClassName: 'text-center text-muted-foreground',
+    cell: (row) => `${row.firstResponseTarget}m`,
+  },
+  {
+    id: 'avgFirstResponse',
+    header: 'Avg First Response (min)',
+    sortValue: (row) => row.avgFirstResponseValue,
+    ...CENTER,
+    cellClassName: 'text-center font-medium',
+    cell: (row) => `${row.avgFirstResponse}m`,
+  },
+  {
+    id: 'firstResponseBreached',
+    header: 'Breached',
+    sortValue: (row) => row.firstResponseBreached,
+    ...CENTER,
+    cell: (row) => breachedCell(row.firstResponseBreached),
+  },
+  {
+    id: 'resolutionTarget',
+    header: 'Resolution Target',
+    sortValue: (row) => row.resolutionTargetMinutes,
+    ...CENTER,
+    cellClassName: 'text-center text-muted-foreground',
+    cell: (row) => row.resolutionTarget,
+  },
+  {
+    id: 'avgResolution',
+    header: 'Avg Resolution (h)',
+    sortValue: (row) => row.avgResolutionValue,
+    ...CENTER,
+    cellClassName: 'text-center font-medium',
+    cell: (row) => `${row.avgResolution}h`,
+  },
+  {
+    id: 'resolutionBreached',
+    header: 'Breached',
+    sortValue: (row) => row.resolutionBreached,
+    ...CENTER,
+    cell: (row) => breachedCell(row.resolutionBreached),
+  },
+];
 
 type SLAByPriorityTableProps = {
   days?: number;
@@ -62,28 +156,38 @@ export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS, period }: SLAByPri
 
   if (!data) return null;
 
-  const rows = SLA_PRIORITIES
-    .map((priority) => {
-      const stats = data.tickets[priority.key];
-      if (!stats || stats.total === 0) return null;
-
-      return {
+  const rows = SLA_PRIORITIES.flatMap((priority, rank): PriorityRow[] => {
+    const stats = data.tickets[priority.key];
+    if (!stats || stats.total === 0) return [];
+    const avgFirst = asNumber(stats.avgFirstResponse);
+    const avgResolution = asNumber(stats.avgResolution);
+    // Minutes from a 0238 backend (a 90-minute target is 1h 30m, not 1.5h); hours before.
+    const hasMinutes = typeof stats.resolutionTargetMinutes === 'number';
+    return [
+      {
+        key: priority.key,
+        rank,
         priority: priority.name,
         variant: priority.variant,
         total: stats.total,
         firstResponseTarget: stats.firstResponseTarget,
-        avgFirstResponse: stats.avgFirstResponse !== null && stats.avgFirstResponse !== undefined ? Number(stats.avgFirstResponse).toFixed(1) : '—',
+        avgFirstResponseValue: avgFirst,
+        avgFirstResponse: avgFirst === null ? '—' : avgFirst.toFixed(1),
         firstResponseBreached: stats.firstResponseBreached,
-        // Minutes from a 0238 backend (a 90-minute target is 1h 30m, not 1.5h); hours before.
-        resolutionTarget:
-          typeof stats.resolutionTargetMinutes === 'number'
-            ? formatDuration(stats.resolutionTargetMinutes)
-            : `${stats.resolutionTarget}h`,
-        avgResolution: stats.avgResolution !== null && stats.avgResolution !== undefined ? Number(stats.avgResolution).toFixed(1) : '—',
+        resolutionTargetMinutes: hasMinutes
+          ? stats.resolutionTargetMinutes
+          : asNumber(stats.resolutionTarget) === null
+            ? null
+            : stats.resolutionTarget * 60,
+        resolutionTarget: hasMinutes
+          ? formatDuration(stats.resolutionTargetMinutes as number)
+          : `${stats.resolutionTarget}h`,
+        avgResolutionValue: avgResolution,
+        avgResolution: avgResolution === null ? '—' : avgResolution.toFixed(1),
         resolutionBreached: stats.resolutionBreached,
-      };
-    })
-    .filter((row): row is NonNullable<typeof row> => row !== null);
+      },
+    ];
+  });
 
   if (rows.length === 0) {
     return (
@@ -116,65 +220,12 @@ export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS, period }: SLAByPri
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/50">
-                <th className="text-left py-3 px-3 font-semibold">Priority</th>
-                <th className="text-center py-3 px-3 font-semibold">Total</th>
-                <th className="text-center py-3 px-3 font-semibold">First Response Target (min)</th>
-                <th className="text-center py-3 px-3 font-semibold">Avg First Response (min)</th>
-                <th className="text-center py-3 px-3 font-semibold">Breached</th>
-                <th className="text-center py-3 px-3 font-semibold">Resolution Target</th>
-                <th className="text-center py-3 px-3 font-semibold">Avg Resolution (h)</th>
-                <th className="text-center py-3 px-3 font-semibold">Breached</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={row.priority}
-                  className="border-b last:border-0 hover:bg-muted/30 transition-colors"
-                >
-                  <td className="py-3 px-3">
-                    <Badge variant={row.variant}>{row.priority}</Badge>
-                  </td>
-                  <td className="text-center py-3 px-3 font-medium">{row.total}</td>
-                  <td className="text-center py-3 px-3 text-muted-foreground">
-                    {row.firstResponseTarget}m
-                  </td>
-                  <td className="text-center py-3 px-3 font-medium">{row.avgFirstResponse}m</td>
-                  <td className="text-center py-3 px-3">
-                    <span
-                      className={
-                        row.firstResponseBreached > 0
-                          ? 'text-destructive font-bold'
-                          : 'text-success font-bold'
-                      }
-                    >
-                      {row.firstResponseBreached}
-                    </span>
-                  </td>
-                  <td className="text-center py-3 px-3 text-muted-foreground">
-                    {row.resolutionTarget}
-                  </td>
-                  <td className="text-center py-3 px-3 font-medium">{row.avgResolution}h</td>
-                  <td className="text-center py-3 px-3">
-                    <span
-                      className={
-                        row.resolutionBreached > 0
-                          ? 'text-destructive font-bold'
-                          : 'text-success font-bold'
-                      }
-                    >
-                      {row.resolutionBreached}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          rows={rows}
+          rowKey={(row) => row.key}
+          columns={columns}
+          pagination={{ mode: 'client', pageSize: Math.max(rows.length, 1) }}
+        />
       </CardContent>
     </Card>
   );
