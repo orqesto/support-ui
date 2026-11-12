@@ -50,6 +50,7 @@ vi.mock('@/lib/logger', () => ({
 
 import { MessageDetailHeader } from '../MessageDetailHeader';
 import { MessageSignalBadges } from '../MessageSignalBadges';
+import { deriveThreadFlags } from '../messageDetail/threadFlags';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 
 afterEach(cleanup);
@@ -141,6 +142,96 @@ describe('spam badge category label (MessageSignalBadges): only from a first mai
   });
 
   it('CONTROL: a first mail that was spam still names its category', () => {
+    render(
+      <MessageSignalBadges
+        message={thread({
+          isSpam: true,
+          metadata: { spamCheck: { isSpam: true, category: 'promotional' } },
+        })}
+      />
+    );
+    expect(screen.getByText('Promotional')).toBeInTheDocument();
+  });
+});
+
+describe('threadFlags: spam outside triage follows the newest inbound mail', () => {
+  it('newest mail clean, first mail spam: not flagged, active, and the header offers its actions', () => {
+    const msg = thread({ isSpam: false, metadata: spamFirstMail });
+    expect(deriveThreadFlags(msg)).toMatchObject({
+      isSpamFlaggedOutsideTriage: false,
+      isActive: true,
+    });
+    renderHeader(msg);
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(within(screen.getByRole('menu')).getByText('Mark as suspicious')).toBeInTheDocument();
+  });
+
+  it('newest mail spam, first mail clean: flagged, not active', () => {
+    expect(deriveThreadFlags(thread({ isSpam: true, metadata: cleanFirstMail }))).toMatchObject({
+      isSpamFlaggedOutsideTriage: true,
+      isActive: false,
+    });
+  });
+
+  it('CONTROL: a single-mail thread (older backend, no isSpam) reads its one mail as before', () => {
+    expect(deriveThreadFlags(thread({ metadata: spamFirstMail })).isSpamFlaggedOutsideTriage).toBe(
+      true
+    );
+    expect(deriveThreadFlags(thread({ metadata: cleanFirstMail })).isSpamFlaggedOutsideTriage).toBe(
+      false
+    );
+  });
+});
+
+describe('header More menu on a resolved thread (owner 2026-11-12: unchanged)', () => {
+  const items = (status: string) => {
+    renderHeader(thread({ status, isLead: true, isSpam: false, metadata: cleanFirstMail }));
+    fireEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    return within(screen.getByRole('menu'));
+  };
+
+  it('a resolved thread offers neither "Mark as suspicious" nor "Not a lead — close"', () => {
+    const menu = items('resolved');
+    expect(menu.queryByText('Mark as suspicious')).toBeNull();
+    expect(menu.queryByText('Not a lead — close')).toBeNull();
+  });
+
+  it('CONTROL: an open thread offers both', () => {
+    const menu = items('open');
+    expect(menu.getByText('Mark as suspicious')).toBeInTheDocument();
+    expect(menu.getByText('Not a lead — close')).toBeInTheDocument();
+  });
+});
+
+describe('spam badge category: latestSpamCategory (the newest classified mail)', () => {
+  it('shows the newest mail’s category over the first mail’s', () => {
+    render(
+      <MessageSignalBadges
+        message={thread({
+          isSpam: true,
+          latestSpamCategory: 'promotional',
+          metadata: { spamCheck: { isSpam: true, category: 'spam' } },
+        })}
+      />
+    );
+    expect(screen.getByText('Promotional')).toBeInTheDocument();
+  });
+
+  it('null (the newest mail has no category) reads plain Spam, not the first mail’s', () => {
+    render(
+      <MessageSignalBadges
+        message={thread({
+          isSpam: true,
+          latestSpamCategory: null,
+          metadata: { spamCheck: { isSpam: true, category: 'promotional' } },
+        })}
+      />
+    );
+    expect(screen.getByText('Spam')).toBeInTheDocument();
+    expect(screen.queryByText('Promotional')).toBeNull();
+  });
+
+  it('CONTROL: field absent (older backend) falls back to the first mail’s category', () => {
     render(
       <MessageSignalBadges
         message={thread({

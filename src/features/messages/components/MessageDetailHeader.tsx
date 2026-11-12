@@ -465,7 +465,10 @@ export function MessageDetailHeader({
     leadsHidden,
     togglingLead,
     handleToggleLead,
-    isActive,
+    // deriveThreadFlags counts a resolved thread as active (the detail lets it be replied to); the
+    // header's "Mark as suspicious" and "Not a lead — close" stay off a resolved thread (owner
+    // 2026-11-12).
+    isActive: isActive && message.status !== 'resolved',
     onClassify,
     onDelete,
     guard: guardAction,

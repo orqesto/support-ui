@@ -34,6 +34,22 @@ type Props = {
   mode?: 'card' | 'full';
 };
 
+/**
+ * The spam badge's category: the NEWEST classified inbound mail's (`latestSpamCategory`). An older
+ * backend does not send it; then the first mail's category names the verdict only when that mail
+ * was spam too, so a thread turned spam by a follow-up is not labelled with its first mail's
+ * "Legitimate". A missing or legitimate category reads plain "Spam".
+ */
+const spamBadgeLabel = (message: Message, spamCheck: ReturnType<typeof getSpamCheck>): string => {
+  const category =
+    message.latestSpamCategory !== undefined
+      ? message.latestSpamCategory
+      : spamCheck?.isSpam === true
+        ? spamCheck.category
+        : undefined;
+  return category && category !== 'legitimate' ? getFilteredCategoryLabel(category) : 'Spam';
+};
+
 export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Props) => {
   const ic = size === 'sm' ? 'w-2.5 h-2.5' : 'w-4 h-4';
   const bc = size === 'sm' ? 'flex gap-1 items-center h-5 px-1.5' : 'flex gap-1 items-center';
@@ -202,12 +218,7 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
         >
           <Badge variant="danger" className={bc}>
             <ShieldX className={ic} />
-            {/* The first mail's category names the verdict only when that mail was spam too:
-                a thread turned spam by a follow-up is not labelled with its first mail's
-                "Legitimate". */}
-            {spamCheck?.isSpam === true && spamCheck.category
-              ? getFilteredCategoryLabel(spamCheck.category)
-              : 'Spam'}
+            {spamBadgeLabel(message, spamCheck)}
           </Badge>
         </Tooltip>
       )}
