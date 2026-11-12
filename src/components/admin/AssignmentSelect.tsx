@@ -39,9 +39,10 @@ type AssignmentSelectProps = {
    * button (a row's Claim), where a keyboard user otherwise stays on the button and cannot Tab
    * into the picker (it is portaled to the end of the page). Waits for the first load (the box
    * is disabled until then and a disabled box takes no focus), and focuses once — a later refetch
-   * does not pull the focus back. Skipped on a device with no fine pointer at all (a phone, a
-   * tablet on its own): there the focus would only pop the on-screen keyboard over the list. A
-   * tablet with a trackpad keyboard has a fine pointer too and keeps the focus.
+   * does not pull the focus back, nor does a load that ends after the agent moved the focus away.
+   * Skipped on a device with no fine pointer at all (a phone, a tablet on its own): there the focus
+   * would only pop the on-screen keyboard over the list. A tablet with a trackpad keyboard has a
+   * fine pointer too and keeps the focus.
    */
   autoFocus?: boolean;
 };
@@ -65,9 +66,14 @@ export const AssignmentSelect = ({
   const [assigning, setAssigning] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const autoFocused = useRef(false);
+  // Where the focus was when the picker opened (its Claim button, or nothing): the focus moves in
+  // only if it is still there — an agent who moved on while the list loaded keeps their place.
+  const focusAtOpen = useRef(typeof document === 'undefined' ? null : document.activeElement);
   useEffect(() => {
     if (!autoFocus || loading || autoFocused.current) return;
     autoFocused.current = true;
+    const active = document.activeElement;
+    if (active !== focusAtOpen.current && active !== document.body) return;
     if (window.matchMedia && !window.matchMedia('(any-pointer: fine)').matches) return;
     boxRef.current?.querySelector<HTMLInputElement>('input')?.focus();
   }, [autoFocus, loading]);
