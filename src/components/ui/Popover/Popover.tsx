@@ -6,15 +6,16 @@ import { cn } from '@/lib/utils';
 const EDGE_MARGIN_PX = 8;
 
 /**
- * A press in a modal dialog ABOVE the popover is that dialog's, not a "press outside": a question
- * opened from the panel ("a colleague is writing — assign anyway?") sits over it, and one Escape or
- * one click there must close only the question (one press, one layer; see useModalLayer). A modal
- * the popover itself sits in (a date picker in a dialog) is not above it.
+ * A modal dialog is open ABOVE the popover — one it does not sit in. While it is, a press anywhere
+ * (its content or its backdrop, which is outside it) is the dialog's, not a "press outside": a
+ * question opened from the panel ("a colleague is writing — assign anyway?") must close alone (one
+ * press, one layer; see useModalLayer). A modal the popover sits in (a date picker in a dialog) is
+ * not above it.
  */
-const isInModalAbove = (target: EventTarget | null, root: HTMLElement | null): boolean => {
-  const modal = target instanceof Element ? target.closest('[aria-modal="true"]') : null;
-  return modal !== null && !modal.contains(root);
-};
+const modalIsAbove = (root: HTMLElement | null): boolean =>
+  Array.from(document.querySelectorAll('[aria-modal="true"]')).some(
+    (modal) => !modal.contains(root)
+  );
 
 type PopoverProps = {
   trigger: (state: { open: boolean; toggle: () => void }) => React.ReactNode;
@@ -33,13 +34,13 @@ type PopoverProps = {
  * A caller's trigger opens a panel of any content: `SelectPopover`'s placement without its list.
  * Portalled to <body> so a clipped or scrolling container cannot cut it, clamped to the width you
  * can SEE (`clientWidth`, not `innerWidth`, see SelectPopover), and flipped above the trigger when
- * it fits there and not below. Escape or a press outside closes it — but not one in a modal dialog
- * above it; Escape returns the focus to the trigger.
+ * it fits there and not below. A press outside closes it (not while a modal dialog is open above it).
  *
- * Escape on the trigger or in the panel is caught in React and stopped there, so the page's own
- * Escape (close the open thread, clear a selection — document and window listeners) never sees
- * it. An Escape that something inside already handled (the Select closing its open list stops it)
- * is left alone: one press, one layer.
+ * Escape closes it from the trigger or the panel, focus back on the trigger. It is caught in React
+ * and stopped there, so the page's own Escape (close the open thread, clear a selection — document
+ * and window listeners) never sees it. An Escape that something inside already handled (the Select
+ * closing its open list stops it) is left alone, and so is one pressed with the focus elsewhere: it
+ * belongs to what has the focus. One press, one layer.
  */
 export const Popover = ({
   trigger,
@@ -100,25 +101,15 @@ export const Popover = ({
     };
   }, [open, align, width]);
 
-  // Keyboard: opening moves the focus into the panel (it is portalled to the end of <body>, so Tab
-  // from the trigger would never reach it), and Escape closes it from the trigger or the panel.
+  // Opening moves the focus into the panel: it is portalled to the end of <body>, so Tab from the
+  // trigger would never reach it.
   useEffect(() => {
-    if (!open) return undefined;
+    if (!open) return;
     panelRef.current
       ?.querySelector<HTMLElement>(
         'button:not([disabled]):not([aria-disabled="true"]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])'
       )
       ?.focus({ preventScroll: true });
-    // Focus elsewhere on the page (the trigger and the panel stop their own Escape, below).
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || isInModalAbove(event.target, rootRef.current)) return;
-      event.stopPropagation();
-      closeToTrigger();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-    // closeToTrigger reads only refs and onOpenChange.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
@@ -126,7 +117,7 @@ export const Popover = ({
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
       if (rootRef.current?.contains(target) || panelRef.current?.contains(target)) return;
-      if (isInModalAbove(target, rootRef.current)) return;
+      if (modalIsAbove(rootRef.current)) return;
       onOpenChange(false);
     };
     document.addEventListener('mousedown', onPointerDown);

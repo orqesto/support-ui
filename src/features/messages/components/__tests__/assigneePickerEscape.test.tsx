@@ -225,6 +225,12 @@ describe.each(surfaces)('%s — when the focus moves into the picker', (_name, u
     await release();
     await waitFor(() => expect(box()).not.toBeInactive()); // the list has loaded
     expect(document.activeElement).toBe(elsewhere);
+
+    // Escape there is the page's (close the open thread…), not the picker's.
+    escape(elsewhere);
+    expect(picker()).not.toBeNull();
+    expect(pageEscape).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(elsewhere);
   });
 
   it('touch only (no fine pointer): the box is NOT focused — no on-screen keyboard over the list', async () => {
