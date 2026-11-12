@@ -1,4 +1,4 @@
-import { useMemo, type MutableRefObject, type ReactNode } from 'react';
+import { useEffect, useMemo, type MutableRefObject, type ReactNode } from 'react';
 import type { SetURLSearchParams } from 'react-router-dom';
 import {
   KeepTabOnInput,
@@ -9,6 +9,7 @@ import {
 import type { OpenTab } from '@/lib/openTabs';
 import { formatConvId, getConvUrlId } from '@/lib/messageHelpers';
 import { isOwnSendEcho } from '@/lib/ownSends';
+import { readSeed, writeSeed } from '@/lib/seededState';
 import type { Message } from '@/types';
 
 /** The thread a socket payload is about: its conversation id, or its message id. */
@@ -81,6 +82,7 @@ export const useThreadTabs = ({
  */
 export const useThreadsPageTabs = ({
   selectedMessage,
+  setSelectedMessage,
   opensIn,
   orgCode,
   selectedThreadIdRef,
@@ -89,6 +91,7 @@ export const useThreadsPageTabs = ({
   closeDetail,
 }: {
   selectedMessage: Message | null;
+  setSelectedMessage: (message: Message) => void;
   /**
    * Where a thread opens: its own page (a phone — MessageDetailPage has the row), beside the
    * list (split: preview tabs, see useOpenTabs) or over it (the slide-over).
@@ -100,6 +103,10 @@ export const useThreadsPageTabs = ({
   setSearchParams: SetURLSearchParams;
   closeDetail: () => void;
 }) => {
+  // The record of every thread shown, so a tab brings its thread back at once (below).
+  useEffect(() => {
+    if (selectedMessage) writeSeed(['thread', selectedMessage.id, 'record'], selectedMessage);
+  }, [selectedMessage]);
   const threadTabs = useThreadTabs({
     shown: opensIn === 'page' ? null : selectedMessage,
     preview: opensIn === 'split',
@@ -107,6 +114,9 @@ export const useThreadsPageTabs = ({
     activate: (tab) => {
       selectedThreadIdRef.current = null;
       selectedThreadMessageIdRef.current = null;
+      // The thread as last shown, at once; the read `?id` starts (useMessagesUrlSync) refreshes it.
+      const record = readSeed<Message>(['thread', tab.key, 'record']);
+      if (record) setSelectedMessage(record);
       setSearchParams(
         (current) => {
           const params = new URLSearchParams(current);

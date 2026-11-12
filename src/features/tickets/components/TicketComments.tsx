@@ -43,6 +43,7 @@ import { toast } from '@/lib/toast';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { useUnsentDraft } from '@/hooks/useUnsentDraft';
 import { RestoredDraftNotice } from '@/components/shared/RestoredDraftNotice';
+import { useSeededState } from '@/lib/seededState';
 
 type TicketCommentsProps = {
   ticketId: number;
@@ -58,11 +59,17 @@ export const TicketComments = ({
   onCountChange,
   onHoldReasonCleared,
 }: TicketCommentsProps) => {
-  const [comments, setComments] = useState<Comment[]>([]);
+  // From the last read of this ticket (seededState): a tab switch draws the comments at once.
+  const [comments, setComments, commentsSeeded] = useSeededState<Comment[]>(
+    ['ticket', ticketId, 'comments'],
+    []
+  );
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [newComment, setNewComment] = useState('');
   const [isInternal, setIsInternal] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!commentsSeeded);
+  // The ticket whose comments are on screen: a refresh of it shows no spinner over them.
+  const commentsShownFor = useRef<number | null>(commentsSeeded ? ticketId : null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -113,10 +120,11 @@ export const TicketComments = ({
 
   const fetchComments = useCallback(async () => {
     try {
-      setIsLoading(true);
+      if (commentsShownFor.current !== ticketId) setIsLoading(true);
       const response = await commentsService.getAll(ticketId);
       if (response.success && response.data) {
         setComments(response.data);
+        commentsShownFor.current = ticketId;
         // Hold notes show in the list but are not counted: they record an event (owner, 2026-11-09).
         onCountChange?.(response.data.filter((comment) => !isHoldNote(comment)).length);
       }
@@ -125,7 +133,7 @@ export const TicketComments = ({
     } finally {
       setIsLoading(false);
     }
-  }, [ticketId, onCountChange]);
+  }, [ticketId, onCountChange, setComments]);
 
   useEffect(() => {
     fetchComments().catch((error) => {

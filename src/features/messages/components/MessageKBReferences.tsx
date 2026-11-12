@@ -6,6 +6,7 @@ import { formatDate } from '@/lib/utils';
 import { messageService } from '@/services/message.service';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { useSeededState } from '@/lib/seededState';
 
 type KBReference = {
   id: number;
@@ -29,8 +30,13 @@ type MessageKBReferencesProps = {
 };
 
 export const MessageKBReferences = ({ messageId, onCountChange }: MessageKBReferencesProps) => {
-  const [references, setReferences] = useState<KBReference[]>([]);
-  const [loading, setLoading] = useState(true);
+  // From the last read (seededState): back on a thread seen before, the list is drawn at once and
+  // refreshed without a spinner over it.
+  const [references, setReferences, seeded] = useSeededState<KBReference[]>(
+    ['message', messageId, 'kb-references'],
+    []
+  );
+  const [loading, setLoading] = useState(!seeded);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -47,7 +53,7 @@ export const MessageKBReferences = ({ messageId, onCountChange }: MessageKBRefer
     let live = true;
     const fetchReferences = async () => {
       try {
-        setLoading(true);
+        if (!seeded) setLoading(true);
         setError(null);
         const response = await messageService.getKBReferences(messageId);
         const loaded = response.success && response.data ? response.data : [];
