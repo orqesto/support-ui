@@ -39,8 +39,9 @@ type AssignmentSelectProps = {
    * button (a row's Claim), where a keyboard user otherwise stays on the button and cannot Tab
    * into the picker (it is portaled to the end of the page). Waits for the first load (the box
    * is disabled until then and a disabled box takes no focus), and focuses once — a later refetch
-   * does not pull the focus back. Skipped on touch-first screens (`pointer: coarse`): there the
-   * focus would only pop the on-screen keyboard over the list.
+   * does not pull the focus back. Skipped on a device with no fine pointer at all (a phone, a
+   * tablet on its own): there the focus would only pop the on-screen keyboard over the list. A
+   * tablet with a trackpad keyboard has a fine pointer too and keeps the focus.
    */
   autoFocus?: boolean;
 };
@@ -67,7 +68,7 @@ export const AssignmentSelect = ({
   useEffect(() => {
     if (!autoFocus || loading || autoFocused.current) return;
     autoFocused.current = true;
-    if (window.matchMedia?.('(pointer: coarse)').matches) return;
+    if (window.matchMedia && !window.matchMedia('(any-pointer: fine)').matches) return;
     boxRef.current?.querySelector<HTMLInputElement>('input')?.focus();
   }, [autoFocus, loading]);
 
