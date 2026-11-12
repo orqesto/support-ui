@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import {
+  changedSlaRows,
   getSlaConfig,
   saveSlaConfig,
   type SlaConfig,
@@ -18,6 +19,9 @@ import { SlaTargetTable } from './SlaTargetTable';
  */
 export const SLAConfigSettings = () => {
   const [config, setConfig] = useState<SlaConfig | null>(null);
+  // The values as loaded or last saved: Save sends only rows that differ from these.
+  const [baseline, setBaseline] = useState<SlaTargetRow[]>([]);
+  const [noChanges, setNoChanges] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,14 +38,18 @@ export const SLAConfigSettings = () => {
 
   useEffect(() => {
     getSlaConfig()
-      .then(setConfig)
+      .then((loaded) => {
+        setConfig(loaded);
+        setBaseline(loaded.rows);
+      })
       .catch((err) => setError(getApiErrorMessage(err) ?? 'Failed to load SLA configuration'));
   }, []);
 
   const update = (
     target: SlaTargetRow,
     patch: Partial<Pick<SlaTargetRow, 'firstResponseMinutes' | 'resolutionMinutes'>>
-  ) =>
+  ) => {
+    setNoChanges(false);
     setConfig((prev) =>
       prev
         ? {
@@ -52,18 +60,39 @@ export const SLAConfigSettings = () => {
           }
         : prev
     );
+  };
 
   const save = () => {
     if (!config) return;
     if (invalidFields.size > 0) {
+      setNoChanges(false);
       setError('Fix the highlighted values before saving: each must be a whole number above zero.');
       return;
     }
     setError(null);
-    setSaving(true);
     setSaved(false);
-    saveSlaConfig(config.rows, config)
+    const changed = changedSlaRows(config.rows, baseline);
+    if (changed.length === 0) {
+      setNoChanges(true);
+      return;
+    }
+    setNoChanges(false);
+    setSaving(true);
+    const sentRows = config.rows;
+    const isSent = (row: SlaTargetRow) =>
+      changed.some((entry) => entry.type === row.type && entry.key === row.key);
+    saveSlaConfig(changed, config)
       .then(() => {
+        // What was sent is now stored as custom, and is the new baseline.
+        setBaseline(sentRows);
+        setConfig((prev) =>
+          prev
+            ? {
+                ...prev,
+                rows: prev.rows.map((row) => (isSent(row) ? { ...row, isCustom: true } : row)),
+              }
+            : prev
+        );
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
       })
@@ -127,6 +156,7 @@ export const SLAConfigSettings = () => {
 
           {saving && <p className="text-xs text-muted-foreground">Saving…</p>}
           {saved && <p className="text-xs text-success">Saved</p>}
+          {noChanges && <p className="text-xs text-muted-foreground">No changes to save</p>}
 
           <Button onClick={save} disabled={saving} className="text-sm">
             Save changes
