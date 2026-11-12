@@ -75,6 +75,10 @@ const CLIENT_INTERNALS = new Map<string, number>([
   // The pre-send renewal: awaits the session refresh when the clock says the token is dead, then
   // returns the SAME config. Builds no URL.
   ['lib/api-client.ts: <module>: apiClient.interceptors.request.use(renewIfExpired)', 1],
+  // The transport: sends each request as built, except the thread header's side reads, which
+  // threadContextBatch may fold into `/api/messages/:id/context` — a fixed /api/ path it builds
+  // itself, falling back to the original requests. Builds no other URL.
+  ['lib/api-client.ts: <module>: apiClient.defaults.adapter', 1],
   // The 401 retry and the 429 retry RE-SEND a request that already went out through a checked
   // call — its URL is the one that call was checked for — after the session refresh, or after
   // the wait the limiter named. Neither builds a new path.
