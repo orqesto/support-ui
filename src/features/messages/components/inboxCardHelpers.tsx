@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { Message } from '@/types';
 import type { MessageThread } from '@/services/message.service';
 import { getSpamCheck, hasMessageAttachments } from '@/lib/messageHelpers';
+import { isSpamThread } from '@/lib/spamVerdict';
 import { formatDuration } from '@/lib/utils';
 import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/types/ai';
 import { notCustomerWorkMark } from './notCustomerWork';
@@ -17,29 +18,9 @@ import { resolutionClock } from './slaResolutionClock';
  * Everything else waits for the detail view.
  */
 
-/**
- * Is this thread SPAM, as the lane itself decides it?
- *
- * ⛔ THE SERVER FLAG FIRST. `message.isSpam` (support-service #799) is resolved from the newest
- * inbound event — the same predicate the Spam lane and its halves claim rows by.
- * `metadata.spamCheck` is frozen at thread creation, and the two disagree on real threads: three
- * live TraumaTeam ones in 2026-09, one a customer asking about an order. Reading the frozen copy
- * badges the wrong rows in BOTH directions — a thread that turned spam mid-thread wears no mark,
- * and one that was cleared keeps a red one.
- *
- * ⚠️ `??`, so absent falls back to the frozen copy: this frontend deploys on merge while the
- * backend ships on a tag, and an older deployment sending no flag must keep the old behaviour
- * rather than lose every spam mark in the product.
- *
- * ⛔ One helper, because that frozen field was read in five places and a guard fixed in one file
- * while its siblings keep the old answer is this repo's most repeated defect.
- *
- * ⛔ A PERSON's confirmation wins. "Resolve as spam" on a thread the AI read as legitimate leaves
- * `isSpam` false (the newest event's verdict never changes), so the confirmed thread sat in Spam
- * with no spam mark at all (staging, 2026-10-13). Moving it back to Open clears the stamp.
- */
-export const isSpamThread = (message: Message): boolean =>
-  message.spamConfirmedAt ? true : (message.isSpam ?? getSpamCheck(message)?.isSpam === true);
+// The one "is this thread spam now" rule lives in lib/messageHelpers (header, detail flags, cards
+// and badges all read it); re-exported here for the callers and suites that import it from here.
+export { isSpamThread } from '@/lib/spamVerdict';
 
 export type SpineColor = 'red' | 'amber' | 'blue' | 'green' | 'calm' | 'none';
 

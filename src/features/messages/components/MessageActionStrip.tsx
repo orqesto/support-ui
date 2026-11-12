@@ -1,10 +1,7 @@
 import { useState, useCallback } from 'react';
 import { RotateCcw, ShieldCheck, ShieldAlert, Trash2, BookOpen } from 'lucide-react';
-import {
-  getFilteredCategoryMeta,
-  newestSpamCategory,
-  newestSpamVerdict,
-} from '@/lib/messageHelpers';
+import { getFilteredCategoryMeta, newestSpamCategory } from '@/lib/messageHelpers';
+import { newestSpamVerdict } from '@/lib/spamVerdict';
 import { notCustomerWorkMark } from './notCustomerWork';
 import { Toggle } from '@/components/ui/Toggle';
 import { Button } from '@/components/ui/Button';

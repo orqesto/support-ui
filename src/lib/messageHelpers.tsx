@@ -151,15 +151,9 @@ export const getSpamCheck = (message: {
   metadata?: Record<string, unknown> | null;
 }): SpamCheckData | undefined => message.metadata?.spamCheck as SpamCheckData | undefined;
 
-/**
- * The NEWEST inbound mail's spam verdict: the backend's `isSpam` (the Spam lane's own predicate),
- * the first mail's frozen `metadata.spamCheck.isSpam` only when an older backend sends no flag.
- * An agent's earlier confirmation (`spamConfirmedAt`) does not override a newer clean mail.
- */
-export const newestSpamVerdict = (message: {
-  isSpam?: boolean;
-  metadata?: Record<string, unknown> | null;
-}): boolean => message.isSpam ?? getSpamCheck(message)?.isSpam === true;
+// The "is this thread spam now" rule is a leaf file of its own, so suites that mock this module
+// partially still get the real rule wherever a component reads it.
+export { isSpamThread, newestSpamVerdict } from './spamVerdict';
 
 /**
  * The spam category of the NEWEST classified inbound mail (`latestSpamCategory`, backend

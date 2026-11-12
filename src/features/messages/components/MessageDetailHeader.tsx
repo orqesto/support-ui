@@ -19,7 +19,8 @@ import {
   computeSlaInfo,
   type WorkflowStatus,
 } from './inboxCardHelpers';
-import { newestSpamVerdict, parseSender } from '@/lib/messageHelpers';
+import { parseSender } from '@/lib/messageHelpers';
+import { isSpamThread } from '@/lib/spamVerdict';
 import { deriveThreadFlags } from './messageDetail/threadFlags';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import type { Category, ThreadStatus } from '@/types';
@@ -380,7 +381,7 @@ export function MessageDetailHeader({
 
   const inboxBadge = getInboxBadge(message, {
     // The newest inbound verdict, as the detail's flags and the action strip's Approve read it.
-    isSpam: newestSpamVerdict(message),
+    isSpam: isSpamThread(message),
     isFiltered,
     isSuspicious,
     aiReanalysisInFlight,

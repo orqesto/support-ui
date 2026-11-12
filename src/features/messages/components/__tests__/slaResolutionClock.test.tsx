@@ -127,7 +127,7 @@ describe('the resolution clock', () => {
     expect(screen.getByTestId('sla-clock')).toBeTruthy();
   });
 
-  it('the Resolve chip goes when the same thread is marked spam (isSpam or spamConfirmedAt)', async () => {
+  it('the Resolve chip goes when the same thread is marked spam (newest isSpam, or confirmed in the Spam lane)', async () => {
     const open = {
       ...baseMessage,
       status: 'open',
@@ -143,8 +143,14 @@ describe('the resolution clock', () => {
     expect(screen.queryByTestId('sla-resolution-clock')).toBeNull();
     rerenderHeader({ message: { ...open, isSpam: false } as Message });
     await screen.findByTestId('sla-resolution-clock');
+    // Owner 2026-11-13 (one spam rule): a confirmation counts while the thread is in the Spam lane;
+    // back in work with a clean newest mail, the clock runs.
     rerenderHeader({
       message: { ...open, isSpam: false, spamConfirmedAt: ago(1) } as Message,
+    });
+    await screen.findByTestId('sla-resolution-clock');
+    rerenderHeader({
+      message: { ...open, status: 'filtered', isSpam: false, spamConfirmedAt: ago(1) } as Message,
     });
     expect(screen.queryByTestId('sla-resolution-clock')).toBeNull();
   });

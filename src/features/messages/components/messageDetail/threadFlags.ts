@@ -1,5 +1,6 @@
 import type { Message } from '@/types';
-import { isSuspiciousThread, newestSpamVerdict } from '@/lib/messageHelpers';
+import { isSuspiciousThread } from '@/lib/messageHelpers';
+import { isSpamThread } from '@/lib/spamVerdict';
 import { getResolveMode } from '../resolveMode';
 
 /** What the thread's state allows: triage verdicts, whether it is active, how it resolves. */
@@ -15,12 +16,12 @@ export function deriveThreadFlags(message: Message) {
    * the action strip nor the ACTIONS menu offered anything to correct it. A real customer sat
    * behind that state for a month on a client deployment with no button to press.
    *
-   * The verdict is the NEWEST inbound mail's (`newestSpamVerdict`: the backend's `isSpam`, the
-   * first mail's frozen `metadata.spamCheck` only when an older backend sends no flag) — the same
-   * one the header badge and the strip's Approve read. A thread whose first mail was spam (even
-   * one an agent confirmed) and whose newest mail is clean is not flagged.
+   * "Spam now" is the one shared rule (`isSpamThread`, lib/messageHelpers): the NEWEST inbound
+   * mail's verdict, plus a person's confirmation while the thread is in the Spam lane. Outside
+   * triage only the first half can apply, so a thread whose first mail was spam (even one an
+   * agent confirmed) and whose newest mail is clean is not flagged.
    */
-  const isSpamFlaggedOutsideTriage = !isFiltered && !isSuspicious && newestSpamVerdict(message);
+  const isSpamFlaggedOutsideTriage = !isFiltered && !isSuspicious && isSpamThread(message);
   const isActive =
     !isFiltered && !isSuspicious && !isSpamFlaggedOutsideTriage && message.status !== 'closed';
   // One predicate for the decisions row AND the strip, so the decision can never show
