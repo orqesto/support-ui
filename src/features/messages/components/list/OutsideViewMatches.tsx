@@ -109,6 +109,7 @@ export const OutsideViewMatches = ({
   highlightTerms,
   refreshKey,
   enabled = true,
+  split = false,
 }: {
   filters: FilterState;
   onJump: (filters: Partial<FilterState>, needsListView?: boolean) => void;
@@ -121,6 +122,12 @@ export const OutsideViewMatches = ({
    * its rows move `refreshKey` — two heavy reads per typed search (review of #798).
    */
   enabled?: boolean;
+  /**
+   * The list is the split pane's column: these header-less rows take the two-line form there.
+   * Unset they followed the window, so a 1440px window drew the full table columns in a ~500px
+   * column.
+   */
+  split?: boolean;
 }) => {
   const search = filters.search?.trim() ?? '';
   const deptKey = useDepartmentContextKey();
@@ -619,6 +626,7 @@ export const OutsideViewMatches = ({
                   key={thread.threadId}
                   thread={thread}
                   density="compact"
+                  fit={split ? 'two-line' : undefined}
                   onOpen={onOpen}
                   highlightTerms={highlightTerms}
                 />
