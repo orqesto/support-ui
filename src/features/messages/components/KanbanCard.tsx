@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   keepOpenTabOnDoubleClick,
   noteOpenTabClick,
+  threadTabKey,
   openInNewTabOnMiddleClick,
 } from '@/components/shared/openTabs';
 import { createPortal } from 'react-dom';
@@ -251,7 +252,7 @@ export const KanbanCard = ({
       }}
       onDoubleClick={(event) => {
         if (isFromPortal(event)) return;
-        keepOpenTabOnDoubleClick('threads');
+        keepOpenTabOnDoubleClick('threads', threadTabKey(thread));
       }}
       onKeyDown={(event) => {
         if (isFromPortal(event)) return;

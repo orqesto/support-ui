@@ -5,4 +5,5 @@ export {
   noteOpenTabClick,
   openInNewTabOnMiddleClick,
   keepOpenTabOnDoubleClick,
+  threadTabKey,
 } from './openTabClicks';

@@ -85,7 +85,7 @@ describe('a double-click on a list row keeps its tab', () => {
       tabs: { threads: [], tickets: [] },
       active: { threads: null, tickets: null },
       newTabAskedAt: { threads: null, tickets: null },
-      keepAskedAt: { threads: null, tickets: null },
+      keepAsked: { threads: null, tickets: null },
       activating: { threads: null, tickets: null },
     });
   });
@@ -96,14 +96,14 @@ describe('a double-click on a list row keeps its tab', () => {
       useOpenTabsStore.getState().show('threads', target, () => false);
     });
     expect(useOpenTabsStore.getState().tabs.threads[0].preview).toBe(true);
-    keepOpenTabOnDoubleClick('threads');
+    keepOpenTabOnDoubleClick('threads', '7');
     expect(useOpenTabsStore.getState().tabs.threads[0].preview).toBe(false);
   });
 
   it('the thread is still loading: kept when it is shown', () => {
     vi.useFakeTimers();
     try {
-      keepOpenTabOnDoubleClick('threads');
+      keepOpenTabOnDoubleClick('threads', '7');
       vi.advanceTimersByTime(800);
       useOpenTabsStore.getState().show('threads', target, () => false);
       expect(useOpenTabsStore.getState().tabs.threads[0].preview).toBe(false);
@@ -112,10 +112,20 @@ describe('a double-click on a list row keeps its tab', () => {
     }
   });
 
+  it('another thread on screen: that one is not kept, the double-clicked one is', () => {
+    const other = { key: '3', urlId: 'SUP-3', label: 'SUP-3', title: 'Other' };
+    useOpenTabsStore.getState().show('threads', other, () => false);
+    // The double-click lands while thread 7 is still loading: 3 is still the one on screen.
+    keepOpenTabOnDoubleClick('threads', '7');
+    useOpenTabsStore.getState().show('threads', target, () => false);
+    const tabs = useOpenTabsStore.getState().tabs.threads;
+    expect(tabs.map((item) => [item.key, item.preview])).toEqual([['7', false]]);
+  });
+
   it('an old double-click does not keep a later open', () => {
     vi.useFakeTimers();
     try {
-      keepOpenTabOnDoubleClick('threads');
+      keepOpenTabOnDoubleClick('threads', '7');
       vi.advanceTimersByTime(20_000);
       useOpenTabsStore.getState().show('threads', target, () => false);
       expect(useOpenTabsStore.getState().tabs.threads[0].preview).toBe(true);

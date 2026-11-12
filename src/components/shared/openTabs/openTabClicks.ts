@@ -32,7 +32,19 @@ export const openInNewTabOnMiddleClick = (
   return true;
 };
 
-/** On a row's double-click: keep the tab it opened, as a double-click on the tab does. */
-export const keepOpenTabOnDoubleClick = (kind: OpenTabKind): void => {
-  useOpenTabsStore.getState().requestKeep(kind);
+/**
+ * On a row's double-click: keep the tab of the item it opens (`key`: the tab's key, the id the
+ * page will show), as a double-click on the tab does.
+ */
+export const keepOpenTabOnDoubleClick = (kind: OpenTabKind, key: string): void => {
+  useOpenTabsStore.getState().requestKeep(kind, key);
 };
+
+/**
+ * The tab key of the thread a list row or board card opens: the message the open shows (the
+ * latest incoming, else the latest — useOpenThread).
+ */
+export const threadTabKey = (thread: {
+  latestMessage?: { id: number } | null;
+  latestIncomingMessage?: { id: number } | null;
+}): string => String((thread.latestIncomingMessage ?? thread.latestMessage)?.id ?? '');

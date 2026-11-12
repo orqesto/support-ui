@@ -34,19 +34,18 @@ const perKind = <T>(make: () => T): PerKind<T> => ({ threads: make(), tickets: m
 /** A request older than this was not for the item now being shown. */
 const REQUEST_TTL_MS = 10_000;
 const fresh = (at: number | null): boolean => at !== null && Date.now() - at <= REQUEST_TTL_MS;
-/** A double-click lands this soon after the click that opened the item. */
-const JUST_SHOWN_MS = 1_500;
 
 type OpenTabsState = {
   tabs: PerKind<OpenTab[]>;
   active: PerKind<string | null>;
   newTabAskedAt: PerKind<number | null>;
-  keepAskedAt: PerKind<number | null>;
+  /** A double-click on a row: keep the tab of `key` when it is shown. */
+  keepAsked: PerKind<{ key: string; at: number } | null>;
   /** A tab the agent picked in the row, waiting for the page to show its item. */
   activating: PerKind<{ key: string; at: number } | null>;
   requestNewTab: (kind: OpenTabKind) => void;
-  /** A double-click on a list row or card: keep the tab it opened (or is opening). */
-  requestKeep: (kind: OpenTabKind) => void;
+  /** A double-click on a list row or card for `key`: keep its tab (now, or once it is shown). */
+  requestKeep: (kind: OpenTabKind, key: string) => void;
   /** The page shows `target`. Returns the tabs closed for room. */
   show: (
     kind: OpenTabKind,
@@ -81,21 +80,21 @@ export const useOpenTabsStore = create<OpenTabsState>()(
         tabs: perKind<OpenTab[]>(() => []),
         active: perKind<string | null>(() => null),
         newTabAskedAt: perKind<number | null>(() => null),
-        keepAskedAt: perKind<number | null>(() => null),
+        keepAsked: perKind<{ key: string; at: number } | null>(() => null),
         activating: perKind<{ key: string; at: number } | null>(() => null),
         requestNewTab: (kind) =>
           set((state) => ({ newTabAskedAt: { ...state.newTabAskedAt, [kind]: Date.now() } })),
-        requestKeep: (kind) => {
+        requestKeep: (kind, key) => {
           const state = get();
-          const activeKey = state.active[kind];
-          const active = state.tabs[kind].find((tab) => tab.key === activeKey);
-          // The first click of the double-click already showed the item: keep it now.
-          if (active && Date.now() - active.lastActiveAt <= JUST_SHOWN_MS) {
-            setTabs(kind, keepTab(state.tabs[kind], active.key));
+          // The first click of the double-click already showed it: keep it now. Otherwise it is
+          // still loading (the thread on screen is the PREVIOUS one): keep it when it is shown.
+          if (state.active[kind] === key) {
+            setTabs(kind, keepTab(state.tabs[kind], key));
             return;
           }
-          // Still loading: the page keeps it when it shows it.
-          set((current) => ({ keepAskedAt: { ...current.keepAskedAt, [kind]: Date.now() } }));
+          set((current) => ({
+            keepAsked: { ...current.keepAsked, [kind]: { key, at: Date.now() } },
+          }));
         },
         show: (kind, target, hasDraft, forceNewTab = false) => {
           const state = get();
@@ -103,14 +102,15 @@ export const useOpenTabsStore = create<OpenTabsState>()(
             now: Date.now(),
             activeKey: state.active[kind],
             newTab: forceNewTab || fresh(state.newTabAskedAt[kind]),
-            keep: fresh(state.keepAskedAt[kind]),
+            keep:
+              state.keepAsked[kind]?.key === target.key && fresh(state.keepAsked[kind]?.at ?? null),
             hasDraft,
           });
           set((current) => ({
             tabs: { ...current.tabs, [kind]: tabs },
             active: { ...current.active, [kind]: target.key },
             newTabAskedAt: { ...current.newTabAskedAt, [kind]: null },
-            keepAskedAt: { ...current.keepAskedAt, [kind]: null },
+            keepAsked: { ...current.keepAsked, [kind]: null },
           }));
           return evicted;
         },

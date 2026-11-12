@@ -5,6 +5,7 @@ import { memo, useState } from 'react';
 import {
   keepOpenTabOnDoubleClick,
   noteOpenTabClick,
+  threadTabKey,
   openInNewTabOnMiddleClick,
 } from '@/components/shared/openTabs';
 import { Checkbox } from '@/components/ui/Checkbox';
@@ -587,7 +588,7 @@ const MessageListItemRow = ({
     },
     onDoubleClick: (event: React.MouseEvent) => {
       if (isFromPortal(event)) return;
-      keepOpenTabOnDoubleClick('threads');
+      keepOpenTabOnDoubleClick('threads', threadTabKey(thread));
     },
     onKeyDown: handleKeyDown,
     'aria-current': current ? ('true' as const) : undefined,
