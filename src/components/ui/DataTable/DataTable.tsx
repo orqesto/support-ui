@@ -65,6 +65,7 @@ export function DataTable<Row>({
   renderEditRow,
   renderCard,
   resetPageKey,
+  onRowClick,
 }: DataTableProps<Row>) {
   const [clientPage, setClientPage] = useState(1);
   const [sort, setSort] = useState<SortState>(null);
@@ -246,7 +247,24 @@ export function DataTable<Row>({
                   );
                 }
                 return (
-                  <tr key={rowKey(row)} className="border-t border-border align-top">
+                  <tr
+                    key={rowKey(row)}
+                    className={cn(
+                      'border-t border-border align-top',
+                      onRowClick && 'cursor-pointer hover:bg-muted transition-colors'
+                    )}
+                    onClick={
+                      onRowClick
+                        ? (event) => {
+                            // A control in the row handles its own click.
+                            const target = event.target as HTMLElement;
+                            const control = 'button, a, input, select, textarea, [role="button"]';
+                            if (target.closest(control)) return;
+                            onRowClick(row);
+                          }
+                        : undefined
+                    }
+                  >
                     {columns.map((col) => (
                       <td
                         key={col.id}

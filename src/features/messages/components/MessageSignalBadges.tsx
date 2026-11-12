@@ -5,8 +5,10 @@ import {
   hasMessageAttachments,
   getSpamCheck,
   getFilteredCategoryLabel,
+  hasNewestSpamCategory,
   humanizeSignalFlag,
   isSuspiciousThread,
+  newestSpamCategory,
 } from '@/lib/messageHelpers';
 import { formatDuration } from '@/lib/utils';
 import type { Message } from '@/types';
@@ -41,12 +43,11 @@ type Props = {
  * "Legitimate". A missing or legitimate category reads plain "Spam".
  */
 const spamBadgeLabel = (message: Message, spamCheck: ReturnType<typeof getSpamCheck>): string => {
-  const category =
-    message.latestSpamCategory !== undefined
-      ? message.latestSpamCategory
-      : spamCheck?.isSpam === true
-        ? spamCheck.category
-        : undefined;
+  const category = hasNewestSpamCategory(message)
+    ? newestSpamCategory(message)
+    : spamCheck?.isSpam === true
+      ? spamCheck.category
+      : undefined;
   return category && category !== 'legitimate' ? getFilteredCategoryLabel(category) : 'Spam';
 };
 
@@ -210,9 +211,13 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
         */
         <Tooltip
           content={
-            spamCheck?.redFlags?.length
-              ? `Spam: ${spamCheck.redFlags.map(humanizeSignalFlag).join(', ')}`
-              : 'Marked as spam'
+            // The first mail's red flags explain that mail: with the newest mail's category
+            // known, the tooltip says only what the badge says.
+            hasNewestSpamCategory(message)
+              ? spamBadgeLabel(message, spamCheck)
+              : spamCheck?.redFlags?.length
+                ? `Spam: ${spamCheck.redFlags.map(humanizeSignalFlag).join(', ')}`
+                : 'Marked as spam'
           }
           size="sm"
         >

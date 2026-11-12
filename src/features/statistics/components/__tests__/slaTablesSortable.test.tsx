@@ -112,6 +112,31 @@ describe('SLA breach list on DataTable', () => {
     expect(await screen.findByText('thread page')).toBeInTheDocument();
   });
 
+  it('review 8: a click anywhere in the row opens it (here the When cell)', async () => {
+    renderWith(<SLABreachList days={30} />);
+    await screen.findByText('Subject 2');
+    const whenCell = screen.getAllByRole('row')[1].querySelectorAll('td')[5];
+    fireEvent.click(whenCell);
+    expect(await screen.findByText('thread page')).toBeInTheDocument();
+  });
+
+  it('review 8: a ticket breach row opens the ticket', async () => {
+    get.mockResolvedValue({
+      data: { total: 1, breaches: [breach(9, { type: 'ticket_resolution' })] },
+    });
+    renderWith(<SLABreachList days={30} />);
+    await screen.findByText('Subject 9');
+    fireEvent.click(screen.getAllByRole('row')[1].querySelectorAll('td')[4]);
+    expect(await screen.findByText('ticket page')).toBeInTheDocument();
+  });
+
+  it('CONTROL: a sort header click does not open a row', async () => {
+    renderWith(<SLABreachList days={30} />);
+    await screen.findByText('Subject 2');
+    fireEvent.click(sortButton(/^When/));
+    expect(screen.queryByText('thread page')).toBeNull();
+  });
+
   it('CONTROL: no breaches keeps the empty state (no table)', async () => {
     get.mockResolvedValue({ data: { total: 0, breaches: [] } });
     renderWith(<SLABreachList days={30} />);

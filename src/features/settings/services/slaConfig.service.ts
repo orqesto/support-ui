@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { finiteNumber } from '@/lib/finiteNumber';
 
 /**
  * SLA targets (owner 2026-11-11/12, backend migration 0238): every target in MINUTES.
@@ -43,9 +44,6 @@ const PRIORITY_KEYS = ['critical', 'high', 'medium', 'low'];
 const groupOf = (type: 'ticket' | 'message', key: string): SlaGroup =>
   type === 'ticket' ? 'ticket' : PRIORITY_KEYS.includes(key) ? 'threadPriority' : 'threadChannel';
 
-const asNumber = (value: unknown): number | null =>
-  typeof value === 'number' && Number.isFinite(value) ? value : null;
-
 export const normaliseSlaConfig = (raw: unknown): SlaConfig => {
   const list = Array.isArray(raw) ? raw : [];
   const rows: SlaTargetRow[] = [];
@@ -54,12 +52,12 @@ export const normaliseSlaConfig = (raw: unknown): SlaConfig => {
     if (!item || typeof item !== 'object') continue;
     const row = item as Record<string, unknown>;
     if ((row.type !== 'ticket' && row.type !== 'message') || typeof row.key !== 'string') continue;
-    const first = asNumber(row.firstResponseMinutes);
+    const first = finiteNumber(row.firstResponseMinutes);
     if (first === null) continue;
-    const hours = asNumber(row.resolutionHours);
+    const hours = finiteNumber(row.resolutionHours);
     const minutes =
       'resolutionMinutes' in row
-        ? asNumber(row.resolutionMinutes)
+        ? finiteNumber(row.resolutionMinutes)
         : hours === null
           ? null
           : hours * 60;

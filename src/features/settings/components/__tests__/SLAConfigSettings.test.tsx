@@ -368,6 +368,16 @@ describe('SLA settings: tickets, threads by priority, threads by channel', () =>
         'aria-disabled',
         'true'
       );
+      // Review 6: the row being reset takes no typing meanwhile; another row does.
+      expect(
+        screen.getByRole('spinbutton', { name: 'Thread SLA by priority Low first response' })
+      ).toBeInactive();
+      expect(
+        screen.getByRole('spinbutton', { name: 'Thread SLA by priority Low resolution' })
+      ).toBeInactive();
+      expect(
+        screen.getByRole('spinbutton', { name: 'Ticket SLA Critical first response' })
+      ).not.toBeInactive();
       answer({ data: { success: true, data: perField() } });
 
       // The defaults (240 minutes = 4 hours), the override marks gone, no reset on the row now.
@@ -403,6 +413,80 @@ describe('SLA settings: tickets, threads by priority, threads by channel', () =>
         screen.getByRole('button', { name: 'Reset Thread SLA by priority Low to default' })
       ).not.toHaveAttribute('aria-disabled', 'true');
       expect(screen.getByText('(custom)')).toBeInTheDocument();
+    });
+  });
+
+  describe('review fixes', () => {
+    it('2: a field saved as null (no cap) is not marked custom, and its row offers no reset', async () => {
+      get.mockResolvedValue({
+        data: {
+          success: true,
+          data: perField({ 'message:email': [false, true] }).map((entry) =>
+            entry.key === 'email' ? { ...entry, resolutionMinutes: 300 } : entry
+          ),
+        },
+      });
+      render(<SLAConfigSettings />);
+      expect(
+        await screen.findByRole('button', { name: 'Reset Thread SLA by channel Email to default' })
+      ).toBeInTheDocument();
+      expect(screen.getAllByText('custom')).toHaveLength(1);
+      fireEvent.change(
+        screen.getByRole('spinbutton', { name: 'Thread SLA by channel Email resolution' }),
+        { target: { value: '' } }
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+      await screen.findByText('Saved');
+      expect(configsSent()).toEqual([
+        { type: 'message', key: 'email', resolutionMinutes: null, resolutionHours: null },
+      ]);
+      expect(screen.queryAllByText('custom')).toHaveLength(0);
+      expect(screen.queryByText('(custom)')).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Reset Thread SLA by channel Email to default' })
+      ).toBeNull();
+    });
+
+    it('2 CONTROL: a field saved with a value is marked custom', async () => {
+      get.mockResolvedValue({ data: { success: true, data: perField() } });
+      render(<SLAConfigSettings />);
+      fireEvent.change(
+        await screen.findByRole('spinbutton', { name: 'Thread SLA by channel Email resolution' }),
+        { target: { value: '5' } }
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+      await screen.findByText('Saved');
+      expect(screen.getAllByText('custom')).toHaveLength(1);
+    });
+
+    it('4: a reset answer without the row reads the config back, never leaving the override', async () => {
+      get
+        .mockResolvedValueOnce({
+          data: { success: true, data: perField({ 'message:low': [false, true] }) },
+        })
+        .mockResolvedValueOnce({ data: { success: true, data: perField() } });
+      del.mockResolvedValue({ data: { success: true, data: [] } });
+      render(<SLAConfigSettings />);
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Reset Thread SLA by priority Low to default' })
+      );
+      await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+      await vi.waitFor(() => expect(screen.queryByText('(custom)')).toBeNull());
+      expect(screen.queryByText(/could not be read/)).toBeNull();
+    });
+
+    it('4: and when the read-back has no row either, it says so', async () => {
+      get
+        .mockResolvedValueOnce({
+          data: { success: true, data: perField({ 'message:low': [false, true] }) },
+        })
+        .mockResolvedValueOnce({ data: { success: true, data: [] } });
+      del.mockResolvedValue({ data: { success: true, data: [] } });
+      render(<SLAConfigSettings />);
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Reset Thread SLA by priority Low to default' })
+      );
+      expect(await screen.findByText(/could not be read/)).toBeInTheDocument();
     });
   });
 });

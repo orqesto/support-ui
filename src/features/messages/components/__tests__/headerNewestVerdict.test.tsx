@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, within, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Message } from '@/types';
@@ -51,6 +51,7 @@ vi.mock('@/lib/logger', () => ({
 import { MessageDetailHeader } from '../MessageDetailHeader';
 import { MessageSignalBadges } from '../MessageSignalBadges';
 import { deriveThreadFlags } from '../messageDetail/threadFlags';
+import { MessageActionStrip } from '../MessageActionStrip';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 
 afterEach(cleanup);
@@ -241,5 +242,112 @@ describe('spam badge category: latestSpamCategory (the newest classified mail)',
       />
     );
     expect(screen.getByText('Promotional')).toBeInTheDocument();
+  });
+});
+
+describe('review 1: an agent’s spam confirmation does not override a newer clean mail', () => {
+  const confirmedThenClean = thread({
+    isSpam: false,
+    spamConfirmedAt: '2026-11-01T10:00:00Z',
+    metadata: spamFirstMail,
+  });
+
+  it('not flagged, active; the header shows no Spam badge', () => {
+    expect(deriveThreadFlags(confirmedThenClean)).toMatchObject({
+      isSpamFlaggedOutsideTriage: false,
+      isActive: true,
+    });
+    renderHeader(confirmedThenClean);
+    expect(screen.queryAllByText(/^Spam/)).toHaveLength(0);
+  });
+
+  it('CONTROL: confirmed and the newest mail still spam: flagged', () => {
+    expect(
+      deriveThreadFlags(thread({ ...confirmedThenClean, isSpam: true })).isSpamFlaggedOutsideTriage
+    ).toBe(true);
+  });
+});
+
+describe('review 3: the strip’s security warning reads the newest mail’s category', () => {
+  const strip = (over: Record<string, unknown>) =>
+    render(
+      <MessageActionStrip
+        message={thread(over)}
+        isFiltered={false}
+        isSuspicious
+        isActive={false}
+        hasLinkedTicket={false}
+        setReopenDialogOpen={() => {}}
+        onClassify={vi.fn().mockResolvedValue(undefined)}
+      />
+    );
+  const legitimateFirst = { spamCheck: { isSpam: false, category: 'legitimate' } };
+  const phishingFirst = { spamCheck: { isSpam: false, category: 'phishing' } };
+
+  it('phishing on the newest mail: the warning shows', () => {
+    strip({ isSuspicious: true, latestSpamCategory: 'phishing', metadata: legitimateFirst });
+    expect(screen.getByText(/Flagged as possible phishing/)).toBeInTheDocument();
+  });
+
+  it('phishing only on the first mail, the newest clean: no warning', () => {
+    strip({ isSuspicious: true, latestSpamCategory: null, metadata: phishingFirst });
+    expect(screen.queryByText(/Flagged as possible phishing/)).toBeNull();
+    expect(screen.getByText('Flagged as suspicious by spam filter')).toBeInTheDocument();
+  });
+
+  it('CONTROL: field absent (older backend): the first mail’s phishing still warns', () => {
+    strip({ isSuspicious: true, metadata: phishingFirst });
+    expect(screen.getByText(/Flagged as possible phishing/)).toBeInTheDocument();
+  });
+
+  it('the filtered banner too: the newest mail’s category names it', () => {
+    render(
+      <MessageActionStrip
+        message={thread({
+          status: 'filtered',
+          latestSpamCategory: 'phishing',
+          metadata: { spamCheck: { isSpam: true, category: 'promotional' } },
+        })}
+        isFiltered
+        isSuspicious={false}
+        isActive={false}
+        hasLinkedTicket={false}
+        setReopenDialogOpen={() => {}}
+        onClassify={vi.fn().mockResolvedValue(undefined)}
+      />
+    );
+    expect(screen.getByText(/Phishing threat detected/)).toBeInTheDocument();
+  });
+});
+
+describe('review 5: the spam tooltip does not explain the newest mail with the first mail’s flags', () => {
+  const firstMailFlags = {
+    spamCheck: { isSpam: true, category: 'spam', redFlags: ['all-caps-subject'] },
+  };
+  const hoverSpamBadge = () => {
+    const badge = screen.getAllByText(/^(Spam|Promotional)$/)[0];
+    fireEvent.mouseEnter(badge.closest('[role="presentation"]') ?? badge);
+  };
+
+  it('with latestSpamCategory: just the label, no first-mail flags', async () => {
+    render(
+      <MessageSignalBadges
+        message={thread({
+          isSpam: true,
+          latestSpamCategory: 'promotional',
+          metadata: firstMailFlags,
+        })}
+      />
+    );
+    hoverSpamBadge();
+    // The badge and its tooltip both say the label (the tooltip opens after its delay).
+    await waitFor(() => expect(screen.getAllByText('Promotional')).toHaveLength(2));
+    expect(screen.queryByText(/All-caps subject/)).toBeNull();
+  });
+
+  it('CONTROL: field absent: today’s tooltip with the flags', async () => {
+    render(<MessageSignalBadges message={thread({ isSpam: true, metadata: firstMailFlags })} />);
+    hoverSpamBadge();
+    expect(await screen.findByText(/All-caps subject/)).toBeInTheDocument();
   });
 });

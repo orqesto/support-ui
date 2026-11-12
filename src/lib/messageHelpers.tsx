@@ -152,6 +152,33 @@ export const getSpamCheck = (message: {
 }): SpamCheckData | undefined => message.metadata?.spamCheck as SpamCheckData | undefined;
 
 /**
+ * The NEWEST inbound mail's spam verdict: the backend's `isSpam` (the Spam lane's own predicate),
+ * the first mail's frozen `metadata.spamCheck.isSpam` only when an older backend sends no flag.
+ * An agent's earlier confirmation (`spamConfirmedAt`) does not override a newer clean mail.
+ */
+export const newestSpamVerdict = (message: {
+  isSpam?: boolean;
+  metadata?: Record<string, unknown> | null;
+}): boolean => message.isSpam ?? getSpamCheck(message)?.isSpam === true;
+
+/**
+ * The spam category of the NEWEST classified inbound mail (`latestSpamCategory`, backend
+ * 2026-11-12); null when that mail has none. An older backend does not send the field: then the
+ * first mail's frozen `metadata.spamCheck.category`.
+ */
+export const newestSpamCategory = (message: {
+  latestSpamCategory?: string | null;
+  metadata?: Record<string, unknown> | null;
+}): string | undefined =>
+  message.latestSpamCategory !== undefined
+    ? (message.latestSpamCategory ?? undefined)
+    : getSpamCheck(message)?.category;
+
+/** The backend names the newest mail's category, so the first mail's flags explain another mail. */
+export const hasNewestSpamCategory = (message: { latestSpamCategory?: string | null }): boolean =>
+  message.latestSpamCategory !== undefined;
+
+/**
  * The thread is suspicious — the triage state that offers "Not Spam — Approve".
  *
  * ⛔ THE QUEUE'S OWN ANSWER FIRST. `isSuspicious` is resolved server-side by the Suspicious

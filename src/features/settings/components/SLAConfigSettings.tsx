@@ -97,13 +97,20 @@ export const SLAConfigSettings = () => {
                 rows: prev.rows.map((row) => {
                   const sent = sentOf(row);
                   if (!sent) return row;
-                  // An older backend was sent both fields, so both are stored as custom.
+                  // As the backend reads it: a value sent is an override, a null resolution is
+                  // the default ("no cap" on a channel). An older backend was sent both fields.
                   const both = !prev.supportsFieldSave;
+                  const firstResponseIsCustom =
+                    row.firstResponseIsCustom || sent.firstResponse || both;
+                  const resolutionIsCustom =
+                    sent.resolution || both
+                      ? row.resolutionMinutes !== null
+                      : row.resolutionIsCustom;
                   return {
                     ...row,
-                    isCustom: true,
-                    firstResponseIsCustom: row.firstResponseIsCustom || sent.firstResponse || both,
-                    resolutionIsCustom: row.resolutionIsCustom || sent.resolution || both,
+                    isCustom: firstResponseIsCustom || resolutionIsCustom,
+                    firstResponseIsCustom,
+                    resolutionIsCustom,
                   };
                 }),
               }
@@ -126,10 +133,17 @@ export const SLAConfigSettings = () => {
     setSaved(false);
     setNoChanges(false);
     setResetting(id);
+    const rowOf = (loaded: SlaConfig) =>
+      loaded.rows.find((row) => row.type === target.type && row.key === target.key);
     resetSlaRow(target)
-      .then((fresh) => {
-        const next = fresh.rows.find((row) => row.type === target.type && row.key === target.key);
-        if (!next) return;
+      // A response without the row cannot say what is stored now: read it back rather than leave
+      // the old override on screen.
+      .then(async (fresh) => rowOf(fresh) ?? rowOf(await getSlaConfig()))
+      .then((next) => {
+        if (!next) {
+          setError('The target was reset, but its new values could not be read. Reload the page.');
+          return;
+        }
         const swap = (rows: SlaTargetRow[]) =>
           rows.map((row) => (row.type === target.type && row.key === target.key ? next : row));
         setConfig((prev) => (prev ? { ...prev, rows: swap(prev.rows) } : prev));

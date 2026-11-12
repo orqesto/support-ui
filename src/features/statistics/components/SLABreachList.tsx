@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertTriangle, AlertCircle, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
@@ -62,6 +63,90 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
     refetchIntervalInBackground: false,
   });
 
+  const openBreach = useCallback(
+    (breach: SLABreach) => {
+      if (breach.type === 'message' || breach.type === 'message_resolution') {
+        navigate(`/threads/${breach.id}`);
+      } else {
+        navigate(`/tickets/${breach.id}`);
+      }
+    },
+    [navigate]
+  );
+
+  // Stable across the 30-second refetches (DataTable memoises its sort on these).
+  const columns = useMemo(
+    (): ColumnDef<SLABreach>[] => [
+      {
+        id: 'type',
+        header: 'Type',
+        sortValue: (breach) => breach.type,
+        cell: (breach) => (
+          <Badge variant={getVariant(breach.type)}>{breach.type.replace(/_/g, ' ')}</Badge>
+        ),
+      },
+      {
+        id: 'channel',
+        header: 'Channel',
+        sortValue: (breach) => breach.channel,
+        cell: (breach) => breach.channel && <Badge variant="secondary">{breach.channel}</Badge>,
+      },
+      {
+        id: 'priority',
+        header: 'Priority',
+        sortValue: (breach) => priorityRank(breach.priority),
+        cell: (breach) =>
+          breach.priority && (
+            <Badge variant={getPriorityVariant(breach.priority)}>{breach.priority}</Badge>
+          ),
+      },
+      {
+        id: 'subject',
+        header: 'Subject',
+        sortValue: (breach) => breach.subject ?? breach.title ?? 'No subject',
+        cell: (breach) => (
+          <Button
+            type="button"
+            variant="ghost"
+            className="flex flex-col items-start w-full h-auto text-left p-2 rounded transition-colors cursor-pointer hover:bg-muted"
+            onClick={() => openBreach(breach)}
+          >
+            <span className="text-sm font-medium text-foreground">
+              {breach.subject ?? breach.title ?? 'No subject'}
+            </span>
+            <span className="mt-1 text-xs font-normal text-muted-foreground">
+              From: {breach.sender}
+            </span>
+          </Button>
+        ),
+      },
+      {
+        id: 'overdue',
+        header: 'Overdue',
+        sortValue: (breach) => breach.breachAmount,
+        align: 'right',
+        cell: (breach) => (
+          <span className="text-sm font-semibold text-destructive">+{breach.breachAmount}m</span>
+        ),
+      },
+      {
+        id: 'when',
+        header: 'When',
+        sortValue: (breach) => timeOf(breach.createdAt),
+        align: 'right',
+        cellClassName: 'text-xs text-muted-foreground',
+        cell: (breach) => relativeTime(breach.createdAt),
+      },
+    ],
+    [openBreach]
+  );
+
+  // Most overdue first; a header click sorts by that column, a third click comes back here.
+  const rows = useMemo(
+    () => [...(data?.breaches ?? [])].sort((left, right) => right.breachAmount - left.breachAmount),
+    [data]
+  );
+
   if (isLoading) {
     return (
       <Card>
@@ -121,80 +206,6 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
     );
   }
 
-  const handleBreachClick = (breach: SLABreach) => {
-    if (breach.type === 'message' || breach.type === 'message_resolution') {
-      navigate(`/threads/${breach.id}`);
-    } else {
-      navigate(`/tickets/${breach.id}`);
-    }
-  };
-
-  // Most overdue first; a header click sorts by that column, a third click comes back here.
-  const rows = [...data.breaches].sort((left, right) => right.breachAmount - left.breachAmount);
-
-  const columns: ColumnDef<SLABreach>[] = [
-    {
-      id: 'type',
-      header: 'Type',
-      sortValue: (breach) => breach.type,
-      cell: (breach) => (
-        <Badge variant={getVariant(breach.type)}>{breach.type.replace(/_/g, ' ')}</Badge>
-      ),
-    },
-    {
-      id: 'channel',
-      header: 'Channel',
-      sortValue: (breach) => breach.channel,
-      cell: (breach) => breach.channel && <Badge variant="secondary">{breach.channel}</Badge>,
-    },
-    {
-      id: 'priority',
-      header: 'Priority',
-      sortValue: (breach) => priorityRank(breach.priority),
-      cell: (breach) =>
-        breach.priority && (
-          <Badge variant={getPriorityVariant(breach.priority)}>{breach.priority}</Badge>
-        ),
-    },
-    {
-      id: 'subject',
-      header: 'Subject',
-      sortValue: (breach) => breach.subject ?? breach.title ?? 'No subject',
-      cell: (breach) => (
-        <Button
-          type="button"
-          variant="ghost"
-          className="flex flex-col items-start w-full h-auto text-left p-2 rounded transition-colors cursor-pointer hover:bg-muted"
-          onClick={() => handleBreachClick(breach)}
-        >
-          <span className="text-sm font-medium text-foreground">
-            {breach.subject ?? breach.title ?? 'No subject'}
-          </span>
-          <span className="mt-1 text-xs font-normal text-muted-foreground">
-            From: {breach.sender}
-          </span>
-        </Button>
-      ),
-    },
-    {
-      id: 'overdue',
-      header: 'Overdue',
-      sortValue: (breach) => breach.breachAmount,
-      align: 'right',
-      cell: (breach) => (
-        <span className="text-sm font-semibold text-destructive">+{breach.breachAmount}m</span>
-      ),
-    },
-    {
-      id: 'when',
-      header: 'When',
-      sortValue: (breach) => timeOf(breach.createdAt),
-      align: 'right',
-      cellClassName: 'text-xs text-muted-foreground',
-      cell: (breach) => relativeTime(breach.createdAt),
-    },
-  ];
-
   return (
     <Card>
       <CardHeader>
@@ -209,6 +220,8 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
           rowKey={breachKey}
           columns={columns}
           pagination={{ mode: 'client', pageSize: Math.max(rows.length, 1) }}
+          // The whole row opens the breach; the subject's button is the keyboard path to it.
+          onRowClick={openBreach}
         />
       </CardContent>
     </Card>

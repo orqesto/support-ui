@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Ticket, AlertCircle, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
@@ -6,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import { slaService } from '@/features/statistics/services/sla.service';
 import { periodKey, periodParams, type ReportPeriod } from '@/lib/reportPeriod';
+import { finiteNumber } from '@/lib/finiteNumber';
 import { formatDuration } from '@/lib/utils';
 
 export const SLA_DEFAULT_DAYS = 30;
@@ -35,9 +37,6 @@ type PriorityRow = {
   avgResolution: string;
   resolutionBreached: number;
 };
-
-const asNumber = (value: unknown): number | null =>
-  value === null || value === undefined || !Number.isFinite(Number(value)) ? null : Number(value);
 
 const breachedCell = (count: number) => (
   <span className={count > 0 ? 'text-destructive font-bold' : 'text-success font-bold'}>
@@ -123,6 +122,48 @@ export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS, period }: SLAByPri
     queryFn: () => slaService.getStatistics(period ? periodParams(period) : { days }),
   });
 
+  // Priority order (critical → low), the order a third header click returns to. Memoised on the
+  // data, so DataTable keeps one sort per answer rather than one per render.
+  const tickets = data?.tickets;
+  const rows = useMemo(
+    () =>
+      tickets
+        ? SLA_PRIORITIES.flatMap((priority, rank): PriorityRow[] => {
+            const stats = tickets[priority.key];
+            if (!stats || stats.total === 0) return [];
+            const avgFirst = finiteNumber(stats.avgFirstResponse);
+            const avgResolution = finiteNumber(stats.avgResolution);
+            // Minutes from a 0238 backend (a 90-minute target is 1h 30m, not 1.5h); hours before.
+            const hasMinutes = typeof stats.resolutionTargetMinutes === 'number';
+            return [
+              {
+                key: priority.key,
+                rank,
+                priority: priority.name,
+                variant: priority.variant,
+                total: stats.total,
+                firstResponseTarget: stats.firstResponseTarget,
+                avgFirstResponseValue: avgFirst,
+                avgFirstResponse: avgFirst === null ? '—' : avgFirst.toFixed(1),
+                firstResponseBreached: stats.firstResponseBreached,
+                resolutionTargetMinutes: hasMinutes
+                  ? stats.resolutionTargetMinutes
+                  : finiteNumber(stats.resolutionTarget) === null
+                    ? null
+                    : stats.resolutionTarget * 60,
+                resolutionTarget: hasMinutes
+                  ? formatDuration(stats.resolutionTargetMinutes as number)
+                  : `${stats.resolutionTarget}h`,
+                avgResolutionValue: avgResolution,
+                avgResolution: avgResolution === null ? '—' : avgResolution.toFixed(1),
+                resolutionBreached: stats.resolutionBreached,
+              },
+            ];
+          })
+        : [],
+    [tickets]
+  );
+
   if (isLoading) {
     return (
       <Card>
@@ -155,39 +196,6 @@ export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS, period }: SLAByPri
   }
 
   if (!data) return null;
-
-  const rows = SLA_PRIORITIES.flatMap((priority, rank): PriorityRow[] => {
-    const stats = data.tickets[priority.key];
-    if (!stats || stats.total === 0) return [];
-    const avgFirst = asNumber(stats.avgFirstResponse);
-    const avgResolution = asNumber(stats.avgResolution);
-    // Minutes from a 0238 backend (a 90-minute target is 1h 30m, not 1.5h); hours before.
-    const hasMinutes = typeof stats.resolutionTargetMinutes === 'number';
-    return [
-      {
-        key: priority.key,
-        rank,
-        priority: priority.name,
-        variant: priority.variant,
-        total: stats.total,
-        firstResponseTarget: stats.firstResponseTarget,
-        avgFirstResponseValue: avgFirst,
-        avgFirstResponse: avgFirst === null ? '—' : avgFirst.toFixed(1),
-        firstResponseBreached: stats.firstResponseBreached,
-        resolutionTargetMinutes: hasMinutes
-          ? stats.resolutionTargetMinutes
-          : asNumber(stats.resolutionTarget) === null
-            ? null
-            : stats.resolutionTarget * 60,
-        resolutionTarget: hasMinutes
-          ? formatDuration(stats.resolutionTargetMinutes as number)
-          : `${stats.resolutionTarget}h`,
-        avgResolutionValue: avgResolution,
-        avgResolution: avgResolution === null ? '—' : avgResolution.toFixed(1),
-        resolutionBreached: stats.resolutionBreached,
-      },
-    ];
-  });
 
   if (rows.length === 0) {
     return (

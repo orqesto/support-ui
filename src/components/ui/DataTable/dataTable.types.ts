@@ -106,4 +106,11 @@ export type DataTableProps<Row> = {
    * composite `` `${status}:${query}` ``).
    */
   resetPageKey?: string | number;
+  /**
+   * Opt-in: a click anywhere in a row (table layout) opens it. Clicks on a control inside the row
+   * (a button, link or input) are left to that control, so it never fires twice. The row is not a
+   * tab stop: give it a focusable control (e.g. a Button in its main cell) that does the same thing
+   * for keyboard users.
+   */
+  onRowClick?: (row: Row) => void;
 };

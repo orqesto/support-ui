@@ -93,6 +93,8 @@ export const SlaTargetTable = ({
           <DurationInput
             key={inputKey(row, 'first')}
             aria-label={`${title} ${labelOf(row)} first response`}
+            // Its reset is in flight: the row is about to take the defaults.
+            disabled={resetting === idOf(row)}
             value={row.firstResponseMinutes}
             max={MAX_MINUTES}
             onValidChange={(valid) => onValidity(`${row.type}:${row.key}:first`, valid)}
@@ -115,6 +117,8 @@ export const SlaTargetTable = ({
           <DurationInput
             key={inputKey(row, 'resolution')}
             aria-label={`${title} ${labelOf(row)} resolution`}
+            // Its reset is in flight: the row is about to take the defaults.
+            disabled={resetting === idOf(row)}
             value={row.resolutionMinutes}
             max={MAX_MINUTES}
             allowEmpty={resolutionOptional}
