@@ -9,9 +9,22 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { ThreadResolutionByPriorityTable } from '../ThreadResolutionByPriorityTable';
 import { SLAByPriorityTable } from '../SLAByPriorityTable';
+import type * as DataTableModule from '@/components/ui/DataTable';
 
 const get = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 vi.mock('@/lib/api-client', () => ({ apiClient: { get: (...args: unknown[]) => get(...args) } }));
+// The real DataTable, counted: the table must come from the design system, not a hand-rolled one.
+const dataTableRenders = vi.fn();
+vi.mock('@/components/ui/DataTable', async (importOriginal) => {
+  const actual = await importOriginal<typeof DataTableModule>();
+  return {
+    ...actual,
+    DataTable: (props: Parameters<typeof actual.DataTable>[0]) => {
+      dataTableRenders();
+      return actual.DataTable(props);
+    },
+  };
+});
 
 const totals = (over: Record<string, unknown> = {}) => ({
   total: 4,
@@ -67,6 +80,18 @@ describe('SLA Performance: thread resolution', () => {
       screen.getByText(/75\.0% resolved within target · 4 cycles · median 2h/)
     ).toBeInTheDocument();
     expect(screen.getByText('3h')).toBeInTheDocument();
+  });
+
+  it('draws the priority rows with the design-system DataTable', async () => {
+    dataTableRenders.mockClear();
+    get.mockResolvedValue({
+      data: stats({ resolution: { ...totals(), byPriority: { high: totals() } } }, {}),
+    });
+    renderWith(<ThreadResolutionByPriorityTable days={30} />);
+    expect(await screen.findByText('Thread resolution')).toBeInTheDocument();
+    expect(dataTableRenders).toHaveBeenCalled();
+    expect(screen.getByRole('columnheader', { name: 'Avg resolution' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: '3h' })).toBeInTheDocument();
   });
 
   it('an older backend without messages.resolution renders nothing and does not crash', async () => {
