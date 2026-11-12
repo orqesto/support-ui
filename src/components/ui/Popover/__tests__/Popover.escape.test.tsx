@@ -10,8 +10,9 @@ import { Popover } from '../Popover';
  *    Escape (a document listener closes the open thread, a window one clears a selection) never
  *    sees it. Until 2026-11-12 the popover listened on the document like them, ran after them, and
  *    one Escape closed both.
- *  - Escape in a modal dialog above it (a question asked from the panel) is the dialog's alone.
- *  - A popover INSIDE a modal still closes on its own Escape.
+ *  - Escape with the focus elsewhere belongs to what has the focus: the popover stays open.
+ *  - A press in a modal dialog above it — its content or its backdrop — is the dialog's alone. A
+ *    popover INSIDE a modal still closes on a press elsewhere in that modal.
  */
 
 const pageEscape = vi.fn();
@@ -43,9 +44,13 @@ const Harness = ({ withQuestion = false }: { withQuestion?: boolean }) => {
         <Button>Inside</Button>
       </Popover>
       {withQuestion && (
-        <div role="dialog" aria-modal="true" aria-label="Question">
-          <Button>Answer</Button>
-        </div>
+        <>
+          {/* Like Dialog: the backdrop is a sibling of the aria-modal content, not inside it. */}
+          <div data-testid="backdrop" />
+          <div role="dialog" aria-modal="true" aria-label="Question">
+            <Button>Answer</Button>
+          </div>
+        </>
       )}
     </>
   );
@@ -80,11 +85,12 @@ describe('Popover — Escape', () => {
     expect(pageEscape).not.toHaveBeenCalled();
   });
 
-  it('focus elsewhere on the page: still closes it', () => {
+  it("focus elsewhere on the page: the Escape is the page's — the popover stays open", () => {
     render(<Harness />);
     openIt();
     press(document.body);
-    expect(panel()).toBeNull();
+    expect(panel()).not.toBeNull();
+    expect(pageEscape).toHaveBeenCalledTimes(2); // document + window, untouched
   });
 
   it('in a modal question above it: the popover stays open', () => {
@@ -94,10 +100,12 @@ describe('Popover — Escape', () => {
     expect(panel()).not.toBeNull();
   });
 
-  it('a click in a modal question above it is not a "press outside"', () => {
+  it('a click in a modal question above it — or on its backdrop — is not a "press outside"', () => {
     render(<Harness withQuestion />);
     openIt();
     fireEvent.mouseDown(screen.getByRole('button', { name: 'Answer' }));
+    expect(panel()).not.toBeNull();
+    fireEvent.mouseDown(screen.getByTestId('backdrop'));
     expect(panel()).not.toBeNull();
   });
 
@@ -108,7 +116,7 @@ describe('Popover — Escape', () => {
     expect(panel()).toBeNull();
   });
 
-  it('a popover inside a modal is not under it: Escape elsewhere in that modal still closes it', () => {
+  it('a popover inside a modal is not under it: a click elsewhere in that modal closes it', () => {
     render(
       <div role="dialog" aria-modal="true" aria-label="Settings">
         <Harness />
@@ -116,7 +124,7 @@ describe('Popover — Escape', () => {
       </div>
     );
     openIt();
-    press(screen.getByRole('button', { name: 'Other field' }));
+    fireEvent.mouseDown(screen.getByRole('button', { name: 'Other field' }));
     expect(panel()).toBeNull();
   });
 });
