@@ -140,7 +140,9 @@ export function ContactProfilePanel({
       items.push({
         key: `m${msg.id}`,
         kind: 'message',
-        at: msg.createdAt,
+        // When the thread was last active, not when it began: an old thread the customer just
+        // wrote on again belongs at the top. A server older than 1.1.326 sends no lastActivityAt.
+        at: (msg.lastActivityAt as string | undefined) ?? msg.createdAt,
         title: msg.subject?.trim() ? msg.subject : '(no subject)',
         meta: msg.channel?.trim() ? msg.channel : 'email',
         status: msg.status,

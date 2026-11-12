@@ -112,6 +112,7 @@ export interface components {
             status: string;
             channel: string;
             createdAt: string;
+            lastActivityAt: string;
         };
         RecentTicket: {
             id: number;
@@ -472,6 +473,8 @@ export interface components {
             category: string | null;
             storesRecords: boolean;
             referenceLabel?: string | null;
+            method?: string;
+            updatedAt?: string;
         };
         CustomApiStoredRecord: {
             id: number;
