@@ -17,7 +17,8 @@ const DENSITY_SEGMENTS: Segment<ListDensity>[] = [
   { value: 'comfortable', label: 'Cards — read each preview', icon: StretchHorizontal },
 ];
 
-const LAYOUT_SEGMENTS: Segment<ListLayout>[] = [
+/** List | Split — also on the board's toolbar. */
+export const LAYOUT_SEGMENTS: Segment<ListLayout>[] = [
   {
     value: 'list',
     label: 'Full-width list',

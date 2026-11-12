@@ -1,10 +1,16 @@
-import { forwardRef, useEffect } from 'react';
+import { forwardRef, useEffect, useRef } from 'react';
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { useElementWidth } from '@/hooks/useElementWidth';
+import { cn } from '@/lib/utils';
 import { type MessageThread } from '@/services/message.service';
 import { type FilterState } from '@/features/messages/stores/messagesStore';
 import { KanbanCard } from './KanbanCard';
+import { LAYOUT_SEGMENTS } from './MessagesListCaption';
+import type { ListLayout } from './useListPresentation';
 import { COLUMNS, DRAGGABLE_COLS, DROPPABLE_COLS } from './kanbanColumns';
 import { ApproveDropZone } from './kanbanBoard/ApproveDropZone';
+import { boardLayoutFor, byLayout } from './kanbanBoard/boardLayout';
 import { KanbanBoardToolbar } from './kanbanBoard/KanbanBoardToolbar';
 import { KanbanColumn } from './kanbanBoard/KanbanColumn';
 import {
@@ -50,6 +56,11 @@ type MessagesKanbanViewProps = {
   selectMode?: boolean;
   onSelectMany?: (conversationIds: number[]) => void;
   onDeselectMany?: (conversationIds: number[]) => void;
+  /** List | Split, the same choice as the list's: Split opens a card's thread beside the board. */
+  layout?: ListLayout;
+  onLayoutChange?: (next: ListLayout) => void;
+  /** Wide enough for Split (lg+, not a phone). */
+  canSplit?: boolean;
 };
 
 export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanbanViewProps>(
@@ -66,6 +77,9 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
       selectMode,
       onSelectMany,
       onDeselectMany,
+      layout: listLayout,
+      onLayoutChange,
+      canSplit,
     },
     ref
   ) => {
@@ -190,6 +204,12 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
     );
     const boardPartial = boardCols.some((col) => notExact(colStates[col.id]));
 
+    // Lanes side by side or stacked, by the width the board HAS (beside an open thread it is
+    // about half the screen) — see boardLayout.ts. Unmeasured: by the window, as before.
+    const boardRef = useRef<HTMLDivElement>(null);
+    const boardWidth = useElementWidth(boardRef, -1);
+    const layout = boardWidth < 0 ? undefined : boardLayoutFor(boardWidth, visibleColumns.length);
+
     return (
       <DndContext
         sensors={sensors}
@@ -197,7 +217,17 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
         onDragStart={handleDragStart}
         onDragEnd={(event) => void handleDragEnd(event)}
       >
-        <div className="space-y-3 xl:flex xl:flex-col xl:flex-1 xl:min-h-0">
+        <div
+          ref={boardRef}
+          data-board-layout={layout}
+          className={cn(
+            'space-y-3',
+            byLayout(layout, {
+              xl: 'xl:flex xl:flex-col xl:flex-1 xl:min-h-0',
+              columns: 'flex flex-col flex-1 min-h-0',
+            })
+          )}
+        >
           {/* Axis tabs: Board (lifecycle) | Triage (pre-lifecycle classification).
             On the Board, chips on the right show/hide the reference columns
             (On-hold, Resolved) so agents can focus on Open/In Progress/Pending.
@@ -223,6 +253,17 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
             hiddenCols={hiddenCols}
             toggleCol={toggleCol}
             colStates={colStates}
+            trailing={
+              canSplit && listLayout && onLayoutChange ? (
+                <SegmentedControl
+                  ariaLabel="Layout"
+                  value={listLayout}
+                  onChange={onLayoutChange}
+                  segments={LAYOUT_SEGMENTS}
+                  iconOnly
+                />
+              ) : undefined
+            }
           />
 
           {/* Approve bar — only on the Triage tab, only while a triaged card is dragged. */}
@@ -230,11 +271,20 @@ export const MessagesKanbanView = forwardRef<MessagesKanbanHandle, MessagesKanba
 
           {/* No pb under the lanes: the 16px it reserved sat on top of the page frame's own
             16px, and overlay scrollbars need no room of their own. */}
-          <div className="flex flex-col gap-4 xl:flex-row xl:flex-1 xl:min-h-0 xl:overflow-x-auto xl:gap-3">
+          <div
+            className={cn(
+              'flex flex-col gap-4',
+              byLayout(layout, {
+                xl: 'xl:flex-row xl:flex-1 xl:min-h-0 xl:overflow-x-auto xl:gap-3',
+                columns: 'flex-row flex-1 min-h-0 overflow-x-auto gap-3',
+              })
+            )}
+          >
             {visibleColumns.map((col) => (
               <KanbanColumn
                 key={col.id}
                 col={col}
+                layout={layout}
                 state={
                   colStates[col.id] ?? {
                     threads: [],
