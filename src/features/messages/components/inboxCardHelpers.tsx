@@ -385,9 +385,17 @@ export const getSlaCardText = (message: Message, nowMs: number = Date.now()): Sl
   const resolution: SlaCard | null = !res
     ? null
     : res.breached
-      ? { variant: 'breach', label: 'Breached', detail: `${formatDuration(res.elapsed - res.target)} over to resolve` }
+      ? {
+          variant: 'breach',
+          label: 'Breached',
+          detail: `${formatDuration(res.elapsed - res.target)} over to resolve`,
+        }
       : res.atRisk
-        ? { variant: 'risk', label: 'At risk', detail: `${formatDuration(res.target - res.elapsed)} left to resolve` }
+        ? {
+            variant: 'risk',
+            label: 'At risk',
+            detail: `${formatDuration(res.target - res.elapsed)} left to resolve`,
+          }
         : null;
   if (reply?.variant === 'breach' || !resolution) return reply;
   if (resolution.variant === 'breach' || !reply) return resolution;
@@ -488,7 +496,10 @@ export const computeSlaInfo = (message: Message, nowMs: number = Date.now()): Sl
 };
 
 /** The detail header's resolution chip: the live resolution clock, or null when there is none. */
-export const computeResolutionInfo = (message: Message, nowMs: number = Date.now()): SlaInfo | null => {
+export const computeResolutionInfo = (
+  message: Message,
+  nowMs: number = Date.now()
+): SlaInfo | null => {
   const res = resolutionClock(message, slaClockRuns(message), nowMs);
   return res ? liveSlaInfo(res.elapsed, res.target, res.breached, res.atRisk) : null;
 };

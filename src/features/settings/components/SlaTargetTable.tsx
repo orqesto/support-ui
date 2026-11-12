@@ -26,7 +26,10 @@ type Props = {
   resolutionOptional?: boolean;
   /** Default true. */
   showResolution?: boolean;
-  onChange: (row: SlaTargetRow, patch: Partial<Pick<SlaTargetRow, 'firstResponseMinutes' | 'resolutionMinutes'>>) => void;
+  onChange: (
+    row: SlaTargetRow,
+    patch: Partial<Pick<SlaTargetRow, 'firstResponseMinutes' | 'resolutionMinutes'>>
+  ) => void;
 };
 
 /** One group of SLA targets: a row per priority or channel, first response and resolution. */
@@ -40,7 +43,9 @@ export const SlaTargetTable = ({
   onChange,
 }: Props) => (
   <div>
-    <p className="font-display text-xs font-medium text-muted-foreground uppercase tracking-[0.09em] mb-1">{title}</p>
+    <p className="font-display text-xs font-medium text-muted-foreground uppercase tracking-[0.09em] mb-1">
+      {title}
+    </p>
     {hint && <p className="text-xs text-muted-foreground mb-2">{hint}</p>}
     <div className="rounded-lg border border-border bg-card overflow-x-auto">
       <table className="w-full text-sm">
@@ -49,7 +54,9 @@ export const SlaTargetTable = ({
             <th className="px-4 py-2 text-left font-medium">{keyHeader}</th>
             <th className="px-4 py-2 text-left font-medium">First response</th>
             {showResolution && (
-              <th className="px-4 py-2 text-left font-medium">Resolution{resolutionOptional ? ' (optional)' : ''}</th>
+              <th className="px-4 py-2 text-left font-medium">
+                Resolution{resolutionOptional ? ' (optional)' : ''}
+              </th>
             )}
           </tr>
         </thead>

@@ -13,8 +13,8 @@ const UNIT_OPTIONS: { value: DurationUnit; label: string }[] = [
 /** A whole number above zero, or null for anything else (empty, 0, negative, a fraction). */
 const parseAmount = (text: string): number | null => {
   if (!/^\d+$/.test(text.trim())) return null;
-  const n = Number(text);
-  return n > 0 ? n : null;
+  const amount = Number(text);
+  return amount > 0 ? amount : null;
 };
 
 /**

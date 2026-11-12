@@ -196,7 +196,9 @@ export function HeaderChipRow({
           <div className="overflow-hidden w-10 h-1 rounded-full bg-muted">
             <div
               className={`h-full rounded-full transition-all ${resolutionInfo.barColor}`}
-              style={{ width: `${Math.min(100, (resolutionInfo.elapsed / resolutionInfo.target) * 100)}%` }}
+              style={{
+                width: `${Math.min(100, (resolutionInfo.elapsed / resolutionInfo.target) * 100)}%`,
+              }}
             />
           </div>
         </div>

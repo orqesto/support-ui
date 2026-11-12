@@ -42,7 +42,12 @@ export const normaliseSlaConfig = (raw: unknown): SlaConfig => {
     const first = asNumber(row.firstResponseMinutes);
     if (first === null) continue;
     const hours = asNumber(row.resolutionHours);
-    const minutes = 'resolutionMinutes' in row ? asNumber(row.resolutionMinutes) : hours === null ? null : hours * 60;
+    const minutes =
+      'resolutionMinutes' in row
+        ? asNumber(row.resolutionMinutes)
+        : hours === null
+          ? null
+          : hours * 60;
     rows.push({
       type: row.type,
       key: row.key,
@@ -60,7 +65,10 @@ export const getSlaConfig = async (): Promise<SlaConfig> => {
   return normaliseSlaConfig((result.data as { data?: unknown } | undefined)?.data);
 };
 
-export const saveSlaConfig = async (rows: SlaTargetRow[], caps: { supportsThreadPriority: boolean }): Promise<void> => {
+export const saveSlaConfig = async (
+  rows: SlaTargetRow[],
+  caps: { supportsThreadPriority: boolean }
+): Promise<void> => {
   const configs = rows
     .filter((row) => caps.supportsThreadPriority || row.group !== 'threadPriority')
     .map((row) => ({
@@ -70,7 +78,8 @@ export const saveSlaConfig = async (rows: SlaTargetRow[], caps: { supportsThread
       resolutionMinutes: row.resolutionMinutes,
       // For an older backend, which reads hours only (it never had a channel resolution).
       resolutionHours:
-        row.resolutionMinutes === null || (!caps.supportsThreadPriority && row.group === 'threadChannel')
+        row.resolutionMinutes === null ||
+        (!caps.supportsThreadPriority && row.group === 'threadChannel')
           ? null
           : Math.ceil(row.resolutionMinutes / 60),
     }));

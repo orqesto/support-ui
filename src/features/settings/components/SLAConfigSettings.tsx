@@ -3,7 +3,12 @@ import { Timer } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { getApiErrorMessage } from '@/lib/errorMessages';
-import { getSlaConfig, saveSlaConfig, type SlaConfig, type SlaTargetRow } from '../services/slaConfig.service';
+import {
+  getSlaConfig,
+  saveSlaConfig,
+  type SlaConfig,
+  type SlaTargetRow,
+} from '../services/slaConfig.service';
 import { SlaTargetTable } from './SlaTargetTable';
 
 /**
@@ -52,7 +57,8 @@ export const SLAConfigSettings = () => {
       .finally(() => setSaving(false));
   };
 
-  const group = (name: SlaTargetRow['group']) => config?.rows.filter((row) => row.group === name) ?? [];
+  const group = (name: SlaTargetRow['group']) =>
+    config?.rows.filter((row) => row.group === name) ?? [];
 
   return (
     <div className="space-y-6">
@@ -62,8 +68,8 @@ export const SLAConfigSettings = () => {
           SLA Thresholds
         </h3>
         <p className="text-xs text-muted-foreground mb-4">
-          Response and resolution targets per priority and channel. Changes apply to new tickets and threads, and
-          to a thread or ticket whose priority changes.
+          Response and resolution targets per priority and channel. Changes apply to new tickets and
+          threads, and to a thread or ticket whose priority changes.
         </p>
       </div>
 
@@ -75,7 +81,12 @@ export const SLAConfigSettings = () => {
 
       {config && (
         <>
-          <SlaTargetTable title="Ticket SLA" keyHeader="Priority" rows={group('ticket')} onChange={update} />
+          <SlaTargetTable
+            title="Ticket SLA"
+            keyHeader="Priority"
+            rows={group('ticket')}
+            onChange={update}
+          />
           {config.supportsThreadPriority && (
             <SlaTargetTable
               title="Thread SLA by priority"

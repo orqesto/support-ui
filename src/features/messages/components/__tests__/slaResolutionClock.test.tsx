@@ -11,7 +11,10 @@ import { MessageSignalBadges } from '../MessageSignalBadges';
 import type { Message } from '@/types';
 
 vi.mock('@/lib/api-client', () => ({
-  apiClient: new Proxy({}, { get: () => () => Promise.resolve({ data: { success: true, data: [] } }) }),
+  apiClient: new Proxy(
+    {},
+    { get: () => () => Promise.resolve({ data: { success: true, data: [] } }) }
+  ),
 }));
 vi.mock('@/features/tickets/services/category.service', () => ({
   categoryService: { getCategories: () => Promise.resolve([]) },
@@ -53,15 +56,26 @@ const thread = (resolutionAgo: number | null, over: Partial<Message> = {}): Mess
 
 describe('the resolution clock', () => {
   it('an older backend (fields absent): no resolution clock, the reply clock unchanged', () => {
-    const message = thread(300, { slaResolutionMinutes: undefined, slaResolutionStartedAt: undefined });
+    const message = thread(300, {
+      slaResolutionMinutes: undefined,
+      slaResolutionStartedAt: undefined,
+    });
     expect(computeResolutionInfo(message, NOW)).toBeNull();
     expect(getSlaCardText(message)).toBeNull();
   });
 
   it('5 h into a 4 h target: breached, on the chip and the card', () => {
     const message = thread(300);
-    expect(computeResolutionInfo(message, NOW)).toMatchObject({ elapsed: 300, target: 240, breached: true });
-    expect(getSlaCardText(message)).toEqual({ variant: 'breach', label: 'Breached', detail: '1h over to resolve' });
+    expect(computeResolutionInfo(message, NOW)).toMatchObject({
+      elapsed: 300,
+      target: 240,
+      breached: true,
+    });
+    expect(getSlaCardText(message)).toEqual({
+      variant: 'breach',
+      label: 'Breached',
+      detail: '1h over to resolve',
+    });
     render(<MessageSignalBadges message={message} />);
     expect(screen.getByText('SLA')).toBeTruthy();
     cleanup();
@@ -72,14 +86,20 @@ describe('the resolution clock', () => {
   it('85% elapsed: at risk', () => {
     const message = thread(204);
     expect(computeResolutionInfo(message, NOW)).toMatchObject({ atRisk: true, breached: false });
-    expect(getSlaCardText(message)).toMatchObject({ variant: 'risk', detail: '36m left to resolve' });
+    expect(getSlaCardText(message)).toMatchObject({
+      variant: 'risk',
+      detail: '36m left to resolve',
+    });
   });
 
   it('a reply-clock breach outranks a resolution risk; a resolution breach outranks a reply risk', () => {
     const replyBreached = thread(204, { slaWaitStartedAt: ago(90), lastReplyFromClient: true });
     expect(getSlaCardText(replyBreached)).toMatchObject({ variant: 'breach', detail: '30m over' });
     const replyRisk = thread(300, { slaWaitStartedAt: ago(50), lastReplyFromClient: true });
-    expect(getSlaCardText(replyRisk)).toMatchObject({ variant: 'breach', detail: '1h over to resolve' });
+    expect(getSlaCardText(replyRisk)).toMatchObject({
+      variant: 'breach',
+      detail: '1h over to resolve',
+    });
   });
 
   it('a resolved or filtered thread, or no running cycle: none', () => {
