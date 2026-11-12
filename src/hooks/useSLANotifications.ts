@@ -88,7 +88,7 @@ export const matchesPrefs = (
   // Effective lines (new settings API): a kind switched OFF never matches. Absent lines (old
   // backend) leave the legacy flags below as the only rule.
   const kind =
-    breach.type === 'message' || breach.type === 'conversation'
+    breach.type === 'message' || breach.type === 'message_resolution' || breach.type === 'conversation'
       ? 'sla_message_breach'
       : breach.type === 'ticket_first_response'
         ? 'sla_ticket_first_response'
@@ -99,7 +99,9 @@ export const matchesPrefs = (
   if (prefs.minSeverity === 'critical' && breach.severity !== 'critical') return false;
   // A thread breach arrives as `message` or (newer backend) `conversation`; a ticket breach by its
   // kind, or as a plain `ticket` — muted only when both ticket kinds are off.
-  const isThread = breach.type === 'message' || breach.type === 'conversation';
+  // `message_resolution` (backend 0238): the thread's resolution clock, under the same thread line.
+  const isThread =
+    breach.type === 'message' || breach.type === 'message_resolution' || breach.type === 'conversation';
   if (isThread && !prefs.notifyMessages) return false;
   if (breach.type === 'ticket_first_response' && !prefs.notifyTicketFirstResponse) return false;
   if (breach.type === 'ticket_resolution' && !prefs.notifyTicketResolution) return false;
@@ -470,7 +472,9 @@ export const useSLANotifications = () => {
       if (unreadBeyondRef.current > 0) scheduleRecount();
       const removedSet = new Set(conversationIds);
       const matches = (notif: SLABreachNotification) =>
-        (notif.type === 'message' || notif.type === 'conversation') &&
+        (notif.type === 'message' ||
+          notif.type === 'message_resolution' ||
+          notif.type === 'conversation') &&
         removedSet.has(notif.entityId);
       setNotifications((prev) => {
         const gone = prev.filter(matches);

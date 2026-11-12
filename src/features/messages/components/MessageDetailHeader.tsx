@@ -13,7 +13,12 @@ import { useDepartments } from '@/hooks/useDepartments';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { categoryService, TicketRef } from '@/features/tickets/shell';
-import { deriveWorkflowStatus, computeSlaInfo, type WorkflowStatus } from './inboxCardHelpers';
+import {
+  deriveWorkflowStatus,
+  computeResolutionInfo,
+  computeSlaInfo,
+  type WorkflowStatus,
+} from './inboxCardHelpers';
 import { getSpamCheck, parseSender } from '@/lib/messageHelpers';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import type { Category, ThreadStatus } from '@/types';
@@ -339,6 +344,17 @@ export function MessageDetailHeader({
   // The current work status is DERIVED (canonical), not the raw enum.
   const currentWorkflowStatus: WorkflowStatus = deriveWorkflowStatus(message) ?? 'open';
 
+  const resolutionInfo = useMemo(
+    () => computeResolutionInfo(message),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recomputed on the fields it reads
+    [
+      message.slaResolutionMinutes,
+      message.slaResolutionStartedAt,
+      message.slaResponseMinutes,
+      message.status,
+      message.metadata,
+    ]
+  );
   const slaInfo = useMemo(
     () => computeSlaInfo(message),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recomputed on the fields it reads, not on every new `message` object
@@ -552,6 +568,7 @@ export function MessageDetailHeader({
         setHoldOpen={setHoldOpen}
         handleSetStatus={handleSetStatus}
         slaInfo={slaInfo}
+        resolutionInfo={resolutionInfo}
         updatingPriority={updatingPriority}
         handleSetPriority={handleSetPriority}
         inboxBadge={inboxBadge}

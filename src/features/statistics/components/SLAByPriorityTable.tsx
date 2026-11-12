@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { slaService } from '@/features/statistics/services/sla.service';
 import { periodKey, periodParams, type ReportPeriod } from '@/lib/reportPeriod';
+import { formatDuration } from '@/lib/utils';
 
 export const SLA_DEFAULT_DAYS = 30;
 
@@ -76,7 +77,11 @@ export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS, period }: SLAByPri
         firstResponseTarget: stats.firstResponseTarget,
         avgFirstResponse: stats.avgFirstResponse !== null && stats.avgFirstResponse !== undefined ? Number(stats.avgFirstResponse).toFixed(1) : '—',
         firstResponseBreached: stats.firstResponseBreached,
-        resolutionTarget: stats.resolutionTarget,
+        // Minutes from a 0238 backend (a 90-minute target is 1h 30m, not 1.5h); hours before.
+        resolutionTarget:
+          typeof stats.resolutionTargetMinutes === 'number'
+            ? formatDuration(stats.resolutionTargetMinutes)
+            : `${stats.resolutionTarget}h`,
         avgResolution: stats.avgResolution !== null && stats.avgResolution !== undefined ? Number(stats.avgResolution).toFixed(1) : '—',
         resolutionBreached: stats.resolutionBreached,
       };
@@ -123,7 +128,7 @@ export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS, period }: SLAByPri
                 <th className="text-center py-3 px-3 font-semibold">First Response Target (min)</th>
                 <th className="text-center py-3 px-3 font-semibold">Avg First Response (min)</th>
                 <th className="text-center py-3 px-3 font-semibold">Breached</th>
-                <th className="text-center py-3 px-3 font-semibold">Resolution Target (h)</th>
+                <th className="text-center py-3 px-3 font-semibold">Resolution Target</th>
                 <th className="text-center py-3 px-3 font-semibold">Avg Resolution (h)</th>
                 <th className="text-center py-3 px-3 font-semibold">Breached</th>
               </tr>
@@ -154,7 +159,7 @@ export const SLAByPriorityTable = ({ days = SLA_DEFAULT_DAYS, period }: SLAByPri
                     </span>
                   </td>
                   <td className="text-center py-3 px-3 text-muted-foreground">
-                    {row.resolutionTarget}h
+                    {row.resolutionTarget}
                   </td>
                   <td className="text-center py-3 px-3 font-medium">{row.avgResolution}h</td>
                   <td className="text-center py-3 px-3">

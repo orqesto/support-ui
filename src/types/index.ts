@@ -198,6 +198,10 @@ export type Message = {
    * backend from before it; the badges then keep the old clock.
    */
   slaWaitStartedAt?: string | null;
+  /** Thread SLA by priority (backend 0238): the resolution target, and the running cycle's start
+   * (first unanswered customer message after the latest resolve). Absent from an older backend. */
+  slaResolutionMinutes?: number | null;
+  slaResolutionStartedAt?: string | null;
   slaResponseBreached?: boolean | null;
   firstResponseAt?: string | null;
   actualResponseSeconds?: number | null;

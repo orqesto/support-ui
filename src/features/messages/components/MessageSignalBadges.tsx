@@ -13,6 +13,7 @@ import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/t
 import {
   getRiskSignals,
   isSpamThread,
+  computeResolutionInfo,
   getSlaCardText,
   renderOverflowTooltip,
   slaClockRuns,
@@ -51,8 +52,22 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
     // The clock from the customer's first unanswered message (backend 0230) — the one the
     // Breached filter, the sort and the alerts read. The branches below are for an older backend.
     const wait = slaWaitClock(message);
+    // The resolution clock (backend 0238): shown when it is the worse of the two.
+    const res = computeResolutionInfo(message);
+    const resolutionBadge =
+      res && (res.breached || res.atRisk) ? (
+        <Tooltip
+          content={`Resolution ${res.breached ? 'breached' : 'at risk'} · target ${formatDuration(res.target)} · open ${formatDuration(res.elapsed)}`}
+          size="sm"
+        >
+          <Badge variant={res.breached ? 'danger' : 'warning'} className={bc}>
+            <AlertTriangle className={ic} />
+            SLA
+          </Badge>
+        </Tooltip>
+      ) : null;
     if (wait !== undefined) {
-      if (!wait) return null;
+      if (!wait) return resolutionBadge;
       if (wait.breached)
         return (
           <Tooltip
@@ -65,6 +80,7 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
             </Badge>
           </Tooltip>
         );
+      if (res?.breached) return resolutionBadge;
       if (wait.atRisk)
         return (
           <Tooltip
@@ -77,7 +93,7 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
             </Badge>
           </Tooltip>
         );
-      return null;
+      return resolutionBadge;
     }
 
     if (message.lastReplyFromClient && message.lastReplyAt) {

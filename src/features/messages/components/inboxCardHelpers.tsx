@@ -7,6 +7,7 @@ import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/t
 import { notCustomerWorkMark } from './notCustomerWork';
 import { hasActiveContradiction, needsReviewTooltip } from './aiFlagCopy';
 import { sentenceCase, statusLabel } from './messageDetailConstants';
+import { resolutionClock } from './slaResolutionClock';
 
 /**
  * Shared derivations for the redesigned inbox cards (MessageListItem + KanbanCard).
@@ -297,7 +298,7 @@ export const slaWaitClock = (
   return { elapsed: Math.floor(elapsedMs / 60_000), target, breached, atRisk };
 };
 
-export const getSlaCardText = (message: Message): SlaCard | null => {
+const replyCardText = (message: Message): SlaCard | null => {
   if (!slaClockRuns(message) || !message.slaResponseMinutes) return null;
   const wait = slaWaitClock(message);
   if (wait !== undefined) {
@@ -371,6 +372,34 @@ export const getSlaCardText = (message: Message): SlaCard | null => {
     }
   }
   return null;
+};
+
+/**
+ * The SLA card of a thread: the worse of its two clocks (owner 2026-11-11/12) — reply, and the
+ * resolution clock when the backend sends it. Breached beats at risk; on a tie the reply clock's
+ * card shows. The same rule as the backend's Breached / At-risk filters.
+ */
+export const getSlaCardText = (message: Message, nowMs: number = Date.now()): SlaCard | null => {
+  const reply = replyCardText(message);
+  const res = resolutionClock(message, slaClockRuns(message), nowMs);
+  const resolution: SlaCard | null = !res
+    ? null
+    : res.breached
+      ? {
+          variant: 'breach',
+          label: 'Breached',
+          detail: `${formatDuration(res.elapsed - res.target)} over to resolve`,
+        }
+      : res.atRisk
+        ? {
+            variant: 'risk',
+            label: 'At risk',
+            detail: `${formatDuration(res.target - res.elapsed)} left to resolve`,
+          }
+        : null;
+  if (reply?.variant === 'breach' || !resolution) return reply;
+  if (resolution.variant === 'breach' || !reply) return resolution;
+  return reply;
 };
 
 export type SlaInfo = {
@@ -464,6 +493,15 @@ export const computeSlaInfo = (message: Message, nowMs: number = Date.now()): Sl
   const elapsed = Math.max(0, Math.floor((nowMs - startTime.getTime()) / 60000));
   const breached = message.slaResponseBreached === true || elapsed > target;
   return liveSlaInfo(elapsed, target, breached, !breached && elapsed > target * 0.8);
+};
+
+/** The detail header's resolution chip: the live resolution clock, or null when there is none. */
+export const computeResolutionInfo = (
+  message: Message,
+  nowMs: number = Date.now()
+): SlaInfo | null => {
+  const res = resolutionClock(message, slaClockRuns(message), nowMs);
+  return res ? liveSlaInfo(res.elapsed, res.target, res.breached, res.atRisk) : null;
 };
 
 /** The running clock's chip. */

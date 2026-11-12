@@ -88,7 +88,7 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
   }
 
   const getVariant = (type: string): 'default' | 'secondary' | 'success' | 'warning' | 'danger' => {
-    if (type === 'message') return 'default';
+    if (type === 'message' || type === 'message_resolution') return 'default';
     return 'secondary';
   };
 
@@ -100,7 +100,7 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
   };
 
   const handleBreachClick = (breach: SLABreach) => {
-    if (breach.type === 'message') {
+    if (breach.type === 'message' || breach.type === 'message_resolution') {
       navigate(`/threads/${breach.id}`);
     } else {
       navigate(`/tickets/${breach.id}`);
@@ -120,7 +120,8 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
           {data.breaches.map((breach) => (
             <Button
               type="button"
-              key={`${breach.type}-${breach.waitId ?? breach.id}`}
+              // A thread can breach more than once (waits, resolution cycles): the start disambiguates.
+              key={`${breach.type}-${breach.waitId ?? breach.id}-${breach.createdAt}`}
               variant="ghost"
               className="flex justify-between items-center w-full h-auto text-left p-2 pb-3 rounded border-b transition-colors cursor-pointer last:border-0 hover:bg-muted"
               onClick={() => handleBreachClick(breach)}

@@ -33,8 +33,24 @@ type PriorityStats = {
   avgFirstResponse: number;
   firstResponseBreached: number;
   resolutionTarget: number;
+  /** Backend 0238: the target in minutes (resolutionTarget may be fractional hours). Absent before. */
+  resolutionTargetMinutes?: number;
   avgResolution: number;
   resolutionBreached: number;
+};
+
+/** Thread resolution cycles (backend 0238): one per resolve, against the thread's target. */
+export type ResolutionTotals = {
+  total: number;
+  resolved: number;
+  breached: number;
+  decided: number;
+  complianceRate: number | null;
+  avgResolutionSeconds: number | null;
+  medianResolutionSeconds: number | null;
+};
+export type ThreadResolutionStats = ResolutionTotals & {
+  byPriority: Partial<Record<'critical' | 'high' | 'medium' | 'low', ResolutionTotals>>;
 };
 
 export type SLAStatistics = {
@@ -56,6 +72,8 @@ export type SLAStatistics = {
       breached: number;
       rate: number;
     };
+    /** Null from a backend older than 0238 (normalised in getStatistics). */
+    resolution: ThreadResolutionStats | null;
   };
   tickets: {
     critical?: PriorityStats;
@@ -115,7 +133,7 @@ export type SLATrendsResponse = {
 
 export type SLABreachEvent = {
   id: number;
-  type: 'message' | 'ticket_first_response' | 'ticket_resolution';
+  type: 'message' | 'message_resolution' | 'ticket_first_response' | 'ticket_resolution';
   organizationId: number;
   severity: 'warning' | 'critical';
   breachAmount: number;
@@ -149,7 +167,24 @@ const getStatistics = async (params?: {
   to?: string;
 }): Promise<SLAStatistics> => {
   const response = await apiClient.get<SLAStatistics>('/api/sla/statistics', { params });
-  return response.data;
+  const data = response.data;
+  // Version skew: an older backend sends no `messages.resolution`; a malformed one is dropped.
+  const resolution = (data?.messages as { resolution?: unknown } | undefined)?.resolution;
+  const valid =
+    !!resolution &&
+    typeof resolution === 'object' &&
+    typeof (resolution as ResolutionTotals).total === 'number' &&
+    typeof (resolution as ThreadResolutionStats).byPriority === 'object' &&
+    (resolution as ThreadResolutionStats).byPriority !== null;
+  return data?.messages
+    ? {
+        ...data,
+        messages: {
+          ...data.messages,
+          resolution: valid ? (resolution as ThreadResolutionStats) : null,
+        },
+      }
+    : data;
 };
 
 const getBreaches = async (params?: {
@@ -159,7 +194,11 @@ const getBreaches = async (params?: {
   from?: string;
   to?: string;
 }): Promise<SLABreachesResponse> => {
-  const response = await apiClient.get<SLABreachesResponse>('/api/sla/breaches', { params });
+  // `include=resolution` (backend 0238): threads' resolution-clock breaches too. An older backend
+  // ignores the parameter.
+  const response = await apiClient.get<SLABreachesResponse>('/api/sla/breaches', {
+    params: { ...params, include: 'resolution' },
+  });
   return response.data;
 };
 

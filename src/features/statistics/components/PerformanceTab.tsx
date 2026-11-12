@@ -2,6 +2,7 @@ import { Clock, Timer, Zap } from 'lucide-react';
 import { SLAOverviewCards } from '@/features/statistics/components/SLAOverviewCards';
 import { SLAByChannelChart } from '@/features/statistics/components/SLAByChannelChart';
 import { SLAByPriorityTable } from '@/features/statistics/components/SLAByPriorityTable';
+import { ThreadResolutionByPriorityTable } from '@/features/statistics/components/ThreadResolutionByPriorityTable';
 import { SLATrendChart } from '@/features/statistics/components/SLATrendChart';
 import { SLABreachList } from '@/features/statistics/components/SLABreachList';
 import { SLAStatsSinceControl } from '@/features/statistics/components/SLAStatsSinceControl';
@@ -90,6 +91,7 @@ export function PerformanceTab({
           <SLAByChannelChart days={days} period={period} />
           <SLAByPriorityTable days={days} period={period} />
         </div>
+        <ThreadResolutionByPriorityTable days={days} period={period} />
         <SLATrendChart days={days} period={period} />
         <SLABreachList days={days} period={period} />
       </section>
