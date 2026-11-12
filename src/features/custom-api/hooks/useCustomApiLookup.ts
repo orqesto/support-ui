@@ -238,6 +238,9 @@ export function useCustomApiLookup(
       // its spinner. The generation also moves when the customer changes (the effect above).
       generation.current += 1;
       const pressedFor = generation.current;
+      // Joining a run still answering is only for the SAME run: a press (every method) never joins
+      // the tab's GET-only run, or the POST lookups would never run despite the press (8b review).
+      const inFlightKey = cacheKey ? `${cacheKey}|${methods ? methods.join(',') : 'ALL'}` : null;
       const isStale = () => generation.current !== pressedFor;
       setLoading(true);
       setError(null);
@@ -257,9 +260,9 @@ export function useCustomApiLookup(
               // vendor again. "Look up again" is disabled while one answers, so a press always calls.
               results: await (manual
                 ? customApiLookupService.run({ conversationId, contactId, ...manual })
-                : (inFlightLookup<CustomApiLookupResult>(cacheKey) ??
+                : (inFlightLookup<CustomApiLookupResult>(inFlightKey) ??
                   trackInFlightLookup(
-                    cacheKey,
+                    inFlightKey,
                     customApiLookupService.run({
                       conversationId,
                       contactId,
@@ -293,7 +296,8 @@ export function useCustomApiLookup(
         // slow vendor answered, React drops that update — and the next opening would call again
         // (8b review F1). A merged one-lookup re-run needs the cards on screen, so it is cached in
         // the update (it can only happen while the panel is open).
-        if (!manual && cacheable(data)) writeLookupCache(cacheKey, data, now);
+        if (!manual && cacheable(data))
+          writeLookupCache(cacheKey, data, now, Date.now(), Boolean(methods));
         setResults((previous) => {
           if (!manual) return data;
           const next = previous.map(
