@@ -57,6 +57,7 @@ export { useConversationNewRefresh } from './hooks/useConversationNewRefresh';
 export { useDropTeamFilterWhenTeamsOff } from './hooks/useDropTeamFilterWhenTeamsOff';
 export { useIsPhone, useSafeMediaQuery } from './hooks/useIsPhone';
 export { useMessagesData } from './hooks/useMessagesData';
+export { useThreadTabs, useThreadsPageTabs } from './hooks/useThreadTabs';
 export { useMessagesUrlSync } from './hooks/useMessagesUrlSync';
 export { useNewThreadsBar } from './hooks/useNewThreadsBar';
 export { usePhoneOpensMessageAsPage } from './hooks/usePhoneOpensMessageAsPage';

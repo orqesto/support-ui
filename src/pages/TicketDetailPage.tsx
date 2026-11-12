@@ -1,8 +1,15 @@
 import { useState, useEffect } from 'react';
+import { KeepTabOnInput, OpenTabsRow } from '@/components/shared/openTabs';
+import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { ArrowLeft, Link2, Loader2 } from 'lucide-react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ScrollButtons } from '@/components/shared/ScrollButtons';
-import { TicketDetail, TicketDeleteDialog, useTicketsStore } from '@/features/tickets';
+import {
+  TicketDetail,
+  TicketDeleteDialog,
+  useTicketsStore,
+  useTicketTabs,
+} from '@/features/tickets';
 import { ticketService, TicketRef } from '@/features/tickets/shell';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -82,6 +89,16 @@ export const TicketDetailPage = () => {
     navigate('/tickets');
   };
 
+  // The open-tabs row on the ticket's own page.
+  const orgCode = useCurrentOrgCode();
+  const ticketTabs = useTicketTabs({
+    shown: ticket,
+    orgCode,
+    activate: (tab) => navigate(`/tickets/${tab.urlId}`, { replace: true }),
+    closeShown: handleBack,
+  });
+  const tabsRow = <OpenTabsRow handle={ticketTabs} ariaLabel="Open tickets" boxed />;
+
   const handleCopyLink = () => {
     navigator.clipboard
       .writeText(`${window.location.origin}/tickets?id=${ticket?.id ?? ''}`)
@@ -113,6 +130,7 @@ export const TicketDetailPage = () => {
   if (loading) {
     return (
       <>
+        <div className="px-4 mx-auto w-full">{tabsRow}</div>
         <div className="flex justify-center items-center h-64 gap-2 text-muted-foreground">
           <Loader2 className="w-5 h-5 animate-spin" />
           Loading ticket...
@@ -140,6 +158,7 @@ export const TicketDetailPage = () => {
       <ScrollButtons bottomTarget="[data-ticket-actions]" />
       <>
         <div className="px-4 mx-auto space-y-4 w-full">
+          {tabsRow}
           {threadsNotLinked && (
             <Alert variant="warning">
               The ticket was created, but its threads could not be linked — add them here.
@@ -151,47 +170,49 @@ export const TicketDetailPage = () => {
             </Alert>
           )}
 
-          <TicketDetail
-            key={ticket.id}
-            ticket={ticket}
-            // Deleting needs DELETE_TICKETS or MANAGE_ORGANIZATION, as the route (and the list's
-            // Delete): support and moderators manage tickets but were offered a Delete it refused.
-            onDelete={
-              hasAnyPermission([Permission.DELETE_TICKETS, Permission.MANAGE_ORGANIZATION])
-                ? handleDeleteClick
-                : undefined
-            }
-            onRefresh={refreshTicket}
-            renderChrome={(more, body) => (
-              // overflow-clip, not hidden: the tab bar and the sidebar stick to the page's scroll.
-              <Card padding="none" className="overflow-clip bg-background">
-                <div className="flex gap-1 items-center px-2 h-[46px] border-b border-border bg-card text-[12.5px] text-muted-foreground">
-                  <Tooltip content="Back to tickets" size="sm">
-                    <Button variant="ghost" size="sm" onClick={handleBack}>
-                      <ArrowLeft className="mr-1.5 w-4 h-4" />
-                      Tickets
-                    </Button>
-                  </Tooltip>
-                  <span>/</span>
-                  <TicketRef ticket={ticket} />
-                  <span className="flex-1" />
-                  <Tooltip content="Copy link">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-label="Copy link"
-                      onClick={handleCopyLink}
-                      className="p-0 w-8 h-8"
-                    >
-                      <Link2 className="w-4 h-4" />
-                    </Button>
-                  </Tooltip>
-                  {more}
-                </div>
-                {body}
-              </Card>
-            )}
-          />
+          <KeepTabOnInput handle={ticketTabs}>
+            <TicketDetail
+              key={ticket.id}
+              ticket={ticket}
+              // Deleting needs DELETE_TICKETS or MANAGE_ORGANIZATION, as the route (and the list's
+              // Delete): support and moderators manage tickets but were offered a Delete it refused.
+              onDelete={
+                hasAnyPermission([Permission.DELETE_TICKETS, Permission.MANAGE_ORGANIZATION])
+                  ? handleDeleteClick
+                  : undefined
+              }
+              onRefresh={refreshTicket}
+              renderChrome={(more, body) => (
+                // overflow-clip, not hidden: the tab bar and the sidebar stick to the page's scroll.
+                <Card padding="none" className="overflow-clip bg-background">
+                  <div className="flex gap-1 items-center px-2 h-[46px] border-b border-border bg-card text-[12.5px] text-muted-foreground">
+                    <Tooltip content="Back to tickets" size="sm">
+                      <Button variant="ghost" size="sm" onClick={handleBack}>
+                        <ArrowLeft className="mr-1.5 w-4 h-4" />
+                        Tickets
+                      </Button>
+                    </Tooltip>
+                    <span>/</span>
+                    <TicketRef ticket={ticket} />
+                    <span className="flex-1" />
+                    <Tooltip content="Copy link">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Copy link"
+                        onClick={handleCopyLink}
+                        className="p-0 w-8 h-8"
+                      >
+                        <Link2 className="w-4 h-4" />
+                      </Button>
+                    </Tooltip>
+                    {more}
+                  </div>
+                  {body}
+                </Card>
+              )}
+            />
+          </KeepTabOnInput>
         </div>
       </>
 

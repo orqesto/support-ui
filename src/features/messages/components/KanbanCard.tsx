@@ -1,4 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
+import {
+  keepOpenTabOnDoubleClick,
+  noteOpenTabClick,
+  openInNewTabOnMiddleClick,
+} from '@/components/shared/openTabs';
 import { createPortal } from 'react-dom';
 import {
   BookOpen,
@@ -229,6 +234,8 @@ export const KanbanCard = ({
     if (isFromPortal(event)) return;
     const sel = window.getSelection?.();
     if (sel && sel.toString().length > 0) return;
+    // Ctrl/⌘-click opens the thread in a new tab (the open-tabs row).
+    noteOpenTabClick('threads', event);
     onOpen(thread);
   };
 
@@ -237,6 +244,15 @@ export const KanbanCard = ({
       role="button"
       tabIndex={0}
       onClick={handleCardClick}
+      // A middle click opens it in a new tab; a double-click keeps the tab it opened.
+      onAuxClick={(event) => {
+        if (isFromPortal(event)) return;
+        openInNewTabOnMiddleClick('threads', event, () => onOpen(thread));
+      }}
+      onDoubleClick={(event) => {
+        if (isFromPortal(event)) return;
+        keepOpenTabOnDoubleClick('threads');
+      }}
       onKeyDown={(event) => {
         if (isFromPortal(event)) return;
         // Only a key pressed on the CARD opens it; Enter on its copy-id or Claim button is theirs.

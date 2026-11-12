@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { KeepTabOnInput, OpenTabsRow } from '@/components/shared/openTabs';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { MessageDetail, DeleteMessageDialog } from '@/features/messages';
+import { MessageDetail, DeleteMessageDialog, useThreadTabs } from '@/features/messages';
 import { useIsPhone, useMessagesStore } from '@/features/messages/shell';
 import { similarResultsCache } from '@/lib/similarResultsCache';
 import { Button } from '@/components/ui/Button';
@@ -142,6 +143,15 @@ export const MessageDetailPage = () => {
     navigate('/threads', { state: { restoreSearch: true } });
   }, [navigate]);
 
+  // The open-tabs row on the thread's own page (a phone, a shared link, "open full page").
+  const threadTabs = useThreadTabs({
+    shown: message,
+    orgCode,
+    activate: (tab) => navigate(`/threads/${tab.urlId}`, { replace: true }),
+    closeShown: goBack,
+  });
+  const tabsRow = <OpenTabsRow handle={threadTabs} ariaLabel="Open threads" compact={isPhone} />;
+
   const confirmDelete = async (target: Message) => {
     const askedFromRoute = routeIdRef.current ?? null;
     if (deletingIdsRef.current.has(target.id)) return;
@@ -190,6 +200,7 @@ export const MessageDetailPage = () => {
   if (loading) {
     return (
       <>
+        {tabsRow}
         <div className="flex gap-2 justify-center items-center h-64 text-muted-foreground">
           <Loader2 className="w-5 h-5 animate-spin" />
           Loading thread...
@@ -219,6 +230,7 @@ export const MessageDetailPage = () => {
           rows from sticking to the screen. The negative margins undo the shell's 8px padding
           (Layout `p-2 pt-16`), so the detail runs edge to edge and starts under the app header. */}
       <div className="flex overflow-hidden flex-col flex-1 min-h-0 max-sm:block max-sm:overflow-visible max-sm:-mx-2 max-sm:-mt-2 max-sm:-mb-2">
+        {tabsRow}
         {/* Back bar */}
         {!isPhone && (
           <div className="flex-shrink-0 border-b border-border">
@@ -239,24 +251,26 @@ export const MessageDetailPage = () => {
             data-testid="detail-page-frame"
             className="flex flex-col w-full h-full border-x border-border max-sm:block max-sm:h-auto max-sm:border-x-0"
           >
-            <MessageDetail
-              key={message.id}
-              message={message}
-              isFullPage
-              onClose={goBack}
-              onRegisterRequestClose={(fn) => {
-                requestCloseRef.current = fn;
-              }}
-              onReadChanged={() => fetchMessage(message.id)}
-              onRefresh={() => fetchMessage(message.id)}
-              onStatusChanged={() => fetchMessage(message.id)}
-              onApprove={handleApprove}
-              onClassify={handleClassify}
-              onReject={() => fetchMessage(message.id)}
-              onReopen={() => fetchMessage(message.id)}
-              onDelete={canDelete ? () => setDeleteOpen(true) : undefined}
-              onResolve={() => fetchMessage(message.id)}
-            />
+            <KeepTabOnInput handle={threadTabs}>
+              <MessageDetail
+                key={message.id}
+                message={message}
+                isFullPage
+                onClose={goBack}
+                onRegisterRequestClose={(fn) => {
+                  requestCloseRef.current = fn;
+                }}
+                onReadChanged={() => fetchMessage(message.id)}
+                onRefresh={() => fetchMessage(message.id)}
+                onStatusChanged={() => fetchMessage(message.id)}
+                onApprove={handleApprove}
+                onClassify={handleClassify}
+                onReject={() => fetchMessage(message.id)}
+                onReopen={() => fetchMessage(message.id)}
+                onDelete={canDelete ? () => setDeleteOpen(true) : undefined}
+                onResolve={() => fetchMessage(message.id)}
+              />
+            </KeepTabOnInput>
           </div>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { Suspense, useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { OpenTabsRow } from '@/components/shared/openTabs';
 import {
   buildContactsApiFilters,
   BulkActionBar,
@@ -40,6 +41,7 @@ import {
   usePresenceSummary,
   detailPanelProps,
   type MessagesPageAlert,
+  useThreadsPageTabs,
 } from '@/features/messages';
 import { NewItemsBar } from '@/components/shared/NewItemsBar';
 import {
@@ -498,6 +500,16 @@ export const MessagesPage = () => {
     </Suspense>
   ) : null;
 
+  const { threadTabs, withTabs } = useThreadsPageTabs({
+    selectedMessage,
+    isPhone,
+    orgCode,
+    selectedThreadIdRef,
+    selectedThreadMessageIdRef,
+    setSearchParams,
+    closeDetail,
+  });
+
   // The split pane's row: trust the card only if remembered for THIS message (render runs first).
   const ownCard = selectedThreadMessageIdRef.current === selectedMessage?.id;
   const openThreadId = selectedMessage
@@ -618,6 +630,11 @@ export const MessagesPage = () => {
               }}
             />
 
+            {/* Tabs open, no thread on screen: the row waits above the list. */}
+            {!selectedMessage && !isPhone && (
+              <OpenTabsRow handle={threadTabs} ariaLabel="Open threads" boxed />
+            )}
+
             {displayMode === 'kanban' ? (
               <Suspense fallback={<ViewLoading className="min-h-[50vh]" />}>
                 <MessagesKanbanView
@@ -734,12 +751,12 @@ export const MessagesPage = () => {
         {/* ── Split pane (Messages list v2) ─────────────────────────────
             The thread beside the list: no backdrop, no body lock, the list stays live, and
             J/K walk it from the pane. An empty pane says what it is for. */}
-        {split && <SplitDetailPane detail={detail} />}
+        {split && <SplitDetailPane detail={withTabs(detail)} />}
 
         {/* ── Modal overlay ─────────────────────────────────────────── */}
         {selectedMessage && !isPhone && !split && (
           <DetailSlideOver
-            detail={detail}
+            detail={withTabs(detail)}
             onBackdropClick={() => {
               if (detailRequestCloseRef.current) {
                 detailRequestCloseRef.current();
