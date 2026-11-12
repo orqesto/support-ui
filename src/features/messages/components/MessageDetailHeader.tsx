@@ -364,6 +364,7 @@ export function MessageDetailHeader({
       message.slaResponseMinutes,
       message.slaWaitStartedAt,
       message.firstResponseAt,
+      message.actualResponseSeconds,
       message.slaResponseBreached,
       message.createdAt,
       message.metadata,

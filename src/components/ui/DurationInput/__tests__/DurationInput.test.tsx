@@ -120,4 +120,29 @@ describe('DurationInput', () => {
     expect(amount()).toHaveValue(1);
     expect(screen.getByText('hours')).toBeInTheDocument();
   });
+
+  it('a value set by the parent clears an invalid amount the user typed', () => {
+    const onValidChange = vi.fn();
+    const { rerender } = render(
+      <DurationInput
+        aria-label="Resolution"
+        value={60}
+        onChange={vi.fn()}
+        onValidChange={onValidChange}
+      />
+    );
+    fireEvent.change(amount(), { target: { value: '0' } });
+    expect(amount()).toHaveAttribute('aria-invalid', 'true');
+    rerender(
+      <DurationInput
+        aria-label="Resolution"
+        value={120}
+        onChange={vi.fn()}
+        onValidChange={onValidChange}
+      />
+    );
+    expect(amount()).toHaveValue(2);
+    expect(amount()).toHaveAttribute('aria-invalid', 'false');
+    expect(onValidChange).toHaveBeenLastCalledWith(true);
+  });
 });

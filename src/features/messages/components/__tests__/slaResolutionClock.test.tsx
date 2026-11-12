@@ -33,6 +33,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -179,5 +180,36 @@ describe('getSlaCardText with a given time', () => {
       variant: 'breach',
       detail: '10m over',
     });
+  });
+
+  it('the row badge reads BOTH clocks at one time', () => {
+    // At NOW: reply 50m of 60 (at risk), resolution 230m of 240 (at risk) → the reply's amber badge.
+    // A second Date.now() 20 minutes later would read the resolution as breached (red).
+    const message = thread(230, { slaWaitStartedAt: ago(50), lastReplyFromClient: true });
+    vi.spyOn(Date, 'now')
+      .mockReturnValueOnce(NOW)
+      .mockReturnValue(NOW + 20 * MIN);
+    const { container } = render(<MessageSignalBadges message={message} />);
+    expect(container.querySelector('.text-warning')).toBeTruthy();
+    expect(container.querySelector('.text-destructive')).toBeNull();
+  });
+});
+
+describe('the header SLA record', () => {
+  it('re-reads the recorded seconds when only actualResponseSeconds changes', async () => {
+    const answered = {
+      ...baseMessage,
+      status: 'resolved',
+      slaResponseMinutes: 60,
+      slaWaitStartedAt: null,
+      slaResponseBreached: false,
+      createdAt: ago(300),
+      firstResponseAt: ago(280),
+      actualResponseSeconds: 18 * 60,
+    } as Message;
+    const { rerenderHeader } = renderHeader({ message: answered });
+    expect((await screen.findByTestId('sla-record')).textContent).toContain('met');
+    rerenderHeader({ message: { ...answered, actualResponseSeconds: 75 * 60 } as Message });
+    expect(screen.getByTestId('sla-record').textContent).toContain('missed');
   });
 });

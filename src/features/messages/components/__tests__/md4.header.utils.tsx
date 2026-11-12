@@ -128,9 +128,9 @@ const Where = () => {
 
 type HeaderProps = Partial<Parameters<typeof MessageDetailHeader>[0]>;
 
-const headerTree = (over: HeaderProps = {}) => (
+const headerTree = (client: QueryClient, over: HeaderProps = {}) => (
   <ThemeProvider>
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={['/threads/1']}>
         <Routes>
           <Route
@@ -156,10 +156,11 @@ const headerTree = (over: HeaderProps = {}) => (
 
 /** Renders the header; `rerenderHeader` re-renders the SAME tree with new props (state kept). */
 const renderHeader = (over: HeaderProps = {}) => {
-  const result = render(headerTree(over));
+  const client = new QueryClient();
+  const result = render(headerTree(client, over));
   return {
     ...result,
-    rerenderHeader: (next: HeaderProps = {}) => result.rerender(headerTree(next)),
+    rerenderHeader: (next: HeaderProps = {}) => result.rerender(headerTree(client, next)),
   };
 };
 

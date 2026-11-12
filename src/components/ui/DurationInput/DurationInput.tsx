@@ -46,6 +46,8 @@ export const DurationInput = ({
   };
   const initial = value === null ? null : split(value);
   const [invalid, setInvalid] = useState(false);
+  const invalidRef = useRef(false);
+  invalidRef.current = invalid;
   const [amountText, setAmountText] = useState(initial ? String(initial.amount) : '');
   const [unit, setUnit] = useState<DurationUnit>(initial?.unit ?? 'hour');
   // The value this control last emitted: a parent echoing it back must not re-split what was typed
@@ -60,6 +62,8 @@ export const DurationInput = ({
     const next = value === null ? null : split(value);
     setAmountText(next ? String(next.amount) : '');
     if (next) setUnit(next.unit);
+    // The parent's value replaces what was typed, so a red mark on the old text goes with it.
+    if (invalidRef.current) report(true);
   }, [value]);
 
   const report = (valid: boolean) => {
