@@ -9,6 +9,7 @@ import {
 import type { OpenTab } from '@/lib/openTabs';
 import { formatConvId, getConvUrlId } from '@/lib/messageHelpers';
 import { isOwnSendEcho } from '@/lib/ownSends';
+import { THREAD_MESSAGE_EVENT } from './useThreadMessageRefresh';
 import { readSeed, writeSeed } from '@/lib/seededState';
 import type { Message } from '@/types';
 
@@ -22,6 +23,10 @@ const threadKeyOf = (payload: unknown): string | null => {
 };
 
 const THREAD_NEWS: OpenTabNewsEvent[] = [
+  // A message saved on the thread: the customer's (any channel) or a bot reply. The one that
+  // matters most — `message:replied` is an agent's reply, and `conv:status_changed` fires only when
+  // the status moves, so a second customer message on a thread already waiting on us said nothing.
+  { event: THREAD_MESSAGE_EVENT, keyOf: threadKeyOf },
   { event: 'message:replied', keyOf: threadKeyOf },
   { event: 'conv:status_changed', keyOf: threadKeyOf },
   { event: 'conversation:updated', keyOf: threadKeyOf },
