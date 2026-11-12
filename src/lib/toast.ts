@@ -1,7 +1,11 @@
 import { toast as sonnerToast, type ExternalToast } from 'sonner';
 import { formatError } from './errorMessages';
 
-type ToastOptions = Pick<ExternalToast, 'description' | 'duration'>;
+/**
+ * `position` moves one toast off its usual corner — for a notice about something that sits in
+ * that corner (the open-tabs row's ▾ menu is top right, under the default stack).
+ */
+type ToastOptions = Pick<ExternalToast, 'description' | 'duration' | 'position'>;
 
 /**
  * Centralized toast wrapper. Pages/components import from `@/lib/toast`

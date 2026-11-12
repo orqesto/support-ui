@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { KeepTabOnInput, OpenTabsRow } from '@/components/shared/openTabs';
 import { MessagesSquare, RefreshCw, Send } from 'lucide-react';
 import { SearchReadingNotice } from '@/components/shared/SearchReadingNotice';
 import { NewItemsBar } from '@/components/shared/NewItemsBar';
-import { TicketDeleteDialog, TicketSyncAllDialog, TicketsViewToggle, useTicketsUrlSync, useSearchBoxText, useTicketsRealtime, TicketDetail, TicketFilterBar, TicketViewPills, buildTicketFilterKeys, viewFiltersOf, useTicketFilterSources, useTicketViews, TicketTable, TicketRowMenuItems, useTicketListPrefs, useTicketJiraActions, useNewTicketsBar, TicketPanel, useTicketKeys, NewTicketButton, TicketsKanbanView, type PaginationMeta, useTicketsStore, ticketApiFilters } from '@/features/tickets';
+import { TicketDeleteDialog, TicketSyncAllDialog, TicketsViewToggle, useTicketsUrlSync, useSearchBoxText, useTicketsRealtime, TicketDetail, TicketFilterBar, TicketViewPills, buildTicketFilterKeys, viewFiltersOf, useTicketFilterSources, useTicketViews, TicketTable, TicketRowMenuItems, useTicketListPrefs, useTicketJiraActions, useNewTicketsBar, TicketPanel, useTicketKeys, NewTicketButton, TicketsKanbanView, type PaginationMeta, useTicketsStore, ticketApiFilters, useTicketTabs } from '@/features/tickets';
 import { ticketService } from '@/features/tickets/shell';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -376,6 +377,21 @@ export const TicketsPage = () => {
   };
   const splitOn = layout === 'split' && splitAvailable && displayMode === 'list';
 
+  // Open tabs: on top of the open ticket (split pane or side sheet), above the list otherwise.
+  const ticketTabs = useTicketTabs({
+    shown: selectedTicket,
+    orgCode,
+    activate: (tab) =>
+      setSearchParams(
+        (params) => {
+          params.set('id', tab.urlId);
+          return params;
+        },
+        { replace: true }
+      ),
+    closeShown: closeTicket,
+  });
+
   useTicketKeys({
     open: !!selectedTicket,
     onNext: () => nextTicket && openTicket(nextTicket),
@@ -440,6 +456,14 @@ export const TicketsPage = () => {
         </TicketPanel>
       )}
     />
+  ) : null;
+  const ticketPanelWithTabs = ticketPanel ? (
+    <div className="flex flex-col h-full min-h-0">
+      <OpenTabsRow handle={ticketTabs} ariaLabel="Open tickets" />
+      <div className="flex-1 min-h-0">
+        <KeepTabOnInput handle={ticketTabs}>{ticketPanel}</KeepTabOnInput>
+      </div>
+    </div>
   ) : null;
 
   return (
@@ -547,6 +571,11 @@ export const TicketsPage = () => {
             />
           )}
 
+          {/* Tabs open and no ticket on screen: the row waits above the list. */}
+          {!selectedTicket && (
+            <OpenTabsRow handle={ticketTabs} ariaLabel="Open tickets" boxed />
+          )}
+
           {displayMode === 'kanban' ? (
             <TicketsKanbanView
               filters={filters}
@@ -612,7 +641,7 @@ export const TicketsPage = () => {
             aria-label="Open ticket"
             className="sticky top-4 self-start h-[calc(100vh-6rem)] overflow-hidden rounded-lg border border-border bg-card"
           >
-            {ticketPanel ?? (
+            {ticketPanelWithTabs ?? (
               <div className="grid place-content-center justify-items-center gap-2 h-full text-[13.5px] text-muted-foreground">
                 <MessagesSquare className="w-6 h-6" />
                 Select a ticket to read it here.
@@ -648,7 +677,7 @@ export const TicketsPage = () => {
           bodyClassName="p-0"
           header={null}
         >
-          {ticketPanel}
+          {ticketPanelWithTabs}
         </Drawer>
       )}
 

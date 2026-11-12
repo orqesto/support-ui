@@ -64,7 +64,9 @@ vi.mock('@/hooks/usePermissions', () => ({
 }));
 // The sidebar names the ticket's department from the cached list; no query client here.
 vi.mock('@/hooks/useDepartments', () => ({ useDepartmentById: () => undefined }));
-vi.mock('@/lib/logger', () => ({ logger: { error: () => {}, info: () => {} } }));
+// The open-tabs row's ticket label (a query in the app).
+vi.mock('@/hooks/useCurrentOrgCode', () => ({ useCurrentOrgCode: () => null }));
+vi.mock('@/lib/logger', () => ({ logger: { error: () => {}, info: () => {}, warn: () => {} } }));
 vi.mock('@/components/layout/Layout', () => ({
   Layout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));

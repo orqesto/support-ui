@@ -2,6 +2,11 @@
    every derived value; splitting them would duplicate the derivations, which is how two list
    rows end up disagreeing about the same thread. */
 import { memo, useState } from 'react';
+import {
+  keepOpenTabOnDoubleClick,
+  noteOpenTabClick,
+  openInNewTabOnMiddleClick,
+} from '@/components/shared/openTabs';
 import { Checkbox } from '@/components/ui/Checkbox';
 import {
   BookOpen,
@@ -240,6 +245,8 @@ const MessageListItemRow = ({
     if (isFromPortal(event)) return;
     const sel = window.getSelection?.();
     if (sel && sel.toString().length > 0) return;
+    // Ctrl/⌘-click opens the thread in a new tab (the open-tabs row).
+    noteOpenTabClick('threads', event);
     onOpen(thread);
   };
 
@@ -573,6 +580,15 @@ const MessageListItemRow = ({
     role: 'button' as const,
     tabIndex: 0,
     onClick: handleCardClick,
+    // A middle click opens it in a new tab; a double-click keeps the tab it opened.
+    onAuxClick: (event: React.MouseEvent) => {
+      if (isFromPortal(event)) return;
+      openInNewTabOnMiddleClick('threads', event, () => onOpen(thread));
+    },
+    onDoubleClick: (event: React.MouseEvent) => {
+      if (isFromPortal(event)) return;
+      keepOpenTabOnDoubleClick('threads');
+    },
     onKeyDown: handleKeyDown,
     'aria-current': current ? ('true' as const) : undefined,
     'aria-busy': pending ? true : undefined,

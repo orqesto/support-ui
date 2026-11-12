@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import { writeTabWorkspace } from '@/lib/tabWorkspace';
 import { forgetRememberedSearches } from '@/lib/searchMemory';
 import { clearAllUnsentDrafts } from '@/lib/unsentDrafts';
+import { forgetAllOpenTabs } from '@/lib/openTabsStorage';
 import { logoutClearsProcessingPanels } from '@/stores/processingPanelStore';
 import { SOCKET_RECONNECTED_EVENT } from '@/lib/socketEvents';
 
@@ -88,6 +89,7 @@ export const endSessionAndRedirect = () => {
   // remembered searches and the processing panels' closed runs/problems (round-6 review).
   forgetRememberedSearches();
   clearAllUnsentDrafts();
+  forgetAllOpenTabs();
   logoutClearsProcessingPanels();
   writeTabWorkspace(null);
   window.location.href = loginPathFor(window.location);
