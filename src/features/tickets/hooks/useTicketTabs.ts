@@ -28,12 +28,15 @@ export const useTicketTabs = ({
   activate,
   closeShown,
   keyboard,
+  preview,
 }: {
   shown: Ticket | null;
   orgCode: string | null | undefined;
   activate: (tab: OpenTab) => void;
   closeShown: () => void;
   keyboard?: boolean;
+  /** The list is live beside the ticket (split view): plain clicks open preview tabs. */
+  preview?: boolean;
 }) => {
   const target = useMemo(
     () =>
@@ -56,5 +59,6 @@ export const useTicketTabs = ({
     noun: 'ticket',
     newsEvents: TICKET_NEWS,
     keyboard,
+    preview,
   });
 };

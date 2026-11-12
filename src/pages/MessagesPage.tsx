@@ -499,7 +499,7 @@ export const MessagesPage = () => {
 
   const { threadTabs, withTabs } = useThreadsPageTabs({
     selectedMessage,
-    isPhone,
+    opensIn: isPhone ? 'page' : split ? 'split' : 'over',
     orgCode,
     selectedThreadIdRef,
     selectedThreadMessageIdRef,

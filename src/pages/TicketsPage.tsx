@@ -380,6 +380,7 @@ export const TicketsPage = () => {
   // Open tabs: on top of the open ticket (split pane or side sheet), above the list otherwise.
   const ticketTabs = useTicketTabs({
     shown: selectedTicket,
+    preview: splitOn,
     orgCode,
     activate: (tab) =>
       setSearchParams(
