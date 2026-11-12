@@ -4,7 +4,7 @@
  * before, with no crash.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { ThreadResolutionByPriorityTable } from '../ThreadResolutionByPriorityTable';
@@ -92,6 +92,40 @@ describe('SLA Performance: thread resolution', () => {
     expect(dataTableRenders).toHaveBeenCalled();
     expect(screen.getByRole('columnheader', { name: 'Avg resolution' })).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: '3h' })).toBeInTheDocument();
+  });
+
+  it('sorts the priority rows by Cycles from the header', async () => {
+    get.mockResolvedValue({
+      data: stats(
+        {
+          resolution: {
+            ...totals(),
+            byPriority: {
+              critical: totals({ total: 9 }),
+              high: totals({ total: 2 }),
+              low: totals({ total: 5 }),
+            },
+          },
+        },
+        {}
+      ),
+    });
+    renderWith(<ThreadResolutionByPriorityTable days={30} />);
+    expect(await screen.findByText('Thread resolution')).toBeInTheDocument();
+    const firstCells = () =>
+      screen
+        .getAllByRole('row')
+        .slice(1)
+        .map((row) => row.querySelector('td')?.textContent);
+    expect(firstCells()).toEqual(['Critical', 'High', 'Low']);
+    fireEvent.click(screen.getByRole('button', { name: /Cycles/ }));
+    expect(firstCells()).toEqual(['High', 'Low', 'Critical']);
+    expect(screen.getByRole('columnheader', { name: /Cycles/ })).toHaveAttribute(
+      'aria-sort',
+      'ascending'
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Cycles/ }));
+    expect(firstCells()).toEqual(['Critical', 'Low', 'High']);
   });
 
   it('an older backend without messages.resolution renders nothing and does not crash', async () => {

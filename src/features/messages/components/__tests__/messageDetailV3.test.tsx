@@ -667,3 +667,40 @@ describe('routing hint: no "+ rule" (spec 2026-10-14 §4.1)', () => {
     invalidate.mockRestore();
   });
 });
+
+/**
+ * A thread parked by a FOLLOW-UP mail carries its suspicious verdict on that mail's event only:
+ * the conversation's own category still says legitimate. The backend says so in `isSuspicious`
+ * (the Suspicious queue's own predicate); the detail must offer the same Approve it offers a
+ * conversation-level suspicious thread, not just "Mark as suspicious".
+ */
+describe('a thread in the Suspicious queue by its follow-up mail', () => {
+  const legitimateSnapshot = { spamCheck: { category: 'legitimate', isSpam: false } };
+
+  it('offers Not Spam — Approve, and pressing it classifies approve', async () => {
+    const onClassify = vi.fn().mockResolvedValue(undefined);
+    renderDetail(
+      { ...activeThread, isSuspicious: true, metadata: legitimateSnapshot } as Partial<Message>,
+      { onClassify }
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Not Spam — Approve/ }));
+    await waitFor(() => expect(onClassify).toHaveBeenCalledTimes(1));
+    expect(onClassify.mock.calls[0][0]).toBe('approve');
+  });
+
+  it('CONTROL: a clean thread (isSuspicious false) offers no Approve', () => {
+    renderDetail(
+      { ...activeThread, isSuspicious: false, metadata: legitimateSnapshot } as Partial<Message>,
+      { onClassify: vi.fn().mockResolvedValue(undefined) }
+    );
+    expect(screen.queryByRole('button', { name: /Not Spam — Approve/ })).toBeNull();
+  });
+
+  it('an older backend without the flag still reads the conversation category', () => {
+    renderDetail(
+      { ...activeThread, metadata: { spamCheck: { category: 'suspicious', isSpam: false } } },
+      { onClassify: vi.fn().mockResolvedValue(undefined) }
+    );
+    expect(screen.getByRole('button', { name: /Not Spam — Approve/ })).toBeTruthy();
+  });
+});
