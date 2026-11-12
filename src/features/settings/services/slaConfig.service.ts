@@ -65,6 +65,23 @@ export const getSlaConfig = async (): Promise<SlaConfig> => {
   return normaliseSlaConfig((result.data as { data?: unknown } | undefined)?.data);
 };
 
+const sameValues = (row: SlaTargetRow, other: SlaTargetRow): boolean =>
+  row.firstResponseMinutes === other.firstResponseMinutes &&
+  row.resolutionMinutes === other.resolutionMinutes;
+
+/**
+ * The rows to save: only those whose values differ from what was loaded (or last saved). The
+ * backend upserts every row it is sent and marks it custom, so sending an untouched default would
+ * pin it as an override and later product defaults would never reach this workspace. An unchanged
+ * custom row is not sent either: the PUT is an upsert (nothing absent is removed), so the stored row
+ * stays as it is, and re-sending this tab's copy could overwrite another admin's newer edit.
+ */
+export const changedSlaRows = (rows: SlaTargetRow[], baseline: SlaTargetRow[]): SlaTargetRow[] =>
+  rows.filter((row) => {
+    const before = baseline.find((entry) => entry.type === row.type && entry.key === row.key);
+    return !before || !sameValues(row, before);
+  });
+
 export const saveSlaConfig = async (
   rows: SlaTargetRow[],
   caps: { supportsThreadPriority: boolean }
@@ -83,5 +100,7 @@ export const saveSlaConfig = async (
           ? null
           : Math.ceil(row.resolutionMinutes / 60),
     }));
+  // The backend refuses an empty list; nothing to send is nothing to save.
+  if (configs.length === 0) return;
   await apiClient.put('/api/organizations/sla-config', { configs });
 };
