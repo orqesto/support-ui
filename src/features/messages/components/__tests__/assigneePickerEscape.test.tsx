@@ -11,6 +11,9 @@ import type { MessageThread } from '@/services/message.service';
  *
  *   Claim → focus lands in the assignee box → ArrowDown opens the list → Escape closes only the
  *   list → Escape closes the picker, focus back on Claim — and the page's own Escape never fires.
+ *
+ * Plus the focus timing: it lands only once the list has loaded (a disabled box takes no focus),
+ * and never on a touch-first screen, where it would just pop the on-screen keyboard.
  */
 
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
@@ -149,5 +152,77 @@ describe.each(surfaces)('%s — assignee picker by keyboard', (_name, ui) => {
     await openFromClaim();
     fireEvent.keyDown(box(), { key: 'a' });
     expect(picker()).not.toBeNull();
+  });
+});
+
+/** A list that arrives only when the test says so. */
+const lateList = () => {
+  let release: () => void = () => undefined;
+  assignment.getAssignableUsers.mockReturnValue(
+    new Promise((resolve) => {
+      release = () =>
+        resolve([
+          {
+            id: 9,
+            firstName: 'Dana',
+            lastName: 'Lee',
+            email: 'dana@northwind.example',
+            role: 'agent',
+          },
+        ]);
+    })
+  );
+  return () =>
+    act(async () => {
+      release();
+      await Promise.resolve(); // let the list's promise settle inside act
+    });
+};
+
+const stubPointer = (coarse: boolean) =>
+  vi.stubGlobal(
+    'matchMedia',
+    (query: string) =>
+      ({
+        matches: coarse && query === '(pointer: coarse)',
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      }) as unknown as MediaQueryList
+  );
+
+describe.each(surfaces)('%s — when the focus moves into the picker', (_name, ui) => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('waits for a slow list, then focuses the box', async () => {
+    const release = lateList();
+    render(<MemoryRouter>{ui()}</MemoryRouter>);
+    const claim = screen.getByRole('button', { name: /Claim/ });
+    claim.focus();
+    fireEvent.click(claim);
+    expect(picker()).not.toBeNull();
+    expect(document.activeElement).toBe(claim); // the box is still disabled — nothing to focus
+
+    await release();
+    await waitFor(() => expect(document.activeElement).toBe(box()));
+  });
+
+  it('touch-first screen: the box is NOT focused (no on-screen keyboard over the list)', async () => {
+    stubPointer(true);
+    const release = lateList();
+    render(<MemoryRouter>{ui()}</MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: /Claim/ }));
+    await release();
+    await waitFor(() => box()); // enabled again: the list has loaded
+    expect(document.activeElement).not.toBe(box());
+  });
+
+  it('CONTROL: fine pointer, same steps — the box IS focused', async () => {
+    stubPointer(false);
+    const release = lateList();
+    render(<MemoryRouter>{ui()}</MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: /Claim/ }));
+    await release();
+    await waitFor(() => expect(document.activeElement).toBe(box()));
   });
 });

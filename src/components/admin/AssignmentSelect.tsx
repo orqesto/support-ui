@@ -37,8 +37,10 @@ type AssignmentSelectProps = {
   /**
    * Put the focus in the assignee box once the list has loaded — for a picker opened from a
    * button (a row's Claim), where a keyboard user otherwise stays on the button and cannot Tab
-   * into the picker (it is portaled to the end of the page). Waits for the load: the box is
-   * disabled until then and a disabled box takes no focus.
+   * into the picker (it is portaled to the end of the page). Waits for the first load (the box
+   * is disabled until then and a disabled box takes no focus), and focuses once — a later refetch
+   * does not pull the focus back. Skipped on touch-first screens (`pointer: coarse`): there the
+   * focus would only pop the on-screen keyboard over the list.
    */
   autoFocus?: boolean;
 };
@@ -57,11 +59,16 @@ export const AssignmentSelect = ({
   autoFocus = false,
 }: AssignmentSelectProps) => {
   const [users, setUsers] = useState<AssignableUser[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Starts true: the list is fetched on mount, so the box is disabled until the first load ends.
+  const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  const autoFocused = useRef(false);
   useEffect(() => {
-    if (autoFocus && !loading) boxRef.current?.querySelector<HTMLInputElement>('input')?.focus();
+    if (!autoFocus || loading || autoFocused.current) return;
+    autoFocused.current = true;
+    if (window.matchMedia?.('(pointer: coarse)').matches) return;
+    boxRef.current?.querySelector<HTMLInputElement>('input')?.focus();
   }, [autoFocus, loading]);
 
   const fetchUsers = useCallback(async () => {
