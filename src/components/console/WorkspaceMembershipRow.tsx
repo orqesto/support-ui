@@ -29,6 +29,12 @@ type Props = {
    * open. Both controls are now disabled here and say why.
    */
   idpManaged: boolean;
+  /**
+   * The workspace's own database could not be read, so `currentDepartmentIds` is empty for that
+   * reason alone. Every toggle saves the FULL set: one save from this row would replace the
+   * member's real teams with the one toggled. The editor is off and says why.
+   */
+  teamsUnavailable?: boolean;
   /** Invalidate the platform-users + user-orgs caches after a mutation so the list refreshes. */
   onChanged: () => void;
 };
@@ -52,6 +58,7 @@ export const WorkspaceMembershipRow = ({
   userId,
   userEmail,
   idpManaged,
+  teamsUnavailable = false,
   onChanged,
 }: Props) => {
   const [role, setRole] = useState<string>(currentRole);
@@ -69,7 +76,7 @@ export const WorkspaceMembershipRow = ({
   const [savingDeptId, setSavingDeptId] = useState<number | null>(null);
   const [removeOpen, setRemoveOpen] = useState(false);
 
-  const deptQuery = useWorkspaceDepartments(orgId, deptOpen);
+  const deptQuery = useWorkspaceDepartments(orgId, deptOpen && !teamsUnavailable);
 
   const handleRoleChange = async (nextRole: string) => {
     const previous = role;
@@ -172,7 +179,12 @@ export const WorkspaceMembershipRow = ({
         </Button>
         {deptOpen && (
           <div className="pt-2">
-            {deptQuery.isLoading ? (
+            {teamsUnavailable ? (
+              <p className="text-sm text-muted-foreground">
+                This workspace&apos;s own database can&apos;t be read right now, so its teams
+                can&apos;t be shown or changed here. Try again once it is back.
+              </p>
+            ) : deptQuery.isLoading ? (
               <div className="flex justify-center py-3">
                 <Spinner />
               </div>
