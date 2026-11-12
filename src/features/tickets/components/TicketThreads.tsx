@@ -28,6 +28,7 @@ import {
   type ThreadCandidate,
 } from '@/features/tickets/services/threadCandidates.service';
 import { TicketReplyComposer, useTicketReplies } from './TicketReplyComposer';
+import { useSeededState } from '@/lib/seededState';
 
 /**
  * The threads a ticket covers — every customer who reported this incident (owner, 2026-09-30).
@@ -89,12 +90,21 @@ export const TicketThreads = ({
   const [confirmResolve, setConfirmResolve] = useState(false);
   const [undoable, setUndoable] = useState<Undoable | null>(null);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
-  const [threads, setThreads] = useState<TicketThread[]>([]);
-  const [hiddenCount, setHiddenCount] = useState(0);
+  // From the last read of this ticket (seededState): a tab switch draws the threads at once and
+  // the first load refreshes them quietly. Another ticket starts from its own.
+  const [threads, setThreads, threadsSeeded] = useSeededState<TicketThread[]>(
+    ['ticket', ticketId, 'threads'],
+    []
+  );
+  const [hiddenCount, setHiddenCount] = useSeededState(['ticket', ticketId, 'hidden-threads'], 0);
+  const threadsShownFor = useRef<number | null>(threadsSeeded ? ticketId : null);
   useEffect(() => {
     onThreadsChange?.(threads);
   }, [threads, onThreadsChange]);
-  const [state, setState] = useState<'loading' | 'ready' | 'failed' | 'unavailable'>('loading');
+  const [state, setState] = useSeededState<'loading' | 'ready' | 'failed' | 'unavailable'>(
+    ['ticket', ticketId, 'threads-state'],
+    'loading'
+  );
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [candidates, setCandidates] = useState<ThreadCandidate[] | null>(null);
@@ -140,6 +150,7 @@ export const TicketThreads = ({
         setHiddenCount(result.hiddenCount);
         onCountChange?.(result.rows.length);
         setState('ready');
+        threadsShownFor.current = ticketId;
       } catch (err) {
         if (seq !== loadSeq.current) return;
         // ⛔ A failed READ is not "no threads" — that would say nobody reported this.
@@ -150,7 +161,7 @@ export const TicketThreads = ({
         else setState('failed');
       }
     },
-    [ticketId, onCountChange]
+    [ticketId, onCountChange, setThreads, setHiddenCount, setState]
   );
 
   /*
@@ -172,12 +183,11 @@ export const TicketThreads = ({
     searchSeq.current += 1; // any search already in flight may no longer write
   };
 
-  // A different ticket: nothing of the previous one may show while this one loads.
+  // A different ticket: nothing of the previous one may show while this one loads (its list and
+  // count start from its own last read — useSeededState re-keys them).
   useEffect(() => {
     setSelected(new Set());
     selectionTouched.current = false;
-    setThreads([]);
-    setHiddenCount(0);
     setError(null);
     setUndoable(null);
     setStatusNotice(null);
@@ -188,9 +198,10 @@ export const TicketThreads = ({
     setQuery('');
   }, [ticketId]);
 
+  // Quiet when this ticket's list is on screen already (from its last read).
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load(threadsShownFor.current === ticketId);
+  }, [load, ticketId]);
 
   // A hold reason cleared on this page (the rows say "On hold: <reason>"): re-read quietly.
   const seenRefreshKey = useRef(refreshKey);
@@ -571,8 +582,7 @@ export const TicketThreads = ({
                       >
                         <Badge variant="pending" size="sm">
                           on hold
-                          {row.parkedUntil &&
-                            ` until ${formatDay(row.parkedUntil)}`}
+                          {row.parkedUntil && ` until ${formatDay(row.parkedUntil)}`}
                         </Badge>
                       </Tooltip>
                     )}
@@ -650,8 +660,7 @@ export const TicketThreads = ({
           })}
           {hiddenCount > 0 && (
             <li className="py-[9px] px-3.5 text-xs border-t border-border/60 text-muted-foreground">
-              + {hiddenCount} {hiddenCount === 1 ? 'thread' : 'threads'} in teams you cannot
-              open.
+              + {hiddenCount} {hiddenCount === 1 ? 'thread' : 'threads'} in teams you cannot open.
             </li>
           )}
         </ul>

@@ -9,6 +9,7 @@ import {
   type LeadQualificationFieldConfig,
 } from '@/services/organization.service';
 import { apiClient } from '@/lib/api-client';
+import { useSeededState } from '@/lib/seededState';
 import type { Message } from '@/types';
 import { useConversationNotesRefresh } from '@/features/messages/hooks/useConversationNotesRefresh';
 import type { Attachment } from '../MessageAttachments';
@@ -34,18 +35,25 @@ export function useThreadPanelsData({
   activityBump: number;
   attachmentsBump: number;
 }) {
-  const [notes, setNotes] = useState<MessageNote[]>([]);
-  const [messageActivity, setMessageActivity] = useState<MessageActivityEntry[]>([]);
+  // Each starts from the last read of this thread (seededState): a tab switch draws them at once.
+  const [notes, setNotes] = useSeededState<MessageNote[]>(['thread', message.id, 'notes'], []);
+  const [messageActivity, setMessageActivity] = useSeededState<MessageActivityEntry[]>(
+    ['thread', message.id, 'activity'],
+    []
+  );
   const [noteActivityLog, setNoteActivityLog] = useState<
     { label: string; who: string; time: string }[]
   >([]);
-  const [attachmentsByMessageId, setAttachmentsByMessageId] = useState<Map<number, Attachment[]>>(
-    new Map()
-  );
+  const [attachmentsByMessageId, setAttachmentsByMessageId] = useSeededState<
+    Map<number, Attachment[]>
+  >(['thread', message.id, 'attachments'], () => new Map());
   // Lead state — derived from this message + thread. Guarded against a slow answer for the
   // previously opened customer landing here (see useLeadState).
   const [leadState, setLeadState] = useLeadState(message);
-  const [leadFieldDefs, setLeadFieldDefs] = useState<LeadQualificationFieldConfig[]>([]);
+  const [leadFieldDefs, setLeadFieldDefs] = useSeededState<LeadQualificationFieldConfig[]>(
+    ['workspace', 'lead-config', 'fields'],
+    []
+  );
 
   // Fetch notes alongside thread refreshes
   useEffect(() => {
@@ -59,7 +67,7 @@ export function useThreadPanelsData({
     return () => {
       cancelled = true;
     };
-  }, [message.id, threadRefreshKey, panelsBump, notesBump]);
+  }, [message.id, threadRefreshKey, panelsBump, notesBump, setNotes]);
 
   // A colleague added, edited or deleted a note on this thread: re-read the notes. The echo of a
   // note already on screen (our own add, which re-read them itself) is skipped.
@@ -86,7 +94,7 @@ export function useThreadPanelsData({
     return () => {
       cancelled = true;
     };
-  }, [message.id, threadRefreshKey, panelsBump, activityBump]);
+  }, [message.id, threadRefreshKey, panelsBump, activityBump, setMessageActivity]);
 
   // Fetch attachments for the whole thread (used by the Files tab + thread item attachment chips)
   useEffect(() => {
@@ -112,7 +120,7 @@ export function useThreadPanelsData({
     return () => {
       cancelled = true;
     };
-  }, [message.id, threadRefreshKey, attachmentsBump]);
+  }, [message.id, threadRefreshKey, attachmentsBump, setAttachmentsByMessageId]);
 
   // Lead config — fetched once
   useEffect(() => {
@@ -122,7 +130,7 @@ export function useThreadPanelsData({
         if (cfg.qualificationFields?.length) setLeadFieldDefs(cfg.qualificationFields);
       })
       .catch(() => {});
-  }, []);
+  }, [setLeadFieldDefs]);
   return {
     notes,
     setNotes,

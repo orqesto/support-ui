@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { formatTotal } from '@/lib/listTotals';
@@ -21,6 +22,8 @@ type KanbanBoardToolbarProps = {
   hiddenCols: Set<string>;
   toggleCol: (id: string) => void;
   colStates: Record<string, ColumnState>;
+  /** At the row's right end: the List | Split switch. */
+  trailing?: ReactNode;
 };
 
 /** The board's top row: the Board | Triage tabs, the scope notice, and the Show chips. Extracted unchanged from `MessagesKanbanView`. */
@@ -37,6 +40,7 @@ export const KanbanBoardToolbar = ({
   hiddenCols,
   toggleCol,
   colStates,
+  trailing,
 }: KanbanBoardToolbarProps) => (
   <div className="flex gap-2 justify-between items-center min-w-0">
     <div className="flex gap-1 items-center flex-1 min-w-0">
@@ -146,5 +150,6 @@ export const KanbanBoardToolbar = ({
         })}
       </div>
     )}
+    {trailing}
   </div>
 );

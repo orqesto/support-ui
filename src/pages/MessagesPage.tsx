@@ -41,6 +41,7 @@ import {
   usePresenceSummary,
   detailPanelProps,
   type MessagesPageAlert,
+  CLOSED_MESSAGES_PAGE_ALERT,
   useThreadsPageTabs,
 } from '@/features/messages';
 import { NewItemsBar } from '@/components/shared/NewItemsBar';
@@ -182,12 +183,13 @@ export const MessagesPage = () => {
 
   /**
    * Messages list v2: row density and the reading layout. Split puts the open thread beside
-   * the list instead of over it — desktop widths only (lg+), list view only: the board needs
-   * the width for its lanes, and a phone opens every thread as a page.
+   * the list instead of over it — desktop widths only (lg+); the list and the board (which
+   * then stacks its lanes when the half it keeps is too narrow for columns). A phone opens
+   * every thread as a page.
    */
   const { density, setDensity, layout, setLayout } = useListPresentation();
   const wideEnoughToSplit = useSafeMediaQuery('(min-width: 1024px)');
-  const split = layout === 'split' && wideEnoughToSplit && !isPhone && displayMode === 'threads';
+  const split = layout === 'split' && wideEnoughToSplit && !isPhone && displayMode !== 'contacts';
 
   // Lock body scroll while the detail panel is open. Not in
   // split: there the detail is a pane beside the list and both scroll on their own.
@@ -208,12 +210,7 @@ export const MessagesPage = () => {
     totalPages: 1,
     hasMore: false,
   });
-  const [alertDialog, setAlertDialog] = useState<MessagesPageAlert>({
-    open: false,
-    title: '',
-    description: '',
-    variant: 'info',
-  });
+  const [alertDialog, setAlertDialog] = useState<MessagesPageAlert>(CLOSED_MESSAGES_PAGE_ALERT);
 
   // Teams off: a saved/URL Team filter is reset, so it neither narrows nor counts.
   useDropTeamFilterWhenTeamsOff();
@@ -502,7 +499,8 @@ export const MessagesPage = () => {
 
   const { threadTabs, withTabs } = useThreadsPageTabs({
     selectedMessage,
-    isPhone,
+    setSelectedMessage,
+    opensIn: isPhone ? 'page' : split ? 'split' : 'over',
     orgCode,
     selectedThreadIdRef,
     selectedThreadMessageIdRef,
@@ -538,17 +536,16 @@ export const MessagesPage = () => {
     <>
       <div className="flex overflow-hidden flex-1 min-h-0">
         {/* ── List panel ─────────────────────────────────── */}
-        {/* Kanban fills the viewport from xl up (no page scroll; the lanes scroll
-            internally); list view, mobile and every width below xl keep the normal panel
-            scroll.
-            ⛔ xl, not lg — it MUST match the breakpoint where MessagesKanbanView puts the
-            lanes side by side (`xl:flex-row`). Between lg and xl the lanes STACK, and with
-            this box already overflow-hidden the stack was clipped: on a 1276px window
-            "Pending" started at 860px in an 806px viewport and nothing could scroll to it. */}
+        {/* The board is a flex column here, always: whether it fills the height (lanes side by
+            side, each scrolling) or runs down the page (lanes stacked) is its own call, by
+            the width it has (kanbanBoard/boardLayout.ts) — beside a split thread too. It
+            used to be the window's xl, and the two had to match: with this box
+            overflow-hidden below the board's breakpoint the stack was clipped. Now this box
+            always scrolls, and fills only when the board does. */}
         {/* Pointing at or focusing anything in the list fetches the thread view ahead. */}
         <div
           className={`flex-1 min-w-0 ${
-            isKanban ? 'overflow-y-auto xl:overflow-hidden xl:flex xl:flex-col' : 'overflow-y-auto'
+            isKanban ? 'overflow-y-auto flex flex-col' : 'overflow-y-auto'
           }`}
           onMouseOver={prefetchMessageDetail}
           onFocus={prefetchMessageDetail}
@@ -559,7 +556,7 @@ export const MessagesPage = () => {
             className={`px-3 sm:px-[18px] pt-3.5 mx-auto space-y-2.5 w-full ${
               // Full page width (app-wide convention — every page is full width now;
               // the kanban also needs the flex-column chain for its bounded height).
-              isKanban ? 'xl:flex xl:flex-col xl:flex-1 xl:min-h-0' : ''
+              isKanban ? 'flex flex-col flex-1 min-h-0' : ''
             }`}
           >
             {/* Header (Messages list v2): the title, then WHICH view and how much of it —
@@ -650,6 +647,9 @@ export const MessagesPage = () => {
                   selectMode={selectMode}
                   onSelectMany={bulkSelection.selectMany}
                   onDeselectMany={bulkSelection.deselectMany}
+                  layout={layout}
+                  onLayoutChange={setLayout}
+                  canSplit={wideEnoughToSplit && !isPhone}
                 />
               </Suspense>
             ) : displayMode === 'contacts' ? (
@@ -750,8 +750,10 @@ export const MessagesPage = () => {
 
         {/* ── Split pane (Messages list v2) ─────────────────────────────
             The thread beside the list: no backdrop, no body lock, the list stays live, and
-            J/K walk it from the pane. An empty pane says what it is for. */}
-        {split && <SplitDetailPane detail={withTabs(detail)} />}
+            J/K walk it from the pane. An empty pane says what it is for — beside the list; the
+            board keeps the whole width until a card is opened (an empty pane would only make
+            it stack its lanes). */}
+        {split && (selectedMessage ?? !isKanban) && <SplitDetailPane detail={withTabs(detail)} />}
 
         {/* ── Modal overlay ─────────────────────────────────────────── */}
         {selectedMessage && !isPhone && !split && (

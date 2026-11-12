@@ -172,7 +172,7 @@ export function TicketKanbanCard({
         onOpen(ticket);
       }}
       onAuxClick={(event) => openInNewTabOnMiddleClick('tickets', event, () => onOpen(ticket))}
-      onDoubleClick={() => keepOpenTabOnDoubleClick('tickets')}
+      onDoubleClick={() => keepOpenTabOnDoubleClick('tickets', String(ticket.id))}
       onKeyDown={(event) => {
         if (event.key === 'Enter' && event.target === event.currentTarget) onOpen(ticket);
       }}

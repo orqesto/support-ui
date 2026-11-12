@@ -3,7 +3,34 @@ import { KeepTabOnInput, OpenTabsRow } from '@/components/shared/openTabs';
 import { MessagesSquare, RefreshCw, Send } from 'lucide-react';
 import { SearchReadingNotice } from '@/components/shared/SearchReadingNotice';
 import { NewItemsBar } from '@/components/shared/NewItemsBar';
-import { TicketDeleteDialog, TicketSyncAllDialog, TicketsViewToggle, useTicketsUrlSync, useSearchBoxText, useTicketsRealtime, TicketDetail, TicketFilterBar, TicketViewPills, buildTicketFilterKeys, viewFiltersOf, useTicketFilterSources, useTicketViews, TicketTable, TicketRowMenuItems, useTicketListPrefs, useTicketJiraActions, useNewTicketsBar, TicketPanel, useTicketKeys, NewTicketButton, TicketsKanbanView, type PaginationMeta, useTicketsStore, ticketApiFilters, useTicketTabs } from '@/features/tickets';
+import {
+  TicketDeleteDialog,
+  TicketSyncAllDialog,
+  TicketsViewToggle,
+  useTicketsUrlSync,
+  useSearchBoxText,
+  useTicketsRealtime,
+  TicketDetail,
+  TicketFilterBar,
+  TicketViewPills,
+  buildTicketFilterKeys,
+  viewFiltersOf,
+  useTicketFilterSources,
+  useTicketViews,
+  TicketTable,
+  TicketRowMenuItems,
+  useTicketListPrefs,
+  useTicketJiraActions,
+  useNewTicketsBar,
+  TicketPanel,
+  useTicketKeys,
+  NewTicketButton,
+  TicketsKanbanView,
+  type PaginationMeta,
+  useTicketsStore,
+  ticketApiFilters,
+  useTicketTabs,
+} from '@/features/tickets';
 import { ticketService } from '@/features/tickets/shell';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -380,6 +407,8 @@ export const TicketsPage = () => {
   // Open tabs: on top of the open ticket (split pane or side sheet), above the list otherwise.
   const ticketTabs = useTicketTabs({
     shown: selectedTicket,
+    restore: setSelectedTicket,
+    preview: splitOn,
     orgCode,
     activate: (tab) =>
       setSearchParams(
@@ -572,9 +601,7 @@ export const TicketsPage = () => {
           )}
 
           {/* Tabs open and no ticket on screen: the row waits above the list. */}
-          {!selectedTicket && (
-            <OpenTabsRow handle={ticketTabs} ariaLabel="Open tickets" boxed />
-          )}
+          {!selectedTicket && <OpenTabsRow handle={ticketTabs} ariaLabel="Open tickets" boxed />}
 
           {displayMode === 'kanban' ? (
             <TicketsKanbanView

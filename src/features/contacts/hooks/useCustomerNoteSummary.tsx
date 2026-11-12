@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useSeededState } from '@/lib/seededState';
 import {
   CONTACT_NOTES_CHANGED,
   ContactNotesIndicator,
@@ -19,13 +20,17 @@ export function useCustomerNoteSummary(
   email: string,
   profileNotes: ContactNote[] | undefined
 ): NoteSummary {
-  const [fetched, setFetched] = useState<NoteSummary>({ count: 0, latest: null });
+  // From the last read for this address (seededState): no icon flicker on a tab switch. Another
+  // address starts from its own.
+  const [fetched, setFetched] = useSeededState<NoteSummary>(['contact', email, 'note-summary'], {
+    count: 0,
+    latest: null,
+  });
 
   useEffect(() => {
     let current = true;
     // Two quick changes refetch twice; only the latest request may land.
     let latestRequest = 0;
-    setFetched({ count: 0, latest: null });
     if (!email) return;
     const load = () => {
       const request = ++latestRequest;
@@ -43,7 +48,7 @@ export function useCustomerNoteSummary(
       current = false;
       window.removeEventListener(CONTACT_NOTES_CHANGED, load);
     };
-  }, [email]);
+  }, [email, setFetched]);
 
   if (profileNotes) return { count: profileNotes.length, latest: profileNotes[0] ?? null };
   return fetched;

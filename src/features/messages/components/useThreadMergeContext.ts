@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { getConvUrlId } from '@/lib/messageHelpers';
-import { conversationMergeService, type ManualMerge } from '@/features/messages/services/conversationMerge.service';
+import { useSeededState } from '@/lib/seededState';
+import {
+  conversationMergeService,
+  type ManualMerge,
+} from '@/features/messages/services/conversationMerge.service';
 import type { MessageEvent } from '@/types';
 
 /** The ticket a message was merged in from — the LAST entry of its trail (a stack; see BE). */
@@ -65,11 +69,18 @@ export const useThreadMergeContext = (
   participantsRefreshKey = 0
 ) => {
   const orgCode = useCurrentOrgCode();
-  const [merges, setMerges] = useState<ManualMerge[] | null>(null);
-  const [participants, setParticipants] = useState<string[]>([]);
+  // From the last read of this thread (seededState): a tab switch draws the chips at once. Another
+  // thread starts from its own last read, or from "not read yet".
+  const [merges, setMerges] = useSeededState<ManualMerge[] | null>(
+    ['thread', conversationId, 'merges'],
+    null
+  );
+  const [participants, setParticipants] = useSeededState<string[]>(
+    ['thread', conversationId, 'participants'],
+    []
+  );
   // Reads can overlap (a refresh, a reload after an unmerge): only the latest may write.
   const mergesSeq = useRef(0);
-  const shownFor = useRef<number | null>(null);
 
   const reloadMerges = useCallback(() => {
     const seq = ++mergesSeq.current;
@@ -79,20 +90,19 @@ export const useThreadMergeContext = (
       // null, and then nothing merge-related is offered.
       if (seq === mergesSeq.current) setMerges((prev) => rows ?? prev);
     });
-  }, [conversationId]);
+  }, [conversationId, setMerges]);
 
   /** Apply a confirmed merge/unmerge now; a read already in flight (from before it) is disowned. */
-  const applyMergeChange = useCallback((change: MergeChange) => {
-    mergesSeq.current += 1;
-    setMerges((prev) => withMergeChange(prev, change));
-  }, []);
+  const applyMergeChange = useCallback(
+    (change: MergeChange) => {
+      mergesSeq.current += 1;
+      setMerges((prev) => withMergeChange(prev, change));
+    },
+    [setMerges]
+  );
 
   useEffect(() => {
-    // Another thread starts from "not read yet"; a refresh of this one keeps what is shown.
-    if (shownFor.current !== conversationId) {
-      shownFor.current = conversationId;
-      setMerges(null);
-    }
+    // Another thread starts from its own state (useSeededState re-keys); a refresh keeps it.
     reloadMerges();
     return () => {
       mergesSeq.current += 1;
@@ -111,7 +121,7 @@ export const useThreadMergeContext = (
     return () => {
       cancelled = true;
     };
-  }, [conversationId, isEmail, refreshKey, participantsRefreshKey]);
+  }, [conversationId, isEmail, refreshKey, participantsRefreshKey, setParticipants]);
 
   /**
    * "from ODL-MKT-1" for a message that arrived through a merge, else null. A trail naming a

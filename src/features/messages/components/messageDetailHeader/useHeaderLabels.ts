@@ -4,14 +4,20 @@ import type { LabelsStatus } from '@/components/shared/labelPickerText';
 import { labelService, type Label } from '@/services/settings.service';
 import type { Message } from '@/types';
 import { logger } from '@/lib/logger';
+import { useSeededState } from '@/lib/seededState';
 import { hashNameToLabelColor } from '../inboxCardHelpers';
 
 type SetState<T> = React.Dispatch<React.SetStateAction<T>>;
 
 /** The header's label lists and the bookkeeping of our own label writes. */
-export function useHeaderLabelState() {
-  const [messageLabels, setMessageLabels] = useState<Label[]>([]);
-  const [allLabels, setAllLabels] = useState<Label[]>([]);
+export function useHeaderLabelState(conversationId: number) {
+  // From the last read (seededState): a tab switch draws the chips at once, then the load below
+  // refreshes them.
+  const [messageLabels, setMessageLabels] = useSeededState<Label[]>(
+    ['thread', conversationId, 'labels'],
+    []
+  );
+  const [allLabels, setAllLabels] = useSeededState<Label[]>(['workspace', 'labels', 'all'], []);
   const [labelsStatus, setLabelsStatus] = useState<LabelsStatus>('loading');
   /** Bumped to fetch the labels again (the picker opened after a failed load). */
   const [labelsAttempt, setLabelsAttempt] = useState(0);
