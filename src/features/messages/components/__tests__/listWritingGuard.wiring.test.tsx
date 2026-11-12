@@ -168,6 +168,8 @@ describe('the question inside a clickable card or row does not open the thread (
       screen.getByRole('button', { name: 'Assign anyway' }).focus();
       await user.keyboard('{Escape}');
       expect(screen.queryByText(/is writing a reply/)).toBeNull();
+      // One Escape, one layer: the picker under the question stays open.
+      expect(screen.getByRole('dialog', { name: 'Assign to' })).toBeInTheDocument();
       expect(assigned).not.toHaveBeenCalled();
       expect(open).not.toHaveBeenCalled();
     });

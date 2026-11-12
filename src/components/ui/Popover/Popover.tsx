@@ -5,6 +5,17 @@ import { cn } from '@/lib/utils';
 /** Gap kept between the panel and either edge of the visible page. */
 const EDGE_MARGIN_PX = 8;
 
+/**
+ * A press in a modal dialog ABOVE the popover is that dialog's, not a "press outside": a question
+ * opened from the panel ("a colleague is writing — assign anyway?") sits over it, and one Escape or
+ * one click there must close only the question (one press, one layer; see useModalLayer). A modal
+ * the popover itself sits in (a date picker in a dialog) is not above it.
+ */
+const isInModalAbove = (target: EventTarget | null, root: HTMLElement | null): boolean => {
+  const modal = target instanceof Element ? target.closest('[aria-modal="true"]') : null;
+  return modal !== null && !modal.contains(root);
+};
+
 type PopoverProps = {
   trigger: (state: { open: boolean; toggle: () => void }) => React.ReactNode;
   open: boolean;
@@ -22,8 +33,13 @@ type PopoverProps = {
  * A caller's trigger opens a panel of any content: `SelectPopover`'s placement without its list.
  * Portalled to <body> so a clipped or scrolling container cannot cut it, clamped to the width you
  * can SEE (`clientWidth`, not `innerWidth`, see SelectPopover), and flipped above the trigger when
- * it fits there and not below. Escape or a press outside closes it; Escape returns the focus to the
- * trigger.
+ * it fits there and not below. Escape or a press outside closes it — but not one in a modal dialog
+ * above it; Escape returns the focus to the trigger.
+ *
+ * Escape on the trigger or in the panel is caught in React and stopped there, so the page's own
+ * Escape (close the open thread, clear a selection — document and window listeners) never sees
+ * it. An Escape that something inside already handled (the Select closing its open list stops it)
+ * is left alone: one press, one layer.
  */
 export const Popover = ({
   trigger,
@@ -90,11 +106,12 @@ export const Popover = ({
     if (!open) return undefined;
     panelRef.current
       ?.querySelector<HTMLElement>(
-        'button:not([disabled]):not([aria-disabled="true"]), [href], input, [tabindex]:not([tabindex="-1"])'
+        'button:not([disabled]):not([aria-disabled="true"]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])'
       )
       ?.focus({ preventScroll: true });
+    // Focus elsewhere on the page (the trigger and the panel stop their own Escape, below).
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
+      if (event.key !== 'Escape' || isInModalAbove(event.target, rootRef.current)) return;
       event.stopPropagation();
       closeToTrigger();
     };
@@ -109,14 +126,23 @@ export const Popover = ({
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
       if (rootRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      if (isInModalAbove(target, rootRef.current)) return;
       onOpenChange(false);
     };
     document.addEventListener('mousedown', onPointerDown);
     return () => document.removeEventListener('mousedown', onPointerDown);
   }, [open, onOpenChange]);
 
+  const onEscapeInside = (event: React.KeyboardEvent) => {
+    if (!open || event.key !== 'Escape' || event.nativeEvent.cancelBubble) return;
+    event.preventDefault();
+    event.stopPropagation();
+    closeToTrigger();
+  };
+
   return (
-    <div ref={rootRef} className={cn('inline-block', className)}>
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- catches Escape for its trigger
+    <div ref={rootRef} className={cn('inline-block', className)} onKeyDown={onEscapeInside}>
       {trigger({ open, toggle: () => onOpenChange(!open) })}
       {open &&
         createPortal(
@@ -124,6 +150,7 @@ export const Popover = ({
             ref={panelRef}
             role="dialog"
             aria-label={ariaLabel}
+            onKeyDown={onEscapeInside}
             style={{
               position: 'absolute',
               top: pos?.top ?? 0,

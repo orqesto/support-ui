@@ -126,7 +126,7 @@ describe.each(surfaces)('%s — assignee picker by keyboard', (_name, ui) => {
 
     escape(box());
     expect(picker()).toBeNull();
-    expect(document.activeElement).toBe(claim);
+    await waitFor(() => expect(document.activeElement).toBe(claim));
     expect(pageEscape).not.toHaveBeenCalled();
   });
 
@@ -135,7 +135,7 @@ describe.each(surfaces)('%s — assignee picker by keyboard', (_name, ui) => {
     const claim = await openFromClaim();
     escape(box());
     expect(picker()).toBeNull();
-    expect(document.activeElement).toBe(claim);
+    await waitFor(() => expect(document.activeElement).toBe(claim));
     expect(pageEscape).not.toHaveBeenCalled();
   });
 
@@ -206,6 +206,25 @@ describe.each(surfaces)('%s — when the focus moves into the picker', (_name, u
 
     await release();
     await waitFor(() => expect(document.activeElement).toBe(box()));
+  });
+
+  it('the agent moved on while the list loaded: the focus stays where they put it', async () => {
+    const release = lateList();
+    render(
+      <MemoryRouter>
+        {ui()}
+        <a href="#elsewhere">elsewhere</a>
+      </MemoryRouter>
+    );
+    const claim = screen.getByRole('button', { name: /Claim/ });
+    claim.focus();
+    fireEvent.click(claim);
+    const elsewhere = screen.getByRole('link', { name: 'elsewhere' });
+    elsewhere.focus();
+
+    await release();
+    await waitFor(() => expect(box()).not.toBeInactive()); // the list has loaded
+    expect(document.activeElement).toBe(elsewhere);
   });
 
   it('touch only (no fine pointer): the box is NOT focused — no on-screen keyboard over the list', async () => {
