@@ -19,7 +19,7 @@ import {
   computeSlaInfo,
   type WorkflowStatus,
 } from './inboxCardHelpers';
-import { getSpamCheck, parseSender } from '@/lib/messageHelpers';
+import { getSpamCheck, isSuspiciousThread, parseSender } from '@/lib/messageHelpers';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import type { Category, ThreadStatus } from '@/types';
 import { Permission } from '@/types/roles';
@@ -328,9 +328,8 @@ export function MessageDetailHeader({
 
   const spamCheck = getSpamCheck(message);
   const isFiltered = message.status === 'filtered';
-  const isSuspicious =
-    !isFiltered &&
-    (message.metadata?.spamCheck as Record<string, unknown> | undefined)?.category === 'suspicious';
+  // Same reading as the detail's flags (threadFlags.ts): the queue's answer, snapshot as fallback.
+  const isSuspicious = isSuspiciousThread(message);
   const isActive =
     message.status !== 'resolved' && !isFiltered && !isSuspicious && message.status !== 'closed';
 

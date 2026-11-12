@@ -1,12 +1,12 @@
 import type { Message } from '@/types';
+import { isSuspiciousThread } from '@/lib/messageHelpers';
 import { getResolveMode } from '../resolveMode';
 
 /** What the thread's state allows: triage verdicts, whether it is active, how it resolves. */
 export function deriveThreadFlags(message: Message) {
   const isFiltered = message.status === 'filtered';
-  const isSuspicious =
-    !isFiltered &&
-    (message.metadata?.spamCheck as Record<string, unknown> | undefined)?.category === 'suspicious';
+  // The Suspicious queue's own answer (newest inbound verdict), the snapshot only as a fallback.
+  const isSuspicious = isSuspiciousThread(message);
   /**
    * Carries a spam verdict WITHOUT being in one of the triage states that offer a way to undo it.
    *

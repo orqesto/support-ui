@@ -6,4 +6,6 @@ export type {
   DataTableSearch,
   DataTablePagination,
   DataTableProps,
+  SortValue,
+  SortDirection,
 } from './dataTable.types';

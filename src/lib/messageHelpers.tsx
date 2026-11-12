@@ -152,12 +152,33 @@ export const getSpamCheck = (message: {
 }): SpamCheckData | undefined => message.metadata?.spamCheck as SpamCheckData | undefined;
 
 /**
+ * The thread is suspicious — the triage state that offers "Not Spam — Approve".
+ *
+ * ⛔ THE QUEUE'S OWN ANSWER FIRST. `isSuspicious` is resolved server-side by the Suspicious
+ * queue's predicate: the NEWEST inbound event's verdict, or an agent's mark. The conversation's
+ * `metadata.spamCheck` is a snapshot of the FIRST mail, so a thread parked by a suspicious
+ * follow-up sat in the Suspicious queue while its header offered only "Mark as suspicious".
+ * The snapshot is read only when the backend did not send the flag (an older backend: this
+ * frontend deploys before the backend tag). A filtered thread is never "suspicious" here.
+ */
+export const isSuspiciousThread = (message: {
+  status?: string;
+  isSuspicious?: boolean;
+  metadata?: Record<string, unknown> | null;
+}): boolean => {
+  if (message.status === 'filtered') return false;
+  if (typeof message.isSuspicious === 'boolean') return message.isSuspicious;
+  return getSpamCheck(message)?.category === 'suspicious';
+};
+
+/**
  * Whether a conversation belongs to one of the triage queues (suspicious,
  * not_analysed, archived, spam) — the only place the per-user read/unread
  * indicator applies. Mirrors the BE messageFilters predicates for those views.
  */
 export const isTriageMessage = (message: {
   status?: string;
+  isSuspicious?: boolean;
   metadata?: Record<string, unknown> | null;
 }): boolean => {
   const spam = getSpamCheck(message);
@@ -166,7 +187,8 @@ export const isTriageMessage = (message: {
   // suspicious: category='suspicious' AND not filtered (mirrors BE messageFilters;
   // the BE suspicious predicate has NO terminal-status exclusion, so a
   // resolved/closed conv that is still flagged suspicious remains suspicious).
-  if (spam?.category === 'suspicious') return true;
+  // Read like the header's Approve (isSuspiciousThread): the backend's flag, else the snapshot.
+  if (isSuspiciousThread(message)) return true;
   // spam: mirror the BE spam queue, which excludes terminal/needs_routing statuses
   // so a conv that WAS spam but is now resolved/closed no longer counts as triage.
   if (

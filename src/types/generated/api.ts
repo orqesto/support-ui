@@ -221,6 +221,7 @@ export interface components {
             firstResponseAt: string | null;
             actualResponseSeconds: number | null;
             nearMissDepts: number[];
+            isSuspicious: boolean;
         };
         MessageDetail: {
             id: number;
@@ -262,6 +263,7 @@ export interface components {
             firstResponseAt: string | null;
             actualResponseSeconds: number | null;
             nearMissDepts: number[];
+            isSuspicious: boolean;
             organizationId: number;
             resolvedByName: string | null;
             detectedLanguage: string | null;

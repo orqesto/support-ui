@@ -21,6 +21,7 @@ const rateOf = (rate: number | null) => (rate === null ? '—' : `${rate.toFixed
 type Row = (typeof SLA_PRIORITIES)[number] & { stats?: ResolutionTotals };
 
 const CENTER = { headerClassName: 'text-center', cellClassName: 'text-center' };
+// Every number column sorts from its header; Priority keeps its fixed critical → low order.
 const columns: ColumnDef<Row>[] = [
   {
     id: 'priority',
@@ -29,6 +30,7 @@ const columns: ColumnDef<Row>[] = [
   },
   {
     id: 'cycles',
+    sortValue: (row) => row.stats?.total,
     header: 'Cycles',
     ...CENTER,
     cellClassName: 'text-center font-medium',
@@ -36,12 +38,14 @@ const columns: ColumnDef<Row>[] = [
   },
   {
     id: 'within',
+    sortValue: (row) => row.stats?.complianceRate,
     header: 'Within target',
     ...CENTER,
     cell: (row) => rateOf(row.stats?.complianceRate ?? null),
   },
   {
     id: 'avg',
+    sortValue: (row) => row.stats?.avgResolutionSeconds,
     header: 'Avg resolution',
     ...CENTER,
     cellClassName: 'text-center font-medium',
@@ -49,6 +53,7 @@ const columns: ColumnDef<Row>[] = [
   },
   {
     id: 'breached',
+    sortValue: (row) => row.stats?.breached,
     header: 'Breached',
     ...CENTER,
     cell: (row) => (

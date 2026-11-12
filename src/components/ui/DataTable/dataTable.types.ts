@@ -19,7 +19,19 @@ export type ColumnDef<Row> = {
   cellClassName?: string;
   /** Mobile-card slot (Phase 3). Defaults to 'meta'. */
   card?: CardSlot;
+  /**
+   * Opt-in sorting (client pagination only). Set ⇒ the header becomes a button that cycles
+   * ascending → descending → original order. Numbers compare numerically, strings by locale;
+   * null/undefined always sort last. Unset ⇒ a plain header, as before.
+   * Ignored with server pagination (sorting one page would pass a page-local order off as the
+   * list's). The sort control lives in the table header, so a `renderCard` mobile list follows the
+   * order but cannot change it. Pass a stable `columns` array: the sort is memoised on it.
+   */
+  sortValue?: (row: Row) => SortValue;
 };
+
+export type SortValue = string | number | null | undefined;
+export type SortDirection = 'ascending' | 'descending';
 
 /**
  * Search wiring. When `clientAccessor` is set the table filters `rows` itself

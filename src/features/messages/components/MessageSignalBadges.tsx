@@ -6,6 +6,7 @@ import {
   getSpamCheck,
   getFilteredCategoryLabel,
   humanizeSignalFlag,
+  isSuspiciousThread,
 } from '@/lib/messageHelpers';
 import { formatDuration } from '@/lib/utils';
 import type { Message } from '@/types';
@@ -206,9 +207,15 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
         </Tooltip>
       )}
       {/* A thread the LANE calls spam is not also shown as merely suspicious. */}
-      {!isSpamThread(message) && spamCheck?.category === 'suspicious' && (
+      {/* Suspicious as the header reads it: the backend's flag (a follow-up's verdict), else the
+          conversation's own category (isSuspiciousThread). */}
+      {!isSpamThread(message) && isSuspiciousThread(message) && (
         <Tooltip
-          content={`Suspicious: ${spamCheck.redFlags?.map(humanizeSignalFlag).join(', ') ?? ''}`}
+          content={
+            spamCheck?.redFlags?.length
+              ? `Suspicious: ${spamCheck.redFlags.map(humanizeSignalFlag).join(', ')}`
+              : 'Flagged as suspicious by spam filter'
+          }
           size="sm"
         >
           <Badge variant="warning" className={bc}>
