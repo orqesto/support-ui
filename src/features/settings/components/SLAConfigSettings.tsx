@@ -1,98 +1,49 @@
 import { useEffect, useState } from 'react';
 import { Timer } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { apiClient } from '@/lib/api-client';
-// Centralised SLA config shape (generated backend contract) — was a component-local
-// duplicate.
-import type { SlaConfigEntry as SLAEntry } from '@/types/api';
+import { Alert } from '@/components/ui/Alert';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { getSlaConfig, saveSlaConfig, type SlaConfig, type SlaTargetRow } from '../services/slaConfig.service';
+import { SlaTargetTable } from './SlaTargetTable';
 
-type EditState = {
-  firstResponseMinutes: string;
-  resolutionHours: string;
-};
-
-const PRIORITY_LABELS: Record<string, string> = {
-  critical: 'Critical',
-  high: 'High',
-  medium: 'Medium',
-  low: 'Low',
-};
-
-const CHANNEL_LABELS: Record<string, string> = {
-  telegram: 'Telegram',
-  slack: 'Slack',
-  email: 'Email',
-  other: 'Other',
-};
-
-const inputCls =
-  'w-24 rounded border border-border bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary';
-
+/**
+ * SLA targets (owner 2026-11-11/12): tickets by priority; threads by priority (first response +
+ * resolution); threads by channel as caps — the shorter of priority and channel applies to each
+ * clock. Every value is a number + minutes / hours / days, stored in minutes.
+ */
 export const SLAConfigSettings = () => {
-  const [entries, setEntries] = useState<SLAEntry[]>([]);
-  const [edits, setEdits] = useState<Record<string, EditState>>({});
+  const [config, setConfig] = useState<SlaConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiClient
-      .get('/api/organizations/sla-config')
-      .then((result) => {
-        const data = (result.data as { data: SLAEntry[] }).data;
-        setEntries(data);
-        const init: Record<string, EditState> = {};
-        data.forEach((entry) => {
-          init[`${entry.type}:${entry.key}`] = {
-            firstResponseMinutes: String(entry.firstResponseMinutes),
-            resolutionHours: entry.resolutionHours !== null && entry.resolutionHours !== undefined ? String(entry.resolutionHours) : '',
-          };
-        });
-        setEdits(init);
-      })
+    getSlaConfig()
+      .then(setConfig)
       .catch((err) => setError(getApiErrorMessage(err) ?? 'Failed to load SLA configuration'));
   }, []);
 
-  const setField = (type: string, key: string, field: keyof EditState, value: string) => {
-    setEdits((prev) => ({
-      ...prev,
-      [`${type}:${key}`]: { ...prev[`${type}:${key}`], [field]: value },
-    }));
-  };
+  const update = (
+    target: SlaTargetRow,
+    patch: Partial<Pick<SlaTargetRow, 'firstResponseMinutes' | 'resolutionMinutes'>>
+  ) =>
+    setConfig((prev) =>
+      prev
+        ? {
+            ...prev,
+            rows: prev.rows.map((row) =>
+              row.type === target.type && row.key === target.key ? { ...row, ...patch } : row
+            ),
+          }
+        : prev
+    );
 
   const save = () => {
-    const configs = entries.map((ent) => {
-      const edit = edits[`${ent.type}:${ent.key}`];
-      return {
-        type: ent.type,
-        key: ent.key,
-        firstResponseMinutes: parseInt(edit?.firstResponseMinutes ?? String(ent.firstResponseMinutes), 10),
-        resolutionHours:
-          ent.type === 'ticket' && edit?.resolutionHours
-            ? parseInt(edit.resolutionHours, 10)
-            : null,
-      };
-    });
-
-    // Validate
-    for (const cfg of configs) {
-      if (isNaN(cfg.firstResponseMinutes) || cfg.firstResponseMinutes <= 0) {
-        setError('All first response values must be positive numbers');
-        return;
-      }
-      if (cfg.type === 'ticket' && (cfg.resolutionHours === null || isNaN(cfg.resolutionHours) || cfg.resolutionHours <= 0)) {
-        setError('All ticket resolution values must be positive numbers');
-        return;
-      }
-    }
-
+    if (!config) return;
     setError(null);
     setSaving(true);
     setSaved(false);
-
-    apiClient
-      .put('/api/organizations/sla-config', { configs })
+    saveSlaConfig(config.rows, config)
       .then(() => {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
@@ -101,8 +52,7 @@ export const SLAConfigSettings = () => {
       .finally(() => setSaving(false));
   };
 
-  const ticketEntries = entries.filter((ent) => ent.type === 'ticket');
-  const messageEntries = entries.filter((ent) => ent.type === 'message');
+  const group = (name: SlaTargetRow['group']) => config?.rows.filter((row) => row.group === name) ?? [];
 
   return (
     <div className="space-y-6">
@@ -112,111 +62,47 @@ export const SLAConfigSettings = () => {
           SLA Thresholds
         </h3>
         <p className="text-xs text-muted-foreground mb-4">
-          Configure response and resolution time targets per priority and channel. Changes take effect for new tickets and threads.
+          Response and resolution targets per priority and channel. Changes apply to new tickets and threads, and
+          to a thread or ticket whose priority changes.
         </p>
       </div>
 
-      {/* Ticket SLA */}
-      <div>
-        <p className="font-display text-xs font-medium text-muted-foreground uppercase tracking-[0.09em] mb-2">Ticket SLA</p>
-        <div className="rounded-lg border border-border bg-card overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40">
-                <th className="px-4 py-2 text-left font-medium">Priority</th>
-                <th className="px-4 py-2 text-left font-medium">First Response (min)</th>
-                <th className="px-4 py-2 text-left font-medium">Resolution (hrs)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ticketEntries.map((ent) => {
-                const id = `${ent.type}:${ent.key}`;
-                const edit = edits[id];
-                return (
-                  <tr key={id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-2.5 font-medium">
-                      {PRIORITY_LABELS[ent.key] ?? ent.key}
-                      {ent.isCustom && (
-                        <span className="ml-2 text-xs text-foreground">(custom)</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <input
-                        type="number"
-                        min={1}
-                        className={inputCls}
-                        value={edit?.firstResponseMinutes ?? ''}
-                        onChange={(ev) => setField(ent.type, ent.key, 'firstResponseMinutes', ev.target.value)}
-                      />
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <input
-                        type="number"
-                        min={1}
-                        className={inputCls}
-                        value={edit?.resolutionHours ?? ''}
-                        onChange={(ev) => setField(ent.type, ent.key, 'resolutionHours', ev.target.value)}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {error && (
+        <Alert variant="danger">
+          <p className="text-sm">{error}</p>
+        </Alert>
+      )}
 
-      {/* Message SLA */}
-      <div>
-        <p className="font-display text-xs font-medium text-muted-foreground uppercase tracking-[0.09em] mb-2">Thread SLA</p>
-        <div className="rounded-lg border border-border bg-card overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40">
-                <th className="px-4 py-2 text-left font-medium">Channel</th>
-                <th className="px-4 py-2 text-left font-medium">Response Target (min)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {messageEntries.map((ent) => {
-                const id = `${ent.type}:${ent.key}`;
-                const edit = edits[id];
-                return (
-                  <tr key={id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-2.5 font-medium">
-                      {CHANNEL_LABELS[ent.key] ?? ent.key}
-                      {ent.isCustom && (
-                        <span className="ml-2 text-xs text-foreground">(custom)</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <input
-                        type="number"
-                        min={1}
-                        className={inputCls}
-                        value={edit?.firstResponseMinutes ?? ''}
-                        onChange={(ev) => setField(ent.type, ent.key, 'firstResponseMinutes', ev.target.value)}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {config && (
+        <>
+          <SlaTargetTable title="Ticket SLA" keyHeader="Priority" rows={group('ticket')} onChange={update} />
+          {config.supportsThreadPriority && (
+            <SlaTargetTable
+              title="Thread SLA by priority"
+              keyHeader="Priority"
+              rows={group('threadPriority')}
+              onChange={update}
+            />
+          )}
+          <SlaTargetTable
+            title="Thread SLA by channel"
+            hint="Optional caps: for each clock, the shorter of the priority's target and the channel's applies. Leave resolution empty for no cap."
+            keyHeader="Channel"
+            rows={group('threadChannel')}
+            resolutionOptional
+            // An older backend has no channel resolution cap.
+            showResolution={config.supportsThreadPriority}
+            onChange={update}
+          />
 
-      {error && <p className="text-xs text-destructive">{error}</p>}
-      {saving && <p className="text-xs text-muted-foreground">Saving…</p>}
-      {saved && <p className="text-xs text-success">Saved</p>}
+          {saving && <p className="text-xs text-muted-foreground">Saving…</p>}
+          {saved && <p className="text-xs text-success">Saved</p>}
 
-      <Button
-        onClick={save}
-        disabled={saving}
-        className="text-sm"
-      >
-        Save changes
-      </Button>
+          <Button onClick={save} disabled={saving} className="text-sm">
+            Save changes
+          </Button>
+        </>
+      )}
     </div>
   );
 };
