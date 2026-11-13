@@ -1,6 +1,6 @@
 /**
  * A flood hold names itself where agents look (owner 2026-11-13, chip text "Too many messages at
- * once"): the list's AI-state chip, the small signal badge and the thread header. Any other
+ * once"): the list's AI-state chip and the thread header (the full-size signal badge already carries it as a suffix). Any other
  * reason, and an older backend that never sends `flood`, read exactly as before.
  */
 import { describe, expect, it, vi } from 'vitest';
@@ -70,32 +70,7 @@ describe('list AI-state chip', () => {
   });
 });
 
-describe('small signal badge', () => {
-  it('flood: the small badge names it instead of "Review"', () => {
-    render(
-      <MessageSignalBadges
-        size="sm"
-        message={row({ needsHumanReview: true, needsReviewReason: 'flood' })}
-      />
-    );
-    expect(screen.getByText(FLOOD)).toBeInTheDocument();
-    expect(screen.queryByText('Review')).toBeNull();
-  });
-
-  it('CONTROL — another reason or none: "Review", as before', () => {
-    const { unmount } = render(
-      <MessageSignalBadges
-        size="sm"
-        message={row({ needsHumanReview: true, needsReviewReason: 'plan_limit' })}
-      />
-    );
-    expect(screen.getByText('Review')).toBeInTheDocument();
-    expect(screen.queryByText(FLOOD)).toBeNull();
-    unmount();
-    render(<MessageSignalBadges size="sm" message={row({ needsHumanReview: true })} />);
-    expect(screen.getByText('Review')).toBeInTheDocument();
-  });
-
+describe('full-size signal badge', () => {
   it('CONTROL — the full-size badge is unchanged: "Needs Review · reason"', () => {
     render(
       <MessageSignalBadges message={row({ needsHumanReview: true, needsReviewReason: 'flood' })} />
