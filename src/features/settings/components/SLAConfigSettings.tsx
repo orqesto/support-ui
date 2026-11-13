@@ -35,7 +35,8 @@ export const SLAConfigSettings = () => {
    * stale, and a Save from it could pin the removed override again. Save and reset wait for a
    * successful reload.
    */
-  const [stale, setStale] = useState(false);
+  // The row whose reset could not be read back (`<type>:<key>`), or null.
+  const [stale, setStale] = useState<string | null>(null);
   const [reloading, setReloading] = useState(false);
   // Fields holding a value they refuse: saving then would send the previous value as if saved.
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
@@ -154,7 +155,7 @@ export const SLAConfigSettings = () => {
       })
       .then((next) => {
         if (!next) {
-          setStale(true);
+          setStale(id);
           return;
         }
         const swap = (rows: SlaTargetRow[]) =>
@@ -169,30 +170,58 @@ export const SLAConfigSettings = () => {
       })
       .catch((err) => {
         // The reset itself went through; only reading the result failed.
-        if (deleted) setStale(true);
+        if (deleted) setStale(id);
         else setError(getApiErrorMessage(err) ?? 'Failed to reset the SLA target');
       })
       .finally(() => setResetting(null));
   };
 
-  /** After a stale reset: read everything back; Save works again once this succeeds. */
+  /**
+   * After a stale reset: read everything back; Save works again once this succeeds. A row with
+   * unsaved edits (other than the one reset) keeps them over the reloaded values, so nothing typed
+   * is lost; every other row shows what is stored.
+   */
   const reload = () => {
+    if (!config) return;
+    const staleId = stale;
+    const idOf = (row: SlaTargetRow) => `${row.type}:${row.key}`;
+    const dirty = new Map(
+      changedSlaRows(config.rows, baseline)
+        .filter((change) => idOf(change.row) !== staleId)
+        .map((change) => [idOf(change.row), change.row])
+    );
     setReloading(true);
     getSlaConfig()
       .then((loaded) => {
-        setConfig(loaded);
+        setConfig({
+          ...loaded,
+          rows: loaded.rows.map((row) => {
+            const edited = dirty.get(idOf(row));
+            return edited
+              ? {
+                  ...row,
+                  firstResponseMinutes: edited.firstResponseMinutes,
+                  resolutionMinutes: edited.resolutionMinutes,
+                }
+              : row;
+          }),
+        });
         setBaseline(loaded.rows);
-        setInvalidFields(new Set());
-        // Every input starts over from the stored values (dropping typed text).
-        setResetCounts((prev) =>
-          Object.fromEntries(
-            loaded.rows.map((row) => {
-              const id = `${row.type}:${row.key}`;
-              return [id, (prev[id] ?? 0) + 1];
-            })
-          )
+        // A refused value stays flagged only on a row that keeps its edits.
+        setInvalidFields(
+          (prev) =>
+            new Set([...prev].filter((field) => dirty.has(field.split(':').slice(0, 2).join(':'))))
         );
-        setStale(false);
+        // The other inputs start over from the stored values.
+        setResetCounts((prev) => {
+          const next = { ...prev };
+          for (const row of loaded.rows) {
+            const id = idOf(row);
+            if (!dirty.has(id)) next[id] = (prev[id] ?? 0) + 1;
+          }
+          return next;
+        });
+        setStale(null);
         setError(null);
       })
       .catch((err) => setError(getApiErrorMessage(err) ?? 'Failed to load SLA configuration'))
@@ -200,10 +229,16 @@ export const SLAConfigSettings = () => {
   };
   // An older backend has no per-row reset (see `supportsFieldSave`).
   const resetProps = config?.supportsFieldSave
-    ? { onReset: reset, resetting, resetCounts, busy: saving || resetting !== null || stale }
+    ? {
+        onReset: reset,
+        resetting,
+        resetCounts,
+        busy: saving || resetting !== null || stale !== null,
+      }
     : {};
-  // While a Save and its read-back run, no field takes typing: the answer replaces what is shown.
-  const tableProps = { ...resetProps, inputsDisabled: saving };
+  // While a Save and its read-back (or a reload) run, no field takes typing: the answer replaces
+  // what is shown.
+  const tableProps = { ...resetProps, inputsDisabled: saving || reloading };
 
   const group = (name: SlaTargetRow['group']) =>
     config?.rows.filter((row) => row.group === name) ?? [];
@@ -227,7 +262,7 @@ export const SLAConfigSettings = () => {
         </Alert>
       )}
 
-      {stale && (
+      {stale !== null && (
         <Alert variant="warning">
           <p className="text-sm">
             The target was reset to its default, but the new values could not be loaded. Reload them
@@ -286,7 +321,7 @@ export const SLAConfigSettings = () => {
 
           <Button
             onClick={save}
-            disabled={saving || resetting !== null || stale}
+            disabled={saving || resetting !== null || stale !== null}
             className="text-sm"
           >
             Save changes

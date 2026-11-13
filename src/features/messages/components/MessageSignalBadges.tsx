@@ -40,11 +40,13 @@ type Props = {
  * The spam badge's label. With the backend's `latestSpamCategory` (the newest classified mail's,
  * falling back to the first mail's copy): a junk category names itself ("Spam", "Invalid
  * Response"); anything else — promotional, transactional, suspicious, legitimate, none — reads
- * plain "Spam" ("Spam · confirmed" when a person confirmed it): the thread IS spam, and a
- * non-spam label on a spam badge says the opposite. An older backend sends no category: the first
+ * plain "Spam": the thread IS spam, and a non-spam label on a spam badge says the opposite. A
+ * thread a person confirmed reads "Spam · confirmed" whatever the category. An older backend sends no category: the first
  * mail's names the verdict only when that mail was spam too.
  */
 const spamBadgeLabel = (message: Message, spamCheck: ReturnType<typeof getSpamCheck>): string => {
+  // A person's confirmation is the fact this row states first, as the header and the card do.
+  if (message.spamConfirmedAt) return 'Spam · confirmed';
   if (!hasNewestSpamCategory(message)) {
     const first = spamCheck?.isSpam === true ? spamCheck.category : undefined;
     return first && first !== 'legitimate' ? getFilteredCategoryLabel(first) : 'Spam';
@@ -52,7 +54,7 @@ const spamBadgeLabel = (message: Message, spamCheck: ReturnType<typeof getSpamCh
   const category = newestSpamCategory(message);
   const named = isJunkSpamCategory(category) ? getFilteredCategoryLabel(category) : 'Spam';
   const label = named === 'Filtered' ? 'Spam' : named;
-  return label === 'Spam' && message.spamConfirmedAt ? 'Spam · confirmed' : label;
+  return label;
 };
 
 export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Props) => {

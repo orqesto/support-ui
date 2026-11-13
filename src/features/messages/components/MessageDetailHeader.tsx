@@ -359,6 +359,8 @@ export function MessageDetailHeader({
       message.metadata,
       message.isSpam,
       message.spamConfirmedAt,
+      // slaClockRuns reads the newest mail's category (a junk one stops the clock).
+      message.latestSpamCategory,
     ]
   );
   const slaInfo = useMemo(
@@ -376,6 +378,8 @@ export function MessageDetailHeader({
       message.status,
       message.isSpam,
       message.spamConfirmedAt,
+      // slaClockRuns reads the newest mail's category (a junk one stops the clock).
+      message.latestSpamCategory,
     ]
   );
 

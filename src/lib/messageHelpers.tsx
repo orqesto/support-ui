@@ -209,8 +209,11 @@ export const isTriageMessage = (message: {
   if (isSuspiciousThread(message)) return true;
   // spam: the one spam rule (isSpamThread: the backend's lane flag, a person's confirmation, the
   // first mail only on an older backend), minus terminal/needs_routing statuses as the BE queue.
+  // An older backend (no isSpam): the first mail's 'spam' category counts too, as it always did.
+  const olderBackendSpam =
+    message.isSpam === undefined && getSpamCheck(message)?.category === 'spam';
   if (
-    isSpamThread(message) &&
+    (isSpamThread(message) || olderBackendSpam) &&
     message.status !== 'resolved' &&
     message.status !== 'closed' &&
     message.status !== 'needs_routing'

@@ -561,6 +561,37 @@ describe('SLA settings: tickets, threads by priority, threads by channel', () =>
       expect(screen.getByRole('button', { name: 'Save changes' })).not.toBeInactive();
     });
 
+    it('5: Reload keeps another row’s unsaved edit and takes no typing while it runs', async () => {
+      let answerReload: (value: unknown) => void = () => undefined;
+      get
+        .mockResolvedValueOnce(loaded(perField({ 'message:low': [false, true] })))
+        .mockRejectedValueOnce(new Error('network down'))
+        .mockReturnValueOnce(new Promise((resolve) => (answerReload = resolve)));
+      del.mockResolvedValue({ data: { success: true, data: [] } });
+      render(<SLAConfigSettings />);
+      const ticketFirst = await screen.findByRole('spinbutton', {
+        name: 'Ticket SLA Critical first response',
+      });
+      fireEvent.change(ticketFirst, { target: { value: '30' } });
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Reset Thread SLA by priority Low to default' })
+      );
+      fireEvent.click(await screen.findByRole('button', { name: 'Reload targets' }));
+      expect(
+        screen.getByRole('spinbutton', { name: 'Ticket SLA Critical first response' })
+      ).toBeInactive();
+      answerReload(loaded(perField()));
+      await vi.waitFor(() => expect(screen.queryByText(/reset to its default/)).toBeNull());
+      expect(
+        screen.getByRole('spinbutton', { name: 'Ticket SLA Critical first response' })
+      ).toHaveValue(30);
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+      await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(1));
+      expect(configsSent()).toEqual([
+        { type: 'ticket', key: 'critical', firstResponseMinutes: 30 },
+      ]);
+    });
+
     it('8 CONTROL: a DELETE that fails says the reset failed (no reload prompt)', async () => {
       get.mockResolvedValueOnce(loaded(perField({ 'message:low': [false, true] })));
       del.mockRejectedValue(new Error('reset refused'));

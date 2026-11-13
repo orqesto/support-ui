@@ -127,3 +127,63 @@ describe('review 4: the card’s Suspicious mark is the backend’s isSuspicious
     expect(signal(row, 'suspicious')).toBeDefined();
   });
 });
+
+describe('final review', () => {
+  it('2: a boolean isSpam is trusted: a KB-source thread, confirmed, sent as isSpam false, wears no spam mark', () => {
+    // The backend leaves knowledge-base-source threads out of the Spam lane, confirmed or not.
+    const kbSource = msg({
+      status: 'open',
+      isSpam: false,
+      spamConfirmedAt: confirmedAt,
+      latestSpamCategory: 'legitimate',
+      metadata: { isFromKBSource: true, spamCheck: { isSpam: false, category: 'legitimate' } },
+    });
+    expect(isSpamThread(kbSource)).toBe(false);
+    expect(signal(kbSource, 'spam')).toBeUndefined();
+    expect(deriveThreadFlags(kbSource).isSpamFlaggedOutsideTriage).toBe(false);
+    render(<MessageSignalBadges message={kbSource} />);
+    expect(screen.queryByText(/^Spam/)).toBeNull();
+  });
+
+  it('2 CONTROL: an older backend (no isSpam) still counts the confirmation', () => {
+    expect(isSpamThread(msg({ status: 'open', spamConfirmedAt: confirmedAt }))).toBe(true);
+  });
+
+  it('3: a confirmed thread reads "Spam · confirmed" in the badge row whatever the category', () => {
+    render(
+      <MessageSignalBadges
+        message={msg({
+          status: 'filtered',
+          isSpam: true,
+          spamConfirmedAt: confirmedAt,
+          latestSpamCategory: 'invalid',
+        })}
+      />
+    );
+    expect(screen.getByText('Spam · confirmed')).toBeInTheDocument();
+    expect(screen.queryByText('Invalid Response')).toBeNull();
+  });
+
+  it('4: an older backend (no isSpam): a first-mail category of spam is triage, as before', () => {
+    const older = msg({ status: 'open', metadata: { spamCheck: { category: 'spam' } } });
+    expect(isTriageMessage(older)).toBe(true);
+  });
+
+  it('4 CONTROL: with the backend flag false, the first mail’s category does not count', () => {
+    const current = msg({
+      status: 'open',
+      isSpam: false,
+      metadata: { spamCheck: { category: 'spam' } },
+    });
+    expect(isTriageMessage(current)).toBe(false);
+  });
+
+  it('6: an older backend (no isSuspicious): the first mail’s suspicious category marks the card in any status', () => {
+    const older = msg({
+      status: 'filtered',
+      isSuspicious: undefined,
+      metadata: { spamCheck: { isSpam: false, category: 'suspicious' } },
+    });
+    expect(signal(older, 'suspicious')).toBeDefined();
+  });
+});

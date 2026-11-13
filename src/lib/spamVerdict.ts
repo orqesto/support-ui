@@ -34,18 +34,19 @@ type SpamFields = {
  * newest inbound mail's junk category OR a person's confirmation (`spamConfirmedAt`), on a thread
  * that is not resolved or closed. Approving clears the confirmation.
  *
- * The confirmation clause is the same one the backend applies, so a thread a person confirmed is
- * spam here even on a payload whose flag says otherwise (a confirmed thread whose newest mail the
- * classifier called legitimate sat in Spam with no mark at all, staging 2026-10-13).
+ * A boolean `isSpam` is trusted as sent: the backend also excludes knowledge-base-source threads,
+ * which this payload cannot tell. A confirmed thread whose newest mail the classifier called
+ * legitimate (staging 2026-10-13) arrives as `isSpam: true` from it.
  *
- * ⚠️ An older backend sends no `isSpam`: only then the first mail's frozen
- * `metadata.spamCheck.isSpam` is read (`??`, so absent never loses every spam mark).
+ * ⚠️ An older backend sends no `isSpam`: only then the confirmation clause and the first mail's
+ * frozen `metadata.spamCheck.isSpam` are read, so absent never loses every spam mark.
  */
 export const isSpamThread = (message: SpamFields): boolean => {
+  // The backend's answer is final: it also applies what this payload cannot see (a
+  // knowledge-base-source thread is never in the Spam lane, confirmed or not).
+  if (typeof message.isSpam === 'boolean') return message.isSpam;
+  // An older backend: the confirmation the lane counts, else the first mail's frozen flag.
   const finished = message.status === 'resolved' || message.status === 'closed';
   if (message.spamConfirmedAt && !finished) return true;
-  return (
-    message.isSpam ??
-    (message.metadata?.spamCheck as { isSpam?: boolean } | undefined)?.isSpam === true
-  );
+  return (message.metadata?.spamCheck as { isSpam?: boolean } | undefined)?.isSpam === true;
 };

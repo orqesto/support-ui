@@ -143,9 +143,39 @@ describe('the resolution clock', () => {
     expect(screen.queryByTestId('sla-resolution-clock')).toBeNull();
     rerenderHeader({ message: { ...open, isSpam: false } as Message });
     await screen.findByTestId('sla-resolution-clock');
+    // A confirmation, in the shape the backend sends it (its lane flag counts the confirmation:
+    // isSpam true); on an older backend (no isSpam) the confirmation alone still stops the clock.
     rerenderHeader({
-      message: { ...open, isSpam: false, spamConfirmedAt: ago(1) } as Message,
+      message: { ...open, isSpam: true, spamConfirmedAt: ago(1) } as Message,
     });
+    expect(screen.queryByTestId('sla-resolution-clock')).toBeNull();
+    rerenderHeader({ message: { ...open, isSpam: false } as Message });
+    await screen.findByTestId('sla-resolution-clock');
+    rerenderHeader({
+      message: { ...open, isSpam: undefined, spamConfirmedAt: ago(1) } as Message,
+    });
+    expect(screen.queryByTestId('sla-resolution-clock')).toBeNull();
+  });
+
+  it('review: a newest category turning junk stops the clock (the header memo reads it)', async () => {
+    const open = {
+      ...baseMessage,
+      status: 'open',
+      slaResponseMinutes: 60,
+      slaWaitStartedAt: null,
+      lastReplyFromClient: false,
+      slaResolutionMinutes: 240,
+      slaResolutionStartedAt: ago(300),
+      // A person-confirmed thread (the backend's lane flag is true) whose newest mail is
+      // legitimate: the backend's clock runs. Then a junk mail arrives: only the category changes.
+      isSpam: true,
+      spamConfirmedAt: ago(60),
+      latestSpamCategory: 'legitimate',
+    } as Message;
+    const { rerenderHeader } = renderHeader({ message: open });
+    await screen.findByTestId('sla-resolution-clock');
+    // Only the category changes: the header's memoised clocks must recompute.
+    rerenderHeader({ message: { ...open, latestSpamCategory: 'phishing' } as Message });
     expect(screen.queryByTestId('sla-resolution-clock')).toBeNull();
   });
 });

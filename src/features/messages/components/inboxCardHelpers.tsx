@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { Message } from '@/types';
 import type { MessageThread } from '@/services/message.service';
-import { hasMessageAttachments, isSuspiciousThread } from '@/lib/messageHelpers';
+import { getSpamCheck, hasMessageAttachments, isSuspiciousThread } from '@/lib/messageHelpers';
 import { isJunkSpamCategory, isSpamThread } from '@/lib/spamVerdict';
 import { formatDuration } from '@/lib/utils';
 import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/types/ai';
@@ -630,9 +630,13 @@ export const getRiskSignals = (message: Message): RiskSignal[] => {
         ? `Confirmed as spam by an agent on ${new Date(confirmedAt).toLocaleDateString()}`
         : 'Marked as spam by the filter — nobody has confirmed it yet',
     });
-  } else if (isSuspiciousThread(message)) {
-    // The backend's Suspicious flag (the newest inbound verdict or an agent's mark), the first
-    // mail's category only when an older backend sends none.
+  } else if (
+    typeof message.isSuspicious === 'boolean'
+      ? isSuspiciousThread(message)
+      : getSpamCheck(message)?.category === 'suspicious'
+  ) {
+    // The backend's Suspicious flag (the newest inbound verdict or an agent's mark). An older
+    // backend sends none: the first mail's category, with no status gate, as the card always read it.
     signals.push({
       key: 'suspicious',
       label: 'Suspicious',
