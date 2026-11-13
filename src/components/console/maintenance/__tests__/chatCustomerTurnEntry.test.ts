@@ -1,5 +1,5 @@
 /**
- * The console entry for the repair of chat tickets (Telegram, WhatsApp, Slack) that stayed in
+ * The console entry for the repair of chat tickets (Telegram, WhatsApp) that stayed in
  * Pending after the customer wrote again (BE `POST /api/system/repair-chat-customer-turn`,
  * 2026-11-13).
  */
@@ -25,6 +25,11 @@ describe('repair-chat-customer-turn entry', () => {
 
   it('says what it leaves alone', () => {
     expect(entry?.does).toMatch(/left alone/);
+  });
+
+  it('names Telegram and WhatsApp only: Slack cannot tell the customer from the team', () => {
+    expect(entry?.does).toMatch(/^Telegram and WhatsApp tickets/);
+    expect(entry?.does).toMatch(/Slack and email threads are left alone/);
   });
 
   it('a result cut by the limit reads as "more remain"; a complete one does not', () => {
