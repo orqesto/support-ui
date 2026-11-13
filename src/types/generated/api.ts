@@ -369,6 +369,8 @@ export interface components {
             identityField: "email" | "phone" | "displayName" | null;
             sourceEndpointId: number | null;
             sourceFieldPath: string | null;
+            fallbackPath: string | null;
+            fallbackWarning?: string | null;
             ownershipSourceEndpointId: number | null;
             recordFormatPrefix: string | null;
             recordFormatLength: number | null;
@@ -421,6 +423,7 @@ export interface components {
                 role: "none" | "identifier" | "date" | "status" | "total" | "currency" | "customer_email" | "tracking_number" | "tracking_link";
                 currencyPath?: string;
                 currencyLiteral?: string;
+                hidden?: boolean;
             }[];
             /** @enum {string} */
             resultShape: "one" | "many";
@@ -542,6 +545,11 @@ export interface components {
                 /** @enum {string} */
                 reason: "source_no_match" | "source_failed" | "source_no_identity";
                 sourceLabel: string;
+            };
+            fallback?: {
+                email: string;
+                dropped: number;
+                more?: boolean;
             };
             /** @enum {string} */
             ownership?: "owned" | "mismatch" | "unverified";

@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import type { CustomApiEndpoint, FieldPick } from '@/features/custom-api/shell';
+import { FallbackStep } from './FallbackStep';
 
 /**
  * D21 — "take the value from another lookup's answer".
@@ -20,16 +21,34 @@ import type { CustomApiEndpoint, FieldPick } from '@/features/custom-api/shell';
 interface Props {
   /** The other lookups on this connection. The lookup being edited is never among them. */
   siblings: CustomApiEndpoint[];
-  sourceEndpointId: number | null;
-  sourceFieldPath: string;
-  onChange: (next: { sourceEndpointId: number | null; sourceFieldPath: string }) => void;
+  /** Which lookup gives the value, which field of its answer, and (2026-11-13) the fallback path. */
+  chain: { sourceEndpointId: number | null; sourceFieldPath: string; fallbackPath: string };
+  /**
+   * The fallback's own controls — absent when the backend does not know fallbacks (it would drop
+   * the path on save), so nothing is offered that cannot be kept.
+   */
+  fallback?: {
+    problems: string[];
+    /** The wizard's own Test conditions hold and the fallback has no problem. */
+    testable: boolean;
+    /** The backend's `fallbackWarning` on the stored lookup (absent from an older backend). */
+    warning?: unknown;
+    onTest: (email: string) => Promise<string | null>;
+  };
+  onChange: (next: {
+    sourceEndpointId: number | null;
+    sourceFieldPath: string;
+    fallbackPath: string;
+  }) => void;
 }
 
 /** The same rule the backend's `assertChainIsValid` applies. */
 export const canFeedAChain = (endpoint: CustomApiEndpoint): boolean =>
   endpoint.parameterSource === 'identity' && endpoint.resultShape === 'one';
 
-export const ChainStep = ({ siblings, sourceEndpointId, sourceFieldPath, onChange }: Props) => {
+export const ChainStep = ({ siblings, chain, fallback, onChange }: Props) => {
+  const current = chain;
+  const { sourceEndpointId, sourceFieldPath, fallbackPath } = chain;
   const sources = siblings.filter(canFeedAChain);
   const chosen = sources.find((endpoint) => endpoint.id === sourceEndpointId);
   // The fields an admin already picked on the source are the likeliest answers; offered as
@@ -60,16 +79,13 @@ export const ChainStep = ({ siblings, sourceEndpointId, sourceFieldPath, onChang
           label: endpoint.label,
         }))}
         onChange={(value) =>
-          onChange({
-            sourceEndpointId: value === '' ? null : Number(value),
-            sourceFieldPath,
-          })
+          onChange({ ...current, sourceEndpointId: value === '' ? null : Number(value) })
         }
       />
       <Input
         label="Which field of its answer holds the value?"
         value={sourceFieldPath}
-        onChange={(event) => onChange({ sourceEndpointId, sourceFieldPath: event.target.value })}
+        onChange={(event) => onChange({ ...current, sourceFieldPath: event.target.value })}
         placeholder="customer_id"
       />
       {suggestions.length > 0 && (
@@ -79,7 +95,7 @@ export const ChainStep = ({ siblings, sourceEndpointId, sourceFieldPath, onChang
               key={path}
               size="sm"
               variant="ghost"
-              onClick={() => onChange({ sourceEndpointId, sourceFieldPath: path })}
+              onClick={() => onChange({ ...current, sourceFieldPath: path })}
             >
               {path}
             </Button>
@@ -89,8 +105,20 @@ export const ChainStep = ({ siblings, sourceEndpointId, sourceFieldPath, onChang
       <p className="text-xs text-muted-foreground">
         When an agent opens a ticket we run {chosen ? `“${chosen.label}”` : 'that lookup'} with the
         customer’s email, read this field from its answer, and look this one up with it. If that
-        lookup finds nobody, this one shows “no match” too.
+        lookup finds nobody, this one shows “no match” too
+        {fallback ? ' — unless you set a fallback below' : ''}.
       </p>
+      {fallback && (
+        <FallbackStep
+          fallbackPath={fallbackPath}
+          onChange={(next) => onChange({ ...current, fallbackPath: next })}
+          sourceLabel={chosen?.label ?? null}
+          problems={fallback.problems}
+          testable={fallback.testable}
+          warning={fallback.warning}
+          onTest={fallback.onTest}
+        />
+      )}
     </div>
   );
 };

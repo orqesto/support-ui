@@ -1,6 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { CATEGORY_RECORD_LABELS, readCategory } from '@/features/settings/shell';
+import {
+  CATEGORY_RECORD_LABELS,
+  CATEGORY_TAB_LABELS,
+  readCategory,
+} from '@/features/settings/shell';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -9,6 +13,7 @@ import { Permission } from '@/types/roles';
 import {
   ADMIN_CAN_SEE_DETAILS,
   failureSentence,
+  fallbackText,
   noMatchHintText,
   notFoundText,
   referenceNameOf,
@@ -229,6 +234,21 @@ export const CustomApiResultCard = ({
     says what it always said. The file header's FE/BE skew note is the reason this is not a cast.
   */
   const category = readCategory((result as { category?: unknown }).category);
+  // 2026-11-13: a chained card that searched by email because its source found no account, worded
+  // with what its records are ("guest orders"), or "records" for a lookup with no category.
+  const fallbackNote = fallbackText(
+    result,
+    // 'account' is not a kind of order a guest places: neutral "records" there (2026-11-13 review).
+    category && category !== 'account'
+      ? {
+          one: CATEGORY_RECORD_LABELS[category].toLowerCase(),
+          many: CATEGORY_TAB_LABELS[category].toLowerCase(),
+        }
+      : undefined
+  );
+  // Every field this lookup picks is hidden (check-only): rows arrive empty. Say so, never blank cards.
+  const detailsHidden =
+    hasRows && (result.rows ?? []).every((row) => Object.keys(row).length === 0);
 
   return (
     // v4 `.k-c`: one card per lookup; a failed one is edged in red so it is found at a glance.
@@ -266,6 +286,12 @@ export const CustomApiResultCard = ({
             : ''}
         </span>
       </div>
+
+      {fallbackNote && hasRows && (
+        <p data-testid="lookup-fallback-note" className="text-[11px] text-muted-foreground">
+          {fallbackNote}
+        </p>
+      )}
 
       {notice && (
         <p className={`text-[11px] rounded px-2 py-1 flex gap-1.5 ${notice.className}`}>
@@ -311,8 +337,11 @@ export const CustomApiResultCard = ({
         // agents learn to ignore both and a real outage reads as a customer with no records.
         // 2026-10-14 (A3/A4/B3): it names what was searched, or which lookup stopped a chain.
         <div className="space-y-0.5">
-          <p className="text-[11px] text-muted-foreground">
-            {skipped ? skippedText(skipped) : notFound}
+          <p
+            className="text-[11px] text-muted-foreground"
+            {...(fallbackNote ? { 'data-testid': 'lookup-fallback-note' } : {})}
+          >
+            {skipped ? skippedText(skipped) : (fallbackNote ?? notFound)}
           </p>
           {noMatchHint && (
             <p
@@ -358,6 +387,11 @@ export const CustomApiResultCard = ({
         */
         <div className="space-y-0.5">
           {skipped && <p className="text-[11px] text-muted-foreground">{skippedText(skipped)}</p>}
+          {fallbackNote && (
+            <p data-testid="lookup-fallback-note" className="text-[11px] text-muted-foreground">
+              {fallbackNote}
+            </p>
+          )}
           <p className="text-[11px] text-destructive">
             {failureSentence(result.agentReason, result.connectionName)}
           </p>
@@ -390,7 +424,21 @@ export const CustomApiResultCard = ({
         </p>
       )}
 
+      {detailsHidden && (
+        <p data-testid="lookup-details-hidden" className="text-[11px] text-muted-foreground">
+          {typeof result.total === 'number' && result.total > (result.rows?.length ?? 0)
+            ? `${result.rows?.length} of ${result.total}`
+            : result.rows?.length}{' '}
+          found — details hidden.
+          {result.more === true &&
+          !(typeof result.total === 'number' && result.total > (result.rows?.length ?? 0))
+            ? ' There may be more.'
+            : ''}
+        </p>
+      )}
+
       {result.status === 'ok' &&
+        !detailsHidden &&
         (result.rows?.length ? (
           <div className="space-y-1.5">
             {result.rows.map((row, index) => (

@@ -9,6 +9,7 @@ import {
 import { RequestSettingsBlock } from './AdvancedSettings';
 import { AgentWordsFields, useAgentWords } from './AgentWordsFields';
 import { ChainStep } from './ChainStep';
+import { HiddenFieldToggle } from './HiddenFieldToggle';
 import { OwnershipStep } from './OwnershipStep';
 import { StatusVocabularyStep } from './StatusVocabularyStep';
 import { RecordFormatStep } from './RecordFormatStep';
@@ -16,7 +17,8 @@ import type { RecordFormat } from './recordFormat';
 import { ResponseTree } from './ResponseTree';
 import { RecordsPathField, explainOutcome as explain } from './RecordsPathField';
 import { useRequestSettings } from './useRequestSettings';
-import { buildParameterFields } from './parameterFields';
+import { VALUE_PLACEHOLDER } from './parameterFields';
+import { useChain } from './useChainFallback';
 import { useTestRevert } from './useTestRevert';
 import type { EndpointWizardProps } from './endpointWizardProps';
 import * as categoryField from './categoryField';
@@ -46,7 +48,6 @@ import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
  */
 
 /** The token the executor substitutes the looked-up value into. */
-export const VALUE_PLACEHOLDER = '{value}';
 
 /**
  * A label an agent will actually read. ⛔ RED: default to the raw path and agents get a column
@@ -152,18 +153,6 @@ export const EndpointWizard = ({
       ? endpoint.parameterSource
       : (initial?.parameterSource ?? 'identity')
   );
-  /** D21: which lookup a chained one reads its value from, and which field of its answer. */
-  const [chain, setChain] = useState<{ sourceEndpointId: number | null; sourceFieldPath: string }>({
-    sourceEndpointId: endpoint?.sourceEndpointId ?? null,
-    sourceFieldPath: endpoint?.sourceFieldPath ?? '',
-  });
-  /**
-   * ⛔ A chain without both halves is a 400 (the create schema refines them together), and the
-   * FIRST Test press creates the lookup — so both are required before Test as well as Save.
-   */
-  const chainIncomplete =
-    paramSource === 'endpoint' &&
-    (chain.sourceEndpointId === null || chain.sourceFieldPath.trim() === '');
   /**
    * Method, body, 404 meaning, row-cap parameter and pages (2026-09-29). ⛔ Shown only when the
    * backend returned these fields: an older one would drop them on save without a word.
@@ -234,10 +223,20 @@ export const EndpointWizard = ({
   // Where the value comes from — see parameterFields.ts for why an existing identityField is kept.
   // D4 + 2026-10-21: the reference name and the no-match hint travel with it, on every write.
   const words = useAgentWords(endpoint, initial, paramSource);
-  const parameterFields = {
-    ...buildParameterFields(paramSource, endpoint, chain),
-    ...words.payload,
-  };
+  // D21 + 2026-11-13: the chain, its fallback and the payloads they send (useChainFallback.ts).
+  const { chain, setChain, chainIncomplete, saveBlocked, fallback, ...writes } = useChain({
+    connection,
+    endpoint,
+    paramSource,
+    picked,
+    path,
+    request,
+    wordsPayload: words.payload,
+    ui: { busy, setBusy, setError },
+    ensureSaved: () => ensureSaved(),
+    sendTest: (...args) => customApiService.sendTest(...args),
+  });
+  const { parameterFields, testParameterFields } = writes;
 
   /**
    * ⛔ THE PLACEHOLDER THE ADMIN HAS NEVER HEARD OF. The executor substitutes the value at
@@ -279,7 +278,7 @@ export const EndpointWizard = ({
         statusLabels,
         // ⛔ Test runs the SAVED lookup, so the request settings must be saved before it.
         ...request.payload,
-        ...parameterFields,
+        ...testParameterFields,
       });
       testRevert.markUpdated(savedId);
       invalidateAvailability();
@@ -294,7 +293,7 @@ export const EndpointWizard = ({
       ...categoryField.categoryPayload(category),
       statusLabels,
       ...request.payload,
-      ...parameterFields,
+      ...testParameterFields,
       ...initial?.createExtras,
     });
     invalidateAvailability();
@@ -562,8 +561,8 @@ export const EndpointWizard = ({
             {paramSource === 'endpoint' && (
               <ChainStep
                 siblings={connection.endpoints.filter((one) => one.id !== endpointId)}
-                sourceEndpointId={chain.sourceEndpointId}
-                sourceFieldPath={chain.sourceFieldPath}
+                chain={chain}
+                fallback={fallback.supported ? fallback : undefined}
                 onChange={setChain}
               />
             )}
@@ -860,6 +859,9 @@ export const EndpointWizard = ({
                     {roleOption(field.role).buys && (
                       <p className="text-xs text-muted-foreground">{roleOption(field.role).buys}</p>
                     )}
+                    {/* 2026-11-13: a check-only email — offered on that role alone, and only to a
+                        backend that keeps the flag (`supportsFallback`). */}
+                    <HiddenFieldToggle offered={fallback.supported} field={field} onChange={editPick} />
                     {field.kind === 'money' && field.currencyLiteral !== undefined && (
                       <Input
                         label="Which currency?"
@@ -925,7 +927,7 @@ export const EndpointWizard = ({
               !path.trim() ||
               unpricedMoney.length > 0 ||
               unlabelled.length > 0 ||
-              chainIncomplete ||
+              saveBlocked ||
               Boolean(request.problem)
             }
           >

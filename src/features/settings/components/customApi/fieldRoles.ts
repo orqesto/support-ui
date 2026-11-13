@@ -108,10 +108,20 @@ export const roleOption = (role: FieldRole): RoleOption =>
  */
 export const applyRole = (fields: FieldPick[], path: string, role: FieldRole): FieldPick[] =>
   fields.map((field) => {
-    if (field.path === path) return { ...field, role };
-    if (role !== 'none' && field.role === role) return { ...field, role: 'none' };
+    if (field.path === path) return withRole(field, role);
+    if (role !== 'none' && field.role === role) return withRole(field, 'none');
     return field;
   });
+
+/**
+ * 2026-11-13: only a `customer_email` field may be hidden (the backend refuses the rest), so a
+ * field leaving that role is shown again — never saved as a hidden status or identifier.
+ */
+const withRole = (field: FieldPick, role: FieldRole): FieldPick => {
+  if (role === 'customer_email') return { ...field, role };
+  const { hidden: _hidden, ...rest } = field;
+  return { ...rest, role };
+};
 
 /** The field currently holding a role, if any. */
 export const fieldWithRole = (fields: FieldPick[], role: FieldRole): FieldPick | undefined =>

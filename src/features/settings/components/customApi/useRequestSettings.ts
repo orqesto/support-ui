@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { CustomApiConnection, CustomApiEndpoint } from '@/features/custom-api/shell';
+import { VALUE_PLACEHOLDER } from './parameterFields';
 import {
   readRequestSettings,
   requestSettingsPayload,
@@ -27,7 +28,9 @@ export const useRequestSettings = (
     payload: show ? requestSettingsPayload(settings, resultShape) : {},
     /** A POST sends the value in its body — somewhere for it to go besides the path. */
     bodyCarriesValue:
-      show && settings.method === 'POST' && settings.requestBodyTemplate.includes('{value}'),
+      show &&
+      settings.method === 'POST' &&
+      settings.requestBodyTemplate.includes(VALUE_PLACEHOLDER),
   };
 };
 

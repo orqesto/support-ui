@@ -36,6 +36,8 @@ type FlexibleEndpointKey =
   | 'botAnswersStatus'
   | 'botStatusReply'
   | 'botNotFoundReply'
+  // 2026-11-13: a chained lookup's fallback path; absent from an older backend.
+  | 'fallbackPath'
   | 'health';
 type FlexibleConnectionKey = 'failureStatusPath' | 'failureStatusValues' | 'failureMessagePath';
 type GeneratedEndpoint = components['schemas']['CustomApiEndpoint'];
@@ -137,6 +139,11 @@ export interface EndpointTestResult {
     total?: number | null;
   };
   paths: string[];
+  /**
+   * 2026-11-13 "Test fallback" only: what the live ownership filter would keep and hide for the test
+   * email. Absent on an ordinary Test and from an older backend.
+   */
+  fallback?: { kept: number; dropped: number };
 }
 
 export interface FieldPick {
@@ -162,6 +169,11 @@ export interface FieldPick {
     | 'tracking_link';
   currencyPath?: string;
   currencyLiteral?: string;
+  /**
+   * 2026-11-13 (owner): read by the checks (its role still counts) but never shown to agents —
+   * e.g. the order's email that decides ownership. Absent = shown. An older backend drops it.
+   */
+  hidden?: boolean;
 }
 
 const normaliseTestResult = (data: unknown): EndpointTestResult => {
@@ -171,6 +183,11 @@ const normaliseTestResult = (data: unknown): EndpointTestResult => {
     // working is how an admin stops looking at the thing that is broken.
     outcome: shaped.outcome ?? { status: 'failed', reason: 'No response from the server.' },
     paths: shaped.paths ?? [],
+    ...(shaped.fallback &&
+    typeof shaped.fallback.kept === 'number' &&
+    typeof shaped.fallback.dropped === 'number'
+      ? { fallback: { kept: shaped.fallback.kept, dropped: shaped.fallback.dropped } }
+      : {}),
   };
 };
 
@@ -257,11 +274,13 @@ export const customApiService = {
   async sendTest(
     connectionId: number,
     endpointId: number,
-    parameter?: string
+    parameter?: string,
+    /** 2026-11-13 "Test fallback": call this path instead of the lookup's own; nothing is stored. */
+    fallbackPath?: string
   ): Promise<EndpointTestResult> {
     const res = await apiClient.post<{ success: boolean; data: unknown }>(
       `/api/custom-apis/${connectionId}/endpoints/${endpointId}/test`,
-      parameter ? { parameter } : {}
+      { ...(parameter ? { parameter } : {}), ...(fallbackPath ? { fallbackPath } : {}) }
     );
     return normaliseTestResult(res.data.data);
   },
