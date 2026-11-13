@@ -22,13 +22,7 @@ import {
   slaClockRuns,
   slaWaitClock,
 } from './inboxCardHelpers';
-import {
-  hasActiveContradiction,
-  isFloodReview,
-  NEEDS_REVIEW_REASON_LABELS,
-  needsReviewReasonLabel,
-  needsReviewTooltip,
-} from './aiFlagCopy';
+import { hasActiveContradiction, needsReviewReasonLabel, needsReviewTooltip } from './aiFlagCopy';
 
 type Props = {
   message: Message;
@@ -202,14 +196,10 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
         <Tooltip content={needsReviewTooltip(message.needsReviewReason)} size="sm">
           <Badge variant="warning" className={bc}>
             <BellRing className={ic} />
-            {size !== 'sm'
-              ? 'Needs Review'
-              : isFloodReview(message)
-                ? NEEDS_REVIEW_REASON_LABELS.flood
-                : 'Review'}
+            {size === 'sm' ? 'Review' : 'Needs Review'}
             {/* The reason as a short suffix on the full-size badge only; the small one keeps
-                it in the tooltip, except a flood hold, which names itself (owner 2026-11-13).
-                Absent/unknown reason ⇒ the plain badge, as before. */}
+                it in the tooltip. Absent/unknown reason ⇒ the plain badge, as before. (Every
+                small caller renders card mode, where a flood hold shows on getAiState's chip.) */}
             {size !== 'sm' && needsReviewReasonLabel(message.needsReviewReason) && (
               <span className="font-normal opacity-80">
                 · {needsReviewReasonLabel(message.needsReviewReason)}
