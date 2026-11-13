@@ -11,6 +11,8 @@ export type RuleDraft = {
   keywords: string[];
   keywordInput: string;
   replyText: string;
+  /** Template + knowledge base: an answer from the KB goes in at {{kb_answer}}. */
+  useKnowledgeBase: boolean;
 };
 
 export type RuleDraftErrors = { keywords?: string; replyText?: string; name?: string };
@@ -20,7 +22,15 @@ export const emptyDraft = (): RuleDraft => ({
   keywords: [],
   keywordInput: '',
   replyText: '',
+  useKnowledgeBase: false,
 });
+
+/** Where a template rule puts the knowledge base answer (the backend's placeholder). */
+export const KB_ANSWER_PLACEHOLDER = '{{kb_answer}}';
+
+/** The template with the placeholder added on its own paragraph at the end. */
+export const insertKbPlaceholder = (text: string): string =>
+  text.trim() ? `${text.trimEnd()}\n\n${KB_ANSWER_PLACEHOLDER}` : KB_ANSWER_PLACEHOLDER;
 
 /**
  * Keywords from the input added to the list: split on commas and line breaks (a pasted list adds

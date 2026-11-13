@@ -22,6 +22,8 @@ import {
   emptyDraft,
   errorsFromFields,
   hasErrors,
+  insertKbPlaceholder,
+  KB_ANSWER_PLACEHOLDER,
   validateDraft,
   type RuleDraft,
   type RuleDraftErrors,
@@ -128,15 +130,52 @@ const RuleForm = ({
           Matches whole words in the subject or the message, in any letter case.
         </p>
       </div>
+      <div className="space-y-2">
+        <Toggle
+          checked={draft.useKnowledgeBase}
+          disabled={saving}
+          label="Add an answer from the knowledge base"
+          ariaDescribedBy="auto-reply-rule-kb-help"
+          onChange={(next) => onChange({ ...draft, useKnowledgeBase: next })}
+        />
+        <p id="auto-reply-rule-kb-help" className="text-xs text-muted-foreground">
+          {draft.useKnowledgeBase ? (
+            <>
+              The reply text is a template: the answer goes where{' '}
+              <code>{KB_ANSWER_PLACEHOLDER}</code> stands, or after the text. It is sent only when
+              the knowledge base has an answer as sure as the auto-send threshold above; otherwise
+              nothing is sent and the email stays with the team.
+            </>
+          ) : (
+            'Off: the reply text is sent exactly as written.'
+          )}
+        </p>
+      </div>
       <Textarea
-        label="Reply text"
-        placeholder="The reply the customer gets"
+        label={draft.useKnowledgeBase ? 'Reply template' : 'Reply text'}
+        placeholder={
+          draft.useKnowledgeBase
+            ? `Hello,\n\n${KB_ANSWER_PLACEHOLDER}\n\nKind regards`
+            : 'The reply the customer gets'
+        }
         rows={5}
         value={draft.replyText}
         error={errors.replyText}
         disabled={saving}
         onChange={(ev) => onChange({ ...draft, replyText: ev.target.value })}
       />
+      {draft.useKnowledgeBase && !draft.replyText.includes(KB_ANSWER_PLACEHOLDER) && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={saving}
+          onClick={() => onChange({ ...draft, replyText: insertKbPlaceholder(draft.replyText) })}
+        >
+          <Plus className="mr-1 w-3 h-3" />
+          Insert {KB_ANSWER_PLACEHOLDER}
+        </Button>
+      )}
       <div className="flex flex-wrap gap-2 justify-end">
         <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={onCancel}>
           Cancel
@@ -187,6 +226,7 @@ export const AutoReplyRulesSection = ({ canManage, autoReplyEnabled, onShowAlert
         keywords: rule.keywords,
         keywordInput: '',
         replyText: rule.replyText,
+        useKnowledgeBase: rule.useKnowledgeBase,
       },
       errors: {},
     });
@@ -202,6 +242,7 @@ export const AutoReplyRulesSection = ({ canManage, autoReplyEnabled, onShowAlert
       name: editing.draft.name.trim(),
       keywords: draftKeywords(editing.draft),
       replyText: editing.draft.replyText.trim(),
+      useKnowledgeBase: editing.draft.useKnowledgeBase,
     };
     setSaving(true);
     try {
@@ -347,6 +388,7 @@ export const AutoReplyRulesSection = ({ canManage, autoReplyEnabled, onShowAlert
                   <div className="flex-1 space-y-1.5 min-w-0">
                     <div className="flex gap-2 items-center">
                       <span className="text-sm font-medium truncate">{rule.name}</span>
+                      {rule.useKnowledgeBase && <Badge variant="warning">Template + KB</Badge>}
                       {!rule.enabled && <Badge variant="secondary">Off</Badge>}
                     </div>
                     <div className="flex flex-wrap gap-1">

@@ -355,4 +355,18 @@ describe('messageActivityTimeline — auto-reply sent', () => {
       auditEntryLabel('message.auto_reply_sent', { source: 'ai', toStatus: 'awaiting_response' })
     ).toBe('AI auto-reply sent');
   });
+
+  it('a rule that inserted a knowledge base answer says so', () => {
+    expect(
+      auditEntryLabel('message.auto_reply_sent', {
+        source: 'keyword_rule',
+        ruleName: 'Refunds',
+        keyword: 'refund',
+        knowledgeSource: 'knowledge_base',
+        toStatus: 'resolved',
+      })
+    ).toBe(
+      'Auto-reply sent by rule "Refunds" (keyword "refund") with a knowledge base answer — resolved'
+    );
+  });
 });
