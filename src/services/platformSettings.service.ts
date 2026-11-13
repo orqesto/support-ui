@@ -500,6 +500,10 @@ export const INGESTION_FIELDS = [
   'autoReplyMaxMessageAgeHours',
   /** Hours a Telegram chat must be quiet before the bot wakes on a chat it handed to a person (`telegram.bot_renew_quiet`, 1-720); each Telegram connection may override it. */
   'telegramBotRenewQuietHours',
+  /** Messages that may wait in one Telegram chat before its next ones are saved for a person with no bot answer (`telegram.turn_limits`, 2-100); each Telegram connection may override it. */
+  'telegramFloodWaitingLimit',
+  /** Seconds a started bot turn may run before it stops holding the bot's intake; the turn goes on (`telegram.turn_limits`, 60-600); each Telegram connection may override it. */
+  'telegramTurnHangSeconds',
   /** Failed attachment downloads retried per mailbox check; 0 = off. */
   'attachmentRefetchPerRun',
   /** Gmail quota units spent per minute, steady state (Google's limit is 15,000). */

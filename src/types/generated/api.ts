@@ -194,7 +194,7 @@ export interface components {
             aiReplyCount: number;
             needsHumanReview: boolean;
             /** @enum {string|null} */
-            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "other" | null;
+            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "other" | null;
             createdAt: string;
             metadata: {
                 [key: string]: unknown;
@@ -236,7 +236,7 @@ export interface components {
             aiReplyCount: number;
             needsHumanReview: boolean;
             /** @enum {string|null} */
-            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "other" | null;
+            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "other" | null;
             createdAt: string;
             metadata: {
                 [key: string]: unknown;

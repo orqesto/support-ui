@@ -84,6 +84,16 @@ const AUTOREPLY_FIELDS: FieldDef[] = [
     label: 'Telegram bot wakes after quiet (hours)',
     hint: 'A Telegram chat the bot handed to a person stays with people, also after it is closed or resolved, until there has been no message in it (customer, agent or bot) for this long; then the bot answers the customer again. Default one week (168). Each Telegram connection can set its own value.',
   },
+  {
+    key: 'telegramFloodWaitingLimit',
+    label: 'Telegram flood limit (messages waiting in one chat)',
+    hint: 'When this many messages wait in one Telegram chat, the chat’s next messages are saved for a person and the bot does not answer them. Default 10. Each Telegram connection can set its own value.',
+  },
+  {
+    key: 'telegramTurnHangSeconds',
+    label: 'Telegram hang limit (seconds)',
+    hint: 'A bot answer that runs longer than this stops holding up the chat’s next messages; the answer itself still goes on. Default 90. Each Telegram connection can set its own value.',
+  },
 ];
 /** Attachment retry (Gmail and IMAP), then the pacing that keeps a Gmail mailbox under Google's quota. */
 const GMAIL_FIELDS: FieldDef[] = [

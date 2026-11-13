@@ -9,6 +9,8 @@ import {
   botSettingsProblem,
   telegramBotSettingsService,
   type ConsoleQuietHours,
+  type ConsoleTurnLimits,
+  turnLimitBounds,
   type TelegramBotCommand,
   type TelegramBotSettings,
 } from '@/features/settings/services/telegramBotSettings.service';
@@ -49,6 +51,10 @@ export const TelegramBotSettingsPanel = ({
   const [quietHours, setQuietHours] = useState<number | null>(null);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [consoleQuiet, setConsoleQuiet] = useState<ConsoleQuietHours | null>(null);
+  // undefined = this backend has no flood / hang limit: the inputs are hidden and nothing is sent.
+  const [floodWaitingLimit, setFloodWaitingLimit] = useState<number | null | undefined>(undefined);
+  const [turnHangSeconds, setTurnHangSeconds] = useState<number | null | undefined>(undefined);
+  const [consoleLimits, setConsoleLimits] = useState<ConsoleTurnLimits | null>(null);
   const [maxCommands, setMaxCommands] = useState(30);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -63,6 +69,9 @@ export const TelegramBotSettingsPanel = ({
         setQuietHours(data.settings.quietHours);
         setRows(toRows(data.settings.commands));
         setConsoleQuiet(data.consoleQuietHours);
+        setFloodWaitingLimit(data.settings.floodWaitingLimit);
+        setTurnHangSeconds(data.settings.turnHangSeconds);
+        setConsoleLimits(data.consoleTurnLimits ?? null);
         if (data.maxCommands) setMaxCommands(data.maxCommands);
       })
       .catch((error: unknown) => {
@@ -85,7 +94,13 @@ export const TelegramBotSettingsPanel = ({
     return <div className="p-3 mt-2 text-sm text-muted-foreground">Loading bot settings…</div>;
   }
 
-  const settings: TelegramBotSettings = { quietHours, commands: toCommands(rows) };
+  const settings: TelegramBotSettings = {
+    quietHours,
+    ...(floodWaitingLimit !== undefined ? { floodWaitingLimit } : {}),
+    ...(turnHangSeconds !== undefined ? { turnHangSeconds } : {}),
+    commands: toCommands(rows),
+  };
+  const asLimit = (text: string) => (text === '' ? null : Number(text));
   const updateRow = (uid: number, patch: Partial<TelegramBotCommand>) =>
     setRows(rows.map((row) => (row.uid === uid ? { ...row, ...patch } : row)));
   const removeRow = (uid: number) => setRows(rows.filter((row) => row.uid !== uid));
@@ -114,7 +129,8 @@ export const TelegramBotSettingsPanel = ({
     setNewLanguage({ ...newLanguage, [row.uid]: '' });
   };
 
-  const problem = botSettingsProblem(settings, maxCommands);
+  const limitBounds = turnLimitBounds(consoleLimits);
+  const problem = botSettingsProblem(settings, maxCommands, limitBounds);
 
   const save = async () => {
     if (problem) return;
@@ -122,6 +138,9 @@ export const TelegramBotSettingsPanel = ({
     try {
       const saved = await telegramBotSettingsService.save(integrationId, settings);
       setQuietHours(saved.settings.quietHours);
+      setFloodWaitingLimit(saved.settings.floodWaitingLimit);
+      setTurnHangSeconds(saved.settings.turnHangSeconds);
+      if (saved.consoleTurnLimits) setConsoleLimits(saved.consoleTurnLimits);
       setRows(toRows(saved.settings.commands));
       onShowAlert({
         open: true,
@@ -172,6 +191,50 @@ export const TelegramBotSettingsPanel = ({
           Empty = the console default (one week).
         </p>
       </div>
+
+      {floodWaitingLimit !== undefined && (
+        <div className="space-y-1">
+          <Input
+            label="Flood limit (messages waiting in one chat)"
+            type="number"
+            min={limitBounds.flood.min}
+            max={limitBounds.flood.max}
+            step={1}
+            value={floodWaitingLimit ?? ''}
+            placeholder={
+              consoleLimits
+                ? `Console default: ${consoleLimits.telegramFloodWaitingLimit.value}`
+                : ''
+            }
+            onChange={(event) => setFloodWaitingLimit(asLimit(event.target.value))}
+          />
+          <p className="text-xs text-muted-foreground">
+            When this many messages wait in one chat, the chat&rsquo;s next messages are saved for a
+            person and the bot does not answer them. Empty = the console default.
+          </p>
+        </div>
+      )}
+
+      {turnHangSeconds !== undefined && (
+        <div className="space-y-1">
+          <Input
+            label="Hang limit (seconds)"
+            type="number"
+            min={limitBounds.hang.min}
+            max={limitBounds.hang.max}
+            step={1}
+            value={turnHangSeconds ?? ''}
+            placeholder={
+              consoleLimits ? `Console default: ${consoleLimits.telegramTurnHangSeconds.value}` : ''
+            }
+            onChange={(event) => setTurnHangSeconds(asLimit(event.target.value))}
+          />
+          <p className="text-xs text-muted-foreground">
+            A bot answer that runs longer than this stops holding up the chat&rsquo;s next messages;
+            the answer itself still goes on. Empty = the console default.
+          </p>
+        </div>
+      )}
 
       {rows.map((entry) => {
         const { builtIn } = entry;

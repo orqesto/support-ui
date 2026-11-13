@@ -23,6 +23,13 @@ export const NEEDS_REVIEW_REASON_LABELS: Record<string, string> = {
   reopened: 'Reopened',
   suspicious_in_thread: 'Suspicious reply',
   lead_escalated: 'Qualified lead',
+  flood: 'Too many messages at once',
+};
+
+/** A longer explanation where the UI has room for one (the tooltip); the label otherwise. */
+export const NEEDS_REVIEW_REASON_DETAILS: Record<string, string> = {
+  // Telegram flood rule (owner 2026-11-13): the chat sent more than the bot's flood limit at once.
+  flood: 'Too many messages at once – saved for you, bot did not answer',
 };
 
 export const NEEDS_REVIEW_LABEL = 'Needs review';
@@ -36,7 +43,9 @@ export const needsReviewReasonLabel = (code: string | null | undefined): string 
 /** "Needs review: Low confidence draft", or the plain "Needs review" when there is no reason. */
 export const needsReviewTooltip = (code: string | null | undefined): string => {
   const reason = needsReviewReasonLabel(code);
-  return reason ? `${NEEDS_REVIEW_LABEL}: ${reason}` : NEEDS_REVIEW_LABEL;
+  if (!reason) return NEEDS_REVIEW_LABEL;
+  const detail = code ? NEEDS_REVIEW_REASON_DETAILS[code] : undefined;
+  return `${NEEDS_REVIEW_LABEL}: ${detail ?? reason}`;
 };
 
 /** Why the router picked this assignee (`autoRoutedReason` on the thread). */
