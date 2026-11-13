@@ -370,6 +370,7 @@ export interface components {
             sourceEndpointId: number | null;
             sourceFieldPath: string | null;
             fallbackPath: string | null;
+            fallbackWarning?: string | null;
             ownershipSourceEndpointId: number | null;
             recordFormatPrefix: string | null;
             recordFormatLength: number | null;

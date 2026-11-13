@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { customApiService, type CustomApiConnection } from '@/features/custom-api/shell';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { FallbackWarningLine } from './FallbackWarningLine';
 import { LookupHealthLine } from './LookupHealthLine';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 
@@ -302,6 +303,7 @@ export const CustomApiSettings = ({
                       </span>
                       {/* A7 (2026-10-14): the last result agents saw from this lookup. */}
                       <LookupHealthLine health={endpoint.health} connectionName={connection.name} />
+                      <FallbackWarningLine warning={endpoint.fallbackWarning} />
                     </div>
                     <span className="flex items-center gap-2">
                       <Badge variant={state.variant}>{state.label}</Badge>

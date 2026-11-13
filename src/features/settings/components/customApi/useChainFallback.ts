@@ -140,7 +140,7 @@ export const useChain = (opts: {
     setChain,
     chainIncomplete,
     saveBlocked,
-    fallback: { supported, problems, testable, onTest },
+    fallback: { supported, problems, testable, onTest, warning: endpoint?.fallbackWarning },
     parameterFields,
     testParameterFields,
   };

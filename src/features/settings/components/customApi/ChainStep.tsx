@@ -31,6 +31,8 @@ interface Props {
     problems: string[];
     /** The wizard's own Test conditions hold and the fallback has no problem. */
     testable: boolean;
+    /** The backend's `fallbackWarning` on the stored lookup (absent from an older backend). */
+    warning?: unknown;
     onTest: (email: string) => Promise<string | null>;
   };
   onChange: (next: {
@@ -113,6 +115,7 @@ export const ChainStep = ({ siblings, chain, fallback, onChange }: Props) => {
           sourceLabel={chosen?.label ?? null}
           problems={fallback.problems}
           testable={fallback.testable}
+          warning={fallback.warning}
           onTest={fallback.onTest}
         />
       )}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { FallbackWarningLine } from './FallbackWarningLine';
 import { VALUE_PLACEHOLDER } from './parameterFields';
 
 /**
@@ -17,6 +18,8 @@ interface Props {
   problems: string[];
   /** The wizard's own Test conditions hold (chain complete, path set, not busy) and no problem. */
   testable: boolean;
+  /** The backend's `fallbackWarning` on the stored lookup, or absent. */
+  warning?: unknown;
   /**
    * "Test fallback": run the fallback path with this email through the lookup's records path and
    * say what the ownership filter kept. Null ⇒ it failed, and the wizard's error line says why.
@@ -31,6 +34,7 @@ export const FallbackStep = ({
   problems,
   testable,
   onTest,
+  warning,
 }: Props) => {
   const [email, setEmail] = useState('');
   const [outcome, setOutcome] = useState<string | null>(null);
@@ -56,6 +60,7 @@ export const FallbackStep = ({
         results show on this card. We show only results whose “Customer’s email” field is exactly
         the customer’s email; the rest are hidden and counted.
       </p>
+      <FallbackWarningLine warning={warning} />
       {problems.map((problem) => (
         <p key={problem} role="alert" className="text-xs text-destructive">
           {problem}
