@@ -1,5 +1,6 @@
 import type { Message } from '@/types';
 import { isSuspiciousThread } from '@/lib/messageHelpers';
+import { isSpamThread } from '@/lib/spamVerdict';
 import { getResolveMode } from '../resolveMode';
 
 /** What the thread's state allows: triage verdicts, whether it is active, how it resolves. */
@@ -14,11 +15,12 @@ export function deriveThreadFlags(message: Message) {
    * hides the conversation from the work queue, the header shows a red SPAM badge, and neither
    * the action strip nor the ACTIONS menu offered anything to correct it. A real customer sat
    * behind that state for a month on a client deployment with no button to press.
+   *
+   * "Spam now" is the one shared rule (`isSpamThread`, lib/spamVerdict): the backend's `isSpam`
+   * (the Spam lane's own test: the newest mail's junk category or a person's confirmation, until
+   * the thread is approved), the first mail's flag only on an older backend that sends none.
    */
-  const isSpamFlaggedOutsideTriage =
-    !isFiltered &&
-    !isSuspicious &&
-    (message.metadata?.spamCheck as { isSpam?: boolean } | undefined)?.isSpam === true;
+  const isSpamFlaggedOutsideTriage = !isFiltered && !isSuspicious && isSpamThread(message);
   const isActive =
     !isFiltered && !isSuspicious && !isSpamFlaggedOutsideTriage && message.status !== 'closed';
   // One predicate for the decisions row AND the strip, so the decision can never show

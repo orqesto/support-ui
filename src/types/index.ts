@@ -240,6 +240,13 @@ export type Message = {
    * the frozen copy rather than concluding the thread is not spam.
    */
   isSpam?: boolean;
+  /**
+   * The category of the NEWEST classified inbound mail's spam verdict (backend 2026-11-12), e.g.
+   * 'spam', 'phishing', 'promotional'. Null = that mail carries no category. OPTIONAL for skew:
+   * absent means an older backend, and the caller falls back to the first mail's frozen
+   * `metadata.spamCheck.category`.
+   */
+  latestSpamCategory?: string | null;
   spamConfirmedAt?: string | null;
   // BE returns labels UNIONed from three sources (#16). `source` lets the FE
   // render an "inherited via contact" badge so agents understand why the

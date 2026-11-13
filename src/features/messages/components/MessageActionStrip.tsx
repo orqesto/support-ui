@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { RotateCcw, ShieldCheck, ShieldAlert, Trash2, BookOpen } from 'lucide-react';
-import { getSpamCheck, getFilteredCategoryMeta } from '@/lib/messageHelpers';
+import { getFilteredCategoryMeta, newestSpamCategory } from '@/lib/messageHelpers';
+import { isSpamThread } from '@/lib/spamVerdict';
 import { notCustomerWorkMark } from './notCustomerWork';
 import { Toggle } from '@/components/ui/Toggle';
 import { Button } from '@/components/ui/Button';
@@ -116,9 +117,11 @@ export function MessageActionStrip({
 
   // Filtered: category-aware label and actions
   if (isFiltered && onClassify) {
-    const spamCheck = getSpamCheck(message);
-    const meta = getFilteredCategoryMeta(spamCheck?.category);
-    const isSecurityThreat = spamCheck?.category === 'phishing' || spamCheck?.category === 'scam';
+    // The newest classified mail's category; the first mail's when the backend sends none (null or
+    // absent), so a phishing/scam warning is never lost.
+    const category = newestSpamCategory(message);
+    const meta = getFilteredCategoryMeta(category);
+    const isSecurityThreat = category === 'phishing' || category === 'scam';
     /**
      * SP-D1: the system put this thread here; a PERSON saying "yes, it is spam" is a separate
      * fact, and until now there was no way to say it. The two halves of the Spam queue are built
@@ -145,7 +148,7 @@ export function MessageActionStrip({
      * remove the button from every thread on an older deployment. Absent falls back to the frozen
      * copy — the previous behaviour, which is imperfect but not a regression.
      */
-    const inSpamLane = message.isSpam ?? spamCheck?.isSpam === true;
+    const inSpamLane = isSpamThread(message);
     const canConfirm = !isSecurityThreat && inSpamLane && !confirmedAt;
     return (
       <div className={stripBad}>
@@ -221,8 +224,9 @@ export function MessageActionStrip({
 
   // Suspicious: phishing/scam threats get a warning label and no "move to spam" action
   if (isSuspicious && onClassify) {
-    const spamCheck = getSpamCheck(message);
-    const category = spamCheck?.category;
+    // The newest classified mail's category; the first mail's when the backend sends none (null or
+    // absent), so a phishing/scam warning is never lost.
+    const category = newestSpamCategory(message);
     const isSecurityThreat = category === 'phishing' || category === 'scam';
     const statusText = isSecurityThreat
       ? `Flagged as possible ${category} — review before approving`

@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertTriangle, AlertCircle, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
@@ -5,9 +6,10 @@ import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { DataTable, type ColumnDef } from '@/components/ui/DataTable';
 import type { SLABreach } from '@/features/statistics/services/sla.service';
 import { slaService } from '@/features/statistics/services/sla.service';
-import { SLA_DEFAULT_DAYS } from './SLAByPriorityTable';
+import { SLA_DEFAULT_DAYS, SLA_PRIORITIES } from './SLAByPriorityTable';
 import { isCustomPeriod, periodKey, periodParams, type ReportPeriod } from '@/lib/reportPeriod';
 
 type SLABreachListProps = {
@@ -18,6 +20,39 @@ type SLABreachListProps = {
 
 const windowLabel = (days: number) => (days === 1 ? 'last 24 hours' : `last ${days} days`);
 
+const getVariant = (type: string): 'default' | 'secondary' => {
+  if (type === 'message' || type === 'message_resolution') return 'default';
+  return 'secondary';
+};
+
+const getPriorityVariant = (priority?: string): 'danger' | 'secondary' => {
+  if (priority === 'critical') return 'danger';
+  return 'secondary';
+};
+
+/** Critical first, as the app orders priorities (not alphabetically); unknown last. */
+const priorityRank = (priority?: string) => {
+  const rank = SLA_PRIORITIES.findIndex((entry) => entry.key === priority);
+  return rank === -1 ? undefined : rank;
+};
+
+const timeOf = (createdAt: string) => {
+  const time = new Date(createdAt).getTime();
+  return Number.isNaN(time) ? undefined : time;
+};
+
+const relativeTime = (createdAt: string) => {
+  try {
+    return formatDistanceToNow(new Date(createdAt), { addSuffix: true });
+  } catch {
+    return '—';
+  }
+};
+
+// A thread can breach more than once (waits, resolution cycles): the start disambiguates.
+const breachKey = (breach: SLABreach) =>
+  `${breach.type}-${breach.waitId ?? breach.id}-${breach.createdAt}`;
+
 export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachListProps) => {
   const navigate = useNavigate();
   const { data, isLoading, isError, refetch } = useQuery({
@@ -27,6 +62,90 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
     refetchInterval: 30000,
     refetchIntervalInBackground: false,
   });
+
+  const openBreach = useCallback(
+    (breach: SLABreach) => {
+      if (breach.type === 'message' || breach.type === 'message_resolution') {
+        navigate(`/threads/${breach.id}`);
+      } else {
+        navigate(`/tickets/${breach.id}`);
+      }
+    },
+    [navigate]
+  );
+
+  // Stable across the 30-second refetches (DataTable memoises its sort on these).
+  const columns = useMemo(
+    (): ColumnDef<SLABreach>[] => [
+      {
+        id: 'type',
+        header: 'Type',
+        sortValue: (breach) => breach.type,
+        cell: (breach) => (
+          <Badge variant={getVariant(breach.type)}>{breach.type.replace(/_/g, ' ')}</Badge>
+        ),
+      },
+      {
+        id: 'channel',
+        header: 'Channel',
+        sortValue: (breach) => breach.channel,
+        cell: (breach) => breach.channel && <Badge variant="secondary">{breach.channel}</Badge>,
+      },
+      {
+        id: 'priority',
+        header: 'Priority',
+        sortValue: (breach) => priorityRank(breach.priority),
+        cell: (breach) =>
+          breach.priority && (
+            <Badge variant={getPriorityVariant(breach.priority)}>{breach.priority}</Badge>
+          ),
+      },
+      {
+        id: 'subject',
+        header: 'Subject',
+        sortValue: (breach) => breach.subject ?? breach.title ?? 'No subject',
+        cell: (breach) => (
+          <Button
+            type="button"
+            variant="ghost"
+            className="flex flex-col items-start w-full h-auto text-left p-2 rounded transition-colors cursor-pointer hover:bg-muted"
+            onClick={() => openBreach(breach)}
+          >
+            <span className="text-sm font-medium text-foreground">
+              {breach.subject ?? breach.title ?? 'No subject'}
+            </span>
+            <span className="mt-1 text-xs font-normal text-muted-foreground">
+              From: {breach.sender}
+            </span>
+          </Button>
+        ),
+      },
+      {
+        id: 'overdue',
+        header: 'Overdue',
+        sortValue: (breach) => breach.breachAmount,
+        align: 'right',
+        cell: (breach) => (
+          <span className="text-sm font-semibold text-destructive">+{breach.breachAmount}m</span>
+        ),
+      },
+      {
+        id: 'when',
+        header: 'When',
+        sortValue: (breach) => timeOf(breach.createdAt),
+        align: 'right',
+        cellClassName: 'text-xs text-muted-foreground',
+        cell: (breach) => relativeTime(breach.createdAt),
+      },
+    ],
+    [openBreach]
+  );
+
+  // Most overdue first; a header click sorts by that column, a third click comes back here.
+  const rows = useMemo(
+    () => [...(data?.breaches ?? [])].sort((left, right) => right.breachAmount - left.breachAmount),
+    [data]
+  );
 
   if (isLoading) {
     return (
@@ -87,26 +206,6 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
     );
   }
 
-  const getVariant = (type: string): 'default' | 'secondary' | 'success' | 'warning' | 'danger' => {
-    if (type === 'message' || type === 'message_resolution') return 'default';
-    return 'secondary';
-  };
-
-  const getPriorityVariant = (
-    priority?: string
-  ): 'default' | 'secondary' | 'success' | 'warning' | 'danger' => {
-    if (priority === 'critical') return 'danger';
-    return 'secondary';
-  };
-
-  const handleBreachClick = (breach: SLABreach) => {
-    if (breach.type === 'message' || breach.type === 'message_resolution') {
-      navigate(`/threads/${breach.id}`);
-    } else {
-      navigate(`/tickets/${breach.id}`);
-    }
-  };
-
   return (
     <Card>
       <CardHeader>
@@ -116,49 +215,14 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {data.breaches.map((breach) => (
-            <Button
-              type="button"
-              // A thread can breach more than once (waits, resolution cycles): the start disambiguates.
-              key={`${breach.type}-${breach.waitId ?? breach.id}-${breach.createdAt}`}
-              variant="ghost"
-              className="flex justify-between items-center w-full h-auto text-left p-2 pb-3 rounded border-b transition-colors cursor-pointer last:border-0 hover:bg-muted"
-              onClick={() => handleBreachClick(breach)}
-            >
-              <div className="flex-1">
-                <div className="flex flex-wrap gap-2 items-center">
-                  <Badge variant={getVariant(breach.type)}>{breach.type.replace(/_/g, ' ')}</Badge>
-
-                  {breach.channel && <Badge variant="secondary">{breach.channel}</Badge>}
-
-                  {breach.priority && (
-                    <Badge variant={getPriorityVariant(breach.priority)}>{breach.priority}</Badge>
-                  )}
-                </div>
-
-                <p className="mt-2 text-sm font-medium text-foreground">
-                  {breach.subject ?? breach.title ?? 'No subject'}
-                </p>
-
-                <p className="mt-1 text-xs text-muted-foreground">From: {breach.sender}</p>
-              </div>
-
-              <div className="ml-4 text-right">
-                <p className="text-sm font-semibold text-destructive">+{breach.breachAmount}m</p>
-                <p className="text-xs text-muted-foreground">
-                  {(() => {
-                    try {
-                      return formatDistanceToNow(new Date(breach.createdAt), { addSuffix: true });
-                    } catch {
-                      return '—';
-                    }
-                  })()}
-                </p>
-              </div>
-            </Button>
-          ))}
-        </div>
+        <DataTable
+          rows={rows}
+          rowKey={breachKey}
+          columns={columns}
+          pagination={{ mode: 'client', pageSize: Math.max(rows.length, 1) }}
+          // The whole row opens the breach; the subject's button is the keyboard path to it.
+          onRowClick={openBreach}
+        />
       </CardContent>
     </Card>
   );

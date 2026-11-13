@@ -5,15 +5,17 @@ import {
   hasMessageAttachments,
   getSpamCheck,
   getFilteredCategoryLabel,
+  hasNewestSpamCategory,
   humanizeSignalFlag,
   isSuspiciousThread,
+  newestSpamCategory,
 } from '@/lib/messageHelpers';
 import { formatDuration } from '@/lib/utils';
+import { isJunkSpamCategory, isSpamThread } from '@/lib/spamVerdict';
 import type { Message } from '@/types';
 import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/types/ai';
 import {
   getRiskSignals,
-  isSpamThread,
   computeResolutionInfo,
   getSlaCardText,
   renderOverflowTooltip,
@@ -32,6 +34,27 @@ type Props = {
    *   detail view and any other surface that needs the full signal cluster.
    */
   mode?: 'card' | 'full';
+};
+
+/**
+ * The spam badge's label. With the backend's `latestSpamCategory` (the newest classified mail's,
+ * falling back to the first mail's copy): a junk category names itself ("Spam", "Invalid
+ * Response"); anything else — promotional, transactional, suspicious, legitimate, none — reads
+ * plain "Spam": the thread IS spam, and a non-spam label on a spam badge says the opposite. A
+ * thread a person confirmed reads "Spam · confirmed" whatever the category. An older backend sends no category: the first
+ * mail's names the verdict only when that mail was spam too.
+ */
+const spamBadgeLabel = (message: Message, spamCheck: ReturnType<typeof getSpamCheck>): string => {
+  // A person's confirmation is the fact this row states first, as the header and the card do.
+  if (message.spamConfirmedAt) return 'Spam · confirmed';
+  if (!hasNewestSpamCategory(message)) {
+    const first = spamCheck?.isSpam === true ? spamCheck.category : undefined;
+    return first && first !== 'legitimate' ? getFilteredCategoryLabel(first) : 'Spam';
+  }
+  const category = newestSpamCategory(message);
+  const named = isJunkSpamCategory(category) ? getFilteredCategoryLabel(category) : 'Spam';
+  const label = named === 'Filtered' ? 'Spam' : named;
+  return label;
 };
 
 export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Props) => {
@@ -194,15 +217,19 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
         */
         <Tooltip
           content={
-            spamCheck?.redFlags?.length
-              ? `Spam: ${spamCheck.redFlags.map(humanizeSignalFlag).join(', ')}`
-              : 'Marked as spam'
+            // The first mail's red flags explain that mail: with the newest mail's category
+            // known, the tooltip says only what the badge says.
+            hasNewestSpamCategory(message)
+              ? spamBadgeLabel(message, spamCheck)
+              : spamCheck?.redFlags?.length
+                ? `Spam: ${spamCheck.redFlags.map(humanizeSignalFlag).join(', ')}`
+                : 'Marked as spam'
           }
           size="sm"
         >
           <Badge variant="danger" className={bc}>
             <ShieldX className={ic} />
-            {spamCheck?.category ? getFilteredCategoryLabel(spamCheck.category) : 'Spam'}
+            {spamBadgeLabel(message, spamCheck)}
           </Badge>
         </Tooltip>
       )}

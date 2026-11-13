@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import type { Message } from '@/types';
 import type { MessageThread } from '@/services/message.service';
-import { getSpamCheck, hasMessageAttachments } from '@/lib/messageHelpers';
+import { getSpamCheck, hasMessageAttachments, isSuspiciousThread } from '@/lib/messageHelpers';
+import { isJunkSpamCategory, isSpamThread } from '@/lib/spamVerdict';
 import { formatDuration } from '@/lib/utils';
 import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/types/ai';
 import { notCustomerWorkMark } from './notCustomerWork';
@@ -17,29 +18,9 @@ import { resolutionClock } from './slaResolutionClock';
  * Everything else waits for the detail view.
  */
 
-/**
- * Is this thread SPAM, as the lane itself decides it?
- *
- * ⛔ THE SERVER FLAG FIRST. `message.isSpam` (support-service #799) is resolved from the newest
- * inbound event — the same predicate the Spam lane and its halves claim rows by.
- * `metadata.spamCheck` is frozen at thread creation, and the two disagree on real threads: three
- * live TraumaTeam ones in 2026-09, one a customer asking about an order. Reading the frozen copy
- * badges the wrong rows in BOTH directions — a thread that turned spam mid-thread wears no mark,
- * and one that was cleared keeps a red one.
- *
- * ⚠️ `??`, so absent falls back to the frozen copy: this frontend deploys on merge while the
- * backend ships on a tag, and an older deployment sending no flag must keep the old behaviour
- * rather than lose every spam mark in the product.
- *
- * ⛔ One helper, because that frozen field was read in five places and a guard fixed in one file
- * while its siblings keep the old answer is this repo's most repeated defect.
- *
- * ⛔ A PERSON's confirmation wins. "Resolve as spam" on a thread the AI read as legitimate leaves
- * `isSpam` false (the newest event's verdict never changes), so the confirmed thread sat in Spam
- * with no spam mark at all (staging, 2026-10-13). Moving it back to Open clears the stamp.
- */
-export const isSpamThread = (message: Message): boolean =>
-  message.spamConfirmedAt ? true : (message.isSpam ?? getSpamCheck(message)?.isSpam === true);
+// The one "is this thread spam now" rule lives in lib/spamVerdict (header, detail flags, strip,
+// cards and badges all read it); re-exported here for the suites that import it from here.
+export { isSpamThread } from '@/lib/spamVerdict';
 
 export type SpineColor = 'red' | 'amber' | 'blue' | 'green' | 'calm' | 'none';
 
@@ -260,18 +241,30 @@ export const isFinishedStatus = (status: Message['status']): boolean =>
   status === 'resolved' || status === 'closed';
 
 /**
+ * No SLA because the thread is junk — the backend's own test (`slaClockRuns` / `slaApplies` in
+ * filterPredicates.ts): the newest inbound mail's category (`latestSpamCategory`) is a junk one.
+ * A person's spam confirmation alone does NOT stop the clock there, so it does not here either.
+ * An older backend sends no category: then the spam rule every badge uses (`isSpamThread`).
+ */
+const junkStopsSla = (message: Message): boolean =>
+  message.latestSpamCategory !== undefined
+    ? isJunkSpamCategory(message.latestSpamCategory)
+    : isSpamThread(message);
+
+/**
  * Whether an SLA clock RUNS on this thread — the one rule every SLA renderer asks.
  *
  * Mirrors the backend's `slaClockRuns` (filterPredicates.ts): no clock on a finished ticket
  * (resolved OR closed — the renderers used to check `resolved` only, so a closed ticket nobody
  * answered kept counting up in red), none on anything filtered out of the inbox, and none on
- * spam (owner decision 2026-09-24) — by `isSpamThread`, the one spam test every badge uses.
+ * junk (owner decision 2026-09-24; `junkStopsSla`). The backend also skips a newest mail not
+ * addressed to us (copied / not listed); this payload does not say that, so it is not mirrored.
  */
 export const slaClockRuns = (message: Message): boolean =>
   !!message.slaResponseMinutes &&
   !isFinishedStatus(message.status) &&
   message.status !== 'filtered' &&
-  !isSpamThread(message);
+  !junkStopsSla(message);
 
 /**
  * The SLA clock (owner 2026-11-09): from the FIRST customer message with no human reply after it
@@ -426,7 +419,7 @@ export type SlaInfo = {
  */
 export const computeSlaInfo = (message: Message, nowMs: number = Date.now()): SlaInfo | null => {
   if (!message.slaResponseMinutes) return null;
-  if (isSpamThread(message) || message.status === 'filtered') return null;
+  if (junkStopsSla(message) || message.status === 'filtered') return null;
   const finished = isFinishedStatus(message.status);
   const target = message.slaResponseMinutes;
   // A customer waiting for a person right now: the live clock from their first unanswered message,
@@ -622,7 +615,6 @@ type RiskSignal = {
 export const getRiskSignals = (message: Message): RiskSignal[] => {
   const signals: RiskSignal[] = [];
 
-  const spam = getSpamCheck(message);
   if (isSpamThread(message)) {
     /**
      * SP-D1: whether a PERSON has agreed is a different fact from the system's verdict, and it is
@@ -638,7 +630,13 @@ export const getRiskSignals = (message: Message): RiskSignal[] => {
         ? `Confirmed as spam by an agent on ${new Date(confirmedAt).toLocaleDateString()}`
         : 'Marked as spam by the filter — nobody has confirmed it yet',
     });
-  } else if (spam?.category === 'suspicious') {
+  } else if (
+    typeof message.isSuspicious === 'boolean'
+      ? isSuspiciousThread(message)
+      : getSpamCheck(message)?.category === 'suspicious'
+  ) {
+    // The backend's Suspicious flag (the newest inbound verdict or an agent's mark). An older
+    // backend sends none: the first mail's category, with no status gate, as the card always read it.
     signals.push({
       key: 'suspicious',
       label: 'Suspicious',

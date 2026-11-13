@@ -58,7 +58,16 @@ describe('the spam mark on a card', () => {
   it('⛔ marks a thread a PERSON confirmed even when the AI read it as legitimate', () => {
     // RED before: "Resolve as spam" on a thread whose newest event the AI called legitimate left
     // `isSpam` false, so the confirmed thread sat in Spam wearing no spam mark at all.
-    const personBinned = msg({ isSpam: false, spamConfirmedAt: '2026-10-13T16:14:31.101Z' });
+    // The shape today's backend sends for it: its `isSpam` is the Spam lane's own test, which
+    // counts the confirmation, so a confirmed thread arrives as `isSpam: true` whatever the newest
+    // mail's verdict (owner 2026-11-13: the frontend trusts the flag). The intent is unchanged:
+    // the confirmed thread wears "Spam · confirmed".
+    const personBinned = msg({
+      isSpam: true,
+      spamConfirmedAt: '2026-10-13T16:14:31.101Z',
+      latestSpamCategory: 'legitimate',
+      metadata: { spamCheck: { isSpam: false, category: 'legitimate' } },
+    });
 
     expect(isSpamThread(personBinned)).toBe(true);
     expect(spamSignal(personBinned)?.label).toBe('Spam · confirmed');
