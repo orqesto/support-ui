@@ -189,3 +189,33 @@ describe('the fallback on the settings form', () => {
     expect(lastPayload()).not.toHaveProperty('fallbackPath');
   });
 });
+
+describe('owner 2026-11-13 — hide a check field from agents', () => {
+  const TOGGLE = 'Hide email from agents — use it only for checks';
+
+  it('🔴 the toggle saves `hidden: true` on that field only', async () => {
+    // RED: drop the toggle (or its patch) ⇒ the field is always shown on every order card.
+    const user = userEvent.setup();
+    open(base);
+    await user.click(screen.getByLabelText(TOGGLE));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+    const fields = lastPayload().fieldPaths as { path: string; hidden?: boolean }[];
+    expect(fields.find((field) => field.path === 'email')?.hidden).toBe(true);
+    expect(fields.find((field) => field.path === 'order_id')).not.toHaveProperty('hidden');
+  });
+
+  it('a hidden field opens switched on; switching it off sends it as shown', async () => {
+    const user = userEvent.setup();
+    open({
+      ...base,
+      fieldPaths: [base.fieldPaths[0], { ...base.fieldPaths[1], hidden: true }],
+    });
+    expect(screen.getByRole('switch', { name: TOGGLE })).toBeChecked();
+    await user.click(screen.getByLabelText(TOGGLE));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+    const fields = lastPayload().fieldPaths as { path: string; hidden?: boolean }[];
+    expect(fields.find((field) => field.path === 'email')?.hidden).toBeUndefined();
+  });
+});

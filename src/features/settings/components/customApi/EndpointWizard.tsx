@@ -9,6 +9,7 @@ import {
 import { RequestSettingsBlock } from './AdvancedSettings';
 import { AgentWordsFields, useAgentWords } from './AgentWordsFields';
 import { ChainStep } from './ChainStep';
+import { HiddenFieldToggle } from './HiddenFieldToggle';
 import { OwnershipStep } from './OwnershipStep';
 import { StatusVocabularyStep } from './StatusVocabularyStep';
 import { RecordFormatStep } from './RecordFormatStep';
@@ -860,6 +861,7 @@ export const EndpointWizard = ({
                      * do and never why — and the ownership check is the single most important
                      * privacy control in the product to configure by accident.
                      */}
+                    <HiddenFieldToggle field={field} onChange={editPick} />
                     {roleOption(field.role).buys && (
                       <p className="text-xs text-muted-foreground">{roleOption(field.role).buys}</p>
                     )}

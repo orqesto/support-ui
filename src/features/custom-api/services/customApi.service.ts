@@ -164,6 +164,11 @@ export interface FieldPick {
     | 'tracking_link';
   currencyPath?: string;
   currencyLiteral?: string;
+  /**
+   * 2026-11-13 (owner): read by the checks (its role still counts) but never shown to agents —
+   * e.g. the order's email that decides ownership. Absent = shown. An older backend drops it.
+   */
+  hidden?: boolean;
 }
 
 const normaliseTestResult = (data: unknown): EndpointTestResult => {

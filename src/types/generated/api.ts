@@ -422,6 +422,7 @@ export interface components {
                 role: "none" | "identifier" | "date" | "status" | "total" | "currency" | "customer_email" | "tracking_number" | "tracking_link";
                 currencyPath?: string;
                 currencyLiteral?: string;
+                hidden?: boolean;
             }[];
             /** @enum {string} */
             resultShape: "one" | "many";

@@ -145,3 +145,17 @@ describe('the service keeps it, and drops a malformed one (FE/BE skew)', () => {
     });
   });
 });
+
+describe('owner 2026-11-13 — a hidden check field never reaches the card', () => {
+  it('what the backend sends for a hidden email field renders no email', () => {
+    // The backend leaves a hidden field out of `rows` and `fields` (customApiConfiguredFields).
+    show(card({ rows: [{ order_id: 'G-1' }], fields: [card().fields![0]] }));
+    expect(screen.getByText('G-1')).toBeInTheDocument();
+    expect(screen.queryByText(EMAIL)).not.toBeInTheDocument();
+  });
+
+  it('CONTROL: a shown email field still renders', () => {
+    show(card({ fallback: undefined }));
+    expect(screen.getByText(EMAIL)).toBeInTheDocument();
+  });
+});
