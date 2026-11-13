@@ -6,7 +6,12 @@ import { isJunkSpamCategory, isSpamThread } from '@/lib/spamVerdict';
 import { formatDuration } from '@/lib/utils';
 import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/types/ai';
 import { notCustomerWorkMark } from './notCustomerWork';
-import { hasActiveContradiction, needsReviewTooltip } from './aiFlagCopy';
+import {
+  hasActiveContradiction,
+  isFloodReview,
+  NEEDS_REVIEW_REASON_LABELS,
+  needsReviewTooltip,
+} from './aiFlagCopy';
 import { sentenceCase, statusLabel } from './messageDetailConstants';
 import { resolutionClock } from './slaResolutionClock';
 
@@ -565,7 +570,19 @@ export const getAiState = (
     // WHY it needs review, in words (`needsReviewReason`); the plain "Needs review" when an
     // older backend sends no reason. Tooltip only — the card stays one short chip.
     const why = needsReviewTooltip(message.needsReviewReason);
-    if (!aiDraftsOff && meta?.suggestedAnswer !== null && meta?.suggestedAnswer !== undefined) {
+    const hasDraft =
+      !aiDraftsOff && meta?.suggestedAnswer !== null && meta?.suggestedAnswer !== undefined;
+    // A flood hold names itself on the chip (owner 2026-11-13); every other reason stays short. A
+    // draft stored meanwhile stays visible (review round 2): it is ready to send.
+    if (isFloodReview(message)) {
+      return hasDraft
+        ? {
+            label: `${NEEDS_REVIEW_REASON_LABELS.flood} · draft ready`,
+            tooltip: `AI prepared a draft reply — review and send · ${why}`,
+          }
+        : { label: NEEDS_REVIEW_REASON_LABELS.flood, tooltip: why };
+    }
+    if (hasDraft) {
       return {
         label: 'AI suggested',
         tooltip: `AI prepared a draft reply — review and send · ${why}`,

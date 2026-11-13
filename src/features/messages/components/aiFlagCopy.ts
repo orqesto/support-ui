@@ -34,6 +34,20 @@ export const NEEDS_REVIEW_REASON_DETAILS: Record<string, string> = {
 
 export const NEEDS_REVIEW_LABEL = 'Needs review';
 
+/**
+ * A flood hold names itself on the chip, not only in its tooltip (owner 2026-11-13): the plain
+ * "Needs review" hid why the bot went quiet. Any other reason keeps the plain chip. An older
+ * backend never sends `flood`, so it reads as before.
+ */
+export const FLOOD_REVIEW_REASON = 'flood';
+
+export const isFloodReview = (
+  thread:
+    | { needsHumanReview?: boolean | null; needsReviewReason?: string | null }
+    | null
+    | undefined
+): boolean => thread?.needsHumanReview === true && thread.needsReviewReason === FLOOD_REVIEW_REASON;
+
 /** The reason in words, or null for absent / `other` / an unknown code (caller keeps its plain text). */
 export const needsReviewReasonLabel = (code: string | null | undefined): string | null =>
   code && Object.prototype.hasOwnProperty.call(NEEDS_REVIEW_REASON_LABELS, code)

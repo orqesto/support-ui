@@ -1,5 +1,6 @@
 import type React from 'react';
-import { Target } from 'lucide-react';
+import { BellRing, Target } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { HoldDialog } from '@/components/shared/HoldDialog';
@@ -7,6 +8,11 @@ import { getInitials } from '@/lib/initials';
 import { formatDay } from '@/lib/utils';
 import type { Message, TicketPriority, ThreadStatus } from '@/types';
 import type { computeSlaInfo, WorkflowStatus } from '../inboxCardHelpers';
+import {
+  isFloodReview,
+  NEEDS_REVIEW_REASON_DETAILS,
+  NEEDS_REVIEW_REASON_LABELS,
+} from '../aiFlagCopy';
 import {
   CHIP_SENTENCE,
   HEADER_PRIORITY_OPTIONS,
@@ -211,6 +217,21 @@ export function HeaderChipRow({
           {inboxBadge.icon}
           {inboxBadge.label}
         </span>
+      )}
+      {/* A flood hold (owner 2026-11-13): the bot stopped answering this chat — say why here,
+          not only on the list's tooltip. Any other review reason, and an older backend that
+          never sends `flood`, show nothing new. */}
+      {isFloodReview(message) && (
+        <Tooltip content={NEEDS_REVIEW_REASON_DETAILS.flood} size="sm">
+          <Badge
+            variant="warning"
+            className={`inline-flex gap-1 items-center ${PHONE_CHIP}`}
+            data-testid="header-flood-review"
+          >
+            <BellRing className="w-2.5 h-2.5" />
+            {NEEDS_REVIEW_REASON_LABELS.flood}
+          </Badge>
+        </Tooltip>
       )}
       {message.isLead && (
         <span
