@@ -230,8 +230,9 @@ export const TelegramBotSettingsPanel = ({
             onChange={(event) => setTurnHangSeconds(asLimit(event.target.value))}
           />
           <p className="text-xs text-muted-foreground">
-            A bot answer that runs longer than this stops holding up the chat&rsquo;s next messages;
-            the answer itself still goes on. Empty = the console default.
+            A bot answer that runs longer than this no longer holds up the bot for other chats; the
+            answer itself still goes on, and that chat&rsquo;s next messages still wait for it.
+            Empty = the console default.
           </p>
         </div>
       )}

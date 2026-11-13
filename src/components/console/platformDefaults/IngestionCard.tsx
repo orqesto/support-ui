@@ -92,7 +92,7 @@ const AUTOREPLY_FIELDS: FieldDef[] = [
   {
     key: 'telegramTurnHangSeconds',
     label: 'Telegram hang limit (seconds)',
-    hint: 'A bot answer that runs longer than this stops holding up the chat’s next messages; the answer itself still goes on. Default 90. Each Telegram connection can set its own value.',
+    hint: 'A bot answer that runs longer than this no longer holds up the bot for other chats; the answer itself still goes on, and that chat’s next messages still wait for it. Default 90. Each Telegram connection can set its own value.',
   },
 ];
 /** Attachment retry (Gmail and IMAP), then the pacing that keeps a Gmail mailbox under Google's quota. */
