@@ -16,7 +16,10 @@ vi.mock('@/features/settings/services/telegramBotSettings.service', async (impor
 }));
 
 import { TelegramBotSettingsPanel } from '../TelegramBotSettingsPanel';
-import { botSettingsProblem } from '@/features/settings/services/telegramBotSettings.service';
+import {
+  botSettingsProblem,
+  turnLimitBounds,
+} from '@/features/settings/services/telegramBotSettings.service';
 
 const render = (ui: ReactElement) => rtlRender(<ThemeProvider>{ui}</ThemeProvider>);
 
@@ -31,6 +34,18 @@ const loaded = (): BotSettingsService.TelegramBotSettingsResponse => ({
   consoleQuietHours: { value: 24, source: 'default', min: 1, max: 720 },
   maxCommands: 30,
 });
+
+/** A backend with the per-bot flood and hang limits (fix/telegram-turn-limits-console). */
+const loadedWithLimits = (): BotSettingsService.TelegramBotSettingsResponse => ({
+  ...loaded(),
+  settings: { ...loaded().settings, floodWaitingLimit: null, turnHangSeconds: 120 },
+  consoleTurnLimits: {
+    telegramFloodWaitingLimit: { value: 10, source: 'default', min: 2, max: 100 },
+    telegramTurnHangSeconds: { value: 90, source: 'db', min: 60, max: 600 },
+  },
+});
+const floodBox = () => screen.getByLabelText('Flood limit (messages waiting in one chat)');
+const hangBox = () => screen.getByLabelText('Hang limit (seconds)');
 
 const onShowAlert = vi.fn();
 const panel = () =>
@@ -93,6 +108,64 @@ describe('TelegramBotSettingsPanel', () => {
     await waitFor(() =>
       expect(onShowAlert).toHaveBeenCalledWith(expect.objectContaining({ variant: 'success' }))
     );
+  });
+
+  it('shows the flood and hang limits with their console defaults as hints', async () => {
+    get.mockResolvedValue(loadedWithLimits());
+    panel();
+    expect(await screen.findByPlaceholderText('Console default: 10')).toBe(floodBox());
+    expect(floodBox()).toHaveValue(null);
+    expect(screen.getByPlaceholderText('Console default: 90')).toBe(hangBox());
+    expect(hangBox()).toHaveValue(120);
+  });
+
+  it('saves a flood limit, and an emptied hang limit as null (back to the console default)', async () => {
+    get.mockResolvedValue(loadedWithLimits());
+    save.mockImplementation((_id, body) =>
+      Promise.resolve({
+        ...loadedWithLimits(),
+        settings: body as BotSettingsService.TelegramBotSettingsResponse['settings'],
+        menu: { updated: true, error: null },
+      })
+    );
+    panel();
+    await screen.findByText('/start');
+    fireEvent.change(floodBox(), { target: { value: '25' } });
+    fireEvent.change(hangBox(), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0][1]).toEqual({
+      quietHours: null,
+      floodWaitingLimit: 25,
+      turnHangSeconds: null,
+      commands: loaded().settings.commands,
+    });
+  });
+
+  it.each([
+    ['flood', floodBox, '1', 'Flood limit must be a whole number from 2 to 100'],
+    ['flood', floodBox, '101', 'Flood limit must be a whole number from 2 to 100'],
+    ['hang', hangBox, '59', 'Hang limit must be a whole number from 60 to 600'],
+    ['hang', hangBox, '601', 'Hang limit must be a whole number from 60 to 600'],
+  ])('a %s limit of %s blocks Save and says why', async (_name, box, value, message) => {
+    get.mockResolvedValue(loadedWithLimits());
+    panel();
+    await screen.findByText('/start');
+    fireEvent.change(box(), { target: { value } });
+    expect(screen.getByRole('alert')).toHaveTextContent(message);
+    expect(screen.getByRole('button', { name: /Save/ })).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('a backend without the limits: no inputs, and the save does not send them', async () => {
+    save.mockResolvedValue({ ...loaded(), menu: { updated: true, error: null } });
+    panel();
+    await screen.findByText('/start');
+    expect(screen.queryByLabelText(/Flood limit/)).toBeNull();
+    expect(screen.queryByLabelText(/Hang limit/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0][1]).not.toHaveProperty('floodWaitingLimit');
+    expect(save.mock.calls[0][1]).not.toHaveProperty('turnHangSeconds');
   });
 
   it('a menu Telegram refused is said, the save still counts', async () => {
@@ -182,5 +255,32 @@ describe('botSettingsProblem', () => {
     expect(
       botSettingsProblem({ quietHours: null, commands: [{ ...ok, replies: { eng: 'x' } }] })
     ).toContain('two-letter');
+  });
+
+  it('checks the flood and hang limits; null and absent are the console default (controls)', () => {
+    const base = { quietHours: null, commands: [ok] };
+    expect(
+      botSettingsProblem({ ...base, floodWaitingLimit: null, turnHangSeconds: null })
+    ).toBeNull();
+    expect(botSettingsProblem({ ...base, floodWaitingLimit: 2, turnHangSeconds: 600 })).toBeNull();
+    expect(botSettingsProblem({ ...base, floodWaitingLimit: 100, turnHangSeconds: 60 })).toBeNull();
+    expect(botSettingsProblem({ ...base, floodWaitingLimit: 1 })).toContain('Flood limit');
+    expect(botSettingsProblem({ ...base, floodWaitingLimit: 10.5 })).toContain('whole number');
+    expect(botSettingsProblem({ ...base, turnHangSeconds: 601 })).toContain('Hang limit');
+    expect(botSettingsProblem({ ...base, turnHangSeconds: 59 })).toContain('Hang limit');
+    // The bounds the backend sends win over the fallback (one source for the limits).
+    const sent = turnLimitBounds({
+      telegramFloodWaitingLimit: { value: 10, source: 'default', min: 5, max: 50 },
+      telegramTurnHangSeconds: { value: 90, source: 'default', min: 70, max: 300 },
+    });
+    expect(botSettingsProblem({ ...base, floodWaitingLimit: 4 }, 30, sent)).toContain(
+      'from 5 to 50'
+    );
+    expect(botSettingsProblem({ ...base, turnHangSeconds: 65 }, 30, sent)).toContain(
+      'from 70 to 300'
+    );
+    expect(
+      botSettingsProblem({ ...base, floodWaitingLimit: 5, turnHangSeconds: 300 }, 30, sent)
+    ).toBeNull();
   });
 });

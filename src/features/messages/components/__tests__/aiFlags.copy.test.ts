@@ -37,6 +37,17 @@ describe('needs-review reason → words', () => {
     expect(needsReviewTooltip(code)).toBe(`Needs review: ${words}`);
   });
 
+  it('flood (Telegram flood rule, 2026-11-13): short chip, the long explanation in the tooltip', () => {
+    expect(needsReviewReasonLabel('flood')).toBe('Too many messages at once');
+    expect(needsReviewTooltip('flood')).toBe(
+      'Needs review: Too many messages at once – saved for you, bot did not answer'
+    );
+    // Control: the per-thread AI limit keeps its own words.
+    expect(needsReviewTooltip('ai_reply_limit')).toBe(
+      'Needs review: Customer replied after the AI'
+    );
+  });
+
   it.each([['other'], [null], [undefined], [''], ['brand_new_code'], ['toString']])(
     '%s → no reason, the plain "Needs review"',
     (code) => {
@@ -174,13 +185,21 @@ describe('autoRoutedTooltip — the skill evidence (BE spec 2026-11-02 skill rou
 
   it('says when the AI judged it', () => {
     expect(
-      autoRoutedTooltip('skill_match', [{ key: 'payment_sys', value: 'usdc', source: 'ai', evidence: 'TRC20' }])
-    ).toBe('Assigned automatically: skills match — payment_sys = usdc (AI judged; mentions “TRC20”)');
+      autoRoutedTooltip('skill_match', [
+        { key: 'payment_sys', value: 'usdc', source: 'ai', evidence: 'TRC20' },
+      ])
+    ).toBe(
+      'Assigned automatically: skills match — payment_sys = usdc (AI judged; mentions “TRC20”)'
+    );
   });
 
   it('an older backend (no matches) or malformed entries → the plain label', () => {
-    expect(autoRoutedTooltip('skill_match', undefined)).toBe('Assigned automatically: skills match');
-    expect(autoRoutedTooltip('skill_match', [{ nope: 1 } as never])).toBe('Assigned automatically: skills match');
+    expect(autoRoutedTooltip('skill_match', undefined)).toBe(
+      'Assigned automatically: skills match'
+    );
+    expect(autoRoutedTooltip('skill_match', [{ nope: 1 } as never])).toBe(
+      'Assigned automatically: skills match'
+    );
     expect(autoRoutedTooltip('load_balance', [])).toBe('Assigned automatically: least busy');
     expect(autoRoutedTooltip('mystery', [])).toBeNull();
   });
