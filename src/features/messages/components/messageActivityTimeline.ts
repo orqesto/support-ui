@@ -177,7 +177,9 @@ export function autoReplySentLabel(details: Record<string, unknown> | null): str
   const resolved = details?.['toStatus'] === 'resolved' ? ' — resolved' : '';
   if (typeof ruleName === 'string' && ruleName) {
     const matched = typeof keyword === 'string' && keyword ? ` (keyword "${keyword}")` : '';
-    return `Auto-reply sent by rule "${ruleName}"${matched}${resolved}`;
+    const withKb =
+      typeof details?.['knowledgeSource'] === 'string' ? ' with a knowledge base answer' : '';
+    return `Auto-reply sent by rule "${ruleName}"${matched}${withKb}${resolved}`;
   }
   return `AI auto-reply sent${resolved}`;
 }

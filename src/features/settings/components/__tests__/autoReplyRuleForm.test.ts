@@ -5,6 +5,8 @@ import {
   emptyDraft,
   errorsFromFields,
   hasErrors,
+  insertKbPlaceholder,
+  KB_ANSWER_PLACEHOLDER,
   KEYWORD_MAX_LENGTH,
   KEYWORDS_PER_RULE_MAX,
   validateDraft,
@@ -70,5 +72,12 @@ describe('errorsFromFields', () => {
       replyText: 'Write the reply text.',
     });
     expect(errorsFromFields([])).toEqual({});
+  });
+});
+
+describe('insertKbPlaceholder', () => {
+  it('adds {{kb_answer}} as its own paragraph after the text', () => {
+    expect(insertKbPlaceholder('Hello,  ')).toBe(`Hello,\n\n${KB_ANSWER_PLACEHOLDER}`);
+    expect(insertKbPlaceholder('   ')).toBe(KB_ANSWER_PLACEHOLDER);
   });
 });

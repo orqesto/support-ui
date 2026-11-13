@@ -13,6 +13,8 @@ export type AutoReplyRule = {
   keywords: string[];
   replyText: string;
   enabled: boolean;
+  /** Template + knowledge base (BE 2026-11-13); absent on an older backend → false. */
+  useKnowledgeBase: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -22,6 +24,7 @@ export type AutoReplyRuleInput = {
   keywords?: string[];
   replyText?: string;
   enabled?: boolean;
+  useKnowledgeBase?: boolean;
 };
 
 /**
@@ -39,6 +42,7 @@ const normalizeRule = (raw: Partial<AutoReplyRule> | null | undefined): AutoRepl
     keywords,
     replyText: typeof raw.replyText === 'string' ? raw.replyText : '',
     enabled: raw.enabled !== false,
+    useKnowledgeBase: raw.useKnowledgeBase === true,
     createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : '',
     updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : '',
   };

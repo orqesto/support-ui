@@ -147,4 +147,39 @@ describe('AutoReplyRulesSection', () => {
     renderSection(true, false);
     expect(await screen.findByText(/Auto-reply is off/)).toBeTruthy();
   });
+
+  it('template + knowledge base: the switch, the placeholder button, and the saved flag', async () => {
+    renderSection();
+    await openNewRule();
+    fireEvent.change(screen.getByLabelText('Keywords', { selector: 'input' }), {
+      target: { value: 'refund' },
+    });
+    fireEvent.click(screen.getByRole('switch', { name: /knowledge base/i }));
+    fireEvent.change(screen.getByLabelText('Reply template'), { target: { value: 'Hello,' } });
+    fireEvent.click(screen.getByRole('button', { name: /insert \{\{kb_answer\}\}/i }));
+    expect(screen.getByLabelText('Reply template')).toHaveProperty(
+      'value',
+      'Hello,\n\n{{kb_answer}}'
+    );
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(api.posts).toHaveLength(1));
+    expect(api.posts[0]).toMatchObject({
+      useKnowledgeBase: true,
+      replyText: 'Hello,\n\n{{kb_answer}}',
+    });
+    expect(await screen.findByText('Template + KB')).toBeTruthy();
+  });
+
+  it('CONTROL — a plain rule is saved without the knowledge base', async () => {
+    renderSection();
+    await openNewRule();
+    fireEvent.change(screen.getByLabelText('Keywords', { selector: 'input' }), {
+      target: { value: 'refund' },
+    });
+    fireEvent.change(screen.getByLabelText('Reply text'), { target: { value: 'See example.com' } });
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(api.posts).toHaveLength(1));
+    expect(api.posts[0]).toMatchObject({ useKnowledgeBase: false });
+    expect(screen.queryByText('Template + KB')).toBeNull();
+  });
 });
