@@ -74,6 +74,13 @@ export const REPAIRS: RepairEntry[] = [
     scope: 'workspace',
   },
   {
+    id: 'repair-chat-customer-turn',
+    label: 'Move chat tickets to In progress where the customer wrote after our reply',
+    does: 'Telegram, WhatsApp and Slack tickets where the customer wrote again after our reply but the ticket still showed Pending: the ticket moves to In progress so the customer’s message gets an answer. Chats where we answered last, resolved or closed tickets, and email threads are left alone. Up to 500 per run; if more remain, run it again.',
+    path: 'repair-chat-customer-turn',
+    scope: 'workspace',
+  },
+  {
     id: 'repair-held-and-merged-threads',
     label:
       'Put threads back to work where the customer wrote, and fix response times after a merge',
