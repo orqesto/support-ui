@@ -2,6 +2,17 @@ import type { CustomApiEndpoint } from '@/features/custom-api/shell';
 
 export type ParamSource = 'identity' | 'manual' | 'endpoint';
 
+/** A chain: which lookup gives the value, which field of its answer, and the optional fallback. */
+export interface ChainSettings {
+  sourceEndpointId: number | null;
+  sourceFieldPath: string;
+  /**
+   * 2026-11-13: the path called with the customer's email when the source finds no account. Blank
+   * is sent as `null` (no fallback). Undefined ⇒ not sent at all — a backend that predates it.
+   */
+  fallbackPath?: string;
+}
+
 /**
  * Where a lookup's value comes from, as the write payload says it.
  *
@@ -17,7 +28,7 @@ export type ParamSource = 'identity' | 'manual' | 'endpoint';
 export const buildParameterFields = (
   paramSource: ParamSource,
   endpoint: CustomApiEndpoint | undefined,
-  chain: { sourceEndpointId: number | null; sourceFieldPath: string }
+  chain: ChainSettings
 ) =>
   paramSource === 'identity'
     ? {
@@ -30,5 +41,8 @@ export const buildParameterFields = (
           identityField: null,
           sourceEndpointId: chain.sourceEndpointId,
           sourceFieldPath: chain.sourceFieldPath.trim(),
+          ...(chain.fallbackPath === undefined
+            ? {}
+            : { fallbackPath: chain.fallbackPath.trim() || null }),
         }
       : { parameterSource: 'manual' as const, identityField: null };

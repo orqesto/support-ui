@@ -9,6 +9,7 @@ import { Permission } from '@/types/roles';
 import {
   ADMIN_CAN_SEE_DETAILS,
   failureSentence,
+  fallbackText,
   noMatchHintText,
   notFoundText,
   referenceNameOf,
@@ -211,6 +212,8 @@ export const CustomApiResultCard = ({
   const notFound = notFoundText(result, typedValue ?? (value.trim() || undefined));
   // The admin's own words for "found nothing" — plain text, so React escapes it (no HTML).
   const noMatchHint = noMatchHintText(result);
+  // 2026-11-13: a chained card that searched by email because its source found no account.
+  const fallbackNote = fallbackText(result);
   // ⛔ FALL BACK TO THE ROW'S OWN KEYS. `fieldPaths` DEFAULTS to empty, and the backend returns
   // rows unprojected in that case — so mapping over `fields` alone rendered a BLANK card while
   // holding data, on the commonest configuration state there is. Found by audit pass 2.
@@ -267,6 +270,12 @@ export const CustomApiResultCard = ({
         </span>
       </div>
 
+      {fallbackNote && hasRows && (
+        <p data-testid="lookup-fallback-note" className="text-[11px] text-muted-foreground">
+          {fallbackNote}
+        </p>
+      )}
+
       {notice && (
         <p className={`text-[11px] rounded px-2 py-1 flex gap-1.5 ${notice.className}`}>
           {notice.icon === 'check' ? (
@@ -311,8 +320,11 @@ export const CustomApiResultCard = ({
         // agents learn to ignore both and a real outage reads as a customer with no records.
         // 2026-10-14 (A3/A4/B3): it names what was searched, or which lookup stopped a chain.
         <div className="space-y-0.5">
-          <p className="text-[11px] text-muted-foreground">
-            {skipped ? skippedText(skipped) : notFound}
+          <p
+            className="text-[11px] text-muted-foreground"
+            {...(fallbackNote ? { 'data-testid': 'lookup-fallback-note' } : {})}
+          >
+            {skipped ? skippedText(skipped) : (fallbackNote ?? notFound)}
           </p>
           {noMatchHint && (
             <p

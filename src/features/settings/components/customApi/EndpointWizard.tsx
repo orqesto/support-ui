@@ -16,7 +16,7 @@ import type { RecordFormat } from './recordFormat';
 import { ResponseTree } from './ResponseTree';
 import { RecordsPathField, explainOutcome as explain } from './RecordsPathField';
 import { useRequestSettings } from './useRequestSettings';
-import { buildParameterFields } from './parameterFields';
+import { buildParameterFields, type ChainSettings } from './parameterFields';
 import { useTestRevert } from './useTestRevert';
 import type { EndpointWizardProps } from './endpointWizardProps';
 import * as categoryField from './categoryField';
@@ -153,9 +153,10 @@ export const EndpointWizard = ({
       : (initial?.parameterSource ?? 'identity')
   );
   /** D21: which lookup a chained one reads its value from, and which field of its answer. */
-  const [chain, setChain] = useState<{ sourceEndpointId: number | null; sourceFieldPath: string }>({
+  const [chain, setChain] = useState<ChainSettings & { fallbackPath: string }>({
     sourceEndpointId: endpoint?.sourceEndpointId ?? null,
     sourceFieldPath: endpoint?.sourceFieldPath ?? '',
+    fallbackPath: endpoint?.fallbackPath ?? '',
   });
   /**
    * ⛔ A chain without both halves is a 400 (the create schema refines them together), and the
@@ -564,6 +565,8 @@ export const EndpointWizard = ({
                 siblings={connection.endpoints.filter((one) => one.id !== endpointId)}
                 sourceEndpointId={chain.sourceEndpointId}
                 sourceFieldPath={chain.sourceFieldPath}
+                fallbackPath={chain.fallbackPath}
+                hasEmailField={picked.some((field) => field.role === 'customer_email')}
                 onChange={setChain}
               />
             )}

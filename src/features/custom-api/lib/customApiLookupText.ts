@@ -79,6 +79,28 @@ export const skippedText = (
 };
 
 /**
+ * 2026-11-13 (owner's wording): the note on a chained card whose source found NO ACCOUNT and that
+ * searched by the customer's email instead. Found ⇒ what was found and by which address; nothing ⇒
+ * that there is neither an account nor guest orders. ⛔ Rows the backend HID because their email did
+ * not match are always counted when there were any — "nothing here" and "we hid them" must not read
+ * the same. Null for a card that did not run a fallback, or ended any other way (a failure says so
+ * in its own words).
+ */
+export const fallbackText = (result: CustomApiLookupResult): string | null => {
+  const fallback = result.fallback;
+  if (!fallback) return null;
+  const found = result.status === 'ok' && Boolean(result.rows?.length);
+  if (!found && result.status !== 'no_match') return null;
+  const head = found
+    ? `No account — guest orders found by email ${fallback.email}.`
+    : `No account, and no guest orders for ${fallback.email}.`;
+  if (fallback.dropped <= 0) return head;
+  const one = fallback.dropped === 1;
+  const hidden = `${fallback.dropped} ${found ? 'more ' : ''}${one ? 'order was' : 'orders were'} hidden because ${one ? 'its' : 'their'} email didn’t match.`;
+  return `${head} ${hidden}`;
+};
+
+/**
  * 2026-10-21: the admin's "When nothing is found, tell the agent" text, verbatim, or null.
  *
  * ⛔ Only when the lookup FOUND NOTHING: a plain `no_match`, or a chained card skipped because its

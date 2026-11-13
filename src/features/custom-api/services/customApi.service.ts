@@ -36,6 +36,8 @@ type FlexibleEndpointKey =
   | 'botAnswersStatus'
   | 'botStatusReply'
   | 'botNotFoundReply'
+  // 2026-11-13: a chained lookup's fallback path; absent from an older backend.
+  | 'fallbackPath'
   | 'health';
 type FlexibleConnectionKey = 'failureStatusPath' | 'failureStatusValues' | 'failureMessagePath';
 type GeneratedEndpoint = components['schemas']['CustomApiEndpoint'];

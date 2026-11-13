@@ -102,10 +102,25 @@ const readSkippedBecause = (raw: unknown): CustomApiLookupResult['skippedBecause
   return reason ? { reason, sourceLabel: raw.sourceLabel } : undefined;
 };
 
+/**
+ * 2026-11-13: a chained card whose source found no account and that ran its fallback — the email
+ * it searched by and how many rows the backend hid because their email did not match. A malformed
+ * one (or an older backend's absence) is none: the card then says what it always said.
+ */
+const readFallback = (raw: unknown): CustomApiLookupResult['fallback'] => {
+  if (!isRecord(raw) || typeof raw.email !== 'string' || !raw.email.trim()) return undefined;
+  const dropped =
+    typeof raw.dropped === 'number' && Number.isInteger(raw.dropped) && raw.dropped > 0
+      ? raw.dropped
+      : 0;
+  return { email: raw.email.trim(), dropped };
+};
+
 const normalise = (row: CustomApiLookupResult): CustomApiLookupResult => {
   const searchedFor = readSearchedFor(row.searchedFor);
   const skippedBecause = readSkippedBecause(row.skippedBecause);
-  const { searchedFor: _searched, skippedBecause: _skipped, ...rest } = row;
+  const fallback = readFallback(row.fallback);
+  const { searchedFor: _searched, skippedBecause: _skipped, fallback: _fallback, ...rest } = row;
   return {
     ...rest,
     rows: row.rows ?? [],
@@ -116,6 +131,7 @@ const normalise = (row: CustomApiLookupResult): CustomApiLookupResult => {
     referenceLabel: typeof row.referenceLabel === 'string' ? row.referenceLabel : null,
     ...(searchedFor ? { searchedFor } : {}),
     ...(skippedBecause ? { skippedBecause } : {}),
+    ...(fallback ? { fallback } : {}),
   };
 };
 
