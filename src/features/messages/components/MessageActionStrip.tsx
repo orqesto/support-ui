@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { RotateCcw, ShieldCheck, ShieldAlert, Trash2, BookOpen } from 'lucide-react';
 import { getFilteredCategoryMeta, newestSpamCategory } from '@/lib/messageHelpers';
-import { newestSpamVerdict } from '@/lib/spamVerdict';
+import { isSpamThread } from '@/lib/spamVerdict';
 import { notCustomerWorkMark } from './notCustomerWork';
 import { Toggle } from '@/components/ui/Toggle';
 import { Button } from '@/components/ui/Button';
@@ -117,7 +117,8 @@ export function MessageActionStrip({
 
   // Filtered: category-aware label and actions
   if (isFiltered && onClassify) {
-    // The newest classified mail's category; the first mail's only on an older backend.
+    // The newest classified mail's category; the first mail's when the backend sends none (null or
+    // absent), so a phishing/scam warning is never lost.
     const category = newestSpamCategory(message);
     const meta = getFilteredCategoryMeta(category);
     const isSecurityThreat = category === 'phishing' || category === 'scam';
@@ -147,7 +148,7 @@ export function MessageActionStrip({
      * remove the button from every thread on an older deployment. Absent falls back to the frozen
      * copy — the previous behaviour, which is imperfect but not a regression.
      */
-    const inSpamLane = newestSpamVerdict(message);
+    const inSpamLane = isSpamThread(message);
     const canConfirm = !isSecurityThreat && inSpamLane && !confirmedAt;
     return (
       <div className={stripBad}>
@@ -223,7 +224,8 @@ export function MessageActionStrip({
 
   // Suspicious: phishing/scam threats get a warning label and no "move to spam" action
   if (isSuspicious && onClassify) {
-    // The newest classified mail's category; the first mail's only on an older backend.
+    // The newest classified mail's category; the first mail's when the backend sends none (null or
+    // absent), so a phishing/scam warning is never lost.
     const category = newestSpamCategory(message);
     const isSecurityThreat = category === 'phishing' || category === 'scam';
     const statusText = isSecurityThreat

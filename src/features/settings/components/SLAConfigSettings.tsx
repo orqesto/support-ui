@@ -30,6 +30,13 @@ export const SLAConfigSettings = () => {
   // Bumped per row on a reset: its inputs start over from the default (dropping typed text).
   const [resetCounts, setResetCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
+  /**
+   * A reset went through but what is stored now could not be read back: the screen's baseline is
+   * stale, and a Save from it could pin the removed override again. Save and reset wait for a
+   * successful reload.
+   */
+  const [stale, setStale] = useState(false);
+  const [reloading, setReloading] = useState(false);
   // Fields holding a value they refuse: saving then would send the previous value as if saved.
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const onValidity = (field: string, valid: boolean) =>
@@ -137,13 +144,17 @@ export const SLAConfigSettings = () => {
     setResetting(id);
     const rowOf = (loaded: SlaConfig) =>
       loaded.rows.find((row) => row.type === target.type && row.key === target.key);
+    let deleted = false;
     resetSlaRow(target)
       // A response without the row cannot say what is stored now: read it back rather than leave
       // the old override on screen.
-      .then(async (fresh) => rowOf(fresh) ?? rowOf(await getSlaConfig()))
+      .then(async (fresh) => {
+        deleted = true;
+        return rowOf(fresh) ?? rowOf(await getSlaConfig());
+      })
       .then((next) => {
         if (!next) {
-          setError('The target was reset, but its new values could not be read. Reload the page.');
+          setStale(true);
           return;
         }
         const swap = (rows: SlaTargetRow[]) =>
@@ -156,13 +167,43 @@ export const SLAConfigSettings = () => {
         });
         setResetCounts((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
       })
-      .catch((err) => setError(getApiErrorMessage(err) ?? 'Failed to reset the SLA target'))
+      .catch((err) => {
+        // The reset itself went through; only reading the result failed.
+        if (deleted) setStale(true);
+        else setError(getApiErrorMessage(err) ?? 'Failed to reset the SLA target');
+      })
       .finally(() => setResetting(null));
+  };
+
+  /** After a stale reset: read everything back; Save works again once this succeeds. */
+  const reload = () => {
+    setReloading(true);
+    getSlaConfig()
+      .then((loaded) => {
+        setConfig(loaded);
+        setBaseline(loaded.rows);
+        setInvalidFields(new Set());
+        // Every input starts over from the stored values (dropping typed text).
+        setResetCounts((prev) =>
+          Object.fromEntries(
+            loaded.rows.map((row) => {
+              const id = `${row.type}:${row.key}`;
+              return [id, (prev[id] ?? 0) + 1];
+            })
+          )
+        );
+        setStale(false);
+        setError(null);
+      })
+      .catch((err) => setError(getApiErrorMessage(err) ?? 'Failed to load SLA configuration'))
+      .finally(() => setReloading(false));
   };
   // An older backend has no per-row reset (see `supportsFieldSave`).
   const resetProps = config?.supportsFieldSave
-    ? { onReset: reset, resetting, resetCounts, busy: saving || resetting !== null }
+    ? { onReset: reset, resetting, resetCounts, busy: saving || resetting !== null || stale }
     : {};
+  // While a Save and its read-back run, no field takes typing: the answer replaces what is shown.
+  const tableProps = { ...resetProps, inputsDisabled: saving };
 
   const group = (name: SlaTargetRow['group']) =>
     config?.rows.filter((row) => row.group === name) ?? [];
@@ -186,6 +227,24 @@ export const SLAConfigSettings = () => {
         </Alert>
       )}
 
+      {stale && (
+        <Alert variant="warning">
+          <p className="text-sm">
+            The target was reset to its default, but the new values could not be loaded. Reload them
+            before saving.
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            isLoading={reloading}
+            onClick={reload}
+          >
+            Reload targets
+          </Button>
+        </Alert>
+      )}
+
       {config && (
         <>
           <SlaTargetTable
@@ -196,7 +255,7 @@ export const SLAConfigSettings = () => {
             keyHeader="Priority"
             rows={group('ticket')}
             onChange={update}
-            {...resetProps}
+            {...tableProps}
           />
           {config.supportsThreadPriority && (
             <SlaTargetTable
@@ -205,7 +264,7 @@ export const SLAConfigSettings = () => {
               keyHeader="Priority"
               rows={group('threadPriority')}
               onChange={update}
-              {...resetProps}
+              {...tableProps}
             />
           )}
           <SlaTargetTable
@@ -218,14 +277,18 @@ export const SLAConfigSettings = () => {
             // An older backend has no channel resolution cap.
             showResolution={config.supportsThreadPriority}
             onChange={update}
-            {...resetProps}
+            {...tableProps}
           />
 
           {saving && <p className="text-xs text-muted-foreground">Saving…</p>}
           {saved && <p className="text-xs text-success">Saved</p>}
           {noChanges && <p className="text-xs text-muted-foreground">No changes to save</p>}
 
-          <Button onClick={save} disabled={saving || resetting !== null} className="text-sm">
+          <Button
+            onClick={save}
+            disabled={saving || resetting !== null || stale}
+            className="text-sm"
+          >
             Save changes
           </Button>
         </>

@@ -1,4 +1,5 @@
 import { Mail, MessageCircle, MessageSquare } from 'lucide-react';
+import { isSpamThread } from './spamVerdict';
 
 export const getChannelIcon = (channel: string | null | undefined) => {
   switch (channel) {
@@ -151,22 +152,17 @@ export const getSpamCheck = (message: {
   metadata?: Record<string, unknown> | null;
 }): SpamCheckData | undefined => message.metadata?.spamCheck as SpamCheckData | undefined;
 
-// The "is this thread spam now" rule is a leaf file of its own, so suites that mock this module
-// partially still get the real rule wherever a component reads it.
-export { isSpamThread, newestSpamVerdict } from './spamVerdict';
-
 /**
  * The spam category of the NEWEST classified inbound mail (`latestSpamCategory`, backend
- * 2026-11-12); null when that mail has none. An older backend does not send the field: then the
- * first mail's frozen `metadata.spamCheck.category`.
+ * 2026-11-12). The backend already falls back to the conversation's first-mail copy; null means
+ * no filter checked either, and an older backend does not send the field — in both cases the
+ * first mail's frozen `metadata.spamCheck.category` is read, so a phishing/scam warning is never
+ * lost to a missing value.
  */
 export const newestSpamCategory = (message: {
   latestSpamCategory?: string | null;
   metadata?: Record<string, unknown> | null;
-}): string | undefined =>
-  message.latestSpamCategory !== undefined
-    ? (message.latestSpamCategory ?? undefined)
-    : getSpamCheck(message)?.category;
+}): string | undefined => message.latestSpamCategory ?? getSpamCheck(message)?.category;
 
 /** The backend names the newest mail's category, so the first mail's flags explain another mail. */
 export const hasNewestSpamCategory = (message: { latestSpamCategory?: string | null }): boolean =>
@@ -200,9 +196,10 @@ export const isSuspiciousThread = (message: {
 export const isTriageMessage = (message: {
   status?: string;
   isSuspicious?: boolean;
+  isSpam?: boolean;
+  spamConfirmedAt?: string | null;
   metadata?: Record<string, unknown> | null;
 }): boolean => {
-  const spam = getSpamCheck(message);
   // not_analysed + archived both live under status='filtered'.
   if (message.status === 'filtered') return true;
   // suspicious: category='suspicious' AND not filtered (mirrors BE messageFilters;
@@ -210,10 +207,10 @@ export const isTriageMessage = (message: {
   // resolved/closed conv that is still flagged suspicious remains suspicious).
   // Read like the header's Approve (isSuspiciousThread): the backend's flag, else the snapshot.
   if (isSuspiciousThread(message)) return true;
-  // spam: mirror the BE spam queue, which excludes terminal/needs_routing statuses
-  // so a conv that WAS spam but is now resolved/closed no longer counts as triage.
+  // spam: the one spam rule (isSpamThread: the backend's lane flag, a person's confirmation, the
+  // first mail only on an older backend), minus terminal/needs_routing statuses as the BE queue.
   if (
-    (spam?.isSpam === true || spam?.category === 'spam') &&
+    isSpamThread(message) &&
     message.status !== 'resolved' &&
     message.status !== 'closed' &&
     message.status !== 'needs_routing'

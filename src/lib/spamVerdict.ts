@@ -1,37 +1,51 @@
 /**
- * Is this thread spam now — the one rule (owner 2026-11-13). A leaf: it imports nothing, so a
- * partial mock of `@/lib/messageHelpers` (which re-exports it) never hides it from a component.
+ * Is this thread spam now — ONE rule, read by the header, the detail's flags, the action strip,
+ * the cards (spine, SLA clock, risk mark), the badges and the triage indicator. A leaf: it imports
+ * nothing, so a partial mock of another helper module never hides it from a component.
  */
 
 /**
- * The NEWEST inbound mail's spam verdict: the backend's `isSpam` (the Spam lane's own predicate),
- * the first mail's frozen `metadata.spamCheck.isSpam` only when an older backend sends no flag.
- * An agent's earlier confirmation (`spamConfirmedAt`) does not override a newer clean mail.
+ * The backend's junk categories (`JUNK_CATEGORIES` in the backend's types/ai.ts): the verdicts that
+ * put a thread in the Spam lane and stop its SLA clock. `transactional`, `promotional`,
+ * `suspicious` and `legitimate` are NOT junk.
  */
-export const newestSpamVerdict = (message: {
-  isSpam?: boolean;
-  metadata?: Record<string, unknown> | null;
-}): boolean =>
-  message.isSpam ??
-  (message.metadata?.spamCheck as { isSpam?: boolean } | undefined)?.isSpam === true;
+export const JUNK_SPAM_CATEGORIES: readonly string[] = [
+  'spam',
+  'scam',
+  'phishing',
+  'security',
+  'invalid',
+];
 
-/**
- * Is this thread SPAM now? The one rule the header, the detail's flags, the cards (spine, SLA
- * clock, risk mark) and the badges all read (owner 2026-11-13).
- *
- * ⛔ The NEWEST inbound mail's verdict (`newestSpamVerdict`): the backend's `isSpam`, resolved
- * from the newest inbound event like the Spam lane, the frozen first-mail copy only when an older
- * backend sends no flag. ⚠️ `??`, so absent keeps the old behaviour instead of losing every mark.
- *
- * ⛔ A PERSON's confirmation counts while the thread is still in the Spam lane (`filtered`):
- * "Resolve as spam" on a thread the AI read as legitimate leaves `isSpam` false, and the confirmed
- * thread sat in Spam with no mark at all (staging, 2026-10-13). Once the thread is back in work
- * (a newer clean mail, or moved to Open), the old confirmation no longer outweighs the newest mail.
- */
-export const isSpamThread = (message: {
+export const isJunkSpamCategory = (category: string | null | undefined): boolean =>
+  category !== null && category !== undefined && JUNK_SPAM_CATEGORIES.includes(category);
+
+type SpamFields = {
   status?: string;
   isSpam?: boolean;
   spamConfirmedAt?: string | null;
   metadata?: Record<string, unknown> | null;
-}): boolean =>
-  newestSpamVerdict(message) || (!!message.spamConfirmedAt && message.status === 'filtered');
+};
+
+/**
+ * Is this thread SPAM now (owner 2026-11-13: a confirmed thread stays spam until approved)?
+ *
+ * ⛔ The backend's `isSpam` decides. It is the Spam lane's own predicate (`isSpamQueue`): the
+ * newest inbound mail's junk category OR a person's confirmation (`spamConfirmedAt`), on a thread
+ * that is not resolved or closed. Approving clears the confirmation.
+ *
+ * The confirmation clause is the same one the backend applies, so a thread a person confirmed is
+ * spam here even on a payload whose flag says otherwise (a confirmed thread whose newest mail the
+ * classifier called legitimate sat in Spam with no mark at all, staging 2026-10-13).
+ *
+ * ⚠️ An older backend sends no `isSpam`: only then the first mail's frozen
+ * `metadata.spamCheck.isSpam` is read (`??`, so absent never loses every spam mark).
+ */
+export const isSpamThread = (message: SpamFields): boolean => {
+  const finished = message.status === 'resolved' || message.status === 'closed';
+  if (message.spamConfirmedAt && !finished) return true;
+  return (
+    message.isSpam ??
+    (message.metadata?.spamCheck as { isSpam?: boolean } | undefined)?.isSpam === true
+  );
+};

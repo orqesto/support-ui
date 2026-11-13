@@ -45,6 +45,8 @@ type Props = {
   resetting?: string | null;
   /** A save or a reset is in flight: no other reset starts. */
   busy?: boolean;
+  /** Every input waits (a Save and its read-back are in flight). */
+  inputsDisabled?: boolean;
   /** Per row (`<type>:<key>`): bumped on a reset, so its inputs start over from the new value. */
   resetCounts?: Record<string, number>;
 };
@@ -66,6 +68,7 @@ export const SlaTargetTable = ({
   onReset,
   resetting = null,
   busy = false,
+  inputsDisabled = false,
   resetCounts = {},
 }: Props) => {
   const labelOf = (row: SlaTargetRow) => KEY_LABELS[row.key] ?? row.key;
@@ -94,7 +97,7 @@ export const SlaTargetTable = ({
             key={inputKey(row, 'first')}
             aria-label={`${title} ${labelOf(row)} first response`}
             // Its reset is in flight: the row is about to take the defaults.
-            disabled={resetting === idOf(row)}
+            disabled={inputsDisabled || resetting === idOf(row)}
             value={row.firstResponseMinutes}
             max={MAX_MINUTES}
             onValidChange={(valid) => onValidity(`${row.type}:${row.key}:first`, valid)}
@@ -118,7 +121,7 @@ export const SlaTargetTable = ({
             key={inputKey(row, 'resolution')}
             aria-label={`${title} ${labelOf(row)} resolution`}
             // Its reset is in flight: the row is about to take the defaults.
-            disabled={resetting === idOf(row)}
+            disabled={inputsDisabled || resetting === idOf(row)}
             value={row.resolutionMinutes}
             max={MAX_MINUTES}
             allowEmpty={resolutionOptional}

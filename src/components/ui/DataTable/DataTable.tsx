@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { Pagination } from '@/components/ui/Pagination';
 import { SearchInput } from '@/components/ui/SearchInput';
@@ -49,6 +49,31 @@ const SortIcon = ({ direction }: { direction: SortDirection | null }) => {
  * scrolls the table horizontally; pass `renderCard` to render a mobile card list below `xl`
  * instead (the customer UsersPage's responsive layout).
  */
+/** What inside a clickable row handles its own click (`onRowClick` leaves these alone). */
+const ROW_CONTROL =
+  'label, a, button, input, select, textarea, [contenteditable=""], [contenteditable="true"], ' +
+  '[role="button"], [role="link"], [role="menuitem"], [role="option"], [role="checkbox"], ' +
+  '[role="switch"], [role="tab"]';
+
+/**
+ * A plain primary click on the row itself opens it. Not: a click something already handled
+ * (`defaultPrevented`), a modified or non-primary click (open-in-new-tab gestures, which the row
+ * cannot honour), a click that ends a text selection inside the row, a click on a control in the
+ * row, or a click from a portal (a popover rendered elsewhere whose events still bubble through
+ * React to this row).
+ */
+const isRowOpenClick = (event: MouseEvent<HTMLTableRowElement>): boolean => {
+  if (event.defaultPrevented || event.button !== 0) return false;
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
+  const row = event.currentTarget;
+  const target = event.target;
+  if (!(target instanceof Element) || !row.contains(target)) return false;
+  if (target.closest(ROW_CONTROL)) return false;
+  const selection = window.getSelection();
+  const selecting = !!selection && !selection.isCollapsed && !!selection.anchorNode;
+  return !(selecting && row.contains(selection.anchorNode));
+};
+
 export function DataTable<Row>({
   rows,
   rowKey,
@@ -256,11 +281,7 @@ export function DataTable<Row>({
                     onClick={
                       onRowClick
                         ? (event) => {
-                            // A control in the row handles its own click.
-                            const target = event.target as HTMLElement;
-                            const control = 'button, a, input, select, textarea, [role="button"]';
-                            if (target.closest(control)) return;
-                            onRowClick(row);
+                            if (isRowOpenClick(event)) onRowClick(row);
                           }
                         : undefined
                     }

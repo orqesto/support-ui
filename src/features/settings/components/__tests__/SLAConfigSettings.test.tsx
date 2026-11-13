@@ -527,7 +527,7 @@ describe('SLA settings: tickets, threads by priority, threads by channel', () =>
       expect(screen.queryByText(/could not be read/)).toBeNull();
     });
 
-    it('4: and when the read-back has no row either, it says so', async () => {
+    it('4: and when the read-back has no row either, it says so and blocks Save', async () => {
       get
         .mockResolvedValueOnce({
           data: { success: true, data: perField({ 'message:low': [false, true] }) },
@@ -538,7 +538,67 @@ describe('SLA settings: tickets, threads by priority, threads by channel', () =>
       fireEvent.click(
         await screen.findByRole('button', { name: 'Reset Thread SLA by priority Low to default' })
       );
-      expect(await screen.findByText(/could not be read/)).toBeInTheDocument();
+      expect(await screen.findByText(/new values could not be loaded/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Save changes' })).toBeInactive();
+    });
+
+    it('8: the DELETE went through but the read-back GET failed: "reset done, reload", Save blocked until a reload works', async () => {
+      get
+        .mockResolvedValueOnce(loaded(perField({ 'message:low': [false, true] })))
+        .mockRejectedValueOnce(new Error('network down'))
+        .mockResolvedValueOnce(loaded(perField()));
+      del.mockResolvedValue({ data: { success: true, data: [] } });
+      render(<SLAConfigSettings />);
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Reset Thread SLA by priority Low to default' })
+      );
+      expect(await screen.findByText(/reset to its default/)).toBeInTheDocument();
+      expect(screen.queryByText(/Failed to reset|network down/)).toBeNull();
+      expect(screen.getByRole('button', { name: 'Save changes' })).toBeInactive();
+      fireEvent.click(screen.getByRole('button', { name: 'Reload targets' }));
+      await vi.waitFor(() => expect(screen.queryByText(/reset to its default/)).toBeNull());
+      expect(screen.queryByText('(custom)')).toBeNull();
+      expect(screen.getByRole('button', { name: 'Save changes' })).not.toBeInactive();
+    });
+
+    it('8 CONTROL: a DELETE that fails says the reset failed (no reload prompt)', async () => {
+      get.mockResolvedValueOnce(loaded(perField({ 'message:low': [false, true] })));
+      del.mockRejectedValue(new Error('reset refused'));
+      render(<SLAConfigSettings />);
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Reset Thread SLA by priority Low to default' })
+      );
+      expect(await screen.findByText(/reset refused|Failed to reset/)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Reload targets' })).toBeNull();
+    });
+
+    it('3: while a Save and its read-back run, no field takes typing', async () => {
+      let answerPut: (value: unknown) => void = () => undefined;
+      let answerGet: (value: unknown) => void = () => undefined;
+      get
+        .mockResolvedValueOnce(loaded(perField()))
+        .mockReturnValueOnce(new Promise((resolve) => (answerGet = resolve)));
+      put.mockReturnValue(new Promise((resolve) => (answerPut = resolve)));
+      render(<SLAConfigSettings />);
+      const first = await screen.findByRole('spinbutton', {
+        name: 'Ticket SLA Critical first response',
+      });
+      const other = screen.getByRole('spinbutton', {
+        name: 'Thread SLA by priority Low resolution',
+      });
+      fireEvent.change(first, { target: { value: '30' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+      expect(first).toBeInactive();
+      expect(other).toBeInactive();
+      answerPut({ data: { success: true, data: null } });
+      // Still waiting for the read-back.
+      await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+      expect(other).toBeInactive();
+      answerGet(loaded(perField({ 'ticket:critical': [true, false] })));
+      await screen.findByText('Saved');
+      expect(
+        screen.getByRole('spinbutton', { name: 'Thread SLA by priority Low resolution' })
+      ).not.toBeInactive();
     });
   });
 });

@@ -89,8 +89,8 @@ export function getInboxBadge(
     aiReanalysisInFlight,
   }: {
     /**
-     * The thread's spam verdict: the NEWEST inbound mail's (`newestSpamVerdict`), not the first
-     * mail's frozen `metadata.spamCheck`.
+     * The thread's spam verdict (`isSpamThread`, lib/spamVerdict): the backend's lane flag, not the
+     * first mail's frozen `metadata.spamCheck`.
      */
     isSpam: boolean;
     isFiltered: boolean;

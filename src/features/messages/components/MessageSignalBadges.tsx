@@ -11,11 +11,11 @@ import {
   newestSpamCategory,
 } from '@/lib/messageHelpers';
 import { formatDuration } from '@/lib/utils';
+import { isJunkSpamCategory, isSpamThread } from '@/lib/spamVerdict';
 import type { Message } from '@/types';
 import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/types/ai';
 import {
   getRiskSignals,
-  isSpamThread,
   computeResolutionInfo,
   getSlaCardText,
   renderOverflowTooltip,
@@ -37,18 +37,22 @@ type Props = {
 };
 
 /**
- * The spam badge's category: the NEWEST classified inbound mail's (`latestSpamCategory`). An older
- * backend does not send it; then the first mail's category names the verdict only when that mail
- * was spam too, so a thread turned spam by a follow-up is not labelled with its first mail's
- * "Legitimate". A missing or legitimate category reads plain "Spam".
+ * The spam badge's label. With the backend's `latestSpamCategory` (the newest classified mail's,
+ * falling back to the first mail's copy): a junk category names itself ("Spam", "Invalid
+ * Response"); anything else — promotional, transactional, suspicious, legitimate, none — reads
+ * plain "Spam" ("Spam · confirmed" when a person confirmed it): the thread IS spam, and a
+ * non-spam label on a spam badge says the opposite. An older backend sends no category: the first
+ * mail's names the verdict only when that mail was spam too.
  */
 const spamBadgeLabel = (message: Message, spamCheck: ReturnType<typeof getSpamCheck>): string => {
-  const category = hasNewestSpamCategory(message)
-    ? newestSpamCategory(message)
-    : spamCheck?.isSpam === true
-      ? spamCheck.category
-      : undefined;
-  return category && category !== 'legitimate' ? getFilteredCategoryLabel(category) : 'Spam';
+  if (!hasNewestSpamCategory(message)) {
+    const first = spamCheck?.isSpam === true ? spamCheck.category : undefined;
+    return first && first !== 'legitimate' ? getFilteredCategoryLabel(first) : 'Spam';
+  }
+  const category = newestSpamCategory(message);
+  const named = isJunkSpamCategory(category) ? getFilteredCategoryLabel(category) : 'Spam';
+  const label = named === 'Filtered' ? 'Spam' : named;
+  return label === 'Spam' && message.spamConfirmedAt ? 'Spam · confirmed' : label;
 };
 
 export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Props) => {

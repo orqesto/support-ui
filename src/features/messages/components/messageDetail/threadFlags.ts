@@ -16,10 +16,9 @@ export function deriveThreadFlags(message: Message) {
    * the action strip nor the ACTIONS menu offered anything to correct it. A real customer sat
    * behind that state for a month on a client deployment with no button to press.
    *
-   * "Spam now" is the one shared rule (`isSpamThread`, lib/messageHelpers): the NEWEST inbound
-   * mail's verdict, plus a person's confirmation while the thread is in the Spam lane. Outside
-   * triage only the first half can apply, so a thread whose first mail was spam (even one an
-   * agent confirmed) and whose newest mail is clean is not flagged.
+   * "Spam now" is the one shared rule (`isSpamThread`, lib/spamVerdict): the backend's `isSpam`
+   * (the Spam lane's own test: the newest mail's junk category or a person's confirmation, until
+   * the thread is approved), the first mail's flag only on an older backend that sends none.
    */
   const isSpamFlaggedOutsideTriage = !isFiltered && !isSuspicious && isSpamThread(message);
   const isActive =

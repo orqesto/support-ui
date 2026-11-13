@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createPortal } from 'react-dom';
+import { Button } from '@/components/ui/Button';
 import { DataTable } from '../DataTable';
 import type { ColumnDef } from '../dataTable.types';
 
@@ -62,7 +64,11 @@ describe('DataTable', () => {
         rows={rows}
         rowKey={(row) => row.id}
         columns={columns}
-        search={{ value: 'bob', onChange: () => {}, clientAccessor: (row) => [row.name, row.email] }}
+        search={{
+          value: 'bob',
+          onChange: () => {},
+          clientAccessor: (row) => [row.name, row.email],
+        }}
         pagination={{ mode: 'client', pageSize: 10 }}
       />
     );
@@ -313,5 +319,64 @@ describe('DataTable sorting (opt-in per column)', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: /Score/ }));
     expect(order()).toEqual(['Charlie']);
+  });
+});
+
+describe('DataTable onRowClick (review 9)', () => {
+  const portalColumns: ColumnDef<Row>[] = [
+    { id: 'name', header: 'Name', cell: (row) => row.name },
+    {
+      id: 'menu',
+      header: 'Menu',
+      // A popover-like node rendered elsewhere in the DOM: its events still bubble through React.
+      cell: (row) => createPortal(<span>{`portal ${row.name}`}</span>, document.body),
+    },
+    {
+      id: 'act',
+      header: 'Act',
+      cell: (row) => <Button size="sm">{`act ${row.name}`}</Button>,
+    },
+  ];
+  const renderTable = () => {
+    const onRowClick = vi.fn();
+    render(
+      <DataTable
+        rows={rows.slice(0, 2)}
+        rowKey={(row) => row.id}
+        columns={portalColumns}
+        pagination={{ mode: 'client', pageSize: 2 }}
+        onRowClick={onRowClick}
+      />
+    );
+    return onRowClick;
+  };
+
+  it('a plain click on a cell opens the row', () => {
+    const onRowClick = renderTable();
+    fireEvent.click(screen.getByText('Alice'));
+    expect(onRowClick).toHaveBeenCalledWith(rows[0]);
+  });
+
+  it('a modified or non-primary click does not', () => {
+    const onRowClick = renderTable();
+    for (const modifier of ['metaKey', 'ctrlKey', 'shiftKey', 'altKey'])
+      fireEvent.click(screen.getByText('Alice'), { [modifier]: true });
+    fireEvent.click(screen.getByText('Alice'), { button: 1 });
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it('a click from a portal rendered by a cell does not', () => {
+    const onRowClick = renderTable();
+    fireEvent.click(screen.getByText('portal Alice'));
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it('a click on a control in the row, or one already handled, does not', () => {
+    const onRowClick = renderTable();
+    fireEvent.click(screen.getByRole('button', { name: 'act Alice' }));
+    const cell = screen.getByText('Bob');
+    cell.addEventListener('click', (event) => event.preventDefault());
+    fireEvent.click(cell);
+    expect(onRowClick).not.toHaveBeenCalled();
   });
 });
