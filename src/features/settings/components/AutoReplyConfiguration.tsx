@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  AlertTriangle,
-  MessageCircle,
-  Plus,
-  X,
-} from 'lucide-react';
+import { AlertTriangle, MessageCircle, Plus, X } from 'lucide-react';
 import type { AlertState } from '@/features/settings/components/integrations/types';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -17,6 +12,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
 import { organizationService } from '@/services/organization.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { Permission } from '@/types/roles';
+import { AutoReplyRulesSection } from './AutoReplyRulesSection';
 import { FeatureSuggestions } from './FeatureSuggestions';
 
 /* eslint-disable max-lines -- single cohesive component; splitting would
@@ -45,15 +42,14 @@ type Props = {
 const formatThreshold = (value: number): string => `${Math.round(value * 100)}%`;
 
 export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
-  const { isOrgAdmin } = usePermissions();
+  const { hasPermission } = usePermissions();
+  // Workspace admins and moderators (MANAGE_AUTO_REPLY); others see a read-only summary.
+  const canManage = hasPermission(Permission.MANAGE_AUTO_REPLY);
   const { off: aiDraftsOff } = useAiDraftsOff();
   const { data: departments = [], teamsEnabled: teamsMode } = useDepartments();
   // Teams off: no per-team rows, except one that still carries an override (so it can be reset).
   const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
-  const activeDepts = useMemo(
-    () => departments.filter((dept) => dept.active),
-    [departments]
-  );
+  const activeDepts = useMemo(() => departments.filter((dept) => dept.active), [departments]);
 
   // Org-level (the "Default" row). Source-of-truth lives on the server; this is
   // the local mirror. Ref guards against concurrent toggle races at the org
@@ -112,12 +108,14 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   }, []);
 
   const saveOrg = useCallback(
-    async (patch: Partial<{
-      enabled: boolean;
-      requestMissingInfo: boolean;
-      suggestSolutions: boolean;
-      highConfidenceThreshold: number;
-    }>) => {
+    async (
+      patch: Partial<{
+        enabled: boolean;
+        requestMissingInfo: boolean;
+        suggestSolutions: boolean;
+        highConfidenceThreshold: number;
+      }>
+    ) => {
       setSavingScope('org');
       setError(null);
       // Mirror perDeptRef's pattern at the org level: write through the ref
@@ -144,15 +142,16 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         // Success toast — covers the field that changed. Old AIAutoReplyCard
         // emitted these per-handler; restoring parity so admins see a "yes,
         // that saved" confirmation.
-        const field = patch.enabled !== undefined
-          ? `AI auto-reply ${patch.enabled ? 'enabled' : 'disabled'}`
-          : patch.requestMissingInfo !== undefined
-            ? `Missing-info requests ${patch.requestMissingInfo ? 'on' : 'off'}`
-            : patch.suggestSolutions !== undefined
-              ? `Suggest-solutions ${patch.suggestSolutions ? 'on' : 'off'}`
-              : patch.highConfidenceThreshold !== undefined
-                ? `Threshold set to ${Math.round(patch.highConfidenceThreshold * 100)}%`
-                : 'Default updated';
+        const field =
+          patch.enabled !== undefined
+            ? `AI auto-reply ${patch.enabled ? 'enabled' : 'disabled'}`
+            : patch.requestMissingInfo !== undefined
+              ? `Missing-info requests ${patch.requestMissingInfo ? 'on' : 'off'}`
+              : patch.suggestSolutions !== undefined
+                ? `Suggest-solutions ${patch.suggestSolutions ? 'on' : 'off'}`
+                : patch.highConfidenceThreshold !== undefined
+                  ? `Threshold set to ${Math.round(patch.highConfidenceThreshold * 100)}%`
+                  : 'Default updated';
         onShowAlert({
           open: true,
           title: 'Saved',
@@ -253,25 +252,41 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       .finally(() => setSavingScope(null));
   };
 
-  if (!isOrgAdmin) {
+  // Rules send only where Auto-Reply is on: the Default row, or a team that overrides it on.
+  const anyAutoReplyOn =
+    org.autoReplyEnabled === true ||
+    Object.values(perDept).some((settings) => settings?.autoReplyEnabled === true);
+  const rulesSection = (
+    <AutoReplyRulesSection
+      canManage={canManage}
+      autoReplyEnabled={anyAutoReplyOn}
+      onShowAlert={onShowAlert}
+    />
+  );
+
+  if (!canManage) {
     // Old AIAutoReplyCard was visible (read-only) to non-org-admins so they
     // could at least see what was configured. Preserve that visibility with
     // a non-interactive summary instead of hiding the section entirely.
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex gap-2 items-center">
-            <MessageCircle className="w-5 h-5" />
-            AI Auto-Reply
-          </CardTitle>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Default: <strong>{org.autoReplyEnabled ? 'Enabled' : 'Disabled'}</strong>
-            {org.autoReplyEnabled && org.autoReplyHighConfidenceThreshold !== undefined &&
-              ` · threshold ${formatThreshold(org.autoReplyHighConfidenceThreshold)}`}
-            . Only workspace admins can change auto-reply settings.
-          </p>
-        </CardHeader>
-      </Card>
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex gap-2 items-center">
+              <MessageCircle className="w-5 h-5" />
+              AI Auto-Reply
+            </CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Default: <strong>{org.autoReplyEnabled ? 'Enabled' : 'Disabled'}</strong>
+              {org.autoReplyEnabled &&
+                org.autoReplyHighConfidenceThreshold !== undefined &&
+                ` · threshold ${formatThreshold(org.autoReplyHighConfidenceThreshold)}`}
+              . Only workspace admins and moderators can change auto-reply settings.
+            </p>
+          </CardHeader>
+        </Card>
+        {rulesSection}
+      </div>
     );
   }
 
@@ -286,77 +301,77 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   }
 
   const orgEnabled = org.autoReplyEnabled ?? false;
-  const orgThreshold = tempThresholdOrg ?? org.autoReplyHighConfidenceThreshold ?? DEFAULT_THRESHOLD;
+  const orgThreshold =
+    tempThresholdOrg ?? org.autoReplyHighConfidenceThreshold ?? DEFAULT_THRESHOLD;
   const orgRequestMissing = org.autoReplyRequestMissingInfo ?? true;
   const orgSuggest = org.autoReplySuggestSolutions ?? true;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex gap-2 items-center">
-          <MessageCircle className="w-5 h-5" />
-          AI Auto-Reply
-        </CardTitle>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Drafts a real reply when the AI is confident.
-          {teamsEnabled
-            ? ' The Default row applies to every team. A team row uses the default unless overridden.'
-            : ''}
-        </p>
-      </CardHeader>
-      <CardContent>
-        <div className="mb-4 empty:hidden">
-          <FeatureSuggestions
-            domains={['auto_reply']}
-            title="Suggestions"
-            description="Changes the engine suggests to when the AI replies on its own."
-          />
-        </div>
-        {/* The settings below are kept, not cleared: they apply again the moment drafts are
-            switched back on. So say plainly that nothing here sends while they are off. */}
-        {aiDraftsOff && (
-          <Alert variant="warning" className="mb-4">
-            AI drafts are switched off for this workspace, so the AI sends no reply of its own —
-            whatever is set below. These settings apply again when AI drafts are switched back on.
-            The prepared acknowledgment (&quot;we got your message&quot;) is not AI-written and still
-            goes out.
-          </Alert>
-        )}
-        {error && (
-          <div className="flex gap-2 items-start px-3 py-2 mb-4 text-sm text-destructive rounded-md border border-destructive-line bg-destructive-muted">
-            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <span>{error}</span>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex gap-2 items-center">
+            <MessageCircle className="w-5 h-5" />
+            AI Auto-Reply
+          </CardTitle>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Drafts a real reply when the AI is confident.
+            {teamsEnabled
+              ? ' The Default row applies to every team. A team row uses the default unless overridden.'
+              : ''}
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4 empty:hidden">
+            <FeatureSuggestions
+              domains={['auto_reply']}
+              title="Suggestions"
+              description="Changes the engine suggests to when the AI replies on its own."
+            />
           </div>
-        )}
-
-        <div className="rounded-md border divide-y">
-          {/* Default row */}
-          <div className="bg-muted/30">
-            <div className="flex justify-between items-center px-3 py-2.5">
-              <div className="flex gap-2 items-center min-w-0">
-                <span className="text-sm font-semibold">Default</span>
-                <span className="text-xs text-muted-foreground">
-                  · applies to every dept unless overridden
-                </span>
-              </div>
-              <div className="flex gap-3 items-center shrink-0">
-                <span
-                  className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                    orgEnabled
-                      ? 'bg-success/10 text-success'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {orgEnabled ? 'On' : 'Off'}
-                </span>
-                {orgEnabled && (
-                  <span className="text-[10px] font-medium text-muted-foreground">
-                    {formatThreshold(orgThreshold)}
-                  </span>
-                )}
-              </div>
+          {/* The settings below are kept, not cleared: they apply again the moment drafts are
+            switched back on. So say plainly that nothing here sends while they are off. */}
+          {aiDraftsOff && (
+            <Alert variant="warning" className="mb-4">
+              AI drafts are switched off for this workspace, so the AI sends no reply of its own —
+              whatever is set below. These settings apply again when AI drafts are switched back on.
+              The prepared acknowledgment (&quot;we got your message&quot;) is not AI-written and
+              still goes out.
+            </Alert>
+          )}
+          {error && (
+            <div className="flex gap-2 items-start px-3 py-2 mb-4 text-sm text-destructive rounded-md border border-destructive-line bg-destructive-muted">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
-            <div className="px-3 pt-1 pb-3 space-y-3 bg-background">
+          )}
+
+          <div className="rounded-md border divide-y">
+            {/* Default row */}
+            <div className="bg-muted/30">
+              <div className="flex justify-between items-center px-3 py-2.5">
+                <div className="flex gap-2 items-center min-w-0">
+                  <span className="text-sm font-semibold">Default</span>
+                  <span className="text-xs text-muted-foreground">
+                    · applies to every dept unless overridden
+                  </span>
+                </div>
+                <div className="flex gap-3 items-center shrink-0">
+                  <span
+                    className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                      orgEnabled ? 'bg-success/10 text-success' : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {orgEnabled ? 'On' : 'Off'}
+                  </span>
+                  {orgEnabled && (
+                    <span className="text-[10px] font-medium text-muted-foreground">
+                      {formatThreshold(orgThreshold)}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="px-3 pt-1 pb-3 space-y-3 bg-background">
                 <div className="flex justify-between items-center pt-2">
                   <div>
                     <p className="text-sm font-medium">Enable AI auto-reply</p>
@@ -402,10 +417,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                     {orgSuggest && (
                       <div className="pt-3 space-y-2 border-t">
                         <div className="flex justify-between items-center">
-                          <label
-                            htmlFor="org-threshold"
-                            className="text-sm font-medium"
-                          >
+                          <label htmlFor="org-threshold" className="text-sm font-medium">
                             Auto-send threshold
                           </label>
                           <span className="text-sm font-medium text-foreground">
@@ -443,74 +455,79 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                   </>
                 )}
               </div>
-          </div>
-
-          {/* Team rows */}
-          {teamsEnabled && activeDepts.length === 0 && (
-            <div className="px-3 py-3 text-xs text-muted-foreground">
-              No active teams configured.
             </div>
-          )}
-          {(teamsEnabled
-            ? activeDepts
-            : activeDepts.filter((dept) => perDept[String(dept.id)] !== undefined)
-          ).map((dept) => {
-            const key = String(dept.id);
-            const isSaving = savingScope === dept.id;
-            const settings = perDept[key];
-            const hasOverride = !!settings;
-            const overrideEnabled = settings?.autoReplyEnabled;
-            const overrideThreshold = settings?.autoReplyHighConfidenceThreshold;
-            const overrideRequestMissing = settings?.autoReplyRequestMissingInfo;
-            const overrideSuggest = settings?.autoReplySuggestSolutions;
-            const phrases = settings?.escalationPhrases ?? [];
-            const sliderThreshold =
-              tempThresholdDept[key] ?? overrideThreshold ?? orgThreshold;
 
-            const summary = (() => {
-              if (!hasOverride) return { label: 'Inherits default', tone: 'muted' as const };
-              if (overrideEnabled === false) return { label: 'Override: off', tone: 'red' as const };
-              if (overrideEnabled === true) return { label: 'Override: on', tone: 'green' as const };
-              if (
-                overrideThreshold !== undefined ||
-                overrideRequestMissing !== undefined ||
-                overrideSuggest !== undefined ||
-                phrases.length > 0
-              ) {
-                return { label: 'Partial override', tone: 'amber' as const };
-              }
-              return { label: 'Inherits default', tone: 'muted' as const };
-            })();
+            {/* Team rows */}
+            {teamsEnabled && activeDepts.length === 0 && (
+              <div className="px-3 py-3 text-xs text-muted-foreground">
+                No active teams configured.
+              </div>
+            )}
+            {(teamsEnabled
+              ? activeDepts
+              : activeDepts.filter((dept) => perDept[String(dept.id)] !== undefined)
+            ).map((dept) => {
+              const key = String(dept.id);
+              const isSaving = savingScope === dept.id;
+              const settings = perDept[key];
+              const hasOverride = !!settings;
+              const overrideEnabled = settings?.autoReplyEnabled;
+              const overrideThreshold = settings?.autoReplyHighConfidenceThreshold;
+              const overrideRequestMissing = settings?.autoReplyRequestMissingInfo;
+              const overrideSuggest = settings?.autoReplySuggestSolutions;
+              const phrases = settings?.escalationPhrases ?? [];
+              const sliderThreshold = tempThresholdDept[key] ?? overrideThreshold ?? orgThreshold;
 
-            const summaryClass =
-              summary.tone === 'green'
-                ? 'bg-success/10 text-success'
-                : summary.tone === 'red'
-                  ? 'bg-destructive/10 text-destructive'
-                  : summary.tone === 'amber'
-                    ? 'bg-warning/10 text-warning'
-                    : 'bg-muted text-muted-foreground';
+              const summary = (() => {
+                if (!hasOverride) return { label: 'Inherits default', tone: 'muted' as const };
+                if (overrideEnabled === false)
+                  return { label: 'Override: off', tone: 'red' as const };
+                if (overrideEnabled === true)
+                  return { label: 'Override: on', tone: 'green' as const };
+                if (
+                  overrideThreshold !== undefined ||
+                  overrideRequestMissing !== undefined ||
+                  overrideSuggest !== undefined ||
+                  phrases.length > 0
+                ) {
+                  return { label: 'Partial override', tone: 'amber' as const };
+                }
+                return { label: 'Inherits default', tone: 'muted' as const };
+              })();
 
-            return (
-              <div key={dept.id}>
-                <div className="flex justify-between items-center px-3 py-2.5">
-                  <div className="flex gap-2 items-center min-w-0">
-                    <span className="text-sm font-medium truncate">{dept.name}</span>
-                    <span className="text-[10px] text-muted-foreground">{dept.slug}</span>
+              const summaryClass =
+                summary.tone === 'green'
+                  ? 'bg-success/10 text-success'
+                  : summary.tone === 'red'
+                    ? 'bg-destructive/10 text-destructive'
+                    : summary.tone === 'amber'
+                      ? 'bg-warning/10 text-warning'
+                      : 'bg-muted text-muted-foreground';
+
+              return (
+                <div key={dept.id}>
+                  <div className="flex justify-between items-center px-3 py-2.5">
+                    <div className="flex gap-2 items-center min-w-0">
+                      <span className="text-sm font-medium truncate">{dept.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{dept.slug}</span>
+                    </div>
+                    <div className="flex gap-3 items-center shrink-0">
+                      {isSaving && (
+                        <span className="text-[10px] text-muted-foreground">Saving…</span>
+                      )}
+                      <span
+                        className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${summaryClass}`}
+                      >
+                        {summary.label}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex gap-3 items-center shrink-0">
-                    {isSaving && (
-                      <span className="text-[10px] text-muted-foreground">Saving…</span>
-                    )}
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${summaryClass}`}>
-                      {summary.label}
-                    </span>
-                  </div>
-                </div>
-                <div className="px-3 pt-1 pb-3 space-y-3 bg-muted/10">
+                  <div className="px-3 pt-1 pb-3 space-y-3 bg-muted/10">
                     {/* Override toggle: tri-state via two explicit choices */}
                     <div className="flex flex-wrap gap-2 items-center pt-2">
-                      <span className="text-xs text-muted-foreground">Auto-reply for this team:</span>
+                      <span className="text-xs text-muted-foreground">
+                        Auto-reply for this team:
+                      </span>
                       <Button
                         type="button"
                         variant="outline"
@@ -530,7 +547,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         variant="outline"
                         size="sm"
                         disabled={isSaving}
-                        onClick={() => void saveDept(dept.id, { ...settings, autoReplyEnabled: true })}
+                        onClick={() =>
+                          void saveDept(dept.id, { ...settings, autoReplyEnabled: true })
+                        }
                         className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
                           overrideEnabled === true
                             ? 'bg-success/15 text-success border-success/40'
@@ -544,7 +563,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         variant="outline"
                         size="sm"
                         disabled={isSaving}
-                        onClick={() => void saveDept(dept.id, { ...settings, autoReplyEnabled: false })}
+                        onClick={() =>
+                          void saveDept(dept.id, { ...settings, autoReplyEnabled: false })
+                        }
                         className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
                           overrideEnabled === false
                             ? 'bg-destructive/15 text-destructive border-destructive/40'
@@ -559,7 +580,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                     {(overrideEnabled ?? orgEnabled) && (
                       <div className="pt-3 space-y-2 border-t">
                         <div className="flex justify-between items-center">
-                          <label htmlFor={`dept-threshold-${dept.id}`} className="text-xs font-medium">
+                          <label
+                            htmlFor={`dept-threshold-${dept.id}`}
+                            className="text-xs font-medium"
+                          >
                             Auto-send threshold
                             {overrideThreshold === undefined && (
                               <span className="ml-1 text-[10px] text-muted-foreground">
@@ -741,11 +765,13 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       </div>
                     )}
                   </div>
-              </div>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+      {rulesSection}
+    </div>
   );
 };

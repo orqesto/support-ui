@@ -334,3 +334,25 @@ describe('routing.decision entries (spec §4.5)', () => {
     expect(items[1].who).toBe('System');
   });
 });
+
+describe('messageActivityTimeline — auto-reply sent', () => {
+  it('names the rule and the keyword that matched', () => {
+    expect(
+      auditEntryLabel('message.auto_reply_sent', {
+        source: 'keyword_rule',
+        ruleName: 'Refunds',
+        keyword: 'refund',
+        toStatus: 'resolved',
+      })
+    ).toBe('Auto-reply sent by rule "Refunds" (keyword "refund") — resolved');
+  });
+
+  it('an AI auto-reply has no rule', () => {
+    expect(auditEntryLabel('message.auto_reply_sent', { source: 'ai', toStatus: 'resolved' })).toBe(
+      'AI auto-reply sent — resolved'
+    );
+    expect(
+      auditEntryLabel('message.auto_reply_sent', { source: 'ai', toStatus: 'awaiting_response' })
+    ).toBe('AI auto-reply sent');
+  });
+});

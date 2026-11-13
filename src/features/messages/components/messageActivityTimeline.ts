@@ -10,8 +10,8 @@ import type { MessageActivityEntry, MessageNote } from '@/services/message.servi
 /**
  * What kind of thing happened, for the row's dot (v4 `.a-dot.in/.out/.note/.ai`, else plain).
  * ⛔ Derived ONLY from what the data says: the audit action, a note, or an in-session note edit.
- * `ai` has no source today — no audit action the activity endpoint returns is authored by the AI
- * (auto-routing is rule-based and stays `other`) — so nothing maps to it until one exists.
+ * `ai`: an automatic answer sent to the customer (`message.auto_reply_sent`, 2026-11-13: the AI's
+ * answer or a keyword rule's prepared reply). Auto-routing is rule-based and stays `other`.
  * `hold`: a hold note (the thread went on or came off hold) — violet, the On-hold colour, never
  * the amber of a note someone typed.
  */
@@ -61,6 +61,8 @@ const ACTION_KIND: Record<string, ActivityKind> = {
   'message.auto_reopen': 'in',
   'message.thanks_kept_finished': 'in',
   'message.reply': 'out',
+  // An automatic answer that left: the AI dot, the only audit action the AI authors.
+  'message.auto_reply_sent': 'ai',
   'message.compose_new': 'out',
 };
 
@@ -165,8 +167,24 @@ const statusWord = (status: unknown): string | undefined => {
   return status === 'pending' ? 'On hold' : status;
 };
 
+/**
+ * An auto-reply went to the customer (BE `message.auto_reply_sent`, 2026-11-13): a keyword rule's
+ * prepared reply names its rule and the keyword that matched; otherwise it was the AI's answer.
+ */
+export function autoReplySentLabel(details: Record<string, unknown> | null): string {
+  const ruleName = details?.['ruleName'];
+  const keyword = details?.['keyword'];
+  const resolved = details?.['toStatus'] === 'resolved' ? ' — resolved' : '';
+  if (typeof ruleName === 'string' && ruleName) {
+    const matched = typeof keyword === 'string' && keyword ? ` (keyword "${keyword}")` : '';
+    return `Auto-reply sent by rule "${ruleName}"${matched}${resolved}`;
+  }
+  return `AI auto-reply sent${resolved}`;
+}
+
 export function auditEntryLabel(action: string, details: Record<string, unknown> | null): string {
   if (action === 'routing.decision') return routingDecisionLabel(details);
+  if (action === 'message.auto_reply_sent') return autoReplySentLabel(details);
   if (action === 'message.status_change') {
     const from = statusWord(details?.['from']);
     const to = statusWord(details?.['to']);

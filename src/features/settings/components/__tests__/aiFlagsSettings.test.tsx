@@ -36,7 +36,7 @@ vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
 vi.mock('@/hooks/useDepartments', () => ({
   useDepartments: () => ({ data: [{ id: 57, slug: 'sales', name: 'Sales', active: true }] }),
 }));
-vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => ({ isOrgAdmin: true }) }));
+vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => ({ isOrgAdmin: true, hasPermission: () => true }) }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn() } }));
 
 const { organizationService } = await import('@/services/organization.service');
