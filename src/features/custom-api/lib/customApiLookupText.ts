@@ -98,14 +98,15 @@ export const fallbackText = (
   if (!fallback) return null;
   const { email } = fallback;
   // The search itself failed: the agent still learns there is no account (2026-11-13 review).
-  if (result.status === 'failed') {
-    const why = failureSentence(result.agentReason, result.connectionName).replace(/\.$/, '');
-    return `No account; the guest search by ${email} failed (${why}).`;
-  }
+  // The failure's own reason is the card's red line below this; said once, not twice.
+  if (result.status === 'failed') return `No account; the guest search by ${email} failed.`;
   const found = result.status === 'ok' && Boolean(result.rows?.length);
   if (!found && result.status !== 'no_match') return null;
   const dropped = fallback.dropped > 0 ? fallback.dropped : 0;
   // ⛔ A bound that bit: every row we read was hidden AND there were more we never read.
+  if (!found && fallback.more === true && dropped === 0) {
+    return `No account; nothing was read from the guest search by ${email} — more not checked.`;
+  }
   if (!found && fallback.more === true) {
     return `No account; the first ${dropped} guest ${dropped === 1 ? noun.one : noun.many} by email ${email} didn’t match, more not checked.`;
   }

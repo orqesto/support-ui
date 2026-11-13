@@ -238,7 +238,8 @@ export const CustomApiResultCard = ({
   // with what its records are ("guest orders"), or "records" for a lookup with no category.
   const fallbackNote = fallbackText(
     result,
-    category
+    // 'account' is not a kind of order a guest places: neutral "records" there (2026-11-13 review).
+    category && category !== 'account'
       ? {
           one: CATEGORY_RECORD_LABELS[category].toLowerCase(),
           many: CATEGORY_TAB_LABELS[category].toLowerCase(),
@@ -425,7 +426,14 @@ export const CustomApiResultCard = ({
 
       {detailsHidden && (
         <p data-testid="lookup-details-hidden" className="text-[11px] text-muted-foreground">
-          {result.rows?.length} found — details hidden.
+          {typeof result.total === 'number' && result.total > (result.rows?.length ?? 0)
+            ? `${result.rows?.length} of ${result.total}`
+            : result.rows?.length}{' '}
+          found — details hidden.
+          {result.more === true &&
+          !(typeof result.total === 'number' && result.total > (result.rows?.length ?? 0))
+            ? ' There may be more.'
+            : ''}
         </p>
       )}
 

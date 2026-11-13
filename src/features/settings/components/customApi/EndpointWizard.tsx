@@ -224,17 +224,19 @@ export const EndpointWizard = ({
   // D4 + 2026-10-21: the reference name and the no-match hint travel with it, on every write.
   const words = useAgentWords(endpoint, initial, paramSource);
   // D21 + 2026-11-13: the chain, its fallback and the payloads they send (useChainFallback.ts).
-  const { chain, setChain, chainIncomplete, fallback, parameterFields, testParameterFields } =
-    useChain({
-      connection,
-      endpoint,
-      paramSource,
-      picked,
-      bodyCarriesValue: request.bodyCarriesValue,
-      wordsPayload: words.payload,
-      ensureSaved: () => ensureSaved(),
-      sendTest: (...args) => customApiService.sendTest(...args),
-    });
+  const { chain, setChain, chainIncomplete, saveBlocked, fallback, ...writes } = useChain({
+    connection,
+    endpoint,
+    paramSource,
+    picked,
+    path,
+    request,
+    wordsPayload: words.payload,
+    ui: { busy, setBusy, setError },
+    ensureSaved: () => ensureSaved(),
+    sendTest: (...args) => customApiService.sendTest(...args),
+  });
+  const { parameterFields, testParameterFields } = writes;
 
   /**
    * ⛔ THE PLACEHOLDER THE ADMIN HAS NEVER HEARD OF. The executor substitutes the value at
@@ -559,9 +561,7 @@ export const EndpointWizard = ({
             {paramSource === 'endpoint' && (
               <ChainStep
                 siblings={connection.endpoints.filter((one) => one.id !== endpointId)}
-                sourceEndpointId={chain.sourceEndpointId}
-                sourceFieldPath={chain.sourceFieldPath}
-                fallbackPath={chain.fallbackPath}
+                chain={chain}
                 fallback={fallback.supported ? fallback : undefined}
                 onChange={setChain}
               />
@@ -927,7 +927,7 @@ export const EndpointWizard = ({
               !path.trim() ||
               unpricedMoney.length > 0 ||
               unlabelled.length > 0 ||
-              chainIncomplete ||
+              saveBlocked ||
               Boolean(request.problem)
             }
           >

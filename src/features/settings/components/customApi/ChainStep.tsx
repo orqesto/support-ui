@@ -21,17 +21,17 @@ import { FallbackStep } from './FallbackStep';
 interface Props {
   /** The other lookups on this connection. The lookup being edited is never among them. */
   siblings: CustomApiEndpoint[];
-  sourceEndpointId: number | null;
-  sourceFieldPath: string;
-  /** 2026-11-13: the path called with the customer's email when the source finds no account. */
-  fallbackPath: string;
+  /** Which lookup gives the value, which field of its answer, and (2026-11-13) the fallback path. */
+  chain: { sourceEndpointId: number | null; sourceFieldPath: string; fallbackPath: string };
   /**
    * The fallback's own controls — absent when the backend does not know fallbacks (it would drop
    * the path on save), so nothing is offered that cannot be kept.
    */
   fallback?: {
     problems: string[];
-    onTest?: (email: string) => Promise<string>;
+    /** The wizard's own Test conditions hold and the fallback has no problem. */
+    testable: boolean;
+    onTest: (email: string) => Promise<string | null>;
   };
   onChange: (next: {
     sourceEndpointId: number | null;
@@ -44,15 +44,9 @@ interface Props {
 export const canFeedAChain = (endpoint: CustomApiEndpoint): boolean =>
   endpoint.parameterSource === 'identity' && endpoint.resultShape === 'one';
 
-export const ChainStep = ({
-  siblings,
-  sourceEndpointId,
-  sourceFieldPath,
-  fallbackPath,
-  fallback,
-  onChange,
-}: Props) => {
-  const current = { sourceEndpointId, sourceFieldPath, fallbackPath };
+export const ChainStep = ({ siblings, chain, fallback, onChange }: Props) => {
+  const current = chain;
+  const { sourceEndpointId, sourceFieldPath, fallbackPath } = chain;
   const sources = siblings.filter(canFeedAChain);
   const chosen = sources.find((endpoint) => endpoint.id === sourceEndpointId);
   // The fields an admin already picked on the source are the likeliest answers; offered as
@@ -118,6 +112,7 @@ export const ChainStep = ({
           onChange={(next) => onChange({ ...current, fallbackPath: next })}
           sourceLabel={chosen?.label ?? null}
           problems={fallback.problems}
+          testable={fallback.testable}
           onTest={fallback.onTest}
         />
       )}

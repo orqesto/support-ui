@@ -323,3 +323,79 @@ describe('applyRole — a field leaving “Customer’s email” is shown again'
     expect(applyRole([hiddenEmail], 'email', 'customer_email')[0]).toHaveProperty('hidden', true);
   });
 });
+
+describe('2026-11-13 final review — Test fallback and Save', () => {
+  const save = () => screen.getByRole('button', { name: 'Save' });
+  const testFallback = () => screen.getByRole('button', { name: 'Test fallback' });
+  const tryEmail = () => screen.getByLabelText('An email to try the fallback with');
+  const withFallback = { ...base, fallbackPath: '/orders?email={value}' };
+
+  it('🔴 shows the kept / hidden counts from the backend', async () => {
+    sendTest.mockResolvedValue({
+      outcome: { status: 'ok', rows: [{}, {}, {}] },
+      paths: [],
+      fallback: { kept: 2, dropped: 1 },
+    });
+    const user = userEvent.setup();
+    open(withFallback);
+    await user.type(tryEmail(), 'g@shop.example');
+    await user.click(testFallback());
+    expect(await screen.findByTestId('fallback-test-outcome')).toHaveTextContent(
+      '2 would show for g@shop.example; 1 hidden'
+    );
+  });
+
+  it('🔴 a failing Test fallback shows its error like Test does', async () => {
+    // RED: no catch ⇒ an unhandled rejection and nothing on screen.
+    sendTest.mockRejectedValue(new Error('boom'));
+    const user = userEvent.setup();
+    open(withFallback);
+    await user.type(tryEmail(), 'g@shop.example');
+    await user.click(testFallback());
+    expect(await screen.findByText(/boom|Could not reach your system/)).toBeInTheDocument();
+  });
+
+  it('🔴 the outcome clears when the test email changes', async () => {
+    sendTest.mockResolvedValue({ outcome: { status: 'ok', rows: [] }, paths: [] });
+    const user = userEvent.setup();
+    open(withFallback);
+    await user.type(tryEmail(), 'g@shop.example');
+    await user.click(testFallback());
+    await screen.findByTestId('fallback-test-outcome');
+    await user.type(tryEmail(), 'x');
+    expect(screen.queryByTestId('fallback-test-outcome')).not.toBeInTheDocument();
+  });
+
+  it('🔴 Test fallback needs the chain itself complete', async () => {
+    const user = userEvent.setup();
+    open({ ...withFallback, sourceFieldPath: '' });
+    await user.type(tryEmail(), 'g@shop.example');
+    expect(testFallback()).toHaveAttribute('aria-disabled', 'true');
+    // CONTROL: with the chain complete the same email enables it.
+    cleanup();
+    open(withFallback);
+    await user.type(tryEmail(), 'g@shop.example');
+    expect(testFallback()).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('🔴 a fallback problem blocks Save but not the lookup’s own Test', () => {
+    // RED: block Test too ⇒ no way to see the fields, so the email can never be tagged.
+    open({ ...withFallback, fieldPaths: [base.fieldPaths[0]] });
+    expect(save()).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: 'Test' })).not.toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+  });
+
+  it('🔴 a cleared fallback is sent as null by the Test pre-save', async () => {
+    // RED: omit it ⇒ the stored fallback survives a Test the admin made with the box empty.
+    sendTest.mockResolvedValue({ outcome: { status: 'ok', rows: [] }, paths: [] });
+    const user = userEvent.setup();
+    open(withFallback);
+    await user.clear(screen.getByLabelText(FIELD));
+    await user.click(screen.getByRole('button', { name: 'Test' }));
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+    expect(lastPayload()).toHaveProperty('fallbackPath', null);
+  });
+});

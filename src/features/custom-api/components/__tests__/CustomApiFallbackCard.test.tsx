@@ -18,6 +18,7 @@ vi.mock('@/lib/api-client', () => ({
   apiClient: { post: (...args: unknown[]): unknown => post(...args), get: vi.fn() },
 }));
 const { customApiLookupService } = await import('../../services/customApiLookup.service');
+const { customApiService } = await import('../../services/customApi.service');
 
 const EMAIL = 'guest.buyer@shop.example';
 
@@ -94,13 +95,16 @@ describe('fallbackText — the owner’s wording', () => {
       `No account; the first 25 guest orders by email ${EMAIL} didn’t match, more not checked.`
     );
   });
-  it('🔴 a failed guest search still says there is no account', () => {
+  it('🔴 a failed guest search still says there is no account (the reason stays on the red line)', () => {
     // RED: say nothing on a failure ⇒ the agent cannot tell the account lookup found nobody.
     expect(
       fallbackText(card({ status: 'failed', rows: undefined, agentReason: 'timeout' }), ORDERS)
-    ).toBe(
-      `No account; the guest search by ${EMAIL} failed (Example shop took too long to answer).`
-    );
+    ).toBe(`No account; the guest search by ${EMAIL} failed.`);
+  });
+  it('🔴 pages unread and nothing read ⇒ never "the first 0"', () => {
+    expect(
+      fallbackText({ ...none(), fallback: { email: EMAIL, dropped: 0, more: true } }, ORDERS)
+    ).toBe(`No account; nothing was read from the guest search by ${EMAIL} — more not checked.`);
   });
   it('a lookup with no category reads with the generic record word', () => {
     expect(fallbackText(card({ category: null, fallback: { email: EMAIL, dropped: 1 } }))).toBe(
@@ -192,10 +196,31 @@ describe('owner 2026-11-13 — a hidden check field never reaches the card', () 
 });
 
 describe('2026-11-13 review — the card', () => {
-  it('🔴 a failed guest search shows the no-account note with the failure', () => {
+  it('🔴 a failed guest search shows the no-account note, and the reason once', () => {
+    // RED: put the reason in the note too ⇒ the same sentence twice on one card.
     show(card({ status: 'failed', rows: undefined, agentReason: 'timeout' }));
     expect(screen.getByTestId('lookup-fallback-note')).toHaveTextContent(
-      `No account; the guest search by ${EMAIL} failed (Example shop took too long to answer).`
+      `No account; the guest search by ${EMAIL} failed.`
+    );
+    expect(screen.getAllByText(/took too long to answer/)).toHaveLength(1);
+  });
+
+  it('🔴 an account-category lookup reads with neutral “records”, never “guest accounts”', () => {
+    show(card({ category: 'account' }));
+    expect(screen.getByTestId('lookup-fallback-note')).toHaveTextContent(
+      `No account — guest records found by email ${EMAIL}.`
+    );
+  });
+
+  it('🔴 all fields hidden keeps the count of the total and “there may be more”', () => {
+    // RED: drop them ⇒ "2 found" when the vendor has 37.
+    show(card({ rows: [{}, {}], fields: [], total: 37 }));
+    expect(screen.getByTestId('lookup-details-hidden')).toHaveTextContent(
+      '2 of 37 found — details hidden.'
+    );
+    show(card({ rows: [{}], fields: [], total: null, more: true }));
+    expect(screen.getAllByTestId('lookup-details-hidden')[1]).toHaveTextContent(
+      '1 found — details hidden. There may be more.'
     );
   });
 
@@ -210,5 +235,23 @@ describe('2026-11-13 review — the card', () => {
   it('CONTROL: rows with shown fields render as rows, with no such note', () => {
     show(card());
     expect(screen.queryByTestId('lookup-details-hidden')).not.toBeInTheDocument();
+  });
+});
+
+describe('Test fallback through the real service', () => {
+  it('🔴 keeps the kept / hidden counts; CONTROL: an ordinary Test has none', async () => {
+    // RED: drop them in normaliseTestResult ⇒ the admin never sees a wrong email field.
+    post.mockResolvedValue({
+      data: {
+        data: { outcome: { status: 'ok', rows: [] }, paths: [], fallback: { kept: 1, dropped: 4 } },
+      },
+    });
+    const result = await customApiService.sendTest(1, 50, EMAIL, '/o?email={value}');
+    expect(result.fallback).toEqual({ kept: 1, dropped: 4 });
+    expect(post.mock.calls[0][1]).toEqual({ parameter: EMAIL, fallbackPath: '/o?email={value}' });
+    post.mockResolvedValue({
+      data: { data: { outcome: { status: 'ok', rows: [] }, paths: ['a'] } },
+    });
+    expect(await customApiService.sendTest(1, 50, 'x')).not.toHaveProperty('fallback');
   });
 });

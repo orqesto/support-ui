@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { VALUE_PLACEHOLDER } from './parameterFields';
@@ -15,29 +15,31 @@ interface Props {
   sourceLabel: string | null;
   /** Why the backend would refuse it (`fallbackProblems`); each is shown, and blocks Test/Save. */
   problems: string[];
+  /** The wizard's own Test conditions hold (chain complete, path set, not busy) and no problem. */
+  testable: boolean;
   /**
    * "Test fallback": run the fallback path with this email through the lookup's records path and
-   * fields, and say what came back. Absent ⇒ no button (nothing saved to test yet is handled by
-   * the caller, which saves first).
+   * say what the ownership filter kept. Null ⇒ it failed, and the wizard's error line says why.
    */
-  onTest?: (email: string) => Promise<string>;
+  onTest: (email: string) => Promise<string | null>;
 }
 
-export const FallbackStep = ({ fallbackPath, onChange, sourceLabel, problems, onTest }: Props) => {
+export const FallbackStep = ({
+  fallbackPath,
+  onChange,
+  sourceLabel,
+  problems,
+  testable,
+  onTest,
+}: Props) => {
   const [email, setEmail] = useState('');
-  const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<string | null>(null);
-  const canTest = Boolean(onTest) && fallbackPath.trim() !== '' && problems.length === 0;
+  // An answer about another path is not an answer about this one.
+  useEffect(() => setOutcome(null), [fallbackPath]);
 
   const test = async () => {
-    if (!onTest) return;
-    setBusy(true);
     setOutcome(null);
-    try {
-      setOutcome(await onTest(email.trim()));
-    } finally {
-      setBusy(false);
-    }
+    setOutcome(await onTest(email.trim()));
   };
 
   return (
@@ -59,16 +61,19 @@ export const FallbackStep = ({ fallbackPath, onChange, sourceLabel, problems, on
           {problem}
         </p>
       ))}
-      {canTest && (
+      {fallbackPath.trim() !== '' && problems.length === 0 && (
         <div className="flex gap-2 items-end">
           <div className="flex-1">
             <Input
               label="An email to try the fallback with"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setOutcome(null);
+              }}
             />
           </div>
-          <Button size="sm" disabled={busy || !email.trim()} onClick={() => void test()}>
+          <Button size="sm" disabled={!testable || !email.trim()} onClick={() => void test()}>
             Test fallback
           </Button>
         </div>

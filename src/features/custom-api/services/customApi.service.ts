@@ -139,6 +139,11 @@ export interface EndpointTestResult {
     total?: number | null;
   };
   paths: string[];
+  /**
+   * 2026-11-13 "Test fallback" only: what the live ownership filter would keep and hide for the test
+   * email. Absent on an ordinary Test and from an older backend.
+   */
+  fallback?: { kept: number; dropped: number };
 }
 
 export interface FieldPick {
@@ -178,6 +183,11 @@ const normaliseTestResult = (data: unknown): EndpointTestResult => {
     // working is how an admin stops looking at the thing that is broken.
     outcome: shaped.outcome ?? { status: 'failed', reason: 'No response from the server.' },
     paths: shaped.paths ?? [],
+    ...(shaped.fallback &&
+    typeof shaped.fallback.kept === 'number' &&
+    typeof shaped.fallback.dropped === 'number'
+      ? { fallback: { kept: shaped.fallback.kept, dropped: shaped.fallback.dropped } }
+      : {}),
   };
 };
 
