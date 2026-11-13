@@ -113,7 +113,8 @@ const readFallback = (raw: unknown): CustomApiLookupResult['fallback'] => {
     typeof raw.dropped === 'number' && Number.isInteger(raw.dropped) && raw.dropped > 0
       ? raw.dropped
       : 0;
-  return { email: raw.email.trim(), dropped };
+  // ⛔ Kept: every row read was hidden AND more were never read — "more not checked".
+  return { email: raw.email.trim(), dropped, ...(raw.more === true ? { more: true } : {}) };
 };
 
 const normalise = (row: CustomApiLookupResult): CustomApiLookupResult => {

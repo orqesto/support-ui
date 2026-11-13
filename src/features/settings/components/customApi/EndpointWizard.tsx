@@ -17,7 +17,8 @@ import type { RecordFormat } from './recordFormat';
 import { ResponseTree } from './ResponseTree';
 import { RecordsPathField, explainOutcome as explain } from './RecordsPathField';
 import { useRequestSettings } from './useRequestSettings';
-import { buildParameterFields, type ChainSettings } from './parameterFields';
+import { VALUE_PLACEHOLDER } from './parameterFields';
+import { useChain } from './useChainFallback';
 import { useTestRevert } from './useTestRevert';
 import type { EndpointWizardProps } from './endpointWizardProps';
 import * as categoryField from './categoryField';
@@ -47,7 +48,6 @@ import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
  */
 
 /** The token the executor substitutes the looked-up value into. */
-export const VALUE_PLACEHOLDER = '{value}';
 
 /**
  * A label an agent will actually read. ⛔ RED: default to the raw path and agents get a column
@@ -153,19 +153,6 @@ export const EndpointWizard = ({
       ? endpoint.parameterSource
       : (initial?.parameterSource ?? 'identity')
   );
-  /** D21: which lookup a chained one reads its value from, and which field of its answer. */
-  const [chain, setChain] = useState<ChainSettings & { fallbackPath: string }>({
-    sourceEndpointId: endpoint?.sourceEndpointId ?? null,
-    sourceFieldPath: endpoint?.sourceFieldPath ?? '',
-    fallbackPath: endpoint?.fallbackPath ?? '',
-  });
-  /**
-   * ⛔ A chain without both halves is a 400 (the create schema refines them together), and the
-   * FIRST Test press creates the lookup — so both are required before Test as well as Save.
-   */
-  const chainIncomplete =
-    paramSource === 'endpoint' &&
-    (chain.sourceEndpointId === null || chain.sourceFieldPath.trim() === '');
   /**
    * Method, body, 404 meaning, row-cap parameter and pages (2026-09-29). ⛔ Shown only when the
    * backend returned these fields: an older one would drop them on save without a word.
@@ -236,10 +223,18 @@ export const EndpointWizard = ({
   // Where the value comes from — see parameterFields.ts for why an existing identityField is kept.
   // D4 + 2026-10-21: the reference name and the no-match hint travel with it, on every write.
   const words = useAgentWords(endpoint, initial, paramSource);
-  const parameterFields = {
-    ...buildParameterFields(paramSource, endpoint, chain),
-    ...words.payload,
-  };
+  // D21 + 2026-11-13: the chain, its fallback and the payloads they send (useChainFallback.ts).
+  const { chain, setChain, chainIncomplete, fallback, parameterFields, testParameterFields } =
+    useChain({
+      connection,
+      endpoint,
+      paramSource,
+      picked,
+      bodyCarriesValue: request.bodyCarriesValue,
+      wordsPayload: words.payload,
+      ensureSaved: () => ensureSaved(),
+      sendTest: (...args) => customApiService.sendTest(...args),
+    });
 
   /**
    * ⛔ THE PLACEHOLDER THE ADMIN HAS NEVER HEARD OF. The executor substitutes the value at
@@ -281,7 +276,7 @@ export const EndpointWizard = ({
         statusLabels,
         // ⛔ Test runs the SAVED lookup, so the request settings must be saved before it.
         ...request.payload,
-        ...parameterFields,
+        ...testParameterFields,
       });
       testRevert.markUpdated(savedId);
       invalidateAvailability();
@@ -296,7 +291,7 @@ export const EndpointWizard = ({
       ...categoryField.categoryPayload(category),
       statusLabels,
       ...request.payload,
-      ...parameterFields,
+      ...testParameterFields,
       ...initial?.createExtras,
     });
     invalidateAvailability();
@@ -567,7 +562,7 @@ export const EndpointWizard = ({
                 sourceEndpointId={chain.sourceEndpointId}
                 sourceFieldPath={chain.sourceFieldPath}
                 fallbackPath={chain.fallbackPath}
-                hasEmailField={picked.some((field) => field.role === 'customer_email')}
+                fallback={fallback.supported ? fallback : undefined}
                 onChange={setChain}
               />
             )}
@@ -861,10 +856,12 @@ export const EndpointWizard = ({
                      * do and never why — and the ownership check is the single most important
                      * privacy control in the product to configure by accident.
                      */}
-                    <HiddenFieldToggle field={field} onChange={editPick} />
                     {roleOption(field.role).buys && (
                       <p className="text-xs text-muted-foreground">{roleOption(field.role).buys}</p>
                     )}
+                    {/* 2026-11-13: a check-only email — offered on that role alone, and only to a
+                        backend that keeps the flag (`supportsFallback`). */}
+                    <HiddenFieldToggle offered={fallback.supported} field={field} onChange={editPick} />
                     {field.kind === 'money' && field.currencyLiteral !== undefined && (
                       <Input
                         label="Which currency?"

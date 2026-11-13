@@ -548,6 +548,7 @@ export interface components {
             fallback?: {
                 email: string;
                 dropped: number;
+                more?: boolean;
             };
             /** @enum {string} */
             ownership?: "owned" | "mismatch" | "unverified";

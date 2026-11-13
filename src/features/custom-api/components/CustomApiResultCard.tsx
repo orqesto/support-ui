@@ -1,6 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { CATEGORY_RECORD_LABELS, readCategory } from '@/features/settings/shell';
+import {
+  CATEGORY_RECORD_LABELS,
+  CATEGORY_TAB_LABELS,
+  readCategory,
+} from '@/features/settings/shell';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -212,8 +216,6 @@ export const CustomApiResultCard = ({
   const notFound = notFoundText(result, typedValue ?? (value.trim() || undefined));
   // The admin's own words for "found nothing" — plain text, so React escapes it (no HTML).
   const noMatchHint = noMatchHintText(result);
-  // 2026-11-13: a chained card that searched by email because its source found no account.
-  const fallbackNote = fallbackText(result);
   // ⛔ FALL BACK TO THE ROW'S OWN KEYS. `fieldPaths` DEFAULTS to empty, and the backend returns
   // rows unprojected in that case — so mapping over `fields` alone rendered a BLANK card while
   // holding data, on the commonest configuration state there is. Found by audit pass 2.
@@ -232,6 +234,20 @@ export const CustomApiResultCard = ({
     says what it always said. The file header's FE/BE skew note is the reason this is not a cast.
   */
   const category = readCategory((result as { category?: unknown }).category);
+  // 2026-11-13: a chained card that searched by email because its source found no account, worded
+  // with what its records are ("guest orders"), or "records" for a lookup with no category.
+  const fallbackNote = fallbackText(
+    result,
+    category
+      ? {
+          one: CATEGORY_RECORD_LABELS[category].toLowerCase(),
+          many: CATEGORY_TAB_LABELS[category].toLowerCase(),
+        }
+      : undefined
+  );
+  // Every field this lookup picks is hidden (check-only): rows arrive empty. Say so, never blank cards.
+  const detailsHidden =
+    hasRows && (result.rows ?? []).every((row) => Object.keys(row).length === 0);
 
   return (
     // v4 `.k-c`: one card per lookup; a failed one is edged in red so it is found at a glance.
@@ -370,6 +386,11 @@ export const CustomApiResultCard = ({
         */
         <div className="space-y-0.5">
           {skipped && <p className="text-[11px] text-muted-foreground">{skippedText(skipped)}</p>}
+          {fallbackNote && (
+            <p data-testid="lookup-fallback-note" className="text-[11px] text-muted-foreground">
+              {fallbackNote}
+            </p>
+          )}
           <p className="text-[11px] text-destructive">
             {failureSentence(result.agentReason, result.connectionName)}
           </p>
@@ -402,7 +423,14 @@ export const CustomApiResultCard = ({
         </p>
       )}
 
+      {detailsHidden && (
+        <p data-testid="lookup-details-hidden" className="text-[11px] text-muted-foreground">
+          {result.rows?.length} found — details hidden.
+        </p>
+      )}
+
       {result.status === 'ok' &&
+        !detailsHidden &&
         (result.rows?.length ? (
           <div className="space-y-1.5">
             {result.rows.map((row, index) => (

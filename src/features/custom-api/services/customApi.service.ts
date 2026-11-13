@@ -264,11 +264,13 @@ export const customApiService = {
   async sendTest(
     connectionId: number,
     endpointId: number,
-    parameter?: string
+    parameter?: string,
+    /** 2026-11-13 "Test fallback": call this path instead of the lookup's own; nothing is stored. */
+    fallbackPath?: string
   ): Promise<EndpointTestResult> {
     const res = await apiClient.post<{ success: boolean; data: unknown }>(
       `/api/custom-apis/${connectionId}/endpoints/${endpointId}/test`,
-      parameter ? { parameter } : {}
+      { ...(parameter ? { parameter } : {}), ...(fallbackPath ? { fallbackPath } : {}) }
     );
     return normaliseTestResult(res.data.data);
   },

@@ -8,16 +8,21 @@ import { Toggle } from '@/components/ui/Toggle';
  * exactly like every field saved before the flag existed.
  */
 export const HiddenFieldToggle = ({
+  offered,
   field,
   onChange,
 }: {
+  /** The backend keeps the flag (`supportsFallback`); otherwise nothing is offered. */
+  offered: boolean;
   /** A picked field (`FieldPick`), by the two keys this reads — no cross-feature import needed. */
-  field: { path: string; hidden?: boolean };
+  field: { path: string; role: string; hidden?: boolean };
   onChange: (path: string, patch: { hidden?: boolean }) => void;
-}) => (
-  <Toggle
-    checked={field.hidden === true}
-    onChange={(next: boolean) => onChange(field.path, { hidden: next ? true : undefined })}
-    label={`Hide ${field.path} from agents — use it only for checks`}
-  />
-);
+}) =>
+  // Only a check-only EMAIL may be hidden — the backend refuses `hidden` on any other role.
+  offered && field.role === 'customer_email' ? (
+    <Toggle
+      checked={field.hidden === true}
+      onChange={(next: boolean) => onChange(field.path, { hidden: next ? true : undefined })}
+      label={`Hide ${field.path} from agents — use it only for checks`}
+    />
+  ) : null;

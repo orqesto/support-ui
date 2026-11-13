@@ -68,25 +68,47 @@ beforeEach(() => {
   });
 });
 
+const ORDERS = { one: 'order', many: 'orders' };
+
 describe('fallbackText — the owner’s wording', () => {
   it('found', () => {
-    expect(fallbackText(card())).toBe(`No account — guest orders found by email ${EMAIL}.`);
+    expect(fallbackText(card(), ORDERS)).toBe(`No account — guest orders found by email ${EMAIL}.`);
   });
   it('none', () => {
-    expect(fallbackText(none())).toBe(`No account, and no guest orders for ${EMAIL}.`);
+    expect(fallbackText(none(), ORDERS)).toBe(`No account, and no guest orders for ${EMAIL}.`);
   });
   it('🔴 rows hidden are always counted — found and none', () => {
     // RED: drop the `dropped` sentence ⇒ "none" and "we hid 2" read the same.
-    expect(fallbackText(card({ fallback: { email: EMAIL, dropped: 2 } }))).toBe(
+    expect(fallbackText(card({ fallback: { email: EMAIL, dropped: 2 } }), ORDERS)).toBe(
       `No account — guest orders found by email ${EMAIL}. 2 more orders were hidden because their email didn’t match.`
     );
-    expect(fallbackText(none(1))).toBe(
+    expect(fallbackText(none(1), ORDERS)).toBe(
       `No account, and no guest orders for ${EMAIL}. 1 order was hidden because its email didn’t match.`
     );
   });
-  it('CONTROL: no fallback, or a failed fallback, says nothing here', () => {
-    expect(fallbackText(card({ fallback: undefined }))).toBeNull();
-    expect(fallbackText(card({ status: 'failed', rows: undefined }))).toBeNull();
+  it('🔴 every row read was hidden and more were never read ⇒ "more not checked"', () => {
+    // RED: say "no guest orders" ⇒ a claim about a search we did not finish.
+    expect(
+      fallbackText({ ...none(), fallback: { email: EMAIL, dropped: 25, more: true } }, ORDERS)
+    ).toBe(
+      `No account; the first 25 guest orders by email ${EMAIL} didn’t match, more not checked.`
+    );
+  });
+  it('🔴 a failed guest search still says there is no account', () => {
+    // RED: say nothing on a failure ⇒ the agent cannot tell the account lookup found nobody.
+    expect(
+      fallbackText(card({ status: 'failed', rows: undefined, agentReason: 'timeout' }), ORDERS)
+    ).toBe(
+      `No account; the guest search by ${EMAIL} failed (Example shop took too long to answer).`
+    );
+  });
+  it('a lookup with no category reads with the generic record word', () => {
+    expect(fallbackText(card({ category: null, fallback: { email: EMAIL, dropped: 1 } }))).toBe(
+      `No account — guest records found by email ${EMAIL}. 1 more record was hidden because its email didn’t match.`
+    );
+  });
+  it('CONTROL: no fallback says nothing here', () => {
+    expect(fallbackText(card({ fallback: undefined }), ORDERS)).toBeNull();
   });
 });
 
@@ -135,6 +157,15 @@ describe('the service keeps it, and drops a malformed one (FE/BE skew)', () => {
     });
   });
 
+  it('keeps `more` (every row read hidden, more not checked)', async () => {
+    // RED: drop it in `normalise` ⇒ the card says "no guest orders" about an unfinished search.
+    expect((await run({ email: EMAIL, dropped: 3, more: true })).fallback).toEqual({
+      email: EMAIL,
+      dropped: 3,
+      more: true,
+    });
+  });
+
   it('malformed or absent ⇒ none; a bad count reads as 0', async () => {
     expect((await run({ dropped: 2 })).fallback).toBeUndefined();
     expect((await run('nope')).fallback).toBeUndefined();
@@ -157,5 +188,27 @@ describe('owner 2026-11-13 — a hidden check field never reaches the card', () 
   it('CONTROL: a shown email field still renders', () => {
     show(card({ fallback: undefined }));
     expect(screen.getByText(EMAIL)).toBeInTheDocument();
+  });
+});
+
+describe('2026-11-13 review — the card', () => {
+  it('🔴 a failed guest search shows the no-account note with the failure', () => {
+    show(card({ status: 'failed', rows: undefined, agentReason: 'timeout' }));
+    expect(screen.getByTestId('lookup-fallback-note')).toHaveTextContent(
+      `No account; the guest search by ${EMAIL} failed (Example shop took too long to answer).`
+    );
+  });
+
+  it('🔴 every field hidden ⇒ the count and “details hidden”, never blank row cards', () => {
+    // RED: render RowFields for empty rows ⇒ two blank cards and no sentence.
+    show(card({ rows: [{}, {}], fields: [] }));
+    expect(screen.getByTestId('lookup-details-hidden')).toHaveTextContent(
+      '2 found — details hidden.'
+    );
+  });
+
+  it('CONTROL: rows with shown fields render as rows, with no such note', () => {
+    show(card());
+    expect(screen.queryByTestId('lookup-details-hidden')).not.toBeInTheDocument();
   });
 });

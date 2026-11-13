@@ -8,6 +8,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { EndpointWizard } from '../EndpointWizard';
+import { applyRole } from '../fieldRoles';
 import type * as Svc from '@/features/custom-api';
 
 type Connection = Svc.CustomApiConnection;
@@ -15,6 +16,8 @@ type Endpoint = Svc.CustomApiEndpoint;
 
 const updateEndpoint =
   vi.fn<(connectionId: number, endpointId: number, input: unknown) => Promise<Connection>>();
+
+const sendTest = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 
 vi.mock('@/features/custom-api/services/customApi.service', async () => {
   const actual = await vi.importActual<typeof Svc>(
@@ -26,6 +29,7 @@ vi.mock('@/features/custom-api/services/customApi.service', async () => {
       ...actual.customApiService,
       updateEndpoint: (connectionId: number, endpointId: number, input: unknown) =>
         updateEndpoint(connectionId, endpointId, input),
+      sendTest: (...args: unknown[]) => sendTest(...args),
     },
   };
 });
@@ -103,6 +107,7 @@ const connection = (orders: Endpoint): Connection => ({
   updatedAt: '2026-11-13T10:00:00.000Z',
 });
 const noop = () => {};
+const TOGGLE = 'Hide email from agents — use it only for checks';
 const FIELD = 'If it finds no account, search by email instead (optional)';
 const lastPayload = () =>
   (updateEndpoint.mock.calls.at(-1) as [number, number, Record<string, unknown>])[2];
@@ -119,6 +124,7 @@ const open = (orders: Endpoint) =>
 beforeEach(() => {
   cleanup();
   updateEndpoint.mockReset().mockResolvedValue(connection(base));
+  sendTest.mockReset();
 });
 
 describe('the fallback on the settings form', () => {
@@ -191,8 +197,6 @@ describe('the fallback on the settings form', () => {
 });
 
 describe('owner 2026-11-13 — hide a check field from agents', () => {
-  const TOGGLE = 'Hide email from agents — use it only for checks';
-
   it('🔴 the toggle saves `hidden: true` on that field only', async () => {
     // RED: drop the toggle (or its patch) ⇒ the field is always shown on every order card.
     const user = userEvent.setup();
@@ -217,5 +221,105 @@ describe('owner 2026-11-13 — hide a check field from agents', () => {
     await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
     const fields = lastPayload().fieldPaths as { path: string; hidden?: boolean }[];
     expect(fields.find((field) => field.path === 'email')?.hidden).toBeUndefined();
+  });
+});
+
+describe('2026-11-13 review — the settings form', () => {
+  const save = () => screen.getByRole('button', { name: 'Save' });
+
+  it('🔴 an older backend (no `fallbackPath` on its rows) is offered neither control', async () => {
+    // RED: offer them anyway ⇒ the older backend strips both on save, without a word.
+    const { fallbackPath: _drop, ...older } = base;
+    const user = userEvent.setup();
+    render(
+      <EndpointWizard
+        connection={{ ...connection(base), endpoints: [account, older as Endpoint] }}
+        endpoint={older as Endpoint}
+        onClose={noop}
+        onSaved={noop}
+      />
+    );
+    expect(screen.queryByLabelText(FIELD)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(TOGGLE)).not.toBeInTheDocument();
+    await user.click(save());
+    await waitFor(() => expect(updateEndpoint).toHaveBeenCalled());
+    expect(lastPayload()).not.toHaveProperty('fallbackPath');
+  });
+
+  it('🔴 a fallback path without {value} disables Save', async () => {
+    const user = userEvent.setup();
+    open(base);
+    await user.type(screen.getByLabelText(FIELD), '/orders?email=x');
+    expect(save()).toHaveAttribute('aria-disabled', 'true');
+    await user.clear(screen.getByLabelText(FIELD));
+    expect(save()).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('🔴 a POST lookup whose body carries {value} cannot also have a fallback', async () => {
+    // RED: no check ⇒ the save is a 400 the admin meets only after pressing.
+    const user = userEvent.setup();
+    const posted: Endpoint = {
+      ...base,
+      method: 'POST',
+      requestBodyTemplate: '{"user":"{value}"}',
+      bodyFormat: 'json',
+    };
+    render(
+      <EndpointWizard
+        connection={{
+          ...connection(posted),
+          failureStatusPath: '',
+          failureStatusValues: [],
+          failureMessagePath: '',
+        }}
+        endpoint={posted}
+        onClose={noop}
+        onSaved={noop}
+      />
+    );
+    await user.type(screen.getByLabelText(FIELD), '/orders?email={{value}');
+    expect(screen.getByText(/sends \{value\} in its request body/)).toBeInTheDocument();
+    expect(save()).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('⛔ the hide toggle is offered on the “Customer’s email” field only', () => {
+    open(base);
+    expect(screen.getByLabelText(TOGGLE)).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Hide order_id from agents — use it only for checks')
+    ).toBeNull();
+  });
+
+  it('🔴 "Test fallback" runs the fallback path with the email, and the pre-save sends no fallback', async () => {
+    // RED: test the lookup's own path ⇒ the admin never sees what the fallback returns.
+    sendTest.mockResolvedValue({
+      outcome: { status: 'ok', rows: [{ order_id: 'G-1' }, { order_id: 'G-2' }] },
+      paths: [],
+    });
+    const user = userEvent.setup();
+    open(base);
+    await user.type(screen.getByLabelText(FIELD), '/orders?email={{value}');
+    await user.type(screen.getByLabelText('An email to try the fallback with'), 'g@shop.example');
+    await user.click(screen.getByRole('button', { name: 'Test fallback' }));
+
+    await waitFor(() => expect(sendTest).toHaveBeenCalled());
+    expect(sendTest.mock.calls[0]).toEqual([1, 50, 'g@shop.example', '/orders?email={value}']);
+    expect(lastPayload()).not.toHaveProperty('fallbackPath');
+    expect(await screen.findByTestId('fallback-test-outcome')).toHaveTextContent(
+      'The fallback answered with 2 results.'
+    );
+  });
+});
+
+describe('applyRole — a field leaving “Customer’s email” is shown again', () => {
+  it('🔴 clears `hidden` on a role change, and on the field that loses the role', () => {
+    // RED: keep it ⇒ the backend refuses the save (hidden is for customer_email only).
+    const hiddenEmail = { ...base.fieldPaths[1], hidden: true };
+    const moved = applyRole([hiddenEmail], 'email', 'status');
+    expect(moved[0]).not.toHaveProperty('hidden');
+    const stolen = applyRole([hiddenEmail, base.fieldPaths[0]], 'order_id', 'customer_email');
+    expect(stolen[0]).not.toHaveProperty('hidden');
+    // CONTROL: staying customer_email keeps it.
+    expect(applyRole([hiddenEmail], 'email', 'customer_email')[0]).toHaveProperty('hidden', true);
   });
 });
