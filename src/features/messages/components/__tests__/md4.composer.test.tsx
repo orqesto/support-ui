@@ -2,9 +2,8 @@
  * Message detail v4 — composer and layout (areas C2, L1 below; C1, the AI panel's note box, is
  * gone — the editor is AI draft's only input, see ComposerAiActions.test.tsx).
  *
- *   C2  The composer's "Look up" opens the Lookups tab at the Connected systems block — in the
- *       slide-over it also opens the rail. Hidden in Internal-note mode and whenever the lookup
- *       panel itself would not render (availability no / error), on the panel's own query.
+ *   C2  The Lookups tab falls back to AI when lookups become unavailable (the composer's own
+ *       Look up button was removed 2026-11-11 — the tab is the way in).
  *   L1  Full page: sidebar `clamp(312px,30vw,520px)`, page frame full width; below 1024px
  *       the page keeps the one-column (rail) layout.
  *
@@ -115,47 +114,40 @@ vi.mock('@/components/shared/RichTextEditor', async () => {
   return { default: Editor, extractImageFiles: () => [] };
 });
 vi.mock('@/components/shared/TranslateButton', () => ({ TranslateButton: () => null }));
-// The side panel is another agent's surface — report what MessageDetail asked of it, and stand
-// in for the lookup root (data-lookup-root) on the Lookups tab.
-const panelStub = vi.hoisted(() => ({ lateRoot: false }));
-vi.mock('../MessagePanelTabs', async () => {
-  const { useEffect, useState } = await vi.importActual<typeof ReactModule>('react');
-  // A panel whose body arrives a frame AFTER the tab opens (the real one can take a frame or two).
-  const LateRoot = () => {
-    const [shown, setShown] = useState(false);
-    useEffect(() => {
-      const frame = requestAnimationFrame(() => setShown(true));
-      return () => cancelAnimationFrame(frame);
-    }, []);
-    return shown ? <div data-testid="lookup-root" data-lookup-root="" tabIndex={-1} /> : null;
-  };
-  return {
-    MessagePanelTabs: ({
-      variant,
-      tab,
-      panelOpen,
-    }: {
-      variant?: string;
-      tab: string;
-      panelOpen: boolean;
-    }) => (
-      <div
-        data-testid="panel-tabs"
-        data-variant={variant ?? 'rail'}
-        data-tab={tab}
-        data-open={String(panelOpen)}
+// The side panel is another agent's surface — report what MessageDetail asked of it; its one
+// button stands in for the agent pressing the Lookups tab.
+vi.mock('../MessagePanelTabs', () => ({
+  MessagePanelTabs: ({
+    variant,
+    tab,
+    setTab,
+    panelOpen,
+    setPanelOpen,
+  }: {
+    variant?: string;
+    tab: string;
+    setTab: (next: string) => void;
+    panelOpen: boolean;
+    setPanelOpen: (open: boolean) => void;
+  }) => (
+    <div
+      data-testid="panel-tabs"
+      data-variant={variant ?? 'rail'}
+      data-tab={tab}
+      data-open={String(panelOpen)}
+    >
+      <button
+        type="button"
+        onClick={() => {
+          setTab('lookups');
+          setPanelOpen(true);
+        }}
       >
-        {tab === 'lookups' &&
-          (panelStub.lateRoot ? (
-            <LateRoot />
-          ) : (
-            // tabIndex -1, as the real block (CustomApiLookupPanel) carries.
-            <div data-testid="lookup-root" data-lookup-root="" tabIndex={-1} />
-          ))}
-      </div>
-    ),
-  };
-});
+        Lookups tab
+      </button>
+    </div>
+  ),
+}));
 vi.mock('../ThreadMessageItem', () => ({ ThreadMessageItem: () => null }));
 vi.mock('../MessageGhostBubble', () => ({ MessageGhostBubble: () => null }));
 vi.mock('@/features/contacts/components/ContactProfilePanel', () => ({
@@ -200,8 +192,6 @@ const renderDetail = (
   );
 };
 
-// The composer's Look up button, by its accessible name (its hover text is a design-system tooltip).
-const LOOK_UP = 'Look up';
 const setPhone = () =>
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
@@ -214,7 +204,6 @@ const setPhone = () =>
     }),
   });
 const panel = () => screen.getByTestId('panel-tabs');
-const scrollIntoView = vi.fn();
 
 beforeEach(() => {
   lookup.availability.mockResolvedValue(true);
@@ -223,11 +212,9 @@ beforeEach(() => {
   });
   vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => setTimeout(() => cb(0), 0));
   vi.stubGlobal('cancelAnimationFrame', (handle: number) => clearTimeout(handle));
-  Element.prototype.scrollIntoView = scrollIntoView;
 });
 afterEach(() => {
   media.wide = false;
-  panelStub.lateRoot = false;
   delete (window as { matchMedia?: unknown }).matchMedia;
   aiDrafts.off = false;
   cleanup();
@@ -237,149 +224,7 @@ afterEach(() => {
 
 // ─── C2 ───────────────────────────────────────────────────────────────────────
 
-describe('C2 — the composer Look up button', () => {
-  it('slide-over: opens the rail on the Lookups tab and flashes the lookup block', async () => {
-    renderDetail();
-    expect(panel()).toHaveAttribute('data-tab', 'ai');
-    expect(panel()).toHaveAttribute('data-open', 'false');
-
-    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
-
-    expect(panel()).toHaveAttribute('data-tab', 'lookups');
-    expect(panel()).toHaveAttribute('data-open', 'true');
-    const root = screen.getByTestId('lookup-root');
-    await waitFor(() => expect(root).toHaveClass('ring-[3px]'));
-    // v4 `.k-flash` rings in --accent-line; the muted fill was near-white on white (and invisible
-    // on dark) — a flash nobody could see.
-    expect(root).toHaveClass('ring-primary-line');
-    expect(root).not.toHaveClass('ring-primary-muted');
-    expect(scrollIntoView).toHaveBeenCalled();
-    // The flash is short — it goes away again.
-    await waitFor(() => expect(root).not.toHaveClass('ring-[3px]'), { timeout: 2500 });
-  });
-
-  it('a second press inside the flash restarts it: the ring goes at once, comes back, then ends', async () => {
-    renderDetail();
-    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
-    const root = screen.getByTestId('lookup-root');
-    await waitFor(() => expect(root).toHaveClass('ring-[3px]'));
-    fireEvent.click(screen.getByRole('button', { name: LOOK_UP }));
-    // Cancelled synchronously — the old flash's removal timer is gone, so the ring must be too.
-    expect(root).not.toHaveClass('ring-[3px]');
-    expect(root).not.toHaveClass('ring-primary-line');
-    await waitFor(() => expect(root).toHaveClass('ring-[3px]'));
-    await waitFor(() => expect(root).not.toHaveClass('ring-[3px]'), { timeout: 2500 });
-  });
-
-  it('a lookup block that renders a frame late is still found and flashed', async () => {
-    panelStub.lateRoot = true;
-    renderDetail();
-    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
-    // Not there on the first frame…
-    expect(screen.queryByTestId('lookup-root')).toBeNull();
-    // …found on a later one.
-    const root = await screen.findByTestId('lookup-root');
-    await waitFor(() => expect(root).toHaveClass('ring-[3px]'));
-    expect(scrollIntoView).toHaveBeenCalled();
-  });
-
-  it('phone: hidden at rest (the pill has no room), shown once the composer opens', async () => {
-    // jsdom has no scrolling; the phone detail scrolls the document (usePhoneDetailScroll).
-    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
-    Object.defineProperty(window, 'matchMedia', {
-      configurable: true,
-      writable: true,
-      value: (query: string) => ({
-        matches: query === PHONE_QUERY,
-        media: query,
-        addEventListener: () => {},
-        removeEventListener: () => {},
-      }),
-    });
-    renderDetail();
-    const lookUp = await screen.findByRole('button', { name: LOOK_UP });
-    expect(screen.getByTestId('message-composer').getAttribute('data-phone-state')).toBe('rest');
-    expect(lookUp.className.split(/\s+/)).toContain('hidden');
-    fireEvent.click(screen.getByTestId('rich-text-editor'));
-    expect(screen.getByTestId('message-composer').getAttribute('data-phone-state')).toBe('open');
-    expect(screen.getByRole('button', { name: LOOK_UP }).className.split(/\s+/)).not.toContain(
-      'hidden'
-    );
-    scrollTo.mockRestore();
-  });
-
-  it('full page (sidebar always visible): selects the Lookups tab without hiding the thread', async () => {
-    media.wide = true;
-    renderDetail({}, { isFullPage: true });
-    expect(panel()).toHaveAttribute('data-variant', 'sidebar');
-
-    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
-
-    expect(panel()).toHaveAttribute('data-tab', 'lookups');
-    expect(panel()).toHaveAttribute('data-open', 'false');
-  });
-
-  it('asks the SAME availability question as the lookup panel (thread surface)', async () => {
-    renderDetail();
-    await screen.findByRole('button', { name: LOOK_UP });
-    expect(lookup.availability).toHaveBeenCalledWith('thread');
-  });
-
-  it('is hidden when the workspace has no lookup set up', async () => {
-    lookup.availability.mockResolvedValue(false);
-    renderDetail();
-    await waitFor(() => expect(lookup.availability).toHaveBeenCalled());
-    // A tick for the query to settle.
-    await screen.findByRole('button', { name: /AI draft/ });
-    expect(screen.queryByRole('button', { name: LOOK_UP })).not.toBeInTheDocument();
-  });
-
-  it('is hidden when the availability request fails (older backend) — fails closed', async () => {
-    lookup.availability.mockRejectedValue(new Error('404'));
-    renderDetail();
-    await waitFor(() => expect(lookup.availability).toHaveBeenCalled());
-    await screen.findByRole('button', { name: /AI draft/ });
-    expect(screen.queryByRole('button', { name: LOOK_UP })).not.toBeInTheDocument();
-  });
-
-  it('is hidden in Internal-note mode, and comes back in Reply', async () => {
-    renderDetail();
-    await screen.findByRole('button', { name: LOOK_UP });
-    fireEvent.click(screen.getByRole('button', { name: 'Internal note' }));
-    expect(screen.queryByRole('button', { name: LOOK_UP })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Reply' }));
-    expect(screen.getByRole('button', { name: LOOK_UP })).toBeInTheDocument();
-  });
-
-  it('stays offered on a WhatsApp thread whose window is shut — a lookup sends nothing', async () => {
-    renderDetail({
-      channel: 'whatsapp',
-      whatsappWindow: { open: false, expiresAt: '2020-01-01T00:00:00Z' },
-    } as Partial<Message>);
-    expect(await screen.findByRole('button', { name: LOOK_UP })).toBeInTheDocument();
-    // The blocked state really is in force (send refused, notice shown).
-    expect(screen.getByRole('alert')).toHaveTextContent(/reply window has closed/);
-  });
-
-  it('focus lands on the lookup block (not <body>) — a screen reader arrives where the press led', async () => {
-    renderDetail();
-    const button = await screen.findByRole('button', { name: LOOK_UP });
-    button.focus();
-    fireEvent.click(button);
-    const root = screen.getByTestId('lookup-root');
-    await waitFor(() => expect(document.activeElement).toBe(root));
-  });
-
-  it('phone: the Lookups tab hides the composer — focus still lands on the lookup block', async () => {
-    const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
-    setPhone();
-    renderDetail();
-    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
-    expect(screen.getByTestId('message-composer').className.split(/\s+/)).toContain('hidden');
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('lookup-root')));
-    scrollTo.mockRestore();
-  });
-
+describe('C2 — the Lookups tab', () => {
   const renderWithClient = () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -394,7 +239,7 @@ describe('C2 — the composer Look up button', () => {
 
   it('⛔ on Lookups when lookups become unavailable ⇒ the panel falls back to AI, never blank', async () => {
     const client = renderWithClient();
-    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Lookups tab' }));
     expect(panel()).toHaveAttribute('data-tab', 'lookups');
     lookup.availability.mockResolvedValue(false);
     await act(() => client.invalidateQueries());
@@ -403,17 +248,10 @@ describe('C2 — the composer Look up button', () => {
 
   it('CONTROL: a refetch that still says yes leaves the agent on Lookups', async () => {
     const client = renderWithClient();
-    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Lookups tab' }));
     await act(() => client.invalidateQueries());
     await waitFor(() => expect(lookup.availability).toHaveBeenCalledTimes(2));
     expect(panel()).toHaveAttribute('data-tab', 'lookups');
-  });
-
-  it('a closed thread has no composer, so no Look up', async () => {
-    renderDetail({ status: 'closed' } as Partial<Message>);
-    await waitFor(() => expect(lookup.availability).toHaveBeenCalled());
-    expect(screen.queryByRole('button', { name: LOOK_UP })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Internal note' })).not.toBeInTheDocument();
   });
 });
 
@@ -434,10 +272,9 @@ describe('R and N on a phone, with another tab open', () => {
 
   /** Opens the Lookups tab (the composer is display:none under it) and parks focus on <body>. */
   const onLookupsTab = async () => {
-    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Lookups tab' }));
     expect(panel()).toHaveAttribute('data-open', 'true');
     expect(composerHidden()).toBe(true);
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('lookup-root')));
     (document.activeElement as HTMLElement).blur();
   };
 
@@ -468,8 +305,7 @@ describe('R and N on a phone, with another tab open', () => {
 
   it('CONTROL desktop: R focuses the reply editor and leaves the open rail alone', async () => {
     renderDetail();
-    fireEvent.click(await screen.findByRole('button', { name: LOOK_UP }));
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('lookup-root')));
+    fireEvent.click(await screen.findByRole('button', { name: 'Lookups tab' }));
     (document.activeElement as HTMLElement).blur();
     press('r');
     expect(panel()).toHaveAttribute('data-open', 'true');
@@ -517,7 +353,7 @@ describe('merges — the thread asks for its merge list once per open', () => {
     const { apiClient } = await import('@/lib/api-client');
     const { get } = apiClient as unknown as { get: ReturnType<typeof vi.fn> };
     renderDetail();
-    await screen.findByRole('button', { name: LOOK_UP });
+    await waitFor(() => expect(lookup.availability).toHaveBeenCalled());
     await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
     const mergeReads = get.mock.calls.filter(([url]) => String(url).endsWith('/merges'));
     expect(mergeReads).toHaveLength(1);

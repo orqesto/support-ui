@@ -31,7 +31,12 @@ export const ConfirmDialog = ({
             <AlertTriangle className={getConfirmDialogIconClasses(variant)} />
           </div>
           <div className="flex-1">
-            <p className="text-sm text-foreground">{description}</p>
+            {/* Text in a <p>; markup (a list, paragraphs) in a <div> — a <ul> may not sit in a <p>. */}
+            {typeof description === 'string' || typeof description === 'number' ? (
+              <p className="text-sm text-foreground">{description}</p>
+            ) : (
+              <div className="text-sm text-foreground">{description}</div>
+            )}
           </div>
         </div>
         <DialogFooter>

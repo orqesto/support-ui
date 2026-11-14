@@ -37,7 +37,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { formatAge } from '@/lib/utils';
 import { useDepartmentById } from '@/hooks/useDepartments';
-import { useElementWidth } from '@/features/tickets/hooks/useElementWidth';
+import { useElementWidth } from '@/hooks/useElementWidth';
 import type { TicketThread } from '@/features/tickets/services/ticketThreads.service';
 import { categoryService } from '@/features/tickets/services/category.service';
 import { messageService } from '@/services/message.service';
@@ -50,6 +50,7 @@ import type { Ticket, TicketStatus, TicketPriority, Message, Category } from '@/
 import { logger } from '@/lib/logger';
 import { allowedStatusOptions } from '@/lib/ticketStatus';
 import { TicketRef } from '@/features/tickets/components/TicketRef';
+import { useSeededState } from '@/lib/seededState';
 
 type TicketDetailProps = {
   ticket: Ticket;
@@ -107,8 +108,12 @@ export const TicketDetail = ({
   const [localCategoryId, setLocalCategoryId] = useState<string>(
     ticket.categoryId?.toString() ?? ''
   );
-  const [linkedMessages, setLinkedMessages] = useState<Message[]>([]);
-  const [loadingMessages, setLoadingMessages] = useState(true);
+  // From the last read of this ticket (seededState): no "loading" on a tab switch.
+  const [linkedMessages, setLinkedMessages, linkedSeeded] = useSeededState<Message[]>(
+    ['ticket', ticket.id, 'linked-messages'],
+    []
+  );
+  const [loadingMessages, setLoadingMessages] = useState(!linkedSeeded);
   const [linkCopied, setLinkCopied] = useState(false);
   const [editingDescription, setEditingDescription] = useState(false);
   // Rename in place (contingency page, 2026-10-19) — the edit page is no longer the only way.
@@ -229,7 +234,7 @@ export const TicketDetail = ({
   useEffect(() => {
     const fetchLinkedMessages = async () => {
       try {
-        setLoadingMessages(true);
+        if (!linkedSeeded) setLoadingMessages(true);
         const response = await messageService.getAll({ ticketId: ticket.id.toString() }, 1, 100);
         const sorted = (response.data ?? []).sort(
           (msgA, msgB) => new Date(msgA.createdAt).getTime() - new Date(msgB.createdAt).getTime()
@@ -237,7 +242,7 @@ export const TicketDetail = ({
         setLinkedMessages(sorted);
       } catch (error) {
         logger.error('Error fetching linked messages:', error);
-        setLinkedMessages([]);
+        if (!linkedSeeded) setLinkedMessages([]);
       } finally {
         setLoadingMessages(false);
       }
@@ -246,7 +251,7 @@ export const TicketDetail = ({
     fetchLinkedMessages().catch((error) => {
       logger.error('Failed to fetch linked messages:', error);
     });
-  }, [ticket.id]);
+  }, [ticket.id, linkedSeeded, setLinkedMessages]);
 
   const canEdit = hasManageTickets && !ticket.externalId;
   const ticketDone = ticket.status === 'resolved' || ticket.status === 'closed';

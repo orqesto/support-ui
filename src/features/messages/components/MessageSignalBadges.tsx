@@ -5,14 +5,18 @@ import {
   hasMessageAttachments,
   getSpamCheck,
   getFilteredCategoryLabel,
+  hasNewestSpamCategory,
   humanizeSignalFlag,
+  isSuspiciousThread,
+  newestSpamCategory,
 } from '@/lib/messageHelpers';
 import { formatDuration } from '@/lib/utils';
+import { isJunkSpamCategory, isSpamThread } from '@/lib/spamVerdict';
 import type { Message } from '@/types';
 import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/types/ai';
 import {
   getRiskSignals,
-  isSpamThread,
+  computeResolutionInfo,
   getSlaCardText,
   renderOverflowTooltip,
   slaClockRuns,
@@ -30,6 +34,27 @@ type Props = {
    *   detail view and any other surface that needs the full signal cluster.
    */
   mode?: 'card' | 'full';
+};
+
+/**
+ * The spam badge's label. With the backend's `latestSpamCategory` (the newest classified mail's,
+ * falling back to the first mail's copy): a junk category names itself ("Spam", "Invalid
+ * Response"); anything else — promotional, transactional, suspicious, legitimate, none — reads
+ * plain "Spam": the thread IS spam, and a non-spam label on a spam badge says the opposite. A
+ * thread a person confirmed reads "Spam · confirmed" whatever the category. An older backend sends no category: the first
+ * mail's names the verdict only when that mail was spam too.
+ */
+const spamBadgeLabel = (message: Message, spamCheck: ReturnType<typeof getSpamCheck>): string => {
+  // A person's confirmation is the fact this row states first, as the header and the card do.
+  if (message.spamConfirmedAt) return 'Spam · confirmed';
+  if (!hasNewestSpamCategory(message)) {
+    const first = spamCheck?.isSpam === true ? spamCheck.category : undefined;
+    return first && first !== 'legitimate' ? getFilteredCategoryLabel(first) : 'Spam';
+  }
+  const category = newestSpamCategory(message);
+  const named = isJunkSpamCategory(category) ? getFilteredCategoryLabel(category) : 'Spam';
+  const label = named === 'Filtered' ? 'Spam' : named;
+  return label;
 };
 
 export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Props) => {
@@ -50,9 +75,25 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
 
     // The clock from the customer's first unanswered message (backend 0230) — the one the
     // Breached filter, the sort and the alerts read. The branches below are for an older backend.
-    const wait = slaWaitClock(message);
+    // Both clocks read at ONE time, so they cannot disagree about the same moment.
+    const now = Date.now();
+    const wait = slaWaitClock(message, now);
+    // The resolution clock (backend 0238): shown when it is the worse of the two.
+    const res = computeResolutionInfo(message, now);
+    const resolutionBadge =
+      res && (res.breached || res.atRisk) ? (
+        <Tooltip
+          content={`Resolution ${res.breached ? 'breached' : 'at risk'} · target ${formatDuration(res.target)} · open ${formatDuration(res.elapsed)}`}
+          size="sm"
+        >
+          <Badge variant={res.breached ? 'danger' : 'warning'} className={bc}>
+            <AlertTriangle className={ic} />
+            SLA
+          </Badge>
+        </Tooltip>
+      ) : null;
     if (wait !== undefined) {
-      if (!wait) return null;
+      if (!wait) return resolutionBadge;
       if (wait.breached)
         return (
           <Tooltip
@@ -65,6 +106,7 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
             </Badge>
           </Tooltip>
         );
+      if (res?.breached) return resolutionBadge;
       if (wait.atRisk)
         return (
           <Tooltip
@@ -77,7 +119,7 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
             </Badge>
           </Tooltip>
         );
-      return null;
+      return resolutionBadge;
     }
 
     if (message.lastReplyFromClient && message.lastReplyAt) {
@@ -156,7 +198,8 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
             <BellRing className={ic} />
             {size === 'sm' ? 'Review' : 'Needs Review'}
             {/* The reason as a short suffix on the full-size badge only; the small one keeps
-                it in the tooltip. Absent/unknown reason ⇒ the plain badge, as before. */}
+                it in the tooltip. Absent/unknown reason ⇒ the plain badge, as before. (Every
+                small caller renders card mode, where a flood hold shows on getAiState's chip.) */}
             {size !== 'sm' && needsReviewReasonLabel(message.needsReviewReason) && (
               <span className="font-normal opacity-80">
                 · {needsReviewReasonLabel(message.needsReviewReason)}
@@ -175,22 +218,32 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
         */
         <Tooltip
           content={
-            spamCheck?.redFlags?.length
-              ? `Spam: ${spamCheck.redFlags.map(humanizeSignalFlag).join(', ')}`
-              : 'Marked as spam'
+            // The first mail's red flags explain that mail: with the newest mail's category
+            // known, the tooltip says only what the badge says.
+            hasNewestSpamCategory(message)
+              ? spamBadgeLabel(message, spamCheck)
+              : spamCheck?.redFlags?.length
+                ? `Spam: ${spamCheck.redFlags.map(humanizeSignalFlag).join(', ')}`
+                : 'Marked as spam'
           }
           size="sm"
         >
           <Badge variant="danger" className={bc}>
             <ShieldX className={ic} />
-            {spamCheck?.category ? getFilteredCategoryLabel(spamCheck.category) : 'Spam'}
+            {spamBadgeLabel(message, spamCheck)}
           </Badge>
         </Tooltip>
       )}
       {/* A thread the LANE calls spam is not also shown as merely suspicious. */}
-      {!isSpamThread(message) && spamCheck?.category === 'suspicious' && (
+      {/* Suspicious as the header reads it: the backend's flag (a follow-up's verdict), else the
+          conversation's own category (isSuspiciousThread). */}
+      {!isSpamThread(message) && isSuspiciousThread(message) && (
         <Tooltip
-          content={`Suspicious: ${spamCheck.redFlags?.map(humanizeSignalFlag).join(', ') ?? ''}`}
+          content={
+            spamCheck?.redFlags?.length
+              ? `Suspicious: ${spamCheck.redFlags.map(humanizeSignalFlag).join(', ')}`
+              : 'Flagged as suspicious by spam filter'
+          }
           size="sm"
         >
           <Badge variant="warning" className={bc}>

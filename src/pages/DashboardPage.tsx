@@ -4,12 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { AlertDialog } from '@/components/ui/AlertDialog';
+import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import {
   useSystemHealth,
   useTelegramProcessing,
   ingestionService,
+  ingestionStartNotice,
+  START_NOT_REACHED,
   DashboardKBSection,
   DashboardQuickActions,
   DashboardSkeleton,
@@ -22,6 +25,7 @@ import { useCoalescedRefresh } from '@/hooks/useCoalescedRefresh';
 import { documentationService, kbService } from '@/features/kb/shell';
 import { messageService } from '@/services/message.service';
 import { SLA_DEFAULT_DAYS, slaService } from '@/features/statistics';
+import { slaPerformancePath } from '@/lib/slaPerformancePath';
 import { fetchTicketViewCounts, ticketService } from '@/features/tickets/shell';
 import { useMessagesStore } from '@/features/messages/shell';
 import { logger } from '@/lib/logger';
@@ -481,6 +485,9 @@ export const DashboardPage = () => {
         : type === 'email'
           ? ingestionService.checkEmails()
           : ingestionService.startTelegram());
+      // Each Telegram bot's state after the start: a bot that is down says why (#1483).
+      const notice = type === 'email' ? null : ingestionStartNotice(type, response);
+      if (notice) setAlertDialog({ open: true, ...notice });
       if (response.success) {
         clearMessagesCache();
         await fetchStats();
@@ -506,7 +513,10 @@ export const DashboardPage = () => {
       setAlertDialog({
         open: true,
         title: 'Ingestion Failed',
-        description: 'Failed to start ingestion',
+        // The API's own reason when it gave one (e.g. the start could not reach the worker).
+        description:
+          getApiErrorMessage(error) ??
+          (getErrorStatus(error) === 503 ? START_NOT_REACHED : 'Failed to start ingestion'),
         variant: 'error',
       });
     } finally {
@@ -566,10 +576,16 @@ export const DashboardPage = () => {
       // was already written and `isClickable: false` kept it from ever being attached
       // (`DashboardStatCards` does `onClick={card.isClickable ? card.onClick : undefined}`).
       //
-      // The window travels with the link. `/sla` otherwise opens on its own default, and a
+      // The window travels with the link (to Statistics → Performance). The page otherwise opens on its own default, and a
       // drill-down that lands on a different period than the number it came from is worse
       // than no drill-down — two figures that disagree and nothing saying why.
-      onClick: () => navigate(`/sla?days=${stats.avgFirstResponsePeriodDays ?? SLA_DEFAULT_DAYS}`),
+      onClick: () =>
+        navigate(
+          slaPerformancePath(
+            `?days=${stats.avgFirstResponsePeriodDays ?? SLA_DEFAULT_DAYS}`,
+            SLA_DEFAULT_DAYS
+          )
+        ),
       isClickable: stats.avgFirstResponseMins !== null,
     },
     {
@@ -696,7 +712,7 @@ export const DashboardPage = () => {
               <DashboardSystemStatus health={health} isWebSocketConnected={isWebSocketConnected} />
             </div>
 
-            <div className={cn("grid gap-4", hasTickets ? "lg:grid-cols-2" : "lg:grid-cols-1")}>
+            <div className={cn('grid gap-4', hasTickets ? 'lg:grid-cols-2' : 'lg:grid-cols-1')}>
               <DashboardStatusBarSection label="Threads by Status" cards={messageCards} />
               {hasTickets && (
                 <DashboardStatusBarSection label="Tickets by Status" cards={ticketCards} />

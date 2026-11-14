@@ -1,4 +1,9 @@
 import { Lock } from 'lucide-react';
+import {
+  keepOpenTabOnDoubleClick,
+  noteOpenTabClick,
+  openInNewTabOnMiddleClick,
+} from '@/components/shared/openTabs';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { formatAge } from '@/lib/utils';
 import { AssigneeCell } from './AssigneeCell';
@@ -28,7 +33,13 @@ export const TicketRow = ({
       tabIndex={0}
       aria-current={current || undefined}
       data-ticket-row={ticket.id}
-      onClick={() => onOpen(ticket)}
+      onClick={(event) => {
+        // Ctrl/⌘-click: a new tab in the open-tabs row.
+        noteOpenTabClick('tickets', event);
+        onOpen(ticket);
+      }}
+      onAuxClick={(event) => openInNewTabOnMiddleClick('tickets', event, () => onOpen(ticket))}
+      onDoubleClick={() => keepOpenTabOnDoubleClick('tickets', String(ticket.id))}
       onKeyDown={(event) => {
         if (event.key === 'Enter' && event.target === event.currentTarget) onOpen(ticket);
       }}

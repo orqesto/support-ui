@@ -25,7 +25,7 @@ vi.mock('@/services/organization.service', () => ({
   },
 }));
 vi.mock('@/hooks/useDepartments', () => ({ useDepartments: () => ({ data: [] }) }));
-vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => ({ isOrgAdmin: true }) }));
+vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => ({ isOrgAdmin: true, hasPermission: () => true }) }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn() } }));
 
 import { AutoReplyConfiguration } from '../AutoReplyConfiguration';

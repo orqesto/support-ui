@@ -36,6 +36,7 @@ export { useTicketListPrefs } from './components/list/useTicketListPrefs';
 export { useTicketViews } from './components/list/useTicketViews';
 export { useTicketsRealtime } from './hooks/useTicketsRealtime';
 export { useTicketsUrlSync } from './hooks/useTicketsUrlSync';
+export { useTicketTabs } from './hooks/useTicketTabs';
 export { ticketApiFilters } from './lib/ticketFilters';
 export { viewFiltersOf } from './lib/ticketViews';
 export { categoryService } from './services/category.service';

@@ -198,6 +198,10 @@ export type Message = {
    * backend from before it; the badges then keep the old clock.
    */
   slaWaitStartedAt?: string | null;
+  /** Thread SLA by priority (backend 0238): the resolution target, and the running cycle's start
+   * (first unanswered customer message after the latest resolve). Absent from an older backend. */
+  slaResolutionMinutes?: number | null;
+  slaResolutionStartedAt?: string | null;
   slaResponseBreached?: boolean | null;
   firstResponseAt?: string | null;
   actualResponseSeconds?: number | null;
@@ -236,6 +240,13 @@ export type Message = {
    * the frozen copy rather than concluding the thread is not spam.
    */
   isSpam?: boolean;
+  /**
+   * The category of the NEWEST classified inbound mail's spam verdict (backend 2026-11-12), e.g.
+   * 'spam', 'phishing', 'promotional'. Null = that mail carries no category. OPTIONAL for skew:
+   * absent means an older backend, and the caller falls back to the first mail's frozen
+   * `metadata.spamCheck.category`.
+   */
+  latestSpamCategory?: string | null;
   spamConfirmedAt?: string | null;
   // BE returns labels UNIONed from three sources (#16). `source` lets the FE
   // render an "inherited via contact" badge so agents understand why the

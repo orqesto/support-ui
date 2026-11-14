@@ -9,7 +9,11 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import { kbService, type KBEntry } from '@/features/kb/services/kb.service';
-import { kbConsolidationService } from '@/features/kb/services/kbConsolidation.service';
+import {
+  kbConsolidationService,
+  normaliseRestoredEntries,
+} from '@/features/kb/services/kbConsolidation.service';
+import { restoredEntriesText } from '@/features/kb/lib/kbConsolidation';
 
 export type CaseActionKind = 'hide' | 'reject' | 'delete' | 'unmerge';
 
@@ -52,11 +56,18 @@ export const runCaseAction = async (
   now: () => CaseActionNow
 ): Promise<CaseActionOutcome> => {
   try {
-    let restored: number | undefined;
-    if (action === 'unmerge') restored = (await kbConsolidationService.unmerge(entry.id)).restored;
-    else if (action === 'hide') restored = (await kbService.hide(entry.id)).data?.restored;
-    else if (action === 'reject') restored = (await kbService.reject(entry.id)).data?.restored;
-    else restored = (await kbService.delete(entry.id)).data?.restored;
+    const answer =
+      action === 'unmerge'
+        ? await kbConsolidationService.unmerge(entry.id)
+        : (action === 'hide'
+            ? await kbService.hide(entry.id)
+            : action === 'reject'
+              ? await kbService.reject(entry.id)
+              : await kbService.delete(entry.id)
+          ).data;
+    const restored = answer?.restored;
+    // Which entries came back, by number — a backend before `restoredEntries` names none.
+    const named = restoredEntriesText(normaliseRestoredEntries(answer?.restoredEntries));
     // Read the drawer, URL and filters as they are NOW — the user may have opened another
     // entry or changed a filter while this request ran (FE pass 16 LOW-1).
     if (showsCase(now(), entry.id)) now().close();
@@ -66,11 +77,12 @@ export const runCaseAction = async (
       open: true,
       title: 'Case unmerged',
       description:
-        restored === 0
+        named ??
+        (restored === 0
           ? 'The merge was undone. No original entries were left to bring back.'
           : typeof restored === 'number'
             ? `${restored} original ${restored === 1 ? 'entry is' : 'entries are'} back in the knowledge base.`
-            : 'Its original entries are back in the knowledge base.',
+            : 'Its original entries are back in the knowledge base.'),
       variant: 'success',
     };
   } catch (error) {

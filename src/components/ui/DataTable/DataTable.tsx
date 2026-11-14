@@ -1,10 +1,42 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { Pagination } from '@/components/ui/Pagination';
 import { SearchInput } from '@/components/ui/SearchInput';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
-import type { DataTableProps } from './dataTable.types';
+import type { ColumnDef, DataTableProps, SortDirection, SortValue } from './dataTable.types';
+
+type SortState = { columnId: string; direction: SortDirection } | null;
+
+const isEmptySortValue = (value: SortValue): value is null | undefined =>
+  value === null || value === undefined || (typeof value === 'number' && Number.isNaN(value));
+
+/** Empty values last in BOTH directions; the direction flips only real comparisons. */
+const compareSortValues = (left: SortValue, right: SortValue, direction: SortDirection) => {
+  const leftEmpty = isEmptySortValue(left);
+  const rightEmpty = isEmptySortValue(right);
+  if (leftEmpty || rightEmpty) return leftEmpty === rightEmpty ? 0 : leftEmpty ? 1 : -1;
+  const order =
+    typeof left === 'number' && typeof right === 'number'
+      ? left - right
+      : String(left).localeCompare(String(right), undefined, {
+          numeric: true,
+          sensitivity: 'base',
+        });
+  return direction === 'ascending' ? order : -order;
+};
+
+const nextSort = (current: SortState, columnId: string): SortState => {
+  if (current?.columnId !== columnId) return { columnId, direction: 'ascending' };
+  return current.direction === 'ascending' ? { columnId, direction: 'descending' } : null;
+};
+
+const SortIcon = ({ direction }: { direction: SortDirection | null }) => {
+  const Icon =
+    direction === 'ascending' ? ArrowUp : direction === 'descending' ? ArrowDown : ArrowUpDown;
+  return <Icon aria-hidden className={cn('w-3.5 h-3.5', direction === null && 'opacity-50')} />;
+};
 
 /**
  * Config-driven list table — the shared foundation for the console/user/workspace
@@ -17,6 +49,31 @@ import type { DataTableProps } from './dataTable.types';
  * scrolls the table horizontally; pass `renderCard` to render a mobile card list below `xl`
  * instead (the customer UsersPage's responsive layout).
  */
+/** What inside a clickable row handles its own click (`onRowClick` leaves these alone). */
+const ROW_CONTROL =
+  'label, a, button, input, select, textarea, [contenteditable=""], [contenteditable="true"], ' +
+  '[role="button"], [role="link"], [role="menuitem"], [role="option"], [role="checkbox"], ' +
+  '[role="switch"], [role="tab"]';
+
+/**
+ * A plain primary click on the row itself opens it. Not: a click something already handled
+ * (`defaultPrevented`), a modified or non-primary click (open-in-new-tab gestures, which the row
+ * cannot honour), a click that ends a text selection inside the row, a click on a control in the
+ * row, or a click from a portal (a popover rendered elsewhere whose events still bubble through
+ * React to this row).
+ */
+const isRowOpenClick = (event: MouseEvent<HTMLTableRowElement>): boolean => {
+  if (event.defaultPrevented || event.button !== 0) return false;
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
+  const row = event.currentTarget;
+  const target = event.target;
+  if (!(target instanceof Element) || !row.contains(target)) return false;
+  if (target.closest(ROW_CONTROL)) return false;
+  const selection = window.getSelection();
+  const selecting = !!selection && !selection.isCollapsed && !!selection.anchorNode;
+  return !(selecting && row.contains(selection.anchorNode));
+};
+
 export function DataTable<Row>({
   rows,
   rowKey,
@@ -33,9 +90,14 @@ export function DataTable<Row>({
   renderEditRow,
   renderCard,
   resetPageKey,
+  onRowClick,
 }: DataTableProps<Row>) {
   const [clientPage, setClientPage] = useState(1);
+  const [sort, setSort] = useState<SortState>(null);
   const isClient = pagination.mode === 'client';
+  // Sorting reorders the whole list before the page slice, so it is offered in client mode only:
+  // sorting one server page would present a page-local order as if it were the list's.
+  const isSortable = (col: ColumnDef<Row>) => isClient && col.sortValue !== undefined;
   const clientFilterActive = Boolean(search?.clientAccessor);
   const term = (search?.value ?? '').trim().toLowerCase();
   const columnCount = columns.length + (actions ? 1 : 0);
@@ -49,6 +111,22 @@ export function DataTable<Row>({
     const accessor = search.clientAccessor;
     return rows.filter((row) => accessor(row).some((field) => (field ?? '').toLowerCase().includes(term)));
   }, [rows, search, term]);
+
+  const sorted = useMemo(() => {
+    const sortColumn = sort ? columns.find((col) => col.id === sort.columnId) : undefined;
+    if (!sort || !isClient || !sortColumn?.sortValue) {
+      return filtered;
+    }
+    const valueOf = sortColumn.sortValue;
+    // Decorate with the original index: a stable sort, and ties keep the caller's order.
+    return filtered
+      .map((row, index) => ({ row, index, value: valueOf(row) }))
+      .sort(
+        (left, right) =>
+          compareSortValues(left.value, right.value, sort.direction) || left.index - right.index
+      )
+      .map((entry) => entry.row);
+  }, [filtered, sort, columns, isClient]);
 
   // Reset to page 1 whenever a client-side search term changes so results are never
   // stranded on an out-of-range page. Server callers reset their own page in onChange.
@@ -76,7 +154,7 @@ export function DataTable<Row>({
 
   // Client mode: the table slices. Server mode: `rows` is already the current page.
   const pageRows = isClient
-    ? filtered.slice((currentPage - 1) * pagination.pageSize, currentPage * pagination.pageSize)
+    ? sorted.slice((currentPage - 1) * pagination.pageSize, currentPage * pagination.pageSize)
     : filtered;
 
   const isFilteredEmpty = totalItems === 0 && term.length > 0;
@@ -141,18 +219,38 @@ export function DataTable<Row>({
           <table className={cn('w-full text-sm', renderCard && 'hidden xl:table')}>
             <thead className="bg-muted/50">
               <tr className="text-left text-muted-foreground">
-                {columns.map((col) => (
-                  <th
-                    key={col.id}
-                    className={cn(
-                      'px-3 py-2 font-medium',
-                      col.align === 'right' && 'text-right',
-                      col.headerClassName
-                    )}
-                  >
-                    {col.header}
-                  </th>
-                ))}
+                {columns.map((col) => {
+                  const sortable = isSortable(col);
+                  const direction = sort?.columnId === col.id ? sort.direction : null;
+                  return (
+                    <th
+                      key={col.id}
+                      aria-sort={sortable ? (direction ?? 'none') : undefined}
+                      className={cn(
+                        'px-3 py-2 font-medium',
+                        col.align === 'right' && 'text-right',
+                        col.headerClassName
+                      )}
+                    >
+                      {sortable ? (
+                        <Button
+                          variant="ghost"
+                          className="gap-1 px-1 py-0 -mx-1 h-auto font-medium text-inherit"
+                          onClick={() => {
+                            setSort((current) => nextSort(current, col.id));
+                            // A new order starts from its first page — in the same render.
+                            setClientPage(1);
+                          }}
+                        >
+                          {col.header}
+                          <SortIcon direction={direction} />
+                        </Button>
+                      ) : (
+                        col.header
+                      )}
+                    </th>
+                  );
+                })}
                 {actions && (
                   <th className="px-3 py-2 font-medium text-right">
                     <span className="sr-only">{actionsLabel}</span>
@@ -174,7 +272,20 @@ export function DataTable<Row>({
                   );
                 }
                 return (
-                  <tr key={rowKey(row)} className="border-t border-border align-top">
+                  <tr
+                    key={rowKey(row)}
+                    className={cn(
+                      'border-t border-border align-top',
+                      onRowClick && 'cursor-pointer hover:bg-muted transition-colors'
+                    )}
+                    onClick={
+                      onRowClick
+                        ? (event) => {
+                            if (isRowOpenClick(event)) onRowClick(row);
+                          }
+                        : undefined
+                    }
+                  >
                     {columns.map((col) => (
                       <td
                         key={col.id}

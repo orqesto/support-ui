@@ -12,6 +12,8 @@ import type { ToggleSelected } from '../bulk/selectMode';
 import { KanbanCard } from '../KanbanCard';
 import { VALID_TARGETS, type KanbanColumnDef } from '../kanbanColumns';
 import { SORT_PRESET_OPTIONS, presetToSorting, sortingToPreset } from '../sortPresets';
+import { byLayout, type BoardLayout } from './boardLayout';
+import { HorizontalPanStrip } from './HorizontalPanStrip';
 import { UNFINISHED_HINT, type ColumnState } from './kanbanBoardModel';
 
 // Draggable wrapper — only rendered for DND_COLS
@@ -76,6 +78,8 @@ function DraggableMessageCard({
 
 type KanbanColumnProps = {
   col: KanbanColumnDef;
+  /** The board's layout (boardLayout.ts); absent = by the window (xl). */
+  layout?: BoardLayout;
   state: ColumnState;
   isDraggable: boolean;
   isDroppable: boolean;
@@ -102,6 +106,7 @@ type KanbanColumnProps = {
 
 export const KanbanColumn = ({
   col,
+  layout,
   state,
   isDraggable,
   isDroppable,
@@ -143,6 +148,12 @@ export const KanbanColumn = ({
           : onToggleSelected(conversationId)
     : undefined;
 
+  // A card's box: a fixed width in a row, the column's width in a column.
+  const cardClass = cn(
+    'min-w-[260px] shrink-0',
+    byLayout(layout, { xl: 'xl:min-w-0 xl:shrink', columns: 'min-w-0 shrink' })
+  );
+
   // Only highlight when this column is a valid target for the currently dragged card.
   const isValidTarget =
     isDroppable &&
@@ -160,7 +171,11 @@ export const KanbanColumn = ({
         // Trello mode starts at xl (was lg): on smaller windows the per-column
         // scroll forced people to scroll each lane separately, so below xl the
         // columns stack and the page scrolls naturally instead.
-        'flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden xl:min-w-[260px] xl:flex-1 xl:h-full transition-colors',
+        'flex flex-col w-full rounded-lg border-t-4 border border-border overflow-hidden transition-colors',
+        byLayout(layout, {
+          xl: 'xl:min-w-[260px] xl:flex-1 xl:h-full',
+          columns: 'min-w-[260px] flex-1 h-full',
+        }),
         isValidTarget && isOver ? 'bg-muted/60' : 'bg-muted/30'
       )}
       style={{ borderTopColor: col.accentColor }}
@@ -234,19 +249,37 @@ export const KanbanColumn = ({
       </div>
 
       {/* Cards */}
-      <div className="flex flex-row overflow-x-auto gap-2 p-2 xl:flex-col xl:overflow-x-hidden xl:overflow-y-auto xl:flex-1 xl:min-h-0">
+      {/* In rows the strip pans sideways with a mouse drag and has ‹ › arrows (HorizontalPanStrip). */}
+      <HorizontalPanStrip
+        wrapperClassName={byLayout(layout, { xl: 'xl:flex-1', columns: 'flex-1' })}
+        className={cn(
+          'flex flex-row overflow-x-auto gap-2 p-2',
+          byLayout(layout, {
+            xl: 'xl:flex-col xl:overflow-x-hidden xl:overflow-y-auto xl:flex-1 xl:min-h-0',
+            columns: 'flex-col overflow-x-hidden overflow-y-auto flex-1 min-h-0',
+          })
+        )}
+      >
         {state.loading && state.threads.length === 0 ? (
           Array.from({ length: 3 }, (_, idx) => (
             <div
               key={idx}
-              className="min-w-[260px] xl:min-w-0 p-3 space-y-2 rounded-md border animate-pulse bg-card shrink-0"
+              className={cn(
+                'min-w-[260px] p-3 space-y-2 rounded-md border animate-pulse bg-card shrink-0',
+                byLayout(layout, { xl: 'xl:min-w-0', columns: 'min-w-0' })
+              )}
             >
               <div className="w-3/4 h-3 rounded bg-muted" />
               <div className="w-1/2 h-3 rounded bg-muted" />
             </div>
           ))
         ) : state.threads.length === 0 ? (
-          <p className="px-3 py-4 text-xs text-muted-foreground xl:text-center">
+          <p
+            className={cn(
+              'px-3 py-4 text-xs text-muted-foreground',
+              byLayout(layout, { xl: 'xl:text-center', columns: 'text-center' })
+            )}
+          >
             {state.unfinished
               ? `${UNFINISHED_HINT}. Refresh to try again, or narrow the search.`
               : col.emptyText}
@@ -255,7 +288,7 @@ export const KanbanColumn = ({
           <>
             {state.threads.map((thread) =>
               isDraggable && !thread.threadId.startsWith('spamlog_') ? (
-                <div key={thread.threadId} className="min-w-[260px] xl:min-w-0 shrink-0 xl:shrink">
+                <div key={thread.threadId} className={cardClass}>
                   <DraggableMessageCard
                     thread={thread}
                     colId={col.id}
@@ -269,7 +302,7 @@ export const KanbanColumn = ({
               ) : (
                 <div
                   key={thread.threadId}
-                  className="min-w-[260px] xl:min-w-0 shrink-0 xl:shrink"
+                  className={cardClass}
                   title={
                     thread.threadId.startsWith('spamlog_')
                       ? 'Spam-rule record — cannot be moved'
@@ -295,7 +328,10 @@ export const KanbanColumn = ({
                 variant="ghost"
                 disabled={state.loading}
                 onClick={onLoadMore}
-                className="flex gap-1 justify-center items-center px-3 py-2 h-auto text-xs shrink-0 text-muted-foreground hover:text-foreground data-[inactive]:opacity-50 xl:w-full"
+                className={cn(
+                  'flex gap-1 justify-center items-center px-3 py-2 h-auto text-xs shrink-0 text-muted-foreground hover:text-foreground data-[inactive]:opacity-50',
+                  byLayout(layout, { xl: 'xl:w-full', columns: 'w-full' })
+                )}
               >
                 <RotateCcw className="w-3 h-3" />
                 {state.loading ? 'Loading…' : 'Load more'}
@@ -303,7 +339,7 @@ export const KanbanColumn = ({
             )}
           </>
         )}
-      </div>
+      </HorizontalPanStrip>
     </div>
   );
 };

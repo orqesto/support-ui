@@ -1,10 +1,16 @@
-import { CustomApiLookupPanel, NO_EMAIL_IDENTITY_NOTE, type AddOutcome } from '@/features/custom-api';
+import {
+  CustomApiLookupPanel,
+  NO_EMAIL_IDENTITY_NOTE,
+  type AddOutcome,
+} from '@/features/custom-api';
 import { PHONE_CONTACT } from './messageDetailConstants';
 import type { Message } from '@/types';
 
 /**
  * The LOOKUPS tab (spec 2026-10-09): the connected-system lookups, moved out of the Customer tab.
- * CA-3: nothing is fetched until the agent presses Look up (SC1).
+ * #920 (owner 2026-11-11): opening this tab runs the lookups for the thread's customer (reusing a
+ * result from the last five minutes); opening the THREAD does not. No customer email ⇒ no run, and
+ * the note says why.
  */
 export const LookupsTabPanel = ({
   message,
@@ -30,6 +36,7 @@ export const LookupsTabPanel = ({
       onUseInReply={onUseInReply}
       customerEmail={hasEmailIdentity ? customerEmail : undefined}
       onFoundChange={onFoundChange}
+      autoRun={hasEmailIdentity}
     />
   </div>
 );

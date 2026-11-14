@@ -5,6 +5,7 @@ import { resetRoleDefaultsUnavailableForTests } from '@/services/notificationRol
 import { cleanup } from '@testing-library/react';
 import { toBeInactive } from '@/test/inactive';
 import { clearAllUnsentDrafts, resetUnsentDraftPruneForTests } from '@/lib/unsentDrafts';
+import { clearLookupCache } from '@/lib/lookupResultCache';
 
 // A Button out of use is aria-disabled, never natively disabled (it keeps keyboard focus):
 // `toBeInactive()` sees both; jest-dom's `toBeDisabled()` does not (src/test/inactive.ts).
@@ -26,6 +27,21 @@ afterEach(() => {
 afterEach(() => {
   invalidateSharedFetch();
   resetRoleDefaultsUnavailableForTests();
+  // The Lookups tab's cache and its in-flight runs (#920): a run one test left unanswered must not
+  // be joined by the next test's press.
+  clearLookupCache();
+});
+// The last values views read (seededState) and the held thumbnails: a thread one test opened must
+// not seed the next. Imported here, after the test, never at the top: both load the auth store
+// (and the thumbnails the api client), and a static import would load them before a test file's
+// vi.mock of those modules could apply.
+afterEach(async () => {
+  const [{ forgetSeeds }, { forgetThumbnails }] = await Promise.all([
+    import('@/lib/seededState'),
+    import('@/lib/attachmentThumbnails'),
+  ]);
+  forgetSeeds();
+  forgetThumbnails();
 });
 
 // The app loads the rich-text editor lazily (LazyRichTextEditor: TipTap is not in the inbox

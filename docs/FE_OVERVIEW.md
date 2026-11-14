@@ -128,10 +128,10 @@ On page reload, `App.tsx` detects that the persisted user has no `role` (intenti
 | `/knowledge-base` | `KnowledgeBasePage` | Yes | — | Lazy |
 | `/tickets` | `TicketsPage` | Yes | — | Lazy |
 | `/tickets/create` | `CreateTicketPage` | Yes | — | Lazy |
-| `/tickets/edit/:id` | `EditTicketPage` | Yes | — | Lazy |
+| `/tickets/edit/:id` | redirect → `/tickets/:id` | — | — | Tickets are edited on the ticket itself |
 | `/tickets/:id` | `TicketDetailPage` | Yes | — | Lazy |
-| `/statistics` | `StatisticsPage` | Yes | — | Lazy |
-| `/sla` | `SLADashboardPage` | Yes | `VIEW_STATISTICS` | Lazy |
+| `/statistics` | `StatisticsPage` | Yes | `VIEW_STATISTICS` | Lazy; SLA lives in the Performance tab (`#performance`) |
+| `/sla` | redirect → `/statistics#performance` | — | — | Keeps `?days=` / `?from=&to=` |
 | `/settings` | `SettingsPage` | Yes | — | Lazy; tabs for integrations, categories, labels, AI, spam |
 | `/users` | `UsersPage` | Yes | `VIEW_USERS` | Lazy |
 | `/organization` | `OrganizationPage` | Yes | — | Lazy |

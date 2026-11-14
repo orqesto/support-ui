@@ -30,6 +30,12 @@ describe('legacy addresses after the Organisation / Threads rename', () => {
     ['/console/platform/alliances', '/console/platform/organisations'],
     ['/messages/42?tab=ai#reply', '/threads/42?tab=ai#reply'],
     ['/console/alliance/7/members?q=a#x', '/console/organisation/7/members?q=a#x'],
+    // The old SLA page now lives in Statistics → Performance; its window carries over.
+    ['/sla', '/statistics?days=30#performance'],
+    // The old ticket form page: tickets are edited in place now.
+    ['/tickets/edit/7?x=1#h', '/tickets/7?x=1#h'],
+    ['/sla?days=90', '/statistics?days=90#performance'],
+    ['/sla?from=2026-08-03&to=2026-08-09', '/statistics?from=2026-08-03&to=2026-08-09#performance'],
   ])('sends %s to %s', (from, to) => {
     renderAt(from);
     expect(screen.getByTestId('where').textContent).toBe(to);

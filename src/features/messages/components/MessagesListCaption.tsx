@@ -17,7 +17,8 @@ const DENSITY_SEGMENTS: Segment<ListDensity>[] = [
   { value: 'comfortable', label: 'Cards — read each preview', icon: StretchHorizontal },
 ];
 
-const LAYOUT_SEGMENTS: Segment<ListLayout>[] = [
+/** List | Split — also on the board's toolbar. */
+export const LAYOUT_SEGMENTS: Segment<ListLayout>[] = [
   {
     value: 'list',
     label: 'Full-width list',
@@ -60,6 +61,11 @@ type Props = {
   canSplit: boolean;
   /** The list column is narrow (split): long labels shorten, the select label goes. */
   narrow: boolean;
+  /**
+   * The table draws its column headers — they are where it sorts. False when the split pane is
+   * too narrow for the columns: the two-line rows have no headers, so the Sort select stays.
+   */
+  tableHeaders?: boolean;
 };
 
 /**
@@ -93,6 +99,7 @@ export const MessagesListCaption = ({
   onLayoutChange,
   canSplit,
   narrow,
+  tableHeaders = true,
 }: Props) => (
   <div
     className={cn(
@@ -145,8 +152,9 @@ export const MessagesListCaption = ({
     )}
 
     <div className="hidden md:flex flex-wrap gap-2 items-center shrink-0">
-      {/* The table sorts from its column headers; the cards have none, so they keep the select. */}
-      {density === 'compact' ? (
+      {/* The table sorts from its column headers; the cards (and the two-line rows of a narrow
+          split pane) have none, so they keep the select. */}
+      {density === 'compact' && tableHeaders ? (
         <Button
           variant="ghost"
           aria-pressed={group}

@@ -284,7 +284,7 @@ Also subscribes to: `stats:update` (socket), `email:processing` (via `useEmailPr
 
 ---
 
-### Tickets (`TicketsPage.tsx` + `TicketDetailPage.tsx` + `CreateTicketPage.tsx` + `EditTicketPage.tsx`)
+### Tickets (`TicketsPage.tsx` + `TicketDetailPage.tsx` + `CreateTicketPage.tsx`)
 
 | FE Component               | Method | Endpoint                                 | Purpose                                             |
 | -------------------------- | ------ | ---------------------------------------- | --------------------------------------------------- |
@@ -297,8 +297,6 @@ Also subscribes to: `stats:update` (socket), `email:processing` (via `useEmailPr
 | `TicketsKanbanView`        | GET    | `/api/tickets`                           | Kanban column data                                  |
 | `TicketDetailPage`         | GET    | `/api/tickets/:id`                       | Full ticket                                         |
 | `TicketDetailPage`         | DELETE | `/api/tickets/:id`                       | Delete                                              |
-| `EditTicketPage`           | GET    | `/api/tickets/:id`                       | Load ticket for editing                             |
-| `EditTicketPage`           | PUT    | `/api/tickets/:id`                       | Update ticket                                       |
 | `CreateTicketPage`         | GET    | `/api/messages/:id`                      | Pre-fill ticket from message                        |
 | `CreateTicketPage`         | GET    | `/api/messages/:id/thread`               | Thread context for ticket creation                  |
 | `CreateTicketPage`         | POST   | `/api/tickets`                           | Create ticket (with optional attachments)           |
@@ -352,14 +350,14 @@ Note: `kbService` uses `/api/knowledge-base/entries` sub-path. The BE mounts the
 
 ---
 
-### SLA Dashboard (`SLADashboardPage.tsx`)
+### SLA (Statistics → Performance, SLA section: `PerformanceTab.tsx`)
 
 | FE Component                   | Method | Endpoint                                 | Purpose                                                      |
 | ------------------------------ | ------ | ---------------------------------------- | ------------------------------------------------------------ |
-| `SLADashboardPage`             | GET    | `/api/sla/summary`                       | High-level SLA health summary                                |
-| `SLADashboardPage`             | GET    | `/api/sla/statistics`                    | Detailed per-channel / per-priority stats (days param)       |
-| `SLADashboardPage`             | GET    | `/api/sla/breaches`                      | List of recent breaches                                      |
-| `SLADashboardPage`             | GET    | `/api/sla/trends`                        | Trend data (days / interval params)                          |
+| `PerformanceTab` (SLA section) | GET    | `/api/sla/summary`                       | High-level SLA health summary                                |
+| `PerformanceTab` (SLA section) | GET    | `/api/sla/statistics`                    | Detailed per-channel / per-priority stats (days param)       |
+| `PerformanceTab` (SLA section) | GET    | `/api/sla/breaches`                      | List of recent breaches                                      |
+| `PerformanceTab` (SLA section) | GET    | `/api/sla/trends`                        | Trend data (days / interval params)                          |
 | `SLANotificationBell` (Layout) | GET    | `/api/notifications`                     | Load persisted SLA breach notifications                      |
 | `useSLANotifications`          | PATCH  | `/api/notifications/:id/dismiss`         | Dismiss one notification                                     |
 | `useSLANotifications`          | PATCH  | `/api/notifications/dismiss-all`         | Dismiss all notifications                                    |
@@ -556,11 +554,6 @@ All four endpoints require the `billing-intelligence` AI module to be active on 
 | `PricingPage`               | POST   | `/api/subscriptions/modules/:id/disable`         | Remove AI module                       |
 | `SubscriptionPage`          | GET    | `/api/subscriptions/dashboard`                   | Subscription dashboard data            |
 | `SubscriptionPage`          | GET    | `/api/subscriptions/current`                     | Current subscription                   |
-| `AdminPlansTab` (org admin) | GET    | `/api/organizations/subscription`                | Current org subscription               |
-| `AdminPlansTab` (org admin) | GET    | `/api/organizations/available-plans`             | Plans available to org                 |
-| `AdminPlansTab` (org admin) | GET    | `/api/organizations/ai-modules`                  | AI modules for org                     |
-| `AdminPlansTab` (org admin) | PATCH  | `/api/organizations/subscription/plan`           | Switch plan                            |
-| `AdminPlansTab` (org admin) | PATCH  | `/api/organizations/ai-modules/:moduleId/toggle` | Toggle AI module                       |
 | `subscriptionService`       | GET    | `/api/subscriptions/modules/active`              | Active modules (used in feature gates) |
 
 ---
@@ -642,7 +635,7 @@ The BE also exposes `GET /` (list), `GET /:type` (get), `GET /:type/preview`, an
 | `contact.service.ts`          | `/api/contacts/*` (11 endpoints)                                         | MessageDetail contact panel and ContactsView                       |
 | `kb.service.ts`               | `/api/knowledge-base/entries/*` (6 endpoints)                            | KnowledgeBasePage, Dashboard, Statistics                           |
 | `documentation.service.ts`    | `/api/documentation/*` (9 endpoints)                                     | Settings documentation tab                                         |
-| `sla.service.ts`              | `/api/sla/*` (4 endpoints)                                               | SLADashboardPage, DashboardPage                                    |
+| `sla.service.ts`              | `/api/sla/*` (4 endpoints)                                               | PerformanceTab, DashboardPage                                      |
 | `statistics.service.ts`       | `/api/statistics/*` (6 endpoints)                                        | StatisticsPage                                                     |
 | `billing.service.ts`          | `/api/billing/*` (4 endpoints)                                           | BillingDashboardPage                                               |
 | `auditLog.service.ts`         | `/api/audit-logs/*` (2 endpoints)                                        | AuditLogsPage                                                      |

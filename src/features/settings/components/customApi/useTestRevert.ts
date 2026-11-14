@@ -57,6 +57,9 @@ export const useTestRevert = (
           ...buildParameterFields(endpoint.parameterSource as ParamSource, endpoint, {
             sourceEndpointId: endpoint.sourceEndpointId ?? null,
             sourceFieldPath: endpoint.sourceFieldPath ?? '',
+            // A Test saves the fallback too, so Cancel puts the stored one back. Not sent at all to
+            // a backend that does not know it.
+            ...('fallbackPath' in endpoint ? { fallbackPath: endpoint.fallbackPath ?? '' } : {}),
           }),
         }
       : null

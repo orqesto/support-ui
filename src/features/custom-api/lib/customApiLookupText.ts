@@ -79,6 +79,47 @@ export const skippedText = (
 };
 
 /**
+ * 2026-11-13 (owner's wording): the note on a chained card whose source found NO ACCOUNT and that
+ * searched by the customer's email instead. Found ⇒ what was found and by which address; nothing ⇒
+ * that there is neither an account nor guest orders. ⛔ Rows the backend HID because their email did
+ * not match are always counted when there were any — "nothing here" and "we hid them" must not read
+ * the same. Null for a card that did not run a fallback, or ended any other way (a failure says so
+ * in its own words).
+ */
+export const fallbackText = (
+  result: CustomApiLookupResult,
+  /**
+   * What the card's records ARE, from its category ("order" / "orders"); the generic "record" when
+   * it has none. For an orders lookup this reads exactly as the owner's sentence.
+   */
+  noun: { one: string; many: string } = { one: 'record', many: 'records' }
+): string | null => {
+  const fallback = result.fallback;
+  if (!fallback) return null;
+  const { email } = fallback;
+  // The search itself failed: the agent still learns there is no account (2026-11-13 review).
+  // The failure's own reason is the card's red line below this; said once, not twice.
+  if (result.status === 'failed') return `No account; the guest search by ${email} failed.`;
+  const found = result.status === 'ok' && Boolean(result.rows?.length);
+  if (!found && result.status !== 'no_match') return null;
+  const dropped = fallback.dropped > 0 ? fallback.dropped : 0;
+  // ⛔ A bound that bit: every row we read was hidden AND there were more we never read.
+  if (!found && fallback.more === true && dropped === 0) {
+    return `No account; nothing was read from the guest search by ${email} — more not checked.`;
+  }
+  if (!found && fallback.more === true) {
+    return `No account; the first ${dropped} guest ${dropped === 1 ? noun.one : noun.many} by email ${email} didn’t match, more not checked.`;
+  }
+  const head = found
+    ? `No account — guest ${noun.many} found by email ${email}.`
+    : `No account, and no guest ${noun.many} for ${email}.`;
+  if (dropped === 0) return head;
+  const one = dropped === 1;
+  const hidden = `${dropped} ${found ? 'more ' : ''}${one ? `${noun.one} was` : `${noun.many} were`} hidden because ${one ? 'its' : 'their'} email didn’t match.`;
+  return `${head} ${hidden}`;
+};
+
+/**
  * 2026-10-21: the admin's "When nothing is found, tell the agent" text, verbatim, or null.
  *
  * ⛔ Only when the lookup FOUND NOTHING: a plain `no_match`, or a chained card skipped because its

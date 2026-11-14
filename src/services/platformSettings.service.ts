@@ -39,11 +39,13 @@ export type {
   SecretStatus,
   SecretVerification,
 } from './platformSecrets';
-import type { FieldSource, ResolvedField } from './resolvedField';
+import type { BoundedField, FieldSource, ResolvedField } from './resolvedField';
+import { AGENT_NOTE_FACTS_FIELDS } from './agentNoteFacts.settings';
+import type { AgentNoteFactsInput, AgentNoteFactsSettings } from './agentNoteFacts.settings';
 
 // FieldSource and ResolvedField live in `./resolvedField` (modularity task F2): routingSettings
 // uses them and this file imports routingSettings. Re-exported for existing importers.
-export type { FieldSource, ResolvedField };
+export type { BoundedField, FieldSource, ResolvedField };
 /** Storage fields resolve through the same three layers as the AI fields. */
 export type StorageFieldSource = FieldSource;
 export type ResolvedStorageField<T> = ResolvedField<T>;
@@ -191,12 +193,16 @@ export type DraftSettings = {
   suggestionPipelineTimeoutMs: BoundedField;
   /** Absent on a backend that predates the switch — the card then says so. */
   draftPipeline?: DraftPipelineSetting;
+  /** The guided-draft fact check's thresholds (`ai.agent_note_facts`); absent on an older backend. */
+  agentNoteFacts?: AgentNoteFactsSettings;
 };
 /** PUT /settings/drafts — a non-empty subset; only the fields sent are saved. */
 export type PlatformDraftsInput = {
   kbOnlyDraftMinSimilarity?: number;
   suggestionPipelineTimeoutMs?: number;
   draftPipeline?: DraftPipelineMode;
+  /** Any non-empty subset; the server merges it over the saved thresholds. */
+  agentNoteFacts?: AgentNoteFactsInput;
 };
 
 export type AnalysisHourlySettings = {
@@ -212,8 +218,6 @@ export type PlatformAnalysisHourlyInput = {
   liveReserveCallsPerHour?: number;
 };
 
-/** A setting with its bounds, as `describeImportRunBudget` / `describeIngestionQueueRates` answer. */
-export type BoundedField = { value: number; source: FieldSource; min: number; max: number };
 /** Every ingestion field the backend may report, each with its bounds; see INGESTION_FIELDS. */
 export type IngestionSettings = Partial<Record<(typeof INGESTION_FIELDS)[number], BoundedField>>;
 /** Fair order between workspaces on/off (`queue.fairness.fairOrder`, 2026-11-07). */
@@ -494,6 +498,12 @@ export const INGESTION_FIELDS = [
   'notificationPriorityWaitMinutes',
   /** Hours: no automatic reply is sent to a message older than this (`autoreply.max_message_age`, 1-720). */
   'autoReplyMaxMessageAgeHours',
+  /** Hours a Telegram chat must be quiet before the bot wakes on a chat it handed to a person (`telegram.bot_renew_quiet`, 1-720); each Telegram connection may override it. */
+  'telegramBotRenewQuietHours',
+  /** Messages that may wait in one Telegram chat before its next ones are saved for a person with no bot answer (`telegram.turn_limits`, 2-100); each Telegram connection may override it. */
+  'telegramFloodWaitingLimit',
+  /** Seconds a started bot turn may run before it stops holding the bot's intake; the turn goes on (`telegram.turn_limits`, 60-600); each Telegram connection may override it. */
+  'telegramTurnHangSeconds',
   /** Failed attachment downloads retried per mailbox check; 0 = off. */
   'attachmentRefetchPerRun',
   /** Gmail quota units spent per minute, steady state (Google's limit is 15,000). */
@@ -595,12 +605,22 @@ export const normalizeDrafts = (raw: unknown): DraftSettings | undefined => {
   const kbOnlyDraftMinSimilarity = readBoundedNumber(raw.kbOnlyDraftMinSimilarity);
   const suggestionPipelineTimeoutMs = readBounded(raw.suggestionPipelineTimeoutMs);
   const draftPipeline = readDraftPipeline(raw.draftPipeline);
+  const agentNoteFacts = readAgentNoteFacts(raw.agentNoteFacts);
   return kbOnlyDraftMinSimilarity && suggestionPipelineTimeoutMs
     ? {
         kbOnlyDraftMinSimilarity,
         suggestionPipelineTimeoutMs,
         ...(draftPipeline ? { draftPipeline } : {}),
+        ...(agentNoteFacts ? { agentNoteFacts } : {}),
       }
+    : undefined;
+};
+
+/** All three thresholds, each a whole-number bounded field — or absent (older backend, malformed). */
+const readAgentNoteFacts = (raw: unknown): AgentNoteFactsSettings | undefined => {
+  const read = AGENT_NOTE_FACTS_FIELDS.map((key) => [key, readBounded(isRecord(raw) && raw[key])]);
+  return read.every(([, field]) => field)
+    ? (Object.fromEntries(read) as AgentNoteFactsSettings)
     : undefined;
 };
 

@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
+  keepOpenTabOnDoubleClick,
+  noteOpenTabClick,
+  openInNewTabOnMiddleClick,
+} from '@/components/shared/openTabs';
+import {
   DndContext,
   DragOverlay,
   MouseSensor,
@@ -161,7 +166,13 @@ export function TicketKanbanCard({
       role="button"
       tabIndex={0}
       aria-label={`Open ticket ${shownId}`}
-      onClick={() => onOpen(ticket)}
+      onClick={(event) => {
+        // Ctrl/⌘-click: a new tab in the open-tabs row.
+        noteOpenTabClick('tickets', event);
+        onOpen(ticket);
+      }}
+      onAuxClick={(event) => openInNewTabOnMiddleClick('tickets', event, () => onOpen(ticket))}
+      onDoubleClick={() => keepOpenTabOnDoubleClick('tickets', String(ticket.id))}
       onKeyDown={(event) => {
         if (event.key === 'Enter' && event.target === event.currentTarget) onOpen(ticket);
       }}

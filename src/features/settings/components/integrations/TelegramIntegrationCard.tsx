@@ -8,10 +8,12 @@ import {
   Edit,
   Building2,
   MessageCircleReply,
+  Bot,
 } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
 import { SourceDepartmentEditor } from '@/features/settings/components/integrations/SourceDepartmentEditor';
+import { TelegramBotSettingsPanel } from '@/features/settings/components/integrations/TelegramBotSettingsPanel';
 import type { IntegrationCardProps } from '@/features/settings/components/integrations/types';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -36,6 +38,7 @@ export const TelegramIntegrationCard = ({
   onShowAlert,
 }: IntegrationCardProps) => {
   const [editDepts, setEditDepts] = useState<number | null>(null);
+  const [botSettingsFor, setBotSettingsFor] = useState<number | null>(null);
 
   // Centralized create-form department picker state.
   const deptPicker = useCreateSourceDepartments();
@@ -176,6 +179,20 @@ export const TelegramIntegrationCard = ({
                         variant="outline"
                         size="sm"
                         onClick={() =>
+                          setBotSettingsFor(
+                            botSettingsFor === integration.id ? null : integration.id
+                          )
+                        }
+                        title="Bot commands and replies"
+                        aria-label="Bot commands and replies"
+                        aria-expanded={botSettingsFor === integration.id}
+                      >
+                        <Bot className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
                           setDeleteConfirm({ id: integration.id, name: integration.name })
                         }
                         isLoading={deleting === integration.id}
@@ -185,6 +202,13 @@ export const TelegramIntegrationCard = ({
                       </Button>
                     </div>
                   </div>
+                  {botSettingsFor === integration.id && (
+                    <TelegramBotSettingsPanel
+                      integrationId={integration.id}
+                      onClose={() => setBotSettingsFor(null)}
+                      onShowAlert={onShowAlert}
+                    />
+                  )}
                   {editDepts === integration.id && (
                     <SourceDepartmentEditor
                       sourceId={integration.id}

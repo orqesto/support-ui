@@ -11,6 +11,8 @@ const getAllCalls: Array<Record<string, unknown>> = [];
 let listEntries: unknown[] = [];
 /** undefined ⇒ the response has NO idMatch key at all (a backend that predates it). */
 let listIdMatch: unknown = undefined;
+/** undefined ⇒ the response has NO splitCase key at all (a backend that predates it). */
+let listSplitCase: unknown = undefined;
 
 // useCurrentOrgCode reads react-query; these suites render without a QueryClientProvider.
 // KB engine Stage 1: the summary is not under test here; unknown opens Live answers.
@@ -37,6 +39,7 @@ vi.mock('@/features/kb/services/kb.service', async (importOriginal) => {
             entries: listEntries,
             pagination: { page: 1, limit: 50, total: listEntries.length, totalPages: 1 },
             ...(listIdMatch === undefined ? {} : { idMatch: listIdMatch }),
+            ...(listSplitCase === undefined ? {} : { splitCase: listSplitCase }),
             filters: { status: params.status ?? 'all', decisionStatuses: true },
           },
         });
@@ -73,6 +76,7 @@ vi.mock('@/hooks/useDepartments', () => ({
 const { KnowledgeBasePage } = await import('../KnowledgeBasePage');
 const { kbIdMatchHint } = await import('@/features/kb');
 const { normaliseIdMatch } = await import('@/features/kb');
+const { kbSplitCaseText } = await import('@/features/kb');
 
 const entry = (over: Record<string, unknown>) => ({
   id: 10,
@@ -116,6 +120,7 @@ beforeEach(() => {
   getAllCalls.length = 0;
   listEntries = [];
   listIdMatch = undefined;
+  listSplitCase = undefined;
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
 });
 afterEach(() => {
@@ -247,5 +252,63 @@ describe('normaliseIdMatch (version skew)', () => {
 
   it('reads a well-formed one', () => {
     expect(normaliseIdMatch(match())).toEqual(match());
+  });
+});
+
+describe('the hint when the searched number is a merged case that was split up', () => {
+  const splitCase = (over: Record<string, unknown> = {}) => ({
+    publicId: 'KB-1562',
+    caseId: 1562,
+    splitAt: '2026-11-10T12:00:00.000Z',
+    via: 'hide',
+    entries: [
+      { id: 21, publicId: 'KB-21', title: 'Refund window', status: 'approved' },
+      { id: 22, publicId: null, title: 'Return label', status: 'pending' },
+    ],
+    ...over,
+  });
+
+  it('says the case was split up and links each entry it gave back, with its status', async () => {
+    listSplitCase = splitCase();
+    renderAt('/knowledge-base?status=approved');
+    await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(0));
+    search('KB-1562');
+    const hint = (await screen.findByText(/#KB-1562 was a merged case/)).closest(
+      '[role="alert"]'
+    ) as HTMLElement;
+    expect(hint).toHaveTextContent(/split up on .*Nov.* 2026 \(the case was hidden\)/);
+    const first = screen.getByRole('link', { name: '#KB-21 Refund window' });
+    // The link keeps the page's filters (only `id` is added), so closing the drawer comes back here.
+    expect(first).toHaveAttribute('href', '/knowledge-base?status=approved&id=21');
+    expect(first.closest('li')).toHaveTextContent('#KB-21 Refund window — Live');
+    const second = screen.getByRole('link', { name: '#22 Return label' });
+    expect(second).toHaveAttribute('href', '/knowledge-base?status=approved&id=22');
+    expect(second.closest('li')).toHaveTextContent('— Not live yet');
+  });
+
+  it('no entries left to this viewer: says so, lists none', async () => {
+    listSplitCase = splitCase({ entries: [], via: null, splitAt: null });
+    renderAt('/knowledge-base?status=approved');
+    await waitFor(() => expect(getAllCalls.length).toBeGreaterThan(0));
+    search('KB-1562');
+    expect(
+      await screen.findByText(
+        '#KB-1562 was a merged case. It was split up. None of its entries are left that you can see.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /#KB-/ })).not.toBeInTheDocument();
+  });
+
+  it('control: a backend without splitCase shows no such hint', async () => {
+    listEntries = [entry({ id: 10, publicId: 'KB-134', title: 'Numbered entry' })];
+    renderAt('/knowledge-base');
+    await screen.findAllByText('Numbered entry');
+    expect(screen.queryByText(/was a merged case/)).not.toBeInTheDocument();
+  });
+
+  it('kbSplitCaseText: an unknown "via" is not guessed', () => {
+    expect(
+      kbSplitCaseText({ publicId: 'KB-9', caseId: 9, splitAt: null, via: 'robot', entries: [] })
+    ).toBe('#KB-9 was a merged case. It was split up. None of its entries are left that you can see.');
   });
 });

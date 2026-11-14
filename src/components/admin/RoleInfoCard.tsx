@@ -80,6 +80,7 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
         label: 'Review the knowledge base (approve, reject, edit)',
       },
       { permission: Permission.VIEW_AI_SETTINGS, label: 'View AI settings' },
+      { permission: Permission.MANAGE_AUTO_REPLY, label: 'Manage auto-reply and keyword rules' },
     ],
   },
   {

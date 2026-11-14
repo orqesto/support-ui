@@ -1,5 +1,6 @@
 import {
   useState,
+  useEffect,
   useCallback,
   useMemo,
   useRef,
@@ -19,6 +20,7 @@ import {
 } from '@/services/message.service';
 import { type FilterState, type SortingState } from '@/features/messages/stores/messagesStore';
 import { buildSharedFilters } from '../kanbanSharedFilters';
+import { loadColSort, saveColSort } from './kanbanColSort';
 import { COLUMNS, type ColumnAxis } from '../kanbanColumns';
 import {
   BOARD_MAX_PAGES,
@@ -70,9 +72,16 @@ export const useKanbanBoardData = (
 
   // Per-column sort — each column sorts independently (kanban no longer reads the
   // global store `sorting`, which the list view still owns). Falls back to
-  // newest-first for any column the user hasn't touched.
+  // newest-first for any column the user hasn't touched. Remembered for this user in this
+  // workspace, like the list view's sort (kanbanColSort.ts).
   const DEFAULT_COL_SORT: SortingState = { sortBy: 'time', sortOrder: 'desc' };
-  const [colSort, setColSort] = useState<Record<string, SortingState>>({});
+  const [colSort, setColSort] = useState<Record<string, SortingState>>(loadColSort);
+  const colSortLoaded = useRef(colSort);
+  useEffect(() => {
+    // Not on mount: the value just read needs no write.
+    if (colSort === colSortLoaded.current) return;
+    saveColSort(colSort);
+  }, [colSort]);
   const getColSort = useCallback(
     (colId: string): SortingState => colSort[colId] ?? DEFAULT_COL_SORT,
     // DEFAULT_COL_SORT is a stable literal; only colSort drives changes.

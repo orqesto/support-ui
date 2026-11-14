@@ -13,8 +13,15 @@ import { useDepartments } from '@/hooks/useDepartments';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { categoryService, TicketRef } from '@/features/tickets/shell';
-import { deriveWorkflowStatus, computeSlaInfo, type WorkflowStatus } from './inboxCardHelpers';
-import { getSpamCheck, parseSender } from '@/lib/messageHelpers';
+import {
+  deriveWorkflowStatus,
+  computeResolutionInfo,
+  computeSlaInfo,
+  type WorkflowStatus,
+} from './inboxCardHelpers';
+import { parseSender } from '@/lib/messageHelpers';
+import { isSpamThread } from '@/lib/spamVerdict';
+import { deriveThreadFlags } from './messageDetail/threadFlags';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import type { Category, ThreadStatus } from '@/types';
 import { Permission } from '@/types/roles';
@@ -28,6 +35,7 @@ import { AddToTicketDialog } from './AddToTicketDialog';
 import { MergePickerDialog } from './MergeThreads';
 import { useIsPhone } from './useIsPhone';
 import { useModalLayer } from '@/hooks/useModalLayer';
+import { useNow } from '@/hooks/useNow';
 import { MobileSenderCard } from './MobileSenderCard';
 import { useHeaderFocusReturn } from './useHeaderFocusReturn';
 import { asManualMerge, type MergeChange } from './useThreadMergeContext';
@@ -172,7 +180,7 @@ export function MessageDetailHeader({
     refetchWhenWritesSettle,
     beginLabelWrite,
     endLabelWrite,
-  } = useHeaderLabelState();
+  } = useHeaderLabelState(message.id);
   const [categories, setCategories] = useState<Category[]>([]);
   const [linkCopied, setLinkCopied] = useState(false);
   // "Link copied" reverts after 2 s — cleared on unmount, so it never fires into an unmounted header.
@@ -320,13 +328,9 @@ export function MessageDetailHeader({
 
   // ── Computed ──────────────────────────────────────────────────────────────
 
-  const spamCheck = getSpamCheck(message);
-  const isFiltered = message.status === 'filtered';
-  const isSuspicious =
-    !isFiltered &&
-    (message.metadata?.spamCheck as Record<string, unknown> | undefined)?.category === 'suspicious';
-  const isActive =
-    message.status !== 'resolved' && !isFiltered && !isSuspicious && message.status !== 'closed';
+  // One source of truth with the detail (threadFlags.ts): suspicious is the queue's answer (the
+  // newest inbound verdict), and a spam verdict outside triage makes the thread inactive here too.
+  const { isFiltered, isSuspicious, isActive } = deriveThreadFlags(message);
 
   useMoreMenuDismissal({
     moreOpen,
@@ -339,23 +343,49 @@ export function MessageDetailHeader({
   // The current work status is DERIVED (canonical), not the raw enum.
   const currentWorkflowStatus: WorkflowStatus = deriveWorkflowStatus(message) ?? 'open';
 
+  // The chips are clocks: one tick a minute keeps them moving while the thread stays on screen.
+  // The tick only triggers a recompute; each one reads the current time, so a message change
+  // between ticks is not judged at the last tick's (up to a minute old) time.
+  const tick = useNow(60_000);
+  const resolutionInfo = useMemo(
+    () => computeResolutionInfo(message),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recomputed on the fields it reads
+    [
+      tick,
+      message.slaResolutionMinutes,
+      message.slaResolutionStartedAt,
+      message.slaResponseMinutes,
+      message.status,
+      message.metadata,
+      message.isSpam,
+      message.spamConfirmedAt,
+      // slaClockRuns reads the newest mail's category (a junk one stops the clock).
+      message.latestSpamCategory,
+    ]
+  );
   const slaInfo = useMemo(
     () => computeSlaInfo(message),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recomputed on the fields it reads, not on every new `message` object
     [
+      tick,
       message.slaResponseMinutes,
       message.slaWaitStartedAt,
       message.firstResponseAt,
+      message.actualResponseSeconds,
       message.slaResponseBreached,
       message.createdAt,
       message.metadata,
       message.status,
       message.isSpam,
+      message.spamConfirmedAt,
+      // slaClockRuns reads the newest mail's category (a junk one stops the clock).
+      message.latestSpamCategory,
     ]
   );
 
   const inboxBadge = getInboxBadge(message, {
-    spamCheck,
+    // The newest inbound verdict, as the detail's flags and the action strip's Approve read it.
+    isSpam: isSpamThread(message),
     isFiltered,
     isSuspicious,
     aiReanalysisInFlight,
@@ -439,7 +469,10 @@ export function MessageDetailHeader({
     leadsHidden,
     togglingLead,
     handleToggleLead,
-    isActive,
+    // deriveThreadFlags counts a resolved thread as active (the detail lets it be replied to); the
+    // header's "Mark as suspicious" and "Not a lead — close" stay off a resolved thread (owner
+    // 2026-11-12).
+    isActive: isActive && message.status !== 'resolved',
     onClassify,
     onDelete,
     guard: guardAction,
@@ -552,6 +585,7 @@ export function MessageDetailHeader({
         setHoldOpen={setHoldOpen}
         handleSetStatus={handleSetStatus}
         slaInfo={slaInfo}
+        resolutionInfo={resolutionInfo}
         updatingPriority={updatingPriority}
         handleSetPriority={handleSetPriority}
         inboxBadge={inboxBadge}

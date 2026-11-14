@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createPortal } from 'react-dom';
+import { Button } from '@/components/ui/Button';
 import { DataTable } from '../DataTable';
 import type { ColumnDef } from '../dataTable.types';
 
@@ -62,7 +64,11 @@ describe('DataTable', () => {
         rows={rows}
         rowKey={(row) => row.id}
         columns={columns}
-        search={{ value: 'bob', onChange: () => {}, clientAccessor: (row) => [row.name, row.email] }}
+        search={{
+          value: 'bob',
+          onChange: () => {},
+          clientAccessor: (row) => [row.name, row.email],
+        }}
         pagination={{ mode: 'client', pageSize: 10 }}
       />
     );
@@ -225,5 +231,152 @@ describe('DataTable', () => {
     );
     fireEvent.blur(screen.getByRole('textbox'));
     expect(onBlur).toHaveBeenCalledOnce();
+  });
+});
+
+describe('DataTable sorting (opt-in per column)', () => {
+  type Scored = { id: number; name: string; score: number | null };
+  const scored: Scored[] = [
+    { id: 1, name: 'Bravo', score: 20 },
+    { id: 2, name: 'Alpha', score: null },
+    { id: 3, name: 'Charlie', score: 5 },
+  ];
+  const sortColumns: ColumnDef<Scored>[] = [
+    { id: 'name', header: 'Name', cell: (row) => row.name },
+    {
+      id: 'score',
+      header: 'Score',
+      cell: (row) => row.score ?? '—',
+      sortValue: (row) => row.score,
+    },
+  ];
+  const renderSorted = () =>
+    render(
+      <DataTable
+        rows={scored}
+        rowKey={(row) => row.id}
+        columns={sortColumns}
+        pagination={{ mode: 'client', pageSize: 10 }}
+      />
+    );
+  const order = () =>
+    screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => row.querySelector('td')?.textContent);
+
+  it('sorts ascending, then descending, then back to the original order (empty values last)', () => {
+    renderSorted();
+    expect(order()).toEqual(['Bravo', 'Alpha', 'Charlie']);
+    const button = screen.getByRole('button', { name: /Score/ });
+    fireEvent.click(button);
+    expect(order()).toEqual(['Charlie', 'Bravo', 'Alpha']);
+    fireEvent.click(button);
+    expect(order()).toEqual(['Bravo', 'Charlie', 'Alpha']);
+    fireEvent.click(button);
+    expect(order()).toEqual(['Bravo', 'Alpha', 'Charlie']);
+  });
+
+  it('aria-sort on the header follows the state', () => {
+    renderSorted();
+    const header = screen.getByRole('columnheader', { name: /Score/ });
+    expect(header).toHaveAttribute('aria-sort', 'none');
+    const button = screen.getByRole('button', { name: /Score/ });
+    fireEvent.click(button);
+    expect(header).toHaveAttribute('aria-sort', 'ascending');
+    fireEvent.click(button);
+    expect(header).toHaveAttribute('aria-sort', 'descending');
+    fireEvent.click(button);
+    expect(header).toHaveAttribute('aria-sort', 'none');
+  });
+
+  it('a column without sortValue has no sort button and no aria-sort', () => {
+    renderSorted();
+    expect(screen.queryByRole('button', { name: /Name/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Name' })).not.toHaveAttribute('aria-sort');
+  });
+
+  it('a table with no sortable column renders plain headers (existing users unchanged)', () => {
+    render(
+      <DataTable
+        rows={rows}
+        rowKey={(row) => row.id}
+        columns={columns}
+        pagination={{ mode: 'client', pageSize: 10 }}
+      />
+    );
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+  });
+
+  it('client mode sorts the whole list before slicing a page', () => {
+    render(
+      <DataTable
+        rows={scored}
+        rowKey={(row) => row.id}
+        columns={sortColumns}
+        pagination={{ mode: 'client', pageSize: 1 }}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Score/ }));
+    expect(order()).toEqual(['Charlie']);
+  });
+});
+
+describe('DataTable onRowClick (review 9)', () => {
+  const portalColumns: ColumnDef<Row>[] = [
+    { id: 'name', header: 'Name', cell: (row) => row.name },
+    {
+      id: 'menu',
+      header: 'Menu',
+      // A popover-like node rendered elsewhere in the DOM: its events still bubble through React.
+      cell: (row) => createPortal(<span>{`portal ${row.name}`}</span>, document.body),
+    },
+    {
+      id: 'act',
+      header: 'Act',
+      cell: (row) => <Button size="sm">{`act ${row.name}`}</Button>,
+    },
+  ];
+  const renderTable = () => {
+    const onRowClick = vi.fn();
+    render(
+      <DataTable
+        rows={rows.slice(0, 2)}
+        rowKey={(row) => row.id}
+        columns={portalColumns}
+        pagination={{ mode: 'client', pageSize: 2 }}
+        onRowClick={onRowClick}
+      />
+    );
+    return onRowClick;
+  };
+
+  it('a plain click on a cell opens the row', () => {
+    const onRowClick = renderTable();
+    fireEvent.click(screen.getByText('Alice'));
+    expect(onRowClick).toHaveBeenCalledWith(rows[0]);
+  });
+
+  it('a modified or non-primary click does not', () => {
+    const onRowClick = renderTable();
+    for (const modifier of ['metaKey', 'ctrlKey', 'shiftKey', 'altKey'])
+      fireEvent.click(screen.getByText('Alice'), { [modifier]: true });
+    fireEvent.click(screen.getByText('Alice'), { button: 1 });
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it('a click from a portal rendered by a cell does not', () => {
+    const onRowClick = renderTable();
+    fireEvent.click(screen.getByText('portal Alice'));
+    expect(onRowClick).not.toHaveBeenCalled();
+  });
+
+  it('a click on a control in the row, or one already handled, does not', () => {
+    const onRowClick = renderTable();
+    fireEvent.click(screen.getByRole('button', { name: 'act Alice' }));
+    const cell = screen.getByText('Bob');
+    cell.addEventListener('click', (event) => event.preventDefault());
+    fireEvent.click(cell);
+    expect(onRowClick).not.toHaveBeenCalled();
   });
 });

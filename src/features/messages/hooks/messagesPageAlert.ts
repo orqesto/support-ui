@@ -8,4 +8,12 @@ export type MessagesPageAlert = {
   variant: 'success' | 'error' | 'warning' | 'info';
 };
 
+/** No alert on screen: the dialog's starting state. */
+export const CLOSED_MESSAGES_PAGE_ALERT: MessagesPageAlert = {
+  open: false,
+  title: '',
+  description: '',
+  variant: 'info',
+};
+
 export type SetMessagesPageAlert = Dispatch<SetStateAction<MessagesPageAlert>>;

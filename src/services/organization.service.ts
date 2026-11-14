@@ -157,6 +157,26 @@ const readAutomaticReplySubjects = (
   return data.subjects.filter((subject): subject is string => typeof subject === 'string');
 };
 
+/** Bounds of one email-photo setting, as the backend enforces them. */
+export type VisionLimit = { default: number; min: number; max: number };
+
+/**
+ * Image analysis settings (`/api/organizations/vision-config`). The email-photo fields
+ * (support-service#1489) are absent on a backend from before them.
+ */
+export type VisionConfig = {
+  enabled: boolean;
+  provider?: string;
+  model?: string;
+  /** Email: read the photos customers send at all. Off unless an admin turns it on. */
+  emailPhotos?: boolean;
+  /** Email: most customer photos the AI reads per message (largest first). */
+  maxImagesPerMessage?: number;
+  /** Email: images smaller than this (KB) are not read — logos, icons, tracking pixels. */
+  minImageKb?: number;
+  limits?: { maxImagesPerMessage: VisionLimit; minImageKb: VisionLimit };
+};
+
 export const organizationService = {
   /**
    * Every workspace, walked page by page.
@@ -494,10 +514,10 @@ export const organizationService = {
     return response.data;
   },
 
-  getVisionConfig: async (): Promise<{ enabled: boolean; provider?: string; model?: string }> => {
-    const response = await apiClient.get<
-      ApiResponse<{ enabled: boolean; provider?: string; model?: string }>
-    >('/api/organizations/vision-config');
+  getVisionConfig: async (): Promise<VisionConfig> => {
+    const response = await apiClient.get<ApiResponse<VisionConfig>>(
+      '/api/organizations/vision-config'
+    );
     return response.data.data ?? { enabled: true };
   },
 
@@ -505,10 +525,15 @@ export const organizationService = {
     enabled?: boolean;
     provider?: string | null;
     model?: string | null;
+    emailPhotos?: boolean;
+    /** null = back to the default. */
+    maxImagesPerMessage?: number | null;
+    minImageKb?: number | null;
   }) => {
-    const response = await apiClient.patch<
-      ApiResponse<{ enabled: boolean; provider?: string; model?: string }>
-    >('/api/organizations/vision-config', data);
+    const response = await apiClient.patch<ApiResponse<VisionConfig>>(
+      '/api/organizations/vision-config',
+      data
+    );
     return response.data;
   },
 

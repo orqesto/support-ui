@@ -44,6 +44,12 @@ export interface LookupRequest {
    * order notification names the buyer only in its body, so the agent types them in.
    */
   lookupEmail?: string;
+  /**
+   * #920 (owner 2026-11-11): run only lookups with these HTTP methods — the Lookups tab's automatic
+   * run sends ['GET']; POST lookups wait for a press. A backend that predates it ignores the field
+   * and runs everything, so the panel sends it only when the options say the backend knows methods.
+   */
+  methods?: string[];
 }
 
 /** A run's results, plus the email the BACKEND confirms it ran as (null: the ticket's customer). */
@@ -96,10 +102,26 @@ const readSkippedBecause = (raw: unknown): CustomApiLookupResult['skippedBecause
   return reason ? { reason, sourceLabel: raw.sourceLabel } : undefined;
 };
 
+/**
+ * 2026-11-13: a chained card whose source found no account and that ran its fallback — the email
+ * it searched by and how many rows the backend hid because their email did not match. A malformed
+ * one (or an older backend's absence) is none: the card then says what it always said.
+ */
+const readFallback = (raw: unknown): CustomApiLookupResult['fallback'] => {
+  if (!isRecord(raw) || typeof raw.email !== 'string' || !raw.email.trim()) return undefined;
+  const dropped =
+    typeof raw.dropped === 'number' && Number.isInteger(raw.dropped) && raw.dropped > 0
+      ? raw.dropped
+      : 0;
+  // ⛔ Kept: every row read was hidden AND more were never read — "more not checked".
+  return { email: raw.email.trim(), dropped, ...(raw.more === true ? { more: true } : {}) };
+};
+
 const normalise = (row: CustomApiLookupResult): CustomApiLookupResult => {
   const searchedFor = readSearchedFor(row.searchedFor);
   const skippedBecause = readSkippedBecause(row.skippedBecause);
-  const { searchedFor: _searched, skippedBecause: _skipped, ...rest } = row;
+  const fallback = readFallback(row.fallback);
+  const { searchedFor: _searched, skippedBecause: _skipped, fallback: _fallback, ...rest } = row;
   return {
     ...rest,
     rows: row.rows ?? [],
@@ -110,6 +132,7 @@ const normalise = (row: CustomApiLookupResult): CustomApiLookupResult => {
     referenceLabel: typeof row.referenceLabel === 'string' ? row.referenceLabel : null,
     ...(searchedFor ? { searchedFor } : {}),
     ...(skippedBecause ? { skippedBecause } : {}),
+    ...(fallback ? { fallback } : {}),
   };
 };
 

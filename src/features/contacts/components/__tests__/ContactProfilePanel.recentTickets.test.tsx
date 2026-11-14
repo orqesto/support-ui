@@ -57,10 +57,16 @@ vi.mock('@/features/contacts/components/ContactProfileDetails', () => ({
 }));
 vi.mock('@/features/contacts/components/ContactProfileActivity', async (importOriginal) => ({
   ...(await importOriginal<object>()),
-  ContactProfileActivity: ({ activity }: { activity: Array<{ key: string; meta: string }> }) => (
+  ContactProfileActivity: ({
+    activity,
+  }: {
+    activity: Array<{ key: string; meta: string; at: string }>;
+  }) => (
     <ul>
       {activity.map((item) => (
-        <li key={item.key}>{item.meta}</li>
+        <li key={item.key} data-key={item.key} data-at={item.at}>
+          {item.meta}
+        </li>
       ))}
     </ul>
   ),
@@ -123,5 +129,52 @@ describe('ContactProfilePanel — recent tickets', () => {
     expect(screen.getByText('TES-SUP-T-4')).toBeInTheDocument();
     expect(screen.getByText('#22')).toBeInTheDocument();
     expect(screen.queryByText('#21')).toBeNull();
+  });
+});
+
+/**
+ * taco thread 234601: created 10-21, the customer wrote again 11-12. The feed must place it by
+ * when it was last active, not by when it began.
+ */
+describe('ContactProfilePanel — recent threads', () => {
+  const keysInOrder = (): Array<[string | null, string | null]> =>
+    Array.from(document.querySelectorAll('li[data-key]')).map((li) => [
+      li.getAttribute('data-key'),
+      li.getAttribute('data-at'),
+    ]);
+
+  it('places a thread by its last activity, above newer tickets', () => {
+    lookupsTab.mockReturnValue({ available: false, count: 0, label: 'Lookups' });
+    (CONTACT as { recentMessages: unknown[] }).recentMessages = [
+      {
+        id: 234601,
+        subject: 'Order',
+        status: 'client_replied',
+        channel: 'email',
+        createdAt: '2026-10-01T10:00:00Z',
+        lastActivityAt: '2026-11-12T08:00:00Z',
+      },
+    ];
+    render(drawer());
+    expect(keysInOrder()[0]).toEqual(['m234601', '2026-11-12T08:00:00Z']);
+  });
+
+  it('[control] falls back to creation time when the server sends no lastActivityAt', () => {
+    lookupsTab.mockReturnValue({ available: false, count: 0, label: 'Lookups' });
+    (CONTACT as { recentMessages: unknown[] }).recentMessages = [
+      {
+        id: 7,
+        subject: 'Old',
+        status: 'resolved',
+        channel: 'email',
+        createdAt: '2026-10-01T10:00:00Z',
+      },
+    ];
+    render(drawer());
+    expect(keysInOrder()).toEqual([
+      ['t21', '2026-10-20T10:00:00Z'],
+      ['t22', '2026-10-19T10:00:00Z'],
+      ['m7', '2026-10-01T10:00:00Z'],
+    ]);
   });
 });

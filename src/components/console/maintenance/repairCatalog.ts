@@ -66,6 +66,21 @@ export const REPAIRS: RepairEntry[] = [
     scope: 'workspace',
   },
   {
+    id: 'repair-kb-history-live-replies',
+    label:
+      'Move tickets to In progress where the customer answered on an old knowledge-base thread',
+    does: 'Threads first imported from a knowledge-base mailbox’s history kept that status after the customer wrote again, so their answer never moved the ticket out of Pending. Ends the knowledge-base status of threads holding a customer message newer than the mailbox’s knowledge-base date, and works out again who wrote last: where the customer did, the ticket moves to In progress. Threads we answered afterwards stay in Pending; history-only threads and what was mined into the knowledge base are left alone.',
+    path: 'repair-kb-history-live-replies',
+    scope: 'workspace',
+  },
+  {
+    id: 'repair-chat-customer-turn',
+    label: 'Move chat tickets to In progress where the customer wrote after our reply',
+    does: 'Telegram and WhatsApp tickets where the customer wrote again after our reply but the ticket still showed Pending: the ticket moves to In progress so the customer’s message gets an answer. Chats where we answered last, resolved or closed tickets, Slack and email threads are left alone. Up to 500 per run; if more remain, run it again.',
+    path: 'repair-chat-customer-turn',
+    scope: 'workspace',
+  },
+  {
     id: 'repair-held-and-merged-threads',
     label:
       'Put threads back to work where the customer wrote, and fix response times after a merge',

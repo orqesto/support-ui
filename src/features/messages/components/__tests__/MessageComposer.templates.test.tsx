@@ -100,17 +100,10 @@ beforeEach(() => {
 });
 
 describe('MessageComposer — reply templates', () => {
-  it('Insert field puts a placeholder in the reply, as the ticket reply box does', async () => {
+  it('offers no Insert field — merge fields are typed, or come with a template', () => {
     list.mockResolvedValue({ unavailable: false, templates: [] });
-    const user = userEvent.setup();
-    renderOpen(<Host messageId={1} initial="Hi " />);
-    await user.click(screen.getByRole('button', { name: /Insert field/ }));
-    // A thread may have no ticket: then {ticket_id} refuses the send, and the menu says so.
-    expect(
-      screen.getByText('Its ticket’s number — only when the thread is on a ticket')
-    ).toBeInTheDocument();
-    await user.click(await screen.findByText('{first_name}'));
-    await waitFor(() => expect(latest.composer).toBe('Hi {first_name}'));
+    renderOpen(<Host messageId={1} />);
+    expect(screen.queryByRole('button', { name: /Insert field/ })).not.toBeInTheDocument();
   });
 
   it('asks for the THREAD box’s templates', async () => {

@@ -155,6 +155,13 @@ export const messageListsApi = {
   getById: async (id: number | string, kind?: 'event') => {
     const query = kind ? `?kind=${kind}` : '';
     const response = await apiClient.get<ApiResponse<MessageDetail>>(`/api/messages/${id}${query}`);
+    const detail = response.data.data;
+    // Version skew: an older backend sends no `isSuspicious`, so anything but a boolean reads as
+    // absent and the header falls back to the conversation's own category (isSuspiciousThread).
+    const suspicious: unknown = (detail as { isSuspicious?: unknown } | undefined)?.isSuspicious;
+    if (detail && typeof suspicious !== 'boolean') {
+      return { ...response.data, data: { ...detail, isSuspicious: undefined } };
+    }
     return response.data;
   },
 

@@ -1,5 +1,6 @@
 import type React from 'react';
-import { Target } from 'lucide-react';
+import { BellRing, Target } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { HoldDialog } from '@/components/shared/HoldDialog';
@@ -7,6 +8,11 @@ import { getInitials } from '@/lib/initials';
 import { formatDay } from '@/lib/utils';
 import type { Message, TicketPriority, ThreadStatus } from '@/types';
 import type { computeSlaInfo, WorkflowStatus } from '../inboxCardHelpers';
+import {
+  isFloodReview,
+  NEEDS_REVIEW_REASON_DETAILS,
+  NEEDS_REVIEW_REASON_LABELS,
+} from '../aiFlagCopy';
 import {
   CHIP_SENTENCE,
   HEADER_PRIORITY_OPTIONS,
@@ -33,12 +39,34 @@ type HeaderChipRowProps = {
   setHoldOpen: (open: boolean) => void;
   handleSetStatus: (status: ThreadStatus, hold?: { reason: string; until: Date }) => Promise<void>;
   slaInfo: ReturnType<typeof computeSlaInfo>;
+  /** The resolution clock's chip (backend 0238); null when the thread has none. */
+  resolutionInfo?: ReturnType<typeof computeSlaInfo>;
   updatingPriority: boolean;
   handleSetPriority: (priority: TicketPriority) => Promise<void>;
   inboxBadge: InboxBadge | null;
   /** v4 Related: the ticket and merged chips, between priority and the inbox badge. */
   related: React.ReactNode;
 };
+
+type SlaClock = NonNullable<ReturnType<typeof computeSlaInfo>>;
+
+/** A running SLA clock: "<label> elapsed/target" and a bar — the reply clock and the Resolve clock. */
+function SlaClockChip({ label, info, testId }: { label: string; info: SlaClock; testId: string }) {
+  return (
+    <div className={`${CHIP_SENTENCE} ${PHONE_CHIP} ${info.colorClasses}`} data-testid={testId}>
+      <span>{label}</span>
+      <span className="tabular-nums">
+        {fmtMin(info.elapsed)}/{fmtMin(info.target)}
+      </span>
+      <div className="overflow-hidden w-10 h-1 rounded-full bg-muted">
+        <div
+          className={`h-full rounded-full transition-all ${info.barColor}`}
+          style={{ width: `${Math.min(100, (info.elapsed / info.target) * 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 /** Action chip row: the sender line, status, hold, SLA, priority, Related chips and badges. */
 export function HeaderChipRow({
@@ -57,6 +85,7 @@ export function HeaderChipRow({
   setHoldOpen,
   handleSetStatus,
   slaInfo,
+  resolutionInfo = null,
   updatingPriority,
   handleSetPriority,
   inboxBadge,
@@ -164,22 +193,9 @@ export function HeaderChipRow({
           </div>
         </Tooltip>
       )}
-      {slaInfo && !slaInfo.record && (
-        <div
-          className={`${CHIP_SENTENCE} ${PHONE_CHIP} ${slaInfo.colorClasses}`}
-          data-testid="sla-clock"
-        >
-          <span>SLA</span>
-          <span className="tabular-nums">
-            {fmtMin(slaInfo.elapsed)}/{fmtMin(slaInfo.target)}
-          </span>
-          <div className="overflow-hidden w-10 h-1 rounded-full bg-muted">
-            <div
-              className={`h-full rounded-full transition-all ${slaInfo.barColor}`}
-              style={{ width: `${Math.min(100, (slaInfo.elapsed / slaInfo.target) * 100)}%` }}
-            />
-          </div>
-        </div>
+      {slaInfo && !slaInfo.record && <SlaClockChip label="SLA" info={slaInfo} testId="sla-clock" />}
+      {resolutionInfo && (
+        <SlaClockChip label="Resolve" info={resolutionInfo} testId="sla-resolution-clock" />
       )}
       {message.priority && (
         <Select
@@ -201,6 +217,21 @@ export function HeaderChipRow({
           {inboxBadge.icon}
           {inboxBadge.label}
         </span>
+      )}
+      {/* A flood hold (owner 2026-11-13): the bot stopped answering this chat — say why here,
+          not only on the list's tooltip. Any other review reason, and an older backend that
+          never sends `flood`, show nothing new. */}
+      {isFloodReview(message) && (
+        <Tooltip content={NEEDS_REVIEW_REASON_DETAILS.flood} size="sm">
+          <Badge
+            variant="warning"
+            className={`inline-flex gap-1 items-center ${PHONE_CHIP}`}
+            data-testid="header-flood-review"
+          >
+            <BellRing className="w-2.5 h-2.5" />
+            {NEEDS_REVIEW_REASON_LABELS.flood}
+          </Badge>
+        </Tooltip>
       )}
       {message.isLead && (
         <span

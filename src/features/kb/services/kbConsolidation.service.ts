@@ -383,6 +383,70 @@ export const normalizeRunState = (raw: unknown): KbConsolidationRunState => {
   };
 };
 
+/** An entry an unmerge brought back (`restoredEntries`), named as the list names it. */
+export type KbRestoredEntry = { id: number; publicId: string | null; title: string };
+
+/** One original of a merged case, as `GET /consolidation/cases/:id/originals` lists it. */
+export type KbCaseOriginal = KbRestoredEntry & {
+  approved: boolean;
+  hidden: boolean;
+  /**
+   * Goes back live once the case is unmerged (approved, and not rejected / deleted / its source
+   * removed). ABSENT on a backend before it — then `approved` stands in.
+   */
+  live?: boolean;
+};
+
+export type KbCaseOriginals = {
+  caseId: number;
+  casePublicId: string | null;
+  originals: KbCaseOriginal[];
+};
+
+const asEntryRef = (value: unknown): KbRestoredEntry | null => {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  if (!positiveInt(raw.id)) return null;
+  return {
+    id: raw.id,
+    publicId: typeof raw.publicId === 'string' && raw.publicId ? raw.publicId : null,
+    title: typeof raw.title === 'string' ? raw.title : '',
+  };
+};
+
+/**
+ * `restoredEntries` of a Hide / Reject / Delete / Unmerge on a case row. ABSENT on a backend
+ * before it (or not a list) ⇒ null: the outcome then says only the count, as before.
+ */
+export const normaliseRestoredEntries = (value: unknown): KbRestoredEntry[] | null =>
+  Array.isArray(value)
+    ? value.map(asEntryRef).filter((ref): ref is KbRestoredEntry => ref !== null)
+    : null;
+
+/** A shape this app cannot read ⇒ null: the confirm text stays the generic one. */
+export const normaliseCaseOriginals = (value: unknown): KbCaseOriginals | null => {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Record<string, unknown>;
+  if (!Array.isArray(raw.originals)) return null;
+  const originals: KbCaseOriginal[] = [];
+  for (const item of raw.originals) {
+    const ref = asEntryRef(item);
+    if (!ref) continue;
+    const flags = item as Record<string, unknown>;
+    originals.push({
+      ...ref,
+      approved: flags.approved === true,
+      hidden: flags.hidden === true,
+      ...(typeof flags.live === 'boolean' ? { live: flags.live } : {}),
+    });
+  }
+  return {
+    caseId: positiveInt(raw.caseId) ? raw.caseId : 0,
+    casePublicId: asString(raw.casePublicId),
+    originals,
+  };
+};
+
 export const kbConsolidationService = {
   async getMembers(suggestionId: number): Promise<KbConsolidationDetail> {
     const response = await apiClient.get<{ success: boolean; data: KbConsolidationDetail }>(
@@ -406,12 +470,36 @@ export const kbConsolidationService = {
     await apiClient.post(`/api/learning/suggestions/${suggestionId}/decline`, {});
   },
 
-  async unmerge(caseId: number): Promise<{ caseId: number; restored: number }> {
+  async unmerge(caseId: number): Promise<{
+    caseId: number;
+    restored: number;
+    /** Null on a backend before `restoredEntries`. */
+    restoredEntries: KbRestoredEntry[] | null;
+  }> {
     const response = await apiClient.post<{
       success: boolean;
-      data: { caseId: number; restored: number };
+      data: { caseId: number; restored: number; restoredEntries?: unknown };
     }>(`/api/knowledge-base/consolidation/cases/${caseId}/unmerge`);
-    return response.data.data;
+    const data = response.data.data;
+    return { ...data, restoredEntries: normaliseRestoredEntries(data?.restoredEntries) };
+  },
+
+  /**
+   * The entries a merged case would give back if it were unmerged (hidden / rejected / deleted).
+   * Null when it cannot be told: a backend without the route, a case gone meanwhile (404), or
+   * one this viewer may not read (403). Any other failure throws.
+   */
+  async getCaseOriginals(caseId: number): Promise<KbCaseOriginals | null> {
+    try {
+      const response = await apiClient.get<{ success: boolean; data: unknown }>(
+        `/api/knowledge-base/consolidation/cases/${caseId}/originals`
+      );
+      return normaliseCaseOriginals(response.data?.data);
+    } catch (err) {
+      const status = getErrorStatus(err);
+      if (status === 404 || status === 403 || isRouteAbsent(err)) return null;
+      throw err;
+    }
   },
 
   /**

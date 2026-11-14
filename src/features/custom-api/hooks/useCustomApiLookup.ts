@@ -13,14 +13,23 @@ import {
   CONTACT_NOT_VISIBLE,
   CONVERSATION_NOT_VISIBLE,
 } from '@/features/custom-api/lib/customApiLookupText';
+import {
+  clearLookupCache,
+  inFlightLookup,
+  lookupCacheKey,
+  readLookupCache,
+  trackInFlightLookup,
+  writeLookupCache,
+} from '@/lib/lookupResultCache';
 
 /**
  * State for the custom-API lookup panel (CA-3).
  *
- * ⛔ THERE IS NO EFFECT HERE, AND THAT IS THE POINT. Every lookup is a press. N enabled endpoints
- * must not become N outbound calls to a client's vendor every time any agent opens any thread
- * (SC1) — and a hook that fetched on mount would break that from the UI side while the backend
- * stayed innocent.
+ * ⛔ THE HOOK NEVER FETCHES ON ITS OWN. N enabled endpoints must not become N outbound calls to a
+ * client's vendor every time any agent opens any thread (SC1). #920 (owner 2026-11-11) changed SC1
+ * for the thread's LOOKUPS TAB only: the panel there calls `runOrReuse` when the tab is shown (its
+ * mount), not when the thread opens — and a fresh cached result (lookupResultCache, 5 min) is reused
+ * without a call. The contact drawer and the records page stay press-only.
  *
  * `hasRun` distinguishes "nobody has asked yet" from "asked, and there is nothing" — the panel
  * must not show an empty state that reads like a failed lookup before anyone pressed anything.
@@ -151,10 +160,19 @@ export function useInvalidateCustomApiAvailability(): () => void {
   const queryClient = useQueryClient();
   return useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: [AVAILABILITY_KEY] });
+    // #920: results cached from before the change may show a lookup that is gone or changed.
+    clearLookupCache();
   }, [queryClient]);
 }
 
-export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' | 'contactId'>) {
+export function useCustomApiLookup(
+  target: Pick<LookupRequest, 'conversationId' | 'contactId'> & {
+    /** The customer email the panel names: part of the cache key, so a re-linked thread misses. */
+    customerEmail?: string;
+    /** The lookups' config version (lookupConfigVersionOf): a changed lookup misses the cache. */
+    configVersion?: string;
+  }
+) {
   const [results, setResults] = useState<CustomApiLookupResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasRun, setHasRun] = useState(false);
@@ -165,6 +183,17 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
   const [lookedUpAs, setLookedUpAs] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { conversationId, contactId } = target;
+  const orgId = useAuthStore(
+    (state) => state.selectedOrganizationId ?? state.user?.organizationId ?? null
+  );
+  const userId = useAuthStore((state) => state.user?.id ?? null);
+  // The lookup cache (#920): the THREAD surface only, per workspace + user + thread + customer.
+  const cacheKey = lookupCacheKey(
+    orgId,
+    userId,
+    conversationId,
+    `${target.customerEmail ?? ''}#${target.configVersion ?? ''}`
+  );
   /**
    * ⛔ A PRESS ANSWERS FOR THE CUSTOMER IT WAS MADE ON, OR NOT AT ALL. The reset below clears the
    * panel when the agent moves on, but a `run()` already in flight used to land AFTER that reset —
@@ -200,9 +229,18 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
     async (
       manual?: { endpointId: number; parameter: string },
       /** Run as this typed email instead of the ticket's customer; omitted = the customer. */
-      lookupEmail?: string
+      lookupEmail?: string,
+      /** #920: only these HTTP methods (the tab's automatic run sends ['GET']). */
+      methods?: string[]
     ) => {
+      // ⛔ THE LATEST RUN WINS (review of #920): a run still answering — the tab's automatic one, or
+      // an earlier press — is superseded, so it cannot replace a typed-email run's cards or clear
+      // its spinner. The generation also moves when the customer changes (the effect above).
+      generation.current += 1;
       const pressedFor = generation.current;
+      // Joining a run still answering is only for the SAME run: a press (every method) never joins
+      // the tab's GET-only run, or the POST lookups would never run despite the press (8b review).
+      const inFlightKey = cacheKey ? `${cacheKey}|${methods ? methods.join(',') : 'ALL'}` : null;
       const isStale = () => generation.current !== pressedFor;
       setLoading(true);
       setError(null);
@@ -217,7 +255,20 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
               lookupEmail,
             })
           : {
-              results: await customApiLookupService.run({ conversationId, contactId, ...manual }),
+              // A run for the CUSTOMER (full, not one endpoint) is shared while it answers: the tab
+              // reopened meanwhile (or a development double-mount) joins it rather than calling the
+              // vendor again. "Look up again" is disabled while one answers, so a press always calls.
+              results: await (manual
+                ? customApiLookupService.run({ conversationId, contactId, ...manual })
+                : (inFlightLookup<CustomApiLookupResult>(inFlightKey) ??
+                  trackInFlightLookup(
+                    inFlightKey,
+                    customApiLookupService.run({
+                      conversationId,
+                      contactId,
+                      ...(methods ? { methods } : {}),
+                    })
+                  ))),
               lookedUpAs: null,
             };
         if (isStale()) return;
@@ -236,13 +287,27 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
         const data = response.results;
         // A manual re-run answers for ONE endpoint; merge it over the existing cards rather than
         // replacing them, or looking up an order number would blank every other integration.
-        setResults((previous) =>
-          manual
-            ? previous.map((card) => data.find((row) => row.endpointId === card.endpointId) ?? card)
-            : data
-        );
+        const now = new Date().toISOString();
+        // Kept for the tab's next opening (#920) — only what was looked up FOR THE CUSTOMER (a run as
+        // a typed email is about someone else), and never with a failed lookup in it.
+        const cacheable = (cards: CustomApiLookupResult[]) =>
+          !lookupEmail && !response.lookedUpAs && !cards.some((card) => card.status === 'failed');
+        // ⛔ A FULL run is cached HERE, not in the state update: if the agent left the tab before a
+        // slow vendor answered, React drops that update — and the next opening would call again
+        // (8b review F1). A merged one-lookup re-run needs the cards on screen, so it is cached in
+        // the update (it can only happen while the panel is open).
+        if (!manual && cacheable(data))
+          writeLookupCache(cacheKey, data, now, Date.now(), Boolean(methods));
+        setResults((previous) => {
+          if (!manual) return data;
+          const next = previous.map(
+            (card) => data.find((row) => row.endpointId === card.endpointId) ?? card
+          );
+          if (cacheable(next)) writeLookupCache(cacheKey, next, now);
+          return next;
+        });
         setHasRun(true);
-        setRanAt(new Date().toISOString());
+        setRanAt(now);
         // The press is the freshest evidence there is. A full run that found NOTHING to run means
         // the cached "available" is stale (an admin disabled the last lookup since): refetch it so
         // the panel stands down, rather than keep offering a button that does nothing.
@@ -272,8 +337,31 @@ export function useCustomApiLookup(target: Pick<LookupRequest, 'conversationId' 
         if (!isStale()) setLoading(false);
       }
     },
-    [conversationId, contactId, queryClient]
+    [conversationId, contactId, queryClient, cacheKey]
   );
 
-  return { results, loading, hasRun, ranAt, error, run, lookedUpAs };
+  /**
+   * The Lookups tab's automatic run (#920): show this thread's results from the last five minutes if
+   * there are any — no vendor call — otherwise run for the customer. "Look up again" is `run`.
+   */
+  const runOrReuse = useCallback(
+    async (methods?: string[]) => {
+      const cached = readLookupCache<CustomApiLookupResult>(cacheKey);
+      if (cached) {
+        generation.current += 1;
+        setResults(cached.results);
+        setHasRun(true);
+        setRanAt(cached.ranAt);
+        setError(null);
+        setLookedUpAs(null);
+        setLoading(false);
+        return;
+      }
+      // No fresh result: run — which joins a run still answering for this customer, if any.
+      await run(undefined, undefined, methods);
+    },
+    [cacheKey, run]
+  );
+
+  return { results, loading, hasRun, ranAt, error, run, runOrReuse, lookedUpAs };
 }

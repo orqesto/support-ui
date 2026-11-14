@@ -11,6 +11,7 @@ import type { ReactNode } from 'react';
 const puts: { url: string; body: unknown }[] = [];
 let putFails: Error | null = null;
 const toastFailure = vi.fn<(scope: string, error: unknown) => void>();
+const toastSuccess = vi.fn<(message: string) => void>();
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
     put: (url: string, body: unknown) => {
@@ -23,13 +24,16 @@ vi.mock('@/lib/api-client', () => ({
 vi.mock('@/lib/toast', () => ({
   toast: {
     failure: (scope: string, error: unknown) => toastFailure(scope, error),
-    success: () => undefined,
+    success: (message: string) => toastSuccess(message),
   },
 }));
 
-const { AiDraftsCard, AI_DRAFTS_NOT_DEPLOYED, DRAFT_PIPELINE_NOT_DEPLOYED } = await import(
-  '../AiDraftsCard'
-);
+const {
+  AiDraftsCard,
+  AI_DRAFTS_NOT_DEPLOYED,
+  DRAFT_PIPELINE_NOT_DEPLOYED,
+  AGENT_NOTE_FACTS_NOT_DEPLOYED,
+} = await import('../AiDraftsCard');
 const { chooseOption } = await import('@/test/chooseOption');
 const { normalizeDrafts } = await import('@/services/platformSettings.service');
 
@@ -68,6 +72,7 @@ beforeEach(() => {
   puts.length = 0;
   putFails = null;
   toastFailure.mockReset();
+  toastSuccess.mockReset();
 });
 afterEach(cleanup);
 
@@ -283,5 +288,155 @@ describe('normalizeDrafts — draftPipeline', () => {
       normalizeDrafts({ ...SETTING, draftPipeline: { value: 'single', source: 'db' } })
         ?.draftPipeline?.options
     ).toEqual(['single', 'legacy']);
+  });
+});
+
+describe('AiDraftsCard — fact-check thresholds (ai.agent_note_facts)', () => {
+  const FACTS = {
+    minDigits: { value: 3, source: 'default' as const, min: 2, max: 6 },
+    minJoinedLength: { value: 6, source: 'default' as const, min: 4, max: 12 },
+    maxRequiredFactsChars: { value: 600, source: 'db' as const, min: 200, max: 1000 },
+  };
+  const WITH_FACTS = { ...WITH_PIPELINE, agentNoteFacts: FACTS };
+  const digits = () => screen.getByLabelText(/Digits that make a fact/);
+  const joined = () => screen.getByLabelText(/Length to accept re-spacing/);
+  const saveFacts = () => screen.getByRole('button', { name: 'Save fact check' });
+
+  it('shows the three thresholds in effect', () => {
+    wrap(<AiDraftsCard drafts={WITH_FACTS} />);
+    expect(digits()).toHaveValue(3);
+    expect(joined()).toHaveValue(6);
+    expect(screen.getByLabelText(/Left-out list size/)).toHaveValue(600);
+    expect(saveFacts()).toBeInactive();
+  });
+
+  it('saves only the threshold that changed, under agentNoteFacts', async () => {
+    wrap(<AiDraftsCard drafts={WITH_FACTS} />);
+    fireEvent.change(digits(), { target: { value: '4' } });
+    fireEvent.click(saveFacts());
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toEqual({
+      url: '/api/admin/platform/settings/drafts',
+      body: { agentNoteFacts: { minDigits: 4 } },
+    });
+  });
+
+  it('a value outside the bounds, a fraction or blank is blocked with the bounds said', () => {
+    wrap(<AiDraftsCard drafts={WITH_FACTS} />);
+    for (const value of ['1', '7', '3.5', '']) {
+      fireEvent.change(digits(), { target: { value } });
+      expect(screen.getByText('Enter a whole number from 2 to 6.')).toBeInTheDocument();
+      expect(saveFacts()).toBeInactive();
+    }
+    // CONTROL: a bound itself is allowed.
+    fireEvent.change(digits(), { target: { value: '6' } });
+    expect(saveFacts()).not.toBeInactive();
+  });
+
+  it('CONTROL — the main Save never sends a threshold edited but not saved', async () => {
+    wrap(<AiDraftsCard drafts={WITH_FACTS} />);
+    fireEvent.change(digits(), { target: { value: '4' } });
+    fireEvent.change(similarity(), { target: { value: '0.9' } });
+    fireEvent.click(save());
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].body).toEqual({ kbOnlyDraftMinSimilarity: 0.9 });
+  });
+
+  it('a successful save says so (it changes every workspace)', async () => {
+    wrap(<AiDraftsCard drafts={WITH_FACTS} />);
+    fireEvent.change(digits(), { target: { value: '4' } });
+    fireEvent.click(saveFacts());
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(1));
+    expect(toastSuccess.mock.calls[0][0]).toMatch(/Fact check saved/);
+  });
+
+  it('an edit typed while another field saved survives the refetch (review of #926)', () => {
+    const view = wrap(<AiDraftsCard drafts={WITH_FACTS} />);
+    fireEvent.change(digits(), { target: { value: '4' } });
+    const listSize = screen.getByLabelText(/Left-out list size/);
+    fireEvent.change(listSize, { target: { value: '800' } });
+    // The refetch after saving minDigits brings 4 back as the saved value.
+    const refetched = {
+      ...WITH_FACTS,
+      agentNoteFacts: {
+        ...FACTS,
+        minDigits: { ...FACTS.minDigits, value: 4, source: 'db' as const },
+      },
+    };
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <AiDraftsCard drafts={refetched} />
+      </QueryClientProvider>
+    );
+    expect(digits()).toHaveValue(4);
+    expect(screen.getByLabelText(/Left-out list size/)).toHaveValue(800);
+    expect(saveFacts()).not.toBeInactive();
+  });
+
+  it('CONTROL: a field NOT edited takes the new saved value on refetch', () => {
+    const view = wrap(<AiDraftsCard drafts={WITH_FACTS} />);
+    const refetched = {
+      ...WITH_FACTS,
+      agentNoteFacts: { ...FACTS, minJoinedLength: { ...FACTS.minJoinedLength, value: 9 } },
+    };
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <AiDraftsCard drafts={refetched} />
+      </QueryClientProvider>
+    );
+    expect(joined()).toHaveValue(9);
+  });
+
+  it("a saved value outside today's bounds does not block saving another field", async () => {
+    const narrowed = {
+      ...WITH_FACTS,
+      agentNoteFacts: {
+        ...FACTS,
+        minJoinedLength: { value: 4, source: 'db' as const, min: 5, max: 12 },
+      },
+    };
+    wrap(<AiDraftsCard drafts={narrowed} />);
+    fireEvent.change(digits(), { target: { value: '4' } });
+    fireEvent.click(saveFacts());
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].body).toEqual({ agentNoteFacts: { minDigits: 4 } });
+  });
+
+  it('no block (older backend): no inputs, says it arrives with the next release', () => {
+    wrap(<AiDraftsCard drafts={WITH_PIPELINE} />);
+    expect(screen.getByText(AGENT_NOTE_FACTS_NOT_DEPLOYED)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save fact check' })).toBeNull();
+  });
+});
+
+describe('normalizeDrafts — agentNoteFacts', () => {
+  const RAW = {
+    kbOnlyDraftMinSimilarity: { value: 0.85, source: 'default', min: 0.7, max: 0.99 },
+    suggestionPipelineTimeoutMs: { value: 60_000, source: 'default', min: 30_000, max: 180_000 },
+  };
+  const FACTS_RAW = {
+    minDigits: { value: 3, source: 'default', min: 2, max: 6 },
+    minJoinedLength: { value: 6, source: 'default', min: 4, max: 12 },
+    maxRequiredFactsChars: { value: 600, source: 'db', min: 200, max: 1000 },
+  };
+
+  it('keeps the block when all three thresholds are well-formed', () => {
+    expect(normalizeDrafts({ ...RAW, agentNoteFacts: FACTS_RAW })?.agentNoteFacts).toEqual(
+      FACTS_RAW
+    );
+  });
+
+  it('a missing or malformed threshold drops the block, never the rest of the card', () => {
+    const { minJoinedLength: _dropped, ...twoOnly } = FACTS_RAW;
+    for (const agentNoteFacts of [
+      undefined,
+      'x',
+      twoOnly,
+      { ...FACTS_RAW, minDigits: { value: 3 } },
+    ]) {
+      const drafts = normalizeDrafts({ ...RAW, agentNoteFacts });
+      expect(drafts?.agentNoteFacts).toBeUndefined();
+      expect(drafts?.kbOnlyDraftMinSimilarity.value).toBe(0.85);
+    }
   });
 });

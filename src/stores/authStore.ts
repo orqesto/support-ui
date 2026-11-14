@@ -2,10 +2,13 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { forceDisconnect } from '@/lib/socketManager';
 import { similarResultsCache } from '@/lib/similarResultsCache';
+import { clearLookupCache } from '@/lib/lookupResultCache';
 import type { User } from '@/types';
 import { logoutClearsProcessingPanels } from '@/stores/processingPanelStore';
 import { forgetRememberedSearches } from '@/lib/searchMemory';
 import { clearAllUnsentDrafts } from '@/lib/unsentDrafts';
+import { forgetAllOpenTabs } from '@/lib/openTabsStorage';
+import { clearSessionCaches } from '@/lib/sessionCaches';
 import { pinTabWorkspace, readTabWorkspace, writeTabWorkspace } from '@/lib/tabWorkspace';
 
 type AuthState = {
@@ -21,7 +24,7 @@ type AuthState = {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
       isAuthenticated: false,
@@ -43,8 +46,14 @@ export const useAuthStore = create<AuthState>()(
         forgetRememberedSearches();
         // Unsent editor text kept in this browser is the previous person's words.
         clearAllUnsentDrafts();
+        // The open-tabs row names the previous person's threads and tickets.
+        forgetAllOpenTabs();
+        // What the thread and ticket panes last read (seededState, thumbnails).
+        clearSessionCaches();
         forceDisconnect();
         similarResultsCache.clear();
+        // A customer's connected-system records (the Lookups tab's 5-minute cache, #920).
+        clearLookupCache();
         set({
           token: null,
           user: null,
@@ -54,6 +63,8 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setSelectedOrganization: (organizationId: number) => {
+        // Another workspace's threads and tickets must not be drawn from this one's last reads.
+        if (get().selectedOrganizationId !== organizationId) clearSessionCaches();
         set({ selectedOrganizationId: organizationId });
       },
 

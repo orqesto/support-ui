@@ -50,6 +50,35 @@ export const unmergeConsequence = (restoreCount?: number | null): string =>
     ? `This restores ${restoreCount} original ${restoreCount === 1 ? 'entry' : 'entries'}`
     : 'This restores its original entries';
 
+/** At most this many entries are named in a confirm or outcome; the rest are counted. */
+export const MAX_NAMED_ENTRIES = 10;
+
+/** "#KB-12 Refund window" — a title cut to one line's worth. */
+export const namedEntry = (entry: { id: number; publicId: string | null; title: string }): string => {
+  const title = entry.title.trim();
+  const short = title.length > 70 ? `${title.slice(0, 69).trimEnd()}…` : title;
+  return short ? `${kbRef(entry.publicId, entry.id)} ${short}` : kbRef(entry.publicId, entry.id);
+};
+
+/**
+ * What a case action says it brought back, entry by entry (`restoredEntries`), one per line;
+ * null when the backend named none — the caller then says the count only.
+ */
+export const restoredEntriesText = (
+  entries: { id: number; publicId: string | null; title: string }[] | null | undefined
+): string | null => {
+  // None named: the count says it (0 ⇒ "none were left"), never a list that claims nothing came back.
+  if (!entries?.length) return null;
+  const named = entries.slice(0, MAX_NAMED_ENTRIES).map(namedEntry);
+  const more = entries.length - named.length;
+  return [
+    `${entries.length} original ${entries.length === 1 ? 'entry is' : 'entries are'} back in the knowledge base:`,
+    ...named,
+    ...(more > 0 ? [`and ${more} more`] : []),
+    'Search a number to open it.',
+  ].join('\n');
+};
+
 /**
  * Approve / Reject / Hide / Unhide / Edit act on an entry the AI serves or may serve.
  * Not offered on a merged original (the server refuses, 409) nor on a source-removed entry

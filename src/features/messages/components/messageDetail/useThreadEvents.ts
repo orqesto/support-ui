@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { messageService } from '@/services/message.service';
 import { isOutgoingEvent } from '@/lib/messageHelpers';
 import { logger } from '@/lib/logger';
+import { useSeededState } from '@/lib/seededState';
 import { normaliseThreadPage, type ThreadPage } from '@/services/threadPage';
 import type { Message, MessageEvent } from '@/types';
 import {
@@ -22,12 +23,22 @@ export function useThreadEvents(
   onRefresh: MessageDetailProps['onRefresh'],
   onStatusChanged: MessageDetailProps['onStatusChanged']
 ) {
-  const [threadMessages, setThreadMessages] = useState<MessageEvent[]>([]);
+  /*
+    The events, their window and whom they are for start from the last read of this thread
+    (seededState): back on a tab seen a moment ago the thread is drawn at once, with no spinner,
+    while the read below refreshes it.
+  */
+  const [threadMessages, setThreadMessages, threadSeeded] = useSeededState<MessageEvent[]>(
+    ['thread', message.id, 'events'],
+    []
+  );
   /**
     The conversation `threadMessages` were loaded FOR (null: nothing loaded yet). Lags `message.id`
     after a switch until the new events land — the send guard must not use the old thread's.
   */
-  const [threadEventsFor, setThreadEventsFor] = useState<number | null>(null);
+  const [threadEventsFor, setThreadEventsFor] = useState<number | null>(
+    threadSeeded ? message.id : null
+  );
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadError, setThreadError] = useState<string | null>(null);
   const [threadRefreshKey, setThreadRefreshKey] = useState(0);
@@ -39,9 +50,12 @@ export function useThreadEvents(
 
   // What the thread endpoint left out (threadPage.ts). A refresh re-reads as many events as are
   // on screen, so a window the agent expanded is not folded back by a new message arriving.
-  const [threadPage, setThreadPage] = useState<ThreadPage | null>(null);
+  const [threadPage, setThreadPage] = useSeededState<ThreadPage | null>(
+    ['thread', message.id, 'page'],
+    null
+  );
   const [loadingEarlier, setLoadingEarlier] = useState(false);
-  const threadSize = useRef({ id: message.id, loaded: 0 });
+  const threadSize = useRef({ id: message.id, loaded: threadMessages.length });
   const messageIdRef = useRef(message.id);
   messageIdRef.current = message.id;
 
@@ -74,7 +88,7 @@ export function useThreadEvents(
     return () => {
       cancelled = true;
     };
-  }, [message.id, threadRefreshKey]);
+  }, [message.id, threadRefreshKey, setThreadMessages, setThreadPage]);
 
   /** The page of events before the earliest one on screen, prepended. */
   const loadEarlier = useCallback(() => {
@@ -104,7 +118,7 @@ export function useThreadEvents(
       .finally(() => {
         if (messageIdRef.current === forId) setLoadingEarlier(false);
       });
-  }, [message.id, threadPage, loadingEarlier]);
+  }, [message.id, threadPage, loadingEarlier, setThreadMessages, setThreadPage]);
 
   // Bumped by a live message's incremental read (see useThreadMessageRefresh below). Each panel
   // keys on threadRefreshKey (a full refresh) PLUS its own bump.
@@ -202,7 +216,7 @@ export function useThreadEvents(
           setThreadRefreshKey((key) => key + 1);
         });
     },
-    [message.id, message.channel]
+    [message.id, message.channel, setThreadMessages, setThreadPage]
   );
   const pullNewEventsRef = useRef(pullNewEvents);
   pullNewEventsRef.current = pullNewEvents;

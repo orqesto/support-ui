@@ -57,6 +57,7 @@ export { useConversationNewRefresh } from './hooks/useConversationNewRefresh';
 export { useDropTeamFilterWhenTeamsOff } from './hooks/useDropTeamFilterWhenTeamsOff';
 export { useIsPhone, useSafeMediaQuery } from './hooks/useIsPhone';
 export { useMessagesData } from './hooks/useMessagesData';
+export { useThreadTabs, useThreadsPageTabs } from './hooks/useThreadTabs';
 export { useMessagesUrlSync } from './hooks/useMessagesUrlSync';
 export { useNewThreadsBar } from './hooks/useNewThreadsBar';
 export { usePhoneOpensMessageAsPage } from './hooks/usePhoneOpensMessageAsPage';
@@ -94,6 +95,7 @@ export { useBoardAndBulkState } from './hooks/useBoardAndBulkState';
 export { useServerEventRouting } from './hooks/useServerEventRouting';
 export { detailPanelProps } from './components/messagesPage/detailPanelProps';
 export type { MessagesPageAlert } from './hooks/messagesPageAlert';
+export { CLOSED_MESSAGES_PAGE_ALERT } from './hooks/messagesPageAlert';
 export {
   useConversationUpdateEvents,
   useTicketRoutingStatusEvents,

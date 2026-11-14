@@ -393,3 +393,85 @@ describe('IngestionCard — automatic replies age limit', () => {
     ).toBeUndefined();
   });
 });
+
+const TURN_LIMITS = {
+  telegramBotRenewQuietHours: { value: 168, source: 'default' as const, min: 1, max: 720 },
+  telegramFloodWaitingLimit: { value: 10, source: 'default' as const, min: 2, max: 100 },
+  telegramTurnHangSeconds: { value: 90, source: 'db' as const, min: 60, max: 600 },
+};
+const quietHours = () => screen.getByLabelText('Telegram bot wakes after quiet (hours)');
+const floodLimit = () =>
+  screen.getByLabelText('Telegram flood limit (messages waiting in one chat)');
+const hangLimit = () => screen.getByLabelText('Telegram hang limit (seconds)');
+
+describe('IngestionCard — Telegram quiet hours, flood and hang limits', () => {
+  it('shows the three Telegram values under Automatic replies, with their source', () => {
+    wrap(<IngestionCard ingestion={TURN_LIMITS} />);
+    expect(screen.getByRole('heading', { name: 'Automatic replies' })).toBeTruthy();
+    expect(quietHours()).toHaveValue(168);
+    expect(floodLimit()).toHaveValue(10);
+    expect(hangLimit()).toHaveValue(90);
+    expect(screen.getAllByText('Default')).toHaveLength(2);
+    expect(screen.getAllByText('Console')).toHaveLength(1);
+    expect(save()).toBeInactive();
+  });
+
+  it.each([
+    ['quiet hours', quietHours, '24', { telegramBotRenewQuietHours: 24 }],
+    ['flood limit', floodLimit, '25', { telegramFloodWaitingLimit: 25 }],
+    ['hang limit', hangLimit, '120', { telegramTurnHangSeconds: 120 }],
+  ])('changing only the %s sends only that field', async (_name, input, value, body) => {
+    wrap(<IngestionCard ingestion={TURN_LIMITS} />);
+    fireEvent.change(input(), { target: { value } });
+    fireEvent.click(save());
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toEqual({ url: '/api/admin/platform/settings/ingestion', body });
+  });
+
+  it('flood and hang changed together are sent together', async () => {
+    wrap(<IngestionCard ingestion={TURN_LIMITS} />);
+    fireEvent.change(floodLimit(), { target: { value: '2' } });
+    fireEvent.change(hangLimit(), { target: { value: '600' } });
+    fireEvent.click(save());
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].body).toEqual({ telegramFloodWaitingLimit: 2, telegramTurnHangSeconds: 600 });
+  });
+
+  it('outside their bounds, a fraction or blank: the bounds are said and nothing is sent', () => {
+    wrap(<IngestionCard ingestion={TURN_LIMITS} />);
+    for (const bad of ['1', '101', '2.5', '']) {
+      fireEvent.change(floodLimit(), { target: { value: bad } });
+      expect(screen.getByText('Enter a whole number from 2 to 100.')).toBeInTheDocument();
+      expect(save()).toBeInactive();
+    }
+    fireEvent.change(floodLimit(), { target: { value: '10' } });
+    for (const bad of ['59', '601', '45.5', '']) {
+      fireEvent.change(hangLimit(), { target: { value: bad } });
+      expect(screen.getByText('Enter a whole number from 60 to 600.')).toBeInTheDocument();
+      expect(save()).toBeInactive();
+    }
+    // CONTROL: the edges are allowed.
+    fireEvent.change(hangLimit(), { target: { value: '60' } });
+    expect(screen.queryByText(/Enter a whole number/)).toBeNull();
+    expect(save()).not.toBeInactive();
+    expect(puts).toHaveLength(0);
+  });
+
+  it('a backend with quiet hours but without the new limits: only quiet hours is offered', () => {
+    wrap(
+      <IngestionCard
+        ingestion={{ telegramBotRenewQuietHours: TURN_LIMITS.telegramBotRenewQuietHours }}
+      />
+    );
+    expect(quietHours()).toHaveValue(168);
+    expect(screen.queryByLabelText(/Telegram flood limit/)).toBeNull();
+    expect(screen.queryByLabelText(/Telegram hang limit/)).toBeNull();
+  });
+
+  it('normalizeIngestion keeps both new fields and drops a bare number', () => {
+    expect(normalizeIngestion(TURN_LIMITS)).toEqual(TURN_LIMITS);
+    expect(
+      normalizeIngestion({ ...TURN_LIMITS, telegramTurnHangSeconds: 90 })?.telegramTurnHangSeconds
+    ).toBeUndefined();
+  });
+});

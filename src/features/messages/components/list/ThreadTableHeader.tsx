@@ -2,13 +2,16 @@ import { useMemo } from 'react';
 import { X } from 'lucide-react';
 import { ColumnMenu } from '@/components/shared/ColumnMenu';
 import { MenuItem, MenuLabel, MenuSeparator } from '@/components/ui/Menu';
-import { buildFilterDefs, type FilterDef } from '@/features/messages/components/filters/filterSchema';
+import {
+  buildFilterDefs,
+  type FilterDef,
+} from '@/features/messages/components/filters/filterSchema';
 import { useFilterOptions } from '@/features/messages/components/filters/useFilterOptions';
 import { presetToSorting, sortingToPreset } from '@/features/messages/components/sortPresets';
 import { COLUMNS } from '@/features/messages/components/kanbanColumns';
 import { useLeadsHidden } from '@/features/messages/hooks/useLeadsHidden';
 import type { FilterState, SortingState } from '@/features/messages/stores/messagesStore';
-import { THREAD_TABLE_GRID } from './threadTableParts';
+import { fitClass, threadTableGrid, type TableFit } from './threadTableParts';
 import { TRIAGE_IDS } from './ThreadViews';
 
 type Sort = [preset: string, label: string];
@@ -76,7 +79,11 @@ const valueOf = (filters: FilterState, key: string): string | undefined => {
 };
 
 /** What picking `value` in `key` writes — the same exclusivity the token bar applies. */
-export const pickPatch = (filters: FilterState, def: FilterDef, value: string): Partial<FilterState> => {
+export const pickPatch = (
+  filters: FilterState,
+  def: FilterDef,
+  value: string
+): Partial<FilterState> => {
   const current = valueOf(filters, def.key);
   if (def.key === 'received') {
     return {
@@ -104,11 +111,14 @@ export const ThreadTableHeader = ({
   sorting,
   onFilterPatch,
   onSort,
+  fit,
 }: {
   filters: FilterState;
   sorting: SortingState;
   onFilterPatch: (patch: Partial<FilterState>) => void;
   onSort: (sorting: SortingState) => void;
+  /** The rows' fit in a measured column (the split pane); unset: the window breakpoints. */
+  fit?: TableFit;
 }) => {
   const dynamic = useFilterOptions();
   const leadsHidden = useLeadsHidden();
@@ -242,14 +252,14 @@ export const ThreadTableHeader = ({
 
   return (
     <div
-      className={`hidden md:grid items-center gap-x-3.5 h-8 pl-4 pr-11 border-b border-hair ${THREAD_TABLE_GRID}`}
+      className={`${fitClass(fit, 'md:grid')} items-center gap-x-3.5 h-8 pl-4 pr-11 border-b border-hair ${threadTableGrid(fit)}`}
     >
       {menu('pri', 'flex')}
       {menu('from', 'flex')}
       <span className="font-display text-[10.5px] font-semibold tracking-wider uppercase text-muted-foreground">
         Subject
       </span>
-      {menu('sig', 'hidden xl:flex')}
+      {menu('sig', fitClass(fit, 'xl:flex'))}
       {menu('st', 'flex')}
       {menu('as', 'flex justify-end')}
       {menu('up', 'flex justify-end')}

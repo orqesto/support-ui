@@ -112,6 +112,7 @@ export interface components {
             status: string;
             channel: string;
             createdAt: string;
+            lastActivityAt: string;
         };
         RecentTicket: {
             id: number;
@@ -193,7 +194,7 @@ export interface components {
             aiReplyCount: number;
             needsHumanReview: boolean;
             /** @enum {string|null} */
-            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "other" | null;
+            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "other" | null;
             createdAt: string;
             metadata: {
                 [key: string]: unknown;
@@ -214,10 +215,13 @@ export interface components {
             attachmentCount: number;
             slaResponseMinutes: number | null;
             slaWaitStartedAt?: string | null;
+            slaResolutionMinutes?: number | null;
+            slaResolutionStartedAt?: string | null;
             slaResponseBreached: boolean;
             firstResponseAt: string | null;
             actualResponseSeconds: number | null;
             nearMissDepts: number[];
+            isSuspicious: boolean;
         };
         MessageDetail: {
             id: number;
@@ -232,7 +236,7 @@ export interface components {
             aiReplyCount: number;
             needsHumanReview: boolean;
             /** @enum {string|null} */
-            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "other" | null;
+            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "other" | null;
             createdAt: string;
             metadata: {
                 [key: string]: unknown;
@@ -253,10 +257,13 @@ export interface components {
             attachmentCount: number;
             slaResponseMinutes: number | null;
             slaWaitStartedAt?: string | null;
+            slaResolutionMinutes?: number | null;
+            slaResolutionStartedAt?: string | null;
             slaResponseBreached: boolean;
             firstResponseAt: string | null;
             actualResponseSeconds: number | null;
             nearMissDepts: number[];
+            isSuspicious: boolean;
             organizationId: number;
             resolvedByName: string | null;
             detectedLanguage: string | null;
@@ -291,7 +298,7 @@ export interface components {
             organizationId: number;
             kind: string;
             /** @enum {string} */
-            entityType: "message" | "ticket_first_response" | "ticket_resolution" | "conversation" | "ticket" | "slack_connection" | "slack_channel_route";
+            entityType: "message" | "message_resolution" | "ticket_first_response" | "ticket_resolution" | "conversation" | "ticket" | "slack_connection" | "slack_channel_route";
             entityId: number;
             assigneeId: number | null;
             departmentId: number | null;
@@ -362,6 +369,8 @@ export interface components {
             identityField: "email" | "phone" | "displayName" | null;
             sourceEndpointId: number | null;
             sourceFieldPath: string | null;
+            fallbackPath: string | null;
+            fallbackWarning?: string | null;
             ownershipSourceEndpointId: number | null;
             recordFormatPrefix: string | null;
             recordFormatLength: number | null;
@@ -414,6 +423,7 @@ export interface components {
                 role: "none" | "identifier" | "date" | "status" | "total" | "currency" | "customer_email" | "tracking_number" | "tracking_link";
                 currencyPath?: string;
                 currencyLiteral?: string;
+                hidden?: boolean;
             }[];
             /** @enum {string} */
             resultShape: "one" | "many";
@@ -472,6 +482,8 @@ export interface components {
             category: string | null;
             storesRecords: boolean;
             referenceLabel?: string | null;
+            method?: string;
+            updatedAt?: string;
         };
         CustomApiStoredRecord: {
             id: number;
@@ -534,6 +546,11 @@ export interface components {
                 reason: "source_no_match" | "source_failed" | "source_no_identity";
                 sourceLabel: string;
             };
+            fallback?: {
+                email: string;
+                dropped: number;
+                more?: boolean;
+            };
             /** @enum {string} */
             ownership?: "owned" | "mismatch" | "unverified";
             /** @enum {string} */
@@ -593,7 +610,7 @@ export interface components {
             id: number;
             waitId?: number;
             /** @enum {string} */
-            type: "message" | "ticket_first_response" | "ticket_resolution";
+            type: "message" | "message_resolution" | "ticket_first_response" | "ticket_resolution";
             channel?: string;
             priority?: string;
             sender: string;
@@ -612,6 +629,7 @@ export interface components {
             /** @enum {string} */
             key: "low" | "medium" | "high" | "critical" | "email" | "telegram" | "slack" | "chat" | "whatsapp" | "other";
             firstResponseMinutes: number;
+            resolutionMinutes: number | null;
             resolutionHours: number | null;
             isCustom: boolean;
         };

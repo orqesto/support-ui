@@ -23,9 +23,30 @@ export const NEEDS_REVIEW_REASON_LABELS: Record<string, string> = {
   reopened: 'Reopened',
   suspicious_in_thread: 'Suspicious reply',
   lead_escalated: 'Qualified lead',
+  flood: 'Too many messages at once',
+};
+
+/** A longer explanation where the UI has room for one (the tooltip); the label otherwise. */
+export const NEEDS_REVIEW_REASON_DETAILS: Record<string, string> = {
+  // Telegram flood rule (owner 2026-11-13): the chat sent more than the bot's flood limit at once.
+  flood: 'Too many messages at once – saved for you, bot did not answer',
 };
 
 export const NEEDS_REVIEW_LABEL = 'Needs review';
+
+/**
+ * A flood hold names itself on the chip, not only in its tooltip (owner 2026-11-13): the plain
+ * "Needs review" hid why the bot went quiet. Any other reason keeps the plain chip. An older
+ * backend never sends `flood`, so it reads as before.
+ */
+export const FLOOD_REVIEW_REASON = 'flood';
+
+export const isFloodReview = (
+  thread:
+    | { needsHumanReview?: boolean | null; needsReviewReason?: string | null }
+    | null
+    | undefined
+): boolean => thread?.needsHumanReview === true && thread.needsReviewReason === FLOOD_REVIEW_REASON;
 
 /** The reason in words, or null for absent / `other` / an unknown code (caller keeps its plain text). */
 export const needsReviewReasonLabel = (code: string | null | undefined): string | null =>
@@ -36,7 +57,9 @@ export const needsReviewReasonLabel = (code: string | null | undefined): string 
 /** "Needs review: Low confidence draft", or the plain "Needs review" when there is no reason. */
 export const needsReviewTooltip = (code: string | null | undefined): string => {
   const reason = needsReviewReasonLabel(code);
-  return reason ? `${NEEDS_REVIEW_LABEL}: ${reason}` : NEEDS_REVIEW_LABEL;
+  if (!reason) return NEEDS_REVIEW_LABEL;
+  const detail = code ? NEEDS_REVIEW_REASON_DETAILS[code] : undefined;
+  return `${NEEDS_REVIEW_LABEL}: ${detail ?? reason}`;
 };
 
 /** Why the router picked this assignee (`autoRoutedReason` on the thread). */

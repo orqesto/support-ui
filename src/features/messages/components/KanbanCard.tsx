@@ -1,35 +1,35 @@
-import { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import { useState } from 'react';
+import {
+  keepOpenTabOnDoubleClick,
+  noteOpenTabClick,
+  threadTabKey,
+  openInNewTabOnMiddleClick,
+} from '@/components/shared/openTabs';
 import {
   BookOpen,
   Check,
   Copy,
   MessagesSquare,
   Paperclip,
-  Plus,
   Ticket,
 } from 'lucide-react';
 import { ticketChip } from './ticketChip';
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 import type { MessageThread } from '@/services/message.service';
-import type { AssignableUser } from '@/services/assignment.service';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { Button } from '@/components/ui/Button';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
-import { useAuthStore } from '@/stores/authStore';
 import { getChannelIcon, formatConvId, getConvUrlId, parseSender } from '@/lib/messageHelpers';
 import { cn, formatAge, safeCssColor } from '@/lib/utils';
-import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
 import { RowPresence } from '../presence/RowPresence';
-import { useListWritingGuard } from '../presence/useWritingGuard';
 import { isFromPortal } from './isFromPortal';
-import { SPINE_BG, getAiState, getAvatarColor, getPriorityBadge, getSpine, getSuspicionBadge, hasAttachments } from './inboxCardHelpers';
-import { getInitials } from '@/lib/initials';
+import { RowAssignee } from './RowAssignee';
+import { SPINE_BG, getAiState, getPriorityBadge, getSpine, getSuspicionBadge, hasAttachments } from './inboxCardHelpers';
 import { TRIAGE_READ_COLUMN_IDS } from './kanbanColumns';
 import { useAiDraftsOff } from '@/features/settings/shell';
 import {
@@ -80,7 +80,6 @@ export const KanbanCard = ({
   const { off: aiDraftsOff } = useAiDraftsOff();
   const msg = thread.latestMessage;
   // Thread presence (§5.5): an assign asks first while a colleague writes a reply on this thread.
-  const writingGuard = useListWritingGuard(msg?.id);
   // Spam-rule records (spam-log rows) have no conversation behind them: no box, no long-press, no `x`.
   // (The drag grip is a separate element with its own TouchSensor; it never shares this press.)
   const selectableId =
@@ -98,48 +97,8 @@ export const KanbanCard = ({
   const { data: allDepts = [] } = useDepartments();
   // Teams off: no team chip on the row (one team says nothing).
   const teamsEnabled = useTeamsEnabled();
-  const currentUser = useAuthStore((state) => state.user);
   const orgCode = useCurrentOrgCode();
   const [copied, setCopied] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  // Optimistic shadow of server assignee state — updated synchronously after
-  // a successful AssignmentSelect pick so the card reflects the new assignee
-  // without re-fetching the whole list. Cleared next time props update from a
-  // real refetch (the !== msg.assigneeId check below handles that).
-  const [optimisticAssignee, setOptimisticAssignee] = useState<{
-    id: number | null;
-    name: string;
-  } | null>(null);
-  const pickerWrapRef = useRef<HTMLDivElement | null>(null);
-  const pickerBtnRef = useRef<HTMLButtonElement | null>(null);
-  // The Kanban card has overflow-hidden (for the spine + rounded corners);
-  // an in-flow popover gets clipped. Portal the picker to body with
-  // viewport-relative coords from the trigger button.
-  const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
-
-  useEffect(() => {
-    if (pickerOpen && pickerBtnRef.current) {
-      const rect = pickerBtnRef.current.getBoundingClientRect();
-      const pickerWidth = 220;
-      const left = Math.min(rect.right - pickerWidth, window.innerWidth - pickerWidth - 8);
-      const top = rect.bottom + 6;
-      setPickerPos({ top, left: Math.max(left, 8) });
-    }
-  }, [pickerOpen]);
-
-  // Click-outside to close the assign picker.
-  useEffect(() => {
-    if (!pickerOpen) return;
-    const onDocClick = (ev: MouseEvent) => {
-      const target = ev.target as Node;
-      if (pickerWrapRef.current?.contains(target)) return;
-      if (document.querySelector('[data-assignee-picker]')?.contains(target)) return;
-      setPickerOpen(false);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [pickerOpen]);
-
   if (!msg) return null;
 
   const receivedAt = (msg.metadata as { receivedAt?: string })?.receivedAt ?? msg.createdAt;
@@ -179,34 +138,6 @@ export const KanbanCard = ({
       ? 'font-semibold text-muted-foreground'
       : 'font-semibold';
 
-  // Optimistic state wins when it diverges from server state; clears when
-  // they converge (i.e. a fresh fetch confirmed the assignment).
-  const effectiveAssigneeId =
-    optimisticAssignee && optimisticAssignee.id !== msg.assigneeId
-      ? optimisticAssignee.id
-      : msg.assigneeId;
-  const effectiveAssigneeName =
-    optimisticAssignee && optimisticAssignee.id !== msg.assigneeId
-      ? optimisticAssignee.name
-      : (msg.assigneeName ?? null);
-  const isAssigned = effectiveAssigneeId !== null;
-  const isMine = effectiveAssigneeId === currentUser?.id;
-
-  const openPicker = (event: React.MouseEvent | React.PointerEvent) => {
-    event.stopPropagation();
-    setPickerOpen(true);
-  };
-
-  const handleAssigned = (picked: AssignableUser | null) => {
-    setPickerOpen(false);
-    if (picked === null) {
-      setOptimisticAssignee({ id: null, name: '' });
-    } else {
-      const name = `${picked.firstName} ${picked.lastName ?? ''}`.trim() || picked.email;
-      setOptimisticAssignee({ id: picked.id, name });
-    }
-  };
-
   const labels =
     (msg.labels as
       | { id: number; name: string; color: string; source?: 'conversation' | 'ticket' | 'contact' }[]
@@ -226,6 +157,8 @@ export const KanbanCard = ({
     if (isFromPortal(event)) return;
     const sel = window.getSelection?.();
     if (sel && sel.toString().length > 0) return;
+    // Ctrl/⌘-click opens the thread in a new tab (the open-tabs row).
+    noteOpenTabClick('threads', event);
     onOpen(thread);
   };
 
@@ -234,8 +167,19 @@ export const KanbanCard = ({
       role="button"
       tabIndex={0}
       onClick={handleCardClick}
+      // A middle click opens it in a new tab; a double-click keeps the tab it opened.
+      onAuxClick={(event) => {
+        if (isFromPortal(event)) return;
+        openInNewTabOnMiddleClick('threads', event, () => onOpen(thread));
+      }}
+      onDoubleClick={(event) => {
+        if (isFromPortal(event)) return;
+        keepOpenTabOnDoubleClick('threads', threadTabKey(thread));
+      }}
       onKeyDown={(event) => {
         if (isFromPortal(event)) return;
+        // Only a key pressed on the CARD opens it; Enter on its copy-id or Claim button is theirs.
+        if (event.target !== event.currentTarget) return;
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           onOpen(thread);
@@ -472,61 +416,7 @@ export const KanbanCard = ({
 
         {msg && <RowPresence conversationId={msg.id} />}
 
-        {/* Trigger stays in flow so card layout never reflows when the picker opens.
-            Picker overlays as an absolute-positioned popover anchored to the trigger. */}
-        <div ref={pickerWrapRef} className="relative">
-          {isAssigned && effectiveAssigneeName ? (
-            <Tooltip content={isMine ? 'Assigned to you · click to re-assign' : `Assigned to ${effectiveAssigneeName} · click to re-assign`} size="sm">
-              <button
-                ref={pickerBtnRef}
-                type="button"
-                onClick={openPicker}
-                onPointerDown={(event) => event.stopPropagation()}
-                aria-label="Re-assign"
-                className={`inline-flex items-center justify-center w-[22px] h-[22px] rounded-full text-[10px] font-bold text-white shrink-0 hover:ring-2 hover:ring-primary/40 ${getAvatarColor(effectiveAssigneeName)}`}
-              >
-                {getInitials(effectiveAssigneeName)}
-              </button>
-            </Tooltip>
-          ) : (
-            <Button
-              ref={pickerBtnRef}
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={openPicker}
-              onPointerDown={(event) => event.stopPropagation()}
-              disabled={!currentUser?.id}
-              className="inline-flex items-center gap-1 h-[22px] px-2 rounded text-[11px] font-semibold text-muted-foreground border border-dashed border-border hover:border-primary hover:text-primary data-[inactive]:opacity-50 data-[inactive]:cursor-not-allowed"
-            >
-              <Plus className="w-3 h-3" />
-              Claim
-            </Button>
-          )}
-          {pickerOpen && pickerPos && createPortal(
-            <div
-              data-assignee-picker
-              role="dialog"
-              aria-label="Assign to"
-              onClick={(event) => event.stopPropagation()}
-              onPointerDown={(event) => event.stopPropagation()}
-              onKeyDown={(event) => event.stopPropagation()}
-              style={{ top: pickerPos.top, left: pickerPos.left, width: 220 }}
-              className="fixed z-[9999] rounded-md border border-border bg-popover shadow-lg p-1"
-            >
-              <AssignmentSelect
-                type="thread"
-                itemId={thread.threadId}
-                currentAssigneeId={msg.assigneeId}
-                departmentId={msg.departmentId ?? null}
-                onAssign={handleAssigned}
-                beforeChange={(run) => writingGuard.confirmIfWriting('assign', run)}
-              />
-            </div>,
-            document.body
-          )}
-          {writingGuard.dialog}
-        </div>
+        <RowAssignee thread={thread} size="card" />
       </div>
     </div>
   );

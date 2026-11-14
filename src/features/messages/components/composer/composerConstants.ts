@@ -31,8 +31,8 @@ export const isTextEntry = (target: EventTarget): boolean => {
 
 // v3 ".ibtn" — shared with Compose new message (messageDetailConstants).
 export const IBTN = COMPOSER_TOOL;
-// Between the toolbar's three groups — write (AI draft, Translate), insert (Templates, Insert
-// field, Attach), find (KB, Look up) — so the row reads as three tools, not nine, on one line.
+// Between the toolbar's three groups — write (AI draft, Translate), insert (Templates, Attach),
+// find (KB) — so the row reads as three groups of tools, not a run of buttons.
 export const TOOL_DIVIDER = 'w-px h-4 bg-border mx-0.5 max-sm:hidden';
 // The open toolbar on a phone: tools wrap, 6px apart; the AI draft button is tool-sized too.
 export const PHONE_TOOLS = 'max-sm:gap-1.5 max-sm:[&_button]:min-h-9';

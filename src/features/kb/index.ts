@@ -16,6 +16,8 @@ export { KbDecisionDialog } from './components/KbDecisionDialog';
 export { KbExportButton } from './components/KbExportButton';
 export { KbFindingBanner } from './components/KbFindingBanner';
 export { kbIdMatchHint, KbIdMatchHint } from './components/KbIdMatchHint';
+export { KbSplitCaseHint, kbSplitCaseText } from './components/KbSplitCaseHint';
+export { KbCaseActionConfirmText } from './components/KbCaseActionConfirmText';
 export { CANNOT_DECIDE } from './components/KbPendingDecisionBadge';
 export { KB_FILTER_STATUS_LABEL } from './components/KbStatusFilter';
 export {
@@ -63,6 +65,7 @@ export { useKbBulkDecisions } from './hooks/useKbBulkDecisions';
 export { useKbEntryParam } from './hooks/useKbEntryParam';
 export { useKbFindingFilter } from './hooks/useKbFindingFilter';
 export { useKbStatusParam } from './hooks/useKbStatusParam';
+export { useKbCaseOriginals } from './hooks/useKbCaseOriginals';
 export { isCaseRow, unmergeConsequence } from './lib/kbConsolidation';
 export type { KbFilterStatus } from './lib/kbFilterStatus';
 export { kbFindingFromSearch, kbFindingHref, withoutKbFinding } from './lib/kbFinding';
@@ -79,9 +82,11 @@ export {
   type KbIdMatch,
   type KbMiningForecast,
   type KbPendingDecision,
+  type KbSplitCase,
   kbService,
   kbSourceParam,
   normaliseIdMatch,
+  normaliseSplitCase,
   type PaginationMeta,
 } from './services/kb.service';
 export type { KbConsolidationRunState } from './services/kbConsolidation.service';

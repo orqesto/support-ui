@@ -1,70 +1,57 @@
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import type { MessageThread } from '@/services/message.service';
 import type { AssignableUser } from '@/services/assignment.service';
 import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { Button } from '@/components/ui/Button';
+import { Popover } from '@/components/ui/Popover';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useAuthStore } from '@/stores/authStore';
+import { cn } from '@/lib/utils';
 import { getAvatarColor } from './inboxCardHelpers';
 import { getInitials } from '@/lib/initials';
 import { useListWritingGuard } from '../presence/useWritingGuard';
 
 type Props = {
   thread: MessageThread;
+  /** `row`: a list row (both layouts). `card`: a Kanban card — a little smaller. */
+  size?: 'row' | 'card';
 };
 
+const TRIGGER_CLASSES = {
+  row: {
+    avatar: 'w-6 h-6 hover:ring-[3px] hover:ring-primary-muted',
+    claim: 'h-6 px-[9px] rounded-md text-[11.5px] border-border-strong',
+  },
+  card: {
+    avatar: 'w-[22px] h-[22px] hover:ring-2 hover:ring-primary/40',
+    claim: 'h-[22px] px-2 rounded text-[11px] border-border',
+  },
+} as const;
+
+const stop = (event: React.SyntheticEvent) => event.stopPropagation();
+
 /**
- * The assignee avatar — or "Claim" — at the end of a list row, with its picker.
+ * The assignee avatar — or "Claim" — on a list row or a Kanban card, with its picker.
  *
- * Moved out of MessageListItem when the row grew a second (compact) layout in Messages list
- * v2: both layouts draw the same control, and two copies of the optimistic shadow below would
- * drift. Behaviour is unchanged.
+ * One component for both (until 2026-11-12 the Kanban card had its own copy, and fixes reached one
+ * and not the other). The picker is the design-system Popover: portalled to <body> (rows and cards
+ * clip their overflow), placed and flipped on screen, closed by Escape or a press outside, focus
+ * back on the trigger. The assignee box takes the focus once its list has loaded (AssignmentSelect
+ * `autoFocus`), so a keyboard user can reach a picker that sits at the end of the page.
  */
-export const RowAssignee = ({ thread }: Props) => {
+export const RowAssignee = ({ thread, size = 'row' }: Props) => {
   const msg = thread.latestMessage;
   const currentUser = useAuthStore((state) => state.user);
   // Thread presence (§5.5): an assign asks first while a colleague writes a reply on this thread.
   const writingGuard = useListWritingGuard(msg?.id);
   const [pickerOpen, setPickerOpen] = useState(false);
-  // Optimistic shadow of server assignee state — keeps the card responsive
-  // without a list refetch. See KanbanCard for the same pattern + rationale.
+  // Optimistic shadow of the server's assignee: the row shows a pick at once, without a list
+  // refetch; it gives way as soon as the server's value agrees (the !== msg.assigneeId checks).
   const [optimisticAssignee, setOptimisticAssignee] = useState<{
     id: number | null;
     name: string;
   } | null>(null);
-  const pickerWrapRef = useRef<HTMLDivElement | null>(null);
-  const pickerBtnRef = useRef<HTMLButtonElement | null>(null);
-  // Portal coords for the assignee picker. The Card has overflow-hidden so an
-  // in-flow absolute popover gets clipped; portaling to document.body escapes
-  // that, but then we need viewport-relative fixed coords keyed off the trigger
-  // button's bounding rect.
-  const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
-
-  useEffect(() => {
-    if (pickerOpen && pickerBtnRef.current) {
-      const rect = pickerBtnRef.current.getBoundingClientRect();
-      const pickerWidth = 220;
-      const left = Math.min(rect.right - pickerWidth, window.innerWidth - pickerWidth - 8);
-      const top = rect.bottom + 6;
-      setPickerPos({ top, left: Math.max(left, 8) });
-    }
-  }, [pickerOpen]);
-
-  useEffect(() => {
-    if (!pickerOpen) return;
-    const onDocClick = (ev: MouseEvent) => {
-      const target = ev.target as Node;
-      // Picker DOM lives in a body-level portal now, so check both the trigger
-      // wrapper AND the portal element. Either contains-click keeps the picker open.
-      if (pickerWrapRef.current?.contains(target)) return;
-      if (document.querySelector('[data-assignee-picker]')?.contains(target)) return;
-      setPickerOpen(false);
-    };
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [pickerOpen]);
 
   if (!msg) return null;
 
@@ -78,10 +65,13 @@ export const RowAssignee = ({ thread }: Props) => {
       : (msg.assigneeName ?? null);
   const isAssigned = effectiveAssigneeId !== null;
   const isMine = effectiveAssigneeId === currentUser?.id;
+  const classes = TRIGGER_CLASSES[size];
 
+  // The row / card opens its thread on click and the board drags a card on pointer-down: a press
+  // on the trigger is the picker's alone.
   const openPicker = (event: React.MouseEvent) => {
     event.stopPropagation();
-    setPickerOpen(true);
+    setPickerOpen((open) => !open);
   };
 
   const handleAssigned = (picked: AssignableUser | null) => {
@@ -95,66 +85,82 @@ export const RowAssignee = ({ thread }: Props) => {
   };
 
   return (
-    // Trigger stays in flow so row layout never reflows when the picker opens.
-    // Picker overlays as an absolute-positioned popover anchored to the trigger.
-    <div ref={pickerWrapRef} className="relative">
-      {isAssigned && effectiveAssigneeName ? (
-        <Tooltip
-          content={
-            isMine
-              ? 'Assigned to you · click to re-assign'
-              : `Assigned to ${effectiveAssigneeName} · click to re-assign`
-          }
-          size="sm"
+    <>
+      <Popover
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        ariaLabel="Assign to"
+        width={220}
+        align="end"
+        trigger={() =>
+          isAssigned && effectiveAssigneeName ? (
+            <Tooltip
+              content={
+                isMine
+                  ? 'Assigned to you · click to re-assign'
+                  : `Assigned to ${effectiveAssigneeName} · click to re-assign`
+              }
+              size="sm"
+            >
+              <button
+                type="button"
+                onClick={openPicker}
+                onPointerDown={stop}
+                aria-label="Re-assign"
+                className={cn(
+                  'inline-flex items-center justify-center rounded-full text-[10px] font-bold text-white shrink-0',
+                  classes.avatar,
+                  getAvatarColor(effectiveAssigneeName)
+                )}
+              >
+                {getInitials(effectiveAssigneeName)}
+              </button>
+            </Tooltip>
+          ) : (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={openPicker}
+              onPointerDown={stop}
+              disabled={!currentUser?.id}
+              className={cn(
+                'inline-flex items-center gap-1 font-semibold text-muted-foreground border border-dashed hover:border-primary hover:text-primary data-[inactive]:opacity-50 data-[inactive]:cursor-not-allowed',
+                classes.claim
+              )}
+            >
+              <Plus className="w-3 h-3" />
+              Claim
+            </Button>
+          )
+        }
+      >
+        {/* React bubbles the panel's events to the row / card that renders it (portal or not):
+            a click there would open the thread, a pointer-down start a card drag, a key reach the
+            list's shortcuts. Escape alone goes on — the Popover closes on it at the document (an
+            Escape that only closed the open list never gets there: the Select stops it). */}
+        <div
+          data-assignee-picker
+          role="presentation"
+          className="p-1"
+          onClick={stop}
+          onPointerDown={stop}
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape') event.stopPropagation();
+          }}
         >
-          <button
-            ref={pickerBtnRef}
-            type="button"
-            onClick={openPicker}
-            aria-label="Re-assign"
-            className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold text-white shrink-0 hover:ring-[3px] hover:ring-primary-muted ${getAvatarColor(effectiveAssigneeName)}`}
-          >
-            {getInitials(effectiveAssigneeName)}
-          </button>
-        </Tooltip>
-      ) : (
-        <Button
-          ref={pickerBtnRef}
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={openPicker}
-          disabled={!currentUser?.id}
-          className="inline-flex items-center gap-1 h-6 px-[9px] rounded-md text-[11.5px] font-semibold text-muted-foreground border border-dashed border-border-strong hover:border-primary hover:text-primary data-[inactive]:opacity-50 data-[inactive]:cursor-not-allowed"
-        >
-          <Plus className="w-3 h-3" />
-          Claim
-        </Button>
-      )}
-      {pickerOpen &&
-        pickerPos &&
-        createPortal(
-          <div
-            data-assignee-picker
-            role="dialog"
-            aria-label="Assign to"
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
-            style={{ top: pickerPos.top, left: pickerPos.left, width: 220 }}
-            className="fixed z-[9999] rounded-md border border-border bg-popover shadow-lg p-1"
-          >
-            <AssignmentSelect
-              type="thread"
-              itemId={thread.threadId}
-              currentAssigneeId={msg.assigneeId}
-              departmentId={msg.departmentId ?? null}
-              onAssign={handleAssigned}
-              beforeChange={(run) => writingGuard.confirmIfWriting('assign', run)}
-            />
-          </div>,
-          document.body
-        )}
+          <AssignmentSelect
+            type="thread"
+            itemId={thread.threadId}
+            currentAssigneeId={msg.assigneeId}
+            departmentId={msg.departmentId ?? null}
+            onAssign={handleAssigned}
+            autoFocus
+            beforeChange={(run) => writingGuard.confirmIfWriting('assign', run)}
+          />
+        </div>
+      </Popover>
       {writingGuard.dialog}
-    </div>
+    </>
   );
 };
