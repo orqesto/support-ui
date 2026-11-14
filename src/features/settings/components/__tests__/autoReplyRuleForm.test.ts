@@ -35,6 +35,21 @@ describe('addKeywords', () => {
 });
 
 describe('validateDraft', () => {
+  it('{{kb_answer}} with the knowledge base off → an error under the reply text', () => {
+    const draft = {
+      ...emptyDraft(),
+      keywords: ['refund'],
+      replyText: `Hello ${KB_ANSWER_PLACEHOLDER}`,
+    };
+    expect(validateDraft(draft).replyText).toMatch(/knowledge base/);
+    // CONTROL — the same text with the knowledge base on is fine.
+    expect(validateDraft({ ...draft, useKnowledgeBase: true })).toEqual({});
+    // Any spelling the backend refuses: {{ KB_ANSWER }}.
+    expect(validateDraft({ ...draft, replyText: 'Hi {{ KB_ANSWER }}' }).replyText).toMatch(
+      /knowledge base/
+    );
+  });
+
   it('a rule without a keyword and without reply text names both', () => {
     const errors = validateDraft(emptyDraft());
     expect(errors.keywords).toBe('Add at least one keyword.');
