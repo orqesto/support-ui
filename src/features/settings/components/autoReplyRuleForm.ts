@@ -63,6 +63,10 @@ export const validateDraft = (draft: RuleDraft): RuleDraftErrors => {
   else if (keywords.some((kw) => kw.length > KEYWORD_MAX_LENGTH))
     errors.keywords = `A keyword can be at most ${KEYWORD_MAX_LENGTH} characters.`;
   if (!draft.replyText.trim()) errors.replyText = 'Write the reply text.';
+  // Filled only by a knowledge-base rule; in a plain rule the customer would read it word for word
+  // (the backend refuses it too, 400 on replyText).
+  else if (!draft.useKnowledgeBase && /\{\{\s*kb_answer\s*\}\}/i.test(draft.replyText))
+    errors.replyText = `${KB_ANSWER_PLACEHOLDER} is filled only when "Add an answer from the knowledge base" is on. Turn it on, or remove ${KB_ANSWER_PLACEHOLDER} from the reply.`;
   return errors;
 };
 
