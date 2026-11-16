@@ -13,9 +13,29 @@ export type RuleDraft = {
   replyText: string;
   /** Template + knowledge base: an answer from the KB goes in at {{kb_answer}}. */
   useKnowledgeBase: boolean;
+  /** Template + KB: the knowledge base match, in whole percent as typed (80–99). */
+  kbMatchPercent: string;
 };
 
-export type RuleDraftErrors = { keywords?: string; replyText?: string; name?: string };
+export type RuleDraftErrors = {
+  keywords?: string;
+  replyText?: string;
+  name?: string;
+  kbMinSimilarity?: string;
+};
+
+export const KB_MATCH_PERCENT_MIN = 80;
+export const KB_MATCH_PERCENT_MAX = 99;
+export const KB_MATCH_PERCENT_DEFAULT = 87;
+const KB_MATCH_RANGE_MESSAGE = `Enter a whole number from ${KB_MATCH_PERCENT_MIN} to ${KB_MATCH_PERCENT_MAX}.`;
+
+/** The typed percent as the fraction the backend stores, or null when it is not a valid one. */
+export const kbMatchFraction = (typed: string): number | null => {
+  const value = Number(typed.trim());
+  if (!Number.isInteger(value) || value < KB_MATCH_PERCENT_MIN || value > KB_MATCH_PERCENT_MAX)
+    return null;
+  return value / 100;
+};
 
 export const emptyDraft = (): RuleDraft => ({
   name: '',
@@ -23,6 +43,7 @@ export const emptyDraft = (): RuleDraft => ({
   keywordInput: '',
   replyText: '',
   useKnowledgeBase: false,
+  kbMatchPercent: String(KB_MATCH_PERCENT_DEFAULT),
 });
 
 /** Where a template rule puts the knowledge base answer (the backend's placeholder). */
@@ -67,12 +88,14 @@ export const validateDraft = (draft: RuleDraft): RuleDraftErrors => {
   // (the backend refuses it too, 400 on replyText).
   else if (!draft.useKnowledgeBase && /\{\{\s*kb_answer\s*\}\}/i.test(draft.replyText))
     errors.replyText = `${KB_ANSWER_PLACEHOLDER} is filled only when "Add an answer from the knowledge base" is on. Turn it on, or remove ${KB_ANSWER_PLACEHOLDER} from the reply.`;
+  if (draft.useKnowledgeBase && kbMatchFraction(draft.kbMatchPercent) === null)
+    errors.kbMinSimilarity = KB_MATCH_RANGE_MESSAGE;
   return errors;
 };
 
 export const hasErrors = (errors: RuleDraftErrors): boolean => Object.keys(errors).length > 0;
 
-const FORM_FIELDS = ['keywords', 'replyText', 'name'] as const;
+const FORM_FIELDS = ['keywords', 'replyText', 'name', 'kbMinSimilarity'] as const;
 
 /**
  * Server-side field names → inline messages, for a 400 the form did not catch. When the 400 names
@@ -93,5 +116,6 @@ export const errorsFromFields = (
   if (fields.includes('keywords')) errors.keywords = 'Check the keywords: at least one is needed.';
   if (fields.includes('replyText')) errors.replyText = 'Write the reply text.';
   if (fields.includes('name')) errors.name = 'The name is too long.';
+  if (fields.includes('kbMinSimilarity')) errors.kbMinSimilarity = KB_MATCH_RANGE_MESSAGE;
   return errors;
 };

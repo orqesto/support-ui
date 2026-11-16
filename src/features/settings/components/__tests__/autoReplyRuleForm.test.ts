@@ -10,6 +10,7 @@ import {
   KEYWORD_MAX_LENGTH,
   KEYWORDS_PER_RULE_MAX,
   validateDraft,
+  kbMatchFraction,
 } from '../autoReplyRuleForm';
 
 /** Keyword auto-reply rule form, the pure half. Invented data. */
@@ -113,5 +114,22 @@ describe('insertKbPlaceholder', () => {
   it('adds {{kb_answer}} as its own paragraph after the text', () => {
     expect(insertKbPlaceholder('Hello,  ')).toBe(`Hello,\n\n${KB_ANSWER_PLACEHOLDER}`);
     expect(insertKbPlaceholder('   ')).toBe(KB_ANSWER_PLACEHOLDER);
+  });
+});
+
+describe('knowledge base match (audit M5)', () => {
+  it('a whole percent 80–99 becomes the fraction the backend stores; anything else is null', () => {
+    expect(kbMatchFraction('87')).toBe(0.87);
+    expect(kbMatchFraction(' 80 ')).toBe(0.8);
+    for (const bad of ['79', '100', '85.5', '', 'abc']) expect(kbMatchFraction(bad)).toBeNull();
+  });
+
+  it('checked only for a Template + KB rule', () => {
+    const base = { ...emptyDraft(), keywords: ['refund'], replyText: 'Hi', kbMatchPercent: '50' };
+    expect(validateDraft(base).kbMinSimilarity).toBeUndefined();
+    expect(
+      validateDraft({ ...base, useKnowledgeBase: true, replyText: 'Hi {{kb_answer}}' })
+        .kbMinSimilarity
+    ).toMatch(/80 to 99/);
   });
 });
