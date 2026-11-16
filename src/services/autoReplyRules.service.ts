@@ -15,6 +15,11 @@ export type AutoReplyRule = {
   enabled: boolean;
   /** Template + knowledge base (BE 2026-11-13); absent on an older backend → false. */
   useKnowledgeBase: boolean;
+  /**
+   * Template + KB: how close (0.80–0.99) the customer's question must be to the knowledge source
+   * (BE 2026-11-16, audit M5). Absent on an older backend → the default.
+   */
+  kbMinSimilarity: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -25,7 +30,12 @@ export type AutoReplyRuleInput = {
   replyText?: string;
   enabled?: boolean;
   useKnowledgeBase?: boolean;
+  /** null = the default. */
+  kbMinSimilarity?: number | null;
 };
+
+/** The backend's default knowledge base match (autoReplyRulesService KB_MATCH_DEFAULT). */
+export const KB_MATCH_DEFAULT = 0.87;
 
 /**
  * Tolerates a row missing a field (FE/BE skew): every field gets a safe value, so a list never
@@ -43,6 +53,8 @@ const normalizeRule = (raw: Partial<AutoReplyRule> | null | undefined): AutoRepl
     replyText: typeof raw.replyText === 'string' ? raw.replyText : '',
     enabled: raw.enabled !== false,
     useKnowledgeBase: raw.useKnowledgeBase === true,
+    kbMinSimilarity:
+      typeof raw.kbMinSimilarity === 'number' ? raw.kbMinSimilarity : KB_MATCH_DEFAULT,
     createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : '',
     updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : '',
   };

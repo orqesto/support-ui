@@ -25,6 +25,10 @@ import {
   hasErrors,
   insertKbPlaceholder,
   KB_ANSWER_PLACEHOLDER,
+  KB_MATCH_PERCENT_DEFAULT,
+  KB_MATCH_PERCENT_MAX,
+  KB_MATCH_PERCENT_MIN,
+  kbMatchFraction,
   validateDraft,
   type RuleDraft,
   type RuleDraftErrors,
@@ -146,14 +150,35 @@ const RuleForm = ({
             <>
               The reply text is a template: the answer goes where{' '}
               <code>{KB_ANSWER_PLACEHOLDER}</code> stands, or after the text. It is sent only when
-              the knowledge base has an answer as sure as the auto-send threshold above; otherwise
-              nothing is sent and the email stays with the team.
+              the question matches the knowledge base at least as closely as the match below;
+              otherwise nothing is sent and the email stays with the team.
             </>
           ) : (
             'Off: the reply text is sent exactly as written.'
           )}
         </p>
       </div>
+      {draft.useKnowledgeBase && (
+        <div className="space-y-1 max-w-xs">
+          <Input
+            label="Knowledge base match (%)"
+            type="number"
+            inputMode="numeric"
+            min={KB_MATCH_PERCENT_MIN}
+            max={KB_MATCH_PERCENT_MAX}
+            step={1}
+            value={draft.kbMatchPercent}
+            error={errors.kbMinSimilarity}
+            disabled={saving}
+            onChange={(ev) => onChange({ ...draft, kbMatchPercent: ev.target.value })}
+          />
+          <p className="text-xs text-muted-foreground">
+            How closely the question must match an answer in the knowledge base (
+            {KB_MATCH_PERCENT_MIN}–{KB_MATCH_PERCENT_MAX}%, default {KB_MATCH_PERCENT_DEFAULT}).
+            Lower answers more paraphrased questions; higher answers only close wordings.
+          </p>
+        </div>
+      )}
       <Textarea
         label={draft.useKnowledgeBase ? 'Reply template' : 'Reply text'}
         placeholder={
@@ -230,6 +255,7 @@ export const AutoReplyRulesSection = ({ canManage, autoReplyEnabled, onShowAlert
         keywordInput: '',
         replyText: rule.replyText,
         useKnowledgeBase: rule.useKnowledgeBase,
+        kbMatchPercent: String(Math.round(rule.kbMinSimilarity * 100)),
       },
       errors: {},
     });
@@ -246,6 +272,10 @@ export const AutoReplyRulesSection = ({ canManage, autoReplyEnabled, onShowAlert
       keywords: draftKeywords(editing.draft),
       replyText: editing.draft.replyText.trim(),
       useKnowledgeBase: editing.draft.useKnowledgeBase,
+      // Sent only for a Template + KB rule: a plain rule keeps whatever it has stored.
+      ...(editing.draft.useKnowledgeBase && {
+        kbMinSimilarity: kbMatchFraction(editing.draft.kbMatchPercent),
+      }),
     };
     setSaving(true);
     try {
@@ -393,7 +423,11 @@ export const AutoReplyRulesSection = ({ canManage, autoReplyEnabled, onShowAlert
                   <div className="flex-1 space-y-1.5 min-w-0">
                     <div className="flex gap-2 items-center">
                       <span className="text-sm font-medium truncate">{rule.name}</span>
-                      {rule.useKnowledgeBase && <Badge variant="warning">Template + KB</Badge>}
+                      {rule.useKnowledgeBase && (
+                        <Badge variant="warning">
+                          Template + KB · {Math.round(rule.kbMinSimilarity * 100)}%
+                        </Badge>
+                      )}
                       {!rule.enabled && <Badge variant="secondary">Off</Badge>}
                     </div>
                     <div className="flex flex-wrap gap-1">

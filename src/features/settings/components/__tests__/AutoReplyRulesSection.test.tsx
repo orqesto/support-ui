@@ -218,8 +218,33 @@ describe('AutoReplyRulesSection', () => {
     expect(api.posts[0]).toMatchObject({
       useKnowledgeBase: true,
       replyText: 'Hello,\n\n{{kb_answer}}',
+      kbMinSimilarity: 0.87,
     });
-    expect(await screen.findByText('Template + KB')).toBeTruthy();
+    expect(await screen.findByText(/Template \+ KB/)).toBeTruthy();
+  });
+
+  it('M5: the knowledge base match is sent as typed; out of range is an inline error', async () => {
+    renderSection();
+    await openNewRule();
+    fireEvent.change(screen.getByLabelText('Keywords', { selector: 'input' }), {
+      target: { value: 'refund' },
+    });
+    fireEvent.click(screen.getByRole('switch', { name: /knowledge base/i }));
+    fireEvent.change(screen.getByLabelText('Reply template'), {
+      target: { value: 'Hi\n\n{{kb_answer}}' },
+    });
+    fireEvent.change(screen.getByLabelText('Knowledge base match (%)'), {
+      target: { value: '75' },
+    });
+    fireEvent.click(saveButton());
+    expect(await screen.findByText(/whole number from 80 to 99/)).toBeTruthy();
+    expect(api.posts).toHaveLength(0);
+    fireEvent.change(screen.getByLabelText('Knowledge base match (%)'), {
+      target: { value: '82' },
+    });
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(api.posts).toHaveLength(1));
+    expect(api.posts[0]).toMatchObject({ useKnowledgeBase: true, kbMinSimilarity: 0.82 });
   });
 
   it('CONTROL — a plain rule is saved without the knowledge base', async () => {
@@ -232,6 +257,8 @@ describe('AutoReplyRulesSection', () => {
     fireEvent.click(saveButton());
     await waitFor(() => expect(api.posts).toHaveLength(1));
     expect(api.posts[0]).toMatchObject({ useKnowledgeBase: false });
-    expect(screen.queryByText('Template + KB')).toBeNull();
+    expect(api.posts[0]).not.toHaveProperty('kbMinSimilarity');
+    expect(screen.queryByLabelText('Knowledge base match (%)')).toBeNull();
+    expect(screen.queryByText(/Template \+ KB/)).toBeNull();
   });
 });
