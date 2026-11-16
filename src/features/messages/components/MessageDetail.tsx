@@ -498,6 +498,8 @@ export function MessageDetail({
       noteActivityLog={noteActivityLog}
       messageActivity={messageActivity}
       sortedThread={sortedThread}
+      storedDraftHidden={thread.storedDraft.draftHidden}
+      storedDraftPending={thread.storedDraft.pending}
       threadRefreshKey={threadRefreshKey + attachmentsBump}
       attachments={flatAttachments}
       currentUserId={currentUserId}
@@ -662,9 +664,13 @@ export function MessageDetail({
             attachmentsByMessageId={attachmentsByMessageId}
             handleOpenAttachment={handleOpenAttachment}
             handleOpenInlineImage={handleOpenInlineImage}
-            aiLoading={aiLoading}
+            // While the thread is read, a draft that names an email is held back: the spinner,
+            // not "No suggestion found" (storedDraftFreshness.ts).
+            aiLoading={aiLoading || thread.storedDraft.pending}
             ghostVisible={ghostVisible}
-            ghostOption={ghostOption}
+            // Not a draft for an earlier customer email (storedDraftFreshness.ts). Filtered at
+            // render, not in useGhostOption: a ghost the agent dismissed never comes back.
+            ghostOption={thread.storedDraft.draftHidden ? null : ghostOption}
             autoReply={autoReply}
             composer={composer}
             composerMode={composerMode}

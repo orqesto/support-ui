@@ -78,6 +78,10 @@ export type MessagePanelTabsProps = {
   noteActivityLog: { label: string; who: string; time: string }[];
   messageActivity: MessageActivityEntry[];
   sortedThread: MessageEvent[];
+  /** The stored AI draft is not offered (MessageDetail: the thread's storedDraftFreshness). */
+  storedDraftHidden?: boolean;
+  /** Not known yet (the thread's events not read): the KB tab reports no count meanwhile. */
+  storedDraftPending?: boolean;
   threadRefreshKey: number;
   highlightAttachmentId?: number | null;
   attachments?: Attachment[];
@@ -127,6 +131,8 @@ export function MessagePanelTabs({
   noteActivityLog,
   messageActivity,
   sortedThread,
+  storedDraftHidden = false,
+  storedDraftPending = false,
   threadRefreshKey,
   highlightAttachmentId,
   attachments,
@@ -432,6 +438,8 @@ export function MessagePanelTabs({
           <div className={tab === 'kb' ? 'space-y-2' : 'hidden'}>
             <AiTabPanel
               message={message}
+              hideStoredDraft={storedDraftHidden}
+              storedDraftPending={storedDraftPending}
               onGhostClick={onGhostClick}
               onOptionSelect={onOptionSelect}
               onOptionsLoaded={handleOptionsLoaded}

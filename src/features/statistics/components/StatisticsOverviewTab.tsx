@@ -281,7 +281,7 @@ export function StatisticsOverviewTab({ stats, aiStats, aiLoading, isOrgAdmin, o
                       <CardContent className="space-y-3">
                         {aiStats.suggestedAnswerUsage.bySource.map((item) => (
                           <div key={item.source} className="flex justify-between items-center">
-                            <span className="text-sm capitalize">{item.source === 'ai-generated' ? 'AI Generated' : item.source === 'lead_qualification' ? 'Lead Qualification' : item.source}</span>
+                            <span className="text-sm capitalize">{item.source === 'ai-generated' ? 'AI Generated' : item.source === 'lead_qualification' ? 'Lead Qualification' : item.source === 'knowledge_base' ? 'Knowledge Base' : item.source}</span>
                             <div className="flex items-center gap-3"><div className="w-24 h-2 rounded-full bg-muted overflow-hidden"><div className="h-2 rounded-full bg-warning" style={{ width: `${item.percentage}%` }} /></div><span className="text-sm font-medium tabular-nums w-8 text-right">{item.count}</span></div>
                           </div>
                         ))}

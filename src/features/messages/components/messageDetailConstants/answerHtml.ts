@@ -119,6 +119,28 @@ export function suggestedAnswerToHtml(raw: string): string {
 
 // ─── Ghost answer types ───────────────────────────────────────────────────────
 
+/** The source an inserted suggestion reports (usage statistics). */
+export type GhostInsertSource =
+  | 'lead_qualification'
+  | 'documentation'
+  | 'knowledge_base'
+  | 'message';
+
+/**
+ * The source an insert reports — the stored one when the option carries it (a KB-written draft),
+ * else the type's. ONE rule for the thread's ghost and the KB tab's "Use in reply".
+ */
+export const insertSourceOf = (option: {
+  type: 'lead' | 'documentation' | 'similar';
+  insertSource?: GhostInsertSource;
+}): GhostInsertSource =>
+  option.insertSource ??
+  (option.type === 'lead'
+    ? 'lead_qualification'
+    : option.type === 'similar'
+      ? 'message'
+      : 'documentation');
+
 export type GhostOption = {
   answer: string;
   label: string;
@@ -127,6 +149,11 @@ export type GhostOption = {
   confidence?: number;
   /** The KB document the answer came from, only when the writer stored its title. */
   sourceTitle?: string;
+  /**
+   * The source an insert reports (usage statistics) — from the stored source, never read off the
+   * label. Absent on options built elsewhere: then the type's default.
+   */
+  insertSource?: GhostInsertSource;
 };
 
 export type SuggestedAnswerMeta = {
@@ -143,6 +170,9 @@ export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): Ghost
   const src = sa.source ?? '';
   const isLead = src === 'lead_qualification' || src === 'lead_qualification_kb';
   const isDocs = src === 'documentation';
+  // Written from knowledge-base entries, no documentation section (the backend's agent draft,
+  // 2026-11-16): still inserted as a documentation answer, but the chip says KB, not DOCS.
+  const isKb = src === 'knowledge_base';
   // ⛔ Absent stays absent: a missing confidence must not read as "0%", and a title is shown only
   // when the writer stored one — nothing is looked up or guessed here.
   const confidence =
@@ -157,8 +187,15 @@ export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): Ghost
     ?.title?.trim();
   return {
     answer: sa.answer,
-    label: isLead ? 'LEAD' : isDocs ? 'DOCS' : 'AI',
-    type: isLead ? 'lead' : isDocs ? 'documentation' : 'similar',
+    label: isLead ? 'LEAD' : isDocs ? 'DOCS' : isKb ? 'KB' : 'AI',
+    type: isLead ? 'lead' : isDocs || isKb ? 'documentation' : 'similar',
+    insertSource: isLead
+      ? 'lead_qualification'
+      : isDocs
+        ? 'documentation'
+        : isKb
+          ? 'knowledge_base'
+          : 'message',
     ...(confidence !== undefined ? { confidence } : {}),
     ...(sourceTitle ? { sourceTitle } : {}),
   };

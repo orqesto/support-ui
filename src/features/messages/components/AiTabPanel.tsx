@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { similarResultsCache } from '@/lib/similarResultsCache';
 import { BookOpen, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -21,7 +21,13 @@ import { useAiDraftsOff } from '@/features/settings/shell';
 import { logger } from '@/lib/logger';
 import { languageName as languageNameOf } from '@/lib/languageName';
 import { stripGreetingName } from '@/lib/depersonalise';
-import { priorityLabel } from './messageDetailConstants';
+import {
+  insertSourceOf,
+  priorityLabel,
+  toGhostOption,
+  type GhostInsertSource,
+  type SuggestedAnswerMeta,
+} from './messageDetailConstants';
 import { AnalysisDegradedHint, analysisInfoValue } from './AnalysisDegradedHint';
 import { useIsWorkspaceAdmin } from '@/hooks/useIsWorkspaceAdmin';
 
@@ -55,6 +61,8 @@ type SuggestedAnswer = {
   confidence?: number;
   source?:
     | 'documentation'
+    // The backend's agent draft written from knowledge-base entries only (2026-11-16).
+    | 'knowledge_base'
     | 'similar_ticket'
     | 'similar_message'
     | 'lead_qualification'
@@ -116,6 +124,8 @@ type ReplyOption = {
   sublabel?: string;
   answer: string;
   type: 'lead' | 'documentation' | 'similar';
+  /** The source an insert reports, when it is not the type's default (a KB-written draft). */
+  insertSource?: GhostInsertSource;
   documentationId?: number;
   /**
    * Where the source link opens. A KB hit (`source: 'documentation'` from similar-resolved) is a
@@ -146,6 +156,10 @@ type Props = {
   onLoadingChange?: (loading: boolean) => void;
   /** 'suggested' = reply block only; 'analysis' = stats/flags only; default = both */
   section?: 'suggested' | 'analysis';
+  /** The stored draft answers an earlier customer email (storedDraftFreshness.ts): not offered. */
+  hideStoredDraft?: boolean;
+  /** Whether it is hidden is not known yet (the thread's events not read): no count meanwhile. */
+  storedDraftPending?: boolean;
 };
 
 // The session cache lives in its own module (similarResultsCache.ts); re-exported for callers.
@@ -192,6 +206,8 @@ export function AiTabPanel({
   onOptionsLoaded,
   onLoadingChange,
   section,
+  hideStoredDraft = false,
+  storedDraftPending = false,
 }: Props) {
   const spamCheck = getSpamCheck(message);
   const analysis = message.metadata?.analysis as Analysis | undefined;
@@ -203,12 +219,20 @@ export function AiTabPanel({
     to be on; with drafts off the agent gets the past replies and KB matches, which people wrote.
   */
   const storedSuggestion = message.metadata?.suggestedAnswer as SuggestedAnswer | undefined;
-  const suggestedAnswer = aiDraftsKnown && !aiDraftsOff ? storedSuggestion : undefined;
+  const suggestedAnswer =
+    aiDraftsKnown && !aiDraftsOff && !hideStoredDraft ? storedSuggestion : undefined;
   const autoReply = message.metadata?.autoReply as AutoReply | undefined;
   const { aiConfigured } = useAiConfigured();
   const isWorkspaceAdmin = useIsWorkspaceAdmin();
 
-  const [similarResults, setSimilarResults] = useState<SimilarResult[]>([]);
+  // The fetched matches as they came; the list below drops the ones the stored draft already
+  // represents. Deduplicated at render, not when they arrive: whether the draft is offered can
+  // change after they arrive (the thread's events decide whether it is stale, 2026-11-16), and a
+  // dedup made at arrival kept a hidden draft's twin out of the list and in the count.
+  const [fetchedSimilar, setFetchedSimilar] = useState<SimilarResult[]>([]);
+  // The matches for THIS conversation arrived (a failed fetch never sets it): only then is a
+  // count reported — before, the badge stayed unset on a failure, and it must not read 0 or 1.
+  const [similarLoaded, setSimilarLoaded] = useState(false);
   const [loadingSimilar, setLoadingSimilar] = useState(true);
   useEffect(() => {
     onLoadingChange?.(loadingSimilar);
@@ -222,38 +246,15 @@ export function AiTabPanel({
     let cancelled = false;
 
     setSelectedId(null);
+    setSimilarLoaded(false);
     setViewOriginal(null);
     setViewKBSources(null);
     setViewLeadSources(null);
 
     const applyResults = (data: SimilarResult[]) => {
       if (cancelled) return;
-      // Deduplicate: remove entries that are already represented by the metadata suggestedAnswer
-      // (same messageId or documentationId) to avoid showing the same suggestion twice.
-      // Guard against undefined comparisons: only deduplicate when the suggestedAnswer
-      // actually has a matching ID set — undefined !== undefined is false and would
-      // incorrectly drop every documentation result when no pre-computed answer exists.
-      const deduped = data.filter((result) => {
-        if (
-          suggestedAnswer?.similarMessageId !== null &&
-          suggestedAnswer?.similarMessageId !== undefined &&
-          result.messageId === suggestedAnswer.similarMessageId
-        )
-          return false;
-        if (
-          suggestedAnswer?.documentationId !== null &&
-          suggestedAnswer?.documentationId !== undefined &&
-          result.documentationId === suggestedAnswer.documentationId
-        )
-          return false;
-        return true;
-      });
-      setSimilarResults(deduped);
-      // The SAME condition the options list renders the AI answer on (below): once an auto-reply
-      // was sent it is not offered, so it must not be counted — the KB tab badge and the ghost
-      // bubble's "+N more" both read this number.
-      const hasSuggested = !!suggestedAnswer?.answer && !autoReply?.sent;
-      onOptionsLoaded?.((hasSuggested ? 1 : 0) + deduped.length);
+      setFetchedSimilar(data);
+      setSimilarLoaded(true);
       // Call directly so aiLoading clears even when loadingSimilar didn't change (cache hit path).
       onLoadingChange?.(false);
       // NO auto-suggest from a past reply.
@@ -275,7 +276,7 @@ export function AiTabPanel({
       setLoadingSimilar(false);
       applyResults(cached);
     } else {
-      setSimilarResults([]);
+      setFetchedSimilar([]);
       setLoadingSimilar(true);
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
       (async () => {
@@ -331,25 +332,60 @@ export function AiTabPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see the note above
   }, [message.id]);
 
+  // Deduplicate: remove entries that are already represented by the metadata suggestedAnswer
+  // (same messageId or documentationId) to avoid showing the same suggestion twice.
+  // Guard against undefined comparisons: only deduplicate when the suggestedAnswer
+  // actually has a matching ID set — undefined !== undefined is false and would
+  // incorrectly drop every documentation result when no pre-computed answer exists.
+  const similarResults = fetchedSimilar.filter((result) => {
+    if (
+      suggestedAnswer?.similarMessageId !== null &&
+      suggestedAnswer?.similarMessageId !== undefined &&
+      result.messageId === suggestedAnswer.similarMessageId
+    )
+      return false;
+    if (
+      suggestedAnswer?.documentationId !== null &&
+      suggestedAnswer?.documentationId !== undefined &&
+      result.documentationId === suggestedAnswer.documentationId
+    )
+      return false;
+    return true;
+  });
+  // The SAME condition the options list renders the AI answer on (below): once an auto-reply
+  // was sent it is not offered, so it must not be counted — the KB tab badge and the ghost
+  // bubble's "+N more" both read this number. Reported whenever it changes, once loaded.
+  const hasSuggested = !!suggestedAnswer?.answer && !autoReply?.sent;
+  const optionCount = (hasSuggested ? 1 : 0) + similarResults.length;
+  const onOptionsLoadedRef = useRef(onOptionsLoaded);
+  onOptionsLoadedRef.current = onOptionsLoaded;
+  useEffect(() => {
+    if (similarLoaded && !storedDraftPending) onOptionsLoadedRef.current?.(optionCount);
+    // `fetchedSimilar`: every arrival of the matches is reported, as before (a parent may reset).
+  }, [optionCount, similarLoaded, storedDraftPending, fetchedSimilar]);
+
   const options: ReplyOption[] = [];
 
   if (suggestedAnswer && !autoReply?.sent) {
-    const isLead =
-      suggestedAnswer.source === 'lead_qualification' ||
-      suggestedAnswer.source === 'lead_qualification_kb';
+    // Label, type and insert source: the SAME mapping as the thread's ghost (toGhostOption).
+    const ghost = toGhostOption(suggestedAnswer as SuggestedAnswerMeta);
+    const isLead = ghost?.type === 'lead';
+    // Linked to a document only when it is one (a KB-written draft has none to link).
     const isDocs = suggestedAnswer.source === 'documentation';
     const matchingResult = suggestedAnswer.similarMessageId
-      ? similarResults.find((result) => result.messageId === suggestedAnswer.similarMessageId)
+      ? // The full list: the deduped one dropped exactly this match.
+        fetchedSimilar.find((result) => result.messageId === suggestedAnswer.similarMessageId)
       : undefined;
     const leadKBDocSource = suggestedAnswer.kbSources?.find((src) => src.type === 'documentation');
     options.push({
       id: 'suggested',
-      label: isLead ? 'LEAD' : isDocs ? 'DOCS' : 'AI',
+      label: ghost?.label ?? 'AI',
       sublabel: suggestedAnswer.confidence
         ? `${Math.round(suggestedAnswer.confidence * 100)}%`
         : undefined,
       answer: suggestedAnswer.answer,
-      type: isLead ? 'lead' : isDocs ? 'documentation' : 'similar',
+      type: ghost?.type ?? 'similar',
+      ...(ghost?.insertSource ? { insertSource: ghost.insertSource } : {}),
       // ⛔ `referencedChunks` are DOCUMENTATION-CHUNK ids (BE messageCompletenessAnalyzer), not
       // document ids: `?docId=<chunk id>` highlighted another document or none. The document id is
       // `sourceDocumentId` (BE, 2026-10-15); a stored answer from before it carries only chunk ids
@@ -371,10 +407,17 @@ export function AiTabPanel({
     });
   }
 
+  // Keyed on the match itself, not its place: the list is deduplicated at render, so a place can
+  // shift under an option the agent selected (another customer's reply inserted). A key two
+  // matches share (the same document twice) takes the place too, so it is still unique.
+  const seenIds = new Set<string>();
   similarResults.forEach((result, idx) => {
     const isPastReply = result.source !== 'documentation';
+    const key = `sim-${result.messageId ?? 'none'}-${result.documentationId ?? 'none'}`;
+    const id = seenIds.has(key) || key === 'sim-none-none' ? `${key}-${idx}` : key;
+    seenIds.add(id);
     options.push({
-      id: `sim-${idx}`,
+      id,
       // "MSG" said nothing about whose words these are. "PAST REPLY" plus the address it
       // was sent to makes reuse a decision rather than an accident.
       label: isPastReply ? 'PAST REPLY' : 'KB',
@@ -450,11 +493,7 @@ export function AiTabPanel({
                 onClick={() =>
                   onGhostClick(
                     activeOption.answer,
-                    activeOption.type === 'lead'
-                      ? 'lead_qualification'
-                      : activeOption.type === 'similar'
-                        ? 'message'
-                        : 'documentation',
+                    insertSourceOf(activeOption),
                     activeOption.attachments
                   )
                 }

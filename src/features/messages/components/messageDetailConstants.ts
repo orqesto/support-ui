@@ -39,10 +39,15 @@ export {
   renderMarkdown,
   suggestedAnswerToHtml,
   toGhostOption,
+  insertSourceOf,
   ghostCaption,
   answerToEditorHtml,
 } from './messageDetailConstants/answerHtml';
-export type { GhostOption, SuggestedAnswerMeta } from './messageDetailConstants/answerHtml';
+export type {
+  GhostOption,
+  GhostInsertSource,
+  SuggestedAnswerMeta,
+} from './messageDetailConstants/answerHtml';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

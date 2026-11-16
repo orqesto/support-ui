@@ -3,10 +3,10 @@
  * (an agent's reply or the auto-reply), that email is answered: no suggestion is shown — neither
  * the stored draft nor "No suggestion found" — until the customer writes again.
  */
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MessageGhostBubble } from '../MessageGhostBubble';
-import type { GhostOption } from '../messageDetailConstants';
+import { toGhostOption, type GhostOption } from '../messageDetailConstants';
 
 const noop = () => undefined;
 const option = {
@@ -51,5 +51,40 @@ describe('AI suggestion after our reply', () => {
   it('CONTROL: not passed (older callers): shown as before', () => {
     renderBubble({});
     expect(screen.getByText(/we ship to every EU country/)).toBeInTheDocument();
+  });
+});
+
+describe('AI suggestion — the source an insert reports (usage statistics)', () => {
+  const insert = (option: GhostOption) => {
+    const onGhostClick = vi.fn<(answer: string, source: string) => void>();
+    render(
+      <MessageGhostBubble
+        aiLoading={false}
+        ghostVisible
+        ghostOption={option}
+        autoReply={undefined}
+        composer=""
+        composerMode="reply"
+        resolved={false}
+        alternativeCount={0}
+        onGhostClick={onGhostClick}
+        onShowAlternatives={noop}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Tap to insert into reply/ }));
+    return onGhostClick.mock.calls[0] as [string, string];
+  };
+
+  it('a draft written from KB entries is counted as KB', () => {
+    expect(insert(toGhostOption({ answer: 'From the KB.', source: 'knowledge_base' })!)).toEqual([
+      'From the KB.',
+      'knowledge_base',
+    ]);
+  });
+
+  it('CONTROL: a documentation draft stays documentation', () => {
+    expect(insert(toGhostOption({ answer: 'From the docs.', source: 'documentation' })!)[1]).toBe(
+      'documentation'
+    );
   });
 });
