@@ -8,7 +8,7 @@ import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/t
 import { notCustomerWorkMark } from './notCustomerWork';
 import {
   hasActiveContradiction,
-  isFloodReview,
+  namedReviewReason,
   NEEDS_REVIEW_REASON_LABELS,
   needsReviewTooltip,
 } from './aiFlagCopy';
@@ -574,13 +574,15 @@ export const getAiState = (
       !aiDraftsOff && meta?.suggestedAnswer !== null && meta?.suggestedAnswer !== undefined;
     // A flood hold names itself on the chip (owner 2026-11-13); every other reason stays short. A
     // draft stored meanwhile stays visible (review round 2): it is ready to send.
-    if (isFloodReview(message)) {
+    // Partial answers name themselves too (2026-11-16): a follow-up is owed.
+    const named = namedReviewReason(message);
+    if (named) {
       return hasDraft
         ? {
-            label: `${NEEDS_REVIEW_REASON_LABELS.flood} · draft ready`,
+            label: `${NEEDS_REVIEW_REASON_LABELS[named]} · draft ready`,
             tooltip: `AI prepared a draft reply — review and send · ${why}`,
           }
-        : { label: NEEDS_REVIEW_REASON_LABELS.flood, tooltip: why };
+        : { label: NEEDS_REVIEW_REASON_LABELS[named], tooltip: why };
     }
     if (hasDraft) {
       return {

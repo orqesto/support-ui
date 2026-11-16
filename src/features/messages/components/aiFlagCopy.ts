@@ -47,6 +47,25 @@ export const NEEDS_REVIEW_LABEL = 'Needs review';
  */
 export const FLOOD_REVIEW_REASON = 'flood';
 
+/**
+ * The review reasons that name themselves on the chip and in the thread header: the flood hold,
+ * and the AI auto-reply's partial answers (2026-11-16) — the agent must see that a follow-up is
+ * owed without opening a tooltip. Any other reason keeps the plain "Needs review".
+ */
+export const NAMED_REVIEW_REASONS = ['flood', 'partial_answer', 'follow_up_needed'] as const;
+export type NamedReviewReason = (typeof NAMED_REVIEW_REASONS)[number];
+
+export const namedReviewReason = (
+  thread:
+    | { needsHumanReview?: boolean | null; needsReviewReason?: string | null }
+    | null
+    | undefined
+): NamedReviewReason | null =>
+  thread?.needsHumanReview === true &&
+  (NAMED_REVIEW_REASONS as readonly string[]).includes(thread.needsReviewReason ?? '')
+    ? (thread.needsReviewReason as NamedReviewReason)
+    : null;
+
 export const isFloodReview = (
   thread:
     | { needsHumanReview?: boolean | null; needsReviewReason?: string | null }
