@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { messageService } from '@/services/message.service';
 import { isOutgoingEvent } from '@/lib/messageHelpers';
-import { storedDraftFreshness } from './storedDraftFreshness';
+import { storedDraftFreshness, type BackendDraftState } from './storedDraftFreshness';
 import { logger } from '@/lib/logger';
 import { useSeededState } from '@/lib/seededState';
 import { normaliseThreadPage, type ThreadPage } from '@/services/threadPage';
@@ -238,15 +238,37 @@ export function useThreadEvents(
     const last = [...sortedThread].reverse().find((event) => event.type !== 'note');
     return last ? isOutgoingEvent(last) : false;
   }, [sortedThread]);
+  // What the last detail read said about the draft (latest customer email, the draft's age). Kept:
+  // a list row replacing the message carries neither key, and must not erase it.
+  const lastBackendState = useRef<{ id: number; state: BackendDraftState } | null>(null);
+  if (message.latestInbound !== undefined) {
+    const state: BackendDraftState = {
+      latestInbound: message.latestInbound ?? null,
+      storedDraftAge: message.storedDraftAge ?? null,
+    };
+    // The same object while the values hold, so the freshness below is not recomputed per render.
+    const previous = lastBackendState.current;
+    const same =
+      previous?.id === message.id &&
+      previous.state.latestInbound?.eventId === state.latestInbound?.eventId &&
+      previous.state.latestInbound?.at === state.latestInbound?.at &&
+      previous.state.storedDraftAge?.age === state.storedDraftAge?.age &&
+      previous.state.storedDraftAge?.answersEventId === state.storedDraftAge?.answersEventId &&
+      previous.state.storedDraftAge?.foundAt === state.storedDraftAge?.foundAt;
+    if (!same) lastBackendState.current = { id: message.id, state };
+  }
+  const backendState =
+    lastBackendState.current?.id === message.id ? lastBackendState.current.state : undefined;
   // Whether the stored AI draft answers the customer's latest email (storedDraftFreshness.ts).
   const storedDraft = useMemo(
     () =>
       storedDraftFreshness(
         message.metadata,
         sortedThread,
-        threadEventsFor !== message.id ? (threadError !== null ? 'failed' : 'pending') : 'loaded'
+        threadEventsFor !== message.id ? (threadError !== null ? 'failed' : 'pending') : 'loaded',
+        backendState
       ),
-    [message.metadata, message.id, sortedThread, threadEventsFor, threadError]
+    [message.metadata, message.id, sortedThread, threadEventsFor, threadError, backendState]
   );
   // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
   // only ever sit between days, in order.

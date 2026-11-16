@@ -159,7 +159,12 @@ export type Message = {
    */
   autoRoutedReason?: string | null;
   /** Skill evidence behind a skill_match (BE 2026-11-02); absent on an older backend. */
-  autoRoutedMatches?: Array<{ key: string; value: string; source: string; evidence: string | null }> | null;
+  autoRoutedMatches?: Array<{
+    key: string;
+    value: string;
+    source: string;
+    evidence: string | null;
+  }> | null;
   createdAt: string;
   updatedAt?: string;
   metadata?: Record<string, unknown> | null;
@@ -212,6 +217,17 @@ export type Message = {
   isRead?: boolean;
   /** The signed-in user's own mute on this thread. Absent = the backend does not know mutes. */
   mutedByMe?: boolean;
+  /**
+   * Detail read only (2026-11-16): the customer's latest email and the stored AI draft's age
+   * against it, by the backend's rule. Absent: a list row or an older backend — then the thread's
+   * loaded events decide (storedDraftFreshness.ts).
+   */
+  latestInbound?: { eventId: number; at: string } | null;
+  storedDraftAge?: {
+    age: 'current' | 'older' | 'unknown';
+    answersEventId: number | null;
+    foundAt: string | null;
+  } | null;
   /**
    * The thread carries the SUSPICIOUS verdict — the same predicate the Suspicious chip
    * claims rows by, resolved server-side from the newest inbound event (not the frozen

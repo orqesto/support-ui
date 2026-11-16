@@ -189,13 +189,8 @@ export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): Ghost
     answer: sa.answer,
     label: isLead ? 'LEAD' : isDocs ? 'DOCS' : isKb ? 'KB' : 'AI',
     type: isLead ? 'lead' : isDocs || isKb ? 'documentation' : 'similar',
-    insertSource: isLead
-      ? 'lead_qualification'
-      : isDocs
-        ? 'documentation'
-        : isKb
-          ? 'knowledge_base'
-          : 'message',
+    // Only where it is not the type's default (insertSourceOf): a KB-written draft.
+    ...(isKb ? { insertSource: 'knowledge_base' as const } : {}),
     ...(confidence !== undefined ? { confidence } : {}),
     ...(sourceTitle ? { sourceTitle } : {}),
   };

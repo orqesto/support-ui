@@ -240,4 +240,39 @@ describe('MessageDetail — a draft for an earlier customer email is not offered
     renderWithThread(thread, withDraft(draft(3)));
     await waitFor(() => expect(ghostText()).toBe(STORED));
   });
+  // The detail read names the latest customer email (2026-11-16): a page holding none of the
+  // customer's emails (a long thread, a cached page) no longer decides.
+  const withRead = (answersEventId: number, latestEventId: number) =>
+    ({
+      ...withDraft(draft(answersEventId)),
+      latestInbound: { eventId: latestEventId, at: '2026-10-01T15:00:00.000Z' },
+      storedDraftAge: null,
+    }) as unknown as Message;
+  const notesOnly = [event(20, 'note', '2026-10-01T16:00:00Z')];
+
+  it('the read says email 7 is the latest; a draft for email 3 is not offered, whatever the page', async () => {
+    renderWithThread(notesOnly, withRead(3, 7));
+    await waitFor(() => expect(svc.message.getThreadMessages).toHaveBeenCalled());
+    await waitFor(() => expect(ghostText()).toBe(''));
+  });
+
+  it('CONTROL: a draft for the email the read names is offered', async () => {
+    renderWithThread(notesOnly, withRead(7, 7));
+    await waitFor(() => expect(ghostText()).toBe(STORED));
+  });
+
+  it('a list row replacing the message (no read keys) keeps what the read said', async () => {
+    const view = renderWithThread(notesOnly, withRead(3, 7));
+    await waitFor(() => expect(svc.message.getThreadMessages).toHaveBeenCalled());
+    view.rerender(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <MemoryRouter>
+          <MessageDetail message={withDraft(draft(3))} onClose={vi.fn()} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    await waitFor(() => expect(ghostText()).toBe(''));
+  });
 });
