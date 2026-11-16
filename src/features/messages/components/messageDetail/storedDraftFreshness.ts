@@ -1,4 +1,5 @@
-import type { Message, MessageEvent } from '@/types';
+import type { BackendDraftState } from '@/services/message/message.types';
+import type { MessageEvent } from '@/types';
 
 /** Where the thread's events stand: not read yet for this conversation, read, or the read failed. */
 export type ThreadEventsState = 'pending' | 'loaded' | 'failed';
@@ -70,51 +71,43 @@ function fromEventsOnly(
 }
 
 /**
- * What the thread's detail read says (GET /messages/:id, 2026-11-16): the customer's latest email
- * and the stored draft's age against it by the backend's own rule (suggestionAge). `undefined`:
- * no detail read has said it yet (a list row, or an older backend) — then the events decide.
+ * What the thread read says (GET /messages/:id/thread → `storedDraft`, support-service #1578): the
+ * customer's latest email and the stored draft's age against it, by the backend's own rule
+ * (suggestionAge), with the draft it judged. Sent on every read — the full one and each live
+ * pull — so it is as fresh as the events. `undefined`: an older backend; the events decide.
  */
-export type BackendDraftState = {
-  latestInbound: NonNullable<Message['latestInbound']> | null;
-  storedDraftAge: NonNullable<Message['storedDraftAge']> | null;
-};
+export type { BackendDraftState } from '@/services/message/message.types';
+
+const sameTime = (left: unknown, right: unknown): boolean =>
+  typeof left === 'string' &&
+  typeof right === 'string' &&
+  !Number.isNaN(Date.parse(left)) &&
+  Date.parse(left) === Date.parse(right);
 
 /**
- * With the backend's state: its latest customer email, unless an email pulled live since was
- * stored after it (then that one). A draft that names its email is offered for that email only
- * (or for one newer than the backend knew — written after the read). A draft that names none is
- * judged by the backend's age only, while the stored draft is the one it judged.
+ * The backend's verdict, while the stored draft is the one it judged (same `answersEventId`, or the
+ * same `foundAt` for a draft that names no email). A draft written since the last read is the
+ * backend's new one for the latest email: offered, unless it names a loaded email that a later
+ * customer email follows (strictly later: a tie never hides a draft).
  */
 const withBackendState = (
   draft: { answersEventId?: unknown; foundAt?: unknown },
   sortedThread: readonly MessageEvent[],
   backend: BackendDraftState
 ): StoredDraftFreshness => {
-  const known = backend.latestInbound;
-  const knownAt = known ? Date.parse(known.at) : -Infinity;
-  const inbound = sortedThread.filter((event) => event.type === 'inbound');
-  // An email pulled live after the read and stored STRICTLY after the backend's latest (all of
-  // them when the read saw none) — the newest such one is the latest now. Strictly: the API's
-  // milliseconds cannot split what Postgres's microseconds order, so a tie never hides a draft.
-  let latest: { id: number; at: number } | null = known ? { id: known.eventId, at: knownAt } : null;
-  for (const event of inbound) {
-    const at = Date.parse(event.createdAt);
-    if (at > knownAt && (!latest || at > latest.at)) latest = { id: event.id, at };
-  }
-
-  const answersEventId = draft.answersEventId;
-  if (typeof answersEventId === 'number') {
-    if (!latest || answersEventId === latest.id) return { draftHidden: false, pending: false };
-    // An email neither the read nor the loaded events know, inserted after the latest (ids are
-    // given at insert): newer, not pulled yet — its draft is current. Any loaded one is decided.
-    const loaded = inbound.some((event) => event.id === answersEventId);
-    return { draftHidden: loaded || answersEventId < latest.id, pending: false };
-  }
   const judged = backend.storedDraftAge;
+  const answersEventId = draft.answersEventId;
   const sameDraft =
     judged !== null &&
-    judged.answersEventId === null &&
-    judged.foundAt === (typeof draft.foundAt === 'string' ? draft.foundAt : null);
-  // Only the backend's verdict, never a clock compared here (its rule needs the database's zone).
-  return { draftHidden: sameDraft && judged.age === 'older', pending: false };
+    (typeof answersEventId === 'number'
+      ? judged.answersEventId === answersEventId
+      : judged.answersEventId === null && sameTime(judged.foundAt, draft.foundAt));
+  if (sameDraft) return { draftHidden: judged.age === 'older', pending: false };
+  if (typeof answersEventId !== 'number') return { draftHidden: false, pending: false };
+  const inbound = sortedThread.filter((event) => event.type === 'inbound');
+  const named = inbound.find((event) => event.id === answersEventId);
+  const followed =
+    named !== undefined &&
+    inbound.some((event) => Date.parse(event.createdAt) > Date.parse(named.createdAt));
+  return { draftHidden: followed, pending: false };
 };

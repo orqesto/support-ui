@@ -371,3 +371,16 @@ export type KbQaPairInput = {
   question: string;
   answer: string;
 };
+
+/**
+ * The thread read's `storedDraft` (support-service #1578): the customer's latest email and the
+ * stored AI draft's age by the backend's rule, with the draft it judged (storedDraftFreshness.ts).
+ */
+export type BackendDraftState = {
+  latestInbound: { eventId: number; at: string } | null;
+  storedDraftAge: {
+    age: 'current' | 'older' | 'unknown';
+    answersEventId: number | null;
+    foundAt: string | null;
+  } | null;
+};

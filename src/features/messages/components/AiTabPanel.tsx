@@ -517,7 +517,7 @@ export function AiTabPanel({
             </p>
           )}
 
-          {listLoading && options.length === 0 && (
+          {listLoading && (
             <div className="flex items-center gap-1.5">
               <Spinner />
               <span className="text-[11px] text-muted-foreground">Loading…</span>
