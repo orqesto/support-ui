@@ -11,6 +11,16 @@ import {
   type GhostOption,
 } from './messageDetailConstants';
 
+/** The source an inserted ghost reports (usage statistics): a KB-written draft counts as KB. */
+const ghostInsertSource = (option: GhostOption): string =>
+  option.type === 'lead'
+    ? 'lead_qualification'
+    : option.type === 'similar'
+      ? 'message'
+      : option.label === 'KB'
+        ? 'knowledge_base'
+        : 'documentation';
+
 type Props = {
   aiLoading: boolean;
   ghostVisible: boolean;
@@ -86,29 +96,13 @@ export function MessageGhostBubble({
     <div
       role="button"
       tabIndex={0}
-      onClick={() =>
-        onGhostClick(
-          ghostOption.answer,
-          ghostOption.type === 'lead'
-            ? 'lead_qualification'
-            : ghostOption.type === 'similar'
-              ? 'message'
-              : 'documentation'
-        )
-      }
+      onClick={() => onGhostClick(ghostOption.answer, ghostInsertSource(ghostOption))}
       // Only Enter on the bubble itself inserts it: Enter on its "+N more" button is that
       // button's press, and inserting first replaced the reply as a side effect.
       onKeyDown={(event) =>
         event.target === event.currentTarget &&
         event.key === 'Enter' &&
-        onGhostClick(
-          ghostOption.answer,
-          ghostOption.type === 'lead'
-            ? 'lead_qualification'
-            : ghostOption.type === 'similar'
-              ? 'message'
-              : 'documentation'
-        )
+        onGhostClick(ghostOption.answer, ghostInsertSource(ghostOption))
       }
       // v3: an outbound-side row in the AI role — dashed teal, so it can never be mistaken for
       // a reply that was actually sent.
@@ -122,7 +116,11 @@ export function MessageGhostBubble({
       <div className={`flex flex-col items-end gap-1 min-w-0 max-w-[90%] ${PHONE_THREAD_COL_OUT}`}>
         <div className="flex items-center gap-1.5 font-display text-[10.5px] tracking-[0.03em] text-ai">
           <span className="inline-flex items-center h-[17px] px-1.5 rounded-[5px] border border-ai-line bg-ai-muted text-[9.5px] tracking-[0.09em] font-semibold uppercase">
-            {ghostOption.type === 'documentation' ? 'Docs' : ghostOption.type}
+            {ghostOption.label === 'KB'
+              ? 'KB'
+              : ghostOption.type === 'documentation'
+                ? 'Docs'
+                : ghostOption.type}
           </span>
           {/* The pill already names the type; the caption carries what the pill cannot. */}
           <span>{ghostCaption(ghostOption)}</span>

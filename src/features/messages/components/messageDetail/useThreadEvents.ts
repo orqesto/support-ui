@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { messageService } from '@/services/message.service';
 import { isOutgoingEvent } from '@/lib/messageHelpers';
+import { storedDraftFreshness } from './storedDraftFreshness';
 import { logger } from '@/lib/logger';
 import { useSeededState } from '@/lib/seededState';
 import { normaliseThreadPage, type ThreadPage } from '@/services/threadPage';
@@ -237,6 +238,11 @@ export function useThreadEvents(
     const last = [...sortedThread].reverse().find((event) => event.type !== 'note');
     return last ? isOutgoingEvent(last) : false;
   }, [sortedThread]);
+  // Whether the stored AI draft answers the customer's latest email (storedDraftFreshness.ts).
+  const storedDraft = useMemo(
+    () => storedDraftFreshness(message.metadata, sortedThread),
+    [message.metadata, sortedThread]
+  );
   // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
   // only ever sit between days, in order.
   return {
@@ -264,5 +270,6 @@ export function useThreadEvents(
     pullLiveEvents,
     sortedThread,
     lastWordOurs,
+    storedDraft,
   };
 }

@@ -139,14 +139,14 @@ const event = (id: number, type: string, at: string) => ({
   metadata: {},
 });
 
-const renderWithThread = (rows: unknown[]) => {
+const renderWithThread = (rows: unknown[], shown: Message = message) => {
   svc.message.getThreadMessages.mockResolvedValue({ data: rows });
   return render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
       <MemoryRouter>
-        <MessageDetail message={message} onClose={vi.fn()} />
+        <MessageDetail message={shown} onClose={vi.fn()} />
       </MemoryRouter>
     </QueryClientProvider>
   );
@@ -192,6 +192,61 @@ describe('MessageDetail — no AI suggestion after our reply', () => {
       event(2, 'agent_reply', '2026-10-01T11:00:00Z'),
       event(3, 'inbound', '2026-10-01T12:00:00Z'),
     ]);
+    await answeredFlag('false');
+  });
+});
+
+/**
+ * A customer's "Yes, it arrived, thank you" needed no reply, and the draft written for their
+ * EARLIER email (an apology for the delay) was offered again under it (2026-11-16). The draft
+ * names the email it answers (`answersEventId`); the backend marks an email that needs no reply.
+ */
+describe('MessageDetail — a draft for an earlier customer email is not offered', () => {
+  const withDraft = (metadata: Record<string, unknown>) =>
+    ({ ...message, metadata: { ...message.metadata, ...metadata } }) as unknown as Message;
+  const draft = (answersEventId: number) => ({
+    suggestedAnswer: { answer: STORED, source: 'documentation', answersEventId },
+  });
+  const thread = [
+    event(1, 'inbound', '2026-10-01T10:00:00Z'),
+    event(2, 'agent_reply', '2026-10-01T11:00:00Z'),
+    event(3, 'inbound', '2026-10-01T12:00:00Z'),
+  ];
+  const ghostText = () => screen.getByTestId('ghost').textContent;
+
+  it('the draft answers email 1, the customer wrote email 3: no draft, no "none found"', async () => {
+    renderWithThread(thread, withDraft(draft(1)));
+    await waitFor(() => expect(svc.message.getThreadMessages).toHaveBeenCalled());
+    await answeredFlag('true');
+    expect(ghostText()).toBe('');
+  });
+
+  it('before the events load, a draft that names an email is not one click away', () => {
+    svc.message.getThreadMessages.mockReturnValue(new Promise(() => undefined));
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <MemoryRouter>
+          <MessageDetail message={withDraft(draft(3))} onClose={vi.fn()} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    expect(ghostText()).toBe('');
+  });
+
+  it('CONTROL: the draft answers email 3, the latest: it is offered', async () => {
+    renderWithThread(thread, withDraft(draft(3)));
+    await waitFor(() => expect(ghostText()).toBe(STORED));
+  });
+
+  it('the latest email needs no reply (backend mark): no suggestion at all', async () => {
+    renderWithThread(thread, withDraft({ noReplyForEventId: 3 }));
+    await answeredFlag('true');
+  });
+
+  it('CONTROL: a mark for an earlier email does not hide the suggestion zone', async () => {
+    renderWithThread(thread, withDraft({ noReplyForEventId: 1 }));
     await answeredFlag('false');
   });
 });

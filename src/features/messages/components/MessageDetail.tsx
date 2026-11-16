@@ -498,6 +498,7 @@ export function MessageDetail({
       noteActivityLog={noteActivityLog}
       messageActivity={messageActivity}
       sortedThread={sortedThread}
+      storedDraftHidden={thread.storedDraft.stale || thread.storedDraft.noReplyWanted}
       threadRefreshKey={threadRefreshKey + attachmentsBump}
       attachments={flatAttachments}
       currentUserId={currentUserId}
@@ -664,7 +665,10 @@ export function MessageDetail({
             handleOpenInlineImage={handleOpenInlineImage}
             aiLoading={aiLoading}
             ghostVisible={ghostVisible}
-            ghostOption={ghostOption}
+            // Only while it answers the customer's LATEST email: a draft for an earlier one was
+            // shown again under a "thanks, it arrived" (storedDraftFreshness.ts). Filtered here,
+            // not in useGhostOption, so a ghost the agent dismissed never comes back on a flip.
+            ghostOption={thread.storedDraft.stale ? null : ghostOption}
             autoReply={autoReply}
             composer={composer}
             composerMode={composerMode}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { similarResultsCache } from '@/lib/similarResultsCache';
 import { BookOpen, MessageSquare } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -55,6 +55,8 @@ type SuggestedAnswer = {
   confidence?: number;
   source?:
     | 'documentation'
+    // The backend's agent draft written from knowledge-base entries only (2026-11-16).
+    | 'knowledge_base'
     | 'similar_ticket'
     | 'similar_message'
     | 'lead_qualification'
@@ -146,6 +148,11 @@ type Props = {
   onLoadingChange?: (loading: boolean) => void;
   /** 'suggested' = reply block only; 'analysis' = stats/flags only; default = both */
   section?: 'suggested' | 'analysis';
+  /**
+   * The stored draft does not answer the customer's latest email, or that email needs no reply
+   * (storedDraftFreshness.ts): it is not offered here either.
+   */
+  hideStoredDraft?: boolean;
 };
 
 // The session cache lives in its own module (similarResultsCache.ts); re-exported for callers.
@@ -192,6 +199,7 @@ export function AiTabPanel({
   onOptionsLoaded,
   onLoadingChange,
   section,
+  hideStoredDraft = false,
 }: Props) {
   const spamCheck = getSpamCheck(message);
   const analysis = message.metadata?.analysis as Analysis | undefined;
@@ -203,12 +211,17 @@ export function AiTabPanel({
     to be on; with drafts off the agent gets the past replies and KB matches, which people wrote.
   */
   const storedSuggestion = message.metadata?.suggestedAnswer as SuggestedAnswer | undefined;
-  const suggestedAnswer = aiDraftsKnown && !aiDraftsOff ? storedSuggestion : undefined;
+  const suggestedAnswer =
+    aiDraftsKnown && !aiDraftsOff && !hideStoredDraft ? storedSuggestion : undefined;
   const autoReply = message.metadata?.autoReply as AutoReply | undefined;
   const { aiConfigured } = useAiConfigured();
   const isWorkspaceAdmin = useIsWorkspaceAdmin();
 
-  const [similarResults, setSimilarResults] = useState<SimilarResult[]>([]);
+  // The fetched matches as they came; the list below drops the ones the stored draft already
+  // represents. Deduplicated at render, not when they arrive: whether the draft is offered can
+  // change after they arrive (the thread's events decide whether it is stale, 2026-11-16), and a
+  // dedup made at arrival kept a hidden draft's twin out of the list and in the count.
+  const [fetchedSimilar, setFetchedSimilar] = useState<SimilarResult[]>([]);
   const [loadingSimilar, setLoadingSimilar] = useState(true);
   useEffect(() => {
     onLoadingChange?.(loadingSimilar);
@@ -228,32 +241,7 @@ export function AiTabPanel({
 
     const applyResults = (data: SimilarResult[]) => {
       if (cancelled) return;
-      // Deduplicate: remove entries that are already represented by the metadata suggestedAnswer
-      // (same messageId or documentationId) to avoid showing the same suggestion twice.
-      // Guard against undefined comparisons: only deduplicate when the suggestedAnswer
-      // actually has a matching ID set — undefined !== undefined is false and would
-      // incorrectly drop every documentation result when no pre-computed answer exists.
-      const deduped = data.filter((result) => {
-        if (
-          suggestedAnswer?.similarMessageId !== null &&
-          suggestedAnswer?.similarMessageId !== undefined &&
-          result.messageId === suggestedAnswer.similarMessageId
-        )
-          return false;
-        if (
-          suggestedAnswer?.documentationId !== null &&
-          suggestedAnswer?.documentationId !== undefined &&
-          result.documentationId === suggestedAnswer.documentationId
-        )
-          return false;
-        return true;
-      });
-      setSimilarResults(deduped);
-      // The SAME condition the options list renders the AI answer on (below): once an auto-reply
-      // was sent it is not offered, so it must not be counted — the KB tab badge and the ghost
-      // bubble's "+N more" both read this number.
-      const hasSuggested = !!suggestedAnswer?.answer && !autoReply?.sent;
-      onOptionsLoaded?.((hasSuggested ? 1 : 0) + deduped.length);
+      setFetchedSimilar(data);
       // Call directly so aiLoading clears even when loadingSimilar didn't change (cache hit path).
       onLoadingChange?.(false);
       // NO auto-suggest from a past reply.
@@ -275,7 +263,7 @@ export function AiTabPanel({
       setLoadingSimilar(false);
       applyResults(cached);
     } else {
-      setSimilarResults([]);
+      setFetchedSimilar([]);
       setLoadingSimilar(true);
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
       (async () => {
@@ -331,6 +319,37 @@ export function AiTabPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see the note above
   }, [message.id]);
 
+  // Deduplicate: remove entries that are already represented by the metadata suggestedAnswer
+  // (same messageId or documentationId) to avoid showing the same suggestion twice.
+  // Guard against undefined comparisons: only deduplicate when the suggestedAnswer
+  // actually has a matching ID set — undefined !== undefined is false and would
+  // incorrectly drop every documentation result when no pre-computed answer exists.
+  const similarResults = fetchedSimilar.filter((result) => {
+    if (
+      suggestedAnswer?.similarMessageId !== null &&
+      suggestedAnswer?.similarMessageId !== undefined &&
+      result.messageId === suggestedAnswer.similarMessageId
+    )
+      return false;
+    if (
+      suggestedAnswer?.documentationId !== null &&
+      suggestedAnswer?.documentationId !== undefined &&
+      result.documentationId === suggestedAnswer.documentationId
+    )
+      return false;
+    return true;
+  });
+  // The SAME condition the options list renders the AI answer on (below): once an auto-reply
+  // was sent it is not offered, so it must not be counted — the KB tab badge and the ghost
+  // bubble's "+N more" both read this number. Reported whenever it changes, once loaded.
+  const hasSuggested = !!suggestedAnswer?.answer && !autoReply?.sent;
+  const optionCount = (hasSuggested ? 1 : 0) + similarResults.length;
+  const onOptionsLoadedRef = useRef(onOptionsLoaded);
+  onOptionsLoadedRef.current = onOptionsLoaded;
+  useEffect(() => {
+    if (!loadingSimilar) onOptionsLoadedRef.current?.(optionCount);
+  }, [optionCount, loadingSimilar, message.id]);
+
   const options: ReplyOption[] = [];
 
   if (suggestedAnswer && !autoReply?.sent) {
@@ -338,18 +357,21 @@ export function AiTabPanel({
       suggestedAnswer.source === 'lead_qualification' ||
       suggestedAnswer.source === 'lead_qualification_kb';
     const isDocs = suggestedAnswer.source === 'documentation';
+    // An agent draft written from knowledge-base entries only (backend, 2026-11-16): a
+    // documentation-type answer for insertion, labelled KB, with no document to link.
+    const isKb = suggestedAnswer.source === 'knowledge_base';
     const matchingResult = suggestedAnswer.similarMessageId
       ? similarResults.find((result) => result.messageId === suggestedAnswer.similarMessageId)
       : undefined;
     const leadKBDocSource = suggestedAnswer.kbSources?.find((src) => src.type === 'documentation');
     options.push({
       id: 'suggested',
-      label: isLead ? 'LEAD' : isDocs ? 'DOCS' : 'AI',
+      label: isLead ? 'LEAD' : isDocs ? 'DOCS' : isKb ? 'KB' : 'AI',
       sublabel: suggestedAnswer.confidence
         ? `${Math.round(suggestedAnswer.confidence * 100)}%`
         : undefined,
       answer: suggestedAnswer.answer,
-      type: isLead ? 'lead' : isDocs ? 'documentation' : 'similar',
+      type: isLead ? 'lead' : isDocs || isKb ? 'documentation' : 'similar',
       // ⛔ `referencedChunks` are DOCUMENTATION-CHUNK ids (BE messageCompletenessAnalyzer), not
       // document ids: `?docId=<chunk id>` highlighted another document or none. The document id is
       // `sourceDocumentId` (BE, 2026-10-15); a stored answer from before it carries only chunk ids
@@ -454,7 +476,10 @@ export function AiTabPanel({
                       ? 'lead_qualification'
                       : activeOption.type === 'similar'
                         ? 'message'
-                        : 'documentation',
+                        : // The stored draft written from KB entries is counted as KB, not docs.
+                          activeOption.id === 'suggested' && activeOption.label === 'KB'
+                          ? 'knowledge_base'
+                          : 'documentation',
                     activeOption.attachments
                   )
                 }

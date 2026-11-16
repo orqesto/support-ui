@@ -143,6 +143,9 @@ export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): Ghost
   const src = sa.source ?? '';
   const isLead = src === 'lead_qualification' || src === 'lead_qualification_kb';
   const isDocs = src === 'documentation';
+  // Written from knowledge-base entries, no documentation section (the backend's agent draft,
+  // 2026-11-16): still inserted as a documentation answer, but the chip says KB, not DOCS.
+  const isKb = src === 'knowledge_base';
   // ⛔ Absent stays absent: a missing confidence must not read as "0%", and a title is shown only
   // when the writer stored one — nothing is looked up or guessed here.
   const confidence =
@@ -157,8 +160,8 @@ export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): Ghost
     ?.title?.trim();
   return {
     answer: sa.answer,
-    label: isLead ? 'LEAD' : isDocs ? 'DOCS' : 'AI',
-    type: isLead ? 'lead' : isDocs ? 'documentation' : 'similar',
+    label: isLead ? 'LEAD' : isDocs ? 'DOCS' : isKb ? 'KB' : 'AI',
+    type: isLead ? 'lead' : isDocs || isKb ? 'documentation' : 'similar',
     ...(confidence !== undefined ? { confidence } : {}),
     ...(sourceTitle ? { sourceTitle } : {}),
   };

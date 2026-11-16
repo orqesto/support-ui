@@ -22,7 +22,7 @@ vi.mock('@/services/message.service', () => ({
 }));
 
 let nextId = 500;
-const renderPanel = (metadata: Record<string, unknown>) => {
+const renderPanel = (metadata: Record<string, unknown>, hideStoredDraft?: boolean) => {
   const onOptionsLoaded = vi.fn();
   const message = {
     id: nextId++, // a fresh id per test: the panel caches results per conversation
@@ -38,10 +38,11 @@ const renderPanel = (metadata: Record<string, unknown>) => {
         onGhostClick={() => {}}
         onOptionsLoaded={onOptionsLoaded}
         section="suggested"
+        {...(hideStoredDraft === undefined ? {} : { hideStoredDraft })}
       />
     </MemoryRouter>
   );
-  return onOptionsLoaded;
+  return { onOptionsLoaded };
 };
 
 const answer = { suggestedAnswer: { answer: 'Hello, here is how.', source: 'ai' } };
@@ -52,13 +53,47 @@ beforeEach(() => {
 
 describe('AiTabPanel — reported option count', () => {
   it('counts the AI answer while it is offered', async () => {
-    const onOptionsLoaded = renderPanel(answer);
+    const { onOptionsLoaded } = renderPanel(answer);
     await waitFor(() => expect(onOptionsLoaded).toHaveBeenCalledWith(1));
   });
 
   it('does not count the AI answer once an auto-reply was sent (it is not offered)', async () => {
-    const onOptionsLoaded = renderPanel({ ...answer, autoReply: { sent: true } });
+    const { onOptionsLoaded } = renderPanel({ ...answer, autoReply: { sent: true } });
     await waitFor(() => expect(onOptionsLoaded).toHaveBeenCalled());
     expect(onOptionsLoaded).toHaveBeenLastCalledWith(0);
+  });
+
+  // 2026-11-16: a stored draft for the customer's EARLIER email is not offered (the thread decides,
+  // storedDraftFreshness.ts) — nor counted.
+  it('a hidden stored draft is neither offered nor counted', async () => {
+    const { onOptionsLoaded } = renderPanel(answer, true);
+    await waitFor(() => expect(onOptionsLoaded).toHaveBeenCalled());
+    expect(onOptionsLoaded).toHaveBeenLastCalledWith(0);
+  });
+
+  it('hidden AFTER the matches arrived (the thread loaded later): the count follows', async () => {
+    const onOptionsLoaded = vi.fn();
+    const message = {
+      id: nextId++,
+      sender: 'a@b.example',
+      channel: 'email',
+      createdAt: '2026-09-22T10:00:00Z',
+      metadata: answer,
+    } as unknown as Message;
+    const panel = (hideStoredDraft: boolean) => (
+      <MemoryRouter>
+        <AiTabPanel
+          message={message}
+          onGhostClick={() => {}}
+          onOptionsLoaded={onOptionsLoaded}
+          section="suggested"
+          hideStoredDraft={hideStoredDraft}
+        />
+      </MemoryRouter>
+    );
+    const { rerender } = render(panel(false));
+    await waitFor(() => expect(onOptionsLoaded).toHaveBeenLastCalledWith(1));
+    rerender(panel(true));
+    await waitFor(() => expect(onOptionsLoaded).toHaveBeenLastCalledWith(0));
   });
 });
