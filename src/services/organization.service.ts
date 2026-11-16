@@ -61,6 +61,8 @@ export type { OrganizationMember };
  * answers, its missing-info question); `rules_only` = the keyword rules alone (audit M4).
  */
 export type AutoReplyMode = 'all' | 'rules_only';
+/** When the AI can answer only some of a customer's questions (backend 2026-11-16). */
+export type AutoReplyPartialAnswer = 'hand_to_agent' | 'send_and_follow_up';
 
 export type LeadQualificationFieldConfig = {
   key: string;
@@ -443,6 +445,7 @@ export const organizationService = {
         requestMissingInfo: boolean;
         suggestSolutions: boolean;
         highConfidenceThreshold: number;
+        partialAnswer?: AutoReplyPartialAnswer;
       }>
     >('/api/organizations/auto-reply');
     return {
@@ -457,6 +460,11 @@ export const organizationService = {
           : true,
       suggestSolutions: response.data.data?.suggestSolutions ?? true,
       highConfidenceThreshold: response.data.data?.highConfidenceThreshold ?? 0.9,
+      // An older backend does not send it: its behaviour is "hand to an agent" (nothing partial
+      // is ever sent), so that is what the page shows.
+      partialAnswer: (response.data.data?.partialAnswer === 'send_and_follow_up'
+        ? 'send_and_follow_up'
+        : 'hand_to_agent') as AutoReplyPartialAnswer,
     };
   },
 
@@ -467,6 +475,7 @@ export const organizationService = {
     requestMissingInfo?: boolean;
     suggestSolutions?: boolean;
     highConfidenceThreshold?: number;
+    partialAnswer?: AutoReplyPartialAnswer;
     // Wave 4 PR 7: per-dept overrides, keyed by stringified department ID.
     // Each entry may set any subset; unset fields fall back to the org-level value.
     departmentSettings?: Record<
@@ -478,6 +487,8 @@ export const organizationService = {
         autoReplyRequestMissingInfo?: boolean;
         autoReplySuggestSolutions?: boolean;
         autoReplyHighConfidenceThreshold?: number;
+        /** Absent = the workspace's choice. */
+        autoReplyPartialAnswer?: AutoReplyPartialAnswer;
         escalationPhrases?: string[];
       }
     >;

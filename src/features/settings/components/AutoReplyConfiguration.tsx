@@ -10,11 +10,20 @@ import { useDepartments } from '@/hooks/useDepartments';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
-import { organizationService, type AutoReplyMode } from '@/services/organization.service';
+import {
+  organizationService,
+  type AutoReplyMode,
+  type AutoReplyPartialAnswer,
+} from '@/services/organization.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { Permission } from '@/types/roles';
 import { AutoReplyRulesSection } from './AutoReplyRulesSection';
 import { FeatureSuggestions } from './FeatureSuggestions';
+import {
+  PARTIAL_ANSWER_LABEL,
+  PARTIAL_ANSWER_TITLE,
+  PartialAnswerChoice,
+} from './PartialAnswerChoice';
 
 /* eslint-disable max-lines -- single cohesive component; splitting would
    require threading 6+ pieces of state through child props or context. */
@@ -29,8 +38,16 @@ type Settings = {
   autoReplyRequestMissingInfo?: boolean;
   autoReplySuggestSolutions?: boolean;
   autoReplyHighConfidenceThreshold?: number;
+  /** Workspace: always set once loaded. Team: absent = same as the workspace. */
+  autoReplyPartialAnswer?: AutoReplyPartialAnswer;
   escalationPhrases?: string[];
 };
+
+/** Does a team row still override anything once `rest` is what is left of it? */
+const hasOtherOverrides = (rest: Settings): boolean =>
+  Object.values(rest).some(
+    (value) => value !== undefined && !(Array.isArray(value) && value.length === 0)
+  );
 
 const DEFAULT_THRESHOLD = 0.9;
 const DEPT_MIN_THRESHOLD = 0.9;
@@ -105,6 +122,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           autoReplyRequestMissingInfo: auto.requestMissingInfo,
           autoReplySuggestSolutions: auto.suggestSolutions,
           autoReplyHighConfidenceThreshold: auto.highConfidenceThreshold,
+          autoReplyPartialAnswer: auto.partialAnswer,
         };
         setOrg(initialOrg);
         orgRef.current = initialOrg;
@@ -133,6 +151,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         requestMissingInfo: boolean;
         suggestSolutions: boolean;
         highConfidenceThreshold: number;
+        partialAnswer: AutoReplyPartialAnswer;
       }>
     ) => {
       setSavingScope('org');
@@ -154,6 +173,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         ...(patch.highConfidenceThreshold !== undefined && {
           autoReplyHighConfidenceThreshold: patch.highConfidenceThreshold,
         }),
+        ...(patch.partialAnswer !== undefined && { autoReplyPartialAnswer: patch.partialAnswer }),
       };
       orgRef.current = optimistic;
       try {
@@ -173,7 +193,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                   ? `Suggest-solutions ${patch.suggestSolutions ? 'on' : 'off'}`
                   : patch.highConfidenceThreshold !== undefined
                     ? `Threshold set to ${Math.round(patch.highConfidenceThreshold * 100)}%`
-                    : 'Default updated';
+                    : patch.partialAnswer !== undefined
+                      ? `${PARTIAL_ANSWER_TITLE}: ${PARTIAL_ANSWER_LABEL[patch.partialAnswer]}`
+                      : 'Default updated';
         onShowAlert({
           open: true,
           title: 'Saved',
@@ -239,12 +261,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     const current = perDeptRef.current[key];
     if (!current) return;
     const { autoReplyEnabled: _omit, ...rest } = current;
-    const hasRemaining =
-      rest.autoReplyMode !== undefined ||
-      rest.autoReplyRequestMissingInfo !== undefined ||
-      rest.autoReplySuggestSolutions !== undefined ||
-      rest.autoReplyHighConfidenceThreshold !== undefined ||
-      (rest.escalationPhrases !== undefined && rest.escalationPhrases.length > 0);
+    const hasRemaining = hasOtherOverrides(rest);
     if (!hasRemaining) {
       // Avoid leaving an empty row that means nothing on the BE.
       resetDept(deptId);
@@ -262,14 +279,25 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       return;
     }
     if (current.autoReplyMode === undefined) return;
-    const hasRemaining =
-      rest.autoReplyEnabled !== undefined ||
-      rest.autoReplyRequestMissingInfo !== undefined ||
-      rest.autoReplySuggestSolutions !== undefined ||
-      rest.autoReplyHighConfidenceThreshold !== undefined ||
-      (rest.escalationPhrases !== undefined && rest.escalationPhrases.length > 0);
+    const hasRemaining = hasOtherOverrides(rest);
     // Nothing else overridden: drop the row rather than leave an empty one.
     if (!hasRemaining) {
+      resetDept(deptId);
+      return;
+    }
+    void saveDept(deptId, rest);
+  };
+
+  /** A team's partial-answer choice; `undefined` = same as the workspace (the key is dropped). */
+  const setDeptPartialAnswer = (deptId: number, value: AutoReplyPartialAnswer | undefined) => {
+    const current = perDeptRef.current[String(deptId)] ?? {};
+    const { autoReplyPartialAnswer: _omit, ...rest } = current;
+    if (value !== undefined) {
+      void saveDept(deptId, { ...rest, autoReplyPartialAnswer: value });
+      return;
+    }
+    if (current.autoReplyPartialAnswer === undefined) return;
+    if (!hasOtherOverrides(rest)) {
       resetDept(deptId);
       return;
     }
@@ -466,6 +494,17 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       </div>
                       <p className="text-xs text-muted-foreground">{MODE_HELP}</p>
                     </div>
+                    <div className="pt-3 space-y-2 border-t">
+                      <p className="text-sm font-medium">{PARTIAL_ANSWER_TITLE}</p>
+                      <PartialAnswerChoice
+                        groupLabel={PARTIAL_ANSWER_TITLE}
+                        value={org.autoReplyPartialAnswer ?? 'hand_to_agent'}
+                        onChange={(value) => {
+                          if (value) void saveOrg({ partialAnswer: value });
+                        }}
+                        disabled={savingScope === 'org'}
+                      />
+                    </div>
                     {orgMode === 'rules_only' && (
                       <p className="pt-3 text-xs border-t text-warning">{RULES_ONLY_NOTE}</p>
                     )}
@@ -572,6 +611,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                   overrideRequestMissing !== undefined ||
                   overrideSuggest !== undefined ||
                   overrideMode !== undefined ||
+                  settings?.autoReplyPartialAnswer !== undefined ||
                   phrases.length > 0
                 ) {
                   return { label: 'Partial override', tone: 'amber' as const };
@@ -700,6 +740,14 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                           ))}
                         </div>
                         <p className="text-[10px] text-muted-foreground">{MODE_HELP}</p>
+                        <PartialAnswerChoice
+                          groupLabel={`${PARTIAL_ANSWER_TITLE} for ${dept.name}`}
+                          value={settings?.autoReplyPartialAnswer}
+                          inherited={org.autoReplyPartialAnswer ?? 'hand_to_agent'}
+                          onChange={(value) => setDeptPartialAnswer(dept.id, value)}
+                          disabled={isSaving}
+                          pillClass={pillClass}
+                        />
                       </div>
                     )}
 
