@@ -30,6 +30,7 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
     permissions: [
       { permission: Permission.MANAGE_ORGANIZATION, label: 'Manage workspace settings' },
       { permission: Permission.VIEW_ORGANIZATION_SETTINGS, label: 'View workspace settings' },
+      { permission: Permission.MANAGE_SLA_CONFIG, label: 'Manage SLA thresholds' },
       {
         permission: Permission.MANAGE_MEMBER_DEPARTMENTS,
         label: 'Assign members to teams',
