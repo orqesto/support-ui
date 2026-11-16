@@ -9,7 +9,7 @@ import { formatDay } from '@/lib/utils';
 import type { Message, TicketPriority, ThreadStatus } from '@/types';
 import type { computeSlaInfo, WorkflowStatus } from '../inboxCardHelpers';
 import {
-  isFloodReview,
+  namedReviewReason,
   NEEDS_REVIEW_REASON_DETAILS,
   NEEDS_REVIEW_REASON_LABELS,
 } from '../aiFlagCopy';
@@ -221,18 +221,26 @@ export function HeaderChipRow({
       {/* A flood hold (owner 2026-11-13): the bot stopped answering this chat — say why here,
           not only on the list's tooltip. Any other review reason, and an older backend that
           never sends `flood`, show nothing new. */}
-      {isFloodReview(message) && (
-        <Tooltip content={NEEDS_REVIEW_REASON_DETAILS.flood} size="sm">
-          <Badge
-            variant="warning"
-            className={`inline-flex gap-1 items-center ${PHONE_CHIP}`}
-            data-testid="header-flood-review"
+      {(() => {
+        // A flood hold, or a partial AI answer that owes a follow-up (2026-11-16): say so here.
+        const named = namedReviewReason(message);
+        if (!named) return null;
+        return (
+          <Tooltip
+            content={NEEDS_REVIEW_REASON_DETAILS[named] ?? NEEDS_REVIEW_REASON_LABELS[named]}
+            size="sm"
           >
-            <BellRing className="w-2.5 h-2.5" />
-            {NEEDS_REVIEW_REASON_LABELS.flood}
-          </Badge>
-        </Tooltip>
-      )}
+            <Badge
+              variant="warning"
+              className={`inline-flex gap-1 items-center ${PHONE_CHIP}`}
+              data-testid={`header-${named.replaceAll('_', '-')}-review`}
+            >
+              <BellRing className="w-2.5 h-2.5" />
+              {NEEDS_REVIEW_REASON_LABELS[named]}
+            </Badge>
+          </Tooltip>
+        );
+      })()}
       {message.isLead && (
         <span
           className={`text-success bg-success-muted border-success-line ${CHIP_SENTENCE} ${PHONE_CHIP}`}
