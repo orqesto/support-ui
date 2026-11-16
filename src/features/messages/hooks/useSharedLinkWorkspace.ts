@@ -5,17 +5,17 @@ import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
 import { toast } from '@/lib/toast';
 import { logger } from '@/lib/logger';
 
-/** `ORB-MKT-170` — an id that names its workspace. A bare `MKT-170` does not match. */
+/** `ABC-MKT-170` — an id that names its workspace. A bare `MKT-170` does not match. */
 const ORG_PREFIXED = /^([A-Z]+\d*)-([A-Z]+-[A-Z]*\d+)$/i;
 
 /**
  * Makes a link somebody sent you LAND in the workspace that owns it.
  *
- * ⛔ What used to happen. `?id=ORB-MKT-170` opened while you were in g-2 hit an org-scoped
+ * ⛔ What used to happen. `?id=ABC-MKT-170` opened while you were in g-2 hit an org-scoped
  * lookup that strips a leading `{code}-` only when it matches YOUR org — so it 404'd. Safe,
  * and useless: the recipient is often a member of the workspace that owns the link.
  *
- * 🔑 The id already names the workspace. `organizations.code` is globally unique, so `ORB`
+ * 🔑 The id already names the workspace. `organizations.code` is globally unique, so `ABC`
  * identifies exactly one. This follows it (`/api/messages/locate/:publicId`) and switches
  * the workspace, rather than putting the workspace in the URL path — which would have
  * redirected every saved URL to cover screens nobody shares.

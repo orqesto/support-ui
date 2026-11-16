@@ -34,7 +34,7 @@ const PIPES = '| Discount: | -£16.50 |\n| Total: | £158.50 |';
 
 describe('liftImageDimensions — an email that sizes with CSS', () => {
   /**
-   * ⛔ THE CASE support-ui#404 COULD NOT HELP. In staging's SOM-INF-1579 every `<img>` in the
+   * ⛔ THE CASE support-ui#404 COULD NOT HELP. In a staging thread every `<img>` in the
    * message carries its geometry in `style` and NOT in attributes — 8 of 8 — so "stop the
    * sanitizer deleting width/height" had nothing to keep. Emails use both spellings.
    */
@@ -316,7 +316,7 @@ describe('ThreadBubble with the original HTML', () => {
 
   /**
    * End to end through the real component: style in, attributes out, and NO css in the DOM.
-   * This is the shape staging's SOM-INF-1579 actually has.
+   * This is the shape a staging thread actually has.
    */
   it('renders an email that sizes with CSS at the size it asked for, with no style attribute', () => {
     cleanup();

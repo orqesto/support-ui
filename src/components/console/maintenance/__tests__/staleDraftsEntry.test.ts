@@ -1,6 +1,6 @@
 /**
  * The console entry for the one-off that refreshes AI drafts written for an older customer email
- * (BE `POST /api/system/repair-stale-drafts`, support-service #1345; taco ORB-SUP-1719).
+ * (BE `POST /api/system/repair-stale-drafts`, support-service #1345; a customer ticket).
  */
 import { describe, expect, it } from 'vitest';
 import { REPAIRS } from '../repairCatalog';

@@ -18,7 +18,7 @@ export const sharedLinkService = {
    *
    * ⛔ NOT a lookup. `getById` is org-scoped and 404s a code that is not this workspace's —
    * right for reading, useless for a link somebody sent you. This follows the code instead
-   * of stripping it, so a shared `ORB-MKT-170` can LAND rather than 404.
+   * of stripping it, so a shared `ABC-MKT-170` can LAND rather than 404.
    *
    * A bare `MKT-170` 404s by design: it names no workspace (public ids are unique per org
    * with a per-department counter), so there is nothing to locate.

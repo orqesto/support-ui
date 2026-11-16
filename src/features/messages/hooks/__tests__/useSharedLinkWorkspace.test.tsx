@@ -1,7 +1,7 @@
 /**
  * A link somebody sent you should land in the workspace that owns it.
  *
- * ⛔ Before: `?id=ORB-MKT-170` opened while you were in g-2 hit an org-scoped lookup that
+ * ⛔ Before: `?id=ABC-MKT-170` opened while you were in g-2 hit an org-scoped lookup that
  * strips a leading `{code}-` only when it matches YOUR org — so it 404'd. Safe, and useless,
  * because the recipient is often a member of the workspace that owns the link.
  *
@@ -53,7 +53,7 @@ beforeEach(() => {
 
 describe('useSharedLinkWorkspace', () => {
   it('switches to the workspace the id names', async () => {
-    renderHook(() => useSharedLinkWorkspace('ORB-MKT-170'));
+    renderHook(() => useSharedLinkWorkspace('ABC-MKT-170'));
 
     await waitFor(() => expect(setSelectedOrganization).toHaveBeenCalledWith(19));
     expect(toastInfo).toHaveBeenCalledWith(expect.stringContaining('zetatech-test'));
@@ -78,9 +78,9 @@ describe('useSharedLinkWorkspace', () => {
   });
 
   it('CONTROL: an id already in THIS workspace does not call out at all', async () => {
-    orgCode.value = 'ORB';
+    orgCode.value = 'ABC';
 
-    renderHook(() => useSharedLinkWorkspace('ORB-MKT-170'));
+    renderHook(() => useSharedLinkWorkspace('ABC-MKT-170'));
 
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(locate).not.toHaveBeenCalled();
@@ -95,12 +95,12 @@ describe('useSharedLinkWorkspace', () => {
 
   it('asks once per link, even though switching re-renders the page', async () => {
     const { rerender } = renderHook(({ id }) => useSharedLinkWorkspace(id), {
-      initialProps: { id: 'ORB-MKT-170' },
+      initialProps: { id: 'ABC-MKT-170' },
     });
 
     await waitFor(() => expect(locate).toHaveBeenCalledTimes(1));
-    rerender({ id: 'ORB-MKT-170' });
-    rerender({ id: 'ORB-MKT-170' });
+    rerender({ id: 'ABC-MKT-170' });
+    rerender({ id: 'ABC-MKT-170' });
 
     expect(locate).toHaveBeenCalledTimes(1);
   });
@@ -110,7 +110,7 @@ describe('useSharedLinkWorkspace', () => {
     orgCode.value = undefined;
     let answer: (value: { data: unknown }) => void = () => undefined;
     locate.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
-    const { rerender } = renderHook(() => useSharedLinkWorkspace('ORB-MKT-170'));
+    const { rerender } = renderHook(() => useSharedLinkWorkspace('ABC-MKT-170'));
     await waitFor(() => expect(locate).toHaveBeenCalledTimes(1));
     orgCode.value = 'G';
     rerender();
@@ -129,7 +129,7 @@ describe('useSharedLinkWorkspace', () => {
   it('an answer that comes after the page was left switches nothing', async () => {
     let answer: (value: { data: unknown }) => void = () => undefined;
     locate.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
-    const { unmount } = renderHook(() => useSharedLinkWorkspace('ORB-MKT-170'));
+    const { unmount } = renderHook(() => useSharedLinkWorkspace('ABC-MKT-170'));
     await waitFor(() => expect(locate).toHaveBeenCalledTimes(1));
     unmount();
     answer({
@@ -146,14 +146,14 @@ describe('useSharedLinkWorkspace', () => {
   });
 
   it('StrictMode’s unmount-and-remount does not lose the answer', async () => {
-    renderHook(() => useSharedLinkWorkspace('ORB-MKT-170'), { wrapper: StrictMode });
+    renderHook(() => useSharedLinkWorkspace('ABC-MKT-170'), { wrapper: StrictMode });
     await waitFor(() => expect(setSelectedOrganization).toHaveBeenCalledWith(19));
   });
 
   it('tells the caller a link it will not open: not a member, or no such workspace', async () => {
     const onRefused = vi.fn();
-    locate.mockResolvedValueOnce({ data: { status: 'not-a-member', organizationSlug: 'orbit' } });
-    renderHook(() => useSharedLinkWorkspace('ORB-MKT-170', onRefused));
+    locate.mockResolvedValueOnce({ data: { status: 'not-a-member', organizationSlug: 'abc-co' } });
+    renderHook(() => useSharedLinkWorkspace('ABC-MKT-170', onRefused));
     await waitFor(() => expect(onRefused).toHaveBeenCalledWith('not-a-member'));
     locate.mockRejectedValueOnce(new Error('404'));
     renderHook(() => useSharedLinkWorkspace('ZZZ-MKT-1', onRefused));

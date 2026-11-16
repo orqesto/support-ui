@@ -53,7 +53,7 @@ const gapRow = (over: Record<string, unknown> = {}) => ({
   organizationId: 1,
   details: {
     cause: 'checkpoint_ahead',
-    mailbox: 'Gmail-streamline@gmail.com',
+    mailbox: 'Gmail-orders@shop.example',
     minutesAhead: 1500,
     window: '2026-09-10T07:58:28.754Z → 2026-09-11T08:58:03.336Z',
     recovery: 're-scanning the last 48h; raise MAIL_POLL_OVERLAP_HOURS to reach further back',
@@ -92,7 +92,7 @@ describe('useIngestionGapAlerts', () => {
     expect(result.current.alerts[0]).toMatchObject({
       id: 8243,
       messageSourceId: 3,
-      mailbox: 'Gmail-streamline@gmail.com',
+      mailbox: 'Gmail-orders@shop.example',
       cause: 'checkpoint_ahead',
       minutesAhead: 1500,
     });

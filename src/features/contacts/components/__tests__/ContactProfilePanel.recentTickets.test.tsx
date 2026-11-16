@@ -133,7 +133,7 @@ describe('ContactProfilePanel — recent tickets', () => {
 });
 
 /**
- * taco thread 234601: created 10-21, the customer wrote again 11-12. The feed must place it by
+ * a customer thread: created 10-21, the customer wrote again 11-12. The feed must place it by
  * when it was last active, not by when it began.
  */
 describe('ContactProfilePanel — recent threads', () => {

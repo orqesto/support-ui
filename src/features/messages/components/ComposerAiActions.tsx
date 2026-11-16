@@ -172,7 +172,7 @@ export function ComposerAiActions({
   /*
     `fresh` is Try again: a NEW draft. Without it the backend hands every agent on the thread the
     draft already written for this customer message (one shared draft per message, owner
-    2026-11-06, after taco MOR-SUP-6093 drafted three different replies to one question), and
+    2026-11-06, after a customer ticket drafted three different replies to one question), and
     for an hour it handed back the cached text even on Try again.
   */
   const request = (mode: Mode, input: string, fresh: boolean) =>
