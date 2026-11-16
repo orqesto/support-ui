@@ -24,12 +24,18 @@ export const NEEDS_REVIEW_REASON_LABELS: Record<string, string> = {
   suspicious_in_thread: 'Suspicious reply',
   lead_escalated: 'Qualified lead',
   flood: 'Too many messages at once',
+  // Per-question retrieval (2026-11-16): the AI could answer only some of the questions.
+  partial_answer: "AI couldn't answer every question",
+  follow_up_needed: 'Follow-up needed',
 };
 
 /** A longer explanation where the UI has room for one (the tooltip); the label otherwise. */
 export const NEEDS_REVIEW_REASON_DETAILS: Record<string, string> = {
   // Telegram flood rule (owner 2026-11-13): the chat sent more than the bot's flood limit at once.
   flood: 'Too many messages at once – saved for you, bot did not answer',
+  partial_answer: 'The AI could not answer every question, so nothing was sent – see the note',
+  follow_up_needed:
+    'The AI answered part and told the customer a colleague will follow up – see the note',
 };
 
 export const NEEDS_REVIEW_LABEL = 'Needs review';

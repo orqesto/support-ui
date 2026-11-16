@@ -37,6 +37,13 @@ describe('needs-review reason → words', () => {
     expect(needsReviewTooltip(code)).toBe(`Needs review: ${words}`);
   });
 
+  it('partial answers (2026-11-16): their own words, the explanation in the tooltip', () => {
+    expect(needsReviewReasonLabel('partial_answer')).toBe("AI couldn't answer every question");
+    expect(needsReviewReasonLabel('follow_up_needed')).toBe('Follow-up needed');
+    expect(needsReviewTooltip('partial_answer')).toMatch(/nothing was sent/);
+    expect(needsReviewTooltip('follow_up_needed')).toMatch(/colleague will follow up/);
+  });
+
   it('flood (Telegram flood rule, 2026-11-13): short chip, the long explanation in the tooltip', () => {
     expect(needsReviewReasonLabel('flood')).toBe('Too many messages at once');
     expect(needsReviewTooltip('flood')).toBe(
