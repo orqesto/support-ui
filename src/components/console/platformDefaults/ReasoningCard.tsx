@@ -33,6 +33,7 @@ const FEATURE_LABELS: Record<string, string> = {
   chat_widget: 'Chat widget',
   landing_assistant: 'Website assistant',
   translation: 'Translation',
+  question_split: 'Question split (per-question search)',
   ticket_enhance: 'Ticket enhancement',
   spam_detection: 'Spam detection',
   billing_extraction: 'Billing extraction',
