@@ -240,4 +240,35 @@ describe('MessageDetail — a draft for an earlier customer email is not offered
     renderWithThread(thread, withDraft(draft(3)));
     await waitFor(() => expect(ghostText()).toBe(STORED));
   });
+  // The thread read carries the backend's verdict on the stored draft (2026-11-16): a page holding
+  // none of the customer's emails (a long thread, a cached page) no longer decides.
+  const renderWithVerdict = (answersEventId: number, age: 'current' | 'older') => {
+    svc.message.getThreadMessages.mockResolvedValue({
+      data: [event(20, 'note', '2026-10-01T16:00:00Z')],
+      storedDraft: {
+        latestInbound: { eventId: 7, at: '2026-10-01T15:00:00.000Z' },
+        storedDraftAge: { age, answersEventId, foundAt: null },
+      },
+    });
+    return render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <MemoryRouter>
+          <MessageDetail message={withDraft(draft(answersEventId))} onClose={vi.fn()} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+  };
+
+  it("the backend says the draft for email 3 is older: not offered, whatever the page holds", async () => {
+    renderWithVerdict(3, 'older');
+    await waitFor(() => expect(svc.message.getThreadMessages).toHaveBeenCalled());
+    await waitFor(() => expect(ghostText()).toBe(''));
+  });
+
+  it('CONTROL: the backend says it is current: offered', async () => {
+    renderWithVerdict(7, 'current');
+    await waitFor(() => expect(ghostText()).toBe(STORED));
+  });
 });

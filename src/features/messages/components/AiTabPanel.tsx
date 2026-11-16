@@ -364,9 +364,16 @@ export function AiTabPanel({
     // `fetchedSimilar`: every arrival of the matches is reported, as before (a parent may reset).
   }, [optionCount, similarLoaded, storedDraftPending, fetchedSimilar]);
 
+  // While whether the stored draft is offered is not known yet, the list waits: otherwise a past
+  // reply to another customer is the default option and "Use in reply" inserts it, then the draft
+  // lands above it (review, 2026-11-16).
+  const listLoading = loadingSimilar || storedDraftPending;
+
   const options: ReplyOption[] = [];
 
-  if (suggestedAnswer && !autoReply?.sent) {
+  // While whether the stored draft is offered is unknown, no option is offered at all: the list
+  // waits behind its spinner (a past reply to another customer is never the default).
+  if (!storedDraftPending && suggestedAnswer && !autoReply?.sent) {
     // Label, type and insert source: the SAME mapping as the thread's ghost (toGhostOption).
     const ghost = toGhostOption(suggestedAnswer as SuggestedAnswerMeta);
     const isLead = ghost?.type === 'lead';
@@ -411,7 +418,7 @@ export function AiTabPanel({
   // shift under an option the agent selected (another customer's reply inserted). A key two
   // matches share (the same document twice) takes the place too, so it is still unique.
   const seenIds = new Set<string>();
-  similarResults.forEach((result, idx) => {
+  (storedDraftPending ? [] : similarResults).forEach((result, idx) => {
     const isPastReply = result.source !== 'documentation';
     const key = `sim-${result.messageId ?? 'none'}-${result.documentationId ?? 'none'}`;
     const id = seenIds.has(key) || key === 'sim-none-none' ? `${key}-${idx}` : key;
@@ -467,7 +474,7 @@ export function AiTabPanel({
 
   return (
     <div className={section === 'analysis' ? 'space-y-2.5' : 'space-y-1.5'}>
-      {!analysis && !spamCheck && options.length === 0 && !loadingSimilar && (
+      {!analysis && !spamCheck && options.length === 0 && !listLoading && (
         <p className="text-[11px] text-muted-foreground text-center py-4">No AI analysis yet</p>
       )}
 
@@ -481,12 +488,12 @@ export function AiTabPanel({
       )}
 
       {/* Suggested reply with source switcher */}
-      {section !== 'analysis' && (loadingSimilar || options.length > 0) && (
+      {section !== 'analysis' && (listLoading || options.length > 0) && (
         // v4 `.k-sr`: header + "Use in reply", the source pills, the answer, the source line.
         <div className="grid gap-[9px] rounded-[10px] border border-border bg-card px-3 py-[11px]">
           <div className="flex items-center gap-2">
             <span className={`flex-1 ${GHOST_LABEL}`}>Suggested reply</span>
-            {!loadingSimilar && activeOption && onGhostClick && (
+            {!listLoading && activeOption && onGhostClick && (
               <Button
                 variant="primary"
                 size="sm"
@@ -512,7 +519,7 @@ export function AiTabPanel({
             </p>
           )}
 
-          {loadingSimilar && options.length === 0 && (
+          {listLoading && options.length === 0 && (
             <div className="flex items-center gap-1.5">
               <Spinner />
               <span className="text-[11px] text-muted-foreground">Loading…</span>
@@ -654,7 +661,7 @@ export function AiTabPanel({
       {/* v4: a past reply was written to ANOTHER customer — said beside the card, every time it is
           the one selected. The address on its pill says to whom; this says what to check. */}
       {section !== 'analysis' &&
-        !loadingSimilar &&
+        !listLoading &&
         activeOption?.id.startsWith('sim-') &&
         activeOption.type === 'similar' && (
           <p

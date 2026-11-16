@@ -338,7 +338,12 @@ export function MessagePanelTabs({
           {/* AI Tab */}
           {tab === 'ai' && (
             <div className="space-y-2">
-              <AiTabPanel message={message} onGhostClick={onGhostClick} section="analysis" />
+              <AiTabPanel
+                message={message}
+                hideStoredDraft={storedDraftHidden}
+                onGhostClick={onGhostClick}
+                section="analysis"
+              />
             </div>
           )}
 

@@ -12,6 +12,7 @@ import { postOrGet } from '@/services/searchPost';
 import type { MessageEvent, ApiResponse } from '@/types';
 import type { MessageListItem, MessageDetail } from '@/types/api';
 import type {
+  BackendDraftState,
   ContactsResponse,
   MessageContactSubject,
   MessageSourceOption,
@@ -174,7 +175,11 @@ export const messageListsApi = {
       `/api/messages/${id}/thread${threadPageQuery(page)}`
     );
     const rows = response.data.data ?? [];
-    return { ...response.data, page: normaliseThreadPage(response.data.page, rows) };
+    return {
+      ...response.data,
+      page: normaliseThreadPage(response.data.page, rows),
+      storedDraft: normaliseStoredDraft((response.data as { storedDraft?: unknown }).storedDraft),
+    };
   },
 
   /**
@@ -191,6 +196,7 @@ export const messageListsApi = {
       data: rows,
       page: normaliseThreadPage(response.data.page, rows),
       newEvents: normaliseThreadNewEvents(response.data),
+      storedDraft: normaliseStoredDraft((response.data as { storedDraft?: unknown }).storedDraft),
     };
   },
 
@@ -258,3 +264,28 @@ export const messageListsApi = {
     return response.data.data;
   },
 };
+
+/**
+ * The thread read's `storedDraft` (support-service #1578): the latest customer email and the stored
+ * draft's age. Version skew: an older backend sends none, and anything malformed reads as absent —
+ * then the thread's loaded events decide (storedDraftFreshness.ts).
+ */
+export function normaliseStoredDraft(raw: unknown): BackendDraftState | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const { latestInbound, storedDraftAge } = raw as Record<string, unknown>;
+  const latest =
+    latestInbound &&
+    typeof latestInbound === 'object' &&
+    typeof (latestInbound as { eventId?: unknown }).eventId === 'number' &&
+    typeof (latestInbound as { at?: unknown }).at === 'string'
+      ? (latestInbound as BackendDraftState['latestInbound'])
+      : null;
+  const judged = (storedDraftAge ?? {}) as Record<string, unknown>;
+  const age =
+    ['current', 'older', 'unknown'].includes(judged.age as string) &&
+    (judged.answersEventId === null || typeof judged.answersEventId === 'number') &&
+    (judged.foundAt === null || typeof judged.foundAt === 'string')
+      ? (storedDraftAge as BackendDraftState['storedDraftAge'])
+      : null;
+  return { latestInbound: latest, storedDraftAge: age };
+}

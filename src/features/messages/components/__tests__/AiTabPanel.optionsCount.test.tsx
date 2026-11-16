@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AiTabPanel } from '../AiTabPanel';
 import type { Message } from '@/types';
@@ -124,5 +124,47 @@ describe('AiTabPanel — reported option count', () => {
     await waitFor(() => expect(onOptionsLoaded).toHaveBeenLastCalledWith(2));
     expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key/);
     errors.mockRestore();
+  });
+
+  // Review round 6: while whether the stored draft is offered is unknown, the list waits — or a
+  // past reply to another customer is the default option, one click from the composer.
+  it('while the stored draft is pending: no "Use in reply", no count; then both', async () => {
+    similar.data = [
+      {
+        source: 'message',
+        messageId: 41,
+        directReply: 'Hi Sam, your refund is on its way.',
+        content: 'Where is my refund?',
+        sender: 'sam@other.example',
+        similarity: 0.9,
+      },
+    ];
+    const onOptionsLoaded = vi.fn();
+    const message = {
+      id: nextId++,
+      sender: 'a@b.example',
+      channel: 'email',
+      createdAt: '2026-09-22T10:00:00Z',
+      metadata: answer,
+    } as unknown as Message;
+    const panel = (pending: boolean) => (
+      <MemoryRouter>
+        <AiTabPanel
+          message={message}
+          onGhostClick={() => {}}
+          onOptionsLoaded={onOptionsLoaded}
+          section="suggested"
+          hideStoredDraft={pending}
+          storedDraftPending={pending}
+        />
+      </MemoryRouter>
+    );
+    const { rerender } = render(panel(true));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByRole('button', { name: /Use in reply/ })).toBeNull();
+    expect(onOptionsLoaded).not.toHaveBeenCalled();
+    rerender(panel(false));
+    await waitFor(() => expect(onOptionsLoaded).toHaveBeenLastCalledWith(2));
+    expect(screen.getByRole('button', { name: /Use in reply/ })).toBeTruthy();
   });
 });

@@ -1,3 +1,4 @@
+import type { BackendDraftState } from '@/services/message/message.types';
 import type { MessageEvent } from '@/types';
 
 /** Where the thread's events stand: not read yet for this conversation, read, or the read failed. */
@@ -33,9 +34,24 @@ export type StoredDraftFreshness = {
 export function storedDraftFreshness(
   metadata: Record<string, unknown> | null | undefined,
   sortedThread: readonly MessageEvent[],
+  eventsState: ThreadEventsState,
+  backend?: BackendDraftState
+): StoredDraftFreshness {
+  const stored = metadata?.suggestedAnswer as
+    | { answersEventId?: unknown; foundAt?: unknown }
+    | null
+    | undefined;
+  if (stored && typeof stored === 'object' && backend !== undefined)
+    return withBackendState(stored, sortedThread, backend);
+  return fromEventsOnly(stored, sortedThread, eventsState);
+}
+
+/** No detail read yet (or an older backend): the loaded events decide — #969's rule. */
+function fromEventsOnly(
+  draft: { answersEventId?: unknown } | null | undefined,
+  sortedThread: readonly MessageEvent[],
   eventsState: ThreadEventsState
 ): StoredDraftFreshness {
-  const draft = metadata?.suggestedAnswer as { answersEventId?: unknown } | null | undefined;
   const answersEventId = draft?.answersEventId;
   if (typeof answersEventId !== 'number') return { draftHidden: false, pending: false };
   if (eventsState === 'pending') return { draftHidden: true, pending: true };
@@ -53,3 +69,47 @@ export function storedDraftFreshness(
     : answersEventId > Math.max(...inbound.map((event) => event.id));
   return { draftHidden: !isLatest, pending: false };
 }
+
+/**
+ * What the thread read says (GET /messages/:id/thread → `storedDraft`, support-service #1578): the
+ * customer's latest email and the stored draft's age against it, by the backend's own rule
+ * (suggestionAge), with the draft it judged. Sent on every read — the full one and each live
+ * pull — so it is as fresh as the events. `undefined`: an older backend; the events decide.
+ */
+
+const sameTime = (left: unknown, right: unknown): boolean =>
+  typeof left === 'string' &&
+  typeof right === 'string' &&
+  !Number.isNaN(Date.parse(left)) &&
+  Date.parse(left) === Date.parse(right);
+
+/**
+ * The backend's verdict, while the stored draft is the one it judged (same `answersEventId`, or the
+ * same `foundAt` for a draft that names no email). A draft written since the last read is the
+ * backend's new one for the latest email: offered, unless it names a loaded email that a later
+ * customer email follows (strictly later: a tie never hides a draft).
+ */
+const withBackendState = (
+  draft: { answersEventId?: unknown; foundAt?: unknown },
+  sortedThread: readonly MessageEvent[],
+  backend: BackendDraftState
+): StoredDraftFreshness => {
+  const judged = backend.storedDraftAge;
+  const answersEventId = draft.answersEventId;
+  const sameDraft =
+    judged !== null &&
+    (typeof answersEventId === 'number'
+      ? judged.answersEventId === answersEventId
+      : judged.answersEventId === null && sameTime(judged.foundAt, draft.foundAt));
+  if (sameDraft) return { draftHidden: judged.age === 'older', pending: false };
+  if (typeof answersEventId !== 'number') return { draftHidden: false, pending: false };
+  // Older than the email the read names (an earlier page, a stale copy of the metadata): hidden.
+  const latest = backend.latestInbound;
+  if (latest && answersEventId < latest.eventId) return { draftHidden: true, pending: false };
+  const inbound = sortedThread.filter((event) => event.type === 'inbound');
+  const named = inbound.find((event) => event.id === answersEventId);
+  const followed =
+    named !== undefined &&
+    inbound.some((event) => Date.parse(event.createdAt) > Date.parse(named.createdAt));
+  return { draftHidden: followed, pending: false };
+};

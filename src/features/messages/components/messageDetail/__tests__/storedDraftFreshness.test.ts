@@ -3,8 +3,9 @@
  */
 import { describe, it, expect } from 'vitest';
 import type { MessageEvent } from '@/types';
+import type { BackendDraftState } from '@/services/message/message.types';
 import { storedDraftFreshness, type ThreadEventsState } from '../storedDraftFreshness';
-import { toGhostOption } from '../../messageDetailConstants';
+import { insertSourceOf, toGhostOption } from '../../messageDetailConstants';
 
 const event = (id: number, type: string, extra: Record<string, unknown> = {}) =>
   ({
@@ -111,10 +112,70 @@ describe('toGhostOption — what the draft was written from', () => {
     });
   });
   it('CONTROL: documentation stays DOCS, anything else AI', () => {
-    expect(toGhostOption({ answer: 'x', source: 'documentation' })).toMatchObject({
-      label: 'DOCS',
-      insertSource: 'documentation',
-    });
+    const docs = toGhostOption({ answer: 'x', source: 'documentation' });
+    expect(docs?.label).toBe('DOCS');
+    expect(insertSourceOf(docs!)).toBe('documentation');
     expect(toGhostOption({ answer: 'x', source: 'message' })?.label).toBe('AI');
+  });
+});
+
+// The thread read states the stored draft's age by the backend's rule, with the draft it judged
+// (review rounds 6-8, 2026-11-16): the loaded page no longer decides.
+describe('storedDraftFreshness — with the thread read', () => {
+  const read = (
+    age: 'current' | 'older' | 'unknown',
+    judged: { answersEventId?: number; foundAt?: string }
+  ): BackendDraftState => ({
+    latestInbound: { eventId: 7, at: '2026-10-01T17:00:00.000Z' },
+    storedDraftAge: {
+      age,
+      answersEventId: judged.answersEventId ?? null,
+      foundAt: judged.foundAt ?? null,
+    },
+  });
+  const check = (metadata: Record<string, unknown>, state: BackendDraftState, events = thread) =>
+    storedDraftFreshness(metadata, events, 'loaded', state).draftHidden;
+
+  it("the backend's verdict on that very draft decides, whatever the page holds", () => {
+    expect(check(draft({ answersEventId: 3 }), read('older', { answersEventId: 3 }))).toBe(true);
+    // The page says 3 is the latest; the backend knows a newer email.
+    expect(check(draft({ answersEventId: 3 }), read('older', { answersEventId: 3 }), thread)).toBe(
+      true
+    );
+    expect(check(draft({ answersEventId: 1 }), read('current', { answersEventId: 1 }))).toBe(false);
+  });
+
+  it('a timestamp-only draft: the verdict applies to the same time, however it is written', () => {
+    const judged = read('older', { foundAt: '2026-10-01T10:00:00.000Z' });
+    expect(check(draft({ foundAt: '2026-10-01T10:00:00Z' }), judged)).toBe(true);
+    expect(check(draft({ foundAt: '2026-10-02T10:00:00.000Z' }), judged)).toBe(false);
+  });
+
+  it('a draft written since the read: offered unless a later customer email follows its email', () => {
+    const before = read('older', { answersEventId: 1 });
+    // For an email newer than the read's latest (7): current. For an older one (an earlier page,
+    // a stale copy of the metadata): hidden.
+    expect(check(draft({ answersEventId: 8 }), before)).toBe(false);
+    expect(check(draft({ answersEventId: 3 }), before)).toBe(true);
+    expect(check(draft({ answersEventId: 1 }), read('current', { answersEventId: 9 }))).toBe(true);
+    // A tie never hides it.
+    const tie = [
+      event(1, 'inbound', { createdAt: '2026-10-01T12:00:00.000Z' }),
+      event(2, 'inbound', { createdAt: '2026-10-01T12:00:00.000Z' }),
+    ];
+    const readSaysOne: BackendDraftState = {
+      latestInbound: { eventId: 1, at: '2026-10-01T12:00:00.000Z' },
+      storedDraftAge: { age: 'current', answersEventId: 9, foundAt: null },
+    };
+    expect(check(draft({ answersEventId: 1 }), readSaysOne, tie)).toBe(false);
+  });
+
+  it('no stored draft judged (null): a draft that names no email is offered', () => {
+    expect(
+      storedDraftFreshness(draft({}), thread, 'loaded', {
+        latestInbound: null,
+        storedDraftAge: null,
+      }).draftHidden
+    ).toBe(false);
   });
 });
