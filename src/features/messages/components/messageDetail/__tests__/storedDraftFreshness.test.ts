@@ -3,11 +3,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import type { MessageEvent } from '@/types';
-import {
-  storedDraftFreshness,
-  type BackendDraftState,
-  type ThreadEventsState,
-} from '../storedDraftFreshness';
+import type { BackendDraftState } from '@/services/message/message.types';
+import { storedDraftFreshness, type ThreadEventsState } from '../storedDraftFreshness';
 import { insertSourceOf, toGhostOption } from '../../messageDetailConstants';
 
 const event = (id: number, type: string, extra: Record<string, unknown> = {}) =>
@@ -156,16 +153,21 @@ describe('storedDraftFreshness — with the thread read', () => {
 
   it('a draft written since the read: offered unless a later customer email follows its email', () => {
     const before = read('older', { answersEventId: 1 });
-    expect(check(draft({ answersEventId: 3 }), before)).toBe(false);
+    // For an email newer than the read's latest (7): current. For an older one (an earlier page,
+    // a stale copy of the metadata): hidden.
+    expect(check(draft({ answersEventId: 8 }), before)).toBe(false);
+    expect(check(draft({ answersEventId: 3 }), before)).toBe(true);
     expect(check(draft({ answersEventId: 1 }), read('current', { answersEventId: 9 }))).toBe(true);
     // A tie never hides it.
     const tie = [
       event(1, 'inbound', { createdAt: '2026-10-01T12:00:00.000Z' }),
       event(2, 'inbound', { createdAt: '2026-10-01T12:00:00.000Z' }),
     ];
-    expect(check(draft({ answersEventId: 1 }), read('current', { answersEventId: 9 }), tie)).toBe(
-      false
-    );
+    const readSaysOne: BackendDraftState = {
+      latestInbound: { eventId: 1, at: '2026-10-01T12:00:00.000Z' },
+      storedDraftAge: { age: 'current', answersEventId: 9, foundAt: null },
+    };
+    expect(check(draft({ answersEventId: 1 }), readSaysOne, tie)).toBe(false);
   });
 
   it('no stored draft judged (null): a draft that names no email is offered', () => {

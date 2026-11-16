@@ -371,7 +371,9 @@ export function AiTabPanel({
 
   const options: ReplyOption[] = [];
 
-  if (suggestedAnswer && !autoReply?.sent) {
+  // While whether the stored draft is offered is unknown, no option is offered at all: the list
+  // waits behind its spinner (a past reply to another customer is never the default).
+  if (!storedDraftPending && suggestedAnswer && !autoReply?.sent) {
     // Label, type and insert source: the SAME mapping as the thread's ghost (toGhostOption).
     const ghost = toGhostOption(suggestedAnswer as SuggestedAnswerMeta);
     const isLead = ghost?.type === 'lead';
@@ -416,7 +418,7 @@ export function AiTabPanel({
   // shift under an option the agent selected (another customer's reply inserted). A key two
   // matches share (the same document twice) takes the place too, so it is still unique.
   const seenIds = new Set<string>();
-  similarResults.forEach((result, idx) => {
+  (storedDraftPending ? [] : similarResults).forEach((result, idx) => {
     const isPastReply = result.source !== 'documentation';
     const key = `sim-${result.messageId ?? 'none'}-${result.documentationId ?? 'none'}`;
     const id = seenIds.has(key) || key === 'sim-none-none' ? `${key}-${idx}` : key;
@@ -517,7 +519,7 @@ export function AiTabPanel({
             </p>
           )}
 
-          {listLoading && (
+          {listLoading && options.length === 0 && (
             <div className="flex items-center gap-1.5">
               <Spinner />
               <span className="text-[11px] text-muted-foreground">Loading…</span>

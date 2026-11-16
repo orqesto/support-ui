@@ -280,10 +280,11 @@ export function normaliseStoredDraft(raw: unknown): BackendDraftState | undefine
     typeof (latestInbound as { at?: unknown }).at === 'string'
       ? (latestInbound as BackendDraftState['latestInbound'])
       : null;
+  const judged = (storedDraftAge ?? {}) as Record<string, unknown>;
   const age =
-    storedDraftAge &&
-    typeof storedDraftAge === 'object' &&
-    ['current', 'older', 'unknown'].includes((storedDraftAge as { age?: unknown }).age as string)
+    ['current', 'older', 'unknown'].includes(judged.age as string) &&
+    (judged.answersEventId === null || typeof judged.answersEventId === 'number') &&
+    (judged.foundAt === null || typeof judged.foundAt === 'string')
       ? (storedDraftAge as BackendDraftState['storedDraftAge'])
       : null;
   return { latestInbound: latest, storedDraftAge: age };

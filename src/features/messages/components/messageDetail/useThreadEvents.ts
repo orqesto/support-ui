@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { messageService } from '@/services/message.service';
 import { isOutgoingEvent } from '@/lib/messageHelpers';
-import { storedDraftFreshness, type BackendDraftState } from './storedDraftFreshness';
+import type { BackendDraftState } from '@/services/message/message.types';
+import { storedDraftFreshness } from './storedDraftFreshness';
 import { logger } from '@/lib/logger';
 import { useSeededState } from '@/lib/seededState';
 import { normaliseThreadPage, type ThreadPage } from '@/services/threadPage';

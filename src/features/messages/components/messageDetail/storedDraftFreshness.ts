@@ -76,7 +76,6 @@ function fromEventsOnly(
  * (suggestionAge), with the draft it judged. Sent on every read — the full one and each live
  * pull — so it is as fresh as the events. `undefined`: an older backend; the events decide.
  */
-export type { BackendDraftState } from '@/services/message/message.types';
 
 const sameTime = (left: unknown, right: unknown): boolean =>
   typeof left === 'string' &&
@@ -104,6 +103,9 @@ const withBackendState = (
       : judged.answersEventId === null && sameTime(judged.foundAt, draft.foundAt));
   if (sameDraft) return { draftHidden: judged.age === 'older', pending: false };
   if (typeof answersEventId !== 'number') return { draftHidden: false, pending: false };
+  // Older than the email the read names (an earlier page, a stale copy of the metadata): hidden.
+  const latest = backend.latestInbound;
+  if (latest && answersEventId < latest.eventId) return { draftHidden: true, pending: false };
   const inbound = sortedThread.filter((event) => event.type === 'inbound');
   const named = inbound.find((event) => event.id === answersEventId);
   const followed =
