@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { auditEntryLabel, buildTimeline } from '../messageActivityTimeline';
+import { activityKindOf, auditEntryLabel, buildTimeline } from '../messageActivityTimeline';
 import type { MessageActivityEntry } from '@/services/message.service';
 import { formatDay } from '@/lib/utils';
 
@@ -368,5 +368,58 @@ describe('messageActivityTimeline — auto-reply sent', () => {
     ).toBe(
       'Auto-reply sent by rule "Refunds" (keyword "refund") with a knowledge base answer — resolved'
     );
+  });
+
+  it('the missing-information question says what it asked', () => {
+    expect(
+      auditEntryLabel('message.auto_reply_sent', {
+        source: 'missing_info',
+        toStatus: 'awaiting_response',
+      })
+    ).toBe('Asked the customer for missing information (auto-reply)');
+    expect(activityKindOf('message.auto_reply_sent')).toBe('ai');
+  });
+});
+
+describe('messageActivityTimeline — auto-reply withheld', () => {
+  const withheld = (reason: string, ruleNames: string[]) =>
+    auditEntryLabel('message.auto_reply_withheld', {
+      reason,
+      ruleIds: ruleNames.map((_name, index) => index + 1),
+      ruleNames,
+    });
+
+  it('several rules matched: names them, naturally joined', () => {
+    expect(withheld('several_rules', ['Refunds', 'Shipping'])).toBe(
+      'No auto-reply: rules "Refunds" and "Shipping" both matched'
+    );
+    expect(withheld('several_rules', ['Refunds', 'Shipping', 'Returns'])).toBe(
+      'No auto-reply: rules "Refunds", "Shipping" and "Returns" all matched'
+    );
+  });
+
+  it('a matched rule whose reply did not go out says why, in plain words', () => {
+    expect(withheld('send_failed', ['Refunds'])).toBe(
+      'Keyword rule "Refunds" matched but its reply did not go out: the email could not be sent'
+    );
+    expect(withheld('kb_below_threshold', ['Refunds'])).toBe(
+      'Keyword rule "Refunds" matched but its reply did not go out: no knowledge base answer was sure enough'
+    );
+    expect(withheld('plan_allotment_reached', ['Refunds'])).toBe(
+      `Keyword rule "Refunds" matched but its reply did not go out: the plan's auto-reply limit`
+    );
+    expect(withheld('kb_placeholder_in_plain_rule', ['Refunds'])).toBe(
+      'Keyword rule "Refunds" matched but its reply did not go out: the reply still holds {{kb_answer}}'
+    );
+  });
+
+  it('an unknown reason still renders, as the backend wrote it', () => {
+    expect(withheld('some_new_reason', ['Refunds'])).toBe(
+      'Keyword rule "Refunds" matched but its reply did not go out: some_new_reason'
+    );
+  });
+
+  it('is shown with the auto-reply dot, as a system entry', () => {
+    expect(activityKindOf('message.auto_reply_withheld')).toBe('ai');
   });
 });

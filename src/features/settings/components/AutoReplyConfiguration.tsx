@@ -10,7 +10,7 @@ import { useDepartments } from '@/hooks/useDepartments';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
-import { organizationService } from '@/services/organization.service';
+import { organizationService, type AutoReplyMode } from '@/services/organization.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { Permission } from '@/types/roles';
 import { AutoReplyRulesSection } from './AutoReplyRulesSection';
@@ -24,6 +24,8 @@ import { FeatureSuggestions } from './FeatureSuggestions';
 
 type Settings = {
   autoReplyEnabled?: boolean;
+  /** Workspace: always set once loaded. Team: absent = same as the workspace. */
+  autoReplyMode?: AutoReplyMode;
   autoReplyRequestMissingInfo?: boolean;
   autoReplySuggestSolutions?: boolean;
   autoReplyHighConfidenceThreshold?: number;
@@ -40,6 +42,21 @@ type Props = {
 };
 
 const formatThreshold = (value: number): string => `${Math.round(value * 100)}%`;
+
+const MODE_LABEL: Record<AutoReplyMode, string> = {
+  all: 'Rules and AI',
+  rules_only: 'Keyword rules only',
+};
+const MODES: AutoReplyMode[] = ['all', 'rules_only'];
+const MODE_HELP =
+  'Keyword rules only: only your keyword rules reply; the AI never sends on its own.';
+const RULES_ONLY_NOTE = 'These AI settings do not apply in "Keyword rules only".';
+
+/** The pill look of the per-team choices, selected or not. */
+const pillClass = (selected: boolean): string =>
+  `px-2 py-0.5 h-auto text-[10px] rounded-full ${
+    selected ? 'bg-primary text-primary-foreground border-primary' : 'bg-background hover:bg-muted'
+  }`;
 
 export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   const { hasPermission } = usePermissions();
@@ -84,6 +101,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         if (cancelled) return;
         const initialOrg: Settings = {
           autoReplyEnabled: auto.enabled,
+          autoReplyMode: auto.mode,
           autoReplyRequestMissingInfo: auto.requestMissingInfo,
           autoReplySuggestSolutions: auto.suggestSolutions,
           autoReplyHighConfidenceThreshold: auto.highConfidenceThreshold,
@@ -111,6 +129,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     async (
       patch: Partial<{
         enabled: boolean;
+        mode: AutoReplyMode;
         requestMissingInfo: boolean;
         suggestSolutions: boolean;
         highConfidenceThreshold: number;
@@ -125,6 +144,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       const optimistic: Settings = {
         ...previous,
         ...(patch.enabled !== undefined && { autoReplyEnabled: patch.enabled }),
+        ...(patch.mode !== undefined && { autoReplyMode: patch.mode }),
         ...(patch.requestMissingInfo !== undefined && {
           autoReplyRequestMissingInfo: patch.requestMissingInfo,
         }),
@@ -145,13 +165,15 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         const field =
           patch.enabled !== undefined
             ? `AI auto-reply ${patch.enabled ? 'enabled' : 'disabled'}`
-            : patch.requestMissingInfo !== undefined
-              ? `Missing-info requests ${patch.requestMissingInfo ? 'on' : 'off'}`
-              : patch.suggestSolutions !== undefined
-                ? `Suggest-solutions ${patch.suggestSolutions ? 'on' : 'off'}`
-                : patch.highConfidenceThreshold !== undefined
-                  ? `Threshold set to ${Math.round(patch.highConfidenceThreshold * 100)}%`
-                  : 'Default updated';
+            : patch.mode !== undefined
+              ? `Auto-reply: ${MODE_LABEL[patch.mode]}`
+              : patch.requestMissingInfo !== undefined
+                ? `Missing-info requests ${patch.requestMissingInfo ? 'on' : 'off'}`
+                : patch.suggestSolutions !== undefined
+                  ? `Suggest-solutions ${patch.suggestSolutions ? 'on' : 'off'}`
+                  : patch.highConfidenceThreshold !== undefined
+                    ? `Threshold set to ${Math.round(patch.highConfidenceThreshold * 100)}%`
+                    : 'Default updated';
         onShowAlert({
           open: true,
           title: 'Saved',
@@ -218,12 +240,36 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     if (!current) return;
     const { autoReplyEnabled: _omit, ...rest } = current;
     const hasRemaining =
+      rest.autoReplyMode !== undefined ||
       rest.autoReplyRequestMissingInfo !== undefined ||
       rest.autoReplySuggestSolutions !== undefined ||
       rest.autoReplyHighConfidenceThreshold !== undefined ||
       (rest.escalationPhrases !== undefined && rest.escalationPhrases.length > 0);
     if (!hasRemaining) {
       // Avoid leaving an empty row that means nothing on the BE.
+      resetDept(deptId);
+      return;
+    }
+    void saveDept(deptId, rest);
+  };
+
+  /** A team's mode; `undefined` = same as the workspace (the key is dropped). */
+  const setDeptMode = (deptId: number, mode: AutoReplyMode | undefined) => {
+    const current = perDeptRef.current[String(deptId)] ?? {};
+    const { autoReplyMode: _omit, ...rest } = current;
+    if (mode !== undefined) {
+      void saveDept(deptId, { ...rest, autoReplyMode: mode });
+      return;
+    }
+    if (current.autoReplyMode === undefined) return;
+    const hasRemaining =
+      rest.autoReplyEnabled !== undefined ||
+      rest.autoReplyRequestMissingInfo !== undefined ||
+      rest.autoReplySuggestSolutions !== undefined ||
+      rest.autoReplyHighConfidenceThreshold !== undefined ||
+      (rest.escalationPhrases !== undefined && rest.escalationPhrases.length > 0);
+    // Nothing else overridden: drop the row rather than leave an empty one.
+    if (!hasRemaining) {
       resetDept(deptId);
       return;
     }
@@ -281,6 +327,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
               {org.autoReplyEnabled &&
                 org.autoReplyHighConfidenceThreshold !== undefined &&
                 ` · threshold ${formatThreshold(org.autoReplyHighConfidenceThreshold)}`}
+              {org.autoReplyEnabled &&
+                org.autoReplyMode === 'rules_only' &&
+                ' · keyword rules only'}
               . Only workspace admins and moderators can change auto-reply settings.
             </p>
           </CardHeader>
@@ -305,6 +354,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     tempThresholdOrg ?? org.autoReplyHighConfidenceThreshold ?? DEFAULT_THRESHOLD;
   const orgRequestMissing = org.autoReplyRequestMissingInfo ?? true;
   const orgSuggest = org.autoReplySuggestSolutions ?? true;
+  const orgMode: AutoReplyMode = org.autoReplyMode ?? 'all';
 
   return (
     <div className="space-y-4">
@@ -334,9 +384,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           {aiDraftsOff && (
             <Alert variant="warning" className="mb-4">
               AI drafts are switched off for this workspace, so the AI sends no reply of its own —
-              whatever is set below. These settings apply again when AI drafts are switched back on.
-              The prepared acknowledgment (&quot;we got your message&quot;) is not AI-written and
-              still goes out.
+              whatever is set below. Keyword rules with a plain prepared reply still send; rules
+              that add a knowledge base answer (&quot;Template + KB&quot;) do not. These settings
+              apply again when AI drafts are switched back on. The prepared acknowledgment (&quot;we
+              got your message&quot;) is not AI-written and still goes out.
             </Alert>
           )}
           {error && (
@@ -388,6 +439,36 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
 
                 {orgEnabled && (
                   <>
+                    <div className="pt-3 space-y-2 border-t">
+                      <p id="org-auto-reply-mode" className="text-sm font-medium">
+                        What replies on its own
+                      </p>
+                      <div
+                        role="group"
+                        aria-labelledby="org-auto-reply-mode"
+                        className="flex flex-wrap gap-2"
+                      >
+                        {MODES.map((mode) => (
+                          <Button
+                            key={mode}
+                            type="button"
+                            size="sm"
+                            variant={orgMode === mode ? 'primary' : 'outline'}
+                            aria-pressed={orgMode === mode}
+                            disabled={savingScope === 'org'}
+                            onClick={() => {
+                              if (orgMode !== mode) void saveOrg({ mode });
+                            }}
+                          >
+                            {MODE_LABEL[mode]}
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">{MODE_HELP}</p>
+                    </div>
+                    {orgMode === 'rules_only' && (
+                      <p className="pt-3 text-xs border-t text-warning">{RULES_ONLY_NOTE}</p>
+                    )}
                     <div className="flex justify-between items-center pt-3 border-t">
                       <div>
                         <p className="text-sm font-medium">Request missing info</p>
@@ -475,6 +556,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
               const overrideThreshold = settings?.autoReplyHighConfidenceThreshold;
               const overrideRequestMissing = settings?.autoReplyRequestMissingInfo;
               const overrideSuggest = settings?.autoReplySuggestSolutions;
+              const overrideMode = settings?.autoReplyMode;
+              const effectiveMode = overrideMode ?? orgMode;
               const phrases = settings?.escalationPhrases ?? [];
               const sliderThreshold = tempThresholdDept[key] ?? overrideThreshold ?? orgThreshold;
 
@@ -488,6 +571,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                   overrideThreshold !== undefined ||
                   overrideRequestMissing !== undefined ||
                   overrideSuggest !== undefined ||
+                  overrideMode !== undefined ||
                   phrases.length > 0
                 ) {
                   return { label: 'Partial override', tone: 'amber' as const };
@@ -576,9 +660,55 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       </Button>
                     </div>
 
+                    {/* Mode: same as the workspace (key absent), or this team's own */}
+                    {(overrideEnabled ?? orgEnabled) && (
+                      <div className="pt-3 space-y-1 border-t">
+                        <div
+                          role="group"
+                          aria-label={`What replies on its own for ${dept.name}`}
+                          className="flex flex-wrap gap-2 items-center"
+                        >
+                          <span className="text-xs text-muted-foreground">
+                            What replies on its own:
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            aria-pressed={overrideMode === undefined}
+                            disabled={isSaving}
+                            onClick={() => setDeptMode(dept.id, undefined)}
+                            className={pillClass(overrideMode === undefined)}
+                          >
+                            Same as workspace ({MODE_LABEL[orgMode]})
+                          </Button>
+                          {MODES.map((mode) => (
+                            <Button
+                              key={mode}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              aria-pressed={overrideMode === mode}
+                              disabled={isSaving}
+                              onClick={() => {
+                                if (overrideMode !== mode) setDeptMode(dept.id, mode);
+                              }}
+                              className={pillClass(overrideMode === mode)}
+                            >
+                              {MODE_LABEL[mode]}
+                            </Button>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">{MODE_HELP}</p>
+                      </div>
+                    )}
+
                     {/* Threshold override only available when this dept will fire auto-reply */}
                     {(overrideEnabled ?? orgEnabled) && (
                       <div className="pt-3 space-y-2 border-t">
+                        {effectiveMode === 'rules_only' && (
+                          <p className="text-[10px] text-warning">{RULES_ONLY_NOTE}</p>
+                        )}
                         <div className="flex justify-between items-center">
                           <label
                             htmlFor={`dept-threshold-${dept.id}`}

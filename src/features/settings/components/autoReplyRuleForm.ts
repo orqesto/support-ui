@@ -72,9 +72,24 @@ export const validateDraft = (draft: RuleDraft): RuleDraftErrors => {
 
 export const hasErrors = (errors: RuleDraftErrors): boolean => Object.keys(errors).length > 0;
 
-/** Server-side field names → the same inline messages, for a 400 the form did not catch. */
-export const errorsFromFields = (fields: readonly string[]): RuleDraftErrors => {
+const FORM_FIELDS = ['keywords', 'replyText', 'name'] as const;
+
+/**
+ * Server-side field names → inline messages, for a 400 the form did not catch. When the 400 names
+ * exactly ONE field and carries its own message (a keyword another rule already has, say), that
+ * message goes under the field; otherwise each field gets its default text.
+ */
+export const errorsFromFields = (
+  fields: readonly string[],
+  serverMessage?: string
+): RuleDraftErrors => {
   const errors: RuleDraftErrors = {};
+  const named = FORM_FIELDS.filter((field) => fields.includes(field));
+  const message = serverMessage?.trim();
+  if (named.length === 1 && fields.length === 1 && message) {
+    errors[named[0]] = message;
+    return errors;
+  }
   if (fields.includes('keywords')) errors.keywords = 'Check the keywords: at least one is needed.';
   if (fields.includes('replyText')) errors.replyText = 'Write the reply text.';
   if (fields.includes('name')) errors.name = 'The name is too long.';

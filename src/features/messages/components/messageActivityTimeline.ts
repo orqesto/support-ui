@@ -63,6 +63,8 @@ const ACTION_KIND: Record<string, ActivityKind> = {
   'message.reply': 'out',
   // An automatic answer that left: the AI dot, the only audit action the AI authors.
   'message.auto_reply_sent': 'ai',
+  // An automatic answer that was held back (a keyword rule matched): same dot, it is its story.
+  'message.auto_reply_withheld': 'ai',
   'message.compose_new': 'out',
 };
 
@@ -181,12 +183,59 @@ export function autoReplySentLabel(details: Record<string, unknown> | null): str
       typeof details?.['knowledgeSource'] === 'string' ? ' with a knowledge base answer' : '';
     return `Auto-reply sent by rule "${ruleName}"${matched}${withKb}${resolved}`;
   }
+  // The AI's "need more information" question (the status is left as it was).
+  if (details?.['source'] === 'missing_info')
+    return `Asked the customer for missing information (auto-reply)${resolved}`;
   return `AI auto-reply sent${resolved}`;
+}
+
+/** Why a matched keyword rule's reply did not go out, in plain words (BE autoReplyOutcome). */
+const WITHHELD_REASON: Record<string, string> = {
+  send_failed: 'the email could not be sent',
+  thread_locked: 'another reply was in progress',
+  kb_error: 'the knowledge base search failed',
+  kb_no_source: 'no knowledge base answer was sure enough',
+  kb_below_threshold: 'no knowledge base answer was sure enough',
+  kb_not_grounded: 'the knowledge base answer could not be checked',
+  ai_drafts_off: 'AI drafts are off',
+  plan_not_entitled: "the plan's auto-reply limit",
+  plan_allotment_reached: "the plan's auto-reply limit",
+  workspace_blocked: 'the workspace is waiting for a plan',
+  kb_placeholder_in_plain_rule: 'the reply still holds {{kb_answer}}',
+};
+
+/** "A", "A" and "B", "A", "B" and "C". */
+const joinRuleNames = (names: string[]): string => {
+  const quoted = names.map((name) => `"${name}"`);
+  if (quoted.length <= 1) return quoted.join('');
+  return `${quoted.slice(0, -1).join(', ')} and ${quoted[quoted.length - 1]}`;
+};
+
+/**
+ * A keyword rule matched and nothing was sent (BE `message.auto_reply_withheld`): two or more rules
+ * matched (`several_rules`), or the matched rule's reply could not go out. An unknown reason is
+ * shown as the backend wrote it.
+ */
+export function autoReplyWithheldLabel(details: Record<string, unknown> | null): string {
+  const rawNames = details?.['ruleNames'];
+  const names = Array.isArray(rawNames)
+    ? rawNames.filter((name): name is string => typeof name === 'string' && name.length > 0)
+    : [];
+  const reason = typeof details?.['reason'] === 'string' ? details['reason'] : '';
+  if (reason === 'several_rules') {
+    if (names.length < 2) return 'No auto-reply: more than one keyword rule matched';
+    const verb = names.length === 2 ? 'both matched' : 'all matched';
+    return `No auto-reply: rules ${joinRuleNames(names)} ${verb}`;
+  }
+  const rule = names.length > 0 ? `Keyword rule ${joinRuleNames(names)}` : 'A keyword rule';
+  const why = WITHHELD_REASON[reason] ?? (reason || 'unknown reason');
+  return `${rule} matched but its reply did not go out: ${why}`;
 }
 
 export function auditEntryLabel(action: string, details: Record<string, unknown> | null): string {
   if (action === 'routing.decision') return routingDecisionLabel(details);
   if (action === 'message.auto_reply_sent') return autoReplySentLabel(details);
+  if (action === 'message.auto_reply_withheld') return autoReplyWithheldLabel(details);
   if (action === 'message.status_change') {
     const from = statusWord(details?.['from']);
     const to = statusWord(details?.['to']);
