@@ -242,7 +242,7 @@ const cssLengthAsAttribute = (value: string): string | null => {
  * validated attributes, it gives clients and the box-reservation path an explicit pair, and it
  * is what the `THREAD_SANITIZE` fallback (a bubble with no `eventId`) still depends on.
  *
- * 🔑 This is not a hypothetical shape. In staging's ABC-INF-1579 every `<img>` in the message
+ * 🔑 This is not a hypothetical shape. In a staging thread every `<img>` in the message
  * carries its geometry in `style` and NOT in attributes — 8 of 8 — so support-ui#404, which
  * stopped the sanitizer deleting `width`/`height`, could not help that mail at all: there was
  * nothing there to keep. Emails use both spellings and we have to read both.

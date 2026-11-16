@@ -9,7 +9,7 @@ afterEach(() => {
 });
 
 /**
- * The shape ABC-INF-1579 actually has on staging, reduced. A `width="100%"` outer table, a fixed
+ * The shape a staging thread actually has, reduced. A `width="100%"` outer table, a fixed
  * logo cell, and a contact block whose geometry lives in `valign`/`align`/`width` and inline
  * `style` — every one of which the old sanitizer deleted. The visible result was a signature
  * whose columns collapsed into a single stack and whose contact line broke mid-token

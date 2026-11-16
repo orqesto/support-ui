@@ -55,13 +55,13 @@ const result = (over: Partial<BounceRepairResult> = {}): BounceRepairResult => (
     found: 28,
     refiled: 0,
     truncated: false,
-    samples: [{ id: 41548, publicId: 'SUP-15597', subject: 'Militech - Ordine 402538' }],
+    samples: [{ id: 41548, publicId: 'SUP-101', subject: 'Militech - Ordine 402538' }],
   },
   fused: {
     found: 1,
     truncated: false,
     conversations: [
-      { id: 38522, publicId: 'SUP-12829', subject: 'Delivery Status Notification (Failure)', correspondents: 237, bounces: 391 },
+      { id: 38522, publicId: 'SUP-102', subject: 'Delivery Status Notification (Failure)', correspondents: 237, bounces: 391 },
     ],
   },
   failed: null,
@@ -105,7 +105,7 @@ describe('Bounce repair', () => {
     expect(await screen.findByText(/12 messages/)).toBeInTheDocument();
     expect(screen.getByText(/28 open threads/)).toBeInTheDocument();
     expect(screen.getByText(/stored before bounces were recognised/)).toBeInTheDocument();
-    expect(screen.getByText(/SUP-15597 — Militech - Ordine 402538/)).toBeInTheDocument();
+    expect(screen.getByText(/SUP-101 — Militech - Ordine 402538/)).toBeInTheDocument();
     expect(screen.getByText(/237 customers and 391 bounces/)).toBeInTheDocument();
     expect(calls).toEqual(['check']);
   });

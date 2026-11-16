@@ -73,7 +73,7 @@ function ThreadMessageItemView({
    *
    * 🔑 NOT skipped for outbound any more. It used to be, on the reasoning that "the console
    * already holds what we sent" — but what it holds is the DERIVED PLAIN TEXT, which is not
-   * what we sent. On staging's ABC-INF-1579 an agent reply whose stored markup carries 76
+   * what we sent. On a staging thread an agent reply whose stored markup carries 76
    * images rendered as a blank blue bubble: the quotation the customer received, shown to the
    * agent as an empty box. An agent checking what went out, or answering "what did you send
    * them?", was reading a different document from the customer.

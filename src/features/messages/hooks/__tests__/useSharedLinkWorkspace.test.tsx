@@ -152,7 +152,7 @@ describe('useSharedLinkWorkspace', () => {
 
   it('tells the caller a link it will not open: not a member, or no such workspace', async () => {
     const onRefused = vi.fn();
-    locate.mockResolvedValueOnce({ data: { status: 'not-a-member', organizationSlug: 'orbit' } });
+    locate.mockResolvedValueOnce({ data: { status: 'not-a-member', organizationSlug: 'abc-co' } });
     renderHook(() => useSharedLinkWorkspace('ABC-MKT-170', onRefused));
     await waitFor(() => expect(onRefused).toHaveBeenCalledWith('not-a-member'));
     locate.mockRejectedValueOnce(new Error('404'));

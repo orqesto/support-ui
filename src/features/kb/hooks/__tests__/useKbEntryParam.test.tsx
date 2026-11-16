@@ -112,7 +112,7 @@ describe('useKbEntryParam', () => {
 
   it('⛔ another workspace’s link switches there first, never resolving this workspace’s KB-77', async () => {
     locate.mockResolvedValue({
-      data: { status: 'found', organizationId: 2, organizationSlug: 'orbit', publicId: 'KB-77' },
+      data: { status: 'found', organizationId: 2, organizationSlug: 'abc-co', publicId: 'KB-77' },
     });
     getAll.mockResolvedValue({ data: { entries: [], idMatch: { id: 4120 } } });
     getById.mockResolvedValue({ data: entry() });
@@ -128,7 +128,7 @@ describe('useKbEntryParam', () => {
   });
 
   it('another workspace you are not in: its link is dropped, nothing opened', async () => {
-    locate.mockResolvedValue({ data: { status: 'not-a-member', organizationSlug: 'orbit' } });
+    locate.mockResolvedValue({ data: { status: 'not-a-member', organizationSlug: 'abc-co' } });
     const { result } = open('/knowledge-base?id=ABC-KB-77');
     await waitFor(() => expect(result.current.location.search).toBe(''));
     expect(onNotFound).not.toHaveBeenCalled(); // the toast already named the workspace
