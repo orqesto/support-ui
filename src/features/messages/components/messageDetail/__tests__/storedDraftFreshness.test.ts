@@ -3,7 +3,6 @@
  */
 import { describe, it, expect } from 'vitest';
 import type { MessageEvent } from '@/types';
-import type { BackendDraftState } from '@/services/message/message.types';
 import { storedDraftFreshness, type ThreadEventsState } from '../storedDraftFreshness';
 import { insertSourceOf, toGhostOption } from '../../messageDetailConstants';
 
@@ -12,7 +11,8 @@ const event = (id: number, type: string, extra: Record<string, unknown> = {}) =>
     id,
     type,
     authorEmail: 'cust@example.com',
-    metadata: {},
+    // A judged customer email (ingestion stamps the verdict on the event).
+    metadata: { spamCheck: { category: 'legitimate' } },
     createdAt: `2026-10-01T1${id}:00:00Z`,
     ...extra,
   }) as unknown as MessageEvent;
@@ -71,6 +71,96 @@ describe('storedDraftFreshness — a draft that names the email it answers', () 
   });
 });
 
+// 2026-11-17: machine mail after the customer's question is not them writing — it never hides
+// the draft for the question (the backend judges the same way).
+describe('storedDraftFreshness — mail that is not the customer writing', () => {
+  // Review 2026-11-17 round 13: the backend's per-event answer decides, not the app's copy of its
+  // markers (the copy is only for a backend that does not send it).
+  it("the backend's customerWriting flag decides over the markers, both ways", () => {
+    const flagged = (id: number, customerWriting: boolean, metadata: Record<string, unknown>) =>
+      event(id, 'inbound', { customerWriting, metadata });
+    // Markers say "writing", the backend says no: email 3 does not make the draft for 1 older.
+    expect(
+      hidden(draft({ answersEventId: 1 }), [
+        event(1, 'inbound'),
+        flagged(3, false, { spamCheck: { category: 'legitimate' } }),
+      ])
+    ).toBe(false);
+    // Markers say "not judged", the backend says writing: it does.
+    expect(
+      hidden(draft({ answersEventId: 1 }), [event(1, 'inbound'), flagged(3, true, {})])
+    ).toBe(true);
+  });
+
+  it("the draft's own email with a time that does not parse: offered (unknown age)", () => {
+    const ooo = event(2, 'inbound', {
+      metadata: { customerAutoReply: true },
+      createdAt: 'not a time',
+    });
+    expect(hidden(draft({ answersEventId: 2 }), [event(1, 'inbound'), ooo])).toBe(false);
+  });
+
+  it.each([
+    ['their out-of-office', { customerAutoReply: true }],
+    ['a bounce', { deliveryFailure: true }],
+    ['a historical import', { historicalImport: true }],
+    ['a copy our mailbox forwarded', { relayedFrom: { forwarded: true } }],
+    ['junk', { spamCheck: { category: 'spam' } }],
+    ['a receipt (transactional)', { spamCheck: { category: 'transactional' } }],
+    ['promotional', { spamCheck: { category: 'promotional' } }],
+    ['an out-of-office verdict after the save', { spamCheck: { category: 'out_of_office' } }],
+    ['a Zendesk import', { zendesk: { ticketId: 1 } }],
+    ['an automatic reply paused by its verdict', { spamCheck: { handling: 'pause_thread' } }],
+    ['a message pulled before its verdict', {}],
+  ])('%s after the email: the draft for it is still offered', (_label, metadata) => {
+    expect(
+      hidden(draft({ answersEventId: 3 }), [...thread, event(4, 'inbound', { metadata })])
+    ).toBe(false);
+  });
+
+  it('a loaded page with only such mail, holding the draft\'s email: offered (an earlier page may hold the backend\'s pick)', () => {
+    const forwarded = (id: number) =>
+      event(id, 'inbound', { metadata: { relayedFrom: { forwarded: true } } });
+    expect(hidden(draft({ answersEventId: 1 }), [forwarded(1), forwarded(3)])).toBe(false);
+    expect(hidden(draft({ answersEventId: 3 }), [forwarded(1), forwarded(3)])).toBe(false);
+  });
+
+  it('CONTROL: one customer email on the page still decides (a draft for a forwarded copy before it is hidden)', () => {
+    const forwarded = event(1, 'inbound', { metadata: { relayedFrom: { forwarded: true } } });
+    expect(hidden(draft({ answersEventId: 1 }), [forwarded, event(3, 'inbound')])).toBe(true);
+  });
+
+  it("a loaded page with only such mail and without the draft's email: nothing is known, offered", () => {
+    const ooo = (id: number) => event(id, 'inbound', { metadata: { customerAutoReply: true } });
+    expect(hidden(draft({ answersEventId: 2 }), [ooo(5), ooo(6)])).toBe(false);
+  });
+
+  it('a Zendesk import a live mailbox adopted counts as the customer writing', () => {
+    const adopted = {
+      zendesk: { ticketId: 1 },
+      adoptedAt: 'x',
+      spamCheck: { category: 'legitimate' },
+    };
+    expect(
+      hidden(draft({ answersEventId: 3 }), [...thread, event(4, 'inbound', { metadata: adopted })])
+    ).toBe(true);
+  });
+
+  it('a draft for a later email that is not the customer writing (judged junk afterwards): kept', () => {
+    const junkLater = event(4, 'inbound', { metadata: { spamCheck: { category: 'spam' } } });
+    expect(hidden(draft({ answersEventId: 4 }), [...thread, junkLater])).toBe(false);
+  });
+
+  it('an import a live mailbox adopted counts even without a verdict', () => {
+    const adopted = event(4, 'inbound', { metadata: { zendesk: {}, adoptedAt: 'x' } });
+    expect(hidden(draft({ answersEventId: 3 }), [...thread, adopted])).toBe(true);
+  });
+
+  it('CONTROL: the customer writing again hides it', () => {
+    expect(hidden(draft({ answersEventId: 3 }), [...thread, event(4, 'inbound')])).toBe(true);
+  });
+});
+
 describe('storedDraftFreshness — a draft that names no email', () => {
   it('is offered as before, whenever it was written (never judged by a guess)', () => {
     expect(hidden(draft({ foundAt: '2026-10-01T12:00:00.000Z' }))).toBe(false);
@@ -116,66 +206,5 @@ describe('toGhostOption — what the draft was written from', () => {
     expect(docs?.label).toBe('DOCS');
     expect(insertSourceOf(docs!)).toBe('documentation');
     expect(toGhostOption({ answer: 'x', source: 'message' })?.label).toBe('AI');
-  });
-});
-
-// The thread read states the stored draft's age by the backend's rule, with the draft it judged
-// (review rounds 6-8, 2026-11-16): the loaded page no longer decides.
-describe('storedDraftFreshness — with the thread read', () => {
-  const read = (
-    age: 'current' | 'older' | 'unknown',
-    judged: { answersEventId?: number; foundAt?: string }
-  ): BackendDraftState => ({
-    latestInbound: { eventId: 7, at: '2026-10-01T17:00:00.000Z' },
-    storedDraftAge: {
-      age,
-      answersEventId: judged.answersEventId ?? null,
-      foundAt: judged.foundAt ?? null,
-    },
-  });
-  const check = (metadata: Record<string, unknown>, state: BackendDraftState, events = thread) =>
-    storedDraftFreshness(metadata, events, 'loaded', state).draftHidden;
-
-  it("the backend's verdict on that very draft decides, whatever the page holds", () => {
-    expect(check(draft({ answersEventId: 3 }), read('older', { answersEventId: 3 }))).toBe(true);
-    // The page says 3 is the latest; the backend knows a newer email.
-    expect(check(draft({ answersEventId: 3 }), read('older', { answersEventId: 3 }), thread)).toBe(
-      true
-    );
-    expect(check(draft({ answersEventId: 1 }), read('current', { answersEventId: 1 }))).toBe(false);
-  });
-
-  it('a timestamp-only draft: the verdict applies to the same time, however it is written', () => {
-    const judged = read('older', { foundAt: '2026-10-01T10:00:00.000Z' });
-    expect(check(draft({ foundAt: '2026-10-01T10:00:00Z' }), judged)).toBe(true);
-    expect(check(draft({ foundAt: '2026-10-02T10:00:00.000Z' }), judged)).toBe(false);
-  });
-
-  it('a draft written since the read: offered unless a later customer email follows its email', () => {
-    const before = read('older', { answersEventId: 1 });
-    // For an email newer than the read's latest (7): current. For an older one (an earlier page,
-    // a stale copy of the metadata): hidden.
-    expect(check(draft({ answersEventId: 8 }), before)).toBe(false);
-    expect(check(draft({ answersEventId: 3 }), before)).toBe(true);
-    expect(check(draft({ answersEventId: 1 }), read('current', { answersEventId: 9 }))).toBe(true);
-    // A tie never hides it.
-    const tie = [
-      event(1, 'inbound', { createdAt: '2026-10-01T12:00:00.000Z' }),
-      event(2, 'inbound', { createdAt: '2026-10-01T12:00:00.000Z' }),
-    ];
-    const readSaysOne: BackendDraftState = {
-      latestInbound: { eventId: 1, at: '2026-10-01T12:00:00.000Z' },
-      storedDraftAge: { age: 'current', answersEventId: 9, foundAt: null },
-    };
-    expect(check(draft({ answersEventId: 1 }), readSaysOne, tie)).toBe(false);
-  });
-
-  it('no stored draft judged (null): a draft that names no email is offered', () => {
-    expect(
-      storedDraftFreshness(draft({}), thread, 'loaded', {
-        latestInbound: null,
-        storedDraftAge: null,
-      }).draftHidden
-    ).toBe(false);
   });
 });
