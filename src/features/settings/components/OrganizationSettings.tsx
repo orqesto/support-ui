@@ -48,7 +48,6 @@ const sections = [
 // Workspace-wide policy sub-sections — admin-only (org_admin+/global), hidden from
 // moderators who can otherwise reach the Workspace tab via VIEW_ORGANIZATION_SETTINGS.
 const ADMIN_ONLY_SECTIONS: OrgSection[] = [
-  'sla-config',
   'business-hours',
   'open-conversations',
   'security',
@@ -72,11 +71,17 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
   const { isAdmin, isOrgAdmin, hasPermission } = usePermissions();
 
   // The "Workspace" tab is reachable by moderators (VIEW_ORGANIZATION_SETTINGS), but SLA
-  // Thresholds, Business Hours and Authentication configure workspace-wide policy (SLA
-  // targets, the working calendar every response metric reads, 2FA enforcement) —
+  // Business Hours and Authentication configure workspace-wide policy (the
+  // working calendar every response metric reads, 2FA enforcement) —
   // admin-only controls. Gate them to org_admin+ / global admin so they
   // aren't shown to moderators. UX-only; the BE requireOrgAdmin guard is the authority.
   const canManageOrgPolicy = isAdmin || isOrgAdmin;
+  // SLA Thresholds: moderators too (owner, 2026-11-16) — saving and resetting need MANAGE_SLA_CONFIG on
+  // the BE (admins and moderators); the targets are read with VIEW_ORGANIZATION_SETTINGS.
+  const canManageSla =
+    isAdmin ||
+    (hasPermission(Permission.MANAGE_SLA_CONFIG) &&
+      hasPermission(Permission.VIEW_ORGANIZATION_SETTINGS));
   // Routing Skills is all editing (assignment mode, self-edit toggles, keys, value descriptions,
   // the test box) and every one of those calls needs manage_routing_rules on the BE (admins and
   // moderators). Without it an agent saw every control, got 403 on each, and read a false
@@ -105,6 +110,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
   }, [canManageOrgPolicy, orgKey]);
   const isHidden = (sect: OrgSection): boolean =>
     (ADMIN_ONLY_SECTIONS.includes(sect) && !canManageOrgPolicy) ||
+    (sect === 'sla-config' && !canManageSla) ||
     (sect === 'routing-skills' && !canManageRouting) ||
     (sect === 'notification-roles' && !rolesAvailable);
   const visibleSections = sections.filter((sect) => !isHidden(sect.id));
@@ -119,7 +125,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
     setActive(isHidden(section) ? 'categories' : section);
     // isHidden reads only the two flags below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section, canManageOrgPolicy, canManageRouting, rolesAvailable]);
+  }, [section, canManageOrgPolicy, canManageRouting, canManageSla, rolesAvailable]);
 
   const goToSection = (next: OrgSection) => {
     setActive(next);
@@ -149,7 +155,7 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
         {active === 'categories' && <CategoriesSettings />}
         {active === 'labels' && <LabelsSettings />}
         {active === 'routing-skills' && canManageRouting && <RoutingKeysSettings />}
-        {active === 'sla-config' && canManageOrgPolicy && <SLAConfigSettings />}
+        {active === 'sla-config' && canManageSla && <SLAConfigSettings />}
         {active === 'business-hours' && canManageOrgPolicy && <BusinessHoursSettings />}
         {active === 'open-conversations' && canManageOrgPolicy && <OpenConversationWindowSettings />}
         {/* Not admin-only: any member may read the list; the card itself offers editing to admins. */}

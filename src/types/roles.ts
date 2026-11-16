@@ -51,6 +51,9 @@ export const Permission = {
   // Settings → AI → Auto-Reply (switches + keyword rules). Mirrors the backend's split from
   // MANAGE_ORGANIZATION (2026-11-13) so moderators change auto-reply the same way as admins.
   MANAGE_AUTO_REPLY: 'manage_auto_reply',
+  // Workspace › SLA Thresholds (save + reset). Mirrors the backend's split from the org-admin gate
+  // (2026-11-16) so moderators see and change SLA targets like admins.
+  MANAGE_SLA_CONFIG: 'manage_sla_config',
   VIEW_AI_SETTINGS: 'view_ai_settings',
 
   // Ticket Management
@@ -129,6 +132,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.MANAGE_ROUTING_RULES,
     Permission.MANAGE_KNOWLEDGE_BASE,
     Permission.MANAGE_AUTO_REPLY,
+    Permission.MANAGE_SLA_CONFIG,
     Permission.VIEW_AI_SETTINGS,
     Permission.MANAGE_TICKETS,
     Permission.VIEW_TICKETS,
@@ -170,6 +174,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.MANAGE_ROUTING_RULES,
     Permission.MANAGE_KNOWLEDGE_BASE,
     Permission.MANAGE_AUTO_REPLY,
+    Permission.MANAGE_SLA_CONFIG,
     Permission.VIEW_AI_SETTINGS,
     Permission.MANAGE_TICKETS,
     Permission.VIEW_TICKETS,
