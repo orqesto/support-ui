@@ -1,9 +1,9 @@
 /**
- * Does the stored AI draft answer the customer's LATEST email? (storedDraftFreshness.ts)
+ * Is the stored AI draft one written for an earlier customer email? (storedDraftFreshness.ts)
  */
 import { describe, it, expect } from 'vitest';
 import type { MessageEvent } from '@/types';
-import { storedDraftFreshness } from '../storedDraftFreshness';
+import { storedDraftFreshness, type ThreadEventsState } from '../storedDraftFreshness';
 import { toGhostOption } from '../../messageDetailConstants';
 
 const event = (id: number, type: string, extra: Record<string, unknown> = {}) =>
@@ -16,26 +16,28 @@ const event = (id: number, type: string, extra: Record<string, unknown> = {}) =>
     ...extra,
   }) as unknown as MessageEvent;
 const thread = [event(1, 'inbound'), event(2, 'agent_reply'), event(3, 'inbound')];
+const draft = (extra: Record<string, unknown>) => ({
+  suggestedAnswer: { answer: 'Here is how to do it.', ...extra },
+});
+const hidden = (
+  metadata: Record<string, unknown>,
+  events: MessageEvent[] = thread,
+  state: ThreadEventsState = 'loaded'
+) => storedDraftFreshness(metadata, events, state).draftHidden;
 
-describe('storedDraftFreshness', () => {
-  it('a draft for an earlier customer email is stale', () => {
-    expect(storedDraftFreshness({ suggestedAnswer: { answersEventId: 1 } }, thread)).toEqual({
-      stale: true,
-      noReplyWanted: false,
-    });
+describe('storedDraftFreshness — a draft that names the email it answers', () => {
+  it('for an earlier customer email: not offered', () => {
+    expect(hidden(draft({ answersEventId: 1 }))).toBe(true);
   });
 
-  it('CONTROL: a draft for the latest customer email is not', () => {
-    expect(storedDraftFreshness({ suggestedAnswer: { answersEventId: 3 } }, thread).stale).toBe(
-      false
-    );
+  it('CONTROL: for the latest customer email: offered', () => {
+    expect(hidden(draft({ answersEventId: 3 }))).toBe(false);
   });
 
-  it('a note or our reply after it does not count as the customer email', () => {
-    const later = [...thread, event(4, 'note'), event(5, 'agent_reply')];
-    expect(storedDraftFreshness({ suggestedAnswer: { answersEventId: 3 } }, later).stale).toBe(
-      false
-    );
+  it('a note or our reply after the customer email does not count as one', () => {
+    expect(
+      hidden(draft({ answersEventId: 3 }), [...thread, event(4, 'note'), event(5, 'agent_reply')])
+    ).toBe(false);
   });
 
   it("latest is the backend's: by when it was stored, not by its sent date", () => {
@@ -45,55 +47,74 @@ describe('storedDraftFreshness', () => {
       event(4, 'inbound', { sentAt: '2026-10-01T09:00:00Z' }),
       event(3, 'inbound'),
     ];
-    expect(storedDraftFreshness({ suggestedAnswer: { answersEventId: 4 } }, late).stale).toBe(
-      false
-    );
-    expect(storedDraftFreshness({ suggestedAnswer: { answersEventId: 3 } }, late).stale).toBe(true);
+    expect(hidden(draft({ answersEventId: 4 }), late)).toBe(false);
+    expect(hidden(draft({ answersEventId: 3 }), late)).toBe(true);
   });
 
-  it('a draft that names no email is shown as before', () => {
-    expect(storedDraftFreshness({ suggestedAnswer: { answer: 'x' } }, thread).stale).toBe(false);
-    expect(storedDraftFreshness({ suggestedAnswer: { answer: 'x' } }, [])).toEqual({
-      stale: false,
-      noReplyWanted: false,
-    });
-  });
-
-  it('before the events load, a draft or a mark that names an email is held back', () => {
-    expect(storedDraftFreshness({ suggestedAnswer: { answersEventId: 3 } }, []).stale).toBe(true);
-    expect(storedDraftFreshness({ noReplyForEventId: 3 }, []).noReplyWanted).toBe(true);
-  });
-
-  it('two customer emails stored in the same millisecond: the draft is not hidden', () => {
+  it('two customer emails stored in the same millisecond: neither draft is hidden', () => {
     const tie = [
       event(1, 'inbound', { createdAt: '2026-10-01T12:00:00.000Z' }),
       event(2, 'inbound', { createdAt: '2026-10-01T12:00:00.000Z' }),
     ];
-    expect(storedDraftFreshness({ suggestedAnswer: { answersEventId: 1 } }, tie).stale).toBe(false);
+    expect(hidden(draft({ answersEventId: 1 }), tie)).toBe(false);
+    expect(hidden(draft({ answersEventId: 2 }), tie)).toBe(false);
   });
 
-  it("an agent's saved answer for the no-reply email is shown (the backend keeps it)", () => {
-    expect(
-      storedDraftFreshness({ noReplyForEventId: 3, suggestedAnswer: { answersEventId: 3 } }, thread)
-    ).toEqual({ stale: false, noReplyWanted: false });
+  it('an email newer than every loaded one (not pulled yet, or the page holds none) is the latest', () => {
+    expect(hidden(draft({ answersEventId: 9 }))).toBe(false);
+    expect(hidden(draft({ answersEventId: 9 }), [event(2, 'agent_reply')])).toBe(false);
   });
 
-  it('the backend marked the latest email as needing no reply', () => {
-    expect(storedDraftFreshness({ noReplyForEventId: 3 }, thread).noReplyWanted).toBe(true);
-    // CONTROL: a mark for an earlier email no longer applies once the customer wrote again.
-    expect(storedDraftFreshness({ noReplyForEventId: 1 }, thread).noReplyWanted).toBe(false);
+  it('an email older than the loaded page is not the latest', () => {
+    expect(hidden(draft({ answersEventId: 0 }), [event(3, 'inbound')])).toBe(true);
   });
 });
 
-describe('toGhostOption — the chip names what the draft was written from', () => {
-  it('a draft from knowledge-base entries is labelled KB, inserted as a documentation answer', () => {
+describe('storedDraftFreshness — a draft that names no email', () => {
+  it('is offered as before, whenever it was written (never judged by a guess)', () => {
+    expect(hidden(draft({ foundAt: '2026-10-01T12:00:00.000Z' }))).toBe(false);
+    expect(hidden(draft({}))).toBe(false);
+  });
+});
+
+describe('storedDraftFreshness — before the events are read', () => {
+  it('pending: a draft that names an email is held back, and the count waits', () => {
+    expect(storedDraftFreshness(draft({ answersEventId: 3 }), [], 'pending')).toEqual({
+      draftHidden: true,
+      pending: true,
+    });
+  });
+
+  it('CONTROL: no draft, or one that names no email, waits for nothing', () => {
+    expect(storedDraftFreshness({}, [], 'pending')).toEqual({ draftHidden: false, pending: false });
+    expect(storedDraftFreshness(draft({}), [], 'pending').pending).toBe(false);
+  });
+
+  it('the read FAILED: offered as before, never hidden for good (live pulls included)', () => {
+    expect(hidden(draft({ answersEventId: 1 }), thread, 'failed')).toBe(false);
+    expect(hidden(draft({ answersEventId: 3 }), [], 'failed')).toBe(false);
+  });
+
+  it('a stored time that does not parse hides nothing', () => {
+    expect(
+      hidden(draft({ answersEventId: 1 }), [...thread, event(4, 'inbound', { createdAt: 'x' })])
+    ).toBe(false);
+  });
+});
+
+describe('toGhostOption — what the draft was written from', () => {
+  it('knowledge-base entries: labelled KB, inserted as knowledge_base', () => {
     expect(toGhostOption({ answer: 'x', source: 'knowledge_base' })).toMatchObject({
       label: 'KB',
       type: 'documentation',
+      insertSource: 'knowledge_base',
     });
   });
   it('CONTROL: documentation stays DOCS, anything else AI', () => {
-    expect(toGhostOption({ answer: 'x', source: 'documentation' })?.label).toBe('DOCS');
+    expect(toGhostOption({ answer: 'x', source: 'documentation' })).toMatchObject({
+      label: 'DOCS',
+      insertSource: 'documentation',
+    });
     expect(toGhostOption({ answer: 'x', source: 'message' })?.label).toBe('AI');
   });
 });

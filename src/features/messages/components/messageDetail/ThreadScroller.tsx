@@ -74,7 +74,6 @@ export function ThreadScroller({
     loadingEarlier,
     sortedThread,
     lastWordOurs,
-    storedDraft,
     onHoldReasonCleared,
   } = thread;
   const { threadScrollerRef, threadContentRef, markScrollIntent } = scrollPin;
@@ -183,9 +182,7 @@ export function ThreadScroller({
             composer={composer}
             composerMode={composerMode}
             resolved={message.status === 'resolved'}
-            // The customer's latest email needs no reply, or the stored draft answers an earlier
-            // email (a new one is being written): no suggestion, as after our reply.
-            answered={lastWordOurs || storedDraft.noReplyWanted || storedDraft.stale}
+            answered={lastWordOurs}
             alternativeCount={alternativeCount}
             onGhostClick={handleGhostClick}
             onShowAlternatives={() => {

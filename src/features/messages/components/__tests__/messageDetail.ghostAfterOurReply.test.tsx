@@ -197,9 +197,9 @@ describe('MessageDetail — no AI suggestion after our reply', () => {
 });
 
 /**
- * A customer's "Yes, it arrived, thank you" needed no reply, and the draft written for their
- * EARLIER email (an apology for the delay) was offered again under it (2026-11-16). The draft
- * names the email it answers (`answersEventId`); the backend marks an email that needs no reply.
+ * A customer's newer email showed the stored draft written for their PREVIOUS email (2026-11-16).
+ * The draft names the email it answers (`answersEventId`); the thread offers it only for the
+ * latest customer email.
  */
 describe('MessageDetail — a draft for an earlier customer email is not offered', () => {
   const withDraft = (metadata: Record<string, unknown>) =>
@@ -214,11 +214,12 @@ describe('MessageDetail — a draft for an earlier customer email is not offered
   ];
   const ghostText = () => screen.getByTestId('ghost').textContent;
 
-  it('the draft answers email 1, the customer wrote email 3: no draft, no "none found"', async () => {
+  it('the draft answers email 1, the customer wrote email 3: the draft is not offered', async () => {
     renderWithThread(thread, withDraft(draft(1)));
     await waitFor(() => expect(svc.message.getThreadMessages).toHaveBeenCalled());
-    await answeredFlag('true');
-    expect(ghostText()).toBe('');
+    await waitFor(() => expect(ghostText()).toBe(''));
+    // The zone itself stays (spinner / "No suggestion found"): email 3 is unanswered.
+    await answeredFlag('false');
   });
 
   it('before the events load, a draft that names an email is not one click away', () => {
@@ -238,15 +239,5 @@ describe('MessageDetail — a draft for an earlier customer email is not offered
   it('CONTROL: the draft answers email 3, the latest: it is offered', async () => {
     renderWithThread(thread, withDraft(draft(3)));
     await waitFor(() => expect(ghostText()).toBe(STORED));
-  });
-
-  it('the latest email needs no reply (backend mark): no suggestion at all', async () => {
-    renderWithThread(thread, withDraft({ noReplyForEventId: 3 }));
-    await answeredFlag('true');
-  });
-
-  it('CONTROL: a mark for an earlier email does not hide the suggestion zone', async () => {
-    renderWithThread(thread, withDraft({ noReplyForEventId: 1 }));
-    await answeredFlag('false');
   });
 });

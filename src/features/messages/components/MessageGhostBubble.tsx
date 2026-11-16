@@ -4,22 +4,13 @@ import { Button } from '@/components/ui/Button';
 import { stripHtml } from '@/lib/stripHtml';
 import {
   ghostCaption,
+  insertSourceOf,
   PHONE_THREAD_AVATAR,
   PHONE_THREAD_BUBBLE,
   PHONE_THREAD_COL_OUT,
   PHONE_THREAD_ROW,
   type GhostOption,
 } from './messageDetailConstants';
-
-/** The source an inserted ghost reports (usage statistics): a KB-written draft counts as KB. */
-const ghostInsertSource = (option: GhostOption): string =>
-  option.type === 'lead'
-    ? 'lead_qualification'
-    : option.type === 'similar'
-      ? 'message'
-      : option.label === 'KB'
-        ? 'knowledge_base'
-        : 'documentation';
 
 type Props = {
   aiLoading: boolean;
@@ -96,13 +87,13 @@ export function MessageGhostBubble({
     <div
       role="button"
       tabIndex={0}
-      onClick={() => onGhostClick(ghostOption.answer, ghostInsertSource(ghostOption))}
+      onClick={() => onGhostClick(ghostOption.answer, insertSourceOf(ghostOption))}
       // Only Enter on the bubble itself inserts it: Enter on its "+N more" button is that
       // button's press, and inserting first replaced the reply as a side effect.
       onKeyDown={(event) =>
         event.target === event.currentTarget &&
         event.key === 'Enter' &&
-        onGhostClick(ghostOption.answer, ghostInsertSource(ghostOption))
+        onGhostClick(ghostOption.answer, insertSourceOf(ghostOption))
       }
       // v3: an outbound-side row in the AI role — dashed teal, so it can never be mistaken for
       // a reply that was actually sent.
@@ -116,7 +107,7 @@ export function MessageGhostBubble({
       <div className={`flex flex-col items-end gap-1 min-w-0 max-w-[90%] ${PHONE_THREAD_COL_OUT}`}>
         <div className="flex items-center gap-1.5 font-display text-[10.5px] tracking-[0.03em] text-ai">
           <span className="inline-flex items-center h-[17px] px-1.5 rounded-[5px] border border-ai-line bg-ai-muted text-[9.5px] tracking-[0.09em] font-semibold uppercase">
-            {ghostOption.label === 'KB'
+            {ghostOption.insertSource === 'knowledge_base'
               ? 'KB'
               : ghostOption.type === 'documentation'
                 ? 'Docs'

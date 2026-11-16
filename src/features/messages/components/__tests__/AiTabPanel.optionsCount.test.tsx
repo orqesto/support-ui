@@ -15,9 +15,13 @@ vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
 }));
+const similar = vi.hoisted(() => ({ fail: false, data: [] as unknown[] }));
 vi.mock('@/services/message.service', () => ({
   messageService: {
-    getSimilarResolvedMessages: () => Promise.resolve({ success: true, data: [] }),
+    getSimilarResolvedMessages: () =>
+      similar.fail
+        ? Promise.reject(new Error('network'))
+        : Promise.resolve({ success: true, data: similar.data }),
   },
 }));
 
@@ -49,6 +53,8 @@ const answer = { suggestedAnswer: { answer: 'Hello, here is how.', source: 'ai' 
 
 beforeEach(() => {
   vi.clearAllMocks();
+  similar.fail = false;
+  similar.data = [];
 });
 
 describe('AiTabPanel — reported option count', () => {
@@ -95,5 +101,28 @@ describe('AiTabPanel — reported option count', () => {
     await waitFor(() => expect(onOptionsLoaded).toHaveBeenLastCalledWith(1));
     rerender(panel(true));
     await waitFor(() => expect(onOptionsLoaded).toHaveBeenLastCalledWith(0));
+  });
+
+  it('the matches failed to load: no count is reported (the badge stays unset)', async () => {
+    similar.fail = true;
+    const { onOptionsLoaded } = renderPanel(answer);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(onOptionsLoaded).not.toHaveBeenCalled();
+  });
+
+  it('two matches from the same KB entry get distinct options (no shared key)', async () => {
+    const kbHit = (content: string) => ({
+      source: 'documentation',
+      documentationId: 7,
+      directReply: content,
+      content,
+      similarity: 0.9,
+    });
+    similar.data = [kbHit('first'), kbHit('second')];
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { onOptionsLoaded } = renderPanel({});
+    await waitFor(() => expect(onOptionsLoaded).toHaveBeenLastCalledWith(2));
+    expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key/);
+    errors.mockRestore();
   });
 });

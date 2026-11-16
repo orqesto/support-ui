@@ -1,53 +1,55 @@
 import type { MessageEvent } from '@/types';
 
+/** Where the thread's events stand: not read yet for this conversation, read, or the read failed. */
+export type ThreadEventsState = 'pending' | 'loaded' | 'failed';
+
+export type StoredDraftFreshness = {
+  /** The stored draft is not offered (thread and KB tab). */
+  draftHidden: boolean;
+  /** Not known yet (the events not read): the KB tab reports no count meanwhile. */
+  pending: boolean;
+};
+
 /**
- * Does the stored AI draft (`metadata.suggestedAnswer`) answer the customer's LATEST email?
+ * Is the stored AI draft (`metadata.suggestedAnswer`) one written for an EARLIER customer email?
+ * Then it is not offered: a customer's newer email showed the draft for their previous one under
+ * it (2026-11-16). Nothing is deleted and no AI verdict is used. Only a draft that names the email
+ * it answers (`answersEventId`, every backend writer since 2026-11-04) is checked; one that names
+ * none is offered as before — the backend never judges such a draft by a guess either.
  *
- * A customer's thanks-type email ("Yes, it arrived, thank you") needs no reply, and the draft
- * written for their EARLIER email (an apology for a delayed order) was shown again under it
- * (2026-11-16). The backend now removes that draft and marks the email
- * (`metadata.noReplyForEventId`); this is the frontend's side of the same rule, and the backstop
- * for a thread the backend has not reached yet:
- *  - `stale`: the draft names the email it answers (`answersEventId`) and a customer email
- *    stored AFTER that one exists — it is not offered, and no "No suggestion found" is shown
- *    while the backend writes the new one;
- *  - `noReplyWanted`: the latest customer email was judged to need no reply — no suggestion at
- *    all (owner 2026-11-16), unless the stored draft answers that very email (an agent's saved
- *    answer: the backend keeps it, so it is shown).
+ * Events: a page of the thread plus live pulls.
+ *  - `pending` (not read yet): a draft that names an email is held back (the ghost shows its
+ *    spinner meanwhile) — never a draft for an earlier email one click away on a cold open;
+ *  - `failed`: offered as before — a failed read never hides it for good;
+ *  - `loaded`: an email id newer than every loaded customer email (metadata arrived before the
+ *    event was pulled, or the page holds none) counts as the latest; an older id not loaded sits
+ *    on an earlier page — not the latest. A time that does not parse hides nothing.
  *
- * Until the thread's events load, a draft or a mark that names an email cannot be checked: it is
- * held back (`stale` / `noReplyWanted`), so a draft for an earlier email is never one click away
- * on a cold open. A draft that names no email (older writers, agent saves) is shown as before.
- *
- * ⛔ "Stored after" is the backend's order (latestInboundEvent.ts `LATEST_INBOUND_FIRST`: every
- * `inbound` event by `createdAt`), not the thread's display order (sent time): the two differ
- * for mail that arrives late. Compared strictly, so an equal time (the API's milliseconds cannot
- * split what Postgres's microseconds do) never hides a draft — the backend replaces one that is
- * really older.
+ * ⛔ "Latest" is the backend's order (latestInboundEvent.ts `LATEST_INBOUND_FIRST`: every `inbound`
+ * event by `createdAt`), not the thread's display order (sent time): the two differ for mail that
+ * arrives late. Compared so an equal time (the API's milliseconds cannot split what Postgres's
+ * microseconds do) never hides a draft — the backend replaces one that is really older.
  */
 export function storedDraftFreshness(
   metadata: Record<string, unknown> | null | undefined,
-  sortedThread: readonly MessageEvent[]
-): { stale: boolean; noReplyWanted: boolean } {
-  const inbound = sortedThread.filter((event) => event.type === 'inbound');
-  const storedAt = (event: MessageEvent) => new Date(event.createdAt).getTime();
-  // Is the customer email `id` among the loaded ones, with none stored after it?
-  const isLatest = (id: number): boolean => {
-    const named = inbound.find((event) => event.id === id);
-    return named !== undefined && !inbound.some((event) => storedAt(event) > storedAt(named));
-  };
-
+  sortedThread: readonly MessageEvent[],
+  eventsState: ThreadEventsState
+): StoredDraftFreshness {
   const draft = metadata?.suggestedAnswer as { answersEventId?: unknown } | null | undefined;
   const answersEventId = draft?.answersEventId;
-  const draftNamesEmail = typeof answersEventId === 'number';
-  const draftIsCurrent = draftNamesEmail && isLatest(answersEventId);
+  if (typeof answersEventId !== 'number') return { draftHidden: false, pending: false };
+  if (eventsState === 'pending') return { draftHidden: true, pending: true };
+  if (eventsState === 'failed') return { draftHidden: false, pending: false };
 
-  const mark = metadata?.noReplyForEventId;
-  return {
-    stale: draftNamesEmail && !draftIsCurrent,
-    noReplyWanted:
-      typeof mark === 'number' &&
-      !(draftIsCurrent && answersEventId === mark) &&
-      (inbound.length === 0 || isLatest(mark)),
-  };
+  const inbound = sortedThread.filter((event) => event.type === 'inbound');
+  if (inbound.length === 0) return { draftHidden: false, pending: false };
+  const storedAt = (event: MessageEvent) => new Date(event.createdAt).getTime();
+  if (inbound.some((event) => Number.isNaN(storedAt(event))))
+    return { draftHidden: false, pending: false };
+  const newestStoredAt = Math.max(...inbound.map(storedAt));
+  const named = inbound.find((event) => event.id === answersEventId);
+  const isLatest = named
+    ? storedAt(named) >= newestStoredAt
+    : answersEventId > Math.max(...inbound.map((event) => event.id));
+  return { draftHidden: !isLatest, pending: false };
 }

@@ -21,7 +21,13 @@ import { useAiDraftsOff } from '@/features/settings/shell';
 import { logger } from '@/lib/logger';
 import { languageName as languageNameOf } from '@/lib/languageName';
 import { stripGreetingName } from '@/lib/depersonalise';
-import { priorityLabel } from './messageDetailConstants';
+import {
+  insertSourceOf,
+  priorityLabel,
+  toGhostOption,
+  type GhostInsertSource,
+  type SuggestedAnswerMeta,
+} from './messageDetailConstants';
 import { AnalysisDegradedHint, analysisInfoValue } from './AnalysisDegradedHint';
 import { useIsWorkspaceAdmin } from '@/hooks/useIsWorkspaceAdmin';
 
@@ -118,6 +124,8 @@ type ReplyOption = {
   sublabel?: string;
   answer: string;
   type: 'lead' | 'documentation' | 'similar';
+  /** The source an insert reports, when it is not the type's default (a KB-written draft). */
+  insertSource?: GhostInsertSource;
   documentationId?: number;
   /**
    * Where the source link opens. A KB hit (`source: 'documentation'` from similar-resolved) is a
@@ -148,11 +156,10 @@ type Props = {
   onLoadingChange?: (loading: boolean) => void;
   /** 'suggested' = reply block only; 'analysis' = stats/flags only; default = both */
   section?: 'suggested' | 'analysis';
-  /**
-   * The stored draft does not answer the customer's latest email, or that email needs no reply
-   * (storedDraftFreshness.ts): it is not offered here either.
-   */
+  /** The stored draft answers an earlier customer email (storedDraftFreshness.ts): not offered. */
   hideStoredDraft?: boolean;
+  /** Whether it is hidden is not known yet (the thread's events not read): no count meanwhile. */
+  storedDraftPending?: boolean;
 };
 
 // The session cache lives in its own module (similarResultsCache.ts); re-exported for callers.
@@ -200,6 +207,7 @@ export function AiTabPanel({
   onLoadingChange,
   section,
   hideStoredDraft = false,
+  storedDraftPending = false,
 }: Props) {
   const spamCheck = getSpamCheck(message);
   const analysis = message.metadata?.analysis as Analysis | undefined;
@@ -222,6 +230,9 @@ export function AiTabPanel({
   // change after they arrive (the thread's events decide whether it is stale, 2026-11-16), and a
   // dedup made at arrival kept a hidden draft's twin out of the list and in the count.
   const [fetchedSimilar, setFetchedSimilar] = useState<SimilarResult[]>([]);
+  // The matches for THIS conversation arrived (a failed fetch never sets it): only then is a
+  // count reported — before, the badge stayed unset on a failure, and it must not read 0 or 1.
+  const [similarLoaded, setSimilarLoaded] = useState(false);
   const [loadingSimilar, setLoadingSimilar] = useState(true);
   useEffect(() => {
     onLoadingChange?.(loadingSimilar);
@@ -235,6 +246,7 @@ export function AiTabPanel({
     let cancelled = false;
 
     setSelectedId(null);
+    setSimilarLoaded(false);
     setViewOriginal(null);
     setViewKBSources(null);
     setViewLeadSources(null);
@@ -242,6 +254,7 @@ export function AiTabPanel({
     const applyResults = (data: SimilarResult[]) => {
       if (cancelled) return;
       setFetchedSimilar(data);
+      setSimilarLoaded(true);
       // Call directly so aiLoading clears even when loadingSimilar didn't change (cache hit path).
       onLoadingChange?.(false);
       // NO auto-suggest from a past reply.
@@ -347,31 +360,32 @@ export function AiTabPanel({
   const onOptionsLoadedRef = useRef(onOptionsLoaded);
   onOptionsLoadedRef.current = onOptionsLoaded;
   useEffect(() => {
-    if (!loadingSimilar) onOptionsLoadedRef.current?.(optionCount);
-  }, [optionCount, loadingSimilar, message.id]);
+    if (similarLoaded && !storedDraftPending) onOptionsLoadedRef.current?.(optionCount);
+    // `fetchedSimilar`: every arrival of the matches is reported, as before (a parent may reset).
+  }, [optionCount, similarLoaded, storedDraftPending, fetchedSimilar]);
 
   const options: ReplyOption[] = [];
 
   if (suggestedAnswer && !autoReply?.sent) {
-    const isLead =
-      suggestedAnswer.source === 'lead_qualification' ||
-      suggestedAnswer.source === 'lead_qualification_kb';
+    // Label, type and insert source: the SAME mapping as the thread's ghost (toGhostOption).
+    const ghost = toGhostOption(suggestedAnswer as SuggestedAnswerMeta);
+    const isLead = ghost?.type === 'lead';
+    // Linked to a document only when it is one (a KB-written draft has none to link).
     const isDocs = suggestedAnswer.source === 'documentation';
-    // An agent draft written from knowledge-base entries only (backend, 2026-11-16): a
-    // documentation-type answer for insertion, labelled KB, with no document to link.
-    const isKb = suggestedAnswer.source === 'knowledge_base';
     const matchingResult = suggestedAnswer.similarMessageId
-      ? similarResults.find((result) => result.messageId === suggestedAnswer.similarMessageId)
+      ? // The full list: the deduped one dropped exactly this match.
+        fetchedSimilar.find((result) => result.messageId === suggestedAnswer.similarMessageId)
       : undefined;
     const leadKBDocSource = suggestedAnswer.kbSources?.find((src) => src.type === 'documentation');
     options.push({
       id: 'suggested',
-      label: isLead ? 'LEAD' : isDocs ? 'DOCS' : isKb ? 'KB' : 'AI',
+      label: ghost?.label ?? 'AI',
       sublabel: suggestedAnswer.confidence
         ? `${Math.round(suggestedAnswer.confidence * 100)}%`
         : undefined,
       answer: suggestedAnswer.answer,
-      type: isLead ? 'lead' : isDocs || isKb ? 'documentation' : 'similar',
+      type: ghost?.type ?? 'similar',
+      ...(ghost?.insertSource ? { insertSource: ghost.insertSource } : {}),
       // ⛔ `referencedChunks` are DOCUMENTATION-CHUNK ids (BE messageCompletenessAnalyzer), not
       // document ids: `?docId=<chunk id>` highlighted another document or none. The document id is
       // `sourceDocumentId` (BE, 2026-10-15); a stored answer from before it carries only chunk ids
@@ -393,10 +407,17 @@ export function AiTabPanel({
     });
   }
 
+  // Keyed on the match itself, not its place: the list is deduplicated at render, so a place can
+  // shift under an option the agent selected (another customer's reply inserted). A key two
+  // matches share (the same document twice) takes the place too, so it is still unique.
+  const seenIds = new Set<string>();
   similarResults.forEach((result, idx) => {
     const isPastReply = result.source !== 'documentation';
+    const key = `sim-${result.messageId ?? 'none'}-${result.documentationId ?? 'none'}`;
+    const id = seenIds.has(key) || key === 'sim-none-none' ? `${key}-${idx}` : key;
+    seenIds.add(id);
     options.push({
-      id: `sim-${idx}`,
+      id,
       // "MSG" said nothing about whose words these are. "PAST REPLY" plus the address it
       // was sent to makes reuse a decision rather than an accident.
       label: isPastReply ? 'PAST REPLY' : 'KB',
@@ -472,14 +493,7 @@ export function AiTabPanel({
                 onClick={() =>
                   onGhostClick(
                     activeOption.answer,
-                    activeOption.type === 'lead'
-                      ? 'lead_qualification'
-                      : activeOption.type === 'similar'
-                        ? 'message'
-                        : // The stored draft written from KB entries is counted as KB, not docs.
-                          activeOption.id === 'suggested' && activeOption.label === 'KB'
-                          ? 'knowledge_base'
-                          : 'documentation',
+                    insertSourceOf(activeOption),
                     activeOption.attachments
                   )
                 }

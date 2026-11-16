@@ -240,8 +240,13 @@ export function useThreadEvents(
   }, [sortedThread]);
   // Whether the stored AI draft answers the customer's latest email (storedDraftFreshness.ts).
   const storedDraft = useMemo(
-    () => storedDraftFreshness(message.metadata, sortedThread),
-    [message.metadata, sortedThread]
+    () =>
+      storedDraftFreshness(
+        message.metadata,
+        sortedThread,
+        threadEventsFor !== message.id ? (threadError !== null ? 'failed' : 'pending') : 'loaded'
+      ),
+    [message.metadata, message.id, sortedThread, threadEventsFor, threadError]
   );
   // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
   // only ever sit between days, in order.

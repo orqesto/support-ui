@@ -119,6 +119,28 @@ export function suggestedAnswerToHtml(raw: string): string {
 
 // ─── Ghost answer types ───────────────────────────────────────────────────────
 
+/** The source an inserted suggestion reports (usage statistics). */
+export type GhostInsertSource =
+  | 'lead_qualification'
+  | 'documentation'
+  | 'knowledge_base'
+  | 'message';
+
+/**
+ * The source an insert reports — the stored one when the option carries it (a KB-written draft),
+ * else the type's. ONE rule for the thread's ghost and the KB tab's "Use in reply".
+ */
+export const insertSourceOf = (option: {
+  type: 'lead' | 'documentation' | 'similar';
+  insertSource?: GhostInsertSource;
+}): GhostInsertSource =>
+  option.insertSource ??
+  (option.type === 'lead'
+    ? 'lead_qualification'
+    : option.type === 'similar'
+      ? 'message'
+      : 'documentation');
+
 export type GhostOption = {
   answer: string;
   label: string;
@@ -127,6 +149,11 @@ export type GhostOption = {
   confidence?: number;
   /** The KB document the answer came from, only when the writer stored its title. */
   sourceTitle?: string;
+  /**
+   * The source an insert reports (usage statistics) — from the stored source, never read off the
+   * label. Absent on options built elsewhere: then the type's default.
+   */
+  insertSource?: GhostInsertSource;
 };
 
 export type SuggestedAnswerMeta = {
@@ -162,6 +189,13 @@ export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): Ghost
     answer: sa.answer,
     label: isLead ? 'LEAD' : isDocs ? 'DOCS' : isKb ? 'KB' : 'AI',
     type: isLead ? 'lead' : isDocs || isKb ? 'documentation' : 'similar',
+    insertSource: isLead
+      ? 'lead_qualification'
+      : isDocs
+        ? 'documentation'
+        : isKb
+          ? 'knowledge_base'
+          : 'message',
     ...(confidence !== undefined ? { confidence } : {}),
     ...(sourceTitle ? { sourceTitle } : {}),
   };

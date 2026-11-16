@@ -498,7 +498,8 @@ export function MessageDetail({
       noteActivityLog={noteActivityLog}
       messageActivity={messageActivity}
       sortedThread={sortedThread}
-      storedDraftHidden={thread.storedDraft.stale || thread.storedDraft.noReplyWanted}
+      storedDraftHidden={thread.storedDraft.draftHidden}
+      storedDraftPending={thread.storedDraft.pending}
       threadRefreshKey={threadRefreshKey + attachmentsBump}
       attachments={flatAttachments}
       currentUserId={currentUserId}
@@ -663,12 +664,13 @@ export function MessageDetail({
             attachmentsByMessageId={attachmentsByMessageId}
             handleOpenAttachment={handleOpenAttachment}
             handleOpenInlineImage={handleOpenInlineImage}
-            aiLoading={aiLoading}
+            // While the thread is read, a draft that names an email is held back: the spinner,
+            // not "No suggestion found" (storedDraftFreshness.ts).
+            aiLoading={aiLoading || thread.storedDraft.pending}
             ghostVisible={ghostVisible}
-            // Only while it answers the customer's LATEST email: a draft for an earlier one was
-            // shown again under a "thanks, it arrived" (storedDraftFreshness.ts). Filtered here,
-            // not in useGhostOption, so a ghost the agent dismissed never comes back on a flip.
-            ghostOption={thread.storedDraft.stale ? null : ghostOption}
+            // Not a draft for an earlier customer email (storedDraftFreshness.ts). Filtered at
+            // render, not in useGhostOption: a ghost the agent dismissed never comes back.
+            ghostOption={thread.storedDraft.draftHidden ? null : ghostOption}
             autoReply={autoReply}
             composer={composer}
             composerMode={composerMode}
