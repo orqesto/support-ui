@@ -135,7 +135,8 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
           {aiDraftsOff && (
             <p className="text-xs text-warning mb-2">
               AI drafts are switched off for this workspace, so the AI sends no auto-reply — whatever
-              is set here. These apply again when AI drafts are switched back on.
+              is set here. Keyword rules with a plain prepared reply still send; rules that add a
+              knowledge base answer do not. These apply again when AI drafts are switched back on.
             </p>
           )}
           <div className="flex flex-col gap-1.5">

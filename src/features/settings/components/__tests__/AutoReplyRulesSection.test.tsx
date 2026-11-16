@@ -12,6 +12,7 @@ const api = vi.hoisted(() => ({
   patches: [] as { url: string; body: unknown }[],
   deletes: [] as string[],
   postError: null as Error | null,
+  patchError: null as Error | null,
 }));
 
 vi.mock('@/lib/api-client', () => ({
@@ -26,6 +27,7 @@ vi.mock('@/lib/api-client', () => ({
     },
     patch: (url: string, body: Record<string, unknown>) => {
       api.patches.push({ url, body });
+      if (api.patchError) return Promise.reject(api.patchError);
       const id = Number(url.split('/').pop());
       const current = api.rules.find((rule) => rule['id'] === id) ?? {};
       return Promise.resolve({ data: { success: true, data: { ...current, ...body, id } } });
@@ -54,6 +56,7 @@ beforeEach(() => {
   api.patches = [];
   api.deletes = [];
   api.postError = null;
+  api.patchError = null;
 });
 afterEach(cleanup);
 
@@ -106,9 +109,12 @@ describe('AutoReplyRulesSection', () => {
   });
 
   it('a 400 naming a field shows it inline', async () => {
-    api.postError = Object.assign(new Error('Invalid'), {
+    api.postError = Object.assign(new Error('Validation error'), {
       isAxiosError: true,
-      response: { status: 400, data: { success: false, error: 'Invalid', fields: ['replyText'] } },
+      response: {
+        status: 400,
+        data: { success: false, error: 'Validation error', fields: ['replyText'] },
+      },
     });
     renderSection();
     await openNewRule();
@@ -118,6 +124,52 @@ describe('AutoReplyRulesSection', () => {
     fireEvent.change(screen.getByLabelText('Reply text'), { target: { value: 'x' } });
     fireEvent.click(saveButton());
     expect(await screen.findByText('Write the reply text.')).toBeTruthy();
+  });
+
+  it("a keyword another rule has: the server's sentence shows under Keywords", async () => {
+    const clash =
+      '"refund" is already a keyword of the rule "Refunds". An email with it would match both rules and get no auto-reply — keep it in one rule only.';
+    api.postError = Object.assign(new Error(clash), {
+      isAxiosError: true,
+      response: {
+        status: 400,
+        data: { success: false, error: clash, code: 'VALIDATION_FAILED', fields: ['keywords'] },
+      },
+    });
+    renderSection();
+    await openNewRule();
+    fireEvent.change(screen.getByLabelText('Keywords', { selector: 'input' }), {
+      target: { value: 'refund' },
+    });
+    fireEvent.change(screen.getByLabelText('Reply text'), { target: { value: 'x' } });
+    fireEvent.click(saveButton());
+    expect(await screen.findByText(clash)).toBeTruthy();
+    expect(screen.queryByText('Check the keywords: at least one is needed.')).toBeNull();
+  });
+
+  it('switching on a rule whose keyword clashes shows the server message in an alert', async () => {
+    const clash =
+      '"refund" is already a keyword of the rule "Refunds". An email with it would match both rules and get no auto-reply — keep it in one rule only.';
+    api.rules = [{ ...refundRule, id: 2, name: 'Money', enabled: false }];
+    api.patchError = Object.assign(new Error(clash), {
+      isAxiosError: true,
+      response: {
+        status: 400,
+        data: { success: false, error: clash, code: 'VALIDATION_FAILED', fields: ['keywords'] },
+      },
+    });
+    const alerts: { variant?: string; description?: string }[] = [];
+    render(
+      <AutoReplyRulesSection
+        canManage
+        autoReplyEnabled
+        onShowAlert={(alert) => alerts.push(alert)}
+      />
+    );
+    fireEvent.click(await screen.findByRole('switch', { name: /turn on rule money/i }));
+    await waitFor(() => expect(alerts).toHaveLength(1));
+    expect(alerts[0].variant).toBe('error');
+    expect(alerts[0].description).toContain('is already a keyword of the rule "Refunds"');
   });
 
   it('turns a rule off and deletes it after confirming', async () => {

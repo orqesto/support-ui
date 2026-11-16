@@ -88,6 +88,25 @@ describe('errorsFromFields', () => {
     });
     expect(errorsFromFields([])).toEqual({});
   });
+
+  it("puts the server's message under the one field it names (a keyword another rule has)", () => {
+    const clash =
+      '"refund" is already a keyword of the rule "Refunds". An email with it would match both rules and get no auto-reply — keep it in one rule only.';
+    expect(errorsFromFields(['keywords'], clash)).toEqual({ keywords: clash });
+  });
+
+  it('keeps the defaults when several fields are named or no message came', () => {
+    expect(errorsFromFields(['keywords', 'replyText'], 'Two problems.')).toEqual({
+      keywords: 'Check the keywords: at least one is needed.',
+      replyText: 'Write the reply text.',
+    });
+    expect(errorsFromFields(['keywords'])).toEqual({
+      keywords: 'Check the keywords: at least one is needed.',
+    });
+    expect(errorsFromFields(['keywords'], '   ')).toEqual({
+      keywords: 'Check the keywords: at least one is needed.',
+    });
+  });
 });
 
 describe('insertKbPlaceholder', () => {

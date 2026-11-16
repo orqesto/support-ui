@@ -56,6 +56,12 @@ export type Organization = ApiOrganization & {
 
 export type { OrganizationMember };
 
+/**
+ * Who may send on their own while Auto-Reply is on: `all` = the keyword rules AND the AI (its
+ * answers, its missing-info question); `rules_only` = the keyword rules alone (audit M4).
+ */
+export type AutoReplyMode = 'all' | 'rules_only';
+
 export type LeadQualificationFieldConfig = {
   key: string;
   label: string;
@@ -433,6 +439,7 @@ export const organizationService = {
     const response = await apiClient.get<
       ApiResponse<{
         enabled: boolean;
+        mode?: AutoReplyMode;
         requestMissingInfo: boolean;
         suggestSolutions: boolean;
         highConfidenceThreshold: number;
@@ -440,6 +447,8 @@ export const organizationService = {
     >('/api/organizations/auto-reply');
     return {
       enabled: response.data.data?.enabled ?? false,
+      // 'all' unless the backend says 'rules_only' — an older backend does not send the field.
+      mode: (response.data.data?.mode === 'rules_only' ? 'rules_only' : 'all') as AutoReplyMode,
       // The real value when the backend sends it; `true` (the old, never-read default) ONLY when
       // the field is absent — an older backend did not return it at all.
       requestMissingInfo:
@@ -453,6 +462,8 @@ export const organizationService = {
 
   updateAutoReply: async (data: {
     enabled?: boolean;
+    /** Rules and AI (`all`), or only the keyword rules reply (`rules_only`). */
+    mode?: AutoReplyMode;
     requestMissingInfo?: boolean;
     suggestSolutions?: boolean;
     highConfidenceThreshold?: number;
@@ -462,6 +473,8 @@ export const organizationService = {
       string,
       {
         autoReplyEnabled?: boolean;
+        /** Absent = the workspace's mode. */
+        autoReplyMode?: AutoReplyMode;
         autoReplyRequestMissingInfo?: boolean;
         autoReplySuggestSolutions?: boolean;
         autoReplyHighConfidenceThreshold?: number;

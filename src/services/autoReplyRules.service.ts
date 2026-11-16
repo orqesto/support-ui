@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import { getErrorBody } from '@/lib/errorMessages';
+import { getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 import type { ApiResponse } from '@/types';
 
 /**
@@ -78,6 +78,18 @@ export const autoReplyRulesService = {
   remove: async (id: number): Promise<void> => {
     await apiClient.delete(`${BASE}/${id}`);
   },
+};
+
+/**
+ * The server's own words for a 400 on a rule, for under the field — none for the generic
+ * "Validation error" (a schema refusal says nothing a person can act on; the field default does).
+ */
+export const ruleErrorMessage = (err: unknown): string | undefined => {
+  if (getErrorStatus(err) !== 400) return undefined;
+  const message = getErrorBody(err)?.error;
+  if (typeof message !== 'string' || !message.trim() || message.trim() === 'Validation error')
+    return undefined;
+  return message.trim();
 };
 
 /** The fields a 400 named (`fields: ['keywords', 'replyText']`), for the form's inline errors. */
