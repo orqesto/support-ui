@@ -102,15 +102,17 @@ export const Popover = ({
   }, [open, align, width]);
 
   // Opening moves the focus into the panel: it is portalled to the end of <body>, so Tab from the
-  // trigger would never reach it.
+  // trigger would never reach it. Only once it is placed: until then it is visibility:hidden, and a
+  // browser will not focus a hidden element (the focus stayed on the trigger until 2026-11-16).
+  const placed = pos !== null;
   useEffect(() => {
-    if (!open) return;
+    if (!open || !placed) return;
     panelRef.current
       ?.querySelector<HTMLElement>(
         'button:not([disabled]):not([aria-disabled="true"]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])'
       )
       ?.focus({ preventScroll: true });
-  }, [open]);
+  }, [open, placed]);
 
   useEffect(() => {
     if (!open) return undefined;
