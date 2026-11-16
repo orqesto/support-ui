@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import { execFileSync } from 'child_process';
-import { readFileSync } from 'fs';
+import { readFileSync, statSync } from 'fs';
 import { describe, it, expect } from 'vitest';
 
 /**
@@ -126,7 +126,15 @@ export const customerTraces = (text: string): string[] => {
 const trackedFiles = (): string[] =>
   execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
     .split('\0')
-    .filter((file) => file && file !== THIS_FILE && !SKIPPED_FILE.test(file));
+    .filter((file) => file && file !== THIS_FILE && !SKIPPED_FILE.test(file))
+    // The index can list what is not a readable file on disk: a deletion not yet staged, a submodule.
+    .filter((file) => {
+      try {
+        return statSync(file).isFile();
+      } catch {
+        return false;
+      }
+    });
 
 describe('no customer names or real ticket keys in the public repo', () => {
   it('flags an unknown workspace code and lets invented ones through', () => {
