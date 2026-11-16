@@ -162,7 +162,7 @@ const open = () => {
 };
 
 /** The petro row, field for field as the backend published it on 2026-09-10. */
-const tacoGap = {
+const largeGap = {
   id: 8243,
   title: 'Mail may be missing — this mailbox’s sync position was in the future',
   messageSourceId: 3,
@@ -185,7 +185,7 @@ afterEach(() => cleanup());
 
 describe('Notification Center — ingestion gaps', () => {
   it('renders the gap, names the mailbox, and says the skew in human units', () => {
-    gapAlerts = [tacoGap];
+    gapAlerts = [largeGap];
     open();
     expect(screen.getByText(/sync position was in the future/)).toBeTruthy();
     expect(screen.getByText('Gmail-streamline@gmail.com')).toBeTruthy();
@@ -195,14 +195,14 @@ describe('Notification Center — ingestion gaps', () => {
   });
 
   it('shows the blind window and the recovery the backend reported', () => {
-    gapAlerts = [tacoGap];
+    gapAlerts = [largeGap];
     open();
     expect(screen.getByText(/2026-09-10T07:58:28.754Z/)).toBeTruthy();
     expect(screen.getByText(/raise MAIL_POLL_OVERLAP_HOURS/)).toBeTruthy();
   });
 
   it('never renders the "nullm over" shape that the fail-open SLA bell produced', () => {
-    gapAlerts = [tacoGap];
+    gapAlerts = [largeGap];
     open();
     expect(screen.queryByText(/nullm/)).toBeNull();
     expect(screen.queryByText(/NaN/)).toBeNull();
@@ -218,7 +218,7 @@ describe('Notification Center — ingestion gaps', () => {
   it('says what day_too_large actually is — a listing cap, not a wrong clock', () => {
     gapAlerts = [
       {
-        ...tacoGap,
+        ...largeGap,
         id: 9001,
         title: 'Mail may be missing — a day held more messages than one sync can read',
         cause: 'day_too_large',
@@ -235,7 +235,7 @@ describe('Notification Center — ingestion gaps', () => {
   it('does not claim mail was lost for cannot_resume, where nothing is lost', () => {
     gapAlerts = [
       {
-        ...tacoGap,
+        ...largeGap,
         id: 9002,
         title: 'Mail may be missing — this mailbox’s sync cannot reach its older messages',
         cause: 'cannot_resume',
@@ -265,7 +265,7 @@ describe('Notification Center — ingestion gaps', () => {
     (_label, window) => {
       gapAlerts = [
         {
-          ...tacoGap,
+          ...largeGap,
           id: 9004,
           title: UNREADABLE_TITLE,
           cause: 'unreadable_message',
@@ -291,7 +291,7 @@ describe('Notification Center — ingestion gaps', () => {
       'A message could not be imported — the sync failed on it repeatedly and moved past it';
     const window = 'INBOX UID 48213';
     gapAlerts = [
-      { ...tacoGap, id: 9006, title, cause: 'unreadable_live_message', minutesAhead: null, window },
+      { ...largeGap, id: 9006, title, cause: 'unreadable_live_message', minutesAhead: null, window },
     ];
     open();
     expect(screen.getByText(title)).toBeTruthy();
@@ -309,7 +309,7 @@ describe('Notification Center — ingestion gaps', () => {
     const window = 'Gmail message 18f2a9c0d1e2b3a4';
     gapAlerts = [
       {
-        ...tacoGap,
+        ...largeGap,
         id: 9007,
         title,
         cause: 'unreadable_live_gmail_message',
@@ -332,7 +332,7 @@ describe('Notification Center — ingestion gaps', () => {
   it('unreadable_live_gmail_message: lists EVERY skipped id, not only the latest in the window', () => {
     gapAlerts = [
       {
-        ...tacoGap,
+        ...largeGap,
         id: 9008,
         title: 'Gmail messages could not be imported',
         cause: 'unreadable_live_gmail_message',
@@ -351,7 +351,7 @@ describe('Notification Center — ingestion gaps', () => {
     const window = 'Gmail messages given up on earlier; their ids were no longer kept';
     gapAlerts = [
       {
-        ...tacoGap,
+        ...largeGap,
         id: 9010,
         title: 'Gmail messages could not be imported',
         cause: 'unreadable_live_gmail_message',
@@ -369,7 +369,7 @@ describe('Notification Center — ingestion gaps', () => {
   it('unreadable_live_gmail_message: an overflowed list says it shows only the latest', () => {
     gapAlerts = [
       {
-        ...tacoGap,
+        ...largeGap,
         id: 9009,
         title: 'Gmail messages could not be imported',
         cause: 'unreadable_live_gmail_message',
@@ -388,7 +388,7 @@ describe('Notification Center — ingestion gaps', () => {
       'sent mail older than 2026-09-10T00:00:00.000Z (the sent window now starts at 2026-09-12T07:00:00.000Z — checkpoint minus overlap)';
     gapAlerts = [
       {
-        ...tacoGap,
+        ...largeGap,
         id: 9005,
         title: STRANDED_TITLE,
         cause: 'sent_drain_stranded',
@@ -407,7 +407,7 @@ describe('Notification Center — ingestion gaps', () => {
   it('renders the backend title rather than one hardcoded headline', () => {
     gapAlerts = [
       {
-        ...tacoGap,
+        ...largeGap,
         id: 9003,
         title: 'Mail may be missing — a totally new cause we added later',
         cause: 'brand_new_cause',
@@ -420,7 +420,7 @@ describe('Notification Center — ingestion gaps', () => {
 
   /** Zero is a real value the hook deliberately preserves; the prose must still read. */
   it('does not say "0 minutes in the future" when the skew rounds to nothing', () => {
-    gapAlerts = [{ ...tacoGap, id: 9004, minutesAhead: 0 }];
+    gapAlerts = [{ ...largeGap, id: 9004, minutesAhead: 0 }];
     open();
     expect(screen.queryByText(/0 minutes in the future/)).toBeNull();
     // Still the checkpoint_ahead sentence, just without a figure — the cause IS skew here.

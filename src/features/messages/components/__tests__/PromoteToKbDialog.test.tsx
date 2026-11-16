@@ -15,11 +15,11 @@ import type {
  */
 
 const candidate = (over: Partial<KbQaCandidate> = {}): KbQaCandidate => ({
-  question: 'Where is my order ORB-1268?',
+  question: 'Where is my order ABC-1268?',
   answer: 'It was returned to our warehouse and reshipped today.',
   questionMessageId: 11,
   answerMessageId: 12,
-  subject: 'ORB-1268 order return',
+  subject: 'ABC-1268 order return',
   questionFrom: 'customer@example.com',
   answeredBy: 'support@example.com',
   ...over,
@@ -83,7 +83,7 @@ describe('PromoteToKbDialog', () => {
   it('shows what was extracted, and sends it when the agent accepts', async () => {
     renderDialog();
 
-    expect(await screen.findByDisplayValue('Where is my order ORB-1268?')).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Where is my order ABC-1268?')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /add to knowledge base/i }));
 
     await waitFor(() => expect(promoteToKb).toHaveBeenCalledTimes(1));
@@ -91,7 +91,7 @@ describe('PromoteToKbDialog', () => {
       {
         questionMessageId: 11,
         answerMessageId: 12,
-        question: 'Where is my order ORB-1268?',
+        question: 'Where is my order ABC-1268?',
         answer: 'It was returned to our warehouse and reshipped today.',
       },
     ]);
@@ -110,12 +110,12 @@ describe('PromoteToKbDialog', () => {
       ],
     });
     renderDialog(onClose);
-    await screen.findByDisplayValue('Where is my order ORB-1268?');
+    await screen.findByDisplayValue('Where is my order ABC-1268?');
     fireEvent.click(screen.getByRole('button', { name: /add to knowledge base/i }));
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(
-      'Not saved — this reply reports something done for one customer: “Where is my order ORB-1268?”'
+      'Not saved — this reply reports something done for one customer: “Where is my order ABC-1268?”'
     );
     expect(onClose).not.toHaveBeenCalled();
     expect(success).not.toHaveBeenCalled();
@@ -160,7 +160,7 @@ describe('PromoteToKbDialog', () => {
     promoteToKb.mockResolvedValue(promoted([]));
     renderDialog();
 
-    await screen.findByDisplayValue('Where is my order ORB-1268?');
+    await screen.findByDisplayValue('Where is my order ABC-1268?');
     fireEvent.click(screen.getByRole('button', { name: /add to knowledge base/i }));
 
     await waitFor(() => expect(success).toHaveBeenCalled());

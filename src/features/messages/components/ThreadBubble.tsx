@@ -125,7 +125,7 @@ export function ThreadBubble({
    * email is designed for, and the reasoning was that a `<table width="100%">` with a 150px
    * logo cell had nowhere to go in a narrow bubble — which is why contact lines broke mid-token.
    *
-   * That reasoning was wrong about the CAUSE. A/B on staging against the real SOM-INF-1579 mail,
+   * That reasoning was wrong about the CAUSE. A/B on staging against the real ABC-INF-1579 mail,
    * measuring line boxes rather than eyeballing:
    *
    *   | | with the 600px floor | without it |
@@ -201,7 +201,7 @@ export function ThreadBubble({
    * WHY MEMOISED: sanitizing is materially more expensive than it was. It parses and filters
    * the inline CSS of every styled element, where before it deleted the attribute outright, and
    * it runs for the body AND the quoted history of every message. A thread panel re-renders on
-   * something as ordinary as typing in the composer — 22 bubbles on SOM-INF-1579, each with a
+   * something as ordinary as typing in the composer — 22 bubbles on ABC-INF-1579, each with a
    * signature.
    *
    * WHY `null` RATHER THAN A FUNCTION RETURNING `''`: `eventId` is the single source of truth

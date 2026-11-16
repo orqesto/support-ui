@@ -223,7 +223,7 @@ describe('ComposerAiActions — the editor is the only input', () => {
       composeReply.mockResolvedValueOnce({ data: { text: 'Second version.', language: 'en' } });
       fireEvent.click(screen.getByTitle('Write another version from the same text'));
       await waitFor(() => expect(composerNow).toContain('Second version.'));
-      // fresh: a NEW draft, not the shared one / the cached text (taco MOR-SUP-6093).
+      // fresh: a NEW draft, not the shared one / the cached text (a customer ticket).
       expect(composeReply).toHaveBeenLastCalledWith(42, {
         mode: 'guided',
         instructions: 'refund ok',

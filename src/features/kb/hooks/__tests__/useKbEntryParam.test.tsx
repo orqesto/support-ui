@@ -116,20 +116,20 @@ describe('useKbEntryParam', () => {
     });
     getAll.mockResolvedValue({ data: { entries: [], idMatch: { id: 4120 } } });
     getById.mockResolvedValue({ data: entry() });
-    const view = open('/knowledge-base?id=ORB-KB-77');
+    const view = open('/knowledge-base?id=ABC-KB-77');
     await waitFor(() => expect(store.selectedOrganizationId).toBe(2));
-    expect(locate).toHaveBeenCalledWith('ORB-KB-77');
+    expect(locate).toHaveBeenCalledWith('ABC-KB-77');
     expect(getAll).not.toHaveBeenCalled(); // nothing looked up in the wrong workspace
-    workspace.code = 'ORB'; // the switched workspace's code loads
+    workspace.code = 'ABC'; // the switched workspace's code loads
     view.rerender();
     await waitFor(() => expect(setSelectedEntry).toHaveBeenCalledWith(entry()));
     expect(getAll).toHaveBeenCalledWith({ search: 'KB-77', limit: 1 });
-    expect(view.result.current.location.search).toBe('?id=ORB-KB-77');
+    expect(view.result.current.location.search).toBe('?id=ABC-KB-77');
   });
 
   it('another workspace you are not in: its link is dropped, nothing opened', async () => {
     locate.mockResolvedValue({ data: { status: 'not-a-member', organizationSlug: 'orbit' } });
-    const { result } = open('/knowledge-base?id=ORB-KB-77');
+    const { result } = open('/knowledge-base?id=ABC-KB-77');
     await waitFor(() => expect(result.current.location.search).toBe(''));
     expect(onNotFound).not.toHaveBeenCalled(); // the toast already named the workspace
     expect(getAll).not.toHaveBeenCalled();

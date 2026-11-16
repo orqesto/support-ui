@@ -3,7 +3,7 @@
  *
  * ⛔ It did not. `wantsHtml` excluded outbound entirely, on the reasoning that the console
  * "already holds what we sent" — but what it holds is `content`, the derived plain text. On
- * staging's SOM-INF-1579 an agent reply whose stored markup carries 76 images rendered as a
+ * staging's ABC-INF-1579 an agent reply whose stored markup carries 76 images rendered as a
  * blank blue bubble: the quotation the customer received, shown to the agent as an empty box.
  *
  * These assert the WIRING — which id is fetched and whether the fetch is enabled — because the

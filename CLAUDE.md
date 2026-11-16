@@ -68,6 +68,12 @@ measurements without naming whose data it was ("a customer's workspace, 2026-09"
 add a real customer's domain to that list. It only sees email addresses — names and pasted text
 are on you.
 
+**Comments too:** no customer or deployment code names, real workspace ids, or ticket keys from a
+customer workspace (`<PREFIX>-SUP-123`) in comments, test names or fixtures — sessions copy them
+from backend work and incident notes. Write "a customer's deployment" / "a customer ticket", or use
+an invented key like `ABC-SUP-1`. `src/test/noCustomerNamesOrTicketKeys.test.ts` fails on a ticket
+prefix outside its allowlist and on banned names (stored as hashes, so it publishes none).
+
 ## Module boundaries
 
 Code is organised in features (`src/features/<x>/`); the full rules are in `docs/ARCHITECTURE.md`.

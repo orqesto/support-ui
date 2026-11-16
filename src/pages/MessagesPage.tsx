@@ -125,7 +125,7 @@ export const MessagesPage = () => {
 
   /**
    * A link somebody sent you should land where it belongs. An id that names its workspace
-   * (`ORB-MKT-170`) switches to that workspace instead of 404ing against the current one;
+   * (`ABC-MKT-170`) switches to that workspace instead of 404ing against the current one;
    * a bare `MKT-170` is left alone, because it names no workspace and guessing is how a
    * link opens the wrong conversation.
    */
@@ -238,7 +238,7 @@ export const MessagesPage = () => {
    *
    * ⛔ The copy-link button already passed this (`KanbanCard`, `MessageListItem`,
    * `MessageDetailHeader`) while every URL-SYNC writer here omitted it — so the button
-   * produced `ORB-MKT-170` and the address bar produced a bare `MKT-170`. People copy the
+   * produced `ABC-MKT-170` and the address bar produced a bare `MKT-170`. People copy the
    * address bar. That is the ambiguous form: public ids are unique per ORG and the counter
    * is per department, so `INF` and `SUP` each exist in six workspaces on prod and 54 ids
    * already resolve in more than one.

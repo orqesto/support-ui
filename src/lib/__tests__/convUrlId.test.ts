@@ -3,7 +3,7 @@
  *
  * ⛔ THE ASYMMETRY THIS PINS. `getConvUrlId` has always taken an optional `orgCode`, and the
  * copy-link buttons passed it while every URL-SYNC writer omitted it. So the button produced
- * `ORB-MKT-170` and the address bar produced a bare `MKT-170` — and people copy the address
+ * `ABC-MKT-170` and the address bar produced a bare `MKT-170` — and people copy the address
  * bar. The bare form is the ambiguous one: public ids are unique per ORG with a per-department
  * counter, so on prod `INF` and `SUP` each exist in SIX workspaces and 54 ids already resolve
  * in more than one.
@@ -20,11 +20,11 @@ const conv = { id: 10969, publicId: 'MKT-170' };
 
 describe('getConvUrlId', () => {
   it('carries the org code when one is known — the shareable, fail-safe form', () => {
-    expect(getConvUrlId(conv, 'ORB')).toBe('ORB-MKT-170');
+    expect(getConvUrlId(conv, 'ABC')).toBe('ABC-MKT-170');
   });
 
   it('matches the chip the agent sees, so the URL and the UI agree', () => {
-    expect(getConvUrlId(conv, 'ORB')).toBe(formatConvId(conv, 'ORB'));
+    expect(getConvUrlId(conv, 'ABC')).toBe(formatConvId(conv, 'ABC'));
   });
 
   it('falls back to the bare id when the org has no code', () => {
@@ -37,6 +37,6 @@ describe('getConvUrlId', () => {
   it('CONTROL: an unstamped conversation uses its numeric id and is never org-prefixed', () => {
     // A numeric id is already globally unique; prefixing it would invent an id shape the
     // backend does not parse.
-    expect(getConvUrlId({ id: 16952, publicId: null }, 'ORB')).toBe('16952');
+    expect(getConvUrlId({ id: 16952, publicId: null }, 'ABC')).toBe('16952');
   });
 });

@@ -8,7 +8,7 @@ import { platformService } from '@/services/platform.service';
 export const CANCEL_LONG_READS_MINUTES = 5;
 
 /**
- * Console → System: end this app's reads that have run for more than five minutes. On taco
+ * Console → System: end this app's reads that have run for more than five minutes. On a customer's deployment
  * (2026-10-28) list and count reads ran 13–41 min after their browsers had gone, and nothing short
  * of database access could stop them. Writes and other tools' sessions are never touched.
  */

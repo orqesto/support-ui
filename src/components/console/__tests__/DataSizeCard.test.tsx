@@ -36,7 +36,7 @@ const report = {
     oldResolvedShare: 0.7,
     workspacesWithThreads: 14,
     topWorkspaces: [
-      { organizationId: 36, name: 'Taco', estimatedThreads: 300_000, oldResolvedShare: 0.8 },
+      { organizationId: 501, name: 'Example Corp', estimatedThreads: 250_000, oldResolvedShare: 0.75 },
       { organizationId: 9, name: null, estimatedThreads: 50_000, oldResolvedShare: 0.2 },
     ],
   },
@@ -93,7 +93,7 @@ describe('Data size card', () => {
     expect(screen.getByText('message_events')).toBeInTheDocument();
     expect(screen.getByText(/287,000 of 410,000 conversations \(70%\)/)).toBeInTheDocument();
     expect(screen.getByText('(estimate from a 5% sample)')).toBeInTheDocument();
-    expect(screen.getByText('Taco')).toBeInTheDocument();
+    expect(screen.getByText('Example Corp')).toBeInTheDocument();
     expect(screen.getByText('Workspace 9')).toBeInTheDocument();
     expect(gets[0]).toEqual({ url: '/api/admin/platform/data-size', params: undefined });
   });
