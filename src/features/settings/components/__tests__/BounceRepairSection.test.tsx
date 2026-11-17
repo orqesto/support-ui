@@ -125,12 +125,21 @@ describe('Bounce repair', () => {
     await runCheck();
     expect(await screen.findByText(/2 hidden threads/)).toBeInTheDocument();
     expect(screen.getByText(/SUP-202 — Re: Payment sent/)).toBeInTheDocument();
-    expect(screen.getByText(/1 more hidden thread with customer mail older than the open window/)).toBeInTheDocument();
+    expect(screen.getByText(/1 hidden thread a bounce opened holds customer mail older than the open window/)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: /^Repair$/ }));
     const dialogRepair = await screen.findAllByRole('button', { name: /^Repair$/ });
     fireEvent.click(dialogRepair[dialogRepair.length - 1]);
     await waitFor(() => expect(calls).toEqual(['check', 'apply']));
     expect(await screen.findByText(/brought back 2 hidden customer threads\./)).toBeInTheDocument();
+  });
+
+  it('threads too old to bring back still show when there is nothing else to repair', async () => {
+    check = () =>
+      ok(result({ stranded: { found: 0, moved: 0, queued: 0, truncated: false, samples: [] }, marked: { found: 0, marked: 0, recomputed: 0, truncated: false }, bounceOnly: { found: 0, refiled: 0, truncated: false, samples: [] }, fused: { found: 0, truncated: false, conversations: [] }, hiddenCustomer: { found: 0, surfaced: 0, tooOld: 3, truncated: false, samples: [] } }));
+    render(<BounceRepairSection />);
+    await runCheck();
+    expect(await screen.findByText(/Nothing to repair in this workspace/)).toBeInTheDocument();
+    expect(screen.getByText(/3 hidden threads a bounce opened hold customer mail older than the open window/)).toBeInTheDocument();
   });
 
   it('CONTROL: an older backend without the hidden-customer step says nothing about it', async () => {
