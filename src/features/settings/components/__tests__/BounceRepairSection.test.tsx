@@ -142,6 +142,19 @@ describe('Bounce repair', () => {
     expect(screen.getByText(/3 hidden threads a bounce opened hold customer mail older than the open window/)).toBeInTheDocument();
   });
 
+  it('the result counts threads left as too old without pluralising "more"', async () => {
+    apply = () =>
+      ok(result({ applied: true, stranded: { found: 0, moved: 0, queued: 0, truncated: false, samples: [] }, bounceOnly: { found: 0, refiled: 0, truncated: false, samples: [] }, hiddenCustomer: { found: 1, surfaced: 1, tooOld: 2, truncated: false, samples: [] } }));
+    check = () =>
+      ok(result({ hiddenCustomer: { found: 1, surfaced: 0, tooOld: 2, truncated: false, samples: [{ id: 9002, publicId: 'SUP-203', subject: 'Re: Payment' }] } }));
+    render(<BounceRepairSection />);
+    await runCheck();
+    fireEvent.click(await screen.findByRole('button', { name: /^Repair$/ }));
+    const dialogRepair = await screen.findAllByRole('button', { name: /^Repair$/ });
+    fireEvent.click(dialogRepair[dialogRepair.length - 1]);
+    expect(await screen.findByText(/brought back 1 hidden customer thread \(2 more with customer mail older than the open window left as they are\)\./)).toBeInTheDocument();
+  });
+
   it('CONTROL: an older backend without the hidden-customer step says nothing about it', async () => {
     render(<BounceRepairSection />);
     await runCheck();

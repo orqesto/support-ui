@@ -452,7 +452,7 @@ const RepairOutcome = ({ outcome }: { outcome: BounceRepairResult }) => {
     outcome.hiddenCustomer
       ? `; brought back ${plural(outcome.hiddenCustomer.surfaced, 'hidden customer thread')}${
           outcome.hiddenCustomer.tooOld > 0
-            ? ` (${plural(outcome.hiddenCustomer.tooOld, 'more')} with customer mail older than the open window left as ${outcome.hiddenCustomer.tooOld === 1 ? 'it is' : 'they are'})`
+            ? ` (${outcome.hiddenCustomer.tooOld.toLocaleString()} more with customer mail older than the open window left as ${outcome.hiddenCustomer.tooOld === 1 ? 'it is' : 'they are'})`
             : ''
         }`
       : ''
