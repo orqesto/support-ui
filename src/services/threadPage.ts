@@ -24,10 +24,7 @@ export type ThreadPageRequest = {
 const positiveInt = (value: unknown): number | null =>
   typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
 
-export const normaliseThreadPage = (
-  raw: unknown,
-  rows: { id: number }[]
-): ThreadPage => {
+export const normaliseThreadPage = (raw: unknown, rows: { id: number }[]): ThreadPage => {
   const page = (raw ?? null) as Partial<ThreadPage> | null;
   const total = positiveInt(page?.total);
   if (page === null || total === null) {

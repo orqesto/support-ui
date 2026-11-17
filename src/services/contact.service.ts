@@ -81,12 +81,17 @@ export const contactService = {
     return { count: res.data.data?.noteCount ?? 0, latest: res.data.data?.latestNote ?? null };
   },
 
-  update: async (id: number, patch: { displayName?: string | null; assignedUserId?: number | null }): Promise<void> => {
+  update: async (
+    id: number,
+    patch: { displayName?: string | null; assignedUserId?: number | null }
+  ): Promise<void> => {
     await apiClient.patch(`/api/contacts/${id}`, patch);
   },
 
   addNote: async (id: number, content: string): Promise<ContactNote> => {
-    const res = await apiClient.post<ApiResponse<ContactNote>>(`/api/contacts/${id}/notes`, { content });
+    const res = await apiClient.post<ApiResponse<ContactNote>>(`/api/contacts/${id}/notes`, {
+      content,
+    });
     return res.data.data!;
   },
 

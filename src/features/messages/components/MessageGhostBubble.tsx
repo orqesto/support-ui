@@ -26,10 +26,36 @@ type Props = {
    * writes again.
    */
   answered?: boolean;
+  /**
+   * The customer's latest email only thanked or confirmed (backend noReplyNeeded.ts): no AI draft
+   * was made on purpose — said instead of "No suggestion found" (the KB button still helps).
+   */
+  noReplyNeeded?: boolean;
+  /** A marker is being checked against the thread's events: nothing shown yet (not "No suggestion"). */
+  noReplyPending?: boolean;
   alternativeCount: number;
   onGhostClick: (answer: string, source: string) => void;
   onShowAlternatives: () => void;
 };
+
+/** No draft: why — the customer only thanked (`marked`), or nothing was found. */
+const emptyNote = (marked: boolean) => (
+  <div className={`flex flex-row-reverse items-start gap-[9px] w-full ${PHONE_THREAD_ROW}`}>
+    <div
+      className={`grid place-items-center mt-px w-[21px] h-[21px] rounded-full border border-dashed border-ai-line flex-none ${PHONE_THREAD_AVATAR}`}
+    >
+      <Sparkles className="w-3 h-3 text-ai" />
+    </div>
+    <div className="rounded-xl px-[13px] py-[9px] border border-dashed border-ai-line text-[11.5px] leading-relaxed text-muted-foreground">
+      {marked
+        ? 'No reply needed — the customer only thanked or confirmed. To reply anyway, use the '
+        : 'No suggestion found — use the '}
+      <BookOpen className="inline-block w-3 h-3 mx-0.5 align-[-1px]" />
+      <span className="font-mono text-[10px]">KB</span>{' '}
+      {marked ? 'button' : 'button to search manually'}
+    </div>
+  </div>
+);
 
 export function MessageGhostBubble({
   aiLoading,
@@ -40,14 +66,23 @@ export function MessageGhostBubble({
   composerMode,
   resolved,
   answered = false,
+  noReplyNeeded = false,
+  noReplyPending = false,
   alternativeCount,
   onGhostClick,
   onShowAlternatives,
 }: Props) {
   const empty = !composer || composer === '<p></p>';
-  const showZone = !autoReply?.sent && empty && composerMode === 'reply' && !resolved && !answered;
-
-  if (!showZone) return null;
+  const zoneOpen = empty && composerMode === 'reply' && !resolved && !answered;
+  const showZone = !autoReply?.sent && zoneOpen;
+  // A marker is being checked against the thread: nothing yet — not "Generating suggestion…" nor
+  // "No suggestion found" first.
+  if (zoneOpen && !ghostOption && noReplyPending) return null;
+  // An auto-reply on an EARLIER email hides suggestions, but not the note for the customer's latest
+  // thank-you — the note only (no spinner, no draft).
+  if (!showZone) return zoneOpen && noReplyNeeded && !ghostOption ? emptyNote(true) : null;
+  // No draft on purpose: the note, not the similar-search spinner (aiLoading) first.
+  if (noReplyNeeded && !ghostOption) return emptyNote(true);
 
   if (aiLoading) {
     return (
@@ -64,22 +99,7 @@ export function MessageGhostBubble({
     );
   }
 
-  if (!aiLoading && !ghostOption) {
-    return (
-      <div className={`flex flex-row-reverse items-start gap-[9px] w-full ${PHONE_THREAD_ROW}`}>
-        <div
-          className={`grid place-items-center mt-px w-[21px] h-[21px] rounded-full border border-dashed border-ai-line flex-none ${PHONE_THREAD_AVATAR}`}
-        >
-          <Sparkles className="w-3 h-3 text-ai" />
-        </div>
-        <div className="rounded-xl px-[13px] py-[9px] border border-dashed border-ai-line text-[11.5px] leading-relaxed text-muted-foreground">
-          No suggestion found — use the{' '}
-          <BookOpen className="inline-block w-3 h-3 mx-0.5 align-[-1px]" />
-          <span className="font-mono text-[10px]">KB</span> button to search manually
-        </div>
-      </div>
-    );
-  }
+  if (!aiLoading && !ghostOption) return emptyNote(false);
 
   if (!ghostVisible || !ghostOption) return null;
 

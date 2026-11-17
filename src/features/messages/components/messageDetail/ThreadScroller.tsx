@@ -74,6 +74,7 @@ export function ThreadScroller({
     loadingEarlier,
     sortedThread,
     lastWordOurs,
+    noReplyNeeded,
     onHoldReasonCleared,
   } = thread;
   const { threadScrollerRef, threadContentRef, markScrollIntent } = scrollPin;
@@ -183,6 +184,8 @@ export function ThreadScroller({
             composerMode={composerMode}
             resolved={message.status === 'resolved'}
             answered={lastWordOurs}
+            noReplyNeeded={noReplyNeeded.current}
+            noReplyPending={noReplyNeeded.pending}
             alternativeCount={alternativeCount}
             onGhostClick={handleGhostClick}
             onShowAlternatives={() => {

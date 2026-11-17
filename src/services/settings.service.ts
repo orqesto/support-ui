@@ -337,15 +337,20 @@ const getLabels = async (): Promise<Label[]> =>
     return response.data.data as Label[];
   });
 
-const createLabel = async (
-  data: { name: string; color: string; departmentIds?: number[] }
-): Promise<Label> => {
+const createLabel = async (data: {
+  name: string;
+  color: string;
+  departmentIds?: number[];
+}): Promise<Label> => {
   const response: AxiosResponse<ApiResponse<Label>> = await apiClient.post('/api/labels', data);
   return response.data.data as Label;
 };
 
 const updateLabel = async (id: number, data: LabelWritePayload): Promise<Label> => {
-  const response: AxiosResponse<ApiResponse<Label>> = await apiClient.put(`/api/labels/${id}`, data);
+  const response: AxiosResponse<ApiResponse<Label>> = await apiClient.put(
+    `/api/labels/${id}`,
+    data
+  );
   return response.data.data as Label;
 };
 

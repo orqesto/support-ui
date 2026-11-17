@@ -49,7 +49,9 @@ export const assignmentService = {
   },
 
   async assignThread(threadId: string, userId: number | null): Promise<void> {
-    await apiClient.patch(`/api/assignments/threads/${encodeURIComponent(threadId)}/assign`, { userId });
+    await apiClient.patch(`/api/assignments/threads/${encodeURIComponent(threadId)}/assign`, {
+      userId,
+    });
   },
 
   async assignTicket(ticketId: number, userId: number | null): Promise<void> {

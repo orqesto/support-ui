@@ -8,9 +8,10 @@ export const twoFactorService = {
   },
 
   async setup(): Promise<{ secret: string; qrCodeDataUrl: string; otpAuthUrl: string }> {
-    const res = await apiClient.get<
-      ApiResponse<{ secret: string; qrCodeDataUrl: string; otpAuthUrl: string }>
-    >('/api/auth/2fa/setup');
+    const res =
+      await apiClient.get<
+        ApiResponse<{ secret: string; qrCodeDataUrl: string; otpAuthUrl: string }>
+      >('/api/auth/2fa/setup');
     return res.data.data!;
   },
 
@@ -26,13 +27,16 @@ export const twoFactorService = {
     tempToken: string,
     code: string
   ): Promise<{ token: string; user: Record<string, unknown> }> {
-    const res = await apiClient.post<
-      ApiResponse<{ token: string; user: Record<string, unknown> }>
-    >('/api/auth/2fa/authenticate', { tempToken, code });
+    const res = await apiClient.post<ApiResponse<{ token: string; user: Record<string, unknown> }>>(
+      '/api/auth/2fa/authenticate',
+      { tempToken, code }
+    );
     return res.data.data!;
   },
 
-  async forcedSetup(tempToken: string): Promise<{ secret: string; qrCodeDataUrl: string; otpAuthUrl: string }> {
+  async forcedSetup(
+    tempToken: string
+  ): Promise<{ secret: string; qrCodeDataUrl: string; otpAuthUrl: string }> {
     const res = await apiClient.post<
       ApiResponse<{ secret: string; qrCodeDataUrl: string; otpAuthUrl: string }>
     >('/api/auth/2fa/forced-setup', { tempToken });
@@ -43,9 +47,10 @@ export const twoFactorService = {
     tempToken: string,
     code: string
   ): Promise<{ token: string; user: Record<string, unknown> }> {
-    const res = await apiClient.post<
-      ApiResponse<{ token: string; user: Record<string, unknown> }>
-    >('/api/auth/2fa/forced-enable', { tempToken, code });
+    const res = await apiClient.post<ApiResponse<{ token: string; user: Record<string, unknown> }>>(
+      '/api/auth/2fa/forced-enable',
+      { tempToken, code }
+    );
     return res.data.data!;
   },
 };

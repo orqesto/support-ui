@@ -95,6 +95,7 @@ export type AiStateFilter =
   | 'needs_info'
   | 'bot_handled'
   | 'lead'
+  | 'no_reply_needed'
   | 'contradiction';
 
 export type LinkedFilter = 'all' | 'has_ticket' | 'has_jira';

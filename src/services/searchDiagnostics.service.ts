@@ -57,7 +57,12 @@ export type WorkspaceSizes = {
   tableStats: TableStat[];
 };
 
-export type SearchIndex = { name: string; exists: boolean; valid: boolean | null; bytes: number | null };
+export type SearchIndex = {
+  name: string;
+  exists: boolean;
+  valid: boolean | null;
+  bytes: number | null;
+};
 export type TableStat = { table: string; liveRows: number | null; lastAnalyze: string | null };
 
 export type DiagnosticsOutcome<T> =

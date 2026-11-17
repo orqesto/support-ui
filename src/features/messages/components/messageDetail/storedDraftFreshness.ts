@@ -1,4 +1,5 @@
 import type { MessageEvent } from '@/types';
+import { readNoReplyMarker } from '../noReplyMarker';
 
 /** Where the thread's events stand: not read yet for this conversation, read, or the read failed. */
 export type ThreadEventsState = 'pending' | 'loaded' | 'failed';
@@ -26,6 +27,11 @@ const NOT_WRITTEN_BY_CUSTOMER = new Set([
   'phishing',
   'security',
 ]);
+
+/** Judged (backend notCustomerWriting.ts hasVerdictMeta): a spam verdict, or a live mailbox's adoption. */
+const hasVerdict = (meta: { spamCheck?: unknown; adoptedAt?: unknown }): boolean =>
+  (meta.spamCheck !== undefined && meta.spamCheck !== null) ||
+  (meta.adoptedAt !== undefined && meta.adoptedAt !== null);
 
 /**
  * The customer WRITING, as the backend picks the email a draft answers (support-service
@@ -62,8 +68,7 @@ const isCustomerWriting = (event: MessageEvent): boolean => {
     !(typeof zendesk === 'object' && 'absorbedLive' in zendesk);
   return (
     // Judged: a verdict, or an import a live mailbox adopted (adoption brings no verdict).
-    ((meta.spamCheck !== undefined && meta.spamCheck !== null) ||
-      (meta.adoptedAt !== undefined && meta.adoptedAt !== null)) &&
+    hasVerdict(meta) &&
     meta.spamCheck?.handling !== 'pause_thread' &&
     meta.deliveryFailure !== true &&
     meta.customerAutoReply !== true &&
@@ -107,22 +112,122 @@ export function storedDraftFreshness(
   if (eventsState === 'pending') return { draftHidden: true, pending: true };
   if (eventsState === 'failed') return { draftHidden: false, pending: false };
 
+  return {
+    draftHidden: customerEmailVerdict(answersEventId, sortedThread) === 'older',
+    pending: false,
+  };
+}
+
+/**
+ * Is email `eventId` the customer's latest (the backend's pick, see above), an older one, or not
+ * known from the loaded events? The draft rule and the "No reply needed" marker both read this.
+ */
+type ThreadCustomerView = {
+  allInbound: readonly MessageEvent[];
+  writing: readonly MessageEvent[];
+};
+/** One pass per thread array (the draft and the marker both ask, on every live pull). */
+const customerViewCache = new WeakMap<readonly MessageEvent[], ThreadCustomerView>();
+const customerViewOf = (sortedThread: readonly MessageEvent[]): ThreadCustomerView => {
+  const cached = customerViewCache.get(sortedThread);
+  if (cached) return cached;
   const allInbound = sortedThread.filter((event) => event.type === 'inbound');
-  const writing = allInbound.filter(isCustomerWriting);
+  const view = { allInbound, writing: allInbound.filter(isCustomerWriting) };
+  customerViewCache.set(sortedThread, view);
+  return view;
+};
+
+export function customerEmailVerdict(
+  eventId: number,
+  sortedThread: readonly MessageEvent[]
+): 'latest' | 'older' | 'unknown' {
+  const { allInbound, writing } = customerViewOf(sortedThread);
   // The customer's own emails decide. A loaded page with none: one may sit on an earlier page and
-  // be the backend's pick (which keeps a draft for an email stored after it) — nothing is known,
-  // so offered, even when this page holds the draft's own email (review 2026-11-17).
-  if (writing.length === 0) return { draftHidden: false, pending: false };
+  // be the backend's pick (which keeps a draft for an email stored after it) — nothing is known
+  // (review 2026-11-17).
+  if (writing.length === 0) return 'unknown';
   const storedAt = (event: MessageEvent) => new Date(event.createdAt).getTime();
-  if (writing.some((event) => Number.isNaN(storedAt(event))))
-    return { draftHidden: false, pending: false };
+  if (writing.some((event) => Number.isNaN(storedAt(event)))) return 'unknown';
   const newestStoredAt = Math.max(...writing.map(storedAt));
-  // The draft's email loaded (a customer email or not): hidden only if a later customer email
-  // follows it — as the backend, which never drops a draft for an email stored after its pick.
-  const named = allInbound.find((event) => event.id === answersEventId);
-  if (named && Number.isNaN(storedAt(named))) return { draftHidden: false, pending: false };
+  // The email loaded (a customer email or not): older only if a later customer email follows it —
+  // as the backend, which never drops a draft for an email stored after its pick.
+  const named = allInbound.find((event) => event.id === eventId);
+  if (named && Number.isNaN(storedAt(named))) return 'unknown';
   const isLatest = named
     ? storedAt(named) >= newestStoredAt
-    : answersEventId > Math.max(...writing.map((event) => event.id));
-  return { draftHidden: !isLatest, pending: false };
+    : eventId > Math.max(...writing.map((event) => event.id));
+  return isLatest ? 'latest' : 'older';
 }
+
+/**
+ * "No reply needed" (backend noReplyNeeded.ts, owner 2026-11-17): the thread marker
+ * `metadata.noReplyNeeded = {eventId}` says the customer's email only thanked or confirmed, so no AI
+ * draft was made. Trusted (noReplyMarker.ts) unless the loaded events show a newer customer email —
+ * a marker whose clear has not reached the app never hides a newer email. While the events are
+ * read it is `pending`: the bubble shows nothing yet, never "No suggestion found" first.
+ */
+export function noReplyNeededState(
+  metadata: Record<string, unknown> | null | undefined,
+  sortedThread: readonly MessageEvent[],
+  eventsState: ThreadEventsState
+): { current: boolean; pending: boolean } {
+  const marker = readNoReplyMarker(metadata);
+  if (!marker) return { current: false, pending: false };
+  if (eventsState === 'pending') return { current: false, pending: true };
+  // A failed read shows no note (round 4): the error may still be the PREVIOUS thread's on the
+  // first render after a switch, and a note it cannot check would flash.
+  if (eventsState === 'failed') return { current: false, pending: false };
+  // A newer live email still waiting for its verdict may be the customer writing again (the
+  // backend drops the marker once the verdict lands): nothing shown meanwhile.
+  if (newerUnjudgedInbound(marker.eventId, sortedThread)) return { current: false, pending: true };
+  // The backend's marker stands unless the loaded thread PROVES a newer customer email (its clear
+  // has not reached the app yet); an unknown verdict trusts the backend.
+  return {
+    current: customerEmailVerdict(marker.eventId, sortedThread) !== 'older',
+    pending: false,
+  };
+}
+
+/**
+ * A LIVE inbound email stored after `eventId` that has no verdict yet (the save stamps one soon).
+ * Mail that never gets one is not waiting: an import (historical, Zendesk not adopted), a bounce,
+ * the customer's auto-reply. A time that does not parse proves nothing — the marker is trusted.
+ */
+/** How long a newer email without a verdict is "waiting": the save stamps it within seconds. */
+const VERDICT_WAIT_MS = 10 * 60_000;
+
+const newerUnjudgedInbound = (eventId: number, sortedThread: readonly MessageEvent[]): boolean => {
+  const { allInbound } = customerViewOf(sortedThread);
+  const named = allInbound.find((event) => event.id === eventId);
+  if (!named) return false;
+  const namedAt = new Date(named.createdAt).getTime();
+  if (Number.isNaN(namedAt)) return false;
+  return allInbound.some((event) => {
+    const at = new Date(event.createdAt).getTime();
+    if (event.id === eventId || Number.isNaN(at) || at <= namedAt) return false;
+    const meta = (event.metadata ?? {}) as {
+      spamCheck?: unknown;
+      adoptedAt?: unknown;
+      historicalImport?: unknown;
+      zendesk?: unknown;
+      deliveryFailure?: unknown;
+      customerAutoReply?: unknown;
+    };
+    // A Zendesk import no live mailbox adopted is never judged; a live forwarded copy
+    // (`absorbedLive`) is — as isCustomerWriting reads them.
+    const zendesk = meta.zendesk;
+    const importNotAdopted =
+      zendesk !== undefined &&
+      zendesk !== null &&
+      !(typeof zendesk === 'object' && 'absorbedLive' in zendesk);
+    const neverJudged =
+      meta.historicalImport === true ||
+      importNotAdopted ||
+      meta.deliveryFailure === true ||
+      meta.customerAutoReply === true;
+    // Waiting is bounded: mail the save never judges (a knowledge-base source) must not hold the
+    // zone empty for good — after a few minutes the marker is trusted again.
+    const recent = Date.now() - at < VERDICT_WAIT_MS;
+    return recent && !neverJudged && !hasVerdict(meta);
+  });
+};

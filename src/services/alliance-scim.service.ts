@@ -264,7 +264,10 @@ export const allianceScimService = {
     allianceId: number,
     input: AllianceScimConfigInput
   ): Promise<AllianceScimConfig> => {
-    const res = await apiClient.put<{ data: AllianceScimConfig }>(`${base(allianceId)}/scim`, input);
+    const res = await apiClient.put<{ data: AllianceScimConfig }>(
+      `${base(allianceId)}/scim`,
+      input
+    );
     return res.data.data;
   },
 
@@ -290,7 +293,11 @@ export const allianceScimService = {
       const res = await apiClient.get<{
         data: { events: AllianceScimEvent[]; nextCursor: number | null };
       }>(`${base(allianceId)}/scim/events`, { params });
-      return { available: true, events: res.data.data.events, nextCursor: res.data.data.nextCursor };
+      return {
+        available: true,
+        events: res.data.data.events,
+        nextCursor: res.data.data.nextCursor,
+      };
     } catch (error) {
       const status = getErrorStatus(error);
       if (status === 404) {
@@ -392,10 +399,7 @@ export const allianceScimService = {
    * ⚠️ This does not reach the identity provider; nothing on our side can. If the IdP
    * still has the group in scope, its next push recreates it. The confirm dialog says so.
    */
-  removeSyncedGroup: async (
-    allianceId: number,
-    groupId: number
-  ): Promise<{ removed: string }> => {
+  removeSyncedGroup: async (allianceId: number, groupId: number): Promise<{ removed: string }> => {
     const res = await apiClient.delete<{ data: { removed: string } }>(
       `${base(allianceId)}/scim/synced-groups/${groupId}`
     );

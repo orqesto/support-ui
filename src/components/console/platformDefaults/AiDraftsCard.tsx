@@ -19,6 +19,7 @@ import type {
   DraftSettings,
   PlatformDraftsInput,
 } from '@/services/platformSettings.service';
+import { NO_REPLY_CHECK_NOT_DEPLOYED, NoReplyCheckFields } from './NoReplyCheckFields';
 import { SourceBadge } from './SourceBadge';
 
 export const AI_DRAFTS_NOT_DEPLOYED =
@@ -353,6 +354,25 @@ export const AiDraftsCard = ({ drafts }: { drafts: DraftSettings | undefined }) 
         ) : (
           <p className="pt-3 text-sm border-t text-muted-foreground border-border">
             {AGENT_NOTE_FACTS_NOT_DEPLOYED}
+          </p>
+        )}
+        {drafts.noReplyCheck ? (
+          <NoReplyCheckFields
+            check={drafts.noReplyCheck}
+            saving={save.isPending}
+            onSave={(changed) =>
+              save.mutate(
+                { noReplyCheck: changed },
+                {
+                  onSuccess: () =>
+                    toast.success('"No reply needed" saved. Applies within a minute.'),
+                }
+              )
+            }
+          />
+        ) : (
+          <p className="pt-3 text-sm border-t text-muted-foreground border-border">
+            {NO_REPLY_CHECK_NOT_DEPLOYED}
           </p>
         )}
       </CardContent>

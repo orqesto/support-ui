@@ -1,3 +1,4 @@
+import { isRecord, readBounded } from './boundedFieldRead';
 import type { BoundedField } from './resolvedField';
 
 /**
@@ -15,3 +16,11 @@ export type AgentNoteFactsField = (typeof AGENT_NOTE_FACTS_FIELDS)[number];
 export type AgentNoteFactsSettings = Record<AgentNoteFactsField, BoundedField>;
 /** PUT `agentNoteFacts`: any non-empty subset; the server merges it over the saved thresholds. */
 export type AgentNoteFactsInput = Partial<Record<AgentNoteFactsField, number>>;
+
+/** All three thresholds, each a whole-number bounded field — or absent (older backend, malformed). */
+export const readAgentNoteFacts = (raw: unknown): AgentNoteFactsSettings | undefined => {
+  const read = AGENT_NOTE_FACTS_FIELDS.map((key) => [key, readBounded(isRecord(raw) && raw[key])]);
+  return read.every(([, field]) => field)
+    ? (Object.fromEntries(read) as AgentNoteFactsSettings)
+    : undefined;
+};

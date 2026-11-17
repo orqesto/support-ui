@@ -125,7 +125,9 @@ export type ThreadBoardRequest = {
 export const fetchThreadBoard = async <T>(request: ThreadBoardRequest): Promise<T | null> => {
   if (threadBoardSupported === false) return null;
   try {
-    const response = await apiClient.post<T>('/api/messages/threads/board', request, { readOnly: true });
+    const response = await apiClient.post<T>('/api/messages/threads/board', request, {
+      readOnly: true,
+    });
     threadBoardSupported = true;
     return response.data;
   } catch (err) {

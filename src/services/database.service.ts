@@ -94,7 +94,9 @@ export type DegradedRow = {
   updatedAt: string;
 };
 
-type Envelope<T> = ApiResponse<T> & { meta?: { probe?: DatabaseTestResult; migrationsApplied?: number } };
+type Envelope<T> = ApiResponse<T> & {
+  meta?: { probe?: DatabaseTestResult; migrationsApplied?: number };
+};
 
 const BASE = '/api/integrations/database-config';
 const ADMIN = '/api/admin';
@@ -111,7 +113,10 @@ export const databaseService = {
 
   /** Probe a URL without saving anything; with no URL, re-probe the stored one. */
   test: async (url?: string): Promise<DatabaseTestResult> => {
-    const res = await apiClient.post<ApiResponse<DatabaseTestResult>>(`${BASE}/test`, url ? { url } : {});
+    const res = await apiClient.post<ApiResponse<DatabaseTestResult>>(
+      `${BASE}/test`,
+      url ? { url } : {}
+    );
     return unwrap(res, 'Database test');
   },
 
@@ -142,11 +147,15 @@ export const databaseService = {
   admin: {
     get: async (organizationId: number): Promise<DatabaseDisplay> =>
       unwrap(
-        await apiClient.get<ApiResponse<DatabaseDisplay>>(`${ADMIN}/organizations/${organizationId}/database`),
+        await apiClient.get<ApiResponse<DatabaseDisplay>>(
+          `${ADMIN}/organizations/${organizationId}/database`
+        ),
         'Database config'
       ),
 
-    reverify: async (organizationId: number): Promise<{ display: DatabaseDisplay; probe: DatabaseTestResult | null }> => {
+    reverify: async (
+      organizationId: number
+    ): Promise<{ display: DatabaseDisplay; probe: DatabaseTestResult | null }> => {
       const res = await apiClient.post<Envelope<DatabaseDisplay>>(
         `${ADMIN}/organizations/${organizationId}/database/reverify`,
         {}
@@ -155,12 +164,17 @@ export const databaseService = {
     },
 
     /** Apply pending migrations to the workspace's own database now. 502 when they fail there. */
-    migrate: async (organizationId: number): Promise<{ display: DatabaseDisplay; migrationsApplied: number | null }> => {
+    migrate: async (
+      organizationId: number
+    ): Promise<{ display: DatabaseDisplay; migrationsApplied: number | null }> => {
       const res = await apiClient.post<Envelope<DatabaseDisplay>>(
         `${ADMIN}/organizations/${organizationId}/database/migrate`,
         {}
       );
-      return { display: unwrap(res, 'Database config'), migrationsApplied: res.data.meta?.migrationsApplied ?? null };
+      return {
+        display: unwrap(res, 'Database config'),
+        migrationsApplied: res.data.meta?.migrationsApplied ?? null,
+      };
     },
 
     /** The workspace's latest data move, or null. */
@@ -183,10 +197,12 @@ export const databaseService = {
 
     /** Workspaces with no active plan still on the managed database, soonest deadline first. */
     retention: async (): Promise<RetentionRow[]> =>
-      (await apiClient.get<ApiResponse<RetentionRow[]>>(`${ADMIN}/platform/database/retention`)).data.data ?? [],
+      (await apiClient.get<ApiResponse<RetentionRow[]>>(`${ADMIN}/platform/database/retention`))
+        .data.data ?? [],
 
     /** Own-database workspaces whose database is not answering (paused). */
     degraded: async (): Promise<DegradedRow[]> =>
-      (await apiClient.get<ApiResponse<DegradedRow[]>>(`${ADMIN}/platform/database/degraded`)).data.data ?? [],
+      (await apiClient.get<ApiResponse<DegradedRow[]>>(`${ADMIN}/platform/database/degraded`)).data
+        .data ?? [],
   },
 };

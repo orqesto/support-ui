@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { messageService } from '@/services/message.service';
 import { isOutgoingEvent } from '@/lib/messageHelpers';
-import { storedDraftFreshness } from './storedDraftFreshness';
+import { noReplyNeededState, storedDraftFreshness } from './storedDraftFreshness';
 import { logger } from '@/lib/logger';
 import { useSeededState } from '@/lib/seededState';
 import { normaliseThreadPage, type ThreadPage } from '@/services/threadPage';
@@ -238,15 +238,18 @@ export function useThreadEvents(
     const last = [...sortedThread].reverse().find((event) => event.type !== 'note');
     return last ? isOutgoingEvent(last) : false;
   }, [sortedThread]);
+  // Where the thread's events stand for THIS conversation — one rule for the draft and the marker.
+  const eventsState =
+    threadEventsFor !== message.id ? (threadError !== null ? 'failed' : 'pending') : 'loaded';
   // Whether the stored AI draft answers the customer's latest email (storedDraftFreshness.ts).
   const storedDraft = useMemo(
-    () =>
-      storedDraftFreshness(
-        message.metadata,
-        sortedThread,
-        threadEventsFor !== message.id ? (threadError !== null ? 'failed' : 'pending') : 'loaded'
-      ),
-    [message.metadata, message.id, sortedThread, threadEventsFor, threadError]
+    () => storedDraftFreshness(message.metadata, sortedThread, eventsState),
+    [message.metadata, sortedThread, eventsState]
+  );
+  // The customer's latest email only thanked or confirmed: no draft, and the thread says why.
+  const noReplyNeeded = useMemo(
+    () => noReplyNeededState(message.metadata, sortedThread, eventsState),
+    [message.metadata, sortedThread, eventsState]
   );
   // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
   // only ever sit between days, in order.
@@ -276,5 +279,6 @@ export function useThreadEvents(
     sortedThread,
     lastWordOurs,
     storedDraft,
+    noReplyNeeded,
   };
 }

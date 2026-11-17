@@ -54,6 +54,7 @@ export const VALID_AI_STATES = [
   'needs_info',
   'bot_handled',
   'lead',
+  'no_reply_needed',
   'contradiction',
 ] as const;
 

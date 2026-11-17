@@ -64,7 +64,9 @@ export const toPickerModels = (models: DiscoveredModel[]): AIModel[] => {
       const vision = visionIds.has(model.id) || visionIds.has(fronted);
       return {
         id: model.id,
-        name: model.requiresInferenceProfile ? `${model.name} — inference profile only` : model.name,
+        name: model.requiresInferenceProfile
+          ? `${model.name} — inference profile only`
+          : model.name,
         type: model.type,
         contextWindow: 0, // not surfaced by the Bedrock list API
         description: model.description,
