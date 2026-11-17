@@ -130,7 +130,7 @@ describe('Bounce repair', () => {
     const dialogRepair = await screen.findAllByRole('button', { name: /^Repair$/ });
     fireEvent.click(dialogRepair[dialogRepair.length - 1]);
     await waitFor(() => expect(calls).toEqual(['check', 'apply']));
-    expect(await screen.findByText(/brought back 2 hidden customer threads\./)).toBeInTheDocument();
+    expect(await screen.findByText(/brought back 2 hidden customer threads \(1 more with customer mail older than the open window left as it is\)\./)).toBeInTheDocument();
   });
 
   it('threads too old to bring back still show when there is nothing else to repair', async () => {

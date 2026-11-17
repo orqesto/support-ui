@@ -450,7 +450,11 @@ const TooOldNote = ({ count }: { count: number }) =>
 const RepairOutcome = ({ outcome }: { outcome: BounceRepairResult }) => {
   const rest = `marked ${plural(outcome.marked?.marked ?? 0, 'bounce')} and filed away ${plural(outcome.bounceOnly.refiled, 'thread')}${
     outcome.hiddenCustomer
-      ? `; brought back ${plural(outcome.hiddenCustomer.surfaced, 'hidden customer thread')}`
+      ? `; brought back ${plural(outcome.hiddenCustomer.surfaced, 'hidden customer thread')}${
+          outcome.hiddenCustomer.tooOld > 0
+            ? ` (${plural(outcome.hiddenCustomer.tooOld, 'more')} with customer mail older than the open window left as ${outcome.hiddenCustomer.tooOld === 1 ? 'it is' : 'they are'})`
+            : ''
+        }`
       : ''
   }.`;
   const counts = strandedCounts(outcome.stranded);
