@@ -329,6 +329,10 @@ const BounceRepair = () => {
           <span className="text-sm">Nothing to repair in this workspace.</span>
         </Alert>
       )}
+      {/* Too old to bring back, so not "to fix" — but never hidden behind "nothing to repair". */}
+      {check && toFix === 0 && !outcome && (
+        <TooOldNote count={check.hiddenCustomer?.tooOld ?? 0} />
+      )}
 
       {check && toFix > 0 && !outcome && (
         <div className="space-y-2">
@@ -380,12 +384,7 @@ const BounceRepair = () => {
               ))}
             </ul>
           )}
-          {(check.hiddenCustomer?.tooOld ?? 0) > 0 && (
-            <p className="text-sm text-muted-foreground">
-              {plural(check.hiddenCustomer?.tooOld ?? 0, 'more hidden thread')} with customer mail
-              older than the open window — left as they are.
-            </p>
-          )}
+          <TooOldNote count={check.hiddenCustomer?.tooOld ?? 0} />
           {truncated && (
             <p className="text-sm text-warning">
               The check stopped at its limit — more remain. After repairing these, check again.
@@ -439,6 +438,14 @@ const BounceRepair = () => {
     </div>
   );
 };
+
+const TooOldNote = ({ count }: { count: number }) =>
+  count > 0 ? (
+    <p className="text-sm text-muted-foreground">
+      {plural(count, 'hidden thread')} a bounce opened {count === 1 ? 'holds' : 'hold'} customer
+      mail older than the open window — left as they are.
+    </p>
+  ) : null;
 
 const RepairOutcome = ({ outcome }: { outcome: BounceRepairResult }) => {
   const rest = `marked ${plural(outcome.marked?.marked ?? 0, 'bounce')} and filed away ${plural(outcome.bounceOnly.refiled, 'thread')}${
