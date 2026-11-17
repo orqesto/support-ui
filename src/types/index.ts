@@ -313,6 +313,13 @@ export type MessageEvent = {
    * else the writer. Absent from an older backend; the per-message reply is then not offered.
    */
   replyTarget?: string[];
+  /**
+   * The customer WRITING (judged; not a bounce, their out-of-office, a receipt, promotional mail,
+   * junk or an unadopted import; a forwarded copy counts) — the backend's one definition, sent per
+   * event by the thread read. Absent from
+   * an older backend: storedDraftFreshness then reads the markers itself.
+   */
+  customerWriting?: boolean;
   assigneeName?: string | null;
 };
 

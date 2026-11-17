@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { messageService } from '@/services/message.service';
 import { isOutgoingEvent } from '@/lib/messageHelpers';
-import type { BackendDraftState } from '@/services/message/message.types';
 import { storedDraftFreshness } from './storedDraftFreshness';
 import { logger } from '@/lib/logger';
 import { useSeededState } from '@/lib/seededState';
@@ -42,11 +41,6 @@ export function useThreadEvents(
     threadSeeded ? message.id : null
   );
   const [threadLoading, setThreadLoading] = useState(false);
-  // The thread read's verdict on the stored AI draft (storedDraftFreshness.ts), refreshed by every
-  // read and live pull; undefined until a read answers or from an older backend.
-  const [threadDraftState, setThreadDraftState] = useState<BackendDraftState | undefined>(
-    undefined
-  );
   const [threadError, setThreadError] = useState<string | null>(null);
   const [threadRefreshKey, setThreadRefreshKey] = useState(0);
   const onRefreshRef = useRef(onRefresh);
@@ -82,7 +76,6 @@ export function useThreadEvents(
         // Normalised again here: a caller that stands in for the service hands back a bare
         // envelope, and the window must still know what it holds.
         setThreadPage(normaliseThreadPage(res.page, rows));
-        setThreadDraftState(res.storedDraft);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -181,8 +174,6 @@ export function useThreadEvents(
         .getThreadMessagesAfter(forId, after, limit)
         .then((res) => {
           if (messageIdRef.current !== forId) return;
-          // Every pull carries the stored draft's fresh verdict (an older backend: none).
-          if (res.storedDraft) setThreadDraftState(res.storedDraft);
           if (!res.newEvents.incremental) {
             threadSize.current = { id: forId, loaded: res.data.length };
             setThreadMessages(res.data);
@@ -253,10 +244,9 @@ export function useThreadEvents(
       storedDraftFreshness(
         message.metadata,
         sortedThread,
-        threadEventsFor !== message.id ? (threadError !== null ? 'failed' : 'pending') : 'loaded',
-        threadDraftState
+        threadEventsFor !== message.id ? (threadError !== null ? 'failed' : 'pending') : 'loaded'
       ),
-    [message.metadata, message.id, sortedThread, threadEventsFor, threadError, threadDraftState]
+    [message.metadata, message.id, sortedThread, threadEventsFor, threadError]
   );
   // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
   // only ever sit between days, in order.

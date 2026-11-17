@@ -28,6 +28,7 @@ import { useAiRefusalText } from '@/features/subscription/shell';
 import { logger } from '@/lib/logger';
 import { SEARCH_CUT_SHORT_COPY, searchCutShort } from '@/lib/searchCutShort';
 import { AnswerPreview } from '@/features/messages/components/AnswerPreview';
+import { StaleAnswerConfirm } from '@/features/messages/components/StaleAnswerConfirm';
 import {
   type SimilarMessage,
   toSimilarMessages,
@@ -117,6 +118,8 @@ export const SimilarMessagesDialog = ({
    * original with it made the agent translate the English back (support request 2026-10-20).
    */
   const [useTranslatedVersion, setUseTranslatedVersion] = useState(false);
+  // The backend refused the answer (written for an earlier email): inserted only on a second click.
+  const [askStale, setAskStale] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('en');
   const [isTranslating, setIsTranslating] = useState(false);
   const { languages, fetchLanguages } = useSupportedLanguages();
@@ -193,11 +196,15 @@ export const SimilarMessagesDialog = ({
         useTranslatedVersion && translatedAiResponse ? translatedAiResponse : aiResponse;
       // Save to message metadata for persistence
       try {
-        await messageService.saveSuggestedAnswer(messageId, {
+        const saved = await messageService.saveSuggestedAnswer(messageId, {
           answer: textToUse,
           similarity: aiConfidence,
           source: 'ai-generated',
+          ...(textToUse !== aiResponse ? { computedAnswer: aiResponse } : {}),
         });
+        // Refused: written for an earlier email — the agent confirms before it goes in the reply.
+        if ((saved?.data as { saved?: boolean } | undefined)?.saved === false)
+          return setAskStale(true);
       } catch (error) {
         logger.error('Failed to save suggested answer:', error);
       }
@@ -772,12 +779,24 @@ export const SimilarMessagesDialog = ({
           )}
         </div>
 
+        {askStale && (
+          <StaleAnswerConfirm
+            onInsert={() => {
+              // The version chosen NOW (the agent may switch to the translation meanwhile).
+              const text =
+                useTranslatedVersion && translatedAiResponse ? translatedAiResponse : aiResponse;
+              if (text) onSelectAnswer?.(text, 'ai-generated');
+              onClose();
+            }}
+            onCancel={() => setAskStale(false)}
+          />
+        )}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             {canUseAiResponse ? 'Cancel' : 'Close'}
           </Button>
           {canUseAiResponse && (
-            <Button onClick={() => void handleUseAnswer()}>
+            <Button disabled={askStale} onClick={() => void handleUseAnswer()}>
               <Check className="mr-2 w-4 h-4" />
               {translatedAiResponse
                 ? useTranslatedVersion

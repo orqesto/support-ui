@@ -29,6 +29,10 @@ vi.mock('@/hooks/useTranslation', () => ({
 // The language picker needs the app's ThemeProvider; the default language (en) is what is used.
 vi.mock('@/components/ui/Select', () => ({ Select: () => null }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn() } }));
+const toastInfo = vi.fn<(...args: unknown[]) => void>();
+vi.mock('@/lib/toast', () => ({
+  toast: { info: (...args: unknown[]) => toastInfo(...args), error: vi.fn(), success: vi.fn() },
+}));
 
 import { SimilarMessagesDialog } from '../SimilarMessagesDialog';
 
@@ -132,5 +136,17 @@ describe('SimilarMessagesDialog — the original reply survives a translation', 
     fireEvent.click(screen.getByText(ORIGINAL));
     await use(/^Use AI Response$/);
     expect(onSelectAnswer).toHaveBeenCalledWith(ORIGINAL, 'ai-generated');
+  });
+
+  // 2026-11-17: the backend refuses to keep the answer when the customer wrote again since.
+  // A refused save (written for an earlier email) asks before inserting:
+  // similarDialogStaleAnswer.test.tsx.
+
+  it('CONTROL: a kept answer says nothing', async () => {
+    saveSuggestedAnswer.mockResolvedValueOnce({ success: true, data: { saved: true } });
+    renderDialog();
+    await screen.findByText(ORIGINAL);
+    await use(/^Use AI Response$/);
+    expect(toastInfo).not.toHaveBeenCalled();
   });
 });

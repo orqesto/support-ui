@@ -191,9 +191,13 @@ export const messageAiApi = {
       similarity?: number;
       source?: string;
       documentTitle?: string;
+      /** The panel's original when `answer` is its translation: the email it answers is known. */
+      computedAnswer?: string;
     }
   ) => {
-    const response = await apiClient.post<ApiResponse<void>>(
+    // `saved: false` (reason `not_latest_email`): the answer was computed for an earlier email than
+    // the one a draft answers now (support-service, 2026-11-17); an older backend sends no `saved`.
+    const response = await apiClient.post<ApiResponse<{ saved?: boolean; reason?: string } | void>>(
       `/api/messages/${id}/suggested-answer/save`,
       { suggestedAnswer }
     );
