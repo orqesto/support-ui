@@ -116,7 +116,7 @@ describe('Bounce repair', () => {
       surfaced: 0,
       tooOld: 1,
       truncated: false,
-      samples: [{ id: 346462, publicId: 'DEU-SUP-182915', subject: 'Delivery Status Notification (Failure)' }],
+      samples: [{ id: 9001, publicId: 'SUP-202', subject: 'Re: Payment sent' }],
     };
     check = () => ok(result({ hiddenCustomer }));
     apply = () =>
@@ -124,7 +124,7 @@ describe('Bounce repair', () => {
     render(<BounceRepairSection />);
     await runCheck();
     expect(await screen.findByText(/2 hidden threads/)).toBeInTheDocument();
-    expect(screen.getByText(/DEU-SUP-182915/)).toBeInTheDocument();
+    expect(screen.getByText(/SUP-202 — Re: Payment sent/)).toBeInTheDocument();
     expect(screen.getByText(/1 more hidden thread with customer mail older than the open window/)).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: /^Repair$/ }));
     const dialogRepair = await screen.findAllByRole('button', { name: /^Repair$/ });
