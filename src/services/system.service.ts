@@ -87,6 +87,18 @@ export type BounceRepairResult = {
     truncated: boolean;
     samples: { id: number; publicId: string | null; subject: string | null }[];
   };
+  /**
+   * Hidden threads a bounce opened that hold a customer's legitimate mail — surfaced as a customer
+   * reply. Absent from an older backend.
+   */
+  hiddenCustomer?: {
+    found: number;
+    surfaced: number;
+    /** Held one, but the newest is older than the open window — left hidden. */
+    tooOld: number;
+    truncated: boolean;
+    samples: { id: number; publicId: string | null; subject: string | null }[];
+  };
   /** Open mail-system conversations holding more than one customer — listed, never changed here. */
   fused: {
     found: number;

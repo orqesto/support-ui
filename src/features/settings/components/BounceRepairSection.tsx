@@ -60,6 +60,18 @@ const normalize = (data: Partial<BounceRepairResult>): BounceRepairResult => ({
     truncated: data.bounceOnly?.truncated === true,
     samples: data.bounceOnly?.samples ?? [],
   },
+  // Absent from an older backend: stays absent, so the outcome does not claim a step it never ran.
+  ...(data.hiddenCustomer
+    ? {
+        hiddenCustomer: {
+          found: data.hiddenCustomer.found ?? 0,
+          surfaced: data.hiddenCustomer.surfaced ?? 0,
+          tooOld: data.hiddenCustomer.tooOld ?? 0,
+          truncated: data.hiddenCustomer.truncated === true,
+          samples: data.hiddenCustomer.samples ?? [],
+        },
+      }
+    : {}),
   fused: {
     found: data.fused?.found ?? 0,
     truncated: data.fused?.truncated === true,
@@ -274,9 +286,14 @@ const BounceRepair = () => {
 
   const strandedCheck = check ? strandedCounts(check.stranded) : null;
   const marks = check?.marked?.found ?? 0;
-  const toFix = check ? check.stranded.found + marks + check.bounceOnly.found : 0;
+  const hidden = check?.hiddenCustomer?.found ?? 0;
+  const toFix = check ? check.stranded.found + marks + check.bounceOnly.found + hidden : 0;
   const truncated =
-    !!check && (check.stranded.truncated || !!check.marked?.truncated || check.bounceOnly.truncated);
+    !!check &&
+    (check.stranded.truncated ||
+      !!check.marked?.truncated ||
+      check.bounceOnly.truncated ||
+      !!check.hiddenCustomer?.truncated);
 
   return (
     <div className="space-y-3">
@@ -285,8 +302,8 @@ const BounceRepair = () => {
           <p className="font-medium">Threads changed by bounces</p>
           <p className="text-sm text-muted-foreground">
             Lists messages left where nobody can see them, open threads that only a mail
-            system ever wrote to, and threads that hold several customers because bounces
-            joined them. Checking changes nothing.
+            system ever wrote to, customer mail hidden in a thread a bounce opened, and threads
+            that hold several customers because bounces joined them. Checking changes nothing.
           </p>
         </div>
         <Button
@@ -338,6 +355,12 @@ const BounceRepair = () => {
                 mail system wrote to — filed away (no SLA, out of the inbox).
               </li>
             )}
+            {hidden > 0 && (
+              <li>
+                <strong>{plural(hidden, 'hidden thread')}</strong> a bounce opened, holding a
+                customer&apos;s message — brought back to the inbox as a customer reply.
+              </li>
+            )}
           </ul>
           {check.bounceOnly.samples.length > 0 && (
             <ul className="text-xs rounded-md border border-border">
@@ -347,6 +370,21 @@ const BounceRepair = () => {
                 </li>
               ))}
             </ul>
+          )}
+          {(check.hiddenCustomer?.samples.length ?? 0) > 0 && (
+            <ul className="text-xs rounded-md border border-border" aria-label="Hidden customer threads">
+              {check.hiddenCustomer?.samples.map((sample) => (
+                <li key={sample.id} className="px-3 py-1.5 border-t border-border first:border-t-0">
+                  {label(sample)}
+                </li>
+              ))}
+            </ul>
+          )}
+          {(check.hiddenCustomer?.tooOld ?? 0) > 0 && (
+            <p className="text-sm text-muted-foreground">
+              {plural(check.hiddenCustomer?.tooOld ?? 0, 'more hidden thread')} with customer mail
+              older than the open window — left as they are.
+            </p>
           )}
           {truncated && (
             <p className="text-sm text-warning">
@@ -392,7 +430,7 @@ const BounceRepair = () => {
           strandedCheck
             ? 'Moves or restores messages left on merged-away tickets, following the same rules as new mail. Threads'
             : 'Stranded messages move to the thread they belong to, and threads'
-        } only a mail system wrote to are filed away. Threads that hold several customers are not changed here. The repair runs its own check when it starts, so the numbers can differ from this check; the result says what it actually did.`}
+        } only a mail system wrote to are filed away, and customer mail hidden in a thread a bounce opened comes back to the inbox. Threads that hold several customers are not changed here. The repair runs its own check when it starts, so the numbers can differ from this check; the result says what it actually did.`}
         confirmText="Repair"
         onConfirm={() => {
           if (busy === null) void runApply();
@@ -403,7 +441,11 @@ const BounceRepair = () => {
 };
 
 const RepairOutcome = ({ outcome }: { outcome: BounceRepairResult }) => {
-  const rest = `marked ${plural(outcome.marked?.marked ?? 0, 'bounce')} and filed away ${plural(outcome.bounceOnly.refiled, 'thread')}.`;
+  const rest = `marked ${plural(outcome.marked?.marked ?? 0, 'bounce')} and filed away ${plural(outcome.bounceOnly.refiled, 'thread')}${
+    outcome.hiddenCustomer
+      ? `; brought back ${plural(outcome.hiddenCustomer.surfaced, 'hidden customer thread')}`
+      : ''
+  }.`;
   const counts = strandedCounts(outcome.stranded);
   // An older backend (no `restored`) only moved: its words stay.
   const text = counts
@@ -420,7 +462,10 @@ const RepairOutcome = ({ outcome }: { outcome: BounceRepairResult }) => {
     );
   }
   const more =
-    outcome.stranded.truncated || !!outcome.marked?.truncated || outcome.bounceOnly.truncated;
+    outcome.stranded.truncated ||
+    !!outcome.marked?.truncated ||
+    outcome.bounceOnly.truncated ||
+    !!outcome.hiddenCustomer?.truncated;
   return (
     <Alert variant={more ? 'warning' : 'success'}>
       <span className="text-sm">
