@@ -133,3 +133,13 @@ describe('knowledge base match (audit M5)', () => {
     ).toMatch(/80 to 99/);
   });
 });
+
+describe('validateDraft — keyword minimum length (deep review 2026-11-16)', () => {
+  it('refuses keywords under 3 characters and names them; 3+ characters pass (control)', () => {
+    const draft = { ...emptyDraft(), replyText: 'Text', keywords: ['hi', 'ok', 'refund'] };
+    expect(validateDraft(draft).keywords).toBe(
+      'A keyword needs at least 3 characters: "hi", "ok".'
+    );
+    expect(validateDraft({ ...draft, keywords: ['refund', 'iban'] })).toEqual({});
+  });
+});

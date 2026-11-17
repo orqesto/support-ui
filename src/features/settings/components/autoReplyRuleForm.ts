@@ -5,6 +5,8 @@
 
 export const KEYWORDS_PER_RULE_MAX = 50;
 export const KEYWORD_MAX_LENGTH = 100;
+/** Same minimum as the backend (keywordTooCommon). Common words are refused by the backend (400 on keywords). */
+export const KEYWORD_MIN_LENGTH = 3;
 
 export type RuleDraft = {
   name: string;
@@ -83,6 +85,11 @@ export const validateDraft = (draft: RuleDraft): RuleDraftErrors => {
     errors.keywords = `A rule can have at most ${KEYWORDS_PER_RULE_MAX} keywords.`;
   else if (keywords.some((kw) => kw.length > KEYWORD_MAX_LENGTH))
     errors.keywords = `A keyword can be at most ${KEYWORD_MAX_LENGTH} characters.`;
+  else if (keywords.some((kw) => [...kw.trim()].length < KEYWORD_MIN_LENGTH))
+    errors.keywords = `A keyword needs at least ${KEYWORD_MIN_LENGTH} characters: ${keywords
+      .filter((kw) => [...kw.trim()].length < KEYWORD_MIN_LENGTH)
+      .map((kw) => `"${kw}"`)
+      .join(', ')}.`;
   if (!draft.replyText.trim()) errors.replyText = 'Write the reply text.';
   // Filled only by a knowledge-base rule; in a plain rule the customer would read it word for word
   // (the backend refuses it too, 400 on replyText).

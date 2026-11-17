@@ -134,7 +134,10 @@ const RuleForm = ({
         <p className="text-xs text-muted-foreground">
           Matches whole words in the subject or the message, in any letter case, and words that
           continue them (refund → refunds, возврат → возврата). A word whose ending changes (почта →
-          почты) needs that form too. Add the word in each language your customers write in.
+          почты) needs that form too. Add the word in each language your customers write in. A
+          keyword needs at least 3 characters and must not be a word most emails contain (order,
+          hello, заказ): a rule replies and resolves the thread. Use a specific word or a phrase
+          ("order status").
         </p>
       </div>
       <div className="space-y-2">
@@ -437,6 +440,13 @@ export const AutoReplyRulesSection = ({ canManage, autoReplyEnabled, onShowAlert
                         </Badge>
                       ))}
                     </div>
+                    {rule.ignoredKeywords.length > 0 && (
+                      <p className="text-xs text-warning">
+                        Ignored, too short or too common:{' '}
+                        {rule.ignoredKeywords.map((keyword) => `"${keyword}"`).join(', ')}. Edit the
+                        rule and use a more specific word or a phrase.
+                      </p>
+                    )}
                     <p className="text-xs whitespace-pre-line break-words line-clamp-2 text-muted-foreground">
                       {rule.replyText}
                     </p>

@@ -262,3 +262,24 @@ describe('AutoReplyRulesSection', () => {
     expect(screen.queryByText(/Template \+ KB/)).toBeNull();
   });
 });
+
+describe('Keyword rules: keywords the backend ignores (deep review 2026-11-16)', () => {
+  it('names the ignored keywords on the rule, and shows nothing for a rule without any (control)', async () => {
+    api.rules = [
+      {
+        id: 1,
+        name: 'Old rule',
+        keywords: ['order', 'refund'],
+        replyText: 'Text',
+        enabled: true,
+        ignoredKeywords: ['order'],
+      },
+      { id: 2, name: 'Clean rule', keywords: ['iban'], replyText: 'Text', enabled: true },
+    ];
+    renderSection();
+    expect(
+      await screen.findByText(/Ignored, too short or too common: "order"/)
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Ignored, too short or too common/)).toHaveLength(1);
+  });
+});
