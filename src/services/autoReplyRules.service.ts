@@ -20,6 +20,11 @@ export type AutoReplyRule = {
    * (BE 2026-11-16, audit M5). Absent on an older backend → the default.
    */
   kbMinSimilarity: number;
+  /**
+   * Keywords the backend skips when matching: too short or too common (a rule saved before that
+   * check, BE 2026-11-17). Absent on an older backend → none.
+   */
+  ignoredKeywords: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -55,6 +60,9 @@ const normalizeRule = (raw: Partial<AutoReplyRule> | null | undefined): AutoRepl
     useKnowledgeBase: raw.useKnowledgeBase === true,
     kbMinSimilarity:
       typeof raw.kbMinSimilarity === 'number' ? raw.kbMinSimilarity : KB_MATCH_DEFAULT,
+    ignoredKeywords: Array.isArray(raw.ignoredKeywords)
+      ? raw.ignoredKeywords.filter((kw): kw is string => typeof kw === 'string')
+      : [],
     createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : '',
     updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : '',
   };
