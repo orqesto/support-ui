@@ -143,3 +143,13 @@ describe('validateDraft — keyword minimum length (deep review 2026-11-16)', ()
     expect(validateDraft({ ...draft, keywords: ['refund', 'iban'] })).toEqual({});
   });
 });
+
+describe('validateDraft — two-letter acronyms in capitals (owner 2026-11-17)', () => {
+  it('lets TV and EU through; tv and c# stay too short (control)', () => {
+    const draft = { ...emptyDraft(), replyText: 'Text', keywords: ['TV', 'EU'] };
+    expect(validateDraft(draft)).toEqual({});
+    expect(validateDraft({ ...draft, keywords: ['tv', 'c#'] }).keywords).toBe(
+      'A keyword needs at least 3 characters: "tv", "c#".'
+    );
+  });
+});
