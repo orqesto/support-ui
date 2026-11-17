@@ -7,6 +7,12 @@ export const KEYWORDS_PER_RULE_MAX = 50;
 export const KEYWORD_MAX_LENGTH = 100;
 /** Same minimum as the backend (keywordTooCommon). Common words are refused by the backend (400 on keywords). */
 export const KEYWORD_MIN_LENGTH = 3;
+/** A two-character keyword in capitals is an acronym (TV, EU); the backend refuses OK, HI and co. */
+const ACRONYM = /^(?=.*\p{Lu})[\p{Lu}\p{N}]{2}$/u;
+const tooShort = (keyword: string): boolean => {
+  const clean = keyword.trim();
+  return !ACRONYM.test(clean) && [...clean].length < KEYWORD_MIN_LENGTH;
+};
 
 export type RuleDraft = {
   name: string;
@@ -85,9 +91,9 @@ export const validateDraft = (draft: RuleDraft): RuleDraftErrors => {
     errors.keywords = `A rule can have at most ${KEYWORDS_PER_RULE_MAX} keywords.`;
   else if (keywords.some((kw) => kw.length > KEYWORD_MAX_LENGTH))
     errors.keywords = `A keyword can be at most ${KEYWORD_MAX_LENGTH} characters.`;
-  else if (keywords.some((kw) => [...kw.trim()].length < KEYWORD_MIN_LENGTH))
+  else if (keywords.some((kw) => tooShort(kw)))
     errors.keywords = `A keyword needs at least ${KEYWORD_MIN_LENGTH} characters: ${keywords
-      .filter((kw) => [...kw.trim()].length < KEYWORD_MIN_LENGTH)
+      .filter((kw) => tooShort(kw))
       .map((kw) => `"${kw}"`)
       .join(', ')}.`;
   if (!draft.replyText.trim()) errors.replyText = 'Write the reply text.';

@@ -135,9 +135,9 @@ const RuleForm = ({
           Matches whole words in the subject or the message, in any letter case, and words that
           continue them (refund → refunds, возврат → возврата). A word whose ending changes (почта →
           почты) needs that form too. Add the word in each language your customers write in. A
-          keyword needs at least 3 characters and must not be a word most emails contain (order,
-          hello, заказ): a rule replies and resolves the thread. Use a specific word or a phrase
-          ("order status").
+          keyword needs at least 3 characters (an acronym in capitals, like TV, is fine) and must
+          not be a word most emails contain (order, hello, заказ): a rule replies and resolves the
+          thread. Use a specific word or a phrase ("order status").
         </p>
       </div>
       <div className="space-y-2">
