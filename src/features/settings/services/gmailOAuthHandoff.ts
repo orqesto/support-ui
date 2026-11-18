@@ -61,15 +61,18 @@ export const announceGmailOAuthError = (state: string, error: string): void => {
 };
 
 /**
- * App window: listen on the channel for codes and errors; returns the stop function. Every message
- * is handed on — the caller's flow is THE one place that checks the state (its own flow only) and
- * acknowledges (acknowledgeGmailOAuthCode). No channel: nothing is listened for.
+ * App window: listen on the channel for codes and errors. Every message is handed on — the caller's
+ * flow is THE one place that checks the state (its own flow only) and acknowledges, once, on this
+ * same channel (`acknowledge`), whichever path delivered the code. No channel: nothing is listened
+ * for and nothing is acknowledged.
  */
 export const listenForGmailOAuthCode = (
   onCode: (handoff: GmailOAuthHandoff) => void,
   onError: (failure: GmailOAuthFailure) => void
-): (() => void) => {
-  if (typeof BroadcastChannel === 'undefined') return () => undefined;
+): { stop: () => void; acknowledge: (state: string) => void } => {
+  if (typeof BroadcastChannel === 'undefined') {
+    return { stop: () => undefined, acknowledge: () => undefined };
+  }
   const channel = new BroadcastChannel(GMAIL_OAUTH_CHANNEL);
   channel.onmessage = (event: MessageEvent) => {
     const data = event.data as Partial<GmailOAuthHandoff> | Partial<GmailOAuthFailure> | null;
@@ -84,26 +87,20 @@ export const listenForGmailOAuthCode = (
       onCode({ type: 'GMAIL_OAUTH_SUCCESS', code: data.code, state: data.state });
     }
   };
-  return () => channel.close();
-};
-
-/**
- * App window: tell the pop-up its code was taken — whichever path delivered it (postMessage or the
- * channel), so the pop-up never shows "not confirmed" after a delivery.
- */
-export const acknowledgeGmailOAuthCode = (state: string): void => {
-  if (typeof BroadcastChannel === 'undefined') return;
-  const channel = new BroadcastChannel(GMAIL_OAUTH_CHANNEL);
-  const ack: GmailOAuthAck = { type: 'GMAIL_OAUTH_ACK', state };
-  channel.postMessage(ack);
-  channel.close();
+  return {
+    stop: () => channel.close(),
+    acknowledge: (state: string) => {
+      const ack: GmailOAuthAck = { type: 'GMAIL_OAUTH_ACK', state };
+      channel.postMessage(ack);
+    },
+  };
 };
 
 /**
  * Did THIS tab start the full-page redirect flow? redirectToOAuth stores a pending config (never the
  * state, nor anything derived from it) before it leaves for Google. A pop-up started by this bundle
- * inherits none: connectWithPopup clears the tab's redirect keys before it opens the pop-up, so on
- * the callback page "a pending config is here" means the redirect flow. The backend checks the
+ * has none: connectWithPopup clears the keys in the pop-up's own copy before it navigates, so on the
+ * callback page "a pending config is here" means the redirect flow. The backend checks the
  * state itself (single use) when the code is exchanged.
  */
 export const isPendingRedirect = (): boolean =>

@@ -105,24 +105,75 @@ describe('NoReplyCheckFields — reset to default (driven by the refetch)', () =
     expect(box()).toHaveValue(WORDING);
   });
 
-  it('a reset whose own refetch never came: on expiry the field shows the saved value, Save stays off', async () => {
+  it('a reset whose own refetch never came: on expiry the values are fetched again and show the default', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const save = deferred();
+      const shown: { view?: ReturnType<typeof render> } = {};
+      const onSave = vi.fn(() => save.promise);
+      // The second fetch works: it brings the default.
+      const onRefetch = vi.fn(() => {
+        shown.view?.rerender(
+          <NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} onRefetch={onRefetch} />
+        );
+        return Promise.resolve();
+      });
+      shown.view = render(
+        <NoReplyCheckFields check={saved} saving={false} onSave={onSave} onRefetch={onRefetch} />
+      );
+      fireEvent.change(box(), { target: { value: `${WORDING} Unsaved edit.` } });
+      fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+      // The save succeeds, but its own refetch failed: the field does not change yet.
+      save.resolve();
+      await act(() => save.promise);
+      expect(onRefetch).not.toHaveBeenCalled();
+      await act(() => vi.advanceTimersByTimeAsync(ARMED_RESET_MS + 1));
+      expect(onRefetch).toHaveBeenCalledTimes(1);
+      expect(box()).toHaveValue(WORDING);
+      expect(screen.queryByText(/could not be loaded/)).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a reset whose value cannot be loaded even after expiry: marked unknown, Save blocked (never the stale wording as live)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const save = deferred();
+      const onSave = vi.fn(() => save.promise);
+      const onRefetch = vi.fn(() => Promise.reject(new Error('offline')));
+      const view = render(
+        <NoReplyCheckFields check={saved} saving={false} onSave={onSave} onRefetch={onRefetch} />
+      );
+      fireEvent.change(box(), { target: { value: `${WORDING} Unsaved edit.` } });
+      fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+      save.resolve();
+      await act(() => save.promise);
+      await act(() => vi.advanceTimersByTimeAsync(ARMED_RESET_MS + 1));
+      expect(screen.getByText(/could not be loaded. Reload the page/)).toBeInTheDocument();
+      fireEvent.change(box(), { target: { value: `${WORDING} Typed again.` } });
+      expect(screen.getByRole('button', { name: /Save "No reply needed"/ })).toBeInactive();
+      // Once the saved value arrives (another refetch), the field is known again.
+      view.rerender(
+        <NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} onRefetch={onRefetch} />
+      );
+      expect(screen.queryByText(/could not be loaded/)).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('a reset whose field landed has no timer left: unmounting leaves nothing scheduled', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     try {
       const { save, refetch } = mount();
-      const typed = `${WORDING} Unsaved edit.`;
-      fireEvent.change(box(), { target: { value: typed } });
       fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
-      // The save succeeds, but its refetch failed: the field does not change yet.
       save.resolve();
       await act(() => save.promise);
-      expect(box()).toHaveValue(typed);
-      await act(() => vi.advanceTimersByTimeAsync(ARMED_RESET_MS + 1));
-      // Re-seeded to the saved value: the pre-Reset edit is not left to be saved back.
-      expect(box()).toHaveValue(`${WORDING} Saved.`);
-      expect(screen.getByRole('button', { name: /Save "No reply needed"/ })).toBeInactive();
-      // A later admin's save is then an ordinary refetch of an untouched field.
-      refetch(otherAdminsWording);
-      expect(box()).toHaveValue(`${WORDING} Other.`);
+      // Armed: one expiry timer. The field's refetch lands and uses the reset: the timer is cleared.
+      expect(vi.getTimerCount()).toBe(1);
+      refetch(CHECK);
+      expect(vi.getTimerCount()).toBe(0);
     } finally {
       vi.useRealTimers();
     }

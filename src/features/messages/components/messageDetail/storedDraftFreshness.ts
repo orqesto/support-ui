@@ -207,26 +207,22 @@ export function noReplyNeededState(
   // A failed read shows no note (round 4): the error may still be the PREVIOUS thread's on the
   // first render after a switch, and a note it cannot check would flash.
   if (eventsState === 'failed') return { current: false, pending: false };
-  // A newer live email still waiting for its verdict may be the customer writing again (the
-  // backend drops the marker once the verdict lands): nothing shown meanwhile. After the wait the
-  // thread follows the backend's marker, exactly as the card chip does — one rule for both (review
-  // of #980); a verdict that lands later drops the marker on the backend.
-  if (newerUnjudgedInbound(marker.eventId, sortedThread)) return { current: false, pending: true };
-  // The backend's marker stands unless the loaded thread PROVES a newer customer email (its clear
-  // has not reached the app yet); an unknown verdict trusts the backend.
+  // THE rule is the backend's (the API sends the marker only while its email is the thread's reply
+  // turn; an email waiting for its verdict counts). The loaded events only cover the moment the
+  // app's copy of the thread is older than they are: a newer live email — judged as the customer
+  // writing, or still unjudged — means the marker is not current. No clock, no wait: an unknown
+  // verdict trusts the backend.
+  if (newerUnjudgedInbound(marker.eventId, sortedThread)) return { current: false, pending: false };
   return {
     current: customerEmailVerdict(marker.eventId, sortedThread) !== 'older',
     pending: false,
   };
 }
 
-/** How long a newer email without a verdict is "waiting": the save stamps it within seconds. */
-const VERDICT_WAIT_MS = 10 * 60_000;
-
 /**
- * A LIVE inbound email after the marked one that has no verdict yet and arrived within the wait.
- * Mail that never gets a verdict is not waiting (neverJudged). "After" is isAfterNamed, the same
- * rule as customerEmailVerdict (review of #980). A time that does not parse proves nothing.
+ * A LIVE inbound email after the marked one that has no verdict yet (the backend counts it as the
+ * reply turn). Mail that never gets a verdict does not count (neverJudged). "After" is isAfterNamed,
+ * the same rule as customerEmailVerdict (review of #980). A time that does not parse proves nothing.
  */
 const newerUnjudgedInbound = (eventId: number, sortedThread: readonly MessageEvent[]): boolean => {
   const { allInbound } = customerViewOf(sortedThread);
@@ -240,7 +236,6 @@ const newerUnjudgedInbound = (eventId: number, sortedThread: readonly MessageEve
     // The one order (isAfterNamed): stored time, by id only when the marked email is not loaded.
     if (!isAfterNamed(at, event.id, namedAt, eventId)) return false;
     const meta = (event.metadata ?? {}) as EventMarks;
-    if (neverJudged(meta) || hasVerdict(meta)) return false;
-    return Date.now() - at < VERDICT_WAIT_MS;
+    return !neverJudged(meta) && !hasVerdict(meta);
   });
 };

@@ -2,7 +2,6 @@ import { apiClient } from '@/lib/api-client';
 import {
   GMAIL_OAUTH_PAYLOAD_KEY,
   GMAIL_OAUTH_PENDING_CONFIG_KEY,
-  acknowledgeGmailOAuthCode,
   isPendingRedirect,
   listenForGmailOAuthCode,
   oauthErrorText,
@@ -71,7 +70,9 @@ export type MarkImportedGrant = { sourceId: number; label?: string };
 /** The CSRF state in Google's authorize URL; null when the URL does not parse or carries none. */
 const oauthStateOf = (authUrl: string): string | null => {
   try {
-    return new URL(authUrl).searchParams.get('state') ?? null;
+    // `state=` (empty) is no state either.
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- '' must be null too
+    return new URL(authUrl).searchParams.get('state') || null;
   } catch {
     return null;
   }
@@ -80,19 +81,15 @@ const oauthStateOf = (authUrl: string): string | null => {
 /**
  * Each pop-up flow gets its own window name: a shared name let a second flow from the same tab
  * (Reconnect, then Mark imported; a second mailbox card) take over the first flow's pop-up, and the
- * first then waited out its timeout with its card stuck saving.
+ * first then waited out its timeout with its card stuck saving. Unique across page loads too (the
+ * time part): an old pop-up left open on its note is never reused by a new flow.
  */
+const POPUP_LOAD_ID = Date.now().toString(36);
 let popupFlowSeq = 0;
 const nextPopupName = (): string => {
   popupFlowSeq += 1;
-  return `gmail_oauth_${popupFlowSeq}`;
+  return `gmail_oauth_${POPUP_LOAD_ID}_${popupFlowSeq}`;
 };
-
-/**
- * A redirect flow started by THIS page load (redirectToOAuth; the card's manual-anchor fallback can
- * leave the page here): its pending config is live, never stale — a pop-up flow must not clear it.
- */
-let redirectStartedThisLoad = false;
 
 /** The readable reason of a refused request (the server's words), else the raw text. */
 const failureText = (error: unknown): string => getApiErrorMessage(error) ?? String(error);
@@ -171,14 +168,6 @@ export const gmailOAuthService = {
       const left = window.screen.width / 2 - width / 2;
       const top = window.screen.height / 2 - height / 2;
 
-      // A pop-up inherits a copy of this tab's sessionStorage: a STALE redirect config (an abandoned
-      // redirect of an earlier page load, or one stored by the bundle before this one) must not make
-      // the pop-up's callback page take the redirect path. A redirect this page load started is
-      // live (manual-anchor fallback): kept.
-      if (!redirectStartedThisLoad) {
-        sessionStorage.removeItem(GMAIL_OAUTH_PENDING_CONFIG_KEY);
-        sessionStorage.removeItem(GMAIL_OAUTH_PAYLOAD_KEY);
-      }
       const popup = window.open(
         'about:blank',
         nextPopupName(),
@@ -192,6 +181,17 @@ export const gmailOAuthService = {
           message: 'Browser blocked the OAuth popup.',
         });
         return;
+      }
+      // The pop-up (same-origin about:blank) holds its own COPY of this tab's sessionStorage, kept
+      // across Google and back to the callback page. Clear the redirect keys in THAT copy before it
+      // navigates: the pop-up never takes the redirect path, and this tab keeps its own redirect
+      // config (a redirect it started stays live). Verified in Chromium 153: without this the
+      // pop-up's callback page sees the inherited config; with it, none — and the opener keeps its.
+      try {
+        popup.sessionStorage.removeItem(GMAIL_OAUTH_PENDING_CONFIG_KEY);
+        popup.sessionStorage.removeItem(GMAIL_OAUTH_PAYLOAD_KEY);
+      } catch (error) {
+        logger.warn("Could not clear the pop-up's copy of the redirect keys:", error);
       }
 
       const executeOAuth = async () => {
@@ -240,7 +240,11 @@ export const gmailOAuthService = {
           // resolve the flow before the code arrives. A hard timeout below is the backstop.
           let resolved = false;
           let dispatched = false;
-          let stopListening: () => void = () => undefined;
+          let acknowledged = false;
+          let channel: { stop: () => void; acknowledge: (state: string) => void } = {
+            stop: () => undefined,
+            acknowledge: () => undefined,
+          };
           const messageHandler = (event: MessageEvent) => {
             // Verify origin for security
             if (event.origin !== window.location.origin) return;
@@ -262,16 +266,20 @@ export const gmailOAuthService = {
             resolved = true;
             clearTimeout(authTimeout);
             window.removeEventListener('message', messageHandler);
-            stopListening();
+            channel.stop();
             resolve(result);
           };
           // The one delivery: the pop-up's postMessage (opener kept) and the BroadcastChannel (opener
-          // severed by Google) both land here. THE state check: only THIS flow's state. Every
-          // delivery of it is acknowledged (whichever path came first); it is used once — the state
-          // is single-use server-side, so a second POST would race and falsely report failure.
+          // severed by Google) both land here. THE state check: only THIS flow's state. The first
+          // delivery is acknowledged once on the flow's own channel, whichever path came first; it
+          // is used once — the state is single-use server-side, so a second POST would race and
+          // falsely report failure.
           const dispatchCode = (code: string, state: string) => {
             if (state !== flowState) return;
-            acknowledgeGmailOAuthCode(state);
+            if (!acknowledged) {
+              acknowledged = true;
+              channel.acknowledge(state);
+            }
             if (dispatched || resolved) return;
             dispatched = true;
             // The pop-up closes itself (OAuthCallbackPage); opener-side popup.close() is
@@ -300,7 +308,7 @@ export const gmailOAuthService = {
           };
 
           window.addEventListener('message', messageHandler);
-          stopListening = listenForGmailOAuthCode(
+          channel = listenForGmailOAuthCode(
             (handoff) => dispatchCode(handoff.code, handoff.state),
             (failure) => failFromPopup(failure.state, failure.error)
           );
@@ -356,8 +364,7 @@ export const gmailOAuthService = {
     }
 
     // The config only (never the state): its presence tells the callback page this tab is the
-    // redirect flow (a pop-up flow clears stale keys before it opens).
-    redirectStartedThisLoad = true;
+    // redirect flow (a pop-up's own copy is cleared before it navigates).
     sessionStorage.setItem(
       GMAIL_OAUTH_PENDING_CONFIG_KEY,
       JSON.stringify({ config, redirectUri: configResponse.data.redirectUri })
