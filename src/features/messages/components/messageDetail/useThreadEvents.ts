@@ -18,6 +18,9 @@ import { useHoldReasonClearedRefresh } from '../../hooks/useHoldReasonClearedRef
 import { THREAD_PAGE } from './detailConstants';
 import type { MessageDetailProps } from './types';
 
+/** A marker re-read that brought nothing (it failed) is asked for once more after this long. */
+export const MARKER_REREAD_RETRY_MS = 5_000;
+
 /** MessageDetail's thread: the loaded window of events, its paging and the incremental read. */
 
 export function useThreadEvents(
@@ -251,12 +254,8 @@ export function useThreadEvents(
   // rule is the backend's — the API serves the marker only while its email is still the thread's
   // reply turn — so the served marker is shown as it is, with no copy of that rule here.
   const noReplyMarkerEventId = readNoReplyMarker(message.metadata)?.eventId ?? null;
-  // A finished thread shows no note — as its card shows no chip (noReplyNeededShown) and the
-  // backend's filter (a resolved or closed row carries the marker as stored).
-  const noReplyNeeded =
-    noReplyMarkerEventId !== null && message.status !== 'resolved' && message.status !== 'closed';
   // The app's copy of the conversation can be older than the loaded events: an inbound event newer
-  // than the marked email re-reads the conversation, which brings the marker's state now.
+  // than the marked email means the marker must be read again before it is believed.
   const newestInboundId = useMemo(
     () =>
       sortedThread.reduce(
@@ -265,11 +264,38 @@ export function useThreadEvents(
       ),
     [sortedThread]
   );
-  // Runs only when one of these values changes: one re-read per newer email, never a loop.
+  const markerRereadKey =
+    noReplyMarkerEventId !== null &&
+    eventsState === 'loaded' &&
+    newestInboundId > noReplyMarkerEventId
+      ? `${message.id}:${newestInboundId}`
+      : null;
+  // The re-read that landed (both re-reads hand over a NEW conversation object on success and
+  // leave it untouched on failure). Until it lands for this newest email the note is not shown:
+  // not while the re-read is in flight, and not after it failed (retried once).
+  const [markerConfirmedFor, setMarkerConfirmedFor] = useState<string | null>(null);
+  const messageRef = useRef(message);
+  messageRef.current = message;
+  const markerAsked = useRef<{ key: string; message: Message } | null>(null);
   useEffect(() => {
-    if (noReplyMarkerEventId === null || eventsState !== 'loaded') return;
-    if (newestInboundId > noReplyMarkerEventId) rereadHeaderRef.current?.();
-  }, [noReplyMarkerEventId, newestInboundId, eventsState, message.id]);
+    if (markerRereadKey === null || markerConfirmedFor === markerRereadKey) return undefined;
+    markerAsked.current = { key: markerRereadKey, message: messageRef.current };
+    rereadHeaderRef.current?.();
+    const retry = setTimeout(() => rereadHeaderRef.current?.(), MARKER_REREAD_RETRY_MS);
+    return () => clearTimeout(retry);
+  }, [markerRereadKey, markerConfirmedFor]);
+  useEffect(() => {
+    const asked = markerAsked.current;
+    if (asked?.key === markerRereadKey && message !== asked.message)
+      setMarkerConfirmedFor(asked.key);
+  }, [message, markerRereadKey]);
+  // A finished thread shows no note — as its card shows no chip (noReplyNeededShown) and the
+  // backend's filter (a resolved or closed row carries the marker as stored).
+  const noReplyNeeded =
+    noReplyMarkerEventId !== null &&
+    message.status !== 'resolved' &&
+    message.status !== 'closed' &&
+    (markerRereadKey === null || markerConfirmedFor === markerRereadKey);
   // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
   // only ever sit between days, in order.
   return {

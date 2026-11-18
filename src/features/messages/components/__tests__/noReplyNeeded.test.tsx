@@ -5,10 +5,10 @@
  * found" while that email is the customer's latest.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { render, renderHook, screen, waitFor } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { getAiState, noReplyNeededShown } from '../inboxCardHelpers';
 import { MessageGhostBubble } from '../MessageGhostBubble';
-import { useThreadEvents } from '../messageDetail/useThreadEvents';
+import { MARKER_REREAD_RETRY_MS, useThreadEvents } from '../messageDetail/useThreadEvents';
 import { messageService } from '@/services/message.service';
 import type { Message, MessageEvent } from '@/types';
 import type { MessageThread } from '@/services/message.service';
@@ -148,20 +148,49 @@ describe("thread view — the served marker is shown as it is (the rule is the b
     expect(hook.result.current.noReplyNeeded).toBe(false);
   });
 
-  it('an inbound event newer than the marked email re-reads the conversation, once; the answer decides', async () => {
+  it('an inbound event newer than the marked email: no note while the re-read is in flight; its answer decides', async () => {
     const { hook, onStatusChanged, message } = mountThread(marker, [
       inbound(1),
       inbound(2),
       inbound(3),
     ]);
     await waitFor(() => expect(onStatusChanged).toHaveBeenCalledTimes(1));
+    // In flight: the app's copy may be stale — nothing shown over the newer email.
+    expect(hook.result.current.noReplyNeeded).toBe(false);
     // The re-read still serves the marker (the newer email was not the customer writing): shown.
     hook.rerender({ message: { ...message, metadata: { noReplyNeeded: { eventId: 2 } } } });
-    expect(hook.result.current.noReplyNeeded).toBe(true);
+    await waitFor(() => expect(hook.result.current.noReplyNeeded).toBe(true));
     expect(onStatusChanged).toHaveBeenCalledTimes(1);
-    // The re-read serves none (the customer wrote again): gone.
+  });
+
+  it('the re-read serves no marker (the customer wrote again): no note', async () => {
+    const { hook, onStatusChanged, message } = mountThread(marker, [inbound(2), inbound(3)]);
+    await waitFor(() => expect(onStatusChanged).toHaveBeenCalledTimes(1));
     hook.rerender({ message: { ...message, metadata: {} } });
     expect(hook.result.current.noReplyNeeded).toBe(false);
+  });
+
+  it('the re-read fails (nothing new arrives): the note stays hidden, and it is asked for once more', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const { hook, onStatusChanged, message } = mountThread(marker, [inbound(2), inbound(3)]);
+      // The thread's events land (a resolved promise), then the first re-read is asked for.
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      expect(onStatusChanged).toHaveBeenCalledTimes(1);
+      await act(() => vi.advanceTimersByTimeAsync(MARKER_REREAD_RETRY_MS + 1));
+      expect(onStatusChanged).toHaveBeenCalledTimes(2);
+      expect(hook.result.current.noReplyNeeded).toBe(false);
+      // No third try, and still hidden.
+      await act(() => vi.advanceTimersByTimeAsync(MARKER_REREAD_RETRY_MS * 4));
+      expect(onStatusChanged).toHaveBeenCalledTimes(2);
+      expect(hook.result.current.noReplyNeeded).toBe(false);
+      // A later read of the conversation (any refresh) that still serves the marker: shown again.
+      hook.rerender({ message: { ...message, metadata: { noReplyNeeded: { eventId: 2 } } } });
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      expect(hook.result.current.noReplyNeeded).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('CONTROL: an outgoing event or a note after the marked email re-reads nothing', async () => {
