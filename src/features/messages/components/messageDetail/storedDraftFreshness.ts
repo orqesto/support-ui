@@ -142,6 +142,21 @@ type ThreadCustomerView = {
  */
 const storedAfter = (leftAt: number, rightAt: number): boolean => leftAt > rightAt;
 
+/**
+ * THE "after the named email" rule for both callers below (customerEmailVerdict and
+ * newerUnjudgedInbound): by stored time (storedAfter) when the named email is loaded; when it is not
+ * (on an earlier page, or newer than the page) there is no time to compare, so by id — ids rise with
+ * storage. Times that do not parse are the callers' to refuse first.
+ */
+const isAfterNamed = (
+  event: MessageEvent,
+  named: MessageEvent | undefined,
+  namedId: number
+): boolean =>
+  named
+    ? storedAfter(new Date(event.createdAt).getTime(), new Date(named.createdAt).getTime())
+    : event.id > namedId;
+
 /** One pass per thread array (the draft and the marker both ask, on every live pull). */
 const customerViewCache = new WeakMap<readonly MessageEvent[], ThreadCustomerView>();
 const customerViewOf = (sortedThread: readonly MessageEvent[]): ThreadCustomerView => {
@@ -168,11 +183,9 @@ export function customerEmailVerdict(
   // as the backend, which never drops a draft for an email stored after its pick (storedAfter).
   const named = allInbound.find((event) => event.id === eventId);
   if (named && Number.isNaN(storedAt(named))) return 'unknown';
-  const isLatest = named
-    ? !writing.some(
-        (event) => event.id !== named.id && storedAfter(storedAt(event), storedAt(named))
-      )
-    : eventId > Math.max(...writing.map((event) => event.id));
+  const isLatest = !writing.some(
+    (event) => event.id !== eventId && isAfterNamed(event, named, eventId)
+  );
   return isLatest ? 'latest' : 'older';
 }
 
@@ -212,10 +225,8 @@ const VERDICT_WAIT_MS = 10 * 60_000;
 
 /**
  * A LIVE inbound email after the marked one that has no verdict yet and arrived within the wait.
- * Mail that never gets a verdict is not waiting (neverJudged). "After": by stored time when the
- * marked email is loaded; by id when it is not (it may be on an earlier page, or newer than the
- * page — its event not loaded yet; ids rise with storage — review of #980). A time that does not
- * parse proves nothing.
+ * Mail that never gets a verdict is not waiting (neverJudged). "After" is isAfterNamed, the same
+ * rule as customerEmailVerdict (review of #980). A time that does not parse proves nothing.
  */
 const newerUnjudgedInbound = (eventId: number, sortedThread: readonly MessageEvent[]): boolean => {
   const { allInbound } = customerViewOf(sortedThread);
@@ -226,9 +237,8 @@ const newerUnjudgedInbound = (eventId: number, sortedThread: readonly MessageEve
     if (event.id === eventId) return false;
     const at = new Date(event.createdAt).getTime();
     if (Number.isNaN(at)) return false;
-    // The one order (storedAfter); by id when the marked email is not loaded.
-    const after = namedAt !== null ? storedAfter(at, namedAt) : event.id > eventId;
-    if (!after) return false;
+    // The one order (isAfterNamed): stored time, by id only when the marked email is not loaded.
+    if (!isAfterNamed(event, named, eventId)) return false;
     const meta = (event.metadata ?? {}) as EventMarks;
     if (neverJudged(meta) || hasVerdict(meta)) return false;
     return Date.now() - at < VERDICT_WAIT_MS;

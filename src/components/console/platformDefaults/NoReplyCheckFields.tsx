@@ -50,25 +50,26 @@ export const NoReplyCheckFields = ({
   // Re-seed only the fields the operator has not edited (useReseededTexts, review of #1503): the
   // numbers compare by value, the wording trimmed; a field's source is its version (a reset to a
   // default equal to the stored value still lands).
-  const { texts, setTexts, isSame, markReset, cancelReset } = useReseededTexts<keyof Texts>(
-    savedTexts(check),
-    {
-      trimmed: ['instructions'],
-      numeric: NO_REPLY_CHECK_NUMBERS,
-      versions: {
-        ownTextMaxChars: check.ownTextMaxChars.source,
-        inlineLogoMaxBytes: check.inlineLogoMaxBytes.source,
-        instructions: check.instructions.source,
-      },
-    }
-  );
+  const { texts, setTexts, isSame, trackReset } = useReseededTexts<keyof Texts>(savedTexts(check), {
+    trimmed: ['instructions'],
+    numeric: NO_REPLY_CHECK_NUMBERS,
+    versions: {
+      ownTextMaxChars: check.ownTextMaxChars.source,
+      inlineLogoMaxBytes: check.inlineLogoMaxBytes.source,
+      instructions: check.instructions.source,
+    },
+  });
   // Reset: the field shows the default once its refetch lands — unless the operator typed since;
   // the inputs stay editable (review of #980).
   const reset = (field: keyof Texts) => {
-    markReset(field);
-    // Tied to THIS save: a failure clears the pending reset, so a later refetch (another admin's
-    // save) never overwrites the edit with it (review of #980).
-    void Promise.resolve(onSave({ [field]: null })).catch(() => cancelReset(field));
+    // Tied to THIS save: applied only after it succeeded, dropped when it fails, so another admin's
+    // refetch never overwrites the edit with a reset that did not happen (review of #980).
+    void trackReset(field, Promise.resolve(onSave({ [field]: null })));
+  };
+
+  // The shared mutation already reports a failed save: the rejection only must not go unhandled.
+  const save = (input: NoReplyCheckInput) => {
+    void Promise.resolve(onSave(input)).catch(() => undefined);
   };
 
   const errors: Partial<Texts> = {};
@@ -148,7 +149,7 @@ export const NoReplyCheckFields = ({
           </Button>
         )}
       </div>
-      <Button disabled={saving || nothingChanged || hasError} onClick={() => onSave(changed)}>
+      <Button disabled={saving || nothingChanged || hasError} onClick={() => save(changed)}>
         Save &quot;No reply needed&quot;
       </Button>
     </div>

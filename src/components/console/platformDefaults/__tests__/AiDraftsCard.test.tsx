@@ -446,3 +446,95 @@ describe('normalizeDrafts — agentNoteFacts', () => {
     }
   });
 });
+
+describe('AiDraftsCard — saves through the real mutateAsync path (fact check, "No reply needed")', () => {
+  const WORDING = 'false only for pure thanks or a confirmation; true for anything else at all.';
+  const CHECK = {
+    ownTextMaxChars: { value: 300, source: 'default' as const, min: 100, max: 1000 },
+    inlineLogoMaxBytes: { value: 20000, source: 'default' as const, min: 0, max: 200000 },
+    instructions: { value: WORDING, source: 'default' as const, minLength: 40, maxLength: 2000 },
+  };
+  const FACTS = {
+    minDigits: { value: 3, source: 'default' as const, min: 2, max: 6 },
+    minJoinedLength: { value: 6, source: 'default' as const, min: 4, max: 12 },
+    maxRequiredFactsChars: { value: 600, source: 'db' as const, min: 200, max: 1000 },
+  };
+  const SAVED_WORDING = {
+    ...CHECK,
+    instructions: { ...CHECK.instructions, value: `${WORDING} Saved.`, source: 'db' as const },
+  };
+  const drafts = (check: typeof CHECK | typeof SAVED_WORDING = CHECK) => ({
+    ...WITH_PIPELINE,
+    agentNoteFacts: FACTS,
+    noReplyCheck: check,
+  });
+  // One client for the whole test: a refetch is a rerender with the new values.
+  const mount = (check: typeof CHECK | typeof SAVED_WORDING = CHECK) => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = render(
+      <QueryClientProvider client={client}>
+        <AiDraftsCard drafts={drafts(check)} />
+      </QueryClientProvider>
+    );
+    const refetch = (next: typeof CHECK | typeof SAVED_WORDING) =>
+      view.rerender(
+        <QueryClientProvider client={client}>
+          <AiDraftsCard drafts={drafts(next)} />
+        </QueryClientProvider>
+      );
+    return { refetch };
+  };
+  const wording = () => screen.getByLabelText(/What counts as needing no reply/);
+  const resetWording = () => screen.getByRole('button', { name: 'Reset wording to default' });
+  const saveNoReply = () => screen.getByRole('button', { name: /Save "No reply needed"/ });
+
+  it('fact check: a success says so; a failure is reported once, without the success toast', async () => {
+    mount();
+    fireEvent.change(screen.getByLabelText(/Digits that make a fact/), { target: { value: '4' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save fact check' }));
+    await waitFor(() =>
+      expect(toastSuccess).toHaveBeenCalledWith('Fact check saved. Applies within a minute.')
+    );
+    putFails = new Error('refused');
+    fireEvent.click(screen.getByRole('button', { name: 'Save fact check' }));
+    await waitFor(() => expect(toastFailure).toHaveBeenCalledTimes(1));
+    expect(toastSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('"No reply needed": a success says so; a rejected save is reported, not thrown', async () => {
+    mount();
+    fireEvent.change(screen.getByLabelText(/Longest reply checked/), { target: { value: '400' } });
+    fireEvent.click(saveNoReply());
+    await waitFor(() =>
+      expect(toastSuccess).toHaveBeenCalledWith('"No reply needed" saved. Applies within a minute.')
+    );
+    expect(puts.at(-1)?.body).toEqual({ noReplyCheck: { ownTextMaxChars: 400 } });
+    putFails = new Error('refused');
+    fireEvent.click(saveNoReply());
+    await waitFor(() =>
+      expect(toastFailure).toHaveBeenCalledWith('save the AI draft settings', putFails)
+    );
+    expect(toastSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('a reset that saved: the refetch shows the default', async () => {
+    const { refetch } = mount(SAVED_WORDING);
+    fireEvent.change(wording(), { target: { value: `${WORDING} Unsaved edit.` } });
+    fireEvent.click(resetWording());
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledTimes(1));
+    expect(puts.at(-1)?.body).toEqual({ noReplyCheck: { instructions: null } });
+    refetch(CHECK);
+    expect(wording()).toHaveValue(WORDING);
+  });
+
+  it('a reset whose save failed is dropped: the edit survives a later refetch of the wording', async () => {
+    const { refetch } = mount(SAVED_WORDING);
+    const typed = `${WORDING} Unsaved edit.`;
+    fireEvent.change(wording(), { target: { value: typed } });
+    putFails = new Error('refused');
+    fireEvent.click(resetWording());
+    await waitFor(() => expect(toastFailure).toHaveBeenCalledTimes(1));
+    refetch(CHECK);
+    expect(wording()).toHaveValue(typed);
+  });
+});

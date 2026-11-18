@@ -59,7 +59,12 @@ const SAMPLE: PlatformSettings = {
 };
 
 let settings: PlatformSettings = SAMPLE;
-const noopMutation = { mutate: vi.fn(), isPending: false };
+// mutateAsync too: the fact check and "No reply needed" save through it (a promise per save).
+const noopMutation = {
+  mutate: vi.fn(),
+  mutateAsync: vi.fn(() => Promise.resolve()),
+  isPending: false,
+};
 vi.mock('@/hooks/useBackendVersion', () => ({
   useBackendVersion: () => ({ data: { bedrockInstanceProfile: false }, isLoading: false }),
 }));

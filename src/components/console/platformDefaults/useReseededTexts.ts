@@ -24,9 +24,12 @@ export const useReseededTexts = <K extends string>(
 ) => {
   const [texts, setTexts] = useState(saved);
   const seededRef = useRef({ values: saved, versions });
-  // Fields reset by the operator: the text they held at Reset. Applied when THAT field's refetch
-  // lands (its value or version changes) — never by an unrelated refetch, never after a failed save.
-  const pendingReset = useRef(new Map<K, string>());
+  // Fields reset by the operator: the text they held at Reset. A reset is applied only once ITS OWN
+  // save succeeded: a refetch of the field that lands while the save is in flight (another admin's
+  // save, or this save's own refetch, which the mutation awaits) only marks it `landed`; the save's
+  // success then applies it at once (landed) or arms it for the field's next refetch. A failed save
+  // drops it, so the edit is never replaced by a reset that did not happen.
+  const pendingReset = useRef(new Map<K, { from: string; armed: boolean; landed: boolean }>());
   const keys = Object.keys(saved) as K[];
   const savedKey = keys.map((key) => `${saved[key]}\u0001${versions[key] ?? ''}`).join('\u0002');
 
@@ -44,9 +47,19 @@ export const useReseededTexts = <K extends string>(
     );
     // Mount, or a refetch that changed nothing: no state update.
     if (changed.length === 0) return;
-    // A copy: the updater may run after this effect returns.
-    const resets = new Map(pendingReset.current);
-    for (const key of changed) pendingReset.current.delete(key);
+    // The armed resets of the changed fields (a copy: the updater may run after this effect
+    // returns); a reset whose save is still in flight only learns that its field landed.
+    const resets = new Map<K, string>();
+    for (const key of changed) {
+      const entry = pendingReset.current.get(key);
+      if (!entry) continue;
+      if (entry.armed) {
+        resets.set(key, entry.from);
+        pendingReset.current.delete(key);
+      } else {
+        entry.landed = true;
+      }
+    }
     setTexts((current) => {
       const merged = { ...current };
       for (const key of changed) {
@@ -64,11 +77,32 @@ export const useReseededTexts = <K extends string>(
   }, [savedKey]);
 
   /**
-   * Reset `key`: call before saving it. Its refetch shows the reset value — only while the field
-   * still holds what it held now (newer typing is kept); a failed save changes nothing.
+   * Reset `key` with `save` (the save of its default). Once that save succeeds the field shows the
+   * saved value — only while it still holds what it held at Reset (newer typing is kept); a failed
+   * save changes nothing. The returned promise never rejects (the mutation reports the failure).
    */
-  const markReset = (key: K) => pendingReset.current.set(key, texts[key]);
-  /** The reset's save failed: forget it — the field keeps its edit under the normal rule. */
-  const cancelReset = (key: K) => pendingReset.current.delete(key);
-  return { texts, setTexts, isSame, markReset, cancelReset };
+  const trackReset = (key: K, save: Promise<unknown>): Promise<void> => {
+    const entry = { from: texts[key], armed: false, landed: false };
+    pendingReset.current.set(key, entry);
+    return save.then(
+      () => {
+        // A newer Reset of the same field replaced this one: it decides.
+        if (pendingReset.current.get(key) !== entry) return;
+        if (!entry.landed) {
+          entry.armed = true;
+          return;
+        }
+        // The field's refetch already landed (the mutation awaits it): apply it now.
+        pendingReset.current.delete(key);
+        const latest = seededRef.current.values[key];
+        setTexts((current) =>
+          current[key] === entry.from ? { ...current, [key]: latest } : current
+        );
+      },
+      () => {
+        if (pendingReset.current.get(key) === entry) pendingReset.current.delete(key);
+      }
+    );
+  };
+  return { texts, setTexts, isSame, trackReset };
 };
