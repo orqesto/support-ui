@@ -69,10 +69,11 @@ describe('inbox card — "No reply needed" chip', () => {
     );
   });
 
-  it('AI drafts off: a leftover stored draft is not offered, so the chip shows', () => {
-    const leftover = card({ ...marked, suggestedAnswer: { answer: 'old' } });
-    expect(noReplyNeededShown(leftover, thread, true)).toBe(true);
-    expect(noReplyNeededShown(leftover, thread, false)).toBe(false);
+  it('a stored draft (an object, as the backend filter reads it) hides the chip', () => {
+    const stored = card({ ...marked, suggestedAnswer: { answer: 'old' } });
+    expect(noReplyNeededShown(stored, thread)).toBe(false);
+    // Not a draft object: the filter lists the thread, so the card shows the chip.
+    expect(noReplyNeededShown(card({ ...marked, suggestedAnswer: 'text' }), thread)).toBe(true);
   });
 
   it('a review reason keeps its chip; a STALE "Auto-handled" from an earlier email does not', () => {

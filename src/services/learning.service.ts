@@ -147,10 +147,7 @@ export const ROUTING_PROPOSAL_TYPES = [
   'confirm_learned_rule',
 ] as const;
 export type RoutingProposalType = (typeof ROUTING_PROPOSAL_TYPES)[number];
-export const isRoutingProposal = (suggestion: {
-  domain: string;
-  suggestionType: string;
-}): boolean =>
+export const isRoutingProposal = (suggestion: { domain: string; suggestionType: string }): boolean =>
   suggestion.domain === 'routing' &&
   (ROUTING_PROPOSAL_TYPES as readonly string[]).includes(suggestion.suggestionType);
 
@@ -205,8 +202,7 @@ export type RoutingProposalEvidence = {
 
 const isObj = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value);
-const num = (value: unknown): value is number =>
-  typeof value === 'number' && Number.isFinite(value);
+const num = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const strOrNull = (value: unknown): string | null => (typeof value === 'string' ? value : null);
 /** An ISO time the card can render; anything unparsable ⇒ null (never "Invalid Date" / epoch). */
 const timeOrNull = (value: unknown): string | null =>
@@ -229,8 +225,7 @@ const toConversation = (raw: unknown): ProposalConversation | null => {
 };
 
 const toReplay = (raw: unknown): ReplaySummary | null => {
-  if (!isObj(raw) || !num(raw.matches) || !num(raw.inDepartment) || !num(raw.lookbackDays))
-    return null;
+  if (!isObj(raw) || !num(raw.matches) || !num(raw.inDepartment) || !num(raw.lookbackDays)) return null;
   const rec = raw.recommendation;
   return {
     matches: raw.matches,
@@ -240,8 +235,7 @@ const toReplay = (raw: unknown): ReplaySummary | null => {
     at: timeOrNull(raw.at),
     skipped: num(raw.skipped) ? raw.skipped : 0,
     truncated: raw.truncated === true,
-    recommendation:
-      rec === 'recommended' || rec === 'review' || rec === 'not_recommended' ? rec : null,
+    recommendation: rec === 'recommended' || rec === 'review' || rec === 'not_recommended' ? rec : null,
   };
 };
 
@@ -283,9 +277,8 @@ export const normalizeProposalEvidence = (raw: unknown): RoutingProposalEvidence
         redactedCount: num(dept.redactedCount) ? dept.redactedCount : 0,
         contradictions: Array.isArray(dept.contradictions)
           ? dept.contradictions
-              .filter(
-                (entry): entry is { departmentId: number; count: number } =>
-                  isObj(entry) && num(entry.departmentId) && num(entry.count)
+              .filter((entry): entry is { departmentId: number; count: number } =>
+                isObj(entry) && num(entry.departmentId) && num(entry.count)
               )
               .map((entry) => ({ departmentId: entry.departmentId, count: entry.count }))
           : [],
@@ -295,8 +288,7 @@ export const normalizeProposalEvidence = (raw: unknown): RoutingProposalEvidence
     ];
   });
   const auto = isObj(raw.autoAccept) ? raw.autoAccept : {};
-  const mode: TrustMode =
-    auto.mode === 'balanced' || auto.mode === 'aggressive' ? auto.mode : 'manual';
+  const mode: TrustMode = auto.mode === 'balanced' || auto.mode === 'aggressive' ? auto.mode : 'manual';
   return {
     kind: raw.kind as RoutingProposalType,
     departments,
@@ -342,12 +334,8 @@ export const learningService = {
       data: SuggestionEvidenceResponse;
     }>(`/api/learning/suggestions/${id}/evidence`);
     const data = response.data.data;
-    if (!data)
-      return { evidence: [], ruleA: null, ruleB: null, scannedCount: null, proposal: null };
-    return {
-      ...data,
-      proposal: normalizeProposalEvidence((data as { proposal?: unknown }).proposal),
-    };
+    if (!data) return { evidence: [], ruleA: null, ruleB: null, scannedCount: null, proposal: null };
+    return { ...data, proposal: normalizeProposalEvidence((data as { proposal?: unknown }).proposal) };
   },
 
   /**

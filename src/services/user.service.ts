@@ -30,7 +30,9 @@ export const userService = {
    * "Assigned manager" picker, where members past the tenth simply could not be chosen.
    * Prefer this whenever the caller wants the population rather than one page.
    */
-  getAllPages: async (search?: string): Promise<{ data: User[]; total: number }> => {
+  getAllPages: async (
+    search?: string
+  ): Promise<{ data: User[]; total: number }> => {
     const PAGE_SIZE = 100; // the endpoint's own cap — asking for more does not help
     const MAX_PAGES = 20; // runaway backstop
     const collected: User[] = [];
@@ -57,8 +59,9 @@ export const userService = {
     params.append('page', page.toString());
     params.append('limit', limit.toString());
 
-    const response: AxiosResponse<ApiResponse<{ users: User[]; pagination: PaginationMeta }>> =
-      await apiClient.get(`/api/users?${params.toString()}`);
+    const response: AxiosResponse<ApiResponse<{ users: User[]; pagination: PaginationMeta }>> = await apiClient.get(
+      `/api/users?${params.toString()}`
+    );
     return {
       data: response.data.data?.users ?? [],
       pagination: response.data.data?.pagination ?? {
@@ -86,10 +89,7 @@ export const userService = {
     // Skew guard: `idpManaged` arrives with the ownership-guard wave. A console build that
     // reaches production first must not read undefined as "editable" any more loudly than it
     // has to — false keeps today's behaviour, and the API refuses the write regardless.
-    return (response.data.data ?? []).map((row) => ({
-      ...row,
-      idpManaged: row.idpManaged ?? false,
-    }));
+    return (response.data.data ?? []).map((row) => ({ ...row, idpManaged: row.idpManaged ?? false }));
   },
 
   // Get current user. The /me shape is locked by the CurrentUser BE contract test;
@@ -102,16 +102,7 @@ export const userService = {
   },
 
   // Update current user (self) — no elevated permissions required
-  updateSelf: async (data: {
-    signature?: string | null;
-    firstName?: string;
-    lastName?: string;
-    position?: string;
-    telegram?: string;
-    slack?: string;
-    phone?: string;
-    password?: string;
-  }): Promise<User> => {
+  updateSelf: async (data: { signature?: string | null; firstName?: string; lastName?: string; position?: string; telegram?: string; slack?: string; phone?: string; password?: string }): Promise<User> => {
     const response: AxiosResponse<ApiResponse<User>> = await apiClient.put('/api/users/me', data);
     return response.data.data as User;
   },
@@ -124,10 +115,7 @@ export const userService = {
 
   // Update user
   update: async (id: number, data: Partial<User>): Promise<User> => {
-    const response: AxiosResponse<ApiResponse<User>> = await apiClient.put(
-      `/api/users/${id}`,
-      data
-    );
+    const response: AxiosResponse<ApiResponse<User>> = await apiClient.put(`/api/users/${id}`, data);
     return response.data.data as User;
   },
 
@@ -154,9 +142,7 @@ export const userService = {
 
   // Skill values (structured key→value routing skills) — admin access by user ID
   getSkillValues: async (userId: number): Promise<Record<string, string[]>> => {
-    const response: AxiosResponse<ApiResponse<Record<string, string[]>>> = await apiClient.get(
-      `/api/users/${userId}/skill-values`
-    );
+    const response: AxiosResponse<ApiResponse<Record<string, string[]>>> = await apiClient.get(`/api/users/${userId}/skill-values`);
     return response.data.data ?? {};
   },
 
@@ -169,9 +155,7 @@ export const userService = {
   },
 
   getCanEditSkills: async (userId: number): Promise<boolean> => {
-    const response: AxiosResponse<ApiResponse<{ canEditSkills: boolean }>> = await apiClient.get(
-      `/api/users/${userId}/can-edit-skills`
-    );
+    const response: AxiosResponse<ApiResponse<{ canEditSkills: boolean }>> = await apiClient.get(`/api/users/${userId}/can-edit-skills`);
     return response.data.data?.canEditSkills ?? false;
   },
 
@@ -181,17 +165,13 @@ export const userService = {
 
   // Self-access skill routes — no elevated permission required
   getSelfSkillValues: async (): Promise<Record<string, string[]>> => {
-    const response: AxiosResponse<ApiResponse<Record<string, string[]>>> = await apiClient.get(
-      '/api/users/me/skill-values'
-    );
+    const response: AxiosResponse<ApiResponse<Record<string, string[]>>> = await apiClient.get('/api/users/me/skill-values');
     return response.data.data ?? {};
   },
 
   /** Per key, the values the workspace already has — what an agent may pick for themselves. */
   getSelfSkillOptions: async (): Promise<Record<string, string[]>> => {
-    const response: AxiosResponse<ApiResponse<Record<string, string[]>>> = await apiClient.get(
-      '/api/users/me/skill-options'
-    );
+    const response: AxiosResponse<ApiResponse<Record<string, string[]>>> = await apiClient.get('/api/users/me/skill-options');
     return response.data.data ?? {};
   },
 
@@ -204,9 +184,7 @@ export const userService = {
   },
 
   getSelfCanEditSkills: async (): Promise<boolean> => {
-    const response: AxiosResponse<ApiResponse<{ canEditSkills: boolean }>> = await apiClient.get(
-      '/api/users/me/can-edit-skills'
-    );
+    const response: AxiosResponse<ApiResponse<{ canEditSkills: boolean }>> = await apiClient.get('/api/users/me/can-edit-skills');
     return response.data.data?.canEditSkills ?? false;
   },
 

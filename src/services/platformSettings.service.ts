@@ -40,6 +40,7 @@ export type {
   SecretVerification,
 } from './platformSecrets';
 import type { BoundedField, FieldSource, ResolvedField } from './resolvedField';
+import { readBounded } from './boundedFieldRead';
 import { readAgentNoteFacts } from './agentNoteFacts.settings';
 import type { AgentNoteFactsInput, AgentNoteFactsSettings } from './agentNoteFacts.settings';
 import { readNoReplyCheck } from './noReplyCheck.settings';
@@ -478,14 +479,6 @@ export const normalizeCustomApi = (raw: unknown): PlatformSettings['customApi'] 
   const noMatchStreak = readCount(raw.health.noMatchStreak);
   const okWindowDays = readCount(raw.health.okWindowDays);
   return noMatchStreak && okWindowDays ? { health: { noMatchStreak, okWindowDays } } : undefined;
-};
-
-const readBounded = (raw: unknown): BoundedField | undefined => {
-  const count = readCount(raw);
-  if (!count || !isRecord(raw) || count.value === null) return undefined;
-  const { min, max } = raw;
-  if (!Number.isInteger(min) || !Number.isInteger(max)) return undefined;
-  return { value: count.value, source: count.source, min: min as number, max: max as number };
 };
 
 export const INGESTION_FIELDS = [

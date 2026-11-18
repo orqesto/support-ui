@@ -116,7 +116,11 @@ export const NoReplyCheckFields = ({
                 variant="ghost"
                 size="sm"
                 disabled={saving}
-                onClick={() => onSave({ [field]: null })}
+                onClick={() => {
+                  // Drop an unsaved edit first: the re-seed then shows the default it saved.
+                  setTexts((current) => ({ ...current, [field]: seeded[field] }));
+                  onSave({ [field]: null });
+                }}
               >
                 Reset to default
               </Button>
@@ -144,7 +148,10 @@ export const NoReplyCheckFields = ({
             variant="ghost"
             size="sm"
             disabled={saving}
-            onClick={() => onSave({ instructions: null })}
+            onClick={() => {
+              setTexts((current) => ({ ...current, instructions: seeded.instructions }));
+              onSave({ instructions: null });
+            }}
           >
             Reset wording to default
           </Button>

@@ -7,6 +7,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { NoReplyCheckFields } from '../NoReplyCheckFields';
 import { normalizeDrafts } from '@/services/platformSettings.service';
 import type { NoReplyCheckSettings } from '@/services/noReplyCheck.settings';
+import { readBounded } from '@/services/boundedFieldRead';
 
 const WORDING = 'false only for pure thanks or a confirmation; true for anything else at all.';
 const CHECK: NoReplyCheckSettings = {
@@ -51,6 +52,43 @@ describe('NoReplyCheckFields', () => {
     fireEvent.change(box, { target: { value: next } });
     fireEvent.click(save);
     expect(onSave).toHaveBeenCalledWith({ instructions: next.trim() });
+  });
+});
+
+describe('NoReplyCheckFields — reset to default', () => {
+  it('an unsaved wording edit is dropped, so the saved default shows and Save stays off', () => {
+    const onSave = vi.fn();
+    const saved: NoReplyCheckSettings = {
+      ...CHECK,
+      instructions: { ...CHECK.instructions, value: `${WORDING} Saved.`, source: 'db' },
+    };
+    const { rerender } = render(
+      <NoReplyCheckFields check={saved} saving={false} onSave={onSave} />
+    );
+    const box = screen.getByLabelText(/What counts as needing no reply/);
+    fireEvent.change(box, { target: { value: `${WORDING} Unsaved edit.` } });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+    expect(onSave).toHaveBeenCalledWith({ instructions: null });
+    // The refetch answers the default.
+    rerender(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
+    expect(screen.getByLabelText(/What counts as needing no reply/)).toHaveValue(WORDING);
+    expect(screen.getByRole('button', { name: /Save "No reply needed"/ })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+  });
+});
+
+describe('readBounded — one reader for every bounded field', () => {
+  it('a source this build does not know reads as default; a fraction is not a bound', () => {
+    expect(readBounded({ value: 3, source: 'platform', min: 1, max: 9 })).toEqual({
+      value: 3,
+      source: 'default',
+      min: 1,
+      max: 9,
+    });
+    expect(readBounded({ value: 3, source: 'db', min: 1, max: 2.5 })).toBeUndefined();
+    expect(readBounded({ value: 2.5, source: 'db', min: 1, max: 9 })).toBeUndefined();
   });
 });
 

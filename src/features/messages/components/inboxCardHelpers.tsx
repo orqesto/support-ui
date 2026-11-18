@@ -555,21 +555,18 @@ export type AiState = {
 /**
  * The "No reply needed" chip (noReplyMarker.ts): shown while the backend's marker stands, unless
  * the row plainly says otherwise — our reply is the last word (the thread view hides its note then
- * too), the thread is finished, or a draft is offered (a stored draft replaces the marker on the
- * backend). Read like the card's status edge (getSpine): the thread's latest message, the thread's
- * own reply flag as the fallback. The backend's `no_reply_needed` AI State filter is this rule.
+ * too), the thread is finished, or a draft is stored (a stored draft replaces the marker on the
+ * backend; with AI drafts off too, as the filter reads it). Read like the card's status edge
+ * (getSpine): the thread's latest message, the thread's own reply flag as the fallback. The
+ * backend's `no_reply_needed` AI State filter is this rule (a draft = a JSON object there).
  */
-export const noReplyNeededShown = (
-  message: Message,
-  thread: MessageThread,
-  aiDraftsOff = false
-): boolean => {
+export const noReplyNeededShown = (message: Message, thread: MessageThread): boolean => {
   const metadata = message.metadata as Record<string, unknown> | undefined;
   if (!readNoReplyMarker(metadata)) return false;
   const statusMessage = thread.latestMessage ?? message;
   if (statusMessage.status === 'resolved' || statusMessage.status === 'closed') return false;
   const draft = metadata?.suggestedAnswer;
-  if (!aiDraftsOff && draft !== null && draft !== undefined) return false;
+  if (typeof draft === 'object' && draft !== null) return false;
   return (statusMessage.lastReplyFromClient ?? thread.lastReplyFromClient) !== false;
 };
 
@@ -636,7 +633,7 @@ export const getAiState = (
   }
   // Before "Auto-handled": that flag stays from any EARLIER email on the thread, the marker is about
   // the customer's latest ("thanks, that worked" after an auto-reply is the common case).
-  if (noReplyNeededShown(message, thread, aiDraftsOff)) {
+  if (noReplyNeededShown(message, thread)) {
     return {
       label: 'No reply needed',
       tooltip: 'The customer only thanked or confirmed, so no AI draft was made.',

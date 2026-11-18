@@ -38,18 +38,8 @@ export const featureFlagsService = { getUiFlags };
 export interface AdminFeatureFlag {
   key: string;
   codeDefault: boolean;
-  global: {
-    enabled: boolean;
-    updatedAt: string;
-    updatedBy: number | null;
-    notes: string | null;
-  } | null;
-  organization: {
-    enabled: boolean;
-    updatedAt: string;
-    updatedBy: number | null;
-    notes: string | null;
-  } | null;
+  global: { enabled: boolean; updatedAt: string; updatedBy: number | null; notes: string | null } | null;
+  organization: { enabled: boolean; updatedAt: string; updatedBy: number | null; notes: string | null } | null;
   effective: boolean;
   source: 'organization' | 'global' | 'code_default';
   /**
@@ -126,3 +116,4 @@ const clearFlag = (key: string, organizationId?: number | null): Promise<void> =
     .then(() => invalidateSharedFetch());
 
 export const featureFlagAdminService = { listAdmin, setFlag, clearFlag };
+

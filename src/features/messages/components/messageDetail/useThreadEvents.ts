@@ -17,6 +17,9 @@ import { useHoldReasonClearedRefresh } from '../../hooks/useHoldReasonClearedRef
 import { THREAD_PAGE } from './detailConstants';
 import type { MessageDetailProps } from './types';
 
+/** How often a thread waiting for a newer email's verdict re-reads the wait (it ends by time). */
+const NO_REPLY_WAIT_RECHECK_MS = 30_000;
+
 /** MessageDetail's thread: the loaded window of events, its paging and the incremental read. */
 
 export function useThreadEvents(
@@ -247,10 +250,21 @@ export function useThreadEvents(
     [message.metadata, sortedThread, eventsState]
   );
   // The customer's latest email only thanked or confirmed: no draft, and the thread says why.
+  // `waitTick`: a newer email waiting for its verdict holds the zone empty for a bounded time
+  // (noReplyNeededState); nothing else re-renders when that time runs out — a verdict stamped on an
+  // email already loaded never reaches the client — so the wait is re-read while it lasts.
+  const [waitTick, setWaitTick] = useState(0);
   const noReplyNeeded = useMemo(
     () => noReplyNeededState(message.metadata, sortedThread, eventsState),
-    [message.metadata, sortedThread, eventsState]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- waitTick re-reads the clock
+    [message.metadata, sortedThread, eventsState, waitTick]
   );
+  const waitingForVerdict = noReplyNeeded.pending && eventsState === 'loaded';
+  useEffect(() => {
+    if (!waitingForVerdict) return undefined;
+    const timer = setInterval(() => setWaitTick((tick) => tick + 1), NO_REPLY_WAIT_RECHECK_MS);
+    return () => clearInterval(timer);
+  }, [waitingForVerdict]);
   // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
   // only ever sit between days, in order.
   return {

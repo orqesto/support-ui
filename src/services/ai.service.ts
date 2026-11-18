@@ -12,9 +12,7 @@ type AIModelsResponse = {
  * be served against an older API during a deploy window — reading it unguarded is how a new
  * BE field white-screens a page. Every consumer must treat absence as "not managed".
  */
-type PlatformAI =
-  | { active: false }
-  | { active: true; provider: string; model: string; tier: string };
+type PlatformAI = { active: false } | { active: true; provider: string; model: string; tier: string };
 
 type AIProvidersResponse = {
   enabled: AIProvider[];
@@ -31,9 +29,7 @@ export const aiService = {
   },
 
   getProviders: async () => {
-    const response = await apiClient.get<{ success: boolean; data: AIProvidersResponse }>(
-      '/api/ai/providers'
-    );
+    const response = await apiClient.get<{ success: boolean; data: AIProvidersResponse }>('/api/ai/providers');
     return response.data;
   },
 };

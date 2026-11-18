@@ -24,8 +24,7 @@ const LEGACY_URL = '/api/users/me/notification-preferences';
 
 const SOURCES = ['always_on', 'locked', 'own', 'role_default', 'code_default'] as const;
 
-const isRecord = (val: unknown): val is Record<string, unknown> =>
-  typeof val === 'object' && val !== null;
+const isRecord = (val: unknown): val is Record<string, unknown> => typeof val === 'object' && val !== null;
 
 /** Never throws: missing pieces get defaults, unknown keys are kept. */
 export const normaliseSettings = (raw: unknown): NotificationSettings => {
@@ -63,14 +62,7 @@ const legacyToSettings = (raw: unknown): NotificationSettings => {
   for (const [field, keys] of LEGACY_LINES) {
     if (!(field in body)) continue;
     for (const key of keys) {
-      lines.push({
-        key,
-        value: body[field],
-        default: null,
-        source: 'own',
-        locked: false,
-        alwaysOn: false,
-      });
+      lines.push({ key, value: body[field], default: null, source: 'own', locked: false, alwaysOn: false });
     }
   }
   return { role: null, lines, legacy: true };
@@ -85,16 +77,13 @@ const LEGACY_REPROBE_MS = 10 * 60_000;
 let legacyMode = false;
 let legacySince = 0;
 
-const unwrap = (res: unknown): unknown =>
-  isRecord(res) && isRecord(res.data) ? res.data.data : undefined;
+const unwrap = (res: unknown): unknown => (isRecord(res) && isRecord(res.data) ? res.data.data : undefined);
 
 /** The api-client interceptor rethrows an Error with `status`/`data`; accept the axios shape too. */
 const errorStatus = (err: unknown): number | undefined => {
   if (!isRecord(err)) return undefined;
   if (typeof err.status === 'number') return err.status;
-  return isRecord(err.response) && typeof err.response.status === 'number'
-    ? err.response.status
-    : undefined;
+  return isRecord(err.response) && typeof err.response.status === 'number' ? err.response.status : undefined;
 };
 const errorBody = (err: unknown): Record<string, unknown> => {
   if (!isRecord(err)) return {};
@@ -106,9 +95,7 @@ const lockedKeysOf = (err: unknown): string[] | null => {
   if (errorStatus(err) !== 409) return null;
   const body = errorBody(err);
   if (body.code !== 'LINE_LOCKED') return null;
-  return Array.isArray(body.keys)
-    ? body.keys.filter((key): key is string => typeof key === 'string')
-    : [];
+  return Array.isArray(body.keys) ? body.keys.filter((key): key is string => typeof key === 'string') : [];
 };
 
 export const fetchNotificationSettings = async (): Promise<NotificationSettings> => {
@@ -128,9 +115,7 @@ export const fetchNotificationSettings = async (): Promise<NotificationSettings>
   return legacyToSettings(unwrap(res));
 };
 
-const saveLegacy = async (
-  lines: Record<string, unknown>
-): Promise<NotificationSettings | { lockedKeys: string[] }> => {
+const saveLegacy = async (lines: Record<string, unknown>): Promise<NotificationSettings | { lockedKeys: string[] }> => {
   // Read-modify-write so emailEnabled / digestEnabled (not lines) are sent back untouched.
   const current = unwrap(await apiClient.get(LEGACY_URL));
   const next: Record<string, unknown> = { ...(isRecord(current) ? current : {}) };
@@ -162,9 +147,7 @@ export const saveNotificationSettings = async (
 
 export const resetNotificationSettings = async (keys?: string[]): Promise<NotificationSettings> => {
   if (legacyMode) return fetchNotificationSettings();
-  return normaliseSettings(
-    unwrap(await apiClient.post(`${SETTINGS_URL}/reset`, keys ? { keys } : {}))
-  );
+  return normaliseSettings(unwrap(await apiClient.post(`${SETTINGS_URL}/reset`, keys ? { keys } : {})));
 };
 
 /** Test-only: forget the remembered legacy mode. */
@@ -197,13 +180,7 @@ const normaliseRoleDefaults = (raw: unknown): RoleDefaults => {
       const users = Array.isArray(row.differingUsers)
         ? row.differingUsers.flatMap((who) =>
             isRecord(who) && typeof who.name === 'string'
-              ? [
-                  {
-                    id: typeof who.id === 'number' ? who.id : 0,
-                    name: who.name,
-                    value: who.value ?? null,
-                  },
-                ]
+              ? [{ id: typeof who.id === 'number' ? who.id : 0, name: who.name, value: who.value ?? null }]
               : []
           )
         : [];
@@ -242,6 +219,4 @@ export const saveRoleDefaults = async (
   role: string,
   lines: Record<string, { value: unknown; locked: boolean }>
 ): Promise<RoleDefaults> =>
-  normaliseRoleDefaults(
-    unwrap(await apiClient.put(`${ROLES_URL}/${encodeURIComponent(role)}`, { lines }))
-  );
+  normaliseRoleDefaults(unwrap(await apiClient.put(`${ROLES_URL}/${encodeURIComponent(role)}`, { lines })));
