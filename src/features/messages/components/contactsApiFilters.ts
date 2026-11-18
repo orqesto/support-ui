@@ -51,6 +51,8 @@ export function buildContactsApiFilters(filters: FilterState): Record<string, st
   if (filters.aiState === 'needs_info') filterObj.showNeedsInfo = 'true';
   if (filters.aiState === 'bot_handled') filterObj.botHandled = 'true';
   if (filters.aiState === 'contradiction') filterObj.hasContradiction = 'true';
+  // No boolean flag for it: the list's own AI State value (backend aiStatePredicate).
+  if (filters.aiState === 'no_reply_needed') filterObj.aiState = 'no_reply_needed';
   if (filters.linked === 'has_ticket') filterObj.hasTicket = 'true';
   if (filters.linked === 'has_jira') filterObj.hasJiraTicket = 'true';
   if (filters.priority && filters.priority !== 'all') filterObj.priority = filters.priority;

@@ -132,9 +132,26 @@ describe('noReplyNeededState — the thread view', () => {
     });
   });
 
-  it('a newer email without a verdict for longer than the wait: the marker is trusted again', () => {
+  it('a newer email still without a verdict after the wait: no note, nothing pending (review of #979)', () => {
+    // Never "no reply needed" over an email that may be a question; the zone shows its usual state.
     const old = event(3, { metadata: {}, customerWriting: false });
-    expect(noReplyNeededState(metadata, [event(1), event(2), old], 'loaded').current).toBe(true);
+    expect(noReplyNeededState(metadata, [event(1), event(2), old], 'loaded')).toEqual({
+      current: false,
+      pending: false,
+    });
+  });
+
+  it('the marked email is not on the loaded page: every loaded email is newer (review of #979)', () => {
+    const unjudged = event(3, {
+      metadata: {},
+      customerWriting: false,
+      createdAt: new Date().toISOString(),
+    });
+    // Marker names email 1, which is on an earlier page; the page holds only the unjudged one.
+    expect(noReplyNeededState({ noReplyNeeded: { eventId: 1 } }, [unjudged], 'loaded')).toEqual({
+      current: false,
+      pending: true,
+    });
   });
 
   it('an import or a bounce after it never gets a verdict — not "waiting": the note shows', () => {

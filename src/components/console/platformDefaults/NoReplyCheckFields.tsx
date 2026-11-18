@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
@@ -9,6 +8,7 @@ import {
   type NoReplyCheckSettings,
 } from '@/services/noReplyCheck.settings';
 import { SourceBadge } from './SourceBadge';
+import { useReseededTexts } from './useReseededTexts';
 
 export const NO_REPLY_CHECK_NOT_DEPLOYED =
   '"No reply needed" settings are not available on this server version yet.';
@@ -44,30 +44,19 @@ export const NoReplyCheckFields = ({
 }: {
   check: NoReplyCheckSettings;
   saving: boolean;
-  onSave: (changed: NoReplyCheckInput) => void;
+  /** `onSaved` runs only after the save succeeded. */
+  onSave: (changed: NoReplyCheckInput, onSaved?: () => void) => void;
 }) => {
-  const [texts, setTexts] = useState(() => savedTexts(check));
-  const [seeded, setSeeded] = useState(() => savedTexts(check));
-  const savedKey = Object.values(savedTexts(check)).join('|');
-  // Re-seed only the fields the operator has not edited (AgentNoteFactsFields, review of #1503).
-  useEffect(() => {
-    const next = savedTexts(check);
-    setTexts((current) => {
-      const merged = { ...current };
-      for (const key of Object.keys(next) as Array<keyof Texts>) {
-        // The wording is saved trimmed: a whitespace-only edit is no edit.
-        if (current[key].trim() === seeded[key].trim()) merged[key] = next[key];
-      }
-      return merged;
-    });
-    setSeeded(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- savedKey is the saved values
-  }, [savedKey]);
+  // Re-seed only the fields the operator has not edited (useReseededTexts, review of #1503).
+  const { texts, setTexts, discardEdit } = useReseededTexts<keyof Texts>(savedTexts(check));
+  // Reset: the edit is dropped only once the reset SAVED — a failed save keeps what was typed.
+  const reset = (field: keyof Texts) => onSave({ [field]: null }, () => discardEdit(field));
 
   const errors: Partial<Texts> = {};
   const changed: NoReplyCheckInput = {};
   for (const field of NO_REPLY_CHECK_NUMBERS) {
-    if (texts[field] === String(check[field].value)) continue;
+    // The same number typed differently ("0300") is no change.
+    if (texts[field].trim() !== '' && Number(texts[field]) === check[field].value) continue;
     const { min, max } = check[field];
     const value = Number(texts[field]);
     if (texts[field].trim() === '' || !Number.isInteger(value) || value < min || value > max) {
@@ -112,16 +101,7 @@ export const NoReplyCheckFields = ({
             <p className="text-xs text-muted-foreground">{LABELS[field].help}</p>
             <SourceBadge source={check[field].source} envLabel="Server setting" />
             {check[field].source === 'db' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={saving}
-                onClick={() => {
-                  // Drop an unsaved edit first: the re-seed then shows the default it saved.
-                  setTexts((current) => ({ ...current, [field]: seeded[field] }));
-                  onSave({ [field]: null });
-                }}
-              >
+              <Button variant="ghost" size="sm" disabled={saving} onClick={() => reset(field)}>
                 Reset to default
               </Button>
             )}
@@ -144,15 +124,7 @@ export const NoReplyCheckFields = ({
         </p>
         <SourceBadge source={check.instructions.source} envLabel="Server setting" />
         {check.instructions.source === 'db' && (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={saving}
-            onClick={() => {
-              setTexts((current) => ({ ...current, instructions: seeded.instructions }));
-              onSave({ instructions: null });
-            }}
-          >
+          <Button variant="ghost" size="sm" disabled={saving} onClick={() => reset('instructions')}>
             Reset wording to default
           </Button>
         )}

@@ -63,4 +63,12 @@ describe('the extraction changed nothing else', () => {
     expect(api.isLead).toBe('true');
     expect(api.search).toBe('ada@example.com');
   });
+
+  it('"No reply needed" is sent as the AI State value (it has no flag) — review of #979', () => {
+    expect(buildContactsApiFilters({ ...defaultFilters, aiState: 'no_reply_needed' }).aiState).toBe(
+      'no_reply_needed'
+    );
+    // CONTROL: other AI states keep their flags and send no aiState.
+    expect(buildContactsApiFilters({ ...defaultFilters, aiState: 'lead' }).aiState).toBeUndefined();
+  });
 });

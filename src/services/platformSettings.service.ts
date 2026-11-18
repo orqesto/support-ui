@@ -40,7 +40,7 @@ export type {
   SecretVerification,
 } from './platformSecrets';
 import type { BoundedField, FieldSource, ResolvedField } from './resolvedField';
-import { readBounded } from './boundedFieldRead';
+import { isRecord, readBounded } from './boundedFieldRead';
 import { readAgentNoteFacts } from './agentNoteFacts.settings';
 import type { AgentNoteFactsInput, AgentNoteFactsSettings } from './agentNoteFacts.settings';
 import { readNoReplyCheck } from './noReplyCheck.settings';
@@ -353,8 +353,6 @@ type RawPlatformSettings = {
   drafts?: unknown;
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 const isStringArray = (value: unknown): value is string[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'string');
 const isFiniteNumber = (value: unknown): value is number =>

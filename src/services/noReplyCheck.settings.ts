@@ -1,4 +1,4 @@
-import { isRecord, isSource, readBounded } from './boundedFieldRead';
+import { isRecord, readBounded, sourceOf } from './boundedFieldRead';
 import type { BoundedField } from './resolvedField';
 
 /**
@@ -35,12 +35,12 @@ export const readNoReplyCheck = (raw: unknown): NoReplyCheckSettings | undefined
   const instructions =
     isRecord(wording) &&
     typeof wording.value === 'string' &&
-    isSource(wording.source) &&
     typeof wording.minLength === 'number' &&
     typeof wording.maxLength === 'number'
       ? {
           value: wording.value,
-          source: wording.source,
+          // An unknown source reads as default (as readBounded), never "not deployed".
+          source: sourceOf(wording.source),
           minLength: wording.minLength,
           maxLength: wording.maxLength,
         }
