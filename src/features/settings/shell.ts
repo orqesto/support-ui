@@ -24,6 +24,8 @@ export {
 } from './components/customApi/categories';
 export {
   announceGmailOAuthCode,
+  announceGmailOAuthError,
+  GMAIL_OAUTH_PAYLOAD_KEY,
+  GMAIL_OAUTH_PENDING_CONFIG_KEY,
   isPendingRedirectFor,
-  listenForGmailOAuthCode,
 } from './services/gmailOAuthHandoff';

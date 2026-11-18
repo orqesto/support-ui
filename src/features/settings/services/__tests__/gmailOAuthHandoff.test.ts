@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   GMAIL_OAUTH_CHANNEL,
   announceGmailOAuthCode,
+  announceGmailOAuthError,
   isPendingRedirectFor,
   listenForGmailOAuthCode,
+  oauthStateFingerprint,
 } from '../gmailOAuthHandoff';
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 20));
@@ -56,15 +58,49 @@ describe('Gmail OAuth hand-off over a BroadcastChannel', () => {
     expect(onCode).not.toHaveBeenCalled();
   });
 
-  it('the redirect flow is recognised only by its own state', () => {
+  it('the redirect flow is recognised only by its own state (stored as a fingerprint)', async () => {
     sessionStorage.clear();
-    expect(isPendingRedirectFor('s1')).toBe(false);
+    const pending = (value: object) =>
+      sessionStorage.setItem('gmail_oauth_pending_config', JSON.stringify(value));
+    expect(await isPendingRedirectFor('s1', false)).toBe(false);
+    pending({ config: {}, stateHash: 'not-this-flow' });
+    expect(await isPendingRedirectFor('s1', false)).toBe(false);
+    pending({ stateHash: await oauthStateFingerprint('old') });
+    expect(await isPendingRedirectFor('s1', false)).toBe(false);
+    // The raw state is never what is stored, so a raw match must not count.
+    pending({ state: 's1', stateHash: 's1' });
+    expect(await isPendingRedirectFor('s1', false)).toBe(false);
+    pending({ stateHash: await oauthStateFingerprint('s1') });
+    expect(await isPendingRedirectFor('s1', false)).toBe(true);
+    expect(await isPendingRedirectFor('s1', true)).toBe(true);
+    sessionStorage.clear();
+  });
+
+  it('a config with no fingerprint (stored before the deploy) is the redirect flow only without an opener', async () => {
     sessionStorage.setItem('gmail_oauth_pending_config', JSON.stringify({ config: {} }));
-    expect(isPendingRedirectFor('s1')).toBe(false);
-    sessionStorage.setItem('gmail_oauth_pending_config', JSON.stringify({ state: 'old' }));
-    expect(isPendingRedirectFor('s1')).toBe(false);
-    sessionStorage.setItem('gmail_oauth_pending_config', JSON.stringify({ state: 's1' }));
-    expect(isPendingRedirectFor('s1')).toBe(true);
+    expect(await isPendingRedirectFor('s1', false)).toBe(true);
+    expect(await isPendingRedirectFor('s1', true)).toBe(false);
     sessionStorage.clear();
+  });
+
+  it('the fingerprint is the hex SHA-256 of the state, not the state', async () => {
+    expect(await oauthStateFingerprint('abc')).toBe(
+      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
+    );
+  });
+
+  it("Google's error reaches only its own flow's listener, at once", async () => {
+    const onCodeA = vi.fn();
+    const onErrorA = vi.fn();
+    const onErrorB = vi.fn();
+    const stopA = listenForGmailOAuthCode('sA', onCodeA, onErrorA);
+    const stopB = listenForGmailOAuthCode('sB', vi.fn(), onErrorB);
+    announceGmailOAuthError('sA', 'access_denied');
+    await flush();
+    expect(onErrorA).toHaveBeenCalledWith('access_denied');
+    expect(onErrorB).not.toHaveBeenCalled();
+    expect(onCodeA).not.toHaveBeenCalled();
+    stopA();
+    stopB();
   });
 });

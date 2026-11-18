@@ -45,7 +45,7 @@ export const NoReplyCheckFields = ({
   check: NoReplyCheckSettings;
   saving: boolean;
   /** Resolves when the save succeeded, rejects when it failed. */
-  onSave: (changed: NoReplyCheckInput) => Promise<unknown> | void;
+  onSave: (changed: NoReplyCheckInput) => Promise<unknown>;
 }) => {
   // Re-seed only the fields the operator has not edited (useReseededTexts, review of #1503): the
   // numbers compare by value, the wording trimmed; a field's source is its version (a reset to a
@@ -64,12 +64,12 @@ export const NoReplyCheckFields = ({
   const reset = (field: keyof Texts) => {
     // Tied to THIS save: applied only after it succeeded, dropped when it fails, so another admin's
     // refetch never overwrites the edit with a reset that did not happen (review of #980).
-    void trackReset(field, Promise.resolve(onSave({ [field]: null })));
+    void trackReset(field, onSave({ [field]: null }));
   };
 
   // The shared mutation already reports a failed save: the rejection only must not go unhandled.
   const save = (input: NoReplyCheckInput) => {
-    void Promise.resolve(onSave(input)).catch(() => undefined);
+    void onSave(input).catch(() => undefined);
   };
 
   const errors: Partial<Texts> = {};

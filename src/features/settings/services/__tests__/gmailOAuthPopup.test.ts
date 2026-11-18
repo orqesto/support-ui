@@ -10,7 +10,9 @@ vi.mock('@/lib/api-client', () => ({
 }));
 
 const { gmailOAuthService } = await import('@/features/settings/services/gmail-oauth.service');
-const { announceGmailOAuthCode } = await import('@/features/settings/services/gmailOAuthHandoff');
+const { announceGmailOAuthCode, announceGmailOAuthError } = await import(
+  '@/features/settings/services/gmailOAuthHandoff'
+);
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 20));
 const authUrls: string[] = [];
@@ -104,5 +106,51 @@ describe('Gmail OAuth pop-up flow', () => {
     });
     expect(popup.close).toHaveBeenCalledTimes(1);
     expect(added.mock.calls.filter(([type]) => type === 'message')).toHaveLength(0);
+  });
+
+  it('each flow opens its own window: a second flow never takes over the first pop-up', async () => {
+    const flowA = gmailOAuthService.connectWithPopup({});
+    const flowB = gmailOAuthService.connectWithPopup({});
+    const names = vi.mocked(window.open).mock.calls.map(([, name]) => name);
+    expect(names).toHaveLength(2);
+    expect(names[0]).not.toBe(names[1]);
+    await flush();
+    fromPopup('c1', 's1');
+    await Promise.all([flowA, flowB.catch(() => undefined)]);
+  });
+
+  it("Google's error fails the flow at once (channel and postMessage), not after the timeout", async () => {
+    authUrls.push(
+      'https://accounts.example/auth?state=sE',
+      'https://accounts.example/auth?state=sP'
+    );
+    const viaChannel = gmailOAuthService.connectWithPopup({});
+    await flush();
+    announceGmailOAuthError('sE', 'access_denied');
+    await expect(viaChannel).resolves.toMatchObject({
+      success: false,
+      error: 'Access was denied. Please try again.',
+    });
+    const viaOpener = gmailOAuthService.connectWithPopup({});
+    await flush();
+    // Another flow's error is not this one's.
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'GMAIL_OAUTH_ERROR', state: 'sX', error: 'access_denied' },
+        origin: window.location.origin,
+      })
+    );
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'GMAIL_OAUTH_ERROR', state: 'sP', error: 'server_error' },
+        origin: window.location.origin,
+      })
+    );
+    // sX's access_denied was ignored: the flow failed on ITS OWN error (server_error).
+    await expect(viaOpener).resolves.toMatchObject({
+      success: false,
+      error: 'Authorization failed. Please try again.',
+    });
+    expect(callbacks()).toHaveLength(0);
   });
 });

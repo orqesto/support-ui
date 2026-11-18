@@ -23,6 +23,7 @@ export { WorkspaceDetailsSettings } from './components/WorkspaceDetailsSettings'
 export { EndpointWizard } from './components/customApi/EndpointWizard';
 export { hostOf } from './components/customApi/LookupHealthLine';
 export { TemplateGuide } from './components/customApi/TemplateGuide';
+export { GMAIL_OAUTH_PENDING_CONFIG_KEY } from './services/gmailOAuthHandoff';
 export {
   CATEGORY_RECORD_LABELS,
   CATEGORY_TAB_LABELS,

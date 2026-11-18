@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/Button';
-import { announceGmailOAuthCode, isPendingRedirectFor } from '@/features/settings/shell';
+import {
+  announceGmailOAuthCode,
+  announceGmailOAuthError,
+  GMAIL_OAUTH_PAYLOAD_KEY,
+  GMAIL_OAUTH_PENDING_CONFIG_KEY,
+  isPendingRedirectFor,
+} from '@/features/settings/shell';
 
 /** How long the pop-up waits for the app window to acknowledge the code. */
 const ACK_WAIT_MS = 5000;
@@ -28,13 +34,22 @@ export const OAuthCallbackPage = () => {
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const error = searchParams.get('error');
+    const opener = window.opener as (Window & { closed: boolean }) | null;
+    const hasOpener = Boolean(opener && !opener.closed);
 
     if (error) {
       setStatus('error');
+      // A pop-up flow's app window is told at once (it would otherwise wait out its timeout).
+      if (state) {
+        announceGmailOAuthError(state, error);
+        if (opener && hasOpener) {
+          opener.postMessage({ type: 'GMAIL_OAUTH_ERROR', state, error }, window.location.origin);
+        }
+      }
       // Clear redirect-flow state so an aborted/denied attempt can't leak into a
       // later flow (and so a lingering resume flag doesn't misroute the user).
-      sessionStorage.removeItem('gmail_oauth_pending_config');
-      sessionStorage.removeItem('gmail_oauth_payload');
+      sessionStorage.removeItem(GMAIL_OAUTH_PENDING_CONFIG_KEY);
+      sessionStorage.removeItem(GMAIL_OAUTH_PAYLOAD_KEY);
       sessionStorage.removeItem('onboarding_resume');
       const knownErrors: Record<string, string> = {
         access_denied: 'Access was denied. Please try again.',
@@ -47,20 +62,29 @@ export const OAuthCallbackPage = () => {
       return;
     }
 
-    if (code && state) {
-      // Remove the authorization code + state from the URL immediately to prevent exposure
-      // in browser history, server logs, and Referer headers.
-      history.replaceState(null, '', window.location.pathname);
+    if (!code || !state) {
+      setStatus('error');
+      setMessage(
+        !code ? 'No authorization code received.' : 'Missing CSRF state from authorization server.'
+      );
+      return;
+    }
+
+    // Remove the authorization code + state from the URL immediately to prevent exposure
+    // in browser history, server logs, and Referer headers.
+    history.replaceState(null, '', window.location.pathname);
+    // The redirect check hashes the state (async); everything after it runs once it settles.
+    void (async () => {
       try {
-        if (isPendingRedirectFor(state)) {
+        if (await isPendingRedirectFor(state, hasOpener)) {
           // Full-page redirect: THIS tab started the flow for this state (a pop-up inherits only a
           // stale copy of the opener's store) — sessionStorage (cleared on tab close, not readable
           // cross-tab by XSS). window.close() is blocked for windows not opened by script, so route
-          // back to the integrations page where the Gmail card picks up the pending result. When
-          // the flow started inside the onboarding wizard (flag set by OnboardingPage), resume the
-          // wizard instead of the settings page.
+          // back to the integrations page where the Gmail card picks up the pending result (and
+          // clears the pending config). When the flow started inside the onboarding wizard (flag
+          // set by OnboardingPage), resume the wizard instead of the settings page.
           logger.info('📤 Storing code+state in sessionStorage (redirect flow)');
-          sessionStorage.setItem('gmail_oauth_payload', JSON.stringify({ code, state }));
+          sessionStorage.setItem(GMAIL_OAUTH_PAYLOAD_KEY, JSON.stringify({ code, state }));
           setStatus('success');
           const resumeOnboarding = sessionStorage.getItem('onboarding_resume') !== null;
           sessionStorage.removeItem('onboarding_resume');
@@ -74,13 +98,14 @@ export const OAuthCallbackPage = () => {
           }, 800);
           return;
         }
+        // Pop-up: its inherited copy of a pending config is not this flow's — drop it (this tab's
+        // copy only; the app tab's store is its own).
+        sessionStorage.removeItem(GMAIL_OAUTH_PENDING_CONFIG_KEY);
 
         // Pop-up: postMessage while the opener link survives, and the BroadcastChannel always
         // (Google's pages usually sever window.opener). The window closes only once the app window
         // acknowledged the code: the code is single-use, so a reloaded or closed app tab must be
         // told, never a silent "success".
-        const opener = window.opener as (Window & { closed: boolean }) | null;
-        const hasOpener = Boolean(opener && !opener.closed);
         if (opener && hasOpener) {
           logger.info('📤 Sending code+state to parent window via postMessage');
           // targetOrigin is window.location.origin — the OAuth callback route is always served
@@ -92,12 +117,14 @@ export const OAuthCallbackPage = () => {
           setMessage('Authorization successful! This window will close automatically.');
           window.setTimeout(() => window.close(), 1000);
         };
+        // Declared before the announce: an acknowledgement may arrive at once.
+        const ack: { timer: number | undefined } = { timer: undefined };
         let acked = false;
         let stopAnnouncing: (() => void) | null = null;
         stopAnnouncing = announceGmailOAuthCode(code, state, () => {
           if (acked) return;
           acked = true;
-          window.clearTimeout(ackTimer);
+          window.clearTimeout(ack.timer);
           stopAnnouncing?.();
           closeSoon();
         });
@@ -114,9 +141,15 @@ export const OAuthCallbackPage = () => {
         }
         logger.info('📤 Handing code+state to the app window via BroadcastChannel');
         setMessage('Handing the authorization to the app…');
-        const ackTimer = window.setTimeout(() => {
+        ack.timer = window.setTimeout(() => {
           if (acked) return;
           stopAnnouncing?.();
+          // The opener got the postMessage: an app tab on the bundle before the acknowledgement
+          // never sends one, and the sign-in worked — the old success, not an error.
+          if (hasOpener) {
+            closeSoon();
+            return;
+          }
           setStatus('error');
           setMessage(NOT_RECEIVED);
         }, ACK_WAIT_MS);
@@ -125,12 +158,7 @@ export const OAuthCallbackPage = () => {
         setStatus('error');
         setMessage('Failed to save authorization code. Please try again.');
       }
-    } else {
-      setStatus('error');
-      setMessage(
-        !code ? 'No authorization code received.' : 'Missing CSRF state from authorization server.'
-      );
-    }
+    })();
   }, [searchParams]);
 
   return (

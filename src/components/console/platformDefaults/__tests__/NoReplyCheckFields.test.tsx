@@ -17,7 +17,7 @@ const CHECK: NoReplyCheckSettings = {
 };
 
 const setup = () => {
-  const onSave = vi.fn();
+  const onSave = vi.fn(() => Promise.resolve());
   render(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
   const save = screen.getByRole('button', { name: /Save "No reply needed"/ });
   return { onSave, save };
@@ -167,7 +167,7 @@ describe('NoReplyCheckFields — reset to default (driven by the refetch)', () =
   });
 
   it('"0300" is 300: Save stays off, and the refetch re-seeds it (one rule)', () => {
-    const onSave = vi.fn();
+    const onSave = vi.fn(() => Promise.resolve());
     const view = render(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
     const field = () => screen.getByLabelText(/Longest reply checked/);
     fireEvent.change(field(), { target: { value: '0300' } });

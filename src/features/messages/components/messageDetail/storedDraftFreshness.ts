@@ -146,16 +146,15 @@ const storedAfter = (leftAt: number, rightAt: number): boolean => leftAt > right
  * THE "after the named email" rule for both callers below (customerEmailVerdict and
  * newerUnjudgedInbound): by stored time (storedAfter) when the named email is loaded; when it is not
  * (on an earlier page, or newer than the page) there is no time to compare, so by id — ids rise with
- * storage. Times that do not parse are the callers' to refuse first.
+ * storage. Times that do not parse are the callers' to refuse first; the callers pass the times
+ * they already parsed (`namedAt` null when the named email is not loaded).
  */
 const isAfterNamed = (
-  event: MessageEvent,
-  named: MessageEvent | undefined,
+  eventAt: number,
+  eventId: number,
+  namedAt: number | null,
   namedId: number
-): boolean =>
-  named
-    ? storedAfter(new Date(event.createdAt).getTime(), new Date(named.createdAt).getTime())
-    : event.id > namedId;
+): boolean => (namedAt !== null ? storedAfter(eventAt, namedAt) : eventId > namedId);
 
 /** One pass per thread array (the draft and the marker both ask, on every live pull). */
 const customerViewCache = new WeakMap<readonly MessageEvent[], ThreadCustomerView>();
@@ -182,9 +181,10 @@ export function customerEmailVerdict(
   // The email loaded (a customer email or not): older only if a later customer email follows it —
   // as the backend, which never drops a draft for an email stored after its pick (storedAfter).
   const named = allInbound.find((event) => event.id === eventId);
-  if (named && Number.isNaN(storedAt(named))) return 'unknown';
+  const namedAt = named ? storedAt(named) : null;
+  if (namedAt !== null && Number.isNaN(namedAt)) return 'unknown';
   const isLatest = !writing.some(
-    (event) => event.id !== eventId && isAfterNamed(event, named, eventId)
+    (event) => event.id !== eventId && isAfterNamed(storedAt(event), event.id, namedAt, eventId)
   );
   return isLatest ? 'latest' : 'older';
 }
@@ -238,7 +238,7 @@ const newerUnjudgedInbound = (eventId: number, sortedThread: readonly MessageEve
     const at = new Date(event.createdAt).getTime();
     if (Number.isNaN(at)) return false;
     // The one order (isAfterNamed): stored time, by id only when the marked email is not loaded.
-    if (!isAfterNamed(event, named, eventId)) return false;
+    if (!isAfterNamed(at, event.id, namedAt, eventId)) return false;
     const meta = (event.metadata ?? {}) as EventMarks;
     if (neverJudged(meta) || hasVerdict(meta)) return false;
     return Date.now() - at < VERDICT_WAIT_MS;

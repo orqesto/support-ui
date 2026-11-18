@@ -5,7 +5,7 @@ import { isConnectedChannel } from '@/components/onboarding/connectedChannel';
 import { EmailIntegrationCard, GmailIntegrationCard, SlackIntegrationCard, TelegramIntegrationCard, WhatsAppIntegrationCard, type AlertState } from '@/features/settings';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { Button } from '@/components/ui/Button';
-import { useGmailOAuthAvailability } from '@/features/settings';
+import { GMAIL_OAUTH_PENDING_CONFIG_KEY, useGmailOAuthAvailability } from '@/features/settings';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
@@ -53,7 +53,7 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
   // redirect — the card must be mounted for its effect to consume the pending
   // result. (The redirect lands back on this step via `onboarding_resume`.)
   const [openKey, setOpenKey] = useState<ChannelKey | null>(() =>
-    typeof window !== 'undefined' && window.sessionStorage.getItem('gmail_oauth_pending_config')
+    typeof window !== 'undefined' && window.sessionStorage.getItem(GMAIL_OAUTH_PENDING_CONFIG_KEY)
       ? 'gmail'
       : null
   );
