@@ -3,8 +3,9 @@
  * limits and the AI wording are console settings. Only changed, valid fields are sent.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NoReplyCheckFields } from '../NoReplyCheckFields';
+import { ARMED_RESET_MS } from '../useReseededTexts';
 import { normalizeDrafts } from '@/services/platformSettings.service';
 import { readNoReplyCheck, type NoReplyCheckSettings } from '@/services/noReplyCheck.settings';
 import { readBounded } from '@/services/boundedFieldRead';
@@ -17,7 +18,7 @@ const CHECK: NoReplyCheckSettings = {
 };
 
 const setup = () => {
-  const onSave = vi.fn();
+  const onSave = vi.fn(() => Promise.resolve());
   render(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
   const save = screen.getByRole('button', { name: /Save "No reply needed"/ });
   return { onSave, save };
@@ -61,86 +62,134 @@ describe('NoReplyCheckFields — reset to default (driven by the refetch)', () =
     instructions: { ...CHECK.instructions, value: `${WORDING} Saved.`, source: 'db' },
   };
   const box = () => screen.getByLabelText(/What counts as needing no reply/);
-  const mount = () => {
-    const onSave = vi.fn();
-    const view = render(<NoReplyCheckFields check={saved} saving={false} onSave={onSave} />);
-    return { onSave, view };
+  /** The save's promise, settled by the test (the mutation awaits its refetch before resolving). */
+  const deferred = () => {
+    let settle: { resolve: () => void; reject: (error: Error) => void } | undefined;
+    const promise = new Promise<void>((resolve, reject) => {
+      settle = { resolve, reject };
+    });
+    return { promise, ...settle! };
+  };
+  const mount = (check: NoReplyCheckSettings = saved) => {
+    const save = deferred();
+    const onSave = vi.fn(() => save.promise);
+    const view = render(<NoReplyCheckFields check={check} saving={false} onSave={onSave} />);
+    const refetch = (next: NoReplyCheckSettings, saving = false) =>
+      view.rerender(<NoReplyCheckFields check={next} saving={saving} onSave={onSave} />);
+    return { onSave, save, refetch };
+  };
+  const otherAdminsWording: NoReplyCheckSettings = {
+    ...saved,
+    instructions: { ...saved.instructions, value: `${WORDING} Other.` },
   };
 
-  it('the refetch after a reset shows the default; Save stays off', () => {
-    const { onSave, view } = mount();
+  it('the refetch after a reset shows the default once the save succeeded; Save stays off', async () => {
+    const { onSave, save, refetch } = mount();
     fireEvent.change(box(), { target: { value: `${WORDING} Unsaved edit.` } });
     fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
     expect(onSave).toHaveBeenCalledWith({ instructions: null });
-    view.rerender(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
-    expect(box()).toHaveValue(WORDING);
+    // The mutation awaits its own refetch, then resolves.
+    refetch(CHECK);
+    save.resolve();
+    await waitFor(() => expect(box()).toHaveValue(WORDING));
     expect(screen.getByRole('button', { name: /Save "No reply needed"/ })).toBeInactive();
   });
 
-  it('text typed after Reset is kept when the refetch lands; the fields stay editable', () => {
-    const { onSave, view } = mount();
-    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
-    view.rerender(<NoReplyCheckFields check={saved} saving onSave={onSave} />);
-    expect(box()).not.toBeInactive();
-    const later = `${WORDING} Typed after the reset.`;
-    fireEvent.change(box(), { target: { value: later } });
-    view.rerender(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
-    expect(box()).toHaveValue(later);
-  });
-
-  it('a failed reset (nothing refetched for that field) keeps the edit, also across another refetch', () => {
-    const { onSave, view } = mount();
-    const typed = `${WORDING} Unsaved edit.`;
-    fireEvent.change(box(), { target: { value: typed } });
-    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
-    // Another field changes; the wording's own value and source do not.
-    view.rerender(
-      <NoReplyCheckFields
-        check={{
-          ...saved,
-          ownTextMaxChars: { ...saved.ownTextMaxChars, value: 400, source: 'db' },
-        }}
-        saving={false}
-        onSave={onSave}
-      />
-    );
-    expect(box()).toHaveValue(typed);
-  });
-
-  it("a FAILED reset is forgotten: another admin's later save never overwrites the edit (review of #980)", async () => {
-    const onSave = vi.fn(() => Promise.reject(new Error('save failed')));
-    const view = render(<NoReplyCheckFields check={saved} saving={false} onSave={onSave} />);
-    const typed = `${WORDING} Unsaved edit.`;
-    fireEvent.change(box(), { target: { value: typed } });
-    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
-    await Promise.resolve();
-    await Promise.resolve();
-    // Another admin changes the wording itself.
-    view.rerender(
-      <NoReplyCheckFields
-        check={{ ...saved, instructions: { ...saved.instructions, value: `${WORDING} Other.` } }}
-        saving={false}
-        onSave={onSave}
-      />
-    );
-    expect(box()).toHaveValue(typed);
-  });
-
-  it('a default equal to the stored value: the source change still drops the edit', () => {
-    const stored: NoReplyCheckSettings = {
-      ...CHECK,
-      instructions: { ...CHECK.instructions, source: 'db' },
-    };
-    const onSave = vi.fn();
-    const view = render(<NoReplyCheckFields check={stored} saving={false} onSave={onSave} />);
+  it('a save that succeeds before its refetch: the refetch shows the default', async () => {
+    const { save, refetch } = mount();
     fireEvent.change(box(), { target: { value: `${WORDING} Unsaved edit.` } });
     fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
-    view.rerender(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
+    save.resolve();
+    await act(() => save.promise);
+    refetch(CHECK);
     expect(box()).toHaveValue(WORDING);
   });
 
+  it("a reset whose own refetch never came expires: a later admin's save does not replace the edit", async () => {
+    const { save, refetch } = mount();
+    const typed = `${WORDING} Unsaved edit.`;
+    fireEvent.change(box(), { target: { value: typed } });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+    const start = Date.now();
+    const now = vi.spyOn(Date, 'now').mockReturnValue(start);
+    try {
+      // The save succeeds, but its refetch failed: the field never changes, the reset stays armed.
+      save.resolve();
+      await act(() => save.promise);
+      expect(box()).toHaveValue(typed);
+      // Much later another admin saves the wording: their refetch is not this reset's.
+      now.mockReturnValue(start + ARMED_RESET_MS + 1);
+      refetch(otherAdminsWording);
+      expect(box()).toHaveValue(typed);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  it('text typed after Reset is kept when the refetch lands; the fields stay editable', async () => {
+    const { save, refetch } = mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+    refetch(saved, true);
+    expect(box()).not.toBeInactive();
+    const later = `${WORDING} Typed after the reset.`;
+    fireEvent.change(box(), { target: { value: later } });
+    refetch(CHECK);
+    save.resolve();
+    await act(() => save.promise);
+    expect(box()).toHaveValue(later);
+  });
+
+  it('a failed reset keeps the edit, also across a refetch of another field', async () => {
+    const { save, refetch } = mount();
+    const typed = `${WORDING} Unsaved edit.`;
+    fireEvent.change(box(), { target: { value: typed } });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+    save.reject(new Error('save failed'));
+    await act(() => save.promise.catch(() => undefined));
+    refetch({ ...saved, ownTextMaxChars: { ...saved.ownTextMaxChars, value: 400, source: 'db' } });
+    expect(box()).toHaveValue(typed);
+  });
+
+  it("another admin's save landing while the reset is in flight does not apply it; its failure keeps the edit", async () => {
+    const { save, refetch } = mount();
+    const typed = `${WORDING} Unsaved edit.`;
+    fireEvent.change(box(), { target: { value: typed } });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+    // Another admin changes the wording itself before this reset's save settles.
+    refetch(otherAdminsWording);
+    expect(box()).toHaveValue(typed);
+    save.reject(new Error('save failed'));
+    await act(() => save.promise.catch(() => undefined));
+    expect(box()).toHaveValue(typed);
+    // And a later refetch of the wording does not apply the dropped reset either.
+    refetch(CHECK);
+    expect(box()).toHaveValue(typed);
+  });
+
+  it('a default equal to the stored value: the source change still drops the edit', async () => {
+    const { save, refetch } = mount({
+      ...CHECK,
+      instructions: { ...CHECK.instructions, source: 'db' },
+    });
+    fireEvent.change(box(), { target: { value: `${WORDING} Unsaved edit.` } });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+    refetch(CHECK);
+    save.resolve();
+    await waitFor(() => expect(box()).toHaveValue(WORDING));
+  });
+
+  it('a failed main Save is caught (the mutation reports it): no unhandled rejection', async () => {
+    const onSave = vi.fn(() => Promise.reject(new Error('save failed')));
+    render(<NoReplyCheckFields check={saved} saving={false} onSave={onSave} />);
+    fireEvent.change(box(), { target: { value: `${WORDING} Edited.` } });
+    fireEvent.click(screen.getByRole('button', { name: /Save "No reply needed"/ }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    // An unhandled rejection would fail the run; let it surface before the test ends.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
   it('"0300" is 300: Save stays off, and the refetch re-seeds it (one rule)', () => {
-    const onSave = vi.fn();
+    const onSave = vi.fn(() => Promise.resolve());
     const view = render(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
     const field = () => screen.getByLabelText(/Longest reply checked/);
     fireEvent.change(field(), { target: { value: '0300' } });

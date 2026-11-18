@@ -2,11 +2,32 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/Button';
-import { announceGmailOAuthCode } from '@/features/settings/shell';
+import {
+  announceGmailOAuthCode,
+  announceGmailOAuthError,
+  GMAIL_OAUTH_PAYLOAD_KEY,
+  GMAIL_OAUTH_PENDING_CONFIG_KEY,
+  isPendingRedirect,
+  oauthErrorText,
+} from '@/features/settings/shell';
+
+/** How long the pop-up waits for the app window to acknowledge the code. */
+const ACK_WAIT_MS = 5000;
+/**
+ * No acknowledgement, but the opener got the postMessage: an app tab on the bundle before the
+ * acknowledgement and an app tab reloaded while on Google look the same — neither success nor error.
+ */
+const NOT_CONFIRMED =
+  'Return to the app. If Gmail does not show as connected there, connect it again.';
+const NOT_RECEIVED =
+  'The app did not receive this authorization (its tab may have been reloaded or closed). ' +
+  'Go back to the app tab and connect Gmail again.';
 
 export const OAuthCallbackPage = () => {
   const [searchParams] = useSearchParams();
-  const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
+  const [status, setStatus] = useState<'processing' | 'success' | 'unconfirmed' | 'error'>(
+    'processing'
+  );
   const [message, setMessage] = useState('Processing OAuth callback...');
   // Guard against React StrictMode's double-invocation of effects in dev. The BE consumes
   // the CSRF state on first use, so a second postMessage would race and report a false failure.
@@ -22,90 +43,118 @@ export const OAuthCallbackPage = () => {
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     const error = searchParams.get('error');
+    const opener = window.opener as (Window & { closed: boolean }) | null;
+    const hasOpener = Boolean(opener && !opener.closed);
 
     if (error) {
       setStatus('error');
+      // A pop-up flow's app window is told at once (it would otherwise wait out its timeout).
+      if (state) {
+        announceGmailOAuthError(state, error);
+        if (opener && hasOpener) {
+          opener.postMessage({ type: 'GMAIL_OAUTH_ERROR', state, error }, window.location.origin);
+        }
+      }
       // Clear redirect-flow state so an aborted/denied attempt can't leak into a
       // later flow (and so a lingering resume flag doesn't misroute the user).
-      sessionStorage.removeItem('gmail_oauth_pending_config');
-      sessionStorage.removeItem('gmail_oauth_payload');
+      sessionStorage.removeItem(GMAIL_OAUTH_PENDING_CONFIG_KEY);
+      sessionStorage.removeItem(GMAIL_OAUTH_PAYLOAD_KEY);
       sessionStorage.removeItem('onboarding_resume');
-      const knownErrors: Record<string, string> = {
-        access_denied: 'Access was denied. Please try again.',
-        invalid_request: 'The authorization request was invalid.',
-        invalid_client: 'OAuth client configuration error.',
-        server_error: 'The authorization server encountered an error.',
-        temporarily_unavailable: 'The service is temporarily unavailable. Please try again.',
-      };
-      setMessage(knownErrors[error] ?? 'Authorization failed. Please try again.');
+      setMessage(oauthErrorText(error));
       return;
     }
 
-    if (code && state) {
-      // Remove the authorization code + state from the URL immediately to prevent exposure
-      // in browser history, server logs, and Referer headers.
-      history.replaceState(null, '', window.location.pathname);
-      try {
-        // Check if opened in popup (has window.opener) or new tab
-        const opener = window.opener as (Window & { closed: boolean }) | null;
-        if (opener && !opener.closed) {
-          // Popup case: Use postMessage to communicate with parent
-          logger.info('📤 Sending code+state to parent window via postMessage');
-          // targetOrigin is window.location.origin — safe because the OAuth callback route is
-          // always served from the same origin as the opener window in production.
-          opener.postMessage(
-            { type: 'GMAIL_OAUTH_SUCCESS', code, state },
-            window.location.origin
-          );
-        } else if (sessionStorage.getItem('gmail_oauth_pending_config') !== null) {
-          // Full-page redirect: the original window is THIS tab — sessionStorage (cleared on tab
-          // close, not readable cross-tab by XSS).
-          logger.info('📤 Storing code+state in sessionStorage (redirect flow)');
-          sessionStorage.setItem('gmail_oauth_payload', JSON.stringify({ code, state }));
-        } else if (announceGmailOAuthCode(code, state)) {
-          // A pop-up whose opener link Google's pages severed (COOP: window.opener is null after
-          // accounts.google.com). sessionStorage is per TAB, so the app window never saw it and
-          // the flow timed out: a BroadcastChannel reaches it without storing the code.
-          logger.info('📤 Handing code+state to the app window via BroadcastChannel (no opener)');
-        } else {
-          // No channel either (a very old browser): the tab's own store, as before.
-          sessionStorage.setItem('gmail_oauth_payload', JSON.stringify({ code, state }));
-        }
-
-        setStatus('success');
-        const isRedirectFlow = sessionStorage.getItem('gmail_oauth_pending_config') !== null;
-        if (isRedirectFlow) {
-          // Full-page redirect path — the original window is THIS one. window.close()
-          // is blocked for windows not opened by script, so route back to the
-          // integrations page where the Gmail card will pick up the pending result.
-          // When the flow started inside the onboarding wizard (flag set by
-          // OnboardingPage), resume the wizard instead of the settings page.
-          const resumeOnboarding = sessionStorage.getItem('onboarding_resume') !== null;
-          sessionStorage.removeItem('onboarding_resume');
-          setMessage(
-            resumeOnboarding
-              ? 'Authorization successful! Returning to setup…'
-              : 'Authorization successful! Returning to integrations…'
-          );
-          window.setTimeout(() => {
-            window.location.href = resumeOnboarding ? '/onboarding' : '/settings#integrations';
-          }, 800);
-        } else {
-          setMessage('Authorization successful! This window will close automatically.');
-          window.setTimeout(() => {
-            window.close();
-          }, 1000);
-        }
-      } catch (err) {
-        logger.error('Failed to communicate OAuth code:', err);
-        setStatus('error');
-        setMessage('Failed to save authorization code. Please try again.');
-      }
-    } else {
+    if (!code || !state) {
       setStatus('error');
       setMessage(
         !code ? 'No authorization code received.' : 'Missing CSRF state from authorization server.'
       );
+      return;
+    }
+
+    // Remove the authorization code + state from the URL immediately to prevent exposure
+    // in browser history, server logs, and Referer headers.
+    history.replaceState(null, '', window.location.pathname);
+    try {
+      if (isPendingRedirect()) {
+        // Full-page redirect: THIS tab started the flow (a pop-up started by this bundle inherits no
+        // pending config) — sessionStorage (cleared on tab close, not readable
+        // cross-tab by XSS). window.close() is blocked for windows not opened by script, so route
+        // back to the integrations page where the Gmail card picks up the pending result (and
+        // clears the pending config). When the flow started inside the onboarding wizard (flag
+        // set by OnboardingPage), resume the wizard instead of the settings page.
+        logger.info('📤 Storing code+state in sessionStorage (redirect flow)');
+        sessionStorage.setItem(GMAIL_OAUTH_PAYLOAD_KEY, JSON.stringify({ code, state }));
+        setStatus('success');
+        const resumeOnboarding = sessionStorage.getItem('onboarding_resume') !== null;
+        sessionStorage.removeItem('onboarding_resume');
+        setMessage(
+          resumeOnboarding
+            ? 'Authorization successful! Returning to setup…'
+            : 'Authorization successful! Returning to integrations…'
+        );
+        window.setTimeout(() => {
+          window.location.href = resumeOnboarding ? '/onboarding' : '/settings#integrations';
+        }, 800);
+        return;
+      }
+      // Pop-up: postMessage while the opener link survives, and the BroadcastChannel always
+      // (Google's pages usually sever window.opener). The window closes only once the app window
+      // acknowledged the code: the code is single-use, so a reloaded or closed app tab must be
+      // told, never a silent "success".
+      if (opener && hasOpener) {
+        logger.info('📤 Sending code+state to parent window via postMessage');
+        // targetOrigin is window.location.origin — the OAuth callback route is always served
+        // from the same origin as the opener window.
+        opener.postMessage({ type: 'GMAIL_OAUTH_SUCCESS', code, state }, window.location.origin);
+      }
+      const closeSoon = () => {
+        setStatus('success');
+        // The app window took the code; the backend's answer shows there, not here.
+        setMessage('Authorization handed to the app. It finishes connecting Gmail there.');
+        window.setTimeout(() => window.close(), 1000);
+      };
+      // Declared before the announce: an acknowledgement may arrive at once.
+      const ack: { timer: number | undefined } = { timer: undefined };
+      let acked = false;
+      let stopAnnouncing: (() => void) | null = null;
+      stopAnnouncing = announceGmailOAuthCode(code, state, () => {
+        if (acked) return;
+        acked = true;
+        window.clearTimeout(ack.timer);
+        stopAnnouncing?.();
+        closeSoon();
+      });
+      if (!stopAnnouncing) {
+        // No channel (a very old browser): only the opener's postMessage can deliver; it sends
+        // no acknowledgement.
+        if (hasOpener) {
+          closeSoon();
+        } else {
+          setStatus('error');
+          setMessage(NOT_RECEIVED);
+        }
+        return;
+      }
+      logger.info('📤 Handing code+state to the app window via BroadcastChannel');
+      setMessage('Handing the authorization to the app…');
+      ack.timer = window.setTimeout(() => {
+        if (acked) return;
+        stopAnnouncing?.();
+        // The opener got the postMessage, but nothing confirms the app took it: say so, neutrally,
+        // and keep the window open.
+        if (hasOpener) {
+          setStatus('unconfirmed');
+          setMessage(NOT_CONFIRMED);
+          return;
+        }
+        setStatus('error');
+        setMessage(NOT_RECEIVED);
+      }, ACK_WAIT_MS);
+    } catch (err) {
+      logger.error('Failed to communicate OAuth code:', err);
+      setStatus('error');
+      setMessage('Failed to save authorization code. Please try again.');
     }
   }, [searchParams]);
 
@@ -138,6 +187,15 @@ export const OAuthCallbackPage = () => {
             </div>
             <p className="mt-4 text-lg font-medium text-muted-foreground">{message}</p>
             <p className="mt-2 text-sm text-muted-foreground">This window will close automatically.</p>
+          </div>
+        )}
+
+        {status === 'unconfirmed' && (
+          <div className="text-center">
+            <p className="text-lg font-medium text-muted-foreground">{message}</p>
+            <Button onClick={() => window.close()} variant="outline" className="mt-4">
+              Close Window
+            </Button>
           </div>
         )}
 

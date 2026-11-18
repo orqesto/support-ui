@@ -22,4 +22,11 @@ export {
   type CustomApiCategory,
   readCategory,
 } from './components/customApi/categories';
-export { announceGmailOAuthCode } from './services/gmailOAuthHandoff';
+export {
+  announceGmailOAuthCode,
+  announceGmailOAuthError,
+  GMAIL_OAUTH_PAYLOAD_KEY,
+  GMAIL_OAUTH_PENDING_CONFIG_KEY,
+  isPendingRedirect,
+  oauthErrorText,
+} from './services/gmailOAuthHandoff';

@@ -128,7 +128,7 @@ const AgentNoteFactsFields = ({
 }: {
   facts: AgentNoteFactsSettings;
   saving: boolean;
-  onSave: (changed: AgentNoteFactsInput) => void;
+  onSave: (changed: AgentNoteFactsInput) => Promise<unknown>;
 }) => {
   // Re-seed ONLY the fields the operator has not edited (useReseededTexts): an edit typed while
   // another field was saving must survive the refetch.
@@ -180,7 +180,11 @@ const AgentNoteFactsFields = ({
           </div>
         ))}
       </div>
-      <Button disabled={saving || nothingChanged || hasError} onClick={() => onSave(changed)}>
+      <Button
+        disabled={saving || nothingChanged || hasError}
+        // The shared mutation already reports a failed save: the rejection only must not go unhandled.
+        onClick={() => void onSave(changed).catch(() => undefined)}
+      >
         Save fact check
       </Button>
     </div>
@@ -331,11 +335,11 @@ export const AiDraftsCard = ({ drafts }: { drafts: DraftSettings | undefined }) 
             facts={drafts.agentNoteFacts}
             saving={save.isPending}
             onSave={(changed) =>
-              save.mutate(
-                { agentNoteFacts: changed },
-                // The shared mutation only reports failures; this save changes every workspace.
-                { onSuccess: () => toast.success('Fact check saved. Applies within a minute.') }
-              )
+              // A promise per save, as for "No reply needed" (the shared mutate callbacks reach only
+              // the latest call); the shared mutation reports failures. Changes every workspace.
+              save
+                .mutateAsync({ agentNoteFacts: changed })
+                .then(() => toast.success('Fact check saved. Applies within a minute.'))
             }
           />
         ) : (

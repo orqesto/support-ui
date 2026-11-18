@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const post = vi.fn<(...args: unknown[]) => Promise<unknown>>();
+const get = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 vi.mock('@/lib/api-client', () => ({
-  apiClient: { post: (...args: unknown[]) => post(...args), get: vi.fn() },
+  apiClient: {
+    post: (...args: unknown[]) => post(...args),
+    get: (...args: unknown[]) => get(...args),
+  },
 }));
 
 const { gmailOAuthService } = await import('@/features/settings/services/gmail-oauth.service');
@@ -24,12 +28,51 @@ describe('Gmail redirect flow replays startPaused', () => {
     sessionStorage.setItem('gmail_oauth_payload', JSON.stringify({ code: 'c', state: 's' }));
     sessionStorage.setItem(
       'gmail_oauth_pending_config',
-      JSON.stringify({ config: { bulkImportDays: 7, startPaused: true }, redirectUri: 'https://x/cb' })
+      JSON.stringify({
+        config: { bulkImportDays: 7, startPaused: true },
+        redirectUri: 'https://x/cb',
+      })
     );
     await gmailOAuthService.consumePendingRedirectResult();
     expect(post).toHaveBeenCalledWith(
       '/api/oauth/gmail/callback',
       expect.objectContaining({ startPaused: true, bulkImportDays: 7 })
     );
+  });
+
+  it('stores the config before leaving for Google — never the state, nor anything derived from it', async () => {
+    const state = 'csrf-state-1234567890';
+    get.mockResolvedValue({
+      data: { success: true, data: { clientId: 'cid', redirectUri: 'https://x/cb' } },
+    });
+    post.mockResolvedValue({
+      data: {
+        success: true,
+        data: { authUrl: `https://accounts.google.com/o/oauth2/v2/auth?state=${state}` },
+      },
+    });
+    const hrefSetter = vi.fn();
+    const location = window.location;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...location,
+        set href(url: string) {
+          hrefSetter(url);
+        },
+      },
+    });
+    try {
+      const result = await gmailOAuthService.redirectToOAuth({ startPaused: true });
+      expect(result.success).toBe(true);
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: location });
+    }
+    const stored = sessionStorage.getItem('gmail_oauth_pending_config') ?? '';
+    expect(stored).not.toContain(state);
+    expect(Object.keys(JSON.parse(stored) as object).sort()).toEqual(['config', 'redirectUri']);
+    const { isPendingRedirect } = await import('@/features/settings/services/gmailOAuthHandoff');
+    expect(isPendingRedirect()).toBe(true);
+    expect(hrefSetter).toHaveBeenCalledWith(expect.stringContaining(state));
   });
 });
