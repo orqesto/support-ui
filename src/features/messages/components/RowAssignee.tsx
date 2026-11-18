@@ -6,6 +6,7 @@ import { AssignmentSelect } from '@/components/admin/AssignmentSelect';
 import { Button } from '@/components/ui/Button';
 import { Popover } from '@/components/ui/Popover';
 import { Tooltip } from '@/components/ui/Tooltip';
+import { UserPhoto } from '@/components/ui/UserPhoto';
 import { useAuthStore } from '@/stores/authStore';
 import { cn } from '@/lib/utils';
 import { getAvatarColor } from './inboxCardHelpers';
@@ -51,6 +52,7 @@ export const RowAssignee = ({ thread, size = 'row' }: Props) => {
   const [optimisticAssignee, setOptimisticAssignee] = useState<{
     id: number | null;
     name: string;
+    photoKey?: string | null;
   } | null>(null);
 
   if (!msg) return null;
@@ -63,6 +65,10 @@ export const RowAssignee = ({ thread, size = 'row' }: Props) => {
     optimisticAssignee && optimisticAssignee.id !== msg.assigneeId
       ? optimisticAssignee.name
       : (msg.assigneeName ?? null);
+  const effectivePhotoKey =
+    optimisticAssignee && optimisticAssignee.id !== msg.assigneeId
+      ? (optimisticAssignee.photoKey ?? null)
+      : (msg.assigneePhotoKey ?? null);
   const isAssigned = effectiveAssigneeId !== null;
   const isMine = effectiveAssigneeId === currentUser?.id;
   const classes = TRIGGER_CLASSES[size];
@@ -80,7 +86,7 @@ export const RowAssignee = ({ thread, size = 'row' }: Props) => {
       setOptimisticAssignee({ id: null, name: '' });
     } else {
       const name = `${picked.firstName} ${picked.lastName ?? ''}`.trim() || picked.email;
-      setOptimisticAssignee({ id: picked.id, name });
+      setOptimisticAssignee({ id: picked.id, name, photoKey: picked.photoKey ?? null });
     }
   };
 
@@ -108,12 +114,14 @@ export const RowAssignee = ({ thread, size = 'row' }: Props) => {
                 onPointerDown={stop}
                 aria-label="Re-assign"
                 className={cn(
-                  'inline-flex items-center justify-center rounded-full text-[10px] font-bold text-white shrink-0',
+                  'inline-flex items-center justify-center rounded-full overflow-hidden text-[10px] font-bold text-white shrink-0',
                   classes.avatar,
                   getAvatarColor(effectiveAssigneeName)
                 )}
               >
-                {getInitials(effectiveAssigneeName)}
+                <UserPhoto photoKey={effectivePhotoKey}>
+                  {getInitials(effectiveAssigneeName)}
+                </UserPhoto>
               </button>
             </Tooltip>
           ) : (

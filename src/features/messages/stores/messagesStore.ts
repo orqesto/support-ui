@@ -15,6 +15,7 @@ import type {
   ListScope,
   SearchReading,
 } from '@/services/message.service';
+import { onOwnPhotoChanged } from '@/lib/ownPhotoSignal';
 
 export type MessageViewStatus =
   | 'all'
@@ -417,3 +418,6 @@ export const useMessagesStore = create<MessagesState>()(
 );
 
 rehydrateOnWorkspaceSwitch(useMessagesStore);
+
+// A changed own photo: drop cached pages so the next view carries the new key (ownPhotoSignal).
+onOwnPhotoChanged(() => useMessagesStore.getState().clearCache());

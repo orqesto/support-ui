@@ -14,6 +14,8 @@ export interface PresenceAgent {
   name: string;
   initials: string;
   colour: string;
+  /** Profile photo key; null without one. */
+  photoKey: string | null;
   known: boolean;
 }
 
@@ -24,6 +26,7 @@ const UNKNOWN_AGENT: PresenceAgent = {
   name: UNKNOWN_AGENT_NAME,
   initials: '?',
   colour: getAvatarColor(null),
+  photoKey: null,
   known: false,
 };
 
@@ -53,6 +56,7 @@ export const useOrgMemberNames = (
       name,
       initials: getInitials(name),
       colour: getAvatarColor(name),
+      photoKey: member.photoKey,
       known: true,
     });
   }

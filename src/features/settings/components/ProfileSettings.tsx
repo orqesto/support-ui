@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Lock, User, Tag, X, PenLine, ShieldCheck, MonitorSmartphone } from 'lucide-react';
+import { ProfilePhotoField } from './ProfilePhotoField';
 import { TwoFactorSettings } from './TwoFactorSettings';
 import { ActiveSessionsSettings } from './ActiveSessionsSettings';
 import { apiErrorMessage } from '@/lib/apiError';
@@ -216,6 +217,7 @@ export const ProfileSettings = () => {
           Profile Information
         </h3>
         <div className="space-y-3">
+          <ProfilePhotoField />
           <div>
             <label className="text-sm font-medium text-muted-foreground">Email</label>
             <p className="font-mono text-sm text-foreground">{user?.email}</p>

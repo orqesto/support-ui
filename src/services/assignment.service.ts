@@ -7,6 +7,8 @@ export type AssignableUser = {
   firstName: string;
   lastName: string;
   email: string;
+  /** Profile photo key; null without one. */
+  photoKey?: string | null;
   role: string;
   // False when the user isn't a member of the scoped department (and isn't an
   // org-admin). The picker shows them disabled rather than hiding them. Optional

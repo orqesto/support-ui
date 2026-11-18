@@ -52,6 +52,8 @@ export type ThreadStatus =
 export type User = {
   id: number;
   email: string;
+  /** Their own profile photo key (`GET /api/users/me`); null without one. */
+  photoKey?: string | null;
   firstName: string;
   lastName: string | null;
   position: string | null;
@@ -167,6 +169,8 @@ export type Message = {
   isLead?: boolean;
   assigneeId?: number | null;
   assigneeName?: string | null;
+  /** Profile photo key (`GET /api/user-photos/:key`); null without one or when not visible here. */
+  assigneePhotoKey?: string | null;
   assignedAt?: string | null;
   departmentId?: number | null;
   nearMissDepts?: number[]; // Wave 5 C-1 / Wave 4 PR 9 — runner-up depts within threshold of winner
@@ -299,6 +303,8 @@ export type MessageEvent = {
   // must fall back to a non-person label, never to someone's name.
   authorName?: string | null;
   authorUserEmail?: string | null;
+  /** The sending teammate's photo key; only with `authorName`, null otherwise. */
+  authorPhotoKey?: string | null;
   parentEventId?: number | null;
   processingError?: string | null;
   sentAt?: string | null;
@@ -343,6 +349,7 @@ export type Ticket = {
   categoryName?: string | null;
   assigneeId: number | null;
   assigneeName?: string | null;
+  assigneePhotoKey?: string | null;
   departmentId?: number | null;
   /**
    * Shown id without the workspace code: `SUP-T-42`, or `BIL-SUP-T-42` after a move. Optional:

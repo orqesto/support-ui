@@ -62,6 +62,8 @@ export type PlatformUserWorkspace = {
 export type PlatformUserRow = {
   id: number;
   email: string;
+  /** Profile photo key — on the single-user read only (`GET .../users/:id`); null without one. */
+  photoKey?: string | null;
   firstName: string;
   lastName: string | null;
   position: string | null;

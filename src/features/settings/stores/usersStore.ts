@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { User } from '@/types';
 import { onOrganizationSwitch } from '@/stores/identityScope';
+import { onOwnPhotoChanged } from '@/lib/ownPhotoSignal';
 
 type UsersState = {
   users: User[];
@@ -44,3 +45,6 @@ export const useUsersStore = create<UsersState>((set, get) => ({
 // One global slot, not a keyed cache: evict on an org switch rather than paint the previous
 // workspace's users under the new one's context while the refetch is in flight.
 onOrganizationSwitch(() => useUsersStore.getState().clearCache());
+
+// A changed own photo: drop cached pages so the next view carries the new key (ownPhotoSignal).
+onOwnPhotoChanged(() => useUsersStore.getState().clearCache());

@@ -6,6 +6,8 @@ export interface PresenceMember {
   id: number;
   firstName: string | null;
   lastName: string | null;
+  /** Profile photo key; null without one (or from a backend that does not send it). */
+  photoKey: string | null;
 }
 
 const text = (value: unknown): string | null => (typeof value === 'string' ? value : null);
@@ -28,10 +30,20 @@ export const presenceMembersService = {
       const members = body?.members ?? body?.data?.members;
       if (!Array.isArray(members)) return [];
       return members.flatMap((raw: unknown) => {
-        const member = raw as { id?: unknown; firstName?: unknown; lastName?: unknown } | null;
+        const member = raw as {
+          id?: unknown;
+          firstName?: unknown;
+          lastName?: unknown;
+          photoKey?: unknown;
+        } | null;
         if (typeof member?.id !== 'number') return [];
         return [
-          { id: member.id, firstName: text(member.firstName), lastName: text(member.lastName) },
+          {
+            id: member.id,
+            firstName: text(member.firstName),
+            lastName: text(member.lastName),
+            photoKey: text(member.photoKey),
+          },
         ];
       });
     } catch (error) {
