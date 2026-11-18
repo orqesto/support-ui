@@ -218,7 +218,11 @@ const newerUnjudgedInbound = (eventId: number, sortedThread: readonly MessageEve
     if (event.id === eventId) return false;
     const at = new Date(event.createdAt).getTime();
     if (Number.isNaN(at)) return false;
-    const after = namedAt !== null ? at > namedAt : event.id > eventId;
+    // Same millisecond: the id decides (ids rise with storage — review of #980).
+    const after =
+      namedAt !== null
+        ? at > namedAt || (at === namedAt && event.id > eventId)
+        : event.id > eventId;
     if (!after) return false;
     const meta = (event.metadata ?? {}) as EventMarks;
     if (neverJudged(meta) || hasVerdict(meta)) return false;

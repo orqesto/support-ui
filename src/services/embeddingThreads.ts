@@ -1,7 +1,5 @@
 import type { QueueStatus } from './platform.service';
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+import { isRecord } from '@/lib/isRecord';
 
 /**
  * Embedding child threads per process role; null = not saved (that process uses its
@@ -22,7 +20,7 @@ export type EmbeddingThreadsInput = {
 };
 /** `ingestion.embeddingThreads`, or undefined on a backend without it or a malformed block. */
 export const normalizeEmbeddingThreads = (raw: unknown): EmbeddingThreadsSettings | undefined => {
-  if (!isObject(raw) || !Number.isInteger(raw.min) || !Number.isInteger(raw.max)) return undefined;
+  if (!isRecord(raw) || !Number.isInteger(raw.min) || !Number.isInteger(raw.max)) return undefined;
   const role = (value: unknown): number | null =>
     Number.isInteger(value) && (value as number) >= 1 ? (value as number) : null;
   return {
@@ -46,7 +44,7 @@ export type EmbeddingThreadsStatus = {
 };
 
 const asRecord = (value: unknown): Record<string, unknown> | undefined =>
-  isObject(value) ? value : undefined;
+  isRecord(value) ? value : undefined;
 
 /** `embeddingQueue.model.threads` plus the child's row of `resources.processes`; undefined on an older backend. */
 export const readEmbeddingStatus = (

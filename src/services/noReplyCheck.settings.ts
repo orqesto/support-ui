@@ -1,5 +1,5 @@
 import { isRecord } from '@/lib/isRecord';
-import { isSource, readBounded } from './boundedFieldRead';
+import { readBounded, sourceOf } from './boundedFieldRead';
 import type { BoundedField } from './resolvedField';
 
 /**
@@ -42,7 +42,7 @@ export const readNoReplyCheck = (raw: unknown): NoReplyCheckSettings | undefined
     typeof wording.maxLength === 'number'
       ? {
           value: wording.value,
-          source: isSource(wording.source) ? wording.source : 'default',
+          source: sourceOf(wording.source),
           minLength: wording.minLength,
           maxLength: wording.maxLength,
         }

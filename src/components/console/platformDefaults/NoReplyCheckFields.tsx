@@ -44,28 +44,32 @@ export const NoReplyCheckFields = ({
 }: {
   check: NoReplyCheckSettings;
   saving: boolean;
-  /** `onSaved` runs only after the save succeeded. */
-  onSave: (changed: NoReplyCheckInput, onSaved?: () => void) => void;
+  onSave: (changed: NoReplyCheckInput) => void;
 }) => {
-  // Re-seed only the fields the operator has not edited (useReseededTexts, review of #1503); the
-  // wording is saved trimmed, so a whitespace-only change to it is no edit.
-  const {
-    texts,
-    setTexts,
-    reset: resetField,
-  } = useReseededTexts<keyof Texts>(savedTexts(check), {
+  // Re-seed only the fields the operator has not edited (useReseededTexts, review of #1503): the
+  // numbers compare by value, the wording trimmed; a field's source is its version (a reset to a
+  // default equal to the stored value still lands).
+  const { texts, setTexts, isSame, markReset } = useReseededTexts<keyof Texts>(savedTexts(check), {
     trimmed: ['instructions'],
+    numeric: NO_REPLY_CHECK_NUMBERS,
+    versions: {
+      ownTextMaxChars: check.ownTextMaxChars.source,
+      inlineLogoMaxBytes: check.inlineLogoMaxBytes.source,
+      instructions: check.instructions.source,
+    },
   });
-  // Reset: saved first; the field then shows the default unless the operator typed since. The
-  // inputs stay editable (review of #980).
-  const reset = (field: keyof Texts) =>
-    resetField(field, (onSaved) => onSave({ [field]: null }, onSaved));
+  // Reset: the field shows the default once its refetch lands — unless the operator typed since;
+  // the inputs stay editable (review of #980).
+  const reset = (field: keyof Texts) => {
+    markReset(field);
+    onSave({ [field]: null });
+  };
 
   const errors: Partial<Texts> = {};
   const changed: NoReplyCheckInput = {};
   for (const field of NO_REPLY_CHECK_NUMBERS) {
-    // The same number typed differently ("0300") is no change.
-    if (texts[field].trim() !== '' && Number(texts[field]) === check[field].value) continue;
+    // The one "unchanged" rule (useReseededTexts.isSame): "0300" is 300.
+    if (isSame(field, texts[field], String(check[field].value))) continue;
     const { min, max } = check[field];
     const value = Number(texts[field]);
     if (texts[field].trim() === '' || !Number.isInteger(value) || value < min || value > max) {

@@ -1,7 +1,5 @@
 import type { FieldSource } from './resolvedField';
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+import { isRecord } from '@/lib/isRecord';
 
 /** The six numeric thread-presence settings, in the milliseconds / count the server stores. */
 export const PRESENCE_NUMBER_FIELDS = [
@@ -27,14 +25,14 @@ const readSource = (raw: unknown): FieldSource => (raw === 'db' || raw === 'env'
 
 /** `ingestion.presence`: all seven fields, or undefined on a backend without them. */
 export const normalizePresence = (raw: unknown): PresenceSettingsView | undefined => {
-  if (!isObject(raw) || !isObject(raw.enabled) || typeof raw.enabled.value !== 'boolean') {
+  if (!isRecord(raw) || !isRecord(raw.enabled) || typeof raw.enabled.value !== 'boolean') {
     return undefined;
   }
   const numbers: Partial<Record<PresenceNumberField, PresenceBoundedField>> = {};
   for (const key of PRESENCE_NUMBER_FIELDS) {
     const field = raw[key];
     if (
-      !isObject(field) ||
+      !isRecord(field) ||
       !Number.isInteger(field.value) ||
       !Number.isInteger(field.min) ||
       !Number.isInteger(field.max)

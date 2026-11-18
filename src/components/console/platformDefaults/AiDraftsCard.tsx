@@ -132,15 +132,17 @@ const AgentNoteFactsFields = ({
 }) => {
   // Re-seed ONLY the fields the operator has not edited (useReseededTexts): an edit typed while
   // another field was saving must survive the refetch.
-  const { texts, setTexts } = useReseededTexts<AgentNoteFactsField>(savedTexts(facts));
+  const { texts, setTexts, isSame } = useReseededTexts<AgentNoteFactsField>(savedTexts(facts), {
+    numeric: AGENT_NOTE_FACTS_FIELDS,
+  });
 
   // Only a field the operator changed is checked and sent: a saved value outside bounds the server
   // narrowed later must not block saving the other two.
   const errors: Partial<Record<AgentNoteFactsField, string>> = {};
   const changed: AgentNoteFactsInput = {};
   for (const field of AGENT_NOTE_FACTS_FIELDS) {
-    // The same number typed differently ("0300") is no change (as NoReplyCheckFields).
-    if (texts[field].trim() !== '' && Number(texts[field]) === facts[field].value) continue;
+    // The one "unchanged" rule (useReseededTexts.isSame): "03" is 3.
+    if (isSame(field, texts[field], String(facts[field].value))) continue;
     const { min, max } = facts[field];
     const value = asNumber(texts[field]);
     if (value === null || !Number.isInteger(value) || value < min || value > max) {
@@ -345,14 +347,12 @@ export const AiDraftsCard = ({ drafts }: { drafts: DraftSettings | undefined }) 
           <NoReplyCheckFields
             check={drafts.noReplyCheck}
             saving={save.isPending}
-            onSave={(changed, onSaved) =>
+            onSave={(changed) =>
               save.mutate(
                 { noReplyCheck: changed },
                 {
-                  onSuccess: () => {
-                    onSaved?.();
-                    toast.success('"No reply needed" saved. Applies within a minute.');
-                  },
+                  onSuccess: () =>
+                    toast.success('"No reply needed" saved. Applies within a minute.'),
                 }
               )
             }

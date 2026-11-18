@@ -55,44 +55,88 @@ describe('NoReplyCheckFields', () => {
   });
 });
 
-describe('NoReplyCheckFields — reset to default', () => {
+describe('NoReplyCheckFields — reset to default (driven by the refetch)', () => {
   const saved: NoReplyCheckSettings = {
     ...CHECK,
     instructions: { ...CHECK.instructions, value: `${WORDING} Saved.`, source: 'db' },
   };
   const box = () => screen.getByLabelText(/What counts as needing no reply/);
+  const mount = () => {
+    const onSave = vi.fn();
+    const view = render(<NoReplyCheckFields check={saved} saving={false} onSave={onSave} />);
+    return { onSave, view };
+  };
 
-  it('a reset that SAVED drops the unsaved edit: the default shows, Save stays off', () => {
-    // The save succeeds: the card calls back.
-    const onSave = vi.fn((_changed: unknown, onSaved?: () => void) => onSaved?.());
-    const { rerender } = render(
-      <NoReplyCheckFields check={saved} saving={false} onSave={onSave} />
-    );
+  it('the refetch after a reset shows the default; Save stays off', () => {
+    const { onSave, view } = mount();
     fireEvent.change(box(), { target: { value: `${WORDING} Unsaved edit.` } });
     fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
-    expect(onSave).toHaveBeenCalledWith({ instructions: null }, expect.any(Function));
-    // The refetch answers the default.
-    rerender(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
+    expect(onSave).toHaveBeenCalledWith({ instructions: null });
+    view.rerender(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
     expect(box()).toHaveValue(WORDING);
-    expect(screen.getByRole('button', { name: /Save "No reply needed"/ })).toHaveAttribute(
-      'aria-disabled',
-      'true'
-    );
+    expect(screen.getByRole('button', { name: /Save "No reply needed"/ })).toBeInactive();
   });
 
-  it('a reset that FAILED keeps what was typed (review of #979)', () => {
-    const onSave = vi.fn(); // never calls back: the save failed
-    render(<NoReplyCheckFields check={saved} saving={false} onSave={onSave} />);
+  it('text typed after Reset is kept when the refetch lands; the fields stay editable', () => {
+    const { onSave, view } = mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+    view.rerender(<NoReplyCheckFields check={saved} saving onSave={onSave} />);
+    expect(box()).not.toBeInactive();
+    const later = `${WORDING} Typed after the reset.`;
+    fireEvent.change(box(), { target: { value: later } });
+    view.rerender(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
+    expect(box()).toHaveValue(later);
+  });
+
+  it('a failed reset (nothing refetched for that field) keeps the edit, also across another refetch', () => {
+    const { onSave, view } = mount();
     const typed = `${WORDING} Unsaved edit.`;
     fireEvent.change(box(), { target: { value: typed } });
     fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+    // Another field changes; the wording's own value and source do not.
+    view.rerender(
+      <NoReplyCheckFields
+        check={{
+          ...saved,
+          ownTextMaxChars: { ...saved.ownTextMaxChars, value: 400, source: 'db' },
+        }}
+        saving={false}
+        onSave={onSave}
+      />
+    );
     expect(box()).toHaveValue(typed);
   });
 
-  it('the same number typed differently ("0300") is no change', () => {
-    const { save } = setup();
-    fireEvent.change(screen.getByLabelText(/Longest reply checked/), { target: { value: '0300' } });
-    expect(save).toHaveAttribute('aria-disabled', 'true');
+  it('a default equal to the stored value: the source change still drops the edit', () => {
+    const stored: NoReplyCheckSettings = {
+      ...CHECK,
+      instructions: { ...CHECK.instructions, source: 'db' },
+    };
+    const onSave = vi.fn();
+    const view = render(<NoReplyCheckFields check={stored} saving={false} onSave={onSave} />);
+    fireEvent.change(box(), { target: { value: `${WORDING} Unsaved edit.` } });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+    view.rerender(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
+    expect(box()).toHaveValue(WORDING);
+  });
+
+  it('"0300" is 300: Save stays off, and the refetch re-seeds it (one rule)', () => {
+    const onSave = vi.fn();
+    const view = render(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
+    const field = () => screen.getByLabelText(/Longest reply checked/);
+    fireEvent.change(field(), { target: { value: '0300' } });
+    expect(screen.getByRole('button', { name: /Save "No reply needed"/ })).toBeInactive();
+    view.rerender(
+      <NoReplyCheckFields
+        check={{
+          ...CHECK,
+          ownTextMaxChars: { ...CHECK.ownTextMaxChars, value: 350, source: 'db' },
+        }}
+        saving={false}
+        onSave={onSave}
+      />
+    );
+    expect(field()).toHaveValue(350);
   });
 });
 
@@ -106,50 +150,6 @@ describe('readNoReplyCheck — an unknown source', () => {
     const read = readNoReplyCheck(raw);
     expect(read?.instructions.source).toBe('default');
     expect(read?.ownTextMaxChars.source).toBe('default');
-  });
-});
-
-describe('NoReplyCheckFields — typing while a reset saves', () => {
-  const saved: NoReplyCheckSettings = {
-    ...CHECK,
-    instructions: { ...CHECK.instructions, value: `${WORDING} Saved.`, source: 'db' },
-  };
-  it('stays editable, and text typed after Reset is kept when the reset lands (review of #980)', () => {
-    let finish: (() => void) | undefined;
-    const onSave = vi.fn((_changed: unknown, onSaved?: () => void) => {
-      finish = onSaved;
-    });
-    const { rerender } = render(
-      <NoReplyCheckFields check={saved} saving={false} onSave={onSave} />
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
-    // The save is in flight: the field stays editable.
-    rerender(<NoReplyCheckFields check={saved} saving onSave={onSave} />);
-    const box = screen.getByLabelText(/What counts as needing no reply/);
-    expect(box).not.toBeInactive();
-    const later = `${WORDING} Typed after the reset.`;
-    fireEvent.change(box, { target: { value: later } });
-    finish?.();
-    rerender(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
-    expect(screen.getByLabelText(/What counts as needing no reply/)).toHaveValue(later);
-  });
-
-  it('the refetch lands BEFORE the save callback: the default shows', () => {
-    let finish: (() => void) | undefined;
-    const onSave = vi.fn((_changed: unknown, onSaved?: () => void) => {
-      finish = onSaved;
-    });
-    const { rerender } = render(
-      <NoReplyCheckFields check={saved} saving={false} onSave={onSave} />
-    );
-    fireEvent.change(screen.getByLabelText(/What counts as needing no reply/), {
-      target: { value: `${WORDING} Unsaved edit.` },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
-    rerender(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
-    finish?.();
-    rerender(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
-    expect(screen.getByLabelText(/What counts as needing no reply/)).toHaveValue(WORDING);
   });
 });
 
