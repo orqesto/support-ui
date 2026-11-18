@@ -165,6 +165,22 @@ describe("thread view — the served marker is shown as it is (the rule is the b
     expect(getById).not.toHaveBeenCalled();
   });
 
+  it('a thread needing review, or a lead, shows no note — as its card shows the review / lead chip instead', () => {
+    const getById = vi.spyOn(messageService, 'getById');
+    const review = { ...conversation(marker), needsHumanReview: true } as Message;
+    const lead = { ...conversation(marker), isLead: true } as Message;
+    // Reopened after a resolve: the backend sets needs_human_review and keeps the marker as stored.
+    expect(mountNote(review, 2).result.current).toBe(false);
+    expect(mountNote(lead, 2).result.current).toBe(false);
+    // No read spent on a note that cannot show.
+    expect(mountNote(review, 3).result.current).toBe(false);
+    expect(getById).not.toHaveBeenCalled();
+    // CONTROL: the same thread without the review reason shows it.
+    expect(mountNote({ ...review, needsHumanReview: false } as Message, 2).result.current).toBe(
+      true
+    );
+  });
+
   it('a resolved or closed thread: no note, and no read spent on one that cannot show', () => {
     const getById = vi.spyOn(messageService, 'getById');
     for (const status of ['resolved', 'closed']) {
