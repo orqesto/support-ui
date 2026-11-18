@@ -1,4 +1,5 @@
 import type { Message } from '@/types';
+import { isRecord } from '@/lib/isRecord';
 
 /**
  * "Not customer work" — a thread an agent binned rather than resolved.
@@ -23,7 +24,7 @@ export type NotCustomerWorkMark = {
 };
 
 const asRecord = (value: unknown): Record<string, unknown> | null =>
-  typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
+  isRecord(value) ? value : null;
 
 /** The mark, or null for an ordinary thread. */
 export const notCustomerWorkMark = (

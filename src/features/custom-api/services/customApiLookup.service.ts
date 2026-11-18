@@ -73,8 +73,7 @@ export interface LookupRun {
  * ownership checks", which the panel renders as no claim at all — defaulting it to 'owned' would
  * assert something no backend told us, and defaulting to 'mismatch' would flag every record on an
  * older deployment.
- */
-/**
+ *
  * A4 (2026-10-14): a `searchedFor` this build can render, or none — a malformed one is dropped,
  * not shown. A source with no label would read as an empty quote, so it is dropped too.
  */

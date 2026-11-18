@@ -348,13 +348,11 @@ export const AiDraftsCard = ({ drafts }: { drafts: DraftSettings | undefined }) 
             check={drafts.noReplyCheck}
             saving={save.isPending}
             onSave={(changed) =>
-              save.mutate(
-                { noReplyCheck: changed },
-                {
-                  onSuccess: () =>
-                    toast.success('"No reply needed" saved. Applies within a minute.'),
-                }
-              )
+              // A promise per save (not the shared mutate callbacks, which only the latest call
+              // gets): the fields tie a reset to its own save. The shared mutation reports errors.
+              save
+                .mutateAsync({ noReplyCheck: changed })
+                .then(() => toast.success('"No reply needed" saved. Applies within a minute.'))
             }
           />
         ) : (

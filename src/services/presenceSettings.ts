@@ -1,5 +1,6 @@
 import type { FieldSource } from './resolvedField';
 import { isRecord } from '@/lib/isRecord';
+import { sourceOf } from './boundedFieldRead';
 
 /** The six numeric thread-presence settings, in the milliseconds / count the server stores. */
 export const PRESENCE_NUMBER_FIELDS = [
@@ -21,8 +22,6 @@ export type PlatformPresenceInput = Partial<Record<PresenceNumberField, number>>
   enabled?: boolean;
 };
 
-const readSource = (raw: unknown): FieldSource => (raw === 'db' || raw === 'env' ? raw : 'default');
-
 /** `ingestion.presence`: all seven fields, or undefined on a backend without them. */
 export const normalizePresence = (raw: unknown): PresenceSettingsView | undefined => {
   if (!isRecord(raw) || !isRecord(raw.enabled) || typeof raw.enabled.value !== 'boolean') {
@@ -41,13 +40,13 @@ export const normalizePresence = (raw: unknown): PresenceSettingsView | undefine
     }
     numbers[key] = {
       value: field.value as number,
-      source: readSource(field.source),
+      source: sourceOf(field.source),
       min: field.min as number,
       max: field.max as number,
     };
   }
   return {
     ...(numbers as Record<PresenceNumberField, PresenceBoundedField>),
-    enabled: { value: raw.enabled.value, source: readSource(raw.enabled.source) },
+    enabled: { value: raw.enabled.value, source: sourceOf(raw.enabled.source) },
   };
 };

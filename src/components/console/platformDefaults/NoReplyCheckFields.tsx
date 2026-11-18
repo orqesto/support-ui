@@ -44,25 +44,31 @@ export const NoReplyCheckFields = ({
 }: {
   check: NoReplyCheckSettings;
   saving: boolean;
-  onSave: (changed: NoReplyCheckInput) => void;
+  /** Resolves when the save succeeded, rejects when it failed. */
+  onSave: (changed: NoReplyCheckInput) => Promise<unknown> | void;
 }) => {
   // Re-seed only the fields the operator has not edited (useReseededTexts, review of #1503): the
   // numbers compare by value, the wording trimmed; a field's source is its version (a reset to a
   // default equal to the stored value still lands).
-  const { texts, setTexts, isSame, markReset } = useReseededTexts<keyof Texts>(savedTexts(check), {
-    trimmed: ['instructions'],
-    numeric: NO_REPLY_CHECK_NUMBERS,
-    versions: {
-      ownTextMaxChars: check.ownTextMaxChars.source,
-      inlineLogoMaxBytes: check.inlineLogoMaxBytes.source,
-      instructions: check.instructions.source,
-    },
-  });
+  const { texts, setTexts, isSame, markReset, cancelReset } = useReseededTexts<keyof Texts>(
+    savedTexts(check),
+    {
+      trimmed: ['instructions'],
+      numeric: NO_REPLY_CHECK_NUMBERS,
+      versions: {
+        ownTextMaxChars: check.ownTextMaxChars.source,
+        inlineLogoMaxBytes: check.inlineLogoMaxBytes.source,
+        instructions: check.instructions.source,
+      },
+    }
+  );
   // Reset: the field shows the default once its refetch lands — unless the operator typed since;
   // the inputs stay editable (review of #980).
   const reset = (field: keyof Texts) => {
     markReset(field);
-    onSave({ [field]: null });
+    // Tied to THIS save: a failure clears the pending reset, so a later refetch (another admin's
+    // save) never overwrites the edit with it (review of #980).
+    void Promise.resolve(onSave({ [field]: null })).catch(() => cancelReset(field));
   };
 
   const errors: Partial<Texts> = {};
@@ -79,7 +85,7 @@ export const NoReplyCheckFields = ({
     }
   }
   const wording = texts.instructions.trim();
-  if (wording !== check.instructions.value.trim()) {
+  if (!isSame('instructions', texts.instructions, check.instructions.value)) {
     const { minLength, maxLength } = check.instructions;
     if (wording.length < minLength || wording.length > maxLength) {
       errors.instructions = `Write ${minLength} to ${maxLength} characters.`;

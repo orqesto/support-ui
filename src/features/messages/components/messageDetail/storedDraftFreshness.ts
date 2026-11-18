@@ -135,6 +135,13 @@ type ThreadCustomerView = {
   allInbound: readonly MessageEvent[];
   writing: readonly MessageEvent[];
 };
+/**
+ * THE order of two inbound emails for the verdict and the wait: stored time only — a tie is NOT
+ * after (as the backend's draft age, which keeps a draft it cannot order; review of #980: one order
+ * in both places, pinned by "two customer emails stored in the same millisecond").
+ */
+const storedAfter = (leftAt: number, rightAt: number): boolean => leftAt > rightAt;
+
 /** One pass per thread array (the draft and the marker both ask, on every live pull). */
 const customerViewCache = new WeakMap<readonly MessageEvent[], ThreadCustomerView>();
 const customerViewOf = (sortedThread: readonly MessageEvent[]): ThreadCustomerView => {
@@ -157,13 +164,14 @@ export function customerEmailVerdict(
   if (writing.length === 0) return 'unknown';
   const storedAt = (event: MessageEvent) => new Date(event.createdAt).getTime();
   if (writing.some((event) => Number.isNaN(storedAt(event)))) return 'unknown';
-  const newestStoredAt = Math.max(...writing.map(storedAt));
   // The email loaded (a customer email or not): older only if a later customer email follows it —
-  // as the backend, which never drops a draft for an email stored after its pick.
+  // as the backend, which never drops a draft for an email stored after its pick (storedAfter).
   const named = allInbound.find((event) => event.id === eventId);
   if (named && Number.isNaN(storedAt(named))) return 'unknown';
   const isLatest = named
-    ? storedAt(named) >= newestStoredAt
+    ? !writing.some(
+        (event) => event.id !== named.id && storedAfter(storedAt(event), storedAt(named))
+      )
     : eventId > Math.max(...writing.map((event) => event.id));
   return isLatest ? 'latest' : 'older';
 }
@@ -218,11 +226,8 @@ const newerUnjudgedInbound = (eventId: number, sortedThread: readonly MessageEve
     if (event.id === eventId) return false;
     const at = new Date(event.createdAt).getTime();
     if (Number.isNaN(at)) return false;
-    // Same millisecond: the id decides (ids rise with storage — review of #980).
-    const after =
-      namedAt !== null
-        ? at > namedAt || (at === namedAt && event.id > eventId)
-        : event.id > eventId;
+    // The one order (storedAfter); by id when the marked email is not loaded.
+    const after = namedAt !== null ? storedAfter(at, namedAt) : event.id > eventId;
     if (!after) return false;
     const meta = (event.metadata ?? {}) as EventMarks;
     if (neverJudged(meta) || hasVerdict(meta)) return false;

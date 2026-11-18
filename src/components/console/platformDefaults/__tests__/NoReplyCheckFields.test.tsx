@@ -107,6 +107,25 @@ describe('NoReplyCheckFields — reset to default (driven by the refetch)', () =
     expect(box()).toHaveValue(typed);
   });
 
+  it("a FAILED reset is forgotten: another admin's later save never overwrites the edit (review of #980)", async () => {
+    const onSave = vi.fn(() => Promise.reject(new Error('save failed')));
+    const view = render(<NoReplyCheckFields check={saved} saving={false} onSave={onSave} />);
+    const typed = `${WORDING} Unsaved edit.`;
+    fireEvent.change(box(), { target: { value: typed } });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+    await Promise.resolve();
+    await Promise.resolve();
+    // Another admin changes the wording itself.
+    view.rerender(
+      <NoReplyCheckFields
+        check={{ ...saved, instructions: { ...saved.instructions, value: `${WORDING} Other.` } }}
+        saving={false}
+        onSave={onSave}
+      />
+    );
+    expect(box()).toHaveValue(typed);
+  });
+
   it('a default equal to the stored value: the source change still drops the edit', () => {
     const stored: NoReplyCheckSettings = {
       ...CHECK,

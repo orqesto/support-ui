@@ -166,6 +166,17 @@ describe('noReplyNeededState — the thread view', () => {
     ).toBe(false);
   });
 
+  it('a same-millisecond email: one order for the verdict and the wait — a tie is not after', () => {
+    const at = new Date().toISOString();
+    const marked = event(2, { createdAt: at });
+    // As the draft rule ("neither draft is hidden"): the marked email stays the latest.
+    expect(
+      noReplyNeededState(metadata, [marked, event(3, { createdAt: at })], 'loaded').current
+    ).toBe(true);
+    const sameMsUnjudged = event(3, { createdAt: at, metadata: {}, customerWriting: false });
+    expect(noReplyNeededState(metadata, [marked, sameMsUnjudged], 'loaded').pending).toBe(false);
+  });
+
   it('the marked email is not on the loaded page: every loaded email is newer (review of #979)', () => {
     const unjudged = event(3, {
       metadata: {},

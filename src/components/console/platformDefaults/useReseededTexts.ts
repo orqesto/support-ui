@@ -68,5 +68,7 @@ export const useReseededTexts = <K extends string>(
    * still holds what it held now (newer typing is kept); a failed save changes nothing.
    */
   const markReset = (key: K) => pendingReset.current.set(key, texts[key]);
-  return { texts, setTexts, isSame, markReset };
+  /** The reset's save failed: forget it — the field keeps its edit under the normal rule. */
+  const cancelReset = (key: K) => pendingReset.current.delete(key);
+  return { texts, setTexts, isSame, markReset, cancelReset };
 };
