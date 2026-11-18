@@ -34,7 +34,7 @@ describe('Gmail OAuth pop-up flow', () => {
   let popup: {
     close: ReturnType<typeof vi.fn>;
     location: { href: string };
-    sessionStorage: { removeItem: ReturnType<typeof vi.fn> };
+    sessionStorage: { removeItem: ReturnType<typeof vi.fn>; setItem: ReturnType<typeof vi.fn> };
   };
   beforeEach(() => {
     post.mockReset();
@@ -46,7 +46,11 @@ describe('Gmail OAuth pop-up flow', () => {
       }
       return Promise.resolve({ data: { success: true, data: { id: 7, email: 'box@example.com' } } });
     });
-    popup = { close: vi.fn(), location: { href: '' }, sessionStorage: { removeItem: vi.fn() } };
+    popup = {
+      close: vi.fn(),
+      location: { href: '' },
+      sessionStorage: { removeItem: vi.fn(), setItem: vi.fn() },
+    };
     vi.spyOn(window, 'open').mockImplementation(() => popup as unknown as Window);
   });
   afterEach(() => vi.restoreAllMocks());
@@ -138,7 +142,8 @@ describe('Gmail OAuth pop-up flow', () => {
   it("the redirect keys are cleared in the POP-UP's own copy before it navigates; this tab keeps its own", async () => {
     sessionStorage.setItem('gmail_oauth_pending_config', JSON.stringify({ config: {} }));
     const flow = gmailOAuthService.connectWithPopup({});
-    // Cleared at once, before the pop-up is sent to Google.
+    // Marked as a pop-up and cleared at once, before the pop-up is sent to Google.
+    expect(popup.sessionStorage.setItem).toHaveBeenCalledWith('gmail_oauth_popup', '1');
     expect(popup.sessionStorage.removeItem).toHaveBeenCalledWith('gmail_oauth_pending_config');
     expect(popup.sessionStorage.removeItem).toHaveBeenCalledWith('gmail_oauth_payload');
     expect(popup.location.href).toBe('');
@@ -259,9 +264,24 @@ describe('Gmail OAuth pop-up flow', () => {
       vi.spyOn(Date, 'now').mockReturnValue(loadedAt);
       const fresh = await import('@/features/settings/services/gmail-oauth.service');
       vi.mocked(Date.now).mockRestore();
-      void fresh.gmailOAuthService.connectWithPopup({});
+      // A blocked pop-up settles the flow at once (nothing left listening); the name was chosen.
+      vi.mocked(window.open).mockReturnValueOnce(null);
+      await fresh.gmailOAuthService.connectWithPopup({});
       names.push(String(vi.mocked(window.open).mock.calls.at(-1)?.[1]));
     }
     expect(names[0]).not.toBe(names[1]);
+  });
+
+  it("the pop-up's storage cannot be written: fail closed — closed and reported blocked (the redirect is offered)", async () => {
+    popup.sessionStorage.setItem.mockImplementation(() => {
+      throw new Error('storage denied');
+    });
+    await expect(gmailOAuthService.connectWithPopup({})).resolves.toMatchObject({
+      success: false,
+      error: 'POPUP_BLOCKED',
+    });
+    expect(popup.close).toHaveBeenCalledTimes(1);
+    expect(popup.location.href).toBe('');
+    expect(post).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,4 @@
 import type { MessageEvent } from '@/types';
-import { readNoReplyMarker } from '../noReplyMarker';
 
 /** Where the thread's events stand: not read yet for this conversation, read, or the read failed. */
 export type ThreadEventsState = 'pending' | 'loaded' | 'failed';
@@ -143,8 +142,7 @@ type ThreadCustomerView = {
 const storedAfter = (leftAt: number, rightAt: number): boolean => leftAt > rightAt;
 
 /**
- * THE "after the named email" rule for both callers below (customerEmailVerdict and
- * newerUnjudgedInbound): by stored time (storedAfter) when the named email is loaded; when it is not
+ * THE "after the named email" rule of customerEmailVerdict: by stored time (storedAfter) when the named email is loaded; when it is not
  * (on an earlier page, or newer than the page) there is no time to compare, so by id — ids rise with
  * storage. Times that do not parse are the callers' to refuse first; the callers pass the times
  * they already parsed (`namedAt` null when the named email is not loaded).
@@ -188,54 +186,3 @@ export function customerEmailVerdict(
   );
   return isLatest ? 'latest' : 'older';
 }
-
-/**
- * "No reply needed" (backend noReplyNeeded.ts, owner 2026-11-17): the thread marker
- * `metadata.noReplyNeeded = {eventId}` says the customer's email only thanked or confirmed, so no AI
- * draft was made. Trusted (noReplyMarker.ts) unless the loaded events show a newer customer email —
- * a marker whose clear has not reached the app never hides a newer email. While the events are
- * read it is `pending`: the bubble shows nothing yet, never "No suggestion found" first.
- */
-export function noReplyNeededState(
-  metadata: Record<string, unknown> | null | undefined,
-  sortedThread: readonly MessageEvent[],
-  eventsState: ThreadEventsState
-): { current: boolean; pending: boolean } {
-  const marker = readNoReplyMarker(metadata);
-  if (!marker) return { current: false, pending: false };
-  if (eventsState === 'pending') return { current: false, pending: true };
-  // A failed read shows no note (round 4): the error may still be the PREVIOUS thread's on the
-  // first render after a switch, and a note it cannot check would flash.
-  if (eventsState === 'failed') return { current: false, pending: false };
-  // THE rule is the backend's (the API sends the marker only while its email is the thread's reply
-  // turn; an email waiting for its verdict counts). The loaded events only cover the moment the
-  // app's copy of the thread is older than they are: a newer live email — judged as the customer
-  // writing, or still unjudged — means the marker is not current. No clock, no wait: an unknown
-  // verdict trusts the backend.
-  if (newerUnjudgedInbound(marker.eventId, sortedThread)) return { current: false, pending: false };
-  return {
-    current: customerEmailVerdict(marker.eventId, sortedThread) !== 'older',
-    pending: false,
-  };
-}
-
-/**
- * A LIVE inbound email after the marked one that has no verdict yet (the backend counts it as the
- * reply turn). Mail that never gets a verdict does not count (neverJudged). "After" is isAfterNamed,
- * the same rule as customerEmailVerdict (review of #980). A time that does not parse proves nothing.
- */
-const newerUnjudgedInbound = (eventId: number, sortedThread: readonly MessageEvent[]): boolean => {
-  const { allInbound } = customerViewOf(sortedThread);
-  const named = allInbound.find((event) => event.id === eventId);
-  const namedAt = named ? new Date(named.createdAt).getTime() : null;
-  if (namedAt !== null && Number.isNaN(namedAt)) return false;
-  return allInbound.some((event) => {
-    if (event.id === eventId) return false;
-    const at = new Date(event.createdAt).getTime();
-    if (Number.isNaN(at)) return false;
-    // The one order (isAfterNamed): stored time, by id only when the marked email is not loaded.
-    if (!isAfterNamed(at, event.id, namedAt, eventId)) return false;
-    const meta = (event.metadata ?? {}) as EventMarks;
-    return !neverJudged(meta) && !hasVerdict(meta);
-  });
-};

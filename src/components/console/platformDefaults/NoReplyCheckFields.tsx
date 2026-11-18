@@ -128,7 +128,12 @@ export const NoReplyCheckFields = ({
             <p className="text-xs text-muted-foreground">{LABELS[field].help}</p>
             <SourceBadge source={check[field].source} envLabel="Server setting" />
             {check[field].source === 'db' && (
-              <Button variant="ghost" size="sm" disabled={saving} onClick={() => reset(field)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={saving || unknown.size > 0}
+                onClick={() => reset(field)}
+              >
                 Reset to default
               </Button>
             )}
@@ -151,7 +156,12 @@ export const NoReplyCheckFields = ({
         </p>
         <SourceBadge source={check.instructions.source} envLabel="Server setting" />
         {check.instructions.source === 'db' && (
-          <Button variant="ghost" size="sm" disabled={saving} onClick={() => reset('instructions')}>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={saving || unknown.size > 0}
+            onClick={() => reset('instructions')}
+          >
             Reset wording to default
           </Button>
         )}

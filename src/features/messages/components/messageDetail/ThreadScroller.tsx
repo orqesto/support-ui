@@ -184,9 +184,7 @@ export function ThreadScroller({
             composerMode={composerMode}
             resolved={message.status === 'resolved'}
             answered={lastWordOurs}
-            // A closed thread shows no note — as its card shows no chip (noReplyNeededShown).
-            noReplyNeeded={noReplyNeeded.current && message.status !== 'closed'}
-            noReplyPending={noReplyNeeded.pending && message.status !== 'closed'}
+            noReplyNeeded={noReplyNeeded}
             alternativeCount={alternativeCount}
             onGhostClick={handleGhostClick}
             onShowAlternatives={() => {

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { messageService } from '@/services/message.service';
 import { isOutgoingEvent } from '@/lib/messageHelpers';
-import { noReplyNeededState, storedDraftFreshness } from './storedDraftFreshness';
+import { storedDraftFreshness } from './storedDraftFreshness';
+import { useNoReplyNote } from './useNoReplyNote';
 import { logger } from '@/lib/logger';
 import { useSeededState } from '@/lib/seededState';
 import { normaliseThreadPage, type ThreadPage } from '@/services/threadPage';
@@ -246,11 +247,17 @@ export function useThreadEvents(
     () => storedDraftFreshness(message.metadata, sortedThread, eventsState),
     [message.metadata, sortedThread, eventsState]
   );
-  // The customer's latest email only thanked or confirmed: no draft, and the thread says why.
-  const noReplyNeeded = useMemo(
-    () => noReplyNeededState(message.metadata, sortedThread, eventsState),
-    [message.metadata, sortedThread, eventsState]
+  // The customer's latest email only thanked or confirmed: no draft, and the thread says why
+  // (useNoReplyNote: the served marker, read again when a newer inbound event is loaded).
+  const newestInboundId = useMemo(
+    () =>
+      sortedThread.reduce(
+        (newest, event) => (event.type === 'inbound' && event.id > newest ? event.id : newest),
+        0
+      ),
+    [sortedThread]
   );
+  const noReplyNeeded = useNoReplyNote(message, newestInboundId, eventsState === 'loaded');
   // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
   // only ever sit between days, in order.
   return {

@@ -111,16 +111,27 @@ describe('OAuthCallbackPage — the hand-off to the app window', () => {
     expect(screen.getByText(NOT_RECEIVED)).toBeInTheDocument();
   });
 
-  it('a pending config means the redirect flow, even with a live opener (a redirect tab opened from another app window)', () => {
+  it('a live opener means a pop-up, even with a pending config in its copy (opened by a tab on the old bundle)', async () => {
     sessionStorage.setItem('gmail_oauth_pending_config', JSON.stringify({ config: {} }));
     const opener = { closed: false, postMessage: vi.fn() };
     Object.defineProperty(window, 'opener', { value: opener, configurable: true });
     mount();
-    expect(JSON.parse(sessionStorage.getItem('gmail_oauth_payload') ?? 'null')).toEqual({
-      code: 'c9',
-      state: 's9',
-    });
-    expect(opener.postMessage).not.toHaveBeenCalled();
+    await deliver();
+    expect(sessionStorage.getItem('gmail_oauth_payload')).toBeNull();
+    expect(opener.postMessage).toHaveBeenCalledWith(
+      { type: 'GMAIL_OAUTH_SUCCESS', code: 'c9', state: 's9' },
+      window.location.origin
+    );
+  });
+
+  it('a marked pop-up whose inherited config could not be cleared, opener severed: still the pop-up path', async () => {
+    sessionStorage.setItem('gmail_oauth_popup', '1');
+    sessionStorage.setItem('gmail_oauth_pending_config', JSON.stringify({ config: {} }));
+    const onCode = appWindowListens();
+    mount();
+    await deliver();
+    expect(sessionStorage.getItem('gmail_oauth_payload')).toBeNull();
+    expect(onCode).toHaveBeenCalledTimes(1);
   });
 
   it("another flow's listener does not acknowledge this code", async () => {

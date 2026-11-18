@@ -31,8 +31,6 @@ type Props = {
    * was made on purpose — said instead of "No suggestion found" (the KB button still helps).
    */
   noReplyNeeded?: boolean;
-  /** A marker is being checked against the thread's events: nothing shown yet (not "No suggestion"). */
-  noReplyPending?: boolean;
   alternativeCount: number;
   onGhostClick: (answer: string, source: string) => void;
   onShowAlternatives: () => void;
@@ -67,7 +65,6 @@ export function MessageGhostBubble({
   resolved,
   answered = false,
   noReplyNeeded = false,
-  noReplyPending = false,
   alternativeCount,
   onGhostClick,
   onShowAlternatives,
@@ -75,9 +72,6 @@ export function MessageGhostBubble({
   const empty = !composer || composer === '<p></p>';
   const zoneOpen = empty && composerMode === 'reply' && !resolved && !answered;
   const showZone = !autoReply?.sent && zoneOpen;
-  // A marker is being checked against the thread: nothing yet — not "Generating suggestion…" nor
-  // "No suggestion found" first.
-  if (zoneOpen && !ghostOption && noReplyPending) return null;
   // An auto-reply on an EARLIER email hides suggestions, but not the note for the customer's latest
   // thank-you — the note only (no spinner, no draft).
   if (!showZone) return zoneOpen && noReplyNeeded && !ghostOption ? emptyNote(true) : null;

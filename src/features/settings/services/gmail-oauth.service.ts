@@ -2,7 +2,7 @@ import { apiClient } from '@/lib/api-client';
 import {
   GMAIL_OAUTH_PAYLOAD_KEY,
   GMAIL_OAUTH_PENDING_CONFIG_KEY,
-  isPendingRedirect,
+  GMAIL_OAUTH_POPUP_KEY,
   listenForGmailOAuthCode,
   oauthErrorText,
 } from './gmailOAuthHandoff';
@@ -183,15 +183,25 @@ export const gmailOAuthService = {
         return;
       }
       // The pop-up (same-origin about:blank) holds its own COPY of this tab's sessionStorage, kept
-      // across Google and back to the callback page. Clear the redirect keys in THAT copy before it
-      // navigates: the pop-up never takes the redirect path, and this tab keeps its own redirect
-      // config (a redirect it started stays live). Verified in Chromium 153: without this the
-      // pop-up's callback page sees the inherited config; with it, none — and the opener keeps its.
+      // across Google and back to the callback page. In THAT copy, before it navigates: mark it as a
+      // pop-up (the callback page then never takes the redirect path) and clear the inherited
+      // redirect keys. This tab keeps its own redirect config (a redirect it started stays live).
+      // If the pop-up's storage cannot be written, nothing tells its callback page apart from a
+      // redirect tab once Google severs the opener: fail closed — close it and report it blocked,
+      // which offers the full-page redirect instead.
       try {
+        popup.sessionStorage.setItem(GMAIL_OAUTH_POPUP_KEY, '1');
         popup.sessionStorage.removeItem(GMAIL_OAUTH_PENDING_CONFIG_KEY);
         popup.sessionStorage.removeItem(GMAIL_OAUTH_PAYLOAD_KEY);
       } catch (error) {
-        logger.warn("Could not clear the pop-up's copy of the redirect keys:", error);
+        logger.warn("Could not prepare the pop-up's storage; falling back to the redirect:", error);
+        popup.close();
+        resolve({
+          success: false,
+          error: 'POPUP_BLOCKED',
+          message: 'Browser blocked the OAuth popup.',
+        });
+        return;
       }
 
       const executeOAuth = async () => {
@@ -240,11 +250,11 @@ export const gmailOAuthService = {
           // resolve the flow before the code arrives. A hard timeout below is the backstop.
           let resolved = false;
           let dispatched = false;
-          let acknowledged = false;
-          let channel: { stop: () => void; acknowledge: (state: string) => void } = {
-            stop: () => undefined,
-            acknowledge: () => undefined,
-          };
+          // Handlers are named below; the channel only calls them once a message arrives.
+          const channel = listenForGmailOAuthCode(
+            (handoff) => dispatchCode(handoff.code, handoff.state),
+            (failure) => failFromPopup(failure.state, failure.error)
+          );
           const messageHandler = (event: MessageEvent) => {
             // Verify origin for security
             if (event.origin !== window.location.origin) return;
@@ -275,13 +285,9 @@ export const gmailOAuthService = {
           // is used once — the state is single-use server-side, so a second POST would race and
           // falsely report failure.
           const dispatchCode = (code: string, state: string) => {
-            if (state !== flowState) return;
-            if (!acknowledged) {
-              acknowledged = true;
-              channel.acknowledge(state);
-            }
-            if (dispatched || resolved) return;
+            if (state !== flowState || dispatched || resolved) return;
             dispatched = true;
+            channel.acknowledge(state);
             // The pop-up closes itself (OAuthCallbackPage); opener-side popup.close() is
             // COOP-blocked under Google's cross-origin headers, so it is skipped.
             gmailOAuthService
@@ -308,10 +314,6 @@ export const gmailOAuthService = {
           };
 
           window.addEventListener('message', messageHandler);
-          channel = listenForGmailOAuthCode(
-            (handoff) => dispatchCode(handoff.code, handoff.state),
-            (failure) => failFromPopup(failure.state, failure.error)
-          );
 
           // Backstop: if the flow hasn't resolved within 5 minutes, give up.
           const authTimeout = setTimeout(
@@ -381,7 +383,8 @@ export const gmailOAuthService = {
    * immediately instead of rendering the form while consumePendingRedirectResult
    * runs. Must be read BEFORE consumePendingRedirectResult, which clears the keys.
    */
-  hasPendingRedirectResult: (): boolean => isPendingRedirect(),
+  hasPendingRedirectResult: (): boolean =>
+    sessionStorage.getItem(GMAIL_OAUTH_PENDING_CONFIG_KEY) !== null,
 
   /**
    * Called on integrations page mount to finish a redirect-flow OAuth. Reads the

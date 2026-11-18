@@ -151,6 +151,10 @@ describe('NoReplyCheckFields — reset to default (driven by the refetch)', () =
       await act(() => save.promise);
       await act(() => vi.advanceTimersByTimeAsync(ARMED_RESET_MS + 1));
       expect(screen.getByText(/could not be loaded. Reload the page/)).toBeInTheDocument();
+      // Nothing may be saved over a value nobody could read: Reset is blocked as well.
+      for (const reset of screen.getAllByRole('button', { name: /^Reset / })) {
+        expect(reset).toBeInactive();
+      }
       fireEvent.change(box(), { target: { value: `${WORDING} Typed again.` } });
       expect(screen.getByRole('button', { name: /Save "No reply needed"/ })).toBeInactive();
       // Once the saved value arrives (another refetch), the field is known again.

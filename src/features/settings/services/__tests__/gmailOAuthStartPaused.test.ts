@@ -72,7 +72,7 @@ describe('Gmail redirect flow replays startPaused', () => {
     expect(stored).not.toContain(state);
     expect(Object.keys(JSON.parse(stored) as object).sort()).toEqual(['config', 'redirectUri']);
     const { isPendingRedirect } = await import('@/features/settings/services/gmailOAuthHandoff');
-    expect(isPendingRedirect()).toBe(true);
+    expect(isPendingRedirect(false)).toBe(true);
     expect(hrefSetter).toHaveBeenCalledWith(expect.stringContaining(state));
   });
 
@@ -108,15 +108,23 @@ describe('Gmail redirect flow replays startPaused', () => {
     const popup = {
       close: vi.fn(),
       location: { href: '' },
-      sessionStorage: { removeItem: (key: string) => popupCopy.delete(key) },
+      sessionStorage: {
+        removeItem: (key: string) => popupCopy.delete(key),
+        setItem: (key: string, value: string) => popupCopy.set(key, value),
+      },
     };
+    // The authorize URL carries no state: the flow settles at once (nothing left listening).
+    post.mockResolvedValue({
+      data: { success: true, data: { authUrl: 'https://accounts.google.com/o/oauth2/v2/auth' } },
+    });
     const open = vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
     try {
-      void gmailOAuthService.connectWithPopup({});
+      await gmailOAuthService.connectWithPopup({});
     } finally {
       open.mockRestore();
     }
     expect(popupCopy.has('gmail_oauth_pending_config')).toBe(false);
+    expect(popupCopy.get('gmail_oauth_popup')).toBe('1');
     expect(sessionStorage.getItem('gmail_oauth_pending_config')).not.toBeNull();
   });
 });

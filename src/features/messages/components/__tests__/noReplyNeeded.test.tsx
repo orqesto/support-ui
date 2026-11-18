@@ -4,13 +4,29 @@
  * so while nothing on the row contradicts it, and the thread says so in place of "No suggestion
  * found" while that email is the customer's latest.
  */
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, render, renderHook, screen } from '@testing-library/react';
 import { getAiState, noReplyNeededShown } from '../inboxCardHelpers';
 import { MessageGhostBubble } from '../MessageGhostBubble';
-import { noReplyNeededState } from '../messageDetail/storedDraftFreshness';
+import { useThreadEvents } from '../messageDetail/useThreadEvents';
+import { MARKER_READ_BACKOFF_MS, useNoReplyNote } from '../messageDetail/useNoReplyNote';
+import { SOCKET_RECONNECTED_EVENT } from '@/lib/socketEvents';
+import { messageService } from '@/services/message.service';
 import type { Message, MessageEvent } from '@/types';
 import type { MessageThread } from '@/services/message.service';
+
+const socketHandlers = vi.hoisted(() => new Map<string, Set<(data: unknown) => void>>());
+vi.mock('@/lib/socketManager', () => ({
+  getSocket: () => ({}),
+  releaseSocket: vi.fn(),
+  subscribeToEvent: (name: string, handler: (data: unknown) => void) => {
+    if (!socketHandlers.has(name)) socketHandlers.set(name, new Set());
+    socketHandlers.get(name)?.add(handler);
+  },
+  unsubscribeFromEvent: (name: string, handler: (data: unknown) => void) =>
+    socketHandlers.get(name)?.delete(handler),
+}));
+const emit = (name: string) => socketHandlers.get(name)?.forEach((handler) => handler(undefined));
 
 const thread = { isLead: false } as unknown as MessageThread;
 const MARKED_AT = '2026-11-17T21:30:00.000Z';
@@ -102,102 +118,265 @@ const event = (id: number, extra: Record<string, unknown> = {}) =>
     ...extra,
   }) as unknown as MessageEvent;
 
-describe('noReplyNeededState — the thread view', () => {
-  const metadata = { noReplyNeeded: { eventId: 2 } };
-
-  it('the marked email is the customer’s latest: shown', () => {
-    expect(noReplyNeededState(metadata, [event(1), event(2)], 'loaded')).toEqual({
-      current: true,
-      pending: false,
+describe("thread view — the served marker is shown as it is (the rule is the backend's)", () => {
+  const marker = { noReplyNeeded: { eventId: 2 } };
+  const conversation = (metadata: Record<string, unknown>, status = 'open') =>
+    ({ id: 41, channel: 'email', status, metadata }) as unknown as Message;
+  type Read = Awaited<ReturnType<typeof messageService.getById>>;
+  const served = (metadata: Record<string, unknown>) =>
+    ({ success: true, data: conversation(metadata) }) as unknown as Read;
+  /** A read the test settles. */
+  const pendingRead = () => {
+    let settle: { resolve: (value: Read) => void; reject: (error: Error) => void } | undefined;
+    const promise = new Promise<Read>((resolve, reject) => {
+      settle = { resolve, reject };
     });
-  });
-
-  it('the customer wrote again after it (marker not cleared yet): not shown', () => {
-    expect(noReplyNeededState(metadata, [event(1), event(2), event(3)], 'loaded').current).toBe(
-      false
+    return { promise, ...settle! };
+  };
+  const mountNote = (message: Message, newestInboundId: number, eventsLoaded = true) =>
+    renderHook(
+      (props: { message: Message; newest: number; loaded: boolean }) =>
+        useNoReplyNote(props.message, props.newest, props.loaded),
+      { initialProps: { message, newest: newestInboundId, loaded: eventsLoaded } }
     );
+  const turn = () => act(() => vi.advanceTimersByTimeAsync(0));
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    socketHandlers.clear();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
-  it('CONTROL: an out-of-office after it is not the customer writing — still shown', () => {
-    const ooo = event(3, { customerWriting: false });
-    expect(noReplyNeededState(metadata, [event(1), event(2), ooo], 'loaded').current).toBe(true);
+  it('a served marker with nothing newer loaded: the note at once, and no read of its own', () => {
+    const getById = vi.spyOn(messageService, 'getById');
+    const hook = mountNote(conversation(marker), 2);
+    expect(hook.result.current).toBe(true);
+    // Also while the events are still being read.
+    expect(mountNote(conversation(marker), 0, false).result.current).toBe(true);
+    expect(getById).not.toHaveBeenCalled();
   });
 
-  it('a newer live email still waiting for its verdict counts, as on the backend: not shown, no wait', () => {
-    const unjudged = event(3, { metadata: {}, customerWriting: false });
-    expect(noReplyNeededState(metadata, [event(1), event(2), unjudged], 'loaded')).toEqual({
-      current: false,
-      pending: false,
-    });
+  it('SANITY: no marker served — no note, nothing read', () => {
+    const getById = vi.spyOn(messageService, 'getById');
+    expect(mountNote(conversation({}), 3).result.current).toBe(false);
+    expect(getById).not.toHaveBeenCalled();
   });
 
-  it('no clock: an unjudged newer email counts however long ago it arrived', () => {
-    const now = vi.spyOn(Date, 'now');
-    const old = event(3, { metadata: {}, customerWriting: false });
-    expect(noReplyNeededState(metadata, [event(1), event(2), old], 'loaded').current).toBe(false);
-    expect(now).not.toHaveBeenCalled();
-    now.mockRestore();
+  it('a resolved or closed thread: no note, and no read spent on one that cannot show', () => {
+    const getById = vi.spyOn(messageService, 'getById');
+    for (const status of ['resolved', 'closed']) {
+      expect(mountNote(conversation(marker, status), 3).result.current).toBe(false);
+    }
+    expect(getById).not.toHaveBeenCalled();
   });
 
-  it('the marked email not loaded: "newer" is by id — an OLDER loaded id proves nothing (review of #980)', () => {
-    const unjudged = (id: number) =>
-      event(id, { metadata: {}, customerWriting: false, createdAt: '2026-11-17T12:00:00Z' });
-    // Marker 50 not loaded; 48 is older (the backend's marker stands), 52 is newer and unjudged.
-    const marker = { noReplyNeeded: { eventId: 50 } };
-    expect(noReplyNeededState(marker, [unjudged(48)], 'loaded').current).toBe(true);
-    expect(noReplyNeededState(marker, [unjudged(48), unjudged(52)], 'loaded').current).toBe(false);
+  it('a newer inbound event: hidden while its read is in flight; the answer decides (still marked: shown)', async () => {
+    const read = pendingRead();
+    const getById = vi.spyOn(messageService, 'getById').mockReturnValue(read.promise);
+    const hook = mountNote(conversation(marker), 3);
+    expect(hook.result.current).toBe(false);
+    expect(getById).toHaveBeenCalledTimes(1);
+    read.resolve(served(marker));
+    await turn();
+    expect(hook.result.current).toBe(true);
+    expect(getById).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
-  it('the marked email is NEWER than the loaded page (marker before its event): the marker stands', () => {
-    const unjudged = event(3, { metadata: {}, customerWriting: false });
-    // Marker names email 9, above every loaded id: it is the newest — nothing loaded is newer.
-    expect(noReplyNeededState({ noReplyNeeded: { eventId: 9 } }, [unjudged], 'loaded')).toEqual({
-      current: true,
-      pending: false,
-    });
+  it('the answer serves no marker (the customer wrote again): no note', async () => {
+    vi.spyOn(messageService, 'getById').mockResolvedValue(served({}));
+    const hook = mountNote(conversation(marker), 3);
+    await turn();
+    expect(hook.result.current).toBe(false);
   });
 
-  it('a same-millisecond email: one order for judged and unjudged mail — a tie is not after', () => {
-    const at = new Date().toISOString();
-    const marked = event(2, { createdAt: at });
-    // As the draft rule ("neither draft is hidden"): the marked email stays the latest.
-    expect(
-      noReplyNeededState(metadata, [marked, event(3, { createdAt: at })], 'loaded').current
-    ).toBe(true);
-    const sameMsUnjudged = event(3, { createdAt: at, metadata: {}, customerWriting: false });
-    expect(noReplyNeededState(metadata, [marked, sameMsUnjudged], 'loaded').current).toBe(true);
+  it('another refresh of the conversation (sent before the ask) landing meanwhile confirms nothing', async () => {
+    const read = pendingRead();
+    vi.spyOn(messageService, 'getById').mockReturnValue(read.promise);
+    const hook = mountNote(conversation(marker), 3);
+    // The parent hands over a NEW conversation object still carrying the old marker.
+    hook.rerender({ message: conversation({ ...marker }), newest: 3, loaded: true });
+    await turn();
+    expect(hook.result.current).toBe(false);
+    // Only THIS read's answer counts.
+    read.resolve(served({}));
+    await turn();
+    expect(hook.result.current).toBe(false);
   });
 
-  it('the marked email is not on the loaded page: every loaded email is newer (review of #979)', () => {
-    const unjudged = event(3, { metadata: {}, customerWriting: false });
-    // Marker names email 1, which is on an earlier page; the page holds only the unjudged one.
-    expect(noReplyNeededState({ noReplyNeeded: { eventId: 1 } }, [unjudged], 'loaded')).toEqual({
-      current: false,
-      pending: false,
-    });
+  it('a newer email arriving while a read is in flight: the earlier answer is dropped, the new one decides', async () => {
+    const first = pendingRead();
+    const second = pendingRead();
+    const getById = vi
+      .spyOn(messageService, 'getById')
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const message = conversation(marker);
+    const hook = mountNote(message, 3);
+    hook.rerender({ message, newest: 4, loaded: true });
+    expect(getById).toHaveBeenCalledTimes(2);
+    // The answer for email 3 (an auto-ack: still marked) must not show the note over email 4.
+    first.resolve(served(marker));
+    await turn();
+    expect(hook.result.current).toBe(false);
+    second.resolve(served(marker));
+    await turn();
+    expect(hook.result.current).toBe(true);
   });
 
-  it('an import or a bounce after it never gets a verdict — it does not count: the note shows', () => {
-    const imported = event(3, { metadata: { historicalImport: true }, customerWriting: false });
-    const bounce = event(4, { metadata: { deliveryFailure: true }, customerWriting: false });
-    expect(noReplyNeededState(metadata, [event(2), imported, bounce], 'loaded').current).toBe(true);
+  it('focus or a reconnect while a read is still out starts no second read', async () => {
+    const read = pendingRead();
+    const getById = vi.spyOn(messageService, 'getById').mockReturnValue(read.promise);
+    const hook = mountNote(conversation(marker), 3);
+    for (let tab = 0; tab < 5; tab += 1) act(() => void window.dispatchEvent(new Event('focus')));
+    act(() => emit(SOCKET_RECONNECTED_EVENT));
+    await turn();
+    expect(getById).toHaveBeenCalledTimes(1);
+    read.resolve(served(marker));
+    await turn();
+    expect(hook.result.current).toBe(true);
   });
 
-  it('events being read: pending (nothing shown yet); a failed read shows no note', () => {
-    expect(noReplyNeededState(metadata, [], 'pending')).toEqual({ current: false, pending: true });
-    expect(noReplyNeededState(metadata, [event(2)], 'failed')).toEqual({
-      current: false,
-      pending: false,
-    });
-    // CONTROL: no marker is never pending.
-    expect(noReplyNeededState({}, [], 'pending').pending).toBe(false);
+  it('a retry at once (focus) keeps the count of failures: the next wait is the longer one', async () => {
+    const getById = vi.spyOn(messageService, 'getById').mockRejectedValue(new Error('offline'));
+    mountNote(conversation(marker), 3);
+    await turn();
+    // First failure: the 5 s wait is running. Focus retries now — the second failure.
+    act(() => void window.dispatchEvent(new Event('focus')));
+    await turn();
+    expect(getById).toHaveBeenCalledTimes(2);
+    // The next wait is the 30 s one, not 5 s again.
+    await act(() => vi.advanceTimersByTimeAsync(MARKER_READ_BACKOFF_MS[0] + 100));
+    expect(getById).toHaveBeenCalledTimes(2);
+    await act(() => vi.advanceTimersByTimeAsync(MARKER_READ_BACKOFF_MS[1]));
+    expect(getById).toHaveBeenCalledTimes(3);
+  });
+
+  it('switching thread while a retry is waiting: the old timer is gone, the new thread asks for itself', async () => {
+    const getById = vi.spyOn(messageService, 'getById').mockRejectedValue(new Error('offline'));
+    const hook = mountNote(conversation(marker), 3);
+    await turn();
+    expect(vi.getTimerCount()).toBe(1);
+    const other = { ...conversation({ noReplyNeeded: { eventId: 7 } }), id: 42 } as Message;
+    hook.rerender({ message: other, newest: 9, loaded: true });
+    await turn();
+    expect(getById).toHaveBeenLastCalledWith(42);
+    expect(getById).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(1);
+  });
+
+  it('a failed read: hidden, tried again after 5 s, 30 s and 2 min, then no more', async () => {
+    const getById = vi.spyOn(messageService, 'getById').mockRejectedValue(new Error('offline'));
+    const hook = mountNote(conversation(marker), 3);
+    await turn();
+    expect(getById).toHaveBeenCalledTimes(1);
+    for (const [index, wait] of MARKER_READ_BACKOFF_MS.entries()) {
+      await act(() => vi.advanceTimersByTimeAsync(wait - 100));
+      expect(getById).toHaveBeenCalledTimes(index + 1);
+      await act(() => vi.advanceTimersByTimeAsync(101));
+      expect(getById).toHaveBeenCalledTimes(index + 2);
+      expect(hook.result.current).toBe(false);
+    }
+    await act(() => vi.advanceTimersByTimeAsync(10 * 60_000));
+    expect(getById).toHaveBeenCalledTimes(MARKER_READ_BACKOFF_MS.length + 1);
+    expect(hook.result.current).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('an unsuccessful answer (success: false) is a failed read too', async () => {
+    const getById = vi
+      .spyOn(messageService, 'getById')
+      .mockResolvedValue({ success: false } as unknown as Read);
+    const hook = mountNote(conversation(marker), 3);
+    await turn();
+    await act(() => vi.advanceTimersByTimeAsync(MARKER_READ_BACKOFF_MS[0] + 1));
+    expect(getById).toHaveBeenCalledTimes(2);
+    expect(hook.result.current).toBe(false);
+  });
+
+  it('an answer of no shape (undefined), or the call itself throwing, is a failed read — never stuck "out"', async () => {
+    const getById = vi
+      .spyOn(messageService, 'getById')
+      .mockResolvedValueOnce(undefined as unknown as Read)
+      .mockImplementationOnce(() => {
+        throw new Error('sync failure');
+      })
+      .mockResolvedValue(served(marker));
+    const hook = mountNote(conversation(marker), 3);
+    await turn();
+    expect(hook.result.current).toBe(false);
+    // Failed, not in flight: the wait runs, and the next try (a throw) fails the same way.
+    await act(() => vi.advanceTimersByTimeAsync(MARKER_READ_BACKOFF_MS[0] + 100));
+    expect(getById).toHaveBeenCalledTimes(2);
+    // Still retryable at once (it would not be if the read were stuck "out").
+    act(() => void window.dispatchEvent(new Event('focus')));
+    await turn();
+    expect(getById).toHaveBeenCalledTimes(3);
+    expect(hook.result.current).toBe(true);
+  });
+
+  it('still waiting: window focus and a socket reconnect each try again at once; a success then shows', async () => {
+    const getById = vi.spyOn(messageService, 'getById').mockRejectedValue(new Error('offline'));
+    const hook = mountNote(conversation(marker), 3);
+    await turn();
+    expect(getById).toHaveBeenCalledTimes(1);
+    act(() => void window.dispatchEvent(new Event('focus')));
+    await turn();
+    expect(getById).toHaveBeenCalledTimes(2);
+    getById.mockResolvedValue(served(marker));
+    act(() => emit(SOCKET_RECONNECTED_EVENT));
+    await turn();
+    expect(getById).toHaveBeenCalledTimes(3);
+    expect(hook.result.current).toBe(true);
+    // Answered: focus asks for nothing more.
+    act(() => void window.dispatchEvent(new Event('focus')));
+    await turn();
+    expect(getById).toHaveBeenCalledTimes(3);
+  });
+
+  it('unmounting while a retry is waiting leaves no timer and takes no late answer', async () => {
+    const getById = vi.spyOn(messageService, 'getById').mockRejectedValue(new Error('offline'));
+    const hook = mountNote(conversation(marker), 3);
+    await turn();
+    expect(vi.getTimerCount()).toBe(1);
+    hook.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    await act(() => vi.advanceTimersByTimeAsync(10 * 60_000));
+    expect(getById).toHaveBeenCalledTimes(1);
+  });
+
+  it('WIRING (useThreadEvents): a loaded inbound event newer than the marked email asks for the marker', async () => {
+    vi.spyOn(messageService, 'getThreadMessages').mockResolvedValue({
+      data: [event(2), event(3)],
+    } as unknown as Awaited<ReturnType<typeof messageService.getThreadMessages>>);
+    const getById = vi.spyOn(messageService, 'getById').mockResolvedValue(served(marker));
+    const hook = renderHook(() => useThreadEvents(conversation(marker), vi.fn(), vi.fn()));
+    await turn();
+    await turn();
+    expect(getById).toHaveBeenCalledTimes(1);
+    expect(hook.result.current.noReplyNeeded).toBe(true);
+  });
+
+  it('WIRING CONTROL: our own reply after the marked email asks for nothing', async () => {
+    vi.spyOn(messageService, 'getThreadMessages').mockResolvedValue({
+      data: [event(2), event(3, { type: 'outbound' })],
+    } as unknown as Awaited<ReturnType<typeof messageService.getThreadMessages>>);
+    const getById = vi.spyOn(messageService, 'getById');
+    const hook = renderHook(() => useThreadEvents(conversation(marker), vi.fn(), vi.fn()));
+    await turn();
+    await turn();
+    expect(getById).not.toHaveBeenCalled();
+    expect(hook.result.current.noReplyNeeded).toBe(true);
   });
 });
 
 const noop = () => undefined;
 const renderEmptyBubble = (
   noReplyNeeded?: boolean,
-  extra: { noReplyPending?: boolean; autoReply?: { sent?: boolean }; aiLoading?: boolean } = {}
+  extra: { autoReply?: { sent?: boolean }; aiLoading?: boolean } = {}
 ) =>
   render(
     <MessageGhostBubble
@@ -205,7 +384,6 @@ const renderEmptyBubble = (
       ghostVisible
       ghostOption={null}
       autoReply={extra.autoReply}
-      {...(extra.noReplyPending !== undefined ? { noReplyPending: extra.noReplyPending } : {})}
       composer=""
       composerMode="reply"
       resolved={false}
@@ -225,20 +403,10 @@ describe('thread — no draft for a thank-you', () => {
     expect(screen.queryByText(/still writes|by hand/)).not.toBeInTheDocument();
   });
 
-  it('while the marker is checked: nothing, never "No suggestion found" or "Generating" first', () => {
-    const { container } = renderEmptyBubble(false, { noReplyPending: true });
-    expect(container).toBeEmptyDOMElement();
-  });
-
   it('a marked thread shows its note, not the similar-search spinner first', () => {
     renderEmptyBubble(true, { aiLoading: true });
     expect(screen.getByText(/No reply needed/)).toBeInTheDocument();
     expect(screen.queryByText(/Generating/)).not.toBeInTheDocument();
-  });
-
-  it('pending beats the spinner: a stored draft being checked never shows "Generating" first', () => {
-    const { container } = renderEmptyBubble(false, { noReplyPending: true, aiLoading: true });
-    expect(container).toBeEmptyDOMElement();
   });
 
   it('after an earlier auto-reply only the NOTE opens — never the spinner', () => {
