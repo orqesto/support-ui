@@ -157,12 +157,12 @@ export const NoReplyCheckFields = ({
   const deferMs = secondsOf('keywordReplyDeferMs');
   const maxWaitMs = secondsOf('keywordReplyMaxWaitMs');
   secondsOf('repairTimeoutMs');
-  // The total hold can never be shorter than one hold.
-  if (deferMs !== undefined && maxWaitMs !== undefined && maxWaitMs < deferMs) {
-    errors.keywordReplyMaxWaitMs = 'Must be at least the hold time above.';
-    delete changed.keywordReplyMaxWaitMs;
-    delete changed.keywordReplyDeferMs;
-  }
+  // A total wait below one hold is valid on the backend (the reply goes at the earlier of the two),
+  // so it is only a hint — and only while the operator edits one of them, never on saved values.
+  const editingHold =
+    changed.keywordReplyDeferMs !== undefined || changed.keywordReplyMaxWaitMs !== undefined;
+  const totalCapsHold =
+    editingHold && deferMs !== undefined && maxWaitMs !== undefined && maxWaitMs < deferMs;
   for (const field of wordings) {
     const saved = wordingOf(field);
     if (isSame(field, texts[field], saved.value)) continue;
@@ -194,6 +194,12 @@ export const NoReplyCheckFields = ({
           onChange={(event) => setTexts((current) => ({ ...current, [field]: event.target.value }))}
         />
         <p className="text-xs text-muted-foreground">{LABELS[field].help}</p>
+        {field === 'keywordReplyMaxWaitMs' && totalCapsHold && (
+          <p className="text-xs text-muted-foreground">
+            Shorter than the hold above: the reply goes out when this total runs out — the rest of
+            the hold is never waited.
+          </p>
+        )}
         <SourceBadge source={bounds.source} envLabel="Server setting" />
         {bounds.source === 'db' && (
           <Button variant="ghost" size="sm" disabled={resetDisabled} onClick={() => reset(field)}>

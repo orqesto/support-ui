@@ -71,19 +71,63 @@ describe('NoReplyCheckFields — the keyword-reply hold and the follow-up questi
     expect(save).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('the total hold can never be shorter than one hold', () => {
+  it('a total wait below the hold, while editing either: a hint, never an error — Save stays on', () => {
     const { onSave, save } = setupFull();
+    const hint = /Shorter than the hold above/;
     fireEvent.change(screen.getByLabelText(/Hold a keyword reply/), { target: { value: '300' } });
     fireEvent.change(screen.getByLabelText(/Longest total hold/), { target: { value: '120' } });
-    expect(screen.getByText('Must be at least the hold time above.')).toBeInTheDocument();
-    expect(save).toHaveAttribute('aria-disabled', 'true');
-    // Also against the SAVED hold, when only the total is changed.
-    fireEvent.change(screen.getByLabelText(/Hold a keyword reply/), { target: { value: '120' } });
-    fireEvent.change(screen.getByLabelText(/Longest total hold/), { target: { value: '60' } });
-    expect(screen.getByText('Must be at least the hold time above.')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText(/Longest total hold/), { target: { value: '900' } });
+    expect(screen.getByText(hint)).toBeInTheDocument();
+    expect(save).not.toHaveAttribute('aria-disabled', 'true');
     fireEvent.click(save);
-    expect(onSave).toHaveBeenCalledWith({ keywordReplyMaxWaitMs: 900_000 });
+    expect(onSave).toHaveBeenCalledWith({
+      keywordReplyDeferMs: 300_000,
+      keywordReplyMaxWaitMs: 120_000,
+    });
+    // Back above the hold: no hint.
+    fireEvent.change(screen.getByLabelText(/Longest total hold/), { target: { value: '900' } });
+    expect(screen.queryByText(hint)).not.toBeInTheDocument();
+  });
+
+  it('a SAVED pair with the total below the hold blocks nothing: another field saves, no hint', () => {
+    const { onSave, save } = setupFull({
+      ...FULL,
+      keywordReplyDeferMs: { value: 120_000, source: 'default', min: 10_000, max: 600_000 },
+      keywordReplyMaxWaitMs: { value: 60_000, source: 'db', min: 60_000, max: 3_600_000 },
+    });
+    expect(screen.queryByText(/Shorter than the hold above/)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Longest reply checked/), { target: { value: '450' } });
+    expect(save).not.toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(save);
+    expect(onSave).toHaveBeenCalledWith({ ownTextMaxChars: 450 });
+  });
+
+  it('reachable from the card: hold 60 s + total 60 s saved, the hold reset to 120 s — later edits still save', async () => {
+    const saved: NoReplyCheckSettings = {
+      ...FULL,
+      keywordReplyDeferMs: { value: 60_000, source: 'db', min: 10_000, max: 600_000 },
+      keywordReplyMaxWaitMs: { value: 60_000, source: 'db', min: 60_000, max: 3_600_000 },
+    };
+    const onSave = vi.fn(() => Promise.resolve());
+    const view = render(<NoReplyCheckFields check={saved} saving={false} onSave={onSave} />);
+    // Reset the hold: the server's default (120 s) comes back with the refetch.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Reset to default' })[0]);
+    expect(onSave).toHaveBeenCalledWith({ keywordReplyDeferMs: null });
+    const afterReset: NoReplyCheckSettings = {
+      ...saved,
+      keywordReplyDeferMs: { value: 120_000, source: 'default', min: 10_000, max: 600_000 },
+    };
+    await act(async () => {
+      view.rerender(<NoReplyCheckFields check={afterReset} saving={false} onSave={onSave} />);
+      await Promise.resolve();
+    });
+    expect(screen.getByLabelText(/Hold a keyword reply/)).toHaveValue(120);
+    fireEvent.change(screen.getByLabelText(/What counts as needing no reply/), {
+      target: { value: `${WORDING} Also a bare OK.` },
+    });
+    const save = screen.getByRole('button', { name: /Save "No reply needed"/ });
+    expect(save).not.toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(save);
+    expect(onSave).toHaveBeenLastCalledWith({ instructions: `${WORDING} Also a bare OK.` });
   });
 
   it('the follow-up wording: too short is an error; a valid one is sent trimmed', () => {
