@@ -5,6 +5,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { NoReplyCheckFields } from '../NoReplyCheckFields';
+import { ARMED_RESET_MS } from '../useReseededTexts';
 import { normalizeDrafts } from '@/services/platformSettings.service';
 import { readNoReplyCheck, type NoReplyCheckSettings } from '@/services/noReplyCheck.settings';
 import { readBounded } from '@/services/boundedFieldRead';
@@ -102,6 +103,27 @@ describe('NoReplyCheckFields — reset to default (driven by the refetch)', () =
     await act(() => save.promise);
     refetch(CHECK);
     expect(box()).toHaveValue(WORDING);
+  });
+
+  it("a reset whose own refetch never came expires: a later admin's save does not replace the edit", async () => {
+    const { save, refetch } = mount();
+    const typed = `${WORDING} Unsaved edit.`;
+    fireEvent.change(box(), { target: { value: typed } });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+    const start = Date.now();
+    const now = vi.spyOn(Date, 'now').mockReturnValue(start);
+    try {
+      // The save succeeds, but its refetch failed: the field never changes, the reset stays armed.
+      save.resolve();
+      await act(() => save.promise);
+      expect(box()).toHaveValue(typed);
+      // Much later another admin saves the wording: their refetch is not this reset's.
+      now.mockReturnValue(start + ARMED_RESET_MS + 1);
+      refetch(otherAdminsWording);
+      expect(box()).toHaveValue(typed);
+    } finally {
+      now.mockRestore();
+    }
   });
 
   it('text typed after Reset is kept when the refetch lands; the fields stay editable', async () => {

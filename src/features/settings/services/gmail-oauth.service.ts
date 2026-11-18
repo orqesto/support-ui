@@ -2,9 +2,9 @@ import { apiClient } from '@/lib/api-client';
 import {
   GMAIL_OAUTH_PAYLOAD_KEY,
   GMAIL_OAUTH_PENDING_CONFIG_KEY,
+  isPendingRedirect,
   listenForGmailOAuthCode,
-  oauthStateFingerprint,
-  pendingRedirectStateHash,
+  oauthErrorText,
 } from './gmailOAuthHandoff';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
@@ -90,11 +90,6 @@ const nextPopupName = (): string => {
   return `gmail_oauth_${Date.now()}_${popupFlowSeq}`;
 };
 
-/** The words for Google's `error=` codes the pop-up hands over (anything else: a generic line). */
-const OAUTH_ERROR_TEXT: Record<string, string> = {
-  access_denied: 'Access was denied. Please try again.',
-};
-
 /** The readable reason of a refused request (the server's words), else the raw text. */
 const failureText = (error: unknown): string => getApiErrorMessage(error) ?? String(error);
 
@@ -172,6 +167,11 @@ export const gmailOAuthService = {
       const left = window.screen.width / 2 - width / 2;
       const top = window.screen.height / 2 - height / 2;
 
+      // A pop-up inherits a copy of this tab's sessionStorage: a leftover redirect config (an
+      // abandoned redirect, or one stored by the bundle before this one) must not make the pop-up's
+      // callback page take the redirect path. A pop-up flow starting means no redirect is pending.
+      sessionStorage.removeItem(GMAIL_OAUTH_PENDING_CONFIG_KEY);
+      sessionStorage.removeItem(GMAIL_OAUTH_PAYLOAD_KEY);
       const popup = window.open(
         'about:blank',
         nextPopupName(),
@@ -286,10 +286,7 @@ export const gmailOAuthService = {
           // Google refused / the user declined in the pop-up: fail now, not after the timeout.
           const failFromPopup = (error: string) => {
             if (dispatched) return;
-            safeResolve({
-              success: false,
-              error: OAUTH_ERROR_TEXT[error] ?? 'Authorization failed. Please try again.',
-            });
+            safeResolve({ success: false, error: oauthErrorText(error) });
           };
 
           window.addEventListener('message', messageHandler);
@@ -349,23 +346,11 @@ export const gmailOAuthService = {
       return { success: false, error: 'Invalid OAuth URL received from server' };
     }
 
-    // The flow's state marks the pending config as THIS redirect's: a pop-up inherits a copy of
-    // this tab's sessionStorage, and only a matching state sends the callback page down this path.
-    // Only its SHA-256 fingerprint is stored — never the state itself.
-    const state = oauthStateOf(authUrl);
-    if (!state) {
-      return { success: false, error: 'Invalid OAuth URL received from server' };
-    }
-    let stateHash: string;
-    try {
-      stateHash = await oauthStateFingerprint(state);
-    } catch (error) {
-      logger.error('Could not fingerprint the OAuth state:', error);
-      return { success: false, error: 'This browser cannot start the Gmail sign-in here' };
-    }
+    // The config only (never the state): its presence tells the callback page this tab is the
+    // redirect flow (a pop-up flow clears these keys before it opens).
     sessionStorage.setItem(
       GMAIL_OAUTH_PENDING_CONFIG_KEY,
-      JSON.stringify({ config, redirectUri: configResponse.data.redirectUri, stateHash })
+      JSON.stringify({ config, redirectUri: configResponse.data.redirectUri })
     );
 
     window.location.href = authUrl;
@@ -379,8 +364,7 @@ export const gmailOAuthService = {
    * immediately instead of rendering the form while consumePendingRedirectResult
    * runs. Must be read BEFORE consumePendingRedirectResult, which clears the keys.
    */
-  hasPendingRedirectResult: (): boolean =>
-    sessionStorage.getItem(GMAIL_OAUTH_PENDING_CONFIG_KEY) !== null,
+  hasPendingRedirectResult: (): boolean => isPendingRedirect(),
 
   /**
    * Called on integrations page mount to finish a redirect-flow OAuth. Reads the
@@ -395,8 +379,6 @@ export const gmailOAuthService = {
     const payloadRaw = sessionStorage.getItem(GMAIL_OAUTH_PAYLOAD_KEY);
     const configRaw = sessionStorage.getItem(GMAIL_OAUTH_PENDING_CONFIG_KEY);
     if (!configRaw) return null;
-    // Read before the keys are cleared: the code must belong to the flow THIS tab started.
-    const storedStateHash = pendingRedirectStateHash()?.stateHash ?? null;
 
     // Clear the redirect-flow keys as soon as a pending config is seen — even if
     // no code came back (user denied/abandoned at Google). Otherwise a stale
@@ -427,18 +409,6 @@ export const gmailOAuthService = {
 
     if (!payload?.code || !payload?.state || !pending?.redirectUri) {
       return { success: false, error: 'Incomplete OAuth redirect state' };
-    }
-
-    // A code for another flow's state is refused here, before the backend sees it. A config with no
-    // fingerprint was stored by the bundle before it (a redirect begun before the deploy).
-    if (
-      storedStateHash !== null &&
-      storedStateHash !== (await oauthStateFingerprint(payload.state))
-    ) {
-      return {
-        success: false,
-        error: 'This sign-in belongs to another attempt. Please try again.',
-      };
     }
 
     const cfg: ConnectWithPopupConfig = pending.config ?? {};

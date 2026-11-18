@@ -19,10 +19,6 @@ const listenForGmailOAuthCode = (
   };
   return () => channel.close();
 };
-const oauthStateFingerprint = async (state: string) => {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(state));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-};
 
 const mount = (query = '?code=c9&state=s9') =>
   render(
@@ -70,7 +66,7 @@ describe('OAuthCallbackPage — the hand-off to the app window', () => {
     mount();
     await deliver();
     expect(onCode).toHaveBeenCalledWith({ type: 'GMAIL_OAUTH_SUCCESS', code: 'c9', state: 's9' });
-    expect(screen.getByText(/Authorization successful/)).toBeInTheDocument();
+    expect(screen.getByText(/handed to the app/)).toBeInTheDocument();
     await act(() => vi.advanceTimersByTimeAsync(1000));
     expect(window.close).toHaveBeenCalledTimes(1);
     expect(sessionStorage.getItem('gmail_oauth_payload')).toBeNull();
@@ -80,7 +76,7 @@ describe('OAuthCallbackPage — the hand-off to the app window', () => {
   it('no app window acknowledges (its tab reloaded): says so and stays open', async () => {
     mount();
     await deliver();
-    expect(screen.queryByText(/Authorization successful/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/handed to the app/)).not.toBeInTheDocument();
     await act(() => vi.advanceTimersByTimeAsync(5000));
     expect(screen.getByText(NOT_RECEIVED)).toBeInTheDocument();
     await act(() => vi.advanceTimersByTimeAsync(5000));
@@ -94,24 +90,6 @@ describe('OAuthCallbackPage — the hand-off to the app window', () => {
     await act(() => vi.advanceTimersByTimeAsync(5000));
     expect(onCode).not.toHaveBeenCalled();
     expect(screen.getByText(NOT_RECEIVED)).toBeInTheDocument();
-  });
-
-  it("a pop-up's inherited copy of a stale redirect config is not the redirect flow", async () => {
-    sessionStorage.setItem(
-      'gmail_oauth_pending_config',
-      JSON.stringify({
-        config: {},
-        redirectUri: 'https://app.example/cb',
-        stateHash: await oauthStateFingerprint('old'),
-      })
-    );
-    const onCode = appWindowListens();
-    mount();
-    await deliver();
-    expect(onCode).toHaveBeenCalledTimes(1);
-    expect(sessionStorage.getItem('gmail_oauth_payload')).toBeNull();
-    await act(() => vi.advanceTimersByTimeAsync(1000));
-    expect(window.close).toHaveBeenCalledTimes(1);
   });
 
   it('an opener that survived also gets the postMessage; the close still waits for the ack', async () => {
@@ -129,59 +107,34 @@ describe('OAuthCallbackPage — the hand-off to the app window', () => {
     expect(window.close).toHaveBeenCalledTimes(1);
   });
 
-  it('CONTROL: the full-page redirect flow (its own state) keeps its own tab store', async () => {
-    sessionStorage.setItem(
-      'gmail_oauth_pending_config',
-      JSON.stringify({
-        config: {},
-        redirectUri: 'https://app.example/cb',
-        stateHash: await oauthStateFingerprint('s9'),
-      })
-    );
-    mount();
-    await deliver();
-    expect(JSON.parse(sessionStorage.getItem('gmail_oauth_payload') ?? 'null')).toEqual({
-      code: 'c9',
-      state: 's9',
-    });
-    expect(screen.getByText(/Returning to integrations/)).toBeInTheDocument();
-  });
-
-  it('an opener got the postMessage but no acknowledgement came (app tab on the old bundle): success, not an error', async () => {
-    const opener = { closed: false, postMessage: vi.fn() };
-    Object.defineProperty(window, 'opener', { value: opener, configurable: true });
-    mount();
-    await deliver();
-    await act(() => vi.advanceTimersByTimeAsync(5000));
-    expect(screen.queryByText(NOT_RECEIVED)).not.toBeInTheDocument();
-    expect(screen.getByText(/Authorization successful/)).toBeInTheDocument();
-    await act(() => vi.advanceTimersByTimeAsync(1000));
-    expect(window.close).toHaveBeenCalledTimes(1);
-  });
-
-  it('a redirect begun before the deploy (config with no fingerprint, no opener) is the redirect flow', async () => {
+  it('CONTROL: a pending config here = the full-page redirect flow; it keeps its own tab store', () => {
+    // Also a config stored by the bundle before this one: only the config's presence counts.
     sessionStorage.setItem(
       'gmail_oauth_pending_config',
       JSON.stringify({ config: {}, redirectUri: 'https://app.example/cb' })
     );
+    const onCode = appWindowListens();
     mount();
-    await deliver();
     expect(JSON.parse(sessionStorage.getItem('gmail_oauth_payload') ?? 'null')).toEqual({
       code: 'c9',
       state: 's9',
     });
     expect(screen.getByText(/Returning to integrations/)).toBeInTheDocument();
+    expect(onCode).not.toHaveBeenCalled();
   });
 
-  it("a pop-up drops its inherited copy of another flow's pending config", async () => {
-    sessionStorage.setItem(
-      'gmail_oauth_pending_config',
-      JSON.stringify({ config: {}, stateHash: await oauthStateFingerprint('old') })
-    );
-    appWindowListens();
+  it('an opener got the postMessage but no acknowledgement came (old bundle, or reloaded on Google): neutral, stays open', async () => {
+    const opener = { closed: false, postMessage: vi.fn() };
+    Object.defineProperty(window, 'opener', { value: opener, configurable: true });
     mount();
     await deliver();
-    expect(sessionStorage.getItem('gmail_oauth_pending_config')).toBeNull();
+    expect(opener.postMessage).toHaveBeenCalledTimes(1);
+    await act(() => vi.advanceTimersByTimeAsync(5000));
+    expect(screen.queryByText(NOT_RECEIVED)).not.toBeInTheDocument();
+    expect(screen.queryByText(/handed to the app|successful/)).not.toBeInTheDocument();
+    expect(screen.getByText(/If Gmail does not show as connected there/)).toBeInTheDocument();
+    await act(() => vi.advanceTimersByTimeAsync(5000));
+    expect(window.close).not.toHaveBeenCalled();
   });
 
   it("Google's error is sent to the app window for this flow's state", async () => {

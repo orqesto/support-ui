@@ -3,9 +3,8 @@ import {
   GMAIL_OAUTH_CHANNEL,
   announceGmailOAuthCode,
   announceGmailOAuthError,
-  isPendingRedirectFor,
+  isPendingRedirect,
   listenForGmailOAuthCode,
-  oauthStateFingerprint,
 } from '../gmailOAuthHandoff';
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 20));
@@ -58,35 +57,12 @@ describe('Gmail OAuth hand-off over a BroadcastChannel', () => {
     expect(onCode).not.toHaveBeenCalled();
   });
 
-  it('the redirect flow is recognised only by its own state (stored as a fingerprint)', async () => {
+  it('the redirect flow is known by its pending config being there (never by the state)', () => {
     sessionStorage.clear();
-    const pending = (value: object) =>
-      sessionStorage.setItem('gmail_oauth_pending_config', JSON.stringify(value));
-    expect(await isPendingRedirectFor('s1', false)).toBe(false);
-    pending({ config: {}, stateHash: 'not-this-flow' });
-    expect(await isPendingRedirectFor('s1', false)).toBe(false);
-    pending({ stateHash: await oauthStateFingerprint('old') });
-    expect(await isPendingRedirectFor('s1', false)).toBe(false);
-    // The raw state is never what is stored, so a raw match must not count.
-    pending({ state: 's1', stateHash: 's1' });
-    expect(await isPendingRedirectFor('s1', false)).toBe(false);
-    pending({ stateHash: await oauthStateFingerprint('s1') });
-    expect(await isPendingRedirectFor('s1', false)).toBe(true);
-    expect(await isPendingRedirectFor('s1', true)).toBe(true);
-    sessionStorage.clear();
-  });
-
-  it('a config with no fingerprint (stored before the deploy) is the redirect flow only without an opener', async () => {
+    expect(isPendingRedirect()).toBe(false);
     sessionStorage.setItem('gmail_oauth_pending_config', JSON.stringify({ config: {} }));
-    expect(await isPendingRedirectFor('s1', false)).toBe(true);
-    expect(await isPendingRedirectFor('s1', true)).toBe(false);
+    expect(isPendingRedirect()).toBe(true);
     sessionStorage.clear();
-  });
-
-  it('the fingerprint is the hex SHA-256 of the state, not the state', async () => {
-    expect(await oauthStateFingerprint('abc')).toBe(
-      'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'
-    );
   });
 
   it("Google's error reaches only its own flow's listener, at once", async () => {

@@ -17,6 +17,17 @@ export type GmailOAuthHandoff = { type: 'GMAIL_OAUTH_SUCCESS'; code: string; sta
 export type GmailOAuthFailure = { type: 'GMAIL_OAUTH_ERROR'; state: string; error: string };
 type GmailOAuthAck = { type: 'GMAIL_OAUTH_ACK'; state: string };
 
+/** The words for Google's `error=` codes — the callback page and the app window show the same. */
+const OAUTH_ERROR_TEXT: Record<string, string> = {
+  access_denied: 'Access was denied. Please try again.',
+  invalid_request: 'The authorization request was invalid.',
+  invalid_client: 'OAuth client configuration error.',
+  server_error: 'The authorization server encountered an error.',
+  temporarily_unavailable: 'The service is temporarily unavailable. Please try again.',
+};
+export const oauthErrorText = (error: string): string =>
+  OAUTH_ERROR_TEXT[error] ?? 'Authorization failed. Please try again.';
+
 /**
  * Callback page: announce the code and wait for the app window's acknowledgement of THIS state.
  * Returns the stop function, or null when the browser has no channel.
@@ -86,39 +97,11 @@ export const listenForGmailOAuthCode = (
 };
 
 /**
- * Hex SHA-256 of a flow's `state`. The redirect flow stores only this fingerprint with its pending
- * config, never the state itself (no OAuth secret in clear text in storage).
+ * Did THIS tab start the full-page redirect flow? redirectToOAuth stores a pending config (never the
+ * state, nor anything derived from it) before it leaves for Google. A pop-up started by this bundle
+ * inherits none: connectWithPopup clears the tab's redirect keys before it opens the pop-up, so on
+ * the callback page "a pending config is here" means the redirect flow. The backend checks the
+ * state itself (single use) when the code is exchanged.
  */
-export const oauthStateFingerprint = async (state: string): Promise<string> => {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(state));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
-};
-
-/**
- * The pending config's state fingerprint: null when no config is pending; `{ stateHash: null }` when
- * a config is there without one (stored by the bundle before the fingerprint).
- */
-export const pendingRedirectStateHash = (): { stateHash: string | null } | null => {
-  const raw = sessionStorage.getItem(GMAIL_OAUTH_PENDING_CONFIG_KEY);
-  if (!raw) return null;
-  try {
-    const stored = (JSON.parse(raw) as { stateHash?: unknown } | null)?.stateHash;
-    return { stateHash: typeof stored === 'string' && stored ? stored : null };
-  } catch {
-    return { stateHash: null };
-  }
-};
-
-/**
- * Callback page: did THIS tab start the full-page redirect flow for `state`? The redirect flow
- * stores its state's fingerprint with the pending config (redirectToOAuth). A pop-up inherits a COPY
- * of the opener tab's sessionStorage, so a leftover config with another fingerprint is not this
- * flow. A config with NO fingerprint was stored by the bundle before it (a redirect begun before the
- * deploy): it is this flow only when no opener is there — a pop-up whose opener survived is not.
- */
-export const isPendingRedirectFor = async (state: string, hasOpener: boolean): Promise<boolean> => {
-  const pending = pendingRedirectStateHash();
-  if (pending === null) return false;
-  if (pending.stateHash === null) return !hasOpener;
-  return pending.stateHash === (await oauthStateFingerprint(state));
-};
+export const isPendingRedirect = (): boolean =>
+  sessionStorage.getItem(GMAIL_OAUTH_PENDING_CONFIG_KEY) !== null;

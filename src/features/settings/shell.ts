@@ -27,5 +27,6 @@ export {
   announceGmailOAuthError,
   GMAIL_OAUTH_PAYLOAD_KEY,
   GMAIL_OAUTH_PENDING_CONFIG_KEY,
-  isPendingRedirectFor,
+  isPendingRedirect,
+  oauthErrorText,
 } from './services/gmailOAuthHandoff';

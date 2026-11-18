@@ -40,7 +40,7 @@ describe('Gmail redirect flow replays startPaused', () => {
     );
   });
 
-  it('stores only a fingerprint of the OAuth state before leaving for Google — never the state', async () => {
+  it('stores the config before leaving for Google — never the state, nor anything derived from it', async () => {
     const state = 'csrf-state-1234567890';
     get.mockResolvedValue({
       data: { success: true, data: { clientId: 'cid', redirectUri: 'https://x/cb' } },
@@ -70,48 +70,9 @@ describe('Gmail redirect flow replays startPaused', () => {
     }
     const stored = sessionStorage.getItem('gmail_oauth_pending_config') ?? '';
     expect(stored).not.toContain(state);
-    const { isPendingRedirectFor } = await import('@/features/settings/services/gmailOAuthHandoff');
-    expect(await isPendingRedirectFor(state, false)).toBe(true);
-    expect(await isPendingRedirectFor('another-state', false)).toBe(false);
+    expect(Object.keys(JSON.parse(stored) as object).sort()).toEqual(['config', 'redirectUri']);
+    const { isPendingRedirect } = await import('@/features/settings/services/gmailOAuthHandoff');
+    expect(isPendingRedirect()).toBe(true);
     expect(hrefSetter).toHaveBeenCalledWith(expect.stringContaining(state));
-  });
-
-  it("refuses a code whose state is not the stored flow's — the backend never sees it", async () => {
-    const { oauthStateFingerprint } = await import(
-      '@/features/settings/services/gmailOAuthHandoff'
-    );
-    sessionStorage.setItem('gmail_oauth_payload', JSON.stringify({ code: 'c', state: 'other' }));
-    sessionStorage.setItem(
-      'gmail_oauth_pending_config',
-      JSON.stringify({
-        config: {},
-        redirectUri: 'https://x/cb',
-        stateHash: await oauthStateFingerprint('mine'),
-      })
-    );
-    const result = await gmailOAuthService.consumePendingRedirectResult();
-    expect(result).toMatchObject({ success: false });
-    expect(post).not.toHaveBeenCalled();
-    expect(sessionStorage.getItem('gmail_oauth_pending_config')).toBeNull();
-  });
-
-  it("CONTROL: the stored flow's own state goes to the backend", async () => {
-    const { oauthStateFingerprint } = await import(
-      '@/features/settings/services/gmailOAuthHandoff'
-    );
-    sessionStorage.setItem('gmail_oauth_payload', JSON.stringify({ code: 'c', state: 'mine' }));
-    sessionStorage.setItem(
-      'gmail_oauth_pending_config',
-      JSON.stringify({
-        config: {},
-        redirectUri: 'https://x/cb',
-        stateHash: await oauthStateFingerprint('mine'),
-      })
-    );
-    await gmailOAuthService.consumePendingRedirectResult();
-    expect(post).toHaveBeenCalledWith(
-      '/api/oauth/gmail/callback',
-      expect.objectContaining({ code: 'c', state: 'mine' })
-    );
   });
 });

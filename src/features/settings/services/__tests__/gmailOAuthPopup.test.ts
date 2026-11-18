@@ -109,14 +109,41 @@ describe('Gmail OAuth pop-up flow', () => {
   });
 
   it('each flow opens its own window: a second flow never takes over the first pop-up', async () => {
+    authUrls.push('https://accounts.example/auth?state=sA', 'https://accounts.example/auth?state=sB');
     const flowA = gmailOAuthService.connectWithPopup({});
     const flowB = gmailOAuthService.connectWithPopup({});
     const names = vi.mocked(window.open).mock.calls.map(([, name]) => name);
     expect(names).toHaveLength(2);
     expect(names[0]).not.toBe(names[1]);
     await flush();
+    fromPopup('cB', 'sB');
+    await expect(flowB).resolves.toMatchObject({ success: true });
+    // Flow A did not take B's code.
+    expect(callbacks()).toEqual([expect.objectContaining({ code: 'cB', state: 'sB' })]);
+    fromPopup('cA', 'sA');
+    await expect(flowA).resolves.toMatchObject({ success: true });
+    expect(callbacks()).toEqual([
+      expect.objectContaining({ code: 'cB', state: 'sB' }),
+      expect.objectContaining({ code: 'cA', state: 'sA' }),
+    ]);
+  });
+
+  it("a pop-up never inherits this tab's leftover redirect keys: they are cleared before it opens", async () => {
+    sessionStorage.setItem('gmail_oauth_pending_config', JSON.stringify({ config: {} }));
+    sessionStorage.setItem('gmail_oauth_payload', JSON.stringify({ code: 'old', state: 'old' }));
+    let atOpen: (string | null)[] = [];
+    vi.mocked(window.open).mockImplementation(() => {
+      atOpen = [
+        sessionStorage.getItem('gmail_oauth_pending_config'),
+        sessionStorage.getItem('gmail_oauth_payload'),
+      ];
+      return popup as unknown as Window;
+    });
+    const flow = gmailOAuthService.connectWithPopup({});
+    expect(atOpen).toEqual([null, null]);
+    await flush();
     fromPopup('c1', 's1');
-    await Promise.all([flowA, flowB.catch(() => undefined)]);
+    await flow;
   });
 
   it("Google's error fails the flow at once (channel and postMessage), not after the timeout", async () => {
@@ -149,7 +176,7 @@ describe('Gmail OAuth pop-up flow', () => {
     // sX's access_denied was ignored: the flow failed on ITS OWN error (server_error).
     await expect(viaOpener).resolves.toMatchObject({
       success: false,
-      error: 'Authorization failed. Please try again.',
+      error: 'The authorization server encountered an error.',
     });
     expect(callbacks()).toHaveLength(0);
   });
