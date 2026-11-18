@@ -179,6 +179,7 @@ const AI_STATE: FilterOption[] = [
   { value: 'needs_info', label: 'Needs Info' },
   { value: 'bot_handled', label: 'Bot Handled' },
   { value: 'lead', label: 'Lead' },
+  { value: 'no_reply_needed', label: 'No Reply Needed' },
   { value: 'contradiction', label: 'Contradiction' },
 ];
 

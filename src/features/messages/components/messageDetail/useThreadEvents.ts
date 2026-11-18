@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { messageService } from '@/services/message.service';
 import { isOutgoingEvent } from '@/lib/messageHelpers';
-import { storedDraftFreshness } from './storedDraftFreshness';
+import { noReplyNeededState, storedDraftFreshness } from './storedDraftFreshness';
 import { logger } from '@/lib/logger';
 import { useSeededState } from '@/lib/seededState';
 import { normaliseThreadPage, type ThreadPage } from '@/services/threadPage';
@@ -16,6 +16,9 @@ import { threadTimeOf } from '../threadDays';
 import { useHoldReasonClearedRefresh } from '../../hooks/useHoldReasonClearedRefresh';
 import { THREAD_PAGE } from './detailConstants';
 import type { MessageDetailProps } from './types';
+
+/** How often a thread waiting for a newer email's verdict re-reads the wait (it ends by time). */
+const NO_REPLY_WAIT_RECHECK_MS = 30_000;
 
 /** MessageDetail's thread: the loaded window of events, its paging and the incremental read. */
 
@@ -238,16 +241,30 @@ export function useThreadEvents(
     const last = [...sortedThread].reverse().find((event) => event.type !== 'note');
     return last ? isOutgoingEvent(last) : false;
   }, [sortedThread]);
+  // Where the thread's events stand for THIS conversation — one rule for the draft and the marker.
+  const eventsState =
+    threadEventsFor !== message.id ? (threadError !== null ? 'failed' : 'pending') : 'loaded';
   // Whether the stored AI draft answers the customer's latest email (storedDraftFreshness.ts).
   const storedDraft = useMemo(
-    () =>
-      storedDraftFreshness(
-        message.metadata,
-        sortedThread,
-        threadEventsFor !== message.id ? (threadError !== null ? 'failed' : 'pending') : 'loaded'
-      ),
-    [message.metadata, message.id, sortedThread, threadEventsFor, threadError]
+    () => storedDraftFreshness(message.metadata, sortedThread, eventsState),
+    [message.metadata, sortedThread, eventsState]
   );
+  // The customer's latest email only thanked or confirmed: no draft, and the thread says why.
+  // `waitTick`: a newer email waiting for its verdict holds the zone empty for a bounded time
+  // (noReplyNeededState); nothing else re-renders when that time runs out — a verdict stamped on an
+  // email already loaded never reaches the client — so the wait is re-read while it lasts.
+  const [waitTick, setWaitTick] = useState(0);
+  const noReplyNeeded = useMemo(
+    () => noReplyNeededState(message.metadata, sortedThread, eventsState),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- waitTick re-reads the clock
+    [message.metadata, sortedThread, eventsState, waitTick]
+  );
+  const waitingForVerdict = noReplyNeeded.pending && eventsState === 'loaded';
+  useEffect(() => {
+    if (!waitingForVerdict) return undefined;
+    const timer = setInterval(() => setWaitTick((tick) => tick + 1), NO_REPLY_WAIT_RECHECK_MS);
+    return () => clearInterval(timer);
+  }, [waitingForVerdict]);
   // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
   // only ever sit between days, in order.
   return {
@@ -276,5 +293,6 @@ export function useThreadEvents(
     sortedThread,
     lastWordOurs,
     storedDraft,
+    noReplyNeeded,
   };
 }
