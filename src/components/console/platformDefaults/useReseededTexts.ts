@@ -13,6 +13,8 @@ export const useReseededTexts = <K extends string>(saved: Record<K, string>) => 
   const savedKey = Object.values<string>(saved).join('|');
   useEffect(() => {
     const seeded = seededRef.current;
+    // Mount, or a refetch that changed nothing: no state update.
+    if (Object.values<string>(seeded).join('|') === savedKey) return;
     setTexts((current) => {
       const merged = { ...current };
       for (const key of Object.keys(saved) as K[]) {

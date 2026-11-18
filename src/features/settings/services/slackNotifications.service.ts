@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import type { ApiResponse } from '@/types';
+import { isRecord } from '@/lib/isRecord';
 
 /**
  * Workspace Slack notifications (Settings › Slack notifications). Workspace admins and global
@@ -115,9 +116,6 @@ export type SlackRouteInput = {
 export type SlackTestResult = { ok: true } | { ok: false; code: string; hint?: string };
 
 const BASE = '/api/notifications/slack';
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 /** A string id, or nothing: anything else from the server is not trusted as a key. */
 const stringOrUndefined = (value: unknown): string | undefined =>

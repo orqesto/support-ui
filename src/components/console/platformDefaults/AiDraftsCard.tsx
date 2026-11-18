@@ -139,7 +139,8 @@ const AgentNoteFactsFields = ({
   const errors: Partial<Record<AgentNoteFactsField, string>> = {};
   const changed: AgentNoteFactsInput = {};
   for (const field of AGENT_NOTE_FACTS_FIELDS) {
-    if (texts[field] === String(facts[field].value)) continue;
+    // The same number typed differently ("0300") is no change (as NoReplyCheckFields).
+    if (texts[field].trim() !== '' && Number(texts[field]) === facts[field].value) continue;
     const { min, max } = facts[field];
     const value = asNumber(texts[field]);
     if (value === null || !Number.isInteger(value) || value < min || value > max) {

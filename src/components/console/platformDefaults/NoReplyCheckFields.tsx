@@ -94,6 +94,8 @@ export const NoReplyCheckFields = ({
               label={LABELS[field].label}
               value={texts[field]}
               error={errors[field]}
+              // Read-only while a save runs: a reset's success must not overwrite new typing.
+              disabled={saving}
               onChange={(event) =>
                 setTexts((current) => ({ ...current, [field]: event.target.value }))
               }
@@ -113,6 +115,7 @@ export const NoReplyCheckFields = ({
           label="What counts as needing no reply (told to the AI)"
           value={texts.instructions}
           error={errors.instructions}
+          disabled={saving}
           rows={4}
           onChange={(event) =>
             setTexts((current) => ({ ...current, instructions: event.target.value }))

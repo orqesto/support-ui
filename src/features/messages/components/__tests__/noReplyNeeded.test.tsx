@@ -141,6 +141,31 @@ describe('noReplyNeededState — the thread view', () => {
     });
   });
 
+  it('the marked email is NEWER than the loaded page (marker before its event): no wait', () => {
+    const unjudged = event(3, {
+      metadata: {},
+      customerWriting: false,
+      createdAt: new Date().toISOString(),
+    });
+    // Marker names email 9, above every loaded id: it is the newest — nothing loaded is newer.
+    expect(
+      noReplyNeededState({ noReplyNeeded: { eventId: 9 } }, [unjudged], 'loaded').pending
+    ).toBe(false);
+  });
+
+  it('an email unjudged for over a day no longer hides the marker (bounded, review of #979)', () => {
+    const marked = event(2, { createdAt: new Date(Date.now() - 3 * 86_400_000).toISOString() });
+    const stale = event(3, {
+      metadata: {},
+      customerWriting: false,
+      createdAt: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+    });
+    expect(noReplyNeededState(metadata, [marked, stale], 'loaded')).toEqual({
+      current: true,
+      pending: false,
+    });
+  });
+
   it('the marked email is not on the loaded page: every loaded email is newer (review of #979)', () => {
     const unjudged = event(3, {
       metadata: {},

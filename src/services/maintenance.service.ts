@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import type { ApiResponse } from '@/types';
+import { isRecord } from '@/lib/isRecord';
 
 /**
  * Console → Maintenance (backend `GET/PATCH /api/system/maintenance…`, 2026-10-20): background
@@ -76,9 +77,6 @@ const workspaceIdsOf = (raw: unknown): number[] =>
   (Array.isArray(raw) ? raw : []).filter(
     (id): id is number => typeof id === 'number' && Number.isInteger(id) && id > 0
   );
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const normaliseSchedule = (raw: unknown): MaintenanceJobSchedule => {
   if (isRecord(raw) && raw.kind === 'interval' && typeof raw.minutes === 'number') {

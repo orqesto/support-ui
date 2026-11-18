@@ -1,6 +1,7 @@
 import { apiClient } from '@/lib/api-client';
 import { scopedLookup } from '@/lib/scopedLookup';
 import type { components } from '@/types/generated/api';
+import { isRecord } from '@/lib/isRecord';
 
 /**
  * The agent-facing custom-API lookup (CA-3).
@@ -73,9 +74,6 @@ export interface LookupRun {
  * assert something no backend told us, and defaulting to 'mismatch' would flag every record on an
  * older deployment.
  */
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
 /**
  * A4 (2026-10-14): a `searchedFor` this build can render, or none — a malformed one is dropped,
  * not shown. A source with no label would read as an empty quote, so it is dropped too.

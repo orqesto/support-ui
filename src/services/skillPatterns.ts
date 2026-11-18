@@ -5,15 +5,13 @@ import type {
   SkillPatternPreset,
   SkillPatternStrength,
 } from '@/types/skillRouting';
+import { isRecord } from '@/lib/isRecord';
 
 /**
  * Normalisers for skill routing text patterns (BE 2026-11-09). The FE ships on merge, the BE on a
  * tag, so every field the backend sends is read defensively here: a malformed entry is dropped,
  * never rendered half-formed.
  */
-
-const isRecord = (raw: unknown): raw is Record<string, unknown> =>
-  typeof raw === 'object' && raw !== null && !Array.isArray(raw);
 
 const strengthOf = (raw: unknown): SkillPatternStrength | undefined =>
   raw === 'hint' || raw === 'decides' ? raw : undefined;

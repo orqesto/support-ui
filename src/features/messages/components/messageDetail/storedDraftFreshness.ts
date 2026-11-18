@@ -187,9 +187,10 @@ export function noReplyNeededState(
   // first render after a switch, and a note it cannot check would flash.
   if (eventsState === 'failed') return { current: false, pending: false };
   // A newer live email still waiting for its verdict may be the customer writing again (the
-  // backend drops the marker once the verdict lands): nothing shown meanwhile. Waited past the
-  // bound and still no verdict: the note is NOT shown — never "no reply needed" over an email that
-  // may be a question (review of #979); the zone shows what it shows without a marker.
+  // backend drops the marker once the verdict lands): nothing shown meanwhile. Past the wait and
+  // still no verdict: no note — never "no reply needed" over an email that may be a question
+  // (review of #979) — until the give-up bound, after which the backend's marker is trusted again
+  // (the card's chip shows it all along; a save that never judges is not left hiding it for good).
   const newer = newerUnjudgedInbound(marker.eventId, sortedThread);
   if (newer === 'waiting') return { current: false, pending: true };
   if (newer === 'waited_out') return { current: false, pending: false };
@@ -203,14 +204,17 @@ export function noReplyNeededState(
 
 /** How long a newer email without a verdict is "waiting": the save stamps it within seconds. */
 const VERDICT_WAIT_MS = 10 * 60_000;
+/** After this, an email that never got a verdict no longer hides the backend's marker. */
+const VERDICT_GIVE_UP_MS = 24 * 60 * 60_000;
 
 /**
  * A LIVE inbound email stored after `eventId` that has no verdict yet (the save stamps one soon):
- * 'waiting' while it is recent, 'waited_out' once it is older than the bound and still unjudged,
- * 'none' when there is no such email. Mail that never gets a verdict is not waiting (neverJudged).
- * The marked email not on the loaded page: it is older than the whole page (pages load newest
- * first), so every loaded inbound email is newer (review of #979). A time that does not parse proves
- * nothing.
+ * 'waiting' while it is recent, 'waited_out' once past the wait (until VERDICT_GIVE_UP_MS), 'none'
+ * when there is no such email or it is older than the give-up bound. Mail that never gets a verdict
+ * is not waiting (neverJudged). The marked email not on the loaded page (review of #979): newer than
+ * every loaded inbound email when its id is above theirs (the marker arrived before its event — as
+ * customerEmailVerdict reads it), else older than the whole page (pages load newest first), so
+ * every loaded inbound email is newer. A time that does not parse proves nothing.
  */
 const newerUnjudgedInbound = (
   eventId: number,
@@ -218,6 +222,7 @@ const newerUnjudgedInbound = (
 ): 'none' | 'waiting' | 'waited_out' => {
   const { allInbound } = customerViewOf(sortedThread);
   const named = allInbound.find((event) => event.id === eventId);
+  if (!named && allInbound.every((event) => event.id < eventId)) return 'none';
   const namedAt = named ? new Date(named.createdAt).getTime() : Number.NEGATIVE_INFINITY;
   if (Number.isNaN(namedAt)) return 'none';
   let found: 'none' | 'waiting' | 'waited_out' = 'none';
@@ -226,8 +231,9 @@ const newerUnjudgedInbound = (
     if (event.id === eventId || Number.isNaN(at) || at <= namedAt) continue;
     const meta = (event.metadata ?? {}) as EventMarks;
     if (neverJudged(meta) || hasVerdict(meta)) continue;
-    if (Date.now() - at < VERDICT_WAIT_MS) return 'waiting';
-    found = 'waited_out';
+    const age = Date.now() - at;
+    if (age < VERDICT_WAIT_MS) return 'waiting';
+    if (age < VERDICT_GIVE_UP_MS) found = 'waited_out';
   }
   return found;
 };

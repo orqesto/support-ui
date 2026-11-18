@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import { apiErrorMessage, apiErrorStatus, isRouteAbsent } from '@/lib/apiError';
+import { isRecord } from '@/lib/isRecord';
 
 /**
  * Console → Maintenance: platform-admin search diagnostics (BE `POST /api/admin/search-explain`,
@@ -65,8 +66,6 @@ export type DiagnosticsOutcome<T> =
   | { kind: 'unavailable' }
   | { kind: 'busy'; message: string };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 const num = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
 const bool = (value: unknown): boolean | null => (typeof value === 'boolean' ? value : null);

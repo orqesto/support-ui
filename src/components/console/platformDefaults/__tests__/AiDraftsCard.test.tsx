@@ -321,6 +321,12 @@ describe('AiDraftsCard — fact-check thresholds (ai.agent_note_facts)', () => {
     });
   });
 
+  it('the same number typed differently ("03") is no change (review of #979)', () => {
+    wrap(<AiDraftsCard drafts={WITH_FACTS} />);
+    fireEvent.change(digits(), { target: { value: '03' } });
+    expect(saveFacts()).toBeInactive();
+  });
+
   it('a value outside the bounds, a fraction or blank is blocked with the bounds said', () => {
     wrap(<AiDraftsCard drafts={WITH_FACTS} />);
     for (const value of ['1', '7', '3.5', '']) {

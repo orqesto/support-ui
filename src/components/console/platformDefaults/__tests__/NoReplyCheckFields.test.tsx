@@ -97,9 +97,27 @@ describe('NoReplyCheckFields — reset to default', () => {
 });
 
 describe('readNoReplyCheck — an unknown source', () => {
-  it('reads as default, never "not deployed" (review of #979)', () => {
-    const raw = { ...CHECK, instructions: { ...CHECK.instructions, source: 'platform' } };
-    expect(readNoReplyCheck(raw)?.instructions.source).toBe('default');
+  it('is a stored override: never "not deployed", and Reset stays offered (review of #979)', () => {
+    const raw = {
+      ...CHECK,
+      ownTextMaxChars: { ...CHECK.ownTextMaxChars, source: 'platform' },
+      instructions: { ...CHECK.instructions, source: 'platform' },
+    };
+    const read = readNoReplyCheck(raw);
+    expect(read?.instructions.source).toBe('db');
+    expect(read?.ownTextMaxChars.source).toBe('db');
+    // CONTROL: a known source is kept as given.
+    expect(read?.inlineLogoMaxBytes.source).toBe('default');
+    render(<NoReplyCheckFields check={read!} saving={false} onSave={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Reset wording to default' })).toBeInTheDocument();
+  });
+});
+
+describe('NoReplyCheckFields — while a save runs', () => {
+  it('the fields are read-only, so a reset landing later cannot overwrite new typing', () => {
+    render(<NoReplyCheckFields check={CHECK} saving onSave={vi.fn()} />);
+    expect(screen.getByLabelText(/What counts as needing no reply/)).toBeInactive();
+    expect(screen.getByLabelText(/Longest reply checked/)).toBeInactive();
   });
 });
 

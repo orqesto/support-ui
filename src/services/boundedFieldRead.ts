@@ -1,8 +1,8 @@
+import { isRecord } from '@/lib/isRecord';
 import type { BoundedField } from './resolvedField';
 
-/** A plain object (not null, not an array) — the one check the console settings readers share. */
-export const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
+/** Shared (src/lib/isRecord.ts); re-exported for the settings readers. */
+export { isRecord };
 
 /** Where a console value comes from. */
 export const isSource = (value: unknown): value is BoundedField['source'] =>
