@@ -1,31 +1,39 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { GMAIL_OAUTH_HANDOFF_KEY, takeGmailOAuthHandoff } from '../gmailOAuthHandoff';
+import { describe, expect, it, vi } from 'vitest';
+import { announceGmailOAuthCode, listenForGmailOAuthCode } from '../gmailOAuthHandoff';
+
+const flush = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 /**
  * The pop-up's opener link is severed by Google's pages (COOP), and sessionStorage is per tab: the
- * code reaches the app window only through localStorage. The app takes only ITS flow's state.
+ * code reaches the app window over a BroadcastChannel, stored nowhere. Only ITS flow's state counts.
  */
-describe('takeGmailOAuthHandoff', () => {
-  beforeEach(() => localStorage.clear());
-
-  it("takes this flow's hand-off and removes it at once (single use)", () => {
-    localStorage.setItem(GMAIL_OAUTH_HANDOFF_KEY, JSON.stringify({ code: 'c1', state: 's1' }));
-    expect(takeGmailOAuthHandoff('s1')).toEqual({ code: 'c1', state: 's1' });
-    expect(localStorage.getItem(GMAIL_OAUTH_HANDOFF_KEY)).toBeNull();
-    expect(takeGmailOAuthHandoff('s1')).toBeNull();
+describe('Gmail OAuth hand-off over a BroadcastChannel', () => {
+  it("delivers this flow's code to the listener", async () => {
+    const onCode = vi.fn();
+    const stop = listenForGmailOAuthCode('s1', onCode);
+    expect(announceGmailOAuthCode('c1', 's1')).toBe(true);
+    await flush();
+    expect(onCode).toHaveBeenCalledWith({ type: 'GMAIL_OAUTH_SUCCESS', code: 'c1', state: 's1' });
+    stop();
   });
 
-  it("never takes another flow's (or a stale) hand-off — it stays for its own window", () => {
-    localStorage.setItem(GMAIL_OAUTH_HANDOFF_KEY, JSON.stringify({ code: 'c2', state: 'other' }));
-    expect(takeGmailOAuthHandoff('s1')).toBeNull();
-    expect(localStorage.getItem(GMAIL_OAUTH_HANDOFF_KEY)).not.toBeNull();
+  it("ignores another flow's (or a stale) state; stops when told", async () => {
+    const onCode = vi.fn();
+    const stop = listenForGmailOAuthCode('s1', onCode);
+    announceGmailOAuthCode('c2', 'other');
+    await flush();
+    expect(onCode).not.toHaveBeenCalled();
+    stop();
+    announceGmailOAuthCode('c1', 's1');
+    await flush();
+    expect(onCode).not.toHaveBeenCalled();
   });
 
-  it('a malformed value is dropped; no expected state reads nothing', () => {
-    localStorage.setItem(GMAIL_OAUTH_HANDOFF_KEY, '{not json');
-    expect(takeGmailOAuthHandoff('s1')).toBeNull();
-    expect(localStorage.getItem(GMAIL_OAUTH_HANDOFF_KEY)).toBeNull();
-    localStorage.setItem(GMAIL_OAUTH_HANDOFF_KEY, JSON.stringify({ code: 'c', state: 's' }));
-    expect(takeGmailOAuthHandoff(null)).toBeNull();
+  it('no expected state: nothing is listened for', async () => {
+    const onCode = vi.fn();
+    listenForGmailOAuthCode(null, onCode)();
+    announceGmailOAuthCode('c', 's');
+    await flush();
+    expect(onCode).not.toHaveBeenCalled();
   });
 });
