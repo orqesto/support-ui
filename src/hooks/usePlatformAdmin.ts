@@ -106,10 +106,15 @@ export const useSuspendPlatformUser = () => {
 
 export const useRemovePlatformUserPhoto = () => {
   const invalidate = useInvalidatePlatformUsers();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, reason }: { id: number; reason: string }) =>
       platformUserPhotoService.remove(id, reason),
-    onSuccess: invalidate,
+    onSuccess: (_result, { id }) => {
+      invalidate();
+      // The open user page reads this one: without it the removed photo (and Remove) stay shown.
+      void queryClient.invalidateQueries({ queryKey: ['platform', 'user', id] });
+    },
   });
 };
 

@@ -30,15 +30,19 @@ describe('UserPhoto', () => {
     const img = document.querySelector('img') as HTMLImageElement;
     expect(img.getAttribute('src')).toBe(`${API_BASE_URL}/api/user-photos/Abc_-123`);
     expect(screen.getByText('AL')).toBeInTheDocument();
-    expect(img.hidden).toBe(true);
+    // Not shown while loading: `block` would win over the hidden attribute (review 8b, F2).
+    expect(img.className).toMatch(/\bhidden\b/);
+    expect(img.className).not.toMatch(/\bblock\b/);
     fireEvent.load(img);
     expect(screen.queryByText('AL')).toBeNull();
-    expect(img.hidden).toBe(false);
+    expect(img.className).toMatch(/\bblock\b/);
+    expect(img.className).not.toMatch(/\bhidden\b/);
   });
 
   it('fills the circle it sits in', () => {
     render(<UserPhoto photoKey="k1">AL</UserPhoto>);
     const img = document.querySelector('img');
+    fireEvent.load(img as HTMLImageElement);
     expect(img?.className).toMatch(/w-full/);
     expect(img?.className).toMatch(/h-full/);
     expect(img?.className).toMatch(/rounded-full/);
@@ -61,6 +65,26 @@ describe('UserPhoto', () => {
     });
     expect(document.querySelector('img')).toBeNull();
     expect(screen.getByText('AL')).toBeInTheDocument();
+  });
+
+  it('a key change drops the old key’s retry: it cannot clear the new key’s failure (F3)', () => {
+    vi.useFakeTimers();
+    const { rerender } = render(<UserPhoto photoKey="old">AL</UserPhoto>);
+    fireEvent.error(document.querySelector('img') as HTMLImageElement);
+    act(() => {
+      vi.advanceTimersByTime(20_000);
+    });
+    rerender(<UserPhoto photoKey="new">AL</UserPhoto>);
+    fireEvent.error(document.querySelector('img') as HTMLImageElement);
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+    // 30 s after the OLD failure: the old timer must not bring the new photo back early.
+    expect(document.querySelector('img')).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(20_000);
+    });
+    expect(document.querySelector('img')?.getAttribute('src')).toBe(userPhotoUrl('new'));
   });
 
   it('falls back to the initials when the image fails to load', () => {

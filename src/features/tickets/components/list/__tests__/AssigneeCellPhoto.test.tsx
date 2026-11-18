@@ -45,8 +45,16 @@ describe('ticket assignee photo', () => {
   });
 
   it('an older backend without the row key: the assignee list key is used', () => {
-    cell(ticket({ assigneePhotoKey: undefined }));
+    // An older API leaves the field out entirely.
+    const older = ticket({});
+    delete (older as { assigneePhotoKey?: unknown }).assigneePhotoKey;
+    cell(older);
     expect(document.querySelector('img')?.getAttribute('src')).toBe(userPhotoUrl('k-robin'));
+  });
+
+  it('the server saying null (no visible photo) wins over a list key (F6)', () => {
+    cell(ticket({ assigneePhotoKey: null }), 'k-robin');
+    expect(document.querySelector('img')).toBeNull();
   });
 
   it('control: no key anywhere, the coloured initials as before', () => {

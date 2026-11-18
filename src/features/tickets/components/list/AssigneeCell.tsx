@@ -34,10 +34,12 @@ export const AssigneeCell = ({
   const shownId = useTicketDisplayId(ticket);
   const name =
     ticket.assigneeName ?? assignees.find((user) => user.id === ticket.assigneeId)?.name ?? '';
+  // The row's own answer wins, null included (no visible photo); the list only fills in for an
+  // older API that does not send the field.
   const photoKey =
-    ticket.assigneePhotoKey ??
-    assignees.find((user) => user.id === ticket.assigneeId)?.photoKey ??
-    null;
+    'assigneePhotoKey' in ticket
+      ? (ticket.assigneePhotoKey ?? null)
+      : (assignees.find((user) => user.id === ticket.assigneeId)?.photoKey ?? null);
   const mine = ticket.assigneeId !== null && ticket.assigneeId === currentUserId;
   const stop = (event: { stopPropagation: () => void }) => event.stopPropagation();
 

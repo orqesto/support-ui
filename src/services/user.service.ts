@@ -108,7 +108,7 @@ export const userService = {
   },
 
   // Profile photo: multipart field `photo`; answers the new key (every upload gets a new one).
-  uploadPhoto: async (image: Blob): Promise<string | null> => {
+  uploadPhoto: async (image: Blob): Promise<string> => {
     const body = new FormData();
     body.append('photo', image, 'photo.jpg');
     const response: AxiosResponse<ApiResponse<{ photoKey?: unknown }>> = await apiClient.put(
@@ -116,7 +116,9 @@ export const userService = {
       body
     );
     const key = response.data?.data?.photoKey;
-    return typeof key === 'string' ? key : null;
+    // A saved photo always has a key: a success without one is an error, not "no photo".
+    if (typeof key !== 'string') throw new Error('Couldn’t save your photo');
+    return key;
   },
 
   removePhoto: async (): Promise<void> => {

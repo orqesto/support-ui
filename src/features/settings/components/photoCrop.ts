@@ -49,16 +49,32 @@ export const visibleRegion = (
 };
 
 /** A decoded photo: what the preview and the export both draw from. */
-export type Picture = { source: CanvasImageSource; width: number; height: number };
+export type Picture = {
+  source: CanvasImageSource;
+  width: number;
+  height: number;
+  /** Frees the decoded pixels (a 48 MP photo is ~190 MB): call when the picture is done with. */
+  close: () => void;
+};
 
 /**
  * Decodes the picked file straight into a bitmap: no URL of the file is ever made (an object URL
  * fed to an <img> is what code scanning reads as DOM text reaching HTML). The browser applies the
  * EXIF orientation while decoding. Rejects when the file is not an image it can read.
  */
+export const PHOTO_UNREADABLE = 'We couldn’t read that image. Try another photo.';
+
 export const openPhoto = async (file: Blob): Promise<Picture> => {
-  const bitmap = await createImageBitmap(file);
-  return { source: bitmap, width: bitmap.width, height: bitmap.height };
+  // The decoder's own error says nothing a person can act on: ours does.
+  const bitmap = await createImageBitmap(file).catch(() => {
+    throw new Error(PHOTO_UNREADABLE);
+  });
+  return {
+    source: bitmap,
+    width: bitmap.width,
+    height: bitmap.height,
+    close: () => bitmap.close(),
+  };
 };
 
 /** Draws the framed square of `picture` onto a `side`×`side` canvas, over white. */

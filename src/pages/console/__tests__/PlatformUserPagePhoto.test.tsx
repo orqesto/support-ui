@@ -1,16 +1,13 @@
+/**
+ * Console → user: a global admin sees the person's profile photo and can remove it, with a
+ * required reason (platform-audited); the page then reads the user again.
+ */
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import type { PlatformUserRow } from '@/services/platform.service';
-
-/**
- * The console's per-user screen became a PAGE so the work is addressable. These pin the
- * two properties a dialog could not have: a URL alone is enough to load the person (no
- * list row to inherit), and an id that does not resolve says so instead of rendering an
- * empty form over a user who isn't there.
- */
 
 const row: PlatformUserRow = {
   id: 42,
@@ -118,7 +115,9 @@ describe('console user page — profile photo moderation', () => {
   });
 
   it('a reason is required, then the photo is removed with it', async () => {
-    getUser.mockResolvedValue({ ...row, photoKey: 'k-photo' } as PlatformUserRow);
+    getUser
+      .mockResolvedValueOnce({ ...row, photoKey: 'k-photo' } as PlatformUserRow)
+      .mockResolvedValue({ ...row, photoKey: null } as PlatformUserRow);
     renderAt(PHOTO_PATH);
     fireEvent.click(await screen.findByRole('button', { name: 'Remove photo' }));
     const confirm = screen.getByRole('button', { name: 'Confirm remove' });
@@ -132,5 +131,8 @@ describe('console user page — profile photo moderation', () => {
     expect(confirm).not.toBeInactive();
     fireEvent.click(confirm);
     await waitFor(() => expect(removeUserPhoto).toHaveBeenCalledWith(row.id, 'Offensive image'));
+    // The page reads the user again (F1): the photo and its Remove are gone, no second 404.
+    await waitFor(() => expect(getUser).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Remove photo' })).toBeNull());
   });
 });

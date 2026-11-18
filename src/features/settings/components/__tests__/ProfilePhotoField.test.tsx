@@ -7,6 +7,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { User } from '@/types';
 import { userPhotoUrl } from '@/components/ui/UserPhoto';
+import { onOwnPhotoChanged } from '@/lib/ownPhotoSignal';
 
 const put = vi.hoisted(() => vi.fn<(...args: unknown[]) => Promise<unknown>>());
 const get = vi.hoisted(() => vi.fn<(...args: unknown[]) => Promise<unknown>>());
@@ -24,6 +25,7 @@ vi.mock('../photoCrop', async (importOriginal) => ({
   cropPhoto: vi.fn(() => Promise.resolve(new Blob(['jpeg'], { type: 'image/jpeg' }))),
 }));
 const setUser = vi.hoisted(() => vi.fn());
+const closeBitmap = vi.hoisted(() => vi.fn());
 const openImage = vi.hoisted(() => vi.fn<(file: Blob) => Promise<unknown>>());
 const state = vi.hoisted(() => ({ user: null as User | null }));
 vi.mock('@/stores/authStore', () => ({
@@ -58,7 +60,8 @@ beforeEach(() => {
   put.mockResolvedValue({ data: { success: true, data: { photoKey: 'new-key' } } });
   del.mockResolvedValue({ status: 204 });
   // The picked file is decoded straight into a bitmap (no URL of it is ever made).
-  openImage.mockReset().mockResolvedValue({ width: 400, height: 300, close: () => undefined });
+  closeBitmap.mockReset();
+  openImage.mockReset().mockResolvedValue({ width: 400, height: 300, close: closeBitmap });
   vi.stubGlobal('createImageBitmap', (file: Blob) => openImage(file));
 });
 afterEach(() => {
@@ -169,6 +172,60 @@ describe('ProfilePhotoField', () => {
     expect(await screen.findByRole('img', { name: 'Your new profile photo' })).toBeTruthy();
     expect(openImage).toHaveBeenCalledTimes(1);
     expect(document.querySelector('img[src^="blob:"]')).toBeNull();
+  });
+
+  it('the decoded picture is released on Cancel and when another file replaces it (F4)', async () => {
+    renderField();
+    pick(file('one.png', 'image/png'));
+    await screen.findByText('Frame your photo');
+    pick(file('two.png', 'image/png'));
+    await waitFor(() => expect(closeBitmap).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(closeBitmap).toHaveBeenCalledTimes(2);
+  });
+
+  it('the decoded picture is released after Save', async () => {
+    renderField();
+    pick(file('me.png', 'image/png'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save photo' }));
+    await waitFor(() => expect(closeBitmap).toHaveBeenCalledTimes(1));
+  });
+
+  it('a save the server answered without a key is an error, not "no photo" (F7)', async () => {
+    put.mockResolvedValue({ data: { success: true, data: {} } });
+    renderField();
+    pick(file('me.png', 'image/png'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save photo' }));
+    expect(await screen.findByText('Couldn’t save your photo')).toBeTruthy();
+    expect(setUser).not.toHaveBeenCalled();
+  });
+
+  it('a saved photo tells the lists to refresh (F5)', async () => {
+    const listener = vi.fn();
+    const stop = onOwnPhotoChanged(listener);
+    renderField();
+    pick(file('me.png', 'image/png'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save photo' }));
+    await waitFor(() => expect(listener).toHaveBeenCalledTimes(1));
+    stop();
+  });
+
+  it('asks the server once, not on every store change (F8)', async () => {
+    state.user = { ...me(null) } as User;
+    delete (state.user as { photoKey?: unknown }).photoKey;
+    const older = { ...me(null) } as Record<string, unknown>;
+    delete older.photoKey;
+    get.mockResolvedValue({ data: { success: true, data: older } });
+    const { rerender } = renderField();
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(1));
+    state.user = { ...state.user, position: 'Lead' } as User;
+    rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <ProfilePhotoField />
+      </QueryClientProvider>
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(get).toHaveBeenCalledTimes(1);
   });
 
   it('no Remove button without a photo', () => {

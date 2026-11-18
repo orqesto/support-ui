@@ -10,9 +10,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
+import { FilePicker } from '@/components/ui/FilePicker';
 import { UserPhoto } from '@/components/ui/UserPhoto';
 import { apiErrorMessage } from '@/lib/apiError';
 import { getInitials } from '@/lib/initials';
+import { ownPhotoChanged } from '@/lib/ownPhotoSignal';
 import { queryClient } from '@/lib/queryClient';
 import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/stores/authStore';
@@ -61,7 +63,6 @@ const CENTRED: PhotoView = { zoom: MIN_ZOOM, offsetX: 0, offsetY: 0 };
 export const ProfilePhotoField = () => {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
-  const input = useRef<HTMLInputElement>(null);
   const [picture, setPicture] = useState<Picture | null>(null);
   const previewCanvas = useRef<HTMLCanvasElement>(null);
   const [view, setView] = useState<PhotoView>(CENTRED);
@@ -79,46 +80,62 @@ export const ProfilePhotoField = () => {
   // feature): ask the server once. A server that does not send `photoKey` at all has no photo
   // routes yet (the app can reach production before the API), so the field stays hidden.
   const keyKnown = user !== null && 'photoKey' in user;
+  const userId = user?.id ?? null;
+  // The store's current user when the answer lands (not the one the request started from).
+  const latestUser = useRef(user);
+  latestUser.current = user;
+  // Once per person, not on every store change (review 8b, F8).
   useEffect(() => {
-    if (!user || keyKnown) return;
+    if (userId === null || keyKnown) return;
     let live = true;
     // Through a promise: a failure of any kind (even a missing service method) stays hidden.
     Promise.resolve()
       .then(() => userService.getCurrentUser())
       .then((fresh) => {
-        if (live && fresh && 'photoKey' in fresh)
-          setUser({ ...user, photoKey: fresh.photoKey ?? null });
+        const current = latestUser.current;
+        if (live && current && fresh && 'photoKey' in fresh)
+          setUser({ ...current, photoKey: fresh.photoKey ?? null });
       })
       .catch(() => undefined);
     return () => {
       live = false;
     };
-  }, [user, keyKnown, setUser]);
+  }, [userId, keyKnown, setUser]);
 
   if (!user || !keyKnown) return null;
   const name = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
 
   const changed = (photoKey: string | null) => {
     setUser({ ...user, photoKey });
-    // Teammates' lists carry the key; this person's own screens refresh theirs now.
+    // Teammates' lists carry the key; this person's own screens refresh theirs now: presence, and
+    // the cached ticket / thread / users pages (ownPhotoSignal). Assignable users are cleared by
+    // the write itself (scopedLookup).
     void queryClient.invalidateQueries({ queryKey: ['presence-members'] });
+    ownPhotoChanged();
   };
 
+  /** Shows `next` in the framing dialog (null closes it), freeing the one it replaces (F4). */
+  const showPicture = (next: Picture | null) =>
+    setPicture((previous) => {
+      if (previous && previous !== next) previous.close();
+      return next;
+    });
+
   const close = () => {
-    setPicture(null);
+    showPicture(null);
     setView(CENTRED);
   };
 
-  const choose = (file: File | undefined) => {
-    if (input.current) input.current.value = '';
-    if (!file) return;
+  const choose = (file: File) => {
     if (!ACCEPTED.includes(file.type)) return setError('Use a PNG, JPEG or WebP image');
     if (file.size > MAX_BYTES) return setError('Photo must be 40 MB or smaller');
     setError(null);
     setView(CENTRED);
     openPhoto(file)
-      .then(setPicture)
-      .catch(() => setError('We couldn’t read that image. Try another photo.'));
+      .then(showPicture)
+      .catch((failure: unknown) =>
+        setError(failure instanceof Error ? failure.message : 'Couldn’t open that photo')
+      );
   };
 
   const save = async () => {
@@ -174,23 +191,15 @@ export const ProfilePhotoField = () => {
       </span>
       <div className="space-y-1.5">
         <div className="flex flex-wrap gap-2">
-          <input
-            ref={input}
-            type="file"
+          <FilePicker
             accept={ACCEPTED.join(',')}
-            aria-label="Choose a profile photo"
-            className="sr-only"
-            onChange={(event) => choose(event.target.files?.[0])}
-          />
-          <Button
-            size="sm"
-            variant="outline"
+            label="Choose a profile photo"
+            onPick={choose}
             disabled={busy}
-            onClick={() => input.current?.click()}
           >
             <Camera className="w-4 h-4" />
             {user.photoKey ? 'Change photo' : 'Upload photo'}
-          </Button>
+          </FilePicker>
           {user.photoKey && (
             <Button size="sm" variant="ghost" disabled={busy} onClick={() => void remove()}>
               <Trash2 className="w-4 h-4" />

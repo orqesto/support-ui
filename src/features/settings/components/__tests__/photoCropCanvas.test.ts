@@ -26,7 +26,7 @@ describe('cropPhoto', () => {
     const realCreate = document.createElement.bind(document);
     vi.spyOn(document, 'createElement').mockImplementation(((tag: string) =>
       tag === 'canvas' ? canvas : realCreate(tag)) as typeof document.createElement);
-    const picture = { source: {} as CanvasImageSource, width: 400, height: 300 };
+    const picture = { source: {} as CanvasImageSource, width: 400, height: 300, close: () => undefined };
     await cropPhoto(picture, { zoom: 1, offsetX: 0, offsetY: 0 });
     expect(calls).toEqual(['fillStyle=#ffffff', 'fillRect', 'drawImage', 'toBlob:image/jpeg']);
   });

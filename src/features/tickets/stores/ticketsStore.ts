@@ -7,6 +7,7 @@ import {
   workspaceScopedStorage,
 } from '@/stores/workspaceScopedStorage';
 import type { Ticket, TicketStatus, TicketPriority } from '@/types';
+import { onOwnPhotoChanged } from '@/lib/ownPhotoSignal';
 
 export type TicketOwesFilter = 'yes' | 'none';
 export type TicketThreadsFilter = '0' | '1' | '2-5' | '6+';
@@ -162,3 +163,6 @@ export const useTicketsStore = create<TicketsState>()(
 );
 
 rehydrateOnWorkspaceSwitch(useTicketsStore);
+
+// A changed own photo: drop cached pages so the next view carries the new key (ownPhotoSignal).
+onOwnPhotoChanged(() => useTicketsStore.getState().clearCache());

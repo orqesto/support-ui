@@ -1,20 +1,11 @@
+/**
+ * Inbox rows and board cards show the assignee's profile photo in their avatar, from the key the
+ * thread list sends; with none, the coloured initials as before.
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { MessageThread } from '@/services/message.service';
-
-/**
- * A row's assignee picker (list row, Kanban card) by keyboard, with the REAL AssignmentSelect and
- * Select — only the network is mocked. A hand-made stand-in for the Select hid two bugs on
- * 2026-11-11: react-select marks EVERY Escape defaultPrevented (so the picker never closed from
- * the box), and nothing moved focus into the picker (so a keyboard user could not reach it).
- *
- *   Claim → focus lands in the assignee box → ArrowDown opens the list → Escape closes only the
- *   list → Escape closes the picker, focus back on Claim — and the page's own Escape never fires.
- *
- * Plus the focus timing: it lands only once the list has loaded (a disabled box takes no focus),
- * and never on a touch-first screen, where it would just pop the on-screen keyboard.
- */
 
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
