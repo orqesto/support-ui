@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   GMAIL_OAUTH_CHANNEL,
+  acknowledgeGmailOAuthCode,
   announceGmailOAuthCode,
   announceGmailOAuthError,
   isPendingRedirect,
@@ -15,45 +16,47 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 20));
  * and the app window acknowledges it so the pop-up knows before it closes.
  */
 describe('Gmail OAuth hand-off over a BroadcastChannel', () => {
-  it("delivers this flow's code to the listener, which acknowledges it", async () => {
+  it("hands every code on to the listener (the flow checks the state); the ack is the flow's", async () => {
     const onCode = vi.fn();
     const onAck = vi.fn();
-    const stop = listenForGmailOAuthCode('s1', onCode);
+    const stop = listenForGmailOAuthCode(onCode, vi.fn());
     const stopAnnouncing = announceGmailOAuthCode('c1', 's1', onAck);
     expect(stopAnnouncing).not.toBeNull();
     await flush();
     expect(onCode).toHaveBeenCalledWith({ type: 'GMAIL_OAUTH_SUCCESS', code: 'c1', state: 's1' });
+    // The listener never acknowledges on its own.
+    expect(onAck).not.toHaveBeenCalled();
+    acknowledgeGmailOAuthCode('s1');
+    await flush();
     expect(onAck).toHaveBeenCalledTimes(1);
     stop();
     stopAnnouncing?.();
   });
 
-  it("ignores another flow's (or a stale) state, and does not acknowledge it; stops when told", async () => {
-    const onCode = vi.fn();
+  it("an acknowledgement for another state is not this pop-up's", async () => {
     const onAck = vi.fn();
-    const stop = listenForGmailOAuthCode('s1', onCode);
-    const stopOther = announceGmailOAuthCode('c2', 'other', onAck);
+    const stopAnnouncing = announceGmailOAuthCode('c1', 's1', onAck);
+    acknowledgeGmailOAuthCode('other');
     await flush();
-    expect(onCode).not.toHaveBeenCalled();
     expect(onAck).not.toHaveBeenCalled();
-    stop();
-    const stopLate = announceGmailOAuthCode('c1', 's1', onAck);
-    await flush();
-    expect(onCode).not.toHaveBeenCalled();
-    expect(onAck).not.toHaveBeenCalled();
-    stopOther?.();
-    stopLate?.();
+    stopAnnouncing?.();
   });
 
-  it('no expected state: a message without a state is not taken (the guard, not the compare)', async () => {
+  it('stops when told; malformed messages (no state, no code) are not handed on', async () => {
     const onCode = vi.fn();
-    const stop = listenForGmailOAuthCode(null, onCode);
-    // Without the guard, `data.state === expectedState` would be null === null and take it.
+    const onError = vi.fn();
+    const stop = listenForGmailOAuthCode(onCode, onError);
     const raw = new BroadcastChannel(GMAIL_OAUTH_CHANNEL);
     raw.postMessage({ type: 'GMAIL_OAUTH_SUCCESS', code: 'c', state: null });
+    raw.postMessage({ type: 'GMAIL_OAUTH_SUCCESS', state: 's' });
+    raw.postMessage({ type: 'GMAIL_OAUTH_ERROR', state: 's' });
+    await flush();
+    expect(onCode).not.toHaveBeenCalled();
+    expect(onError).not.toHaveBeenCalled();
+    stop();
+    raw.postMessage({ type: 'GMAIL_OAUTH_SUCCESS', code: 'c', state: 's' });
     await flush();
     raw.close();
-    stop();
     expect(onCode).not.toHaveBeenCalled();
   });
 
@@ -65,18 +68,18 @@ describe('Gmail OAuth hand-off over a BroadcastChannel', () => {
     sessionStorage.clear();
   });
 
-  it("Google's error reaches only its own flow's listener, at once", async () => {
-    const onCodeA = vi.fn();
-    const onErrorA = vi.fn();
-    const onErrorB = vi.fn();
-    const stopA = listenForGmailOAuthCode('sA', onCodeA, onErrorA);
-    const stopB = listenForGmailOAuthCode('sB', vi.fn(), onErrorB);
+  it("Google's error is handed on with its state", async () => {
+    const onCode = vi.fn();
+    const onError = vi.fn();
+    const stop = listenForGmailOAuthCode(onCode, onError);
     announceGmailOAuthError('sA', 'access_denied');
     await flush();
-    expect(onErrorA).toHaveBeenCalledWith('access_denied');
-    expect(onErrorB).not.toHaveBeenCalled();
-    expect(onCodeA).not.toHaveBeenCalled();
-    stopA();
-    stopB();
+    expect(onError).toHaveBeenCalledWith({
+      type: 'GMAIL_OAUTH_ERROR',
+      state: 'sA',
+      error: 'access_denied',
+    });
+    expect(onCode).not.toHaveBeenCalled();
+    stop();
   });
 });

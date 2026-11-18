@@ -61,39 +61,42 @@ export const announceGmailOAuthError = (state: string, error: string): void => {
 };
 
 /**
- * App window: listen for THIS flow's code (acknowledged to the pop-up on receipt) or its error;
- * returns the stop function. No state (or no channel): nothing is listened for — the caller fails
- * the flow.
+ * App window: listen on the channel for codes and errors; returns the stop function. Every message
+ * is handed on — the caller's flow is THE one place that checks the state (its own flow only) and
+ * acknowledges (acknowledgeGmailOAuthCode). No channel: nothing is listened for.
  */
 export const listenForGmailOAuthCode = (
-  expectedState: string | null,
   onCode: (handoff: GmailOAuthHandoff) => void,
-  onError: (error: string) => void = () => undefined
+  onError: (failure: GmailOAuthFailure) => void
 ): (() => void) => {
-  if (typeof BroadcastChannel === 'undefined' || !expectedState) return () => undefined;
+  if (typeof BroadcastChannel === 'undefined') return () => undefined;
   const channel = new BroadcastChannel(GMAIL_OAUTH_CHANNEL);
   channel.onmessage = (event: MessageEvent) => {
     const data = event.data as Partial<GmailOAuthHandoff> | Partial<GmailOAuthFailure> | null;
-    if (
-      data?.type === 'GMAIL_OAUTH_ERROR' &&
-      data.state === expectedState &&
-      typeof data.error === 'string'
-    ) {
-      onError(data.error);
-      return;
-    }
-    if (
-      data?.type === 'GMAIL_OAUTH_SUCCESS' &&
+    if (typeof data?.state !== 'string') return;
+    if (data.type === 'GMAIL_OAUTH_ERROR' && 'error' in data && typeof data.error === 'string') {
+      onError({ type: 'GMAIL_OAUTH_ERROR', state: data.state, error: data.error });
+    } else if (
+      data.type === 'GMAIL_OAUTH_SUCCESS' &&
       'code' in data &&
-      typeof data.code === 'string' &&
-      data.state === expectedState
+      typeof data.code === 'string'
     ) {
-      const ack: GmailOAuthAck = { type: 'GMAIL_OAUTH_ACK', state: expectedState };
-      channel.postMessage(ack);
       onCode({ type: 'GMAIL_OAUTH_SUCCESS', code: data.code, state: data.state });
     }
   };
   return () => channel.close();
+};
+
+/**
+ * App window: tell the pop-up its code was taken — whichever path delivered it (postMessage or the
+ * channel), so the pop-up never shows "not confirmed" after a delivery.
+ */
+export const acknowledgeGmailOAuthCode = (state: string): void => {
+  if (typeof BroadcastChannel === 'undefined') return;
+  const channel = new BroadcastChannel(GMAIL_OAUTH_CHANNEL);
+  const ack: GmailOAuthAck = { type: 'GMAIL_OAUTH_ACK', state };
+  channel.postMessage(ack);
+  channel.close();
 };
 
 /**

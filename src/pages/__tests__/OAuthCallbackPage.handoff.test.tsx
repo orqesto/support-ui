@@ -34,6 +34,7 @@ const deliver = async () => {
 };
 const openerDescriptor = Object.getOwnPropertyDescriptor(window, 'opener');
 const NOT_RECEIVED = /The app did not receive this authorization/;
+const NOT_CONFIRMED = /If Gmail does not show as connected there/;
 
 describe('OAuthCallbackPage — the hand-off to the app window', () => {
   let stopApp: (() => void) | null = null;
@@ -43,7 +44,17 @@ describe('OAuthCallbackPage — the hand-off to the app window', () => {
     return onCode;
   };
 
+  // Every channel a test opens is closed after it: a pop-up page keeps announcing until its window
+  // closes, so a channel left from one test would take the next test's acknowledgement.
+  const RealChannel = globalThis.BroadcastChannel;
+  const opened: BroadcastChannel[] = [];
   beforeEach(() => {
+    globalThis.BroadcastChannel = class extends RealChannel {
+      constructor(name: string) {
+        super(name);
+        opened.push(this);
+      }
+    };
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     localStorage.clear();
     sessionStorage.clear();
@@ -59,6 +70,8 @@ describe('OAuthCallbackPage — the hand-off to the app window', () => {
     vi.restoreAllMocks();
     if (openerDescriptor) Object.defineProperty(window, 'opener', openerDescriptor);
     sessionStorage.clear();
+    for (const channel of opened.splice(0)) channel.close();
+    globalThis.BroadcastChannel = RealChannel;
   });
 
   it('no opener (Google severed it): the app window takes the code, acknowledges, the pop-up closes', async () => {
@@ -73,14 +86,42 @@ describe('OAuthCallbackPage — the hand-off to the app window', () => {
     expect(localStorage.length).toBe(0);
   });
 
-  it('no app window acknowledges (its tab reloaded): says so and stays open', async () => {
+  it('no acknowledgement in time (tab reloaded, or in the background): a neutral note, stays open; a late ack still closes it', async () => {
     mount();
     await deliver();
     expect(screen.queryByText(/handed to the app/)).not.toBeInTheDocument();
     await act(() => vi.advanceTimersByTimeAsync(5000));
-    expect(screen.getByText(NOT_RECEIVED)).toBeInTheDocument();
+    expect(screen.getByText(NOT_CONFIRMED)).toBeInTheDocument();
+    expect(screen.queryByText(NOT_RECEIVED)).not.toBeInTheDocument();
     await act(() => vi.advanceTimersByTimeAsync(5000));
     expect(window.close).not.toHaveBeenCalled();
+    // A frozen app tab wakes up and takes the code: its acknowledgement still arrives.
+    const late = new BroadcastChannel(CHANNEL);
+    late.postMessage({ type: 'GMAIL_OAUTH_ACK', state: 's9' });
+    await deliver();
+    expect(screen.getByText(/handed to the app/)).toBeInTheDocument();
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    expect(window.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('nothing could be delivered (no channel, no opener): the one hard error', async () => {
+    globalThis.BroadcastChannel = undefined as unknown as typeof BroadcastChannel;
+    mount();
+    await deliver();
+    expect(screen.getByText(NOT_RECEIVED)).toBeInTheDocument();
+  });
+
+  it('a live opener means a pop-up even with a pending config in its copy (an old-bundle opener)', async () => {
+    sessionStorage.setItem('gmail_oauth_pending_config', JSON.stringify({ config: {} }));
+    const opener = { closed: false, postMessage: vi.fn() };
+    Object.defineProperty(window, 'opener', { value: opener, configurable: true });
+    mount();
+    await deliver();
+    expect(sessionStorage.getItem('gmail_oauth_payload')).toBeNull();
+    expect(opener.postMessage).toHaveBeenCalledWith(
+      { type: 'GMAIL_OAUTH_SUCCESS', code: 'c9', state: 's9' },
+      window.location.origin
+    );
   });
 
   it("another flow's listener does not acknowledge this code", async () => {
@@ -89,7 +130,7 @@ describe('OAuthCallbackPage — the hand-off to the app window', () => {
     await deliver();
     await act(() => vi.advanceTimersByTimeAsync(5000));
     expect(onCode).not.toHaveBeenCalled();
-    expect(screen.getByText(NOT_RECEIVED)).toBeInTheDocument();
+    expect(screen.getByText(NOT_CONFIRMED)).toBeInTheDocument();
   });
 
   it('an opener that survived also gets the postMessage; the close still waits for the ack', async () => {
@@ -132,7 +173,7 @@ describe('OAuthCallbackPage — the hand-off to the app window', () => {
     await act(() => vi.advanceTimersByTimeAsync(5000));
     expect(screen.queryByText(NOT_RECEIVED)).not.toBeInTheDocument();
     expect(screen.queryByText(/handed to the app|successful/)).not.toBeInTheDocument();
-    expect(screen.getByText(/If Gmail does not show as connected there/)).toBeInTheDocument();
+    expect(screen.getByText(NOT_CONFIRMED)).toBeInTheDocument();
     await act(() => vi.advanceTimersByTimeAsync(5000));
     expect(window.close).not.toHaveBeenCalled();
   });
