@@ -38,9 +38,10 @@ const SERVER_COPY: Record<string, string> = {
   UPLOAD_FILE_TOO_LARGE: 'Photo must be 10 MB or smaller',
 };
 
-const errorText = (error: unknown, fallback: string): string => {
+/** Our sentence for a refusal the person can act on, by the server's code; else null. */
+const serverCopy = (error: unknown): string | null => {
   const code = (error as { data?: { code?: unknown } } | null)?.data?.code;
-  return (typeof code === 'string' && SERVER_COPY[code]) || apiErrorMessage(error, fallback);
+  return (typeof code === 'string' && SERVER_COPY[code]) || null;
 };
 
 const CENTRED: PhotoView = { zoom: MIN_ZOOM, offsetX: 0, offsetY: 0 };
@@ -96,7 +97,7 @@ export const ProfilePhotoField = () => {
       changed(key);
       close();
     } catch (failure) {
-      setError(errorText(failure, 'Couldn’t save your photo'));
+      setError(serverCopy(failure) ?? apiErrorMessage(failure, 'Couldn’t save your photo'));
       close();
     } finally {
       setBusy(false);
@@ -110,7 +111,7 @@ export const ProfilePhotoField = () => {
       await userService.removePhoto();
       changed(null);
     } catch (failure) {
-      setError(errorText(failure, 'Couldn’t remove your photo'));
+      setError(serverCopy(failure) ?? apiErrorMessage(failure, 'Couldn’t remove your photo'));
     } finally {
       setBusy(false);
     }
@@ -150,7 +151,12 @@ export const ProfilePhotoField = () => {
             className="sr-only"
             onChange={(event) => choose(event.target.files?.[0])}
           />
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => input.current?.click()}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => input.current?.click()}
+          >
             <Camera className="w-4 h-4" />
             {user.photoKey ? 'Change photo' : 'Upload photo'}
           </Button>
@@ -217,7 +223,9 @@ export const ProfilePhotoField = () => {
                 ariaValueText={`${Math.round(view.zoom * 100)}%`}
               />
             </div>
-            <p className="text-xs text-muted-foreground">Drag to move. The circle is what teammates see.</p>
+            <p className="text-xs text-muted-foreground">
+              Drag to move. The circle is what teammates see.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" onClick={close} disabled={busy}>

@@ -66,7 +66,17 @@ export const cropPhoto = async (src: string, view: PhotoView): Promise<Blob> => 
   canvas.height = OUTPUT_PX;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Photo could not be prepared');
-  context.drawImage(image, region.x, region.y, region.side, region.side, 0, 0, OUTPUT_PX, OUTPUT_PX);
+  context.drawImage(
+    image,
+    region.x,
+    region.y,
+    region.side,
+    region.side,
+    0,
+    0,
+    OUTPUT_PX,
+    OUTPUT_PX
+  );
   return new Promise((resolve, reject) =>
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error('Photo could not be prepared'))),

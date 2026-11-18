@@ -95,7 +95,9 @@ describe('ProfilePhotoField', () => {
     const [url, body] = put.mock.calls[0] as [string, FormData];
     expect(url).toBe('/api/users/me/photo');
     expect(body.get('photo')).toBeInstanceOf(Blob);
-    await waitFor(() => expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ photoKey: 'new-key' })));
+    await waitFor(() =>
+      expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ photoKey: 'new-key' }))
+    );
   });
 
   it('says plainly when the server cannot read the image', async () => {
@@ -114,7 +116,9 @@ describe('ProfilePhotoField', () => {
     renderField();
     fireEvent.click(screen.getByRole('button', { name: 'Remove photo' }));
     await waitFor(() => expect(del).toHaveBeenCalledWith('/api/users/me/photo'));
-    await waitFor(() => expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ photoKey: null })));
+    await waitFor(() =>
+      expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ photoKey: null }))
+    );
   });
 
   it('no Remove button without a photo', () => {

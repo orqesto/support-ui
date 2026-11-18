@@ -123,9 +123,12 @@ describe('console user page — profile photo moderation', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Remove photo' }));
     const confirm = screen.getByRole('button', { name: 'Confirm remove' });
     expect(confirm).toBeInactive();
-    fireEvent.change(screen.getByPlaceholderText('Reason (required) — e.g. Not a photo of the person'), {
-      target: { value: '  Offensive image  ' },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText('Reason (required) — e.g. Not a photo of the person'),
+      {
+        target: { value: '  Offensive image  ' },
+      }
+    );
     expect(confirm).not.toBeInactive();
     fireEvent.click(confirm);
     await waitFor(() => expect(removeUserPhoto).toHaveBeenCalledWith(row.id, 'Offensive image'));
