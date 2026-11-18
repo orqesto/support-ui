@@ -14,6 +14,7 @@ import { logger } from '@/lib/logger';
 import { savedViewService, type RemoteSavedView } from '@/features/messages/services/savedView.service';
 import type { FilterState } from '@/features/messages/stores/messagesStore';
 import { keyAppliesInMode } from './filterSchema';
+import { isRecord } from '@/lib/isRecord';
 
 export type SavedView = {
   name: string;
@@ -42,9 +43,6 @@ export const BUILT_IN_VIEWS: SavedView[] = [
   { name: 'Unassigned', filters: { assigneeId: 'unassigned' }, builtIn: true },
   { name: 'Breached', filters: { slaBreached: true }, builtIn: true },
 ];
-
-const isRecord = (val: unknown): val is Record<string, unknown> =>
-  typeof val === 'object' && val !== null;
 
 /** This browser's copy. Anything malformed is dropped rather than thrown — a corrupt
  *  entry written by an older build must never take the inbox down with it. */

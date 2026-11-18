@@ -1,5 +1,6 @@
 import { apiClient } from '@/lib/api-client';
 import { getErrorStatus } from '@/lib/errorMessages';
+import { isRecord } from '@/lib/isRecord';
 
 // Keep in sync with `src/shared/learning/learningService.ts` on the BE.
 // Missing entries here cause silent type widening at the API boundary:
@@ -200,8 +201,6 @@ export type RoutingProposalEvidence = {
   autoAccept: { mode: TrustMode; eligibleInBalanced: boolean };
 };
 
-const isObj = (value: unknown): value is Record<string, unknown> =>
-  !!value && typeof value === 'object' && !Array.isArray(value);
 const num = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const strOrNull = (value: unknown): string | null => (typeof value === 'string' ? value : null);
 /** An ISO time the card can render; anything unparsable ⇒ null (never "Invalid Date" / epoch). */
@@ -209,9 +208,9 @@ const timeOrNull = (value: unknown): string | null =>
   typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : null;
 
 const toConversation = (raw: unknown): ProposalConversation | null => {
-  if (!isObj(raw) || !num(raw.conversationId)) return null;
+  if (!isRecord(raw) || !num(raw.conversationId)) return null;
   const by =
-    isObj(raw.routedBy) && num(raw.routedBy.id) && typeof raw.routedBy.name === 'string'
+    isRecord(raw.routedBy) && num(raw.routedBy.id) && typeof raw.routedBy.name === 'string'
       ? { id: raw.routedBy.id, name: raw.routedBy.name }
       : null;
   return {
@@ -225,7 +224,7 @@ const toConversation = (raw: unknown): ProposalConversation | null => {
 };
 
 const toReplay = (raw: unknown): ReplaySummary | null => {
-  if (!isObj(raw) || !num(raw.matches) || !num(raw.inDepartment) || !num(raw.lookbackDays)) return null;
+  if (!isRecord(raw) || !num(raw.matches) || !num(raw.inDepartment) || !num(raw.lookbackDays)) return null;
   const rec = raw.recommendation;
   return {
     matches: raw.matches,
@@ -240,26 +239,26 @@ const toReplay = (raw: unknown): ReplaySummary | null => {
 };
 
 const toSibling = (raw: unknown): ProposalSiblingRule | null =>
-  isObj(raw) && num(raw.ruleId) && typeof raw.type === 'string' && typeof raw.value === 'string'
+  isRecord(raw) && num(raw.ruleId) && typeof raw.type === 'string' && typeof raw.value === 'string'
     ? { ruleId: raw.ruleId, type: raw.type, value: raw.value }
     : null;
 
 const toWarnOverlap = (raw: unknown): ProposalWarnOverlap | null =>
-  isObj(raw) && num(raw.ruleId) && num(raw.departmentId) && num(raw.similarity)
+  isRecord(raw) && num(raw.ruleId) && num(raw.departmentId) && num(raw.similarity)
     ? { ruleId: raw.ruleId, departmentId: raw.departmentId, similarity: raw.similarity }
     : null;
 
 /** The `proposal` block of the evidence response; anything else (older backend) ⇒ null. */
 export const normalizeProposalEvidence = (raw: unknown): RoutingProposalEvidence | null => {
   if (
-    !isObj(raw) ||
+    !isRecord(raw) ||
     !(ROUTING_PROPOSAL_TYPES as readonly unknown[]).includes(raw.kind) ||
     !Array.isArray(raw.departments)
   ) {
     return null;
   }
   const departments = raw.departments.flatMap((dept): ProposalDepartmentEvidence[] => {
-    if (!isObj(dept) || !num(dept.departmentId) || !num(dept.ruleId)) return [];
+    if (!isRecord(dept) || !num(dept.departmentId) || !num(dept.ruleId)) return [];
     return [
       {
         departmentId: dept.departmentId,
@@ -278,7 +277,7 @@ export const normalizeProposalEvidence = (raw: unknown): RoutingProposalEvidence
         contradictions: Array.isArray(dept.contradictions)
           ? dept.contradictions
               .filter((entry): entry is { departmentId: number; count: number } =>
-                isObj(entry) && num(entry.departmentId) && num(entry.count)
+                isRecord(entry) && num(entry.departmentId) && num(entry.count)
               )
               .map((entry) => ({ departmentId: entry.departmentId, count: entry.count }))
           : [],
@@ -287,7 +286,7 @@ export const normalizeProposalEvidence = (raw: unknown): RoutingProposalEvidence
       },
     ];
   });
-  const auto = isObj(raw.autoAccept) ? raw.autoAccept : {};
+  const auto = isRecord(raw.autoAccept) ? raw.autoAccept : {};
   const mode: TrustMode = auto.mode === 'balanced' || auto.mode === 'aggressive' ? auto.mode : 'manual';
   return {
     kind: raw.kind as RoutingProposalType,

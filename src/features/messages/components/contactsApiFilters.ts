@@ -1,4 +1,6 @@
 import { assigneeApiParams } from '@/features/messages/hooks/assigneeApiParams';
+import { legacyAiStateParam } from '@/features/messages/hooks/legacyAiStateParam';
+import { negateApiParam } from '@/features/messages/hooks/negateApiParam';
 import type { FilterState } from '@/features/messages/stores/messagesStore';
 
 /**
@@ -46,11 +48,17 @@ export function buildContactsApiFilters(filters: FilterState): Record<string, st
    * (`messageContactController`), so the boolean resolves here exactly as in the list.
    */
   Object.assign(filterObj, assigneeApiParams(filters.assigneeId));
-  if (filters.aiState === 'lead') filterObj.isLead = 'true';
-  if (filters.aiState === 'needs_review') filterObj.needsHumanReview = 'true';
-  if (filters.aiState === 'needs_info') filterObj.showNeedsInfo = 'true';
-  if (filters.aiState === 'bot_handled') filterObj.botHandled = 'true';
-  if (filters.aiState === 'contradiction') filterObj.hasContradiction = 'true';
+  // AI State exactly as the list sends it (threadApiFilters): the value (backend aiStatePredicate,
+  // the list's rule) and its negation — the per-state flags alone carried no negation, so a negated
+  // filter listed the opposite of the list view (review of #979). Plus the legacy flag when not
+  // negated, as the list does: an older backend without `aiState` still filters (FE/BE skew).
+  const aiState = filters.aiState ?? 'all';
+  if (aiState !== 'all') {
+    filterObj.aiState = aiState;
+    const negate = negateApiParam(filters.negate, ['aiState']);
+    if (negate) filterObj.negate = negate;
+    else Object.assign(filterObj, legacyAiStateParam(aiState));
+  }
   if (filters.linked === 'has_ticket') filterObj.hasTicket = 'true';
   if (filters.linked === 'has_jira') filterObj.hasJiraTicket = 'true';
   if (filters.priority && filters.priority !== 'all') filterObj.priority = filters.priority;

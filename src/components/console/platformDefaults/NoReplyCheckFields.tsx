@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
@@ -9,6 +8,7 @@ import {
   type NoReplyCheckSettings,
 } from '@/services/noReplyCheck.settings';
 import { SourceBadge } from './SourceBadge';
+import { useReseededTexts } from './useReseededTexts';
 
 export const NO_REPLY_CHECK_NOT_DEPLOYED =
   '"No reply needed" settings are not available on this server version yet.';
@@ -44,30 +44,38 @@ export const NoReplyCheckFields = ({
 }: {
   check: NoReplyCheckSettings;
   saving: boolean;
-  onSave: (changed: NoReplyCheckInput) => void;
+  /** Resolves when the save succeeded, rejects when it failed. */
+  onSave: (changed: NoReplyCheckInput) => Promise<unknown> | void;
 }) => {
-  const [texts, setTexts] = useState(() => savedTexts(check));
-  const [seeded, setSeeded] = useState(() => savedTexts(check));
-  const savedKey = Object.values(savedTexts(check)).join('|');
-  // Re-seed only the fields the operator has not edited (AgentNoteFactsFields, review of #1503).
-  useEffect(() => {
-    const next = savedTexts(check);
-    setTexts((current) => {
-      const merged = { ...current };
-      for (const key of Object.keys(next) as Array<keyof Texts>) {
-        // The wording is saved trimmed: a whitespace-only edit is no edit.
-        if (current[key].trim() === seeded[key].trim()) merged[key] = next[key];
-      }
-      return merged;
-    });
-    setSeeded(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- savedKey is the saved values
-  }, [savedKey]);
+  // Re-seed only the fields the operator has not edited (useReseededTexts, review of #1503): the
+  // numbers compare by value, the wording trimmed; a field's source is its version (a reset to a
+  // default equal to the stored value still lands).
+  const { texts, setTexts, isSame, markReset, cancelReset } = useReseededTexts<keyof Texts>(
+    savedTexts(check),
+    {
+      trimmed: ['instructions'],
+      numeric: NO_REPLY_CHECK_NUMBERS,
+      versions: {
+        ownTextMaxChars: check.ownTextMaxChars.source,
+        inlineLogoMaxBytes: check.inlineLogoMaxBytes.source,
+        instructions: check.instructions.source,
+      },
+    }
+  );
+  // Reset: the field shows the default once its refetch lands — unless the operator typed since;
+  // the inputs stay editable (review of #980).
+  const reset = (field: keyof Texts) => {
+    markReset(field);
+    // Tied to THIS save: a failure clears the pending reset, so a later refetch (another admin's
+    // save) never overwrites the edit with it (review of #980).
+    void Promise.resolve(onSave({ [field]: null })).catch(() => cancelReset(field));
+  };
 
   const errors: Partial<Texts> = {};
   const changed: NoReplyCheckInput = {};
   for (const field of NO_REPLY_CHECK_NUMBERS) {
-    if (texts[field] === String(check[field].value)) continue;
+    // The one "unchanged" rule (useReseededTexts.isSame): "0300" is 300.
+    if (isSame(field, texts[field], String(check[field].value))) continue;
     const { min, max } = check[field];
     const value = Number(texts[field]);
     if (texts[field].trim() === '' || !Number.isInteger(value) || value < min || value > max) {
@@ -77,7 +85,7 @@ export const NoReplyCheckFields = ({
     }
   }
   const wording = texts.instructions.trim();
-  if (wording !== check.instructions.value.trim()) {
+  if (!isSame('instructions', texts.instructions, check.instructions.value)) {
     const { minLength, maxLength } = check.instructions;
     if (wording.length < minLength || wording.length > maxLength) {
       errors.instructions = `Write ${minLength} to ${maxLength} characters.`;
@@ -112,16 +120,7 @@ export const NoReplyCheckFields = ({
             <p className="text-xs text-muted-foreground">{LABELS[field].help}</p>
             <SourceBadge source={check[field].source} envLabel="Server setting" />
             {check[field].source === 'db' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={saving}
-                onClick={() => {
-                  // Drop an unsaved edit first: the re-seed then shows the default it saved.
-                  setTexts((current) => ({ ...current, [field]: seeded[field] }));
-                  onSave({ [field]: null });
-                }}
-              >
+              <Button variant="ghost" size="sm" disabled={saving} onClick={() => reset(field)}>
                 Reset to default
               </Button>
             )}
@@ -144,15 +143,7 @@ export const NoReplyCheckFields = ({
         </p>
         <SourceBadge source={check.instructions.source} envLabel="Server setting" />
         {check.instructions.source === 'db' && (
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={saving}
-            onClick={() => {
-              setTexts((current) => ({ ...current, instructions: seeded.instructions }));
-              onSave({ instructions: null });
-            }}
-          >
+          <Button variant="ghost" size="sm" disabled={saving} onClick={() => reset('instructions')}>
             Reset wording to default
           </Button>
         )}

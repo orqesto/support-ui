@@ -250,8 +250,8 @@ export function useThreadEvents(
     [message.metadata, sortedThread, eventsState]
   );
   // The customer's latest email only thanked or confirmed: no draft, and the thread says why.
-  // `waitTick`: a newer email waiting for its verdict holds the zone empty for a bounded time
-  // (noReplyNeededState); nothing else re-renders when that time runs out — a verdict stamped on an
+  // `waitTick`: a newer email waiting for its verdict holds the zone empty for up to
+  // VERDICT_WAIT_MS (noReplyNeededState); nothing else re-renders when that wait runs out — a verdict stamped on an
   // email already loaded never reaches the client — so the wait is re-read while it lasts.
   const [waitTick, setWaitTick] = useState(0);
   const noReplyNeeded = useMemo(

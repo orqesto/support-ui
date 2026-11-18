@@ -60,7 +60,28 @@ describe('the extraction changed nothing else', () => {
     });
     expect(api.departmentId).toBe('7');
     expect(api.view).toBe('resolved');
-    expect(api.isLead).toBe('true');
+    expect(api.aiState).toBe('lead');
     expect(api.search).toBe('ada@example.com');
+  });
+
+  it('AI State is sent as the list sends it: the value and its negation (review of #979)', () => {
+    expect(buildContactsApiFilters({ ...defaultFilters, aiState: 'no_reply_needed' }).aiState).toBe(
+      'no_reply_needed'
+    );
+    const negated = buildContactsApiFilters({
+      ...defaultFilters,
+      aiState: 'bot_handled',
+      negate: 'aiState,departmentId',
+    });
+    expect(negated.aiState).toBe('bot_handled');
+    expect(negated.negate).toBe('aiState');
+    // Negated: no legacy flag (it cannot carry the negation).
+    expect(negated.botHandled).toBeUndefined();
+    // Not negated: the legacy flag too, as the list sends it (an older backend still filters).
+    expect(buildContactsApiFilters({ ...defaultFilters, aiState: 'lead' }).isLead).toBe('true');
+    // CONTROL: no AI State, no aiState and no negate.
+    const plain = buildContactsApiFilters({ ...defaultFilters, negate: 'aiState' });
+    expect(plain.aiState).toBeUndefined();
+    expect(plain.negate).toBeUndefined();
   });
 });

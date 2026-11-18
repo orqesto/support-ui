@@ -85,6 +85,11 @@ describe('inbox card — "No reply needed" chip', () => {
     );
     // CONTROL: without a marker the auto-replied thread still reads "Auto-handled".
     expect(getAiState(card({ autoReply: { sent: true } }), thread)?.label).toBe('Auto-handled');
+    // The bot_handled filter's column decides when the list sends it (review of #980).
+    expect(getAiState(card({}, { botHandled: true }), thread)?.label).toBe('Auto-handled');
+    expect(
+      getAiState(card({ autoReply: { sent: true } }, { botHandled: false }), thread)
+    ).toBeNull();
   });
 });
 
@@ -132,9 +137,57 @@ describe('noReplyNeededState — the thread view', () => {
     });
   });
 
-  it('a newer email without a verdict for longer than the wait: the marker is trusted again', () => {
+  it('a newer email still without a verdict after the wait: the thread follows the marker, as the chip', () => {
     const old = event(3, { metadata: {}, customerWriting: false });
-    expect(noReplyNeededState(metadata, [event(1), event(2), old], 'loaded').current).toBe(true);
+    expect(noReplyNeededState(metadata, [event(1), event(2), old], 'loaded')).toEqual({
+      current: true,
+      pending: false,
+    });
+  });
+
+  it('the marked email not loaded: "newer" is by id — an OLDER loaded id never waits (review of #980)', () => {
+    const recent = (id: number) =>
+      event(id, { metadata: {}, customerWriting: false, createdAt: new Date().toISOString() });
+    // Marker 50 not loaded; 48 is older (no wait), 52 is newer and unjudged (waits).
+    const marker = { noReplyNeeded: { eventId: 50 } };
+    expect(noReplyNeededState(marker, [recent(48)], 'loaded').pending).toBe(false);
+    expect(noReplyNeededState(marker, [recent(48), recent(52)], 'loaded').pending).toBe(true);
+  });
+
+  it('the marked email is NEWER than the loaded page (marker before its event): no wait', () => {
+    const unjudged = event(3, {
+      metadata: {},
+      customerWriting: false,
+      createdAt: new Date().toISOString(),
+    });
+    // Marker names email 9, above every loaded id: it is the newest — nothing loaded is newer.
+    expect(
+      noReplyNeededState({ noReplyNeeded: { eventId: 9 } }, [unjudged], 'loaded').pending
+    ).toBe(false);
+  });
+
+  it('a same-millisecond email: one order for the verdict and the wait — a tie is not after', () => {
+    const at = new Date().toISOString();
+    const marked = event(2, { createdAt: at });
+    // As the draft rule ("neither draft is hidden"): the marked email stays the latest.
+    expect(
+      noReplyNeededState(metadata, [marked, event(3, { createdAt: at })], 'loaded').current
+    ).toBe(true);
+    const sameMsUnjudged = event(3, { createdAt: at, metadata: {}, customerWriting: false });
+    expect(noReplyNeededState(metadata, [marked, sameMsUnjudged], 'loaded').pending).toBe(false);
+  });
+
+  it('the marked email is not on the loaded page: every loaded email is newer (review of #979)', () => {
+    const unjudged = event(3, {
+      metadata: {},
+      customerWriting: false,
+      createdAt: new Date().toISOString(),
+    });
+    // Marker names email 1, which is on an earlier page; the page holds only the unjudged one.
+    expect(noReplyNeededState({ noReplyNeeded: { eventId: 1 } }, [unjudged], 'loaded')).toEqual({
+      current: false,
+      pending: true,
+    });
   });
 
   it('an import or a bounce after it never gets a verdict — not "waiting": the note shows', () => {

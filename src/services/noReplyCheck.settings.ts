@@ -1,4 +1,5 @@
-import { isRecord, isSource, readBounded } from './boundedFieldRead';
+import { isRecord } from '@/lib/isRecord';
+import { readBounded, sourceOf } from './boundedFieldRead';
 import type { BoundedField } from './resolvedField';
 
 /**
@@ -30,17 +31,18 @@ export type NoReplyCheckInput = Partial<Record<NoReplyCheckNumber, number | null
 /** GET `drafts.noReplyCheck`: both limits and the wording well-formed — or absent (older backend). */
 export const readNoReplyCheck = (raw: unknown): NoReplyCheckSettings | undefined => {
   if (!isRecord(raw)) return undefined;
+  // One rule with every console reader: a source this build does not know reads as 'default'
+  // (readBounded); the backend sends only db / env / default.
   const numbers = NO_REPLY_CHECK_NUMBERS.map((key) => [key, readBounded(raw[key])] as const);
   const wording = raw.instructions;
   const instructions =
     isRecord(wording) &&
     typeof wording.value === 'string' &&
-    isSource(wording.source) &&
     typeof wording.minLength === 'number' &&
     typeof wording.maxLength === 'number'
       ? {
           value: wording.value,
-          source: wording.source,
+          source: sourceOf(wording.source),
           minLength: wording.minLength,
           maxLength: wording.maxLength,
         }

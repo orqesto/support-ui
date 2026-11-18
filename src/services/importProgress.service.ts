@@ -1,5 +1,6 @@
 import { isAxiosError } from 'axios';
 import { apiClient } from '@/lib/api-client';
+import { isRecord } from '@/lib/isRecord';
 
 /**
  * Import progress of a Gmail source — counted by the backend in the database over a FIXED set of
@@ -458,8 +459,7 @@ export type RetryOwedResult = {
   failed: { error: string } | null;
 };
 
-const asRecord = (value: unknown): Record<string, unknown> =>
-  value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+const asRecord = (value: unknown): Record<string, unknown> => (isRecord(value) ? value : {});
 
 const normaliseOwedList = (raw: unknown): OwedList => {
   const data = asRecord(raw);

@@ -21,6 +21,7 @@ import type {
 } from '@/services/platformSettings.service';
 import { NO_REPLY_CHECK_NOT_DEPLOYED, NoReplyCheckFields } from './NoReplyCheckFields';
 import { SourceBadge } from './SourceBadge';
+import { useReseededTexts } from './useReseededTexts';
 
 export const AI_DRAFTS_NOT_DEPLOYED =
   'This server does not have this setting yet — it arrives with the next backend release.';
@@ -129,33 +130,19 @@ const AgentNoteFactsFields = ({
   saving: boolean;
   onSave: (changed: AgentNoteFactsInput) => void;
 }) => {
-  const [texts, setTexts] = useState(() => savedTexts(facts));
-  // The saved values the inputs were last seeded from, as text.
-  const [seeded, setSeeded] = useState(() => savedTexts(facts));
-  const savedKey = AGENT_NOTE_FACTS_FIELDS.map((field) => facts[field].value).join('|');
-  // When the saved values change (the query refetches after a save), re-seed ONLY the fields the
-  // operator has not edited: an edit typed while another field was saving must survive the refetch.
-  useEffect(() => {
-    const next = savedTexts(facts);
-    setTexts(
-      (current) =>
-        Object.fromEntries(
-          AGENT_NOTE_FACTS_FIELDS.map((field) => [
-            field,
-            current[field] === seeded[field] ? next[field] : current[field],
-          ])
-        ) as Record<AgentNoteFactsField, string>
-    );
-    setSeeded(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- savedKey is the saved values
-  }, [savedKey]);
+  // Re-seed ONLY the fields the operator has not edited (useReseededTexts): an edit typed while
+  // another field was saving must survive the refetch.
+  const { texts, setTexts, isSame } = useReseededTexts<AgentNoteFactsField>(savedTexts(facts), {
+    numeric: AGENT_NOTE_FACTS_FIELDS,
+  });
 
   // Only a field the operator changed is checked and sent: a saved value outside bounds the server
   // narrowed later must not block saving the other two.
   const errors: Partial<Record<AgentNoteFactsField, string>> = {};
   const changed: AgentNoteFactsInput = {};
   for (const field of AGENT_NOTE_FACTS_FIELDS) {
-    if (texts[field] === String(facts[field].value)) continue;
+    // The one "unchanged" rule (useReseededTexts.isSame): "03" is 3.
+    if (isSame(field, texts[field], String(facts[field].value))) continue;
     const { min, max } = facts[field];
     const value = asNumber(texts[field]);
     if (value === null || !Number.isInteger(value) || value < min || value > max) {
@@ -361,13 +348,11 @@ export const AiDraftsCard = ({ drafts }: { drafts: DraftSettings | undefined }) 
             check={drafts.noReplyCheck}
             saving={save.isPending}
             onSave={(changed) =>
-              save.mutate(
-                { noReplyCheck: changed },
-                {
-                  onSuccess: () =>
-                    toast.success('"No reply needed" saved. Applies within a minute.'),
-                }
-              )
+              // A promise per save (not the shared mutate callbacks, which only the latest call
+              // gets): the fields tie a reset to its own save. The shared mutation reports errors.
+              save
+                .mutateAsync({ noReplyCheck: changed })
+                .then(() => toast.success('"No reply needed" saved. Applies within a minute.'))
             }
           />
         ) : (

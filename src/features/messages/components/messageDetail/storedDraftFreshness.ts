@@ -33,6 +33,29 @@ const hasVerdict = (meta: { spamCheck?: unknown; adoptedAt?: unknown }): boolean
   (meta.spamCheck !== undefined && meta.spamCheck !== null) ||
   (meta.adoptedAt !== undefined && meta.adoptedAt !== null);
 
+type EventMarks = {
+  deliveryFailure?: unknown;
+  customerAutoReply?: unknown;
+  historicalImport?: unknown;
+  adoptedAt?: unknown;
+  zendesk?: unknown;
+  spamCheck?: unknown;
+};
+
+/** A Zendesk import no live mailbox adopted (a live forwarded copy, `absorbedLive`, is adopted). */
+const importNotAdopted = (meta: EventMarks): boolean =>
+  meta.zendesk !== undefined &&
+  meta.zendesk !== null &&
+  (meta.adoptedAt === undefined || meta.adoptedAt === null) &&
+  !(typeof meta.zendesk === 'object' && 'absorbedLive' in meta.zendesk);
+
+/** Mail the save never judges and no customer wrote: an import, a bounce, their auto-reply. */
+const neverJudged = (meta: EventMarks): boolean =>
+  meta.historicalImport === true ||
+  importNotAdopted(meta) ||
+  meta.deliveryFailure === true ||
+  meta.customerAutoReply === true;
+
 /**
  * The customer WRITING, as the backend picks the email a draft answers (support-service
  * latestInboundOrder.ts `customerWritingCondition`; in JS inbox notCustomerWriting.ts
@@ -51,29 +74,15 @@ const isCustomerWriting = (event: MessageEvent): boolean => {
   // The backend's own answer (review 2026-11-17 round 13: a copy of its markers can drift); the
   // markers below only for a backend that does not send it yet.
   if (typeof event.customerWriting === 'boolean') return event.customerWriting;
-  const meta = (event.metadata ?? {}) as {
-    deliveryFailure?: unknown;
-    customerAutoReply?: unknown;
-    historicalImport?: unknown;
-    adoptedAt?: unknown;
-    zendesk?: { absorbedLive?: unknown } | null;
+  const meta = (event.metadata ?? {}) as EventMarks & {
     spamCheck?: { category?: unknown; handling?: unknown } | null;
   };
   const category = meta.spamCheck?.category;
-  const zendesk = meta.zendesk;
-  const importNotAdopted =
-    zendesk !== undefined &&
-    zendesk !== null &&
-    (meta.adoptedAt === undefined || meta.adoptedAt === null) &&
-    !(typeof zendesk === 'object' && 'absorbedLive' in zendesk);
   return (
     // Judged: a verdict, or an import a live mailbox adopted (adoption brings no verdict).
     hasVerdict(meta) &&
     meta.spamCheck?.handling !== 'pause_thread' &&
-    meta.deliveryFailure !== true &&
-    meta.customerAutoReply !== true &&
-    meta.historicalImport !== true &&
-    !importNotAdopted &&
+    !neverJudged(meta) &&
     !(typeof category === 'string' && NOT_WRITTEN_BY_CUSTOMER.has(category))
   );
 };
@@ -126,6 +135,13 @@ type ThreadCustomerView = {
   allInbound: readonly MessageEvent[];
   writing: readonly MessageEvent[];
 };
+/**
+ * THE order of two inbound emails for the verdict and the wait: stored time only — a tie is NOT
+ * after (as the backend's draft age, which keeps a draft it cannot order; review of #980: one order
+ * in both places, pinned by "two customer emails stored in the same millisecond").
+ */
+const storedAfter = (leftAt: number, rightAt: number): boolean => leftAt > rightAt;
+
 /** One pass per thread array (the draft and the marker both ask, on every live pull). */
 const customerViewCache = new WeakMap<readonly MessageEvent[], ThreadCustomerView>();
 const customerViewOf = (sortedThread: readonly MessageEvent[]): ThreadCustomerView => {
@@ -148,13 +164,14 @@ export function customerEmailVerdict(
   if (writing.length === 0) return 'unknown';
   const storedAt = (event: MessageEvent) => new Date(event.createdAt).getTime();
   if (writing.some((event) => Number.isNaN(storedAt(event)))) return 'unknown';
-  const newestStoredAt = Math.max(...writing.map(storedAt));
   // The email loaded (a customer email or not): older only if a later customer email follows it —
-  // as the backend, which never drops a draft for an email stored after its pick.
+  // as the backend, which never drops a draft for an email stored after its pick (storedAfter).
   const named = allInbound.find((event) => event.id === eventId);
   if (named && Number.isNaN(storedAt(named))) return 'unknown';
   const isLatest = named
-    ? storedAt(named) >= newestStoredAt
+    ? !writing.some(
+        (event) => event.id !== named.id && storedAfter(storedAt(event), storedAt(named))
+      )
     : eventId > Math.max(...writing.map((event) => event.id));
   return isLatest ? 'latest' : 'older';
 }
@@ -178,7 +195,9 @@ export function noReplyNeededState(
   // first render after a switch, and a note it cannot check would flash.
   if (eventsState === 'failed') return { current: false, pending: false };
   // A newer live email still waiting for its verdict may be the customer writing again (the
-  // backend drops the marker once the verdict lands): nothing shown meanwhile.
+  // backend drops the marker once the verdict lands): nothing shown meanwhile. After the wait the
+  // thread follows the backend's marker, exactly as the card chip does — one rule for both (review
+  // of #980); a verdict that lands later drops the marker on the backend.
   if (newerUnjudgedInbound(marker.eventId, sortedThread)) return { current: false, pending: true };
   // The backend's marker stands unless the loaded thread PROVES a newer customer email (its clear
   // has not reached the app yet); an unknown verdict trusts the backend.
@@ -188,46 +207,30 @@ export function noReplyNeededState(
   };
 }
 
-/**
- * A LIVE inbound email stored after `eventId` that has no verdict yet (the save stamps one soon).
- * Mail that never gets one is not waiting: an import (historical, Zendesk not adopted), a bounce,
- * the customer's auto-reply. A time that does not parse proves nothing — the marker is trusted.
- */
 /** How long a newer email without a verdict is "waiting": the save stamps it within seconds. */
 const VERDICT_WAIT_MS = 10 * 60_000;
 
+/**
+ * A LIVE inbound email after the marked one that has no verdict yet and arrived within the wait.
+ * Mail that never gets a verdict is not waiting (neverJudged). "After": by stored time when the
+ * marked email is loaded; by id when it is not (it may be on an earlier page, or newer than the
+ * page — its event not loaded yet; ids rise with storage — review of #980). A time that does not
+ * parse proves nothing.
+ */
 const newerUnjudgedInbound = (eventId: number, sortedThread: readonly MessageEvent[]): boolean => {
   const { allInbound } = customerViewOf(sortedThread);
   const named = allInbound.find((event) => event.id === eventId);
-  if (!named) return false;
-  const namedAt = new Date(named.createdAt).getTime();
-  if (Number.isNaN(namedAt)) return false;
+  const namedAt = named ? new Date(named.createdAt).getTime() : null;
+  if (namedAt !== null && Number.isNaN(namedAt)) return false;
   return allInbound.some((event) => {
+    if (event.id === eventId) return false;
     const at = new Date(event.createdAt).getTime();
-    if (event.id === eventId || Number.isNaN(at) || at <= namedAt) return false;
-    const meta = (event.metadata ?? {}) as {
-      spamCheck?: unknown;
-      adoptedAt?: unknown;
-      historicalImport?: unknown;
-      zendesk?: unknown;
-      deliveryFailure?: unknown;
-      customerAutoReply?: unknown;
-    };
-    // A Zendesk import no live mailbox adopted is never judged; a live forwarded copy
-    // (`absorbedLive`) is — as isCustomerWriting reads them.
-    const zendesk = meta.zendesk;
-    const importNotAdopted =
-      zendesk !== undefined &&
-      zendesk !== null &&
-      !(typeof zendesk === 'object' && 'absorbedLive' in zendesk);
-    const neverJudged =
-      meta.historicalImport === true ||
-      importNotAdopted ||
-      meta.deliveryFailure === true ||
-      meta.customerAutoReply === true;
-    // Waiting is bounded: mail the save never judges (a knowledge-base source) must not hold the
-    // zone empty for good — after a few minutes the marker is trusted again.
-    const recent = Date.now() - at < VERDICT_WAIT_MS;
-    return recent && !neverJudged && !hasVerdict(meta);
+    if (Number.isNaN(at)) return false;
+    // The one order (storedAfter); by id when the marked email is not loaded.
+    const after = namedAt !== null ? storedAfter(at, namedAt) : event.id > eventId;
+    if (!after) return false;
+    const meta = (event.metadata ?? {}) as EventMarks;
+    if (neverJudged(meta) || hasVerdict(meta)) return false;
+    return Date.now() - at < VERDICT_WAIT_MS;
   });
 };

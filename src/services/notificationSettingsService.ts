@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { isRecord } from '@/lib/isRecord';
 
 export type SettingsLine = {
   key: string;
@@ -23,8 +24,6 @@ const SETTINGS_URL = '/api/users/me/notification-settings';
 const LEGACY_URL = '/api/users/me/notification-preferences';
 
 const SOURCES = ['always_on', 'locked', 'own', 'role_default', 'code_default'] as const;
-
-const isRecord = (val: unknown): val is Record<string, unknown> => typeof val === 'object' && val !== null;
 
 /** Never throws: missing pieces get defaults, unknown keys are kept. */
 export const normaliseSettings = (raw: unknown): NotificationSettings => {
