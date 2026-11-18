@@ -35,7 +35,7 @@ export type TicketFilterKey = {
 };
 
 export type TicketFilterSources = {
-  assignees: Array<{ id: number; name: string }>;
+  assignees: Array<{ id: number; name: string; photoKey?: string | null }>;
   categories: Array<{ id: number; name: string }>;
   labels: Array<{ id: number; name: string; color: string }>;
   /** The Jira filter only exists where a Jira integration does. */

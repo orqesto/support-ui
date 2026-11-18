@@ -1,3 +1,4 @@
+import { UserPhoto } from '@/components/ui/UserPhoto';
 import { MessagesSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -151,12 +152,21 @@ export const initials = (name: string): string =>
 const AVATAR_COLOURS = ['#2A6FB4', '#09674B', '#7E2FB0', '#A35200', '#0E7490', '#B6206B'];
 export const avatarColour = (id: number): string => AVATAR_COLOURS[id % AVATAR_COLOURS.length];
 
-export const Avatar = ({ id, name }: { id: number; name: string }) => (
+export const Avatar = ({
+  id,
+  name,
+  photoKey,
+}: {
+  id: number;
+  name: string;
+  /** The person's profile photo key, when the list sent one: shown in place of the initials. */
+  photoKey?: string | null;
+}) => (
   <span
-    className="grid place-items-center w-[22px] h-[22px] rounded-full text-[9.5px] font-bold text-white shrink-0"
+    className="grid place-items-center w-[22px] h-[22px] rounded-full overflow-hidden text-[9.5px] font-bold text-white shrink-0"
     style={{ backgroundColor: avatarColour(id) }}
     aria-hidden="true"
   >
-    {initials(name)}
+    <UserPhoto photoKey={photoKey}>{initials(name)}</UserPhoto>
   </span>
 );

@@ -14,6 +14,7 @@ import { OriginalHeadersButton } from './OriginalHeadersButton';
 import { ThreadAttachmentChip } from './ThreadAttachmentChip';
 import { ThreadBubble } from './ThreadBubble';
 import { PHONE_THREAD_AVATAR, PHONE_THREAD_BUBBLE, PHONE_THREAD_COL_IN, PHONE_THREAD_COL_OUT, PHONE_THREAD_ROW } from './messageDetailConstants';
+import { UserPhoto } from '@/components/ui/UserPhoto';
 import { getInitials } from '@/lib/initials';
 import type { Attachment } from './MessageAttachments';
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
@@ -124,9 +125,12 @@ function ThreadMessageItemView({
   // solid primary, which made every reply the loudest thing on screen).
   const avatar = (
     <div
-      className={`w-[21px] h-[21px] mt-px rounded-full bg-sunken border border-border grid place-items-center font-display text-[9px] font-semibold text-muted-foreground flex-none ${PHONE_THREAD_AVATAR}`}
+      className={`w-[21px] h-[21px] mt-px rounded-full overflow-hidden bg-sunken border border-border grid place-items-center font-display text-[9px] font-semibold text-muted-foreground flex-none ${PHONE_THREAD_AVATAR}`}
     >
-      {initials || <User className="w-3 h-3" />}
+      {/* A teammate's photo only on what the team sent, and only with their name. */}
+      <UserPhoto photoKey={isAgent && authorName ? msg.authorPhotoKey : null}>
+        {initials || <User className="w-3 h-3" />}
+      </UserPhoto>
     </div>
   );
   const when = (

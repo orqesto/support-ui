@@ -4,6 +4,7 @@
  * phone. Unavailable presence renders nothing — never "0". When the server capped a ticket's watch
  * the eye shows only the cap note, with no count.
  */
+import { UserPhoto } from '@/components/ui/UserPhoto';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Eye } from 'lucide-react';
@@ -88,9 +89,9 @@ function ViewerRow({
     >
       <span
         aria-hidden
-        className={`flex-none grid place-items-center w-6 h-6 rounded-full text-[10px] font-semibold text-white ${agent.colour} ${away ? 'grayscale' : ''}`}
+        className={`flex-none grid place-items-center w-6 h-6 rounded-full overflow-hidden text-[10px] font-semibold text-white ${agent.colour} ${away ? 'grayscale' : ''}`}
       >
-        {agent.initials}
+        <UserPhoto photoKey={agent.photoKey}>{agent.initials}</UserPhoto>
       </span>
       <span className="flex-1 min-w-0">
         <span className="block truncate text-[12.5px] font-medium text-foreground">

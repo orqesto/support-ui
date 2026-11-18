@@ -9,7 +9,7 @@ import { TicketRef, useTicketDisplayId } from '@/features/tickets/components/Tic
 export type AssigneeCellProps = {
   ticket: Ticket;
   canManage: boolean;
-  assignees: Array<{ id: number; name: string }>;
+  assignees: Array<{ id: number; name: string; photoKey?: string | null }>;
   currentUserId: number | null;
   onAssign: (ticketId: number, userId: number | null) => void;
   /** Avatar only — the narrow layouts. */
@@ -34,6 +34,10 @@ export const AssigneeCell = ({
   const shownId = useTicketDisplayId(ticket);
   const name =
     ticket.assigneeName ?? assignees.find((user) => user.id === ticket.assigneeId)?.name ?? '';
+  const photoKey =
+    ticket.assigneePhotoKey ??
+    assignees.find((user) => user.id === ticket.assigneeId)?.photoKey ??
+    null;
   const mine = ticket.assigneeId !== null && ticket.assigneeId === currentUserId;
   const stop = (event: { stopPropagation: () => void }) => event.stopPropagation();
 
@@ -45,7 +49,7 @@ export const AssigneeCell = ({
       </span>
     ) : (
       <span className="inline-flex gap-1.5 items-center min-w-0 text-[12.5px]">
-        <Avatar id={ticket.assigneeId} name={name} />
+        <Avatar id={ticket.assigneeId} name={name} photoKey={photoKey} />
         {!compact && <span className="truncate">{name}</span>}
       </span>
     );
@@ -84,7 +88,7 @@ export const AssigneeCell = ({
             <MenuItem
               key={user.id}
               checked={false}
-              icon={<Avatar id={user.id} name={user.name} />}
+              icon={<Avatar id={user.id} name={user.name} photoKey={user.photoKey} />}
               onSelect={() => onAssign(ticket.id, user.id)}
             >
               {user.name}
@@ -138,7 +142,7 @@ export const AssigneeCell = ({
               onClick={toggle}
               className="gap-1.5 justify-start px-0.5 pr-2 h-auto min-w-0 font-normal rounded-full text-[12.5px]"
             >
-              <Avatar id={assigneeId} name={name} />
+              <Avatar id={assigneeId} name={name} photoKey={photoKey} />
               {!compact && (
                 <span className="truncate">
                   {name}
@@ -156,7 +160,7 @@ export const AssigneeCell = ({
           <MenuItem
             key={user.id}
             checked={user.id === assigneeId}
-            icon={<Avatar id={user.id} name={user.name} />}
+            icon={<Avatar id={user.id} name={user.name} photoKey={user.photoKey} />}
             onSelect={() => {
               if (user.id !== assigneeId) onAssign(ticket.id, user.id);
             }}

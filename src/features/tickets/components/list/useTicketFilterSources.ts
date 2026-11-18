@@ -24,6 +24,7 @@ export const useTicketFilterSources = (): Sources => {
           assignees: users.map((user) => ({
             id: user.id,
             name: userFullName(user) || user.email,
+            photoKey: user.photoKey ?? null,
           })),
         })
       )
