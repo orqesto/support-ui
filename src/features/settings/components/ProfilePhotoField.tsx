@@ -27,8 +27,11 @@ import {
   type Size,
 } from './photoCrop';
 
-/** Same limits as the server (`PUT /api/users/me/photo`), checked first so nothing is sent. */
-const MAX_BYTES = 10 * 1024 * 1024;
+/**
+ * Largest original the browser will open for framing. Only the framed 512 px JPEG is uploaded
+ * (the server's own 10 MB limit applies to that), so a large phone photo is fine.
+ */
+const MAX_BYTES = 40 * 1024 * 1024;
 const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp'];
 
 const SERVER_COPY: Record<string, string> = {
@@ -64,7 +67,27 @@ export const ProfilePhotoField = () => {
 
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
 
-  if (!user) return null;
+  // The profile object can come from a sign-in that did not carry the key (or from before this
+  // feature): ask the server once. A server that does not send `photoKey` at all has no photo
+  // routes yet (the app can reach production before the API), so the field stays hidden.
+  const keyKnown = user !== null && 'photoKey' in user;
+  useEffect(() => {
+    if (!user || keyKnown) return;
+    let live = true;
+    // Through a promise: a failure of any kind (even a missing service method) stays hidden.
+    Promise.resolve()
+      .then(() => userService.getCurrentUser())
+      .then((fresh) => {
+        if (live && fresh && 'photoKey' in fresh)
+          setUser({ ...user, photoKey: fresh.photoKey ?? null });
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [user, keyKnown, setUser]);
+
+  if (!user || !keyKnown) return null;
   const name = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email;
 
   const changed = (photoKey: string | null) => {
@@ -83,7 +106,7 @@ export const ProfilePhotoField = () => {
     if (input.current) input.current.value = '';
     if (!file) return;
     if (!ACCEPTED.includes(file.type)) return setError('Use a PNG, JPEG or WebP image');
-    if (file.size > MAX_BYTES) return setError('Photo must be 10 MB or smaller');
+    if (file.size > MAX_BYTES) return setError('Photo must be 40 MB or smaller');
     setError(null);
     setView(CENTRED);
     setPreview(URL.createObjectURL(file));
@@ -168,7 +191,7 @@ export const ProfilePhotoField = () => {
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          PNG, JPEG or WebP, up to 10 MB. Teammates in your workspaces see it.
+          PNG, JPEG or WebP. Teammates in your workspaces see it.
         </p>
         {error && (
           <p role="alert" className="text-xs text-destructive">
@@ -197,6 +220,10 @@ export const ProfilePhotoField = () => {
                   src={preview}
                   alt="Your new profile photo"
                   draggable={false}
+                  onError={() => {
+                    setError('We couldn’t read that image. Try another photo.');
+                    close();
+                  }}
                   onLoad={(event) =>
                     setNatural({
                       width: event.currentTarget.naturalWidth || FRAME_PX,

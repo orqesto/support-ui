@@ -75,6 +75,7 @@ import { WebSocketDebug } from '../shared/WebSocketDebug';
 import { ProcessingIndicator } from '../processing/ProcessingIndicator';
 import { ProcessingPanels } from '../processing/ProcessingPanels';
 import { logger } from '@/lib/logger';
+import { PersonAvatar } from '@/components/shared/PersonAvatar';
 
 const isDevelopment = import.meta.env.DEV;
 
@@ -658,9 +659,9 @@ const LayoutShell = ({ children }: LayoutProps) => {
                     label={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim()}
                     className="inline-flex"
                   >
-                    <div className="flex flex-shrink-0 justify-center items-center w-8 h-8 text-sm font-medium rounded-full bg-primary text-primary-foreground">
+                    <PersonAvatar photoKey={user?.photoKey} className="w-8 h-8">
                       {user?.firstName?.charAt(0).toUpperCase()}
-                    </div>
+                    </PersonAvatar>
                   </NavTip>
                   <div className={cn('min-w-0', hideWhenCollapsed)}>
                     <p className="text-sm font-medium truncate">

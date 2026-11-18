@@ -9,10 +9,12 @@ import type { User } from '@/types';
 import { userPhotoUrl } from '@/components/ui/UserPhoto';
 
 const put = vi.hoisted(() => vi.fn<(...args: unknown[]) => Promise<unknown>>());
+const get = vi.hoisted(() => vi.fn<(...args: unknown[]) => Promise<unknown>>());
 const del = vi.hoisted(() => vi.fn<(...args: unknown[]) => Promise<unknown>>());
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
     put: (...args: unknown[]) => put(...args),
+    get: (...args: unknown[]) => get(...args),
     delete: (...args: unknown[]) => del(...args),
   },
 }));
@@ -72,10 +74,16 @@ describe('ProfilePhotoField', () => {
     expect(document.querySelector('img')?.getAttribute('src')).toBe(userPhotoUrl('k-ann'));
   });
 
-  it('refuses a file over 10 MB before sending anything', () => {
+  it('a large phone photo (12 MB) is fine: only the framed 512 px square is uploaded', async () => {
     renderField();
-    pick(file('big.png', 'image/png', 10 * 1024 * 1024 + 1));
-    expect(screen.getByText('Photo must be 10 MB or smaller')).toBeTruthy();
+    pick(file('phone.jpg', 'image/jpeg', 12 * 1024 * 1024));
+    expect(await screen.findByText('Frame your photo')).toBeTruthy();
+  });
+
+  it('refuses a file over 40 MB before sending anything', () => {
+    renderField();
+    pick(file('big.png', 'image/png', 40 * 1024 * 1024 + 1));
+    expect(screen.getByText('Photo must be 40 MB or smaller')).toBeTruthy();
     expect(put).not.toHaveBeenCalled();
   });
 
@@ -119,6 +127,39 @@ describe('ProfilePhotoField', () => {
     await waitFor(() =>
       expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ photoKey: null }))
     );
+  });
+
+  it('after a sign-in that did not carry the key, it asks the server and shows the photo + Remove', async () => {
+    state.user = { ...me(null) } as User;
+    delete (state.user as { photoKey?: unknown }).photoKey;
+    get.mockResolvedValue({ data: { success: true, data: { ...me('k-ann') } } });
+    renderField();
+    await waitFor(() => expect(get).toHaveBeenCalledWith('/api/users/me'));
+    await waitFor(() =>
+      expect(setUser).toHaveBeenCalledWith(expect.objectContaining({ photoKey: 'k-ann' }))
+    );
+  });
+
+  it('an older server that knows nothing of photos: no upload button at all', async () => {
+    state.user = { ...me(null) } as User;
+    delete (state.user as { photoKey?: unknown }).photoKey;
+    const older = { ...me(null) } as Record<string, unknown>;
+    delete older.photoKey;
+    get.mockResolvedValue({ data: { success: true, data: older } });
+    renderField();
+    await waitFor(() => expect(get).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: 'Upload photo' })).toBeNull();
+    expect(setUser).not.toHaveBeenCalled();
+  });
+
+  it('a file that is not really an image says so at once, not after Save', async () => {
+    renderField();
+    pick(file('fake.png', 'image/png'));
+    const preview = await screen.findByAltText('Your new profile photo');
+    fireEvent.error(preview);
+    expect(await screen.findByText('We couldn’t read that image. Try another photo.')).toBeTruthy();
+    expect(screen.queryByText('Frame your photo')).toBeNull();
+    expect(put).not.toHaveBeenCalled();
   });
 
   it('no Remove button without a photo', () => {

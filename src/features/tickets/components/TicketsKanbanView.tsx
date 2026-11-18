@@ -40,6 +40,7 @@ import { useAuthStore } from '@/stores/authStore';
 import type { TicketFilters } from '@/features/tickets/stores/ticketsStore';
 import type { Ticket as TicketType, TicketStatus } from '@/types';
 import { TicketRef, useTicketDisplayId } from '@/features/tickets/components/TicketRef';
+import { withNewAssignee } from './assignOnBoard';
 
 type KanbanColumnDef = {
   id: TicketStatus;
@@ -508,7 +509,6 @@ export const TicketsKanbanView = ({
     currentUserId: assigneeSelf,
     onAssign: (ticketId, userId) => {
       onAssign(ticketId, userId);
-      const name = assignees.find((user) => user.id === userId)?.name ?? null;
       setColStates((prev) =>
         Object.fromEntries(
           Object.entries(prev).map(([id, col]) => [
@@ -516,7 +516,7 @@ export const TicketsKanbanView = ({
             {
               ...col,
               tickets: col.tickets.map((tk) =>
-                tk.id === ticketId ? { ...tk, assigneeId: userId, assigneeName: name } : tk
+                tk.id === ticketId ? withNewAssignee(tk, userId, assignees) : tk
               ),
             },
           ])

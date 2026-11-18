@@ -47,6 +47,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
 import { PlanOverLimitNote } from '@/features/subscription';
 import { userFullName } from '@/lib/userName';
+import { PersonAvatar } from '@/components/shared/PersonAvatar';
 
 /** Match the console tables' page size so every user/workspace list paginates identically. */
 const PAGE_SIZE = 25;
@@ -350,9 +351,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       header: 'User',
       cell: (user) => (
         <div className="flex items-center min-w-0">
-          <div className="flex justify-center items-center w-10 h-10 text-sm font-medium rounded-full bg-primary text-primary-foreground">
+          <PersonAvatar photoKey={user.photoKey} className="w-10 h-10">
             {initials(user)}
-          </div>
+          </PersonAvatar>
           <div className="flex-1 ml-3 min-w-0">
             <div className="text-sm font-medium truncate">
               {user.firstName} {user.lastName}
@@ -487,9 +488,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
   const renderUserCard = (user: User) => (
     <div className="p-4 transition-colors hover:bg-accent">
       <div className="flex gap-3 items-start">
-        <div className="flex flex-shrink-0 justify-center items-center w-12 h-12 text-sm font-medium rounded-full bg-primary text-primary-foreground">
+        <PersonAvatar photoKey={user.photoKey} className="w-12 h-12">
           {initials(user)}
-        </div>
+        </PersonAvatar>
         <div className="flex-1 min-w-0">
           <div className="flex gap-2 justify-between items-start mb-2">
             <div className="flex-1 min-w-0">

@@ -66,6 +66,9 @@ export const cropPhoto = async (src: string, view: PhotoView): Promise<Blob> => 
   canvas.height = OUTPUT_PX;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Photo could not be prepared');
+  // JPEG has no transparency: paint white first, or a transparent PNG gets black corners.
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, OUTPUT_PX, OUTPUT_PX);
   context.drawImage(
     image,
     region.x,

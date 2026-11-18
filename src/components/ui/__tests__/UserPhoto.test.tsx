@@ -3,10 +3,12 @@
  * an image that does not load (removed since the list was fetched, a teammate who left), shows
  * the screen's own initials — never a broken-image icon or an empty circle.
  */
-import { describe, it, expect } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { API_BASE_URL } from '@/lib/config';
 import { UserPhoto, userPhotoUrl } from '@/components/ui/UserPhoto';
+
+afterEach(() => vi.useRealTimers());
 
 describe('UserPhoto', () => {
   it('without a key shows the initials it wraps', () => {
@@ -19,15 +21,19 @@ describe('UserPhoto', () => {
     expect(document.querySelector('img')).toBeNull();
   });
 
-  it('with a key shows the photo from the API, in place of the initials', () => {
+  it('with a key: initials stay until the photo has loaded, then the photo replaces them', () => {
     render(
       <UserPhoto photoKey="Abc_-123">
         <span>AL</span>
       </UserPhoto>
     );
-    const img = document.querySelector('img');
-    expect(img?.getAttribute('src')).toBe(`${API_BASE_URL}/api/user-photos/Abc_-123`);
+    const img = document.querySelector('img') as HTMLImageElement;
+    expect(img.getAttribute('src')).toBe(`${API_BASE_URL}/api/user-photos/Abc_-123`);
+    expect(screen.getByText('AL')).toBeInTheDocument();
+    expect(img.hidden).toBe(true);
+    fireEvent.load(img);
     expect(screen.queryByText('AL')).toBeNull();
+    expect(img.hidden).toBe(false);
   });
 
   it('fills the circle it sits in', () => {
@@ -37,6 +43,24 @@ describe('UserPhoto', () => {
     expect(img?.className).toMatch(/h-full/);
     expect(img?.className).toMatch(/rounded-full/);
     expect(img?.className).toMatch(/object-cover/);
+  });
+
+  it('a failed load is tried once more later (a passing 401/429), then stays on initials', () => {
+    vi.useFakeTimers();
+    render(<UserPhoto photoKey="flaky">AL</UserPhoto>);
+    fireEvent.error(document.querySelector('img') as HTMLImageElement);
+    expect(document.querySelector('img')).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+    const retry = document.querySelector('img') as HTMLImageElement;
+    expect(retry).not.toBeNull();
+    fireEvent.error(retry);
+    act(() => {
+      vi.advanceTimersByTime(120_000);
+    });
+    expect(document.querySelector('img')).toBeNull();
+    expect(screen.getByText('AL')).toBeInTheDocument();
   });
 
   it('falls back to the initials when the image fails to load', () => {
