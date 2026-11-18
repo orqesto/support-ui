@@ -41,24 +41,31 @@ export const NoReplyCheckFields = ({
   check,
   saving,
   onSave,
+  onRefetch,
 }: {
   check: NoReplyCheckSettings;
   saving: boolean;
   /** Resolves when the save succeeded, rejects when it failed. */
   onSave: (changed: NoReplyCheckInput) => Promise<unknown>;
+  /** Fetch the saved values again (a reset whose own refetch never came). */
+  onRefetch?: () => Promise<unknown>;
 }) => {
   // Re-seed only the fields the operator has not edited (useReseededTexts, review of #1503): the
   // numbers compare by value, the wording trimmed; a field's source is its version (a reset to a
   // default equal to the stored value still lands).
-  const { texts, setTexts, isSame, trackReset } = useReseededTexts<keyof Texts>(savedTexts(check), {
-    trimmed: ['instructions'],
-    numeric: NO_REPLY_CHECK_NUMBERS,
-    versions: {
-      ownTextMaxChars: check.ownTextMaxChars.source,
-      inlineLogoMaxBytes: check.inlineLogoMaxBytes.source,
-      instructions: check.instructions.source,
-    },
-  });
+  const { texts, setTexts, isSame, trackReset, unknown } = useReseededTexts<keyof Texts>(
+    savedTexts(check),
+    {
+      trimmed: ['instructions'],
+      numeric: NO_REPLY_CHECK_NUMBERS,
+      versions: {
+        ownTextMaxChars: check.ownTextMaxChars.source,
+        inlineLogoMaxBytes: check.inlineLogoMaxBytes.source,
+        instructions: check.instructions.source,
+      },
+      refetch: onRefetch,
+    }
+  );
   // Reset: the field shows the default once its refetch lands — unless the operator typed since;
   // the inputs stay editable (review of #980).
   const reset = (field: keyof Texts) => {
@@ -149,7 +156,16 @@ export const NoReplyCheckFields = ({
           </Button>
         )}
       </div>
-      <Button disabled={saving || nothingChanged || hasError} onClick={() => save(changed)}>
+      {unknown.size > 0 && (
+        <p className="text-sm text-destructive">
+          A reset was saved, but its new value could not be loaded. Reload the page to see what is
+          saved before changing these settings.
+        </p>
+      )}
+      <Button
+        disabled={saving || nothingChanged || hasError || unknown.size > 0}
+        onClick={() => save(changed)}
+      >
         Save &quot;No reply needed&quot;
       </Button>
     </div>

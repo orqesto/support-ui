@@ -4,7 +4,7 @@
  * so while nothing on the row contradicts it, and the thread says so in place of "No suggestion
  * found" while that email is the customer's latest.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { getAiState, noReplyNeededShown } from '../inboxCardHelpers';
 import { MessageGhostBubble } from '../MessageGhostBubble';
@@ -123,50 +123,41 @@ describe('noReplyNeededState — the thread view', () => {
     expect(noReplyNeededState(metadata, [event(1), event(2), ooo], 'loaded').current).toBe(true);
   });
 
-  it('a newer live email still waiting for its verdict: pending — nothing shown yet', () => {
-    // Just arrived (the wait is bounded to minutes): the marked email is from earlier today.
-    const marked = event(2, { createdAt: new Date(Date.now() - 60_000).toISOString() });
-    const unjudged = event(3, {
-      metadata: {},
-      customerWriting: false,
-      createdAt: new Date().toISOString(),
-    });
-    expect(noReplyNeededState(metadata, [event(1), marked, unjudged], 'loaded')).toEqual({
+  it('a newer live email still waiting for its verdict counts, as on the backend: not shown, no wait', () => {
+    const unjudged = event(3, { metadata: {}, customerWriting: false });
+    expect(noReplyNeededState(metadata, [event(1), event(2), unjudged], 'loaded')).toEqual({
       current: false,
-      pending: true,
+      pending: false,
     });
   });
 
-  it('a newer email still without a verdict after the wait: the thread follows the marker, as the chip', () => {
+  it('no clock: an unjudged newer email counts however long ago it arrived', () => {
+    const now = vi.spyOn(Date, 'now');
     const old = event(3, { metadata: {}, customerWriting: false });
-    expect(noReplyNeededState(metadata, [event(1), event(2), old], 'loaded')).toEqual({
+    expect(noReplyNeededState(metadata, [event(1), event(2), old], 'loaded').current).toBe(false);
+    expect(now).not.toHaveBeenCalled();
+    now.mockRestore();
+  });
+
+  it('the marked email not loaded: "newer" is by id — an OLDER loaded id proves nothing (review of #980)', () => {
+    const unjudged = (id: number) =>
+      event(id, { metadata: {}, customerWriting: false, createdAt: '2026-11-17T12:00:00Z' });
+    // Marker 50 not loaded; 48 is older (the backend's marker stands), 52 is newer and unjudged.
+    const marker = { noReplyNeeded: { eventId: 50 } };
+    expect(noReplyNeededState(marker, [unjudged(48)], 'loaded').current).toBe(true);
+    expect(noReplyNeededState(marker, [unjudged(48), unjudged(52)], 'loaded').current).toBe(false);
+  });
+
+  it('the marked email is NEWER than the loaded page (marker before its event): the marker stands', () => {
+    const unjudged = event(3, { metadata: {}, customerWriting: false });
+    // Marker names email 9, above every loaded id: it is the newest — nothing loaded is newer.
+    expect(noReplyNeededState({ noReplyNeeded: { eventId: 9 } }, [unjudged], 'loaded')).toEqual({
       current: true,
       pending: false,
     });
   });
 
-  it('the marked email not loaded: "newer" is by id — an OLDER loaded id never waits (review of #980)', () => {
-    const recent = (id: number) =>
-      event(id, { metadata: {}, customerWriting: false, createdAt: new Date().toISOString() });
-    // Marker 50 not loaded; 48 is older (no wait), 52 is newer and unjudged (waits).
-    const marker = { noReplyNeeded: { eventId: 50 } };
-    expect(noReplyNeededState(marker, [recent(48)], 'loaded').pending).toBe(false);
-    expect(noReplyNeededState(marker, [recent(48), recent(52)], 'loaded').pending).toBe(true);
-  });
-
-  it('the marked email is NEWER than the loaded page (marker before its event): no wait', () => {
-    const unjudged = event(3, {
-      metadata: {},
-      customerWriting: false,
-      createdAt: new Date().toISOString(),
-    });
-    // Marker names email 9, above every loaded id: it is the newest — nothing loaded is newer.
-    expect(
-      noReplyNeededState({ noReplyNeeded: { eventId: 9 } }, [unjudged], 'loaded').pending
-    ).toBe(false);
-  });
-
-  it('a same-millisecond email: one order for the verdict and the wait — a tie is not after', () => {
+  it('a same-millisecond email: one order for judged and unjudged mail — a tie is not after', () => {
     const at = new Date().toISOString();
     const marked = event(2, { createdAt: at });
     // As the draft rule ("neither draft is hidden"): the marked email stays the latest.
@@ -174,23 +165,19 @@ describe('noReplyNeededState — the thread view', () => {
       noReplyNeededState(metadata, [marked, event(3, { createdAt: at })], 'loaded').current
     ).toBe(true);
     const sameMsUnjudged = event(3, { createdAt: at, metadata: {}, customerWriting: false });
-    expect(noReplyNeededState(metadata, [marked, sameMsUnjudged], 'loaded').pending).toBe(false);
+    expect(noReplyNeededState(metadata, [marked, sameMsUnjudged], 'loaded').current).toBe(true);
   });
 
   it('the marked email is not on the loaded page: every loaded email is newer (review of #979)', () => {
-    const unjudged = event(3, {
-      metadata: {},
-      customerWriting: false,
-      createdAt: new Date().toISOString(),
-    });
+    const unjudged = event(3, { metadata: {}, customerWriting: false });
     // Marker names email 1, which is on an earlier page; the page holds only the unjudged one.
     expect(noReplyNeededState({ noReplyNeeded: { eventId: 1 } }, [unjudged], 'loaded')).toEqual({
       current: false,
-      pending: true,
+      pending: false,
     });
   });
 
-  it('an import or a bounce after it never gets a verdict — not "waiting": the note shows', () => {
+  it('an import or a bounce after it never gets a verdict — it does not count: the note shows', () => {
     const imported = event(3, { metadata: { historicalImport: true }, customerWriting: false });
     const bounce = event(4, { metadata: { deliveryFailure: true }, customerWriting: false });
     expect(noReplyNeededState(metadata, [event(2), imported, bounce], 'loaded').current).toBe(true);

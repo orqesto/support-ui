@@ -76,7 +76,7 @@ describe('Gmail redirect flow replays startPaused', () => {
     expect(hrefSetter).toHaveBeenCalledWith(expect.stringContaining(state));
   });
 
-  it('a redirect this page load started (manual-anchor fallback) keeps its config when a pop-up opens', async () => {
+  it('a pop-up opened after a redirect this page load started (Google then severs its opener): this tab keeps its config, the pop-up has none', async () => {
     get.mockResolvedValue({
       data: { success: true, data: { clientId: 'cid', redirectUri: 'https://x/cb' } },
     });
@@ -101,12 +101,22 @@ describe('Gmail redirect flow replays startPaused', () => {
     } finally {
       Object.defineProperty(window, 'location', { configurable: true, value: location });
     }
-    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    // The pop-up's own copy (what its callback page will read once Google severed the opener).
+    const popupCopy = new Map<string, string>([
+      ['gmail_oauth_pending_config', sessionStorage.getItem('gmail_oauth_pending_config') ?? ''],
+    ]);
+    const popup = {
+      close: vi.fn(),
+      location: { href: '' },
+      sessionStorage: { removeItem: (key: string) => popupCopy.delete(key) },
+    };
+    const open = vi.spyOn(window, 'open').mockReturnValue(popup as unknown as Window);
     try {
-      await gmailOAuthService.connectWithPopup({});
+      void gmailOAuthService.connectWithPopup({});
     } finally {
       open.mockRestore();
     }
+    expect(popupCopy.has('gmail_oauth_pending_config')).toBe(false);
     expect(sessionStorage.getItem('gmail_oauth_pending_config')).not.toBeNull();
   });
 });

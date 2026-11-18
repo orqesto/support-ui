@@ -31,7 +31,11 @@ const fromPopup = (code: string, state: string) =>
  * BroadcastChannel (opener severed by Google). Every path takes only THIS flow's state, once.
  */
 describe('Gmail OAuth pop-up flow', () => {
-  let popup: { close: ReturnType<typeof vi.fn>; location: { href: string } };
+  let popup: {
+    close: ReturnType<typeof vi.fn>;
+    location: { href: string };
+    sessionStorage: { removeItem: ReturnType<typeof vi.fn> };
+  };
   beforeEach(() => {
     post.mockReset();
     authUrls.length = 0;
@@ -42,7 +46,7 @@ describe('Gmail OAuth pop-up flow', () => {
       }
       return Promise.resolve({ data: { success: true, data: { id: 7, email: 'box@example.com' } } });
     });
-    popup = { close: vi.fn(), location: { href: '' } };
+    popup = { close: vi.fn(), location: { href: '' }, sessionStorage: { removeItem: vi.fn() } };
     vi.spyOn(window, 'open').mockImplementation(() => popup as unknown as Window);
   });
   afterEach(() => vi.restoreAllMocks());
@@ -109,7 +113,10 @@ describe('Gmail OAuth pop-up flow', () => {
   });
 
   it('each flow opens its own window: a second flow never takes over the first pop-up', async () => {
-    authUrls.push('https://accounts.example/auth?state=sA', 'https://accounts.example/auth?state=sB');
+    authUrls.push(
+      'https://accounts.example/auth?state=sA',
+      'https://accounts.example/auth?state=sB'
+    );
     const flowA = gmailOAuthService.connectWithPopup({});
     const flowB = gmailOAuthService.connectWithPopup({});
     const names = vi.mocked(window.open).mock.calls.map(([, name]) => name);
@@ -128,22 +135,19 @@ describe('Gmail OAuth pop-up flow', () => {
     ]);
   });
 
-  it("a pop-up never inherits this tab's leftover redirect keys: they are cleared before it opens", async () => {
+  it("the redirect keys are cleared in the POP-UP's own copy before it navigates; this tab keeps its own", async () => {
     sessionStorage.setItem('gmail_oauth_pending_config', JSON.stringify({ config: {} }));
-    sessionStorage.setItem('gmail_oauth_payload', JSON.stringify({ code: 'old', state: 'old' }));
-    let atOpen: (string | null)[] = [];
-    vi.mocked(window.open).mockImplementation(() => {
-      atOpen = [
-        sessionStorage.getItem('gmail_oauth_pending_config'),
-        sessionStorage.getItem('gmail_oauth_payload'),
-      ];
-      return popup as unknown as Window;
-    });
     const flow = gmailOAuthService.connectWithPopup({});
-    expect(atOpen).toEqual([null, null]);
+    // Cleared at once, before the pop-up is sent to Google.
+    expect(popup.sessionStorage.removeItem).toHaveBeenCalledWith('gmail_oauth_pending_config');
+    expect(popup.sessionStorage.removeItem).toHaveBeenCalledWith('gmail_oauth_payload');
+    expect(popup.location.href).toBe('');
+    // A redirect this tab started stays live.
+    expect(sessionStorage.getItem('gmail_oauth_pending_config')).toBe('{"config":{}}');
     await flush();
     fromPopup('c1', 's1');
     await flow;
+    sessionStorage.clear();
   });
 
   it("Google's error fails the flow at once (channel and postMessage), not after the timeout", async () => {
@@ -207,5 +211,57 @@ describe('Gmail OAuth pop-up flow', () => {
     fromPopup('c1', 's1');
     await flow;
     popupSide.close();
+  });
+
+  it("a code that arrives on both paths is acknowledged once, on the flow's channel", async () => {
+    const acks: unknown[] = [];
+    const popupSide = new BroadcastChannel('gmail_oauth');
+    popupSide.onmessage = (event: MessageEvent) => {
+      if ((event.data as { type?: string }).type === 'GMAIL_OAUTH_ACK') acks.push(event.data);
+    };
+    // The backend answers only after BOTH deliveries arrived (the flow is still open for both).
+    let answer: (() => void) | undefined;
+    post.mockImplementation((url: string) => {
+      if (url === '/api/oauth/gmail/authorize') {
+        return Promise.resolve({
+          data: { success: true, data: { authUrl: 'https://accounts.example/auth?state=s1' } },
+        });
+      }
+      return new Promise((resolve) => {
+        answer = () =>
+          resolve({ data: { success: true, data: { id: 7, email: 'box@example.com' } } });
+      });
+    });
+    const flow = gmailOAuthService.connectWithPopup({});
+    await flush();
+    fromPopup('c1', 's1');
+    popupSide.postMessage({ type: 'GMAIL_OAUTH_SUCCESS', code: 'c1', state: 's1' });
+    await flush();
+    expect(acks).toEqual([{ type: 'GMAIL_OAUTH_ACK', state: 's1' }]);
+    answer?.();
+    await expect(flow).resolves.toMatchObject({ success: true });
+    popupSide.close();
+    expect(callbacks()).toHaveLength(1);
+  });
+
+  it('an empty state= is no state: the flow fails at once', async () => {
+    authUrls.push('https://accounts.example/auth?state=');
+    await expect(gmailOAuthService.connectWithPopup({})).resolves.toMatchObject({
+      success: false,
+      error: 'Invalid OAuth URL received from server',
+    });
+  });
+
+  it('pop-up names differ across page loads (an old pop-up left open is never reused)', async () => {
+    const names: string[] = [];
+    for (const loadedAt of [1_700_000_000_000, 1_700_000_500_000]) {
+      vi.resetModules();
+      vi.spyOn(Date, 'now').mockReturnValue(loadedAt);
+      const fresh = await import('@/features/settings/services/gmail-oauth.service');
+      vi.mocked(Date.now).mockRestore();
+      void fresh.gmailOAuthService.connectWithPopup({});
+      names.push(String(vi.mocked(window.open).mock.calls.at(-1)?.[1]));
+    }
+    expect(names[0]).not.toBe(names[1]);
   });
 });

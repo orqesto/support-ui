@@ -44,7 +44,7 @@ export const OAuthCallbackPage = () => {
     const state = searchParams.get('state');
     const error = searchParams.get('error');
     const opener = window.opener as (Window & { closed: boolean }) | null;
-    // A live opener means a pop-up (whatever this tab's sessionStorage holds).
+    // The opener, while it is still there (Google's pages usually sever it).
     const liveOpener = opener && !opener.closed ? opener : null;
 
     if (error) {
@@ -78,9 +78,9 @@ export const OAuthCallbackPage = () => {
     // in browser history, server logs, and Referer headers.
     history.replaceState(null, '', window.location.pathname);
     try {
-      if (!liveOpener && isPendingRedirect()) {
-        // Full-page redirect: THIS tab started the flow (no live opener; a pop-up started by this
-        // bundle inherits no stale pending config) — sessionStorage (cleared on tab close, not readable
+      if (isPendingRedirect()) {
+        // Full-page redirect: THIS tab started the flow (a pop-up's own copy of the keys is cleared
+        // before it navigates) — sessionStorage (cleared on tab close, not readable
         // cross-tab by XSS). window.close() is blocked for windows not opened by script, so route
         // back to the integrations page where the Gmail card picks up the pending result (and
         // clears the pending config). When the flow started inside the onboarding wizard (flag

@@ -111,17 +111,16 @@ describe('OAuthCallbackPage — the hand-off to the app window', () => {
     expect(screen.getByText(NOT_RECEIVED)).toBeInTheDocument();
   });
 
-  it('a live opener means a pop-up even with a pending config in its copy (an old-bundle opener)', async () => {
+  it('a pending config means the redirect flow, even with a live opener (a redirect tab opened from another app window)', () => {
     sessionStorage.setItem('gmail_oauth_pending_config', JSON.stringify({ config: {} }));
     const opener = { closed: false, postMessage: vi.fn() };
     Object.defineProperty(window, 'opener', { value: opener, configurable: true });
     mount();
-    await deliver();
-    expect(sessionStorage.getItem('gmail_oauth_payload')).toBeNull();
-    expect(opener.postMessage).toHaveBeenCalledWith(
-      { type: 'GMAIL_OAUTH_SUCCESS', code: 'c9', state: 's9' },
-      window.location.origin
-    );
+    expect(JSON.parse(sessionStorage.getItem('gmail_oauth_payload') ?? 'null')).toEqual({
+      code: 'c9',
+      state: 's9',
+    });
+    expect(opener.postMessage).not.toHaveBeenCalled();
   });
 
   it("another flow's listener does not acknowledge this code", async () => {

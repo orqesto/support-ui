@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * How long a reset whose save succeeded waits for its field's refetch. A refetch that never brings
- * the field (its GET failed) must not leave the reset armed for a later, unrelated save: on expiry
- * the field is re-seeded to the saved value (the reset happened on the server; the pre-Reset edit
- * must not stay to be saved back).
+ * How long a reset whose save succeeded waits for its field's refetch. When it never comes (its GET
+ * failed), the reset happened on the server but the field still shows the pre-Reset text: on expiry
+ * the values are fetched again (`refetch`); if the field still has not landed, it is marked
+ * `unknown` (the card says reload; its Save is blocked), never left showing wording that is not live.
  */
 export const ARMED_RESET_MS = 60_000;
 
@@ -18,6 +18,15 @@ type Options<K extends string> = {
    * changes no value, but its source changes — the field still counts as re-saved (review of #980).
    */
   versions?: Partial<Record<K, string>>;
+  /** Fetch the saved values again (a reset whose own refetch never came). */
+  refetch?: () => Promise<unknown>;
+};
+
+type PendingReset = {
+  from: string;
+  armed: boolean;
+  landed: boolean;
+  timer: ReturnType<typeof setTimeout> | undefined;
 };
 
 /**
@@ -28,24 +37,32 @@ type Options<K extends string> = {
  */
 export const useReseededTexts = <K extends string>(
   saved: Record<K, string>,
-  { trimmed = [], numeric = [], versions = {} }: Options<K> = {}
+  { trimmed = [], numeric = [], versions = {}, refetch }: Options<K> = {}
 ) => {
   const [texts, setTexts] = useState(saved);
+  const [unknown, setUnknown] = useState<ReadonlySet<K>>(() => new Set<K>());
   const seededRef = useRef({ values: saved, versions });
   // Fields reset by the operator: the text they held at Reset. A reset is applied only once ITS OWN
   // save succeeded: a refetch of the field that lands while the save is in flight (another admin's
   // save, or this save's own refetch, which the mutation awaits) only marks it `landed`; the save's
   // success then applies it at once (landed) or arms it for the field's next refetch. A failed save
   // drops it, so the edit is never replaced by a reset that did not happen.
-  const pendingReset = useRef(new Map<K, { from: string; armed: boolean; landed: boolean }>());
-  const expiryTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
+  const pendingReset = useRef(new Map<K, PendingReset>());
+  const mountedRef = useRef(true);
   useEffect(() => {
-    const timers = expiryTimers.current;
+    mountedRef.current = true;
+    const pending = pendingReset.current;
     return () => {
-      for (const timer of timers) clearTimeout(timer);
-      timers.clear();
+      mountedRef.current = false;
+      for (const entry of pending.values()) clearTimeout(entry.timer);
+      pending.clear();
     };
   }, []);
+  /** Drop a pending reset and its timer (used, replaced, failed). */
+  const dropReset = (key: K, entry: PendingReset) => {
+    clearTimeout(entry.timer);
+    if (pendingReset.current.get(key) === entry) pendingReset.current.delete(key);
+  };
   const keys = Object.keys(saved) as K[];
   const savedKey = keys.map((key) => `${saved[key]}\u0001${versions[key] ?? ''}`).join('\u0002');
 
@@ -71,7 +88,7 @@ export const useReseededTexts = <K extends string>(
       if (!entry) continue;
       if (entry.armed) {
         resets.set(key, entry.from);
-        pendingReset.current.delete(key);
+        dropReset(key, entry);
       } else {
         entry.landed = true;
       }
@@ -88,9 +105,34 @@ export const useReseededTexts = <K extends string>(
       }
       return merged;
     });
+    // A field whose saved value arrived is known again.
+    setUnknown((current) =>
+      changed.some((key) => current.has(key))
+        ? new Set([...current].filter((key) => !changed.includes(key)))
+        : current
+    );
     seededRef.current = { values: saved, versions };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- savedKey is the saved values
   }, [savedKey]);
+
+  /** The reset's own refetch never came: fetch again; still nothing ⇒ the field is unknown. */
+  const expire = (key: K, entry: PendingReset) => {
+    entry.timer = undefined;
+    const markUnknownIfStillPending = () => {
+      // The refetch's re-render runs the effect first; a field that landed has used its reset.
+      if (!mountedRef.current || pendingReset.current.get(key) !== entry) return;
+      setUnknown((current) => (current.has(key) ? current : new Set([...current, key])));
+    };
+    if (!refetch) {
+      markUnknownIfStillPending();
+      return;
+    }
+    refetch().then(() => {
+      // Let the refetch's render (and the effect) run before deciding.
+      if (!mountedRef.current) return;
+      entry.timer = setTimeout(markUnknownIfStillPending, 0);
+    }, markUnknownIfStillPending);
+  };
 
   /**
    * Reset `key` with `save` (the save of its default). Once that save succeeds the field shows the
@@ -98,38 +140,28 @@ export const useReseededTexts = <K extends string>(
    * save changes nothing. The returned promise never rejects (the mutation reports the failure).
    */
   const trackReset = (key: K, save: Promise<unknown>): Promise<void> => {
-    const entry = { from: texts[key], armed: false, landed: false };
+    const previous = pendingReset.current.get(key);
+    if (previous) dropReset(key, previous);
+    const entry: PendingReset = { from: texts[key], armed: false, landed: false, timer: undefined };
     pendingReset.current.set(key, entry);
     return save.then(
       () => {
         // A newer Reset of the same field replaced this one: it decides.
-        if (pendingReset.current.get(key) !== entry) return;
+        if (pendingReset.current.get(key) !== entry || !mountedRef.current) return;
         if (!entry.landed) {
           entry.armed = true;
-          // Its own refetch never came (its GET failed): re-seed to the saved value on expiry.
-          const timer = setTimeout(() => {
-            expiryTimers.current.delete(timer);
-            if (pendingReset.current.get(key) !== entry) return;
-            pendingReset.current.delete(key);
-            const latest = seededRef.current.values[key];
-            setTexts((current) =>
-              current[key] === entry.from ? { ...current, [key]: latest } : current
-            );
-          }, ARMED_RESET_MS);
-          expiryTimers.current.add(timer);
+          entry.timer = setTimeout(() => expire(key, entry), ARMED_RESET_MS);
           return;
         }
         // The field's refetch already landed (the mutation awaits it): apply it now.
-        pendingReset.current.delete(key);
+        dropReset(key, entry);
         const latest = seededRef.current.values[key];
         setTexts((current) =>
           current[key] === entry.from ? { ...current, [key]: latest } : current
         );
       },
-      () => {
-        if (pendingReset.current.get(key) === entry) pendingReset.current.delete(key);
-      }
+      () => dropReset(key, entry)
     );
   };
-  return { texts, setTexts, isSame, trackReset };
+  return { texts, setTexts, isSame, trackReset, unknown };
 };

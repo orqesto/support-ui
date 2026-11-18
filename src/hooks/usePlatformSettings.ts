@@ -130,6 +130,12 @@ export const useUpdatePlatformAnalysisHourly = () => {
   });
 };
 
+/** Fetch the platform settings again now; rejects when the fetch failed. */
+export const useRefetchPlatformSettings = () => {
+  const qc = useQueryClient();
+  return () => qc.refetchQueries({ queryKey: KEY }, { throwOnError: true });
+};
+
 export const useUpdatePlatformDrafts = () => {
   const qc = useQueryClient();
   return useMutation({

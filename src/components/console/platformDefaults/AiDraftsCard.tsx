@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { useUpdatePlatformDrafts } from '@/hooks/usePlatformSettings';
+import { useRefetchPlatformSettings, useUpdatePlatformDrafts } from '@/hooks/usePlatformSettings';
 import { toast } from '@/lib/toast';
 import {
   AGENT_NOTE_FACTS_FIELDS,
@@ -213,6 +213,7 @@ const TITLE = 'AI drafts';
  */
 export const AiDraftsCard = ({ drafts }: { drafts: DraftSettings | undefined }) => {
   const save = useUpdatePlatformDrafts();
+  const refetchSettings = useRefetchPlatformSettings();
   const savedSimilarity = drafts?.kbOnlyDraftMinSimilarity.value;
   const savedTimeoutMs = drafts?.suggestionPipelineTimeoutMs.value;
   const [similarityText, setSimilarityText] = useState(String(savedSimilarity ?? ''));
@@ -351,6 +352,7 @@ export const AiDraftsCard = ({ drafts }: { drafts: DraftSettings | undefined }) 
           <NoReplyCheckFields
             check={drafts.noReplyCheck}
             saving={save.isPending}
+            onRefetch={refetchSettings}
             onSave={(changed) =>
               // A promise per save (not the shared mutate callbacks, which only the latest call
               // gets): the fields tie a reset to its own save. The shared mutation reports errors.
