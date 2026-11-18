@@ -64,11 +64,22 @@ export const ProfilePhotoField = () => {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const [picture, setPicture] = useState<Picture | null>(null);
+  // The picture on screen, for freeing it outside React's (pure, maybe twice-run) updaters.
+  const shownPicture = useRef<Picture | null>(null);
   const previewCanvas = useRef<HTMLCanvasElement>(null);
   const [view, setView] = useState<PhotoView>(CENTRED);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const drag = useRef<{ x: number; y: number; from: PhotoView } | null>(null);
+
+  // Leaving the page with the dialog open must not keep the decoded pixels (~190 MB for 48 MP).
+  useEffect(
+    () => () => {
+      shownPicture.current?.close();
+      shownPicture.current = null;
+    },
+    []
+  );
 
   // The preview is drawn with the export's own code, so the saved square is what the circle shows.
   useEffect(() => {
@@ -115,11 +126,12 @@ export const ProfilePhotoField = () => {
   };
 
   /** Shows `next` in the framing dialog (null closes it), freeing the one it replaces (F4). */
-  const showPicture = (next: Picture | null) =>
-    setPicture((previous) => {
-      if (previous && previous !== next) previous.close();
-      return next;
-    });
+  const showPicture = (next: Picture | null) => {
+    const previous = shownPicture.current;
+    if (previous && previous !== next) previous.close();
+    shownPicture.current = next;
+    setPicture(next);
+  };
 
   const close = () => {
     showPicture(null);
@@ -217,11 +229,12 @@ export const ProfilePhotoField = () => {
         )}
       </div>
 
-      <Dialog open={picture !== null} onOpenChange={(open) => !open && close()}>
+      {/* While saving, only the save ends it: Esc, the overlay and X would look like a cancel. */}
+      <Dialog open={picture !== null} onOpenChange={(open) => !open && !busy && close()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Frame your photo</DialogTitle>
-            <DialogClose onClose={close} />
+            <DialogClose onClose={() => !busy && close()} />
           </DialogHeader>
           <div className="flex flex-col items-center gap-4">
             <div

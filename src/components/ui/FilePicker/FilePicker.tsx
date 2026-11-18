@@ -24,7 +24,10 @@ export const FilePicker = ({
         type="file"
         accept={accept}
         aria-label={label}
+        // Reached only through the Button: never a second control for the keyboard or a reader.
+        aria-hidden="true"
         tabIndex={-1}
+        disabled={disabled}
         className={filePickerInputClass}
         onChange={(event) => {
           const file = event.target.files?.[0];
@@ -32,7 +35,12 @@ export const FilePicker = ({
           if (file) onPick(file);
         }}
       />
-      <Button size={size} variant={variant} disabled={disabled} onClick={() => field.current?.click()}>
+      <Button
+        size={size}
+        variant={variant}
+        disabled={disabled}
+        onClick={() => field.current?.click()}
+      >
         {children}
       </Button>
     </>

@@ -2,6 +2,7 @@
  * Profile → photo: pick an image, frame it, save; or remove it. The checks a person can act on
  * happen before anything is sent (type, size); the server's refusals read as plain sentences.
  */
+import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -226,6 +227,45 @@ describe('ProfilePhotoField', () => {
     );
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it('while the photo is saving, Esc and the X do not close the dialog', async () => {
+    put.mockReturnValue(new Promise(() => undefined));
+    renderField();
+    pick(file('me.png', 'image/png'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Save photo' }));
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+    // Every close control (the X, and the overlay's own close) is held while saving.
+    const closers = screen.queryAllByRole('button', { name: /close/i });
+    expect(closers.length).toBeGreaterThan(0);
+    closers.forEach((closer) => fireEvent.click(closer));
+    expect(screen.getByText('Frame your photo')).toBeTruthy();
+    expect(closeBitmap).not.toHaveBeenCalled();
+  });
+
+  it('leaving the page with the dialog open frees the decoded picture', async () => {
+    const { unmount } = renderField();
+    pick(file('me.png', 'image/png'));
+    await screen.findByText('Frame your photo');
+    unmount();
+    expect(closeBitmap).toHaveBeenCalledTimes(1);
+  });
+
+  it('in StrictMode a replaced picture is freed exactly once', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <StrictMode>
+        <QueryClientProvider client={client}>
+          <ProfilePhotoField />
+        </QueryClientProvider>
+      </StrictMode>
+    );
+    pick(file('one.png', 'image/png'));
+    await screen.findByText('Frame your photo');
+    pick(file('two.png', 'image/png'));
+    await waitFor(() => expect(openImage).toHaveBeenCalledTimes(2));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(closeBitmap).toHaveBeenCalledTimes(1);
   });
 
   it('no Remove button without a photo', () => {

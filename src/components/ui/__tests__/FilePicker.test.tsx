@@ -32,5 +32,17 @@ describe('FilePicker', () => {
       </FilePicker>
     );
     expect(screen.getByRole('button', { name: 'Upload' })).toBeInactive();
+    expect(screen.getByLabelText('Pick')).toBeInactive();
+  });
+
+  it('the hidden file field is not a second control for screen readers or the keyboard', () => {
+    render(
+      <FilePicker accept="image/png" label="Pick" onPick={() => undefined}>
+        Upload
+      </FilePicker>
+    );
+    const field = screen.getByLabelText<HTMLInputElement>('Pick');
+    expect(field.getAttribute('aria-hidden')).toBe('true');
+    expect(field.tabIndex).toBe(-1);
   });
 });
