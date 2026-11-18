@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { listenForGmailOAuthCode } from './gmailOAuthHandoff';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 
@@ -199,6 +200,7 @@ export const gmailOAuthService = {
             clearInterval(checkAuth);
             clearTimeout(authTimeout);
             window.removeEventListener('message', messageHandler);
+            stopListening();
             resolve(result);
           };
 
@@ -251,11 +253,18 @@ export const gmailOAuthService = {
 
           window.addEventListener('message', messageHandler);
 
-          // Poll for OAuth payload in sessionStorage (fallback for new tabs)
+          // This flow's own CSRF state (in the Google URL): the localStorage hand-off from a pop-up
+          // with no opener is taken only when it carries it — never a stale or another tab's.
+          const expectedState = new URL(authUrl).searchParams.get('state');
+          // A pop-up whose opener Google severed announces the code on a BroadcastChannel; it is
+          // handled like the postMessage path (same handler, same single dispatch).
+          const stopListening = listenForGmailOAuthCode(expectedState, (handoff) =>
+            messageHandler({ origin: window.location.origin, data: handoff } as MessageEvent)
+          );
+          // Poll for the OAuth payload in sessionStorage (fallback for new tabs).
           const checkAuth = setInterval(() => {
             const raw = sessionStorage.getItem(storageKey);
             if (!raw) return;
-
             let parsed: { code?: string; state?: string } | null = null;
             try {
               parsed = JSON.parse(raw) as { code?: string; state?: string };
@@ -264,11 +273,11 @@ export const gmailOAuthService = {
               sessionStorage.removeItem(storageKey);
               return;
             }
+            sessionStorage.removeItem(storageKey);
             if (!parsed?.code || !parsed?.state) return;
 
             const { code, state } = parsed as { code: string; state: string };
-            logger.info('📥 Received OAuth payload via sessionStorage');
-            sessionStorage.removeItem(storageKey);
+            logger.info('📥 Received OAuth payload');
 
             // Popup/tab closes itself via OAuthCallbackPage's window.close(); opener-side
             // close is COOP-blocked anyway.

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { logger } from '@/lib/logger';
 import { Button } from '@/components/ui/Button';
+import { announceGmailOAuthCode } from '@/features/settings/shell';
 
 export const OAuthCallbackPage = () => {
   const [searchParams] = useSearchParams();
@@ -56,10 +57,18 @@ export const OAuthCallbackPage = () => {
             { type: 'GMAIL_OAUTH_SUCCESS', code, state },
             window.location.origin
           );
+        } else if (sessionStorage.getItem('gmail_oauth_pending_config') !== null) {
+          // Full-page redirect: the original window is THIS tab — sessionStorage (cleared on tab
+          // close, not readable cross-tab by XSS).
+          logger.info('📤 Storing code+state in sessionStorage (redirect flow)');
+          sessionStorage.setItem('gmail_oauth_payload', JSON.stringify({ code, state }));
+        } else if (announceGmailOAuthCode(code, state)) {
+          // A pop-up whose opener link Google's pages severed (COOP: window.opener is null after
+          // accounts.google.com). sessionStorage is per TAB, so the app window never saw it and
+          // the flow timed out: a BroadcastChannel reaches it without storing the code.
+          logger.info('📤 Handing code+state to the app window via BroadcastChannel (no opener)');
         } else {
-          // New tab / full-page redirect case: Use sessionStorage (cleared on tab close,
-          // not readable cross-tab by XSS).
-          logger.info('📤 Storing code+state in sessionStorage (no opener)');
+          // No channel either (a very old browser): the tab's own store, as before.
           sessionStorage.setItem('gmail_oauth_payload', JSON.stringify({ code, state }));
         }
 
