@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { takeGmailOAuthHandoff } from './gmailOAuthHandoff';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 
@@ -251,8 +252,14 @@ export const gmailOAuthService = {
 
           window.addEventListener('message', messageHandler);
 
-          // Poll for OAuth payload in sessionStorage (fallback for new tabs)
+          // This flow's own CSRF state (in the Google URL): the localStorage hand-off from a pop-up
+          // with no opener is taken only when it carries it — never a stale or another tab's.
+          const expectedState = new URL(authUrl).searchParams.get('state');
+          // Poll for the OAuth payload: localStorage (a pop-up whose opener Google severed) or
+          // sessionStorage (fallback for new tabs).
           const checkAuth = setInterval(() => {
+            const handoff = takeGmailOAuthHandoff(expectedState);
+            if (handoff) sessionStorage.setItem(storageKey, JSON.stringify(handoff));
             const raw = sessionStorage.getItem(storageKey);
             if (!raw) return;
 
