@@ -1,4 +1,5 @@
-import { isRecord, readBounded } from './boundedFieldRead';
+import { isRecord } from '@/lib/isRecord';
+import { readBounded } from './boundedFieldRead';
 import type { BoundedField } from './resolvedField';
 
 /**

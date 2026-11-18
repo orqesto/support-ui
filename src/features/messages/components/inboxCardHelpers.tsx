@@ -545,7 +545,8 @@ const computeSlaTone = (message: Message): SlaTone => {
  *                         thank-you reads it, not "Auto-handled"). Its AI State filter value
  *                         `no_reply_needed` is this rule on the backend (filterPredicates.ts),
  *                         including the review and lead chips that rank above it.
- *   - "Auto-handled"  → metadata.autoReply.sent
+ *   - "Auto-handled"  → message.botHandled (the bot_handled filter's column; metadata.autoReply.sent
+ *                         for a backend that does not send it)
  */
 export type AiState = {
   label: string;
@@ -639,7 +640,9 @@ export const getAiState = (
       tooltip: 'The customer only thanked or confirmed, so no AI draft was made.',
     };
   }
-  if (meta?.autoReply?.sent) {
+  // The column the "Auto-handled" filter reads (backend bot_handled; the list sends it), so chip
+  // and filter are one rule (review of #980); the metadata for a backend that does not send it.
+  if (message.botHandled ?? meta?.autoReply?.sent) {
     return {
       label: 'Auto-handled',
       tooltip: 'AI sent an automated reply',

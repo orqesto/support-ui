@@ -187,13 +187,10 @@ export function noReplyNeededState(
   // first render after a switch, and a note it cannot check would flash.
   if (eventsState === 'failed') return { current: false, pending: false };
   // A newer live email still waiting for its verdict may be the customer writing again (the
-  // backend drops the marker once the verdict lands): nothing shown meanwhile. Past the wait and
-  // still no verdict: no note — never "no reply needed" over an email that may be a question
-  // (review of #979) — until the give-up bound, after which the backend's marker is trusted again
-  // (the card's chip shows it all along; a save that never judges is not left hiding it for good).
-  const newer = newerUnjudgedInbound(marker.eventId, sortedThread);
-  if (newer === 'waiting') return { current: false, pending: true };
-  if (newer === 'waited_out') return { current: false, pending: false };
+  // backend drops the marker once the verdict lands): nothing shown meanwhile. After the wait the
+  // thread follows the backend's marker, exactly as the card chip does — one rule for both (review
+  // of #980); a verdict that lands later drops the marker on the backend.
+  if (newerUnjudgedInbound(marker.eventId, sortedThread)) return { current: false, pending: true };
   // The backend's marker stands unless the loaded thread PROVES a newer customer email (its clear
   // has not reached the app yet); an unknown verdict trusts the backend.
   return {
@@ -204,36 +201,27 @@ export function noReplyNeededState(
 
 /** How long a newer email without a verdict is "waiting": the save stamps it within seconds. */
 const VERDICT_WAIT_MS = 10 * 60_000;
-/** After this, an email that never got a verdict no longer hides the backend's marker. */
-const VERDICT_GIVE_UP_MS = 24 * 60 * 60_000;
 
 /**
- * A LIVE inbound email stored after `eventId` that has no verdict yet (the save stamps one soon):
- * 'waiting' while it is recent, 'waited_out' once past the wait (until VERDICT_GIVE_UP_MS), 'none'
- * when there is no such email or it is older than the give-up bound. Mail that never gets a verdict
- * is not waiting (neverJudged). The marked email not on the loaded page (review of #979): newer than
- * every loaded inbound email when its id is above theirs (the marker arrived before its event — as
- * customerEmailVerdict reads it), else older than the whole page (pages load newest first), so
- * every loaded inbound email is newer. A time that does not parse proves nothing.
+ * A LIVE inbound email after the marked one that has no verdict yet and arrived within the wait.
+ * Mail that never gets a verdict is not waiting (neverJudged). "After": by stored time when the
+ * marked email is loaded; by id when it is not (it may be on an earlier page, or newer than the
+ * page — its event not loaded yet; ids rise with storage — review of #980). A time that does not
+ * parse proves nothing.
  */
-const newerUnjudgedInbound = (
-  eventId: number,
-  sortedThread: readonly MessageEvent[]
-): 'none' | 'waiting' | 'waited_out' => {
+const newerUnjudgedInbound = (eventId: number, sortedThread: readonly MessageEvent[]): boolean => {
   const { allInbound } = customerViewOf(sortedThread);
   const named = allInbound.find((event) => event.id === eventId);
-  if (!named && allInbound.every((event) => event.id < eventId)) return 'none';
-  const namedAt = named ? new Date(named.createdAt).getTime() : Number.NEGATIVE_INFINITY;
-  if (Number.isNaN(namedAt)) return 'none';
-  let found: 'none' | 'waiting' | 'waited_out' = 'none';
-  for (const event of allInbound) {
+  const namedAt = named ? new Date(named.createdAt).getTime() : null;
+  if (namedAt !== null && Number.isNaN(namedAt)) return false;
+  return allInbound.some((event) => {
+    if (event.id === eventId) return false;
     const at = new Date(event.createdAt).getTime();
-    if (event.id === eventId || Number.isNaN(at) || at <= namedAt) continue;
+    if (Number.isNaN(at)) return false;
+    const after = namedAt !== null ? at > namedAt : event.id > eventId;
+    if (!after) return false;
     const meta = (event.metadata ?? {}) as EventMarks;
-    if (neverJudged(meta) || hasVerdict(meta)) continue;
-    const age = Date.now() - at;
-    if (age < VERDICT_WAIT_MS) return 'waiting';
-    if (age < VERDICT_GIVE_UP_MS) found = 'waited_out';
-  }
-  return found;
+    if (neverJudged(meta) || hasVerdict(meta)) return false;
+    return Date.now() - at < VERDICT_WAIT_MS;
+  });
 };

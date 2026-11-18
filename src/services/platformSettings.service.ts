@@ -40,7 +40,8 @@ export type {
   SecretVerification,
 } from './platformSecrets';
 import type { BoundedField, FieldSource, ResolvedField } from './resolvedField';
-import { isRecord, readBounded } from './boundedFieldRead';
+import { isRecord } from '@/lib/isRecord';
+import { readBounded } from './boundedFieldRead';
 import { readAgentNoteFacts } from './agentNoteFacts.settings';
 import type { AgentNoteFactsInput, AgentNoteFactsSettings } from './agentNoteFacts.settings';
 import { readNoReplyCheck } from './noReplyCheck.settings';

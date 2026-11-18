@@ -1,4 +1,5 @@
-import { isRecord, isSource, readBounded } from './boundedFieldRead';
+import { isRecord } from '@/lib/isRecord';
+import { isSource, readBounded } from './boundedFieldRead';
 import type { BoundedField } from './resolvedField';
 
 /**
@@ -27,19 +28,12 @@ export type NoReplyCheckInput = Partial<Record<NoReplyCheckNumber, number | null
   instructions?: string | null;
 };
 
-/** A known source as given; an unknown one is a stored override (Reset stays visible). */
-const overrideSource = (value: unknown): BoundedField['source'] => (isSource(value) ? value : 'db');
-
 /** GET `drafts.noReplyCheck`: both limits and the wording well-formed — or absent (older backend). */
 export const readNoReplyCheck = (raw: unknown): NoReplyCheckSettings | undefined => {
   if (!isRecord(raw)) return undefined;
-  // A source this build does not know is read as a stored OVERRIDE ('db'), so "Reset to default"
-  // stays offered (review of #979); never "not deployed" over one word.
-  const numbers = NO_REPLY_CHECK_NUMBERS.map((key) => {
-    const field = readBounded(raw[key]);
-    const given = isRecord(raw[key]) ? raw[key].source : undefined;
-    return [key, field && { ...field, source: overrideSource(given) }] as const;
-  });
+  // One rule with every console reader: a source this build does not know reads as 'default'
+  // (readBounded); the backend sends only db / env / default.
+  const numbers = NO_REPLY_CHECK_NUMBERS.map((key) => [key, readBounded(raw[key])] as const);
   const wording = raw.instructions;
   const instructions =
     isRecord(wording) &&
@@ -48,7 +42,7 @@ export const readNoReplyCheck = (raw: unknown): NoReplyCheckSettings | undefined
     typeof wording.maxLength === 'number'
       ? {
           value: wording.value,
-          source: overrideSource(wording.source),
+          source: isSource(wording.source) ? wording.source : 'default',
           minLength: wording.minLength,
           maxLength: wording.maxLength,
         }

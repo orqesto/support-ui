@@ -75,7 +75,10 @@ describe('the extraction changed nothing else', () => {
     });
     expect(negated.aiState).toBe('bot_handled');
     expect(negated.negate).toBe('aiState');
+    // Negated: no legacy flag (it cannot carry the negation).
     expect(negated.botHandled).toBeUndefined();
+    // Not negated: the legacy flag too, as the list sends it (an older backend still filters).
+    expect(buildContactsApiFilters({ ...defaultFilters, aiState: 'lead' }).isLead).toBe('true');
     // CONTROL: no AI State, no aiState and no negate.
     const plain = buildContactsApiFilters({ ...defaultFilters, negate: 'aiState' });
     expect(plain.aiState).toBeUndefined();

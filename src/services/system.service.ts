@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { isRecord } from '@/lib/isRecord';
 
 type ApiResponse<T> = {
   success: boolean;
@@ -208,8 +209,6 @@ export type KbQuestionTextRequest = {
   action?: KbQuestionTextAction;
 };
 
-const isObj = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 const num = (value: unknown): number =>
   typeof value === 'number' && Number.isFinite(value) ? value : 0;
 const numOrNull = (value: unknown): number | null =>
@@ -218,7 +217,7 @@ const str = (value: unknown): string => (typeof value === 'string' ? value : '')
 const strOrNull = (value: unknown): string | null =>
   typeof value === 'string' && value.length > 0 ? value : null;
 const text = (value: unknown): { question: string; answer: string } =>
-  isObj(value)
+  isRecord(value)
     ? { question: str(value.question), answer: str(value.answer) }
     : { question: '', answer: '' };
 const isAction = (value: unknown): value is KbQuestionTextAction =>
@@ -227,7 +226,7 @@ const isAction = (value: unknown): value is KbQuestionTextAction =>
 /** A row whose action this build does not know is dropped rather than shown under a wrong badge. */
 const toRows = (value: unknown): KbQuestionTextRow[] =>
   Array.isArray(value)
-    ? value.filter(isObj).flatMap((entry): KbQuestionTextRow[] => {
+    ? value.filter(isRecord).flatMap((entry): KbQuestionTextRow[] => {
         const id = numOrNull(entry.id);
         if (id === null || !isAction(entry.action)) return [];
         return [
@@ -255,9 +254,9 @@ const toRows = (value: unknown): KbQuestionTextRow[] =>
  * A row whose action this build does not know is dropped rather than shown under a wrong badge.
  */
 export const normalizeKbQuestionText = (raw: unknown): KbQuestionTextResult | null => {
-  if (!isObj(raw)) return null;
+  if (!isRecord(raw)) return null;
   const totals = Array.isArray(raw.totals)
-    ? raw.totals.filter(isObj).map((entry) => ({
+    ? raw.totals.filter(isRecord).map((entry) => ({
         organizationId: numOrNull(entry.organizationId),
         organizationName: strOrNull(entry.organizationName),
         checked: num(entry.checked),
@@ -273,7 +272,7 @@ export const normalizeKbQuestionText = (raw: unknown): KbQuestionTextResult | nu
       }))
     : [];
   const rows = toRows(raw.rows);
-  const page = isObj(raw.pagination) ? raw.pagination : null;
+  const page = isRecord(raw.pagination) ? raw.pagination : null;
   return {
     // Only an explicit `true` marks a dry run; an apply answer without the field is an apply.
     dryRun: raw.dryRun === true,

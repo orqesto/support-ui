@@ -47,10 +47,19 @@ export const NoReplyCheckFields = ({
   /** `onSaved` runs only after the save succeeded. */
   onSave: (changed: NoReplyCheckInput, onSaved?: () => void) => void;
 }) => {
-  // Re-seed only the fields the operator has not edited (useReseededTexts, review of #1503).
-  const { texts, setTexts, discardEdit } = useReseededTexts<keyof Texts>(savedTexts(check));
-  // Reset: the edit is dropped only once the reset SAVED — a failed save keeps what was typed.
-  const reset = (field: keyof Texts) => onSave({ [field]: null }, () => discardEdit(field));
+  // Re-seed only the fields the operator has not edited (useReseededTexts, review of #1503); the
+  // wording is saved trimmed, so a whitespace-only change to it is no edit.
+  const {
+    texts,
+    setTexts,
+    reset: resetField,
+  } = useReseededTexts<keyof Texts>(savedTexts(check), {
+    trimmed: ['instructions'],
+  });
+  // Reset: saved first; the field then shows the default unless the operator typed since. The
+  // inputs stay editable (review of #980).
+  const reset = (field: keyof Texts) =>
+    resetField(field, (onSaved) => onSave({ [field]: null }, onSaved));
 
   const errors: Partial<Texts> = {};
   const changed: NoReplyCheckInput = {};
@@ -94,8 +103,6 @@ export const NoReplyCheckFields = ({
               label={LABELS[field].label}
               value={texts[field]}
               error={errors[field]}
-              // Read-only while a save runs: a reset's success must not overwrite new typing.
-              disabled={saving}
               onChange={(event) =>
                 setTexts((current) => ({ ...current, [field]: event.target.value }))
               }
@@ -115,7 +122,6 @@ export const NoReplyCheckFields = ({
           label="What counts as needing no reply (told to the AI)"
           value={texts.instructions}
           error={errors.instructions}
-          disabled={saving}
           rows={4}
           onChange={(event) =>
             setTexts((current) => ({ ...current, instructions: event.target.value }))

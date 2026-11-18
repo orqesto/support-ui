@@ -97,27 +97,59 @@ describe('NoReplyCheckFields — reset to default', () => {
 });
 
 describe('readNoReplyCheck — an unknown source', () => {
-  it('is a stored override: never "not deployed", and Reset stays offered (review of #979)', () => {
+  it('reads as default, as every console reader does — never "not deployed" (review of #980)', () => {
     const raw = {
       ...CHECK,
       ownTextMaxChars: { ...CHECK.ownTextMaxChars, source: 'platform' },
       instructions: { ...CHECK.instructions, source: 'platform' },
     };
     const read = readNoReplyCheck(raw);
-    expect(read?.instructions.source).toBe('db');
-    expect(read?.ownTextMaxChars.source).toBe('db');
-    // CONTROL: a known source is kept as given.
-    expect(read?.inlineLogoMaxBytes.source).toBe('default');
-    render(<NoReplyCheckFields check={read!} saving={false} onSave={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Reset wording to default' })).toBeInTheDocument();
+    expect(read?.instructions.source).toBe('default');
+    expect(read?.ownTextMaxChars.source).toBe('default');
   });
 });
 
-describe('NoReplyCheckFields — while a save runs', () => {
-  it('the fields are read-only, so a reset landing later cannot overwrite new typing', () => {
-    render(<NoReplyCheckFields check={CHECK} saving onSave={vi.fn()} />);
-    expect(screen.getByLabelText(/What counts as needing no reply/)).toBeInactive();
-    expect(screen.getByLabelText(/Longest reply checked/)).toBeInactive();
+describe('NoReplyCheckFields — typing while a reset saves', () => {
+  const saved: NoReplyCheckSettings = {
+    ...CHECK,
+    instructions: { ...CHECK.instructions, value: `${WORDING} Saved.`, source: 'db' },
+  };
+  it('stays editable, and text typed after Reset is kept when the reset lands (review of #980)', () => {
+    let finish: (() => void) | undefined;
+    const onSave = vi.fn((_changed: unknown, onSaved?: () => void) => {
+      finish = onSaved;
+    });
+    const { rerender } = render(
+      <NoReplyCheckFields check={saved} saving={false} onSave={onSave} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+    // The save is in flight: the field stays editable.
+    rerender(<NoReplyCheckFields check={saved} saving onSave={onSave} />);
+    const box = screen.getByLabelText(/What counts as needing no reply/);
+    expect(box).not.toBeInactive();
+    const later = `${WORDING} Typed after the reset.`;
+    fireEvent.change(box, { target: { value: later } });
+    finish?.();
+    rerender(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
+    expect(screen.getByLabelText(/What counts as needing no reply/)).toHaveValue(later);
+  });
+
+  it('the refetch lands BEFORE the save callback: the default shows', () => {
+    let finish: (() => void) | undefined;
+    const onSave = vi.fn((_changed: unknown, onSaved?: () => void) => {
+      finish = onSaved;
+    });
+    const { rerender } = render(
+      <NoReplyCheckFields check={saved} saving={false} onSave={onSave} />
+    );
+    fireEvent.change(screen.getByLabelText(/What counts as needing no reply/), {
+      target: { value: `${WORDING} Unsaved edit.` },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+    rerender(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
+    finish?.();
+    rerender(<NoReplyCheckFields check={CHECK} saving={false} onSave={onSave} />);
+    expect(screen.getByLabelText(/What counts as needing no reply/)).toHaveValue(WORDING);
   });
 });
 
