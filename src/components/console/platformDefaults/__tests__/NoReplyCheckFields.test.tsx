@@ -105,24 +105,26 @@ describe('NoReplyCheckFields — reset to default (driven by the refetch)', () =
     expect(box()).toHaveValue(WORDING);
   });
 
-  it("a reset whose own refetch never came expires: a later admin's save does not replace the edit", async () => {
-    const { save, refetch } = mount();
-    const typed = `${WORDING} Unsaved edit.`;
-    fireEvent.change(box(), { target: { value: typed } });
-    fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
-    const start = Date.now();
-    const now = vi.spyOn(Date, 'now').mockReturnValue(start);
+  it('a reset whose own refetch never came: on expiry the field shows the saved value, Save stays off', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     try {
-      // The save succeeds, but its refetch failed: the field never changes, the reset stays armed.
+      const { save, refetch } = mount();
+      const typed = `${WORDING} Unsaved edit.`;
+      fireEvent.change(box(), { target: { value: typed } });
+      fireEvent.click(screen.getByRole('button', { name: 'Reset wording to default' }));
+      // The save succeeds, but its refetch failed: the field does not change yet.
       save.resolve();
       await act(() => save.promise);
       expect(box()).toHaveValue(typed);
-      // Much later another admin saves the wording: their refetch is not this reset's.
-      now.mockReturnValue(start + ARMED_RESET_MS + 1);
+      await act(() => vi.advanceTimersByTimeAsync(ARMED_RESET_MS + 1));
+      // Re-seeded to the saved value: the pre-Reset edit is not left to be saved back.
+      expect(box()).toHaveValue(`${WORDING} Saved.`);
+      expect(screen.getByRole('button', { name: /Save "No reply needed"/ })).toBeInactive();
+      // A later admin's save is then an ordinary refetch of an untouched field.
       refetch(otherAdminsWording);
-      expect(box()).toHaveValue(typed);
+      expect(box()).toHaveValue(`${WORDING} Other.`);
     } finally {
-      now.mockRestore();
+      vi.useRealTimers();
     }
   });
 

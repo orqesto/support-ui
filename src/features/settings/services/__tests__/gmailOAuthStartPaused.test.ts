@@ -75,4 +75,38 @@ describe('Gmail redirect flow replays startPaused', () => {
     expect(isPendingRedirect()).toBe(true);
     expect(hrefSetter).toHaveBeenCalledWith(expect.stringContaining(state));
   });
+
+  it('a redirect this page load started (manual-anchor fallback) keeps its config when a pop-up opens', async () => {
+    get.mockResolvedValue({
+      data: { success: true, data: { clientId: 'cid', redirectUri: 'https://x/cb' } },
+    });
+    post.mockResolvedValue({
+      data: {
+        success: true,
+        data: { authUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=s' },
+      },
+    });
+    const location = window.location;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...location,
+        set href(url: string) {
+          void url;
+        },
+      },
+    });
+    try {
+      await gmailOAuthService.redirectToOAuth({});
+    } finally {
+      Object.defineProperty(window, 'location', { configurable: true, value: location });
+    }
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    try {
+      await gmailOAuthService.connectWithPopup({});
+    } finally {
+      open.mockRestore();
+    }
+    expect(sessionStorage.getItem('gmail_oauth_pending_config')).not.toBeNull();
+  });
 });

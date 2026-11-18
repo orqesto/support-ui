@@ -44,16 +44,18 @@ export const OAuthCallbackPage = () => {
     const state = searchParams.get('state');
     const error = searchParams.get('error');
     const opener = window.opener as (Window & { closed: boolean }) | null;
-    const hasOpener = Boolean(opener && !opener.closed);
+    // A live opener means a pop-up (whatever this tab's sessionStorage holds).
+    const liveOpener = opener && !opener.closed ? opener : null;
 
     if (error) {
       setStatus('error');
       // A pop-up flow's app window is told at once (it would otherwise wait out its timeout).
       if (state) {
         announceGmailOAuthError(state, error);
-        if (opener && hasOpener) {
-          opener.postMessage({ type: 'GMAIL_OAUTH_ERROR', state, error }, window.location.origin);
-        }
+        liveOpener?.postMessage(
+          { type: 'GMAIL_OAUTH_ERROR', state, error },
+          window.location.origin
+        );
       }
       // Clear redirect-flow state so an aborted/denied attempt can't leak into a
       // later flow (and so a lingering resume flag doesn't misroute the user).
@@ -76,9 +78,9 @@ export const OAuthCallbackPage = () => {
     // in browser history, server logs, and Referer headers.
     history.replaceState(null, '', window.location.pathname);
     try {
-      if (isPendingRedirect()) {
-        // Full-page redirect: THIS tab started the flow (a pop-up started by this bundle inherits no
-        // pending config) — sessionStorage (cleared on tab close, not readable
+      if (!liveOpener && isPendingRedirect()) {
+        // Full-page redirect: THIS tab started the flow (no live opener; a pop-up started by this
+        // bundle inherits no stale pending config) — sessionStorage (cleared on tab close, not readable
         // cross-tab by XSS). window.close() is blocked for windows not opened by script, so route
         // back to the integrations page where the Gmail card picks up the pending result (and
         // clears the pending config). When the flow started inside the onboarding wizard (flag
@@ -102,11 +104,14 @@ export const OAuthCallbackPage = () => {
       // (Google's pages usually sever window.opener). The window closes only once the app window
       // acknowledged the code: the code is single-use, so a reloaded or closed app tab must be
       // told, never a silent "success".
-      if (opener && hasOpener) {
+      if (liveOpener) {
         logger.info('📤 Sending code+state to parent window via postMessage');
         // targetOrigin is window.location.origin — the OAuth callback route is always served
         // from the same origin as the opener window.
-        opener.postMessage({ type: 'GMAIL_OAUTH_SUCCESS', code, state }, window.location.origin);
+        liveOpener.postMessage(
+          { type: 'GMAIL_OAUTH_SUCCESS', code, state },
+          window.location.origin
+        );
       }
       const closeSoon = () => {
         setStatus('success');
@@ -127,8 +132,8 @@ export const OAuthCallbackPage = () => {
       });
       if (!stopAnnouncing) {
         // No channel (a very old browser): only the opener's postMessage can deliver; it sends
-        // no acknowledgement.
-        if (hasOpener) {
+        // no acknowledgement. Nothing could be delivered without an opener: the one hard error.
+        if (liveOpener) {
           closeSoon();
         } else {
           setStatus('error');
@@ -140,16 +145,12 @@ export const OAuthCallbackPage = () => {
       setMessage('Handing the authorization to the app…');
       ack.timer = window.setTimeout(() => {
         if (acked) return;
-        stopAnnouncing?.();
-        // The opener got the postMessage, but nothing confirms the app took it: say so, neutrally,
-        // and keep the window open.
-        if (hasOpener) {
-          setStatus('unconfirmed');
-          setMessage(NOT_CONFIRMED);
-          return;
-        }
-        setStatus('error');
-        setMessage(NOT_RECEIVED);
+        // No confirmation yet. The code was announced: a background or frozen app tab (mobile) may
+        // still take it, an app tab on the old bundle never confirms, a reloaded one never takes
+        // it — they look the same. A neutral note, the window stays open, and a late
+        // acknowledgement still closes it (the channel keeps listening).
+        setStatus('unconfirmed');
+        setMessage(NOT_CONFIRMED);
       }, ACK_WAIT_MS);
     } catch (err) {
       logger.error('Failed to communicate OAuth code:', err);

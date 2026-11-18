@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 
 /**
  * How long a reset whose save succeeded waits for its field's refetch. A refetch that never brings
- * the field (its GET failed) must not leave the reset armed for a later, unrelated save.
+ * the field (its GET failed) must not leave the reset armed for a later, unrelated save: on expiry
+ * the field is re-seeded to the saved value (the reset happened on the server; the pre-Reset edit
+ * must not stay to be saved back).
  */
 export const ARMED_RESET_MS = 60_000;
 
@@ -35,9 +37,15 @@ export const useReseededTexts = <K extends string>(
   // save, or this save's own refetch, which the mutation awaits) only marks it `landed`; the save's
   // success then applies it at once (landed) or arms it for the field's next refetch. A failed save
   // drops it, so the edit is never replaced by a reset that did not happen.
-  const pendingReset = useRef(
-    new Map<K, { from: string; armed: boolean; armedAt: number; landed: boolean }>()
-  );
+  const pendingReset = useRef(new Map<K, { from: string; armed: boolean; landed: boolean }>());
+  const expiryTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
+  useEffect(() => {
+    const timers = expiryTimers.current;
+    return () => {
+      for (const timer of timers) clearTimeout(timer);
+      timers.clear();
+    };
+  }, []);
   const keys = Object.keys(saved) as K[];
   const savedKey = keys.map((key) => `${saved[key]}\u0001${versions[key] ?? ''}`).join('\u0002');
 
@@ -62,9 +70,8 @@ export const useReseededTexts = <K extends string>(
       const entry = pendingReset.current.get(key);
       if (!entry) continue;
       if (entry.armed) {
+        resets.set(key, entry.from);
         pendingReset.current.delete(key);
-        // Expired: its own refetch never came; this is someone else's change, not the reset.
-        if (Date.now() - entry.armedAt <= ARMED_RESET_MS) resets.set(key, entry.from);
       } else {
         entry.landed = true;
       }
@@ -91,7 +98,7 @@ export const useReseededTexts = <K extends string>(
    * save changes nothing. The returned promise never rejects (the mutation reports the failure).
    */
   const trackReset = (key: K, save: Promise<unknown>): Promise<void> => {
-    const entry = { from: texts[key], armed: false, armedAt: 0, landed: false };
+    const entry = { from: texts[key], armed: false, landed: false };
     pendingReset.current.set(key, entry);
     return save.then(
       () => {
@@ -99,7 +106,17 @@ export const useReseededTexts = <K extends string>(
         if (pendingReset.current.get(key) !== entry) return;
         if (!entry.landed) {
           entry.armed = true;
-          entry.armedAt = Date.now();
+          // Its own refetch never came (its GET failed): re-seed to the saved value on expiry.
+          const timer = setTimeout(() => {
+            expiryTimers.current.delete(timer);
+            if (pendingReset.current.get(key) !== entry) return;
+            pendingReset.current.delete(key);
+            const latest = seededRef.current.values[key];
+            setTexts((current) =>
+              current[key] === entry.from ? { ...current, [key]: latest } : current
+            );
+          }, ARMED_RESET_MS);
+          expiryTimers.current.add(timer);
           return;
         }
         // The field's refetch already landed (the mutation awaits it): apply it now.

@@ -180,4 +180,32 @@ describe('Gmail OAuth pop-up flow', () => {
     });
     expect(callbacks()).toHaveLength(0);
   });
+
+  it('a code delivered by postMessage is acknowledged too (whichever path came first)', async () => {
+    const acks: unknown[] = [];
+    const popupSide = new BroadcastChannel('gmail_oauth');
+    popupSide.onmessage = (event: MessageEvent) => acks.push(event.data);
+    const flow = gmailOAuthService.connectWithPopup({});
+    await flush();
+    fromPopup('c1', 's1');
+    await expect(flow).resolves.toMatchObject({ success: true });
+    await flush();
+    popupSide.close();
+    expect(acks).toEqual([{ type: 'GMAIL_OAUTH_ACK', state: 's1' }]);
+  });
+
+  it("another flow's code is neither taken nor acknowledged", async () => {
+    const acks: unknown[] = [];
+    const popupSide = new BroadcastChannel('gmail_oauth');
+    popupSide.onmessage = (event: MessageEvent) => acks.push(event.data);
+    const flow = gmailOAuthService.connectWithPopup({});
+    await flush();
+    fromPopup('cX', 'other');
+    await flush();
+    expect(acks).toEqual([]);
+    expect(callbacks()).toHaveLength(0);
+    fromPopup('c1', 's1');
+    await flow;
+    popupSide.close();
+  });
 });
