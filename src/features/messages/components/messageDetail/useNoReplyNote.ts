@@ -10,7 +10,8 @@ export const MARKER_READ_BACKOFF_MS = [5_000, 30_000, 120_000] as const;
 /**
  * The thread's "No reply needed" note. THE rule is the backend's — the API serves the marker only
  * while its email is still the thread's reply turn — so a served marker is shown as it is, with no
- * copy of that rule here. A finished thread shows no note (as its card shows no chip).
+ * copy of that rule here. A finished thread, one needing review, or a lead shows no note (as its card
+ * shows no No-reply chip there).
  *
  * The app's copy of the conversation can be older than the loaded events. When an inbound event
  * newer than the marked email is loaded, the marker is read again HERE and only the answer to that
@@ -26,8 +27,14 @@ export function useNoReplyNote(
   eventsLoaded: boolean
 ): boolean {
   const servedEventId = readNoReplyMarker(message.metadata)?.eventId ?? null;
+  // The note shows only where the card would show the chip (getAiState): a review reason or a
+  // lead outranks it there, and the backend serves such a row's marker as stored, unchecked.
   const canShow =
-    servedEventId !== null && message.status !== 'resolved' && message.status !== 'closed';
+    servedEventId !== null &&
+    message.status !== 'resolved' &&
+    message.status !== 'closed' &&
+    !message.needsHumanReview &&
+    message.isLead !== true;
   // The question to ask, null when the served marker needs no second look (or no note can show).
   const askKey =
     canShow && eventsLoaded && newestInboundId > servedEventId
