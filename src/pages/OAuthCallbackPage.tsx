@@ -78,9 +78,9 @@ export const OAuthCallbackPage = () => {
     // in browser history, server logs, and Referer headers.
     history.replaceState(null, '', window.location.pathname);
     try {
-      if (isPendingRedirect()) {
-        // Full-page redirect: THIS tab started the flow (a pop-up's own copy of the keys is cleared
-        // before it navigates) — sessionStorage (cleared on tab close, not readable
+      if (isPendingRedirect(liveOpener !== null)) {
+        // Full-page redirect: THIS tab started the flow (not a marked pop-up, no live opener)
+        // — sessionStorage (cleared on tab close, not readable
         // cross-tab by XSS). window.close() is blocked for windows not opened by script, so route
         // back to the integrations page where the Gmail card picks up the pending result (and
         // clears the pending config). When the flow started inside the onboarding wizard (flag

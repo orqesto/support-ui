@@ -133,7 +133,8 @@ export const useUpdatePlatformAnalysisHourly = () => {
 /** Fetch the platform settings again now; rejects when the fetch failed. */
 export const useRefetchPlatformSettings = () => {
   const qc = useQueryClient();
-  return () => qc.refetchQueries({ queryKey: KEY }, { throwOnError: true });
+  // exact: only the settings query itself, not every ['platform','settings',…] query under it.
+  return () => qc.refetchQueries({ queryKey: KEY, exact: true }, { throwOnError: true });
 };
 
 export const useUpdatePlatformDrafts = () => {

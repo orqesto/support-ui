@@ -9,6 +9,12 @@
 export const GMAIL_OAUTH_CHANNEL = 'gmail_oauth';
 /** sessionStorage key of the full-page redirect flow's pending config (one name for every reader). */
 export const GMAIL_OAUTH_PENDING_CONFIG_KEY = 'gmail_oauth_pending_config';
+/**
+ * sessionStorage key connectWithPopup sets in the POP-UP's own copy before it navigates: the
+ * callback page there is a pop-up, whatever else its copy holds and whether or not Google severed
+ * the opener.
+ */
+export const GMAIL_OAUTH_POPUP_KEY = 'gmail_oauth_popup';
 /** sessionStorage key the callback page hands the redirect flow's code+state over in. */
 export const GMAIL_OAUTH_PAYLOAD_KEY = 'gmail_oauth_payload';
 
@@ -97,11 +103,14 @@ export const listenForGmailOAuthCode = (
 };
 
 /**
- * Did THIS tab start the full-page redirect flow? redirectToOAuth stores a pending config (never the
- * state, nor anything derived from it) before it leaves for Google. A pop-up started by this bundle
- * has none: connectWithPopup clears the keys in the pop-up's own copy before it navigates, so on the
- * callback page "a pending config is here" means the redirect flow. The backend checks the
- * state itself (single use) when the code is exchanged.
+ * Callback page: is THIS tab the full-page redirect flow? redirectToOAuth stores a pending config
+ * (never the state, nor anything derived from it) before it leaves for Google. Not a redirect:
+ *  - a pop-up this bundle opened (its own copy is marked GMAIL_OAUTH_POPUP_KEY and holds no config);
+ *  - a window with a live opener — a redirect tab has none; this covers a pop-up opened by a tab
+ *    still on the bundle before the mark, whose copy may hold a stale config.
+ * The backend checks the state itself (single use) when the code is exchanged.
  */
-export const isPendingRedirect = (): boolean =>
+export const isPendingRedirect = (hasLiveOpener: boolean): boolean =>
+  !hasLiveOpener &&
+  sessionStorage.getItem(GMAIL_OAUTH_POPUP_KEY) === null &&
   sessionStorage.getItem(GMAIL_OAUTH_PENDING_CONFIG_KEY) !== null;

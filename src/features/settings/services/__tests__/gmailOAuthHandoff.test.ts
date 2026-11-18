@@ -61,11 +61,16 @@ describe('Gmail OAuth hand-off over a BroadcastChannel', () => {
     expect(onCode).not.toHaveBeenCalled();
   });
 
-  it('the redirect flow is known by its pending config being there (never by the state)', () => {
+  it('the redirect flow: a pending config, in a tab that is not a marked pop-up and has no live opener', () => {
     sessionStorage.clear();
-    expect(isPendingRedirect()).toBe(false);
+    expect(isPendingRedirect(false)).toBe(false);
     sessionStorage.setItem('gmail_oauth_pending_config', JSON.stringify({ config: {} }));
-    expect(isPendingRedirect()).toBe(true);
+    expect(isPendingRedirect(false)).toBe(true);
+    // A live opener: a pop-up (opened by a tab on the bundle before the mark), never a redirect tab.
+    expect(isPendingRedirect(true)).toBe(false);
+    // A pop-up this bundle opened, whose inherited config could not be cleared: still a pop-up.
+    sessionStorage.setItem('gmail_oauth_popup', '1');
+    expect(isPendingRedirect(false)).toBe(false);
     sessionStorage.clear();
   });
 

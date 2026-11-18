@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { messageService } from '@/services/message.service';
 import { isOutgoingEvent } from '@/lib/messageHelpers';
-import { noReplyNeededState, storedDraftFreshness } from './storedDraftFreshness';
+import { storedDraftFreshness } from './storedDraftFreshness';
+import { readNoReplyMarker } from '../noReplyMarker';
 import { logger } from '@/lib/logger';
 import { useSeededState } from '@/lib/seededState';
 import { normaliseThreadPage, type ThreadPage } from '@/services/threadPage';
@@ -246,11 +247,29 @@ export function useThreadEvents(
     () => storedDraftFreshness(message.metadata, sortedThread, eventsState),
     [message.metadata, sortedThread, eventsState]
   );
-  // The customer's latest email only thanked or confirmed: no draft, and the thread says why.
-  const noReplyNeeded = useMemo(
-    () => noReplyNeededState(message.metadata, sortedThread, eventsState),
-    [message.metadata, sortedThread, eventsState]
+  // The customer's latest email only thanked or confirmed: no draft, and the thread says why. THE
+  // rule is the backend's — the API serves the marker only while its email is still the thread's
+  // reply turn — so the served marker is shown as it is, with no copy of that rule here.
+  const noReplyMarkerEventId = readNoReplyMarker(message.metadata)?.eventId ?? null;
+  // A finished thread shows no note — as its card shows no chip (noReplyNeededShown) and the
+  // backend's filter (a resolved or closed row carries the marker as stored).
+  const noReplyNeeded =
+    noReplyMarkerEventId !== null && message.status !== 'resolved' && message.status !== 'closed';
+  // The app's copy of the conversation can be older than the loaded events: an inbound event newer
+  // than the marked email re-reads the conversation, which brings the marker's state now.
+  const newestInboundId = useMemo(
+    () =>
+      sortedThread.reduce(
+        (newest, event) => (event.type === 'inbound' && event.id > newest ? event.id : newest),
+        0
+      ),
+    [sortedThread]
   );
+  // Runs only when one of these values changes: one re-read per newer email, never a loop.
+  useEffect(() => {
+    if (noReplyMarkerEventId === null || eventsState !== 'loaded') return;
+    if (newestInboundId > noReplyMarkerEventId) rereadHeaderRef.current?.();
+  }, [noReplyMarkerEventId, newestInboundId, eventsState, message.id]);
   // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
   // only ever sit between days, in order.
   return {
