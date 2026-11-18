@@ -107,6 +107,22 @@ export const userService = {
     return response.data.data as User;
   },
 
+  // Profile photo: multipart field `photo`; answers the new key (every upload gets a new one).
+  uploadPhoto: async (image: Blob): Promise<string | null> => {
+    const body = new FormData();
+    body.append('photo', image, 'photo.jpg');
+    const response: AxiosResponse<ApiResponse<{ photoKey?: unknown }>> = await apiClient.put(
+      '/api/users/me/photo',
+      body
+    );
+    const key = response.data?.data?.photoKey;
+    return typeof key === 'string' ? key : null;
+  },
+
+  removePhoto: async (): Promise<void> => {
+    await apiClient.delete('/api/users/me/photo');
+  },
+
   // Keep the signature copied into the current workspace as it is (clears the "check your
   // signature" notice there). Saving the signature through updateSelf does the same.
   confirmSignature: async (): Promise<void> => {
