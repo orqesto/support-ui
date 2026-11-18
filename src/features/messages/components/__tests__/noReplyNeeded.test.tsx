@@ -297,6 +297,27 @@ describe("thread view — the served marker is shown as it is (the rule is the b
     expect(hook.result.current).toBe(false);
   });
 
+  it('an answer of no shape (undefined), or the call itself throwing, is a failed read — never stuck "out"', async () => {
+    const getById = vi
+      .spyOn(messageService, 'getById')
+      .mockResolvedValueOnce(undefined as unknown as Read)
+      .mockImplementationOnce(() => {
+        throw new Error('sync failure');
+      })
+      .mockResolvedValue(served(marker));
+    const hook = mountNote(conversation(marker), 3);
+    await turn();
+    expect(hook.result.current).toBe(false);
+    // Failed, not in flight: the wait runs, and the next try (a throw) fails the same way.
+    await act(() => vi.advanceTimersByTimeAsync(MARKER_READ_BACKOFF_MS[0] + 100));
+    expect(getById).toHaveBeenCalledTimes(2);
+    // Still retryable at once (it would not be if the read were stuck "out").
+    act(() => void window.dispatchEvent(new Event('focus')));
+    await turn();
+    expect(getById).toHaveBeenCalledTimes(3);
+    expect(hook.result.current).toBe(true);
+  });
+
   it('still waiting: window focus and a socket reconnect each try again at once; a success then shows', async () => {
     const getById = vi.spyOn(messageService, 'getById').mockRejectedValue(new Error('offline'));
     const hook = mountNote(conversation(marker), 3);

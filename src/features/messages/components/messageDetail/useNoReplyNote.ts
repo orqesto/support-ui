@@ -54,16 +54,27 @@ export function useNoReplyNote(
     function ask() {
       timer = undefined;
       inFlight = true;
-      messageService.getById(message.id).then((response) => {
-        if (!response.success || !response.data) {
-          failed();
-          return;
-        }
-        inFlight = false;
-        if (cancelled) return;
-        const metadata = response.data.metadata as Record<string, unknown> | null | undefined;
-        setAnswer({ key: askKey as string, marked: readNoReplyMarker(metadata) !== null });
-      }, failed);
+      // Anything that goes wrong — the request refused, a throw from the call itself, an answer of
+      // another shape — is a failed read: the read is never left "out" for good.
+      let read: ReturnType<typeof messageService.getById>;
+      try {
+        read = messageService.getById(message.id);
+      } catch {
+        failed();
+        return;
+      }
+      read
+        .then((response) => {
+          if (!response.success || !response.data) {
+            failed();
+            return;
+          }
+          const metadata = response.data.metadata as Record<string, unknown> | null | undefined;
+          const marked = readNoReplyMarker(metadata) !== null;
+          inFlight = false;
+          if (!cancelled) setAnswer({ key: askKey as string, marked });
+        })
+        .catch(failed);
     }
     const retryNow = () => {
       // Only after a failure, and never beside a read that is still out.
