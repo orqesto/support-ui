@@ -26,18 +26,8 @@ describe('cropPhoto', () => {
     const realCreate = document.createElement.bind(document);
     vi.spyOn(document, 'createElement').mockImplementation(((tag: string) =>
       tag === 'canvas' ? canvas : realCreate(tag)) as typeof document.createElement);
-    class FakeImage {
-      naturalWidth = 400;
-      naturalHeight = 300;
-      onload: (() => void) | null = null;
-      onerror: (() => void) | null = null;
-      set src(_value: string) {
-        queueMicrotask(() => this.onload?.());
-      }
-    }
-    vi.stubGlobal('Image', FakeImage);
-
-    await cropPhoto('blob:x', { zoom: 1, offsetX: 0, offsetY: 0 });
+    const picture = { source: {} as CanvasImageSource, width: 400, height: 300 };
+    await cropPhoto(picture, { zoom: 1, offsetX: 0, offsetY: 0 });
     expect(calls).toEqual(['fillStyle=#ffffff', 'fillRect', 'drawImage', 'toBlob:image/jpeg']);
   });
 });

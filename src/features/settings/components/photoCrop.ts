@@ -48,38 +48,42 @@ export const visibleRegion = (
   };
 };
 
-const loadImage = (src: string): Promise<HTMLImageElement> =>
-  new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error('Photo could not be read'));
-    image.src = src;
-  });
+/** A decoded photo: what the preview and the export both draw from. */
+export type Picture = { source: CanvasImageSource; width: number; height: number };
 
-/** The framed square as a JPEG of OUTPUT_PX (the browser applies EXIF orientation on load). */
-export const cropPhoto = async (src: string, view: PhotoView): Promise<Blob> => {
-  const image = await loadImage(src);
-  const natural = { width: image.naturalWidth, height: image.naturalHeight };
+/**
+ * Decodes the picked file straight into a bitmap: no URL of the file is ever made (an object URL
+ * fed to an <img> is what code scanning reads as DOM text reaching HTML). The browser applies the
+ * EXIF orientation while decoding. Rejects when the file is not an image it can read.
+ */
+export const openPhoto = async (file: Blob): Promise<Picture> => {
+  const bitmap = await createImageBitmap(file);
+  return { source: bitmap, width: bitmap.width, height: bitmap.height };
+};
+
+/** Draws the framed square of `picture` onto a `side`×`side` canvas, over white. */
+export const drawFramed = (
+  context: CanvasRenderingContext2D,
+  picture: Picture,
+  view: PhotoView,
+  side: number
+): void => {
+  const natural = { width: picture.width, height: picture.height };
   const region = visibleRegion(natural, clampView(natural, view));
+  // JPEG has no transparency: paint white first, or a transparent PNG gets black corners.
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, side, side);
+  context.drawImage(picture.source, region.x, region.y, region.side, region.side, 0, 0, side, side);
+};
+
+/** The framed square as a JPEG of OUTPUT_PX — exactly what the preview circle showed. */
+export const cropPhoto = async (picture: Picture, view: PhotoView): Promise<Blob> => {
   const canvas = document.createElement('canvas');
   canvas.width = OUTPUT_PX;
   canvas.height = OUTPUT_PX;
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Photo could not be prepared');
-  // JPEG has no transparency: paint white first, or a transparent PNG gets black corners.
-  context.fillStyle = '#ffffff';
-  context.fillRect(0, 0, OUTPUT_PX, OUTPUT_PX);
-  context.drawImage(
-    image,
-    region.x,
-    region.y,
-    region.side,
-    region.side,
-    0,
-    0,
-    OUTPUT_PX,
-    OUTPUT_PX
-  );
+  drawFramed(context, picture, view, OUTPUT_PX);
   return new Promise((resolve, reject) =>
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error('Photo could not be prepared'))),

@@ -19,12 +19,13 @@ import { useAuthStore } from '@/stores/authStore';
 import {
   clampView,
   cropPhoto,
+  drawFramed,
   FRAME_PX,
   MAX_ZOOM,
   MIN_ZOOM,
-  shownSize,
+  openPhoto,
+  type Picture,
   type PhotoView,
-  type Size,
 } from './photoCrop';
 
 /**
@@ -47,6 +48,9 @@ const serverCopy = (error: unknown): string | null => {
   return (typeof code === 'string' && SERVER_COPY[code]) || null;
 };
 
+/** Preview canvas pixels: the frame at 2x, sharp on high-density screens. */
+const PREVIEW_PX = FRAME_PX * 2;
+
 const CENTRED: PhotoView = { zoom: MIN_ZOOM, offsetX: 0, offsetY: 0 };
 
 /**
@@ -58,14 +62,18 @@ export const ProfilePhotoField = () => {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
   const input = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [natural, setNatural] = useState<Size | null>(null);
+  const [picture, setPicture] = useState<Picture | null>(null);
+  const previewCanvas = useRef<HTMLCanvasElement>(null);
   const [view, setView] = useState<PhotoView>(CENTRED);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const drag = useRef<{ x: number; y: number; from: PhotoView } | null>(null);
 
-  useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
+  // The preview is drawn with the export's own code, so the saved square is what the circle shows.
+  useEffect(() => {
+    const context = picture ? previewCanvas.current?.getContext('2d') : null;
+    if (picture && context) drawFramed(context, picture, view, PREVIEW_PX);
+  }, [picture, view]);
 
   // The profile object can come from a sign-in that did not carry the key (or from before this
   // feature): ask the server once. A server that does not send `photoKey` at all has no photo
@@ -97,8 +105,7 @@ export const ProfilePhotoField = () => {
   };
 
   const close = () => {
-    setPreview(null);
-    setNatural(null);
+    setPicture(null);
     setView(CENTRED);
   };
 
@@ -109,14 +116,16 @@ export const ProfilePhotoField = () => {
     if (file.size > MAX_BYTES) return setError('Photo must be 40 MB or smaller');
     setError(null);
     setView(CENTRED);
-    setPreview(URL.createObjectURL(file));
+    openPhoto(file)
+      .then(setPicture)
+      .catch(() => setError('We couldn’t read that image. Try another photo.'));
   };
 
   const save = async () => {
-    if (!preview) return;
+    if (!picture) return;
     setBusy(true);
     try {
-      const key = await userService.uploadPhoto(await cropPhoto(preview, view));
+      const key = await userService.uploadPhoto(await cropPhoto(picture, view));
       changed(key);
       close();
     } catch (failure) {
@@ -140,7 +149,7 @@ export const ProfilePhotoField = () => {
     }
   };
 
-  const moveTo = (next: PhotoView) => setView(natural ? clampView(natural, next) : next);
+  const moveTo = (next: PhotoView) => setView(picture ? clampView(picture, next) : next);
   const startDrag = (event: PointerEvent<HTMLDivElement>) => {
     event.currentTarget.setPointerCapture?.(event.pointerId);
     drag.current = { x: event.clientX, y: event.clientY, from: view };
@@ -154,7 +163,6 @@ export const ProfilePhotoField = () => {
       offsetY: start.from.offsetY + event.clientY - start.y,
     });
   };
-  const shown = natural ? shownSize(natural, view.zoom) : null;
 
   return (
     <div className="flex items-center gap-4">
@@ -200,7 +208,7 @@ export const ProfilePhotoField = () => {
         )}
       </div>
 
-      <Dialog open={preview !== null} onOpenChange={(open) => !open && close()}>
+      <Dialog open={picture !== null} onOpenChange={(open) => !open && close()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Frame your photo</DialogTitle>
@@ -215,29 +223,14 @@ export const ProfilePhotoField = () => {
               onPointerUp={() => (drag.current = null)}
               onPointerCancel={() => (drag.current = null)}
             >
-              {preview && (
-                <img
-                  src={preview}
-                  alt="Your new profile photo"
-                  draggable={false}
-                  onError={() => {
-                    setError('We couldn’t read that image. Try another photo.');
-                    close();
-                  }}
-                  onLoad={(event) =>
-                    setNatural({
-                      width: event.currentTarget.naturalWidth || FRAME_PX,
-                      height: event.currentTarget.naturalHeight || FRAME_PX,
-                    })
-                  }
-                  className="absolute max-w-none left-1/2 top-1/2"
-                  style={{
-                    width: shown?.width ?? FRAME_PX,
-                    height: shown?.height ?? FRAME_PX,
-                    transform: `translate(calc(-50% + ${view.offsetX}px), calc(-50% + ${view.offsetY}px))`,
-                  }}
-                />
-              )}
+              <canvas
+                ref={previewCanvas}
+                role="img"
+                aria-label="Your new profile photo"
+                width={PREVIEW_PX}
+                height={PREVIEW_PX}
+                className="block w-full h-full"
+              />
             </div>
             <div className="w-full max-w-[240px]">
               <BarSlider

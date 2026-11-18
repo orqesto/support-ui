@@ -24,6 +24,7 @@ vi.mock('../photoCrop', async (importOriginal) => ({
   cropPhoto: vi.fn(() => Promise.resolve(new Blob(['jpeg'], { type: 'image/jpeg' }))),
 }));
 const setUser = vi.hoisted(() => vi.fn());
+const openImage = vi.hoisted(() => vi.fn<(file: Blob) => Promise<unknown>>());
 const state = vi.hoisted(() => ({ user: null as User | null }));
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: (pick: (current: { user: User | null; setUser: typeof setUser }) => unknown) =>
@@ -56,8 +57,9 @@ beforeEach(() => {
   state.user = me(null);
   put.mockResolvedValue({ data: { success: true, data: { photoKey: 'new-key' } } });
   del.mockResolvedValue({ status: 204 });
-  URL.createObjectURL = vi.fn(() => 'blob:preview');
-  URL.revokeObjectURL = vi.fn();
+  // The picked file is decoded straight into a bitmap (no URL of it is ever made).
+  openImage.mockReset().mockResolvedValue({ width: 400, height: 300, close: () => undefined });
+  vi.stubGlobal('createImageBitmap', (file: Blob) => openImage(file));
 });
 afterEach(() => {
   cleanup();
@@ -153,13 +155,20 @@ describe('ProfilePhotoField', () => {
   });
 
   it('a file that is not really an image says so at once, not after Save', async () => {
+    openImage.mockRejectedValue(new Error('The source image could not be decoded.'));
     renderField();
     pick(file('fake.png', 'image/png'));
-    const preview = await screen.findByAltText('Your new profile photo');
-    fireEvent.error(preview);
     expect(await screen.findByText('We couldn’t read that image. Try another photo.')).toBeTruthy();
     expect(screen.queryByText('Frame your photo')).toBeNull();
     expect(put).not.toHaveBeenCalled();
+  });
+
+  it('the preview is drawn from the decoded picture: no image element, no file URL', async () => {
+    renderField();
+    pick(file('me.png', 'image/png'));
+    expect(await screen.findByRole('img', { name: 'Your new profile photo' })).toBeTruthy();
+    expect(openImage).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('img[src^="blob:"]')).toBeNull();
   });
 
   it('no Remove button without a photo', () => {
