@@ -222,9 +222,50 @@ describe("thread view — the served marker is shown as it is (the rule is the b
     first.resolve(served(marker));
     await turn();
     expect(hook.result.current).toBe(false);
-    second.resolve(served({}));
+    second.resolve(served(marker));
     await turn();
-    expect(hook.result.current).toBe(false);
+    expect(hook.result.current).toBe(true);
+  });
+
+  it('focus or a reconnect while a read is still out starts no second read', async () => {
+    const read = pendingRead();
+    const getById = vi.spyOn(messageService, 'getById').mockReturnValue(read.promise);
+    const hook = mountNote(conversation(marker), 3);
+    for (let tab = 0; tab < 5; tab += 1) act(() => void window.dispatchEvent(new Event('focus')));
+    act(() => emit(SOCKET_RECONNECTED_EVENT));
+    await turn();
+    expect(getById).toHaveBeenCalledTimes(1);
+    read.resolve(served(marker));
+    await turn();
+    expect(hook.result.current).toBe(true);
+  });
+
+  it('a retry at once (focus) keeps the count of failures: the next wait is the longer one', async () => {
+    const getById = vi.spyOn(messageService, 'getById').mockRejectedValue(new Error('offline'));
+    mountNote(conversation(marker), 3);
+    await turn();
+    // First failure: the 5 s wait is running. Focus retries now — the second failure.
+    act(() => void window.dispatchEvent(new Event('focus')));
+    await turn();
+    expect(getById).toHaveBeenCalledTimes(2);
+    // The next wait is the 30 s one, not 5 s again.
+    await act(() => vi.advanceTimersByTimeAsync(MARKER_READ_BACKOFF_MS[0] + 100));
+    expect(getById).toHaveBeenCalledTimes(2);
+    await act(() => vi.advanceTimersByTimeAsync(MARKER_READ_BACKOFF_MS[1]));
+    expect(getById).toHaveBeenCalledTimes(3);
+  });
+
+  it('switching thread while a retry is waiting: the old timer is gone, the new thread asks for itself', async () => {
+    const getById = vi.spyOn(messageService, 'getById').mockRejectedValue(new Error('offline'));
+    const hook = mountNote(conversation(marker), 3);
+    await turn();
+    expect(vi.getTimerCount()).toBe(1);
+    const other = { ...conversation({ noReplyNeeded: { eventId: 7 } }), id: 42 } as Message;
+    hook.rerender({ message: other, newest: 9, loaded: true });
+    await turn();
+    expect(getById).toHaveBeenLastCalledWith(42);
+    expect(getById).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(1);
   });
 
   it('a failed read: hidden, tried again after 5 s, 30 s and 2 min, then no more', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { messageService } from '@/services/message.service';
 import type { Message } from '@/types';
 import { useSocketReconnected } from '../../hooks/useSocketReconnected';
@@ -16,8 +16,9 @@ export const MARKER_READ_BACKOFF_MS = [5_000, 30_000, 120_000] as const;
  * newer than the marked email is loaded, the marker is read again HERE and only the answer to that
  * read counts (no other refresh of the conversation can stand in for it — one sent earlier would
  * carry the old marker). Until it answers the note is hidden: while it is in flight, and after it
- * failed. A failed read is tried again after each wait in MARKER_READ_BACKOFF_MS, and at once when
- * the window gets focus or the socket comes back.
+ * failed. One read is out at a time. A failed read is tried again after each wait in
+ * MARKER_READ_BACKOFF_MS; after a failure, the window getting focus or the socket coming back
+ * tries again at once (never beside a read still out, and the count of failures is kept).
  */
 export function useNoReplyNote(
   message: Message,
@@ -34,48 +35,54 @@ export function useNoReplyNote(
       : null;
   const [answer, setAnswer] = useState<{ key: string; marked: boolean } | null>(null);
   const answered = askKey !== null && answer?.key === askKey;
-  const [retryNow, setRetryNow] = useState(0);
-  const waiting = askKey !== null && !answered;
+  /** Try the failed read again now; null when nothing is being asked. */
+  const retryFailedRead = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (askKey === null || answered) return undefined;
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    let inFlight = false;
     let failures = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const failed = () => {
+      inFlight = false;
       if (cancelled) return;
       const wait = MARKER_READ_BACKOFF_MS[failures];
       failures += 1;
       if (wait !== undefined) timer = setTimeout(ask, wait);
     };
     function ask() {
+      timer = undefined;
+      inFlight = true;
       messageService.getById(message.id).then((response) => {
-        if (cancelled) return;
         if (!response.success || !response.data) {
           failed();
           return;
         }
+        inFlight = false;
+        if (cancelled) return;
         const metadata = response.data.metadata as Record<string, unknown> | null | undefined;
         setAnswer({ key: askKey as string, marked: readNoReplyMarker(metadata) !== null });
       }, failed);
     }
+    const retryNow = () => {
+      // Only after a failure, and never beside a read that is still out.
+      if (cancelled || inFlight || failures === 0) return;
+      clearTimeout(timer);
+      ask();
+    };
+    retryFailedRead.current = retryNow;
+    window.addEventListener('focus', retryNow);
     ask();
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      window.removeEventListener('focus', retryNow);
+      retryFailedRead.current = null;
     };
-  }, [askKey, answered, message.id, retryNow]);
-
-  // Still waiting: the window coming back, or the socket, is a reason to try again now.
-  useEffect(() => {
-    if (!waiting) return undefined;
-    const retry = () => setRetryNow((count) => count + 1);
-    window.addEventListener('focus', retry);
-    return () => window.removeEventListener('focus', retry);
-  }, [waiting]);
-  useSocketReconnected(() => {
-    if (waiting) setRetryNow((count) => count + 1);
-  });
+  }, [askKey, answered, message.id]);
+  // Subscribed for the whole mount (the hook's own rule); it acts only on a failed read.
+  useSocketReconnected(() => retryFailedRead.current?.());
 
   if (!canShow) return false;
   return askKey === null || (answered && answer.marked);
