@@ -16,6 +16,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { Textarea } from '@/components/ui/Textarea';
 import { ConsoleLoading } from '@/components/console/ConsoleLoading';
 import { ConsolePageHeader } from '@/components/console/ConsolePageHeader';
+import { PlatformUserPhotoCard } from '@/components/console/PlatformUserPhotoCard';
 import { WorkspaceMembershipRow } from '@/components/console/WorkspaceMembershipRow';
 import {
   usePlatformUser,
@@ -444,6 +445,8 @@ export const PlatformUserPage = () => {
           </div>
         </CardContent>
       </Card>
+
+      <PlatformUserPhotoCard userId={user.id} email={user.email} photoKey={user.photoKey} />
 
       <Card>
         <CardHeader>

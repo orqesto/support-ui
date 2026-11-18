@@ -9,6 +9,7 @@ import {
 import type { AuditQueryFilters } from '@/services/auditQueryParams';
 import { organizationService } from '@/services/organization.service';
 import { userService } from '@/services/user.service';
+import { platformUserPhotoService } from '@/services/platformUserPhoto.service';
 
 /**
  * React-query hooks for the Platform (global-admin) console. Query keys are namespaced
@@ -99,6 +100,15 @@ export const useSuspendPlatformUser = () => {
   return useMutation({
     mutationFn: ({ id, reason }: { id: number; reason?: string }) =>
       platformService.suspendUser(id, reason),
+    onSuccess: invalidate,
+  });
+};
+
+export const useRemovePlatformUserPhoto = () => {
+  const invalidate = useInvalidatePlatformUsers();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason: string }) =>
+      platformUserPhotoService.remove(id, reason),
     onSuccess: invalidate,
   });
 };
