@@ -11,20 +11,66 @@
  * INDEPENDENTLY, 20 at a time each, so there is no single range to be in. Correcting the
  * total without dropping the range would have kept half the lie.
  */
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterAll, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MessageFilterBar } from '../MessageFilterBar';
 import type { FilterState } from '@/features/messages/stores/messagesStore';
 
+// The bar's data (filter options, lead visibility, saved views, recent searches) is not under test. Left real,
+// those queries went out as jsdom XHRs to a dead port and failed AFTER the file ended; under a
+// loaded full run the late console.log raised "EnvironmentTeardownError: Closing rpc while
+// onUserConsoleLog was pending" and the suite exited 1 with every test green.
+vi.mock('../useFilterOptions', () => ({
+  useFilterOptions: () => ({
+    assignees: [],
+    departments: [],
+    sources: [],
+    labels: [],
+    aliases: [],
+  }),
+}));
+vi.mock('@/features/messages/hooks/useLeadsHidden', () => ({ useLeadsHidden: () => false }));
+vi.mock('@/features/messages/services/savedView.service', () => ({
+  savedViewService: {
+    list: vi.fn(() => Promise.resolve([])),
+    save: vi.fn(),
+    remove: vi.fn(),
+    rename: vi.fn(),
+  },
+}));
 
-afterEach(cleanup);
+vi.mock('@/features/messages/services/recentSearch.service', () => ({
+  recentSearchService: { list: vi.fn(() => Promise.resolve([])), save: vi.fn(), remove: vi.fn() },
+}));
+
+const { MessageFilterBar } = await import('../MessageFilterBar');
+
+// Guard: nothing in this file may reach the network, so nothing can still be pending at teardown.
+const requested: string[] = [];
+// eslint-disable-next-line @typescript-eslint/unbound-method -- restored as-is in afterAll, called via apply
+const realOpen = XMLHttpRequest.prototype.open;
+XMLHttpRequest.prototype.open = function (this: XMLHttpRequest, ...args: unknown[]) {
+  requested.push(String(args[1]));
+  return (realOpen as (...openArgs: unknown[]) => void).apply(this, args);
+} as typeof realOpen;
+beforeEach(() => {
+  requested.length = 0;
+});
+afterEach(() => {
+  cleanup();
+  expect(requested).toEqual([]);
+});
+afterAll(() => {
+  XMLHttpRequest.prototype.open = realOpen;
+});
 
 // The bar loads department/source options through react-query; it needs a client even
 // though none of these assertions touch them.
 const withClient = (ui: React.ReactElement) =>
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
       {ui}
     </QueryClientProvider>
   );
@@ -42,7 +88,11 @@ const props = {
 describe('the header count', () => {
   it('reports a RANGE on the list, where paging is linear', () => {
     withClient(
-      <MessageFilterBar {...props} pagination={{ page: 1, limit: 50, total: 53 }} isKanban={false} />
+      <MessageFilterBar
+        {...props}
+        pagination={{ page: 1, limit: 50, total: 53 }}
+        isKanban={false}
+      />
     );
 
     expect(screen.getByText('1–50')).toBeTruthy();
@@ -67,7 +117,9 @@ describe('the header count', () => {
     expect(screen.getByText('No threads')).toBeTruthy();
     unmount();
 
-    withClient(<MessageFilterBar {...props} pagination={{ page: 1, limit: 0, total: 0 }} isKanban />);
+    withClient(
+      <MessageFilterBar {...props} pagination={{ page: 1, limit: 0, total: 0 }} isKanban />
+    );
     expect(screen.getByText('No threads')).toBeTruthy();
   });
 });

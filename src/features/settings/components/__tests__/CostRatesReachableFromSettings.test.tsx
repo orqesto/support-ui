@@ -7,7 +7,6 @@
 import { vi, describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: vi.fn((selector: (state: { user: unknown }) => unknown) =>
@@ -38,7 +37,7 @@ afterEach(cleanup);
 describe('Settings › Integrations › AI Providers', () => {
   it('shows the cost-rates card', () => {
     render(
-      <MemoryRouter future={ROUTER_FUTURE}>
+      <MemoryRouter>
         <ConnectedServicesSettings section="ai-providers" />
       </MemoryRouter>
     );

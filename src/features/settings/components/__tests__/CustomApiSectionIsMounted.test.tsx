@@ -11,7 +11,6 @@
 import { vi, describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 
 let mockUser: { id: number; role: string; organizationRole?: string } | null = null;
 
@@ -75,7 +74,7 @@ import { ConnectedServicesSettings } from '@/features/settings/components/Connec
 const renderAs = (organizationRole: string, section?: string) => {
   mockUser = { id: 1, role: 'user', organizationRole };
   return render(
-    <MemoryRouter future={ROUTER_FUTURE}>
+    <MemoryRouter>
       <ConnectedServicesSettings section={section} />
     </MemoryRouter>
   );

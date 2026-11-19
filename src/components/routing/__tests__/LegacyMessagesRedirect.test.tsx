@@ -1,7 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { LegacyMessagesRedirect, threadsPathFor } from '../LegacyMessagesRedirect';
 
 const Where = () => {
@@ -18,7 +17,7 @@ const Where = () => {
 // Same route shape as App.tsx: the redirect catches /messages and everything below it.
 const mount = (entry: string) =>
   render(
-    <MemoryRouter initialEntries={[entry]} future={ROUTER_FUTURE}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/messages/*" element={<LegacyMessagesRedirect />} />
         <Route path="/threads" element={<Where />} />

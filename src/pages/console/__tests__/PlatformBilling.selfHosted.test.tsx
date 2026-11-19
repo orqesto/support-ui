@@ -1,7 +1,6 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 
 /**
  * The plan catalog is hidden on a licensed self-hosted box — and the route has to be
@@ -31,7 +30,7 @@ const { PlatformBilling } = await import('../PlatformBilling');
 
 const renderPage = () =>
   render(
-    <MemoryRouter initialEntries={['/console/platform/billing']} future={ROUTER_FUTURE}>
+    <MemoryRouter initialEntries={['/console/platform/billing']}>
       <PlatformBilling />
     </MemoryRouter>
   );

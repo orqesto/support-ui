@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import type {
   BudgetMigration,
   BudgetState,
@@ -126,7 +125,7 @@ const renderPage = (entry = '/console/platform/ai-spend') => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter future={ROUTER_FUTURE} initialEntries={[entry]}>
+      <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/console/platform/ai-spend" element={<PlatformBudgets />} />
           <Route path="/console/platform/ai-spend/groups/:key" element={<GroupStub />} />

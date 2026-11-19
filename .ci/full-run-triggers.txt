@@ -7,7 +7,6 @@ vitest.config.*
 vite.config.*
 package.json
 package-lock.json
-package.staging.json
 tsconfig*
 eslint.config.js
 .eslintrc.json

@@ -6,7 +6,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { SLABreachItem } from '../SLABreachItem';
 import type { SLABreachNotification } from '@/hooks/useSLANotifications';
 
@@ -28,7 +27,7 @@ const row = (
 
 const renderRow = (notification: SLABreachNotification) =>
   render(
-    <MemoryRouter future={ROUTER_FUTURE}>
+    <MemoryRouter>
       <SLABreachItem notification={notification} onDismiss={() => {}} />
     </MemoryRouter>
   );

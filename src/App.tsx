@@ -694,7 +694,7 @@ const AppRoutes = () => {
 };
 
 const App = () => (
-  <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+  <BrowserRouter>
     <ErrorBoundary>
       {/* The lazy public pages (sign-in, tracking…) wait here; the app shell has its own. */}
       <Suspense fallback={<LoadingFallback />}>

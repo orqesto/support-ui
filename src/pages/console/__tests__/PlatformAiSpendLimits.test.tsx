@@ -9,7 +9,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import type { ManagedAiUsageResult, OrgTokenBudget } from '@/services/managedAiUsage.service';
 
 /** Plain functions: vitest 4 fails a test on a module-level vi.fn's caught rejection. */
@@ -94,7 +93,7 @@ const renderPage = () =>
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <MemoryRouter future={ROUTER_FUTURE}>
+      <MemoryRouter>
         <PlatformAiSpend />
       </MemoryRouter>
     </QueryClientProvider>

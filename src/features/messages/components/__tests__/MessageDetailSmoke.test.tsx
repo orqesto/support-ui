@@ -2,7 +2,6 @@ import { vi, describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import type { Message } from '@/types';
 
 // vi.mock factories are hoisted — no variable references allowed inside them
@@ -85,7 +84,7 @@ describe('MessageDetailSmoke', () => {
   it('renders loading state initially', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter initialEntries={['/threads/42']} future={ROUTER_FUTURE}>
+        <MemoryRouter initialEntries={['/threads/42']}>
           <Routes>
             <Route path="/threads/:id" element={<MessageDetailPage />} />
           </Routes>
@@ -99,7 +98,7 @@ describe('MessageDetailSmoke', () => {
   it('renders the page without crashing for a valid message id', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter initialEntries={['/threads/42']} future={ROUTER_FUTURE}>
+        <MemoryRouter initialEntries={['/threads/42']}>
           <Routes>
             <Route path="/threads/:id" element={<MessageDetailPage />} />
           </Routes>
@@ -113,7 +112,7 @@ describe('MessageDetailSmoke', () => {
   it('shows loading text while fetching message', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
-        <MemoryRouter initialEntries={['/threads/42']} future={ROUTER_FUTURE}>
+        <MemoryRouter initialEntries={['/threads/42']}>
           <Routes>
             <Route path="/threads/:id" element={<MessageDetailPage />} />
           </Routes>

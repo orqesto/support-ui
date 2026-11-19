@@ -2,7 +2,6 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type * as StripHtmlModule from '@/lib/stripHtml';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import type { Message } from '@/types';
 import type { MessageThread } from '@/services/message.service';
 
@@ -150,7 +149,7 @@ describe('InboxSmoke', () => {
   it('renders message list item without crashing', () => {
     const onOpen = vi.fn();
     render(
-      <MemoryRouter future={ROUTER_FUTURE}>
+      <MemoryRouter>
         <MessageListItem thread={mockThread} onOpen={onOpen} />
       </MemoryRouter>
     );
@@ -167,7 +166,7 @@ describe('InboxSmoke', () => {
   it('badges a one-sided outbound thread as awaiting the customer', () => {
     const onOpen = vi.fn();
     render(
-      <MemoryRouter future={ROUTER_FUTURE}>
+      <MemoryRouter>
         <MessageListItem
           thread={{
             ...mockThread,
@@ -184,7 +183,7 @@ describe('InboxSmoke', () => {
     // Control: proves the badge is driven by the mark, not always rendered.
     const onOpen = vi.fn();
     render(
-      <MemoryRouter future={ROUTER_FUTURE}>
+      <MemoryRouter>
         <MessageListItem thread={mockThread} onOpen={onOpen} />
       </MemoryRouter>
     );
@@ -196,7 +195,7 @@ describe('InboxSmoke', () => {
     // one that also explains why no analysis ran.
     const onOpen = vi.fn();
     render(
-      <MemoryRouter future={ROUTER_FUTURE}>
+      <MemoryRouter>
         <MessageListItem
           thread={{
             ...mockThread,
@@ -216,7 +215,7 @@ describe('InboxSmoke', () => {
   it('renders message subject', () => {
     const onOpen = vi.fn();
     render(
-      <MemoryRouter future={ROUTER_FUTURE}>
+      <MemoryRouter>
         <MessageListItem thread={mockThread} onOpen={onOpen} />
       </MemoryRouter>
     );
@@ -230,7 +229,7 @@ describe('InboxSmoke', () => {
     // never proof the mail was withheld — so the chip says "rule record", never "blocked"
     // (prod 2026-10-01: false for every card).
     render(
-      <MemoryRouter future={ROUTER_FUTURE}>
+      <MemoryRouter>
         <MessageListItem
           thread={{ ...mockThread, threadId: 'spamlog_828' }}
           onOpen={vi.fn()}
@@ -244,7 +243,7 @@ describe('InboxSmoke', () => {
 
   it('a card with a huge body previews only its beginning (the dialog keeps the full body)', () => {
     const { container } = render(
-      <MemoryRouter future={ROUTER_FUTURE}>
+      <MemoryRouter>
         <MessageListItem
           thread={{
             ...mockThread,
@@ -262,7 +261,7 @@ describe('InboxSmoke', () => {
   it('does not mark an ordinary conversation row', () => {
     // The control: every other row in the same list must stay unchanged.
     render(
-      <MemoryRouter future={ROUTER_FUTURE}>
+      <MemoryRouter>
         <MessageListItem thread={{ ...mockThread, threadId: 'conv_9563' }} onOpen={vi.fn()} />
       </MemoryRouter>
     );
@@ -278,7 +277,7 @@ describe('InboxSmoke', () => {
     ];
 
     const { container } = render(
-      <MemoryRouter future={ROUTER_FUTURE}>
+      <MemoryRouter>
         <div data-testid="message-list">
           {threads.map((thread) => (
             <MessageListItem key={thread.threadId} thread={thread} onOpen={onOpen} />

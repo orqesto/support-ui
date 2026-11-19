@@ -6,7 +6,6 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { usePhoneOpensMessageAsPage } from '@/features/messages/hooks/usePhoneOpensMessageAsPage';
 import { PHONE_QUERY } from '@/features/messages/hooks/useIsPhone';
 
@@ -36,7 +35,7 @@ const Probe = ({ selected, onClear }: { selected: { id: number } | null; onClear
 
 const renderAt = (selected: { id: number } | null, onClear: () => void) =>
   render(
-    <MemoryRouter initialEntries={['/threads?id=ADM-SUP-42']} future={ROUTER_FUTURE}>
+    <MemoryRouter initialEntries={['/threads?id=ADM-SUP-42']}>
       <Routes>
         <Route path="*" element={<Probe selected={selected} onClear={onClear} />} />
       </Routes>

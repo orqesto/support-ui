@@ -342,7 +342,8 @@ describe('MessagesPage — a close that waits on a read closes only the thread i
       expect(urlId()).toBe('COR-SUP-12');
       press(action);
       await waitFor(() => expect(detail()).toBeNull());
-      expect(urlId()).toBe('');
+      // Under a loaded full run the ?id URL commit can lag the close by a render.
+      await waitFor(() => expect(urlId()).toBe(''));
     }
   );
 

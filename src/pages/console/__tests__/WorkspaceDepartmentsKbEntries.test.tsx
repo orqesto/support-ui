@@ -7,7 +7,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { chooseOption } from '@/test/chooseOption';
 import { apiClient } from '@/lib/api-client';
 import { installTransport, ok, routeAbsent, type WireResponse } from '@/test/apiTransport';
@@ -92,7 +91,7 @@ afterEach(() => {
 
 const renderPage = () =>
   render(
-    <MemoryRouter initialEntries={['/console/workspace/5/departments']} future={ROUTER_FUTURE}>
+    <MemoryRouter initialEntries={['/console/workspace/5/departments']}>
       <Routes>
         <Route
           path="/console/workspace/:orgId/departments"

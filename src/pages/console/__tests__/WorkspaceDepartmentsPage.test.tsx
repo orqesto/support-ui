@@ -1,7 +1,6 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { listOptions } from '@/test/chooseOption';
 import type { WorkspaceDepartmentsView } from '@/services/platform.service';
 
@@ -70,7 +69,7 @@ const { consumeKeepWorkspaceOnExit } = await import('@/lib/workspaceHandoff');
 
 const renderPage = () =>
   render(
-    <MemoryRouter initialEntries={['/console/workspace/5/departments']} future={ROUTER_FUTURE}>
+    <MemoryRouter initialEntries={['/console/workspace/5/departments']}>
       <Routes>
         <Route
           path="/console/workspace/:orgId/departments"

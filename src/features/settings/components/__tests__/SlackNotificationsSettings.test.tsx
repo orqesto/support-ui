@@ -6,7 +6,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import {
   slackNotificationsService,
   DEFAULT_TEAM_ON,
@@ -71,7 +70,7 @@ const LocationProbe = () => <output data-testid="search">{useLocation().search}<
 
 const renderPage = (url = '/settings?tab=notifications') =>
   render(
-    <MemoryRouter initialEntries={[url]} future={ROUTER_FUTURE}>
+    <MemoryRouter initialEntries={[url]}>
       <SlackNotificationsSettings />
       <LocationProbe />
     </MemoryRouter>

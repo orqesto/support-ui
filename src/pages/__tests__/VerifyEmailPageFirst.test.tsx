@@ -6,7 +6,6 @@
  */
 import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const signup = vi.fn();
@@ -40,7 +39,7 @@ const user = { id: 7, email: 'ann@acme.test', organizationId: 40 };
 
 const renderAt = (path: string, element: React.ReactNode) =>
   render(
-    <MemoryRouter future={ROUTER_FUTURE} initialEntries={[path]}>
+    <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path={path.split('#')[0]} element={element} />
         <Route path="/dashboard" element={<div>DASHBOARD</div>} />
@@ -129,7 +128,7 @@ describe('VerifyEmailPage — verify first', () => {
     const { StrictMode } = await import('react');
     render(
       <StrictMode>
-        <MemoryRouter future={ROUTER_FUTURE} initialEntries={['/verify-email']}>
+        <MemoryRouter initialEntries={['/verify-email']}>
           <Routes>
             <Route path="/verify-email" element={<VerifyEmailPage />} />
           </Routes>

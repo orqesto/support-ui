@@ -8,7 +8,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { chooseOption } from '@/test/chooseOption';
 import { apiError } from '@/test/apiError';
 import { apiClient } from '@/lib/api-client';
@@ -75,7 +74,7 @@ const renderPage = () =>
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <MemoryRouter initialEntries={['/console/platform/alerts']} future={ROUTER_FUTURE}>
+      <MemoryRouter initialEntries={['/console/platform/alerts']}>
         <PlatformAlertsSlack />
       </MemoryRouter>
     </QueryClientProvider>
