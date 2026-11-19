@@ -251,6 +251,10 @@ export function auditEntryLabel(action: string, details: Record<string, unknown>
   // The customer only said thanks, so the thread stayed finished (owner 2026-10-30).
   if (action === 'message.thanks_kept_finished') {
     const status = details?.['status'] as string | undefined;
+    // The thanks reopened the thread at save; the reply check then found no reply needed and set
+    // it back (owner 2026-11-19, N1).
+    if (details?.['reason'] === 'no_reply_verdict')
+      return `Customer said thanks — no reply needed, back to ${status ?? 'resolved'}`;
     return `Customer said thanks — kept ${status ?? 'resolved'}`;
   }
   if (action === 'message.auto_reopen') {

@@ -74,6 +74,22 @@ describe('messageActivityTimeline — reopen entries written by the repairs', ()
     );
   });
 
+  it('a thank-you the reply check found needs no reply sets the thread back, and says so (N1)', () => {
+    expect(
+      auditEntryLabel('message.thanks_kept_finished', {
+        status: 'resolved',
+        reason: 'no_reply_verdict',
+      })
+    ).toBe('Customer said thanks — no reply needed, back to resolved');
+    // Control: the save's own thanks keeps its words.
+    expect(
+      auditEntryLabel('message.thanks_kept_finished', {
+        status: 'resolved',
+        reason: 'customer_thanks_only',
+      })
+    ).toBe('Customer said thanks — kept resolved');
+  });
+
   it('a normal customer reopen keeps its words', () => {
     expect(auditEntryLabel('message.auto_reopen', { fromStatus: 'resolved' })).toBe(
       'Customer replied — reopened from resolved'
