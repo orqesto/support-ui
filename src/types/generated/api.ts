@@ -20,6 +20,7 @@ export interface components {
             assigneeId: number | null;
             sender: string;
             assigneeName?: string | null;
+            assigneePhotoKey?: string | null;
             departmentId: number | null;
             publicId: string | null;
             reference: string | null;
@@ -49,6 +50,7 @@ export interface components {
             assigneeId: number | null;
             sender: string;
             assigneeName?: string | null;
+            assigneePhotoKey?: string | null;
             departmentId: number | null;
             publicId: string | null;
             reference: string | null;
@@ -194,17 +196,19 @@ export interface components {
             aiReplyCount: number;
             needsHumanReview: boolean;
             /** @enum {string|null} */
-            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "other" | null;
+            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "partial_answer" | "follow_up_needed" | "other" | null;
             createdAt: string;
             metadata: {
                 [key: string]: unknown;
             } | null;
             isLead: boolean;
+            botHandled: boolean;
             respondedBy: string | null;
             lastReplyAt: string | null;
             resolvedAt: string | null;
             assigneeId: number | null;
             assigneeName: string | null;
+            assigneePhotoKey?: string | null;
             assignedAt: string | null;
             /** @enum {string} */
             status: "open" | "in_progress" | "pending" | "resolved" | "closed" | "filtered" | "needs_routing";
@@ -222,6 +226,7 @@ export interface components {
             actualResponseSeconds: number | null;
             nearMissDepts: number[];
             isSuspicious: boolean;
+            latestSpamCategory: string | null;
         };
         MessageDetail: {
             id: number;
@@ -236,17 +241,19 @@ export interface components {
             aiReplyCount: number;
             needsHumanReview: boolean;
             /** @enum {string|null} */
-            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "other" | null;
+            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "partial_answer" | "follow_up_needed" | "other" | null;
             createdAt: string;
             metadata: {
                 [key: string]: unknown;
             } | null;
             isLead: boolean;
+            botHandled: boolean;
             respondedBy: string | null;
             lastReplyAt: string | null;
             resolvedAt: string | null;
             assigneeId: number | null;
             assigneeName: string | null;
+            assigneePhotoKey?: string | null;
             assignedAt: string | null;
             /** @enum {string} */
             status: "open" | "in_progress" | "pending" | "resolved" | "closed" | "filtered" | "needs_routing";
@@ -264,6 +271,7 @@ export interface components {
             actualResponseSeconds: number | null;
             nearMissDepts: number[];
             isSuspicious: boolean;
+            latestSpamCategory: string | null;
             organizationId: number;
             resolvedByName: string | null;
             detectedLanguage: string | null;
@@ -279,6 +287,7 @@ export interface components {
             role: "admin" | "user";
             signature: string | null;
             signatureNeedsReview?: boolean;
+            photoKey?: string | null;
             createdAt: string;
             organizationRole: string;
             organizationId: number;
@@ -313,6 +322,7 @@ export interface components {
                 title?: string;
                 targetMinutes?: number;
                 actualMinutes?: number;
+                waitStartedAt?: string;
                 ageHours?: number;
                 escalated?: boolean;
                 actor?: {
@@ -632,6 +642,8 @@ export interface components {
             resolutionMinutes: number | null;
             resolutionHours: number | null;
             isCustom: boolean;
+            firstResponseIsCustom: boolean;
+            resolutionIsCustom: boolean;
         };
         SlaBreaches: {
             total: number;

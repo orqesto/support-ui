@@ -10,7 +10,11 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Linter } from 'eslint';
 import tseslint from 'typescript-eslint';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Every test spawns node (and git) on a temp tree: ~1-3 s each alone, past the 5 s default under a
+// loaded full run (it timed out on full runs 2026-11-19 while passing 44/44 alone).
+vi.setConfig({ testTimeout: 30_000 });
 import noUpwardImports from '../../eslint/no-upward-imports.js';
 import apiOnlyFeatures, { API_ONLY_FEATURES } from '../../eslint/api-only-features.js';
 

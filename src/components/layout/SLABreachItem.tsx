@@ -3,7 +3,8 @@ import { AlertTriangle, Clock, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { type SLABreachNotification } from '@/hooks/useSLANotifications';
-import { formatBreachAmount } from '@/components/layout/notificationFormat';
+import { formatBreachAmount, minutesOver } from '@/components/layout/notificationFormat';
+import { useNow } from '@/hooks/useNow';
 
 /**
  * ⚠️ The default arm is load-bearing, not defensive padding. The bell's kind filter is
@@ -41,6 +42,8 @@ export const SLABreachItem = ({
   notification: SLABreachNotification;
   onDismiss: (id: number) => void;
 }) => {
+  // The minutes over keep growing while the bell is open (the server no longer rewrites the row).
+  const now = useNow(60_000);
   const isCritical = notification.severity === 'critical';
   // `slack_connection_broken`: the whole connection (token revoked) or one channel (bot removed,
   // channel archived) stopped working. Not a breach — no overrun, no SLA target — and the fix is
@@ -77,7 +80,7 @@ export const SLABreachItem = ({
                   isCritical ? 'text-destructive' : 'text-warning'
                 )}
               >
-                {formatBreachAmount(notification.breachAmount)}
+                {formatBreachAmount(minutesOver(notification, now))}
               </span>
             )}
             <Button

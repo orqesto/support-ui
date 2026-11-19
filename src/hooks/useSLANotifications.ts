@@ -42,6 +42,8 @@ export type SLABreachNotification = {
     title?: string;
     targetMinutes?: number;
     actualMinutes?: number;
+    /** When the breached wait started (ISO); the bell counts the minutes from it (minutesOver). */
+    waitStartedAt?: string;
   };
   createdAt: string;
   receivedAt: number;
@@ -88,20 +90,25 @@ export const matchesPrefs = (
   // Effective lines (new settings API): a kind switched OFF never matches. Absent lines (old
   // backend) leave the legacy flags below as the only rule.
   const kind =
-    breach.type === 'message' || breach.type === 'message_resolution' || breach.type === 'conversation'
+    breach.type === 'message' ||
+    breach.type === 'message_resolution' ||
+    breach.type === 'conversation'
       ? 'sla_message_breach'
       : breach.type === 'ticket_first_response'
         ? 'sla_ticket_first_response'
         : breach.type === 'ticket_resolution'
           ? 'sla_ticket_resolution'
           : null;
-  if (kind && lines?.some((entry) => entry.key === `kind:${kind}` && entry.value === false)) return false;
+  if (kind && lines?.some((entry) => entry.key === `kind:${kind}` && entry.value === false))
+    return false;
   if (prefs.minSeverity === 'critical' && breach.severity !== 'critical') return false;
   // A thread breach arrives as `message` or (newer backend) `conversation`; a ticket breach by its
   // kind, or as a plain `ticket` — muted only when both ticket kinds are off.
   // `message_resolution` (backend 0238): the thread's resolution clock, under the same thread line.
   const isThread =
-    breach.type === 'message' || breach.type === 'message_resolution' || breach.type === 'conversation';
+    breach.type === 'message' ||
+    breach.type === 'message_resolution' ||
+    breach.type === 'conversation';
   if (isThread && !prefs.notifyMessages) return false;
   if (breach.type === 'ticket_first_response' && !prefs.notifyTicketFirstResponse) return false;
   if (breach.type === 'ticket_resolution' && !prefs.notifyTicketResolution) return false;
@@ -294,11 +301,7 @@ export const useSLANotifications = () => {
     // Shared and held for a minute: Layout mounts this on every navigation (see sharedFetch).
     let cancelled = false;
     setOnlyMineNotice(null);
-    sharedFetch(
-      notificationPrefsFetchKey(orgKey),
-      () => fetchNotificationSettings(),
-      60_000
-    )
+    sharedFetch(notificationPrefsFetchKey(orgKey), () => fetchNotificationSettings(), 60_000)
       .then((settings: NotificationSettings) => {
         if (cancelled) return;
         // Old backend: the service already fell back to the legacy GET (same fields as before).
@@ -348,7 +351,8 @@ export const useSLANotifications = () => {
   // Saved settings change which rows this section may count (a kind off, only mine): re-read.
   useEffect(() => {
     window.addEventListener(NOTIFICATION_SETTINGS_CHANGED_EVENT, fetchNotifications);
-    return () => window.removeEventListener(NOTIFICATION_SETTINGS_CHANGED_EVENT, fetchNotifications);
+    return () =>
+      window.removeEventListener(NOTIFICATION_SETTINGS_CHANGED_EVENT, fetchNotifications);
   }, [fetchNotifications]);
 
   useEffect(() => {
