@@ -400,6 +400,8 @@ export const useSLANotifications = () => {
                 ...existing,
                 severity: breach.severity,
                 breachAmount: breach.breachAmount,
+                // The escalated row's own details: its wait start may differ (a new wait).
+                details: breach.details ?? existing.details,
                 receivedAt: Date.now(),
                 isRead: false,
               }
