@@ -10,6 +10,8 @@ import { clearAllUnsentDrafts } from '@/lib/unsentDrafts';
 import { forgetAllOpenTabs } from '@/lib/openTabsStorage';
 import { clearSessionCaches } from '@/lib/sessionCaches';
 import { pinTabWorkspace, readTabWorkspace, writeTabWorkspace } from '@/lib/tabWorkspace';
+import { watchCrossTabIdentity } from '@/lib/crossTabIdentity';
+import { ownPhotoChanged } from '@/lib/ownPhotoSignal';
 
 type AuthState = {
   user: User | null;
@@ -22,6 +24,9 @@ type AuthState = {
   setUser: (user: User) => void;
 };
 
+/** Who signed in last in this tab, across a sign-out (logout sets the user to null). */
+let lastSignedInId: number | null = null;
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -33,7 +38,11 @@ export const useAuthStore = create<AuthState>()(
       selectedOrganizationId: readTabWorkspace(),
 
       login: (token: string | null, user: User) => {
+        const previousId = get().user?.id ?? lastSignedInId;
         set({ token, user, isAuthenticated: true });
+        // A different person: the cached lists show the previous person's view — drop them.
+        if (previousId !== null && previousId !== user.id) ownPhotoChanged();
+        lastSignedInId = user.id;
       },
 
       logout: () => {
@@ -112,3 +121,12 @@ useAuthStore.subscribe((state, prev) => {
     writeTabWorkspace(state.selectedOrganizationId);
   }
 });
+
+// Another tab signed out or in as someone else: reload, so this tab re-reads the login and every
+// list fresh instead of showing (and acting as) the previous person (crossTabIdentity.ts).
+if (typeof window !== 'undefined') {
+  watchCrossTabIdentity(
+    () => useAuthStore.getState().user?.id ?? null,
+    () => window.location.reload()
+  );
+}
