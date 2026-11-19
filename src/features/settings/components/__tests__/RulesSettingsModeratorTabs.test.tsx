@@ -7,7 +7,6 @@
 import { vi, describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 
 let mockUser: { id: number; role: string; organizationRole?: string } | null = null;
 
@@ -40,7 +39,7 @@ import { RulesSettings } from '@/features/settings/components/RulesSettings';
 const renderAs = (organizationRole: string, section?: string) => {
   mockUser = { id: 1, role: 'user', organizationRole };
   return render(
-    <MemoryRouter future={ROUTER_FUTURE}>
+    <MemoryRouter>
       <RulesSettings section={section} />
     </MemoryRouter>
   );

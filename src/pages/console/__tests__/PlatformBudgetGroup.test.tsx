@@ -6,7 +6,6 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { chooseOption } from '@/test/chooseOption';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import type {
   BudgetState,
   BudgetStateResult,
@@ -161,7 +160,6 @@ const renderGroup = () => {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter
-        future={ROUTER_FUTURE}
         initialEntries={['/console/platform/ai-spend/groups/a%3A7']}
       >
         <Routes>
@@ -547,7 +545,7 @@ describe('BudgetGroupView, organisation mode', () => {
       canEdit: { budget: false, bulk: true, workspaceLimits: true, grant: false, mode: false },
     });
     render(
-      <MemoryRouter future={ROUTER_FUTURE}>
+      <MemoryRouter>
         <BudgetGroupView detail={view} canEdit={view.canEdit} mode="organisation" />
       </MemoryRouter>
     );
@@ -567,7 +565,7 @@ describe('BudgetGroupView, organisation mode', () => {
       canEdit: { budget: true, bulk: true, workspaceLimits: true, grant: true, mode: false },
     });
     render(
-      <MemoryRouter future={ROUTER_FUTURE}>
+      <MemoryRouter>
         <BudgetGroupView detail={view} canEdit={view.canEdit} mode="organisation" />
       </MemoryRouter>
     );

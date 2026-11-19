@@ -7,7 +7,6 @@ import { vi, describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 
 const api = vi.hoisted(() => ({ get: vi.fn() }));
 
@@ -70,7 +69,7 @@ const renderPage = () => {
   );
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/threads/42']} future={ROUTER_FUTURE}>
+      <MemoryRouter initialEntries={['/threads/42']}>
         <GoTo />
         <Routes>
           <Route path="/threads/:id" element={<MessageDetailPage />} />

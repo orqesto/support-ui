@@ -26,7 +26,8 @@ describe('New unassigned threads setting (#957 §3.6)', () => {
     get.mockResolvedValue({ data: { data: { minSeverity: 'warning' } } });
     render(<NotificationPreferencesSettings />);
     await waitFor(() => expect(get).toHaveBeenCalled());
-    expect(toggle().getAttribute('aria-checked')).toBe('true');
+    // Waits for the row: under a loaded run the GET has resolved but the spinner is still up.
+    await waitFor(() => expect(toggle().getAttribute('aria-checked')).toBe('true'));
   });
 
   it('reads a stored OFF', async () => {

@@ -5,7 +5,6 @@
  */
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { isInactive } from '@/test/inactive';
 
@@ -40,7 +39,7 @@ const user = { id: 7, email: 'ann@acme.test', organizationId: 40 };
 
 const renderAt = (path: string, element: React.ReactNode) =>
   render(
-    <MemoryRouter future={ROUTER_FUTURE} initialEntries={[path]}>
+    <MemoryRouter initialEntries={[path]}>
       <Routes>
         <Route path={path.split('#')[0]} element={element} />
         <Route path="/dashboard" element={<div>DASHBOARD</div>} />

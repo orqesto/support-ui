@@ -3,7 +3,6 @@ import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 
 /**
  * The full-page message route has to offer the same reclassification actions as
@@ -77,7 +76,7 @@ import { MessageDetailPage } from '@/pages/MessageDetailPage';
 const renderPage = () =>
   render(
     <QueryClientProvider client={new QueryClient()}>
-      <MemoryRouter initialEntries={['/threads/42']} future={ROUTER_FUTURE}>
+      <MemoryRouter initialEntries={['/threads/42']}>
         <Routes>
           <Route path="/threads/:id" element={<MessageDetailPage />} />
         </Routes>

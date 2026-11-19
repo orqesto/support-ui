@@ -6,7 +6,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation, useParams } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import {
   LEGACY_ROUTE,
   LegacyAllianceConsoleRedirect,
@@ -23,7 +22,7 @@ const Landed = () => {
 
 const renderAt = (entry: string) =>
   render(
-    <MemoryRouter initialEntries={[entry]} future={ROUTER_FUTURE}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path={LEGACY_ROUTE} element={<LegacyAllianceConsoleRedirect />} />
         <Route path={ROUTE} element={<Landed />}>

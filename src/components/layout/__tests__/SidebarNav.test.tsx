@@ -1,13 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { MemoryRouter, NavLink } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { useSidebarStore } from '@/stores/sidebarStore';
 import { NavTip, SidebarCollapseToggle } from '../SidebarNav';
 
 const renderNav = () =>
   render(
-    <MemoryRouter future={ROUTER_FUTURE}>
+    <MemoryRouter>
       <SidebarCollapseToggle />
       <NavTip label="Messages">
         <NavLink to="/threads" data-testid="link">

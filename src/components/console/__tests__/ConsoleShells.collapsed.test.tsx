@@ -1,7 +1,6 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { useSidebarStore } from '@/stores/sidebarStore';
 
 /**
@@ -33,7 +32,7 @@ const { WorkspaceShell } = await import('../WorkspaceShell');
 
 const renderPlatform = () =>
   render(
-    <MemoryRouter initialEntries={['/console/platform']} future={ROUTER_FUTURE}>
+    <MemoryRouter initialEntries={['/console/platform']}>
       <Routes>
         <Route path="/console/platform/*" element={<AdminShell scope="platform" />} />
       </Routes>
@@ -41,7 +40,7 @@ const renderPlatform = () =>
   );
 const renderWorkspace = () =>
   render(
-    <MemoryRouter initialEntries={['/console/workspace/42']} future={ROUTER_FUTURE}>
+    <MemoryRouter initialEntries={['/console/workspace/42']}>
       <Routes>
         <Route path="/console/workspace/:orgId/*" element={<WorkspaceShell />} />
       </Routes>

@@ -1,7 +1,6 @@
 import { render, screen, cleanup } from '@testing-library/react';
 import { vi, describe, it, expect, afterEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 
 /**
  * The gate is what catches a direct hit on a switched-off surface — a bookmark, a shared
@@ -26,7 +25,7 @@ const { FeatureGate } = await import('../FeatureGate');
 
 const renderGate = () =>
   render(
-    <MemoryRouter future={ROUTER_FUTURE}>
+    <MemoryRouter>
       <FeatureGate flag="ui.billing_intelligence" title="Billing Intelligence">
         <div>the real page</div>
       </FeatureGate>

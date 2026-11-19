@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
+import type { NavigateFunction } from 'react-router-dom';
 import type * as LearningServiceModule from '@/services/learning.service';
 
 const rows = vi.hoisted(() => ({ list: [] as unknown[], loads: 0, canAct: true, canRoute: true }));
@@ -161,7 +162,7 @@ describe('Learning activity', () => {
 
   it('a new ?focus=<id> while mounted (8 to 9) opens and scrolls row 9', async () => {
     rows.list = [conflict(8), conflict(9)];
-    let go: (to: string) => void = () => {};
+    let go: NavigateFunction = () => {};
     const Nav = () => {
       go = useNavigate();
       return null;

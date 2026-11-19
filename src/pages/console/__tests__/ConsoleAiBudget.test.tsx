@@ -8,7 +8,6 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { chooseOption } from '@/test/chooseOption';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import type { BudgetsInactive, GroupDetail, WorkspaceRow } from '@/features/subscription';
 
 const MLN = 1_000_000;
@@ -103,7 +102,7 @@ const renderPage = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter future={ROUTER_FUTURE} initialEntries={['/console/alliance/7/ai-budget']}>
+      <MemoryRouter initialEntries={['/console/alliance/7/ai-budget']}>
         <Routes>
           <Route path="/console/alliance/:allianceId/ai-budget" element={<ConsoleAiBudget />} />
         </Routes>

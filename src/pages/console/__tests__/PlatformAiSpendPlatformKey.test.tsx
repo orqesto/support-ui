@@ -8,7 +8,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import type { ManagedAiTierStat, ManagedAiUsageResult } from '@/services/managedAiUsage.service';
 
 const get = vi.fn();
@@ -70,7 +69,7 @@ const renderPage = () =>
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <MemoryRouter future={ROUTER_FUTURE}>
+      <MemoryRouter>
         <PlatformAiSpend />
       </MemoryRouter>
     </QueryClientProvider>

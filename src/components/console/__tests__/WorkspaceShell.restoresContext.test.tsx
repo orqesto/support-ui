@@ -10,7 +10,6 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, act, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, Link } from 'react-router-dom';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 
 vi.mock('@/stores/authStore', async () => {
   const { create } = await import('zustand');
@@ -46,7 +45,7 @@ const selected = () => useAuthStore.getState().selectedOrganizationId;
 
 const renderAt = (orgId: string) =>
   render(
-    <MemoryRouter initialEntries={[`/console/workspace/${orgId}`]} future={ROUTER_FUTURE}>
+    <MemoryRouter initialEntries={[`/console/workspace/${orgId}`]}>
       <Routes>
         <Route path="/console/workspace/:orgId" element={<WorkspaceShell />} />
       </Routes>
@@ -77,7 +76,7 @@ describe('WorkspaceShell — the org context is borrowed, not moved', () => {
     // A child route with a link to another workspace, rendered through the shell's Outlet.
     const Jump = () => <Link to="/console/workspace/43">next workspace</Link>;
     const view = render(
-      <MemoryRouter initialEntries={['/console/workspace/42']} future={ROUTER_FUTURE}>
+      <MemoryRouter initialEntries={['/console/workspace/42']}>
         <Routes>
           <Route path="/console/workspace/:orgId" element={<WorkspaceShell />}>
             <Route index element={<Jump />} />

@@ -2,7 +2,6 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { DatabaseBanner, databaseBannerContent } from '../DatabaseBanner';
-import { ROUTER_FUTURE } from '@/test/routerFuture';
 import { useAuthStore } from '@/stores/authStore';
 import { useDatabaseStatusStore } from '@/stores/databaseStatusStore';
 import { useOnboardingStore } from '@/stores/onboardingStore';
@@ -91,7 +90,7 @@ describe('DatabaseBanner', () => {
       database: { managedAllowed: false, current: display({ sharedRetentionUntil: new Date(Date.now() + 20 * DAY).toISOString() }) },
     });
     render(
-      <MemoryRouter future={ROUTER_FUTURE}>
+      <MemoryRouter>
         <DatabaseBanner />
       </MemoryRouter>
     );
