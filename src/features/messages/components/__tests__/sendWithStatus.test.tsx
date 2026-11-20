@@ -49,6 +49,8 @@ describe('Send ▾ on an active thread', () => {
     ).toEqual(['Send', 'Send and resolve', 'Send, resolve & save to KB', 'Send and put on hold']);
     fireEvent.click(within(menu).getByRole('menuitemcheckbox', { name: 'Send' }));
     await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(1));
+    // CONTROL: a plain Send asks for no KB save.
+    expect(vi.mocked(svc.message.reply).mock.calls[0].at(-1)).toBe(false);
     expect(replyResolveFlag()).toBe(false);
     expect(svc.message.close).not.toHaveBeenCalled();
     expect(svc.message.setStatus).not.toHaveBeenCalled();
@@ -72,6 +74,12 @@ describe('Send ▾ on an active thread', () => {
     pick('Send, resolve & save to KB');
     await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(1));
     expect(replyResolveFlag()).toBe(true);
+    // The reply says it in its own field, the last argument: `resolve` alone only resolves, and
+    // until 2026-11-20 that was all this option sent (nothing reached the KB review).
+    const sent = vi.mocked(svc.message.reply).mock.calls[0];
+    expect(sent[2]).toBe(true);
+    expect(sent.at(-1)).toBe(true);
+    expect(sent).toHaveLength(12);
     expect(svc.message.resolve).not.toHaveBeenCalled();
     expect(svc.message.close).not.toHaveBeenCalled();
   });
