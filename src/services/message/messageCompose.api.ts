@@ -33,7 +33,13 @@ export const messageComposeApi = {
     whatsappTemplate?: WhatsAppTemplateSend,
     recipients?: ReplyRecipients,
     assign?: ReplyAssignIntent,
-    collision?: ReplyCollision
+    collision?: ReplyCollision,
+    /**
+     * "Send, resolve & save to KB": with `resolve`, the server also captures the thread for the
+     * knowledge base, as the "Resolve & Save to KB" button does. Its own field — `resolve` alone
+     * only resolves, and until 2026-11-20 that was all this option sent.
+     */
+    saveToKb = false
   ) => {
     const response = await apiClient.post<ApiResponse<void>>(`/api/messages/${id}/reply`, {
       // The agent's answer to the ownership prompt; omitted when nothing was asked.
@@ -42,6 +48,7 @@ export const messageComposeApi = {
       // approved template, and a body we invented here would not be what Meta delivers.
       ...(!whatsappTemplate && { content }),
       resolve,
+      ...(saveToKb && { saveToKb: true }),
       usedSuggestedAnswer,
       ...(suggestedAnswerSource && { suggestedAnswerSource }),
       ...(idempotencyKey && { idempotencyKey }),
@@ -92,12 +99,15 @@ export const messageComposeApi = {
     aiDraft?: AiDraft,
     recipients?: ReplyRecipients,
     assign?: ReplyAssignIntent,
-    collision?: ReplyCollision
+    collision?: ReplyCollision,
+    /** "Send, resolve & save to KB" — see `reply`. */
+    saveToKb = false
   ) => {
     const formData = new FormData();
     formData.append('content', content);
     if (assign) formData.append('assign', assign);
     formData.append('resolve', String(resolve));
+    if (saveToKb) formData.append('saveToKb', 'true');
     formData.append('usedSuggestedAnswer', String(usedSuggestedAnswer));
     if (suggestedAnswerSource) formData.append('suggestedAnswerSource', suggestedAnswerSource);
     if (idempotencyKey) formData.append('idempotencyKey', idempotencyKey);

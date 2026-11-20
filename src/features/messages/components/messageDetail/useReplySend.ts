@@ -118,8 +118,9 @@ export function useReplySend({
       // Undefined unless the agent actually addressed this reply somewhere, which
       // the BE reads as "the requester and nobody else".
       const recipients = supportsRecipients ? draftToRecipients(recipientDraft) : undefined;
-      // Send ▾: "Send, resolve & save to KB" rides on the reply itself — the server resolves and
-      // captures the Q&A in the reply's own transaction, and reverts both if delivery fails.
+      // Send ▾: "Send, resolve & save to KB" rides on the reply itself — the server resolves in the
+      // reply's own transaction (reverted if delivery fails) and, told by `saveToKb`, captures the
+      // thread for the knowledge base in the background once the reply is out.
       // The other choices run after the reply is out.
       const after = afterSendRef.current;
       afterSendRef.current = { action: 'send' };
@@ -172,7 +173,8 @@ export function useReplySend({
             aiDraft ?? undefined,
             recipients,
             assign,
-            guard
+            guard,
+            resolveInSend
           );
         } else {
           await messageService.reply(
@@ -186,7 +188,8 @@ export function useReplySend({
             undefined,
             recipients,
             assign,
-            guard
+            guard,
+            resolveInSend
           );
         }
         // success — the next reply is a new logical send
@@ -218,8 +221,12 @@ export function useReplySend({
         // A sent reply (not an internal note) flips the conversation to Pending —
         // move the board card optimistically before the heavier onRefresh reconcile.
         if (composerMode !== 'note') onReplied?.();
-        if (resolveInSend) onResolve?.();
-        else if (composerMode !== 'note' && after.action !== 'send') {
+        if (resolveInSend) {
+          // The capture runs in the background and lands on the thread's activity; without a word
+          // here the agent cannot tell this send from a plain "Send and resolve".
+          toast.success('Sent and resolved. Saving this thread to the knowledge base for review.');
+          onResolve?.();
+        } else if (composerMode !== 'note' && after.action !== 'send') {
           try {
             if (after.action === 'resolve') await messageService.close(message.id);
             else if (after.action === 'hold' && after.hold) {
