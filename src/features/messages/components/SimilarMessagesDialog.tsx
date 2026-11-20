@@ -71,6 +71,9 @@ const NO_ANSWER_COPY: Record<string, string> = {
   // An admin's choice, not a gap or a fault: the matches below are the whole answer by design.
   'ai-drafts-off':
     'AI drafts are switched off for this workspace, so no reply was written. These are the knowledge-base matches.',
+  // The customer only thanked us (the stored verdict): nothing to answer unless the agent wants to.
+  'no-reply-needed':
+    'No reply needed — the customer only said thanks, so no reply was written. Type what you want to say in the reply and press AI draft.',
   default: 'No reply was drafted for this message.',
 };
 

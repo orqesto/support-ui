@@ -94,7 +94,9 @@ export const messageAiApi = {
           | 'poorly-grounded'
           | 'search-failed'
           /** The workspace switched AI drafts off: search results only, by the admin's choice. */
-          | 'ai-drafts-off';
+          | 'ai-drafts-off'
+          /** The customer only said thanks (the stored verdict): search results only. */
+          | 'no-reply-needed';
       }>
     >(`/api/messages/${id}/suggested-answer`);
     return response.data;

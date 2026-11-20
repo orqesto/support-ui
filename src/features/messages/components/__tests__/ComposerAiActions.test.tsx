@@ -370,6 +370,27 @@ describe('ComposerAiActions — the editor is the only input', () => {
       expect((await screen.findByRole('alert')).textContent).toMatch(/unavailable/);
     });
 
+    // The customer only said thanks (owner 2026-11-20): the owner's sentence, nothing written,
+    // no Undo / Try again left behind, and not read as "no customer message" (no polish retry).
+    it('the customer only said thanks (409 NO_REPLY_NEEDED): the owner’s sentence, editor untouched', async () => {
+      composeReply.mockRejectedValue(
+        await apiError(409, {
+          code: 'NO_REPLY_NEEDED',
+          error: 'No reply needed — the customer only said thanks.',
+        })
+      );
+      render(<Host initial="" />);
+      pressDraft();
+      expect((await screen.findByRole('alert')).textContent).toBe(
+        'No reply needed — the customer only said thanks. Type what you want to say, then press AI draft.'
+      );
+      expect(composerNow).toBe('');
+      expect(composeReply).toHaveBeenCalledTimes(1);
+      expect(onApplied).not.toHaveBeenCalled();
+      expect(screen.queryByRole('button', { name: /undo/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /try again/i })).toBeNull();
+    });
+
     it('drafts switched off mid-session (409 AI_DRAFTS_OFF): re-reads the setting', async () => {
       composeReply.mockRejectedValue(
         await apiError(409, { code: 'AI_DRAFTS_OFF', error: 'AI drafts are switched off.' })

@@ -81,6 +81,19 @@ describe('SimilarMessagesDialog — AI drafts off', () => {
   it arrives with aiConfigured: false and shows the connect-a-provider banner instead.
 */
 describe('SimilarMessagesDialog — every no-draft reason has its own text', () => {
+  // The customer only said thanks (owner 2026-11-20): the matches, the owner's sentence, and no
+  // written answer to put into the reply.
+  it('no reply needed: says the customer only said thanks, shows the matches, offers no answer', async () => {
+    respond({ reason: 'no-reply-needed' });
+    renderDialog();
+    expect(
+      await screen.findByText(/No reply needed — the customer only said thanks/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/No reply was drafted for this message\./i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/reset your password/i).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: /Use (AI|Original|Translated) Response/i })).toBeNull();
+  });
+
   it('a draft rejected as poorly grounded says the KB did not cover it, not "no reply was drafted"', async () => {
     respond({ reason: 'poorly-grounded' });
     renderDialog();
