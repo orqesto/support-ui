@@ -15,6 +15,8 @@ import {
   getApiErrorMessage,
   getErrorStatus,
   isAiDraftsOffError,
+  isNoReplyNeededError,
+  NO_REPLY_NEEDED_MESSAGE,
 } from '@/lib/errorMessages';
 import { useAiRefusalText } from '@/features/subscription/shell';
 import { messageService, type AiDraft } from '@/services/message.service';
@@ -74,10 +76,13 @@ export const MAX_INSTRUCTIONS = 2000;
 /** The backend's MAX_DRAFT_CHARS for `polish`. */
 const MAX_DRAFT = 8000;
 
-/** The only 409 compose-reply issues on generate/guided: the thread has no inbound turn to answer. */
+/**
+ * compose-reply's 409 with no code: the thread has no inbound turn to answer. The coded 409s are
+ * "AI drafts off" and "no reply needed" (the customer only said thanks), each told apart by code.
+ */
 const NO_INBOUND_GUIDANCE = 'Write the reply yourself in the editor, then press AI draft.';
 const isNoInbound = (err: unknown): boolean =>
-  getErrorStatus(err) === 409 && !isAiDraftsOffError(err);
+  getErrorStatus(err) === 409 && !isAiDraftsOffError(err) && !isNoReplyNeededError(err);
 
 /** What the last applied draft was made from — "Try again" re-asks with exactly this. */
 type Applied = {
@@ -153,6 +158,8 @@ export function ComposerAiActions({
   const describeError = (err: unknown): string => {
     const status = getErrorStatus(err);
     if (isAiDraftsOffError(err)) return AI_DRAFTS_OFF_MESSAGE;
+    // The customer only said thanks: nothing drafted, the editor untouched (owner 2026-11-20).
+    if (isNoReplyNeededError(err)) return NO_REPLY_NEEDED_MESSAGE;
     // An AI refusal (no provider, used-up starter allowance, not in plan, paused, rate limited) —
     // in the viewer's words: an agent is never sent to Settings.
     const refusal = refusalText(err);
