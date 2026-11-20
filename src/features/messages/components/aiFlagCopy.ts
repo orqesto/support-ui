@@ -27,6 +27,8 @@ export const NEEDS_REVIEW_REASON_LABELS: Record<string, string> = {
   // Per-question retrieval (2026-11-16): the AI could answer only some of the questions.
   partial_answer: "AI couldn't answer every question",
   follow_up_needed: 'Follow-up needed',
+  // The reply check could not run on an automatic reply, so it was held (2026-11-20).
+  reply_unchecked: 'Reply not checked',
 };
 
 /** A longer explanation where the UI has room for one (the tooltip); the label otherwise. */
@@ -36,6 +38,8 @@ export const NEEDS_REVIEW_REASON_DETAILS: Record<string, string> = {
   partial_answer: 'The AI could not answer every question, so nothing was sent – see the note',
   follow_up_needed:
     'The AI answered part and told the customer a colleague will follow up – see the note',
+  reply_unchecked:
+    'The AI wrote a reply, but the check that it answers the question could not run, so nothing was sent',
 };
 
 export const NEEDS_REVIEW_LABEL = 'Needs review';
@@ -49,10 +53,16 @@ export const FLOOD_REVIEW_REASON = 'flood';
 
 /**
  * The review reasons that name themselves on the chip and in the thread header: the flood hold,
- * and the AI auto-reply's partial answers (2026-11-16) — the agent must see that a follow-up is
+ * the AI auto-reply's partial answers (2026-11-16), and a reply held because its check could not
+ * run (2026-11-20) — the agent must see that a follow-up is
  * owed without opening a tooltip. Any other reason keeps the plain "Needs review".
  */
-export const NAMED_REVIEW_REASONS = ['flood', 'partial_answer', 'follow_up_needed'] as const;
+export const NAMED_REVIEW_REASONS = [
+  'flood',
+  'partial_answer',
+  'follow_up_needed',
+  'reply_unchecked',
+] as const;
 export type NamedReviewReason = (typeof NAMED_REVIEW_REASONS)[number];
 
 export const namedReviewReason = (
