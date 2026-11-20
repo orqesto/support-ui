@@ -411,10 +411,16 @@ const renderEmptyBubble = (
   );
 
 describe('thread — no draft for a thank-you', () => {
-  it('says why instead of "No suggestion found", and still points at the KB button', () => {
+  // The KB dialog and AI draft from an empty editor write nothing for such an email (owner
+  // 2026-11-20): the note points at typing + AI draft, never at the KB button.
+  it('says why instead of "No suggestion found", and points at typing + AI draft, not the KB button', () => {
     renderEmptyBubble(true);
-    expect(screen.getByText(/No reply needed/)).toBeInTheDocument();
-    expect(screen.getByText('KB')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'No reply needed — the customer only thanked or confirmed. To reply anyway, type what you want to say and press AI draft.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText('KB')).not.toBeInTheDocument();
     expect(screen.queryByText(/No suggestion found/)).not.toBeInTheDocument();
     expect(screen.queryByText(/still writes|by hand/)).not.toBeInTheDocument();
   });
@@ -435,8 +441,9 @@ describe('thread — no draft for a thank-you', () => {
     expect(screen.getByText(/No reply needed/)).toBeInTheDocument();
   });
 
-  it('CONTROL: not marked — "No suggestion found" as before', () => {
+  it('CONTROL: not marked — "No suggestion found" and the KB button, as before', () => {
     renderEmptyBubble();
     expect(screen.getByText(/No suggestion found/)).toBeInTheDocument();
+    expect(screen.getByText('KB')).toBeInTheDocument();
   });
 });

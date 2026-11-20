@@ -28,7 +28,9 @@ type Props = {
   answered?: boolean;
   /**
    * The customer's latest email only thanked or confirmed (backend noReplyNeeded.ts): no AI draft
-   * was made on purpose — said instead of "No suggestion found" (the KB button still helps).
+   * was made on purpose — said instead of "No suggestion found". To reply anyway the agent types
+   * what they want to say and presses AI draft (owner 2026-11-20: the KB dialog and AI draft from an
+   * empty editor write nothing for such an email).
    */
   noReplyNeeded?: boolean;
   alternativeCount: number;
@@ -45,12 +47,15 @@ const emptyNote = (marked: boolean) => (
       <Sparkles className="w-3 h-3 text-ai" />
     </div>
     <div className="rounded-xl px-[13px] py-[9px] border border-dashed border-ai-line text-[11.5px] leading-relaxed text-muted-foreground">
-      {marked
-        ? 'No reply needed — the customer only thanked or confirmed. To reply anyway, use the '
-        : 'No suggestion found — use the '}
-      <BookOpen className="inline-block w-3 h-3 mx-0.5 align-[-1px]" />
-      <span className="font-mono text-[10px]">KB</span>{' '}
-      {marked ? 'button' : 'button to search manually'}
+      {marked ? (
+        'No reply needed — the customer only thanked or confirmed. To reply anyway, type what you want to say and press AI draft.'
+      ) : (
+        <>
+          {'No suggestion found — use the '}
+          <BookOpen className="inline-block w-3 h-3 mx-0.5 align-[-1px]" />
+          <span className="font-mono text-[10px]">KB</span> button to search manually
+        </>
+      )}
     </div>
   </div>
 );
