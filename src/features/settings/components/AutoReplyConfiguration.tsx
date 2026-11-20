@@ -133,7 +133,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       } catch (err) {
         if (cancelled) return;
         logger.error('Failed to load auto-reply settings:', err);
-        setError(getApiErrorMessage(err) ?? 'Failed to load auto-reply settings.');
+        setError(getApiErrorMessage(err) ?? 'Failed to load the automatic reply settings.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -184,15 +184,15 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         // that saved" confirmation.
         const field =
           patch.enabled !== undefined
-            ? `AI auto-reply ${patch.enabled ? 'enabled' : 'disabled'}`
+            ? `Automatic email replies ${patch.enabled ? 'on' : 'off'}`
             : patch.mode !== undefined
-              ? `Auto-reply: ${MODE_LABEL[patch.mode]}`
+              ? `Automatic email replies: ${MODE_LABEL[patch.mode]}`
               : patch.requestMissingInfo !== undefined
                 ? `Missing-info requests ${patch.requestMissingInfo ? 'on' : 'off'}`
                 : patch.suggestSolutions !== undefined
                   ? `Suggest-solutions ${patch.suggestSolutions ? 'on' : 'off'}`
                   : patch.highConfidenceThreshold !== undefined
-                    ? `Threshold set to ${Math.round(patch.highConfidenceThreshold * 100)}%`
+                    ? `AI reply confidence set to ${Math.round(patch.highConfidenceThreshold * 100)}%`
                     : patch.partialAnswer !== undefined
                       ? `${PARTIAL_ANSWER_TITLE}: ${PARTIAL_ANSWER_LABEL[patch.partialAnswer]}`
                       : 'Default updated';
@@ -209,7 +209,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         onShowAlert({
           open: true,
           title: 'Save failed',
-          description: 'Could not save the org-level auto-reply default.',
+          description: 'Could not save the workspace default.',
           variant: 'error',
         });
       } finally {
@@ -334,6 +334,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     <AutoReplyRulesSection
       canManage={canManage}
       autoReplyEnabled={anyAutoReplyOn}
+      teamsEnabled={teamsEnabled}
       onShowAlert={onShowAlert}
     />
   );
@@ -358,7 +359,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
               {org.autoReplyEnabled &&
                 org.autoReplyMode === 'rules_only' &&
                 ' · keyword rules only'}
-              . Only workspace admins and moderators can change auto-reply settings.
+              . Only workspace admins and moderators can change automatic reply settings.
             </p>
           </CardHeader>
         </Card>
@@ -371,7 +372,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     return (
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
-          Loading auto-reply settings…
+          Loading automatic reply settings…
         </CardContent>
       </Card>
     );
@@ -434,7 +435,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                 <div className="flex gap-2 items-center min-w-0">
                   <span className="text-sm font-semibold">Default</span>
                   <span className="text-xs text-muted-foreground">
-                    · applies to every dept unless overridden
+                    · applies to every team unless overridden
                   </span>
                 </div>
                 <div className="flex gap-3 items-center shrink-0">
@@ -655,7 +656,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                     {/* Override toggle: tri-state via two explicit choices */}
                     <div className="flex flex-wrap gap-2 items-center pt-2">
                       <span className="text-xs text-muted-foreground">
-                        Auto-reply for this team:
+                        Automatic replies for this team:
                       </span>
                       <Button
                         type="button"
@@ -842,7 +843,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       <p className="text-[10px] text-muted-foreground">
                         If a customer&apos;s email contains one of these, no keyword rule and no AI
                         answer is sent; the AI answer is saved as a suggestion for an agent. Does
-                        not apply to the missing-info email, Telegram or the chat widget.
+                        not apply to Telegram or the chat widget.
                       </p>
                       <div className="flex flex-wrap gap-1">
                         {phrases.length === 0 && (

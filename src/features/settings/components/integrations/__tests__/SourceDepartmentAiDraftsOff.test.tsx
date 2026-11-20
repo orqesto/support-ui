@@ -14,7 +14,10 @@ vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
 }));
 vi.mock('@/services/department.service', () => ({
   departmentService: {
-    getAll: () => Promise.resolve([{ id: 4, name: 'Support', active: true }]),
+    getAll: (_inactive: boolean, onTeamsMode?: (value: boolean) => void) => {
+      onTeamsMode?.(true);
+      return Promise.resolve([{ id: 4, name: 'Support', active: true }]);
+    },
   },
 }));
 vi.mock('@/services/integrations.service', () => ({
@@ -43,16 +46,48 @@ beforeEach(() => {
 });
 
 describe('SourceDepartmentEditor — AI drafts off', () => {
-  it('says the AI sends no auto-reply while drafts are off', async () => {
+  it('says the AI sends no automatic reply while drafts are off', async () => {
     renderEditor();
     expect(await screen.findByText('Automatic replies on')).toBeInTheDocument();
-    expect(screen.getByText(/the AI sends no auto-reply/i)).toBeInTheDocument();
+    expect(screen.getByText(/the AI sends no automatic reply/i)).toBeInTheDocument();
   });
 
   it('says nothing of the kind with drafts on (control)', async () => {
     aiDrafts.off = false;
     renderEditor();
     expect(await screen.findByText('Automatic replies on')).toBeInTheDocument();
-    expect(screen.queryByText(/the AI sends no auto-reply/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/the AI sends no automatic reply/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('SourceDepartmentEditor — each channel shows only its own help', () => {
+  it('mailbox: the mailbox sentence and the receipt-confirmation note, no Telegram sentence', async () => {
+    aiDrafts.off = false;
+    renderEditor();
+    expect(await screen.findByText(/^Mailbox: stops keyword rules/)).toBeInTheDocument();
+    expect(screen.getByText(/Not covered: the receipt confirmation\./)).toBeInTheDocument();
+    expect(screen.queryByText(/Telegram: stops the bot/)).not.toBeInTheDocument();
+  });
+
+  it('Telegram: the Telegram sentence only, without the email-only receipt note', async () => {
+    aiDrafts.off = false;
+    render(
+      <SourceDepartmentEditor
+        sourceId={1}
+        autoReply="telegram"
+        onClose={() => {}}
+        onSaved={() => {}}
+      />
+    );
+    expect(await screen.findByText(/^Telegram: stops the bot/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Mailbox:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/receipt confirmation/)).not.toBeInTheDocument();
+  });
+
+  it('names the panel "Teams and automatic replies" on a mailbox with teams on', async () => {
+    aiDrafts.off = false;
+    renderEditor();
+    expect(await screen.findByText('Teams and automatic replies')).toBeInTheDocument();
+    expect(screen.queryByText('Assign teams')).not.toBeInTheDocument();
   });
 });

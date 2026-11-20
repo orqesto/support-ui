@@ -79,7 +79,7 @@ describe('Learning activity', () => {
     ];
     renderIt();
     await screen.findAllByRole('button', { name: /Decide in/ });
-    for (const name of ['Knowledge Base', 'Spam Rules', 'Detection Rules', 'AI Prompts', 'Auto-Reply']) {
+    for (const name of ['Knowledge Base', 'Spam Rules', 'Detection Rules', 'AI Prompts', 'Automatic replies']) {
       expect(screen.getAllByRole('button', { name: new RegExp(`Decide in ${name}`) }).length).toBeGreaterThan(0);
     }
     expect(screen.queryByRole('button', { name: 'Accept this suggestion' })).toBeNull();

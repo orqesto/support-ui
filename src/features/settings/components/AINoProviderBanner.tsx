@@ -51,7 +51,7 @@ export const AINoProviderBanner = () => {
               Requires AI Provider
             </h4>
             <ul className="space-y-0.5 text-muted-foreground text-xs">
-              <li>• Auto-reply</li>
+              <li>• Automatic replies</li>
               <li>• Follow-up questions</li>
               <li>• Smart priority</li>
               <li>• Advanced spam detection</li>

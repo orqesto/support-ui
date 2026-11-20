@@ -50,7 +50,7 @@ export const AiDraftsSettings = () => {
           <h3 className="font-display text-sm font-medium text-foreground">AI drafts off</h3>
           <p className="mt-1 text-xs text-muted-foreground">
             Nothing a model writes reaches your customers: no drafted or polished replies in the
-            composer, no AI-written suggested replies, no draft translation, no AI auto-replies or
+            composer, no AI-written suggested replies, no draft translation, no automatic AI replies or
             follow-up emails, and the chat widget stops answering with AI — it collects the
             visitor&apos;s email and hands the chat to your people. The Telegram bot stops answering,
             commands included. Lead qualification stops too, because it writes the reply sent to the

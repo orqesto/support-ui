@@ -224,7 +224,7 @@ export const LeadQualificationSettings = () => {
             <span className="font-medium">Auto-escalate</span> enabled immediately notify your members.
           </li>
           <li>
-            <span className="font-medium">Auto-reply off?</span> — lead qualification still runs.
+            <span className="font-medium">Automatic replies off?</span> — lead qualification still runs.
             The AI's next question is queued as a suggested answer for your agent to send manually.
           </li>
         </ul>

@@ -25,12 +25,20 @@ type Props = {
   autoReply?: SourceAutoReplyKind;
 };
 
-/** What the channel's switch stops and what it does not (the backend's reply gates). */
-const SWITCH_HELP =
-  'Mailbox: stops keyword rules and AI replies for this mailbox, the AI\'s missing-info email ' +
-  'included. They also need Settings → AI → Auto-reply switched on. Telegram: stops the bot\'s ' +
-  'answers and commands; the AI Auto-reply setting does not affect the bot. Not covered: the ' +
-  'receipt confirmation.';
+/**
+ * What the channel's switch stops and what it does not (the backend's reply gates), per channel:
+ * a panel shows only its own channel's sentence. The receipt confirmation is email-only, so the
+ * "not covered" note belongs to the mailbox panel alone.
+ */
+const SWITCH_HELP: Record<Exclude<SourceAutoReplyKind, 'none'>, string> = {
+  mailbox:
+    'Mailbox: stops keyword rules and AI replies for this mailbox, the AI\'s missing-info email ' +
+    'included. They also need Settings → AI → Automatic replies switched on. Not covered: the ' +
+    'receipt confirmation.',
+  telegram:
+    'Telegram: stops the bot\'s answers and commands; the Settings → AI → Automatic replies ' +
+    'setting does not affect the bot.',
+};
 
 export const SourceDepartmentEditor = ({
   sourceId,
@@ -125,7 +133,9 @@ export const SourceDepartmentEditor = ({
         <span className="text-sm font-medium flex items-center gap-1">
           {teamsEnabled ? (
             <>
-              <Building2 className="w-3.5 h-3.5" /> Assign teams
+              {/* Only mailbox and Telegram panels hold the automatic-replies switches. */}
+              <Building2 className="w-3.5 h-3.5" />{' '}
+              {autoReply === 'none' ? 'Assign teams' : 'Teams and automatic replies'}
             </>
           ) : (
             <>
@@ -154,7 +164,7 @@ export const SourceDepartmentEditor = ({
           <p className="text-xs text-muted-foreground mb-2">
             {teamsEnabled ? 'Automatic replies per team:' : 'Automatic replies on this channel:'}
           </p>
-          <p className="text-xs text-muted-foreground mb-2">{SWITCH_HELP}</p>
+          <p className="text-xs text-muted-foreground mb-2">{SWITCH_HELP[autoReply]}</p>
           {autoReply === 'telegram' && teamsEnabled && visibleLinks.length > 1 && (
             <p className="text-xs text-muted-foreground mb-2">
               Bot commands stop only when every team is off.
@@ -162,7 +172,7 @@ export const SourceDepartmentEditor = ({
           )}
           {aiDraftsOff && (
             <p className="text-xs text-warning mb-2">
-              AI drafts are switched off for this workspace, so the AI sends no auto-reply — whatever
+              AI drafts are switched off for this workspace, so the AI sends no automatic reply — whatever
               is set here. Keyword rules with a plain prepared reply still send; rules that add a
               knowledge base answer do not. These apply again when AI drafts are switched back on.
             </p>

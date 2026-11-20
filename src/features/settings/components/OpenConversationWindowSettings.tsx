@@ -191,7 +191,7 @@ export const OpenConversationWindowSettings = () => {
               a reply of yours imported from the Sent folder does not reopen a thread or mark it as
               waiting on the customer;
             </li>
-            <li>no acknowledgment email is sent for it.</li>
+            <li>no receipt confirmation is sent for it.</li>
           </ul>
           <p>
             A customer message dated {enabled ? 'inside the window' : `in the last ${liveSpan}`}{' '}

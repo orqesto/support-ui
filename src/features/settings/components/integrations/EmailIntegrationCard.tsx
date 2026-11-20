@@ -507,8 +507,8 @@ export const EmailIntegrationCard = ({
                         variant="outline"
                         size="sm"
                         onClick={() => setEditDepts(integration.id)}
-                        title={deptPicker.teamsEnabled ? 'Assign teams' : 'Automatic replies'}
-                        aria-label={deptPicker.teamsEnabled ? 'Assign teams' : 'Automatic replies'}
+                        title={deptPicker.teamsEnabled ? 'Teams and automatic replies' : 'Automatic replies'}
+                        aria-label={deptPicker.teamsEnabled ? 'Teams and automatic replies' : 'Automatic replies'}
                       >
                         {deptPicker.teamsEnabled ? (
                           <Building2 className="w-4 h-4" />
