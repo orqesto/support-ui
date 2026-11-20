@@ -126,6 +126,18 @@ const settle = async () => {
 };
 
 describe('SLA bell: a live escalation of a row on the page', () => {
+  it("an escalation takes the escalated row's details (its wait start), not the old ones", async () => {
+    const rows = initialRows('warning');
+    slaPayload = answer(rows);
+    const { result } = await mountSla(11);
+    const details = { waitStartedAt: '2026-11-19T10:00:00.000Z', targetMinutes: 30 };
+    act(() => handlers.get('sla_breach')?.({ ...breach(1, false), severity: 'critical', details }));
+    await waitFor(() =>
+      expect(result.current.notifications.find((row) => row.id === 1)?.severity).toBe('critical')
+    );
+    expect(result.current.notifications.find((row) => row.id === 1)?.details).toEqual(details);
+  });
+
   it('run B: a delivery at the severity the hook already holds re-reads once and shows the server count', async () => {
     let rows = initialRows('critical');
     slaPayload = answer(rows);
