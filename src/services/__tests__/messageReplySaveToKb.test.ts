@@ -8,7 +8,7 @@ import { messageService } from '@/services/message.service';
 
 /**
  * "Send, resolve & save to KB" sent `resolve` alone until 2026-11-20, and the server reads that as
- * "resolve": nothing was saved for review (taco MorphoPeptides and DeusPower). The option now says
+ * "resolve": nothing was saved for review (two workspaces reported it). The option now says
  * so in its own field, on both the JSON and the attachment request.
  */
 describe('messageService reply — saveToKb', () => {
