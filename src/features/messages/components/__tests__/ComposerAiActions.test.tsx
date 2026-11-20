@@ -508,6 +508,20 @@ describe('ComposerAiActions — the editor is the only input', () => {
       expect(await screen.findByText(/acknowledges the question without answering/)).toBeTruthy();
     });
 
+    // One line for both "nothing matched" and "matches that did not answer it" (the composer is not
+    // told which): it must never claim "nothing matched" when there were matches.
+    it('generate: the acknowledgement hint is true whether or not anything matched', async () => {
+      composeReply.mockResolvedValue({ data: { text: 'We got it.', groundedInKb: false } });
+      render(<Host initial="" />);
+      pressDraft();
+      expect(
+        await screen.findByText(
+          'The knowledge base had nothing that answers this, so this acknowledges the question without answering it. Add the answer before sending.'
+        )
+      ).toBeTruthy();
+      expect(screen.queryByText(/Nothing in the knowledge base matched/)).toBeNull();
+    });
+
     it('CONTROL: a grounded draft carries no warning', async () => {
       composeReply.mockResolvedValue({ data: { text: 'Answer.', groundedInKb: true } });
       render(<Host initial="" />);

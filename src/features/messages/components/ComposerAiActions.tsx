@@ -400,7 +400,9 @@ export function ComposerAiActions({
           <p className="basis-full order-last text-[11px] text-warning">
             {applied.mode === 'guided'
               ? 'Written from what you said, not from the knowledge base — check the facts before sending.'
-              : 'Nothing in the knowledge base matched, so this acknowledges the question without answering it. Add the answer before sending.'}
+              : // True whether nothing matched or the matches did not answer it (staging 2026-11-20:
+                // two matches, neither about the question — "nothing matched" was wrong there).
+                'The knowledge base had nothing that answers this, so this acknowledges the question without answering it. Add the answer before sending.'}
           </p>
         )}
       {/* Part of the knowledge search was skipped (time limit): the draft may lack information. */}
