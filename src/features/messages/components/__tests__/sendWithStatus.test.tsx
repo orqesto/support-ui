@@ -50,6 +50,7 @@ describe('Send ▾ on an active thread', () => {
     fireEvent.click(within(menu).getByRole('menuitemcheckbox', { name: 'Send' }));
     await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(1));
     // CONTROL: a plain Send asks for no KB save.
+    expect(toast.success).not.toHaveBeenCalled();
     expect(vi.mocked(svc.message.reply).mock.calls[0].at(-1)).toBe(false);
     expect(replyResolveFlag()).toBe(false);
     expect(svc.message.close).not.toHaveBeenCalled();
@@ -80,6 +81,10 @@ describe('Send ▾ on an active thread', () => {
     expect(sent[2]).toBe(true);
     expect(sent.at(-1)).toBe(true);
     expect(sent).toHaveLength(12);
+    // The agent is told the KB save is on its way (it runs in the background).
+    expect(toast.success).toHaveBeenCalledWith(
+      'Sent and resolved. Saving this thread to the knowledge base for review.'
+    );
     expect(svc.message.resolve).not.toHaveBeenCalled();
     expect(svc.message.close).not.toHaveBeenCalled();
   });

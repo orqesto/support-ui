@@ -221,8 +221,12 @@ export function useReplySend({
         // A sent reply (not an internal note) flips the conversation to Pending —
         // move the board card optimistically before the heavier onRefresh reconcile.
         if (composerMode !== 'note') onReplied?.();
-        if (resolveInSend) onResolve?.();
-        else if (composerMode !== 'note' && after.action !== 'send') {
+        if (resolveInSend) {
+          // The capture runs in the background and lands on the thread's activity; without a word
+          // here the agent cannot tell this send from a plain "Send and resolve".
+          toast.success('Sent and resolved. Saving this thread to the knowledge base for review.');
+          onResolve?.();
+        } else if (composerMode !== 'note' && after.action !== 'send') {
           try {
             if (after.action === 'resolve') await messageService.close(message.id);
             else if (after.action === 'hold' && after.hold) {
