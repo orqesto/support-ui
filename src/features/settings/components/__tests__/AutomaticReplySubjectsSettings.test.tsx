@@ -46,7 +46,7 @@ import { apiError } from '@/test/apiError';
 const THANKS = 'Thank you for contacting Acme!';
 const RECEIVED = 'We have received your request';
 
-const subjectList = () => screen.getByRole('list', { name: 'Automatic reply subjects' });
+const subjectList = () => screen.getByRole('list', { name: 'Automated email subjects' });
 const shownSubjects = () =>
   within(subjectList())
     .getAllByRole('listitem')
@@ -175,7 +175,7 @@ describe('AutomaticReplySubjectsSettings', () => {
   });
 });
 
-describe('Workspace → Automatic Replies tab', () => {
+describe('Workspace → Automated email subjects tab', () => {
   it('a moderator can open it by deep link and reads the list', async () => {
     permissions.isOrgAdmin = false;
     getAutomaticReplySubjects.mockResolvedValue([THANKS]);
@@ -184,7 +184,7 @@ describe('Workspace → Automatic Replies tab', () => {
         <OrganizationSettings section="automatic-replies" />
       </MemoryRouter>
     );
-    expect(screen.getByText('Automatic Replies')).toBeInTheDocument();
+    expect(screen.getAllByText('Automated email subjects')).not.toHaveLength(0);
     expect(await screen.findByText(THANKS)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
   });

@@ -7,7 +7,6 @@ import {
   Trash2,
   Edit,
   Building2,
-  MessageCircleReply,
 } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker';
@@ -151,19 +150,19 @@ export const SlackIntegrationCard = ({
                         <TestTube2 className="w-4 h-4" />
                         Poke
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEditDepts(integration.id)}
-                        title={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply'}
-                        aria-label={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply'}
-                      >
-                        {deptPicker.teamsEnabled ? (
+                      {/* Teams only: nothing on this channel replies on its own, so there is no
+                        automatic-replies switch to open when teams are off. */}
+                      {deptPicker.teamsEnabled && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditDepts(integration.id)}
+                          title="Assign teams"
+                          aria-label="Assign teams"
+                        >
                           <Building2 className="w-4 h-4" />
-                        ) : (
-                          <MessageCircleReply className="w-4 h-4" />
-                        )}
-                      </Button>
+                        </Button>
+                      )}
                       <Button
                         variant="outline"
                         size="sm"
@@ -180,6 +179,7 @@ export const SlackIntegrationCard = ({
                   {editDepts === integration.id && (
                     <SourceDepartmentEditor
                       sourceId={integration.id}
+                      autoReply="none"
                       onClose={() => setEditDepts(null)}
                       onSaved={() => {
                         setEditDepts(null);

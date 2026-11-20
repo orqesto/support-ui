@@ -64,7 +64,7 @@ describe('AIProvidersSettings — cost rates', () => {
 
   it('stays out of the onboarding wizard, which renders this page without the flag', async () => {
     renderPage(false);
-    await screen.findByText(/Two kinds of auto-reply/);
+    await screen.findByText(/Two things can answer a new email on their own/);
     expect(screen.queryByText('Cost rates')).toBeNull();
   });
 });

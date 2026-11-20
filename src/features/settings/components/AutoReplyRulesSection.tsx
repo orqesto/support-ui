@@ -361,14 +361,14 @@ export const AutoReplyRulesSection = ({ canManage, autoReplyEnabled, onShowAlert
           <div className="min-w-0">
             <CardTitle className="flex gap-2 items-center">
               <Tags className="w-5 h-5" />
-              Keyword rules
+              Keyword rules (your canned replies)
             </CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
               Sends a prepared reply when a new email contains one of a rule&apos;s keywords, then
               resolves it and labels it <strong>autoReplied</strong>. A message that matches more
               than one rule gets no automatic reply at all, not even from the AI, so a keyword can
               belong to only one rule. Auto-reply switched off for a mailbox on a team (Integrations
-              → the mailbox → Auto-reply per team) stops the rules for that mailbox&apos;s mail too.
+              → the mailbox → Automatic replies per team) stops the rules for that mailbox&apos;s mail too.
             </p>
           </div>
           {canManage && !editing && (
@@ -382,7 +382,7 @@ export const AutoReplyRulesSection = ({ canManage, autoReplyEnabled, onShowAlert
       <CardContent className="space-y-3">
         {!autoReplyEnabled && (
           <Alert variant="warning">
-            Auto-reply is off, so no rule sends anything. Turn on &quot;Enable auto-reply&quot;
+            Auto-reply is off, so no rule sends anything. Turn on &quot;Automatic email replies&quot;
             above (or for a team) and the rules apply.
           </Alert>
         )}

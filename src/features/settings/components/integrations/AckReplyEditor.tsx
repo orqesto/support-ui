@@ -80,7 +80,7 @@ export const AckReplyEditor = ({
       onShowAlert({
         open: true,
         title: 'Body required',
-        description: 'Add a body before enabling acknowledgment auto-reply.',
+        description: 'Add a text before switching the receipt confirmation on.',
         variant: 'warning',
       });
       return;
@@ -105,17 +105,17 @@ export const AckReplyEditor = ({
         onShowAlert({
           open: true,
           title: 'Save failed',
-          description: 'Could not save the auto-reply template. Please try again.',
+          description: 'Could not save the receipt confirmation. Please try again.',
           variant: 'error',
         });
         return;
       }
       onShowAlert({
         open: true,
-        title: enabled ? 'Auto-reply enabled' : 'Auto-reply settings saved',
+        title: enabled ? 'Receipt confirmation on' : 'Receipt confirmation saved',
         description: enabled
           ? 'Future first-inbound messages on this source will trigger the template.'
-          : 'Auto-reply is off; no acknowledgments will be sent.',
+          : 'Off: no receipt confirmation is sent from this mailbox.',
         variant: 'success',
       });
       await onSaved();
@@ -123,7 +123,7 @@ export const AckReplyEditor = ({
       const message =
         err && typeof err === 'object' && 'message' in err
           ? String((err as { message: unknown }).message)
-          : 'Could not save the auto-reply template.';
+          : 'Could not save the receipt confirmation.';
       onShowAlert({ open: true, title: 'Save failed', description: message, variant: 'error' });
     } finally {
       setSaving(false);
@@ -134,10 +134,10 @@ export const AckReplyEditor = ({
     <div className="p-4 mt-3 space-y-4 rounded-md border bg-muted/40">
       <div className="flex justify-between items-start">
         <div>
-          <h4 className="font-display text-sm font-semibold">Acknowledgment auto-reply</h4>
+          <h4 className="font-display text-sm font-semibold">Receipt confirmation (fixed text)</h4>
           <p className="text-xs text-muted-foreground">
-            Sends once per thread, on the first inbound message. Includes a public tracking
-            link.
+            A fixed text, not AI. Sent once per thread, on the customer&apos;s first email. Includes
+            a public tracking link.
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
@@ -164,7 +164,7 @@ export const AckReplyEditor = ({
             }
           }}
         />
-        <span>Enabled</span>
+        <span>Send the receipt confirmation from this mailbox</span>
       </label>
 
       <div>

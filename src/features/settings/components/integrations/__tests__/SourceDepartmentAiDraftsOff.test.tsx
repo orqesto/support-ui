@@ -45,14 +45,14 @@ beforeEach(() => {
 describe('SourceDepartmentEditor — AI drafts off', () => {
   it('says the AI sends no auto-reply while drafts are off', async () => {
     renderEditor();
-    expect(await screen.findByText('Auto-reply on')).toBeInTheDocument();
+    expect(await screen.findByText('Automatic replies on')).toBeInTheDocument();
     expect(screen.getByText(/the AI sends no auto-reply/i)).toBeInTheDocument();
   });
 
   it('says nothing of the kind with drafts on (control)', async () => {
     aiDrafts.off = false;
     renderEditor();
-    expect(await screen.findByText('Auto-reply on')).toBeInTheDocument();
+    expect(await screen.findByText('Automatic replies on')).toBeInTheDocument();
     expect(screen.queryByText(/the AI sends no auto-reply/i)).not.toBeInTheDocument();
   });
 });

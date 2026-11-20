@@ -45,7 +45,7 @@ type SectionDef = {
 
 const ALL_SECTIONS: SectionDef[] = [
   { id: 'prompts', label: 'AI Prompts', description: 'Customize AI prompt templates' },
-  { id: 'auto-reply', label: 'Auto-Reply', description: 'When the AI replies on its own — org default + per-team overrides' },
+  { id: 'auto-reply', label: 'Auto-Reply', description: 'Keyword rules and AI replies sent by email without an agent — workspace default and per-team overrides' },
   { id: 'lead-qualification', label: 'Lead Qualification', description: 'Configure AI lead qualification for any team' },
   // Operational engine view: pending suggestions (need my action) stacked over
   // recent auto-actions (already fired, may want to undo). Trust stays its own

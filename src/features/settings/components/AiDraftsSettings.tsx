@@ -52,12 +52,14 @@ export const AiDraftsSettings = () => {
             Nothing a model writes reaches your customers: no drafted or polished replies in the
             composer, no AI-written suggested replies, no draft translation, no AI auto-replies or
             follow-up emails, and the chat widget stops answering with AI — it collects the
-            visitor&apos;s email and hands the chat to your people. Lead qualification stops too,
-            because it writes the reply sent to the lead.
+            visitor&apos;s email and hands the chat to your people. The Telegram bot stops answering,
+            commands included. Lead qualification stops too, because it writes the reply sent to the
+            lead.
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Still on: knowledge-base search, the prepared acknowledgment reply (not AI-written), and
-            internal sorting — routing, classification and spam checks still use AI.
+            Still on: knowledge-base search, the receipt confirmation (not AI-written), and internal
+            sorting — routing, classification and spam checks still use AI. Keyword rules with plain
+            text still send; rules that add a knowledge-base answer do not.
           </p>
         </div>
         <Toggle

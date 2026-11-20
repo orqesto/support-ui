@@ -11,13 +11,33 @@ import { DepartmentMultiPicker } from '@/components/shared/DepartmentMultiPicker
 import { useAiDraftsOff } from '@/features/settings/hooks/useAiDraftsOff';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
 
+/**
+ * Which channel the editor serves: its automatic-replies switch means something different on each.
+ * `none` (Slack, WhatsApp): nothing on those channels replies on its own, so the switch is hidden
+ * and only the team picker remains.
+ */
+export type SourceAutoReplyKind = 'mailbox' | 'telegram' | 'none';
+
 type Props = {
   sourceId: number;
   onClose: () => void;
   onSaved: () => void;
+  autoReply?: SourceAutoReplyKind;
 };
 
-export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) => {
+/** What the channel's switch stops and what it does not (the backend's reply gates). */
+const SWITCH_HELP =
+  'Mailbox: stops keyword rules and AI replies for this mailbox, the AI\'s missing-info email ' +
+  'included. They also need Settings → AI → Auto-reply switched on. Telegram: stops the bot\'s ' +
+  'answers and commands; the AI Auto-reply setting does not affect the bot. Not covered: the ' +
+  'receipt confirmation.';
+
+export const SourceDepartmentEditor = ({
+  sourceId,
+  onClose,
+  onSaved,
+  autoReply = 'mailbox',
+}: Props) => {
   const { off: aiDraftsOff } = useAiDraftsOff();
   const [allDepts, setAllDepts] = useState<Department[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
@@ -71,6 +91,8 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
     };
   }, [sourceId]);
 
+  const visibleLinks = links.filter((link) => selected.includes(link.departmentId));
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -107,7 +129,7 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
             </>
           ) : (
             <>
-              <MessageCircleReply className="w-3.5 h-3.5" /> Auto-reply
+              <MessageCircleReply className="w-3.5 h-3.5" /> Automatic replies
             </>
           )}
         </span>
@@ -127,11 +149,17 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
         />
       )}
 
-      {!loading && links.some((link) => selected.includes(link.departmentId)) && (
+      {!loading && autoReply !== 'none' && visibleLinks.length > 0 && (
         <div className={teamsEnabled ? 'mt-4 pt-3 border-t border-border/60' : 'mt-1'}>
           <p className="text-xs text-muted-foreground mb-2">
-            {teamsEnabled ? 'Auto-reply per team:' : 'Auto-reply for this channel:'}
+            {teamsEnabled ? 'Automatic replies per team:' : 'Automatic replies on this channel:'}
           </p>
+          <p className="text-xs text-muted-foreground mb-2">{SWITCH_HELP}</p>
+          {autoReply === 'telegram' && teamsEnabled && visibleLinks.length > 1 && (
+            <p className="text-xs text-muted-foreground mb-2">
+              Bot commands stop only when every team is off.
+            </p>
+          )}
           {aiDraftsOff && (
             <p className="text-xs text-warning mb-2">
               AI drafts are switched off for this workspace, so the AI sends no auto-reply — whatever
@@ -140,9 +168,7 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
             </p>
           )}
           <div className="flex flex-col gap-1.5">
-            {links
-              .filter((link) => selected.includes(link.departmentId))
-              .map((link) => {
+            {visibleLinks.map((link) => {
               const isToggling = togglingLinkId === link.id;
               return (
                 <div
@@ -164,8 +190,8 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
                     className="gap-1 items-center p-0 h-auto text-xs hover:text-primary hover:bg-transparent"
                     title={
                       link.autoReplyEnabled
-                        ? 'Auto-reply enabled — click to disable'
-                        : 'Auto-reply disabled — click to enable'
+                        ? 'Automatic replies on — click to switch off'
+                        : 'Automatic replies off — click to switch on'
                     }
                   >
                     {isToggling ? (
@@ -173,12 +199,12 @@ export const SourceDepartmentEditor = ({ sourceId, onClose, onSaved }: Props) =>
                     ) : link.autoReplyEnabled ? (
                       <>
                         <MessageCircleReply className="w-3.5 h-3.5 text-success" />
-                        <span className="text-success">Auto-reply on</span>
+                        <span className="text-success">Automatic replies on</span>
                       </>
                     ) : (
                       <>
                         <MessageCircleOff className="w-3.5 h-3.5 text-muted-foreground" />
-                        <span className="text-muted-foreground">Auto-reply off</span>
+                        <span className="text-muted-foreground">Automatic replies off</span>
                       </>
                     )}
                   </Button>

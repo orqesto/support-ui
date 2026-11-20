@@ -132,11 +132,15 @@ export const AutomaticReplySubjectsSettings = () => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MailCheck className="h-5 w-5" />
-          Automatic reply subjects
+          Automated email subjects
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            This list sends nothing. To set up replies that are sent automatically, go to Settings
+            → AI → Auto-reply.
+          </p>
           <p>
             Some helpdesks send their automatic &quot;Thank you for contacting us&quot; emails
             looking exactly like a real answer. List the subjects of those automatic emails here: an
@@ -149,7 +153,7 @@ export const AutomaticReplySubjectsSettings = () => {
         {subjects.length === 0 ? (
           <p className="text-sm text-muted-foreground">No subjects yet.</p>
         ) : (
-          <ul className="space-y-2" aria-label="Automatic reply subjects">
+          <ul className="space-y-2" aria-label="Automated email subjects">
             {subjects.map((subject) => (
               <li
                 key={subject}
