@@ -27,8 +27,19 @@ export const NEEDS_REVIEW_REASON_LABELS: Record<string, string> = {
   // Per-question retrieval (2026-11-16): the AI could answer only some of the questions.
   partial_answer: "AI couldn't answer every question",
   follow_up_needed: 'Follow-up needed',
-  // The reply check could not run on an automatic reply, so it was held (2026-11-20).
+  // The check on an automatic reply (an answer, a prepared reply's question, the email asking
+  // for missing details) could not run, so it was held (2026-11-20).
   reply_unchecked: 'Reply not checked',
+  // The send gate held an automatic reply (2026-11-20), one reason each. "Reply", not "draft": a
+  // held keyword-rule or bot answer leaves no draft behind.
+  restricted_topic: 'Restricted topic',
+  no_customer_request: 'Not a customer request',
+  needs_lookup_or_action: 'Needs a lookup or an action',
+  promises_follow_up: 'Reply promised a follow-up',
+  does_not_answer: 'Reply did not answer the question',
+  unsupported_by_sources: 'Reply went beyond the knowledge base',
+  not_from_knowledge: 'Reply not from the knowledge base',
+  spam_verdict: 'Spam check not cleared',
 };
 
 /** A longer explanation where the UI has room for one (the tooltip); the label otherwise. */
@@ -39,8 +50,46 @@ export const NEEDS_REVIEW_REASON_DETAILS: Record<string, string> = {
   follow_up_needed:
     'The AI answered part and told the customer a colleague will follow up – see the note',
   reply_unchecked:
-    'The AI wrote a reply, but the check that it answers the question could not run, so nothing was sent',
+    "An automatic reply was ready, but the check on it or on the customer's question could not run, so nothing was sent",
+  restricted_topic:
+    'The customer asks about a subject a person must answer (a restricted topic), so no automatic reply was sent',
+  no_customer_request:
+    'This does not read as a customer asking for something, so no automatic reply was sent',
+  needs_lookup_or_action:
+    'Answering needs someone to look something up or to do something, so no automatic reply was sent',
+  promises_follow_up:
+    'The automatic reply promised that someone would follow up, so it was not sent',
+  does_not_answer: "The automatic reply did not answer the customer's question, so it was not sent",
+  unsupported_by_sources:
+    'The automatic reply said something the knowledge base does not, so it was not sent',
+  not_from_knowledge:
+    'The reply was not written from the knowledge base (for example, it asks the customer a question), so it was not sent without a person',
+  spam_verdict: 'The spam check did not clear this email, so no automatic reply was sent',
 };
+
+/**
+ * The stored draft of an automatic reply that was handed over for sending and did not arrive
+ * (`suggestedAnswer.notSent`, 2026-11-21): said on the draft itself, so nobody takes it for sent.
+ */
+const SUGGESTION_NOT_SENT: Record<string, string> = {
+  failed: 'not sent',
+  uncertain: 'may not have been delivered',
+};
+
+/** The words for a draft's `notSent` mark; null without one, or for a mark this bundle does not know. */
+export const suggestionNotSentNote = (mark: unknown): string | null =>
+  typeof mark === 'string' && Object.prototype.hasOwnProperty.call(SUGGESTION_NOT_SENT, mark)
+    ? SUGGESTION_NOT_SENT[mark]
+    : null;
+
+/** The stored draft's pill beside "AI": "87%", "87% · not sent", "not sent", or nothing. */
+export const suggestionSublabel = (confidence: unknown, notSent: unknown): string | undefined =>
+  [
+    typeof confidence === 'number' && confidence ? `${Math.round(confidence * 100)}%` : null,
+    suggestionNotSentNote(notSent),
+  ]
+    .filter(Boolean)
+    .join(' · ') || undefined;
 
 export const NEEDS_REVIEW_LABEL = 'Needs review';
 
@@ -62,6 +111,15 @@ export const NAMED_REVIEW_REASONS = [
   'partial_answer',
   'follow_up_needed',
   'reply_unchecked',
+  // The send gate's holds (2026-11-20): the agent sees which check stopped the reply.
+  'restricted_topic',
+  'no_customer_request',
+  'needs_lookup_or_action',
+  'promises_follow_up',
+  'does_not_answer',
+  'unsupported_by_sources',
+  'not_from_knowledge',
+  'spam_verdict',
 ] as const;
 export type NamedReviewReason = (typeof NAMED_REVIEW_REASONS)[number];
 

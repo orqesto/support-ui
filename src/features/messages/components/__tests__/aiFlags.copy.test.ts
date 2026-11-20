@@ -46,7 +46,9 @@ describe('needs-review reason → words', () => {
 
   it('a reply the check could not run on (2026-11-20): its own words, nothing sent, in the tooltip', () => {
     expect(needsReviewReasonLabel('reply_unchecked')).toBe('Reply not checked');
-    expect(needsReviewTooltip('reply_unchecked')).toMatch(/could not run, so nothing was sent/);
+    expect(needsReviewTooltip('reply_unchecked')).toBe(
+      "Needs review: An automatic reply was ready, but the check on it or on the customer's question could not run, so nothing was sent"
+    );
     // Control: a held refusal keeps the send-rule words.
     expect(needsReviewReasonLabel('blocked_gate')).toBe('Held by a send rule');
   });

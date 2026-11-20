@@ -20,7 +20,13 @@ import type { ApiResponse, PaginationMeta } from '@/types';
 
 // Core org + member shapes are generated from the backend zod contract
 // (../BE-service/openapi.json). See src/types/api.ts.
-import type { Organization as ApiOrganization, OrganizationMember } from '@/types/api';
+import type {
+  AutoReplySettings,
+  AutoReplySettingsUpdate,
+  BuiltInRestrictedTopic,
+  Organization as ApiOrganization,
+  OrganizationMember,
+} from '@/types/api';
 
 export type TenantDbInfo = {
   deploymentType: 'shared' | 'dedicated' | 'external';
@@ -438,16 +444,10 @@ export const organizationService = {
   },
 
   getAutoReply: async () => {
-    const response = await apiClient.get<
-      ApiResponse<{
-        enabled: boolean;
-        mode?: AutoReplyMode;
-        requestMissingInfo: boolean;
-        suggestSolutions: boolean;
-        highConfidenceThreshold: number;
-        partialAnswer?: AutoReplyPartialAnswer;
-      }>
-    >('/api/organizations/auto-reply');
+    // The contract's AutoReplySettings; every field optional here, as an older backend sends fewer.
+    const response = await apiClient.get<ApiResponse<Partial<AutoReplySettings>>>(
+      '/api/organizations/auto-reply'
+    );
     return {
       enabled: response.data.data?.enabled ?? false,
       // 'all' unless the backend says 'rules_only' — an older backend does not send the field.
@@ -465,42 +465,35 @@ export const organizationService = {
       partialAnswer: (response.data.data?.partialAnswer === 'send_and_follow_up'
         ? 'send_and_follow_up'
         : 'hand_to_agent') as AutoReplyPartialAnswer,
+      // The workspace's own restricted topics. `null` = an older backend that does not know the
+      // setting (it would drop the field from a save without a word): the page then hides it.
+      restrictedTopics: Array.isArray(response.data.data?.restrictedTopics)
+        ? response.data.data.restrictedTopics.filter(
+            (topic): topic is string => typeof topic === 'string' && topic.trim() !== ''
+          )
+        : null,
+      // The topics every workspace has, named by the backend ({ key, label }); read-only. Empty
+      // when the backend does not send them: the page then names none of its own.
+      builtInRestrictedTopics: (Array.isArray(response.data.data?.builtInRestrictedTopics)
+        ? response.data.data.builtInRestrictedTopics
+        : []
+      ).filter(
+        (topic): topic is BuiltInRestrictedTopic =>
+          typeof topic?.key === 'string' && typeof topic.label === 'string' && topic.label !== ''
+      ),
     };
   },
 
-  updateAutoReply: async (data: {
-    enabled?: boolean;
-    /** Rules and AI (`all`), or only the keyword rules reply (`rules_only`). */
-    mode?: AutoReplyMode;
-    requestMissingInfo?: boolean;
-    suggestSolutions?: boolean;
-    highConfidenceThreshold?: number;
-    partialAnswer?: AutoReplyPartialAnswer;
-    // Wave 4 PR 7: per-dept overrides, keyed by stringified department ID.
-    // Each entry may set any subset; unset fields fall back to the org-level value.
-    departmentSettings?: Record<
-      string,
-      {
-        autoReplyEnabled?: boolean;
-        /** Absent = the workspace's mode. */
-        autoReplyMode?: AutoReplyMode;
-        autoReplyRequestMissingInfo?: boolean;
-        autoReplySuggestSolutions?: boolean;
-        autoReplyHighConfidenceThreshold?: number;
-        /** Absent = the workspace's choice. */
-        autoReplyPartialAnswer?: AutoReplyPartialAnswer;
-        escalationPhrases?: string[];
-      }
-    >;
-  }) => {
-    const response = await apiClient.patch<
-      ApiResponse<{
-        enabled: boolean;
-        requestMissingInfo: boolean;
-        suggestSolutions: boolean;
-        highConfidenceThreshold: number;
-      }>
-    >('/api/organizations/auto-reply', data);
+  /**
+   * The contract's AutoReplySettingsUpdate. `departmentSettings` (keyed by the team's id as text)
+   * REPLACES the stored map, so a caller sends every team's settings; a team's `restrictedTopics`
+   * are ADDED to the workspace's. The built-in topics are not part of a save.
+   */
+  updateAutoReply: async (data: AutoReplySettingsUpdate) => {
+    const response = await apiClient.patch<ApiResponse<AutoReplySettings>>(
+      '/api/organizations/auto-reply',
+      data
+    );
     return response.data;
   },
 

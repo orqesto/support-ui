@@ -20,6 +20,17 @@ import { Permission } from '@/types/roles';
 import { AutoReplyRulesSection } from './AutoReplyRulesSection';
 import { FeatureSuggestions } from './FeatureSuggestions';
 import {
+  BUILT_IN_NOTE,
+  BuiltInTopics,
+  RESTRICTED_TOPICS_ALSO,
+  RESTRICTED_TOPICS_HELP,
+  RESTRICTED_TOPICS_TITLE,
+  RestrictedTopicsField,
+  TopicsReadOnly,
+} from './RestrictedTopicsField';
+import { readRestrictedTopics, restrictedTopicsRefusal } from './restrictedTopics';
+import type { BuiltInRestrictedTopic } from '@/types/api';
+import {
   PARTIAL_ANSWER_LABEL,
   PARTIAL_ANSWER_TITLE,
   PartialAnswerChoice,
@@ -41,6 +52,8 @@ type Settings = {
   /** Workspace: always set once loaded. Team: absent = same as the workspace. */
   autoReplyPartialAnswer?: AutoReplyPartialAnswer;
   escalationPhrases?: string[];
+  /** Workspace: its own topics. Team: topics ADDED to the workspace's (never instead of them). */
+  restrictedTopics?: string[];
 };
 
 /** Does a team row still override anything once `rest` is what is left of it? */
@@ -68,6 +81,16 @@ const MODES: AutoReplyMode[] = ['all', 'rules_only'];
 const MODE_HELP =
   'Keyword rules only: only your keyword rules reply; the AI never sends on its own.';
 const RULES_ONLY_NOTE = 'These AI settings do not apply in "Keyword rules only".';
+
+/** What a team row says about the topics it cannot change. */
+const teamAlsoApplies = (builtInCount: number, workspaceCount: number): string => {
+  const workspace =
+    workspaceCount === 0
+      ? ''
+      : ` and the workspace's ${workspaceCount} ${workspaceCount === 1 ? 'topic' : 'topics'}`;
+  const builtIn = builtInCount > 0 ? `${builtInCount} built-in topics` : 'built-in topics';
+  return `Added to the ${builtIn}${workspace}, which always apply to this team and can only be changed in the Default row.`;
+};
 
 /** The pill look of the per-team choices, selected or not. */
 const pillClass = (selected: boolean): string =>
@@ -100,6 +123,11 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   const [savingScope, setSavingScope] = useState<'org' | number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [phraseDrafts, setPhraseDrafts] = useState<Record<string, string>>({});
+  // False until the backend returns the list: an older one does not know the setting, and a save
+  // to it would be dropped without a word — so the section is not offered at all.
+  const [topicsSupported, setTopicsSupported] = useState(false);
+  /** The topics every workspace has, as the backend names them; never part of a save. */
+  const [builtInTopics, setBuiltInTopics] = useState<BuiltInRestrictedTopic[]>([]);
 
   // Threshold is editable via a slider that triggers a save on mouse/touch up;
   // mid-drag we hold the value locally so the slider stays responsive.
@@ -123,7 +151,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           autoReplySuggestSolutions: auto.suggestSolutions,
           autoReplyHighConfidenceThreshold: auto.highConfidenceThreshold,
           autoReplyPartialAnswer: auto.partialAnswer,
+          restrictedTopics: readRestrictedTopics(auto.restrictedTopics) ?? [],
         };
+        setTopicsSupported(readRestrictedTopics(auto.restrictedTopics) !== null);
+        setBuiltInTopics(auto.builtInRestrictedTopics ?? []);
         setOrg(initialOrg);
         orgRef.current = initialOrg;
         const settings: Record<string, unknown> = orgRow.settings ?? {};
@@ -152,8 +183,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         suggestSolutions: boolean;
         highConfidenceThreshold: number;
         partialAnswer: AutoReplyPartialAnswer;
+        restrictedTopics: string[];
       }>
-    ) => {
+    ): Promise<boolean> => {
       setSavingScope('org');
       setError(null);
       // Mirror perDeptRef's pattern at the org level: write through the ref
@@ -174,6 +206,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           autoReplyHighConfidenceThreshold: patch.highConfidenceThreshold,
         }),
         ...(patch.partialAnswer !== undefined && { autoReplyPartialAnswer: patch.partialAnswer }),
+        ...(patch.restrictedTopics !== undefined && { restrictedTopics: patch.restrictedTopics }),
       };
       orgRef.current = optimistic;
       try {
@@ -195,23 +228,31 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                     ? `AI reply confidence set to ${Math.round(patch.highConfidenceThreshold * 100)}%`
                     : patch.partialAnswer !== undefined
                       ? `${PARTIAL_ANSWER_TITLE}: ${PARTIAL_ANSWER_LABEL[patch.partialAnswer]}`
-                      : 'Default updated';
+                      : patch.restrictedTopics !== undefined
+                        ? `${RESTRICTED_TOPICS_TITLE} updated`
+                        : 'Default updated';
         onShowAlert({
           open: true,
           title: 'Saved',
           description: field,
           variant: 'success',
         });
+        return true;
       } catch (err) {
         orgRef.current = previous;
         logger.error('Failed to save org auto-reply:', err);
-        setError(getApiErrorMessage(err) ?? 'Failed to save the default. Please try again.');
+        setError(
+          restrictedTopicsRefusal(err) ??
+            getApiErrorMessage(err) ??
+            'Failed to save the default. Please try again.'
+        );
         onShowAlert({
           open: true,
           title: 'Save failed',
           description: 'Could not save the workspace default.',
           variant: 'error',
         });
+        return false;
       } finally {
         setSavingScope(null);
       }
@@ -220,7 +261,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   );
 
   const saveDept = useCallback(
-    async (deptId: number, next: Settings) => {
+    async (deptId: number, next: Settings): Promise<boolean> => {
       const key = String(deptId);
       setSavingScope(deptId);
       setError(null);
@@ -233,6 +274,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       try {
         await organizationService.updateAutoReply({ departmentSettings: merged });
         setPerDept(merged);
+        return true;
       } catch (err) {
         logger.error(`Failed to save dept ${deptId} auto-reply:`, err);
         if (previous === undefined) {
@@ -242,13 +284,18 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         } else {
           perDeptRef.current = { ...perDeptRef.current, [key]: previous };
         }
-        setError(getApiErrorMessage(err) ?? 'Failed to save the override. Please try again.');
+        setError(
+          restrictedTopicsRefusal(err) ??
+            getApiErrorMessage(err) ??
+            'Failed to save the override. Please try again.'
+        );
         onShowAlert({
           open: true,
           title: 'Save failed',
           description: `Could not save the override for this team.`,
           variant: 'error',
         });
+        return false;
       } finally {
         setSavingScope(null);
       }
@@ -304,6 +351,22 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     void saveDept(deptId, rest);
   };
 
+  /**
+   * A team's own restricted topics. Built from the team's LATEST settings (the ref), so its other
+   * overrides are kept, and saved through saveDept, which sends every team's settings: the PATCH
+   * replaces the whole map. An empty list drops the key, as "Same as workspace" does.
+   */
+  const setDeptTopics = async (deptId: number, topics: string[]): Promise<boolean> => {
+    const current = perDeptRef.current[String(deptId)] ?? {};
+    const { restrictedTopics: _omit, ...rest } = current;
+    if (topics.length > 0) return saveDept(deptId, { ...rest, restrictedTopics: topics });
+    if (!hasOtherOverrides(rest)) {
+      resetDept(deptId);
+      return true;
+    }
+    return saveDept(deptId, rest);
+  };
+
   const resetDept = (deptId: number) => {
     const key = String(deptId);
     if (!perDeptRef.current[key]) return;
@@ -330,6 +393,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   const anyAutoReplyOn =
     org.autoReplyEnabled === true ||
     Object.values(perDept).some((settings) => settings?.autoReplyEnabled === true);
+  const orgTopics = org.restrictedTopics ?? [];
   const rulesSection = (
     <AutoReplyRulesSection
       canManage={canManage}
@@ -361,6 +425,26 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                 ' · keyword rules only'}
               . Only workspace admins and moderators can change automatic reply settings.
             </p>
+            {topicsSupported && (
+              <div className="mt-3 space-y-1">
+                <p className="text-xs font-medium">{RESTRICTED_TOPICS_TITLE}</p>
+                <p className="text-xs text-muted-foreground">{RESTRICTED_TOPICS_HELP}</p>
+                <TopicsReadOnly
+                  label={RESTRICTED_TOPICS_TITLE}
+                  topics={[...builtInTopics.map((topic) => topic.label), ...orgTopics]}
+                />
+                {activeDepts.map((dept) => {
+                  const own = perDept[String(dept.id)]?.restrictedTopics ?? [];
+                  if (own.length === 0) return null;
+                  return (
+                    <div key={dept.id} className="flex flex-wrap gap-1 items-center">
+                      <span className="text-xs text-muted-foreground">{dept.name} also:</span>
+                      <TopicsReadOnly label={`${dept.name} restricted topics`} topics={own} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardHeader>
         </Card>
         {rulesSection}
@@ -580,6 +664,26 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                     )}
                   </>
                 )}
+                {/* Not under the switch above: the topics also hold for the Telegram bot. */}
+                {topicsSupported && (
+                  <div className="pt-3 space-y-2 border-t">
+                    <p className="text-sm font-medium">{RESTRICTED_TOPICS_TITLE}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {RESTRICTED_TOPICS_HELP} {RESTRICTED_TOPICS_ALSO}
+                    </p>
+                    <BuiltInTopics topics={builtInTopics} />
+                    <p className="text-[10px] text-muted-foreground">{BUILT_IN_NOTE}</p>
+                    <p className="text-xs font-medium">Your workspace&apos;s topics</p>
+                    <RestrictedTopicsField
+                      label="Workspace restricted topics"
+                      topics={orgTopics}
+                      emptyText="No topics of your own yet"
+                      placeholder='e.g. "refund disputes", "requests from journalists"'
+                      disabled={savingScope === 'org'}
+                      onSave={(next) => saveOrg({ restrictedTopics: next })}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -604,6 +708,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
               const overrideMode = settings?.autoReplyMode;
               const effectiveMode = overrideMode ?? orgMode;
               const phrases = settings?.escalationPhrases ?? [];
+              const teamTopics = settings?.restrictedTopics ?? [];
               const sliderThreshold = tempThresholdDept[key] ?? overrideThreshold ?? orgThreshold;
 
               const summary = (() => {
@@ -618,7 +723,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                   overrideSuggest !== undefined ||
                   overrideMode !== undefined ||
                   settings?.autoReplyPartialAnswer !== undefined ||
-                  phrases.length > 0
+                  phrases.length > 0 ||
+                  teamTopics.length > 0
                 ) {
                   return { label: 'Partial override', tone: 'amber' as const };
                 }
@@ -937,6 +1043,32 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         </Button>
                       </div>
                     </div>
+
+                    {/* The team's own topics: added to the built-in and the workspace's ones */}
+                    {topicsSupported && (
+                      <div className="pt-3 space-y-2 border-t">
+                        <p className="text-xs font-medium">
+                          Extra restricted topics for this team{' '}
+                          {teamTopics.length > 0 && (
+                            <span className="text-[10px] text-muted-foreground">
+                              ({teamTopics.length})
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {teamAlsoApplies(builtInTopics.length, orgTopics.length)}
+                        </p>
+                        <RestrictedTopicsField
+                          label={`${dept.name} restricted topics`}
+                          topics={teamTopics}
+                          alsoApplies={orgTopics}
+                          emptyText="No extra topics"
+                          placeholder='e.g. "contract changes"'
+                          disabled={isSaving}
+                          onSave={(next) => setDeptTopics(dept.id, next)}
+                        />
+                      </div>
+                    )}
 
                     {hasOverride && (
                       <div className="pt-3 border-t">
