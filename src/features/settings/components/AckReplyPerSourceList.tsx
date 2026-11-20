@@ -66,10 +66,12 @@ export const AckReplyPerSourceList = ({ onShowAlert }: Props) => {
       <div className="flex gap-3 items-start mb-1">
         <MessageSquareReply className="w-5 h-5 text-muted-foreground mt-0.5" />
         <div className="flex-1">
-          <h3 className="font-display text-base font-semibold">Acknowledgment auto-reply</h3>
+          <h3 className="font-display text-base font-semibold">Receipt confirmation (fixed text)</h3>
           <p className="text-xs text-muted-foreground">
-            Per-source. Fires once on the first inbound message, separate from the AI
-            auto-reply above. Carries the public tracking link.
+            A fixed text you write, not AI. Sent once per thread, to the customer&apos;s first email,
+            with a public tracking link. Only its own switch here (Configure → &quot;Send the receipt
+            confirmation from this mailbox&quot;) turns it on or off: the AI auto-reply, channel and
+            &quot;AI drafts off&quot; switches do not affect it.
           </p>
         </div>
       </div>

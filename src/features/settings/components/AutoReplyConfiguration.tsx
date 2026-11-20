@@ -61,7 +61,7 @@ type Props = {
 const formatThreshold = (value: number): string => `${Math.round(value * 100)}%`;
 
 const MODE_LABEL: Record<AutoReplyMode, string> = {
-  all: 'Rules and AI',
+  all: 'Keyword rules and AI replies',
   rules_only: 'Keyword rules only',
 };
 const MODES: AutoReplyMode[] = ['all', 'rules_only'];
@@ -348,7 +348,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           <CardHeader>
             <CardTitle className="flex gap-2 items-center">
               <MessageCircle className="w-5 h-5" />
-              AI Auto-Reply
+              Automatic email replies
             </CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
               Default: <strong>{org.autoReplyEnabled ? 'Enabled' : 'Disabled'}</strong>
@@ -390,10 +390,12 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         <CardHeader>
           <CardTitle className="flex gap-2 items-center">
             <MessageCircle className="w-5 h-5" />
-            AI Auto-Reply
+            Automatic email replies
           </CardTitle>
           <p className="mt-1 text-xs text-muted-foreground">
-            Drafts a real reply when the AI is confident.
+            Sends email replies without an agent: your keyword rules (canned replies) and AI answers
+            from the knowledge base. It does not control the Telegram bot, the chat widget or the
+            receipt confirmation.
             {teamsEnabled
               ? ' The Default row applies to every team. A team row uses the default unless overridden.'
               : ''}
@@ -414,8 +416,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
               AI drafts are switched off for this workspace, so the AI sends no reply of its own —
               whatever is set below. Keyword rules with a plain prepared reply still send; rules
               that add a knowledge base answer (&quot;Template + KB&quot;) do not. These settings
-              apply again when AI drafts are switched back on. The prepared acknowledgment (&quot;we
-              got your message&quot;) is not AI-written and still goes out.
+              apply again when AI drafts are switched back on. The receipt confirmation (&quot;we got
+              your message&quot;) is not AI-written and still goes out.
             </Alert>
           )}
           {error && (
@@ -453,9 +455,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
               <div className="px-3 pt-1 pb-3 space-y-3 bg-background">
                 <div className="flex justify-between items-center pt-2">
                   <div>
-                    <p className="text-sm font-medium">Enable AI auto-reply</p>
+                    <p className="text-sm font-medium">Automatic email replies</p>
                     <p className="text-xs text-muted-foreground">
-                      Master switch for the default. Each team can override below.
+                      Off: no keyword rule and no AI reply is emailed. Each team can override below.
+                      A mailbox can also be switched off on its card in Integrations.
                     </p>
                   </div>
                   <Toggle
@@ -512,7 +515,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       <div>
                         <p className="text-sm font-medium">Request missing info</p>
                         <p className="text-xs text-muted-foreground">
-                          AI asks customers for more details when messages are incomplete.
+                          The AI emails the customer to ask for details when a message is
+                          incomplete.
                         </p>
                       </div>
                       <Toggle
@@ -538,7 +542,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       <div className="pt-3 space-y-2 border-t">
                         <div className="flex justify-between items-center">
                           <label htmlFor="org-threshold" className="text-sm font-medium">
-                            Auto-send threshold
+                            AI reply confidence
                           </label>
                           <span className="text-sm font-medium text-foreground">
                             {formatThreshold(orgThreshold)}
@@ -568,7 +572,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                           className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                         />
                         <p className="text-[10px] text-muted-foreground">
-                          ≥ threshold: auto-send. Below: surface to an agent. &lt;70%: skip.
+                          AI replies only. Below this, the reply is saved as a suggestion for an
+                          agent. Keyword rules and the Telegram bot do not use it.
                         </p>
                       </div>
                     )}
@@ -762,7 +767,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                             htmlFor={`dept-threshold-${dept.id}`}
                             className="text-xs font-medium"
                           >
-                            Auto-send threshold
+                            AI reply confidence
                             {overrideThreshold === undefined && (
                               <span className="ml-1 text-[10px] text-muted-foreground">
                                 (inheriting {formatThreshold(orgThreshold)})
@@ -817,14 +822,17 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                           }}
                           className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                         />
-                        <p className="text-[10px] text-muted-foreground">Range 90–100%.</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          AI replies only. Below this, the reply is saved as a suggestion for an
+                          agent. Keyword rules and the Telegram bot do not use it. Range 90–100%.
+                        </p>
                       </div>
                     )}
 
                     {/* Escalation phrases — per dept only */}
                     <div className="pt-3 space-y-2 border-t">
                       <label className="text-xs font-medium">
-                        Escalation phrases (hard-block){' '}
+                        Phrases that stop automatic replies{' '}
                         {phrases.length > 0 && (
                           <span className="text-[10px] text-muted-foreground">
                             ({phrases.length})
@@ -832,8 +840,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         )}
                       </label>
                       <p className="text-[10px] text-muted-foreground">
-                        When any of these appears in inbound content, auto-send is blocked. The
-                        reply is still generated and surfaced for an agent.
+                        If a customer&apos;s email contains one of these, no keyword rule and no AI
+                        answer is sent; the AI answer is saved as a suggestion for an agent. Does
+                        not apply to the missing-info email, Telegram or the chat widget.
                       </p>
                       <div className="flex flex-wrap gap-1">
                         {phrases.length === 0 && (

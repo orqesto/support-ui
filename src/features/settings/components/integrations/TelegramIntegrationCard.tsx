@@ -166,8 +166,8 @@ export const TelegramIntegrationCard = ({
                         variant="outline"
                         size="sm"
                         onClick={() => setEditDepts(integration.id)}
-                        title={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply'}
-                        aria-label={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply'}
+                        title={deptPicker.teamsEnabled ? 'Assign teams' : 'Automatic replies'}
+                        aria-label={deptPicker.teamsEnabled ? 'Assign teams' : 'Automatic replies'}
                       >
                         {deptPicker.teamsEnabled ? (
                           <Building2 className="w-4 h-4" />
@@ -212,6 +212,7 @@ export const TelegramIntegrationCard = ({
                   {editDepts === integration.id && (
                     <SourceDepartmentEditor
                       sourceId={integration.id}
+                      autoReply="telegram"
                       onClose={() => setEditDepts(null)}
                       onSaved={() => {
                         setEditDepts(null);

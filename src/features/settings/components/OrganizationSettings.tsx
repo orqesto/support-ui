@@ -39,7 +39,7 @@ const sections = [
   { id: 'sla-config' as OrgSection, label: 'SLA Thresholds', description: 'Response and resolution time targets' },
   { id: 'business-hours' as OrgSection, label: 'Business Hours', description: 'Working calendar used for open-hours response times' },
   { id: 'open-conversations' as OrgSection, label: 'Open Threads', description: 'How old an email may be and still count as open work' },
-  { id: 'automatic-replies' as OrgSection, label: 'Automatic Replies', description: 'Automatic helpdesk emails that do not count as your answer' },
+  { id: 'automatic-replies' as OrgSection, label: 'Automated email subjects', description: 'Subjects of automatic emails that do not count as your answer. This does not send anything.' },
   { id: 'security' as OrgSection, label: 'Authentication', description: 'Workspace two-factor authentication policy' },
   { id: 'ai-usage' as OrgSection, label: 'AI usage', description: 'AI budget per billing period and bulk processing' },
   { id: 'notification-roles' as OrgSection, label: 'Notifications by role', description: 'What each role is notified about by default, and what is locked' },

@@ -507,8 +507,8 @@ export const EmailIntegrationCard = ({
                         variant="outline"
                         size="sm"
                         onClick={() => setEditDepts(integration.id)}
-                        title={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply'}
-                        aria-label={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply'}
+                        title={deptPicker.teamsEnabled ? 'Assign teams' : 'Automatic replies'}
+                        aria-label={deptPicker.teamsEnabled ? 'Assign teams' : 'Automatic replies'}
                       >
                         {deptPicker.teamsEnabled ? (
                           <Building2 className="w-4 h-4" />
@@ -520,8 +520,8 @@ export const EmailIntegrationCard = ({
                         variant="outline"
                         size="sm"
                         onClick={() => setEditAckReply(integration.id)}
-                        title="Auto-reply template"
-                        aria-label="Auto-reply template"
+                        title="Receipt confirmation"
+                        aria-label="Receipt confirmation"
                       >
                         <MessageSquareReply className="w-4 h-4" />
                       </Button>

@@ -76,14 +76,14 @@ describe('AutoReplyConfiguration — rules only', () => {
     expect(screen.getByText('Suggest solutions')).toBeInTheDocument();
   });
 
-  it('CONTROL — "Rules and AI" loaded: no note, and choosing it again saves nothing', async () => {
+  it('CONTROL — "Keyword rules and AI replies" loaded: no note, and choosing it again saves nothing', async () => {
     render(<AutoReplyConfiguration onShowAlert={() => {}} />);
     const choice = await workspaceChoice();
-    expect(choice.getByRole('button', { name: 'Rules and AI' })).toHaveAttribute(
+    expect(choice.getByRole('button', { name: 'Keyword rules and AI replies' })).toHaveAttribute(
       'aria-pressed',
       'true'
     );
-    fireEvent.click(choice.getByRole('button', { name: 'Rules and AI' }));
+    fireEvent.click(choice.getByRole('button', { name: 'Keyword rules and AI replies' }));
     expect(state.updates).toEqual([]);
     expect(screen.queryByText(NOTE)).toBeNull();
   });

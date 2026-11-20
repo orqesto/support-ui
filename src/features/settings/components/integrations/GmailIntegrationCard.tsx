@@ -498,12 +498,12 @@ export const GmailIntegrationCard = ({
                                 />
                                 <SourceMenuItem
                                   icon={Building2}
-                                  label={deptPicker.teamsEnabled ? 'Assign teams' : 'Auto-reply on/off'}
+                                  label={deptPicker.teamsEnabled ? 'Assign teams' : 'Automatic replies'}
                                   onClick={() => { setEditDepts(integration.id); setShowMenu(null); }}
                                 />
                                 <SourceMenuItem
                                   icon={MessageSquareReply}
-                                  label="Auto-reply Template"
+                                  label="Receipt confirmation"
                                   onClick={() => { setEditAckReply(integration.id); setShowMenu(null); }}
                                 />
                                 {integration.enabled && (
