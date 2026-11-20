@@ -18,6 +18,8 @@ import { UserPhoto } from '@/components/ui/UserPhoto';
 import { getInitials } from '@/lib/initials';
 import type { Attachment } from './MessageAttachments';
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
+import { DeliveryStatus } from './DeliveryStatus';
+import { deliveryStateOf } from './deliveryState';
 
 type Props = {
   msg: MessageEvent;
@@ -29,6 +31,8 @@ type Props = {
   mergedFrom?: string | null;
   /** Address the reply to this message's writer ("Reply to this message"). */
   onReplyTo?: (addresses: string[]) => void;
+  /** Send this undelivered reply again (shown only on one that did not, or may not, go out). */
+  onResend?: (msg: MessageEvent) => void;
 };
 
 function ThreadMessageItemView({
@@ -38,6 +42,7 @@ function ThreadMessageItemView({
   onOpenInlineImage,
   mergedFrom,
   onReplyTo,
+  onResend,
 }: Props) {
   const msgId = msg.id;
   const openInlineImage = useCallback(
@@ -242,9 +247,11 @@ function ThreadMessageItemView({
             {attachmentRow(true)}
           </div>
           {msg.type !== 'inbound' && (
-            <span className="font-display text-[10px] tracking-[0.08em] uppercase text-muted-foreground">
-              ✓ Sent
-            </span>
+            <DeliveryStatus
+              state={deliveryStateOf(msg)}
+              // An agent's reply only (the backend resends nothing else).
+              onResend={onResend && msg.type === 'agent_reply' ? () => onResend(msg) : undefined}
+            />
           )}
         </div>
       </div>

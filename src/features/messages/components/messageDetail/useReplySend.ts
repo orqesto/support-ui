@@ -79,6 +79,8 @@ export function useReplySend({
     setSelectedFiles,
     setSendFailedError,
     setSendFailureRetryable,
+    resendOf,
+    setResendOf,
     lastAssignRef,
     lastSendModeRef,
     sendIdempotencyKeyRef,
@@ -125,6 +127,8 @@ export function useReplySend({
       const after = afterSendRef.current;
       afterSendRef.current = { action: 'send' };
       const resolveInSend = composerMode !== 'note' && after.action === 'resolve_kb';
+      // A Resend: this reply replaces the undelivered one (never on a note).
+      const resendOfEventId = composerMode === 'note' ? undefined : resendOf?.eventId;
       // Notes aren't emails — no idempotency needed, and a note must not read, register or clear
       // the reply's token: one kept from a failed reply has to survive the note so that reply's
       // retry still dedups. A reply reuses a failed attempt's token only when it delivers the SAME
@@ -132,6 +136,8 @@ export function useReplySend({
       // with the old token the BE would answer with the earlier send and this one would never go
       // out. The assign / resolve flags stay out: a send that landed despite the error re-reads the
       // thread as assigned, so re-pressing Send carries no assign answer — and must still dedup.
+      // The key a failed attempt kept: reused below only for the same payload (a true retry).
+      const keptKey = sendIdempotencyKeyRef.current?.key;
       const idempotencyKey =
         composerMode === 'note'
           ? undefined
@@ -143,15 +149,18 @@ export function useReplySend({
                 recipients?.to ?? [],
                 recipients?.cc ?? [],
                 recipients?.bcc ?? [],
+                // Its own key per resend (the contract): never the failed send's.
+                resendOfEventId ?? null,
               ])
             );
       // Not in the key's payload above: "Send anyway" is the same reply, so it keeps the key.
       const guard =
-        seenLastEventId === undefined && !confirmOverride
+        seenLastEventId === undefined && !confirmOverride && resendOfEventId === undefined
           ? undefined
           : {
               ...(seenLastEventId !== undefined && { seenLastEventId }),
               ...(confirmOverride && { confirmOverride: true }),
+              ...(resendOfEventId !== undefined && { resendOfEventId }),
             };
       // Before the request: the `message:replied` echo can beat the HTTP answer.
       if (idempotencyKey) rememberOwnSend(idempotencyKey);
@@ -211,7 +220,12 @@ export function useReplySend({
           A failed send keeps its full re-read (the catch below).
         */
         if (composerMode === 'note') setNotesBump((key) => key + 1);
-        else
+        else if (resendOfEventId !== undefined || idempotencyKey === keptKey) {
+          // The failed bubble is gone server-side — a resend replaces it, and so does a retry with
+          // the failed send's own key: only a full read drops it from the screen.
+          setResendOf(null);
+          setThreadRefreshKey((key) => key + 1);
+        } else
           pullNewEvents({
             activity: true,
             attachments: selectedFiles.length > 0,
@@ -259,6 +273,10 @@ export function useReplySend({
         if (idempotencyKey) forgetOwnSend(idempotencyKey);
         // Someone got there first: nothing was sent. The agent decides — Send anyway or Cancel
         // (which re-reads the thread so the newer reply shows); not a send failure.
+        // A resend that failed is over either way: the backend stored a new undelivered reply (502)
+        // with its own Resend, or the old one cannot be resent (resent already, delivered after
+        // all). The full re-read below shows which; a Retry here would only be refused.
+        if (resendOfEventId !== undefined) setResendOf(null);
         const question = composerMode === 'note' ? null : replyCollisionQuestion(err);
         if (question !== null) {
           showCollision(question);
@@ -275,7 +293,7 @@ export function useReplySend({
         // Surface the server's own explanation for client errors — see
         // resolveSendFailureMessage for why "please try again" is wrong for some of them.
         setSendFailedError(resolveSendFailureMessage(err));
-        setSendFailureRetryable(isRetryableSendFailure(err));
+        setSendFailureRetryable(resendOfEventId === undefined && isRetryableSendFailure(err));
       } finally {
         setSubmitting(false);
         setAssignPrompt(null);
@@ -293,6 +311,8 @@ export function useReplySend({
       onResolve,
       pullNewEvents,
       recipientDraft,
+      resendOf,
+      setResendOf,
       seenLastEventId,
       showCollision,
       selectedFiles,

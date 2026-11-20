@@ -1,5 +1,6 @@
 import { isOutgoingEvent } from '@/lib/messageHelpers';
 import type { MessageEvent } from '@/types';
+import { deliveryStateOf } from './deliveryState';
 
 /**
  * A live message on an open thread (`thread:message`) is read on its own (`afterEventId`) and
@@ -44,6 +45,27 @@ export const unseenEvents = (
     out.push(event);
   }
   return out;
+};
+
+/**
+ * The events on screen with the delivery state the incoming read reports for them, or null when
+ * none changed. An incremental read asks again for the newest CURSOR_LAG events, so a reply shown
+ * as "Sending…" (or given up as undelivered) gets its real state from the same read that brings
+ * the new events — without it the bubble kept its first state until a reload.
+ */
+export const withDeliveryUpdates = (
+  current: readonly MessageEvent[],
+  incoming: readonly MessageEvent[]
+): MessageEvent[] | null => {
+  const byId = new Map(incoming.map((event) => [event.id, event]));
+  let changed = false;
+  const next = current.map((event) => {
+    const fresh = byId.get(event.id);
+    if (!fresh || deliveryStateOf(fresh) === deliveryStateOf(event)) return event;
+    changed = true;
+    return { ...event, metadata: fresh.metadata };
+  });
+  return changed ? next : null;
 };
 
 /**

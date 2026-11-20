@@ -306,7 +306,15 @@ export type ReplyAssignIntent = 'me' | 'none';
  * loaded — absent = no guard (an older client). `confirmOverride`: "Send anyway" after the 409.
  * Never part of the idempotency key's payload: Send anyway is the same reply.
  */
-export type ReplyCollision = { seenLastEventId?: number; confirmOverride?: boolean };
+export type ReplyCollision = {
+  seenLastEventId?: number;
+  confirmOverride?: boolean;
+  /**
+   * The undelivered reply this send replaces (Resend): the backend stores the new attempt and
+   * hides that one, so the thread never shows the reply twice. Absent = an ordinary reply.
+   */
+  resendOfEventId?: number;
+};
 
 export type ReplyRecipients = {
   to?: string[];

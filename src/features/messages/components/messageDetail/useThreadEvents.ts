@@ -12,6 +12,7 @@ import {
   eventMayCarryAttachments,
   incrementalCursor,
   unseenEvents,
+  withDeliveryUpdates,
 } from '../threadNewEvents';
 import { threadTimeOf } from '../threadDays';
 import { useHoldReasonClearedRefresh } from '../../hooks/useHoldReasonClearedRefresh';
@@ -189,6 +190,12 @@ export function useThreadEvents(
           if (res.newEvents.hasMore) {
             setThreadRefreshKey((key) => key + 1);
             return;
+          }
+          // A reply already on screen whose send finished (or failed) meanwhile.
+          const updated = withDeliveryUpdates(threadMessagesRef.current, res.data);
+          if (updated) {
+            threadMessagesRef.current = updated;
+            setThreadMessages((current) => withDeliveryUpdates(current, res.data) ?? current);
           }
           const fresh = unseenEvents(threadMessagesRef.current, res.data);
           if (fresh.length === 0) {

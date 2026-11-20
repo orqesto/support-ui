@@ -22,6 +22,9 @@ import { Permission } from '@/types/roles';
 import { useThreadFileViewer } from './useThreadFileViewer';
 import { MessagePanelTabs } from './MessagePanelTabs';
 import { SendFailedBar } from './SendFailedBar';
+import { failedReplyDelivered } from './deliveryState';
+import { ResendNotice } from './ResendNotice';
+import { useResendReply } from './messageDetail/useResendReply';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { readSendAction, type SendAction } from './ComposerSendButton';
 import { holdsUnsentNote } from './messageDetail/detailConstants';
@@ -160,6 +163,7 @@ export function MessageDetail({
     pullNewEventsRef,
     setSendFailureRetryable,
     setSendFailedError,
+    setSendFailedEventId: replyState.setSendFailedEventId,
   });
 
   // ── AI ghost state ─────────────────────────────────────────────────────────
@@ -433,6 +437,7 @@ export function MessageDetail({
     lastEditMode,
   });
   const { handleGhostClick } = ghost;
+  const startResend = useResendReply(composerText, replyState, showComposerForShortcut);
 
   // Moving to spam asks first while a colleague writes a reply (§5.5).
   const classify = useGuardedClassify(guard, onClassify);
@@ -604,7 +609,7 @@ export function MessageDetail({
             </div>
           )}
 
-          {sendFailedError && (
+          {sendFailedError && !failedReplyDelivered(replyState.sendFailedEventId, sortedThread) && (
             <SendFailedBar
               reason={sendFailedError}
               // Only while the failed draft is still there to resend (a blank composer means the
@@ -679,6 +684,7 @@ export function MessageDetail({
             handleGhostClick={handleGhostClick}
             setTab={setTab}
             setPanelOpen={setPanelOpen}
+            onResend={isActive ? startResend : undefined}
           />
 
           {/* Phone: the resolve row between the thread and the composer, Thread tab only (M6) — and,
@@ -693,6 +699,9 @@ export function MessageDetail({
 
           {/* Composer — shown for active conversations. On a phone, only under the Thread or Notes
             tab (M7) — hidden, not unmounted, so a draft and its AI undo survive a tab visit. */}
+          {isActive && composerMode === 'reply' && (
+            <ResendNotice target={replyState.resendOf} setTarget={replyState.setResendOf} />
+          )}
           {isActive && (
             <MessageComposer
               hidden={isPhone && panelOpen && tab !== 'notes'}
