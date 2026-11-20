@@ -427,6 +427,13 @@ describe('messageActivityTimeline — auto-reply withheld', () => {
     expect(withheld('kb_placeholder_in_plain_rule', ['Refunds'])).toBe(
       'Keyword rule "Refunds" matched but its reply did not go out: the reply still holds {{kb_answer}}'
     );
+    // The reply check held the knowledge base answer (2026-11-20).
+    expect(withheld('kb_refusal', ['Refunds'])).toBe(
+      'Keyword rule "Refunds" matched but its reply did not go out: the knowledge base answer only declined the question'
+    );
+    expect(withheld('kb_reply_unchecked', ['Refunds'])).toBe(
+      'Keyword rule "Refunds" matched but its reply did not go out: the knowledge base answer could not be checked'
+    );
   });
 
   it('an unknown reason still renders, as the backend wrote it', () => {

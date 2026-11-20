@@ -202,6 +202,9 @@ const WITHHELD_REASON: Record<string, string> = {
   plan_allotment_reached: "the plan's auto-reply limit",
   workspace_blocked: 'the workspace is waiting for a plan',
   kb_placeholder_in_plain_rule: 'the reply still holds {{kb_answer}}',
+  // The reply check held the knowledge base answer (2026-11-20).
+  kb_refusal: 'the knowledge base answer only declined the question',
+  kb_reply_unchecked: 'the knowledge base answer could not be checked',
 };
 
 /** "A", "A" and "B", "A", "B" and "C". */

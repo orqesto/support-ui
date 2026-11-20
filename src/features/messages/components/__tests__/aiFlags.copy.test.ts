@@ -44,6 +44,13 @@ describe('needs-review reason → words', () => {
     expect(needsReviewTooltip('follow_up_needed')).toMatch(/colleague will follow up/);
   });
 
+  it('a reply the check could not run on (2026-11-20): its own words, nothing sent, in the tooltip', () => {
+    expect(needsReviewReasonLabel('reply_unchecked')).toBe('Reply not checked');
+    expect(needsReviewTooltip('reply_unchecked')).toMatch(/could not run, so nothing was sent/);
+    // Control: a held refusal keeps the send-rule words.
+    expect(needsReviewReasonLabel('blocked_gate')).toBe('Held by a send rule');
+  });
+
   it('flood (Telegram flood rule, 2026-11-13): short chip, the long explanation in the tooltip', () => {
     expect(needsReviewReasonLabel('flood')).toBe('Too many messages at once');
     expect(needsReviewTooltip('flood')).toBe(
