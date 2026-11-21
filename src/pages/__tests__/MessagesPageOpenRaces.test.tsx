@@ -498,9 +498,15 @@ describe('MessagesPage — delete closes the thread and drops ?id', () => {
   it('the deleted thread’s ?id leaves the address bar', async () => {
     renderPage();
     await openDetail(12);
+    const opensBefore = vi.mocked(messageService.getById).mock.calls.length;
     await confirmDelete();
     await waitFor(() => expect(detail()).toBeNull());
-    expect(urlId()).toBe('');
+    // The router commits the URL as a transition: under a loaded run ?id can leave a render after
+    // the detail closes (seen 9 in 60 loaded runs). What must hold is that it does leave, and that
+    // the stale ?id never reopens the deleted thread meanwhile.
+    await waitFor(() => expect(urlId()).toBe(''));
+    expect(detail()).toBeNull();
+    expect(vi.mocked(messageService.getById).mock.calls.length).toBe(opensBefore);
   });
 
   it('CONTROL: 11 opened while the delete of 12 ran: 11 and its ?id stay', async () => {

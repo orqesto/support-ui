@@ -18,7 +18,7 @@ import {
   isRetryableSendFailure,
   resolveSendFailureMessage,
 } from '@/features/messages/components/sendErrorMessage';
-import { replyCollisionQuestion } from '@/lib/apiError';
+import { isSendKeyReused, replyCollisionQuestion } from '@/lib/apiError';
 import { writeSendAction, type SendAction } from '../ComposerSendButton';
 import type { ResolveMode } from '../resolveMode';
 import { fileIdentity, keyForPayload } from './sendKey';
@@ -80,6 +80,7 @@ export function useReplySend({
     setSendFailedError,
     setSendFailedReason,
     setSendFailureRetryable,
+    setSendFailedAfter,
     resendOf,
     setResendOf,
     lastAssignRef,
@@ -285,7 +286,12 @@ export function useReplySend({
         // over. One that failed in the transport (5xx, no answer) made a NEW undelivered reply
         // that replaced the old one: the target stays, and the re-read below moves it to that
         // reply (useResendReply → reconcileResendTarget), so the next Send resends it (M2).
-        if (resendOfEventId !== undefined && !isRetryableSendFailure(err)) setResendOf(null);
+        // A key the server says belongs to another thread: nothing was sent or stored here. The key
+        // is dropped, so sending again mints a new one and the same reply (or resend) can go out.
+        const keyReused = isSendKeyReused(err);
+        if (keyReused) sendIdempotencyKeyRef.current = null;
+        const retryable = keyReused || isRetryableSendFailure(err);
+        if (resendOfEventId !== undefined && !retryable) setResendOf(null);
         // …and the echo may already have come and been skipped as ours: the server emits it before
         // it answers, so a reply delivered whose ANSWER was lost (a dropped connection, a 502 from
         // the proxy) would never show. Re-read as the echo would have.
@@ -297,7 +303,11 @@ export function useReplySend({
         // Surface the server's own explanation for client errors — see
         // resolveSendFailureMessage for why "please try again" is wrong for some of them.
         setSendFailedReason(resolveSendFailureMessage(err));
-        setSendFailureRetryable(resendOfEventId === undefined && isRetryableSendFailure(err));
+        // A transport failure may have left an undelivered (or uncertain) reply that no
+        // `send-failed` event will name (the socket is down): the bar finds it in the re-read.
+        if (retryable && seenLastEventId !== undefined && currentUserId !== null)
+          setSendFailedAfter({ afterId: seenLastEventId, authorId: currentUserId });
+        setSendFailureRetryable(resendOfEventId === undefined && retryable);
       } finally {
         setSubmitting(false);
         setAssignPrompt(null);
@@ -318,6 +328,8 @@ export function useReplySend({
       resendOf,
       setResendOf,
       seenLastEventId,
+      currentUserId,
+      setSendFailedAfter,
       showCollision,
       selectedFiles,
       supportsRecipients,

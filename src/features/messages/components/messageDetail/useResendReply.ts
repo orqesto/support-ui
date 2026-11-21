@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { toast } from '@/lib/toast';
 import { translatedTextToHtml } from '@/lib/editorText';
-import { isEditorHtml } from '@/lib/noteText';
+import { isWholeEditorHtml } from '@/lib/noteText';
 import { isBlankRichText } from '@/lib/stripHtml';
 import type { MessageEvent } from '@/types';
 import { deliveryStateOf, isUndelivered, reconcileResendTarget } from '../deliveryState';
@@ -13,10 +13,10 @@ import type { useThreadEvents } from './useThreadEvents';
  * A stored reply as the composer takes it (review of #999, H1): a reply sent from the app is the
  * editor's own HTML (it sends `getHTML()`, the backend stores it as is) and goes back as it was —
  * as an unsent draft is restored; plain text (a bot's or a chat channel's reply) becomes
- * paragraphs. Escaping the HTML would mail the customer literal tags.
+ * paragraphs, as does plain text that merely opens with a tag. Escaping the HTML would mail the customer literal tags.
  */
 export const replyToComposerHtml = (content: string): string =>
-  isEditorHtml(content) ? content : translatedTextToHtml(content);
+  isWholeEditorHtml(content) ? content : translatedTextToHtml(content);
 
 /**
  * "Resend" on an undelivered reply (owner 2026-11-20): its text goes back into the composer, where
