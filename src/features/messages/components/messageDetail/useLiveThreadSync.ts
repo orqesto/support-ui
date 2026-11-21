@@ -32,6 +32,7 @@ export function useLiveThreadSync({
   setSendFailureRetryable,
   setSendFailedError,
   setSendFailedEventId,
+  setSendFailedOwnOnly,
 }: {
   message: Message;
   pullLiveEvents: () => void;
@@ -43,6 +44,7 @@ export function useLiveThreadSync({
   setSendFailureRetryable: Setter<boolean>;
   setSendFailedError: Setter<string | null>;
   setSendFailedEventId: Setter<number | null>;
+  setSendFailedOwnOnly: Setter<boolean>;
 }) {
   // A customer's new message or the bot's answer on this thread: refetch THIS thread only.
   // ⛔ Not onRefresh: on MessagesPage that reloads the message, the whole list and every board
@@ -101,6 +103,8 @@ export function useLiveThreadSync({
         setSendFailedEventId(
           typeof event.outgoingMessageId === 'number' ? event.outgoingMessageId : null
         );
+        // Every agent with the thread open hears it: the bar is the sender's alone.
+        setSendFailedOwnOnly(true);
         // The BE reverts the conv's status and marks the reply event undelivered on
         // failure. Refetch so the thread reflects the real state (no longer shown as
         // resolved/replied, and the outgoing bubble can render as undelivered) instead
@@ -155,6 +159,7 @@ export function useLiveThreadSync({
     rereadHeaderRef,
     setSendFailedError,
     setSendFailedEventId,
+    setSendFailedOwnOnly,
     setSendFailureRetryable,
     setThreadRefreshKey,
   ]);

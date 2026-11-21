@@ -70,10 +70,17 @@ export const reconcileResendTarget = (
  */
 export const failedBarState = (
   eventId: number | null,
-  thread: readonly Pick<MessageEvent, 'id' | 'metadata'>[]
+  thread: readonly Pick<MessageEvent, 'id' | 'metadata' | 'authorId'>[],
+  /**
+   * Set for a failure only the socket announced, which every agent with the thread open hears:
+   * the bar shows only once the named reply is read and is this agent's. A colleague sees the
+   * bubble alone.
+   */
+  ownerId?: number | null
 ): 'hidden' | 'uncertain' | 'as_told' => {
   if (eventId === null) return 'as_told';
   const named = thread.find((event) => event.id === eventId);
+  if (ownerId !== undefined && (!named || named.authorId !== ownerId)) return 'hidden';
   // Gone: replaced by a resend (its successor names it) → hidden; not read yet → as told.
   if (!named)
     return thread.some((event) => event.metadata?.resendOf === eventId) ? 'hidden' : 'as_told';

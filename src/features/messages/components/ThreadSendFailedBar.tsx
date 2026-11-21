@@ -15,6 +15,7 @@ export function ThreadSendFailedBar({
   reason,
   eventId,
   failedAfter = null,
+  ownerId,
   thread,
   onRetry,
   retrying,
@@ -25,11 +26,13 @@ export function ThreadSendFailedBar({
   eventId: number | null;
   /** A failed send no event named: the bar reads the reply it made from the thread. */
   failedAfter?: { afterId: number; authorId: number } | null;
+  /** Set for a failure only the socket announced: shown only on this agent's own reply. */
+  ownerId?: number | null;
   thread: readonly MessageEvent[];
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   if (reason === null) return null;
-  const state = failedBarState(eventId ?? ownReplyAfter(thread, failedAfter), thread);
+  const state = failedBarState(eventId ?? ownReplyAfter(thread, failedAfter), thread, ownerId);
   if (state === 'hidden') return null;
   const uncertain = state === 'uncertain';
   const retry = onRetry && (uncertain ? () => setConfirmOpen(true) : onRetry);

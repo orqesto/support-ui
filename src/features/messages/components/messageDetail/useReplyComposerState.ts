@@ -27,9 +27,20 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     afterId: number;
     authorId: number;
   } | null>(null);
+  // Set by a `send-failed` event alone (not this tab's own request): the bar is then shown only
+  // when the reply it names is the current agent's (failedBarState) — the backend announces every
+  // failure to the whole workspace, the stuck-send repair's too, and a colleague with the thread
+  // open sent nothing. The bubble shows them the state.
+  const [sendFailedOwnOnly, setSendFailedOwnOnly] = useState(false);
   const setSendFailedError = useCallback<Setter<string | null>>((value) => {
     setSendFailedEventId(null);
     setSendFailedAfter(null);
+    setSendFailedOwnOnly(false);
+    setFailedReason(value);
+  }, []);
+  // This tab's own failed send: always its bar.
+  const setSendFailedReason = useCallback((value: string | null) => {
+    setSendFailedOwnOnly(false);
     setFailedReason(value);
   }, []);
   // Retry is offered only for a failure a resend can fix, while the draft is still in the
@@ -94,9 +105,13 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     setSendFailedEventId,
     sendFailedAfter,
     setSendFailedAfter,
+    // The bar's reply: the one an event named, else where to look for it (ThreadSendFailedBar).
+    failedBarReply: { eventId: sendFailedEventId, failedAfter: sendFailedAfter },
     // The failed send's own reason, keeping the reply the `send-failed` event named (it may come
     // before the HTTP answer — review of #999, M4).
-    setSendFailedReason: setFailedReason,
+    setSendFailedReason,
+    sendFailedOwnOnly,
+    setSendFailedOwnOnly,
     resendOf,
     setResendOf,
     sendFailureRetryable,

@@ -163,6 +163,7 @@ export function MessageDetail({
     setSendFailureRetryable,
     setSendFailedError,
     setSendFailedEventId: replyState.setSendFailedEventId,
+    setSendFailedOwnOnly: replyState.setSendFailedOwnOnly,
   });
 
   // ── AI ghost state ─────────────────────────────────────────────────────────
@@ -609,8 +610,8 @@ export function MessageDetail({
 
           <ThreadSendFailedBar
             reason={sendFailedError}
-            eventId={replyState.sendFailedEventId}
-            failedAfter={replyState.sendFailedAfter}
+            {...replyState.failedBarReply}
+            ownerId={replyState.sendFailedOwnOnly ? currentUserId : undefined}
             thread={sortedThread}
             // Only while the failed draft is still there to resend (a blank composer means the
             // agent cleared it, or the async failure came after the send cleared it).

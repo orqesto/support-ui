@@ -27,6 +27,8 @@ const failed = (metadata: Record<string, unknown>) =>
     type: 'agent_reply',
     content: 'Your parcel ships today.',
     authorEmail: 'support@shop.example',
+    // The signed-in agent's own reply (the harness signs in user 7).
+    authorId: 7,
     metadata,
   });
 
