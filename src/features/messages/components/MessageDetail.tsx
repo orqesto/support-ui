@@ -145,7 +145,6 @@ export function MessageDetail({
     setSendFailedError,
     sendFailureRetryable,
     setSendFailureRetryable,
-    lastAssignRef,
     lastSendModeRef,
     richEditorRef,
     noteEditorRef,
@@ -313,14 +312,7 @@ export function MessageDetail({
     onOptimisticMove,
     onRefresh,
   });
-  const {
-    performSend,
-    handleSend,
-    sendActions,
-    handleSendWith,
-    handleSendPick,
-    handleOpenTemplates,
-  } = send;
+  const { handleSend, sendActions, handleSendWith, handleSendPick, handleOpenTemplates } = send;
 
   const conv = useConversationActions({
     message,
@@ -617,7 +609,7 @@ export function MessageDetail({
               sendFailureRetryable &&
               !isBlankRichText(composer) &&
               composerMode === lastSendModeRef.current
-                ? () => void performSend(lastAssignRef.current)
+                ? send.retrySend
                 : undefined
             }
             retrying={submitting}

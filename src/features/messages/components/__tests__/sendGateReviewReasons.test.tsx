@@ -8,10 +8,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { message, renderHeader } from './md4.header.utils';
 import type { Message } from '@/types';
+import type { components } from '@/types/generated/api';
 import type { MessageThread } from '@/services/message.service';
 import {
   NAMED_REVIEW_REASONS,
   NEEDS_REVIEW_REASON_DETAILS,
+  NEEDS_REVIEW_REASON_LABELS,
   needsReviewReasonLabel,
   needsReviewTooltip,
 } from '../aiFlagCopy';
@@ -86,6 +88,90 @@ describe('send gate hold reasons → words', () => {
     });
     const badge = await screen.findByTestId('header-restricted-topic-review');
     expect(badge.textContent).toContain('Restricted topic');
+  });
+});
+
+describe('a reply held because it only declined (blocked_gate)', () => {
+  const held = row({ needsReviewReason: 'blocked_gate' });
+
+  it('names itself on the list chip, with and without a stored draft', () => {
+    expect(getAiState(held, thread)).toEqual({
+      label: 'Held by a send rule',
+      tooltip: 'Needs review: Held by a send rule',
+    });
+    expect(
+      getAiState(
+        row({ needsReviewReason: 'blocked_gate', metadata: { suggestedAnswer: 'Hello' } }),
+        thread
+      )?.label
+    ).toBe('Held by a send rule · draft ready');
+  });
+
+  it('names itself in the thread header', async () => {
+    renderHeader({
+      message: { ...message, needsHumanReview: true, needsReviewReason: 'blocked_gate' } as Message,
+    });
+    const badge = await screen.findByTestId('header-blocked-gate-review');
+    expect(badge.textContent).toContain('Held by a send rule');
+  });
+
+  it('CONTROL — a reason that is not named keeps the plain chip and no header pill', async () => {
+    expect(getAiState(row({ needsReviewReason: 'low_confidence' }), thread)?.label).toBe(
+      'Needs review'
+    );
+    renderHeader({
+      message: {
+        ...message,
+        needsHumanReview: true,
+        needsReviewReason: 'low_confidence',
+      } as Message,
+    });
+    await screen.findAllByText(/./);
+    expect(screen.queryByTestId('header-low-confidence-review')).toBeNull();
+  });
+});
+
+describe("every review reason of the backend's contract has words", () => {
+  type Code = Exclude<
+    NonNullable<components['schemas']['MessageListItem']['needsReviewReason']>,
+    'other'
+  >;
+  // Keyed by the generated type: a code added to the contract fails the type-check here until
+  // it is listed, and the test below until it has a label.
+  const CONTRACT_CODES: Record<Code, true> = {
+    low_confidence: true,
+    blocked_gate: true,
+    plan_limit: true,
+    escalation: true,
+    ai_reply_limit: true,
+    needs_info: true,
+    ai_error: true,
+    send_failed: true,
+    reopened: true,
+    suspicious_in_thread: true,
+    lead_escalated: true,
+    flood: true,
+    partial_answer: true,
+    follow_up_needed: true,
+    reply_unchecked: true,
+    restricted_topic: true,
+    no_customer_request: true,
+    needs_lookup_or_action: true,
+    promises_follow_up: true,
+    does_not_answer: true,
+    unsupported_by_sources: true,
+    not_from_knowledge: true,
+    spam_verdict: true,
+  };
+
+  it.each(Object.keys(CONTRACT_CODES))('%s', (code) => {
+    expect(needsReviewReasonLabel(code)).toEqual(expect.stringMatching(/\S/));
+  });
+
+  it('…and this app labels no code the contract does not have', () => {
+    expect(Object.keys(NEEDS_REVIEW_REASON_LABELS).sort()).toEqual(
+      Object.keys(CONTRACT_CODES).sort()
+    );
   });
 });
 

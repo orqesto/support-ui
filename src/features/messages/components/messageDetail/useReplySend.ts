@@ -16,8 +16,10 @@ import {
 } from '../assignOnReplyPrompt';
 import {
   isRetryableSendFailure,
+  replyNotDelivered,
   resolveSendFailureMessage,
 } from '@/features/messages/components/sendErrorMessage';
+import { notDeliveredText, uncertainFailureText } from '../deliveryState';
 import { replyCollisionQuestion } from '@/lib/apiError';
 import { writeSendAction, type SendAction } from '../ComposerSendButton';
 import type { ResolveMode } from '../resolveMode';
@@ -79,6 +81,7 @@ export function useReplySend({
     setSelectedFiles,
     setSendFailedError,
     setSendFailedReason,
+    setSendFailedEventId,
     setSendFailureRetryable,
     resendOf,
     setResendOf,
@@ -111,8 +114,13 @@ export function useReplySend({
     collisionRef.current = question;
     setCollision(question);
   }, []);
+  // The saved, undelivered reply the last failed send named in its 502 answer (per thread): the
+  // bar's Retry replaces THAT reply (`resendOfEventId`), as the bubble's Resend does.
+  const retryOfRef = useRef<{ threadId: number; eventId: number } | null>(null);
+  const lastWasRetryRef = useRef(false);
   const performSend = useCallback(
-    async (assign?: ReplyAssignIntent, confirmOverride = false) => {
+    async (assign?: ReplyAssignIntent, confirmOverride = false, retry = false) => {
+      lastWasRetryRef.current = retry;
       setSubmitting(true);
       setSendFailedError(null);
       setSendFailureRetryable(false);
@@ -129,7 +137,12 @@ export function useReplySend({
       afterSendRef.current = { action: 'send' };
       const resolveInSend = composerMode !== 'note' && after.action === 'resolve_kb';
       // A Resend: this reply replaces the undelivered one (never on a note).
-      const resendOfEventId = composerMode === 'note' ? undefined : resendOf?.eventId;
+      const composerResendOf = composerMode === 'note' ? undefined : resendOf?.eventId;
+      const retryOf =
+        retry && composerMode !== 'note' && retryOfRef.current?.threadId === message.id
+          ? retryOfRef.current.eventId
+          : undefined;
+      const resendOfEventId = composerResendOf ?? retryOf;
       // Notes aren't emails — no idempotency needed, and a note must not read, register or clear
       // the reply's token: one kept from a failed reply has to survive the note so that reply's
       // retry still dedups. A reply reuses a failed attempt's token only when it delivers the SAME
@@ -203,7 +216,10 @@ export function useReplySend({
           );
         }
         // success — the next reply is a new logical send
-        if (composerMode !== 'note') sendIdempotencyKeyRef.current = null;
+        if (composerMode !== 'note') {
+          sendIdempotencyKeyRef.current = null;
+          retryOfRef.current = null;
+        }
         // Out: never "unsent" again, even when the agent already left the thread.
         draftSend.settle(true);
         writeComposer('');
@@ -296,8 +312,17 @@ export function useReplySend({
         logger.error('Failed to send:', err);
         // Surface the server's own explanation for client errors — see
         // resolveSendFailureMessage for why "please try again" is wrong for some of them.
-        setSendFailedReason(resolveSendFailureMessage(err));
-        setSendFailureRetryable(resendOfEventId === undefined && isRetryableSendFailure(err));
+        // Saved, not delivered (the reply's own 502 answer): said and handled exactly as the
+        // `send-failed` socket event is — which may never arrive. The server's sentence is not
+        // shown. The bar names the saved reply, and warns first when it may have gone out.
+        const undelivered = composerMode === 'note' ? null : replyNotDelivered(err);
+        if (undelivered) {
+          retryOfRef.current = { threadId: message.id, eventId: undelivered.eventId };
+          setSendFailedReason(undelivered.uncertain ? uncertainFailureText() : notDeliveredText());
+          setSendFailedEventId(undelivered.eventId);
+        } else setSendFailedReason(resolveSendFailureMessage(err));
+        // (A resend from the bubble has no Retry: its target stays, so Send resends it.)
+        setSendFailureRetryable(composerResendOf === undefined && isRetryableSendFailure(err));
       } finally {
         setSubmitting(false);
         setAssignPrompt(null);
@@ -334,18 +359,24 @@ export function useReplySend({
       setRecipientDraft,
       setSelectedFiles,
       setSendFailedError,
+      setSendFailedEventId,
       setSendFailedReason,
       setSendFailureRetryable,
       setSubmitting,
       setThreadRefreshKey,
     ]
   );
+  /** The bar's Retry: the same draft; it replaces the saved reply the failure named, if any. */
+  const retrySend = useCallback(
+    () => void performSend(lastAssignRef.current, false, true),
+    [lastAssignRef, performSend]
+  );
 
   /** The confirm's "Send anyway": the same reply, its kept key, the override flag. */
   const sendAnyway = useCallback(() => {
     if (collisionRef.current === null) return;
     showCollision(null);
-    void performSend(lastAssignRef.current, true);
+    void performSend(lastAssignRef.current, true, lastWasRetryRef.current);
   }, [lastAssignRef, performSend, showCollision]);
   /** Cancel (or the dialog closed): the draft stays as it was; the thread is read again. */
   const cancelCollision = useCallback(() => {
@@ -486,6 +517,7 @@ export function useReplySend({
   );
   return {
     performSend,
+    retrySend,
     collision,
     sendAnyway,
     cancelCollision,

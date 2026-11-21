@@ -1,3 +1,7 @@
+import type { components } from '@/types/generated/api';
+
+type ReplyNotDelivered = components['schemas']['ReplyNotDelivered'];
+
 /**
  * Decide what to tell an agent when a reply fails to send.
  *
@@ -23,6 +27,24 @@ export const resolveSendFailureMessage = (err: unknown): string => {
   }
 
   return GENERIC_SEND_FAILURE;
+};
+
+/**
+ * The reply endpoint's 502 for a reply that was SAVED and not delivered (the contract's
+ * ReplyNotDelivered): the saved reply's event and whether it may have gone out anyway. This is
+ * what the `send-failed` socket event says too — read from the answer so a dropped socket cannot
+ * hide it. Null for every other failure (a proxy's 502 names no event). Anything but an explicit
+ * `uncertain: false` counts as uncertain: the agent is then warned before sending again.
+ */
+export const replyNotDelivered = (err: unknown): { eventId: number; uncertain: boolean } | null => {
+  const { status, data } = (err ?? {}) as {
+    status?: unknown;
+    data?: Partial<Record<keyof ReplyNotDelivered, unknown>> | null;
+  };
+  const eventId = data?.eventId;
+  return status === 502 && typeof eventId === 'number' && Number.isInteger(eventId) && eventId > 0
+    ? { eventId, uncertain: data?.uncertain !== false }
+    : null;
 };
 
 /**

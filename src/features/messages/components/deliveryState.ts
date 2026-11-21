@@ -82,8 +82,18 @@ export const failedBarState = (
   return state === 'uncertain' ? 'uncertain' : 'as_told';
 };
 
+/** The bar's words for a reply that was saved and did not go out (any channel). */
+export const notDeliveredText = (channel?: unknown): string =>
+  `Reply could not be delivered${
+    typeof channel === 'string' && channel ? ` via ${channel}` : ''
+  }. The message was saved but not sent — please try again.`;
+
+const UNCERTAIN_START = 'We could not confirm';
+/** Is `reason` the "may have reached the customer" wording below? */
+export const saysUncertain = (reason: string): boolean => reason.startsWith(UNCERTAIN_START);
+
 /** The bar's words for a send that may have reached the customer (any channel). */
 export const uncertainFailureText = (channel?: unknown): string =>
-  `We could not confirm that the reply reached the customer${
+  `${UNCERTAIN_START} that the reply reached the customer${
     typeof channel === 'string' && channel ? ` via ${channel}` : ''
   }. Check before you resend it — they may get it twice.`;

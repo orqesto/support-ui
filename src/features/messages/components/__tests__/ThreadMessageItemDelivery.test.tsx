@@ -102,6 +102,27 @@ describe('ThreadMessageItem — delivery state under an outgoing bubble', () => 
     expect(screen.queryByRole('button', { name: /^Resend the reply/ })).toBeNull();
   });
 
+  it("the bot's reply that was cut off reads as an agent's does, without a Resend (the backend resends agent replies only)", () => {
+    const onResend = vi.fn();
+    const bot = { type: 'bot_reply', authorId: null, authorName: null } as Partial<MessageEvent>;
+    const { unmount } = render(
+      <ThreadMessageItem
+        msg={reply(
+          { delivered: false, sendUncertain: true, sendFailedAt: '2026-11-21T10:00:05Z' },
+          bot
+        )}
+        onResend={onResend}
+      />
+    );
+    expect(screen.getByText('May not have been delivered')).toBeTruthy();
+    expect(screen.queryByText('✓ Sent')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Resend/ })).toBeNull();
+    unmount();
+    render(<ThreadMessageItem msg={reply({ delivered: false }, bot)} onResend={onResend} />);
+    expect(screen.getByText('Not delivered')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Resend/ })).toBeNull();
+  });
+
   it('an incoming message carries no delivery line', () => {
     render(
       <ThreadMessageItem

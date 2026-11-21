@@ -6,7 +6,7 @@ import {
   unsubscribeFromEvent,
 } from '@/lib/socketManager';
 import { isOwnSendEcho } from '@/lib/ownSends';
-import { uncertainFailureText } from '../deliveryState';
+import { notDeliveredText, uncertainFailureText } from '../deliveryState';
 import type { Message } from '@/types';
 import { useThreadMessageRefresh } from '@/features/messages/hooks/useThreadMessageRefresh';
 import { useConversationStatusRefresh } from '@/features/messages/hooks/useConversationStatusRefresh';
@@ -90,12 +90,10 @@ export function useLiveThreadSync({
         // Said as the bubble says it (never "not sent" beside "May not have been delivered"): a
         // cut-off or unconfirmed send may have reached the customer (`uncertain`, any channel).
         // (`channel` may be null: no "via null".)
-        const via =
-          typeof event.channel === 'string' && event.channel ? ` via ${event.channel}` : '';
         setSendFailedError(
           event.uncertain === true
             ? uncertainFailureText(event.channel)
-            : `Reply could not be delivered${via}. The message was saved but not sent — please try again.`
+            : notDeliveredText(event.channel)
         );
         // (After the reason: setting the reason forgets the id.)
         setSendFailedEventId(
