@@ -267,6 +267,11 @@ describe('a stored reply goes back into the composer as it was (H1)', () => {
       '<p>Hello <strong>Ann</strong>, see <a href="https://shop.example/t?a=1&amp;b=2">tracking</a> &amp; more:</p><ul><li><p>one</p></li><li><p>two</p></li></ul>';
     expect(replyToComposerHtml(html)).toBe(html);
   });
+  it('plain text that merely opens with a tag stays text: its tags are escaped, never run', () => {
+    expect(replyToComposerHtml('<p> see the list below')).toBe(
+      '<p>&lt;p&gt; see the list below</p>'
+    );
+  });
   it('plain text (a bot or chat reply) becomes paragraphs, its "<" escaped', () => {
     expect(replyToComposerHtml('Line one\n\n3 < 5 & done')).toBe(
       '<p>Line one</p><p>3 &lt; 5 &amp; done</p>'

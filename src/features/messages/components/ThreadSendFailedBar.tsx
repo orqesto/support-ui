@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { MessageEvent } from '@/types';
 import { SendFailedBar, type SendFailedBarProps } from './SendFailedBar';
-import { failedBarState, saysUncertain, uncertainFailureText } from './deliveryState';
+import {
+  failedBarState,
+  ownReplyAfter,
+  saysUncertain,
+  uncertainFailureText,
+} from './deliveryState';
 
 /**
  * The composer's "Send failed" bar, kept in step with the bubble it is about (review of #999): it
@@ -15,6 +20,7 @@ import { failedBarState, saysUncertain, uncertainFailureText } from './deliveryS
 export function ThreadSendFailedBar({
   reason,
   eventId,
+  failedAfter = null,
   thread,
   onRetry,
   retrying,
@@ -25,11 +31,13 @@ export function ThreadSendFailedBar({
   reason: string | null;
   /** The reply the failure named (the `send-failed` event or the send's 502 answer), when known. */
   eventId: number | null;
+  /** A failed send no event named: the bar reads the reply it made from the thread. */
+  failedAfter?: { afterId: number; authorId: number } | null;
   thread: readonly MessageEvent[];
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   if (reason === null) return null;
-  const state = failedBarState(eventId, thread);
+  const state = failedBarState(eventId ?? ownReplyAfter(thread, failedAfter), thread);
   if (state === 'hidden') return null;
   const uncertain = state === 'uncertain' || saysUncertain(reason);
   const retry = onRetry && (uncertain ? () => setConfirmOpen(true) : () => onRetry(false));

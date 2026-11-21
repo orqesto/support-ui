@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { editorExtensions, normalizeEditorHtml } from '../editorSchema';
-import { isEditorHtml } from '../noteText';
+import { isEditorHtml, isWholeEditorHtml } from '../noteText';
 
 const SAMPLES: Record<string, string> = {
   paragraph: '<p>text</p>',
@@ -32,6 +32,26 @@ describe('isEditorHtml knows every block the editor schema has', () => {
 
   it.each(Object.entries(SAMPLES))('%s, as the editor writes it, is editor HTML', (_name, html) => {
     expect(isEditorHtml(normalizeEditorHtml(html))).toBe(true);
+  });
+
+  it.each(Object.entries(SAMPLES))(
+    '%s, as the editor writes it, is whole editor HTML (Resend keeps it)',
+    (_name, html) => {
+      expect(isWholeEditorHtml(normalizeEditorHtml(html))).toBe(true);
+    }
+  );
+
+  it('a multi-block reply is whole editor HTML', () => {
+    expect(isWholeEditorHtml('<p>Hello</p><ul><li><p>one</p></li></ul><hr>')).toBe(true);
+  });
+
+  it.each([
+    ['opens with a tag and goes on as text', '<p> see the list below'],
+    ['a closed tag followed by text', '<p>Hi</p> and more'],
+    ['text between blocks', '<p>one</p> loose <p>two</p>'],
+    ['plain text', 'Hello, 3 < 5'],
+  ])('plain text that %s is not whole editor HTML', (_name, text) => {
+    expect(isWholeEditorHtml(text)).toBe(false);
   });
 
   it('CONTROL: plain text is not', () => {

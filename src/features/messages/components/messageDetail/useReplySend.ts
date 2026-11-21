@@ -26,7 +26,7 @@ import {
   notDeliveredText,
   uncertainFailureText,
 } from '../deliveryState';
-import { replyCollisionQuestion } from '@/lib/apiError';
+import { isSendKeyReused, replyCollisionQuestion } from '@/lib/apiError';
 import { writeSendAction, type SendAction } from '../ComposerSendButton';
 import type { ResolveMode } from '../resolveMode';
 import { fileIdentity, keyForPayload } from './sendKey';
@@ -90,6 +90,7 @@ export function useReplySend({
     setSendFailedEventId,
     failedSendRef,
     setSendFailureRetryable,
+    setSendFailedAfter,
     resendOf,
     setResendOf,
     lastAssignRef,
@@ -341,7 +342,12 @@ export function useReplySend({
         // over. One that failed in the transport (5xx, no answer) made a NEW undelivered reply
         // that replaced the old one: the target stays, and the re-read below moves it to that
         // reply (useResendReply → reconcileResendTarget), so the next Send resends it (M2).
-        if (resendOfEventId !== undefined && !isRetryableSendFailure(err)) {
+        // A key the server says belongs to another thread: nothing was sent or stored here. The key
+        // is dropped, so sending again mints a new one and the same reply (or resend) can go out.
+        const keyReused = isSendKeyReused(err);
+        if (keyReused) sendIdempotencyKeyRef.current = null;
+        const retryable = keyReused || isRetryableSendFailure(err);
+        if (resendOfEventId !== undefined && !retryable) {
           setResendOf(null);
           if (failedSendRef.current?.eventId === resendOfEventId) failedSendRef.current = null;
         }
@@ -374,9 +380,16 @@ export function useReplySend({
               : notDeliveredText(message.channel)
           );
           setSendFailedEventId(undelivered.eventId);
-        } else setSendFailedReason(resolveSendFailureMessage(err));
+        } else {
+          setSendFailedReason(resolveSendFailureMessage(err));
+          // The answer named no reply (an older backend, a proxy's 502, no answer at all), and
+          // the `send-failed` event may not come either: the bar then looks in the re-read thread
+          // for the reply this send left — the agent's own, after the newest event on screen.
+          if (retryable && seenLastEventId !== undefined && currentUserId !== null)
+            setSendFailedAfter({ afterId: seenLastEventId, authorId: currentUserId });
+        }
         // (A resend from the bubble has no Retry: its target stays, so Send resends it.)
-        setSendFailureRetryable(composerResendOf === undefined && isRetryableSendFailure(err));
+        setSendFailureRetryable(composerResendOf === undefined && retryable);
       } finally {
         setSubmitting(false);
         setAssignPrompt(null);
@@ -401,6 +414,8 @@ export function useReplySend({
       threadMessages,
       threadEventsFor,
       failedSendRef,
+      currentUserId,
+      setSendFailedAfter,
       showCollision,
       selectedFiles,
       supportsRecipients,

@@ -84,6 +84,29 @@ export const failedBarState = (
 };
 
 /**
+ * The reply a failed send of this agent made, when no `send-failed` event named it (the socket was
+ * down, or the answer was a proxy's 502): the newest agent reply by `authorId` after the newest
+ * event on screen when Send was pressed. Null when the thread shows none.
+ */
+export const ownReplyAfter = (
+  thread: readonly Pick<MessageEvent, 'id' | 'type' | 'authorId'>[],
+  after: { afterId: number; authorId: number } | null
+): number | null => {
+  if (after === null) return null;
+  let found: number | null = null;
+  for (const event of thread) {
+    if (
+      event.type === 'agent_reply' &&
+      event.authorId === after.authorId &&
+      event.id > after.afterId &&
+      (found === null || event.id > found)
+    )
+      found = event.id;
+  }
+  return found;
+};
+
+/**
  * The saved, undelivered reply a failed send named — in the send's own 502 answer, in the
  * `send-failed` socket event, or both (merged by event id; `uncertain` once said stays said).
  * `text` is the composer text that send carried: known only from the send itself, so null when
