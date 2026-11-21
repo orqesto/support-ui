@@ -67,6 +67,16 @@ export const isSendKeyReused = (err: unknown): boolean => {
   return failed?.status === 409 && failed.data?.code === 'REPLY_IDEMPOTENCY_KEY_REUSED';
 };
 
+/**
+ * The reply (or the reply a resend names) is still being sent by an earlier request: nothing new
+ * was stored. The send's key and its resend target stay, so the same Send cannot become a second
+ * reply while the first is on its way.
+ */
+export const isSendInFlight = (err: unknown): boolean => {
+  const failed = err as { status?: number; data?: { code?: unknown } } | null | undefined;
+  return failed?.status === 409 && failed.data?.code === 'REPLY_SEND_IN_FLIGHT';
+};
+
 export const replyCollisionQuestion = (err: unknown): string | null => {
   const failed = err as
     | { status?: number; data?: { code?: unknown; error?: unknown; message?: unknown } }

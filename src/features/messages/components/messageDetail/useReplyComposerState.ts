@@ -7,7 +7,7 @@ import { resolveReplyBlock } from '../replyBlockState';
 import type { WhatsAppTemplate } from '../whatsappTemplates';
 import type { KeptSendKey } from './sendKey';
 import type { Setter } from './types';
-import type { ResendTarget } from '../deliveryState';
+import type { FailedSend, ResendTarget } from '../deliveryState';
 
 /** Files, send failures, the channel window, WhatsApp templates and the editor refs. */
 
@@ -18,6 +18,9 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
   // delivered (a late answer from the channel), the bar would contradict the bubble, so it hides.
   // Any other change of the bar forgets it.
   const [sendFailedEventId, setSendFailedEventId] = useState<number | null>(null);
+  // What is known about that reply from the send's 502 answer and the socket event together
+  // (deliveryState.ts FailedSend): Retry, and the same text sent again, replace THAT reply.
+  const failedSendRef = useRef<FailedSend | null>(null);
   // An undelivered reply put back in the composer by its Resend: the next reply replaces it.
   const [resendOf, setResendOf] = useState<ResendTarget | null>(null);
   // A failed send no `send-failed` event named (socket down, a proxy's 502): where to look for the
@@ -27,9 +30,28 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     afterId: number;
     authorId: number;
   } | null>(null);
+  // Set by a `send-failed` event alone (not this tab's own request): the bar is then shown only
+  // when the reply it names is the current agent's (failedBarState) — the backend announces every
+  // failure to the whole workspace, the stuck-send repair's too, and a colleague with the thread
+  // open sent nothing. The bubble shows them the state.
+  const [sendFailedOwnOnly, setSendFailedOwnOnly] = useState(false);
+  // Is the bar up for this tab's OWN failed request? Then a `send-failed` event about another
+  // reply (possibly a colleague's) leaves it alone (useLiveThreadSync).
+  const ownFailureRef = useRef(false);
+  // A reply request of this tab is out: its answer re-reads the thread, so a `send-failed` event
+  // arriving meanwhile reads nothing (one failure = one re-read).
+  const requestOutRef = useRef(false);
   const setSendFailedError = useCallback<Setter<string | null>>((value) => {
+    ownFailureRef.current = false;
     setSendFailedEventId(null);
     setSendFailedAfter(null);
+    setSendFailedOwnOnly(false);
+    setFailedReason(value);
+  }, []);
+  // This tab's own failed send: always its bar.
+  const setSendFailedReason = useCallback((value: string | null) => {
+    ownFailureRef.current = value !== null;
+    setSendFailedOwnOnly(false);
     setFailedReason(value);
   }, []);
   // Retry is offered only for a failure a resend can fix, while the draft is still in the
@@ -92,11 +114,22 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     setSendFailedError,
     sendFailedEventId,
     setSendFailedEventId,
+    failedSendRef,
+    ownFailureRef,
+    requestOutRef,
     sendFailedAfter,
     setSendFailedAfter,
+    // The bar's reply: the one an event named, else where to look for it (ThreadSendFailedBar).
+    failedBarReply: {
+      eventId: sendFailedEventId,
+      failedAfter: sendFailedAfter,
+      ownOnly: sendFailedOwnOnly,
+    },
     // The failed send's own reason, keeping the reply the `send-failed` event named (it may come
     // before the HTTP answer — review of #999, M4).
-    setSendFailedReason: setFailedReason,
+    setSendFailedReason,
+    sendFailedOwnOnly,
+    setSendFailedOwnOnly,
     resendOf,
     setResendOf,
     sendFailureRetryable,

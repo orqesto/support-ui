@@ -1,3 +1,4 @@
+import { stripHtml } from '@/lib/stripHtml';
 import type { MessageEvent } from '@/types';
 
 /**
@@ -70,10 +71,18 @@ export const reconcileResendTarget = (
  */
 export const failedBarState = (
   eventId: number | null,
-  thread: readonly Pick<MessageEvent, 'id' | 'metadata'>[]
+  thread: readonly Pick<MessageEvent, 'id' | 'metadata' | 'authorId'>[],
+  /**
+   * Set for a failure only the socket announced, which every agent with the thread open hears:
+   * the bar shows only once the named reply is read and is this agent's. A colleague sees the
+   * bubble alone.
+   */
+  ownerId?: number | null
 ): 'hidden' | 'uncertain' | 'as_told' => {
-  if (eventId === null) return 'as_told';
+  // (Owner-only and no reply named: nobody's bar — every agent hears the event.)
+  if (eventId === null) return ownerId === undefined ? 'as_told' : 'hidden';
   const named = thread.find((event) => event.id === eventId);
+  if (ownerId !== undefined && named?.authorId !== ownerId) return 'hidden';
   // Gone: replaced by a resend (its successor names it) → hidden; not read yet → as told.
   if (!named)
     return thread.some((event) => event.metadata?.resendOf === eventId) ? 'hidden' : 'as_told';
@@ -105,8 +114,126 @@ export const ownReplyAfter = (
   return found;
 };
 
+/**
+ * The saved, undelivered reply a failed send named — in the send's own 502 answer, in the
+ * `send-failed` socket event, or both (merged by event id; `uncertain` once said stays said).
+ * `text` is the composer text that send carried: known only from the send itself, so null when
+ * only the socket event spoke.
+ */
+export type FailedSend = {
+  threadId: number;
+  eventId: number;
+  uncertain: boolean;
+  text: string | null;
+};
+
+/** One more report about a failed send, merged into what is known: the richer state wins. */
+export const mergeFailedSend = (known: FailedSend | null, told: FailedSend): FailedSend =>
+  known?.threadId === told.threadId && known.eventId === told.eventId
+    ? {
+        ...known,
+        uncertain: known.uncertain || told.uncertain,
+        text: told.text ?? known.text,
+      }
+    : told;
+
+/**
+ * Is `eventId` still the thread's latest undelivered agent reply? Not once it shows as delivered,
+ * a resend replaced it, or a newer agent reply went undelivered after it. A reply the thread has
+ * not read yet counts as still outstanding.
+ */
+export const isLatestUndelivered = (
+  eventId: number,
+  thread: readonly Pick<MessageEvent, 'id' | 'type' | 'metadata'>[]
+): boolean =>
+  failedBarState(eventId, thread) !== 'hidden' &&
+  !thread.some(
+    (event) =>
+      event.id > eventId && event.type === 'agent_reply' && isUndelivered(deliveryStateOf(event))
+  );
+
+/**
+ * Do two reply texts say the same? Compared as plain text (tags, entities and spacing aside): the
+ * composer holds the editor's HTML, a stored reply may be that HTML or plain text. Blank is never
+ * "the same".
+ */
+export const sameReplyText = (
+  left: string | null | undefined,
+  right: string | null | undefined
+): boolean => {
+  const text = stripHtml(left ?? '');
+  return text !== '' && text === stripHtml(right ?? '');
+};
+
+/**
+ * The reply a Send of `composer` would send AGAIN although the customer may already have it, or
+ * null. The rule that tells a repeat from a new reply: the text is the same (sameReplyText) as
+ * one of the CURRENT AGENT's own replies (`authorId`) that the thread still shows as undelivered
+ * and uncertain — any of them, not only the newest (a later failed reply with another text does
+ * not make the earlier one safe to repeat); the newest match is the one resent. A reply delivered
+ * after all, or replaced by a resend, is not in question. A colleague's reply never counts:
+ * sending their words is this agent's own reply.
+ * Read from the THREAD, so it holds after a reload, on a backend that names no event in its
+ * answer, and when only the socket event reported the failure. Before the thread shows the reply
+ * (the answer came first), the failed send's own report (`failed`) stands in for it.
+ */
+export const sendAgainTarget = (
+  composer: string,
+  thread: readonly Pick<MessageEvent, 'id' | 'type' | 'metadata' | 'content' | 'authorId'>[],
+  failed: FailedSend | null,
+  authorId: number | null
+): number | null => {
+  const matches = thread
+    .filter(
+      (event) =>
+        authorId !== null &&
+        event.authorId === authorId &&
+        event.type === 'agent_reply' &&
+        deliveryStateOf(event) === 'uncertain' &&
+        !thread.some((later) => later.metadata?.resendOf === event.id) &&
+        sameReplyText(composer, event.content)
+    )
+    .map((event) => event.id);
+  if (matches.length > 0) return Math.max(...matches);
+  return failed?.uncertain === true &&
+    sameReplyText(composer, failed.text) &&
+    isLatestUndelivered(failed.eventId, thread)
+    ? failed.eventId
+    : null;
+};
+
+/**
+ * Is this text already on its way? One of the agent's own replies with the same text is still
+ * being sent (`sendState: 'sending'`): sending it again now would make a second reply.
+ */
+export const isSameReplySending = (
+  composer: string,
+  thread: readonly Pick<MessageEvent, 'type' | 'metadata' | 'content' | 'authorId'>[],
+  authorId: number | null
+): boolean =>
+  authorId !== null &&
+  thread.some(
+    (event) =>
+      event.authorId === authorId &&
+      event.type === 'agent_reply' &&
+      deliveryStateOf(event) === 'sending' &&
+      sameReplyText(composer, event.content)
+  );
+
+export const STILL_SENDING = 'This reply is still being sent — wait a moment.';
+
+/** The bar's words for a reply that was saved and did not go out (any channel). */
+export const notDeliveredText = (channel?: unknown): string =>
+  `Reply could not be delivered${
+    typeof channel === 'string' && channel ? ` via ${channel}` : ''
+  }. The message was saved but not sent — please try again.`;
+
+const UNCERTAIN_START = 'We could not confirm';
+/** Is `reason` the "may have reached the customer" wording below? */
+export const saysUncertain = (reason: string): boolean => reason.startsWith(UNCERTAIN_START);
+
 /** The bar's words for a send that may have reached the customer (any channel). */
 export const uncertainFailureText = (channel?: unknown): string =>
-  `We could not confirm that the reply reached the customer${
+  `${UNCERTAIN_START} that the reply reached the customer${
     typeof channel === 'string' && channel ? ` via ${channel}` : ''
   }. Check before you resend it — they may get it twice.`;

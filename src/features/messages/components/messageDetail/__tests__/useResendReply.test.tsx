@@ -27,6 +27,8 @@ const failed = (metadata: Record<string, unknown>) =>
     type: 'agent_reply',
     content: 'Your parcel ships today.',
     authorEmail: 'support@shop.example',
+    // The signed-in agent's own reply (the harness signs in user 7).
+    authorId: 7,
     metadata,
   });
 
@@ -338,7 +340,8 @@ describe('live: the bubble follows the send', () => {
     await ready();
     await socketEvent('send-failed', { messageId: 101, channel: 'email', outgoingMessageId: 942 });
     await screen.findByText('Send failed');
-    await waitFor(() => expect(svc.message.getThreadMessages.mock.calls.length).toBeGreaterThan(1));
+    // (An event this tab has no request for reads the newest events only — sendFailureRereads.)
+    await waitFor(() => expect(svc.message.getThreadMessagesAfter).toHaveBeenCalled());
     expect(screen.getByText('Send failed')).toBeTruthy();
     expect(screen.getByText('Not delivered')).toBeTruthy();
   });
@@ -428,6 +431,8 @@ describe('review of #999', () => {
             id: 950,
             type: 'agent_reply',
             content: 'Hi',
+            // The signed-in agent's own reply: only then is "send it again?" asked.
+            authorId: 7,
             metadata: { delivered: false, sendUncertain: true },
           }),
         ],
@@ -459,7 +464,13 @@ describe('review of #999', () => {
       svc.message.getThreadMessages = vi.fn().mockResolvedValue({
         data: [
           event({ id: 900 }),
-          event({ id: 950, type: 'agent_reply', content: 'Hi', metadata: { delivered: false } }),
+          event({
+            id: 950,
+            type: 'agent_reply',
+            content: 'Hi',
+            authorId: 7,
+            metadata: { delivered: false },
+          }),
         ],
       });
       throw Object.assign(new Error('boom'), { status: 502 });
@@ -472,7 +483,7 @@ describe('review of #999', () => {
     svc.message.getThreadMessages = vi.fn().mockResolvedValue({
       data: [
         event({ id: 900 }),
-        event({ id: 950, type: 'agent_reply', content: 'Hi', metadata: {} }),
+        event({ id: 950, type: 'agent_reply', content: 'Hi', authorId: 7, metadata: {} }),
       ],
     });
     await socketEvent('message:replied', { messageId: 101, late: true });

@@ -4,7 +4,12 @@ import { translatedTextToHtml } from '@/lib/editorText';
 import { isWholeEditorHtml } from '@/lib/noteText';
 import { isBlankRichText } from '@/lib/stripHtml';
 import type { MessageEvent } from '@/types';
-import { deliveryStateOf, isUndelivered, reconcileResendTarget } from '../deliveryState';
+import {
+  deliveryStateOf,
+  isUndelivered,
+  reconcileResendTarget,
+  sameReplyText,
+} from '../deliveryState';
 import type { useComposerText } from './useComposerText';
 import type { useReplyComposerState } from './useReplyComposerState';
 import type { useThreadEvents } from './useThreadEvents';
@@ -58,7 +63,12 @@ export function useResendReply(
     (msg: MessageEvent) => {
       const state = deliveryStateOf(msg);
       if (msg.type !== 'agent_reply' || !isUndelivered(state)) return;
-      if (!isBlankRichText(latestComposer.current)) {
+      // The composer may still hold this very reply (the failed send left its text there): Resend
+      // takes it over. Any other text is the agent's own and is never written over.
+      if (
+        !isBlankRichText(latestComposer.current) &&
+        !sameReplyText(latestComposer.current, msg.content)
+      ) {
         toast.error('Send or clear the reply you are writing first, then resend.');
         return;
       }

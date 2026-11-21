@@ -481,6 +481,11 @@ export const organizationService = {
         (topic): topic is BuiltInRestrictedTopic =>
           typeof topic?.key === 'string' && typeof topic.label === 'string' && topic.label !== ''
       ),
+      // Every team that has stored topics, also a switched-off or deleted one. `null` = a backend
+      // that does not list them yet.
+      restrictedTopicTeams: Array.isArray(response.data.data?.restrictedTopicTeams)
+        ? response.data.data.restrictedTopicTeams
+        : null,
     };
   },
 

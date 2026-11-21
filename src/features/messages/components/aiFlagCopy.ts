@@ -120,6 +120,9 @@ export const NAMED_REVIEW_REASONS = [
   'unsupported_by_sources',
   'not_from_knowledge',
   'spam_verdict',
+  // A reply held because it only declined the question (email, Telegram, the chat widget), or by
+  // another send rule: named like the gate's other holds, not the plain "Needs review".
+  'blocked_gate',
 ] as const;
 export type NamedReviewReason = (typeof NAMED_REVIEW_REASONS)[number];
 

@@ -32,8 +32,20 @@ export const BuiltInTopics = ({ topics }: { topics: readonly BuiltInRestrictedTo
   );
 
 /** A list of topics as read-only chips (someone who cannot change the settings). */
-export const TopicsReadOnly = ({ label, topics }: { label: string; topics: readonly string[] }) => (
+export const TopicsReadOnly = ({
+  label,
+  topics,
+  emptyText,
+}: {
+  label: string;
+  topics: readonly string[];
+  /** Said in place of an empty list, when given. */
+  emptyText?: string;
+}) => (
   <ul aria-label={label} className="flex flex-wrap gap-1">
+    {topics.length === 0 && emptyText && (
+      <li className="text-xs italic text-muted-foreground">{emptyText}</li>
+    )}
     {topics.map((topic) => (
       <li key={topic}>
         <Badge variant="warning" size="sm" className="font-normal cursor-default">

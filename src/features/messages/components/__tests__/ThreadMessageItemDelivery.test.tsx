@@ -10,7 +10,13 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import type { MessageEvent } from '@/types';
 import { ThreadMessageItem } from '../ThreadMessageItem';
-import { deliveryStateOf, failedBarState, reconcileResendTarget } from '../deliveryState';
+import {
+  deliveryStateOf,
+  failedBarState,
+  isLatestUndelivered,
+  mergeFailedSend,
+  reconcileResendTarget,
+} from '../deliveryState';
 import { replyToComposerHtml } from '../messageDetail/useResendReply';
 import { withDeliveryUpdates } from '../threadNewEvents';
 
@@ -100,6 +106,27 @@ describe('ThreadMessageItem — delivery state under an outgoing bubble', () => 
     render(<ThreadMessageItem msg={reply({ delivered: false })} />);
     expect(screen.getByText('Not delivered')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^Resend the reply/ })).toBeNull();
+  });
+
+  it("the bot's reply that was cut off reads as an agent's does, without a Resend (the backend resends agent replies only)", () => {
+    const onResend = vi.fn();
+    const bot = { type: 'bot_reply', authorId: null, authorName: null } as Partial<MessageEvent>;
+    const { unmount } = render(
+      <ThreadMessageItem
+        msg={reply(
+          { delivered: false, sendUncertain: true, sendFailedAt: '2026-11-21T10:00:05Z' },
+          bot
+        )}
+        onResend={onResend}
+      />
+    );
+    expect(screen.getByText('May not have been delivered')).toBeTruthy();
+    expect(screen.queryByText('✓ Sent')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Resend/ })).toBeNull();
+    unmount();
+    render(<ThreadMessageItem msg={reply({ delivered: false }, bot)} onResend={onResend} />);
+    expect(screen.getByText('Not delivered')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Resend/ })).toBeNull();
   });
 
   it('an incoming message carries no delivery line', () => {
@@ -249,5 +276,43 @@ describe('a stored reply goes back into the composer as it was (H1)', () => {
     expect(replyToComposerHtml('Line one\n\n3 < 5 & done')).toBe(
       '<p>Line one</p><p>3 &lt; 5 &amp; done</p>'
     );
+  });
+});
+
+describe('a failed send as the 502 answer and the socket event report it', () => {
+  const told = { threadId: 10, eventId: 41, uncertain: false, text: null };
+
+  it('the same reply: one report — uncertain once said stays, the text is kept', () => {
+    const known = { ...told, uncertain: true, text: '<p>Hello</p>' };
+    expect(mergeFailedSend(known, told)).toEqual(known);
+    expect(mergeFailedSend(told, known)).toEqual(known);
+  });
+
+  it('CONTROL: another reply, or another thread, replaces what was known', () => {
+    const known = { ...told, uncertain: true, text: '<p>Hello</p>' };
+    expect(mergeFailedSend(known, { ...told, eventId: 45 })).toEqual({ ...told, eventId: 45 });
+    expect(mergeFailedSend(known, { ...told, threadId: 11 })).toEqual({ ...told, threadId: 11 });
+    expect(mergeFailedSend(null, told)).toEqual(told);
+  });
+
+  it('owner-only (a failure only the socket announced) and no reply named: hidden', () => {
+    expect(failedBarState(null, [], 7)).toBe('hidden');
+    expect(failedBarState(null, [])).toBe('as_told');
+  });
+
+  it('still the latest undelivered reply: not read yet, or read as undelivered', () => {
+    expect(isLatestUndelivered(41, [])).toBe(true);
+    expect(isLatestUndelivered(41, [reply({ delivered: false, sendUncertain: true })])).toBe(true);
+  });
+
+  it('no longer: delivered after all, replaced by a resend, or a newer reply went undelivered', () => {
+    expect(isLatestUndelivered(41, [reply({})])).toBe(false);
+    expect(isLatestUndelivered(41, [reply({ resendOf: 41 }, { id: 45 })])).toBe(false);
+    expect(
+      isLatestUndelivered(41, [
+        reply({ delivered: false, sendUncertain: true }),
+        reply({ delivered: false }, { id: 46 }),
+      ])
+    ).toBe(false);
   });
 });

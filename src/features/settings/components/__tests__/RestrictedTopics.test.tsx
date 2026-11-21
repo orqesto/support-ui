@@ -5,166 +5,23 @@
  * someone else added, and after every save the lists shown are the ones the server answered with.
  * The stand-in server below behaves as the backend's PATCH does. Invented data.
  */
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-
-type Team = Record<string, unknown> & { restrictedTopics?: string[] };
-type Change = { scope: string; departmentId?: number; add?: string[]; remove?: string[] };
-
-const state = vi.hoisted(() => ({
-  canManage: true,
-  /** False: an older backend that knows no restricted topics. */
-  supported: true,
-  builtIn: [] as { key: string; label: string }[],
-  topics: [] as string[],
-  teams: {} as Record<string, Record<string, unknown>>,
-  departments: [] as { id: number; name: string; slug: string; active: boolean }[],
-  updates: [] as Record<string, unknown>[],
-  failWith: null as Record<string, unknown> | null,
-  /** Held answers: each save waits until the test releases it. */
-  held: null as (() => void)[] | null,
-  alerts: [] as { title: string; description?: string; variant?: string }[],
-}));
-
-const sameTopic = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
-const changed = (list: string[], change: Change): string[] => [
-  ...list.filter((topic) => !(change.remove ?? []).some((gone) => sameTopic(gone, topic))),
-  ...(change.add ?? []).filter((topic) => !list.some((kept) => sameTopic(kept, topic))),
-];
-/** What the backend's PATCH does with a body, and what it answers. */
-const serverSave = (body: Record<string, unknown>) => {
-  const teams = state.teams as Record<string, Team>;
-  if (body.departmentSettings) {
-    // The map replaces the stored one; each team's stored topics are carried over, also for a
-    // team the body drops, and topics in the body are ignored.
-    const next: Record<string, Team> = {};
-    for (const [key, sent] of Object.entries(body.departmentSettings as Record<string, Team>)) {
-      const { restrictedTopics: _ignored, ...rest } = sent;
-      next[key] = rest;
-    }
-    for (const [key, stored] of Object.entries(teams)) {
-      if (stored.restrictedTopics?.length) {
-        next[key] = { ...next[key], restrictedTopics: stored.restrictedTopics };
-      }
-    }
-    state.teams = next;
-  }
-  const change = body.restrictedTopicsChange as Change | undefined;
-  if (change?.scope === 'workspace') state.topics = changed(state.topics, change);
-  if (change?.scope === 'team') {
-    const key = String(change.departmentId);
-    const stored = (state.teams as Record<string, Team>)[key] ?? {};
-    state.teams = {
-      ...state.teams,
-      [key]: { ...stored, restrictedTopics: changed(stored.restrictedTopics ?? [], change) },
-    };
-  }
-  return {
-    success: true,
-    data: structuredClone({
-      enabled: true,
-      mode: 'all',
-      partialAnswer: 'hand_to_agent',
-      ...(state.supported && {
-        restrictedTopics: state.topics,
-        builtInRestrictedTopics: state.builtIn,
-      }),
-      departmentSettings: state.teams,
-    }),
-  };
-};
-
-vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
-  useAiDraftsOff: () => ({ off: false, resolved: true }),
-  useRefreshAiDrafts: () => () => undefined,
-}));
-vi.mock('@/services/organization.service', () => ({
-  organizationService: {
-    getAutoReply: () =>
-      Promise.resolve({
-        enabled: true,
-        mode: 'all',
-        requestMissingInfo: true,
-        suggestSolutions: true,
-        highConfidenceThreshold: 0.9,
-        partialAnswer: 'hand_to_agent',
-        restrictedTopics: state.supported ? [...state.topics] : null,
-        builtInRestrictedTopics: state.supported ? state.builtIn : [],
-      }),
-    getCurrent: () =>
-      Promise.resolve({ settings: { departmentSettings: structuredClone(state.teams) } }),
-    updateAutoReply: async (data: Record<string, unknown>) => {
-      state.updates.push(structuredClone(data));
-      if (state.held) await new Promise<void>((release) => state.held?.push(release));
-      if (state.failWith) throw Object.assign(new Error('Request failed'), state.failWith);
-      return serverSave(data);
-    },
-  },
-}));
-vi.mock('@/hooks/useDepartments', () => ({
-  useDepartments: () => ({ data: state.departments, teamsEnabled: true }),
-}));
-vi.mock('@/hooks/usePermissions', () => ({
-  usePermissions: () => ({ isOrgAdmin: state.canManage, hasPermission: () => state.canManage }),
-}));
-vi.mock('../AutoReplyRulesSection', () => ({ AutoReplyRulesSection: () => null }));
-vi.mock('../FeatureSuggestions', () => ({ FeatureSuggestions: () => null }));
-vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn() } }));
-
-import { AutoReplyConfiguration } from '../AutoReplyConfiguration';
+import {
+  BILLING,
+  BUILT_IN,
+  SALES,
+  TEAM,
+  WORKSPACE,
+  add,
+  refusal,
+  sentTopicLists,
+  show,
+  state,
+  topicsOf,
+  type Team,
+} from './restrictedTopics.testkit';
+import { describe, expect, it } from 'vitest';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { restrictedTopicProblem } from '../restrictedTopics';
-
-/** What the backend returns as `builtInRestrictedTopics`; the labels are the backend's. */
-const BUILT_IN_FROM_API = [
-  { key: 'dosing', label: 'Dosing' },
-  { key: 'medical_advice', label: 'Medical or health advice' },
-  { key: 'diagnosis', label: 'Diagnosis' },
-  { key: 'legal_tax_advice', label: 'Legal or tax advice' },
-];
-const BUILT_IN = BUILT_IN_FROM_API.map((topic) => topic.label);
-const WORKSPACE = 'Workspace restricted topics';
-const TEAM = 'Billing restricted topics';
-const BILLING = { id: 7, name: 'Billing', slug: 'billing', active: true };
-const SALES = { id: 9, name: 'Sales', slug: 'sales', active: true };
-
-beforeEach(() => {
-  state.canManage = true;
-  state.supported = true;
-  state.builtIn = BUILT_IN_FROM_API;
-  state.topics = [];
-  state.teams = {};
-  state.departments = [BILLING];
-  state.updates = [];
-  state.failWith = null;
-  state.held = null;
-  state.alerts = [];
-});
-afterEach(cleanup);
-
-const show = () =>
-  render(<AutoReplyConfiguration onShowAlert={(alert) => state.alerts.push(alert)} />);
-const add = (list: string, topic: string) => {
-  const input = screen.getByRole('textbox', { name: `Add to ${list}` });
-  fireEvent.change(input, { target: { value: topic } });
-  fireEvent.keyDown(input, { key: 'Enter' });
-};
-const topicsOf = (list: string) =>
-  within(screen.getByRole('list', { name: list }))
-    .queryAllByRole('listitem')
-    .map((item) => item.textContent);
-const refusal = (error: string, fields: string[]) => ({
-  response: { status: 400, data: { success: false, error, code: 'VALIDATION_FAILED', fields } },
-});
-/** No save of this card ever carries a list of topics. */
-const sentTopicLists = () =>
-  state.updates.filter(
-    (update) =>
-      'restrictedTopics' in update ||
-      'builtInRestrictedTopics' in update ||
-      Object.values((update.departmentSettings ?? {}) as Record<string, Team>).some(
-        (team) => 'restrictedTopics' in team
-      )
-  );
 
 describe('restricted topics — the workspace list', () => {
   it('the built-in topics come first, with no remove control and an "always on" note', async () => {

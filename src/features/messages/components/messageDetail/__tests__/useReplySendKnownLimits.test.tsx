@@ -7,7 +7,7 @@
  */
 import { renderDetail, svc, event } from '../../__tests__/md4.mobile.utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 
 const pressSend = () => fireEvent.click(screen.getByRole('button', { name: /^SEND$/ }));
 const editor = () => screen.getByTestId('rich-text-editor');
@@ -139,5 +139,58 @@ describe('a transport failure with no send-failed event (socket down)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('a failure only the socket announced (the stuck-send repair, a late channel answer)', () => {
+  const socketEvent = async (name: string, payload: unknown) => {
+    const { subscribeToEvent } = await import('@/lib/socketManager');
+    const handlers = vi
+      .mocked(subscribeToEvent)
+      .mock.calls.filter(([subscribed]) => subscribed === name)
+      .map(([, handler]) => handler);
+    for (const handler of handlers) handler(payload);
+  };
+  const withReplyBy = (authorId: number) =>
+    withThread(
+      event({ id: 900 }),
+      event({
+        id: 942,
+        type: 'agent_reply',
+        content: 'Your parcel ships today.',
+        authorId,
+        metadata: { delivered: false, sendUncertain: true },
+      })
+    );
+
+  it('shows no bar to a colleague: the reply is not theirs, the bubble tells them', async () => {
+    withReplyBy(8);
+    renderDetail();
+    await screen.findByText('May not have been delivered');
+    await act(() =>
+      socketEvent('send-failed', {
+        messageId: 101,
+        channel: 'email',
+        outgoingMessageId: 942,
+        uncertain: true,
+      })
+    );
+    await waitFor(() => expect(svc.message.getThreadMessages.mock.calls.length).toBeGreaterThan(1));
+    expect(screen.queryByText('Send failed')).toBeNull();
+  });
+
+  it('CONTROL: the agent who sent it gets the bar', async () => {
+    withReplyBy(7);
+    renderDetail();
+    await screen.findByText('May not have been delivered');
+    await act(() =>
+      socketEvent('send-failed', {
+        messageId: 101,
+        channel: 'email',
+        outgoingMessageId: 942,
+        uncertain: true,
+      })
+    );
+    await screen.findByText('Send failed');
   });
 });

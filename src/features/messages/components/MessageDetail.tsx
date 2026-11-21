@@ -21,7 +21,7 @@ import { useAiDraftsOff } from '@/features/settings/shell';
 import { Permission } from '@/types/roles';
 import { useThreadFileViewer } from './useThreadFileViewer';
 import { MessagePanelTabs } from './MessagePanelTabs';
-import { ThreadSendFailedBar } from './ThreadSendFailedBar';
+import { SendAgainConfirm, ThreadSendFailedBar } from './ThreadSendFailedBar';
 import { ResendNotice } from './ResendNotice';
 import { useResendReply } from './messageDetail/useResendReply';
 import { isBlankRichText } from '@/lib/stripHtml';
@@ -145,7 +145,6 @@ export function MessageDetail({
     setSendFailedError,
     sendFailureRetryable,
     setSendFailureRetryable,
-    lastAssignRef,
     lastSendModeRef,
     richEditorRef,
     noteEditorRef,
@@ -163,6 +162,8 @@ export function MessageDetail({
     setSendFailureRetryable,
     setSendFailedError,
     setSendFailedEventId: replyState.setSendFailedEventId,
+    setSendFailedOwnOnly: replyState.setSendFailedOwnOnly,
+    sendRefs: replyState,
   });
 
   // ── AI ghost state ─────────────────────────────────────────────────────────
@@ -313,14 +314,7 @@ export function MessageDetail({
     onOptimisticMove,
     onRefresh,
   });
-  const {
-    performSend,
-    handleSend,
-    sendActions,
-    handleSendWith,
-    handleSendPick,
-    handleOpenTemplates,
-  } = send;
+  const { handleSend, sendActions, handleSendWith, handleSendPick, handleOpenTemplates } = send;
 
   const conv = useConversationActions({
     message,
@@ -609,8 +603,8 @@ export function MessageDetail({
 
           <ThreadSendFailedBar
             reason={sendFailedError}
-            eventId={replyState.sendFailedEventId}
-            failedAfter={replyState.sendFailedAfter}
+            {...replyState.failedBarReply}
+            ownerId={currentUserId}
             thread={sortedThread}
             // Only while the failed draft is still there to resend (a blank composer means the
             // agent cleared it, or the async failure came after the send cleared it).
@@ -618,12 +612,14 @@ export function MessageDetail({
               sendFailureRetryable &&
               !isBlankRichText(composer) &&
               composerMode === lastSendModeRef.current
-                ? () => void performSend(lastAssignRef.current)
+                ? send.retrySend
                 : undefined
             }
             retrying={submitting}
             onDismiss={() => setSendFailedError(null)}
           />
+          {/* Send pressed again with the reply that may already have reached the customer. */}
+          <SendAgainConfirm {...send.sendAgainConfirm} />
 
           {/* What a colleague just did here (thread presence). "view" re-reads the thread; the
             draft stays. */}
