@@ -6,7 +6,12 @@ import {
   unsubscribeFromEvent,
 } from '@/lib/socketManager';
 import { isOwnSendEcho } from '@/lib/ownSends';
-import { notDeliveredText, uncertainFailureText } from '../deliveryState';
+import {
+  mergeFailedSend,
+  notDeliveredText,
+  uncertainFailureText,
+  type FailedSend,
+} from '../deliveryState';
 import type { Message } from '@/types';
 import { useThreadMessageRefresh } from '@/features/messages/hooks/useThreadMessageRefresh';
 import { useConversationStatusRefresh } from '@/features/messages/hooks/useConversationStatusRefresh';
@@ -32,6 +37,7 @@ export function useLiveThreadSync({
   setSendFailureRetryable,
   setSendFailedError,
   setSendFailedEventId,
+  failedSendRef,
 }: {
   message: Message;
   pullLiveEvents: () => void;
@@ -43,6 +49,7 @@ export function useLiveThreadSync({
   setSendFailureRetryable: Setter<boolean>;
   setSendFailedError: Setter<string | null>;
   setSendFailedEventId: Setter<number | null>;
+  failedSendRef: MutableRefObject<FailedSend | null>;
 }) {
   // A customer's new message or the bot's answer on this thread: refetch THIS thread only.
   // ⛔ Not onRefresh: on MessagesPage that reloads the message, the whole list and every board
@@ -86,19 +93,34 @@ export function useLiveThreadSync({
         uncertain?: unknown;
       };
       if (event.messageId === message.id) {
-        setSendFailureRetryable(false);
+        const eventId =
+          typeof event.outgoingMessageId === 'number' ? event.outgoingMessageId : null;
+        // The send's own 502 answer may have named this very reply already (the event came late):
+        // the two are one report, merged by event id. The bar keeps its Retry, and a reply once
+        // said to be uncertain stays so. Any other failure is news: no draft is left to retry.
+        const known = failedSendRef.current;
+        const sameReport =
+          eventId !== null && known?.threadId === message.id && known.eventId === eventId;
+        if (!sameReport) setSendFailureRetryable(false);
+        const merged =
+          eventId === null
+            ? null
+            : mergeFailedSend(known, {
+                threadId: message.id,
+                eventId,
+                uncertain: event.uncertain === true,
+                text: null,
+              });
+        if (merged) failedSendRef.current = merged;
+        const uncertain = merged ? merged.uncertain : event.uncertain === true;
         // Said as the bubble says it (never "not sent" beside "May not have been delivered"): a
         // cut-off or unconfirmed send may have reached the customer (`uncertain`, any channel).
         // (`channel` may be null: no "via null".)
         setSendFailedError(
-          event.uncertain === true
-            ? uncertainFailureText(event.channel)
-            : notDeliveredText(event.channel)
+          uncertain ? uncertainFailureText(event.channel) : notDeliveredText(event.channel)
         );
         // (After the reason: setting the reason forgets the id.)
-        setSendFailedEventId(
-          typeof event.outgoingMessageId === 'number' ? event.outgoingMessageId : null
-        );
+        setSendFailedEventId(eventId);
         // The BE reverts the conv's status and marks the reply event undelivered on
         // failure. Refetch so the thread reflects the real state (no longer shown as
         // resolved/replied, and the outgoing bubble can render as undelivered) instead
@@ -155,5 +177,6 @@ export function useLiveThreadSync({
     setSendFailedEventId,
     setSendFailureRetryable,
     setThreadRefreshKey,
+    failedSendRef,
   ]);
 }

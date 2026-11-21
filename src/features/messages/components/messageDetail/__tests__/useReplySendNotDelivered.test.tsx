@@ -6,9 +6,10 @@
  * way Retry replaces the saved reply (`resendOfEventId`). The server's sentence is never shown.
  * Through MessageDetail, as the app calls the services. Invented data.
  */
-import { renderDetail, svc, event } from '../../__tests__/md4.mobile.utils';
+import { renderDetail, svc, event, baseMessage } from '../../__tests__/md4.mobile.utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { subscribeToEvent } from '@/lib/socketManager';
 
 const type = (text: string) =>
   fireEvent.change(screen.getByTestId('rich-text-editor'), { target: { value: text } });
@@ -104,5 +105,90 @@ describe('502 "saved, not delivered" without the socket event', () => {
     const [first, second] = svc.message.reply.mock.calls as Call[];
     expect(guardOf(second)).toEqual({ seenLastEventId: 900 });
     expect(keyOf(second)).toBe(keyOf(first));
+  });
+});
+
+describe('Send pressed again (not Retry) after a send that may have reached the customer', () => {
+  it('the same text: the same confirm first, then it goes as a resend of that reply', async () => {
+    await sendAndFail({ eventId: 955, uncertain: true });
+    pressSend();
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Send this reply again?')).toBeTruthy();
+    expect(svc.message.reply).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send again' }));
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    expect(guardOf((svc.message.reply.mock.calls as Call[])[1])).toEqual({
+      seenLastEventId: 900,
+      resendOfEventId: 955,
+    });
+  });
+
+  it('the same text, Cancel: nothing is sent and the draft stays', async () => {
+    await sendAndFail({ eventId: 955, uncertain: true });
+    pressSend();
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(svc.message.reply).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('rich-text-editor')).toHaveValue('<p>On its way.</p>');
+  });
+
+  it('CONTROL — a different text is a new reply: sent unasked, not as a resend', async () => {
+    await sendAndFail({ eventId: 955, uncertain: true });
+    type('<p>One more thing: the invoice is attached.</p>');
+    pressSend();
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(guardOf((svc.message.reply.mock.calls as Call[])[1])).toEqual({ seenLastEventId: 900 });
+  });
+
+  it('CONTROL — a reply that certainly did not go out: Send again asks nothing', async () => {
+    await sendAndFail({ eventId: 955, uncertain: false });
+    pressSend();
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('the `send-failed` socket event arrives AFTER the 502 answer was handled', () => {
+  const sendFailed = (data: Record<string, unknown>) => {
+    const handlers = vi
+      .mocked(subscribeToEvent)
+      .mock.calls.filter(([name]) => name === 'send-failed')
+      .map(([, handler]) => handler as (data: unknown) => void);
+    act(() => handlers.at(-1)?.({ messageId: baseMessage.id, channel: 'email', ...data }));
+  };
+
+  it('the same reply: Retry stays, and "may have reached the customer" is not taken back', async () => {
+    const bar = await sendAndFail({ eventId: 955, uncertain: true });
+    sendFailed({ outgoingMessageId: 955, uncertain: false });
+    expect(bar.getByText(/^We could not confirm that the reply reached the customer/)).toBeTruthy();
+    fireEvent.click(bar.getByRole('button', { name: 'Retry' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send again' }));
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    expect(guardOf((svc.message.reply.mock.calls as Call[])[1])).toMatchObject({
+      resendOfEventId: 955,
+    });
+  });
+
+  it('the same reply, and the event knows more (uncertain): the bar and Retry say so', async () => {
+    const bar = await sendAndFail({ eventId: 955, uncertain: false });
+    sendFailed({ outgoingMessageId: 955, uncertain: true });
+    expect(bar.getByText(/^We could not confirm that the reply reached the customer/)).toBeTruthy();
+    fireEvent.click(bar.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(svc.message.reply).toHaveBeenCalledTimes(1);
+  });
+
+  it('CONTROL — an event about ANOTHER reply is news: no Retry for it, as before', async () => {
+    const bar = await sendAndFail({ eventId: 955, uncertain: false });
+    sendFailed({ outgoingMessageId: 956, uncertain: false });
+    expect(
+      bar.getByText(
+        'Reply could not be delivered via email. The message was saved but not sent — please try again.'
+      )
+    ).toBeTruthy();
+    expect(bar.queryByRole('button', { name: 'Retry' })).toBeNull();
   });
 });

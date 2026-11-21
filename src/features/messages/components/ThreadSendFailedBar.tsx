@@ -40,20 +40,39 @@ export function ThreadSendFailedBar({
         onDismiss={onDismiss}
       />
       {onRetry && uncertain && (
-        <ConfirmDialog
+        <SendAgainConfirm
           open={confirmOpen}
           onOpenChange={setConfirmOpen}
           onConfirm={() => {
             setConfirmOpen(false);
             onRetry();
           }}
-          variant="warning"
-          title="Send this reply again?"
-          description="We could not confirm that this reply reached the customer. If you send it again, they may get it twice."
-          confirmText="Send again"
-          cancelText="Cancel"
         />
       )}
     </>
+  );
+}
+
+/** Asked before a reply that may already have reached the customer goes out again. */
+export function SendAgainConfirm({
+  open,
+  onOpenChange,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      onConfirm={onConfirm}
+      variant="warning"
+      title="Send this reply again?"
+      description="We could not confirm that this reply reached the customer. If you send it again, they may get it twice."
+      confirmText="Send again"
+      cancelText="Cancel"
+    />
   );
 }

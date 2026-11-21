@@ -7,7 +7,7 @@ import { resolveReplyBlock } from '../replyBlockState';
 import type { WhatsAppTemplate } from '../whatsappTemplates';
 import type { KeptSendKey } from './sendKey';
 import type { Setter } from './types';
-import type { ResendTarget } from '../deliveryState';
+import type { FailedSend, ResendTarget } from '../deliveryState';
 
 /** Files, send failures, the channel window, WhatsApp templates and the editor refs. */
 
@@ -18,6 +18,9 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
   // delivered (a late answer from the channel), the bar would contradict the bubble, so it hides.
   // Any other change of the bar forgets it.
   const [sendFailedEventId, setSendFailedEventId] = useState<number | null>(null);
+  // What is known about that reply from the send's 502 answer and the socket event together
+  // (deliveryState.ts FailedSend): Retry, and the same text sent again, replace THAT reply.
+  const failedSendRef = useRef<FailedSend | null>(null);
   // An undelivered reply put back in the composer by its Resend: the next reply replaces it.
   const [resendOf, setResendOf] = useState<ResendTarget | null>(null);
   const setSendFailedError = useCallback<Setter<string | null>>((value) => {
@@ -84,6 +87,7 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     setSendFailedError,
     sendFailedEventId,
     setSendFailedEventId,
+    failedSendRef,
     // The failed send's own reason, keeping the reply the `send-failed` event named (it may come
     // before the HTTP answer — review of #999, M4).
     setSendFailedReason: setFailedReason,

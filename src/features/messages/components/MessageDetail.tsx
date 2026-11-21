@@ -21,7 +21,7 @@ import { useAiDraftsOff } from '@/features/settings/shell';
 import { Permission } from '@/types/roles';
 import { useThreadFileViewer } from './useThreadFileViewer';
 import { MessagePanelTabs } from './MessagePanelTabs';
-import { ThreadSendFailedBar } from './ThreadSendFailedBar';
+import { SendAgainConfirm, ThreadSendFailedBar } from './ThreadSendFailedBar';
 import { ResendNotice } from './ResendNotice';
 import { useResendReply } from './messageDetail/useResendReply';
 import { isBlankRichText } from '@/lib/stripHtml';
@@ -162,6 +162,7 @@ export function MessageDetail({
     setSendFailureRetryable,
     setSendFailedError,
     setSendFailedEventId: replyState.setSendFailedEventId,
+    failedSendRef: replyState.failedSendRef,
   });
 
   // ── AI ghost state ─────────────────────────────────────────────────────────
@@ -614,6 +615,14 @@ export function MessageDetail({
             }
             retrying={submitting}
             onDismiss={() => setSendFailedError(null)}
+          />
+          {/* Send pressed again with the reply that may already have reached the customer. */}
+          <SendAgainConfirm
+            open={send.sendAgainOpen}
+            onOpenChange={(open) => {
+              if (!open) send.cancelSendAgain();
+            }}
+            onConfirm={send.confirmSendAgain}
           />
 
           {/* What a colleague just did here (thread presence). "view" re-reads the thread; the

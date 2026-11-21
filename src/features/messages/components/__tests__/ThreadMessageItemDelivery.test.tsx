@@ -10,7 +10,13 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import type { MessageEvent } from '@/types';
 import { ThreadMessageItem } from '../ThreadMessageItem';
-import { deliveryStateOf, failedBarState, reconcileResendTarget } from '../deliveryState';
+import {
+  deliveryStateOf,
+  failedBarState,
+  isLatestUndelivered,
+  mergeFailedSend,
+  reconcileResendTarget,
+} from '../deliveryState';
 import { replyToComposerHtml } from '../messageDetail/useResendReply';
 import { withDeliveryUpdates } from '../threadNewEvents';
 
@@ -265,5 +271,38 @@ describe('a stored reply goes back into the composer as it was (H1)', () => {
     expect(replyToComposerHtml('Line one\n\n3 < 5 & done')).toBe(
       '<p>Line one</p><p>3 &lt; 5 &amp; done</p>'
     );
+  });
+});
+
+describe('a failed send as the 502 answer and the socket event report it', () => {
+  const told = { threadId: 10, eventId: 41, uncertain: false, text: null };
+
+  it('the same reply: one report — uncertain once said stays, the text is kept', () => {
+    const known = { ...told, uncertain: true, text: '<p>Hello</p>' };
+    expect(mergeFailedSend(known, told)).toEqual(known);
+    expect(mergeFailedSend(told, known)).toEqual(known);
+  });
+
+  it('CONTROL: another reply, or another thread, replaces what was known', () => {
+    const known = { ...told, uncertain: true, text: '<p>Hello</p>' };
+    expect(mergeFailedSend(known, { ...told, eventId: 45 })).toEqual({ ...told, eventId: 45 });
+    expect(mergeFailedSend(known, { ...told, threadId: 11 })).toEqual({ ...told, threadId: 11 });
+    expect(mergeFailedSend(null, told)).toEqual(told);
+  });
+
+  it('still the latest undelivered reply: not read yet, or read as undelivered', () => {
+    expect(isLatestUndelivered(41, [])).toBe(true);
+    expect(isLatestUndelivered(41, [reply({ delivered: false, sendUncertain: true })])).toBe(true);
+  });
+
+  it('no longer: delivered after all, replaced by a resend, or a newer reply went undelivered', () => {
+    expect(isLatestUndelivered(41, [reply({})])).toBe(false);
+    expect(isLatestUndelivered(41, [reply({ resendOf: 41 }, { id: 45 })])).toBe(false);
+    expect(
+      isLatestUndelivered(41, [
+        reply({ delivered: false, sendUncertain: true }),
+        reply({ delivered: false }, { id: 46 }),
+      ])
+    ).toBe(false);
   });
 });

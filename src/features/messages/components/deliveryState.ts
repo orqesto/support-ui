@@ -82,6 +82,44 @@ export const failedBarState = (
   return state === 'uncertain' ? 'uncertain' : 'as_told';
 };
 
+/**
+ * The saved, undelivered reply a failed send named — in the send's own 502 answer, in the
+ * `send-failed` socket event, or both (merged by event id; `uncertain` once said stays said).
+ * `text` is the composer text that send carried: known only from the send itself, so null when
+ * only the socket event spoke.
+ */
+export type FailedSend = {
+  threadId: number;
+  eventId: number;
+  uncertain: boolean;
+  text: string | null;
+};
+
+/** One more report about a failed send, merged into what is known: the richer state wins. */
+export const mergeFailedSend = (known: FailedSend | null, told: FailedSend): FailedSend =>
+  known?.threadId === told.threadId && known.eventId === told.eventId
+    ? {
+        ...known,
+        uncertain: known.uncertain || told.uncertain,
+        text: told.text ?? known.text,
+      }
+    : told;
+
+/**
+ * Is `eventId` still the thread's latest undelivered agent reply? Not once it shows as delivered,
+ * a resend replaced it, or a newer agent reply went undelivered after it. A reply the thread has
+ * not read yet counts as still outstanding.
+ */
+export const isLatestUndelivered = (
+  eventId: number,
+  thread: readonly Pick<MessageEvent, 'id' | 'type' | 'metadata'>[]
+): boolean =>
+  failedBarState(eventId, thread) !== 'hidden' &&
+  !thread.some(
+    (event) =>
+      event.id > eventId && event.type === 'agent_reply' && isUndelivered(deliveryStateOf(event))
+  );
+
 /** The bar's words for a reply that was saved and did not go out (any channel). */
 export const notDeliveredText = (channel?: unknown): string =>
   `Reply could not be delivered${
