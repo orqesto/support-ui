@@ -39,6 +39,20 @@ import type { useDetailDialogs } from './useDetailDialogs';
 import type { useReplyComposerState } from './useReplyComposerState';
 import type { useThreadEvents } from './useThreadEvents';
 
+/** The reply as it was when Send was pressed: what a send that waits for the thread sends. */
+type HeldReply = {
+  composer: string;
+  composerMode: 'reply' | 'note';
+  selectedFiles: File[];
+  recipientDraft: RecipientDraft;
+  aiSource: ReturnType<typeof useComposerText>['aiSource'];
+  aiDraft: ReturnType<typeof useComposerText>['aiDraft'];
+};
+/** How long a reply waits for its thread's events before it gives up (nothing is sent). */
+export const WAIT_FOR_THREAD_MS = 10_000;
+export const THREAD_NOT_LOADED =
+  'Could not load the conversation. Check your connection and send again.';
+
 /** Sending: the reply / note itself, Send ▾ and its after-send step, and WhatsApp templates. */
 
 export function useReplySend({
@@ -142,27 +156,74 @@ export function useReplySend({
     assign?: ReplyAssignIntent;
     retry: boolean;
   } | null>(null);
-  // A reply sent while the thread's events are still being read waits for them: what it may
-  // repeat, and what it has seen, is only known from the thread. Never sent blind.
-  // (A ref, cleared before the send goes on: the waiting reply can go out once, never again.)
-  const waitingRef = useRef<[ReplyAssignIntent | undefined, boolean, boolean, boolean] | null>(
-    null
-  );
+  /*
+    A reply sent while the thread's events are still being read waits for them: what it may
+    repeat, and what it has seen, is only known from the thread. Never sent blind.
+     - What waits is the reply AS PRESSED (`held`: text, files, recipients, mode, the AI marks) for
+       the thread it was pressed in; the composer is read-only meanwhile (`submitting`).
+     - A ref, cleared before the send goes on: the waiting reply goes out once, never again.
+     - The read fails, or takes longer than WAIT_FOR_THREAD_MS: nothing is sent, the text stays,
+       and the bar says so.
+  */
+  const waitingRef = useRef<{
+    messageId: number;
+    args: [ReplyAssignIntent | undefined, boolean, boolean, boolean];
+    held: HeldReply;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  const liveComposer = composer;
+  const liveMode = composerMode;
+  const liveFiles = selectedFiles;
+  const liveRecipients = recipientDraft;
+  const liveAiSource = aiSource;
+  const liveAiDraft = aiDraft;
+  const notLoaded = useCallback(() => {
+    setAssignPrompt(null);
+    setSubmitting(false);
+    setSendFailedError(null);
+    setSendFailedReason(THREAD_NOT_LOADED);
+  }, [setAssignPrompt, setSendFailedError, setSendFailedReason, setSubmitting]);
   const performSend = useCallback(
     async (
       assign?: ReplyAssignIntent,
       confirmOverride = false,
       retry = false,
-      confirmed = false
+      confirmed = false,
+      held?: HeldReply
     ) => {
+      // (Shadows the hook's own values on purpose: everything below sends what was pressed.)
+      const { composer, composerMode, selectedFiles, recipientDraft, aiSource, aiDraft } = held ?? {
+        composer: liveComposer,
+        composerMode: liveMode,
+        selectedFiles: liveFiles,
+        recipientDraft: liveRecipients,
+        aiSource: liveAiSource,
+        aiDraft: liveAiDraft,
+      };
       const isReply = composerMode !== 'note';
-      if (isReply && threadPending) {
+      // Whatever the caller: a reply with no text and no file is never sent.
+      if (isReply && isBlankRichText(composer) && selectedFiles.length === 0) return;
+      if (isReply && threadEventsFor !== message.id) {
+        if (waitingRef.current !== null) return;
+        if (!threadPending) {
+          notLoaded();
+          return;
+        }
         setAssignPrompt(null);
         setSubmitting(true);
-        waitingRef.current = [assign, confirmOverride, retry, confirmed];
+        waitingRef.current = {
+          messageId: message.id,
+          args: [assign, confirmOverride, retry, confirmed],
+          held: { composer, composerMode, selectedFiles, recipientDraft, aiSource, aiDraft },
+          timer: setTimeout(() => {
+            if (waitingRef.current === null) return;
+            waitingRef.current = null;
+            notLoaded();
+          }, WAIT_FOR_THREAD_MS),
+        };
         return;
       }
-      const loaded = threadEventsFor === message.id ? threadMessages : [];
+      const loaded = threadMessages;
       // The same text is on its way already (an earlier send of it has not finished): sending
       // now would make a second reply. Said, re-read, and nothing sent.
       if (isReply && isSameReplySending(composer, loaded, currentUserId)) {
@@ -246,7 +307,9 @@ export function useReplySend({
       if (idempotencyKey) rememberOwnSend(idempotencyKey);
       // After the key is minted: the kept copy rides with it while the send is out.
       const draftSend = beginDraftSend();
-      requestOutRef.current = true;
+      // (A reply's request only: a note's success re-reads the notes alone, so a `send-failed`
+      //  event arriving meanwhile must still read the thread.)
+      requestOutRef.current = isReply;
       try {
         if (composerMode === 'note') {
           // The composer is the rich-text editor; a note is plain text (noteText.ts).
@@ -433,10 +496,13 @@ export function useReplySend({
       }
     },
     [
-      aiDraft,
-      aiSource,
-      composer,
-      composerMode,
+      liveAiDraft,
+      liveAiSource,
+      liveComposer,
+      liveMode,
+      liveFiles,
+      liveRecipients,
+      notLoaded,
       message.id,
       message.channel,
       onOptimisticMove,
@@ -444,7 +510,6 @@ export function useReplySend({
       onReplied,
       onResolve,
       pullNewEvents,
-      recipientDraft,
       resendOf,
       setResendOf,
       seenLastEventId,
@@ -455,7 +520,6 @@ export function useReplySend({
       currentUserId,
       setSendFailedAfter,
       showCollision,
-      selectedFiles,
       supportsRecipients,
       writeComposer,
       beginDraftSend,
@@ -481,12 +545,22 @@ export function useReplySend({
   // The thread's events have landed (or failed to load): the waiting send goes on from here,
   // with the thread as it is now.
   useEffect(() => {
-    const args = waitingRef.current;
-    if (args === null || threadPending) return;
+    const waiting = waitingRef.current;
+    if (waiting === null || threadPending) return;
     waitingRef.current = null;
+    clearTimeout(waiting.timer);
     setSubmitting(false);
-    void performSend(...args);
-  }, [threadPending, performSend, setSubmitting]);
+    // (Pressed for another thread — a switch without a remount: not this thread's reply.)
+    if (waiting.messageId !== message.id) return;
+    void performSend(...waiting.args, waiting.held);
+  }, [threadPending, performSend, setSubmitting, message.id]);
+  useEffect(
+    () => () => {
+      if (waitingRef.current) clearTimeout(waitingRef.current.timer);
+      waitingRef.current = null;
+    },
+    []
+  );
   /** "Send again" in the confirm above: the same reply, as a resend of the one that failed. */
   const confirmSendAgain = useCallback(() => {
     const pending = sendAgain;
