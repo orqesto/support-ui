@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { MessageEvent } from '@/types';
 import { deliveryStateOf } from '../deliveryState';
+import { CURSOR_LAG } from '../threadNewEvents';
 
 /** Waits between re-reads while a reply shows "Sending…": quick at first, then backing off. */
 export const RECHECK_DELAYS_MS = [3_000, 6_000, 12_000, 24_000, 30_000] as const;
@@ -17,13 +18,30 @@ export const RECHECK_FOR_MS = 5 * 60_000;
  * (the schedule goes on, so a tab shown again reads at the next step); stopped by the bound, by
  * the last "Sending…" turning into a real state, and on unmount or a thread switch.
  */
-export function useSendingRecheck(events: readonly MessageEvent[], recheck: () => void): void {
+export function useSendingRecheck(
+  events: readonly MessageEvent[],
+  /** `full`: a sending reply lies beyond what an incremental read asks for again (CURSOR_LAG). */
+  recheck: (full: boolean) => void
+): void {
   const sending = events.some((event) => deliveryStateOf(event) === 'sending');
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
   const recheckRef = useRef(recheck);
   recheckRef.current = recheck;
   useEffect(() => {
     if (!sending) return undefined;
-    const started = Date.now();
+    const read = () => {
+      const newest = eventsRef.current
+        .map((event) => event.id)
+        .sort((left, right) => right - left)
+        .slice(0, CURSOR_LAG);
+      recheckRef.current(
+        eventsRef.current.some(
+          (event) => deliveryStateOf(event) === 'sending' && !newest.includes(event.id)
+        )
+      );
+    };
+    let started = Date.now();
     let step = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
@@ -31,11 +49,24 @@ export function useSendingRecheck(events: readonly MessageEvent[], recheck: () =
       step += 1;
       timer = setTimeout(() => {
         if (Date.now() - started > RECHECK_FOR_MS) return;
-        if (document.visibilityState !== 'hidden') recheckRef.current();
+        if (document.visibilityState !== 'hidden') read();
         schedule();
       }, delay);
     };
+    // A tab shown again (perhaps past the bound): read at once and start a fresh bounded window.
+    const onVisible = () => {
+      if (document.visibilityState === 'hidden') return;
+      clearTimeout(timer);
+      started = Date.now();
+      step = 0;
+      read();
+      schedule();
+    };
     schedule();
-    return () => clearTimeout(timer);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [sending]);
 }

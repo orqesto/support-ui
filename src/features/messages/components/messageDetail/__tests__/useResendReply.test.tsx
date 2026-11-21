@@ -397,7 +397,7 @@ describe('review of #999', () => {
           id: 950,
           type: 'agent_reply',
           content: 'Your parcel ships today.',
-          metadata: { delivered: false },
+          metadata: { delivered: false, resendOf: 942 },
         }),
       ],
     });

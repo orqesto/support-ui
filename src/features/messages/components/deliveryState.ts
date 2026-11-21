@@ -38,29 +38,34 @@ export const reconcileResendTarget = (
   target: ResendTarget,
   thread: readonly Pick<MessageEvent, 'id' | 'type' | 'metadata'>[]
 ): ResendTarget | null => {
-  const named = thread.find((event) => event.id === target.eventId);
-  if (named) {
-    const state = deliveryStateOf(named);
-    if (!isUndelivered(state)) return null;
-    const uncertain = state === 'uncertain';
-    return uncertain === target.uncertain ? target : { ...target, uncertain };
+  // Followed by the backend's own link (review of #999, 2nd round): a resend stores the new
+  // attempt with `metadata.resendOf = <old id>` — never "some newer failed reply", which may be a
+  // colleague's. Along the chain while the named reply is gone; no successor → the target ends.
+  let current = target.eventId;
+  for (let hops = 0; hops <= thread.length; hops += 1) {
+    const named = thread.find((event) => event.id === current);
+    if (named) {
+      const state = deliveryStateOf(named);
+      // The new attempt still in flight (a read mid-resend) is the target in waiting.
+      if (state === 'sending')
+        return current === target.eventId ? target : { eventId: current, uncertain: false };
+      if (!isUndelivered(state)) return null;
+      const uncertain = state === 'uncertain';
+      return current === target.eventId && uncertain === target.uncertain
+        ? target
+        : { eventId: current, uncertain };
+    }
+    const successor = thread.find((event) => event.metadata?.resendOf === current);
+    if (!successor) return null;
+    current = successor.id;
   }
-  let newest: Pick<MessageEvent, 'id' | 'metadata'> | null = null;
-  for (const event of thread)
-    if (
-      event.type === 'agent_reply' &&
-      event.id > target.eventId &&
-      isUndelivered(deliveryStateOf(event)) &&
-      (newest === null || event.id > newest.id)
-    )
-      newest = event;
-  return newest ? { eventId: newest.id, uncertain: deliveryStateOf(newest) === 'uncertain' } : null;
+  return null;
 };
 
 /**
  * What the composer's "Send failed" bar may say, read from the reply it names (review of #999,
- * M3/M4): hidden once that reply shows as delivered or is gone from the thread (a colleague's
- * resend replaced it); worded as uncertain when the reply is marked so. Without a named reply the
+ * M3/M4): hidden once that reply shows as delivered or a resend replaced it (a successor names
+ * it); kept while it is merely not read yet; worded as uncertain when the reply is marked so. Without a named reply the
  * bar says what the send was told.
  */
 export const failedBarState = (
@@ -69,7 +74,9 @@ export const failedBarState = (
 ): 'hidden' | 'uncertain' | 'as_told' => {
   if (eventId === null) return 'as_told';
   const named = thread.find((event) => event.id === eventId);
-  if (!named) return 'hidden';
+  // Gone: replaced by a resend (its successor names it) → hidden; not read yet → as told.
+  if (!named)
+    return thread.some((event) => event.metadata?.resendOf === eventId) ? 'hidden' : 'as_told';
   const state = deliveryStateOf(named);
   if (state === 'sent') return 'hidden';
   return state === 'uncertain' ? 'uncertain' : 'as_told';

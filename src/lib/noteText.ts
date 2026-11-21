@@ -11,7 +11,10 @@ import { editorHtmlToText, escapeHtml } from './editorText';
  * `noteText` reads a note already stored as editor HTML as text, so those older notes read right
  * too. A plain note is returned untouched — "a < b" or a pasted "<b>" stays exactly as typed.
  */
-const EDITOR_HTML = /^\s*<(p|div|ul|ol|blockquote|pre|h[1-6])[\s>]/i;
+// Every block the editor schema (editorSchema.ts, StarterKit) can open a document with — a
+// horizontal rule too (review of #999: `<hr><p>…` was read as plain text and escaped). Pinned
+// against the schema by editorHtmlBlocks.test.ts.
+const EDITOR_HTML = /^\s*<(p|div|ul|ol|blockquote|pre|h[1-6]|hr)[\s>/]/i;
 
 export const noteFromEditor = (html: string): string => editorHtmlToText(html);
 

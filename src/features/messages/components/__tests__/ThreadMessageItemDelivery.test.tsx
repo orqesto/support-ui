@@ -153,9 +153,14 @@ describe('live reads refresh the delivery state of bubbles already on screen', (
 });
 
 describe('the composer bar never contradicts the bubble (failedBarState)', () => {
-  it('hidden once the named reply shows as delivered, or is gone (a colleague resent it)', () => {
+  it('hidden once the named reply shows as delivered, or a resend replaced it', () => {
     expect(failedBarState(41, [reply(null, { id: 41 })])).toBe('hidden');
-    expect(failedBarState(41, [reply(null, { id: 40 })])).toBe('hidden');
+    expect(failedBarState(41, [reply({ delivered: false, resendOf: 41 }, { id: 45 })])).toBe(
+      'hidden'
+    );
+  });
+  it('kept as told while the named reply is merely not read yet', () => {
+    expect(failedBarState(41, [reply(null, { id: 40 })])).toBe('as_told');
   });
   it('worded as uncertain when the named reply may have reached the customer', () => {
     expect(failedBarState(41, [reply({ delivered: false, sendUncertain: true }, { id: 41 })])).toBe(
@@ -169,7 +174,7 @@ describe('the composer bar never contradicts the bubble (failedBarState)', () =>
   });
 });
 
-describe('a resend target follows the thread (reconcileResendTarget)', () => {
+describe('a resend target follows the backend link `resendOf` (reconcileResendTarget)', () => {
   const target = { eventId: 41, uncertain: false };
   it('kept while the named reply is undelivered (same object), its mark followed', () => {
     expect(reconcileResendTarget(target, [reply({ delivered: false }, { id: 41 })])).toBe(target);
@@ -177,23 +182,59 @@ describe('a resend target follows the thread (reconcileResendTarget)', () => {
       reconcileResendTarget(target, [reply({ delivered: false, sendUncertain: true }, { id: 41 })])
     ).toEqual({ eventId: 41, uncertain: true });
   });
-  it('moves to the newest undelivered agent reply after it when the named one is gone', () => {
+  it('follows the attempt that names it — along the chain', () => {
     expect(
       reconcileResendTarget(target, [
-        reply({ delivered: false }, { id: 43 }),
-        reply({ delivered: false, sendUncertain: true }, { id: 45 }),
-        reply({ delivered: false }, { id: 46, type: 'bot_reply' }),
+        reply({ delivered: false, resendOf: 41 }, { id: 45 }),
+        reply({ delivered: false }, { id: 46 }),
       ])
-    ).toEqual({ eventId: 45, uncertain: true });
+    ).toEqual({ eventId: 45, uncertain: false });
+    // 41 → 45 (gone, resent again) → 47.
+    expect(
+      reconcileResendTarget(target, [
+        reply({ delivered: false, sendUncertain: true, resendOf: 45 }, { id: 47 }),
+      ])
+    ).toBeNull();
+    expect(
+      reconcileResendTarget({ eventId: 45, uncertain: false }, [
+        reply({ delivered: false, sendUncertain: true, resendOf: 45 }, { id: 47 }),
+      ])
+    ).toEqual({ eventId: 47, uncertain: true });
   });
-  it('ends when the named reply was delivered after all, or nothing is left to resend', () => {
+  it('follows a chain of resends: 41 → 45 → 47', () => {
+    // 45 is gone too (it was resent), so its own successor is followed.
+    const thread = [
+      reply({ delivered: false, resendOf: 45 }, { id: 47 }),
+      reply({ delivered: false }, { id: 50 }),
+    ];
+    expect(reconcileResendTarget({ eventId: 45, uncertain: false }, thread)).toEqual({
+      eventId: 47,
+      uncertain: false,
+    });
+  });
+  it("never moves to someone else's failed reply: no successor → the target ends", () => {
+    expect(
+      reconcileResendTarget(target, [
+        reply({ delivered: false }, { id: 105 }),
+        reply({ delivered: false, resendOf: 100 }, { id: 110 }),
+      ])
+    ).toBeNull();
+  });
+  it('a new attempt still in flight is the target in waiting (a read mid-resend)', () => {
+    expect(
+      reconcileResendTarget(target, [reply({ sendState: 'sending', resendOf: 41 }, { id: 45 })])
+    ).toEqual({ eventId: 45, uncertain: false });
+  });
+  it('ends when the named reply was delivered after all', () => {
     expect(reconcileResendTarget(target, [reply(null, { id: 41 })])).toBeNull();
-    expect(reconcileResendTarget(target, [reply(null, { id: 43 })])).toBeNull();
-    expect(reconcileResendTarget(target, [reply({ delivered: false }, { id: 40 })])).toBeNull();
+    expect(reconcileResendTarget(target, [reply({ resendOf: 41 }, { id: 45 })])).toBeNull();
   });
 });
 
 describe('a stored reply goes back into the composer as it was (H1)', () => {
+  it('a reply that opens with a horizontal rule is HTML too', () => {
+    expect(replyToComposerHtml('<hr><p>after a rule</p>')).toBe('<hr><p>after a rule</p>');
+  });
   it('the editor HTML comes back unescaped — a link, a list and an entity included', () => {
     const html =
       '<p>Hello <strong>Ann</strong>, see <a href="https://shop.example/t?a=1&amp;b=2">tracking</a> &amp; more:</p><ul><li><p>one</p></li><li><p>two</p></li></ul>';

@@ -79,4 +79,36 @@ describe('useSendingRecheck', () => {
     vi.advanceTimersByTime(60_000);
     expect(recheck).not.toHaveBeenCalled();
   });
+
+  it('a tab shown again past the bound reads at once and starts a fresh window', () => {
+    const recheck = vi.fn();
+    setHidden(true);
+    renderHook(() => useSendingRecheck([ev({ sendState: 'sending' })], recheck));
+    vi.advanceTimersByTime(6 * 60_000);
+    expect(recheck).not.toHaveBeenCalled();
+    setHidden(false);
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(recheck).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(3_000);
+    expect(recheck).toHaveBeenCalledTimes(2);
+  });
+
+  it('reads the whole thread when a sending reply is older than the incremental window', () => {
+    const recheck = vi.fn();
+    const old = { ...ev({ sendState: 'sending' }), id: 1 } as MessageEvent;
+    const newer = Array.from(
+      { length: 25 },
+      (_, index) => ({ ...ev(null), id: 100 + index }) as MessageEvent
+    );
+    renderHook(() => useSendingRecheck([old, ...newer], recheck));
+    vi.advanceTimersByTime(3_000);
+    expect(recheck).toHaveBeenCalledWith(true);
+  });
+
+  it('CONTROL: a recent sending reply is read incrementally', () => {
+    const recheck = vi.fn();
+    renderHook(() => useSendingRecheck([ev({ sendState: 'sending' })], recheck));
+    vi.advanceTimersByTime(3_000);
+    expect(recheck).toHaveBeenCalledWith(false);
+  });
 });

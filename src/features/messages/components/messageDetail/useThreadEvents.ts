@@ -233,7 +233,9 @@ export function useThreadEvents(
   // useThreadMessageRefresh calls it bare: a live message adds only what its events say.
   const pullLiveEvents = useCallback(() => pullNewEvents(), [pullNewEvents]);
   // A reply shown as "Sending…" is read again until it has its real state (useSendingRecheck).
-  useSendingRecheck(threadMessages, pullLiveEvents);
+  useSendingRecheck(threadMessages, (full) =>
+    full ? setThreadRefreshKey((key) => key + 1) : pullLiveEvents()
+  );
 
   // ── Sorted thread ──────────────────────────────────────────────────────────
 
