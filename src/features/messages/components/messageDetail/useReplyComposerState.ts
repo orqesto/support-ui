@@ -20,8 +20,16 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
   const [sendFailedEventId, setSendFailedEventId] = useState<number | null>(null);
   // An undelivered reply put back in the composer by its Resend: the next reply replaces it.
   const [resendOf, setResendOf] = useState<ResendTarget | null>(null);
+  // A failed send no `send-failed` event named (socket down, a proxy's 502): where to look for the
+  // reply it made once the thread is read again (ownReplyAfter). Any other change of the bar
+  // forgets it, as it does the named id.
+  const [sendFailedAfter, setSendFailedAfter] = useState<{
+    afterId: number;
+    authorId: number;
+  } | null>(null);
   const setSendFailedError = useCallback<Setter<string | null>>((value) => {
     setSendFailedEventId(null);
+    setSendFailedAfter(null);
     setFailedReason(value);
   }, []);
   // Retry is offered only for a failure a resend can fix, while the draft is still in the
@@ -84,6 +92,8 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     setSendFailedError,
     sendFailedEventId,
     setSendFailedEventId,
+    sendFailedAfter,
+    setSendFailedAfter,
     // The failed send's own reason, keeping the reply the `send-failed` event named (it may come
     // before the HTTP answer — review of #999, M4).
     setSendFailedReason: setFailedReason,

@@ -25,6 +25,25 @@ export const noteFromEditor = (html: string): string => editorHtmlToText(html);
  */
 export const isEditorHtml = (content: string): boolean => EDITOR_HTML.test(content);
 
+const EDITOR_BLOCK_TAG = /^(p|div|ul|ol|blockquote|pre|h[1-6]|hr)$/i;
+const ENDS_WITH_BLOCK = /(<\/(p|div|ul|ol|blockquote|pre|h[1-6])>|<hr\s*\/?>)\s*$/i;
+
+/**
+ * Stricter than isEditorHtml, for text that goes back into the editor AS HTML (Resend): the whole
+ * text is editor blocks — it opens and ends with one, and nothing but blocks sits at the top. Plain
+ * text that merely opens with a tag ("<p> see below…", "<p>Hi</p> and more") is text. The editor
+ * always writes whole blocks, so its own HTML always passes (editorHtmlBlocks.test.ts).
+ */
+export const isWholeEditorHtml = (content: string): boolean => {
+  if (!isEditorHtml(content) || !ENDS_WITH_BLOCK.test(content)) return false;
+  const body = new DOMParser().parseFromString(content, 'text/html').body;
+  return Array.from(body.childNodes).every((node) =>
+    node.nodeType === Node.ELEMENT_NODE
+      ? EDITOR_BLOCK_TAG.test((node as Element).tagName)
+      : node.nodeType === Node.TEXT_NODE && !node.textContent?.trim()
+  );
+};
+
 export const noteText = (content: string): string =>
   isEditorHtml(content) ? editorHtmlToText(content) : content;
 

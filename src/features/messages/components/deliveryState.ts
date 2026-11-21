@@ -82,6 +82,29 @@ export const failedBarState = (
   return state === 'uncertain' ? 'uncertain' : 'as_told';
 };
 
+/**
+ * The reply a failed send of this agent made, when no `send-failed` event named it (the socket was
+ * down, or the answer was a proxy's 502): the newest agent reply by `authorId` after the newest
+ * event on screen when Send was pressed. Null when the thread shows none.
+ */
+export const ownReplyAfter = (
+  thread: readonly Pick<MessageEvent, 'id' | 'type' | 'authorId'>[],
+  after: { afterId: number; authorId: number } | null
+): number | null => {
+  if (after === null) return null;
+  let found: number | null = null;
+  for (const event of thread) {
+    if (
+      event.type === 'agent_reply' &&
+      event.authorId === after.authorId &&
+      event.id > after.afterId &&
+      (found === null || event.id > found)
+    )
+      found = event.id;
+  }
+  return found;
+};
+
 /** The bar's words for a send that may have reached the customer (any channel). */
 export const uncertainFailureText = (channel?: unknown): string =>
   `We could not confirm that the reply reached the customer${

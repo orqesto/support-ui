@@ -58,6 +58,15 @@ export const isRouteAbsent = (error: unknown): boolean => {
  */
 const COLLISION_CODES = new Set(['REPLY_NEWER_EXISTS', 'REPLY_OTHER_WRITING']);
 
+/**
+ * The server refused the reply's idempotency key because it belongs to a send on ANOTHER thread.
+ * Nothing was sent or stored for this reply, so a new key makes the same reply sendable.
+ */
+export const isSendKeyReused = (err: unknown): boolean => {
+  const failed = err as { status?: number; data?: { code?: unknown } } | null | undefined;
+  return failed?.status === 409 && failed.data?.code === 'REPLY_IDEMPOTENCY_KEY_REUSED';
+};
+
 export const replyCollisionQuestion = (err: unknown): string | null => {
   const failed = err as
     | { status?: number; data?: { code?: unknown; error?: unknown; message?: unknown } }
