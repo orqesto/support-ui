@@ -87,9 +87,9 @@ describe('storedDraftFreshness — mail that is not the customer writing', () =>
       ])
     ).toBe(false);
     // Markers say "not judged", the backend says writing: it does.
-    expect(
-      hidden(draft({ answersEventId: 1 }), [event(1, 'inbound'), flagged(3, true, {})])
-    ).toBe(true);
+    expect(hidden(draft({ answersEventId: 1 }), [event(1, 'inbound'), flagged(3, true, {})])).toBe(
+      true
+    );
   });
 
   it("the draft's own email with a time that does not parse: offered (unknown age)", () => {
@@ -118,7 +118,7 @@ describe('storedDraftFreshness — mail that is not the customer writing', () =>
     ).toBe(false);
   });
 
-  it('a loaded page with only such mail, holding the draft\'s email: offered (an earlier page may hold the backend\'s pick)', () => {
+  it("a loaded page with only such mail, holding the draft's email: offered (an earlier page may hold the backend's pick)", () => {
     const forwarded = (id: number) =>
       event(id, 'inbound', { metadata: { relayedFrom: { forwarded: true } } });
     expect(hidden(draft({ answersEventId: 1 }), [forwarded(1), forwarded(3)])).toBe(false);
@@ -206,5 +206,36 @@ describe('toGhostOption — what the draft was written from', () => {
     expect(docs?.label).toBe('DOCS');
     expect(insertSourceOf(docs!)).toBe('documentation');
     expect(toGhostOption({ answer: 'x', source: 'message' })?.label).toBe('AI');
+  });
+});
+
+describe('storedDraftFreshness — the draft kept from an automatic reply that did not arrive', () => {
+  const kept = draft({ answersEventId: 3, notSent: 'failed' });
+  const sent = (id: number, metadata: Record<string, unknown> = {}) =>
+    event(id, 'agent_reply', { metadata });
+
+  it('is offered while nobody has answered since', () => {
+    expect(hidden(kept)).toBe(false);
+    // The reply BEFORE the email it answers does not count.
+    expect(hidden(kept, [event(1, 'inbound'), sent(2), event(3, 'inbound')])).toBe(false);
+  });
+
+  it('is no longer offered once a person replied after that email', () => {
+    expect(hidden(kept, [...thread, sent(4)])).toBe(true);
+    expect(hidden(draft({ answersEventId: 3, notSent: 'uncertain' }), [...thread, sent(4)])).toBe(
+      true
+    );
+  });
+
+  it('a later reply that itself failed, may not have arrived or is still sending does not count', () => {
+    expect(hidden(kept, [...thread, sent(4, { delivered: false })])).toBe(false);
+    expect(hidden(kept, [...thread, sent(4, { delivered: false, sendUncertain: true })])).toBe(
+      false
+    );
+    expect(hidden(kept, [...thread, sent(4, { sendState: 'sending' })])).toBe(false);
+  });
+
+  it('CONTROL — a draft without the mark stays offered after an agent reply, as before', () => {
+    expect(hidden(draft({ answersEventId: 3 }), [...thread, sent(4)])).toBe(false);
   });
 });

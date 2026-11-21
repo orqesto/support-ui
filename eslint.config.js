@@ -178,5 +178,11 @@ export default [
     plugins: { boundaries: boundariesPlugin },
     rules: { 'boundaries/api-only-features': 'error' },
   },
+  {
+    // Written by `npm run gen:types` from the backend's API contract and never edited by hand:
+    // its length is the contract's, so the file-length limit does not apply to it.
+    files: ['src/types/generated/**/*.ts'],
+    rules: { 'max-lines': 'off' },
+  },
   prettierConfig,
 ];

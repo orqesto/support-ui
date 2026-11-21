@@ -58,7 +58,7 @@ export const suggestionHome = (row: SuggestionRef): SuggestionHome | null => {
     case 'reply_style':
       return { label: 'AI Prompts › Suggested house style', href: '/settings#ai/prompts' };
     case 'auto_reply':
-      return { label: 'Auto-Reply › Suggestions', href: '/settings#ai/auto-reply' };
+      return { label: 'Automatic replies › Suggestions', href: '/settings#ai/auto-reply' };
     default:
       return null;
   }

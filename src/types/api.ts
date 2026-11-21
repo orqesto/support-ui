@@ -50,3 +50,9 @@ export type RoutingRule = components['schemas']['RoutingRule'];
 // --- SLA ---
 export type SlaBreach = components['schemas']['SlaBreach'];
 export type SlaConfigEntry = components['schemas']['SlaConfigEntry'];
+
+// --- Automatic-reply settings (GET / PATCH /api/organizations/auto-reply) ---
+export type AutoReplySettings = components['schemas']['AutoReplySettings'];
+export type AutoReplySettingsUpdate = components['schemas']['AutoReplySettingsUpdate'];
+export type DepartmentAutoReplySettings = components['schemas']['DepartmentAutoReplySettings'];
+export type BuiltInRestrictedTopic = components['schemas']['BuiltInRestrictedTopic'];

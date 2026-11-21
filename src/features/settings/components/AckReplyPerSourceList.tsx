@@ -70,8 +70,8 @@ export const AckReplyPerSourceList = ({ onShowAlert }: Props) => {
           <p className="text-xs text-muted-foreground">
             A fixed text you write, not AI. Sent once per thread, to the customer&apos;s first email,
             with a public tracking link. Only its own switch here (Configure → &quot;Send the receipt
-            confirmation from this mailbox&quot;) turns it on or off: the AI auto-reply, channel and
-            &quot;AI drafts off&quot; switches do not affect it.
+            confirmation from this mailbox&quot;) turns it on or off: the &quot;Automatic email replies&quot;,
+            channel and &quot;AI drafts off&quot; switches do not affect it.
           </p>
         </div>
       </div>
@@ -84,7 +84,7 @@ export const AckReplyPerSourceList = ({ onShowAlert }: Props) => {
         ) : sources.length === 0 ? (
           <div className="px-3 py-2 text-sm rounded-md border text-muted-foreground">
             No email or Gmail sources configured. Add one under Integrations → Message
-            Sources to enable acknowledgment replies.
+            Sources to send a receipt confirmation.
           </div>
         ) : (
           <ul className="divide-y rounded-md border">

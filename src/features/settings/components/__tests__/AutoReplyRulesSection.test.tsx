@@ -1,5 +1,5 @@
 /**
- * Keyword auto-reply rules (Settings → AI → Auto-Reply): add, inline errors, toggle, delete, and
+ * Keyword auto-reply rules (Settings → AI → Automatic replies): add, inline errors, toggle, delete, and
  * the read-only list for someone without MANAGE_AUTO_REPLY. Runs the real service over a fake
  * apiClient. Invented data.
  */
@@ -197,7 +197,7 @@ describe('AutoReplyRulesSection', () => {
 
   it('warns that rules send nothing while auto-reply is off', async () => {
     renderSection(true, false);
-    expect(await screen.findByText(/Auto-reply is off/)).toBeTruthy();
+    expect(await screen.findByText(/Automatic email replies are off/)).toBeTruthy();
   });
 
   it('template + knowledge base: the switch, the placeholder button, and the saved flag', async () => {

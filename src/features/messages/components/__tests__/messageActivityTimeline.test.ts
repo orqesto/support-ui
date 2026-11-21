@@ -436,9 +436,174 @@ describe('messageActivityTimeline — auto-reply withheld', () => {
     );
   });
 
-  it('an unknown reason still renders, as the backend wrote it', () => {
-    expect(withheld('some_new_reason', ['Refunds'])).toBe(
-      'Keyword rule "Refunds" matched but its reply did not go out: some_new_reason'
+  // The send gate's reasons (2026-11-20), as the backend's keywordSendGate / keywordAutoReply name them.
+  it.each([
+    ['kb_restricted_topic', 'the customer asks about a subject a person must answer'],
+    ['restricted_topic', 'the customer asks about a subject a person must answer'],
+    ['kb_no_customer_request', 'the message is not a customer request'],
+    ['kb_needs_lookup_or_action', 'answering needs a lookup or an action'],
+    ['kb_promises_follow_up', 'the knowledge base answer promised a follow-up'],
+    ['kb_does_not_answer', 'the knowledge base answer did not answer the question'],
+    ['kb_unsupported_by_sources', 'the answer said more than the knowledge base does'],
+    ['kb_content_unchecked', 'the knowledge base answer could not be checked'],
+    ['question_unchecked', 'the question could not be checked for a restricted topic'],
+  ])('send gate: %s says why in words', (reason, why) => {
+    expect(withheld(reason, ['Refunds'])).toBe(
+      `Keyword rule "Refunds" matched but its reply did not go out: ${why}`
+    );
+  });
+
+  it.each([['some_new_reason'], [''], ['toString']])(
+    'an unknown reason (%s) reads "held for a person", never the raw code',
+    (reason) => {
+      expect(withheld(reason, ['Refunds'])).toBe(
+        'Keyword rule "Refunds" matched but its reply did not go out: it was held for a person'
+      );
+    }
+  );
+
+  // The email asking for missing information, withheld (BE followUpEmailHelper → source missing_info:
+  // `reason` = the outcome, `detail` = the backend's own sentence, the facts beside them).
+  const askWithheld = (reason: string, facts: Record<string, unknown> = {}) =>
+    auditEntryLabel('message.auto_reply_withheld', {
+      ...facts,
+      reason,
+      ruleIds: [],
+      ruleNames: [],
+      source: 'missing_info',
+    });
+  const ASK = 'The email asking for missing information was not sent: ';
+
+  it.each([
+    ['ask_unchecked', "the email's questions could not be checked"],
+    ['check failed', "the email's questions could not be checked"],
+    [
+      'restricted_topic',
+      'the customer asks about a subject a person must answer, so nothing was asked automatically',
+    ],
+    ['no_customer_request', 'the message is not a customer request'],
+    ['not_only_asking', 'a question in the email did more than ask for a detail'],
+  ])('ask email held by its check: %s', (checkReason, why) => {
+    expect(
+      askWithheld('blocked_missing_info_model_check', {
+        checkReason,
+        detail: 'The check of the questions held the email.',
+      })
+    ).toBe(`${ASK}${why}`);
+  });
+
+  // Every withheld outcome the backend stores for the missing-info email.
+  it.each([
+    [
+      'blocked_missing_info_guard',
+      'the email the AI wrote did not pass the checks on its questions',
+    ],
+    ['blocked_reply_hygiene', 'the email did not pass the checks every automatic reply passes'],
+    ['nothing_to_ask', 'the AI had no question to ask, or could not write one'],
+    ['blocked_unsupported_language', 'the email is in a language the question is not written in'],
+    ['blocked_degraded_analysis', 'the AI could not read this email properly'],
+    ['blocked_pre_gate', 'this thread is not one that gets an automatic reply'],
+    [
+      'blocked_escalation_phrase',
+      "the customer's email contains a phrase that stops automatic replies",
+    ],
+    ['thread_locked', 'another reply was in progress'],
+    ['ai_reply_limit', 'the limit on automatic replies to this thread or this sender was reached'],
+    ['plan_allotment_reached', "this month's automatic replies are used up"],
+    ['plan_not_entitled', 'the plan does not include automatic replies'],
+    ['workspace_blocked', 'the workspace is waiting for a plan'],
+    ['ai_drafts_off', 'AI drafts are off'],
+    ['no_thread', 'there is no customer message to answer'],
+    ['send_failed', 'the email could not be sent'],
+    ['spam_verdict', 'the spam check did not clear this email'],
+    ['pre_send_timeout', 'a step before sending took too long'],
+  ])('ask email not sent: %s', (reason, why) => {
+    expect(askWithheld(reason, { detail: 'A sentence the backend wrote.' })).toBe(`${ASK}${why}`);
+  });
+
+  it('ask email that may have gone out says so, and to check before replying', () => {
+    expect(
+      askWithheld('send_failed', {
+        uncertain: true,
+        detail: 'The email may not have been delivered.',
+      })
+    ).toBe(
+      'The email asking for missing information may not have been delivered: check before replying — the customer may already have it'
+    );
+    // CONTROL — a plain failure, and `uncertain` beside another outcome, do not say it.
+    expect(askWithheld('send_failed', { uncertain: false })).toBe(
+      `${ASK}the email could not be sent`
+    );
+    expect(askWithheld('thread_locked', { uncertain: true })).toBe(
+      `${ASK}another reply was in progress`
+    );
+  });
+
+  it('ask email: an outcome this bundle does not know reads as the backend sentence, or "held for a person" — never a code, never a keyword rule', () => {
+    expect(askWithheld('some_new_outcome', { detail: 'A new rule held the email.' })).toBe(
+      'The email asking for missing information was not sent. A new rule held the email.'
+    );
+    for (const label of [
+      askWithheld('some_new_outcome'),
+      // The backend writes the bare outcome as `detail` when it has no sentence for it.
+      askWithheld('some_new_outcome', { detail: 'some_new_outcome' }),
+      askWithheld('blocked_missing_info_model_check', { checkReason: 'some_new_reason' }),
+      askWithheld('blocked_missing_info_model_check'),
+      // A keyword-only reason is not borrowed for the ask email.
+      askWithheld('kb_refusal'),
+    ]) {
+      expect(label).toBe(`${ASK}it was held for a person`);
+    }
+  });
+
+  // The AI's own reply was handed over for sending and did not arrive (BE autoReplyNotSent).
+  const aiReply = (reason: string, uncertain?: boolean) =>
+    auditEntryLabel('message.auto_reply_withheld', {
+      ...(uncertain !== undefined && { uncertain }),
+      reason,
+      ruleIds: [],
+      ruleNames: [],
+      source: 'ai_reply',
+    });
+
+  it('AI reply not delivered: certain and uncertain read differently', () => {
+    expect(aiReply('send_failed', true)).toBe(
+      'The automatic reply may not have been delivered: check before replying — the customer may already have it.'
+    );
+    expect(aiReply('send_failed', false)).toBe('The automatic reply could not be delivered.');
+    expect(aiReply('send_failed')).toBe('The automatic reply could not be delivered.');
+    expect(aiReply('some_new_reason', true)).toBe(
+      'The automatic reply was not sent: it was held for a person'
+    );
+  });
+
+  it('keyword rule reply that may have gone out says so', () => {
+    expect(
+      auditEntryLabel('message.auto_reply_withheld', {
+        uncertain: true,
+        reason: 'send_failed',
+        ruleIds: [1],
+        ruleNames: ['Refunds'],
+      })
+    ).toBe(
+      'Keyword rule "Refunds" matched but its reply may not have been delivered: check before replying — the customer may already have it'
+    );
+    // CONTROL — a plain failure keeps its sentence.
+    expect(
+      auditEntryLabel('message.auto_reply_withheld', {
+        uncertain: false,
+        reason: 'send_failed',
+        ruleIds: [1],
+        ruleNames: ['Refunds'],
+      })
+    ).toBe(
+      'Keyword rule "Refunds" matched but its reply did not go out: the email could not be sent'
+    );
+  });
+
+  it('CONTROL — the same reason without the missing_info source is a keyword rule line', () => {
+    expect(withheld('plan_not_entitled', [])).toBe(
+      "A keyword rule matched but its reply did not go out: the plan's auto-reply limit"
     );
   });
 

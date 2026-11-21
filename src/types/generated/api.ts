@@ -196,7 +196,7 @@ export interface components {
             aiReplyCount: number;
             needsHumanReview: boolean;
             /** @enum {string|null} */
-            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "partial_answer" | "follow_up_needed" | "reply_unchecked" | "other" | null;
+            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "partial_answer" | "follow_up_needed" | "reply_unchecked" | "restricted_topic" | "no_customer_request" | "needs_lookup_or_action" | "promises_follow_up" | "does_not_answer" | "unsupported_by_sources" | "not_from_knowledge" | "spam_verdict" | "other" | null;
             createdAt: string;
             metadata: {
                 [key: string]: unknown;
@@ -241,7 +241,7 @@ export interface components {
             aiReplyCount: number;
             needsHumanReview: boolean;
             /** @enum {string|null} */
-            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "partial_answer" | "follow_up_needed" | "reply_unchecked" | "other" | null;
+            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "partial_answer" | "follow_up_needed" | "reply_unchecked" | "restricted_topic" | "no_customer_request" | "needs_lookup_or_action" | "promises_follow_up" | "does_not_answer" | "unsupported_by_sources" | "not_from_knowledge" | "spam_verdict" | "other" | null;
             createdAt: string;
             metadata: {
                 [key: string]: unknown;
@@ -323,6 +323,7 @@ export interface components {
                 targetMinutes?: number;
                 actualMinutes?: number;
                 waitStartedAt?: string;
+                endedAt?: string;
                 ageHours?: number;
                 escalated?: boolean;
                 actor?: {
@@ -691,6 +692,57 @@ export interface components {
                     };
                 };
             } | null;
+        };
+        DepartmentAutoReplySettings: {
+            autoReplyEnabled?: boolean;
+            /** @enum {string} */
+            autoReplyMode?: "all" | "rules_only";
+            autoReplyRequestMissingInfo?: boolean;
+            autoReplySuggestSolutions?: boolean;
+            autoReplyHighConfidenceThreshold?: number;
+            /** @enum {string} */
+            autoReplyPartialAnswer?: "hand_to_agent" | "send_and_follow_up";
+            escalationPhrases?: string[];
+            restrictedTopics?: string[];
+        };
+        BuiltInRestrictedTopic: {
+            key: string;
+            label: string;
+        };
+        AutoReplySettings: {
+            enabled?: boolean;
+            /** @enum {string} */
+            mode: "all" | "rules_only";
+            requestMissingInfo?: boolean;
+            suggestSolutions?: boolean;
+            highConfidenceThreshold?: number;
+            /** @enum {string} */
+            partialAnswer: "hand_to_agent" | "send_and_follow_up";
+            restrictedTopics: string[];
+            builtInRestrictedTopics: components["schemas"]["BuiltInRestrictedTopic"][];
+            departmentSettings: {
+                [key: string]: components["schemas"]["DepartmentAutoReplySettings"];
+            };
+        };
+        AutoReplySettingsUpdate: {
+            enabled?: boolean;
+            /** @enum {string} */
+            mode?: "all" | "rules_only";
+            requestMissingInfo?: boolean;
+            suggestSolutions?: boolean;
+            highConfidenceThreshold?: number;
+            /** @enum {string} */
+            partialAnswer?: "hand_to_agent" | "send_and_follow_up";
+            restrictedTopicsChange?: {
+                /** @enum {string} */
+                scope: "workspace" | "team";
+                departmentId?: number;
+                add?: string[];
+                remove?: string[];
+            };
+            departmentSettings?: {
+                [key: string]: components["schemas"]["DepartmentAutoReplySettings"];
+            };
         };
     };
     responses: never;

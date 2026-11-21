@@ -139,7 +139,7 @@ export const AutomaticReplySubjectsSettings = () => {
         <div className="space-y-2 text-sm text-muted-foreground">
           <p>
             This list sends nothing. To set up replies that are sent automatically, go to Settings
-            → AI → Auto-reply.
+            → AI → Automatic replies.
           </p>
           <p>
             Some helpdesks send their automatic &quot;Thank you for contacting us&quot; emails

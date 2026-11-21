@@ -1,4 +1,5 @@
 import type { MessageEvent } from '@/types';
+import { deliveryStateOf } from '../deliveryState';
 
 /** Where the thread's events stand: not read yet for this conversation, read, or the read failed. */
 export type ThreadEventsState = 'pending' | 'loaded' | 'failed';
@@ -87,6 +88,21 @@ const isCustomerWriting = (event: MessageEvent): boolean => {
 };
 
 /**
+ * The draft kept from an automatic reply that did not arrive (`notSent`) is answered once a
+ * person's reply went out after the email it was written for: it is then no longer offered, and
+ * its "not sent" mark with it — nothing clears the mark on the stored draft. A reply that itself
+ * failed or may not have arrived does not count.
+ */
+const agentRepliedAfter = (
+  answersEventId: number,
+  sortedThread: readonly MessageEvent[]
+): boolean =>
+  sortedThread.some(
+    (event) =>
+      event.type === 'agent_reply' && event.id > answersEventId && deliveryStateOf(event) === 'sent'
+  );
+
+/**
  * Is the stored AI draft (`metadata.suggestedAnswer`) one written for an EARLIER customer email?
  * Then it is not offered: a customer's newer email showed the draft for their previous one under
  * it (2026-11-16). The app deletes nothing (the backend drops such a draft when the newer email
@@ -114,14 +130,19 @@ export function storedDraftFreshness(
   sortedThread: readonly MessageEvent[],
   eventsState: ThreadEventsState
 ): StoredDraftFreshness {
-  const draft = metadata?.suggestedAnswer as { answersEventId?: unknown } | null | undefined;
+  const draft = metadata?.suggestedAnswer as
+    | { answersEventId?: unknown; notSent?: unknown }
+    | null
+    | undefined;
   const answersEventId = draft?.answersEventId;
   if (typeof answersEventId !== 'number') return { draftHidden: false, pending: false };
   if (eventsState === 'pending') return { draftHidden: true, pending: true };
   if (eventsState === 'failed') return { draftHidden: false, pending: false };
 
   return {
-    draftHidden: customerEmailVerdict(answersEventId, sortedThread) === 'older',
+    draftHidden:
+      customerEmailVerdict(answersEventId, sortedThread) === 'older' ||
+      (typeof draft?.notSent === 'string' && agentRepliedAfter(answersEventId, sortedThread)),
     pending: false,
   };
 }

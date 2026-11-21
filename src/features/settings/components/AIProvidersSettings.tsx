@@ -436,6 +436,24 @@ export const AIProvidersSettings = ({
 
   const isManaged = showModeSwitch && aiMode === 'managed';
 
+  // Orientation banner: two things answer a new email on their own, but only the receipt
+  // confirmation is configured here (keyword rules and AI replies live under Settings → AI →
+  // Automatic replies). Shown on managed AI too: the receipt confirmation list is there as well.
+  const repliesBanner = (
+    <div className="px-4 py-3 text-xs rounded-md border bg-muted/30 text-muted-foreground">
+      <p className="leading-relaxed">
+        <strong className="text-foreground">Two things can answer a new email on their own.</strong>{' '}
+        The <strong>receipt confirmation</strong> (below, per mailbox) is a fixed &quot;we got
+        your message&quot; text with a tracking link; it is off until you enable it.{' '}
+        <strong>Keyword rules and AI replies</strong> are set under{' '}
+        <a href="#ai" className="font-medium underline text-foreground">
+          AI → Automatic replies
+        </a>
+        . The two have separate switches, so a customer can receive both.
+      </p>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {showModeSwitch && (
@@ -469,6 +487,7 @@ export const AIProvidersSettings = ({
               own provider.
             </p>
           </div>
+          {repliesBanner}
           <AckReplyPerSourceList onShowAlert={setAlertDialog} />
           {/* Managed AI has no provider row of its own, but image analysis still runs (on the
               platform's vision model): its switches must be reachable here too (#1489). */}
@@ -480,21 +499,7 @@ export const AIProvidersSettings = ({
         <>
           {hasAnyProvider && <AIProviderHealthCheck />}
 
-      {/* Orientation banner: two auto-reply mechanisms exist, but only ack-reply
-          is configured here. AI Auto-Reply behaviour moved to /settings#ai →
-          Auto-Reply because it's a behaviour policy, not a provider concern. */}
-      <div className="px-4 py-3 text-xs rounded-md border bg-muted/30 text-muted-foreground">
-        <p className="leading-relaxed">
-          <strong className="text-foreground">Two things can answer a new email on their own.</strong>{' '}
-          The <strong>receipt confirmation</strong> (below, per mailbox) is a fixed &quot;we got
-          your message&quot; text with a tracking link; it is off until you enable it.{' '}
-          <strong>Keyword rules and AI replies</strong> are set under{' '}
-          <a href="#ai" className="font-medium underline text-foreground">
-            AI → Auto-reply
-          </a>
-          . The two have separate switches, so a customer can receive both.
-        </p>
-      </div>
+      {repliesBanner}
 
       {!hasAnyProvider && <AINoProviderBanner />}
 

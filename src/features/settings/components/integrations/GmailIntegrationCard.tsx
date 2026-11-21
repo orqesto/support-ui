@@ -498,7 +498,7 @@ export const GmailIntegrationCard = ({
                                 />
                                 <SourceMenuItem
                                   icon={Building2}
-                                  label={deptPicker.teamsEnabled ? 'Assign teams' : 'Automatic replies'}
+                                  label={deptPicker.teamsEnabled ? 'Teams and automatic replies' : 'Automatic replies'}
                                   onClick={() => { setEditDepts(integration.id); setShowMenu(null); }}
                                 />
                                 <SourceMenuItem

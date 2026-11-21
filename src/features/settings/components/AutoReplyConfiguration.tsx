@@ -15,10 +15,21 @@ import {
   type AutoReplyMode,
   type AutoReplyPartialAnswer,
 } from '@/services/organization.service';
-import { getApiErrorMessage } from '@/lib/errorMessages';
+import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { Permission } from '@/types/roles';
 import { AutoReplyRulesSection } from './AutoReplyRulesSection';
 import { FeatureSuggestions } from './FeatureSuggestions';
+import {
+  BUILT_IN_NOTE,
+  BuiltInTopics,
+  RESTRICTED_TOPICS_ALSO,
+  RESTRICTED_TOPICS_HELP,
+  RESTRICTED_TOPICS_TITLE,
+  RestrictedTopicsField,
+  TopicsReadOnly,
+} from './RestrictedTopicsField';
+import { readRestrictedTopics, restrictedTopicsRefusal } from './restrictedTopics';
+import type { BuiltInRestrictedTopic } from '@/types/api';
 import {
   PARTIAL_ANSWER_LABEL,
   PARTIAL_ANSWER_TITLE,
@@ -41,6 +52,8 @@ type Settings = {
   /** Workspace: always set once loaded. Team: absent = same as the workspace. */
   autoReplyPartialAnswer?: AutoReplyPartialAnswer;
   escalationPhrases?: string[];
+  /** Workspace: its own topics. Team: topics ADDED to the workspace's (never instead of them). */
+  restrictedTopics?: string[];
 };
 
 /** Does a team row still override anything once `rest` is what is left of it? */
@@ -68,6 +81,40 @@ const MODES: AutoReplyMode[] = ['all', 'rules_only'];
 const MODE_HELP =
   'Keyword rules only: only your keyword rules reply; the AI never sends on its own.';
 const RULES_ONLY_NOTE = 'These AI settings do not apply in "Keyword rules only".';
+
+/** Does a team change anything of the default? Its extra restricted topics alone do not. */
+const overridesDefault = (settings: Settings | undefined): boolean => {
+  const { restrictedTopics: _topics, ...overrides } = settings ?? {};
+  return hasOtherOverrides(overrides);
+};
+
+const TEAM_GONE =
+  'This team is switched off or no longer exists, so its restricted topics cannot be changed.';
+const RESET_KEEPS_TOPICS = "The reset keeps this team's extra restricted topics.";
+
+/** The team map as it is saved: without restricted topics, and without a team left empty. */
+const withoutTopics = (teams: Record<string, Settings>): Record<string, Settings> =>
+  Object.fromEntries(
+    Object.entries(teams)
+      .map(([key, { restrictedTopics: _omit, ...rest }]): [string, Settings] => [key, rest])
+      .filter(([, rest]) => Object.keys(rest).length > 0)
+  );
+
+/** A team's own topics that the workspace does not have already (any letter case). */
+const extraTopics = (own: string[] | undefined, workspace: string[]): string[] => {
+  const taken = new Set(workspace.map((topic) => topic.trim().toLowerCase()));
+  return (own ?? []).filter((topic) => !taken.has(topic.trim().toLowerCase()));
+};
+
+/** What a team row says about the topics it cannot change. */
+const teamAlsoApplies = (builtInCount: number, workspaceCount: number): string => {
+  const workspace =
+    workspaceCount === 0
+      ? ''
+      : ` and the workspace's ${workspaceCount} ${workspaceCount === 1 ? 'topic' : 'topics'}`;
+  const builtIn = builtInCount > 0 ? `${builtInCount} built-in topics` : 'built-in topics';
+  return `Added to the ${builtIn}${workspace}, which always apply to this team and can only be changed in the Default row.`;
+};
 
 /** The pill look of the per-team choices, selected or not. */
 const pillClass = (selected: boolean): string =>
@@ -97,9 +144,15 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   const perDeptRef = useRef<Record<string, Settings>>({});
 
   const [loading, setLoading] = useState(true);
-  const [savingScope, setSavingScope] = useState<'org' | number | null>(null);
+  /** Which rows have a save queued or in flight: 'org', or a team's id as text. */
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [phraseDrafts, setPhraseDrafts] = useState<Record<string, string>>({});
+  // False until the backend returns the list: an older one does not know the setting, and a save
+  // to it would be dropped without a word — so the section is not offered at all.
+  const [topicsSupported, setTopicsSupported] = useState(false);
+  /** The topics every workspace has, as the backend names them; never part of a save. */
+  const [builtInTopics, setBuiltInTopics] = useState<BuiltInRestrictedTopic[]>([]);
 
   // Threshold is editable via a slider that triggers a save on mouse/touch up;
   // mid-drag we hold the value locally so the slider stays responsive.
@@ -123,7 +176,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           autoReplySuggestSolutions: auto.suggestSolutions,
           autoReplyHighConfidenceThreshold: auto.highConfidenceThreshold,
           autoReplyPartialAnswer: auto.partialAnswer,
+          restrictedTopics: readRestrictedTopics(auto.restrictedTopics) ?? [],
         };
+        setTopicsSupported(readRestrictedTopics(auto.restrictedTopics) !== null);
+        setBuiltInTopics(auto.builtInRestrictedTopics ?? []);
         setOrg(initialOrg);
         orgRef.current = initialOrg;
         const settings: Record<string, unknown> = orgRow.settings ?? {};
@@ -133,7 +189,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       } catch (err) {
         if (cancelled) return;
         logger.error('Failed to load auto-reply settings:', err);
-        setError(getApiErrorMessage(err) ?? 'Failed to load auto-reply settings.');
+        setError(getApiErrorMessage(err) ?? 'Failed to load the automatic reply settings.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -143,8 +199,53 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     };
   }, []);
 
+  // Every save of this card runs after the one before it, so each builds on what the last one
+  // left (two saves in flight used to send two stale copies of the team map), and each takes
+  // the stored state from its response — the screen shows what is saved, also by someone else.
+  const queueRef = useRef<Promise<unknown>>(Promise.resolve());
+  const savingCountRef = useRef<Record<string, number>>({});
+  const queued = useCallback((scope: string, job: () => Promise<boolean>): Promise<boolean> => {
+    savingCountRef.current[scope] = (savingCountRef.current[scope] ?? 0) + 1;
+    setSaving((prev) => ({ ...prev, [scope]: true }));
+    const run = queueRef.current.then(job, job).finally(() => {
+      savingCountRef.current[scope] -= 1;
+      if (savingCountRef.current[scope] === 0) setSaving((prev) => ({ ...prev, [scope]: false }));
+    });
+    queueRef.current = run;
+    return run;
+  }, []);
+
+  /** What the server answered a save with: the lists and the team map as they are stored now. */
+  const applyStored = useCallback((stored: unknown): boolean => {
+    const data = (stored as { data?: Record<string, unknown> } | undefined)?.data;
+    if (!data || typeof data !== 'object') return false;
+    const topics = readRestrictedTopics(data.restrictedTopics);
+    if (topics) {
+      orgRef.current = { ...orgRef.current, restrictedTopics: topics };
+      setOrg((prev) => ({ ...prev, restrictedTopics: topics }));
+    }
+    const teams = data.departmentSettings;
+    if (!teams || typeof teams !== 'object') return false;
+    perDeptRef.current = teams as Record<string, Settings>;
+    setPerDept(perDeptRef.current);
+    return true;
+  }, []);
+
+  const saveFailed = useCallback(
+    (err: unknown, fallback: string, description: string, plain?: string) => {
+      setError(plain ?? restrictedTopicsRefusal(err) ?? getApiErrorMessage(err) ?? fallback);
+      onShowAlert({
+        open: true,
+        title: 'Save failed',
+        description: plain ?? description,
+        variant: 'error',
+      });
+    },
+    [onShowAlert]
+  );
+
   const saveOrg = useCallback(
-    async (
+    (
       patch: Partial<{
         enabled: boolean;
         mode: AutoReplyMode;
@@ -153,187 +254,176 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         highConfidenceThreshold: number;
         partialAnswer: AutoReplyPartialAnswer;
       }>
-    ) => {
-      setSavingScope('org');
-      setError(null);
-      // Mirror perDeptRef's pattern at the org level: write through the ref
-      // synchronously *before* the await so a second rapid save reads the
-      // pending state, not stale closure state.
-      const previous = orgRef.current;
-      const optimistic: Settings = {
-        ...previous,
-        ...(patch.enabled !== undefined && { autoReplyEnabled: patch.enabled }),
-        ...(patch.mode !== undefined && { autoReplyMode: patch.mode }),
-        ...(patch.requestMissingInfo !== undefined && {
-          autoReplyRequestMissingInfo: patch.requestMissingInfo,
-        }),
-        ...(patch.suggestSolutions !== undefined && {
-          autoReplySuggestSolutions: patch.suggestSolutions,
-        }),
-        ...(patch.highConfidenceThreshold !== undefined && {
-          autoReplyHighConfidenceThreshold: patch.highConfidenceThreshold,
-        }),
-        ...(patch.partialAnswer !== undefined && { autoReplyPartialAnswer: patch.partialAnswer }),
-      };
-      orgRef.current = optimistic;
-      try {
-        await organizationService.updateAutoReply(patch);
-        setOrg(optimistic);
-        // Success toast — covers the field that changed. Old AIAutoReplyCard
-        // emitted these per-handler; restoring parity so admins see a "yes,
-        // that saved" confirmation.
-        const field =
-          patch.enabled !== undefined
-            ? `AI auto-reply ${patch.enabled ? 'enabled' : 'disabled'}`
-            : patch.mode !== undefined
-              ? `Auto-reply: ${MODE_LABEL[patch.mode]}`
-              : patch.requestMissingInfo !== undefined
-                ? `Missing-info requests ${patch.requestMissingInfo ? 'on' : 'off'}`
-                : patch.suggestSolutions !== undefined
-                  ? `Suggest-solutions ${patch.suggestSolutions ? 'on' : 'off'}`
-                  : patch.highConfidenceThreshold !== undefined
-                    ? `Threshold set to ${Math.round(patch.highConfidenceThreshold * 100)}%`
-                    : patch.partialAnswer !== undefined
-                      ? `${PARTIAL_ANSWER_TITLE}: ${PARTIAL_ANSWER_LABEL[patch.partialAnswer]}`
-                      : 'Default updated';
-        onShowAlert({
-          open: true,
-          title: 'Saved',
-          description: field,
-          variant: 'success',
-        });
-      } catch (err) {
-        orgRef.current = previous;
-        logger.error('Failed to save org auto-reply:', err);
-        setError(getApiErrorMessage(err) ?? 'Failed to save the default. Please try again.');
-        onShowAlert({
-          open: true,
-          title: 'Save failed',
-          description: 'Could not save the org-level auto-reply default.',
-          variant: 'error',
-        });
-      } finally {
-        setSavingScope(null);
-      }
-    },
-    [onShowAlert]
-  );
-
-  const saveDept = useCallback(
-    async (deptId: number, next: Settings) => {
-      const key = String(deptId);
-      setSavingScope(deptId);
-      setError(null);
-      const previous = perDeptRef.current[key];
-      const merged: Record<string, Settings> = {
-        ...perDeptRef.current,
-        [key]: next,
-      };
-      perDeptRef.current = merged;
-      try {
-        await organizationService.updateAutoReply({ departmentSettings: merged });
-        setPerDept(merged);
-      } catch (err) {
-        logger.error(`Failed to save dept ${deptId} auto-reply:`, err);
-        if (previous === undefined) {
-          const rolled = { ...perDeptRef.current };
-          delete rolled[key];
-          perDeptRef.current = rolled;
-        } else {
-          perDeptRef.current = { ...perDeptRef.current, [key]: previous };
+    ): Promise<boolean> =>
+      queued('org', async () => {
+        setError(null);
+        const previous = orgRef.current;
+        const optimistic: Settings = {
+          ...previous,
+          ...(patch.enabled !== undefined && { autoReplyEnabled: patch.enabled }),
+          ...(patch.mode !== undefined && { autoReplyMode: patch.mode }),
+          ...(patch.requestMissingInfo !== undefined && {
+            autoReplyRequestMissingInfo: patch.requestMissingInfo,
+          }),
+          ...(patch.suggestSolutions !== undefined && {
+            autoReplySuggestSolutions: patch.suggestSolutions,
+          }),
+          ...(patch.highConfidenceThreshold !== undefined && {
+            autoReplyHighConfidenceThreshold: patch.highConfidenceThreshold,
+          }),
+          ...(patch.partialAnswer !== undefined && { autoReplyPartialAnswer: patch.partialAnswer }),
+        };
+        orgRef.current = optimistic;
+        try {
+          const stored = await organizationService.updateAutoReply(patch);
+          setOrg(optimistic);
+          applyStored(stored);
+          const field =
+            patch.enabled !== undefined
+              ? `Automatic email replies ${patch.enabled ? 'on' : 'off'}`
+              : patch.mode !== undefined
+                ? `Automatic email replies: ${MODE_LABEL[patch.mode]}`
+                : patch.requestMissingInfo !== undefined
+                  ? `Missing-info requests ${patch.requestMissingInfo ? 'on' : 'off'}`
+                  : patch.suggestSolutions !== undefined
+                    ? `Suggest-solutions ${patch.suggestSolutions ? 'on' : 'off'}`
+                    : patch.highConfidenceThreshold !== undefined
+                      ? `AI reply confidence set to ${Math.round(patch.highConfidenceThreshold * 100)}%`
+                      : patch.partialAnswer !== undefined
+                        ? `${PARTIAL_ANSWER_TITLE}: ${PARTIAL_ANSWER_LABEL[patch.partialAnswer]}`
+                        : 'Default updated';
+          onShowAlert({ open: true, title: 'Saved', description: field, variant: 'success' });
+          return true;
+        } catch (err) {
+          orgRef.current = previous;
+          logger.error('Failed to save org auto-reply:', err);
+          saveFailed(
+            err,
+            'Failed to save the default. Please try again.',
+            'Could not save the workspace default.'
+          );
+          return false;
         }
-        setError(getApiErrorMessage(err) ?? 'Failed to save the override. Please try again.');
-        onShowAlert({
-          open: true,
-          title: 'Save failed',
-          description: `Could not save the override for this team.`,
-          variant: 'error',
-        });
-      } finally {
-        setSavingScope(null);
-      }
-    },
-    [onShowAlert]
+      }),
+    [applyStored, onShowAlert, queued, saveFailed]
   );
 
-  const inheritDeptEnabled = (deptId: number) => {
-    const key = String(deptId);
-    const current = perDeptRef.current[key];
-    if (!current) return;
-    const { autoReplyEnabled: _omit, ...rest } = current;
-    const hasRemaining = hasOtherOverrides(rest);
-    if (!hasRemaining) {
-      // Avoid leaving an empty row that means nothing on the BE.
-      resetDept(deptId);
-      return;
-    }
-    void saveDept(deptId, rest);
-  };
+  /**
+   * One team's settings, changed from what is known NOW (not from what was on screen at the
+   * click). `change` returns the team's new settings, or null to drop every override. The PATCH
+   * replaces the whole team map, so every team is sent; restricted topics are never part of it —
+   * the server keeps each team's topics, and they change only through changeTopics below.
+   */
+  const updateDept = useCallback(
+    (deptId: number, change: (current: Settings) => Settings | null): Promise<boolean> =>
+      queued(String(deptId), async () => {
+        const key = String(deptId);
+        setError(null);
+        const previous = perDeptRef.current;
+        const { restrictedTopics: topics, ...current } = previous[key] ?? {};
+        const changed = change(current);
+        const kept = changed && hasOtherOverrides(changed) ? changed : null;
+        const local = { ...previous };
+        const own = { ...kept, ...(topics?.length ? { restrictedTopics: topics } : {}) };
+        if (Object.keys(own).length > 0) local[key] = own;
+        else delete local[key];
+        perDeptRef.current = local;
+        try {
+          const stored = await organizationService.updateAutoReply({
+            departmentSettings: withoutTopics(local),
+          });
+          if (!applyStored(stored)) setPerDept(local);
+          return true;
+        } catch (err) {
+          perDeptRef.current = previous;
+          logger.error(`Failed to save dept ${deptId} auto-reply:`, err);
+          saveFailed(
+            err,
+            'Failed to save the override. Please try again.',
+            'Could not save the override for this team.'
+          );
+          return false;
+        }
+      }),
+    [applyStored, queued, saveFailed]
+  );
+
+  /**
+   * Add or remove ONE restricted topic. Only the change is sent, and the server applies it to
+   * the list as it is stored — so a page opened a while ago, or a second admin, cannot erase
+   * topics by saving an old copy of the list. The lists shown are then the ones in the answer.
+   */
+  const changeTopics = useCallback(
+    (deptId: number | null, change: { add: string } | { remove: string }): Promise<boolean> =>
+      queued(deptId === null ? 'org' : String(deptId), async () => {
+        setError(null);
+        try {
+          const stored = await organizationService.updateAutoReply({
+            restrictedTopicsChange: {
+              ...(deptId === null
+                ? { scope: 'workspace' as const }
+                : { scope: 'team' as const, departmentId: deptId }),
+              ...('add' in change ? { add: [change.add] } : { remove: [change.remove] }),
+            },
+          });
+          applyStored(stored);
+          if (deptId === null) {
+            onShowAlert({
+              open: true,
+              title: 'Saved',
+              description: `${RESTRICTED_TOPICS_TITLE} updated`,
+              variant: 'success',
+            });
+          }
+          return true;
+        } catch (err) {
+          logger.error('Failed to save restricted topics:', err);
+          saveFailed(
+            err,
+            'Failed to save the restricted topics. Please try again.',
+            'Could not save the restricted topics.',
+            // The team was switched off or deleted meanwhile (404): said plainly.
+            getErrorStatus(err) === 404 ? TEAM_GONE : undefined
+          );
+          return false;
+        }
+      }),
+    [applyStored, onShowAlert, queued, saveFailed]
+  );
+
+  const setDeptKey = <Key extends keyof Settings>(deptId: number, key: Key, value: Settings[Key]) =>
+    void updateDept(deptId, (current) => {
+      const { [key]: _omit, ...rest } = current;
+      return value === undefined ? rest : { ...rest, [key]: value };
+    });
 
   /** A team's mode; `undefined` = same as the workspace (the key is dropped). */
   const setDeptMode = (deptId: number, mode: AutoReplyMode | undefined) => {
-    const current = perDeptRef.current[String(deptId)] ?? {};
-    const { autoReplyMode: _omit, ...rest } = current;
-    if (mode !== undefined) {
-      void saveDept(deptId, { ...rest, autoReplyMode: mode });
+    if (mode === undefined && perDeptRef.current[String(deptId)]?.autoReplyMode === undefined)
       return;
-    }
-    if (current.autoReplyMode === undefined) return;
-    const hasRemaining = hasOtherOverrides(rest);
-    // Nothing else overridden: drop the row rather than leave an empty one.
-    if (!hasRemaining) {
-      resetDept(deptId);
-      return;
-    }
-    void saveDept(deptId, rest);
+    setDeptKey(deptId, 'autoReplyMode', mode);
   };
 
   /** A team's partial-answer choice; `undefined` = same as the workspace (the key is dropped). */
   const setDeptPartialAnswer = (deptId: number, value: AutoReplyPartialAnswer | undefined) => {
-    const current = perDeptRef.current[String(deptId)] ?? {};
-    const { autoReplyPartialAnswer: _omit, ...rest } = current;
-    if (value !== undefined) {
-      void saveDept(deptId, { ...rest, autoReplyPartialAnswer: value });
-      return;
-    }
-    if (current.autoReplyPartialAnswer === undefined) return;
-    if (!hasOtherOverrides(rest)) {
-      resetDept(deptId);
-      return;
-    }
-    void saveDept(deptId, rest);
+    const current = perDeptRef.current[String(deptId)]?.autoReplyPartialAnswer;
+    if (value === undefined && current === undefined) return;
+    setDeptKey(deptId, 'autoReplyPartialAnswer', value);
   };
 
-  const resetDept = (deptId: number) => {
-    const key = String(deptId);
-    if (!perDeptRef.current[key]) return;
-    setSavingScope(deptId);
-    setError(null);
-    const previous = perDeptRef.current[key];
-    const merged = { ...perDeptRef.current };
-    delete merged[key];
-    perDeptRef.current = merged;
-    organizationService
-      .updateAutoReply({ departmentSettings: merged })
-      .then(() => {
-        setPerDept(merged);
-      })
-      .catch((err: unknown) => {
-        logger.error(`Failed to reset dept ${deptId} auto-reply:`, err);
-        perDeptRef.current = { ...perDeptRef.current, [key]: previous };
-        setError(getApiErrorMessage(err) ?? 'Failed to reset the override. Please try again.');
-      })
-      .finally(() => setSavingScope(null));
-  };
+  /** Drops every override of the team. Its extra restricted topics are the server's to keep. */
+  const resetDept = (deptId: number) => void updateDept(deptId, () => null);
 
   // Rules send only where Auto-Reply is on: the Default row, or a team that overrides it on.
   const anyAutoReplyOn =
     org.autoReplyEnabled === true ||
     Object.values(perDept).some((settings) => settings?.autoReplyEnabled === true);
+  const orgTopics = org.restrictedTopics ?? [];
   const rulesSection = (
     <AutoReplyRulesSection
       canManage={canManage}
       autoReplyEnabled={anyAutoReplyOn}
+      teamsEnabled={teamsEnabled}
       onShowAlert={onShowAlert}
     />
   );
@@ -358,8 +448,28 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
               {org.autoReplyEnabled &&
                 org.autoReplyMode === 'rules_only' &&
                 ' · keyword rules only'}
-              . Only workspace admins and moderators can change auto-reply settings.
+              . Only workspace admins and moderators can change automatic reply settings.
             </p>
+            {topicsSupported && (
+              <div className="mt-3 space-y-1">
+                <p className="text-xs font-medium">{RESTRICTED_TOPICS_TITLE}</p>
+                <p className="text-xs text-muted-foreground">{RESTRICTED_TOPICS_HELP}</p>
+                <TopicsReadOnly
+                  label={RESTRICTED_TOPICS_TITLE}
+                  topics={[...builtInTopics.map((topic) => topic.label), ...orgTopics]}
+                />
+                {activeDepts.map((dept) => {
+                  const own = extraTopics(perDept[String(dept.id)]?.restrictedTopics, orgTopics);
+                  if (own.length === 0) return null;
+                  return (
+                    <div key={dept.id} className="flex flex-wrap gap-1 items-center">
+                      <span className="text-xs text-muted-foreground">{dept.name} also:</span>
+                      <TopicsReadOnly label={`${dept.name} restricted topics`} topics={own} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </CardHeader>
         </Card>
         {rulesSection}
@@ -371,7 +481,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     return (
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
-          Loading auto-reply settings…
+          Loading automatic reply settings…
         </CardContent>
       </Card>
     );
@@ -434,7 +544,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                 <div className="flex gap-2 items-center min-w-0">
                   <span className="text-sm font-semibold">Default</span>
                   <span className="text-xs text-muted-foreground">
-                    · applies to every dept unless overridden
+                    · applies to every team unless overridden
                   </span>
                 </div>
                 <div className="flex gap-3 items-center shrink-0">
@@ -463,7 +573,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                   </div>
                   <Toggle
                     checked={orgEnabled}
-                    disabled={savingScope === 'org'}
+                    disabled={saving.org === true}
                     onChange={(next) => void saveOrg({ enabled: next })}
                   />
                 </div>
@@ -486,7 +596,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                             size="sm"
                             variant={orgMode === mode ? 'primary' : 'outline'}
                             aria-pressed={orgMode === mode}
-                            disabled={savingScope === 'org'}
+                            disabled={saving.org === true}
                             onClick={() => {
                               if (orgMode !== mode) void saveOrg({ mode });
                             }}
@@ -505,7 +615,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         onChange={(value) => {
                           if (value) void saveOrg({ partialAnswer: value });
                         }}
-                        disabled={savingScope === 'org'}
+                        disabled={saving.org === true}
                       />
                     </div>
                     {orgMode === 'rules_only' && (
@@ -521,7 +631,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       </div>
                       <Toggle
                         checked={orgRequestMissing}
-                        disabled={savingScope === 'org'}
+                        disabled={saving.org === true}
                         onChange={(next) => void saveOrg({ requestMissingInfo: next })}
                       />
                     </div>
@@ -534,7 +644,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       </div>
                       <Toggle
                         checked={orgSuggest}
-                        disabled={savingScope === 'org'}
+                        disabled={saving.org === true}
                         onChange={(next) => void saveOrg({ suggestSolutions: next })}
                       />
                     </div>
@@ -555,7 +665,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                           max={100}
                           step={5}
                           value={Math.round(orgThreshold * 100)}
-                          disabled={savingScope === 'org'}
+                          disabled={saving.org === true}
                           onChange={(ev) => setTempThresholdOrg(Number(ev.target.value) / 100)}
                           onMouseUp={() => {
                             if (tempThresholdOrg !== null) {
@@ -579,6 +689,28 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                     )}
                   </>
                 )}
+                {/* Not under the switch above: the topics also hold for the Telegram bot. */}
+                {topicsSupported && (
+                  <div className="pt-3 space-y-2 border-t">
+                    <p className="text-sm font-medium">{RESTRICTED_TOPICS_TITLE}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {RESTRICTED_TOPICS_HELP} {RESTRICTED_TOPICS_ALSO}
+                    </p>
+                    <BuiltInTopics topics={builtInTopics} />
+                    <p className="text-[10px] text-muted-foreground">{BUILT_IN_NOTE}</p>
+                    <p className="text-xs font-medium">Your workspace&apos;s topics</p>
+                    <RestrictedTopicsField
+                      label="Workspace restricted topics"
+                      topics={orgTopics}
+                      emptyText="No topics of your own yet"
+                      placeholder='e.g. "refund disputes", "requests from journalists"'
+                      disabled={saving.org === true}
+                      builtIn={builtInTopics.map((topic) => topic.label)}
+                      onAdd={(topic) => changeTopics(null, { add: topic })}
+                      onRemove={(topic) => changeTopics(null, { remove: topic })}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -590,12 +722,12 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
             )}
             {(teamsEnabled
               ? activeDepts
-              : activeDepts.filter((dept) => perDept[String(dept.id)] !== undefined)
+              : activeDepts.filter((dept) => overridesDefault(perDept[String(dept.id)]))
             ).map((dept) => {
               const key = String(dept.id);
-              const isSaving = savingScope === dept.id;
+              const isSaving = saving[key] === true;
               const settings = perDept[key];
-              const hasOverride = !!settings;
+              const hasOverride = overridesDefault(settings);
               const overrideEnabled = settings?.autoReplyEnabled;
               const overrideThreshold = settings?.autoReplyHighConfidenceThreshold;
               const overrideRequestMissing = settings?.autoReplyRequestMissingInfo;
@@ -603,9 +735,12 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
               const overrideMode = settings?.autoReplyMode;
               const effectiveMode = overrideMode ?? orgMode;
               const phrases = settings?.escalationPhrases ?? [];
+              // A topic the workspace has too is shown once, in the Default row.
+              const teamTopics = extraTopics(settings?.restrictedTopics, orgTopics);
               const sliderThreshold = tempThresholdDept[key] ?? overrideThreshold ?? orgThreshold;
 
               const summary = (() => {
+                // A team that only adds restricted topics overrides nothing of the default.
                 if (!hasOverride) return { label: 'Inherits default', tone: 'muted' as const };
                 if (overrideEnabled === false)
                   return { label: 'Override: off', tone: 'red' as const };
@@ -655,14 +790,14 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                     {/* Override toggle: tri-state via two explicit choices */}
                     <div className="flex flex-wrap gap-2 items-center pt-2">
                       <span className="text-xs text-muted-foreground">
-                        Auto-reply for this team:
+                        Automatic replies for this team:
                       </span>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         disabled={isSaving}
-                        onClick={() => inheritDeptEnabled(dept.id)}
+                        onClick={() => setDeptKey(dept.id, 'autoReplyEnabled', undefined)}
                         className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
                           !hasOverride
                             ? 'bg-primary text-primary-foreground border-primary'
@@ -676,9 +811,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         variant="outline"
                         size="sm"
                         disabled={isSaving}
-                        onClick={() =>
-                          void saveDept(dept.id, { ...settings, autoReplyEnabled: true })
-                        }
+                        onClick={() => setDeptKey(dept.id, 'autoReplyEnabled', true)}
                         className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
                           overrideEnabled === true
                             ? 'bg-success/15 text-success border-success/40'
@@ -692,9 +825,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         variant="outline"
                         size="sm"
                         disabled={isSaving}
-                        onClick={() =>
-                          void saveDept(dept.id, { ...settings, autoReplyEnabled: false })
-                        }
+                        onClick={() => setDeptKey(dept.id, 'autoReplyEnabled', false)}
                         className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
                           overrideEnabled === false
                             ? 'bg-destructive/15 text-destructive border-destructive/40'
@@ -795,10 +926,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                           onMouseUp={() => {
                             const value = tempThresholdDept[key];
                             if (value !== undefined) {
-                              void saveDept(dept.id, {
-                                ...settings,
-                                autoReplyHighConfidenceThreshold: value,
-                              });
+                              setDeptKey(dept.id, 'autoReplyHighConfidenceThreshold', value);
                               setTempThresholdDept((prev) => {
                                 const next = { ...prev };
                                 delete next[key];
@@ -809,10 +937,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                           onTouchEnd={() => {
                             const value = tempThresholdDept[key];
                             if (value !== undefined) {
-                              void saveDept(dept.id, {
-                                ...settings,
-                                autoReplyHighConfidenceThreshold: value,
-                              });
+                              setDeptKey(dept.id, 'autoReplyHighConfidenceThreshold', value);
                               setTempThresholdDept((prev) => {
                                 const next = { ...prev };
                                 delete next[key];
@@ -842,7 +967,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       <p className="text-[10px] text-muted-foreground">
                         If a customer&apos;s email contains one of these, no keyword rule and no AI
                         answer is sent; the AI answer is saved as a suggestion for an agent. Does
-                        not apply to the missing-info email, Telegram or the chat widget.
+                        not apply to Telegram or the chat widget.
                       </p>
                       <div className="flex flex-wrap gap-1">
                         {phrases.length === 0 && (
@@ -860,10 +985,12 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                               size="icon"
                               disabled={isSaving}
                               onClick={() =>
-                                void saveDept(dept.id, {
-                                  ...settings,
-                                  escalationPhrases: phrases.filter((entry) => entry !== phrase),
-                                })
+                                void updateDept(dept.id, (current) => ({
+                                  ...current,
+                                  escalationPhrases: (current.escalationPhrases ?? []).filter(
+                                    (entry) => entry !== phrase
+                                  ),
+                                }))
                               }
                               aria-label={`Remove phrase ${phrase}`}
                               className="p-0 w-auto h-auto hover:text-destructive data-[inactive]:opacity-50"
@@ -897,10 +1024,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                                 );
                                 return;
                               }
-                              void saveDept(dept.id, {
-                                ...settings,
-                                escalationPhrases: [...phrases, draft],
-                              });
+                              void updateDept(dept.id, (current) => ({
+                                ...current,
+                                escalationPhrases: [...(current.escalationPhrases ?? []), draft],
+                              }));
                               setPhraseDrafts((prev) => ({ ...prev, [key]: '' }));
                             }
                           }}
@@ -923,10 +1050,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                               );
                               return;
                             }
-                            void saveDept(dept.id, {
-                              ...settings,
-                              escalationPhrases: [...phrases, draft],
-                            });
+                            void updateDept(dept.id, (current) => ({
+                              ...current,
+                              escalationPhrases: [...(current.escalationPhrases ?? []), draft],
+                            }));
                             setPhraseDrafts((prev) => ({ ...prev, [key]: '' }));
                           }}
                           className="gap-1 items-center px-2 py-1 h-auto text-xs"
@@ -936,6 +1063,34 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         </Button>
                       </div>
                     </div>
+
+                    {/* The team's own topics: added to the built-in and the workspace's ones */}
+                    {topicsSupported && (
+                      <div className="pt-3 space-y-2 border-t">
+                        <p className="text-xs font-medium">
+                          Extra restricted topics for this team{' '}
+                          {teamTopics.length > 0 && (
+                            <span className="text-[10px] text-muted-foreground">
+                              ({teamTopics.length})
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {teamAlsoApplies(builtInTopics.length, orgTopics.length)}
+                        </p>
+                        <RestrictedTopicsField
+                          label={`${dept.name} restricted topics`}
+                          topics={teamTopics}
+                          alsoApplies={orgTopics}
+                          emptyText="No extra topics"
+                          placeholder='e.g. "contract changes"'
+                          disabled={isSaving}
+                          builtIn={builtInTopics.map((topic) => topic.label)}
+                          onAdd={(topic) => changeTopics(dept.id, { add: topic })}
+                          onRemove={(topic) => changeTopics(dept.id, { remove: topic })}
+                        />
+                      </div>
+                    )}
 
                     {hasOverride && (
                       <div className="pt-3 border-t">
@@ -949,6 +1104,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         >
                           Reset all overrides for {dept.name}
                         </Button>
+                        {teamTopics.length > 0 && (
+                          <p className="text-[10px] text-muted-foreground">{RESET_KEEPS_TOPICS}</p>
+                        )}
                       </div>
                     )}
                   </div>

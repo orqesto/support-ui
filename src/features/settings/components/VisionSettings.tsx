@@ -205,7 +205,7 @@ export const VisionSettings = ({ managed = false }: { managed?: boolean } = {}) 
             <div>
               <h4 className="text-sm font-medium text-foreground">Read photos in customer emails</h4>
               <p className="mt-1 text-xs text-muted-foreground">
-                Read when the email arrives, largest first, so the draft and auto-reply know what is
+                Read when the email arrives, largest first, so the draft and automatic replies know what is
                 on them. Signature logos and images that arrive on many conversations are skipped.
                 Each photo read is one AI call.
               </p>

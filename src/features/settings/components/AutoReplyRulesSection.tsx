@@ -39,6 +39,8 @@ type Props = {
   canManage: boolean;
   /** The workspace's Auto-Reply switch (the Default row): rules send nothing while it is off. */
   autoReplyEnabled: boolean;
+  /** Teams on: the mailbox panel is "Teams and automatic replies"; off: "Automatic replies". */
+  teamsEnabled?: boolean;
   onShowAlert: (alert: AlertState) => void;
 };
 
@@ -219,7 +221,12 @@ const RuleForm = ({
   );
 };
 
-export const AutoReplyRulesSection = ({ canManage, autoReplyEnabled, onShowAlert }: Props) => {
+export const AutoReplyRulesSection = ({
+  canManage,
+  autoReplyEnabled,
+  teamsEnabled = true,
+  onShowAlert,
+}: Props) => {
   const [rules, setRules] = useState<AutoReplyRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -367,8 +374,10 @@ export const AutoReplyRulesSection = ({ canManage, autoReplyEnabled, onShowAlert
               Sends a prepared reply when a new email contains one of a rule&apos;s keywords, then
               resolves it and labels it <strong>autoReplied</strong>. A message that matches more
               than one rule gets no automatic reply at all, not even from the AI, so a keyword can
-              belong to only one rule. Auto-reply switched off for a mailbox on a team (Integrations
-              → the mailbox → Automatic replies per team) stops the rules for that mailbox&apos;s mail too.
+              belong to only one rule. Automatic replies switched off for a mailbox
+              {teamsEnabled ? ' on a team' : ''} (Integrations → the mailbox →{' '}
+              {teamsEnabled ? 'Teams and automatic replies' : 'Automatic replies'}) stop the rules for
+              that mailbox&apos;s mail too.
             </p>
           </div>
           {canManage && !editing && (
@@ -382,7 +391,7 @@ export const AutoReplyRulesSection = ({ canManage, autoReplyEnabled, onShowAlert
       <CardContent className="space-y-3">
         {!autoReplyEnabled && (
           <Alert variant="warning">
-            Auto-reply is off, so no rule sends anything. Turn on &quot;Automatic email replies&quot;
+            Automatic email replies are off, so no rule sends anything. Turn on &quot;Automatic email replies&quot;
             above (or for a team) and the rules apply.
           </Alert>
         )}
