@@ -39,6 +39,8 @@ export function ThreadScroller({
   handleGhostClick,
   setTab,
   setPanelOpen,
+  onResend,
+  resendingId,
 }: {
   thread: ReturnType<typeof useThreadEvents>;
   scrollPin: ReturnType<typeof useThreadScrollPin>;
@@ -63,6 +65,10 @@ export function ThreadScroller({
   handleGhostClick: ComponentProps<typeof MessageGhostBubble>['onGhostClick'];
   setTab: Setter<PanelTab>;
   setPanelOpen: Setter<boolean>;
+  /** Resend an undelivered reply (an open conversation only). */
+  onResend?: ComponentProps<typeof ThreadMessageItem>['onResend'];
+  /** The reply whose resend is being sent. */
+  resendingId?: number;
 }) {
   const {
     threadMessages,
@@ -162,6 +168,8 @@ export function ThreadScroller({
                 attachments={attachmentsByMessageId.get(row.msg.id) ?? NO_ATTACHMENTS}
                 onOpenAttachment={handleOpenAttachment}
                 onOpenInlineImage={handleOpenInlineImage}
+                onResend={onResend}
+                resending={row.msg.id === resendingId}
               />
             ) : (
               <ThreadNoteItem

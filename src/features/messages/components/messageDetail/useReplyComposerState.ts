@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { ReplyAssignIntent } from '@/services/message.service';
 import type { Message } from '@/types';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
@@ -6,12 +6,24 @@ import { resolveComposerWindow } from '../whatsappWindowState';
 import { resolveReplyBlock } from '../replyBlockState';
 import type { WhatsAppTemplate } from '../whatsappTemplates';
 import type { KeptSendKey } from './sendKey';
+import type { Setter } from './types';
+import type { ResendTarget } from '../deliveryState';
 
 /** Files, send failures, the channel window, WhatsApp templates and the editor refs. */
 
 export function useReplyComposerState(message: Message, composerMode: 'reply' | 'note') {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [sendFailedError, setSendFailedError] = useState<string | null>(null);
+  const [sendFailedError, setFailedReason] = useState<string | null>(null);
+  // The reply event an ASYNC failure (`send-failed`) named: once the thread shows that reply as
+  // delivered (a late answer from the channel), the bar would contradict the bubble, so it hides.
+  // Any other change of the bar forgets it.
+  const [sendFailedEventId, setSendFailedEventId] = useState<number | null>(null);
+  // An undelivered reply put back in the composer by its Resend: the next reply replaces it.
+  const [resendOf, setResendOf] = useState<ResendTarget | null>(null);
+  const setSendFailedError = useCallback<Setter<string | null>>((value) => {
+    setSendFailedEventId(null);
+    setFailedReason(value);
+  }, []);
   // Retry is offered only for a failure a resend can fix, while the draft is still in the
   // composer (SendFailedBar). The async `send_failed` event never sets it: by then the composer
   // was cleared and there is nothing left to resend.
@@ -70,6 +82,13 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     setSelectedFiles,
     sendFailedError,
     setSendFailedError,
+    sendFailedEventId,
+    setSendFailedEventId,
+    // The failed send's own reason, keeping the reply the `send-failed` event named (it may come
+    // before the HTTP answer — review of #999, M4).
+    setSendFailedReason: setFailedReason,
+    resendOf,
+    setResendOf,
     sendFailureRetryable,
     setSendFailureRetryable,
     lastAssignRef,

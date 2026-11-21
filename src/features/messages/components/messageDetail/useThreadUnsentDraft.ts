@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type MutableRefObject } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from '@/lib/toast';
 import type { AiDraft } from '@/services/message.service';
 import { useUnsentDraft } from '@/hooks/useUnsentDraft';
@@ -6,6 +6,8 @@ import { isBlankRichText } from '@/lib/stripHtml';
 import { emptyRecipientDraft, type RecipientDraft } from '../RecipientFields';
 import type { useComposerText } from './useComposerText';
 import type { KeptSendKey } from './sendKey';
+import type { useReplyComposerState } from './useReplyComposerState';
+import type { ResendTarget } from '../deliveryState';
 
 type ThreadDraft = {
   html: string;
@@ -28,8 +30,19 @@ type ThreadDraft = {
   sendKey?: KeptSendKey | null;
   /** Files are not kept; their count is, so the notice can ask for them again. */
   files?: number;
+  /**
+   * The undelivered reply this text resends (review of #999, M2): a reload keeps it a resend, not
+   * a second reply. Checked against the thread when it is read (useResendReply).
+   */
+  resendOf?: ResendTarget | null;
 };
 
+const isResendTarget = (value: unknown): value is ResendTarget =>
+  typeof value === 'object' &&
+  value !== null &&
+  Number.isInteger((value as ResendTarget).eventId) &&
+  (value as ResendTarget).eventId > 0 &&
+  typeof (value as ResendTarget).uncertain === 'boolean';
 const isKeptSendKey = (value: unknown): value is KeptSendKey =>
   typeof value === 'object' &&
   value !== null &&
@@ -49,19 +62,21 @@ export function useThreadUnsentDraft({
   composerText,
   recipientDraft,
   setRecipientDraft,
-  sendKeyRef,
-  sendFailedError,
+  replyState,
   fileCount,
 }: {
   threadId: number;
   composerText: ReturnType<typeof useComposerText>;
   recipientDraft: RecipientDraft;
   setRecipientDraft: (draft: RecipientDraft) => void;
-  sendKeyRef: MutableRefObject<KeptSendKey | null>;
-  /** Set when a send fails — the moment the key is worth keeping (it lives in a ref). */
-  sendFailedError: string | null;
+  /** The kept send key (a ref), the failure that makes it worth keeping, and the resend target. */
+  replyState: Pick<
+    ReturnType<typeof useReplyComposerState>,
+    'sendIdempotencyKeyRef' | 'sendFailedError' | 'resendOf' | 'setResendOf'
+  >;
   fileCount: number;
 }) {
+  const { sendIdempotencyKeyRef: sendKeyRef, sendFailedError, resendOf, setResendOf } = replyState;
   const {
     composer,
     aiSource,
@@ -87,11 +102,21 @@ export function useThreadUnsentDraft({
       recipients: recipientDraft,
       sendKey: sendKeyRef.current,
       files: fileCount,
+      resendOf,
     }),
     // Two refs: lastEditMode changes together with `composer`; the send key is minted at send time
     // and kept on a failure, which `sendFailedError` marks.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
-    [composer, composerMode, aiSource, aiDraft, recipientDraft, sendFailedError, fileCount]
+    [
+      composer,
+      composerMode,
+      aiSource,
+      aiDraft,
+      recipientDraft,
+      sendFailedError,
+      fileCount,
+      resendOf,
+    ]
   );
   const valueRef = useRef(value);
   valueRef.current = value;
@@ -106,9 +131,17 @@ export function useThreadUnsentDraft({
       if (recipients) setRecipientDraft(recipients);
       if (data.aiSource) handleAiSourceChange(data.aiSource, data.aiDraft ?? undefined);
       if (isKeptSendKey(data.sendKey)) sendKeyRef.current = data.sendKey;
+      if (mode === 'reply' && isResendTarget(data.resendOf)) setResendOf(data.resendOf);
       setRestoredFiles(typeof data.files === 'number' ? data.files : 0);
     },
-    [writeComposer, setComposerMode, setRecipientDraft, handleAiSourceChange, sendKeyRef]
+    [
+      writeComposer,
+      setComposerMode,
+      setRecipientDraft,
+      handleAiSourceChange,
+      sendKeyRef,
+      setResendOf,
+    ]
   );
   const clearComposer = useCallback(() => {
     writeComposer('');

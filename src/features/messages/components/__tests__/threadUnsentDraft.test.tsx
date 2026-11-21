@@ -9,6 +9,7 @@ import { emptyRecipientDraft, type RecipientDraft } from '../RecipientFields';
 import { keyForPayload, type KeptSendKey } from '../messageDetail/sendKey';
 import { useComposerText } from '../messageDetail/useComposerText';
 import { useThreadUnsentDraft } from '../messageDetail/useThreadUnsentDraft';
+import type { ResendTarget } from '../deliveryState';
 import { computePresenceState } from '../../presence/usePresenceReporter';
 
 const stored = (scope: string) => window.localStorage.getItem(unsentDraftKey(1, 5, scope)!);
@@ -33,23 +34,42 @@ describe('thread composer', () => {
     const [recipientDraft, setRecipientDraft] = useState<RecipientDraft>(emptyRecipientDraft);
     const sendKeyRef = useRef<KeptSendKey | null>(null);
     const [sendFailedError, setSendFailedError] = useState<string | null>(null);
+    const [resendOf, setResendOf] = useState<ResendTarget | null>(null);
     return {
       composerText,
       recipientDraft,
       setRecipientDraft,
       sendKeyRef,
       setSendFailedError,
+      resendOf,
+      setResendOf,
       ...useThreadUnsentDraft({
         threadId: 42,
         composerText,
         recipientDraft,
         setRecipientDraft,
-        sendKeyRef,
-        sendFailedError,
+        replyState: { sendIdempotencyKeyRef: sendKeyRef, sendFailedError, resendOf, setResendOf },
         fileCount: 0,
       }),
     };
   };
+
+  it('a resend comes back as a resend after a reload (review of #999, M2)', () => {
+    const first = renderHook(useThread);
+    act(() => first.result.current.composerText.writeComposer('<p>Your parcel ships today.</p>'));
+    act(() => first.result.current.setResendOf({ eventId: 942, uncertain: false }));
+    first.unmount();
+    const again = renderHook(useThread);
+    expect(again.result.current.resendOf).toEqual({ eventId: 942, uncertain: false });
+  });
+
+  it('CONTROL: an ordinary draft comes back as no resend', () => {
+    const first = renderHook(useThread);
+    act(() => first.result.current.composerText.writeComposer('<p>Your parcel ships today.</p>'));
+    first.unmount();
+    const again = renderHook(useThread);
+    expect(again.result.current.resendOf).toBeNull();
+  });
 
   it('an internal note comes back as a note, never as a reply to the customer', () => {
     const first = renderHook(useThread);
@@ -198,8 +218,12 @@ describe('thread composer', () => {
           composerText,
           recipientDraft,
           setRecipientDraft,
-          sendKeyRef,
-          sendFailedError: null,
+          replyState: {
+            sendIdempotencyKeyRef: sendKeyRef,
+            sendFailedError: null,
+            resendOf: null,
+            setResendOf: () => {},
+          },
           fileCount: 2,
         }) && composerText
       );

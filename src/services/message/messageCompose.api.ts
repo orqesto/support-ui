@@ -65,6 +65,9 @@ export const messageComposeApi = {
         seenLastEventId: collision.seenLastEventId,
       }),
       ...(collision?.confirmOverride && { confirmOverride: true }),
+      ...(collision?.resendOfEventId !== undefined && {
+        resendOfEventId: collision.resendOfEventId,
+      }),
     });
     return response.data;
   },
@@ -124,6 +127,8 @@ export const messageComposeApi = {
     if (collision?.seenLastEventId !== undefined)
       formData.append('seenLastEventId', String(collision.seenLastEventId));
     if (collision?.confirmOverride) formData.append('confirmOverride', 'true');
+    if (collision?.resendOfEventId !== undefined)
+      formData.append('resendOfEventId', String(collision.resendOfEventId));
 
     files.forEach((file) => {
       formData.append('attachments', file);

@@ -6,6 +6,7 @@ import {
   unsubscribeFromEvent,
 } from '@/lib/socketManager';
 import { isOwnSendEcho } from '@/lib/ownSends';
+import { uncertainFailureText } from '../deliveryState';
 import type { Message } from '@/types';
 import { useThreadMessageRefresh } from '@/features/messages/hooks/useThreadMessageRefresh';
 import { useConversationStatusRefresh } from '@/features/messages/hooks/useConversationStatusRefresh';
@@ -30,6 +31,7 @@ export function useLiveThreadSync({
   pullNewEventsRef,
   setSendFailureRetryable,
   setSendFailedError,
+  setSendFailedEventId,
 }: {
   message: Message;
   pullLiveEvents: () => void;
@@ -40,6 +42,7 @@ export function useLiveThreadSync({
   pullNewEventsRef: MutableRefObject<PullNewEvents>;
   setSendFailureRetryable: Setter<boolean>;
   setSendFailedError: Setter<string | null>;
+  setSendFailedEventId: Setter<number | null>;
 }) {
   // A customer's new message or the bot's answer on this thread: refetch THIS thread only.
   // ⛔ Not onRefresh: on MessagesPage that reloads the message, the whole list and every board
@@ -76,11 +79,27 @@ export function useLiveThreadSync({
   useEffect(() => {
     getSocket();
     const handleSendFailed = (data: unknown) => {
-      const event = data as { messageId: number; channel: string };
+      const event = data as {
+        messageId: number;
+        channel?: unknown;
+        outgoingMessageId?: unknown;
+        uncertain?: unknown;
+      };
       if (event.messageId === message.id) {
         setSendFailureRetryable(false);
+        // Said as the bubble says it (never "not sent" beside "May not have been delivered"): a
+        // cut-off or unconfirmed send may have reached the customer (`uncertain`, any channel).
+        // (`channel` may be null: no "via null".)
+        const via =
+          typeof event.channel === 'string' && event.channel ? ` via ${event.channel}` : '';
         setSendFailedError(
-          `Reply could not be delivered via ${event.channel}. The message was saved but not sent — please try again.`
+          event.uncertain === true
+            ? uncertainFailureText(event.channel)
+            : `Reply could not be delivered${via}. The message was saved but not sent — please try again.`
+        );
+        // (After the reason: setting the reason forgets the id.)
+        setSendFailedEventId(
+          typeof event.outgoingMessageId === 'number' ? event.outgoingMessageId : null
         );
         // The BE reverts the conv's status and marks the reply event undelivered on
         // failure. Refetch so the thread reflects the real state (no longer shown as
@@ -91,7 +110,7 @@ export function useLiveThreadSync({
       }
     };
     const handleReplied = (data: unknown) => {
-      const event = data as { messageId: number };
+      const event = data as { messageId: number; supersededEventId?: unknown; late?: unknown };
       // Our own send already read its events and the page when the request returned; its echo
       // would repeat both (ownSends.ts).
       //
@@ -100,6 +119,18 @@ export function useLiveThreadSync({
       // to — plus this conversation's header. ⛔ Not onRefresh: on MessagesPage that also re-reads
       // the list and the board, and the page already schedules its own coalesced list read for
       // this very event. No notes or merges: a reply adds neither.
+      // A resend replaced an undelivered bubble: only a full read drops it (the incremental read
+      // only adds). A reply given up and delivered LATER (`late`) may be older than the newest
+      // events an incremental read asks for again: a full read too, so its bubble turns "✓ Sent".
+      if (
+        event.messageId === message.id &&
+        !isOwnSendEcho(data) &&
+        (typeof event.supersededEventId === 'number' || event.late === true)
+      ) {
+        setThreadRefreshKey((key) => key + 1);
+        rereadHeaderRef.current?.();
+        return;
+      }
       if (event.messageId === message.id && !isOwnSendEcho(data)) {
         pullNewEventsRef.current({
           activity: true,
@@ -123,6 +154,7 @@ export function useLiveThreadSync({
     pullNewEventsRef,
     rereadHeaderRef,
     setSendFailedError,
+    setSendFailedEventId,
     setSendFailureRetryable,
     setThreadRefreshKey,
   ]);

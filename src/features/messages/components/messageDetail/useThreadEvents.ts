@@ -12,10 +12,12 @@ import {
   eventMayCarryAttachments,
   incrementalCursor,
   unseenEvents,
+  withDeliveryUpdates,
 } from '../threadNewEvents';
 import { threadTimeOf } from '../threadDays';
 import { useHoldReasonClearedRefresh } from '../../hooks/useHoldReasonClearedRefresh';
 import { THREAD_PAGE } from './detailConstants';
+import { useSendingRecheck } from './useSendingRecheck';
 import type { MessageDetailProps } from './types';
 
 /** MessageDetail's thread: the loaded window of events, its paging and the incremental read. */
@@ -190,6 +192,12 @@ export function useThreadEvents(
             setThreadRefreshKey((key) => key + 1);
             return;
           }
+          // A reply already on screen whose send finished (or failed) meanwhile.
+          const updated = withDeliveryUpdates(threadMessagesRef.current, res.data);
+          if (updated) {
+            threadMessagesRef.current = updated;
+            setThreadMessages((current) => withDeliveryUpdates(current, res.data) ?? current);
+          }
           const fresh = unseenEvents(threadMessagesRef.current, res.data);
           if (fresh.length === 0) {
             bumpAlso();
@@ -224,6 +232,10 @@ export function useThreadEvents(
   pullNewEventsRef.current = pullNewEvents;
   // useThreadMessageRefresh calls it bare: a live message adds only what its events say.
   const pullLiveEvents = useCallback(() => pullNewEvents(), [pullNewEvents]);
+  // A reply shown as "Sending…" is read again until it has its real state (useSendingRecheck).
+  useSendingRecheck(threadMessages, (full) =>
+    full ? setThreadRefreshKey((key) => key + 1) : pullLiveEvents()
+  );
 
   // ── Sorted thread ──────────────────────────────────────────────────────────
 
@@ -261,6 +273,8 @@ export function useThreadEvents(
   // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
   // only ever sit between days, in order.
   return {
+    /** The thread these events are read for. */
+    threadId: message.id,
     threadMessages,
     threadEventsFor,
     threadLoading,

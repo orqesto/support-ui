@@ -21,7 +21,9 @@ import { useAiDraftsOff } from '@/features/settings/shell';
 import { Permission } from '@/types/roles';
 import { useThreadFileViewer } from './useThreadFileViewer';
 import { MessagePanelTabs } from './MessagePanelTabs';
-import { SendFailedBar } from './SendFailedBar';
+import { ThreadSendFailedBar } from './ThreadSendFailedBar';
+import { ResendNotice } from './ResendNotice';
+import { useResendReply } from './messageDetail/useResendReply';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { readSendAction, type SendAction } from './ComposerSendButton';
 import { holdsUnsentNote } from './messageDetail/detailConstants';
@@ -160,6 +162,7 @@ export function MessageDetail({
     pullNewEventsRef,
     setSendFailureRetryable,
     setSendFailedError,
+    setSendFailedEventId: replyState.setSendFailedEventId,
   });
 
   // ── AI ghost state ─────────────────────────────────────────────────────────
@@ -276,8 +279,7 @@ export function MessageDetail({
       composerText,
       recipientDraft,
       setRecipientDraft,
-      sendKeyRef: replyState.sendIdempotencyKeyRef,
-      sendFailedError,
+      replyState,
       fileCount: selectedFiles.length,
     });
   // Merge labels on the timeline + everyone on the thread, for Reply all (owner, 2026-09-23).
@@ -433,6 +435,7 @@ export function MessageDetail({
     lastEditMode,
   });
   const { handleGhostClick } = ghost;
+  const startResend = useResendReply(composerText, replyState, showComposerForShortcut, thread);
 
   // Moving to spam asks first while a colleague writes a reply (§5.5).
   const classify = useGuardedClassify(guard, onClassify);
@@ -604,22 +607,22 @@ export function MessageDetail({
             </div>
           )}
 
-          {sendFailedError && (
-            <SendFailedBar
-              reason={sendFailedError}
-              // Only while the failed draft is still there to resend (a blank composer means the
-              // agent cleared it, or the async failure came after the send cleared it).
-              onRetry={
-                sendFailureRetryable &&
-                !isBlankRichText(composer) &&
-                composerMode === lastSendModeRef.current
-                  ? () => void performSend(lastAssignRef.current)
-                  : undefined
-              }
-              retrying={submitting}
-              onDismiss={() => setSendFailedError(null)}
-            />
-          )}
+          <ThreadSendFailedBar
+            reason={sendFailedError}
+            eventId={replyState.sendFailedEventId}
+            thread={sortedThread}
+            // Only while the failed draft is still there to resend (a blank composer means the
+            // agent cleared it, or the async failure came after the send cleared it).
+            onRetry={
+              sendFailureRetryable &&
+              !isBlankRichText(composer) &&
+              composerMode === lastSendModeRef.current
+                ? () => void performSend(lastAssignRef.current)
+                : undefined
+            }
+            retrying={submitting}
+            onDismiss={() => setSendFailedError(null)}
+          />
 
           {/* What a colleague just did here (thread presence). "view" re-reads the thread; the
             draft stays. */}
@@ -679,6 +682,8 @@ export function MessageDetail({
             handleGhostClick={handleGhostClick}
             setTab={setTab}
             setPanelOpen={setPanelOpen}
+            onResend={isActive ? startResend : undefined}
+            resendingId={submitting ? replyState.resendOf?.eventId : undefined}
           />
 
           {/* Phone: the resolve row between the thread and the composer, Thread tab only (M6) — and,
@@ -693,6 +698,9 @@ export function MessageDetail({
 
           {/* Composer — shown for active conversations. On a phone, only under the Thread or Notes
             tab (M7) — hidden, not unmounted, so a draft and its AI undo survive a tab visit. */}
+          {isActive && composerMode === 'reply' && (
+            <ResendNotice target={replyState.resendOf} setTarget={replyState.setResendOf} />
+          )}
           {isActive && (
             <MessageComposer
               hidden={isPhone && panelOpen && tab !== 'notes'}
