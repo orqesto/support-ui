@@ -166,6 +166,7 @@ export function useReplySend({
        and the bar says so.
   */
   const waitingRef = useRef<{
+    readUnderWay: boolean;
     messageId: number;
     args: [ReplyAssignIntent | undefined, boolean, boolean, boolean];
     held: HeldReply;
@@ -205,13 +206,20 @@ export function useReplySend({
       if (isReply && isBlankRichText(composer) && selectedFiles.length === 0) return;
       if (isReply && threadEventsFor !== message.id) {
         if (waitingRef.current !== null) return;
-        if (!threadPending) {
+        // The read failed. A reply that waited for it is over (nothing sent, said so). A new
+        // press of Send reads the thread AGAIN and waits for that read, under the same bound —
+        // so "send again" works as soon as the connection is back.
+        if (!threadPending && held) {
           notLoaded();
           return;
         }
+        if (!threadPending) setThreadRefreshKey((key) => key + 1);
         setAssignPrompt(null);
+        setSendFailedError(null);
         setSubmitting(true);
         waitingRef.current = {
+          // (False after a restart, until the new read is seen under way.)
+          readUnderWay: threadPending,
           messageId: message.id,
           args: [assign, confirmOverride, retry, confirmed],
           held: { composer, composerMode, selectedFiles, recipientDraft, aiSource, aiDraft },
@@ -546,7 +554,9 @@ export function useReplySend({
   // with the thread as it is now.
   useEffect(() => {
     const waiting = waitingRef.current;
-    if (waiting === null || threadPending) return;
+    if (waiting === null) return;
+    if (threadPending) waiting.readUnderWay = true;
+    if (threadPending || !waiting.readUnderWay) return;
     waitingRef.current = null;
     clearTimeout(waiting.timer);
     setSubmitting(false);

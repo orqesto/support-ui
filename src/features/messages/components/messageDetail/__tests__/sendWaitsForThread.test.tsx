@@ -118,6 +118,40 @@ describe('the thread cannot be read: nothing is sent, the text stays, and it say
     expect(sendButton().textContent).toBe('SEND');
   });
 
+  it('Send pressed again reads the thread again and waits for it: one POST, with what the thread showed', async () => {
+    renderDetail();
+    type('<p>On its way.</p>');
+    pressSend();
+    await reads[0].fail();
+    await screen.findByText(NOT_LOADED);
+    expect(reads).toHaveLength(1);
+    pressSend();
+    await waitFor(() => expect(reads).toHaveLength(2));
+    expect(screen.queryByText(NOT_LOADED)).toBeNull();
+    expect(posts()).toHaveLength(0);
+    await reads[1].land([event({ id: 900 })]);
+    await waitFor(() => expect(posts()).toHaveLength(1));
+    expect(posts()[0][1]).toBe('<p>On its way.</p>');
+    expect(posts()[0][10]).toEqual({ seenLastEventId: 900 });
+    await settle();
+    expect(posts()).toHaveLength(1);
+  });
+
+  it('…and when that read fails too: the message again, nothing sent, no further read on its own', async () => {
+    renderDetail();
+    type('<p>On its way.</p>');
+    pressSend();
+    await reads[0].fail();
+    await screen.findByText(NOT_LOADED);
+    pressSend();
+    await waitFor(() => expect(reads).toHaveLength(2));
+    await reads[1].fail();
+    expect(await screen.findByText(NOT_LOADED)).toBeTruthy();
+    await settle();
+    expect(reads).toHaveLength(2);
+    expect(posts()).toHaveLength(0);
+  });
+
   it(`the read never answers: after ${WAIT_FOR_THREAD_MS / 1000} s the same outcome`, async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     renderDetail();
