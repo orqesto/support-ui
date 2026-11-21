@@ -1,3 +1,4 @@
+import { stripHtml } from '@/lib/stripHtml';
 import type { MessageEvent } from '@/types';
 
 /**
@@ -119,6 +120,51 @@ export const isLatestUndelivered = (
     (event) =>
       event.id > eventId && event.type === 'agent_reply' && isUndelivered(deliveryStateOf(event))
   );
+
+/**
+ * Do two reply texts say the same? Compared as plain text (tags, entities and spacing aside): the
+ * composer holds the editor's HTML, a stored reply may be that HTML or plain text. Blank is never
+ * "the same".
+ */
+export const sameReplyText = (
+  left: string | null | undefined,
+  right: string | null | undefined
+): boolean => {
+  const text = stripHtml(left ?? '');
+  return text !== '' && text === stripHtml(right ?? '');
+};
+
+/**
+ * The reply a Send of `composer` would send AGAIN although the customer may already have it, or
+ * null. The rule that tells a repeat from a new reply: the text is the same (sameReplyText) as
+ * the thread's latest undelivered agent reply, and that reply is marked uncertain. Read from the
+ * THREAD, so it holds after a reload, for a colleague, on a backend that names no event in its
+ * answer, and when only the socket event reported the failure. Before the thread shows the reply
+ * (the answer came first), the failed send's own report (`failed`) stands in for it.
+ */
+export const sendAgainTarget = (
+  composer: string,
+  thread: readonly Pick<MessageEvent, 'id' | 'type' | 'metadata' | 'content'>[],
+  failed: FailedSend | null
+): number | null => {
+  const latest = thread
+    .filter((event) => event.type === 'agent_reply' && isUndelivered(deliveryStateOf(event)))
+    .reduce<
+      (typeof thread)[number] | null
+    >((newest, event) => (newest === null || event.id > newest.id ? event : newest), null);
+  if (
+    latest &&
+    deliveryStateOf(latest) === 'uncertain' &&
+    sameReplyText(composer, latest.content)
+  ) {
+    return latest.id;
+  }
+  return failed?.uncertain === true &&
+    sameReplyText(composer, failed.text) &&
+    isLatestUndelivered(failed.eventId, thread)
+    ? failed.eventId
+    : null;
+};
 
 /** The bar's words for a reply that was saved and did not go out (any channel). */
 export const notDeliveredText = (channel?: unknown): string =>

@@ -19,6 +19,8 @@ const state = vi.hoisted(() => ({
   teamsMode: true,
   /** False: an older backend that knows no restricted topics. */
   supported: true,
+  /** False: a backend that knows restricted topics but does not list the teams that have them. */
+  listsTeams: true,
   builtIn: [] as { key: string; label: string }[],
   topics: [] as string[],
   teams: {} as Record<string, Record<string, unknown>>,
@@ -104,7 +106,7 @@ const serverSave = (body: Record<string, unknown>) => {
       ...(state.supported && {
         restrictedTopics: state.topics,
         builtInRestrictedTopics: state.builtIn,
-        restrictedTopicTeams: topicTeams(),
+        ...(state.listsTeams && { restrictedTopicTeams: topicTeams() }),
       }),
       departmentSettings: state.teams,
     }),
@@ -129,7 +131,8 @@ vi.mock('@/services/organization.service', () => ({
         partialAnswer: 'hand_to_agent',
         restrictedTopics: state.supported ? [...state.topics] : null,
         builtInRestrictedTopics: state.supported ? state.builtIn : [],
-        restrictedTopicTeams: state.supported ? structuredClone(topicTeams()) : null,
+        restrictedTopicTeams:
+          state.supported && state.listsTeams ? structuredClone(topicTeams()) : null,
       }),
     getCurrent: () =>
       Promise.resolve({ settings: { departmentSettings: structuredClone(state.teams) } }),
@@ -174,6 +177,7 @@ beforeEach(() => {
   state.orgAdmin = true;
   state.teamsMode = true;
   state.supported = true;
+  state.listsTeams = true;
   state.builtIn = BUILT_IN_FROM_API;
   state.topics = [];
   state.teams = {};

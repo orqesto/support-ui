@@ -19,7 +19,9 @@ export function ThreadSendFailedBar({
   onRetry,
   retrying,
   onDismiss,
-}: Omit<SendFailedBarProps, 'reason'> & {
+}: Omit<SendFailedBarProps, 'reason' | 'onRetry'> & {
+  /** `confirmed`: the agent was asked here ("may get it twice") and chose to send again. */
+  onRetry?: (confirmed: boolean) => void;
   reason: string | null;
   /** The reply the failure named (the `send-failed` event or the send's 502 answer), when known. */
   eventId: number | null;
@@ -30,7 +32,7 @@ export function ThreadSendFailedBar({
   const state = failedBarState(eventId, thread);
   if (state === 'hidden') return null;
   const uncertain = state === 'uncertain' || saysUncertain(reason);
-  const retry = onRetry && (uncertain ? () => setConfirmOpen(true) : onRetry);
+  const retry = onRetry && (uncertain ? () => setConfirmOpen(true) : () => onRetry(false));
   return (
     <>
       <SendFailedBar
@@ -45,7 +47,7 @@ export function ThreadSendFailedBar({
           onOpenChange={setConfirmOpen}
           onConfirm={() => {
             setConfirmOpen(false);
-            onRetry();
+            onRetry(true);
           }}
         />
       )}

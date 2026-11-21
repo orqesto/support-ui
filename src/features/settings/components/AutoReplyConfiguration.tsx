@@ -165,34 +165,39 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   const [tempThresholdOrg, setTempThresholdOrg] = useState<number | null>(null);
   const [tempThresholdDept, setTempThresholdDept] = useState<Record<string, number>>({});
 
+  /** Reads the settings as stored and shows them; `stale()` true = the answer is no longer wanted. */
+  const loadStored = useCallback(async (stale: () => boolean = () => false) => {
+    const [auto, orgRow] = await Promise.all([
+      organizationService.getAutoReply(),
+      organizationService.getCurrent(),
+    ]);
+    if (stale()) return;
+    const initialOrg: Settings = {
+      autoReplyEnabled: auto.enabled,
+      autoReplyMode: auto.mode,
+      autoReplyRequestMissingInfo: auto.requestMissingInfo,
+      autoReplySuggestSolutions: auto.suggestSolutions,
+      autoReplyHighConfidenceThreshold: auto.highConfidenceThreshold,
+      autoReplyPartialAnswer: auto.partialAnswer,
+      restrictedTopics: readRestrictedTopics(auto.restrictedTopics) ?? [],
+    };
+    setTopicsSupported(readRestrictedTopics(auto.restrictedTopics) !== null);
+    setBuiltInTopics(auto.builtInRestrictedTopics ?? []);
+    setTopicTeams(readTopicTeams(auto.restrictedTopicTeams) ?? []);
+    setOrg(initialOrg);
+    orgRef.current = initialOrg;
+    const settings: Record<string, unknown> = orgRow.settings ?? {};
+    const dept = (settings.departmentSettings ?? {}) as Record<string, Settings>;
+    setPerDept(dept);
+    perDeptRef.current = dept;
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     void (async () => {
       try {
-        const [auto, orgRow] = await Promise.all([
-          organizationService.getAutoReply(),
-          organizationService.getCurrent(),
-        ]);
-        if (cancelled) return;
-        const initialOrg: Settings = {
-          autoReplyEnabled: auto.enabled,
-          autoReplyMode: auto.mode,
-          autoReplyRequestMissingInfo: auto.requestMissingInfo,
-          autoReplySuggestSolutions: auto.suggestSolutions,
-          autoReplyHighConfidenceThreshold: auto.highConfidenceThreshold,
-          autoReplyPartialAnswer: auto.partialAnswer,
-          restrictedTopics: readRestrictedTopics(auto.restrictedTopics) ?? [],
-        };
-        setTopicsSupported(readRestrictedTopics(auto.restrictedTopics) !== null);
-        setBuiltInTopics(auto.builtInRestrictedTopics ?? []);
-        setTopicTeams(readTopicTeams(auto.restrictedTopicTeams) ?? []);
-        setOrg(initialOrg);
-        orgRef.current = initialOrg;
-        const settings: Record<string, unknown> = orgRow.settings ?? {};
-        const dept = (settings.departmentSettings ?? {}) as Record<string, Settings>;
-        setPerDept(dept);
-        perDeptRef.current = dept;
+        await loadStored(() => cancelled);
       } catch (err) {
         if (cancelled) return;
         logger.error('Failed to load auto-reply settings:', err);
@@ -204,7 +209,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadStored]);
 
   // Every save of this card runs after the one before it, so each builds on what the last one
   // left (two saves in flight used to send two stale copies of the team map), and each takes
@@ -399,10 +404,18 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                 ? TOPICS_ADMIN_ONLY
                 : undefined
           );
+          // Not there any more (404): someone else removed the topic or the team meanwhile, so
+          // the lists on screen are stale — read them again instead of leaving a chip that
+          // answers 404 on every click.
+          if (getErrorStatus(err) === 404) {
+            await loadStored().catch((reloadErr: unknown) =>
+              logger.error('Failed to re-read auto-reply settings:', reloadErr)
+            );
+          }
           return false;
         }
       }),
-    [applyStored, onShowAlert, queued, saveFailed]
+    [applyStored, loadStored, onShowAlert, queued, saveFailed]
   );
 
   const setDeptKey = <Key extends keyof Settings>(deptId: number, key: Key, value: Settings[Key]) =>
@@ -548,8 +561,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
               AI drafts are switched off for this workspace, so the AI sends no reply of its own —
               whatever is set below. Keyword rules with a plain prepared reply still send; rules
               that add a knowledge base answer (&quot;Template + KB&quot;) do not. These settings
-              apply again when AI drafts are switched back on. The receipt confirmation (&quot;we got
-              your message&quot;) is not AI-written and still goes out.
+              apply again when AI drafts are switched back on. The receipt confirmation (&quot;we
+              got your message&quot;) is not AI-written and still goes out.
             </Alert>
           )}
           {error && (

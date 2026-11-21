@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { X } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -6,7 +7,9 @@ import type { RestrictedTopicTeam } from '@/types/api';
 export const TOPICS_ADMIN_ONLY = 'Only a workspace admin can change restricted topics.';
 export const OTHER_TEAM_TOPICS_TITLE = 'Topics kept for other teams';
 export const OTHER_TEAM_TOPICS_HELP = "They still apply to each team's conversations.";
-const DELETED_TEAM = 'Deleted team';
+/** A deleted team has no name left: its id tells two of them apart. */
+export const topicTeamName = (team: Pick<RestrictedTopicTeam, 'departmentId' | 'name'>): string =>
+  team.name ?? `Deleted team #${team.departmentId}`;
 
 /** `restrictedTopicTeams` as the page uses it: well-formed entries that still hold a topic. */
 export const readTopicTeams = (value: unknown): RestrictedTopicTeam[] | null =>
@@ -42,20 +45,24 @@ type Props = {
  * while teams are off. The send gate keeps applying them, so they are always listed and can be
  * removed; nothing is added here (a topic is added in the team's own row).
  */
-export const OtherTeamTopics = ({ teams, canChange, saving = {}, onRemove }: Props) =>
-  teams.length === 0 ? null : (
+export const OtherTeamTopics = ({ teams, canChange, saving = {}, onRemove }: Props) => {
+  const titleId = useId();
+  if (teams.length === 0) return null;
+  return (
     <div className="space-y-1">
-      <p className="text-xs font-medium">{OTHER_TEAM_TOPICS_TITLE}</p>
+      <h4 id={titleId} className="text-xs font-medium">
+        {OTHER_TEAM_TOPICS_TITLE}
+      </h4>
       <p className="text-[10px] text-muted-foreground">{OTHER_TEAM_TOPICS_HELP}</p>
-      <ul aria-label={OTHER_TEAM_TOPICS_TITLE} className="space-y-1">
+      <ul aria-labelledby={titleId} className="space-y-1">
         {teams.map((team) => {
-          const name = team.name ?? DELETED_TEAM;
+          const name = topicTeamName(team);
           return (
             <li key={team.departmentId} className="flex flex-wrap gap-1 items-center">
               <span className="text-xs text-muted-foreground">{name}</span>
               {team.name !== null && !team.active && (
                 <Badge variant="outline" size="sm" className="font-normal">
-                  inactive
+                  Inactive
                 </Badge>
               )}
               <ul aria-label={`${name} restricted topics`} className="flex flex-wrap gap-1">
@@ -86,3 +93,4 @@ export const OtherTeamTopics = ({ teams, canChange, saving = {}, onRemove }: Pro
       </ul>
     </div>
   );
+};

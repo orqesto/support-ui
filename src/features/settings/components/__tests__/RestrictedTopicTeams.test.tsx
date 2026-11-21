@@ -25,6 +25,7 @@ describe('restricted topics — teams that have no row on the page', () => {
     state.teams = {
       '3': { restrictedTopics: ['chargebacks', 'warranty claims'] },
       '5': { restrictedTopics: ['press requests'] },
+      '6': { restrictedTopics: ['press requests'] },
       '7': { restrictedTopics: ['contract changes'] },
     };
     show();
@@ -33,9 +34,11 @@ describe('restricted topics — teams that have no row on the page', () => {
     expect(within(other).queryByText('Billing')).toBeNull();
     expect(topicsOf(TEAM)).toEqual(['contract changes']);
     expect(topicsOf('Returns restricted topics')).toEqual(['chargebacks', 'warranty claims']);
-    expect(topicsOf('Deleted team restricted topics')).toEqual(['press requests']);
+    // Two deleted teams are told apart by their id.
+    expect(topicsOf('Deleted team #5 restricted topics')).toEqual(['press requests']);
+    expect(topicsOf('Deleted team #6 restricted topics')).toEqual(['press requests']);
     // "inactive" marks the switched-off team only; nothing can be added to either.
-    expect(within(other).getAllByText('inactive')).toHaveLength(1);
+    expect(within(other).getAllByText('Inactive')).toHaveLength(1);
     expect(screen.queryByRole('textbox', { name: /Add to (Returns|Deleted team)/ })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove topic chargebacks from Returns' }));
@@ -46,13 +49,42 @@ describe('restricted topics — teams that have no row on the page', () => {
 
     // The last topic removed: the team leaves the list.
     fireEvent.click(
-      screen.getByRole('button', { name: 'Remove topic press requests from Deleted team' })
+      screen.getByRole('button', { name: 'Remove topic press requests from Deleted team #5' })
     );
     await waitFor(() =>
-      expect(screen.queryByRole('list', { name: 'Deleted team restricted topics' })).toBeNull()
+      expect(screen.queryByRole('list', { name: 'Deleted team #5 restricted topics' })).toBeNull()
     );
     expect(topicsOf('Returns restricted topics')).toEqual(['warranty claims']);
+    expect(topicsOf('Deleted team #6 restricted topics')).toEqual(['press requests']);
     expect(sentTopicLists()).toEqual([]);
+  });
+
+  it('a topic someone else removed meanwhile (404): the lists are read again, no stale chip stays', async () => {
+    state.teams = { '5': { restrictedTopics: ['press requests'] } };
+    show();
+    await screen.findByRole('list', { name: OTHER });
+    // Meanwhile, elsewhere: the deleted team's last topic was removed.
+    state.teams = {};
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove topic press requests from Deleted team #5' })
+    );
+    await waitFor(() => expect(screen.queryByRole('list', { name: OTHER })).toBeNull());
+    expect(state.alerts.at(-1)?.title).toBe('Save failed');
+  });
+
+  it('a backend that does not list the teams yet: no such list, the rest of the card as before', async () => {
+    state.listsTeams = false;
+    state.departments = [BILLING, OLD_TEAM];
+    state.teams = {
+      '3': { restrictedTopics: ['chargebacks'] },
+      '7': { restrictedTopics: ['contract changes'] },
+    };
+    show();
+    await waitFor(() => expect(topicsOf(TEAM)).toEqual(['contract changes']));
+    expect(screen.queryByText(OTHER)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove topic contract changes' }));
+    await waitFor(() => expect(topicsOf(TEAM)).toEqual(['No extra topics']));
+    expect(screen.queryByText(OTHER)).toBeNull();
   });
 
   it('teams off: an active team that only has topics stays listed, and they can be removed', async () => {
@@ -61,7 +93,7 @@ describe('restricted topics — teams that have no row on the page', () => {
     show();
     await screen.findByRole('list', { name: OTHER });
     expect(topicsOf(TEAM)).toEqual(['contract changes']);
-    expect(screen.queryByText('inactive')).toBeNull();
+    expect(screen.queryByText('Inactive')).toBeNull();
     fireEvent.click(
       screen.getByRole('button', { name: 'Remove topic contract changes from Billing' })
     );
@@ -124,7 +156,7 @@ describe('restricted topics — someone who is not a workspace admin', () => {
     show();
     await waitFor(() => expect(topicsOf('Returns restricted topics')).toEqual(['chargebacks']));
     expect(
-      within(screen.getByRole('list', { name: OTHER })).getByText('inactive')
+      within(screen.getByRole('list', { name: OTHER })).getByText('Inactive')
     ).toBeInTheDocument();
     expect(screen.queryAllByRole('button')).toEqual([]);
   });
