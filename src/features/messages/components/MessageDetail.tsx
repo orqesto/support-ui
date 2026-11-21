@@ -163,6 +163,8 @@ export function MessageDetail({
     setSendFailedError,
     setSendFailedEventId: replyState.setSendFailedEventId,
     failedSendRef: replyState.failedSendRef,
+    setSendFailedOwnOnly: replyState.setSendFailedOwnOnly,
+    ownFailureRef: replyState.ownFailureRef,
   });
 
   // ── AI ghost state ─────────────────────────────────────────────────────────
@@ -602,8 +604,8 @@ export function MessageDetail({
 
           <ThreadSendFailedBar
             reason={sendFailedError}
-            eventId={replyState.sendFailedEventId}
-            failedAfter={replyState.sendFailedAfter}
+            {...replyState.failedBarReply}
+            ownerId={replyState.sendFailedOwnOnly ? currentUserId : undefined}
             thread={sortedThread}
             // Only while the failed draft is still there to resend (a blank composer means the
             // agent cleared it, or the async failure came after the send cleared it).
@@ -618,13 +620,7 @@ export function MessageDetail({
             onDismiss={() => setSendFailedError(null)}
           />
           {/* Send pressed again with the reply that may already have reached the customer. */}
-          <SendAgainConfirm
-            open={send.sendAgainOpen}
-            onOpenChange={(open) => {
-              if (!open) send.cancelSendAgain();
-            }}
-            onConfirm={send.confirmSendAgain}
-          />
+          <SendAgainConfirm {...send.sendAgainConfirm} />
 
           {/* What a colleague just did here (thread presence). "view" re-reads the thread; the
             draft stays. */}

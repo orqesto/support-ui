@@ -189,9 +189,13 @@ describe('Retry never replaces a reply the customer may have with a DIFFERENT on
 });
 
 describe('the rule is read from the THREAD (after leaving and returning, or on a backend that names no reply)', () => {
-  const open = async (content: string, metadata: Record<string, unknown>) => {
+  /** `authorId` 7 is the signed-in agent; 8 a colleague. */
+  const open = async (content: string, metadata: Record<string, unknown>, authorId = 7) => {
     svc.message.getThreadMessages = vi.fn().mockResolvedValue({
-      data: [event({ id: 900 }), event({ id: 955, type: 'agent_reply', content, metadata })],
+      data: [
+        event({ id: 900 }),
+        event({ id: 955, type: 'agent_reply', content, metadata, authorId }),
+      ],
     });
     svc.message.reply = vi.fn().mockResolvedValue({ success: true });
     renderDetail();
@@ -226,6 +230,15 @@ describe('the rule is read from the THREAD (after leaving and returning, or on a
   it('CONTROL — another text is a new reply: sent unasked, not as a resend', async () => {
     await open('<p>On its way.</p>', UNCERTAIN_MARK);
     type('<p>On its way. Tracking number to follow.</p>');
+    pressSend();
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(guardOf((svc.message.reply.mock.calls as Call[])[0])).toEqual({ seenLastEventId: 955 });
+  });
+
+  it("CONTROL — a COLLEAGUE's uncertain reply with the same text: this agent's send is its own reply, unasked", async () => {
+    await open('<p>On its way.</p>', UNCERTAIN_MARK, 8);
+    type('<p>On its way.</p>');
     pressSend();
     await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(1));
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -272,14 +285,16 @@ describe('the `send-failed` socket event arrives AFTER the 502 answer was handle
     expect(svc.message.reply).toHaveBeenCalledTimes(1);
   });
 
-  it('CONTROL — an event about ANOTHER reply is news: no Retry for it, as before', async () => {
+  it("an event about ANOTHER reply (it may be a colleague's) leaves this tab's own bar and Retry as they are", async () => {
     const bar = await sendAndFail({ eventId: 955, uncertain: false });
-    sendFailed({ outgoingMessageId: 956, uncertain: false });
-    expect(
-      bar.getByText(
-        'Reply could not be delivered via email. The message was saved but not sent — please try again.'
-      )
-    ).toBeTruthy();
-    expect(bar.queryByRole('button', { name: 'Retry' })).toBeNull();
+    sendFailed({ outgoingMessageId: 956, uncertain: true });
+    expect(bar.getByText(NOT_DELIVERED)).toBeTruthy();
+    expect(screen.queryByText(/^We could not confirm/)).toBeNull();
+    fireEvent.click(bar.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(guardOf((svc.message.reply.mock.calls as Call[])[1])).toMatchObject({
+      resendOfEventId: 955,
+    });
   });
 });

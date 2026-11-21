@@ -129,7 +129,7 @@ export function useReplySend({
   /*
     A reply that MAY have reached the customer is about to go out again — by Send or by the bar's
     Retry. What tells a repeat from a new reply is in deliveryState.ts (sendAgainTarget): the same
-    text as the thread's latest undelivered, uncertain agent reply. Then the agent is asked first
+    text as this agent's own latest undelivered, uncertain reply. Then the agent is asked first
     (`confirmed`: the bar asked already), and it goes as a resend of that reply. Any other text is
     a new reply: sent as one, unasked, and never as a resend of the failed one.
   */
@@ -154,7 +154,12 @@ export function useReplySend({
       }
       const again =
         isReply && !resendOf
-          ? sendAgainTarget(composer, threadEventsFor === message.id ? threadMessages : [], failed)
+          ? sendAgainTarget(
+              composer,
+              threadEventsFor === message.id ? threadMessages : [],
+              failed,
+              currentUserId
+            )
           : null;
       if (again !== null && !confirmed) {
         setAssignPrompt(null);
@@ -603,9 +608,14 @@ export function useReplySend({
   return {
     performSend,
     retrySend,
-    sendAgainOpen: sendAgain !== null,
-    confirmSendAgain,
-    cancelSendAgain,
+    /** The props of the "Send this reply again?" confirm. */
+    sendAgainConfirm: {
+      open: sendAgain !== null,
+      onOpenChange: (open: boolean) => {
+        if (!open) cancelSendAgain();
+      },
+      onConfirm: confirmSendAgain,
+    },
     collision,
     sendAnyway,
     cancelCollision,

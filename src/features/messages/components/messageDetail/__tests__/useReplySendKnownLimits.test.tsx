@@ -7,7 +7,7 @@
  */
 import { renderDetail, svc, event } from '../../__tests__/md4.mobile.utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 
 const pressSend = () => fireEvent.click(screen.getByRole('button', { name: /^SEND$/ }));
 const editor = () => screen.getByTestId('rich-text-editor');
@@ -88,16 +88,12 @@ describe('a send key used on another thread', () => {
 });
 
 describe('a transport failure with no send-failed event (socket down)', () => {
-  const failWith502LeavingReply = (
-    authorId: number,
-    metadata: Record<string, unknown>,
-    content = 'Hi'
-  ) => {
+  const failWith502LeavingReply = (authorId: number, metadata: Record<string, unknown>) => {
     svc.message.reply = vi.fn().mockImplementationOnce(() => {
       // The re-read after the failure shows the reply the send left.
       withThread(
         event({ id: 900 }),
-        event({ id: 950, type: 'agent_reply', content, authorId, metadata })
+        event({ id: 950, type: 'agent_reply', content: 'Hi', authorId, metadata })
       );
       return Promise.reject(
         Object.assign(new Error('Failed to send. Please try again.'), { status: 502 })
@@ -132,13 +128,7 @@ describe('a transport failure with no send-failed event (socket down)', () => {
   });
 
   it("CONTROL: a colleague's uncertain reply does not reword the bar; Retry does not ask", async () => {
-    // (Another text than the agent's: since the send-again rule is read from the thread, the SAME
-    //  text as an uncertain reply asks first whoever wrote it — see the test below.)
-    failWith502LeavingReply(
-      8,
-      { delivered: false, sendUncertain: true },
-      'We are looking into it.'
-    );
+    failWith502LeavingReply(8, { delivered: false, sendUncertain: true });
     svc.message.reply.mockResolvedValueOnce({ success: true });
     renderDetail();
     await ready();
@@ -150,21 +140,57 @@ describe('a transport failure with no send-failed event (socket down)', () => {
     await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole('dialog')).toBeNull();
   });
+});
 
-  it("a colleague's uncertain reply with the SAME text: the bar is not reworded, but sending it again asks first", async () => {
-    failWith502LeavingReply(8, { delivered: false, sendUncertain: true });
-    svc.message.reply.mockResolvedValueOnce({ success: true });
+describe('a failure only the socket announced (the stuck-send repair, a late channel answer)', () => {
+  const socketEvent = async (name: string, payload: unknown) => {
+    const { subscribeToEvent } = await import('@/lib/socketManager');
+    const handlers = vi
+      .mocked(subscribeToEvent)
+      .mock.calls.filter(([subscribed]) => subscribed === name)
+      .map(([, handler]) => handler);
+    for (const handler of handlers) handler(payload);
+  };
+  const withReplyBy = (authorId: number) =>
+    withThread(
+      event({ id: 900 }),
+      event({
+        id: 942,
+        type: 'agent_reply',
+        content: 'Your parcel ships today.',
+        authorId,
+        metadata: { delivered: false, sendUncertain: true },
+      })
+    );
+
+  it('shows no bar to a colleague: the reply is not theirs, the bubble tells them', async () => {
+    withReplyBy(8);
     renderDetail();
-    await ready();
-    fireEvent.change(editor(), { target: { value: '<p>Hi</p>' } });
-    pressSend();
-    await screen.findByText('Failed to send. Please try again.');
-    expect(screen.queryByText(/We could not confirm that the reply/)).toBeNull();
     await screen.findByText('May not have been delivered');
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    const dialog = await screen.findByRole('dialog');
-    expect(svc.message.reply).toHaveBeenCalledTimes(1);
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Send again' }));
-    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    await act(() =>
+      socketEvent('send-failed', {
+        messageId: 101,
+        channel: 'email',
+        outgoingMessageId: 942,
+        uncertain: true,
+      })
+    );
+    await waitFor(() => expect(svc.message.getThreadMessages.mock.calls.length).toBeGreaterThan(1));
+    expect(screen.queryByText('Send failed')).toBeNull();
+  });
+
+  it('CONTROL: the agent who sent it gets the bar', async () => {
+    withReplyBy(7);
+    renderDetail();
+    await screen.findByText('May not have been delivered');
+    await act(() =>
+      socketEvent('send-failed', {
+        messageId: 101,
+        channel: 'email',
+        outgoingMessageId: 942,
+        uncertain: true,
+      })
+    );
+    await screen.findByText('Send failed');
   });
 });

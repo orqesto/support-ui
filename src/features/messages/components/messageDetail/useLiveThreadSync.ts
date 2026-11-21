@@ -38,6 +38,8 @@ export function useLiveThreadSync({
   setSendFailedError,
   setSendFailedEventId,
   failedSendRef,
+  setSendFailedOwnOnly,
+  ownFailureRef,
 }: {
   message: Message;
   pullLiveEvents: () => void;
@@ -50,6 +52,8 @@ export function useLiveThreadSync({
   setSendFailedError: Setter<string | null>;
   setSendFailedEventId: Setter<number | null>;
   failedSendRef: MutableRefObject<FailedSend | null>;
+  setSendFailedOwnOnly: Setter<boolean>;
+  ownFailureRef: MutableRefObject<boolean>;
 }) {
   // A customer's new message or the bot's answer on this thread: refetch THIS thread only.
   // ⛔ Not onRefresh: on MessagesPage that reloads the message, the whole list and every board
@@ -95,12 +99,28 @@ export function useLiveThreadSync({
       if (event.messageId === message.id) {
         const eventId =
           typeof event.outgoingMessageId === 'number' ? event.outgoingMessageId : null;
-        // The send's own 502 answer may have named this very reply already (the event came late):
-        // the two are one report, merged by event id. The bar keeps its Retry, and a reply once
-        // said to be uncertain stays so. Any other failure is news: no draft is left to retry.
+        /*
+          The backend announces every failure to the whole workspace, and the payload names no
+          author. So:
+           - the reply this tab's own failed request already named (its 502 answer; the event came
+             late): one report, merged by event id — the bar stays this tab's, keeps its Retry,
+             and a reply once said to be uncertain stays so;
+           - any other reply while this tab's own failed send has its bar up: that bar is not
+             touched (the event may be a colleague's); the re-read below shows the bubble;
+           - otherwise: news only the socket announced — the bar shows once the named reply is
+             read and is the current agent's (`ownOnly`), and no draft is left to retry.
+        */
         const known = failedSendRef.current;
         const sameReport =
-          eventId !== null && known?.threadId === message.id && known.eventId === eventId;
+          eventId !== null &&
+          known?.threadId === message.id &&
+          known.eventId === eventId &&
+          known.text !== null;
+        if (ownFailureRef.current && !sameReport) {
+          setThreadRefreshKey((key) => key + 1);
+          onRefreshRef.current?.();
+          return;
+        }
         if (!sameReport) setSendFailureRetryable(false);
         const merged =
           eventId === null
@@ -121,6 +141,8 @@ export function useLiveThreadSync({
         );
         // (After the reason: setting the reason forgets the id.)
         setSendFailedEventId(eventId);
+        if (sameReport) ownFailureRef.current = true;
+        else setSendFailedOwnOnly(true);
         // The BE reverts the conv's status and marks the reply event undelivered on
         // failure. Refetch so the thread reflects the real state (no longer shown as
         // resolved/replied, and the outgoing bubble can render as undelivered) instead
@@ -175,8 +197,10 @@ export function useLiveThreadSync({
     rereadHeaderRef,
     setSendFailedError,
     setSendFailedEventId,
+    setSendFailedOwnOnly,
     setSendFailureRetryable,
     setThreadRefreshKey,
     failedSendRef,
+    ownFailureRef,
   ]);
 }
