@@ -79,7 +79,8 @@ export const failedBarState = (
    */
   ownerId?: number | null
 ): 'hidden' | 'uncertain' | 'as_told' => {
-  if (eventId === null) return 'as_told';
+  // (Owner-only and no reply named: nobody's bar — every agent hears the event.)
+  if (eventId === null) return ownerId === undefined ? 'as_told' : 'hidden';
   const named = thread.find((event) => event.id === eventId);
   if (ownerId !== undefined && named?.authorId !== ownerId) return 'hidden';
   // Gone: replaced by a resend (its successor names it) → hidden; not read yet → as told.
@@ -167,8 +168,11 @@ export const sameReplyText = (
 /**
  * The reply a Send of `composer` would send AGAIN although the customer may already have it, or
  * null. The rule that tells a repeat from a new reply: the text is the same (sameReplyText) as
- * the CURRENT AGENT's own latest undelivered reply (`authorId`), and that reply is marked
- * uncertain. A colleague's reply never counts: sending their words is this agent's own reply.
+ * one of the CURRENT AGENT's own replies (`authorId`) that the thread still shows as undelivered
+ * and uncertain — any of them, not only the newest (a later failed reply with another text does
+ * not make the earlier one safe to repeat); the newest match is the one resent. A reply delivered
+ * after all, or replaced by a resend, is not in question. A colleague's reply never counts:
+ * sending their words is this agent's own reply.
  * Read from the THREAD, so it holds after a reload, on a backend that names no event in its
  * answer, and when only the socket event reported the failure. Before the thread shows the reply
  * (the answer came first), the failed send's own report (`failed`) stands in for it.
@@ -179,30 +183,44 @@ export const sendAgainTarget = (
   failed: FailedSend | null,
   authorId: number | null
 ): number | null => {
-  const latest = thread
+  const matches = thread
     .filter(
       (event) =>
         authorId !== null &&
         event.authorId === authorId &&
         event.type === 'agent_reply' &&
-        isUndelivered(deliveryStateOf(event))
+        deliveryStateOf(event) === 'uncertain' &&
+        !thread.some((later) => later.metadata?.resendOf === event.id) &&
+        sameReplyText(composer, event.content)
     )
-    .reduce<
-      (typeof thread)[number] | null
-    >((newest, event) => (newest === null || event.id > newest.id ? event : newest), null);
-  if (
-    latest &&
-    deliveryStateOf(latest) === 'uncertain' &&
-    sameReplyText(composer, latest.content)
-  ) {
-    return latest.id;
-  }
+    .map((event) => event.id);
+  if (matches.length > 0) return Math.max(...matches);
   return failed?.uncertain === true &&
     sameReplyText(composer, failed.text) &&
     isLatestUndelivered(failed.eventId, thread)
     ? failed.eventId
     : null;
 };
+
+/**
+ * Is this text already on its way? One of the agent's own replies with the same text is still
+ * being sent (`sendState: 'sending'`): sending it again now would make a second reply.
+ */
+export const isSameReplySending = (
+  composer: string,
+  thread: readonly Pick<MessageEvent, 'type' | 'metadata' | 'content' | 'authorId'>[],
+  authorId: number | null
+): boolean =>
+  authorId !== null &&
+  thread.some(
+    (event) =>
+      event.authorId === authorId &&
+      event.type === 'agent_reply' &&
+      deliveryStateOf(event) === 'sending' &&
+      sameReplyText(composer, event.content)
+  );
+
+export const STILL_SENDING = 'This reply is still being sent — wait a moment.';
 
 /** The bar's words for a reply that was saved and did not go out (any channel). */
 export const notDeliveredText = (channel?: unknown): string =>

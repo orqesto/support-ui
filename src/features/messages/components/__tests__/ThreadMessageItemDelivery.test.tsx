@@ -295,6 +295,11 @@ describe('a failed send as the 502 answer and the socket event report it', () =>
     expect(mergeFailedSend(null, told)).toEqual(told);
   });
 
+  it('owner-only (a failure only the socket announced) and no reply named: hidden', () => {
+    expect(failedBarState(null, [], 7)).toBe('hidden');
+    expect(failedBarState(null, [])).toBe('as_told');
+  });
+
   it('still the latest undelivered reply: not read yet, or read as undelivered', () => {
     expect(isLatestUndelivered(41, [])).toBe(true);
     expect(isLatestUndelivered(41, [reply({ delivered: false, sendUncertain: true })])).toBe(true);

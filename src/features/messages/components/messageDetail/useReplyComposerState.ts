@@ -116,7 +116,11 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     sendFailedAfter,
     setSendFailedAfter,
     // The bar's reply: the one an event named, else where to look for it (ThreadSendFailedBar).
-    failedBarReply: { eventId: sendFailedEventId, failedAfter: sendFailedAfter },
+    failedBarReply: {
+      eventId: sendFailedEventId,
+      failedAfter: sendFailedAfter,
+      ownOnly: sendFailedOwnOnly,
+    },
     // The failed send's own reason, keeping the reply the `send-failed` event named (it may come
     // before the HTTP answer — review of #999, M4).
     setSendFailedReason,

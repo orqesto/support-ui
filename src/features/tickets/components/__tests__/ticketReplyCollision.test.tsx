@@ -169,7 +169,7 @@ describe('ticket composer — someone got there first', () => {
   });
 
   it('another 409 is shown as before, under the box, with no dialog', async () => {
-    send.mockRejectedValueOnce(refused(409, 'REPLY_IN_FLIGHT', 'Still being sent.'));
+    send.mockRejectedValueOnce(refused(409, 'REPLY_SEND_IN_FLIGHT', 'Still being sent.'));
     await sendReply('We fixed it.');
     expect(await screen.findByText('Still being sent.')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).toBeNull();

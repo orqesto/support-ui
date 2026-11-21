@@ -363,6 +363,35 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   );
 
   /**
+   * Reads ONLY the restricted-topic lists again (the workspace's, each team's, and the teams that
+   * have any): everything else on the card stays as it is on screen.
+   */
+  const refreshTopics = useCallback(async () => {
+    const [auto, orgRow] = await Promise.all([
+      organizationService.getAutoReply(),
+      organizationService.getCurrent(),
+    ]);
+    const topics = readRestrictedTopics(auto.restrictedTopics);
+    if (topics) {
+      orgRef.current = { ...orgRef.current, restrictedTopics: topics };
+      setOrg((prev) => ({ ...prev, restrictedTopics: topics }));
+    }
+    const teams = readTopicTeams(auto.restrictedTopicTeams);
+    if (teams) setTopicTeams(teams);
+    const settings: Record<string, unknown> = orgRow.settings ?? {};
+    const stored = (settings.departmentSettings ?? {}) as Record<string, Settings>;
+    const next: Record<string, Settings> = {};
+    for (const key of new Set([...Object.keys(perDeptRef.current), ...Object.keys(stored)])) {
+      const { restrictedTopics: _stale, ...kept } = perDeptRef.current[key] ?? {};
+      const own = readRestrictedTopics(stored[key]?.restrictedTopics) ?? [];
+      const team = { ...kept, ...(own.length > 0 ? { restrictedTopics: own } : {}) };
+      if (Object.keys(team).length > 0) next[key] = team;
+    }
+    perDeptRef.current = next;
+    setPerDept(next);
+  }, []);
+
+  /**
    * Add or remove ONE restricted topic. Only the change is sent, and the server applies it to
    * the list as it is stored — so a page opened a while ago, or a second admin, cannot erase
    * topics by saving an old copy of the list. The lists shown are then the ones in the answer.
@@ -408,14 +437,14 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           // the lists on screen are stale — read them again instead of leaving a chip that
           // answers 404 on every click.
           if (getErrorStatus(err) === 404) {
-            await loadStored().catch((reloadErr: unknown) =>
+            await refreshTopics().catch((reloadErr: unknown) =>
               logger.error('Failed to re-read auto-reply settings:', reloadErr)
             );
           }
           return false;
         }
       }),
-    [applyStored, loadStored, onShowAlert, queued, saveFailed]
+    [applyStored, refreshTopics, onShowAlert, queued, saveFailed]
   );
 
   const setDeptKey = <Key extends keyof Settings>(deptId: number, key: Key, value: Settings[Key]) =>

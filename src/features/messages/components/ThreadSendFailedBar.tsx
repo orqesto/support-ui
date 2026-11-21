@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { MessageEvent } from '@/types';
 import { SendFailedBar, type SendFailedBarProps } from './SendFailedBar';
@@ -12,57 +11,56 @@ import {
 /**
  * The composer's "Send failed" bar, kept in step with the bubble it is about (review of #999): it
  * hides once the named reply shows as delivered (a late answer) or is gone (a colleague resent
- * it); it says "could not confirm" when that reply may have reached the customer — the api client
- * masks a 5xx's own sentence, so the reply's mark decides — and Retry then asks first, as Resend
- * does: the customer may get it twice. Told so before the thread is read again (the send's own
- * 502 answer, or the `send-failed` event), it asks first just the same.
+ * it), and says "could not confirm" when that reply may have reached the customer — the api client
+ * masks a 5xx's own sentence, so the reply's mark decides. Retry asks nothing here: the send
+ * itself asks first when it would send that reply AGAIN (useReplySend), and not when the agent
+ * has written another one meanwhile.
  */
 export function ThreadSendFailedBar({
   reason,
   eventId,
   failedAfter = null,
+  ownOnly = false,
   ownerId,
   thread,
   onRetry,
   retrying,
   onDismiss,
-}: Omit<SendFailedBarProps, 'reason' | 'onRetry'> & {
-  /** `confirmed`: the agent was asked here ("may get it twice") and chose to send again. */
-  onRetry?: (confirmed: boolean) => void;
+}: Omit<SendFailedBarProps, 'reason'> & {
   reason: string | null;
   /** The reply the failure named (the `send-failed` event or the send's 502 answer), when known. */
   eventId: number | null;
   /** A failed send no event named: the bar reads the reply it made from the thread. */
   failedAfter?: { afterId: number; authorId: number } | null;
-  /** Set for a failure only the socket announced: shown only on this agent's own reply. */
+  /** A failure only the socket announced: shown only once the named reply is read and is `ownerId`'s. */
+  ownOnly?: boolean;
+  /** The signed-in agent. */
   ownerId?: number | null;
   thread: readonly MessageEvent[];
 }) {
-  const [confirmOpen, setConfirmOpen] = useState(false);
   if (reason === null) return null;
-  const state = failedBarState(eventId ?? ownReplyAfter(thread, failedAfter), thread, ownerId);
+  // An event may have named a COLLEAGUE's reply while this tab's own request was failing (the
+  // event goes to the whole workspace): once read as someone else's, it is not this bar's reply.
+  const named = eventId === null ? undefined : thread.find((event) => event.id === eventId);
+  const foreign =
+    !ownOnly &&
+    typeof ownerId === 'number' &&
+    typeof named?.authorId === 'number' &&
+    named.authorId !== ownerId;
+  const state = failedBarState(
+    (foreign ? null : eventId) ?? ownReplyAfter(thread, failedAfter),
+    thread,
+    ownOnly ? ownerId : undefined
+  );
   if (state === 'hidden') return null;
   const uncertain = state === 'uncertain' || saysUncertain(reason);
-  const retry = onRetry && (uncertain ? () => setConfirmOpen(true) : () => onRetry(false));
   return (
-    <>
-      <SendFailedBar
-        reason={uncertain && !saysUncertain(reason) ? uncertainFailureText() : reason}
-        onRetry={retry}
-        retrying={retrying}
-        onDismiss={onDismiss}
-      />
-      {onRetry && uncertain && (
-        <SendAgainConfirm
-          open={confirmOpen}
-          onOpenChange={setConfirmOpen}
-          onConfirm={() => {
-            setConfirmOpen(false);
-            onRetry(true);
-          }}
-        />
-      )}
-    </>
+    <SendFailedBar
+      reason={uncertain && !saysUncertain(reason) ? uncertainFailureText() : reason}
+      onRetry={onRetry}
+      retrying={retrying}
+      onDismiss={onDismiss}
+    />
   );
 }
 

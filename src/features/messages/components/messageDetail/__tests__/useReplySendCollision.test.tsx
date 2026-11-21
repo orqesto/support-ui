@@ -5,7 +5,7 @@
  */
 import { renderDetail, svc, event, baseMessage } from '../../__tests__/md4.mobile.utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { Message } from '@/types';
@@ -136,24 +136,30 @@ describe('409 someone got there first', () => {
     expect(screen.queryByText('Send failed')).toBeNull();
   });
 
-  it('another 409 (a send still in flight) behaves as before: the Send failed bar, no dialog', async () => {
+  it('another 409 (a send still in flight, REPLY_SEND_IN_FLIGHT): the Send failed bar, no dialog', async () => {
     svc.message.reply = vi
       .fn()
       .mockRejectedValueOnce(
-        refused(409, 'REPLY_IN_FLIGHT', 'This reply is already being sent — wait a moment.')
+        refused(
+          409,
+          'REPLY_SEND_IN_FLIGHT',
+          'This reply is still being sent — check the thread in a moment'
+        )
       );
     renderDetail();
     await ready();
     type('<p>On its way.</p>');
     pressSend();
     await screen.findByText('Send failed');
-    expect(screen.getByText('This reply is already being sent — wait a moment.')).toBeTruthy();
+    expect(screen.getByText('This reply is still being sent — wait a moment.')).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
 
 describe('a switch to another thread without a remount', () => {
-  it('sends no seenLastEventId until the new thread’s events have loaded', async () => {
+  // (Was: "sends no seenLastEventId until the new thread's events have loaded" — it sent blind.
+  //  A reply now waits for the thread it answers: what it may repeat is only known from there.)
+  it('a reply sent before the new thread’s events have loaded waits for them, then carries THEIR newest event', async () => {
     svc.message.reply = vi.fn().mockResolvedValue({ success: true });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const view = (message: Message) => (
@@ -165,17 +171,20 @@ describe('a switch to another thread without a remount', () => {
     );
     const { rerender } = render(view(baseMessage));
     await ready();
-    // The next thread's events never arrive in this test: the old thread's (max 942) are on hand.
-    svc.message.getThreadMessages = vi.fn(() => new Promise(() => {}));
+    // The next thread's events are still on their way: the old thread's (max 942) are on hand.
+    let land: (value: unknown) => void = () => undefined;
+    svc.message.getThreadMessages = vi.fn(() => new Promise((resolve) => (land = resolve)));
     rerender(view({ ...baseMessage, id: 202, publicId: 'SUP-202' } as Message));
     await waitFor(() =>
       expect(svc.message.getThreadMessages).toHaveBeenCalledWith(202, expect.anything())
     );
     type('<p>On its way.</p>');
     pressSend();
+    expect(svc.message.reply).not.toHaveBeenCalled();
+    await act(() => Promise.resolve(land({ data: [event({ id: 977 })] })));
     await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(1));
     const call = svc.message.reply.mock.calls[0] as Call;
     expect(call[0]).toBe(202);
-    expect(collisionOf(call)).toBeUndefined();
+    expect(collisionOf(call)).toEqual({ seenLastEventId: 977 });
   });
 });

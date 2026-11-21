@@ -105,8 +105,9 @@ export function useLiveThreadSync({
            - the reply this tab's own failed request already named (its 502 answer; the event came
              late): one report, merged by event id — the bar stays this tab's, keeps its Retry,
              and a reply once said to be uncertain stays so;
-           - any other reply while this tab's own failed send has its bar up: that bar is not
-             touched (the event may be a colleague's); the re-read below shows the bubble;
+           - any other reply while this tab's own failed send has its bar up, or an event that
+             names no reply: no bar is touched or made (the event may be a colleague's); the
+             re-read below shows the bubble;
            - otherwise: news only the socket announced — the bar shows once the named reply is
              read and is the current agent's (`ownOnly`), and no draft is left to retry.
         */
@@ -116,23 +117,21 @@ export function useLiveThreadSync({
           known?.threadId === message.id &&
           known.eventId === eventId &&
           known.text !== null;
-        if (ownFailureRef.current && !sameReport) {
+        // (An event that names no reply cannot be checked against its author: never a bar.)
+        if ((ownFailureRef.current && !sameReport) || eventId === null) {
           setThreadRefreshKey((key) => key + 1);
           onRefreshRef.current?.();
           return;
         }
         if (!sameReport) setSendFailureRetryable(false);
-        const merged =
-          eventId === null
-            ? null
-            : mergeFailedSend(known, {
-                threadId: message.id,
-                eventId,
-                uncertain: event.uncertain === true,
-                text: null,
-              });
-        if (merged) failedSendRef.current = merged;
-        const uncertain = merged ? merged.uncertain : event.uncertain === true;
+        const merged = mergeFailedSend(known, {
+          threadId: message.id,
+          eventId,
+          uncertain: event.uncertain === true,
+          text: null,
+        });
+        failedSendRef.current = merged;
+        const uncertain = merged.uncertain;
         // Said as the bubble says it (never "not sent" beside "May not have been delivered"): a
         // cut-off or unconfirmed send may have reached the customer (`uncertain`, any channel).
         // (`channel` may be null: no "via null".)

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type MutableRefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { messageService, type ReplyAssignIntent } from '@/services/message.service';
 import type { organizationService } from '@/services/organization.service';
 import { forgetOwnSend, rememberOwnSend } from '@/lib/ownSends';
@@ -20,13 +20,15 @@ import {
   resolveSendFailureMessage,
 } from '@/features/messages/components/sendErrorMessage';
 import {
+  STILL_SENDING,
+  isSameReplySending,
   mergeFailedSend,
   sameReplyText,
   sendAgainTarget,
   notDeliveredText,
   uncertainFailureText,
 } from '../deliveryState';
-import { isSendKeyReused, replyCollisionQuestion } from '@/lib/apiError';
+import { isSendInFlight, isSendKeyReused, replyCollisionQuestion } from '@/lib/apiError';
 import { writeSendAction, type SendAction } from '../ComposerSendButton';
 import type { ResolveMode } from '../resolveMode';
 import { fileIdentity, keyForPayload } from './sendKey';
@@ -104,6 +106,8 @@ export function useReplySend({
   } = replyState;
   const { setNotesBump, setThreadRefreshKey, pullNewEvents, threadMessages, threadEventsFor } =
     thread;
+  // The thread's events for THIS message are still being read (not: failed to load).
+  const threadPending = threadEventsFor !== message.id && thread.threadError === null;
   /*
     Thread presence send guard (spec §5.4): the newest event the agent has loaded rides on the
     reply; none loaded — or the loaded ones belong to the thread shown before (a switch whose events
@@ -137,6 +141,11 @@ export function useReplySend({
     assign?: ReplyAssignIntent;
     retry: boolean;
   } | null>(null);
+  // A reply sent while the thread's events are still being read waits for them: what it may
+  // repeat, and what it has seen, is only known from the thread. Never sent blind.
+  const [waiting, setWaiting] = useState<
+    [ReplyAssignIntent | undefined, boolean, boolean, boolean] | null
+  >(null);
   const performSend = useCallback(
     async (
       assign?: ReplyAssignIntent,
@@ -145,6 +154,22 @@ export function useReplySend({
       confirmed = false
     ) => {
       const isReply = composerMode !== 'note';
+      if (isReply && threadPending) {
+        setAssignPrompt(null);
+        setSubmitting(true);
+        setWaiting([assign, confirmOverride, retry, confirmed]);
+        return;
+      }
+      const loaded = threadEventsFor === message.id ? threadMessages : [];
+      // The same text is on its way already (an earlier send of it has not finished): sending
+      // now would make a second reply. Said, re-read, and nothing sent.
+      if (isReply && isSameReplySending(composer, loaded, currentUserId)) {
+        setAssignPrompt(null);
+        setSendFailedError(null);
+        setSendFailedReason(STILL_SENDING);
+        setThreadRefreshKey((key) => key + 1);
+        return;
+      }
       let failed = failedSendRef.current?.threadId === message.id ? failedSendRef.current : null;
       // Another text is another reply: what the failed send reported no longer steers this one
       // (its Retry must not replace a reply the customer may have with a different one).
@@ -153,14 +178,7 @@ export function useReplySend({
         failed = null;
       }
       const again =
-        isReply && !resendOf
-          ? sendAgainTarget(
-              composer,
-              threadEventsFor === message.id ? threadMessages : [],
-              failed,
-              currentUserId
-            )
-          : null;
+        isReply && !resendOf ? sendAgainTarget(composer, loaded, failed, currentUserId) : null;
       if (again !== null && !confirmed) {
         setAssignPrompt(null);
         setSendAgain({ assign, retry });
@@ -351,7 +369,11 @@ export function useReplySend({
         // is dropped, so sending again mints a new one and the same reply (or resend) can go out.
         const keyReused = isSendKeyReused(err);
         if (keyReused) sendIdempotencyKeyRef.current = null;
-        const retryable = keyReused || isRetryableSendFailure(err);
+        // Still being sent by an earlier request (409 REPLY_SEND_IN_FLIGHT): nothing new was
+        // stored. The key and the resend target stay — dropped, the next Send would go out as a
+        // NEW reply while that one is on its way — and Retry stays for when it has ended.
+        const inFlight = composerMode !== 'note' && isSendInFlight(err);
+        const retryable = keyReused || inFlight || isRetryableSendFailure(err);
         if (resendOfEventId !== undefined && !retryable) {
           setResendOf(null);
           if (failedSendRef.current?.eventId === resendOfEventId) failedSendRef.current = null;
@@ -386,7 +408,7 @@ export function useReplySend({
           );
           setSendFailedEventId(undelivered.eventId);
         } else {
-          setSendFailedReason(resolveSendFailureMessage(err));
+          setSendFailedReason(inFlight ? STILL_SENDING : resolveSendFailureMessage(err));
           // The answer named no reply (an older backend, a proxy's 502, no answer at all), and
           // the `send-failed` event may not come either: the bar then looks in the re-read thread
           // for the reply this send left — the agent's own, after the newest event on screen.
@@ -418,6 +440,7 @@ export function useReplySend({
       seenLastEventId,
       threadMessages,
       threadEventsFor,
+      threadPending,
       failedSendRef,
       currentUserId,
       setSendFailedAfter,
@@ -444,6 +467,14 @@ export function useReplySend({
       setThreadRefreshKey,
     ]
   );
+  // The thread's events have landed (or failed to load): the waiting send goes on from here,
+  // with the thread as it is now.
+  useEffect(() => {
+    if (waiting === null || threadPending) return;
+    setWaiting(null);
+    setSubmitting(false);
+    void performSend(...waiting);
+  }, [waiting, threadPending, performSend, setSubmitting]);
   /** "Send again" in the confirm above: the same reply, as a resend of the one that failed. */
   const confirmSendAgain = useCallback(() => {
     const pending = sendAgain;
@@ -453,7 +484,7 @@ export function useReplySend({
   const cancelSendAgain = useCallback(() => setSendAgain(null), []);
   /** The bar's Retry: the same draft; it replaces the saved reply the failure named, if any. */
   const retrySend = useCallback(
-    (confirmed = false) => void performSend(lastAssignRef.current, false, true, confirmed),
+    () => void performSend(lastAssignRef.current, false, true),
     [lastAssignRef, performSend]
   );
 

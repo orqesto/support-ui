@@ -605,7 +605,7 @@ export function MessageDetail({
           <ThreadSendFailedBar
             reason={sendFailedError}
             {...replyState.failedBarReply}
-            ownerId={replyState.sendFailedOwnOnly ? currentUserId : undefined}
+            ownerId={currentUserId}
             thread={sortedThread}
             // Only while the failed draft is still there to resend (a blank composer means the
             // agent cleared it, or the async failure came after the send cleared it).

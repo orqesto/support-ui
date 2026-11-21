@@ -72,6 +72,22 @@ describe('restricted topics — teams that have no row on the page', () => {
     expect(state.alerts.at(-1)?.title).toBe('Save failed');
   });
 
+  it('that re-read takes the topic lists only: the rest of the card stays as it is on screen', async () => {
+    state.teams = { '5': { restrictedTopics: ['press requests'] } };
+    show();
+    await screen.findByRole('list', { name: OTHER });
+    expect(screen.getByText('Inherits default')).toBeInTheDocument();
+    // Meanwhile, elsewhere: the topic was removed, Billing got a topic and an override.
+    state.teams = { '7': { autoReplyEnabled: false, restrictedTopics: ['contract changes'] } };
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove topic press requests from Deleted team #5' })
+    );
+    await waitFor(() => expect(topicsOf(TEAM)).toEqual(['contract changes']));
+    expect(screen.queryByRole('list', { name: OTHER })).toBeNull();
+    // Not taken from the re-read: only the topics were asked for.
+    expect(screen.getByText('Inherits default')).toBeInTheDocument();
+  });
+
   it('a backend that does not list the teams yet: no such list, the rest of the card as before', async () => {
     state.listsTeams = false;
     state.departments = [BILLING, OLD_TEAM];
