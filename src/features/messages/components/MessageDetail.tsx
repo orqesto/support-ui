@@ -162,9 +162,8 @@ export function MessageDetail({
     setSendFailureRetryable,
     setSendFailedError,
     setSendFailedEventId: replyState.setSendFailedEventId,
-    failedSendRef: replyState.failedSendRef,
     setSendFailedOwnOnly: replyState.setSendFailedOwnOnly,
-    ownFailureRef: replyState.ownFailureRef,
+    sendRefs: replyState,
   });
 
   // ── AI ghost state ─────────────────────────────────────────────────────────

@@ -38,6 +38,9 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
   // Is the bar up for this tab's OWN failed request? Then a `send-failed` event about another
   // reply (possibly a colleague's) leaves it alone (useLiveThreadSync).
   const ownFailureRef = useRef(false);
+  // A reply request of this tab is out: its answer re-reads the thread, so a `send-failed` event
+  // arriving meanwhile reads nothing (one failure = one re-read).
+  const requestOutRef = useRef(false);
   const setSendFailedError = useCallback<Setter<string | null>>((value) => {
     ownFailureRef.current = false;
     setSendFailedEventId(null);
@@ -113,6 +116,7 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     setSendFailedEventId,
     failedSendRef,
     ownFailureRef,
+    requestOutRef,
     sendFailedAfter,
     setSendFailedAfter,
     // The bar's reply: the one an event named, else where to look for it (ThreadSendFailedBar).

@@ -340,7 +340,8 @@ describe('live: the bubble follows the send', () => {
     await ready();
     await socketEvent('send-failed', { messageId: 101, channel: 'email', outgoingMessageId: 942 });
     await screen.findByText('Send failed');
-    await waitFor(() => expect(svc.message.getThreadMessages.mock.calls.length).toBeGreaterThan(1));
+    // (An event this tab has no request for reads the newest events only — sendFailureRereads.)
+    await waitFor(() => expect(svc.message.getThreadMessagesAfter).toHaveBeenCalled());
     expect(screen.getByText('Send failed')).toBeTruthy();
     expect(screen.getByText('Not delivered')).toBeTruthy();
   });

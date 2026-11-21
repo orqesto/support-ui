@@ -37,9 +37,8 @@ export function useLiveThreadSync({
   setSendFailureRetryable,
   setSendFailedError,
   setSendFailedEventId,
-  failedSendRef,
   setSendFailedOwnOnly,
-  ownFailureRef,
+  sendRefs: { failedSendRef, ownFailureRef, requestOutRef },
 }: {
   message: Message;
   pullLiveEvents: () => void;
@@ -51,9 +50,13 @@ export function useLiveThreadSync({
   setSendFailureRetryable: Setter<boolean>;
   setSendFailedError: Setter<string | null>;
   setSendFailedEventId: Setter<number | null>;
-  failedSendRef: MutableRefObject<FailedSend | null>;
   setSendFailedOwnOnly: Setter<boolean>;
-  ownFailureRef: MutableRefObject<boolean>;
+  /** useReplyComposerState's refs about this tab's own send. */
+  sendRefs: {
+    failedSendRef: MutableRefObject<FailedSend | null>;
+    ownFailureRef: MutableRefObject<boolean>;
+    requestOutRef: MutableRefObject<boolean>;
+  };
 }) {
   // A customer's new message or the bot's answer on this thread: refetch THIS thread only.
   // ⛔ Not onRefresh: on MessagesPage that reloads the message, the whole list and every board
@@ -95,6 +98,8 @@ export function useLiveThreadSync({
         channel?: unknown;
         outgoingMessageId?: unknown;
         uncertain?: unknown;
+        supersededEventId?: unknown;
+        revertedStatus?: unknown;
       };
       if (event.messageId === message.id) {
         const eventId =
@@ -117,13 +122,25 @@ export function useLiveThreadSync({
           known?.threadId === message.id &&
           known.eventId === eventId &&
           known.text !== null;
+        /*
+          One failure = one re-read. This tab's own failed request re-reads the thread and the
+          page itself (useReplySend's catch), whichever of the two reports comes first — so the
+          event reads nothing while that request is out or when its answer already named this
+          reply. Only an event this tab has no request for reads: the newest events (the bubble's
+          state, and whose reply it is), a full thread when a resend replaced a bubble, the header
+          when the status was put back — never the side panels or the list.
+        */
+        const readForEvent = () => {
+          if (requestOutRef.current) return;
+          if (typeof event.supersededEventId === 'number') setThreadRefreshKey((key) => key + 1);
+          else pullNewEventsRef.current();
+          if (typeof event.revertedStatus === 'string') rereadHeaderRef.current?.();
+        };
         // (An event that names no reply cannot be checked against its author: never a bar.)
         if ((ownFailureRef.current && !sameReport) || eventId === null) {
-          setThreadRefreshKey((key) => key + 1);
-          onRefreshRef.current?.();
+          readForEvent();
           return;
         }
-        if (!sameReport) setSendFailureRetryable(false);
         const merged = mergeFailedSend(known, {
           threadId: message.id,
           eventId,
@@ -131,23 +148,27 @@ export function useLiveThreadSync({
           text: null,
         });
         failedSendRef.current = merged;
-        const uncertain = merged.uncertain;
+        if (sameReport) {
+          // Already said and re-read by the request's own answer; only "may have reached the
+          // customer" is news (the richer state wins) — the bar's sentence is otherwise kept.
+          if (merged.uncertain && !known.uncertain) {
+            setSendFailedError(uncertainFailureText(event.channel));
+            setSendFailedEventId(eventId);
+            ownFailureRef.current = true;
+          }
+          return;
+        }
+        setSendFailureRetryable(false);
         // Said as the bubble says it (never "not sent" beside "May not have been delivered"): a
         // cut-off or unconfirmed send may have reached the customer (`uncertain`, any channel).
         // (`channel` may be null: no "via null".)
         setSendFailedError(
-          uncertain ? uncertainFailureText(event.channel) : notDeliveredText(event.channel)
+          merged.uncertain ? uncertainFailureText(event.channel) : notDeliveredText(event.channel)
         );
         // (After the reason: setting the reason forgets the id.)
         setSendFailedEventId(eventId);
-        if (sameReport) ownFailureRef.current = true;
-        else setSendFailedOwnOnly(true);
-        // The BE reverts the conv's status and marks the reply event undelivered on
-        // failure. Refetch so the thread reflects the real state (no longer shown as
-        // resolved/replied, and the outgoing bubble can render as undelivered) instead
-        // of the optimistic state from the earlier message:replied event.
-        setThreadRefreshKey((key) => key + 1);
-        onRefreshRef.current?.();
+        setSendFailedOwnOnly(true);
+        readForEvent();
       }
     };
     const handleReplied = (data: unknown) => {
@@ -201,5 +222,6 @@ export function useLiveThreadSync({
     setThreadRefreshKey,
     failedSendRef,
     ownFailureRef,
+    requestOutRef,
   ]);
 }

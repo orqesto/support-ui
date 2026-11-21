@@ -91,6 +91,7 @@ export function useReplySend({
     setSendFailedReason,
     setSendFailedEventId,
     failedSendRef,
+    requestOutRef,
     setSendFailureRetryable,
     setSendFailedAfter,
     resendOf,
@@ -143,9 +144,10 @@ export function useReplySend({
   } | null>(null);
   // A reply sent while the thread's events are still being read waits for them: what it may
   // repeat, and what it has seen, is only known from the thread. Never sent blind.
-  const [waiting, setWaiting] = useState<
-    [ReplyAssignIntent | undefined, boolean, boolean, boolean] | null
-  >(null);
+  // (A ref, cleared before the send goes on: the waiting reply can go out once, never again.)
+  const waitingRef = useRef<[ReplyAssignIntent | undefined, boolean, boolean, boolean] | null>(
+    null
+  );
   const performSend = useCallback(
     async (
       assign?: ReplyAssignIntent,
@@ -157,7 +159,7 @@ export function useReplySend({
       if (isReply && threadPending) {
         setAssignPrompt(null);
         setSubmitting(true);
-        setWaiting([assign, confirmOverride, retry, confirmed]);
+        waitingRef.current = [assign, confirmOverride, retry, confirmed];
         return;
       }
       const loaded = threadEventsFor === message.id ? threadMessages : [];
@@ -244,6 +246,7 @@ export function useReplySend({
       if (idempotencyKey) rememberOwnSend(idempotencyKey);
       // After the key is minted: the kept copy rides with it while the send is out.
       const draftSend = beginDraftSend();
+      requestOutRef.current = true;
       try {
         if (composerMode === 'note') {
           // The composer is the rich-text editor; a note is plain text (noteText.ts).
@@ -397,14 +400,16 @@ export function useReplySend({
           const known = mergeFailedSend(failedSendRef.current, {
             threadId: message.id,
             text: composer,
-            ...undelivered,
+            eventId: undelivered.eventId,
+            uncertain: undelivered.uncertain,
           });
           failedSendRef.current = known;
-          // The sentence the socket event writes for the same reply, channel included.
+          // The backend's own sentence when it names the cause of a reply that did not go out;
+          // otherwise the sentence the socket event writes for the same reply, channel included.
           setSendFailedReason(
             known.uncertain
               ? uncertainFailureText(message.channel)
-              : notDeliveredText(message.channel)
+              : (undelivered.sentence ?? notDeliveredText(message.channel))
           );
           setSendFailedEventId(undelivered.eventId);
         } else {
@@ -416,8 +421,13 @@ export function useReplySend({
             setSendFailedAfter({ afterId: seenLastEventId, authorId: currentUserId });
         }
         // (A resend from the bubble has no Retry: its target stays, so Send resends it.)
-        setSendFailureRetryable(composerResendOf === undefined && retryable);
+        // (`retryable: false` from the backend: sending again cannot help — no Retry. The bubble
+        //  keeps its Resend, for when the agent has dealt with the cause.)
+        setSendFailureRetryable(
+          composerResendOf === undefined && retryable && undelivered?.retryable !== false
+        );
       } finally {
+        requestOutRef.current = false;
         setSubmitting(false);
         setAssignPrompt(null);
       }
@@ -461,6 +471,7 @@ export function useReplySend({
       setSelectedFiles,
       setSendFailedError,
       setSendFailedEventId,
+      requestOutRef,
       setSendFailedReason,
       setSendFailureRetryable,
       setSubmitting,
@@ -470,11 +481,12 @@ export function useReplySend({
   // The thread's events have landed (or failed to load): the waiting send goes on from here,
   // with the thread as it is now.
   useEffect(() => {
-    if (waiting === null || threadPending) return;
-    setWaiting(null);
+    const args = waitingRef.current;
+    if (args === null || threadPending) return;
+    waitingRef.current = null;
     setSubmitting(false);
-    void performSend(...waiting);
-  }, [waiting, threadPending, performSend, setSubmitting]);
+    void performSend(...args);
+  }, [threadPending, performSend, setSubmitting]);
   /** "Send again" in the confirm above: the same reply, as a resend of the one that failed. */
   const confirmSendAgain = useCallback(() => {
     const pending = sendAgain;
