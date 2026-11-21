@@ -17,6 +17,7 @@ import {
 import { threadTimeOf } from '../threadDays';
 import { useHoldReasonClearedRefresh } from '../../hooks/useHoldReasonClearedRefresh';
 import { THREAD_PAGE } from './detailConstants';
+import { useSendingRecheck } from './useSendingRecheck';
 import type { MessageDetailProps } from './types';
 
 /** MessageDetail's thread: the loaded window of events, its paging and the incremental read. */
@@ -231,6 +232,8 @@ export function useThreadEvents(
   pullNewEventsRef.current = pullNewEvents;
   // useThreadMessageRefresh calls it bare: a live message adds only what its events say.
   const pullLiveEvents = useCallback(() => pullNewEvents(), [pullNewEvents]);
+  // A reply shown as "Sending…" is read again until it has its real state (useSendingRecheck).
+  useSendingRecheck(threadMessages, pullLiveEvents);
 
   // ── Sorted thread ──────────────────────────────────────────────────────────
 
@@ -268,6 +271,8 @@ export function useThreadEvents(
   // Day separators group by the SAME time the thread is sorted by (threadDays.ts), so one can
   // only ever sit between days, in order.
   return {
+    /** The thread these events are read for. */
+    threadId: message.id,
     threadMessages,
     threadEventsFor,
     threadLoading,

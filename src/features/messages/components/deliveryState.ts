@@ -28,12 +28,55 @@ export const isUndelivered = (state: DeliveryState): boolean =>
   state === 'failed' || state === 'uncertain';
 
 /**
- * Whether the reply an async failure named is shown as delivered after all (the backend cleared
- * its marks on a late answer): the composer's "Send failed" bar would then contradict the bubble.
+ * A resend target checked against the thread as read (review of #999, M2): the undelivered reply
+ * it names, with its current mark; or — when that reply is gone (a failed resend made a NEW
+ * undelivered event that replaced it) — the newest undelivered agent reply after it; or null when
+ * there is nothing left to resend (delivered after all, or nothing undelivered). The same object
+ * when nothing changed.
  */
-export const failedReplyDelivered = (
+export const reconcileResendTarget = (
+  target: ResendTarget,
+  thread: readonly Pick<MessageEvent, 'id' | 'type' | 'metadata'>[]
+): ResendTarget | null => {
+  const named = thread.find((event) => event.id === target.eventId);
+  if (named) {
+    const state = deliveryStateOf(named);
+    if (!isUndelivered(state)) return null;
+    const uncertain = state === 'uncertain';
+    return uncertain === target.uncertain ? target : { ...target, uncertain };
+  }
+  let newest: Pick<MessageEvent, 'id' | 'metadata'> | null = null;
+  for (const event of thread)
+    if (
+      event.type === 'agent_reply' &&
+      event.id > target.eventId &&
+      isUndelivered(deliveryStateOf(event)) &&
+      (newest === null || event.id > newest.id)
+    )
+      newest = event;
+  return newest ? { eventId: newest.id, uncertain: deliveryStateOf(newest) === 'uncertain' } : null;
+};
+
+/**
+ * What the composer's "Send failed" bar may say, read from the reply it names (review of #999,
+ * M3/M4): hidden once that reply shows as delivered or is gone from the thread (a colleague's
+ * resend replaced it); worded as uncertain when the reply is marked so. Without a named reply the
+ * bar says what the send was told.
+ */
+export const failedBarState = (
   eventId: number | null,
   thread: readonly Pick<MessageEvent, 'id' | 'metadata'>[]
-): boolean =>
-  eventId !== null &&
-  thread.some((event) => event.id === eventId && deliveryStateOf(event) === 'sent');
+): 'hidden' | 'uncertain' | 'as_told' => {
+  if (eventId === null) return 'as_told';
+  const named = thread.find((event) => event.id === eventId);
+  if (!named) return 'hidden';
+  const state = deliveryStateOf(named);
+  if (state === 'sent') return 'hidden';
+  return state === 'uncertain' ? 'uncertain' : 'as_told';
+};
+
+/** The bar's words for a send that may have reached the customer (any channel). */
+export const uncertainFailureText = (channel?: unknown): string =>
+  `We could not confirm that the reply reached the customer${
+    typeof channel === 'string' && channel ? ` via ${channel}` : ''
+  }. Check before you resend it — they may get it twice.`;

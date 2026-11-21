@@ -78,6 +78,7 @@ export function useReplySend({
     selectedFiles,
     setSelectedFiles,
     setSendFailedError,
+    setSendFailedReason,
     setSendFailureRetryable,
     resendOf,
     setResendOf,
@@ -273,15 +274,18 @@ export function useReplySend({
         if (idempotencyKey) forgetOwnSend(idempotencyKey);
         // Someone got there first: nothing was sent. The agent decides — Send anyway or Cancel
         // (which re-reads the thread so the newer reply shows); not a send failure.
-        // A resend that failed is over either way: the backend stored a new undelivered reply (502)
-        // with its own Resend, or the old one cannot be resent (resent already, delivered after
-        // all). The full re-read below shows which; a Retry here would only be refused.
-        if (resendOfEventId !== undefined) setResendOf(null);
+        // (The resend target stays through the collision confirm: "Send anyway" is the same resend
+        // with the same key — review of #999, M1.)
         const question = composerMode === 'note' ? null : replyCollisionQuestion(err);
         if (question !== null) {
           showCollision(question);
           return;
         }
+        // A resend the server refused (4xx: resent already, delivered after all, not found) is
+        // over. One that failed in the transport (5xx, no answer) made a NEW undelivered reply
+        // that replaced the old one: the target stays, and the re-read below moves it to that
+        // reply (useResendReply → reconcileResendTarget), so the next Send resends it (M2).
+        if (resendOfEventId !== undefined && !isRetryableSendFailure(err)) setResendOf(null);
         // …and the echo may already have come and been skipped as ours: the server emits it before
         // it answers, so a reply delivered whose ANSWER was lost (a dropped connection, a 502 from
         // the proxy) would never show. Re-read as the echo would have.
@@ -292,7 +296,7 @@ export function useReplySend({
         logger.error('Failed to send:', err);
         // Surface the server's own explanation for client errors — see
         // resolveSendFailureMessage for why "please try again" is wrong for some of them.
-        setSendFailedError(resolveSendFailureMessage(err));
+        setSendFailedReason(resolveSendFailureMessage(err));
         setSendFailureRetryable(resendOfEventId === undefined && isRetryableSendFailure(err));
       } finally {
         setSubmitting(false);
@@ -330,6 +334,7 @@ export function useReplySend({
       setRecipientDraft,
       setSelectedFiles,
       setSendFailedError,
+      setSendFailedReason,
       setSendFailureRetryable,
       setSubmitting,
       setThreadRefreshKey,

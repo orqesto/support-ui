@@ -4,9 +4,13 @@
  * (`resendOfEventId`) and the thread is read again in full — the backend hides the replaced
  * bubble, so the thread shows the reply once.
  */
-import { renderDetail, svc, event } from '../../__tests__/md4.mobile.utils';
+import { renderDetail, svc, event, baseMessage } from '../../__tests__/md4.mobile.utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, fireEvent, waitFor, within, act } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within, act, render } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { Message } from '@/types';
+import { MessageDetail } from '../../MessageDetail';
 
 const pressSend = () => fireEvent.click(screen.getByRole('button', { name: /^SEND$/ }));
 const editor = () => screen.getByTestId('rich-text-editor');
@@ -45,7 +49,7 @@ describe('Resend on an undelivered reply', () => {
     svc.message.reply = vi.fn().mockResolvedValue({ success: true });
     renderDetail();
     await ready();
-    fireEvent.click(screen.getByRole('button', { name: 'Resend' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
     await waitFor(() => expect(editor()).toHaveValue('<p>Your parcel ships today.</p>'));
     expect(screen.getByText(/Resending a reply that was not delivered/)).toBeTruthy();
     const readsBefore = svc.message.getThreadMessages.mock.calls.length;
@@ -76,7 +80,7 @@ describe('Resend on an undelivered reply', () => {
     renderDetail();
     await waitFor(() => expect(svc.message.getThreadMessages).toHaveBeenCalled());
     await screen.findByText('May not have been delivered');
-    fireEvent.click(screen.getByRole('button', { name: 'Resend' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
     const dialog = await screen.findByRole('dialog');
     expect(editor()).toHaveValue('');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Resend anyway' }));
@@ -92,7 +96,7 @@ describe('Resend on an undelivered reply', () => {
     renderDetail();
     await ready();
     fireEvent.change(editor(), { target: { value: '<p>My own words.</p>' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Resend' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
     expect(editor()).toHaveValue('<p>My own words.</p>');
     expect(screen.queryByText(/Resending a reply/)).toBeNull();
   });
@@ -101,7 +105,7 @@ describe('Resend on an undelivered reply', () => {
     svc.message.reply = vi.fn().mockResolvedValue({ success: true });
     renderDetail();
     await ready();
-    fireEvent.click(screen.getByRole('button', { name: 'Resend' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
     await screen.findByText(/Resending a reply/);
     fireEvent.click(screen.getByRole('button', { name: 'Not a resend' }));
     expect(screen.queryByText(/Resending a reply/)).toBeNull();
@@ -122,7 +126,7 @@ describe('Resend on an undelivered reply', () => {
       );
     renderDetail();
     await ready();
-    fireEvent.click(screen.getByRole('button', { name: 'Resend' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
     await screen.findByText(/Resending a reply/);
     pressSend();
     await screen.findByText('Send failed');
@@ -143,7 +147,7 @@ describe('Resend on an undelivered reply', () => {
     await screen.findByText('Send failed');
     // … the agent clears it and resends the undelivered bubble with the same words instead.
     fireEvent.change(editor(), { target: { value: '' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Resend' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
     await screen.findByText(/Resending a reply/);
     pressSend();
     await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
@@ -176,7 +180,7 @@ describe('after a resend', () => {
     svc.message.getThreadMessagesAfter = vi.fn().mockResolvedValue(incremental());
     renderDetail();
     await ready();
-    fireEvent.click(screen.getByRole('button', { name: 'Resend' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
     await screen.findByText(/Resending a reply/);
     const readsBefore = svc.message.getThreadMessages.mock.calls.length;
     pressSend();
@@ -192,7 +196,7 @@ describe('after a resend', () => {
       .mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }));
     renderDetail();
     await ready();
-    fireEvent.click(screen.getByRole('button', { name: 'Resend' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
     await screen.findByText(/Resending a reply/);
     pressSend();
     await screen.findByText('Send failed');
@@ -309,7 +313,7 @@ describe('live: the bubble follows the send', () => {
     await screen.findByText('Send failed');
     // … and a later read shows it delivered (the backend cleared its marks on a late answer).
     withThread(event({ id: 900 }), failed({ isSystemReply: true }));
-    await socketEvent('message:replied', { messageId: 101, supersededEventId: 942 });
+    await socketEvent('message:replied', { messageId: 101, late: true });
     await screen.findByText('✓ Sent');
     await waitFor(() => expect(screen.queryByText('Send failed')).toBeNull());
   });
@@ -337,5 +341,182 @@ describe('live: the bubble follows the send', () => {
     await waitFor(() => expect(svc.message.getThreadMessages.mock.calls.length).toBeGreaterThan(1));
     expect(screen.getByText('Send failed')).toBeTruthy();
     expect(screen.getByText('Not delivered')).toBeTruthy();
+  });
+});
+
+describe('review of #999', () => {
+  it('H1: an HTML reply goes back into the composer as HTML, never escaped', async () => {
+    const html =
+      '<p>Hello <strong>Ann</strong>, see <a href="https://shop.example/t?a=1&amp;b=2">tracking</a>:</p><ul><li><p>one</p></li></ul>';
+    withThread(
+      event({ id: 900 }),
+      event({ id: 942, type: 'agent_reply', content: html, metadata: { delivered: false } })
+    );
+    renderDetail();
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
+    await waitFor(() => expect(editor()).toHaveValue(html));
+  });
+
+  it('M1: "Send anyway" after a collision is still the resend, with the same key', async () => {
+    svc.message.reply = vi
+      .fn()
+      .mockRejectedValueOnce(refused(409, 'REPLY_NEWER_EXISTS', 'The bot replied — send anyway?'))
+      .mockResolvedValueOnce({ success: true });
+    renderDetail();
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
+    await screen.findByText(/Resending a reply/);
+    pressSend();
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send anyway' }));
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    const [first, second] = svc.message.reply.mock.calls as Call[];
+    expect(optionsOf(second)).toEqual({
+      seenLastEventId: 942,
+      confirmOverride: true,
+      resendOfEventId: 942,
+    });
+    expect(keyOf(second)).toBe(keyOf(first));
+  });
+
+  it('M2: a resend that failed in the transport stays a resend — of the NEW undelivered reply', async () => {
+    svc.message.reply = vi
+      .fn()
+      .mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 502 }))
+      .mockResolvedValueOnce({ success: true });
+    renderDetail();
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
+    await screen.findByText(/Resending a reply/);
+    // The backend stored the attempt as a new undelivered reply that replaced 942.
+    svc.message.getThreadMessages = vi.fn().mockResolvedValue({
+      data: [
+        event({ id: 900 }),
+        event({
+          id: 950,
+          type: 'agent_reply',
+          content: 'Your parcel ships today.',
+          metadata: { delivered: false },
+        }),
+      ],
+    });
+    pressSend();
+    await screen.findByText('Send failed');
+    await waitFor(() => expect(svc.message.getThreadMessages).toHaveBeenCalled());
+    expect(screen.getByText(/Resending a reply/)).toBeTruthy();
+    pressSend();
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    const [first, second] = svc.message.reply.mock.calls as Call[];
+    expect(optionsOf(second)).toMatchObject({ resendOfEventId: 950 });
+    expect(keyOf(second)).not.toBe(keyOf(first));
+  });
+
+  it("M3/M4: the sender's own uncertain failure is worded as uncertain, and Retry asks first", async () => {
+    svc.message.reply = vi.fn().mockImplementationOnce(async () => {
+      // The backend announces the failure before it answers the request.
+      await socketEvent('send-failed', {
+        messageId: 101,
+        channel: 'email',
+        outgoingMessageId: 950,
+        uncertain: true,
+      });
+      svc.message.getThreadMessages = vi.fn().mockResolvedValue({
+        data: [
+          event({ id: 900 }),
+          event({
+            id: 950,
+            type: 'agent_reply',
+            content: 'Hi',
+            metadata: { delivered: false, sendUncertain: true },
+          }),
+        ],
+      });
+      throw Object.assign(new Error('Failed to send. Please try again.'), { status: 502 });
+    });
+    renderDetail();
+    await ready();
+    fireEvent.change(editor(), { target: { value: '<p>Hi</p>' } });
+    pressSend();
+    await screen.findByText(/We could not confirm that the reply reached the customer/);
+    expect(screen.queryByText('Failed to send. Please try again.')).toBeNull();
+    // Retry asks first, as Resend does: the customer may get it twice.
+    svc.message.reply.mockResolvedValueOnce({ success: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(svc.message.reply).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send again' }));
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+  });
+
+  it("M4: a late delivery hides the bar the sender's own failure left", async () => {
+    svc.message.reply = vi.fn().mockImplementationOnce(async () => {
+      await socketEvent('send-failed', {
+        messageId: 101,
+        channel: 'email',
+        outgoingMessageId: 950,
+      });
+      svc.message.getThreadMessages = vi.fn().mockResolvedValue({
+        data: [
+          event({ id: 900 }),
+          event({ id: 950, type: 'agent_reply', content: 'Hi', metadata: { delivered: false } }),
+        ],
+      });
+      throw Object.assign(new Error('boom'), { status: 502 });
+    });
+    renderDetail();
+    await ready();
+    fireEvent.change(editor(), { target: { value: '<p>Hi</p>' } });
+    pressSend();
+    await screen.findByText('Send failed');
+    svc.message.getThreadMessages = vi.fn().mockResolvedValue({
+      data: [
+        event({ id: 900 }),
+        event({ id: 950, type: 'agent_reply', content: 'Hi', metadata: {} }),
+      ],
+    });
+    await socketEvent('message:replied', { messageId: 101, late: true });
+    await waitFor(() => expect(screen.queryByText('Send failed')).toBeNull());
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  });
+
+  it('LOW: a send-failed with no channel never says "via null"', async () => {
+    renderDetail();
+    await ready();
+    await socketEvent('send-failed', { messageId: 101, channel: null, outgoingMessageId: 942 });
+    await screen.findByText(/^Reply could not be delivered\. The message was saved/);
+    expect(screen.queryByText(/via null/)).toBeNull();
+  });
+
+  it('LOW: no Resend on a bot reply or any non-agent event, even undelivered', async () => {
+    withThread(
+      event({ id: 900 }),
+      event({ id: 942, type: 'bot_reply', content: 'Auto answer', metadata: { delivered: false } })
+    );
+    renderDetail();
+    await waitFor(() => expect(svc.message.getThreadMessages).toHaveBeenCalled());
+    await screen.findByText('Not delivered');
+    expect(screen.queryByRole('button', { name: /^Resend the reply/ })).toBeNull();
+  });
+
+  it('LOW: a thread switch drops the resend target (even without a remount)', async () => {
+    const tree = (id: number) => (
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <MemoryRouter>
+          <MessageDetail
+            message={{ ...baseMessage, id, publicId: `SUP-${id}` } as Message}
+            onClose={vi.fn()}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const view = render(tree(101));
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
+    await screen.findByText(/Resending a reply/);
+    view.rerender(tree(202));
+    await waitFor(() => expect(screen.queryByText(/Resending a reply/)).toBeNull());
   });
 });

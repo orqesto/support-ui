@@ -23,10 +23,13 @@ export function DeliveryStatus({
   state,
   onResend,
   resending = false,
+  resendLabel = 'Resend',
 }: {
   state: DeliveryState;
   onResend?: () => void;
   resending?: boolean;
+  /** The button's accessible name, telling one reply's Resend from another's. */
+  resendLabel?: string;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const undelivered = isUndelivered(state);
@@ -42,6 +45,7 @@ export function DeliveryStatus({
           variant="ghost"
           size="sm"
           disabled={resending}
+          aria-label={resendLabel}
           onClick={() => (state === 'uncertain' ? setConfirmOpen(true) : resend())}
           className={`h-auto p-0 ${LINE} font-semibold text-destructive hover:bg-transparent hover:underline`}
         >

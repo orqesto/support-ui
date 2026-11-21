@@ -84,6 +84,9 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     setSendFailedError,
     sendFailedEventId,
     setSendFailedEventId,
+    // The failed send's own reason, keeping the reply the `send-failed` event named (it may come
+    // before the HTTP answer — review of #999, M4).
+    setSendFailedReason: setFailedReason,
     resendOf,
     setResendOf,
     sendFailureRetryable,

@@ -10,7 +10,8 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import type { MessageEvent } from '@/types';
 import { ThreadMessageItem } from '../ThreadMessageItem';
-import { deliveryStateOf, failedReplyDelivered } from '../deliveryState';
+import { deliveryStateOf, failedBarState, reconcileResendTarget } from '../deliveryState';
+import { replyToComposerHtml } from '../messageDetail/useResendReply';
 import { withDeliveryUpdates } from '../threadNewEvents';
 
 vi.mock('@/features/messages/hooks/useMessageHtml', () => ({
@@ -44,7 +45,7 @@ describe('ThreadMessageItem — delivery state under an outgoing bubble', () => 
     const onResend = vi.fn();
     render(<ThreadMessageItem msg={reply({ isSystemReply: true })} onResend={onResend} />);
     expect(screen.getByText('✓ Sent')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Resend' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Resend the reply/ })).toBeNull();
   });
 
   it('a reply from before the marks existed (no metadata) reads as sent', () => {
@@ -64,7 +65,7 @@ describe('ThreadMessageItem — delivery state under an outgoing bubble', () => 
     render(<ThreadMessageItem msg={msg} onResend={onResend} />);
     expect(screen.getByText('Not delivered')).toBeTruthy();
     expect(screen.queryByText('✓ Sent')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Resend' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
     expect(onResend).toHaveBeenCalledWith(msg);
   });
 
@@ -73,7 +74,7 @@ describe('ThreadMessageItem — delivery state under an outgoing bubble', () => 
     const onResend = vi.fn();
     render(<ThreadMessageItem msg={msg} onResend={onResend} />);
     expect(screen.getByText('May not have been delivered')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Resend' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
     // Not sent yet: the customer may already have it.
     expect(onResend).not.toHaveBeenCalled();
     expect(
@@ -85,10 +86,20 @@ describe('ThreadMessageItem — delivery state under an outgoing bubble', () => 
     expect(onResend).toHaveBeenCalledWith(msg);
   });
 
+  it('the Resend is disabled while its resend is being sent, and names its reply', () => {
+    render(<ThreadMessageItem msg={reply({ delivered: false })} onResend={vi.fn()} resending />);
+    const button = screen.getByRole('button', {
+      name: 'Resend the reply “Your replacement ships tomorrow.”',
+    });
+    // (A design-system Button out of use is aria-disabled, never natively disabled.)
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(button.textContent).toBe('Resending…');
+  });
+
   it('shows the state but no Resend while no resend is wired', () => {
     render(<ThreadMessageItem msg={reply({ delivered: false })} />);
     expect(screen.getByText('Not delivered')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Resend' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Resend the reply/ })).toBeNull();
   });
 
   it('an incoming message carries no delivery line', () => {
@@ -141,15 +152,56 @@ describe('live reads refresh the delivery state of bubbles already on screen', (
   });
 });
 
-describe('the composer bar never contradicts the bubble', () => {
-  it('a failure whose reply is shown as delivered after all hides the bar', () => {
-    expect(failedReplyDelivered(41, [reply(null, { id: 41 })])).toBe(true);
+describe('the composer bar never contradicts the bubble (failedBarState)', () => {
+  it('hidden once the named reply shows as delivered, or is gone (a colleague resent it)', () => {
+    expect(failedBarState(41, [reply(null, { id: 41 })])).toBe('hidden');
+    expect(failedBarState(41, [reply(null, { id: 40 })])).toBe('hidden');
   });
+  it('worded as uncertain when the named reply may have reached the customer', () => {
+    expect(failedBarState(41, [reply({ delivered: false, sendUncertain: true }, { id: 41 })])).toBe(
+      'uncertain'
+    );
+  });
+  it('CONTROL: still undelivered or sending, or no reply named → as the send was told', () => {
+    expect(failedBarState(41, [reply({ delivered: false }, { id: 41 })])).toBe('as_told');
+    expect(failedBarState(41, [reply({ sendState: 'sending' }, { id: 41 })])).toBe('as_told');
+    expect(failedBarState(null, [reply(null, { id: 41 })])).toBe('as_told');
+  });
+});
 
-  it('CONTROL: still undelivered, not on screen, or no event named → the bar stays', () => {
-    expect(failedReplyDelivered(41, [reply({ delivered: false }, { id: 41 })])).toBe(false);
-    expect(failedReplyDelivered(41, [reply({ sendState: 'sending' }, { id: 41 })])).toBe(false);
-    expect(failedReplyDelivered(41, [reply(null, { id: 40 })])).toBe(false);
-    expect(failedReplyDelivered(null, [reply(null, { id: 41 })])).toBe(false);
+describe('a resend target follows the thread (reconcileResendTarget)', () => {
+  const target = { eventId: 41, uncertain: false };
+  it('kept while the named reply is undelivered (same object), its mark followed', () => {
+    expect(reconcileResendTarget(target, [reply({ delivered: false }, { id: 41 })])).toBe(target);
+    expect(
+      reconcileResendTarget(target, [reply({ delivered: false, sendUncertain: true }, { id: 41 })])
+    ).toEqual({ eventId: 41, uncertain: true });
+  });
+  it('moves to the newest undelivered agent reply after it when the named one is gone', () => {
+    expect(
+      reconcileResendTarget(target, [
+        reply({ delivered: false }, { id: 43 }),
+        reply({ delivered: false, sendUncertain: true }, { id: 45 }),
+        reply({ delivered: false }, { id: 46, type: 'bot_reply' }),
+      ])
+    ).toEqual({ eventId: 45, uncertain: true });
+  });
+  it('ends when the named reply was delivered after all, or nothing is left to resend', () => {
+    expect(reconcileResendTarget(target, [reply(null, { id: 41 })])).toBeNull();
+    expect(reconcileResendTarget(target, [reply(null, { id: 43 })])).toBeNull();
+    expect(reconcileResendTarget(target, [reply({ delivered: false }, { id: 40 })])).toBeNull();
+  });
+});
+
+describe('a stored reply goes back into the composer as it was (H1)', () => {
+  it('the editor HTML comes back unescaped — a link, a list and an entity included', () => {
+    const html =
+      '<p>Hello <strong>Ann</strong>, see <a href="https://shop.example/t?a=1&amp;b=2">tracking</a> &amp; more:</p><ul><li><p>one</p></li><li><p>two</p></li></ul>';
+    expect(replyToComposerHtml(html)).toBe(html);
+  });
+  it('plain text (a bot or chat reply) becomes paragraphs, its "<" escaped', () => {
+    expect(replyToComposerHtml('Line one\n\n3 < 5 & done')).toBe(
+      '<p>Line one</p><p>3 &lt; 5 &amp; done</p>'
+    );
   });
 });
