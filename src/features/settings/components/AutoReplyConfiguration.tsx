@@ -15,7 +15,7 @@ import {
   type AutoReplyMode,
   type AutoReplyPartialAnswer,
 } from '@/services/organization.service';
-import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
+import { getApiErrorMessage, getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 import { Permission } from '@/types/roles';
 import { AutoReplyRulesSection } from './AutoReplyRulesSection';
 import { FeatureSuggestions } from './FeatureSuggestions';
@@ -29,7 +29,8 @@ import {
   TopicsReadOnly,
 } from './RestrictedTopicsField';
 import { readRestrictedTopics, restrictedTopicsRefusal } from './restrictedTopics';
-import type { BuiltInRestrictedTopic } from '@/types/api';
+import { OtherTeamTopics, TOPICS_ADMIN_ONLY, readTopicTeams } from './OtherTeamTopics';
+import type { BuiltInRestrictedTopic, RestrictedTopicTeam } from '@/types/api';
 import {
   PARTIAL_ANSWER_LABEL,
   PARTIAL_ANSWER_TITLE,
@@ -123,9 +124,12 @@ const pillClass = (selected: boolean): string =>
   }`;
 
 export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
-  const { hasPermission } = usePermissions();
+  const { hasPermission, isOrgAdmin } = usePermissions();
   // Workspace admins and moderators (MANAGE_AUTO_REPLY); others see a read-only summary.
   const canManage = hasPermission(Permission.MANAGE_AUTO_REPLY);
+  // Restricted topics are a safety list: the backend lets only a workspace admin change them
+  // (403 ROLE_REQUIRED for a moderator), so anyone else reads them.
+  const canChangeTopics = canManage && isOrgAdmin;
   const { off: aiDraftsOff } = useAiDraftsOff();
   const { data: departments = [], teamsEnabled: teamsMode } = useDepartments();
   // Teams off: no per-team rows, except one that still carries an override (so it can be reset).
@@ -153,6 +157,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   const [topicsSupported, setTopicsSupported] = useState(false);
   /** The topics every workspace has, as the backend names them; never part of a save. */
   const [builtInTopics, setBuiltInTopics] = useState<BuiltInRestrictedTopic[]>([]);
+  /** Every team that has stored topics — also a switched-off or deleted one — as the server lists them. */
+  const [topicTeams, setTopicTeams] = useState<RestrictedTopicTeam[]>([]);
 
   // Threshold is editable via a slider that triggers a save on mouse/touch up;
   // mid-drag we hold the value locally so the slider stays responsive.
@@ -180,6 +186,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         };
         setTopicsSupported(readRestrictedTopics(auto.restrictedTopics) !== null);
         setBuiltInTopics(auto.builtInRestrictedTopics ?? []);
+        setTopicTeams(readTopicTeams(auto.restrictedTopicTeams) ?? []);
         setOrg(initialOrg);
         orgRef.current = initialOrg;
         const settings: Record<string, unknown> = orgRow.settings ?? {};
@@ -224,6 +231,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       orgRef.current = { ...orgRef.current, restrictedTopics: topics };
       setOrg((prev) => ({ ...prev, restrictedTopics: topics }));
     }
+    const topicTeamsNow = readTopicTeams(data.restrictedTopicTeams);
+    if (topicTeamsNow) setTopicTeams(topicTeamsNow);
     const teams = data.departmentSettings;
     if (!teams || typeof teams !== 'object') return false;
     perDeptRef.current = teams as Record<string, Settings>;
@@ -382,8 +391,13 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
             err,
             'Failed to save the restricted topics. Please try again.',
             'Could not save the restricted topics.',
-            // The team was switched off or deleted meanwhile (404): said plainly.
-            getErrorStatus(err) === 404 ? TEAM_GONE : undefined
+            // The team was switched off or deleted meanwhile (404), or the role is not enough
+            // (403 ROLE_REQUIRED): said plainly.
+            getErrorStatus(err) === 404
+              ? TEAM_GONE
+              : getErrorStatus(err) === 403 && getErrorBody(err)?.code === 'ROLE_REQUIRED'
+                ? TOPICS_ADMIN_ONLY
+                : undefined
           );
           return false;
         }
@@ -419,6 +433,13 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     org.autoReplyEnabled === true ||
     Object.values(perDept).some((settings) => settings?.autoReplyEnabled === true);
   const orgTopics = org.restrictedTopics ?? [];
+  // Team rows on the page: every active team, or — teams off — only one that overrides something.
+  const teamRows = teamsEnabled
+    ? activeDepts
+    : activeDepts.filter((dept) => overridesDefault(perDept[String(dept.id)]));
+  /** Teams with stored topics that have no place of their own on the page (`shown` = those that do). */
+  const otherTopicTeams = (shown: readonly { id: number }[]): RestrictedTopicTeam[] =>
+    topicTeams.filter((team) => !shown.some((dept) => dept.id === team.departmentId));
   const rulesSection = (
     <AutoReplyRulesSection
       canManage={canManage}
@@ -468,6 +489,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                     </div>
                   );
                 })}
+                <OtherTeamTopics teams={otherTopicTeams(activeDepts)} canChange={false} />
               </div>
             )}
           </CardHeader>
@@ -699,15 +721,32 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                     <BuiltInTopics topics={builtInTopics} />
                     <p className="text-[10px] text-muted-foreground">{BUILT_IN_NOTE}</p>
                     <p className="text-xs font-medium">Your workspace&apos;s topics</p>
-                    <RestrictedTopicsField
-                      label="Workspace restricted topics"
-                      topics={orgTopics}
-                      emptyText="No topics of your own yet"
-                      placeholder='e.g. "refund disputes", "requests from journalists"'
-                      disabled={saving.org === true}
-                      builtIn={builtInTopics.map((topic) => topic.label)}
-                      onAdd={(topic) => changeTopics(null, { add: topic })}
-                      onRemove={(topic) => changeTopics(null, { remove: topic })}
+                    {canChangeTopics ? (
+                      <RestrictedTopicsField
+                        label="Workspace restricted topics"
+                        topics={orgTopics}
+                        emptyText="No topics of your own yet"
+                        placeholder='e.g. "refund disputes", "requests from journalists"'
+                        disabled={saving.org === true}
+                        builtIn={builtInTopics.map((topic) => topic.label)}
+                        onAdd={(topic) => changeTopics(null, { add: topic })}
+                        onRemove={(topic) => changeTopics(null, { remove: topic })}
+                      />
+                    ) : (
+                      <>
+                        <TopicsReadOnly
+                          label="Workspace restricted topics"
+                          topics={orgTopics}
+                          emptyText="No topics of your own yet"
+                        />
+                        <p className="text-xs text-muted-foreground">{TOPICS_ADMIN_ONLY}</p>
+                      </>
+                    )}
+                    <OtherTeamTopics
+                      teams={otherTopicTeams(teamRows)}
+                      canChange={canChangeTopics}
+                      saving={saving}
+                      onRemove={(deptId, topic) => void changeTopics(deptId, { remove: topic })}
                     />
                   </div>
                 )}
@@ -720,10 +759,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                 No active teams configured.
               </div>
             )}
-            {(teamsEnabled
-              ? activeDepts
-              : activeDepts.filter((dept) => overridesDefault(perDept[String(dept.id)]))
-            ).map((dept) => {
+            {teamRows.map((dept) => {
               const key = String(dept.id);
               const isSaving = saving[key] === true;
               const settings = perDept[key];
@@ -1078,17 +1114,25 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         <p className="text-[10px] text-muted-foreground">
                           {teamAlsoApplies(builtInTopics.length, orgTopics.length)}
                         </p>
-                        <RestrictedTopicsField
-                          label={`${dept.name} restricted topics`}
-                          topics={teamTopics}
-                          alsoApplies={orgTopics}
-                          emptyText="No extra topics"
-                          placeholder='e.g. "contract changes"'
-                          disabled={isSaving}
-                          builtIn={builtInTopics.map((topic) => topic.label)}
-                          onAdd={(topic) => changeTopics(dept.id, { add: topic })}
-                          onRemove={(topic) => changeTopics(dept.id, { remove: topic })}
-                        />
+                        {canChangeTopics ? (
+                          <RestrictedTopicsField
+                            label={`${dept.name} restricted topics`}
+                            topics={teamTopics}
+                            alsoApplies={orgTopics}
+                            emptyText="No extra topics"
+                            placeholder='e.g. "contract changes"'
+                            disabled={isSaving}
+                            builtIn={builtInTopics.map((topic) => topic.label)}
+                            onAdd={(topic) => changeTopics(dept.id, { add: topic })}
+                            onRemove={(topic) => changeTopics(dept.id, { remove: topic })}
+                          />
+                        ) : (
+                          <TopicsReadOnly
+                            label={`${dept.name} restricted topics`}
+                            topics={teamTopics}
+                            emptyText="No extra topics"
+                          />
+                        )}
                       </div>
                     )}
 

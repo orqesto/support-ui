@@ -277,6 +277,13 @@ export interface components {
             detectedLanguage: string | null;
             mutedByMe?: boolean;
         };
+        ReplyNotDelivered: {
+            /** @enum {boolean} */
+            success: false;
+            error: string;
+            eventId: number;
+            uncertain: boolean;
+        };
         CurrentUser: {
             id: number;
             firstName: string;
@@ -709,6 +716,12 @@ export interface components {
             key: string;
             label: string;
         };
+        RestrictedTopicTeam: {
+            departmentId: number;
+            name: string | null;
+            active: boolean;
+            restrictedTopics: string[];
+        };
         AutoReplySettings: {
             enabled?: boolean;
             /** @enum {string} */
@@ -720,6 +733,7 @@ export interface components {
             partialAnswer: "hand_to_agent" | "send_and_follow_up";
             restrictedTopics: string[];
             builtInRestrictedTopics: components["schemas"]["BuiltInRestrictedTopic"][];
+            restrictedTopicTeams: components["schemas"]["RestrictedTopicTeam"][];
             departmentSettings: {
                 [key: string]: components["schemas"]["DepartmentAutoReplySettings"];
             };
