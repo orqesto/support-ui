@@ -487,7 +487,10 @@ export const organizationService = {
   /**
    * The contract's AutoReplySettingsUpdate. `departmentSettings` (keyed by the team's id as text)
    * REPLACES the stored map, so a caller sends every team's settings; a team's `restrictedTopics`
-   * are ADDED to the workspace's. The built-in topics are not part of a save.
+   * are ADDED to the workspace's. The built-in topics are not part of a save. Restricted topics
+   * change ONLY through `restrictedTopicsChange` (one list, topics to add or to remove, applied
+   * by the server to the stored list); a list of topics in the body is ignored by the server.
+   * The answer is the full settings as they are stored after the save.
    */
   updateAutoReply: async (data: AutoReplySettingsUpdate) => {
     const response = await apiClient.patch<ApiResponse<AutoReplySettings>>(

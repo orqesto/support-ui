@@ -50,7 +50,7 @@ export const NEEDS_REVIEW_REASON_DETAILS: Record<string, string> = {
   follow_up_needed:
     'The AI answered part and told the customer a colleague will follow up – see the note',
   reply_unchecked:
-    "An automatic reply was ready, but the check on it or on the customer's question could not run, so nothing was sent",
+    "A check on the automatic reply or on the customer's message could not run, so nothing was sent",
   restricted_topic:
     'The customer asks about a subject a person must answer (a restricted topic), so no automatic reply was sent',
   no_customer_request:

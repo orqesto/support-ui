@@ -494,8 +494,12 @@ describe('messageActivityTimeline — auto-reply withheld', () => {
 
   // Every withheld outcome the backend stores for the missing-info email.
   it.each([
-    ['blocked_missing_info_guard', 'a question the AI wrote did more than ask for a detail'],
-    ['nothing_to_ask', 'the AI found no detail to ask for'],
+    [
+      'blocked_missing_info_guard',
+      'the email the AI wrote did not pass the checks on its questions',
+    ],
+    ['blocked_reply_hygiene', 'the email did not pass the checks every automatic reply passes'],
+    ['nothing_to_ask', 'the AI had no question to ask, or could not write one'],
     ['blocked_unsupported_language', 'the email is in a language the question is not written in'],
     ['blocked_degraded_analysis', 'the AI could not read this email properly'],
     ['blocked_pre_gate', 'this thread is not one that gets an automatic reply'],
@@ -504,7 +508,7 @@ describe('messageActivityTimeline — auto-reply withheld', () => {
       "the customer's email contains a phrase that stops automatic replies",
     ],
     ['thread_locked', 'another reply was in progress'],
-    ['ai_reply_limit', 'an automatic reply was already sent on this thread'],
+    ['ai_reply_limit', 'the limit on automatic replies to this thread or this sender was reached'],
     ['plan_allotment_reached', "this month's automatic replies are used up"],
     ['plan_not_entitled', 'the plan does not include automatic replies'],
     ['workspace_blocked', 'the workspace is waiting for a plan'],

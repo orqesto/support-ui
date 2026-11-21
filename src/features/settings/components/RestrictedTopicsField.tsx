@@ -54,8 +54,11 @@ type Props = {
   emptyText: string;
   placeholder: string;
   disabled: boolean;
-  /** Saves the whole list; resolves false when it was not saved (the typed topic is then kept). */
-  onSave: (next: string[]) => Promise<boolean>;
+  /** The built-in topics' names: one of them is not added again. */
+  builtIn?: readonly string[];
+  /** Saves ONE added topic; resolves false when it was not saved (the typed topic is then kept). */
+  onAdd: (topic: string) => Promise<boolean>;
+  onRemove: (topic: string) => Promise<boolean>;
 };
 
 /** One editable list of restricted topics: its chips, each with a remove control, and "Add". */
@@ -66,16 +69,18 @@ export const RestrictedTopicsField = ({
   emptyText,
   placeholder,
   disabled,
-  onSave,
+  builtIn = [],
+  onAdd,
+  onRemove,
 }: Props) => {
   const [draft, setDraft] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
 
   const add = async () => {
-    const found = restrictedTopicProblem(draft, topics, alsoApplies);
+    const found = restrictedTopicProblem(draft, topics, alsoApplies, builtIn);
     setProblem(found);
     if (found) return;
-    const saved = await onSave([...topics, draft.trim()]);
+    const saved = await onAdd(draft.trim());
     if (saved) setDraft('');
   };
 
@@ -94,7 +99,7 @@ export const RestrictedTopicsField = ({
                 variant="ghost"
                 size="icon"
                 disabled={disabled}
-                onClick={() => void onSave(topics.filter((entry) => entry !== topic))}
+                onClick={() => void onRemove(topic)}
                 aria-label={`Remove topic ${topic}`}
                 className="p-0 w-auto h-auto hover:text-destructive data-[inactive]:opacity-50"
               >

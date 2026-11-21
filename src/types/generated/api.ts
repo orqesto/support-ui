@@ -733,7 +733,13 @@ export interface components {
             highConfidenceThreshold?: number;
             /** @enum {string} */
             partialAnswer?: "hand_to_agent" | "send_and_follow_up";
-            restrictedTopics?: string[];
+            restrictedTopicsChange?: {
+                /** @enum {string} */
+                scope: "workspace" | "team";
+                departmentId?: number;
+                add?: string[];
+                remove?: string[];
+            };
             departmentSettings?: {
                 [key: string]: components["schemas"]["DepartmentAutoReplySettings"];
             };

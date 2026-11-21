@@ -238,16 +238,17 @@ const ASK_WITHHELD_REASON: Record<string, string> = {
   workspace_blocked: WITHHELD_REASON.workspace_blocked,
   plan_not_entitled: 'the plan does not include automatic replies',
   plan_allotment_reached: "this month's automatic replies are used up",
-  ai_reply_limit: 'an automatic reply was already sent on this thread',
+  ai_reply_limit: 'the limit on automatic replies to this thread or this sender was reached',
   no_thread: 'there is no customer message to answer',
-  nothing_to_ask: 'the AI found no detail to ask for',
+  nothing_to_ask: 'the AI had no question to ask, or could not write one',
   pre_send_timeout: 'a step before sending took too long',
   spam_verdict: 'the spam check did not clear this email',
   blocked_pre_gate: 'this thread is not one that gets an automatic reply',
   blocked_escalation_phrase: "the customer's email contains a phrase that stops automatic replies",
   blocked_degraded_analysis: 'the AI could not read this email properly',
   blocked_unsupported_language: 'the email is in a language the question is not written in',
-  blocked_missing_info_guard: 'a question the AI wrote did more than ask for a detail',
+  blocked_missing_info_guard: 'the email the AI wrote did not pass the checks on its questions',
+  blocked_reply_hygiene: 'the email did not pass the checks every automatic reply passes',
 };
 
 /** `blocked_missing_info_model_check`: what the check on the email found (`checkReason`). */

@@ -27,13 +27,16 @@ const sameTopic = (left: string, right: string): boolean =>
 export const restrictedTopicProblem = (
   draft: string,
   own: readonly string[],
-  alsoApplies: readonly string[] = []
+  alsoApplies: readonly string[] = [],
+  builtIn: readonly string[] = []
 ): string | null => {
   const topic = draft.trim();
   if (!topic) return 'Type a topic first.';
   if (topic.length > RESTRICTED_TOPIC_MAX_CHARS) {
     return `A topic can be up to ${RESTRICTED_TOPIC_MAX_CHARS} characters (this one has ${topic.length}).`;
   }
+  if (builtIn.some((entry) => sameTopic(entry, topic)))
+    return 'This is one of the built-in topics.';
   if (own.some((entry) => sameTopic(entry, topic))) return 'This topic is already on the list.';
   if (alsoApplies.some((entry) => sameTopic(entry, topic))) {
     return 'This is already a workspace topic, so it applies to this team.';
@@ -56,7 +59,10 @@ export const restrictedTopicsRefusal = (err: unknown): string | null => {
   const sentence = typeof body?.error === 'string' ? body.error.trim() : '';
   const fields = Array.isArray(body?.fields) ? body.fields : [];
   const aboutTopics = fields.some(
-    (field) => typeof field === 'string' && field.split('.').includes('restrictedTopics')
+    (field) =>
+      typeof field === 'string' &&
+      // `restrictedTopics`, `departmentSettings.7.restrictedTopics`, `restrictedTopicsChange.add`
+      field.split('.').some((part) => part.startsWith('restrictedTopics'))
   );
   return body?.code === 'VALIDATION_FAILED' &&
     aboutTopics &&
