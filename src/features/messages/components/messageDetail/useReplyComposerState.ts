@@ -4,6 +4,7 @@ import type { Message } from '@/types';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { resolveComposerWindow } from '../whatsappWindowState';
 import { resolveReplyBlock } from '../replyBlockState';
+import { resolveVisitorNoEmailBlock } from '@/lib/visitorEmail';
 import type { WhatsAppTemplate } from '../whatsappTemplates';
 import type { KeptSendKey } from './sendKey';
 import type { Setter } from './types';
@@ -108,7 +109,13 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
       // A replyBlock (e.g. a Zendesk-imported Telegram thread) outranks the WhatsApp
       // window: channels never overlap, and the block is unconditional, not a countdown.
       const block = resolveReplyBlock(message.replyBlock, composerMode);
-      return block.blocked ? block : resolveComposerWindow(message.whatsappWindow, composerMode);
+      if (block.blocked) return block;
+      // A website chat whose visitor left no email: read from the thread's own requester, so the
+      // block lifts by itself once a re-read brings the address the visitor left.
+      const noEmail = resolveVisitorNoEmailBlock(message, composerMode);
+      return noEmail.blocked
+        ? noEmail
+        : resolveComposerWindow(message.whatsappWindow, composerMode);
     },
     // windowTick is a deliberate dependency: it is what makes the countdown advance and
     // the block engage when the window lapses with the view already open. ESLint calls it
@@ -116,7 +123,14 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     // whole point, and removing it freezes the countdown on an open thread. Suppressed
     // rather than left as prose, so the next lint sweep cannot quietly "clean it up".
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
-    [message.whatsappWindow, message.replyBlock, composerMode, windowTick]
+    [
+      message.whatsappWindow,
+      message.replyBlock,
+      message.channel,
+      message.sender,
+      composerMode,
+      windowTick,
+    ]
   );
   return {
     selectedFiles,
@@ -164,5 +178,7 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     sendIdempotencyKeyRef,
     templateIdempotencyKeyRef,
     composerWindow,
+    // No reply can be sent, whatever the composer's mode (useReplySend's guards).
+    noVisitorEmail: resolveVisitorNoEmailBlock(message, 'reply').blocked,
   };
 }

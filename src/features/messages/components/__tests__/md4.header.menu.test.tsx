@@ -34,6 +34,21 @@ describe('H5 — More menu', () => {
     expect(within(menu).queryByText(/move to spam/i)).toBeNull();
   });
 
+  it('a website visitor with no email: no Thread history — it would list other visitors', async () => {
+    renderHeader({
+      message: {
+        ...message,
+        channel: 'chat',
+        sender: 'anonymous@chat-widget.local',
+      } as unknown as Message,
+    });
+    await waitFor(() => expect(svc.listMerges).toHaveBeenCalled());
+    const menu = await openMenu();
+    // CONTROL: the menu is the real one (the test above finds Thread history in it).
+    expect(within(menu).getByText('Add to ticket…')).toBeInTheDocument();
+    expect(within(menu).queryByText('Thread history')).toBeNull();
+  });
+
   it('every item reads in sentence case, as v4 does — the ones staging wrote in Title Case too', async () => {
     renderHeader({
       message: { ...message, isLead: true, externalThreadId: 'thread-1' } as unknown as Message,

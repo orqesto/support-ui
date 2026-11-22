@@ -12,6 +12,7 @@ import type { Message } from '@/types';
 import type { TicketThread } from '@/features/tickets/services/ticketThreads.service';
 import { getConvUrlId } from '@/lib/messageHelpers';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
+import { senderLabel } from '@/lib/visitorEmail';
 
 type Tab = 'messages' | 'comments' | 'attachments' | 'details';
 
@@ -196,7 +197,9 @@ export function TicketPanelTabs({
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm font-medium truncate">{root.sender}</p>
+                            <p className="text-sm font-medium truncate">
+                              {senderLabel(root.sender)}
+                            </p>
                             {root.subject && (
                               <p className="text-sm truncate text-muted-foreground group-hover:text-primary transition-colors">
                                 {root.subject}

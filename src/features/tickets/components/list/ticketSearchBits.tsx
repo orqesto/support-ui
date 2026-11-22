@@ -1,5 +1,6 @@
 import { Highlight } from '@/components/ui/Highlight';
 import type { Ticket } from '@/types';
+import { senderLabel } from '@/lib/visitorEmail';
 
 /**
  * A searched ticket's title and the line saying where else it matched. Ticket fields, notes and
@@ -26,7 +27,7 @@ export const ticketMatchLine = (ticket: Ticket, terms?: string[]) => {
     return (
       <>
         <span className="font-medium text-foreground/80">Sender: </span>
-        <Highlight text={ticket.sender} terms={terms} mode="anywhere" />
+        <Highlight text={senderLabel(ticket.sender)} terms={terms} mode="anywhere" />
       </>
     );
   }

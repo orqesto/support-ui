@@ -11,6 +11,7 @@ import type { SLABreach } from '@/features/statistics/services/sla.service';
 import { slaService } from '@/features/statistics/services/sla.service';
 import { SLA_DEFAULT_DAYS, SLA_PRIORITIES } from './SLAByPriorityTable';
 import { isCustomPeriod, periodKey, periodParams, type ReportPeriod } from '@/lib/reportPeriod';
+import { senderLabel } from '@/lib/visitorEmail';
 
 type SLABreachListProps = {
   days?: number;
@@ -115,7 +116,7 @@ export const SLABreachList = ({ days = SLA_DEFAULT_DAYS, period }: SLABreachList
               {breach.subject ?? breach.title ?? 'No subject'}
             </span>
             <span className="mt-1 text-xs font-normal text-muted-foreground">
-              From: {breach.sender}
+              From: {senderLabel(breach.sender)}
             </span>
           </Button>
         ),

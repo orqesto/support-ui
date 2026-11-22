@@ -28,6 +28,7 @@ import {
   MG_TITLE,
 } from './relatedStyles';
 import { useGuardAction } from '../presence/writingGuardContext';
+import { senderLabel } from '@/lib/visitorEmail';
 
 /** What the dialog needs to know about each ticket. A `Message` row satisfies it. */
 export type MergeRow = {
@@ -233,7 +234,9 @@ export const MergeConfirmDialog = ({
                         </span>
                         {[row.sender, when].some(Boolean) && (
                           <span className="text-[12px] text-muted-foreground truncate">
-                            {[row.sender, when && `opened ${when}`].filter(Boolean).join(' · ')}
+                            {[senderLabel(row.sender), when && `opened ${when}`]
+                              .filter(Boolean)
+                              .join(' · ')}
                           </span>
                         )}
                       </span>

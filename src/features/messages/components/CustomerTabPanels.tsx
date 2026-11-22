@@ -1,8 +1,8 @@
 import { channelName, priorityLabel } from './messageDetailConstants';
 import { getInitials } from '@/lib/initials';
 import { formatDate } from '@/lib/utils';
-import { parseSender } from '@/lib/messageHelpers';
 import type { Message, MessageEvent } from '@/types';
+import { senderLabel, shownSender } from '@/lib/visitorEmail';
 
 /**
  * The CUSTOMER tab's own blocks, extracted so `MessagePanelTabs` stays inside its 650-line cap
@@ -15,7 +15,7 @@ import type { Message, MessageEvent } from '@/types';
 
 /** v4 `.k-sender`: avatar initials, the bold name, then the address and (non-email) channel. */
 export const CustomerSenderBlock = ({ message }: { message: Message }) => {
-  const { name, address } = parseSender(message.sender);
+  const { name, address } = shownSender(message.sender);
   const second = [
     name ? address : null,
     message.channel !== 'email' ? channelName(message.channel) : null,
@@ -23,7 +23,7 @@ export const CustomerSenderBlock = ({ message }: { message: Message }) => {
   return (
     <div className="flex gap-2 items-center mb-2.5" data-testid="customer-sender">
       <div className="w-[30px] h-[30px] rounded-full bg-sunken border border-border flex items-center justify-center font-display text-[10.5px] font-semibold text-muted-foreground flex-shrink-0">
-        {getInitials(message.sender)}
+        {getInitials(senderLabel(message.sender))}
       </div>
       <div className="min-w-0">
         <b className="block text-[12.5px] font-semibold text-foreground truncate">

@@ -11,6 +11,7 @@ import { formatDate } from '@/lib/utils';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/logger';
 import { getApiErrorMessage } from '@/lib/errorMessages';
+import { senderLabel } from '@/lib/visitorEmail';
 
 type DeletedMessage = {
   id: number;
@@ -197,7 +198,7 @@ export const DeletedMessages = () => {
                               {msg.subject ?? '(no subject)'}
                             </div>
                             <div className="text-xs text-muted-foreground truncate max-w-xs">
-                              {msg.sender}
+                              {senderLabel(msg.sender)}
                             </div>
                           </td>
                           <td className="px-4 py-3">

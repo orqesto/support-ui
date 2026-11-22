@@ -31,6 +31,7 @@ import {
 import { AnalysisDegradedHint, analysisInfoValue } from './AnalysisDegradedHint';
 import { suggestionSublabel } from './aiFlagCopy';
 import { useIsWorkspaceAdmin } from '@/hooks/useIsWorkspaceAdmin';
+import { isNoEmailVisitor, senderLabel } from '@/lib/visitorEmail';
 
 // Moved to `@/types/similarResult` (modularity task F2); re-exported for existing importers.
 export type { KBAttachment, SimilarResult };
@@ -91,6 +92,7 @@ const isKBReference = (ref: KBReference | ChunkReference): ref is KBReference =>
  */
 const senderAddress = (sender?: string): string => {
   if (!sender) return 'unknown recipient';
+  if (isNoEmailVisitor(sender)) return senderLabel(sender);
   return sender.match(/<([^>]+)>/)?.[1] ?? sender.trim();
 };
 

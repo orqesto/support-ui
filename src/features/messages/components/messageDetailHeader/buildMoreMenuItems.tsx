@@ -24,6 +24,7 @@ import { createTicketLabel } from '../messageDetailConstants';
 import type { HeaderTickets } from '../RelatedPopover';
 import type { useThreadTicketsState } from '../useThreadTicketsState';
 import type { MessageDetailHeaderProps } from './types';
+import { isNoEmailVisitor } from '@/lib/visitorEmail';
 import { runAtOnce, type ConfirmIfWriting } from '../../presence/useWritingGuard';
 
 export type MoreMenuItem = {
@@ -193,7 +194,9 @@ export function buildMoreMenuItems({
     },
     // Was the "History" link beside the sender; v3 has no room for it there, and dropping it
     // would remove the only path from a message to the customer's other conversations.
-    {
+    // Not for a website visitor with no email: the stored placeholder is every such visitor's,
+    // so "this customer's other conversations" would be other people's.
+    !isNoEmailVisitor(message.sender) && {
       label: 'Thread history',
       icon: <HistoryIcon className="w-3 h-3" />,
       action: () => {

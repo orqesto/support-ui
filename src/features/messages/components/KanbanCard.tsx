@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/Button';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
-import { getChannelIcon, formatConvId, getConvUrlId, parseSender } from '@/lib/messageHelpers';
+import { getChannelIcon, formatConvId, getConvUrlId } from '@/lib/messageHelpers';
 import { cn, formatAge, safeCssColor } from '@/lib/utils';
 import { DepartmentBadge } from './DepartmentBadge';
 import { MessageSignalBadges } from './MessageSignalBadges';
@@ -41,6 +41,7 @@ import {
   type ToggleSelected,
 } from './bulk/selectMode';
 import { useLongPress } from './bulk/useLongPress';
+import { senderLabel, shownSender } from '@/lib/visitorEmail';
 
 type KanbanCardProps = {
   thread: MessageThread;
@@ -120,8 +121,9 @@ export const KanbanCard = ({
 
   // The sender's name, as the list's rows and cards show it (Messages list v4); a bare address
   // when there is no name. The full `Name <addr>` stays for the accessible names below.
-  const fullSender = thread.sender || msg.sender;
-  const parsedSender = parseSender(fullSender);
+  // (A website visitor who left no email reads "no email", never the stored placeholder.)
+  const fullSender = senderLabel(thread.sender || msg.sender);
+  const parsedSender = shownSender(thread.sender || msg.sender);
   const customer = parsedSender.name ?? parsedSender.address;
   const signalMessage = thread.latestIncomingMessage ?? msg;
   const spine = getSpine(signalMessage, thread);

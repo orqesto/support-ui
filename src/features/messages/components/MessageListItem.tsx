@@ -27,13 +27,7 @@ import { Tooltip } from '@/components/ui/Tooltip';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
-import {
-  getChannelIcon,
-  formatConvId,
-  getConvUrlId,
-  isTriageMessage,
-  parseSender,
-} from '@/lib/messageHelpers';
+import { getChannelIcon, formatConvId, getConvUrlId, isTriageMessage } from '@/lib/messageHelpers';
 import { logger } from '@/lib/logger';
 import { SPAM_LOG_CARD_COPY } from '@/lib/spamLogCardCopy';
 import { Highlight } from '@/components/ui/Highlight';
@@ -76,6 +70,7 @@ import {
   ThreadStatusCell,
   type TableFit,
 } from './list/threadTableParts';
+import { senderLabel, shownSender } from '@/lib/visitorEmail';
 
 type MessageListItemProps = {
   thread: MessageThread;
@@ -114,7 +109,7 @@ type MessageListItemProps = {
 
 /** The From line: the sender's name, else the bare address — never `addr <addr>`. */
 const senderShort = (sender: string | null | undefined): string => {
-  const { name, address } = parseSender(sender);
+  const { name, address } = shownSender(sender);
   return name ?? address;
 };
 
@@ -291,7 +286,7 @@ const MessageListItemRow = ({
       <Checkbox
         checked={selected === true}
         // The address is on the THREAD row (what the row shows); latestMessage has no sender.
-        aria-label={`Select thread from ${thread.sender || msg.sender}`}
+        aria-label={`Select thread from ${senderLabel(thread.sender || msg.sender)}`}
         onChange={(event) =>
           isRangeClick(event.nativeEvent)
             ? onToggleSelected(selectableId, { range: true })

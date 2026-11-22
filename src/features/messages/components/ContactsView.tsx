@@ -33,6 +33,7 @@ import {
   type PaginationMeta,
 } from '@/services/message.service';
 import type { Message } from '@/types';
+import { isNoEmailVisitor, senderLabel } from '@/lib/visitorEmail';
 
 type ContactsViewProps = {
   apiFilters: Record<string, string>;
@@ -81,6 +82,10 @@ function ContactRow({
   /** Lead qualification is not configured — no LEAD marks (see useLeadsHidden). */
   leadsHidden?: boolean;
 }) {
+  // Website visitors who left no email arrive as ONE row (they share the stored placeholder):
+  // it lists their threads, but opens no profile — notes, labels and a manager on it would be
+  // every such visitor's.
+  const shared = isNoEmailVisitor(contact.sender);
   const [expanded, setExpanded] = useState(false);
   const [subjectState, setSubjectState] = useState<SubjectState>({ loading: false, data: null });
   const [openingId, setOpeningId] = useState<number | null>(null);
@@ -140,16 +145,20 @@ function ContactRow({
 
         {/* Identity / signals — click opens the profile */}
         <div
-          role="button"
-          tabIndex={0}
-          onClick={() => onViewProfile(contact.sender)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              onViewProfile(contact.sender);
-            }
-          }}
-          className="flex flex-1 gap-3 items-center py-2 pr-3 pl-2.5 min-w-0 cursor-pointer"
+          {...(shared
+            ? {}
+            : {
+                role: 'button',
+                tabIndex: 0,
+                onClick: () => onViewProfile(contact.sender),
+                onKeyDown: (event: React.KeyboardEvent) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onViewProfile(contact.sender);
+                  }
+                },
+              })}
+          className={`flex flex-1 gap-3 items-center py-2 pr-3 pl-2.5 min-w-0 ${shared ? '' : 'cursor-pointer'}`}
         >
           <ContactAvatar email={contact.sender} size={30} />
 
@@ -158,10 +167,10 @@ function ContactRow({
               <span
                 className={`truncate text-sm ${contact.hasUnread ? 'font-bold' : 'font-semibold'} text-foreground`}
               >
-                {contact.sender}
+                {senderLabel(contact.sender)}
               </span>
               <ContactNotesIndicator
-                count={contact.noteCount}
+                count={shared ? 0 : contact.noteCount}
                 latest={contact.latestNote}
                 onOpen={() => onViewProfile(contact.sender, 'notes')}
               />
@@ -304,7 +313,7 @@ function SenderFocusView({
           <ArrowLeft className="w-4 h-4" />
           All contacts
         </Button>
-        <span className="text-sm font-medium truncate">{sender}</span>
+        <span className="text-sm font-medium truncate">{senderLabel(sender)}</span>
       </div>
 
       {loading && (
@@ -378,6 +387,7 @@ export function ContactsView({
   // The note icon opens the drawer on the customer's notes.
   const [profileSection, setProfileSection] = useState<'notes' | undefined>(undefined);
   const openProfile = useCallback((email: string, section?: 'notes') => {
+    if (isNoEmailVisitor(email)) return;
     setProfileEmail(email);
     setProfileSection(section);
   }, []);

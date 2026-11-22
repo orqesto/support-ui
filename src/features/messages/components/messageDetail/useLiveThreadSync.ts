@@ -17,6 +17,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useThreadMessageRefresh } from '@/features/messages/hooks/useThreadMessageRefresh';
 import { useConversationStatusRefresh } from '@/features/messages/hooks/useConversationStatusRefresh';
 import { useSocketReconnected } from '@/features/messages/hooks/useSocketReconnected';
+import { useVisitorEmailArrival } from './useVisitorEmailArrival';
 import type { MessageDetailProps, Setter } from './types';
 
 type PullNewEvents = (also?: {
@@ -77,6 +78,8 @@ export function useLiveThreadSync({
   // A backend that ignores `afterEventId` answers the full window: it is applied as the full read
   // and every panel is re-read, as before. Cut short (`hasMore`) or failed → a full re-read.
   useThreadMessageRefresh(message.id, pullLiveEvents);
+  // A website chat: a later visitor message is read, and the header too while no email is known.
+  useVisitorEmailArrival({ message, pullLiveEvents, rereadHeaderRef });
   // The backend moved this thread's status (a customer reply reopened it): re-read the header.
   useConversationStatusRefresh(message.id, onStatusChanged);
   /*

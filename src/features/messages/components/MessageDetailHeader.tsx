@@ -19,7 +19,6 @@ import {
   computeSlaInfo,
   type WorkflowStatus,
 } from './inboxCardHelpers';
-import { parseSender } from '@/lib/messageHelpers';
 import { isSpamThread } from '@/lib/spamVerdict';
 import { deriveThreadFlags } from './messageDetail/threadFlags';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
@@ -65,6 +64,7 @@ import { HeaderTopRow } from './messageDetailHeader/HeaderTopRow';
 import { HeaderChipRow } from './messageDetailHeader/HeaderChipRow';
 import { TicketChip, MergedChip } from './messageDetailHeader/RelatedChips';
 import { NearMissBanner } from './messageDetailHeader/NearMissBanner';
+import { senderLabel, shownSender } from '@/lib/visitorEmail';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -146,7 +146,9 @@ export function MessageDetailHeader({
   // "Marta Kowalczyk <marta@…>" → the name bold, the address beside it (v3). A bare address — or
   // a name that is just the address again — has no name part and is shown once. The Customer
   // tab's parser, so the header and the tab cannot disagree.
-  const parsedSender = parseSender(message.sender);
+  // A website visitor who left no email: "no email" where the address would be — and no
+  // contact profile to open, since the stored placeholder is shared by every such visitor.
+  const parsedSender = shownSender(message.sender);
   const senderEmail = parsedSender.address;
   const senderName = parsedSender.name ?? '';
   const [routingTo, setRoutingTo] = useState<number | null>(null);
@@ -561,7 +563,7 @@ export function MessageDetailHeader({
         <MobileSenderCard
           name={senderName}
           address={senderEmail || message.sender || ''}
-          initials={getInitials(message.sender)}
+          initials={getInitials(senderLabel(message.sender))}
           recipients={message.recipients}
         >
           <HeaderMetaStrip layout="card" {...metaStripProps} />

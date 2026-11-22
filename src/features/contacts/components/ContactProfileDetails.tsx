@@ -10,6 +10,7 @@ import { CONTACT_NOTES_ATTR } from '@/features/contacts/components/ContactNotesI
 import { safeCssColor } from '@/lib/utils';
 import type { ContactProfile, ContactProfileType } from '@/services/contact.service';
 import { tintedChip } from '@/lib/userColor';
+import { emailLabel, senderLabel } from '@/lib/visitorEmail';
 
 export type OrgUser = { id: number; firstName: string; lastName: string | null; email: string };
 export type OrgLabel = { id: number; name: string; color: string };
@@ -346,11 +347,11 @@ export function ContactProfileDetails(props: ContactProfileDetailsProps) {
                   <>
                     {linked.displayName}{' '}
                     <span className="font-mono text-[11.5px] text-muted-foreground">
-                      {linked.primaryEmail}
+                      {emailLabel(linked.primaryEmail)}
                     </span>
                   </>
                 ) : (
-                  <span className="font-mono">{linked.primaryEmail}</span>
+                  <span className="font-mono">{senderLabel(linked.primaryEmail)}</span>
                 )}
               </span>
               <Button
