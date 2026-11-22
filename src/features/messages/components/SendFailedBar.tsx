@@ -40,7 +40,7 @@ export function SendFailedBar({
           disabled={retrying}
           className="h-[27px] px-[11px] rounded-[7px] border border-border bg-card text-foreground text-[12px] hover:border-border-strong"
         >
-          {retrying ? 'Retrying…' : 'Retry'}
+          {retrying ? 'Sending…' : 'Send again'}
         </Button>
       )}
       <Button

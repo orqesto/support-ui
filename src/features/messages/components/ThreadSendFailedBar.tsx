@@ -1,7 +1,10 @@
+import { X } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { MessageEvent } from '@/types';
 import { SendFailedBar, type SendFailedBarProps } from './SendFailedBar';
 import {
+  STILL_SENDING,
   failedBarState,
   ownReplyAfter,
   saysUncertain,
@@ -61,6 +64,31 @@ export function ThreadSendFailedBar({
       retrying={retrying}
       onDismiss={onDismiss}
     />
+  );
+}
+
+/**
+ * Send was pressed with a reply that is on its way already (the thread shows it as "Sending…", or
+ * the server said so). Nothing failed: a plain notice, where the failure bar would be — it goes
+ * when that reply is sent or not delivered, or the composer's text changes (stillSendingShown).
+ */
+export function StillSendingNotice({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div
+      role="status"
+      className="flex-shrink-0 flex items-center gap-[9px] px-3.5 py-2 bg-raised border-b border-border text-muted-foreground"
+    >
+      <span className="flex-1 text-[12.5px]">{STILL_SENDING}</span>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="Dismiss"
+        onClick={onDismiss}
+        className="w-[30px] h-[30px] rounded-[7px] text-muted-foreground hover:text-foreground hover:bg-transparent"
+      >
+        <X className="w-[15px] h-[15px]" />
+      </Button>
+    </div>
   );
 }
 

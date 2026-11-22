@@ -37,7 +37,7 @@ export const replyToComposerHtml = (content: string): string =>
  */
 export function useResendReply(
   { writeComposer, setComposerMode, latestComposer, composer }: ReturnType<typeof useComposerText>,
-  { richEditorRef, resendOf, setResendOf }: ReturnType<typeof useReplyComposerState>,
+  { richEditorRef, resendOf, setResendOf, sendBusyRef }: ReturnType<typeof useReplyComposerState>,
   showComposerForShortcut: () => void,
   { threadMessages, threadEventsFor, threadId }: ReturnType<typeof useThreadEvents>
 ) {
@@ -63,6 +63,8 @@ export function useResendReply(
     (msg: MessageEvent) => {
       const state = deliveryStateOf(msg);
       if (msg.type !== 'agent_reply' || !isUndelivered(state)) return;
+      // A send is waiting or out: the composer is its reply until it settles.
+      if (sendBusyRef.current) return;
       // The composer may still hold this very reply (the failed send left its text there): Resend
       // takes it over. Any other text is the agent's own and is never written over.
       if (
@@ -82,6 +84,7 @@ export function useResendReply(
     [
       latestComposer,
       richEditorRef,
+      sendBusyRef,
       setComposerMode,
       setResendOf,
       showComposerForShortcut,

@@ -21,7 +21,7 @@ import { useAiDraftsOff } from '@/features/settings/shell';
 import { Permission } from '@/types/roles';
 import { useThreadFileViewer } from './useThreadFileViewer';
 import { MessagePanelTabs } from './MessagePanelTabs';
-import { SendAgainConfirm, ThreadSendFailedBar } from './ThreadSendFailedBar';
+import { SendAgainConfirm, StillSendingNotice, ThreadSendFailedBar } from './ThreadSendFailedBar';
 import { ResendNotice } from './ResendNotice';
 import { useResendReply } from './messageDetail/useResendReply';
 import { isBlankRichText } from '@/lib/stripHtml';
@@ -618,6 +618,7 @@ export function MessageDetail({
             retrying={submitting}
             onDismiss={() => setSendFailedError(null)}
           />
+          {send.stillSendingNotice && <StillSendingNotice {...send.stillSendingNotice} />}
           {/* Send pressed again with the reply that may already have reached the customer. */}
           <SendAgainConfirm {...send.sendAgainConfirm} />
 
@@ -789,7 +790,6 @@ export function MessageDetail({
           onClose={onClose}
           sendHoldOpen={sendHoldOpen}
           setSendHoldOpen={setSendHoldOpen}
-          afterSendRef={afterSendRef}
           similarOpen={similarOpen}
           setSimilarOpen={setSimilarOpen}
         />

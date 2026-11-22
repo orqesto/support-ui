@@ -285,6 +285,57 @@ describe('restricted topics — a team adds its own', () => {
     expect(topicsOf(TEAM)).toEqual(['No extra topics']);
   });
 
+  it('a 404 that is not about the team: the server’s own sentence, not "This team is switched off…"', async () => {
+    state.failWith = {
+      response: { status: 404, data: { success: false, error: 'Workspace not found' } },
+    };
+    show();
+    await screen.findByRole('list', { name: TEAM });
+    add(TEAM, 'contract changes');
+    expect(await screen.findByText('Workspace not found')).toBeInTheDocument();
+    expect(screen.queryByText(/This team is switched off/)).toBeNull();
+    expect(state.alerts.at(-1)).toMatchObject({
+      title: 'Save failed',
+      description: 'Workspace not found',
+    });
+  });
+
+  it('a topic the server already stores under another spelling: "Already in the list", not "Saved"', async () => {
+    state.topics = ['refund disputes'];
+    show();
+    await screen.findByRole('list', { name: WORKSPACE });
+    add(WORKSPACE, 'refund  disputes');
+    await waitFor(() => expect(state.alerts).toHaveLength(1));
+    expect(state.updates).toHaveLength(1);
+    expect(state.alerts[0]).toEqual({
+      open: true,
+      title: 'Already in the list',
+      description: '“refund  disputes” is already a restricted topic here.',
+      variant: 'info',
+    });
+    expect(topicsOf(WORKSPACE)).toEqual(['refund disputes']);
+  });
+
+  it('…for a team’s list too', async () => {
+    state.teams = { '7': { restrictedTopics: ['contract changes'] } };
+    show();
+    await screen.findByRole('list', { name: TEAM });
+    add(TEAM, 'contract  changes');
+    await waitFor(() => expect(state.alerts).toHaveLength(1));
+    expect(state.alerts[0].title).toBe('Already in the list');
+  });
+
+  it('a topic’s remove control takes a press on 24 px around its 12 px icon', async () => {
+    state.topics = ['refund disputes'];
+    show();
+    await screen.findByRole('list', { name: WORKSPACE });
+    const remove = screen.getByRole('button', { name: 'Remove topic refund disputes' });
+    // jsdom lays nothing out: the classes that make the area (12 px icon + 6 px on every side).
+    for (const token of ['relative', 'before:absolute', 'before:-inset-1.5', "before:content-['']"])
+      expect(remove.className.split(' ')).toContain(token);
+    expect(remove.querySelector('svg')?.getAttribute('class')).toContain('w-3 h-3');
+  });
+
   it('three clicks in a row (a topic for Billing, a Sales save, a Billing save) lose nothing', async () => {
     state.departments = [BILLING, SALES];
     state.held = [];

@@ -1,5 +1,6 @@
 import { stripHtml } from '@/lib/stripHtml';
 import type { MessageEvent } from '@/types';
+import { channelInSentence } from './messageDetailConstants/labels';
 
 /**
  * Whether an outgoing reply reached the customer, as the backend records it on the event's
@@ -203,30 +204,81 @@ export const sendAgainTarget = (
 };
 
 /**
- * Is this text already on its way? One of the agent's own replies with the same text is still
- * being sent (`sendState: 'sending'`): sending it again now would make a second reply.
+ * Is this text already on its way? The agent's own reply with the same text that is still being
+ * sent (`sendState: 'sending'`), newest first — sending it again now would make a second reply.
  */
-export const isSameReplySending = (
+export const sameReplySendingId = (
   composer: string,
-  thread: readonly Pick<MessageEvent, 'type' | 'metadata' | 'content' | 'authorId'>[],
+  thread: readonly Pick<MessageEvent, 'id' | 'type' | 'metadata' | 'content' | 'authorId'>[],
   authorId: number | null
-): boolean =>
-  authorId !== null &&
-  thread.some(
-    (event) =>
+): number | null => {
+  if (authorId === null) return null;
+  let found: number | null = null;
+  for (const event of thread) {
+    if (
       event.authorId === authorId &&
       event.type === 'agent_reply' &&
       deliveryStateOf(event) === 'sending' &&
-      sameReplyText(composer, event.content)
-  );
+      sameReplyText(composer, event.content) &&
+      (found === null || event.id > found)
+    )
+      found = event.id;
+  }
+  return found;
+};
 
-export const STILL_SENDING = 'This reply is still being sent — wait a moment.';
+export const STILL_SENDING = 'This reply is still being sent.';
+
+/**
+ * The "still being sent" notice: Send was pressed with a reply that is on its way already — the
+ * thread shows it as "Sending…" (`eventId`), or the server said so (409, no reply named: then it
+ * is the agent's own reply with this text after `afterId`, once the thread shows it).
+ */
+export type StillSending = {
+  threadId: number;
+  text: string;
+  eventId: number | null;
+  afterId: number | null;
+};
+
+/**
+ * Is that notice still true? Not once the composer holds another text, nor once the reply it is
+ * about is no longer being sent (sent, not delivered, or replaced). A reply the thread has not
+ * shown yet counts as still on its way.
+ */
+export const stillSendingShown = (
+  notice: StillSending | null,
+  threadId: number,
+  composer: string,
+  thread: readonly Pick<MessageEvent, 'id' | 'type' | 'metadata' | 'content' | 'authorId'>[],
+  authorId: number | null
+): boolean => {
+  if (notice?.threadId !== threadId) return false;
+  if (!sameReplyText(composer, notice.text)) return false;
+  if (notice.eventId !== null) {
+    const named = thread.find((event) => event.id === notice.eventId);
+    return named !== undefined && deliveryStateOf(named) === 'sending';
+  }
+  const own = thread.filter(
+    (event) =>
+      event.type === 'agent_reply' &&
+      authorId !== null &&
+      event.authorId === authorId &&
+      (notice.afterId === null || event.id > notice.afterId) &&
+      sameReplyText(notice.text, event.content)
+  );
+  return own.length === 0 || own.some((event) => deliveryStateOf(event) === 'sending');
+};
+
+/** " via email" / " via WhatsApp" — the channel's name as the app shows it, never its code. */
+const via = (channel?: unknown): string => {
+  const name = typeof channel === 'string' ? channelInSentence(channel) : '';
+  return name ? ` via ${name}` : '';
+};
 
 /** The bar's words for a reply that was saved and did not go out (any channel). */
 export const notDeliveredText = (channel?: unknown): string =>
-  `Reply could not be delivered${
-    typeof channel === 'string' && channel ? ` via ${channel}` : ''
-  }. The message was saved but not sent — please try again.`;
+  `Reply could not be delivered${via(channel)}. It was saved but not sent.`;
 
 const UNCERTAIN_START = 'We could not confirm';
 /** Is `reason` the "may have reached the customer" wording below? */
@@ -234,6 +286,4 @@ export const saysUncertain = (reason: string): boolean => reason.startsWith(UNCE
 
 /** The bar's words for a send that may have reached the customer (any channel). */
 export const uncertainFailureText = (channel?: unknown): string =>
-  `${UNCERTAIN_START} that the reply reached the customer${
-    typeof channel === 'string' && channel ? ` via ${channel}` : ''
-  }. Check before you resend it — they may get it twice.`;
+  `${UNCERTAIN_START} that the reply reached the customer${via(channel)}. Check before you send it again — they may get it twice.`;

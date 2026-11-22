@@ -216,6 +216,16 @@ const WITHHELD_REASON: Record<string, string> = {
   kb_unsupported_by_sources: 'the answer said more than the knowledge base does',
   restricted_topic: 'the customer asks about a subject a person must answer',
   question_unchecked: 'the question could not be checked for a restricted topic',
+  // Also written for the AI's own reply (`source: 'ai_reply'`): the customer wrote again before
+  // it went out (the newer message gets its own run), or the spam check has not cleared the sender.
+  newer_message: 'the customer wrote again before the reply went out',
+  spam_verdict: 'the sender has not passed the spam check',
+};
+
+/** Why the AI's own reply was not sent (`source: 'ai_reply'`), where it is not a failed send. */
+const AI_REPLY_WITHHELD_REASON: Record<string, string> = {
+  newer_message: WITHHELD_REASON.newer_message,
+  spam_verdict: WITHHELD_REASON.spam_verdict,
 };
 
 /** A reason this bundle does not know (a newer backend): words, never the raw code. */
@@ -319,7 +329,7 @@ export function autoReplyWithheldLabel(details: Record<string, unknown> | null):
   const uncertain = reason === 'send_failed' && details?.['uncertain'] === true;
   if (details?.['source'] === 'ai_reply') {
     if (reason !== 'send_failed')
-      return `The automatic reply was not sent: ${WITHHELD_REASON_UNKNOWN}`;
+      return `The automatic reply was not sent: ${known(AI_REPLY_WITHHELD_REASON, reason) ?? WITHHELD_REASON_UNKNOWN}`;
     return uncertain ? AI_REPLY_UNCERTAIN : AI_REPLY_FAILED;
   }
   if (details?.['source'] === 'missing_info') return askWithheldLabel(details, reason, uncertain);

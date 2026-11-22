@@ -8,6 +8,7 @@ import type { ContradictionCheckMetadata, MessageAttachmentsAnalyzed } from '@/t
 import { readNoReplyMarker } from './noReplyMarker';
 import { notCustomerWorkMark } from './notCustomerWork';
 import {
+  draftTooltipLead,
   hasActiveContradiction,
   namedReviewReason,
   NEEDS_REVIEW_REASON_LABELS,
@@ -604,7 +605,8 @@ export const getAiState = (
       return hasDraft
         ? {
             label: `${NEEDS_REVIEW_REASON_LABELS[named]} · draft ready`,
-            tooltip: `AI prepared a draft reply — review and send · ${why}`,
+            // A send-gate hold never invites sending the draft it held.
+            tooltip: `${draftTooltipLead(named)} · ${why}`,
           }
         : { label: NEEDS_REVIEW_REASON_LABELS[named], tooltip: why };
     }

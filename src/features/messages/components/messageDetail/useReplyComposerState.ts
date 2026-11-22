@@ -7,7 +7,7 @@ import { resolveReplyBlock } from '../replyBlockState';
 import type { WhatsAppTemplate } from '../whatsappTemplates';
 import type { KeptSendKey } from './sendKey';
 import type { Setter } from './types';
-import type { FailedSend, ResendTarget } from '../deliveryState';
+import type { FailedSend, ResendTarget, StillSending } from '../deliveryState';
 
 /** Files, send failures, the channel window, WhatsApp templates and the editor refs. */
 
@@ -41,6 +41,14 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
   // A reply request of this tab is out: its answer re-reads the thread, so a `send-failed` event
   // arriving meanwhile reads nothing (one failure = one re-read).
   const requestOutRef = useRef(false);
+  /*
+    A send of this composer is waiting for its thread or is out (reply, note or template): the ONE
+    guard every way of sending reads — the button, Send ▾, the shortcut, the bar's Send again, a
+    bubble's Resend. A ref, set and cleared synchronously: a second press in the same tick sees it.
+  */
+  const sendBusyRef = useRef(false);
+  // Send was pressed with a reply that is on its way already: a notice, not a failure.
+  const [stillSending, setStillSending] = useState<StillSending | null>(null);
   const setSendFailedError = useCallback<Setter<string | null>>((value) => {
     ownFailureRef.current = false;
     setSendFailedEventId(null);
@@ -117,6 +125,9 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     failedSendRef,
     ownFailureRef,
     requestOutRef,
+    sendBusyRef,
+    stillSending,
+    setStillSending,
     sendFailedAfter,
     setSendFailedAfter,
     // The bar's reply: the one an event named, else where to look for it (ThreadSendFailedBar).

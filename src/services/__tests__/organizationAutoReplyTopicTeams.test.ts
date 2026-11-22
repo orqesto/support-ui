@@ -14,7 +14,10 @@ const SETTINGS = { enabled: true, mode: 'all', restrictedTopics: ['refund disput
 /**
  * FE ↔ BE skew: the frontend ships on merge, the backend on a tag. A backend that knows
  * restricted topics but does not list the teams that have them answers without
- * `restrictedTopicTeams`: read as null ("not listed"), never as an empty list it did not send.
+ * `restrictedTopicTeams`. The service hands the restricted-topics fields on AS SENT and invents
+ * nothing; only the settings page reads them, and it checks their shape there (a missing or
+ * malformed list reads as null, "not listed" — restrictedTopicReaders.test.ts), so that code
+ * stays out of the main bundle.
  */
 describe('organizationService.getAutoReply — restrictedTopicTeams', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -30,15 +33,18 @@ describe('organizationService.getAutoReply — restrictedTopicTeams', () => {
     expect(settings.restrictedTopicTeams).toEqual(teams);
   });
 
-  it('an older backend (no field): null, and the topics it does send are kept', async () => {
+  it('an older backend (no field): nothing invented, and the topics it does send are kept', async () => {
     get.mockResolvedValue(reply(SETTINGS));
     const settings = await organizationService.getAutoReply();
-    expect(settings.restrictedTopicTeams).toBeNull();
+    expect(settings.restrictedTopicTeams).toBeUndefined();
+    expect(settings.builtInRestrictedTopics).toBeUndefined();
     expect(settings.restrictedTopics).toEqual(['refund disputes']);
   });
 
-  it('a field that is not a list: null', async () => {
-    get.mockResolvedValue(reply({ ...SETTINGS, restrictedTopicTeams: {} }));
-    expect((await organizationService.getAutoReply()).restrictedTopicTeams).toBeNull();
+  it('no settings at all (an empty answer): the defaults, and no topics field', async () => {
+    get.mockResolvedValue({ data: { success: true } });
+    const settings = await organizationService.getAutoReply();
+    expect(settings.enabled).toBe(false);
+    expect(settings.restrictedTopics).toBeUndefined();
   });
 });

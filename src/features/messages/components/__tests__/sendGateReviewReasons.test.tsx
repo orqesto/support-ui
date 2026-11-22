@@ -73,6 +73,45 @@ describe('send gate hold reasons → words', () => {
     expect(state?.label).toBe('Reply did not answer the question · draft ready');
   });
 
+  it.each([...GATE_REASONS, ['blocked_gate', 'Held by a send rule']])(
+    '%s with a stored draft: the tooltip does not invite sending it',
+    (code) => {
+      const state = getAiState(
+        row({ needsReviewReason: code, metadata: { suggestedAnswer: 'Hello' } }),
+        thread
+      );
+      expect(state?.tooltip).toBe(
+        `A person must answer — the draft is for reference · ${needsReviewTooltip(code)}`
+      );
+      expect(state?.tooltip).not.toMatch(/review and send/);
+    }
+  );
+
+  it('CONTROL — a hold that is not the gate’s (flood) with a draft: review and send, as before', () => {
+    const state = getAiState(
+      row({ needsReviewReason: 'flood', metadata: { suggestedAnswer: 'Hello' } }),
+      thread
+    );
+    expect(state?.tooltip).toMatch(/^AI prepared a draft reply — review and send · /);
+  });
+
+  it('send_failed names itself on the chip, with its existing label', () => {
+    expect(NAMED_REVIEW_REASONS).toContain('send_failed');
+    expect(getAiState(row({ needsReviewReason: 'send_failed' }), thread)).toEqual({
+      label: 'Send failed',
+      tooltip: 'Needs review: Send failed',
+    });
+    expect(
+      getAiState(
+        row({ needsReviewReason: 'send_failed', metadata: { suggestedAnswer: 'Hello' } }),
+        thread
+      )
+    ).toEqual({
+      label: 'Send failed · draft ready',
+      tooltip: 'AI prepared a draft reply — review and send · Needs review: Send failed',
+    });
+  });
+
   it.each(GATE_REASONS)('%s: the full badge carries the label', (code, label) => {
     render(<MessageSignalBadges message={row({ needsReviewReason: code })} />);
     expect(screen.getByText(`· ${label}`)).toBeInTheDocument();

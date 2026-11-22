@@ -28,7 +28,11 @@ import {
   RestrictedTopicsField,
   TopicsReadOnly,
 } from './RestrictedTopicsField';
-import { readRestrictedTopics, restrictedTopicsRefusal } from './restrictedTopics';
+import {
+  readBuiltInTopics,
+  readRestrictedTopics,
+  restrictedTopicsRefusal,
+} from './restrictedTopics';
 import { OtherTeamTopics, TOPICS_ADMIN_ONLY, readTopicTeams } from './OtherTeamTopics';
 import type { BuiltInRestrictedTopic, RestrictedTopicTeam } from '@/types/api';
 import {
@@ -91,6 +95,17 @@ const overridesDefault = (settings: Settings | undefined): boolean => {
 
 const TEAM_GONE =
   'This team is switched off or no longer exists, so its restricted topics cannot be changed.';
+const TOPIC_ALREADY_LISTED = 'Already in the list';
+/**
+ * A 404 on a topic change, in words: the plain sentence when it is about the team (the server's
+ * "Team not found…", or no sentence at all on a team's list), otherwise what the server said.
+ */
+const notFoundSentence = (err: unknown, team: boolean): string | undefined => {
+  const told = getErrorBody(err)?.error;
+  const sentence = typeof told === 'string' ? told.trim() : '';
+  if (team && (sentence === '' || /^team not found/i.test(sentence))) return TEAM_GONE;
+  return sentence || undefined;
+};
 const RESET_KEEPS_TOPICS = "The reset keeps this team's extra restricted topics.";
 
 /** The team map as it is saved: without restricted topics, and without a team left empty. */
@@ -182,7 +197,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       restrictedTopics: readRestrictedTopics(auto.restrictedTopics) ?? [],
     };
     setTopicsSupported(readRestrictedTopics(auto.restrictedTopics) !== null);
-    setBuiltInTopics(auto.builtInRestrictedTopics ?? []);
+    setBuiltInTopics(readBuiltInTopics(auto.builtInRestrictedTopics));
     setTopicTeams(readTopicTeams(auto.restrictedTopicTeams) ?? []);
     setOrg(initialOrg);
     orgRef.current = initialOrg;
@@ -391,6 +406,14 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     setPerDept(next);
   }, []);
 
+  /** A list's own topics as the page holds them now (the workspace's, or one team's). */
+  const topicsIn = useCallback(
+    (deptId: number | null): readonly string[] =>
+      (deptId === null
+        ? orgRef.current.restrictedTopics
+        : perDeptRef.current[String(deptId)]?.restrictedTopics) ?? [],
+    []
+  );
   /**
    * Add or remove ONE restricted topic. Only the change is sent, and the server applies it to
    * the list as it is stored — so a page opened a while ago, or a second admin, cannot erase
@@ -401,6 +424,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       queued(deptId === null ? 'org' : String(deptId), async () => {
         setError(null);
         try {
+          const before = topicsIn(deptId);
           const stored = await organizationService.updateAutoReply({
             restrictedTopicsChange: {
               ...(deptId === null
@@ -410,7 +434,17 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
             },
           });
           applyStored(stored);
-          if (deptId === null) {
+          // The server keeps a topic it already stores under another spelling: answered 200, and
+          // the list is as it was — "Saved" would be untrue.
+          const after = topicsIn(deptId);
+          if ('add' in change && before.join('\n') === after.join('\n')) {
+            onShowAlert({
+              open: true,
+              title: TOPIC_ALREADY_LISTED,
+              description: `“${change.add}” is already a restricted topic here.`,
+              variant: 'info',
+            });
+          } else if (deptId === null) {
             onShowAlert({
               open: true,
               title: 'Saved',
@@ -426,9 +460,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
             'Failed to save the restricted topics. Please try again.',
             'Could not save the restricted topics.',
             // The team was switched off or deleted meanwhile (404), or the role is not enough
-            // (403 ROLE_REQUIRED): said plainly.
+            // (403 ROLE_REQUIRED): said plainly. Any other 404 keeps the server's own sentence.
             getErrorStatus(err) === 404
-              ? TEAM_GONE
+              ? notFoundSentence(err, deptId !== null)
               : getErrorStatus(err) === 403 && getErrorBody(err)?.code === 'ROLE_REQUIRED'
                 ? TOPICS_ADMIN_ONLY
                 : undefined
@@ -444,7 +478,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           return false;
         }
       }),
-    [applyStored, refreshTopics, onShowAlert, queued, saveFailed]
+    [applyStored, refreshTopics, onShowAlert, queued, saveFailed, topicsIn]
   );
 
   const setDeptKey = <Key extends keyof Settings>(deptId: number, key: Key, value: Settings[Key]) =>

@@ -132,7 +132,7 @@ describe('Resend on an undelivered reply', () => {
     await screen.findByText(/Resending a reply/);
     pressSend();
     await screen.findByText('Send failed');
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send again' })).toBeNull();
     expect(screen.queryByText(/Resending a reply/)).toBeNull();
   });
 
@@ -202,7 +202,7 @@ describe('after a resend', () => {
     await screen.findByText(/Resending a reply/);
     pressSend();
     await screen.findByText('Send failed');
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send again' })).toBeNull();
   });
 
   it('CONTROL: an ordinary reply that failed the same way does offer Retry', async () => {
@@ -214,7 +214,7 @@ describe('after a resend', () => {
     fireEvent.change(editor(), { target: { value: '<p>Something else.</p>' } });
     pressSend();
     await screen.findByText('Send failed');
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Send again' })).toBeTruthy();
   });
 });
 
@@ -229,7 +229,7 @@ describe("a Retry with the failed send's own key", () => {
     await ready();
     fireEvent.change(editor(), { target: { value: '<p>Something else.</p>' } });
     pressSend();
-    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Send again' }));
     await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
     const [first, second] = svc.message.reply.mock.calls as Call[];
     expect(keyOf(second)).toBe(keyOf(first));
@@ -447,7 +447,7 @@ describe('review of #999', () => {
     expect(screen.queryByText('Failed to send. Please try again.')).toBeNull();
     // Retry asks first, as Resend does: the customer may get it twice.
     svc.message.reply.mockResolvedValueOnce({ success: true });
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send again' }));
     const dialog = await screen.findByRole('dialog');
     expect(svc.message.reply).toHaveBeenCalledTimes(1);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Send again' }));
@@ -488,14 +488,14 @@ describe('review of #999', () => {
     });
     await socketEvent('message:replied', { messageId: 101, late: true });
     await waitFor(() => expect(screen.queryByText('Send failed')).toBeNull());
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send again' })).toBeNull();
   });
 
   it('LOW: a send-failed with no channel never says "via null"', async () => {
     renderDetail();
     await ready();
     await socketEvent('send-failed', { messageId: 101, channel: null, outgoingMessageId: 942 });
-    await screen.findByText(/^Reply could not be delivered\. The message was saved/);
+    await screen.findByText(/^Reply could not be delivered\. It was saved/);
     expect(screen.queryByText(/via null/)).toBeNull();
   });
 

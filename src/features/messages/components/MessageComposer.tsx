@@ -235,11 +235,13 @@ export function MessageComposer({
   };
 
   const handleRemoveFile = (index: number) => {
+    if (submitting) return;
     onFilesChange(selectedFiles.filter((_, idx) => idx !== index));
   };
 
   // Append image files pasted (Ctrl+V) or dropped into the composer.
   const addImageFiles = (files: File[]) => {
+    if (submitting) return;
     if (files.length) onFilesChange([...selectedFiles, ...files]);
   };
 
@@ -365,15 +367,18 @@ export function MessageComposer({
             content={composer}
             onChange={setComposer}
             // While an AI draft is being written the editor holds the agent's NOTE, not a reply.
-            onSubmit={aiBusy ? undefined : onSend}
+            // While a send waits or is out, the shortcut is not another send.
+            onSubmit={aiBusy || submitting ? undefined : onSend}
             onImageFiles={addImageFiles}
             placeholder={replyPlaceholder}
             minHeight={sizing.editorMinHeight}
             maxHeight={sizing.editorMaxHeight}
             transparent
-            locked={aiBusy}
+            // Read-only from the press of Send until it settles: what is typed meanwhile would
+            // not be in the reply, and the clear after it is out would wipe it.
+            locked={aiBusy || submitting}
             className={`rounded-none border-0 shadow-none ${restEditorClass} ${
-              aiBusy ? 'pointer-events-none opacity-60' : ''
+              aiBusy || submitting ? 'pointer-events-none opacity-60' : ''
             }`}
           />
         ) : null}
@@ -394,13 +399,16 @@ export function MessageComposer({
             onCollapse={foldComposer}
             content={composer}
             onChange={setComposer}
-            onSubmit={onSend}
+            onSubmit={submitting ? undefined : onSend}
             onImageFiles={addImageFiles}
             placeholder="Internal note — only visible to your colleagues…"
             minHeight={sizing.editorMinHeight}
             maxHeight={sizing.editorMaxHeight}
             transparent
-            className={`rounded-none border-0 shadow-none ${restEditorClass}`}
+            locked={submitting}
+            className={`rounded-none border-0 shadow-none ${restEditorClass} ${
+              submitting ? 'pointer-events-none opacity-60' : ''
+            }`}
           />
         )}
 
@@ -524,7 +532,11 @@ export function MessageComposer({
 
       {/* Selected files */}
       {selectedFiles.length > 0 && !atRest && (
-        <ComposerFileChips selectedFiles={selectedFiles} handleRemoveFile={handleRemoveFile} />
+        <ComposerFileChips
+          selectedFiles={selectedFiles}
+          handleRemoveFile={handleRemoveFile}
+          disabled={submitting}
+        />
       )}
       {/* While a reply is typed, Send ▾ carries the resolve choices: the row returns when the
           box is empty again (owner, 2026-10-29). Text only: an address alone (Reply to this

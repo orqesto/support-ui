@@ -13,6 +13,7 @@ import {
   type FailedSend,
 } from '../deliveryState';
 import type { Message } from '@/types';
+import { useAuthStore } from '@/stores/authStore';
 import { useThreadMessageRefresh } from '@/features/messages/hooks/useThreadMessageRefresh';
 import { useConversationStatusRefresh } from '@/features/messages/hooks/useConversationStatusRefresh';
 import { useSocketReconnected } from '@/features/messages/hooks/useSocketReconnected';
@@ -58,6 +59,8 @@ export function useLiveThreadSync({
     requestOutRef: MutableRefObject<boolean>;
   };
 }) {
+  // The signed-in agent: whose bar a `send-failed` event that names its author is.
+  const currentUserId = useAuthStore((store) => store.user?.id ?? null);
   // A customer's new message or the bot's answer on this thread: refetch THIS thread only.
   // ⛔ Not onRefresh: on MessagesPage that reloads the message, the whole list and every board
   // column — per message, for every agent with the thread open. The list already refreshes on
@@ -97,6 +100,8 @@ export function useLiveThreadSync({
         messageId: number;
         channel?: unknown;
         outgoingMessageId?: unknown;
+        authorId?: unknown;
+        authorUserId?: unknown;
         uncertain?: unknown;
         supersededEventId?: unknown;
         revertedStatus?: unknown;
@@ -136,6 +141,15 @@ export function useLiveThreadSync({
           else pullNewEventsRef.current();
           if (typeof event.revertedStatus === 'string') rereadHeaderRef.current?.();
         };
+        // The reply's author, when the event names one (a newer backend; either field name). The
+        // old payload names none: then the thread, once read, says whose reply it is (`ownOnly`).
+        const told = event.authorId ?? event.authorUserId;
+        const author = typeof told === 'number' ? told : null;
+        // Someone else's reply: never this agent's bar — the re-read shows them the bubble.
+        if (author !== null && author !== currentUserId && !sameReport) {
+          readForEvent();
+          return;
+        }
         // (An event that names no reply cannot be checked against its author: never a bar.)
         if ((ownFailureRef.current && !sameReport) || eventId === null) {
           readForEvent();
@@ -167,7 +181,8 @@ export function useLiveThreadSync({
         );
         // (After the reason: setting the reason forgets the id.)
         setSendFailedEventId(eventId);
-        setSendFailedOwnOnly(true);
+        // Named as this agent's: the bar is theirs at once, no thread read needed to decide.
+        setSendFailedOwnOnly(author === null);
         readForEvent();
       }
     };
@@ -212,6 +227,7 @@ export function useLiveThreadSync({
   }, [
     message.id,
     message.channel,
+    currentUserId,
     onRefreshRef,
     pullNewEventsRef,
     rereadHeaderRef,

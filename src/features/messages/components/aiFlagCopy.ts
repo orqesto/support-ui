@@ -107,6 +107,8 @@ export const FLOOD_REVIEW_REASON = 'flood';
  * owed without opening a tooltip. Any other reason keeps the plain "Needs review".
  */
 export const NAMED_REVIEW_REASONS = [
+  // An automatic reply that could not be sent: the agent sees it without opening a tooltip.
+  'send_failed',
   'flood',
   'partial_answer',
   'follow_up_needed',
@@ -125,6 +127,27 @@ export const NAMED_REVIEW_REASONS = [
   'blocked_gate',
 ] as const;
 export type NamedReviewReason = (typeof NAMED_REVIEW_REASONS)[number];
+
+/**
+ * The send gate's holds: the reply was judged unfit to go out as it is, so a stored draft is not
+ * something to "review and send" — a person answers, the draft is there to read.
+ */
+const SEND_GATE_HOLDS: readonly string[] = [
+  'restricted_topic',
+  'no_customer_request',
+  'needs_lookup_or_action',
+  'promises_follow_up',
+  'does_not_answer',
+  'unsupported_by_sources',
+  'not_from_knowledge',
+  'spam_verdict',
+  'blocked_gate',
+];
+export const DRAFT_REVIEW_AND_SEND = 'AI prepared a draft reply — review and send';
+export const DRAFT_FOR_REFERENCE = 'A person must answer — the draft is for reference';
+/** What the chip's tooltip says about a stored draft, by why the thread needs review. */
+export const draftTooltipLead = (reason: string | null | undefined): string =>
+  SEND_GATE_HOLDS.includes(reason ?? '') ? DRAFT_FOR_REFERENCE : DRAFT_REVIEW_AND_SEND;
 
 export const namedReviewReason = (
   thread:

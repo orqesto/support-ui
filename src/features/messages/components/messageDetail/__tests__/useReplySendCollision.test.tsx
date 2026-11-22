@@ -136,7 +136,7 @@ describe('409 someone got there first', () => {
     expect(screen.queryByText('Send failed')).toBeNull();
   });
 
-  it('another 409 (a send still in flight, REPLY_SEND_IN_FLIGHT): the Send failed bar, no dialog', async () => {
+  it('another 409 (a send still in flight, REPLY_SEND_IN_FLIGHT): the still-being-sent notice, no dialog', async () => {
     svc.message.reply = vi
       .fn()
       .mockRejectedValueOnce(
@@ -150,8 +150,9 @@ describe('409 someone got there first', () => {
     await ready();
     type('<p>On its way.</p>');
     pressSend();
-    await screen.findByText('Send failed');
-    expect(screen.getByText('This reply is still being sent — wait a moment.')).toBeTruthy();
+    // A notice, not a failure (sendOnceAsPressed.test.tsx): nothing failed, it is on its way.
+    expect(await screen.findByText('This reply is still being sent.')).toBeTruthy();
+    expect(screen.queryByText('Send failed')).toBeNull();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
