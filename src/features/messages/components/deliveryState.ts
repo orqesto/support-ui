@@ -1,5 +1,6 @@
 import { stripHtml } from '@/lib/stripHtml';
 import type { MessageEvent } from '@/types';
+import { channelInSentence } from './messageDetailConstants/labels';
 
 /**
  * Whether an outgoing reply reached the customer, as the backend records it on the event's
@@ -21,8 +22,21 @@ export const deliveryStateOf = (event: Pick<MessageEvent, 'metadata'>): Delivery
   return 'sent';
 };
 
-/** The undelivered reply the composer's next send replaces (`resendOfEventId`). */
-export type ResendTarget = { eventId: number; uncertain: boolean };
+/**
+ * The transport refused this reply for good (`metadata.sendPermanent === true`, stored with
+ * `delivered: false` and removed if it was delivered after all): sending it again cannot help, so
+ * no Resend is offered. Read from the event, so it holds after a reload and in every agent's tab.
+ * Only the exact boolean counts.
+ */
+export const isSendPermanent = (event: Pick<MessageEvent, 'metadata'>): boolean =>
+  event.metadata?.sendPermanent === true && deliveryStateOf(event) === 'failed';
+
+/**
+ * The undelivered reply the composer's next send replaces (`resendOfEventId`). `keepStoredFiles`:
+ * the agent's choice about the files stored with that reply (sent as is; absent = the backend's
+ * default — they go again only when the send uploads none). See ResendNotice.
+ */
+export type ResendTarget = { eventId: number; uncertain: boolean; keepStoredFiles?: boolean };
 
 /** Not delivered, or perhaps not: the states a resend is offered for. */
 export const isUndelivered = (state: DeliveryState): boolean =>
@@ -52,9 +66,9 @@ export const reconcileResendTarget = (
         return current === target.eventId ? target : { eventId: current, uncertain: false };
       if (!isUndelivered(state)) return null;
       const uncertain = state === 'uncertain';
-      return current === target.eventId && uncertain === target.uncertain
-        ? target
-        : { eventId: current, uncertain };
+      if (current !== target.eventId) return { eventId: current, uncertain };
+      // The same reply: the agent's choice about its files stays.
+      return uncertain === target.uncertain ? target : { ...target, uncertain };
     }
     const successor = thread.find((event) => event.metadata?.resendOf === current);
     if (!successor) return null;
@@ -203,30 +217,95 @@ export const sendAgainTarget = (
 };
 
 /**
- * Is this text already on its way? One of the agent's own replies with the same text is still
- * being sent (`sendState: 'sending'`): sending it again now would make a second reply.
+ * Is this text already on its way? The agent's own reply with the same text that is still being
+ * sent (`sendState: 'sending'`), newest first — sending it again now would make a second reply.
  */
-export const isSameReplySending = (
+export const sameReplySendingId = (
   composer: string,
-  thread: readonly Pick<MessageEvent, 'type' | 'metadata' | 'content' | 'authorId'>[],
+  thread: readonly Pick<MessageEvent, 'id' | 'type' | 'metadata' | 'content' | 'authorId'>[],
   authorId: number | null
-): boolean =>
-  authorId !== null &&
-  thread.some(
-    (event) =>
+): number | null => {
+  if (authorId === null) return null;
+  let found: number | null = null;
+  for (const event of thread) {
+    if (
       event.authorId === authorId &&
       event.type === 'agent_reply' &&
       deliveryStateOf(event) === 'sending' &&
-      sameReplyText(composer, event.content)
-  );
+      sameReplyText(composer, event.content) &&
+      (found === null || event.id > found)
+    )
+      found = event.id;
+  }
+  return found;
+};
 
-export const STILL_SENDING = 'This reply is still being sent — wait a moment.';
+export const STILL_SENDING = 'This reply is still being sent.';
+
+/**
+ * The "still being sent" notice: Send was pressed with a reply that is on its way already — the
+ * thread shows it as "Sending…" (`eventId`), or the server said so (409, no reply named: then it
+ * is the agent's own reply with this text after `afterId`, once the thread shows it).
+ */
+export type StillSending = {
+  threadId: number;
+  text: string;
+  eventId: number | null;
+  afterId: number | null;
+};
+
+/**
+ * Is that notice still true? Not once the composer holds another text, nor once the reply it is
+ * about is no longer being sent (sent, not delivered, or replaced). A reply the thread has not
+ * shown yet counts as still on its way.
+ */
+export const stillSendingShown = (
+  notice: StillSending | null,
+  threadId: number,
+  composer: string,
+  thread: readonly Pick<MessageEvent, 'id' | 'type' | 'metadata' | 'content' | 'authorId'>[],
+  authorId: number | null
+): boolean => {
+  if (notice?.threadId !== threadId) return false;
+  if (!sameReplyText(composer, notice.text)) return false;
+  if (notice.eventId !== null) {
+    const named = thread.find((event) => event.id === notice.eventId);
+    return named !== undefined && deliveryStateOf(named) === 'sending';
+  }
+  const own = thread.filter(
+    (event) =>
+      event.type === 'agent_reply' &&
+      authorId !== null &&
+      event.authorId === authorId &&
+      (notice.afterId === null || event.id > notice.afterId) &&
+      sameReplyText(notice.text, event.content)
+  );
+  return own.length === 0 || own.some((event) => deliveryStateOf(event) === 'sending');
+};
+
+/** " via email" / " via WhatsApp" — the channel's name as the app shows it, never its code. */
+const via = (channel?: unknown): string => {
+  const name = typeof channel === 'string' ? channelInSentence(channel) : '';
+  return name ? ` via ${name}` : '';
+};
 
 /** The bar's words for a reply that was saved and did not go out (any channel). */
 export const notDeliveredText = (channel?: unknown): string =>
-  `Reply could not be delivered${
-    typeof channel === 'string' && channel ? ` via ${channel}` : ''
-  }. The message was saved but not sent — please try again.`;
+  `Reply could not be delivered${via(channel)}. It was saved but not sent.`;
+
+/**
+ * The reply's 502 said `retryable: false`: the transport refused this reply for a reason that
+ * sending it again cannot change (the address refused, the bot blocked) — so neither Send again
+ * nor the bubble's Resend is offered for it, in this tab. Only some of these are stored on the
+ * reply (`sendPermanent`, isSendPermanent); a Telegram bot not started or blocked is not, so after
+ * a reload that reply offers Resend again (intended: the customer may start the bot).
+ */
+export const NOT_RETRYABLE =
+  'Sending this reply again cannot help, so it is not offered: write a new reply once the cause is dealt with.';
+
+/** The reply's 502 said its files were not saved with it (`warnings: ['files_not_stored']`). */
+export const FILES_NOT_KEPT =
+  'Its attachments were not saved with it: attach them again when you resend it.';
 
 const UNCERTAIN_START = 'We could not confirm';
 /** Is `reason` the "may have reached the customer" wording below? */
@@ -234,6 +313,4 @@ export const saysUncertain = (reason: string): boolean => reason.startsWith(UNCE
 
 /** The bar's words for a send that may have reached the customer (any channel). */
 export const uncertainFailureText = (channel?: unknown): string =>
-  `${UNCERTAIN_START} that the reply reached the customer${
-    typeof channel === 'string' && channel ? ` via ${channel}` : ''
-  }. Check before you resend it — they may get it twice.`;
+  `${UNCERTAIN_START} that the reply reached the customer${via(channel)}. Check before you send it again — they may get it twice.`;

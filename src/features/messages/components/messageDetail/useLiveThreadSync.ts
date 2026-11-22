@@ -13,6 +13,7 @@ import {
   type FailedSend,
 } from '../deliveryState';
 import type { Message } from '@/types';
+import { useAuthStore } from '@/stores/authStore';
 import { useThreadMessageRefresh } from '@/features/messages/hooks/useThreadMessageRefresh';
 import { useConversationStatusRefresh } from '@/features/messages/hooks/useConversationStatusRefresh';
 import { useSocketReconnected } from '@/features/messages/hooks/useSocketReconnected';
@@ -58,6 +59,8 @@ export function useLiveThreadSync({
     requestOutRef: MutableRefObject<boolean>;
   };
 }) {
+  // The signed-in agent: whose bar a `send-failed` event that names its author is.
+  const currentUserId = useAuthStore((store) => store.user?.id ?? null);
   // A customer's new message or the bot's answer on this thread: refetch THIS thread only.
   // ⛔ Not onRefresh: on MessagesPage that reloads the message, the whole list and every board
   // column — per message, for every agent with the thread open. The list already refreshes on
@@ -97,6 +100,8 @@ export function useLiveThreadSync({
         messageId: number;
         channel?: unknown;
         outgoingMessageId?: unknown;
+        authorId?: unknown;
+        authorUserId?: unknown;
         uncertain?: unknown;
         supersededEventId?: unknown;
         revertedStatus?: unknown;
@@ -104,6 +109,25 @@ export function useLiveThreadSync({
       if (event.messageId === message.id) {
         const eventId =
           typeof event.outgoingMessageId === 'number' ? event.outgoingMessageId : null;
+        /*
+          The LIGHT event (a newer backend): what everyone but the reply's author receives —
+          `{ messageId, outgoingMessageId }` and nothing else (the author's own room gets the full
+          one, with `authorId`). Never a bar here: the reply is someone else's (or nobody's). One
+          read of the newest events (the bubble) and one of the header (the send put the thread
+          back to "our turn"; this event no longer says so) — no side panels. An older backend's
+          event always carries `uncertain` and `revertedStatus`: it is not this one.
+        */
+        const light =
+          event.authorId === undefined &&
+          event.authorUserId === undefined &&
+          !('uncertain' in event) &&
+          !('revertedStatus' in event);
+        if (light) {
+          if (requestOutRef.current) return;
+          pullNewEventsRef.current();
+          rereadHeaderRef.current?.();
+          return;
+        }
         /*
           The backend announces every failure to the whole workspace, and the payload names no
           author. So:
@@ -136,6 +160,15 @@ export function useLiveThreadSync({
           else pullNewEventsRef.current();
           if (typeof event.revertedStatus === 'string') rereadHeaderRef.current?.();
         };
+        // The reply's author, when the event names one (a newer backend; either field name). The
+        // old payload names none: then the thread, once read, says whose reply it is (`ownOnly`).
+        const told = event.authorId ?? event.authorUserId;
+        const author = typeof told === 'number' ? told : null;
+        // Someone else's reply: never this agent's bar — the re-read shows them the bubble.
+        if (author !== null && author !== currentUserId && !sameReport) {
+          readForEvent();
+          return;
+        }
         // (An event that names no reply cannot be checked against its author: never a bar.)
         if ((ownFailureRef.current && !sameReport) || eventId === null) {
           readForEvent();
@@ -167,7 +200,8 @@ export function useLiveThreadSync({
         );
         // (After the reason: setting the reason forgets the id.)
         setSendFailedEventId(eventId);
-        setSendFailedOwnOnly(true);
+        // Named as this agent's: the bar is theirs at once, no thread read needed to decide.
+        setSendFailedOwnOnly(author === null);
         readForEvent();
       }
     };
@@ -212,6 +246,7 @@ export function useLiveThreadSync({
   }, [
     message.id,
     message.channel,
+    currentUserId,
     onRefreshRef,
     pullNewEventsRef,
     rereadHeaderRef,

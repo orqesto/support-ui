@@ -43,24 +43,29 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('what waits is the reply as it was pressed', () => {
-  it('text typed after Send is not what goes out', async () => {
+  // (The editor is read-only during the wait — sendOnceAsPressed.test.tsx; these hold whatever
+  //  reaches the composer another way.)
+  it('text typed after Send does not reach the composer, and is not what goes out', async () => {
     renderDetail();
     type('<p>On its way.</p>');
     pressSend();
     type('<p>On its way. And one more half-typed senten</p>');
+    expect(editor()).toHaveValue('<p>On its way.</p>');
     await reads[0].land([event({ id: 900 })]);
     await waitFor(() => expect(posts()).toHaveLength(1));
     expect(posts()[0][1]).toBe('<p>On its way.</p>');
   });
 
-  it('the composer cleared after Send: the pressed reply still goes out, never a blank one', async () => {
+  it('words a command put into the composer after Send: the pressed reply goes out, and they are kept', async () => {
     renderDetail();
     type('<p>On its way.</p>');
     pressSend();
-    type('');
+    fireEvent.click(screen.getByTestId('rte-command'));
     await reads[0].land([event({ id: 900 })]);
     await waitFor(() => expect(posts()).toHaveLength(1));
     expect(posts()[0][1]).toBe('<p>On its way.</p>');
+    await settle();
+    expect(editor()).toHaveValue('<p>On its way.</p><p>Put in by a command</p>');
   });
 
   it('Send pressed three times while waiting, then more reads and events: one POST', async () => {

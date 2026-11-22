@@ -38,6 +38,26 @@ describe('RichTextEditor — locked', () => {
     expect(container.querySelector('.ProseMirror ul')).toBeNull();
   });
 
+  it('follows the prop AFTER mount (a send begins): the editor stops being editable, and is again when it ends', async () => {
+    const view = (locked: boolean) => (
+      <RichTextEditor
+        content="<p>hello</p>"
+        onChange={vi.fn()}
+        initiallyHidden={false}
+        locked={locked}
+      />
+    );
+    const { container, rerender } = render(view(false));
+    await waitFor(() => expect(container.querySelector('.ProseMirror')).not.toBeNull());
+    const surface = () => container.querySelector('.ProseMirror')?.getAttribute('contenteditable');
+    expect(surface()).toBe('true');
+    rerender(view(true));
+    await waitFor(() => expect(surface()).toBe('false'));
+    expect(screen.getByLabelText('Bold')).toBeInactive();
+    rerender(view(false));
+    await waitFor(() => expect(surface()).toBe('true'));
+  });
+
   it('CONTROL: unlocked, the same button formats the text', async () => {
     const onChange = vi.fn();
     const { container } = render(

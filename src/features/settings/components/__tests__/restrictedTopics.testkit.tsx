@@ -32,7 +32,9 @@ const state = vi.hoisted(() => ({
   alerts: [] as { title: string; description?: string; variant?: string }[],
 }));
 
-const sameTopic = (left: string, right: string) => left.toLowerCase() === right.toLowerCase();
+// As the backend compares topics: letter case and runs of spaces aside.
+const fold = (topic: string) => topic.replace(/\s+/g, ' ').trim().toLowerCase();
+const sameTopic = (left: string, right: string) => fold(left) === fold(right);
 const changed = (list: string[], change: Change): string[] => [
   ...list.filter((topic) => !(change.remove ?? []).some((gone) => sameTopic(gone, topic))),
   ...(change.add ?? []).filter((topic) => !list.some((kept) => sameTopic(kept, topic))),

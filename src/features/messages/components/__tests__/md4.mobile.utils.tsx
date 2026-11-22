@@ -112,7 +112,11 @@ vi.mock('@/components/shared/RichTextEditor', () => ({
     minHeight,
     className,
     onCollapse,
+    onSubmit,
+    locked,
   }: {
+    onSubmit?: () => void;
+    locked?: boolean;
     content?: string;
     onChange?: (val: string) => void;
     placeholder?: string;
@@ -127,7 +131,21 @@ vi.mock('@/components/shared/RichTextEditor', () => ({
         className={className}
         placeholder={placeholder}
         value={content ?? ''}
-        onChange={(event) => onChange?.(event.target.value)}
+        // The real editor's `locked` is setEditable(false): nothing typed changes the text.
+        readOnly={locked}
+        data-locked={locked ? 'true' : undefined}
+        onChange={(event) => {
+          if (!locked) onChange?.(event.target.value);
+        }}
+      />
+      {/* The send shortcut (real editor: handleKeyDown → onSubmit, whatever the lock). */}
+      <button type="button" data-testid="rte-submit" onClick={() => onSubmit?.()} />
+      {/* A TipTap COMMAND (a translation applied, an insert): it changes the text even when the
+          editor is not editable (RichTextEditor.locked.test). */}
+      <button
+        type="button"
+        data-testid="rte-command"
+        onClick={() => onChange?.(`${content ?? ''}<p>Put in by a command</p>`)}
       />
       {/* The toolbar's Collapse (real editor: RichTextEditor), handed to the host. */}
       {onCollapse && <button type="button" data-testid="rte-collapse" onClick={onCollapse} />}

@@ -15,10 +15,9 @@ import {
   getApiErrorMessage,
   getErrorStatus,
   isAiDraftsOffError,
-  isNoReplyNeededError,
-  NO_REPLY_NEEDED_MESSAGE,
 } from '@/lib/errorMessages';
 import { useAiRefusalText } from '@/features/subscription/shell';
+import { isNoReplyNeededError, NO_REPLY_NEEDED_MESSAGE } from './noReplyNeeded';
 import { messageService, type AiDraft } from '@/services/message.service';
 import { answerToEditorHtml, COMPOSER_AI_TOOL, LABEL } from './messageDetailConstants';
 

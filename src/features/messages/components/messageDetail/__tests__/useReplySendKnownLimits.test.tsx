@@ -46,7 +46,7 @@ describe('a send key used on another thread', () => {
     fireEvent.change(editor(), { target: { value: '<p>Hello</p>' } });
     pressSend();
     await screen.findByText(REUSED);
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send again' }));
     await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
     const [first, second] = svc.message.reply.mock.calls as Call[];
     expect(second[1]).toBe('<p>Hello</p>');
@@ -63,7 +63,7 @@ describe('a send key used on another thread', () => {
     fireEvent.change(editor(), { target: { value: '<p>Hello</p>' } });
     pressSend();
     await screen.findByText('The thread is closed.');
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send again' })).toBeNull();
   });
 
   it('a resend refused for it stays a resend, and the next Send goes out with a new key', async () => {
@@ -109,7 +109,7 @@ describe('a transport failure with no send-failed event (socket down)', () => {
     pressSend();
     await screen.findByText(/We could not confirm that the reply reached the customer/);
     svc.message.reply.mockResolvedValueOnce({ success: true });
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send again' }));
     const dialog = await screen.findByRole('dialog');
     expect(svc.message.reply).toHaveBeenCalledTimes(1);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Send again' }));
@@ -136,7 +136,7 @@ describe('a transport failure with no send-failed event (socket down)', () => {
     pressSend();
     await screen.findByText('Failed to send. Please try again.');
     expect(screen.queryByText(/We could not confirm/)).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send again' }));
     await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole('dialog')).toBeNull();
   });

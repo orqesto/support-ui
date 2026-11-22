@@ -63,6 +63,42 @@ describe('thread composer', () => {
     expect(again.result.current.resendOf).toEqual({ eventId: 942, uncertain: false });
   });
 
+  it('the stored-files choice comes back with the resend', () => {
+    const first = renderHook(useThread);
+    act(() => first.result.current.composerText.writeComposer('<p>Your parcel ships today.</p>'));
+    act(() =>
+      first.result.current.setResendOf({ eventId: 942, uncertain: false, keepStoredFiles: false })
+    );
+    first.unmount();
+    expect(renderHook(useThread).result.current.resendOf).toEqual({
+      eventId: 942,
+      uncertain: false,
+      keepStoredFiles: false,
+    });
+  });
+
+  it('a stored-files choice that is not a boolean is dropped: the resend stays, with the default', () => {
+    const first = renderHook(useThread);
+    act(() => first.result.current.composerText.writeComposer('<p>Your parcel ships today.</p>'));
+    act(() => first.result.current.setResendOf({ eventId: 942, uncertain: false }));
+    first.unmount();
+    // Written by another version of the app, or edited by hand.
+    const key = unsentDraftKey(1, 5, 'thread:42')!;
+    const raw = window.localStorage.getItem(key)!;
+    expect(raw).toContain('"resendOf":{"eventId":942,"uncertain":false}');
+    window.localStorage.setItem(
+      key,
+      raw.replace(
+        '"resendOf":{"eventId":942,"uncertain":false}',
+        '"resendOf":{"eventId":942,"uncertain":false,"keepStoredFiles":"false"}'
+      )
+    );
+    expect(renderHook(useThread).result.current.resendOf).toEqual({
+      eventId: 942,
+      uncertain: false,
+    });
+  });
+
   it('CONTROL: an ordinary draft comes back as no resend', () => {
     const first = renderHook(useThread);
     act(() => first.result.current.composerText.writeComposer('<p>Your parcel ships today.</p>'));

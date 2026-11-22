@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import type { RestrictedTopicTeam } from '@/types/api';
+import { TOPIC_REMOVE_HIT_AREA } from './restrictedTopics';
 
 export const TOPICS_ADMIN_ONLY = 'Only a workspace admin can change restricted topics.';
 export const OTHER_TEAM_TOPICS_TITLE = 'Topics kept for other teams';
@@ -78,7 +79,7 @@ export const OtherTeamTopics = ({ teams, canChange, saving = {}, onRemove }: Pro
                           disabled={saving[String(team.departmentId)] === true}
                           onClick={() => onRemove?.(team.departmentId, topic)}
                           aria-label={`Remove topic ${topic} from ${name}`}
-                          className="p-0 w-auto h-auto hover:text-destructive data-[inactive]:opacity-50"
+                          className={`p-0 w-auto h-auto hover:text-destructive data-[inactive]:opacity-50 ${TOPIC_REMOVE_HIT_AREA}`}
                         >
                           <X className="w-3 h-3" />
                         </Button>

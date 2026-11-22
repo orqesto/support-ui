@@ -24,12 +24,15 @@ export function DeliveryStatus({
   onResend,
   resending = false,
   resendLabel = 'Resend',
+  note,
 }: {
   state: DeliveryState;
   onResend?: () => void;
   resending?: boolean;
   /** The button's accessible name, telling one reply's Resend from another's. */
   resendLabel?: string;
+  /** A sentence beside the state (why no Resend is offered), in ordinary case. */
+  note?: string;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const undelivered = isUndelivered(state);
@@ -40,6 +43,7 @@ export function DeliveryStatus({
       role={undelivered ? 'status' : undefined}
     >
       {WORDS[state]}
+      {note && <span className="normal-case tracking-normal font-sans text-[11.5px]">{note}</span>}
       {resend && (
         <Button
           variant="ghost"

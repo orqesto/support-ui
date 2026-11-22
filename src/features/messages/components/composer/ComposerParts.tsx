@@ -178,9 +178,12 @@ export function ComposerPlainSend({
 export function ComposerFileChips({
   selectedFiles,
   handleRemoveFile,
+  disabled = false,
 }: {
   selectedFiles: File[];
   handleRemoveFile: (index: number) => void;
+  /** A send is waiting or out: the files are that reply's. */
+  disabled?: boolean;
 }) {
   return (
     <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -195,6 +198,7 @@ export function ComposerFileChips({
             variant="ghost"
             size="icon"
             aria-label="Remove file"
+            disabled={disabled}
             onClick={() => handleRemoveFile(idx)}
             className="p-0 w-auto h-auto text-faint-foreground hover:text-destructive"
           >

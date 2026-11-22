@@ -95,10 +95,10 @@ const msg = (over: Partial<Message> & { metadata?: Record<string, unknown> }) =>
 describe('card AI-state chip carries the reason in its tooltip', () => {
   it('a reason: label stays short, tooltip names it', () => {
     const state = getAiState(
-      msg({ needsHumanReview: true, needsReviewReason: 'send_failed' }),
+      msg({ needsHumanReview: true, needsReviewReason: 'plan_limit' }),
       thread
     );
-    expect(state).toEqual({ label: 'Needs review', tooltip: 'Needs review: Send failed' });
+    expect(state).toEqual({ label: 'Needs review', tooltip: 'Needs review: Plan limit reached' });
   });
 
   it('CONTROL — an older backend (no reason): the plain "Needs review"', () => {

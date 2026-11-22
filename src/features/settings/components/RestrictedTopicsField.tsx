@@ -3,7 +3,7 @@ import { Lock, Plus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { restrictedTopicProblem } from './restrictedTopics';
+import { TOPIC_REMOVE_HIT_AREA, restrictedTopicProblem } from './restrictedTopics';
 import type { BuiltInRestrictedTopic } from '@/types/api';
 
 export const RESTRICTED_TOPICS_TITLE = 'Restricted topics';
@@ -113,7 +113,7 @@ export const RestrictedTopicsField = ({
                 disabled={disabled}
                 onClick={() => void onRemove(topic)}
                 aria-label={`Remove topic ${topic}`}
-                className="p-0 w-auto h-auto hover:text-destructive data-[inactive]:opacity-50"
+                className={`p-0 w-auto h-auto hover:text-destructive data-[inactive]:opacity-50 ${TOPIC_REMOVE_HIT_AREA}`}
               >
                 <X className="w-3 h-3" />
               </Button>

@@ -437,7 +437,7 @@ describe('Send failed bar (v3)', () => {
     typeAndSend();
     const bar = await screen.findByRole('alert');
     expect(within(bar).getByText('Send failed')).toBeTruthy();
-    fireEvent.click(within(bar).getByRole('button', { name: 'Retry' }));
+    fireEvent.click(within(bar).getByRole('button', { name: 'Send again' }));
     await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
     const [first, second] = svc.message.reply.mock.calls;
     expect(second[1]).toBe('<p>Label is on its way</p>');
@@ -457,7 +457,7 @@ describe('Send failed bar (v3)', () => {
     typeAndSend();
     const bar = await screen.findByRole('alert');
     expect(within(bar).getByText('The 24-hour WhatsApp window has closed.')).toBeTruthy();
-    expect(within(bar).queryByRole('button', { name: 'Retry' })).toBeNull();
+    expect(within(bar).queryByRole('button', { name: 'Send again' })).toBeNull();
     // CONTROL: the bar still dismisses.
     fireEvent.click(within(bar).getByRole('button', { name: 'Dismiss' }));
     expect(screen.queryByRole('alert')).toBeNull();
@@ -468,11 +468,15 @@ describe('Send failed bar (v3)', () => {
     renderDetail(mine);
     typeAndSend();
     const bar = await screen.findByRole('alert');
-    expect(within(bar).getByRole('button', { name: 'Retry' })).toBeTruthy();
+    expect(within(bar).getByRole('button', { name: 'Send again' })).toBeTruthy();
     press('n');
-    await waitFor(() => expect(within(bar).queryByRole('button', { name: 'Retry' })).toBeNull());
+    await waitFor(() =>
+      expect(within(bar).queryByRole('button', { name: 'Send again' })).toBeNull()
+    );
     press('r');
-    await waitFor(() => expect(within(bar).getByRole('button', { name: 'Retry' })).toBeTruthy());
+    await waitFor(() =>
+      expect(within(bar).getByRole('button', { name: 'Send again' })).toBeTruthy()
+    );
   });
 
   // Idempotency keys (BE dedups on org + key: a repeated key returns the send already accepted).
@@ -480,7 +484,7 @@ describe('Send failed bar (v3)', () => {
     Object.assign(new Error('timeout of 30000ms exceeded'), { code: 'ECONNABORTED' });
   const retry = async () => {
     fireEvent.click(
-      within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' })
+      within(await screen.findByRole('alert')).getByRole('button', { name: 'Send again' })
     );
   };
 

@@ -48,13 +48,15 @@ export const replyNotDelivered = (
    * 5xx body WITHOUT an event id is never shown (a proxy's, or an internal error).
    */
   sentence: string | null;
-  /** `retryable: false` in the body (a field the backend is adding): sending again cannot help. */
+  /** `retryable: false` in the body: sending again cannot help. */
   retryable: boolean;
+  /** `warnings: ['files_not_stored']`: the reply was saved without its files. */
+  filesNotStored: boolean;
 } | null => {
   const { status, data } = (err ?? {}) as {
     status?: unknown;
-    // `retryable` is not in the generated contract yet: read from the raw body.
-    data?: Partial<Record<keyof ReplyNotDelivered | 'retryable', unknown>> | null;
+    // Read from the raw body: an older backend sends fewer fields.
+    data?: Partial<Record<keyof ReplyNotDelivered, unknown>> | null;
   };
   const eventId = data?.eventId;
   if (status !== 502 || typeof eventId !== 'number' || !Number.isInteger(eventId) || eventId <= 0)
@@ -66,6 +68,7 @@ export const replyNotDelivered = (
     uncertain,
     sentence: !uncertain && sentence !== '' ? sentence : null,
     retryable: data?.retryable !== false,
+    filesNotStored: Array.isArray(data?.warnings) && data.warnings.includes('files_not_stored'),
   };
 };
 

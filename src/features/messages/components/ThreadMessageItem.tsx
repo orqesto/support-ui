@@ -26,7 +26,7 @@ import { getInitials } from '@/lib/initials';
 import type { Attachment } from './MessageAttachments';
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 import { DeliveryStatus } from './DeliveryStatus';
-import { deliveryStateOf } from './deliveryState';
+import { deliveryStateOf, isSendPermanent, NOT_RETRYABLE } from './deliveryState';
 
 type Props = {
   msg: MessageEvent;
@@ -263,7 +263,13 @@ function ThreadMessageItemView({
             <DeliveryStatus
               state={deliveryStateOf(msg)}
               // An agent's reply only (the backend resends nothing else).
-              onResend={onResend && msg.type === 'agent_reply' ? () => onResend(msg) : undefined}
+              // Refused for good (the event says so): no Resend, and the reason why.
+              onResend={
+                onResend && msg.type === 'agent_reply' && !isSendPermanent(msg)
+                  ? () => onResend(msg)
+                  : undefined
+              }
+              note={isSendPermanent(msg) ? NOT_RETRYABLE : undefined}
               resending={resending}
               resendLabel={`Resend the reply “${previewText(msg.content).slice(0, 60)}”`}
             />

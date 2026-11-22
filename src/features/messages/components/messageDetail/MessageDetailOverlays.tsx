@@ -1,4 +1,3 @@
-import type { MutableRefObject } from 'react';
 import type { Message } from '@/types';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { HoldDialog } from '@/components/shared/HoldDialog';
@@ -6,7 +5,6 @@ import { SimilarMessagesDialog } from '@/features/messages/components/SimilarMes
 import { WhatsAppTemplatePicker } from '@/features/messages/components/WhatsAppTemplatePicker';
 import { AssignOnReplyDialog } from '../AssignOnReplyDialog';
 import type { AssignOnReplyPrompt } from '../assignOnReplyPrompt';
-import type { SendAction } from '../ComposerSendButton';
 import { MessageDetailConfirmDialogs } from '../MessageDetailConfirmDialogs';
 import { PromoteToKbDialog } from '../PromoteToKbDialog';
 import type { MessageDetailProps, Setter } from './types';
@@ -31,7 +29,6 @@ export function MessageDetailOverlays({
   onClose,
   sendHoldOpen,
   setSendHoldOpen,
-  afterSendRef,
   similarOpen,
   setSimilarOpen,
 }: {
@@ -47,7 +44,6 @@ export function MessageDetailOverlays({
   onClose: MessageDetailProps['onClose'];
   sendHoldOpen: boolean;
   setSendHoldOpen: Setter<boolean>;
-  afterSendRef: MutableRefObject<{ action: SendAction; hold?: { reason: string; until: Date } }>;
   similarOpen: boolean;
   setSimilarOpen: Setter<boolean>;
 }) {
@@ -70,15 +66,8 @@ export function MessageDetailOverlays({
   } = dialogs;
   const { templatesOpen, setTemplatesOpen, templates, templatesLoading, templateError } =
     replyState;
-  const {
-    performSend,
-    handleSend,
-    rememberSendAction,
-    handleSendTemplate,
-    collision,
-    sendAnyway,
-    cancelCollision,
-  } = send;
+  const { performSend, sendWithHold, handleSendTemplate, collision, sendAnyway, cancelCollision } =
+    send;
   const { handleResolveWithoutReply, handleClose, applyRead } = conv;
   const { pendingGhost, setPendingGhost, applyGhostAnswer, handleGhostClick } = ghost;
   const { handleRefresh, handleNotCustomerWork, handleReject, handleReopen } = threadActions;
@@ -145,9 +134,7 @@ export function MessageDetailOverlays({
         busy={submitting}
         onConfirm={(hold) => {
           setSendHoldOpen(false);
-          rememberSendAction('hold');
-          afterSendRef.current = { action: 'hold', hold };
-          void handleSend();
+          sendWithHold(hold);
         }}
       />
 

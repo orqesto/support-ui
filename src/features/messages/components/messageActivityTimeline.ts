@@ -31,6 +31,8 @@ export const ACTIVITY_DOT: Record<ActivityKind, string> = {
 
 const ACTION_LABEL: Record<string, string> = {
   'message.reply': 'Reply sent',
+  // An old reply left "Sending…" was ended without being confirmed (the stale-send sweep).
+  'message.reply_unconfirmed': 'An old reply was never confirmed as sent',
   'message.assign': 'Assigned',
   'message.create': 'Message received',
   'message.delete': 'Thread deleted',
@@ -61,6 +63,8 @@ const ACTION_KIND: Record<string, ActivityKind> = {
   'message.auto_reopen': 'in',
   'message.thanks_kept_finished': 'in',
   'message.reply': 'out',
+  // The same reply's delivery story: the reply's own dot.
+  'message.reply_unconfirmed': 'out',
   // An automatic answer that left: the AI dot, the only audit action the AI authors.
   'message.auto_reply_sent': 'ai',
   // An automatic answer that was held back (a keyword rule matched): same dot, it is its story.
@@ -216,6 +220,28 @@ const WITHHELD_REASON: Record<string, string> = {
   kb_unsupported_by_sources: 'the answer said more than the knowledge base does',
   restricted_topic: 'the customer asks about a subject a person must answer',
   question_unchecked: 'the question could not be checked for a restricted topic',
+  // Also written for the AI's own reply (`source: 'ai_reply'`): the customer wrote again before
+  // it went out (the newer message gets its own run), or the spam check has not cleared the sender.
+  newer_message: 'the customer wrote again before the reply went out',
+  spam_verdict: 'the sender has not passed the spam check',
+};
+
+/**
+ * Why the AI's own reply was not sent (`source: 'ai_reply'`), where it is not a failed send: the
+ * customer wrote again first, the spam check, or the send gate held it (the hold's own code).
+ */
+const AI_REPLY_WITHHELD_REASON: Record<string, string> = {
+  newer_message: WITHHELD_REASON.newer_message,
+  spam_verdict: WITHHELD_REASON.spam_verdict,
+  reply_unchecked: 'the reply could not be checked',
+  restricted_topic: WITHHELD_REASON.restricted_topic,
+  no_customer_request: 'the message is not a customer request',
+  needs_lookup_or_action: 'answering needs a lookup or an action',
+  refusal: 'the reply only declined the question',
+  promises_follow_up: 'the reply promised a follow-up',
+  does_not_answer: 'the reply did not answer the question',
+  unsupported_by_sources: 'the reply said more than the knowledge base does',
+  not_from_knowledge: 'the reply was not written from the knowledge base',
 };
 
 /** A reason this bundle does not know (a newer backend): words, never the raw code. */
@@ -319,7 +345,7 @@ export function autoReplyWithheldLabel(details: Record<string, unknown> | null):
   const uncertain = reason === 'send_failed' && details?.['uncertain'] === true;
   if (details?.['source'] === 'ai_reply') {
     if (reason !== 'send_failed')
-      return `The automatic reply was not sent: ${WITHHELD_REASON_UNKNOWN}`;
+      return `The automatic reply was not sent: ${known(AI_REPLY_WITHHELD_REASON, reason) ?? WITHHELD_REASON_UNKNOWN}`;
     return uncertain ? AI_REPLY_UNCERTAIN : AI_REPLY_FAILED;
   }
   if (details?.['source'] === 'missing_info') return askWithheldLabel(details, reason, uncertain);

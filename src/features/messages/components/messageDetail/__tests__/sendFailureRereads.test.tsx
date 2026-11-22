@@ -105,3 +105,96 @@ describe('a tab that only hears the event reads the newest events, nothing else'
     expect(counts()).toEqual({ full: 0, newest: 1, page: 0 });
   });
 });
+
+/*
+  The newer backend (release audit, round 2): the AUTHOR's own room gets the full event with
+  `authorId`; everyone else a LIGHT one — `{ messageId, outgoingMessageId }` alone. `header`
+  counts the header's own re-reads (onStatusChanged), apart from the page's.
+*/
+describe('send-failed from a newer backend: who reads what', () => {
+  const onStatusChanged = vi.fn();
+  const openWithHeader = async (...events: ReturnType<typeof event>[]) => {
+    svc.message.getThreadMessages = vi
+      .fn()
+      .mockResolvedValue({ data: [event({ id: 900 }), ...events] });
+    svc.message.getThreadMessagesAfter = vi.fn().mockResolvedValue(incremental());
+    renderDetail({}, { onRefresh, onStatusChanged });
+    await screen.findAllByText('Hi there');
+    loads = svc.message.getThreadMessages.mock.calls.length;
+    onStatusChanged.mockClear();
+  };
+  const withHeader = () => ({ ...counts(), header: onStatusChanged.mock.calls.length });
+  /** What the author's own room receives. */
+  const full = {
+    outgoingMessageId: 955,
+    authorId: 7,
+    publicId: null,
+    threadId: null,
+    revertedStatus: 'open',
+    uncertain: false,
+    supersededEventId: null,
+  };
+  /** What everyone else receives — and nothing more (no channel either). */
+  const light = (data: Record<string, unknown>) => {
+    const handlers = vi
+      .mocked(subscribeToEvent)
+      .mock.calls.filter(([name]) => name === 'send-failed')
+      .map(([, handler]) => handler as (data: unknown) => void);
+    act(() => handlers.at(-1)?.({ messageId: baseMessage.id, ...data }));
+  };
+
+  it('author tab, the 502 then the full event: {full 1, newest 0, page 1, header 0}', async () => {
+    await openWithHeader();
+    svc.message.reply = vi.fn().mockRejectedValueOnce(notDelivered());
+    send();
+    await screen.findByText('Send failed');
+    sendFailed(full);
+    await waitFor(() => expect(counts().full).toBe(1));
+    expect(withHeader()).toEqual({ full: 1, newest: 0, page: 1, header: 0 });
+  });
+
+  it('author tab, the full event then the 502: {full 1, newest 0, page 1, header 0}', async () => {
+    await openWithHeader();
+    svc.message.reply = vi.fn().mockImplementationOnce(() => {
+      sendFailed(full);
+      return Promise.reject(notDelivered());
+    });
+    send();
+    await screen.findByText('Send failed');
+    await waitFor(() => expect(counts().full).toBe(1));
+    expect(withHeader()).toEqual({ full: 1, newest: 0, page: 1, header: 0 });
+  });
+
+  it("a colleague's tab, the light event: one read of the newest events, one of the header, no bar", async () => {
+    await openWithHeader(reply(950, 8, {}));
+    svc.message.getThreadMessagesAfter = vi
+      .fn()
+      .mockResolvedValue(incremental(reply(950, 8, { delivered: false })));
+    light({ outgoingMessageId: 950 });
+    await screen.findByText('Not delivered');
+    expect(screen.queryByText('Send failed')).toBeNull();
+    expect(withHeader()).toEqual({ full: 0, newest: 1, page: 0, header: 1 });
+  });
+
+  it('CONTROL — the light event naming THIS agent’s reply still makes no bar (the author gets the full one)', async () => {
+    await openWithHeader(reply(950, 7, {}));
+    svc.message.getThreadMessagesAfter = vi
+      .fn()
+      .mockResolvedValue(incremental(reply(950, 7, { delivered: false })));
+    light({ outgoingMessageId: 950 });
+    await screen.findByText('Not delivered');
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(screen.queryByText('Send failed')).toBeNull();
+    expect(withHeader()).toEqual({ full: 0, newest: 1, page: 0, header: 1 });
+  });
+
+  it("an older backend's payload, this agent's reply: {full 0, newest 1, page 0, header 1 (revertedStatus)}, the bar once read", async () => {
+    await openWithHeader(reply(950, 7, {}));
+    svc.message.getThreadMessagesAfter = vi
+      .fn()
+      .mockResolvedValue(incremental(reply(950, 7, { delivered: false })));
+    sendFailed({ outgoingMessageId: 950, uncertain: false, revertedStatus: 'open' });
+    await screen.findByText('Send failed');
+    expect(withHeader()).toEqual({ full: 0, newest: 1, page: 0, header: 1 });
+  });
+});

@@ -29,7 +29,8 @@ export const replyToComposerHtml = (content: string): string =>
  * the new attempt and hides the failed bubble, so the thread never shows the reply twice.
  *
  * ⛔ Never over the agent's own words: a composer that already holds text is left alone.
- * Attachments are not carried over (a failed send never stored its files): the notice says so.
+ * Files: the backend keeps an undelivered reply's files and sends them again with a resend that
+ * carries none (files attached in the composer replace them). The notice names them (ResendNotice).
  *
  * The target follows the thread as read (reconcileResendTarget): a resend that failed in the
  * transport made a new undelivered reply, which the target then names; a reply delivered after
@@ -37,7 +38,7 @@ export const replyToComposerHtml = (content: string): string =>
  */
 export function useResendReply(
   { writeComposer, setComposerMode, latestComposer, composer }: ReturnType<typeof useComposerText>,
-  { richEditorRef, resendOf, setResendOf }: ReturnType<typeof useReplyComposerState>,
+  { richEditorRef, resendOf, setResendOf, sendBusyRef }: ReturnType<typeof useReplyComposerState>,
   showComposerForShortcut: () => void,
   { threadMessages, threadEventsFor, threadId }: ReturnType<typeof useThreadEvents>
 ) {
@@ -63,6 +64,8 @@ export function useResendReply(
     (msg: MessageEvent) => {
       const state = deliveryStateOf(msg);
       if (msg.type !== 'agent_reply' || !isUndelivered(state)) return;
+      // A send is waiting or out: the composer is its reply until it settles.
+      if (sendBusyRef.current) return;
       // The composer may still hold this very reply (the failed send left its text there): Resend
       // takes it over. Any other text is the agent's own and is never written over.
       if (
@@ -82,6 +85,7 @@ export function useResendReply(
     [
       latestComposer,
       richEditorRef,
+      sendBusyRef,
       setComposerMode,
       setResendOf,
       showComposerForShortcut,

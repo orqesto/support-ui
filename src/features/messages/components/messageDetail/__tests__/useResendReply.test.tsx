@@ -132,7 +132,7 @@ describe('Resend on an undelivered reply', () => {
     await screen.findByText(/Resending a reply/);
     pressSend();
     await screen.findByText('Send failed');
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send again' })).toBeNull();
     expect(screen.queryByText(/Resending a reply/)).toBeNull();
   });
 
@@ -170,6 +170,21 @@ const socketEvent = async (name: string, payload: unknown) => {
     for (const handler of handlers) handler(payload);
   });
 };
+/**
+ * The full `send-failed` event, as the backend sends it to the AUTHOR's own room (sendFailedEvent.ts):
+ * the signed-in agent (7) is the author. (A payload with neither `authorId` nor `uncertain` /
+ * `revertedStatus` is the LIGHT event everyone else gets, which never makes a bar.)
+ */
+const ownFailure = (fields: Record<string, unknown>) => ({
+  messageId: 101,
+  authorId: 7,
+  publicId: null,
+  threadId: null,
+  revertedStatus: null,
+  uncertain: false,
+  supersededEventId: null,
+  ...fields,
+});
 const incremental = (...events: ReturnType<typeof event>[]) => ({
   data: events,
   page: { total: events.length, hasEarlier: false },
@@ -202,7 +217,7 @@ describe('after a resend', () => {
     await screen.findByText(/Resending a reply/);
     pressSend();
     await screen.findByText('Send failed');
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send again' })).toBeNull();
   });
 
   it('CONTROL: an ordinary reply that failed the same way does offer Retry', async () => {
@@ -214,7 +229,7 @@ describe('after a resend', () => {
     fireEvent.change(editor(), { target: { value: '<p>Something else.</p>' } });
     pressSend();
     await screen.findByText('Send failed');
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Send again' })).toBeTruthy();
   });
 });
 
@@ -229,7 +244,7 @@ describe("a Retry with the failed send's own key", () => {
     await ready();
     fireEvent.change(editor(), { target: { value: '<p>Something else.</p>' } });
     pressSend();
-    fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Send again' }));
     await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
     const [first, second] = svc.message.reply.mock.calls as Call[];
     expect(keyOf(second)).toBe(keyOf(first));
@@ -311,7 +326,7 @@ describe('live: the bubble follows the send', () => {
     renderDetail();
     await ready();
     // The async failure names reply 942 …
-    await socketEvent('send-failed', { messageId: 101, channel: 'email', outgoingMessageId: 942 });
+    await socketEvent('send-failed', ownFailure({ channel: 'email', outgoingMessageId: 942 }));
     await screen.findByText('Send failed');
     // … and a later read shows it delivered (the backend cleared its marks on a late answer).
     withThread(event({ id: 900 }), failed({ isSystemReply: true }));
@@ -338,7 +353,7 @@ describe('live: the bubble follows the send', () => {
   it('CONTROL: while the reply is still undelivered the bar stays', async () => {
     renderDetail();
     await ready();
-    await socketEvent('send-failed', { messageId: 101, channel: 'email', outgoingMessageId: 942 });
+    await socketEvent('send-failed', ownFailure({ channel: 'email', outgoingMessageId: 942 }));
     await screen.findByText('Send failed');
     // (An event this tab has no request for reads the newest events only — sendFailureRereads.)
     await waitFor(() => expect(svc.message.getThreadMessagesAfter).toHaveBeenCalled());
@@ -447,7 +462,7 @@ describe('review of #999', () => {
     expect(screen.queryByText('Failed to send. Please try again.')).toBeNull();
     // Retry asks first, as Resend does: the customer may get it twice.
     svc.message.reply.mockResolvedValueOnce({ success: true });
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send again' }));
     const dialog = await screen.findByRole('dialog');
     expect(svc.message.reply).toHaveBeenCalledTimes(1);
     fireEvent.click(within(dialog).getByRole('button', { name: 'Send again' }));
@@ -456,11 +471,7 @@ describe('review of #999', () => {
 
   it("M4: a late delivery hides the bar the sender's own failure left", async () => {
     svc.message.reply = vi.fn().mockImplementationOnce(async () => {
-      await socketEvent('send-failed', {
-        messageId: 101,
-        channel: 'email',
-        outgoingMessageId: 950,
-      });
+      await socketEvent('send-failed', ownFailure({ channel: 'email', outgoingMessageId: 950 }));
       svc.message.getThreadMessages = vi.fn().mockResolvedValue({
         data: [
           event({ id: 900 }),
@@ -488,14 +499,14 @@ describe('review of #999', () => {
     });
     await socketEvent('message:replied', { messageId: 101, late: true });
     await waitFor(() => expect(screen.queryByText('Send failed')).toBeNull());
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send again' })).toBeNull();
   });
 
   it('LOW: a send-failed with no channel never says "via null"', async () => {
     renderDetail();
     await ready();
-    await socketEvent('send-failed', { messageId: 101, channel: null, outgoingMessageId: 942 });
-    await screen.findByText(/^Reply could not be delivered\. The message was saved/);
+    await socketEvent('send-failed', ownFailure({ channel: null, outgoingMessageId: 942 }));
+    await screen.findByText(/^Reply could not be delivered\. It was saved/);
     expect(screen.queryByText(/via null/)).toBeNull();
   });
 
@@ -529,5 +540,38 @@ describe('review of #999', () => {
     await screen.findByText(/Resending a reply/);
     view.rerender(tree(202));
     await waitFor(() => expect(screen.queryByText(/Resending a reply/)).toBeNull());
+  });
+});
+
+/*
+  A reply the transport refused for good carries `metadata.sendPermanent: true` (with
+  `delivered: false`): read from the thread, so a reload or a colleague's tab knows it too.
+*/
+describe('a reply refused for good, as the thread reads it', () => {
+  const WHY =
+    'Sending this reply again cannot help, so it is not offered: write a new reply once the cause is dealt with.';
+  const resendButton = () => screen.queryByRole('button', { name: /^Resend the reply/ });
+
+  it('sendPermanent: true → no Resend, and the sentence why', async () => {
+    withThread(event({ id: 900 }), failed({ delivered: false, sendPermanent: true }));
+    renderDetail();
+    await ready();
+    expect(resendButton()).toBeNull();
+    expect(screen.getByText(WHY)).toBeTruthy();
+  });
+
+  it('CONTROL — without the field: Resend offered, no such sentence', async () => {
+    renderDetail();
+    await ready();
+    expect(resendButton()).toBeTruthy();
+    expect(screen.queryByText(WHY)).toBeNull();
+  });
+
+  it("CONTROL — sendPermanent: 'true' (a string) does not count: Resend offered", async () => {
+    withThread(event({ id: 900 }), failed({ delivered: false, sendPermanent: 'true' }));
+    renderDetail();
+    await ready();
+    expect(resendButton()).toBeTruthy();
+    expect(screen.queryByText(WHY)).toBeNull();
   });
 });

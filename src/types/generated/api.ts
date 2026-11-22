@@ -283,6 +283,15 @@ export interface components {
             error: string;
             eventId: number;
             uncertain: boolean;
+            /** @enum {boolean} */
+            retryable?: false;
+            warnings?: "files_not_stored"[];
+        };
+        ReplySent: {
+            outgoingMessageId: number;
+            /** @enum {string} */
+            kbCapture?: "queued" | "background" | "failed";
+            warnings?: ("files_not_stored" | "resolve_not_applied" | "delivery_not_recorded")[];
         };
         CurrentUser: {
             id: number;

@@ -16,6 +16,9 @@ import type { Attachment } from '../MessageAttachments';
 import { useLeadState } from '../useLeadState';
 import type { Setter } from './types';
 
+/** Has the thread's files list been read: not yet, yes (now or earlier), or it failed. */
+export type AttachmentsStatus = 'loading' | 'loaded' | 'failed';
+
 /** The side panels' data: notes, activity, the thread's files and the lead state. */
 
 export function useThreadPanelsData({
@@ -44,9 +47,19 @@ export function useThreadPanelsData({
   const [noteActivityLog, setNoteActivityLog] = useState<
     { label: string; who: string; time: string }[]
   >([]);
-  const [attachmentsByMessageId, setAttachmentsByMessageId] = useSeededState<
+  const [attachmentsByMessageId, setAttachmentsByMessageId, attachmentsSeeded] = useSeededState<
     Map<number, Attachment[]>
   >(['thread', message.id, 'attachments'], () => new Map());
+  // Whether the files list says what the thread holds: a resend's notice must not say "none
+  // stored" before it has been read, or when it could not be. An earlier read of this thread
+  // (the seed) counts as read; a later failed re-read keeps the last list.
+  const [filesRead, setFilesRead] = useState<{
+    threadId: number;
+    status: 'loaded' | 'failed';
+  } | null>(null);
+  const readHere = filesRead?.threadId === message.id ? filesRead.status : null;
+  const attachmentsStatus: AttachmentsStatus =
+    readHere === 'loaded' || attachmentsSeeded ? 'loaded' : (readHere ?? 'loading');
   // Lead state — derived from this message + thread. Guarded against a slow answer for the
   // previously opened customer landing here (see useLeadState).
   const [leadState, setLeadState] = useLeadState(message);
@@ -115,8 +128,16 @@ export function useThreadPanelsData({
         // viewer's next/previous all follow the email (owner, 2026-11-04).
         for (const list of map.values()) list.sort((left, right) => left.id - right.id);
         setAttachmentsByMessageId(map);
+        setFilesRead({ threadId: message.id, status: 'loaded' });
       })
-      .catch(() => {});
+      .catch(() => {
+        if (cancelled) return;
+        setFilesRead((prior) =>
+          prior?.threadId === message.id && prior.status === 'loaded'
+            ? prior
+            : { threadId: message.id, status: 'failed' }
+        );
+      });
     return () => {
       cancelled = true;
     };
@@ -138,6 +159,7 @@ export function useThreadPanelsData({
     noteActivityLog,
     setNoteActivityLog,
     attachmentsByMessageId,
+    attachmentsStatus,
     leadState,
     setLeadState,
     leadFieldDefs,

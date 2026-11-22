@@ -7,6 +7,7 @@
  */
 
 import { getErrorBody } from '@/lib/errorMessages';
+import type { BuiltInRestrictedTopic } from '@/types/api';
 
 export const RESTRICTED_TOPICS_MAX = 50;
 export const RESTRICTED_TOPIC_MAX_CHARS = 200;
@@ -16,6 +17,16 @@ export const readRestrictedTopics = (value: unknown): string[] | null =>
   Array.isArray(value)
     ? value.filter((topic): topic is string => typeof topic === 'string' && topic.trim() !== '')
     : null;
+
+/**
+ * The topics every workspace has, named by the backend ({ key, label }); read-only. Empty when
+ * the backend does not send them: the page then names none of its own.
+ */
+export const readBuiltInTopics = (value: unknown): BuiltInRestrictedTopic[] =>
+  (Array.isArray(value) ? (value as (Partial<BuiltInRestrictedTopic> | null)[]) : []).filter(
+    (topic): topic is BuiltInRestrictedTopic =>
+      typeof topic?.key === 'string' && typeof topic.label === 'string' && topic.label !== ''
+  );
 
 const sameTopic = (left: string, right: string): boolean =>
   left.trim().toLowerCase() === right.trim().toLowerCase();
@@ -71,3 +82,10 @@ export const restrictedTopicsRefusal = (err: unknown): string | null => {
     ? sentence
     : null;
 };
+
+/**
+ * A chip's remove control: the 12 px icon keeps its size, the area that takes the press is 24 px
+ * (the icon plus 6 px on every side, an invisible layer — nothing in the chip moves).
+ */
+export const TOPIC_REMOVE_HIT_AREA =
+  "relative before:absolute before:-inset-1.5 before:content-['']";

@@ -23,7 +23,6 @@ import type { ApiResponse, PaginationMeta } from '@/types';
 import type {
   AutoReplySettings,
   AutoReplySettingsUpdate,
-  BuiltInRestrictedTopic,
   Organization as ApiOrganization,
   OrganizationMember,
 } from '@/types/api';
@@ -465,27 +464,12 @@ export const organizationService = {
       partialAnswer: (response.data.data?.partialAnswer === 'send_and_follow_up'
         ? 'send_and_follow_up'
         : 'hand_to_agent') as AutoReplyPartialAnswer,
-      // The workspace's own restricted topics. `null` = an older backend that does not know the
-      // setting (it would drop the field from a save without a word): the page then hides it.
-      restrictedTopics: Array.isArray(response.data.data?.restrictedTopics)
-        ? response.data.data.restrictedTopics.filter(
-            (topic): topic is string => typeof topic === 'string' && topic.trim() !== ''
-          )
-        : null,
-      // The topics every workspace has, named by the backend ({ key, label }); read-only. Empty
-      // when the backend does not send them: the page then names none of its own.
-      builtInRestrictedTopics: (Array.isArray(response.data.data?.builtInRestrictedTopics)
-        ? response.data.data.builtInRestrictedTopics
-        : []
-      ).filter(
-        (topic): topic is BuiltInRestrictedTopic =>
-          typeof topic?.key === 'string' && typeof topic.label === 'string' && topic.label !== ''
-      ),
-      // Every team that has stored topics, also a switched-off or deleted one. `null` = a backend
-      // that does not list them yet.
-      restrictedTopicTeams: Array.isArray(response.data.data?.restrictedTopicTeams)
-        ? response.data.data.restrictedTopicTeams
-        : null,
+      // The restricted-topics fields as the backend sent them (absent on an older one). Only the
+      // settings page reads them, and it checks their shape itself (restrictedTopics.ts,
+      // OtherTeamTopics.tsx) — kept out of this file, which every page loads.
+      restrictedTopics: response.data.data?.restrictedTopics as unknown,
+      builtInRestrictedTopics: response.data.data?.builtInRestrictedTopics as unknown,
+      restrictedTopicTeams: response.data.data?.restrictedTopicTeams as unknown,
     };
   },
 
