@@ -143,9 +143,7 @@ export function MessageDetail({
     setSelectedFiles,
     sendFailedError,
     setSendFailedError,
-    sendFailureRetryable,
     setSendFailureRetryable,
-    lastSendModeRef,
     richEditorRef,
     noteEditorRef,
     composerWindow,
@@ -608,19 +606,12 @@ export function MessageDetail({
             {...replyState.failedBarReply}
             ownerId={currentUserId}
             thread={sortedThread}
-            // Only while the failed draft is still there to resend (a blank composer means the
-            // agent cleared it, or the async failure came after the send cleared it).
-            onRetry={
-              sendFailureRetryable &&
-              !isBlankRichText(composer) &&
-              composerMode === lastSendModeRef.current
-                ? send.retrySend
-                : undefined
-            }
+            // Only while the failed draft is still there to resend (useReplySend's barRetry).
+            onRetry={send.barRetry}
             retrying={submitting}
             onDismiss={() => setSendFailedError(null)}
           />
-          {send.stillSendingNotice && <StillSendingNotice {...send.stillSendingNotice} />}
+          {send.notice && <StillSendingNotice {...send.notice} />}
           {/* Send pressed again with the reply that may already have reached the customer. */}
           <SendAgainConfirm {...send.sendAgainConfirm} attachments={attachmentsByMessageId} />
 
@@ -700,7 +691,12 @@ export function MessageDetail({
           {/* Composer — shown for active conversations. On a phone, only under the Thread or Notes
             tab (M7) — hidden, not unmounted, so a draft and its AI undo survive a tab visit. */}
           {isActive && composerMode === 'reply' && (
-            <ResendNotice state={replyState} files={attachmentsByMessageId} listing={listing} />
+            <ResendNotice
+              state={replyState}
+              files={attachmentsByMessageId}
+              listing={listing}
+              busy={submitting}
+            />
           )}
           {isActive && (
             <MessageComposer

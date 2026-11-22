@@ -7,6 +7,10 @@ type AlertProps = {
   variant?: AlertVariant;
   className?: string;
   children: ReactNode;
+  /** `alert` (default) interrupts; a persistent notice with controls is a labelled `status`. */
+  role?: 'alert' | 'status';
+  /** Its accessible name (`aria-label`), for a `status` the screen reader lists. */
+  label?: string;
 };
 
 type AlertTitleProps = {
@@ -27,14 +31,21 @@ const variantStyles: Record<AlertVariant, string> = {
   info: 'bg-primary-muted border-primary-line text-primary',
 };
 
-export const Alert = ({ variant = 'default', className, children }: AlertProps) => (
+export const Alert = ({
+  variant = 'default',
+  className,
+  children,
+  role = 'alert',
+  label,
+}: AlertProps) => (
   <div
     className={cn(
       'relative w-full rounded-lg border p-4',
       variantStyles[variant],
       className
     )}
-    role="alert"
+    role={role}
+    aria-label={label}
   >
     {children}
   </div>

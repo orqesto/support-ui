@@ -79,20 +79,25 @@ export const storedFileNames = (files: FilesByReply, eventId: number | null): st
  * It says which files go, and offers the one choice about the stored ones (storedFilesChoice).
  */
 export function ResendNotice({
-  state: { resendOf: target, setResendOf: setTarget, selectedFiles },
+  state: { resendOf: target, setResendOf: setTarget, selectedFiles, declinedResendRef },
   files: attachments,
   listing,
+  busy,
 }: {
   /** The composer's resend target and its attached files (useReplyComposerState). */
   state: {
     resendOf: ResendTarget | null;
     setResendOf: (next: ResendTarget | null) => void;
     selectedFiles: readonly File[];
+    /** "Not a resend" was said for this reply: its text goes as a new reply. */
+    declinedResendRef: { current: number | null };
   };
   /** The thread's files, by reply (useThreadPanelsData). */
   files: FilesByReply;
   /** Whether that list has been read (useThreadPanelsData). */
   listing: AttachmentsStatus;
+  /** A send is waiting or out: what it carries is fixed, so nothing here can change it. */
+  busy: boolean;
 }) {
   if (!target) return null;
   const { uncertain, keepStoredFiles } = target;
@@ -104,7 +109,14 @@ export function ResendNotice({
       ? storedFilesChoice(selectedFiles.length, keepStoredFiles)
       : null;
   return (
-    <Alert variant={uncertain ? 'warning' : 'info'} className="mx-3 mb-2">
+    // A persistent notice holding controls: a labelled status (announced when it appears), not an
+    // alert, which interrupts.
+    <Alert
+      variant={uncertain ? 'warning' : 'info'}
+      className="mx-3 mb-2"
+      role="status"
+      label="Resending a reply"
+    >
       <div className="flex flex-wrap items-center gap-2 text-[12.5px]">
         <span className="flex-1 min-w-[200px]">
           {uncertain
@@ -116,6 +128,9 @@ export function ResendNotice({
           <Button
             variant="ghost"
             size="sm"
+            disabled={busy}
+            // A toggle: pressed = the send differs from the default (stored files dropped or added).
+            aria-pressed={keepStoredFiles !== undefined}
             onClick={() => {
               const { keepStoredFiles: _dropped, ...rest } = target;
               setTarget(
@@ -126,7 +141,15 @@ export function ResendNotice({
             {choice.label}
           </Button>
         )}
-        <Button variant="ghost" size="sm" onClick={() => setTarget(null)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          onClick={() => {
+            declinedResendRef.current = target.eventId;
+            setTarget(null);
+          }}
+        >
           Not a resend
         </Button>
       </div>

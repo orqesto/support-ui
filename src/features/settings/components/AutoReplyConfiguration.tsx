@@ -603,7 +603,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           <p className="mt-1 text-xs text-muted-foreground">
             Sends email replies without an agent: your keyword rules (canned replies) and AI answers
             from the knowledge base. It does not control the Telegram bot, the chat widget or the
-            receipt confirmation.
+            receipt confirmation. Every automatic reply is checked before it is sent; one that fails
+            a check is held for a person.
             {teamsEnabled
               ? ' The Default row applies to every team. A team row uses the default unless overridden.'
               : ''}
@@ -781,7 +782,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         />
                         <p className="text-[10px] text-muted-foreground">
                           AI replies only. Below this, the reply is saved as a suggestion for an
-                          agent. Keyword rules and the Telegram bot do not use it.
+                          agent; above it, it is sent only if it passes the checks every automatic
+                          reply passes. Keyword rules and the Telegram bot do not use it.
                         </p>
                       </div>
                     )}
@@ -1061,7 +1063,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         />
                         <p className="text-[10px] text-muted-foreground">
                           AI replies only. Below this, the reply is saved as a suggestion for an
-                          agent. Keyword rules and the Telegram bot do not use it. Range 90–100%.
+                          agent; above it, it is sent only if it passes the checks every automatic
+                          reply passes. Keyword rules and the Telegram bot do not use it. Range
+                          90–100%.
                         </p>
                       </div>
                     )}

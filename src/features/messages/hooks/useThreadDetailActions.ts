@@ -52,7 +52,7 @@ export const useThreadDetailActions = ({
   selectedThreadMessageIdRef: MutableRefObject<number | null>;
   navigate: NavigateFunction;
   clearCache: Data['clearCache'];
-  moveSelectedCard: (targetColId: string | null) => void;
+  moveSelectedCard: (targetColId: string | null, forMessageId?: number) => void;
   fetchMessages: Data['fetchMessages'];
   messagesPagination: Data['messagesPagination'];
   bumpKanban: () => void;
@@ -143,8 +143,9 @@ export const useThreadDetailActions = ({
   const handleResolve = async () => {
     const close = closeWhenDone(selectedMessage?.id);
     clearCache();
-    // Instant Kanban move to Resolved (falls back to a full refetch in list mode).
-    moveSelectedCard('resolved');
+    // Instant Kanban move to Resolved (falls back to a full refetch in list mode) — of the thread
+    // this resolve was for, not one opened since (its answer can land after a switch).
+    moveSelectedCard('resolved', selectedMessage?.id);
     await fetchMessages(messagesPagination.page, true);
     close();
   };

@@ -13,7 +13,8 @@ export type DetailPanelDeps = {
   closeDetail: () => void;
   /** A close after a read, only if the agent is still on that thread (useThreadDetailActions). */
   closeWhenDone: (messageId: number | undefined) => () => void;
-  moveSelectedCard: (targetColId: string | null) => void;
+  /** `forMessageId`: the message the move belongs to (useBoardAndBulkState). */
+  moveSelectedCard: (targetColId: string | null, forMessageId?: number) => void;
   rereadSelectedMessage: () => Promise<void>;
   displayMode: MessagesDisplayMode;
   handleNavigate: (direction: 'next' | 'prev') => void;
@@ -68,12 +69,13 @@ export const detailPanelProps = (
   }: DetailPanelDeps
 ): Omit<MessageDetailProps, 'message'> => ({
   onClose: closeDetail,
-  onReplied: () => moveSelectedCard('awaiting'),
+  // The thread the reply was sent on — the agent may have opened another one meanwhile.
+  onReplied: () => moveSelectedCard('awaiting', selectedMessage.id),
   onStatusChanged: () => void rereadSelectedMessage(),
   // Only the threads view has one unambiguous order; in kanban "next" could mean
   // the next card in the column or across the board, so J/K stay off there.
   onNavigate: displayMode === 'threads' ? handleNavigate : undefined,
-  onOptimisticMove: (columnId) => moveSelectedCard(columnId),
+  onOptimisticMove: (columnId) => moveSelectedCard(columnId, selectedMessage.id),
   onApprove: () => handleApprove(selectedMessage),
   // handleRejected closes the thread itself, at once; closing again after its re-read closed
   // whatever thread the agent had opened meanwhile.

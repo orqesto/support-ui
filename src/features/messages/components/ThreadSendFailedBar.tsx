@@ -73,13 +73,20 @@ export function ThreadSendFailedBar({
  * the server said so). Nothing failed: a plain notice, where the failure bar would be — it goes
  * when that reply is sent or not delivered, or the composer's text changes (stillSendingShown).
  */
-export function StillSendingNotice({ onDismiss }: { onDismiss: () => void }) {
+export function StillSendingNotice({
+  onDismiss,
+  text = STILL_SENDING,
+}: {
+  onDismiss: () => void;
+  /** Another plain notice in the same place ("already delivered"); default: still being sent. */
+  text?: string;
+}) {
   return (
     <div
       role="status"
       className="flex-shrink-0 flex items-center gap-[9px] px-3.5 py-2 bg-raised border-b border-border text-muted-foreground"
     >
-      <span className="flex-1 text-[12.5px]">{STILL_SENDING}</span>
+      <span className="flex-1 text-[12.5px]">{text}</span>
       <Button
         variant="ghost"
         size="icon"
@@ -101,8 +108,11 @@ export function SendAgainConfirm({
   eventId,
   attachedHere,
   attachments,
+  delivered = false,
 }: {
   open: boolean;
+  /** The reply WAS delivered (a resend was refused): sending this text makes a second reply. */
+  delivered?: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
   /** The reply it would replace; its stored files go again when the composer has none. */
@@ -118,7 +128,11 @@ export function SendAgainConfirm({
       onConfirm={onConfirm}
       variant="warning"
       title="Send this reply again?"
-      description={`We could not confirm that this reply reached the customer. If you send it again, they may get it twice.${
+      description={`${
+        delivered
+          ? 'This reply has already been delivered to the customer. If you send it again, they will get it twice.'
+          : 'We could not confirm that this reply reached the customer. If you send it again, they may get it twice.'
+      }${
         storedFiles.length > 0 ? ` Its attachments are sent again: ${storedFiles.join(', ')}.` : ''
       }`}
       confirmText="Send again"

@@ -46,7 +46,7 @@ describe('restricted topics — the workspace list', () => {
     expect(builtIn.compareDocumentPosition(own) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(
       screen.getByText(
-        /Subjects the AI never answers on its own\. A customer message about one of them is always handed to a person, even when a reply could be written\. Topics are understood by their meaning, in any language; they are not matched as exact words\. Keyword rules and Telegram template replies are not sent on these subjects either\./
+        /Subjects the AI never answers on its own\. A customer message about one of them is always handed to a person, even when a reply could be written\. Topics are understood by their meaning, in any language; they are not matched as exact words\. When AI is set up for this workspace \(it reads the question\), keyword rules and Telegram template replies are not sent on these subjects either\./
       )
     ).toBeInTheDocument();
   });

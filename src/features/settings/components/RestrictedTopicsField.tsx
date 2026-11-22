@@ -10,7 +10,7 @@ export const RESTRICTED_TOPICS_TITLE = 'Restricted topics';
 export const RESTRICTED_TOPICS_HELP =
   'Subjects the AI never answers on its own. A customer message about one of them is always handed to a person, even when a reply could be written. Topics are understood by their meaning, in any language; they are not matched as exact words.';
 export const RESTRICTED_TOPICS_ALSO =
-  'Keyword rules and Telegram template replies are not sent on these subjects either.';
+  'When AI is set up for this workspace (it reads the question), keyword rules and Telegram template replies are not sent on these subjects either.';
 export const BUILT_IN_NOTE = 'Always on. The built-in topics cannot be removed.';
 
 /**

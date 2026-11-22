@@ -240,7 +240,15 @@ export function useThreadEvents(
   // ── Sorted thread ──────────────────────────────────────────────────────────
 
   const sortedThread = useMemo<MessageEvent[]>(() => {
-    const msgs = [...threadMessages];
+    // A reply that a resend replaced is never shown (nor offered for Resend): its successor names
+    // it (`metadata.resendOf`). The backend hides it from a fresh read; an incremental read only
+    // adds events, so a tab that showed it before keeps it until dropped here.
+    const replaced = new Set(
+      threadMessages
+        .map((event) => event.metadata?.resendOf)
+        .filter((id): id is number => typeof id === 'number')
+    );
+    const msgs = threadMessages.filter((event) => !replaced.has(event.id));
     msgs.sort((ma, mb) => threadTimeOf(ma) - threadTimeOf(mb));
     return msgs;
   }, [threadMessages]);

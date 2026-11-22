@@ -177,6 +177,20 @@ describe('a stored file that cannot be read (409)', () => {
     });
   });
 
+  it('another codeless 409 is not "files unreadable": its sentence is shown and the resend ends', async () => {
+    const said = 'Message has no sender information';
+    svc.message.reply = vi
+      .fn()
+      .mockRejectedValueOnce(
+        Object.assign(new Error(said), { status: 409, data: { success: false, error: said } })
+      );
+    await open();
+    await resend();
+    pressSend();
+    expect(await screen.findByText(said)).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText(/Resending a reply/)).toBeNull());
+  });
+
   it('CONTROL — a resend refusal with its own code (resent already) ends the resend', async () => {
     const said = 'This reply was already sent again — reload the thread';
     svc.message.reply = vi.fn().mockRejectedValueOnce(
@@ -337,5 +351,65 @@ describe('a resend the transport refused for good (`retryable: false`)', () => {
     await screen.findByText(/The mail server refused this address\./);
     await waitFor(() => expect(screen.queryByText(/Resending a reply/)).toBeNull());
     expect(screen.queryByRole('button', { name: 'Send again' })).toBeNull();
+  });
+});
+
+describe('the resend notice while a send is out, and what it says it is', () => {
+  const notice = () => screen.getByRole('status', { name: 'Resending a reply' });
+
+  it('a labelled status (not an alert); the file choice is a toggle', async () => {
+    files.list = [stored(1, 'invoice-42.pdf')];
+    await open();
+    await resend();
+    await screen.findByText(/Its attachments are sent again/);
+    expect(within(notice()).getByText(/Resending a reply that was not delivered/)).toBeTruthy();
+    const toggle = within(notice()).getByRole('button', { name: 'Send without its attachments' });
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(toggle);
+    expect(
+      within(notice())
+        .getByRole('button', { name: 'Send its attachments again' })
+        .getAttribute('aria-pressed')
+    ).toBe('true');
+  });
+
+  it('while the send is out, its buttons do nothing', async () => {
+    files.list = [stored(1, 'invoice-42.pdf')];
+    svc.message.reply = vi.fn().mockReturnValue(new Promise(() => {}));
+    await open();
+    await resend();
+    await screen.findByText(/Its attachments are sent again/);
+    pressSend();
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(1));
+    // (The design-system Button stays focusable when out of use: aria-disabled, clicks ignored.)
+    for (const name of ['Send without its attachments', 'Not a resend']) {
+      const button = within(notice()).getByRole('button', { name });
+      expect(button.getAttribute('aria-disabled')).toBe('true');
+      fireEvent.click(button);
+    }
+    expect(screen.getByText(/Its attachments are sent again: invoice-42\.pdf\./)).toBeTruthy();
+    expect(notice()).toBeTruthy();
+  });
+
+  it('"Not a resend" on an uncertain reply: the same text goes as a NEW reply, unasked', async () => {
+    await open({ delivered: false, sendUncertain: true });
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Resend anyway' }));
+    await waitFor(() => expect(editor()).toHaveValue('<p>Your invoice is attached.</p>'));
+    fireEvent.click(within(notice()).getByRole('button', { name: 'Not a resend' }));
+    pressSend();
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('Send this reply again?')).toBeNull();
+    expect((svc.message.reply.mock.calls[0] as unknown[])[10]).not.toHaveProperty(
+      'resendOfEventId'
+    );
+  });
+
+  it('CONTROL — without "Not a resend" said, the same text of that reply asks first', async () => {
+    await open({ delivered: false, sendUncertain: true });
+    fireEvent.change(editor(), { target: { value: '<p>Your invoice is attached.</p>' } });
+    pressSend();
+    expect(await screen.findByText('Send this reply again?')).toBeTruthy();
+    expect(svc.message.reply).not.toHaveBeenCalled();
   });
 });

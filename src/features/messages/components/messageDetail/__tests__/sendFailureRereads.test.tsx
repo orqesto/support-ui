@@ -198,3 +198,87 @@ describe('send-failed from a newer backend: who reads what', () => {
     expect(withHeader()).toEqual({ full: 0, newest: 1, page: 0, header: 1 });
   });
 });
+
+/*
+  A RESEND that failed again, heard by a colleague's tab: the backend's light event now carries
+  `channel` and — when the failed reply replaced an earlier one — `supersededEventId`. The one
+  read of the newest events brings the new reply, which names the one it replaced
+  (`metadata.resendOf`): the thread shows one bubble, and offers Resend on the new one only.
+*/
+describe('a resend that failed again, in a colleague’s tab', () => {
+  const said = (id: number, text: string, metadata: Record<string, unknown>) =>
+    event({ id, type: 'agent_reply', content: text, authorId: 8, metadata });
+  const light = (data: Record<string, unknown>) => {
+    const handlers = vi
+      .mocked(subscribeToEvent)
+      .mock.calls.filter(([name]) => name === 'send-failed')
+      .map(([, handler]) => handler as (data: unknown) => void);
+    // The light shape: no author, no `uncertain`, no `revertedStatus`.
+    act(() => handlers.at(-1)?.({ messageId: baseMessage.id, ...data }));
+  };
+  const resendButtons = () => screen.queryAllByRole('button', { name: /^Resend the reply/ });
+
+  it('supersededEventId: one read of the newest events, and the replaced bubble is gone', async () => {
+    await open(said(950, 'First try.', { delivered: false }));
+    svc.message.getThreadMessagesAfter = vi
+      .fn()
+      .mockResolvedValue(
+        incremental(said(960, 'Second try.', { delivered: false, resendOf: 950 }))
+      );
+    light({ outgoingMessageId: 960, channel: 'email', supersededEventId: 950 });
+    await screen.findByText('Second try.');
+    expect(screen.queryByText('First try.')).toBeNull();
+    expect(resendButtons()).toHaveLength(1);
+    // (`page` here = the header's re-read: this harness has no onStatusChanged.)
+    expect(counts()).toEqual({ full: 0, newest: 1, page: 1 });
+  });
+
+  it('CONTROL — no supersededEventId (a new reply failed): both bubbles stay', async () => {
+    await open(said(950, 'First try.', {}));
+    svc.message.getThreadMessagesAfter = vi
+      .fn()
+      .mockResolvedValue(incremental(said(960, 'Second try.', { delivered: false })));
+    light({ outgoingMessageId: 960, channel: 'email' });
+    await screen.findByText('Second try.');
+    expect(screen.getByText('First try.')).toBeTruthy();
+    expect(counts()).toEqual({ full: 0, newest: 1, page: 1 });
+  });
+
+  it('a thread read holding both the replaced reply and its resend: one bubble, one Resend', async () => {
+    await open(
+      said(950, 'First try.', { delivered: false }),
+      said(960, 'Second try.', { delivered: false, resendOf: 950 })
+    );
+    expect(screen.getByText('Second try.')).toBeTruthy();
+    expect(screen.queryByText('First try.')).toBeNull();
+    expect(resendButtons()).toHaveLength(1);
+  });
+});
+
+/*
+  Delivered LATER (a late answer, or a background job completing the delivery mark): the backend
+  emits `message:replied` with `late: true`. A tab that is not the author's shows the bubble as
+  sent: one full read (the reply may be older than an incremental read reaches).
+*/
+describe('a late delivery, in a colleague’s tab', () => {
+  const replied = (data: Record<string, unknown>) => {
+    const handlers = vi
+      .mocked(subscribeToEvent)
+      .mock.calls.filter(([name]) => name === 'message:replied')
+      .map(([, handler]) => handler as (data: unknown) => void);
+    act(() => handlers.at(-1)?.({ messageId: baseMessage.id, ...data }));
+  };
+
+  it('"Not delivered" turns "✓ Sent" with one full read', async () => {
+    await open(reply(950, 8, { delivered: false }));
+    await screen.findByText('Not delivered');
+    svc.message.getThreadMessages = vi
+      .fn()
+      .mockResolvedValue({ data: [event({ id: 900 }), reply(950, 8, {})] });
+    loads = 0;
+    replied({ late: true, outgoingMessageId: 950 });
+    await screen.findByText('✓ Sent');
+    expect(screen.queryByText('Not delivered')).toBeNull();
+    expect(counts()).toMatchObject({ full: 1, newest: 0 });
+  });
+});
