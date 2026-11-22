@@ -23,6 +23,9 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
   const failedSendRef = useRef<FailedSend | null>(null);
   // An undelivered reply put back in the composer by its Resend: the next reply replaces it.
   const [resendOf, setResendOf] = useState<ResendTarget | null>(null);
+  // The reply the agent said "Not a resend" for: the same text sent then is a NEW reply, never a
+  // resend of it — not even through "Send this reply again?" (useReplySend).
+  const declinedResendRef = useRef<number | null>(null);
   // A failed send no `send-failed` event named (socket down, a proxy's 502): where to look for the
   // reply it made once the thread is read again (ownReplyAfter). Any other change of the bar
   // forgets it, as it does the named id.
@@ -143,6 +146,7 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     setSendFailedOwnOnly,
     resendOf,
     setResendOf,
+    declinedResendRef,
     sendFailureRetryable,
     setSendFailureRetryable,
     lastAssignRef,

@@ -1,7 +1,12 @@
 import { useCallback } from 'react';
 import { messageService } from '@/services/message.service';
 import { logger } from '@/lib/logger';
-import { resolveSendFailureMessage } from '@/features/messages/components/sendErrorMessage';
+import { forgetOwnSend, rememberOwnSend } from '@/lib/ownSends';
+import {
+  replyNotDelivered,
+  resolveSendFailureMessage,
+} from '@/features/messages/components/sendErrorMessage';
+import { NOT_RETRYABLE, notDeliveredText } from '../deliveryState';
 import { keyForPayload } from './sendKey';
 import type { MessageDetailProps, Setter } from './types';
 import type { useReplyComposerState } from './useReplyComposerState';
@@ -55,6 +60,8 @@ export function useTemplateSend({
         templateIdempotencyKeyRef,
         JSON.stringify([templateId, parameters])
       );
+      // Before the request: its `message:replied` echo is this tab's own (no second read).
+      rememberOwnSend(idempotencyKey);
       try {
         await messageService.reply(
           messageId,
@@ -72,10 +79,22 @@ export function useTemplateSend({
         onReplied?.();
         onRefresh?.();
       } catch (err) {
+        // Should it have been delivered after all, its echo must reload like anyone's.
+        forgetOwnSend(idempotencyKey);
         logger.error('Failed to send WhatsApp template:', err);
         // Shown inside the picker, not as a toast: every refusal here names something the
-        // agent can fix in the dialog they are already looking at.
-        setTemplateError(resolveSendFailureMessage(err));
+        // agent can fix in the dialog they are already looking at. Saved and not delivered (the
+        // reply's 502): the backend's own sentence, and — `retryable: false` — that sending it
+        // again cannot help (never "please try again"); the thread shows the saved reply.
+        const undelivered = replyNotDelivered(err);
+        if (undelivered) setThreadRefreshKey((key) => key + 1);
+        setTemplateError(
+          undelivered
+            ? `${undelivered.sentence ?? notDeliveredText('whatsapp')}${
+                undelivered.retryable ? '' : ` ${NOT_RETRYABLE}`
+              }`
+            : resolveSendFailureMessage(err)
+        );
       } finally {
         sendBusyRef.current = false;
         setSubmitting(false);

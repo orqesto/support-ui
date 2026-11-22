@@ -1,5 +1,5 @@
 /**
- * Two refusals of a reply that only the thread's composer reads (kept out of `@/lib/apiError`,
+ * Refusals of a reply that only the thread's composer reads (kept out of `@/lib/apiError`,
  * which is in the main bundle).
  */
 
@@ -23,11 +23,35 @@ export const isSendInFlight = (err: unknown): boolean => {
 };
 
 /**
- * A RESEND whose stored files could not be read (the backend's 409 with a sentence and no code —
- * every other resend refusal names its code): nothing was sent, the reply is still undelivered and
- * can be resent once its files are attached again.
+ * A resend refused because the reply it names WAS delivered (`REPLY_RESEND_NOT_UNDELIVERED`):
+ * nothing was sent again. Sending the same text now would reach the customer twice.
+ */
+export const isResendDelivered = (err: unknown): boolean => {
+  const failed = err as { status?: number; data?: { code?: unknown } } | null | undefined;
+  return failed?.status === 409 && failed.data?.code === 'REPLY_RESEND_NOT_UNDELIVERED';
+};
+
+/**
+ * The backend's fixed sentence for a RESEND whose stored files could not be read (its 409 carries
+ * no code — replyStoredFiles.ts `STORED_REPLY_FILES_UNREADABLE`). Keyed on that sentence: any
+ * other codeless 409 is some other refusal, which ends the resend.
+ */
+export const STORED_FILES_UNREADABLE =
+  'The files of the reply you are sending again could not be read — attach them again and send.';
+
+/**
+ * Nothing was sent, the reply is still undelivered and can be resent once its files are attached
+ * again: the resend target stays and the server's sentence is shown.
  */
 export const isStoredFilesUnreadable = (err: unknown): boolean => {
-  const failed = err as { status?: number; data?: { code?: unknown } | null } | null | undefined;
-  return failed?.status === 409 && (failed.data?.code ?? null) === null;
+  const failed = err as
+    | { status?: number; data?: { code?: unknown; error?: unknown } | null }
+    | null
+    | undefined;
+  return (
+    failed?.status === 409 &&
+    (failed.data?.code ?? null) === null &&
+    typeof failed.data?.error === 'string' &&
+    failed.data.error.trim() === STORED_FILES_UNREADABLE
+  );
 };

@@ -20,6 +20,7 @@ import {
   resolveSendFailureMessage,
 } from '@/features/messages/components/sendErrorMessage';
 import {
+  ALREADY_DELIVERED,
   FILES_NOT_KEPT,
   NOT_RETRYABLE,
   sameReplySendingId,
@@ -31,10 +32,17 @@ import {
   uncertainFailureText,
 } from '../deliveryState';
 import { replyCollisionQuestion } from '@/lib/apiError';
-import { isSendInFlight, isSendKeyReused, isStoredFilesUnreadable } from '../sendRefusals';
+import {
+  isResendDelivered,
+  isSendInFlight,
+  isSendKeyReused,
+  isStoredFilesUnreadable,
+} from '../sendRefusals';
 import { afterSendNotes } from '../afterSendNotes';
 import { useTemplateSend } from './useTemplateSend';
-import { writeSendAction, type SendAction } from '../ComposerSendButton';
+import { postReply } from './postReply';
+import type { SendAction } from '../ComposerSendButton';
+import { useSendActions, type AfterSend } from './useSendActions';
 import type { ResolveMode } from '../resolveMode';
 import { fileIdentity, keyForPayload } from './sendKey';
 import type { UnsentDraftSend } from '@/hooks/useUnsentDraft';
@@ -55,7 +63,6 @@ type HeldReply = {
   /** What happens after it is out (resolve, save to KB, hold, nothing) — as pressed, too. */
   after: AfterSend;
 };
-type AfterSend = { action: SendAction; hold?: { reason: string; until: Date } };
 /** How long a reply waits for its thread's events before it gives up (nothing is sent). */
 export const WAIT_FOR_THREAD_MS = 10_000;
 export const THREAD_NOT_LOADED =
@@ -119,9 +126,11 @@ export function useReplySend({
     stillSending,
     setStillSending,
     setSendFailureRetryable,
+    sendFailureRetryable,
     setSendFailedAfter,
     resendOf,
     setResendOf,
+    declinedResendRef,
     lastAssignRef,
     lastSendModeRef,
     sendIdempotencyKeyRef,
@@ -166,7 +175,21 @@ export function useReplySend({
     retry: boolean;
     /** The reply it would replace: its stored files go again when the composer has none. */
     eventId: number;
+    /** That reply WAS delivered: the confirmed send is a new reply, and says so. */
+    delivered?: boolean;
   } | null>(null);
+  /*
+    A resend the server refused because the reply had been delivered after all
+    (REPLY_RESEND_NOT_UNDELIVERED): nothing was sent again. While the composer still holds that
+    text, a notice says so (not a "Send failed" bar), and Send asks before posting it as a new
+    reply — the customer would get it twice. Another text is another reply: no question.
+  */
+  const [delivered, setDelivered] = useState<{
+    threadId: number;
+    text: string;
+    eventId: number;
+  } | null>(null);
+  const deliveredUp = delivered?.threadId === message.id && sameReplyText(composer, delivered.text);
   /*
     A reply sent while the thread's events are still being read waits for them: what it may
     repeat, and what it has seen, is only known from the thread. Never sent blind.
@@ -283,8 +306,20 @@ export function useReplySend({
         failedSendRef.current = null;
         failed = null;
       }
-      const again =
+      if (
+        isReply &&
+        !confirmed &&
+        delivered?.threadId === message.id &&
+        sameReplyText(composer, delivered.text)
+      ) {
+        setAssignPrompt(null);
+        setSendAgain({ assign, retry, eventId: delivered.eventId, delivered: true });
+        return;
+      }
+      const repeated =
         isReply && !resendOf ? sendAgainTarget(composer, loaded, failed, currentUserId) : null;
+      // "Not a resend" for that very reply: a new reply, as the agent said.
+      const again = repeated === declinedResendRef.current ? null : repeated;
       if (again !== null && !confirmed) {
         setAssignPrompt(null);
         setSendAgain({ assign, retry, eventId: again });
@@ -296,6 +331,7 @@ export function useReplySend({
       setSubmitting(true);
       setSendFailedError(null);
       setStillSending(null);
+      setDelivered(null);
       setSendFailureRetryable(false);
       lastAssignRef.current = assign;
       lastSendModeRef.current = composerMode;
@@ -367,36 +403,18 @@ export function useReplySend({
         if (composerMode === 'note') {
           // The composer is the rich-text editor; a note is plain text (noteText.ts).
           await messageService.addNote(message.id, noteFromEditor(composer));
-        } else if (selectedFiles.length > 0) {
-          answer = await messageService.replyWithAttachments(
-            message.id,
+        } else {
+          answer = await postReply(message.id, {
             composer,
             selectedFiles,
             resolveInSend,
-            aiSource !== null,
-            aiSource ?? undefined,
+            aiSource,
             idempotencyKey,
-            aiDraft ?? undefined,
+            aiDraft,
             recipients,
             assign,
             guard,
-            resolveInSend
-          );
-        } else {
-          answer = await messageService.reply(
-            message.id,
-            composer,
-            resolveInSend,
-            aiSource !== null,
-            aiSource ?? undefined,
-            idempotencyKey,
-            aiDraft ?? undefined,
-            undefined,
-            recipients,
-            assign,
-            guard,
-            resolveInSend
-          );
+          });
         }
         // success — the next reply is a new logical send
         if (composerMode !== 'note') {
@@ -507,6 +525,10 @@ export function useReplySend({
         // that reply is still undelivered. The target stays, so attaching the files and pressing
         // Send resends it; the server's sentence says what to do (no Retry: it would fail again).
         const filesUnreadable = resendOfEventId !== undefined && isStoredFilesUnreadable(err);
+        // Delivered after all: no bar — the notice says so, and the re-read below shows it sent.
+        const wasDelivered = resendOfEventId !== undefined && isResendDelivered(err);
+        if (wasDelivered)
+          setDelivered({ threadId: message.id, text: composer, eventId: resendOfEventId });
         if (resendOfEventId !== undefined && !retryable && !filesUnreadable) {
           setResendOf(null);
           if (failedSendRef.current?.eventId === resendOfEventId) failedSendRef.current = null;
@@ -560,7 +582,7 @@ export function useReplySend({
             eventId: null,
             afterId: seenLastEventId ?? null,
           });
-        } else {
+        } else if (!wasDelivered) {
           setSendFailedReason(resolveSendFailureMessage(err));
           // The answer named no reply (an older backend, a proxy's 502, no answer at all), and
           // the `send-failed` event may not come either: the bar then looks in the re-read thread
@@ -604,6 +626,8 @@ export function useReplySend({
       pullNewEvents,
       resendOf,
       setResendOf,
+      declinedResendRef,
+      delivered,
       seenLastEventId,
       threadMessages,
       threadEventsFor,
@@ -743,50 +767,15 @@ export function useReplySend({
   // out left a new thread with a draft no way to resolve at all (owner, 2026-11-03). Hold always.
   const sendActions: SendAction[] =
     resolveMode !== null ? ['send', 'resolve', 'resolve_kb', 'hold'] : ['send', 'hold'];
-  // Sends with an action WITHOUT remembering it: the Send ▾ face, which already shows the choice.
-  const handleSendWith = useCallback(
-    (action: SendAction) => {
-      // A send is waiting or out: this press is not another one, and must not change what that
-      // one does after it is out.
-      if (sendBusyRef.current) return;
-      if (isBlankRichText(composer)) return;
-      // On hold needs its reason and recheck date first — asked BEFORE anything is sent.
-      if (action === 'hold') {
-        setSendHoldOpen(true);
-        return;
-      }
-      afterSendRef.current = { action };
-      void handleSend();
-    },
-    [composer, handleSend, afterSendRef, sendBusyRef, setSendHoldOpen]
-  );
-  const rememberSendAction = useCallback(
-    (action: SendAction) => {
-      setSendAction(action);
-      writeSendAction(currentUserId ?? undefined, action);
-    },
-    [currentUserId, setSendAction]
-  );
-  // A Send ▾ menu pick: the agent's choice. Remembered as the face — On hold only once its dialog
-  // is confirmed, so a cancelled hold does not turn every later Send into a hold dialog.
-  const handleSendPick = useCallback(
-    (action: SendAction) => {
-      if (sendBusyRef.current) return;
-      if (action !== 'hold') rememberSendAction(action);
-      handleSendWith(action);
-    },
-    [handleSendWith, rememberSendAction, sendBusyRef]
-  );
-  /** The hold dialog's confirm: the reply goes out, then the thread is put on hold. */
-  const sendWithHold = useCallback(
-    (hold: { reason: string; until: Date }) => {
-      if (sendBusyRef.current) return;
-      rememberSendAction('hold');
-      afterSendRef.current = { action: 'hold', hold };
-      void handleSend();
-    },
-    [afterSendRef, handleSend, rememberSendAction, sendBusyRef]
-  );
+  const { handleSendWith, rememberSendAction, handleSendPick, sendWithHold } = useSendActions({
+    composer,
+    handleSend,
+    afterSendRef,
+    sendBusyRef,
+    setSendHoldOpen,
+    setSendAction,
+    currentUserId,
+  });
 
   const { handleOpenTemplates, handleSendTemplate } = useTemplateSend({
     messageId: message.id,
@@ -802,7 +791,9 @@ export function useReplySend({
     /** The props of the "Send this reply again?" confirm. */
     sendAgainConfirm: {
       open: sendAgain !== null,
-      eventId: sendAgain?.eventId ?? null,
+      // Delivered: the confirmed send is a NEW reply — the old one's stored files do not go.
+      eventId: sendAgain?.delivered ? null : (sendAgain?.eventId ?? null),
+      delivered: sendAgain?.delivered === true,
       // Files in the composer go instead of the reply's stored ones.
       attachedHere: selectedFiles.length,
       onOpenChange: (open: boolean) => {
@@ -812,8 +803,23 @@ export function useReplySend({
     },
     /** Replies the backend said cannot be sent again: their bubbles offer no Resend. */
     notResendable,
-    /** The "still being sent" notice (null: none), and its dismiss. */
-    stillSendingNotice: stillSendingUp ? { onDismiss: () => setStillSending(null) } : null,
+    /**
+     * The plain notice where the failure bar would be (null: none), and its dismiss: "already
+     * delivered — nothing was sent again" while the composer holds that text, or "still being sent".
+     */
+    notice: deliveredUp
+      ? { text: ALREADY_DELIVERED, onDismiss: () => setDelivered(null) }
+      : stillSendingUp
+        ? { onDismiss: () => setStillSending(null) }
+        : null,
+    /**
+     * The failure bar's Retry: only while the failed draft is still there to resend (a blank
+     * composer means the agent cleared it, or the async failure came after the send cleared it).
+     */
+    barRetry:
+      sendFailureRetryable && !isBlankRichText(composer) && composerMode === lastSendModeRef.current
+        ? retrySend
+        : undefined,
     collision,
     sendAnyway,
     cancelCollision,

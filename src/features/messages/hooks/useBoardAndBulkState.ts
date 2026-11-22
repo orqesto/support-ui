@@ -45,10 +45,15 @@ export const useBoardAndBulkState = () => {
   // Move the open conversation's card to `targetColId` instantly via the Kanban's
   // optimistic path; fall back to a full board refetch when we can't target a card
   // (list mode / opened from a deep-link with no captured threadId). null = remove.
+  // `forMessageId`: the message the action belongs to (a reply's answer can land after the agent
+  // opened another thread). The remembered card is moved only when it is that message's; else
+  // the board is read again, so the card of the thread the reply belongs to lands where it is.
   const moveSelectedCard = useCallback(
-    (targetColId: string | null) => {
+    (targetColId: string | null, forMessageId?: number) => {
       const tid = selectedThreadIdRef.current;
-      if (tid && kanbanRef.current) {
+      const sameThread =
+        forMessageId === undefined || selectedThreadMessageIdRef.current === forMessageId;
+      if (tid && kanbanRef.current && sameThread) {
         kanbanRef.current.optimisticMove(tid, targetColId);
       } else {
         bumpKanban();

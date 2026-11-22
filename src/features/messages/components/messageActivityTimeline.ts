@@ -223,7 +223,7 @@ const WITHHELD_REASON: Record<string, string> = {
   // Also written for the AI's own reply (`source: 'ai_reply'`): the customer wrote again before
   // it went out (the newer message gets its own run), or the spam check has not cleared the sender.
   newer_message: 'the customer wrote again before the reply went out',
-  spam_verdict: 'the sender has not passed the spam check',
+  spam_verdict: 'the spam check has not cleared this email',
 };
 
 /**

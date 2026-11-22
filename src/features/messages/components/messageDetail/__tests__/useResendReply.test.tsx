@@ -575,3 +575,70 @@ describe('a reply refused for good, as the thread reads it', () => {
     expect(screen.queryByText(WHY)).toBeNull();
   });
 });
+
+/*
+  A resend refused because the reply WAS delivered after all (409 REPLY_RESEND_NOT_UNDELIVERED):
+  nothing went again. Not a "Send failed": a plain notice says so, the thread is read again (the
+  bubble shows it sent), and while the composer holds that same text Send asks before posting it
+  as a NEW reply — the customer would get it twice.
+*/
+describe('a resend refused as delivered after all', () => {
+  const DELIVERED =
+    'This reply had already been delivered to the customer — nothing was sent again.';
+  const refuseAsDelivered = async () => {
+    svc.message.reply = vi
+      .fn()
+      .mockRejectedValueOnce(
+        refused(
+          409,
+          'REPLY_RESEND_NOT_UNDELIVERED',
+          'This reply was delivered — there is nothing to send again'
+        )
+      )
+      .mockResolvedValue({ success: true });
+    renderDetail();
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: /^Resend the reply/ }));
+    await screen.findByText(/Resending a reply/);
+    // What the re-read finds: the reply delivered.
+    withThread(event({ id: 900 }), failed({}));
+    const reads = svc.message.getThreadMessages.mock.calls.length;
+    pressSend();
+    await screen.findByText(DELIVERED);
+    return reads;
+  };
+
+  it('a notice, not "Send failed"; the thread is read again and shows it sent', async () => {
+    const reads = await refuseAsDelivered();
+    expect(screen.queryByText('Send failed')).toBeNull();
+    await waitFor(() =>
+      expect(svc.message.getThreadMessages.mock.calls.length).toBeGreaterThan(reads)
+    );
+    await screen.findByText('✓ Sent');
+    expect(screen.queryByText(/Resending a reply/)).toBeNull();
+  });
+
+  it('Send with the same text asks first; confirmed, it goes as a NEW reply', async () => {
+    await refuseAsDelivered();
+    pressSend();
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByText(/This reply has already been delivered to the customer/)
+    ).toBeTruthy();
+    expect(svc.message.reply).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Send again' }));
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    expect(optionsOf(svc.message.reply.mock.calls[1] as Call)).not.toHaveProperty(
+      'resendOfEventId'
+    );
+  });
+
+  it('CONTROL — the text edited: no notice, and Send posts without a question', async () => {
+    await refuseAsDelivered();
+    fireEvent.change(editor(), { target: { value: '<p>Your parcel ships today, tracked.</p>' } });
+    expect(screen.queryByText(DELIVERED)).toBeNull();
+    pressSend();
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});

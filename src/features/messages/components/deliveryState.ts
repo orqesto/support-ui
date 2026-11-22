@@ -242,6 +242,10 @@ export const sameReplySendingId = (
 
 export const STILL_SENDING = 'This reply is still being sent.';
 
+/** A resend refused because the reply had been delivered after all (REPLY_RESEND_NOT_UNDELIVERED). */
+export const ALREADY_DELIVERED =
+  'This reply had already been delivered to the customer — nothing was sent again.';
+
 /**
  * The "still being sent" notice: Send was pressed with a reply that is on its way already — the
  * thread shows it as "Sending…" (`eventId`), or the server said so (409, no reply named: then it

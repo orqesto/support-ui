@@ -13,7 +13,7 @@ export const PARTIAL_ANSWER_LABEL: Record<AutoReplyPartialAnswer, string> = {
 const CHOICES: AutoReplyPartialAnswer[] = ['hand_to_agent', 'send_and_follow_up'];
 export const PARTIAL_ANSWER_TITLE = 'When the AI can answer only some questions';
 const HELP =
-  'Hand to an agent: nothing is sent; the draft and a note naming the unanswered questions wait for an agent. Send and follow up: the answers are sent with a line that a colleague will follow up, and the thread is flagged for that.';
+  'Hand to an agent: nothing is sent; the draft and a note naming the unanswered questions wait for an agent. Send and follow up: if the reply passes the checks every automatic reply passes, the answers are sent with a line that a colleague will follow up, and the thread is flagged for that; otherwise it is held for a person.';
 
 type Props = {
   /** The group's accessible name (unique per row). */

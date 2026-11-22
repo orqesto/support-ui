@@ -568,7 +568,7 @@ describe('messageActivityTimeline — auto-reply withheld', () => {
 
   it.each([
     ['newer_message', 'the customer wrote again before the reply went out'],
-    ['spam_verdict', 'the sender has not passed the spam check'],
+    ['spam_verdict', 'the spam check has not cleared this email'],
   ])('%s: said in plain words for the AI reply and for a keyword rule', (reason, why) => {
     expect(aiReply(reason)).toBe(`The automatic reply was not sent: ${why}`);
     expect(withheld(reason, ['Refunds'])).toBe(

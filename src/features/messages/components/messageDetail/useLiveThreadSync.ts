@@ -115,7 +115,11 @@ export function useLiveThreadSync({
           one, with `authorId`). Never a bar here: the reply is someone else's (or nobody's). One
           read of the newest events (the bubble) and one of the header (the send put the thread
           back to "our turn"; this event no longer says so) — no side panels. An older backend's
-          event always carries `uncertain` and `revertedStatus`: it is not this one.
+          event always carries `uncertain` and `revertedStatus`: it is not this one. (`channel` and
+          `supersededEventId` may ride on either kind: never used to tell them apart.) A failed
+          RESEND (`supersededEventId`): the same one read — it brings the new reply, which names
+          the one it replaced (`metadata.resendOf`), and the thread never shows that one again
+          (useThreadEvents' sortedThread).
         */
         const light =
           event.authorId === undefined &&
