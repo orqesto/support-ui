@@ -242,6 +242,8 @@ export function MessageDetail({
     noteActivityLog,
     setNoteActivityLog,
     attachmentsByMessageId,
+    // Whether the thread's files list has been read (the resend notice's file sentence).
+    attachmentsStatus: listing,
     leadState,
     setLeadState,
     leadFieldDefs,
@@ -620,7 +622,7 @@ export function MessageDetail({
           />
           {send.stillSendingNotice && <StillSendingNotice {...send.stillSendingNotice} />}
           {/* Send pressed again with the reply that may already have reached the customer. */}
-          <SendAgainConfirm {...send.sendAgainConfirm} />
+          <SendAgainConfirm {...send.sendAgainConfirm} attachments={attachmentsByMessageId} />
 
           {/* What a colleague just did here (thread presence). "view" re-reads the thread; the
             draft stays. */}
@@ -681,6 +683,7 @@ export function MessageDetail({
             setTab={setTab}
             setPanelOpen={setPanelOpen}
             onResend={isActive ? startResend : undefined}
+            notResendable={send.notResendable}
             resendingId={submitting ? replyState.resendOf?.eventId : undefined}
           />
 
@@ -697,7 +700,7 @@ export function MessageDetail({
           {/* Composer — shown for active conversations. On a phone, only under the Thread or Notes
             tab (M7) — hidden, not unmounted, so a draft and its AI undo survive a tab visit. */}
           {isActive && composerMode === 'reply' && (
-            <ResendNotice target={replyState.resendOf} setTarget={replyState.setResendOf} />
+            <ResendNotice state={replyState} files={attachmentsByMessageId} listing={listing} />
           )}
           {isActive && (
             <MessageComposer

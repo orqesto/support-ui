@@ -73,7 +73,7 @@ describe('send gate hold reasons → words', () => {
     expect(state?.label).toBe('Reply did not answer the question · draft ready');
   });
 
-  it.each([...GATE_REASONS, ['blocked_gate', 'Held by a send rule']])(
+  it.each([...GATE_REASONS, ['blocked_gate', 'Held by a send rule'], ['reply_unchecked', '']])(
     '%s with a stored draft: the tooltip does not invite sending it',
     (code) => {
       const state = getAiState(

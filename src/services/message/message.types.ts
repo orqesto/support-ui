@@ -314,6 +314,12 @@ export type ReplyCollision = {
    * hides that one, so the thread never shows the reply twice. Absent = an ordinary reply.
    */
   resendOfEventId?: number;
+  /**
+   * With `resendOfEventId` only: the files stored with the reply being resent. Absent = the
+   * backend's default (they go again only when the request uploads none); `false` = they do not
+   * go (only the uploaded files, if any); `true` = they go, beside any uploaded ones.
+   */
+  keepStoredFiles?: boolean;
 };
 
 export type ReplyRecipients = {

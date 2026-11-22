@@ -1,10 +1,12 @@
 /**
- * What the reply's success answer says did not finish after the reply was out, read from the raw
- * body: `kbCapture` and the `warnings` codes. Anything missing or malformed says nothing.
+ * What the reply's success answer (`data: ReplySent`) says did not finish after the reply was
+ * out: `kbCapture` and the `warnings` codes, one plain sentence per code. Anything missing or
+ * malformed says nothing.
  */
 import { describe, expect, it } from 'vitest';
 import {
   afterSendNotes,
+  DELIVERY_NOT_RECORDED,
   FILES_NOT_STORED,
   KB_SAVE_NOT_STARTED,
   RESOLVE_NOT_APPLIED,
@@ -18,11 +20,12 @@ describe('afterSendNotes', () => {
     ['a string body', 'OK'],
     ['an older backend', { success: true }],
     ['no data', { success: true, data: null }],
+    ['the id alone', { success: true, data: { outgoingMessageId: 951 } }],
     ['the save started (queued)', { success: true, data: { kbCapture: 'queued' } }],
     ['the save started (background)', { success: true, data: { kbCapture: 'background' } }],
-    ['warnings that are not a list', { success: true, warnings: 'FILES' }],
-    ['an empty list', { success: true, warnings: [] }],
-    ['a list of non-strings', { success: true, warnings: [1, null, {}] }],
+    ['warnings that are not a list', { success: true, data: { warnings: 'files' } }],
+    ['an empty list', { success: true, data: { warnings: [] } }],
+    ['a list of non-strings', { success: true, data: { warnings: [1, null, {}] } }],
   ])('%s: nothing to say', (_name, body) => {
     expect(afterSendNotes(body)).toEqual({
       kbSaveFailed: false,
@@ -31,38 +34,41 @@ describe('afterSendNotes', () => {
     });
   });
 
-  it('kbCapture "failed" (in `data`, or beside it)', () => {
-    for (const body of [{ data: { kbCapture: 'failed' } }, { kbCapture: 'failed' }])
-      expect(afterSendNotes(body)).toEqual({
-        kbSaveFailed: true,
-        resolveFailed: false,
-        sentences: [KB_SAVE_NOT_STARTED],
-      });
-  });
-
-  it('warnings, on the body or in `data`: one sentence per kind, once', () => {
-    expect(
-      afterSendNotes({ warnings: ['ATTACHMENTS_NOT_STORED', 'files_not_stored'] }).sentences
-    ).toEqual([FILES_NOT_STORED]);
-    expect(afterSendNotes({ data: { warnings: ['RESOLVE_NOT_APPLIED'] } })).toEqual({
-      kbSaveFailed: false,
-      resolveFailed: true,
-      sentences: [RESOLVE_NOT_APPLIED],
+  it('kbCapture "failed": sent and resolved, the save did not start', () => {
+    expect(afterSendNotes({ data: { outgoingMessageId: 951, kbCapture: 'failed' } })).toEqual({
+      kbSaveFailed: true,
+      resolveFailed: false,
+      sentences: [KB_SAVE_NOT_STARTED],
     });
-    expect(afterSendNotes({ warnings: ['KB_CAPTURE_NOT_STARTED'] }).sentences).toEqual([
-      KB_SAVE_NOT_STARTED,
-    ]);
   });
 
-  it('codes this app does not know: one generic sentence', () => {
-    expect(afterSendNotes({ warnings: ['A_NEW_ONE', 'ANOTHER'] }).sentences).toEqual([
-      STEP_NOT_FINISHED,
-    ]);
-  });
-
-  it('not resolved AND the save not started: only "resolving failed" — "sent and resolved" would be untrue', () => {
+  it.each([
+    ['files_not_stored', FILES_NOT_STORED],
+    ['resolve_not_applied', RESOLVE_NOT_APPLIED],
+    ['delivery_not_recorded', DELIVERY_NOT_RECORDED],
+  ])('%s: its own sentence', (code, sentence) => {
     expect(
-      afterSendNotes({ data: { kbCapture: 'failed' }, warnings: ['RESOLVE_NOT_APPLIED'] })
+      afterSendNotes({ data: { outgoingMessageId: 951, warnings: [code] } }).sentences
+    ).toEqual([sentence]);
+  });
+
+  it('every code at once: one sentence each, the resolve first', () => {
+    expect(
+      afterSendNotes({
+        data: { warnings: ['files_not_stored', 'delivery_not_recorded', 'resolve_not_applied'] },
+      }).sentences
+    ).toEqual([RESOLVE_NOT_APPLIED, FILES_NOT_STORED, DELIVERY_NOT_RECORDED]);
+  });
+
+  it('codes this app does not know: one generic sentence, beside the known ones', () => {
+    expect(
+      afterSendNotes({ data: { warnings: ['a_new_one', 'another', 'files_not_stored'] } }).sentences
+    ).toEqual([FILES_NOT_STORED, STEP_NOT_FINISHED]);
+  });
+
+  it('not resolved AND the save not started: only "could not be resolved" — "sent and resolved" would be untrue', () => {
+    expect(
+      afterSendNotes({ data: { kbCapture: 'failed', warnings: ['resolve_not_applied'] } })
     ).toEqual({ kbSaveFailed: false, resolveFailed: true, sentences: [RESOLVE_NOT_APPLIED] });
   });
 });

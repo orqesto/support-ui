@@ -1,65 +1,68 @@
+import type { components } from '@/types/generated/api';
+
 /**
- * What the reply's SUCCESS answer says went wrong after the reply was out. Read defensively from
- * the raw body — the frontend can be ahead of the backend, and the other way round:
+ * What the reply's SUCCESS answer says went wrong after the reply was out
+ * (`data: ReplySent` — `kbCapture`, `warnings`). Read defensively from the raw body: the frontend
+ * can be ahead of the backend, and the other way round.
  *  - `kbCapture: 'failed'` ("Send, resolve & save to KB": the save could not be started; the
  *    other values, 'queued' and 'background', mean it was);
- *  - `warnings: string[]` — stable codes for steps that did not finish (files not stored, the
- *    resolve not applied…). A known code gets its own sentence, any other one generic sentence;
- *    a missing or malformed field says nothing.
+ *  - `warnings` — stable codes for steps that did not finish after delivery. Each known code has
+ *    its own sentence; any other code one generic sentence; a missing or malformed field says
+ *    nothing (absent when empty).
  */
+type ReplySent = components['schemas']['ReplySent'];
+type WarningCode = NonNullable<ReplySent['warnings']>[number];
+
 export const KB_SAVE_NOT_STARTED =
-  'Reply sent and resolved — but the knowledge-base save did not start. Use Promote to KB on the thread to save it.';
-export const FILES_NOT_STORED = 'Reply sent — but its files could not be saved on this thread.';
+  'Reply sent and resolved, but the knowledge-base save did not start. Use Promote to KB on the thread to save it.';
+export const FILES_NOT_STORED = 'Reply sent, but its attachments could not be saved to the thread.';
 export const RESOLVE_NOT_APPLIED =
-  'Reply sent — but resolving failed. Resolve it from the Resolve row.';
-export const STEP_NOT_FINISHED =
-  'Reply sent — but a follow-up step did not finish. Check the thread.';
+  'Reply sent, but the thread could not be resolved. Resolve it again.';
+export const DELIVERY_NOT_RECORDED =
+  'Reply sent. The thread may show it as still sending for a moment.';
+export const STEP_NOT_FINISHED = 'Reply sent, but a later step did not finish. Check the thread.';
 
-type Kind = 'kb' | 'files' | 'resolve' | 'other';
-
-/** The step a warning code is about, read from its words: the exact codes may still change. */
-const kindOf = (code: string): Kind => {
-  const words = code.toLowerCase();
-  if (/kb|knowledge/.test(words)) return 'kb';
-  if (/attachment|file/.test(words)) return 'files';
-  if (/resolve/.test(words)) return 'resolve';
-  return 'other';
+const WARNING_SENTENCE: Record<WarningCode, string> = {
+  resolve_not_applied: RESOLVE_NOT_APPLIED,
+  files_not_stored: FILES_NOT_STORED,
+  delivery_not_recorded: DELIVERY_NOT_RECORDED,
 };
+const isKnown = (code: string): code is WarningCode =>
+  Object.prototype.hasOwnProperty.call(WARNING_SENTENCE, code);
 
-const SENTENCE: Record<Kind, string> = {
-  kb: KB_SAVE_NOT_STARTED,
-  files: FILES_NOT_STORED,
-  resolve: RESOLVE_NOT_APPLIED,
-  other: STEP_NOT_FINISHED,
-};
-
+/** A field of the answer's `data` (the contract), or of the body itself (tolerated). */
 const field = (body: unknown, name: string): unknown => {
   if (typeof body !== 'object' || body === null) return undefined;
-  const top = (body as Record<string, unknown>)[name];
-  if (top !== undefined) return top;
   const data = (body as { data?: unknown }).data;
-  return typeof data === 'object' && data !== null
-    ? (data as Record<string, unknown>)[name]
-    : undefined;
+  if (typeof data === 'object' && data !== null && name in data)
+    return (data as Record<string, unknown>)[name];
+  return (body as Record<string, unknown>)[name];
 };
 
 export const afterSendNotes = (
   body: unknown
 ): { kbSaveFailed: boolean; resolveFailed: boolean; sentences: string[] } => {
-  const warnings = field(body, 'warnings');
-  const kinds = new Set<Kind>(
-    Array.isArray(warnings)
-      ? warnings.filter((code): code is string => typeof code === 'string').map(kindOf)
-      : []
+  const raw = field(body, 'warnings');
+  const codes = new Set(
+    Array.isArray(raw) ? raw.filter((code): code is string => typeof code === 'string') : []
   );
-  if (field(body, 'kbCapture') === 'failed') kinds.add('kb');
-  // The thread was not resolved: "sent and resolved" would be untrue, the resolve sentence stands.
-  if (kinds.has('resolve')) kinds.delete('kb');
+  const resolveFailed = codes.has('resolve_not_applied');
+  // Not resolved: "sent and resolved" would be untrue — the resolve sentence stands alone.
+  const kbSaveFailed = !resolveFailed && field(body, 'kbCapture') === 'failed';
+  const known = (Object.keys(WARNING_SENTENCE) as WarningCode[]).filter((code) => codes.has(code));
+  const unknown = [...codes].some((code) => !isKnown(code));
   return {
-    kbSaveFailed: kinds.has('kb'),
-    resolveFailed: kinds.has('resolve'),
-    sentences: (['resolve', 'kb', 'files', 'other'] as const)
-      .filter((kind) => kinds.has(kind))
-      .map((kind) => SENTENCE[kind]),
+    kbSaveFailed,
+    resolveFailed,
+    sentences: [
+      ...known
+        .filter((code) => code === 'resolve_not_applied')
+        .map((code) => WARNING_SENTENCE[code]),
+      ...(kbSaveFailed ? [KB_SAVE_NOT_STARTED] : []),
+      ...known
+        .filter((code) => code !== 'resolve_not_applied')
+        .map((code) => WARNING_SENTENCE[code]),
+      ...(unknown ? [STEP_NOT_FINISHED] : []),
+    ],
   };
 };

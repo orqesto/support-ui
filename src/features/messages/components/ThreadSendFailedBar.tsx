@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { MessageEvent } from '@/types';
 import { SendFailedBar, type SendFailedBarProps } from './SendFailedBar';
+import { storedFileNames, type FilesByReply } from './ResendNotice';
 import {
   STILL_SENDING,
   failedBarState,
@@ -97,11 +98,19 @@ export function SendAgainConfirm({
   open,
   onOpenChange,
   onConfirm,
+  eventId,
+  attachedHere,
+  attachments,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void;
+  /** The reply it would replace; its stored files go again when the composer has none. */
+  eventId: number | null;
+  attachedHere: number;
+  attachments: FilesByReply;
 }) {
+  const storedFiles = attachedHere > 0 ? [] : storedFileNames(attachments, eventId);
   return (
     <ConfirmDialog
       open={open}
@@ -109,7 +118,9 @@ export function SendAgainConfirm({
       onConfirm={onConfirm}
       variant="warning"
       title="Send this reply again?"
-      description="We could not confirm that this reply reached the customer. If you send it again, they may get it twice."
+      description={`We could not confirm that this reply reached the customer. If you send it again, they may get it twice.${
+        storedFiles.length > 0 ? ` Its attachments are sent again: ${storedFiles.join(', ')}.` : ''
+      }`}
       confirmText="Send again"
       cancelText="Cancel"
     />

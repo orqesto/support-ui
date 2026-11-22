@@ -576,6 +576,26 @@ describe('messageActivityTimeline — auto-reply withheld', () => {
     );
   });
 
+  it.each([
+    ['reply_unchecked', 'the reply could not be checked'],
+    ['restricted_topic', 'the customer asks about a subject a person must answer'],
+    ['refusal', 'the reply only declined the question'],
+    ['does_not_answer', 'the reply did not answer the question'],
+    ['not_from_knowledge', 'the reply was not written from the knowledge base'],
+  ])('a send-gate hold of the AI reply (%s): its own words', (reason, why) => {
+    expect(aiReply(reason)).toBe(`The automatic reply was not sent: ${why}`);
+  });
+
+  it('an old reply never confirmed as sent: its own words, on the reply dot', () => {
+    expect(
+      auditEntryLabel('message.reply_unconfirmed', {
+        note: 'An old reply was never confirmed as sent',
+      })
+    ).toBe('An old reply was never confirmed as sent');
+    expect(activityKindOf('message.reply_unconfirmed')).toBe(activityKindOf('message.reply'));
+    expect(activityKindOf('message.reply_unconfirmed')).toBe('out');
+  });
+
   it('CONTROL: a keyword-only reason is not borrowed for the AI reply', () => {
     expect(aiReply('kb_refusal')).toBe(
       'The automatic reply was not sent: it was held for a person'

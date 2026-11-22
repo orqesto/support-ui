@@ -189,6 +189,24 @@ describe('one guard for every way of sending', () => {
     expect(posts()).toHaveLength(1);
   });
 
+  it('a plain Send waiting for the thread, then a Send ▾ item left open: the held reply does what was pressed', async () => {
+    const land = heldThread();
+    renderDetail();
+    type('<p>Done.</p>');
+    fireEvent.click(screen.getByRole('button', { name: 'Choose what happens after sending' }));
+    const item = await screen.findByText('Send, resolve & save to KB');
+    shortcut();
+    fireEvent.click(item);
+    await land();
+    await waitFor(() => expect(posts()).toHaveLength(1));
+    await settle();
+    expect(posts()).toHaveLength(1);
+    // Not "resolve & save to KB", which rides on the reply itself (its 3rd and last arguments).
+    expect(posts()[0][2]).toBe(false);
+    expect(posts()[0].at(-1)).toBe(false);
+    expect(svc.message.close).not.toHaveBeenCalled();
+  });
+
   it('CONTROL: a plain Send that waited resolves nothing', async () => {
     const land = heldThread();
     renderDetail();
@@ -266,7 +284,7 @@ describe('"This reply is still being sent." is a notice, not a failure', () => {
 describe('what the reply’s answer says did not finish', () => {
   const SAVING = 'Sent and resolved. Saving this thread to the knowledge base for review.';
   const KB_FAILED =
-    'Reply sent and resolved — but the knowledge-base save did not start. Use Promote to KB on the thread to save it.';
+    'Reply sent and resolved, but the knowledge-base save did not start. Use Promote to KB on the thread to save it.';
   const sendWithKb = async (body: unknown) => {
     const onResolve = vi.fn();
     svc.message.getThreadMessages = vi.fn().mockResolvedValue({ data: [event({ id: 900 })] });
@@ -303,20 +321,42 @@ describe('what the reply’s answer says did not finish', () => {
     expect(toast.warning).not.toHaveBeenCalled();
   });
 
-  it('warnings on a plain send: one sentence each, a generic one for a code this app does not know', async () => {
+  it('warnings on a plain send: one sentence per code, a generic one for codes this app does not know', async () => {
     await open();
     svc.message.reply = vi.fn().mockResolvedValue({
       success: true,
-      data: { outgoingMessageId: 951 },
-      warnings: ['ATTACHMENTS_NOT_STORED', 'SOMETHING_NEW', 'SOMETHING_ELSE_NEW'],
+      data: {
+        outgoingMessageId: 951,
+        warnings: [
+          'files_not_stored',
+          'delivery_not_recorded',
+          'resolve_not_applied',
+          'something_new',
+          'something_else_new',
+        ],
+      },
     });
     type('<p>Done.</p>');
     pressSend();
     await waitFor(() => expect(editor()).toHaveValue(''));
     expect(vi.mocked(toast.warning).mock.calls.map(([sentence]) => sentence)).toEqual([
-      'Reply sent — but its files could not be saved on this thread.',
-      'Reply sent — but a follow-up step did not finish. Check the thread.',
+      'Reply sent, but the thread could not be resolved. Resolve it again.',
+      'Reply sent, but its attachments could not be saved to the thread.',
+      'Reply sent. The thread may show it as still sending for a moment.',
+      'Reply sent, but a later step did not finish. Check the thread.',
     ]);
+  });
+
+  it('resolve_not_applied on "Send, resolve & save to KB": no success toast, the thread is not taken as resolved', async () => {
+    const onResolve = await sendWithKb({
+      success: true,
+      data: { outgoingMessageId: 951, kbCapture: 'failed', warnings: ['resolve_not_applied'] },
+    });
+    expect(vi.mocked(toast.warning).mock.calls.map(([sentence]) => sentence)).toEqual([
+      'Reply sent, but the thread could not be resolved. Resolve it again.',
+    ]);
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(onResolve).not.toHaveBeenCalled();
   });
 });
 
@@ -349,7 +389,8 @@ describe('a send-failed event that names its author', () => {
   it('CONTROL — the old payload (no author): no bar until the thread shows the reply is this agent’s', async () => {
     await open();
     svc.message.getThreadMessagesAfter = vi.fn().mockImplementation(() => new Promise(() => {}));
-    emit('send-failed', { outgoingMessageId: 950 });
+    // An older backend's payload: no author, but `uncertain` and `revertedStatus` always.
+    emit('send-failed', { outgoingMessageId: 950, uncertain: false, revertedStatus: null });
     await settle();
     expect(screen.queryByText('Send failed')).toBeNull();
   });

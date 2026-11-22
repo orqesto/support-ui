@@ -110,6 +110,25 @@ export function useLiveThreadSync({
         const eventId =
           typeof event.outgoingMessageId === 'number' ? event.outgoingMessageId : null;
         /*
+          The LIGHT event (a newer backend): what everyone but the reply's author receives —
+          `{ messageId, outgoingMessageId }` and nothing else (the author's own room gets the full
+          one, with `authorId`). Never a bar here: the reply is someone else's (or nobody's). One
+          read of the newest events (the bubble) and one of the header (the send put the thread
+          back to "our turn"; this event no longer says so) — no side panels. An older backend's
+          event always carries `uncertain` and `revertedStatus`: it is not this one.
+        */
+        const light =
+          event.authorId === undefined &&
+          event.authorUserId === undefined &&
+          !('uncertain' in event) &&
+          !('revertedStatus' in event);
+        if (light) {
+          if (requestOutRef.current) return;
+          pullNewEventsRef.current();
+          rereadHeaderRef.current?.();
+          return;
+        }
+        /*
           The backend announces every failure to the whole workspace, and the payload names no
           author. So:
            - the reply this tab's own failed request already named (its 502 answer; the event came

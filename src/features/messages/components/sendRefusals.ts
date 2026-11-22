@@ -21,3 +21,13 @@ export const isSendInFlight = (err: unknown): boolean => {
   const failed = err as { status?: number; data?: { code?: unknown } } | null | undefined;
   return failed?.status === 409 && failed.data?.code === 'REPLY_SEND_IN_FLIGHT';
 };
+
+/**
+ * A RESEND whose stored files could not be read (the backend's 409 with a sentence and no code —
+ * every other resend refusal names its code): nothing was sent, the reply is still undelivered and
+ * can be resent once its files are attached again.
+ */
+export const isStoredFilesUnreadable = (err: unknown): boolean => {
+  const failed = err as { status?: number; data?: { code?: unknown } | null } | null | undefined;
+  return failed?.status === 409 && (failed.data?.code ?? null) === null;
+};

@@ -43,6 +43,11 @@ const isResendTarget = (value: unknown): value is ResendTarget =>
   Number.isInteger((value as ResendTarget).eventId) &&
   (value as ResendTarget).eventId > 0 &&
   typeof (value as ResendTarget).uncertain === 'boolean';
+/** A restored target keeps its stored-files choice only when it is a boolean (else: the default). */
+const restoredTarget = ({ eventId, uncertain, keepStoredFiles }: ResendTarget): ResendTarget =>
+  typeof keepStoredFiles === 'boolean'
+    ? { eventId, uncertain, keepStoredFiles }
+    : { eventId, uncertain };
 const isKeptSendKey = (value: unknown): value is KeptSendKey =>
   typeof value === 'object' &&
   value !== null &&
@@ -131,7 +136,8 @@ export function useThreadUnsentDraft({
       if (recipients) setRecipientDraft(recipients);
       if (data.aiSource) handleAiSourceChange(data.aiSource, data.aiDraft ?? undefined);
       if (isKeptSendKey(data.sendKey)) sendKeyRef.current = data.sendKey;
-      if (mode === 'reply' && isResendTarget(data.resendOf)) setResendOf(data.resendOf);
+      if (mode === 'reply' && isResendTarget(data.resendOf))
+        setResendOf(restoredTarget(data.resendOf));
       setRestoredFiles(typeof data.files === 'number' ? data.files : 0);
     },
     [

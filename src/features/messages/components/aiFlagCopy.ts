@@ -133,6 +133,8 @@ export type NamedReviewReason = (typeof NAMED_REVIEW_REASONS)[number];
  * something to "review and send" — a person answers, the draft is there to read.
  */
 const SEND_GATE_HOLDS: readonly string[] = [
+  // Held because the check on the reply could not run: the same — a person answers.
+  'reply_unchecked',
   'restricted_topic',
   'no_customer_request',
   'needs_lookup_or_action',

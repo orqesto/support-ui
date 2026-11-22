@@ -68,6 +68,11 @@ export const messageComposeApi = {
       ...(collision?.resendOfEventId !== undefined && {
         resendOfEventId: collision.resendOfEventId,
       }),
+      // Only with a resend; absent = the backend's default for the stored files.
+      ...(collision?.resendOfEventId !== undefined &&
+        collision.keepStoredFiles !== undefined && {
+          keepStoredFiles: collision.keepStoredFiles,
+        }),
     });
     return response.data;
   },
@@ -129,6 +134,9 @@ export const messageComposeApi = {
     if (collision?.confirmOverride) formData.append('confirmOverride', 'true');
     if (collision?.resendOfEventId !== undefined)
       formData.append('resendOfEventId', String(collision.resendOfEventId));
+    // 'true' / 'false' (the BE reads both from form-data); absent = its default.
+    if (collision?.resendOfEventId !== undefined && collision.keepStoredFiles !== undefined)
+      formData.append('keepStoredFiles', String(collision.keepStoredFiles));
 
     files.forEach((file) => {
       formData.append('attachments', file);

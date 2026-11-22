@@ -29,7 +29,8 @@ export const replyToComposerHtml = (content: string): string =>
  * the new attempt and hides the failed bubble, so the thread never shows the reply twice.
  *
  * ⛔ Never over the agent's own words: a composer that already holds text is left alone.
- * Attachments are not carried over (a failed send never stored its files): the notice says so.
+ * Files: the backend keeps an undelivered reply's files and sends them again with a resend that
+ * carries none (files attached in the composer replace them). The notice names them (ResendNotice).
  *
  * The target follows the thread as read (reconcileResendTarget): a resend that failed in the
  * transport made a new undelivered reply, which the target then names; a reply delivered after

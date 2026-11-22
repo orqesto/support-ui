@@ -40,6 +40,7 @@ export function ThreadScroller({
   setTab,
   setPanelOpen,
   onResend,
+  notResendable,
   resendingId,
 }: {
   thread: ReturnType<typeof useThreadEvents>;
@@ -67,6 +68,8 @@ export function ThreadScroller({
   setPanelOpen: Setter<boolean>;
   /** Resend an undelivered reply (an open conversation only). */
   onResend?: ComponentProps<typeof ThreadMessageItem>['onResend'];
+  /** Replies the backend said cannot be sent again (`retryable: false`): no Resend on them. */
+  notResendable?: ReadonlySet<number>;
   /** The reply whose resend is being sent. */
   resendingId?: number;
 }) {
@@ -168,7 +171,7 @@ export function ThreadScroller({
                 attachments={attachmentsByMessageId.get(row.msg.id) ?? NO_ATTACHMENTS}
                 onOpenAttachment={handleOpenAttachment}
                 onOpenInlineImage={handleOpenInlineImage}
-                onResend={onResend}
+                onResend={notResendable?.has(row.msg.id) ? undefined : onResend}
                 resending={row.msg.id === resendingId}
               />
             ) : (

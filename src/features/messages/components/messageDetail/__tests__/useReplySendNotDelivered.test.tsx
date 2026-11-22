@@ -132,15 +132,46 @@ describe("the backend's own sentence for a reply that certainly did not go out",
     expect(bar.getByText(BLOCKED)).toBeTruthy();
   });
 
-  it('`retryable: false` in the answer: the sentence, and no Retry', async () => {
+  // The thread as re-read after the failure: the saved reply, undelivered, the agent's own.
+  const savedReply = () =>
+    event({
+      id: 955,
+      type: 'agent_reply',
+      content: '<p>On its way.</p>',
+      authorId: 7,
+      metadata: { delivered: false },
+    });
+  const NOT_RETRYABLE =
+    'Sending this reply again cannot help, so it is not offered: write a new reply once the cause is dealt with.';
+
+  it('`retryable: false` in the answer: the sentence and why, no Retry, and no Resend on its bubble', async () => {
     const bar = await sendAndFail({
       eventId: 955,
       uncertain: false,
       error: BLOCKED,
       retryable: false,
     });
-    expect(bar.getByText(BLOCKED)).toBeTruthy();
+    svc.message.getThreadMessages = vi
+      .fn()
+      .mockResolvedValue({ data: [event({ id: 900 }), savedReply()] });
+    expect(bar.getByText(`${BLOCKED} ${NOT_RETRYABLE}`)).toBeTruthy();
     expect(bar.queryByRole('button', { name: 'Send again' })).toBeNull();
+    // The bubble shows the reply as not delivered — and offers no Resend.
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh thread' }));
+    await screen.findByText('Not delivered');
+    expect(screen.queryByRole('button', { name: /^Resend the reply/ })).toBeNull();
+  });
+
+  it('CONTROL — `retryable` absent: no such sentence, and the bubble offers its Resend', async () => {
+    const bar = await sendAndFail({ eventId: 955, uncertain: false, error: BLOCKED });
+    svc.message.getThreadMessages = vi
+      .fn()
+      .mockResolvedValue({ data: [event({ id: 900 }), savedReply()] });
+    expect(bar.getByText(BLOCKED)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh thread' }));
+    await screen.findByText('Not delivered');
+    expect(screen.getByRole('button', { name: /^Resend the reply/ })).toBeTruthy();
+    expect(screen.queryByText(new RegExp(NOT_RETRYABLE.slice(0, 30)))).toBeNull();
   });
 
   it('CONTROL — an uncertain send keeps our warning; a 5xx that names no reply stays masked', async () => {

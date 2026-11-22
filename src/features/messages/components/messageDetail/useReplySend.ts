@@ -20,6 +20,8 @@ import {
   resolveSendFailureMessage,
 } from '@/features/messages/components/sendErrorMessage';
 import {
+  FILES_NOT_KEPT,
+  NOT_RETRYABLE,
   sameReplySendingId,
   stillSendingShown,
   mergeFailedSend,
@@ -29,7 +31,7 @@ import {
   uncertainFailureText,
 } from '../deliveryState';
 import { replyCollisionQuestion } from '@/lib/apiError';
-import { isSendInFlight, isSendKeyReused } from '../sendRefusals';
+import { isSendInFlight, isSendKeyReused, isStoredFilesUnreadable } from '../sendRefusals';
 import { afterSendNotes } from '../afterSendNotes';
 import { useTemplateSend } from './useTemplateSend';
 import { writeSendAction, type SendAction } from '../ComposerSendButton';
@@ -141,6 +143,8 @@ export function useReplySend({
       ? threadMessages.reduce((max, event) => Math.max(max, event.id), threadMessages[0].id)
       : undefined;
   const [collision, setCollision] = useState<string | null>(null);
+  // Replies whose 502 said `retryable: false`: no Resend on their bubbles (in this tab only).
+  const [notResendable, setNotResendable] = useState<ReadonlySet<number>>(() => new Set());
   const collisionRef = useRef<string | null>(null);
   const showCollision = useCallback((question: string | null) => {
     collisionRef.current = question;
@@ -160,6 +164,8 @@ export function useReplySend({
   const [sendAgain, setSendAgain] = useState<{
     assign?: ReplyAssignIntent;
     retry: boolean;
+    /** The reply it would replace: its stored files go again when the composer has none. */
+    eventId: number;
   } | null>(null);
   /*
     A reply sent while the thread's events are still being read waits for them: what it may
@@ -281,7 +287,7 @@ export function useReplySend({
         isReply && !resendOf ? sendAgainTarget(composer, loaded, failed, currentUserId) : null;
       if (again !== null && !confirmed) {
         setAssignPrompt(null);
-        setSendAgain({ assign, retry });
+        setSendAgain({ assign, retry, eventId: again });
         return;
       }
       lastWasRetryRef.current = retry;
@@ -309,6 +315,9 @@ export function useReplySend({
       // the same text — the one the failed send named.
       const retryOf = again ?? (retry && isReply && failed ? failed.eventId : undefined);
       const resendOfEventId = composerResendOf ?? retryOf;
+      // The stored-files choice of a resend from the composer (ResendNotice); absent = default.
+      const keepStoredFiles =
+        composerResendOf === undefined ? undefined : resendOf?.keepStoredFiles;
       // Notes aren't emails — no idempotency needed, and a note must not read, register or clear
       // the reply's token: one kept from a failed reply has to survive the note so that reply's
       // retry still dedups. A reply reuses a failed attempt's token only when it delivers the SAME
@@ -331,6 +340,8 @@ export function useReplySend({
                 recipients?.bcc ?? [],
                 // Its own key per resend (the contract): never the failed send's.
                 resendOfEventId ?? null,
+                // Which files go is part of the email.
+                keepStoredFiles ?? null,
               ])
             );
       // Not in the key's payload above: "Send anyway" is the same reply, so it keeps the key.
@@ -341,6 +352,7 @@ export function useReplySend({
               ...(seenLastEventId !== undefined && { seenLastEventId }),
               ...(confirmOverride && { confirmOverride: true }),
               ...(resendOfEventId !== undefined && { resendOfEventId }),
+              ...(keepStoredFiles !== undefined && { keepStoredFiles }),
             };
       // Before the request: the `message:replied` echo can beat the HTTP answer.
       if (idempotencyKey) rememberOwnSend(idempotencyKey);
@@ -491,7 +503,11 @@ export function useReplySend({
         // NEW reply while that one is on its way — and Retry stays for when it has ended.
         const inFlight = composerMode !== 'note' && isSendInFlight(err);
         const retryable = keyReused || inFlight || isRetryableSendFailure(err);
-        if (resendOfEventId !== undefined && !retryable) {
+        // The files stored with the reply being resent could not be read: nothing was sent, and
+        // that reply is still undelivered. The target stays, so attaching the files and pressing
+        // Send resends it; the server's sentence says what to do (no Retry: it would fail again).
+        const filesUnreadable = resendOfEventId !== undefined && isStoredFilesUnreadable(err);
+        if (resendOfEventId !== undefined && !retryable && !filesUnreadable) {
           setResendOf(null);
           if (failedSendRef.current?.eventId === resendOfEventId) failedSendRef.current = null;
         }
@@ -521,11 +537,20 @@ export function useReplySend({
           // The backend's own sentence when it names the cause of a reply that did not go out;
           // otherwise the sentence the socket event writes for the same reply, channel included.
           setSendFailedReason(
-            known.uncertain
-              ? uncertainFailureText(message.channel)
-              : (undelivered.sentence ?? notDeliveredText(message.channel))
+            `${
+              known.uncertain
+                ? uncertainFailureText(message.channel)
+                : (undelivered.sentence ?? notDeliveredText(message.channel))
+            }${undelivered.filesNotStored ? ` ${FILES_NOT_KEPT}` : ''}${
+              undelivered.retryable ? '' : ` ${NOT_RETRYABLE}`
+            }`
           );
           setSendFailedEventId(undelivered.eventId);
+          if (!undelivered.retryable) {
+            setNotResendable((ids) => new Set(ids).add(undelivered.eventId));
+            // A resend refused for good is over: the next Send is a new reply, not another resend.
+            if (composerResendOf !== undefined) setResendOf(null);
+          }
         } else if (inFlight) {
           // On its way already: a notice, not a failure — and no bar. The text, its key and the
           // resend target stay, so Send pressed again later is that same send.
@@ -777,11 +802,16 @@ export function useReplySend({
     /** The props of the "Send this reply again?" confirm. */
     sendAgainConfirm: {
       open: sendAgain !== null,
+      eventId: sendAgain?.eventId ?? null,
+      // Files in the composer go instead of the reply's stored ones.
+      attachedHere: selectedFiles.length,
       onOpenChange: (open: boolean) => {
         if (!open) cancelSendAgain();
       },
       onConfirm: confirmSendAgain,
     },
+    /** Replies the backend said cannot be sent again: their bubbles offer no Resend. */
+    notResendable,
     /** The "still being sent" notice (null: none), and its dismiss. */
     stillSendingNotice: stillSendingUp ? { onDismiss: () => setStillSending(null) } : null,
     collision,

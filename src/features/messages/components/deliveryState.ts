@@ -22,8 +22,21 @@ export const deliveryStateOf = (event: Pick<MessageEvent, 'metadata'>): Delivery
   return 'sent';
 };
 
-/** The undelivered reply the composer's next send replaces (`resendOfEventId`). */
-export type ResendTarget = { eventId: number; uncertain: boolean };
+/**
+ * The transport refused this reply for good (`metadata.sendPermanent === true`, stored with
+ * `delivered: false` and removed if it was delivered after all): sending it again cannot help, so
+ * no Resend is offered. Read from the event, so it holds after a reload and in every agent's tab.
+ * Only the exact boolean counts.
+ */
+export const isSendPermanent = (event: Pick<MessageEvent, 'metadata'>): boolean =>
+  event.metadata?.sendPermanent === true && deliveryStateOf(event) === 'failed';
+
+/**
+ * The undelivered reply the composer's next send replaces (`resendOfEventId`). `keepStoredFiles`:
+ * the agent's choice about the files stored with that reply (sent as is; absent = the backend's
+ * default — they go again only when the send uploads none). See ResendNotice.
+ */
+export type ResendTarget = { eventId: number; uncertain: boolean; keepStoredFiles?: boolean };
 
 /** Not delivered, or perhaps not: the states a resend is offered for. */
 export const isUndelivered = (state: DeliveryState): boolean =>
@@ -53,9 +66,9 @@ export const reconcileResendTarget = (
         return current === target.eventId ? target : { eventId: current, uncertain: false };
       if (!isUndelivered(state)) return null;
       const uncertain = state === 'uncertain';
-      return current === target.eventId && uncertain === target.uncertain
-        ? target
-        : { eventId: current, uncertain };
+      if (current !== target.eventId) return { eventId: current, uncertain };
+      // The same reply: the agent's choice about its files stays.
+      return uncertain === target.uncertain ? target : { ...target, uncertain };
     }
     const successor = thread.find((event) => event.metadata?.resendOf === current);
     if (!successor) return null;
@@ -279,6 +292,20 @@ const via = (channel?: unknown): string => {
 /** The bar's words for a reply that was saved and did not go out (any channel). */
 export const notDeliveredText = (channel?: unknown): string =>
   `Reply could not be delivered${via(channel)}. It was saved but not sent.`;
+
+/**
+ * The reply's 502 said `retryable: false`: the transport refused this reply for a reason that
+ * sending it again cannot change (the address refused, the bot blocked) — so neither Send again
+ * nor the bubble's Resend is offered for it, in this tab. Only some of these are stored on the
+ * reply (`sendPermanent`, isSendPermanent); a Telegram bot not started or blocked is not, so after
+ * a reload that reply offers Resend again (intended: the customer may start the bot).
+ */
+export const NOT_RETRYABLE =
+  'Sending this reply again cannot help, so it is not offered: write a new reply once the cause is dealt with.';
+
+/** The reply's 502 said its files were not saved with it (`warnings: ['files_not_stored']`). */
+export const FILES_NOT_KEPT =
+  'Its attachments were not saved with it: attach them again when you resend it.';
 
 const UNCERTAIN_START = 'We could not confirm';
 /** Is `reason` the "may have reached the customer" wording below? */
