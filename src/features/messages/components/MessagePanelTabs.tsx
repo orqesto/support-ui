@@ -37,6 +37,7 @@ import { useTabBadges } from './useTabBadges';
 import { TabBadge } from './TabBadge';
 import { STRIP_FADE, useStripFade } from './useStripFade';
 import { useLeadsHidden } from '@/features/messages/hooks/useLeadsHidden';
+import { isNoEmailVisitor } from '@/lib/visitorEmail';
 
 type LeadState = Parameters<typeof LeadQualificationPanel>[0]['leadState'];
 
@@ -176,7 +177,9 @@ export function MessagePanelTabs({
   // the standalone Contact drawer, via the shared hook. Resolved by the
   // requester's email; sender may be "Name <email>". Loaded lazily on tab open.
   // The same address the sender block shows (parseSender), so the two never disagree.
-  const contactEmail = contactLookupKey(message.sender);
+  // A website visitor who left no email has no contact of their own: the stored placeholder is
+  // shared by every such visitor, so no profile is read for it.
+  const contactEmail = isNoEmailVisitor(message.sender) ? '' : contactLookupKey(message.sender);
   // ⛔ D17: the profile loads for ANY resolvable sender, not only an email one. The old
   // `contactEmail.includes('@')` gate meant a Telegram or WhatsApp customer had NO contact profile
   // in the thread at all — a pre-existing bug, not a custom-API detail. Still keyed on the sender

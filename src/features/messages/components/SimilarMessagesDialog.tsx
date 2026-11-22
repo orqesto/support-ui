@@ -35,6 +35,7 @@ import {
   getSimilarityColor,
   getSimilarityBadge,
 } from './similarMessagesTypes';
+import { senderLabel } from '@/lib/visitorEmail';
 
 type SimilarMessagesDialogProps = {
   messageId: number;
@@ -556,7 +557,7 @@ export const SimilarMessagesDialog = ({
                         {msg.source === 'message' && msg.sender && (
                           <span className="flex gap-1 items-center">
                             <User className="w-3 h-3" />
-                            {msg.sender}
+                            {senderLabel(msg.sender)}
                           </span>
                         )}
                         {msg.repliedAt && (

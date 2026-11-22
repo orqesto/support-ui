@@ -11,6 +11,7 @@ import { SPAM_LOG_CARD_COPY, spamLogTruncationNotice } from '@/lib/spamLogCardCo
 import { formatDate } from '@/lib/utils';
 import type { MessageThread } from '@/services/message.service';
 import { ThreadBubble } from '../ThreadBubble';
+import { senderLabel } from '@/lib/visitorEmail';
 
 /** A spam-rule record's read-only preview (not a conversation, so not the detail pane). Moved unchanged from MessagesPage. */
 export const SpamPreviewDialog = ({
@@ -47,7 +48,7 @@ export const SpamPreviewDialog = ({
       <div className="mb-3 space-y-0.5 text-sm text-muted-foreground">
         <div>
           <span className="font-medium text-foreground">From:</span>{' '}
-          {spamPreview?.latestMessage?.sender || 'unknown sender'}
+          {senderLabel(spamPreview?.latestMessage?.sender) || 'unknown sender'}
         </div>
         {spamPreview?.latestMessage?.createdAt && (
           <div>

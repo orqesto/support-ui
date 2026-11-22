@@ -51,6 +51,7 @@ import { logger } from '@/lib/logger';
 import { allowedStatusOptions } from '@/lib/ticketStatus';
 import { TicketRef } from '@/features/tickets/components/TicketRef';
 import { useSeededState } from '@/lib/seededState';
+import { senderLabel } from '@/lib/visitorEmail';
 
 type TicketDetailProps = {
   ticket: Ticket;
@@ -403,7 +404,7 @@ export const TicketDetail = ({
       <section className="grid gap-3 px-[18px] py-4 border-b border-border/60">
         {sectionTitle('Details')}
         <div className="grid grid-cols-2 gap-x-3.5 gap-y-3">
-          {field('From', <span className="truncate">{ticket.sender}</span>, true)}
+          {field('From', <span className="truncate">{senderLabel(ticket.sender)}</span>, true)}
           {field(
             'Created',
             <span className="font-mono text-xs">{shortStamp(ticket.createdAt)}</span>
@@ -474,7 +475,7 @@ export const TicketDetail = ({
                 )}
                 <span>·</span>
                 <span>
-                  opened {formatAge(ticket.createdAt)} ago from {ticket.sender}
+                  opened {formatAge(ticket.createdAt)} ago from {senderLabel(ticket.sender)}
                 </span>
                 {ticket.externalId && (
                   <span className="inline-flex gap-1 items-center font-mono text-[11px]">

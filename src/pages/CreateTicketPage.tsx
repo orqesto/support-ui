@@ -23,6 +23,7 @@ import { useMessagesStore } from '@/features/messages/shell';
 import type { Message, Category, TicketPriority, ApiResponse } from '@/types';
 import RichTextEditor from '@/components/shared/LazyRichTextEditor';
 import { logger } from '@/lib/logger';
+import { senderLabel } from '@/lib/visitorEmail';
 
 /** The text of the editor's HTML, to tell an empty description from a written one. */
 const textOf = (html: string) =>
@@ -248,7 +249,7 @@ export const CreateTicketPage = () => {
             prev,
             data.subject?.replace(/^(?:(?:Re|Fwd?|AW|WG):\s*)+/i, '').trim() ??
               data.subject ??
-              `Message from ${data.sender}`,
+              `Message from ${senderLabel(data.sender)}`,
             htmlDescription
           ),
           // Pre-fill priority if AI suggested a valid enum value

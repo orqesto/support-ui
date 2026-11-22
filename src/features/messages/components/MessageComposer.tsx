@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Paperclip, BookOpen } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/Button';
@@ -172,6 +172,9 @@ export function MessageComposer({
   // shut, filling the box in changes nothing and saying so would mislead.
   const sendDisabled =
     isBlankRichText(composer) || submitting || aiBusy || Boolean(sendBlockedReason);
+  // The notice above the box, when it shows: what the blocked Send controls are described by.
+  const noticeId = useId();
+  const blockDescribedBy = sendBlockedReason && windowTone !== 'info' ? noticeId : undefined;
   const sendTitle =
     sendBlockedReason ??
     (isBlankRichText(composer) ? 'Add a message — attachments alone can’t be sent' : undefined);
@@ -325,6 +328,7 @@ export function MessageComposer({
 
       {(sendBlockedReason || windowRemaining) && windowTone !== 'info' && (
         <ComposerWindowNotice
+          id={noticeId}
           windowTone={windowTone}
           sendBlockedReason={sendBlockedReason}
           windowRemaining={windowRemaining}
@@ -367,8 +371,9 @@ export function MessageComposer({
             content={composer}
             onChange={setComposer}
             // While an AI draft is being written the editor holds the agent's NOTE, not a reply.
-            // While a send waits or is out, the shortcut is not another send.
-            onSubmit={aiBusy || submitting ? undefined : onSend}
+            // While a send waits or is out, the shortcut is not another send — nor while the
+            // notice above says no reply can be sent (the buttons are off for the same reason).
+            onSubmit={aiBusy || submitting || blockDescribedBy ? undefined : onSend}
             onImageFiles={addImageFiles}
             placeholder={replyPlaceholder}
             minHeight={sizing.editorMinHeight}
@@ -508,6 +513,7 @@ export function MessageComposer({
               submitting={submitting}
               disabled={sendDisabled}
               title={sendTitle}
+              describedBy={blockDescribedBy}
             />
           ) : (
             <ComposerPlainSend
@@ -519,6 +525,7 @@ export function MessageComposer({
               sendTitle={sendTitle}
               composerMode={composerMode}
               submitting={submitting}
+              describedBy={blockDescribedBy}
             />
           )}
         </div>

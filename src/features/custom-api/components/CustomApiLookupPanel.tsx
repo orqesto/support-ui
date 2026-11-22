@@ -28,6 +28,7 @@ import {
   referenceHintText,
   referenceNameOf,
 } from '../lib/customApiLookupText';
+import { isNoEmailVisitor } from '@/lib/visitorEmail';
 
 /** Moved to the shared card (2026-10-14); re-exported for existing importers. */
 export { ownershipNotice } from './CustomApiResultCard';
@@ -67,14 +68,15 @@ export { LOOKUPS_NOT_ON_SERVER } from '../lib/customApiLookupText';
  * Does this sender carry an email an identity lookup can key on? The SAME rule as the backend's
  * `lookupEmail` (customApiLookupService): a real address shape, and not the chat widget's
  * `anonymous@chat-widget.local` placeholder. `includes('@')` alone called that placeholder an
- * email, so the note stayed hidden while every identity card said it could not run.
+ * email, so the note stayed hidden while every identity card said it could not run. The
+ * placeholder test is the app's one definition (`isNoEmailVisitor`, `@/lib/visitorEmail`).
  * ⛔ A COPY. The source of truth is `isRealCustomerEmail` in the backend's
  * `src/shared/email/customerEmail.ts` (a separate repo) — change both together.
  */
 const LOOKUP_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const hasLookupEmailIdentity = (value: string): boolean => {
   const email = value.trim();
-  return LOOKUP_EMAIL_RE.test(email) && !email.toLowerCase().endsWith('@chat-widget.local');
+  return LOOKUP_EMAIL_RE.test(email) && !isNoEmailVisitor(email);
 };
 
 /** #920 (8b F2): how long a thread must stay open before the tab's automatic run starts. */

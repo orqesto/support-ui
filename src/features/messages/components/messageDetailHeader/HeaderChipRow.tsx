@@ -22,6 +22,7 @@ import {
 import { ReceivedAtAddresses } from '../ReceivedAtAddresses';
 import type { buildStatusDisplayOptions } from './headerDerived';
 import { PHONE_CHIP } from './headerStyles';
+import { senderLabel } from '@/lib/visitorEmail';
 
 type HeaderChipRowProps = {
   message: Message;
@@ -104,7 +105,7 @@ export function HeaderChipRow({
         <div className="flex basis-full flex-wrap items-center gap-x-[9px] gap-y-0.5 min-w-0">
           <div className="flex items-center gap-[7px] min-w-0 overflow-hidden">
             <div className="w-[21px] h-[21px] rounded-full bg-muted border border-border grid place-items-center font-display text-[9px] font-semibold text-muted-foreground flex-none">
-              {getInitials(message.sender)}
+              {getInitials(senderLabel(message.sender))}
             </div>
             {senderEmail.includes('@') ? (
               <button
@@ -126,7 +127,7 @@ export function HeaderChipRow({
               </button>
             ) : (
               <span className="text-[12.5px] font-medium truncate text-foreground">
-                {message.sender}
+                {senderLabel(message.sender)}
               </span>
             )}
           </div>

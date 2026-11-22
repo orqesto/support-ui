@@ -424,3 +424,87 @@ describe('TicketReplyComposer', () => {
     expect(screen.getByLabelText('Reply text')).toHaveValue('We fixed it.');
   });
 });
+
+describe('a website chat whose visitor left no email, on a ticket', () => {
+  const PLACEHOLDER = 'anonymous@chat-widget.local';
+  const LABEL = 'Website visitor (no email)';
+  const visitorBox = () => screen.getByRole('checkbox', { name: `Reply to ${LABEL}` });
+  const withVisitor = () =>
+    ready([thread(11), thread(12), thread(13, { channel: 'chat', requesterEmail: PLACEHOLDER })]);
+
+  it('cannot be ticked, says why, and is left out of the send — on a backend that does not list it', async () => {
+    const user = userEvent.setup();
+    withVisitor();
+    replies({ unreachable: [] });
+    send.mockResolvedValue({ replyId: 9, existing: false, queued: [11, 12], skipped: [] });
+    renderTicket();
+    await waitFor(() => expect(box(11)).toBeChecked());
+    expect(visitorBox()).not.toBeChecked();
+    expect(visitorBox()).toBeInactive();
+    await user.click(visitorBox());
+    expect(visitorBox()).not.toBeChecked();
+    expect(
+      screen.getByText('A reply cannot reach this thread: the visitor left no email address.')
+    ).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Reply text'), 'We fixed it.');
+    await user.click(screen.getByRole('button', { name: 'Send to 2 threads' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Send' }));
+    await waitFor(() =>
+      expect(send).toHaveBeenCalledWith(4, { content: 'We fixed it.' }, [11, 12], false, [])
+    );
+    expect(document.body.innerHTML).not.toContain('chat-widget.local');
+  });
+
+  it('the server\u2019s own reason wins when it lists the thread', async () => {
+    withVisitor();
+    replies({ unreachable: [{ conversationId: 13, reason: 'No customer address' }] });
+    renderTicket();
+    await waitFor(() => expect(box(11)).toBeChecked());
+    expect(
+      screen.getByText('A reply cannot reach this thread: No customer address')
+    ).toBeInTheDocument();
+    expect(visitorBox()).toBeInactive();
+  });
+
+  it('CONTROL: a chat whose visitor left an email is ticked like any thread', async () => {
+    ready([thread(11), thread(13, { channel: 'chat' })]);
+    renderTicket();
+    await waitFor(() => expect(box(13)).toBeChecked());
+    expect(box(13)).not.toBeInactive();
+    expect(screen.queryByText(/A reply cannot reach this thread/)).toBeNull();
+  });
+
+  it('the reply area names it by the label: a failed delivery and "Send here"', async () => {
+    withVisitor();
+    replies({
+      // An older reply that reached this thread's row before the visitor was known to have no
+      // address: the lines about it must not print the placeholder.
+      unreachable: [],
+      replies: [
+        {
+          id: 7,
+          content: '<p>We fixed it.</p>',
+          createdAt: '2026-10-02T10:00:00Z',
+          createdBy: { id: 1, name: 'Tara Agent' },
+          deliveries: [
+            { conversationId: 11, outcome: 'sent', reason: null, updatedAt: '' },
+            { conversationId: 13, outcome: 'failed', reason: 'No address', updatedAt: '' },
+          ],
+          hiddenCount: 0,
+          attachments: [],
+        },
+      ],
+    });
+    renderTicket();
+    expect(await screen.findByText('We fixed it.')).toBeInTheDocument();
+    expect(screen.getByText(`${LABEL}: failed — No address`)).toBeInTheDocument();
+    // CONTROL: a real customer is still named by the address.
+    expect(
+      screen.getByRole('button', { name: 'Send this reply to customer-12@example.com' })
+    ).toBeInTheDocument();
+    // The unreachable visitor is not offered "Send here".
+    expect(screen.queryByRole('button', { name: `Send this reply to ${LABEL}` })).toBeNull();
+    expect(document.body.innerHTML).not.toContain('chat-widget.local');
+  });
+});

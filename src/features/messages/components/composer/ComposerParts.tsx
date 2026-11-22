@@ -64,7 +64,10 @@ export function ComposerWindowNotice({
   sendBlockedReason,
   windowRemaining,
   onUseTemplate,
+  id,
 }: {
+  /** Named by the Send controls as their description while sending is blocked. */
+  id?: string;
   windowTone: 'none' | 'info' | 'warning' | 'blocked';
   sendBlockedReason: string | null;
   windowRemaining: string | null;
@@ -72,6 +75,7 @@ export function ComposerWindowNotice({
 }) {
   return (
     <div
+      id={id}
       role={windowTone === 'blocked' ? 'alert' : 'status'}
       className={`mb-2 px-2.5 py-[7px] text-[12.5px] rounded-[9px] border ${
         windowTone === 'blocked'
@@ -135,7 +139,10 @@ export function ComposerPlainSend({
   sendTitle,
   composerMode,
   submitting,
+  describedBy,
 }: {
+  /** The notice that says why sending is blocked (its element id). */
+  describedBy?: string;
   atRest: boolean;
   draftEmpty: boolean;
   openForReview: () => void;
@@ -151,6 +158,7 @@ export function ComposerPlainSend({
       onClick={atRest && !draftEmpty ? openForReview : onSend}
       disabled={sendDisabled}
       title={sendTitle}
+      aria-describedby={describedBy}
       className={`flex items-center gap-1 px-[13px] py-[5px] h-auto rounded-[7px] font-display text-[10.5px] font-semibold uppercase tracking-[0.07em] transition-colors data-[inactive]:opacity-50 ${
         composerMode === 'note'
           ? 'bg-note hover:bg-note/90 text-note-foreground'

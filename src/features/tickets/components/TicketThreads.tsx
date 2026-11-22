@@ -29,6 +29,12 @@ import {
 } from '@/features/tickets/services/threadCandidates.service';
 import { TicketReplyComposer, useTicketReplies } from './TicketReplyComposer';
 import { useSeededState } from '@/lib/seededState';
+import {
+  VISITOR_NO_EMAIL_UNREACHABLE,
+  emailLabel,
+  resolveVisitorNoEmailBlock,
+  senderLabel,
+} from '@/lib/visitorEmail';
 
 /**
  * The threads a ticket covers — every customer who reported this incident (owner, 2026-09-30).
@@ -333,6 +339,14 @@ export const TicketThreads = ({
   const unreachable = new Map(
     (replyData?.unreachable ?? []).map((row) => [row.conversationId, row.reason])
   );
+  // A website chat whose visitor left no email cannot be reached either — known here from the
+  // thread itself, so it holds on a backend that does not list it.
+  for (const row of threads) {
+    if (unreachable.has(row.conversationId)) continue;
+    const visitor = { channel: row.channel, sender: row.requesterEmail };
+    if (resolveVisitorNoEmailBlock(visitor, 'reply').blocked)
+      unreachable.set(row.conversationId, VISITOR_NO_EMAIL_UNREACHABLE);
+  }
   const unreachableKey = [...unreachable.keys()].join(',');
   const ticketDone = ticketStatus === 'resolved' || ticketStatus === 'closed';
   /*
@@ -524,7 +538,7 @@ export const TicketThreads = ({
                     checked={selected.has(row.conversationId)}
                     onChange={(event) => toggle(row.conversationId, event.target.checked)}
                     disabled={unreachable.has(row.conversationId)}
-                    aria-label={`Reply to ${row.requesterEmail}`}
+                    aria-label={`Reply to ${senderLabel(row.requesterEmail)}`}
                   />
                 ) : (
                   <span />
@@ -539,11 +553,11 @@ export const TicketThreads = ({
                   <Link to={threadUrl} className="grid gap-[3px] min-w-0 group">
                     <span className="flex gap-2 items-baseline min-w-0">
                       <span className="text-[13.5px] font-semibold truncate">
-                        {name ?? row.requesterEmail}
+                        {name ?? senderLabel(row.requesterEmail)}
                       </span>
                       {name && (
                         <span className="flex-1 min-w-0 text-[12.5px] truncate text-muted-foreground">
-                          {row.requesterEmail}
+                          {emailLabel(row.requesterEmail)}
                         </span>
                       )}
                     </span>
@@ -619,7 +633,7 @@ export const TicketThreads = ({
                       size="sm"
                       onClick={() => void remove(row.conversationId)}
                       disabled={busy}
-                      aria-label={`Remove ${row.requesterEmail}’s thread from this ticket`}
+                      aria-label={`Remove ${senderLabel(row.requesterEmail)}’s thread from this ticket`}
                     >
                       Remove
                     </Button>
@@ -634,7 +648,7 @@ export const TicketThreads = ({
                           variant="ghost"
                           size="sm"
                           disabled
-                          aria-label={`${row.requesterEmail}’s thread received an update and cannot be removed`}
+                          aria-label={`${senderLabel(row.requesterEmail)}’s thread received an update and cannot be removed`}
                         >
                           Remove
                         </Button>

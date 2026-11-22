@@ -8,6 +8,7 @@ import { Kbd } from '@/components/ui/Kbd';
 import { Tooltip } from '@/components/ui/Tooltip';
 import type { Message } from '@/types';
 import { MAX_FILES, NewTicketFiles } from './NewTicketFiles';
+import { senderLabel } from '@/lib/visitorEmail';
 
 /**
  * The create page's bar: back · "/ New ticket" · Cancel · Create ticket. Leaving with unsaved work
@@ -103,7 +104,7 @@ export const CreateTicketQuote = ({ message }: { message: Message }) => {
     <Card padding="sm" className="grid gap-1 bg-muted/30">
       <p className="flex gap-2 items-center min-w-0 text-[13px]">
         <Mail className="w-3.5 h-3.5 shrink-0 text-muted-foreground" aria-hidden />
-        <b className="truncate">{message.sender}</b>
+        <b className="truncate">{senderLabel(message.sender)}</b>
         <span className="text-xs text-muted-foreground">{message.channel}</span>
       </p>
       {message.subject && <p className="text-[13px] font-semibold">{message.subject}</p>}

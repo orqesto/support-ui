@@ -18,6 +18,7 @@ import { customerSince } from './contactFacts';
 import { tintedChip } from '@/lib/userColor';
 import { ticketDisplayId } from '@/lib/ticketReference';
 import { useCurrentOrgCode } from '@/hooks/useCurrentOrgCode';
+import { emailLabel, senderLabel } from '@/lib/visitorEmail';
 
 type ContactProfilePanelProps = {
   email: string;
@@ -239,13 +240,15 @@ export function ContactProfilePanel({
                       }}
                     >
                       <h2 className="font-display text-base font-bold tracking-tight truncate text-foreground">
-                        {contact.displayName?.trim() ? contact.displayName : contact.primaryEmail}
+                        {contact.displayName?.trim()
+                          ? contact.displayName
+                          : senderLabel(contact.primaryEmail)}
                       </h2>
                       <Settings2 className="w-3 h-3 opacity-0 text-muted-foreground group-hover/name:opacity-100" />
                     </Button>
                   )}
                   <p className="text-xs font-mono truncate text-muted-foreground mt-0.5">
-                    {contact.primaryEmail}
+                    {emailLabel(contact.primaryEmail)}
                   </p>
                   {contact.labels.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1.5">

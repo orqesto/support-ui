@@ -38,6 +38,7 @@ import {
   REL_SECTION_TITLE,
 } from './relatedStyles';
 import { channelInSentence } from './messageDetailConstants';
+import { isNoEmailVisitor, senderLabel } from '@/lib/visitorEmail';
 
 /**
  * The customer's organisation, as a search: `mp@deals.lowtide.fund` → `lowtide.fund`.
@@ -74,6 +75,9 @@ const PUBLIC_MAIL_DOMAINS = new Set([
 ]);
 
 export const customerDomainQuery = (sender: string | null | undefined): string => {
+  // A website visitor who left no email shares the stored placeholder with every such visitor:
+  // its domain names no customer, so nothing is prefilled or searched for it.
+  if (isNoEmailVisitor(sender)) return '';
   // `Name <addr@host>` → `addr@host`: the stored requester often carries a display name.
   const raw = (sender ?? '').match(/<([^>]+)>/)?.[1] ?? sender ?? '';
   const address = raw.trim().toLowerCase();
@@ -216,7 +220,7 @@ export const MergePickerDialog = ({
                     <span className="text-[13px] font-medium truncate">
                       {candidate.subject?.trim() ? candidate.subject : '(no subject)'}
                     </span>
-                    {candidate.sender && <span className={MG_DIM}>{candidate.sender}</span>}
+                    {candidate.sender && <span className={MG_DIM}>{senderLabel(candidate.sender)}</span>}
                   </span>
                   <Button
                     variant="outline"

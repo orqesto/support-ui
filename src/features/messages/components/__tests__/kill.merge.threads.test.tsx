@@ -70,14 +70,20 @@ const deferred = (): { promise: Promise<unknown> } & Deferred => {
   return { promise, ...handle };
 };
 
-const Host = ({ initialOpen = true }: { initialOpen?: boolean }) => {
+const Host = ({
+  initialOpen = true,
+  message = CURRENT,
+}: {
+  initialOpen?: boolean;
+  message?: Message;
+}) => {
   const [open, setOpen] = useState(initialOpen);
   return (
     <MemoryRouter>
       <button type="button" onClick={() => setOpen(true)}>
         open picker
       </button>
-      <MergePickerDialog open={open} onOpenChange={setOpen} message={CURRENT} />
+      <MergePickerDialog open={open} onOpenChange={setOpen} message={message} />
     </MemoryRouter>
   );
 };
@@ -108,6 +114,19 @@ describe('MergePickerDialog — opening', () => {
     );
     expect(within(picker()).getByDisplayValue('acme.io')).toBeInTheDocument();
   });
+
+  it.each(['anonymous@chat-widget.local', 'Dana <anonymous@chat-widget.local>'])(
+    'a website visitor with no email (%s): nothing is prefilled and nothing is searched',
+    async (sender) => {
+      mocks.getThreads.mockResolvedValue({ data: [] });
+      render(<Host message={{ ...CURRENT, channel: 'chat', sender } as Message} />);
+      const input = await within(picker()).findByRole('textbox');
+      await act(async () => {});
+      expect(input).toHaveValue('');
+      expect(mocks.getThreads).not.toHaveBeenCalled();
+      expect(picker().innerHTML).not.toContain('chat-widget.local');
+    }
+  );
 
   it('a reopen starts again: the search runs once more', async () => {
     mocks.getThreads.mockResolvedValue({ data: [] });

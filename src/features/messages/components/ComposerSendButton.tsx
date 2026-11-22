@@ -47,7 +47,10 @@ export function ComposerSendButton({
   disabled,
   submitting,
   title,
+  describedBy,
 }: {
+  /** The notice that says why sending is blocked (its element id). */
+  describedBy?: string;
   action: SendAction;
   /** Offered in this state; the face falls back to plain Send when its action is not. */
   actions: SendAction[];
@@ -67,6 +70,7 @@ export function ComposerSendButton({
         onClick={() => onSend(face)}
         disabled={disabled}
         aria-label={submitting ? 'SENDING…' : FACE[face]}
+        aria-describedby={describedBy}
         className={`${SEGMENT} gap-1 px-[13px] rounded-none max-sm:px-3.5`}
       >
         <Send className="w-2.5 h-2.5" />
@@ -83,6 +87,7 @@ export function ComposerSendButton({
               onClick={toggle}
               disabled={disabled}
               aria-label="Choose what happens after sending"
+              aria-describedby={describedBy}
               className={`${SEGMENT} px-1.5 rounded-none border-l border-primary-foreground/25`}
             >
               <ChevronDown className="w-3 h-3" />

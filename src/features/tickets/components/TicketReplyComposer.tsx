@@ -37,6 +37,7 @@ import {
   useSendingNotice,
 } from './TicketUpdateAssist';
 import { useShownTicketRef } from '../hooks/useShownTicketRef';
+import { senderLabel } from '@/lib/visitorEmail';
 
 /**
  * Reply to a ticket's threads from the ticket page (owner, 2026-09-23): one text, a SEPARATE
@@ -231,7 +232,11 @@ export const TicketReplyComposer = ({
 
   const sendingNotice = useSendingNotice(replies.replies, setNotice);
 
-  const emailOf = new Map(threads.map((row) => [row.conversationId, row.requesterEmail]));
+  // Shown only (who a draft, a reply or a problem is for): a website visitor with no email reads
+  // "Website visitor (no email)", never the stored placeholder.
+  const emailOf = new Map(
+    threads.map((row) => [row.conversationId, senderLabel(row.requesterEmail)])
+  );
   const tooMany = selected.length > replies.maxThreads;
   // T-4: a name token with no fallback is refused for a customer with no name — say so first.
   const nameTokens = nameTokensWithoutFallback(draft);

@@ -21,6 +21,7 @@ import { getApiErrorMessage } from '@/lib/errorMessages';
 import { showRouteLearningNote } from '@/lib/routingCopy';
 import { NOTIFICATION_COUNTS_KEY } from '@/hooks/useNotificationCounts';
 import { useListWritingGuard, usePresenceSummary } from '@/features/messages';
+import { senderLabel } from '@/lib/visitorEmail';
 
 const PAGE_SIZE = 50;
 
@@ -365,7 +366,7 @@ export const NeedsRoutingPage = () => {
                       onClick={() => navigate(`/threads/${msg.id}`)}
                     >
                       <td className="px-4 py-3">
-                        <p className="text-sm font-medium truncate max-w-[200px]">{msg.sender}</p>
+                        <p className="text-sm font-medium truncate max-w-[200px]">{senderLabel(msg.sender)}</p>
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-left truncate max-w-[300px] hover:underline text-foreground">
@@ -449,7 +450,7 @@ export const NeedsRoutingPage = () => {
                 >
                   <CardContent className="p-4 space-y-3">
                     <div>
-                      <p className="text-sm font-medium">{msg.sender}</p>
+                      <p className="text-sm font-medium">{senderLabel(msg.sender)}</p>
                       <p className="text-sm text-left text-muted-foreground hover:underline truncate w-full">
                         {msg.subject ?? '(no subject)'}
                       </p>

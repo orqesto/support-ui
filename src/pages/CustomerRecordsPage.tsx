@@ -14,6 +14,7 @@ import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { contactService, type ContactProfile } from '@/services/contact.service';
 import { customApiLookupService, type CustomApiLookupResult, type CustomApiStoredRecord, type RunnableLookup } from '@/features/custom-api/shell';
+import { emailLabel, senderLabel } from '@/lib/visitorEmail';
 
 /**
  * CA-6 — THE CUSTOMER RECORDS PAGE.
@@ -458,7 +459,7 @@ export const CustomerRecordsPage = () => {
     }
   };
 
-  const heading = contact?.displayName ?? contact?.primaryEmail ?? 'Customer';
+  const heading = contact?.displayName ?? (senderLabel(contact?.primaryEmail) || 'Customer');
 
   return (
     <>
@@ -494,7 +495,7 @@ export const CustomerRecordsPage = () => {
               <h1 className="font-display text-xl font-semibold">{heading}</h1>
               {contact?.primaryEmail && contact.displayName && (
                 <p className="font-mono text-[12px] text-muted-foreground">
-                  {contact.primaryEmail}
+                  {emailLabel(contact.primaryEmail)}
                 </p>
               )}
             </div>

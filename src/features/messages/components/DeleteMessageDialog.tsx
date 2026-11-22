@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
 import type { Message } from '@/types';
+import { senderLabel } from '@/lib/visitorEmail';
 
 /**
  * The one "Delete message" confirm — the inbox slide-over and the full page both open THIS, so the two ways into a message cannot drift into two different questions. What a
@@ -44,7 +45,7 @@ export const DeleteMessageDialog = ({
         <p>Are you sure you want to delete this thread? This action cannot be undone.</p>
         {message && (
           <div className="p-4 mt-4 rounded bg-muted">
-            <p className="text-sm font-medium">From: {message.sender}</p>
+            <p className="text-sm font-medium">From: {senderLabel(message.sender)}</p>
             {message.subject && (
               <p className="text-sm text-muted-foreground">Subject: {message.subject}</p>
             )}

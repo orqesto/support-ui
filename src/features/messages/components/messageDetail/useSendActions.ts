@@ -14,6 +14,7 @@ export type AfterSend = { action: SendAction; hold?: { reason: string; until: Da
  */
 export function useSendActions({
   composer,
+  blocked = false,
   handleSend,
   afterSendRef,
   sendBusyRef,
@@ -22,6 +23,8 @@ export function useSendActions({
   currentUserId,
 }: {
   composer: string;
+  /** No reply can be sent on this thread (the composer says why): no choice sends or asks. */
+  blocked?: boolean;
   handleSend: () => Promise<void>;
   afterSendRef: MutableRefObject<AfterSend>;
   sendBusyRef: MutableRefObject<boolean>;
@@ -34,7 +37,7 @@ export function useSendActions({
     (action: SendAction) => {
       // A send is waiting or out: this press is not another one, and must not change what that
       // one does after it is out.
-      if (sendBusyRef.current) return;
+      if (sendBusyRef.current || blocked) return;
       if (isBlankRichText(composer)) return;
       // On hold needs its reason and recheck date first — asked BEFORE anything is sent.
       if (action === 'hold') {
@@ -44,7 +47,7 @@ export function useSendActions({
       afterSendRef.current = { action };
       void handleSend();
     },
-    [composer, handleSend, afterSendRef, sendBusyRef, setSendHoldOpen]
+    [composer, blocked, handleSend, afterSendRef, sendBusyRef, setSendHoldOpen]
   );
   const rememberSendAction = useCallback(
     (action: SendAction) => {
@@ -57,21 +60,21 @@ export function useSendActions({
   // is confirmed, so a cancelled hold does not turn every later Send into a hold dialog.
   const handleSendPick = useCallback(
     (action: SendAction) => {
-      if (sendBusyRef.current) return;
+      if (sendBusyRef.current || blocked) return;
       if (action !== 'hold') rememberSendAction(action);
       handleSendWith(action);
     },
-    [handleSendWith, rememberSendAction, sendBusyRef]
+    [blocked, handleSendWith, rememberSendAction, sendBusyRef]
   );
   /** The hold dialog's confirm: the reply goes out, then the thread is put on hold. */
   const sendWithHold = useCallback(
     (hold: { reason: string; until: Date }) => {
-      if (sendBusyRef.current) return;
+      if (sendBusyRef.current || blocked) return;
       rememberSendAction('hold');
       afterSendRef.current = { action: 'hold', hold };
       void handleSend();
     },
-    [afterSendRef, handleSend, rememberSendAction, sendBusyRef]
+    [afterSendRef, blocked, handleSend, rememberSendAction, sendBusyRef]
   );
   return { handleSendWith, rememberSendAction, handleSendPick, sendWithHold };
 }

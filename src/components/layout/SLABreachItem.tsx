@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { type SLABreachNotification } from '@/hooks/useSLANotifications';
 import { formatBreachAmount, minutesOver } from '@/components/layout/notificationFormat';
 import { useNow } from '@/hooks/useNow';
+import { senderLabel } from '@/lib/visitorEmail';
 
 /**
  * ⚠️ The default arm is load-bearing, not defensive padding. The bell's kind filter is
@@ -99,7 +100,7 @@ export const SLABreachItem = ({
         <p className="mt-0.5 truncate text-muted-foreground">
           {notification.details.title ??
             notification.details.subject ??
-            notification.details.sender}
+            senderLabel(notification.details.sender)}
         </p>
         {isSlack ? (
           <p className="mt-1 text-xs text-muted-foreground">

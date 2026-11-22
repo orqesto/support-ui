@@ -12,6 +12,7 @@ import {
   THREAD_PICKER_LIMIT,
   type ThreadCandidate,
 } from '@/features/tickets/services/threadCandidates.service';
+import { senderLabel } from '@/lib/visitorEmail';
 
 /** "Add threads to this ticket": search any customer's threads, add each with one press. */
 export const TicketAddThreadsDialog = ({
@@ -72,7 +73,7 @@ export const TicketAddThreadsDialog = ({
                 className="flex gap-2.5 items-center py-2 pr-2 pl-3 text-[13px] border-t border-border/60 first:border-t-0"
               >
                 <span className="flex-1 min-w-0 truncate">
-                  {row.sender}
+                  {senderLabel(row.sender)}
                   {row.subject && <span className="text-muted-foreground"> · {row.subject}</span>}
                 </span>
                 <Button size="sm" variant="outline" onClick={() => onAdd(row.id)} disabled={busy}>

@@ -10,6 +10,7 @@ import {
   THREAD_PICKER_LIMIT,
   type ThreadCandidate,
 } from '@/features/tickets/services/threadCandidates.service';
+import { senderLabel } from '@/lib/visitorEmail';
 
 type Props = {
   chosen: ThreadCandidate[];
@@ -62,7 +63,7 @@ export const TicketThreadPicker = ({ chosen, onChosenChange, fixed = null }: Pro
             <li>
               <Tooltip content="The thread this ticket is created from" size="sm">
                 <Badge variant="secondary">
-                  {fixed.publicId ?? `#${fixed.id}`} · {fixed.sender} (this thread)
+                  {fixed.publicId ?? `#${fixed.id}`} · {senderLabel(fixed.sender)} (this thread)
                 </Badge>
               </Tooltip>
             </li>
@@ -74,9 +75,9 @@ export const TicketThreadPicker = ({ chosen, onChosenChange, fixed = null }: Pro
                 size="sm"
                 variant="outline"
                 onClick={() => onChosenChange(chosen.filter((one) => one.id !== row.id))}
-                aria-label={`Leave out ${row.sender || `thread #${row.id}`}`}
+                aria-label={`Leave out ${senderLabel(row.sender) || `thread #${row.id}`}`}
               >
-                {row.publicId ?? `#${row.id}`} · {row.sender}
+                {row.publicId ?? `#${row.id}`} · {senderLabel(row.sender)}
                 <X className="ml-1 w-3 h-3" aria-hidden />
               </Button>
             </li>
@@ -106,7 +107,7 @@ export const TicketThreadPicker = ({ chosen, onChosenChange, fixed = null }: Pro
               className="flex gap-2.5 items-center py-1.5 pr-2 pl-3 text-[13px] border-t border-border/60 first:border-t-0"
             >
               <span className="flex-1 min-w-0 truncate">
-                <b className="font-semibold">{row.sender}</b>
+                <b className="font-semibold">{senderLabel(row.sender)}</b>
                 <span className="text-muted-foreground"> · {row.subject ?? '(no subject)'}</span>
               </span>
               {row.status && (
@@ -119,7 +120,7 @@ export const TicketThreadPicker = ({ chosen, onChosenChange, fixed = null }: Pro
                 size="sm"
                 variant="outline"
                 onClick={() => onChosenChange([...chosen, row])}
-                aria-label={`Add ${row.sender || `thread #${row.id}`}`}
+                aria-label={`Add ${senderLabel(row.sender) || `thread #${row.id}`}`}
               >
                 Add
               </Button>
