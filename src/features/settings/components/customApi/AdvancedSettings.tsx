@@ -1,6 +1,4 @@
-import { useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { Disclosure } from '@/components/ui/Disclosure';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
@@ -15,45 +13,9 @@ import {
 } from './requestSettings';
 import type { RequestSettingsState } from './useRequestSettings';
 
-/**
- * ⛔ COLLAPSED BY DEFAULT (owner, 2026-09-29): the common vendor needs none of this, and the form
- * must look as it did. When anything differs from the defaults the closed header says WHAT, so an
- * admin reopening a lookup is never surprised by a setting they cannot see.
- */
-const Disclosure = ({
-  title,
-  summary,
-  children,
-}: {
-  title: string;
-  summary: string[];
-  children: ReactNode;
-}) => {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="rounded-md border">
-      <Button
-        variant="ghost"
-        className="flex justify-between items-center px-3 py-2 w-full h-auto text-sm font-medium text-left hover:bg-transparent"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-      >
-        <span className="flex flex-col gap-0.5">
-          <span>{title}</span>
-          <span className="text-xs font-normal text-muted-foreground">
-            {summary.length > 0 ? summary.join(' · ') : 'Standard — nothing changed'}
-          </span>
-        </span>
-        {open ? (
-          <ChevronUp className="w-4 h-4 shrink-0" />
-        ) : (
-          <ChevronDown className="w-4 h-4 shrink-0" />
-        )}
-      </Button>
-      {open && <div className="p-3 space-y-3 border-t">{children}</div>}
-    </div>
-  );
-};
+/** Shown in a collapsed header when nothing differs from the defaults. */
+const standard = (parts: string[]): string =>
+  parts.length > 0 ? parts.join(' · ') : 'Standard — nothing changed';
 
 /** Lookup-level: how the request is shaped and how much of a list is read. */
 export const RequestAdvancedSettings = ({
@@ -73,7 +35,7 @@ export const RequestAdvancedSettings = ({
   return (
     <Disclosure
       title="Advanced request settings"
-      summary={describeRequestSettings(settings, resultShape)}
+      summary={standard(describeRequestSettings(settings, resultShape))}
     >
       <div className="space-y-1">
         <Label htmlFor="ca-method">How we ask</Label>
@@ -223,7 +185,7 @@ export const FailureAdvancedSettings = ({
   return (
     <Disclosure
       title="How this system reports a failed call"
-      summary={describeFailureSettings(settings)}
+      summary={standard(describeFailureSettings(settings))}
     >
       <p className="text-xs text-muted-foreground">
         Some systems answer “OK” and put the failure inside the reply. Leave a field empty to switch
