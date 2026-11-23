@@ -98,6 +98,8 @@ export const RulesSettings = ({ section }: RulesSettingsProps = {}) => {
 
   // Switching Advanced off from the toggle (never from an effect): leave a section that is now hidden.
   const onTurnOff = () => {
+    // Only a section that Advanced off now hides is left; one still shown keeps your place.
+    if (visibleSections(visibleRuleTypes, false).some((type) => type.id === active)) return;
     const target = firstVisibleId(visibleSections(visibleRuleTypes, false), 'spam');
     if (target) {
       setActiveRuleType(target as RuleType);

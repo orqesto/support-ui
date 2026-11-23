@@ -78,4 +78,13 @@ describe('Settings › Workspace with "Show advanced settings"', () => {
     expect(screen.getByTestId('org-tab-details')).toHaveAttribute('data-active', 'true');
     expect(screen.getByTestId('hash')).toHaveTextContent('#organization/details');
   });
+
+  it('switching Advanced off on Categories (still shown) keeps you there', () => {
+    useAdvancedStore.setState({ show: true });
+    renderAdmin('categories');
+    fireEvent.click(screen.getByRole('switch', { name: /show advanced settings/i }));
+    expect(screen.getByTestId('org-tab-categories')).toHaveAttribute('data-active', 'true');
+    // Not moved: no navigation happens (this harness starts with no hash).
+    expect(screen.getByTestId('hash')).not.toHaveTextContent('#organization/details');
+  });
 });

@@ -34,6 +34,7 @@ vi.mock('@/components/ui/Tabs', () => ({
 }));
 
 import { useAdvancedStore } from '@/features/settings/advanced';
+import { AUTO_ACTIONS_HREF } from '@/features/kb/shell';
 import { AIConfigSettings } from '@/features/settings/components/AIConfigSettings';
 
 const Hash = () => <span data-testid="hash">{useLocation().hash}</span>;
@@ -80,5 +81,18 @@ describe('Settings › AI with "Show advanced settings"', () => {
     fireEvent.click(screen.getByRole('switch', { name: /show advanced settings/i }));
     expect(screen.getByTestId('hash').textContent).toMatch(/^#ai\/(prompts|auto-reply)$/);
     expect(screen.queryByTestId('ai-tab-learning-trust')).toBeNull();
+  });
+
+  it('the automatic-actions link (its exported path) opens it with Advanced off', () => {
+    renderAdmin(AUTO_ACTIONS_HREF.split('#ai/')[1]);
+    expect(screen.getByTestId('ai-tab-automatic-actions')).toHaveAttribute('data-active', 'true');
+  });
+
+  it('switching Advanced off on Auto-reply (still shown) keeps you there', () => {
+    useAdvancedStore.setState({ show: true });
+    renderAdmin('auto-reply');
+    fireEvent.click(screen.getByRole('switch', { name: /show advanced settings/i }));
+    expect(screen.getByTestId('ai-tab-auto-reply')).toHaveAttribute('data-active', 'true');
+    expect(screen.getByTestId('hash')).toHaveTextContent('#ai/auto-reply');
   });
 });

@@ -26,6 +26,8 @@ vi.mock('@/components/ui/Tabs', () => ({
 }));
 
 import { useAdvancedStore } from '@/features/settings/advanced';
+import { AI_KEY_SETTINGS_PATH } from '@/lib/starterAllowance';
+import { CUSTOM_APIS_SETTINGS_PATH } from '@/features/settings/components/customApi/lookupPaths';
 import { ConnectedServicesSettings } from '@/features/settings/components/ConnectedServicesSettings';
 
 const Hash = () => <span data-testid="hash">{useLocation().hash}</span>;
@@ -70,5 +72,22 @@ describe('Settings › Integrations with "Show advanced settings"', () => {
     fireEvent.click(screen.getByRole('switch', { name: /show advanced settings/i }));
     expect(screen.getByTestId('hash')).toHaveTextContent('#integrations/message-sources');
     expect(screen.queryByTestId('int-tab-database')).toBeNull();
+  });
+
+  it.each([
+    ['the AI key link', AI_KEY_SETTINGS_PATH],
+    ['the custom API lookup link', CUSTOM_APIS_SETTINGS_PATH],
+  ])('%s (its exported path) opens its section with Advanced off', (_name, path) => {
+    const id = path.split('#integrations/')[1];
+    renderAdmin(id);
+    expect(screen.getByTestId(`int-tab-${id}`)).toHaveAttribute('data-active', 'true');
+  });
+
+  it('switching Advanced off on Chat Widgets (still shown) keeps you there', () => {
+    useAdvancedStore.setState({ show: true });
+    renderAdmin('chat-widgets');
+    fireEvent.click(screen.getByRole('switch', { name: /show advanced settings/i }));
+    expect(screen.getByTestId('int-tab-chat-widgets')).toHaveAttribute('data-active', 'true');
+    expect(screen.getByTestId('hash')).toHaveTextContent('#integrations/chat-widgets');
   });
 });

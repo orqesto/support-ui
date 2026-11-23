@@ -96,6 +96,8 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
 
   // From the toggle only: leave a section that Advanced just hid.
   const onTurnOff = () => {
+    // Only a section that Advanced off now hides is left; one still shown keeps your place.
+    if (visibleSections(sections, false).some((sect) => sect.id === active)) return;
     const target = (firstVisibleId(visibleSections(sections, false), 'message-sources') ??
       'message-sources') as ServiceSection;
     setActive(target);

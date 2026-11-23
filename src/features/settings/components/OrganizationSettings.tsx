@@ -144,6 +144,8 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
 
   // From the toggle only: leave a section that Advanced just hid.
   const onTurnOff = () => {
+    // Only a section that Advanced off now hides is left; one still shown keeps your place.
+    if (visibleSections(gatedSections, false).some((sect) => sect.id === active)) return;
     const target = (firstVisibleId(visibleSections(gatedSections, false), 'details') ?? 'details') as OrgSection;
     setActive(target);
     void navigate(`#organization/${target}`, { replace: true });

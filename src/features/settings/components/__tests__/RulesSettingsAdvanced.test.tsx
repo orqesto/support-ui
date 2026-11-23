@@ -85,4 +85,23 @@ describe('Settings › Rules with "Show advanced settings"', () => {
     expect(screen.getByTestId('priority-content')).toBeVisible();
     expect(screen.getByTestId('hash')).toHaveTextContent('#rules/priority');
   });
+
+  it.each(['spam', 'routing'])('a link into a hidden section still opens it (#rules/%s)', (id) => {
+    renderAs('org_admin', id);
+    expect(screen.getByTestId(`${id}-content`)).toBeVisible();
+    expect(screen.getByTestId(`rule-tab-${id}`)).toHaveAttribute('data-active', 'true');
+  });
+
+  it('a reload of #rules/priority opens Priority again', () => {
+    renderAs('org_admin', 'priority');
+    expect(screen.getByTestId('rule-tab-priority')).toHaveAttribute('data-active', 'true');
+  });
+
+  it('switching Advanced off on Reply templates (still shown) keeps you there', () => {
+    useAdvancedStore.setState({ show: true });
+    renderAs('org_admin', 'templates');
+    fireEvent.click(screen.getByRole('switch', { name: /show advanced settings/i }));
+    expect(screen.getByTestId('templates-content')).toBeVisible();
+    expect(screen.getByTestId('hash')).not.toHaveTextContent('#rules/priority');
+  });
 });
