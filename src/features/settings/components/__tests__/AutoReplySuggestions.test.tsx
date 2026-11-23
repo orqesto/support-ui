@@ -3,6 +3,10 @@ import { vi, describe, it, expect, afterEach, beforeEach } from 'vitest';
 import type * as LearningServiceModule from '@/services/learning.service';
 import { render, screen, cleanup } from '@testing-library/react';
 
+// The keyword rules section asks whether an AI provider is set up; these tests are not about it.
+vi.mock('@/hooks/useAiConfigured', () => ({
+  useAiConfigured: () => ({ aiConfigured: true, isLoading: false }),
+}));
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,

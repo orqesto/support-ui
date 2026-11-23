@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Pencil, Plus, Tags, Trash2, X } from 'lucide-react';
 import type { AlertState } from '@/features/settings/components/integrations/types';
 import { Alert } from '@/components/ui/Alert';
@@ -9,14 +10,18 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Toggle } from '@/components/ui/Toggle';
+import { useAiConfigured } from '@/hooks/useAiConfigured';
+import { usePermissions } from '@/hooks/usePermissions';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
+import { AI_KEY_SETTINGS_PATH } from '@/lib/starterAllowance';
 import {
   autoReplyRulesService,
   ruleErrorFields,
   ruleErrorMessage,
   type AutoReplyRule,
 } from '@/services/autoReplyRules.service';
+import { Permission } from '@/types/roles';
 import {
   addKeywords,
   draftKeywords,
@@ -229,6 +234,13 @@ const RuleForm = ({
 export const RULE_CHECK_NOTE =
   "Before a rule's reply is sent, your workspace's AI provider checks that the customer asks what the rule answers and not about a restricted topic. When no AI provider is set up, or the check cannot run, the reply is held for a person and not sent.";
 
+/**
+ * Shown when a switched-on rule could reply but the workspace has no AI provider: the meaning check
+ * cannot run, so the backend holds every rule reply (`question_unchecked`) and none is sent.
+ */
+export const NO_AI_PROVIDER_WARNING =
+  'No AI provider is set up. Every keyword rule reply is checked by AI before it is sent, so until a provider is set up no rule reply is sent: each one is held for a person.';
+
 export const AutoReplyRulesSection = ({
   canManage,
   autoReplyEnabled,
@@ -242,6 +254,11 @@ export const AutoReplyRulesSection = ({
   const [saving, setSaving] = useState(false);
   const [busyRuleId, setBusyRuleId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<AutoReplyRule | null>(null);
+  // `aiConfigured` is false only on a loaded answer: while the request runs, or after it failed,
+  // the hook reports true, so the warning never shows on an unknown.
+  const { aiConfigured } = useAiConfigured();
+  const { hasPermission } = usePermissions();
+  const noAiForRules = autoReplyEnabled && !aiConfigured && rules.some((rule) => rule.enabled);
 
   useEffect(() => {
     let cancelled = false;
@@ -401,6 +418,18 @@ export const AutoReplyRulesSection = ({
           <Alert variant="warning">
             Automatic email replies are off, so no rule sends anything. Turn on &quot;Automatic email replies&quot;
             above (or for a team) and the rules apply.
+          </Alert>
+        )}
+        {noAiForRules && (
+          <Alert variant="warning">
+            {NO_AI_PROVIDER_WARNING}{' '}
+            {hasPermission(Permission.MANAGE_INTEGRATIONS) ? (
+              <Link to={AI_KEY_SETTINGS_PATH} className="font-medium underline">
+                Set up an AI provider
+              </Link>
+            ) : (
+              'Ask a workspace admin to set one up.'
+            )}
           </Alert>
         )}
         {loadError && <Alert variant="danger">{loadError}</Alert>}

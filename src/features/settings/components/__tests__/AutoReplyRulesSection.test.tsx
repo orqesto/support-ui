@@ -5,6 +5,9 @@
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
+import type { AlertState } from '@/features/settings/components/integrations/types';
 
 const api = vi.hoisted(() => ({
   rules: [] as Record<string, unknown>[],
@@ -13,11 +16,24 @@ const api = vi.hoisted(() => ({
   deletes: [] as string[],
   postError: null as Error | null,
   patchError: null as Error | null,
+  /** GET /api/ai/providers: the answer, 'pending' (never settles) or 'error' (rejects). */
+  ai: 'configured' as 'configured' | 'none' | 'pending' | 'error',
+  canManageIntegrations: true,
 }));
 
 vi.mock('@/lib/api-client', () => ({
   apiClient: {
-    get: () => Promise.resolve({ data: { success: true, data: api.rules } }),
+    get: (url: string) => {
+      if (url !== '/api/ai/providers') {
+        return Promise.resolve({ data: { success: true, data: api.rules } });
+      }
+      if (api.ai === 'pending') return new Promise(() => undefined);
+      if (api.ai === 'error') return Promise.reject(new Error('providers request failed'));
+      const enabled = api.ai === 'configured' ? [{ provider: 'openai' }] : [];
+      return Promise.resolve({
+        data: { success: true, data: { enabled, available: [], platform: { active: false } } },
+      });
+    },
     post: (_url: string, body: Record<string, unknown>) => {
       api.posts.push(body);
       if (api.postError) return Promise.reject(api.postError);
@@ -39,8 +55,16 @@ vi.mock('@/lib/api-client', () => ({
   },
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn() } }));
+vi.mock('@/hooks/usePermissions', () => ({
+  usePermissions: () => ({
+    hasPermission: (permission: string) =>
+      permission !== 'manage_integrations' || api.canManageIntegrations,
+  }),
+}));
 
-const { AutoReplyRulesSection, RULE_CHECK_NOTE } = await import('../AutoReplyRulesSection');
+const { AutoReplyRulesSection, NO_AI_PROVIDER_WARNING, RULE_CHECK_NOTE } = await import(
+  '../AutoReplyRulesSection'
+);
 
 const refundRule = {
   id: 1,
@@ -57,16 +81,29 @@ beforeEach(() => {
   api.deletes = [];
   api.postError = null;
   api.patchError = null;
+  api.ai = 'configured';
+  api.canManageIntegrations = true;
 });
 afterEach(cleanup);
 
-const renderSection = (canManage = true, autoReplyEnabled = true) =>
+const renderSection = (
+  canManage = true,
+  autoReplyEnabled = true,
+  onShowAlert: (alert: AlertState) => void = () => undefined
+) =>
   render(
-    <AutoReplyRulesSection
-      canManage={canManage}
-      autoReplyEnabled={autoReplyEnabled}
-      onShowAlert={() => undefined}
-    />
+    // The real useAiConfigured over the fake apiClient; a client per render, so no answer is reused.
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <MemoryRouter>
+        <AutoReplyRulesSection
+          canManage={canManage}
+          autoReplyEnabled={autoReplyEnabled}
+          onShowAlert={onShowAlert}
+        />
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 
 /** "Add rule" is disabled while the list loads: wait for the empty state first. */
@@ -159,13 +196,7 @@ describe('AutoReplyRulesSection', () => {
       },
     });
     const alerts: { variant?: string; description?: string }[] = [];
-    render(
-      <AutoReplyRulesSection
-        canManage
-        autoReplyEnabled
-        onShowAlert={(alert) => alerts.push(alert)}
-      />
-    );
+    renderSection(true, true, (alert) => alerts.push(alert));
     fireEvent.click(await screen.findByRole('switch', { name: /turn on rule money/i }));
     await waitFor(() => expect(alerts).toHaveLength(1));
     expect(alerts[0].variant).toBe('error');
@@ -274,6 +305,92 @@ describe('AutoReplyRulesSection', () => {
     expect(api.posts[0]).not.toHaveProperty('kbMinSimilarity');
     expect(screen.queryByLabelText('Knowledge base match (%)')).toBeNull();
     expect(screen.queryByText(/Template \+ KB/)).toBeNull();
+  });
+});
+
+describe('Keyword rules: no AI provider to check the replies', () => {
+  const warning = () => screen.queryByText(NO_AI_PROVIDER_WARNING, { exact: false });
+  /** The rules are listed and the providers request has had time to settle. */
+  const settled = async () => {
+    await screen.findByText('Refunds');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  };
+
+  it('a switched-on rule and no AI provider: the warning, with a link to the AI providers', async () => {
+    api.rules = [refundRule];
+    api.ai = 'none';
+    renderSection();
+    await waitFor(() => expect(warning()).toBeTruthy());
+    expect(NO_AI_PROVIDER_WARNING).toBe(
+      'No AI provider is set up. Every keyword rule reply is checked by AI before it is sent, so until a provider is set up no rule reply is sent: each one is held for a person.'
+    );
+    const link = screen.getByRole('link', { name: 'Set up an AI provider' });
+    expect(link.getAttribute('href')).toBe('/settings#integrations/ai-providers');
+  });
+
+  it('someone who cannot manage integrations is told to ask an admin, with no link', async () => {
+    api.rules = [refundRule];
+    api.ai = 'none';
+    api.canManageIntegrations = false;
+    renderSection();
+    await waitFor(() => expect(warning()).toBeTruthy());
+    expect(screen.getByText(/Ask a workspace admin to set one up\./)).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Set up an AI provider' })).toBeNull();
+  });
+
+  it('CONTROL — an AI provider is set up: no warning', async () => {
+    api.rules = [refundRule];
+    renderSection();
+    await settled();
+    expect(warning()).toBeNull();
+  });
+
+  it('no warning while the providers answer is still loading', async () => {
+    api.rules = [refundRule];
+    api.ai = 'pending';
+    renderSection();
+    await settled();
+    expect(warning()).toBeNull();
+  });
+
+  it('no warning when the providers request failed: the answer is unknown', async () => {
+    api.rules = [refundRule];
+    api.ai = 'error';
+    renderSection();
+    await settled();
+    expect(warning()).toBeNull();
+  });
+
+  it('no warning without a switched-on rule: none at all, or only rules that are off', async () => {
+    api.ai = 'none';
+    renderSection();
+    await screen.findByText(/No keyword rules yet/);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(warning()).toBeNull();
+    cleanup();
+
+    api.rules = [{ ...refundRule, enabled: false }];
+    renderSection();
+    await settled();
+    expect(warning()).toBeNull();
+  });
+
+  it('no second warning while automatic replies are off: nothing is checked or held then', async () => {
+    api.rules = [refundRule];
+    api.ai = 'none';
+    renderSection(true, false);
+    await settled();
+    expect(screen.getByText(/Automatic email replies are off/)).toBeTruthy();
+    expect(warning()).toBeNull();
+  });
+
+  it('switching the last rule off removes the warning', async () => {
+    api.rules = [refundRule];
+    api.ai = 'none';
+    renderSection();
+    await waitFor(() => expect(warning()).toBeTruthy());
+    fireEvent.click(screen.getByRole('switch', { name: 'Turn off rule Refunds' }));
+    await waitFor(() => expect(warning()).toBeNull());
   });
 });
 

@@ -84,9 +84,9 @@ beforeEach(() => {
   overviewCall.getOverview.mockResolvedValue({});
 });
 
-const renderLayout = () => {
+const renderLayout = (role: 'user' | 'admin' = 'user') => {
   useAuthStore.setState({
-    user: { id: 9, email: 'm@x.y', role: 'user', organizationId: 1 } as never,
+    user: { id: 9, email: 'm@x.y', role, organizationId: 1 } as never,
     isAuthenticated: true,
     selectedOrganizationId: 2,
   });
@@ -115,4 +115,17 @@ describe('Automatic actions is not in the sidebar (it lives in Settings › AI)'
     ).toHaveLength(0);
     expect(overviewCall.getOverview).not.toHaveBeenCalled();
   });
+});
+
+describe('Audit Logs is in the sidebar for a global admin too', () => {
+  // The workspace's automatic-replies audit view (sent / held / "would have been sent") lives only
+  // on this page; the platform console's audit page does not show it.
+  it.each(['admin', 'user'] as const)(
+    'a %s with view_audit_logs sees the Audit Logs link',
+    async (role) => {
+      renderLayout(role);
+      const link = await screen.findByRole('link', { name: /Audit Logs/ });
+      expect(link.getAttribute('href')).toBe('/audit-logs');
+    }
+  );
 });
