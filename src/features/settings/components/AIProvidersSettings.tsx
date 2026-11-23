@@ -32,6 +32,7 @@ import { subscriptionService } from '@/services/subscription.service';
 import { integrationsService, type Integration } from '@/services/integrations.service';
 import { isAIProviderType, type AIModel, type AIProvider } from '@/types/aiProviders';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 import { subscribeToEvent, unsubscribeFromEvent } from '@/lib/socketManager';
 
 export const AIProvidersSettings = ({
@@ -238,7 +239,9 @@ export const AIProvidersSettings = ({
       setAlertDialog({
         open: true,
         title: 'Error',
-        description: `Failed to save ${name} integration`,
+        // A refusal carries the server's own sentence ("An API key is required for …"); a server
+        // failure does not, and gets ours.
+        description: getApiErrorMessage(error) ?? `Failed to save ${name} integration`,
         variant: 'error',
       });
     } finally {
@@ -339,6 +342,8 @@ export const AIProvidersSettings = ({
             response.error ?? `Failed to ${!currentEnabled ? 'enable' : 'disable'} ${name}`,
           variant: 'error',
         });
+        // Switching one on had shown every other provider as off: the server changed none.
+        await fetchIntegrations();
       }
     } catch (error) {
       setIntegrations((prevIntegrations) =>
@@ -350,9 +355,12 @@ export const AIProvidersSettings = ({
       setAlertDialog({
         open: true,
         title: 'Error',
-        description: `Failed to ${!currentEnabled ? 'enable' : 'disable'} ${name}`,
+        description:
+          getApiErrorMessage(error) ?? `Failed to ${!currentEnabled ? 'enable' : 'disable'} ${name}`,
         variant: 'error',
       });
+      // Switching one on had shown every other provider as off: a refusal changed none of them.
+      await fetchIntegrations().catch(() => undefined);
     } finally {
       setToggling(null);
     }

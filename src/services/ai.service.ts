@@ -23,6 +23,22 @@ type AIProvidersResponse = {
    * `null` when the backend could not tell. Absent on a backend that does not send it yet.
    */
   usable?: boolean | null;
+  /**
+   * With a usable AI: is the check of an automatic reply refused for the workspace as a standing
+   * state (trial ended, allowance used up, AI not in the plan, a budget or limit reached), and
+   * why. `null` when the backend could not tell or did not ask. Absent on a backend that does not
+   * send it yet.
+   */
+  ruleChecks?: { held: boolean; reason: string | null } | null;
+};
+
+/** `ruleChecks` as sent, or undefined for anything else (an older backend, a malformed answer). */
+const readRuleChecks = (value: unknown): AIProvidersResponse['ruleChecks'] => {
+  if (value === null) return null;
+  if (typeof value !== 'object') return undefined;
+  const { held, reason } = value as { held?: unknown; reason?: unknown };
+  if (typeof held !== 'boolean') return undefined;
+  return { held, reason: typeof reason === 'string' ? reason : null };
 };
 
 export const aiService = {
@@ -37,9 +53,17 @@ export const aiService = {
     const response = await apiClient.get<{ success: boolean; data: AIProvidersResponse }>('/api/ai/providers');
     // `usable` is new (backend 2026-11-23): this bundle is also served against a backend that
     // does not send it. Anything but a boolean or null is read as "not sent".
-    const { usable, ...rest } = response.data.data;
-    const data: AIProvidersResponse =
-      typeof usable === 'boolean' || usable === null ? { ...rest, usable } : rest;
+    // `ruleChecks` likewise (backend 2026-11-23): normalised here, undefined = "not sent".
+    const { usable, ruleChecks: sentRuleChecks, ...rest } = response.data.data as Omit<
+      AIProvidersResponse,
+      'ruleChecks'
+    > & { ruleChecks?: unknown };
+    const ruleChecks = readRuleChecks(sentRuleChecks);
+    const data: AIProvidersResponse = {
+      ...rest,
+      ...(typeof usable === 'boolean' || usable === null ? { usable } : {}),
+      ...(ruleChecks === undefined ? {} : { ruleChecks }),
+    };
     return { ...response.data, data };
   },
 };

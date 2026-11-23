@@ -281,10 +281,13 @@ export const BedrockProviderCard = ({
     }
   };
 
+  // Access keys come as a pair: both (the keys) or neither (the server's own identity). Half a
+  // pair is refused by the backend, so it is not offered for saving.
   const canSubmit =
     !!config.region &&
     !!config.defaultModel &&
-    (credMode !== 'assume_role' || (!!config.roleArn && !!config.externalId));
+    (credMode !== 'assume_role' || (!!config.roleArn && !!config.externalId)) &&
+    (credMode !== 'keys' || !!config.accessKeyId === !!config.secretAccessKey);
 
   return (
     <Card>

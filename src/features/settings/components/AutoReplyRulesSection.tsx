@@ -38,6 +38,7 @@ import {
   type RuleDraft,
   type RuleDraftErrors,
 } from './autoReplyRuleForm';
+import { RuleRepliesPausedNotice } from './ruleCheckHeld';
 
 type Props = {
   /** MANAGE_AUTO_REPLY: workspace admins and moderators. Without it the list is read-only. */
@@ -258,12 +259,15 @@ export const AutoReplyRulesSection = ({
   const [busyRuleId, setBusyRuleId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<AutoReplyRule | null>(null);
   // Nothing is claimed on an unknown (loading, a failed request, a backend that could not tell).
-  const ruleCheckAi = useRuleCheckAi();
+  const { ai: ruleCheckAi, heldReason } = useRuleCheckAi();
   const { hasPermission } = usePermissions();
-  const noAiForRules =
-    autoReplyEnabled &&
-    (ruleCheckAi === 'none' || ruleCheckAi === 'unusable') &&
-    rules.some((rule) => rule.enabled);
+  const rulesCouldSend = autoReplyEnabled && rules.some((rule) => rule.enabled);
+  const noAiForRules = rulesCouldSend && (ruleCheckAi === 'none' || ruleCheckAi === 'unusable');
+  // The AI is usable, but the workspace's AI is paused (a standing state the backend names): the
+  // check of every rule reply is refused. Never together with the warning above — `heldReason`
+  // is only set for a usable AI.
+  // A positive test: anything but a reason in words (an unknown shape included) is not a hold.
+  const aiPausedForRules = rulesCouldSend && typeof heldReason === 'string';
 
   useEffect(() => {
     let cancelled = false;
@@ -440,6 +444,7 @@ export const AutoReplyRulesSection = ({
             )}
           </Alert>
         )}
+        {aiPausedForRules && <RuleRepliesPausedNotice reason={heldReason} />}
         {loadError && <Alert variant="danger">{loadError}</Alert>}
         {editing?.ruleId === null && (
           <RuleForm
