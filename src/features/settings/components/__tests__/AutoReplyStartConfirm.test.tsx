@@ -14,6 +14,12 @@ const state = vi.hoisted(() => ({
   departmentSettings: {} as Record<string, Record<string, unknown>>,
   updates: [] as unknown[],
   mailboxesFail: false,
+  /** What GET auto-reply says the teams' overrides are NOW; undefined = it does not say. */
+  freshTeams: undefined as undefined | Record<string, Record<string, unknown>>,
+  readFails: false,
+  loadFails: false,
+  /** Set to hold the next save open until called. */
+  holdSave: null as null | (() => void),
 }));
 
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
@@ -23,13 +29,16 @@ vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
 vi.mock('@/services/organization.service', () => ({
   organizationService: {
     getAutoReply: () =>
-      Promise.resolve({
-        enabled: state.enabled,
-        mode: state.storedMode ?? 'all',
-        requestMissingInfo: true,
-        suggestSolutions: true,
-        highConfidenceThreshold: 0.9,
-      }),
+      state.readFails || state.loadFails
+        ? Promise.reject(new Error('no'))
+        : Promise.resolve({
+            enabled: state.enabled,
+            mode: state.storedMode ?? 'all',
+            requestMissingInfo: true,
+            suggestSolutions: true,
+            highConfidenceThreshold: 0.9,
+            departmentSettings: state.freshTeams,
+          }),
     getCurrent: () =>
       Promise.resolve({
         settings: {
@@ -39,7 +48,10 @@ vi.mock('@/services/organization.service', () => ({
       }),
     updateAutoReply: (data: unknown) => {
       state.updates.push(data);
-      return Promise.resolve({ success: true });
+      if (!state.holdSave) return Promise.resolve({ success: true });
+      return new Promise((resolve) => {
+        state.holdSave = () => resolve({ success: true });
+      });
     },
   },
 }));
@@ -109,6 +121,10 @@ beforeEach(() => {
   state.departmentSettings = { '9': { autoReplyEnabled: false } };
   state.updates = [];
   state.mailboxesFail = false;
+  state.freshTeams = undefined;
+  state.readFails = false;
+  state.loadFails = false;
+  state.holdSave = null;
 });
 afterEach(cleanup);
 
@@ -129,12 +145,23 @@ describe('the first time automatic replies are switched on', () => {
     await show();
     fireEvent.click(workspaceSwitch());
     const list = await mailboxList();
-    expect(list).toContain('help@shop.example');
-    expect(list).toContain('sales@shop.example');
-    // Switched off on its card, disabled, not a mailbox, or only for a team that is off.
-    for (const absent of ['noreply@', 'old@', 'shop_bot', 'billing@'])
-      expect(list).not.toContain(absent);
-    expect(dialog().getByText(/2 other mailboxes have their own switch off/)).toBeInTheDocument();
+    // Every enabled mailbox CAN send: a thread of a team the mailbox is not linked to, or of no
+    // team, is answered whatever the mailbox's switches say. None is left out.
+    for (const present of ['help@', 'sales@', 'noreply@', 'billing@'])
+      expect(list).toContain(present);
+    // Disabled, or not a mailbox.
+    for (const absent of ['old@', 'shop_bot']) expect(list).not.toContain(absent);
+    // Its only switch is off / its only team is off: said, with what it still does.
+    const items = dialog().getAllByRole('listitem');
+    const noteOf = (address: string) =>
+      items.find((item) => item.textContent?.includes(address))?.textContent ?? '';
+    expect(noteOf('noreply@')).toMatch(
+      /switched off for the teams it is linked to; it still replies/
+    );
+    expect(noteOf('billing@')).toMatch(/switched off for the teams it is linked to/);
+    expect(noteOf('help@')).not.toMatch(/switched off/);
+    expect(noteOf('sales@')).not.toMatch(/switched off/);
+    expect(dialog().queryByText(/sends? nothing/)).toBeNull();
     expect(dialog().getByText(/Your keyword rules will be emailed/)).toBeInTheDocument();
     expect(dialog().getByText(/AI-written replies stay off/)).toBeInTheDocument();
     expect(state.updates).toEqual([]);
@@ -205,7 +232,8 @@ describe('switching on again with a stored choice', () => {
     expect(dialog().queryByText(/AI-written replies stay off/)).toBeNull();
     expect(state.updates).toEqual([]);
     fireEvent.click(dialog().getByRole('button', { name: 'Switch on' }));
-    await waitFor(() => expect(state.updates).toEqual([{ enabled: true }]));
+    // Saved WITH the choice the dialog named, not the switch alone.
+    await waitFor(() => expect(state.updates).toEqual([{ enabled: true, mode: 'all' }]));
   });
 
   it('"keyword rules only": keeps the choice', async () => {
@@ -214,7 +242,7 @@ describe('switching on again with a stored choice', () => {
     fireEvent.click(workspaceSwitch());
     expect(await dialog().findByText(/AI-written replies stay off/)).toBeInTheDocument();
     fireEvent.click(dialog().getByRole('button', { name: 'Switch on' }));
-    await waitFor(() => expect(state.updates).toEqual([{ enabled: true }]));
+    await waitFor(() => expect(state.updates).toEqual([{ enabled: true, mode: 'rules_only' }]));
   });
 });
 
@@ -281,12 +309,16 @@ describe("a team's own setting", () => {
       dialog().getByText('Switch on automatic email replies for Billing?')
     ).toBeInTheDocument();
     const list = await mailboxList();
-    // Linked to Billing with the switch on, or linked to no team at all.
-    expect(list).toContain('help@shop.example');
-    expect(list).toContain('sales@shop.example');
-    // Billing's link is off; the other is another team's mailbox.
+    // Linked to Billing with the switch on, or not linked to Billing at all (a thread of
+    // Billing's from such a mailbox is answered).
+    for (const present of ['help@', 'sales@', 'billing@']) expect(list).toContain(present);
+    // Linked to Billing with the switch off: the one case that sends nothing for this team.
     expect(list).not.toContain('noreply@');
-    expect(list).not.toContain('billing@');
+    expect(
+      dialog().getByText(
+        '1 other mailbox has its switch off for Billing and sends nothing for this team.'
+      )
+    ).toBeInTheDocument();
     expect(state.updates).toEqual([]);
     fireEvent.click(dialog().getByRole('button', { name: 'Switch on' }));
     await waitFor(() => expect(teamUpdate()).toEqual({ '7': { autoReplyEnabled: true } }));
@@ -349,5 +381,141 @@ describe("a team's own setting", () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Override: on' })[0]);
     await waitFor(() => expect(teamUpdate()).toEqual({ '7': { autoReplyEnabled: true } }));
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('"Reset all overrides" for a team', () => {
+  const reset = () => screen.getByRole('button', { name: 'Reset all overrides for Billing' });
+  const lastTeams = () =>
+    (state.updates.at(-1) as { departmentSettings?: Record<string, unknown> } | undefined)
+      ?.departmentSettings;
+
+  it('a team that was switched off under an enabled workspace: asks before it starts sending', async () => {
+    state.enabled = true;
+    state.storedMode = 'rules_only';
+    state.departmentSettings = { '7': { autoReplyEnabled: false } };
+    await show();
+    fireEvent.click(reset());
+    expect(
+      dialog().getByText('Switch on automatic email replies for Billing?')
+    ).toBeInTheDocument();
+    expect(state.updates).toEqual([]);
+    fireEvent.click(await dialog().findByRole('button', { name: 'Switch on' }));
+    await waitFor(() => expect(lastTeams()).toEqual({}));
+  });
+
+  it('a team on keyword rules only under a workspace that lets the AI reply: asks first', async () => {
+    state.enabled = true;
+    state.storedMode = 'all';
+    state.departmentSettings = { '7': { autoReplyMode: 'rules_only' } };
+    await show();
+    fireEvent.click(reset());
+    expect(dialog().getByText('Let the AI reply on its own for Billing?')).toBeInTheDocument();
+    fireEvent.click(await dialog().findByRole('button', { name: 'Cancel' }));
+    expect(state.updates).toEqual([]);
+  });
+
+  it('CONTROL: a reset that starts nothing is saved at once', async () => {
+    state.enabled = true;
+    state.storedMode = 'all';
+    state.departmentSettings = { '7': { autoReplyHighConfidenceThreshold: 0.95 } };
+    await show();
+    fireEvent.click(reset());
+    await waitFor(() => expect(lastTeams()).toEqual({}));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('a team save is built on what is stored now, not on this page’s copy', () => {
+  const lastTeams = () =>
+    (state.updates.at(-1) as { departmentSettings?: Record<string, unknown> } | undefined)
+      ?.departmentSettings;
+  const billing = () =>
+    within(screen.getByRole('group', { name: 'What replies on its own for Billing' }));
+
+  it('a team another admin switched off meanwhile stays off', async () => {
+    state.enabled = true;
+    state.storedMode = 'all';
+    // The page was opened when Returns had no override…
+    state.departmentSettings = {};
+    await show();
+    // …and another admin has switched Returns off since.
+    state.freshTeams = { '9': { autoReplyEnabled: false } };
+    fireEvent.click(billing().getByRole('button', { name: 'Keyword rules only' }));
+    await waitFor(() =>
+      expect(lastTeams()).toEqual({
+        '9': { autoReplyEnabled: false },
+        '7': { autoReplyMode: 'rules_only' },
+      })
+    );
+  });
+
+  it('when what is stored cannot be read, nothing is saved', async () => {
+    state.enabled = true;
+    state.storedMode = 'all';
+    state.departmentSettings = {};
+    await show();
+    state.readFails = true;
+    fireEvent.click(billing().getByRole('button', { name: 'Keyword rules only' }));
+    await waitFor(() =>
+      expect(billing().getByRole('button', { name: 'Keyword rules only' })).not.toBeInactive()
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(state.updates).toEqual([]);
+  });
+});
+
+describe('settings that could not be read', () => {
+  it('offer no switch at all, only a retry — which shows the card once the read succeeds', async () => {
+    state.loadFails = true;
+    render(<AutoReplyConfiguration onShowAlert={() => {}} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Nothing can be changed here/);
+    expect(screen.queryByRole('switch')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Override: on' })).toBeNull();
+    state.loadFails = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await screen.findByText('Default');
+    expect(workspaceSwitch().getAttribute('aria-checked')).toBe('false');
+    // …and the first-enable rule holds after the retry.
+    fireEvent.click(workspaceSwitch());
+    fireEvent.click(await dialog().findByRole('button', { name: 'Switch on' }));
+    await waitFor(() => expect(state.updates).toEqual([{ enabled: true, mode: 'rules_only' }]));
+  });
+});
+
+describe('while the workspace’s own save is out', () => {
+  it('a team’s controls are off, so a team cannot start sending on an unsettled default', async () => {
+    state.enabled = true;
+    state.storedMode = 'all';
+    state.departmentSettings = { '7': { autoReplyEnabled: false } };
+    await show();
+    state.holdSave = () => {};
+    // The workspace is being switched off; the answer has not come back.
+    fireEvent.click(workspaceSwitch());
+    await waitFor(() => expect(state.updates).toEqual([{ enabled: false }]));
+    const inherit = screen.getAllByRole('button', { name: /Inherit default/ })[0];
+    expect(inherit).toBeInactive();
+    fireEvent.click(inherit);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(state.updates).toHaveLength(1);
+    // CONTROL: once it is saved, the team's controls work again.
+    state.holdSave();
+    state.holdSave = null;
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: /Inherit default/ })[0]).not.toBeInactive()
+    );
+  });
+});
+
+describe('opening the confirmation again', () => {
+  it('starts from "reading", never from the previous opening’s list', async () => {
+    await show();
+    fireEvent.click(workspaceSwitch());
+    await mailboxList();
+    fireEvent.click(dialog().getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(workspaceSwitch());
+    expect(dialog().getByRole('status')).toHaveTextContent('Reading your mailboxes');
+    expect(dialog().queryByRole('button', { name: 'Switch on' })).toBeNull();
+    expect(dialog().queryByRole('list')).toBeNull();
   });
 });

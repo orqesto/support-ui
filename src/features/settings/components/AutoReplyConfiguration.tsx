@@ -165,7 +165,11 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
 
   // Has the workspace ever stored WHAT replies on its own? The read answers `all` for an unset
   // choice (as the backend acts), so the stored key itself is read from the workspace row.
-  const [modeStored, setModeStored] = useState(true);
+  // Not known until the settings are read: nothing can be switched on before that.
+  const [modeStored, setModeStored] = useState(false);
+  /** The settings could not be read: nothing here is offered until a read succeeds. */
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   /** What is about to be switched on, awaiting the confirmation that names the mailboxes. */
   const [pendingStart, setPendingStart] = useState<{
     start: AutoReplyStart;
@@ -224,10 +228,12 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     void (async () => {
       try {
         await loadStored(() => cancelled);
+        if (!cancelled) setLoadFailed(false);
       } catch (err) {
         if (cancelled) return;
         logger.error('Failed to load auto-reply settings:', err);
         setError(getApiErrorMessage(err) ?? 'Failed to load the automatic reply settings.');
+        setLoadFailed(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -235,7 +241,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     return () => {
       cancelled = true;
     };
-  }, [loadStored]);
+  }, [loadStored, loadAttempt]);
 
   // Every save of this card runs after the one before it, so each builds on what the last one
   // left (two saves in flight used to send two stale copies of the team map), and each takes
@@ -360,7 +366,23 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       queued(String(deptId), async () => {
         const key = String(deptId);
         setError(null);
-        const previous = perDeptRef.current;
+        // The PATCH replaces the whole team map, so it is built on what is stored NOW, not on
+        // this page's copy: a page opened a while ago would otherwise write back a team another
+        // admin has since switched off. A read that fails saves nothing.
+        let previous = perDeptRef.current;
+        try {
+          const fresh = (await organizationService.getAutoReply()).departmentSettings;
+          // Absent on a backend that does not send it: the page's copy, as before.
+          if (fresh && typeof fresh === 'object') previous = fresh as Record<string, Settings>;
+        } catch (err) {
+          logger.error(`Failed to read the settings before saving dept ${deptId}:`, err);
+          saveFailed(
+            err,
+            'The current settings could not be read, so nothing was saved. Please try again.',
+            'Could not save the override for this team.'
+          );
+          return false;
+        }
         const { restrictedTopics: topics, ...current } = previous[key] ?? {};
         const changed = change(current);
         const kept = changed && hasOtherOverrides(changed) ? changed : null;
@@ -377,6 +399,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           return true;
         } catch (err) {
           perDeptRef.current = previous;
+          setPerDept(previous);
           logger.error(`Failed to save dept ${deptId} auto-reply:`, err);
           saveFailed(
             err,
@@ -500,33 +523,31 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     });
 
   /**
-   * A team's enable or mode change. One that makes the team START sending — replies at all, or
-   * the AI's — is confirmed first, naming that team's mailboxes; anything else is saved at once.
-   * A team switched on while the workspace never stored what replies gets keyword rules only,
-   * as the workspace's first enable does.
+   * A team change that can make the team START sending — its enable, its mode, or a reset of all
+   * its overrides. One that does (replies at all, or the AI's) is confirmed first, naming that
+   * team's mailboxes; anything else is saved at once. A team switched on while the workspace
+   * never stored what replies gets keyword rules only, as the workspace's first enable does.
+   * `change` returns the team's new settings, or null to drop every override.
    */
-  const changeTeamSending = (
+  const changeTeam = (
     dept: { id: number; name: string },
-    key: 'autoReplyEnabled' | 'autoReplyMode',
-    value: boolean | AutoReplyMode | undefined
+    change: (current: Settings) => Settings | null
   ) => {
+    // While the workspace's own save is out, what the team would inherit is not settled.
+    if ((savingCountRef.current.org ?? 0) > 0) return;
     const now = perDeptRef.current[String(dept.id)] ?? {};
-    if (now[key] === value) return;
-    const next: Settings = { ...now, [key]: value };
-    const orgOn = orgRef.current.autoReplyEnabled ?? false;
-    const orgHas: AutoReplyMode = orgRef.current.autoReplyMode ?? 'all';
+    const next = change(now) ?? {};
+    // The workspace as SAVED (not a save still on its way).
+    const orgOn = org.autoReplyEnabled ?? false;
+    const orgHas: AutoReplyMode = org.autoReplyMode ?? 'all';
     const wasOn = now.autoReplyEnabled ?? orgOn;
     const willOn = next.autoReplyEnabled ?? orgOn;
     const first = !wasOn && willOn && !modeStored && next.autoReplyMode === undefined;
     const willMode: AutoReplyMode = first ? 'rules_only' : (next.autoReplyMode ?? orgHas);
     const apply = () =>
       void updateDept(dept.id, (current) => {
-        const { [key]: _omit, ...rest } = current;
-        return {
-          ...rest,
-          ...(value !== undefined && { [key]: value }),
-          ...(first && { autoReplyMode: 'rules_only' as const }),
-        };
+        const changed = change(current);
+        return first ? { ...changed, autoReplyMode: 'rules_only' as const } : changed;
       });
     const team = { id: dept.id, name: dept.name };
     if (!wasOn && willOn)
@@ -534,6 +555,17 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     else if (willOn && (now.autoReplyMode ?? orgHas) !== 'all' && willMode === 'all')
       setPendingStart({ start: { kind: 'ai', mode: 'all', team }, apply });
     else apply();
+  };
+  const changeTeamSending = (
+    dept: { id: number; name: string },
+    key: 'autoReplyEnabled' | 'autoReplyMode',
+    value: boolean | AutoReplyMode | undefined
+  ) => {
+    if ((perDeptRef.current[String(dept.id)] ?? {})[key] === value) return;
+    changeTeam(dept, (current) => {
+      const { [key]: _omit, ...rest } = current;
+      return value === undefined ? rest : { ...rest, [key]: value };
+    });
   };
 
   /** A team's partial-answer choice; `undefined` = same as the workspace (the key is dropped). */
@@ -544,7 +576,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   };
 
   /** Drops every override of the team. Its extra restricted topics are the server's to keep. */
-  const resetDept = (deptId: number) => void updateDept(deptId, () => null);
+  const resetDept = (dept: { id: number; name: string }) => changeTeam(dept, () => null);
 
   // Rules send only where Auto-Reply is on: the Default row, or a team that overrides it on.
   const anyAutoReplyOn =
@@ -622,6 +654,32 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
           Loading automatic reply settings…
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (loadFailed) {
+    // What is stored is not known: a switch shown as off could be on, the first-enable rule and
+    // every team's overrides would be decided from nothing. So nothing is offered but a retry.
+    return (
+      <Card>
+        <CardContent className="py-8 space-y-3 text-center">
+          <p role="alert" className="text-sm text-destructive">
+            {error ?? 'Failed to load the automatic reply settings.'} Nothing can be changed here
+            until they are read.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setError(null);
+              setLoadAttempt((count) => count + 1);
+            }}
+          >
+            Try again
+          </Button>
         </CardContent>
       </Card>
     );
@@ -734,7 +792,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       else if (modeStored)
                         setPendingStart({
                           start: { kind: 'again', mode: orgMode },
-                          apply: () => void saveOrg({ enabled: true }),
+                          // With the choice the dialog named: what is stored may have changed.
+                          apply: () => void saveOrg({ enabled: true, mode: orgMode }),
                         });
                       else
                         setPendingStart({
@@ -914,7 +973,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
             )}
             {teamRows.map((dept) => {
               const key = String(dept.id);
-              const isSaving = saving[key] === true;
+              // …and while the workspace's own save is out: what the team inherits is unsettled.
+              const isSaving = saving[key] === true || saving.org === true;
               const settings = perDept[key];
               const hasOverride = overridesDefault(settings);
               const overrideEnabled = settings?.autoReplyEnabled;
@@ -1298,7 +1358,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                           variant="ghost"
                           size="sm"
                           disabled={isSaving}
-                          onClick={() => resetDept(dept.id)}
+                          onClick={() => resetDept(dept)}
                           className="p-0 h-auto text-xs text-muted-foreground hover:text-foreground hover:underline hover:bg-transparent"
                         >
                           Reset all overrides for {dept.name}

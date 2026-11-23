@@ -470,6 +470,9 @@ export const organizationService = {
       restrictedTopics: response.data.data?.restrictedTopics as unknown,
       builtInRestrictedTopics: response.data.data?.builtInRestrictedTopics as unknown,
       restrictedTopicTeams: response.data.data?.restrictedTopicTeams as unknown,
+      // Each team's overrides as stored now (the settings page builds a team save on them).
+      departmentSettings: (response.data.data as { departmentSettings?: unknown } | undefined)
+        ?.departmentSettings,
     };
   },
 

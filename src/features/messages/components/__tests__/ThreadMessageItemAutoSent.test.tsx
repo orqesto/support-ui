@@ -69,13 +69,43 @@ describe('ThreadMessageItem — a reply sent automatically', () => {
     expect(mark()?.textContent).toBe('Sent automatically');
   });
 
+  it('the receipt confirmation (stamped `acknowledgmentReply`, with no `isAutoReply`) is marked as one', () => {
+    render(
+      <ThreadMessageItem
+        msg={event({ metadata: { acknowledgmentReply: true, sourceId: 4 } as never })}
+      />
+    );
+    expect(mark()?.textContent).toBe('Sent automatically · receipt confirmation');
+  });
+
+  it('templated mail the backend’s email service recorded is not called AI-written', () => {
+    render(
+      <ThreadMessageItem
+        msg={event({
+          metadata: { isAutoReply: true, repliedByAI: true, source: 'email_service' } as never,
+        })}
+      />
+    );
+    expect(mark()?.textContent).toBe('Sent automatically');
+  });
+
+  it('a bot’s reply with no stamp at all still gets the plain mark', () => {
+    render(<ThreadMessageItem msg={event({ metadata: null })} />);
+    expect(mark()?.textContent).toBe('Sent automatically');
+  });
+
   it.each([
     ['a person’s reply', event({ type: 'agent_reply', authorName: 'Ada', metadata: {} as never })],
-    ['a reply with no stamp', event({ metadata: null })],
-    ['a stamp that is not `true`', event({ metadata: { isAutoReply: 'yes' } as never })],
+    [
+      'a person’s reply with a stamp that is not `true`',
+      event({ type: 'agent_reply', metadata: { isAutoReply: 'yes' } as never }),
+    ],
     [
       'a customer’s message, even if stamped',
-      event({ type: 'inbound', metadata: { isAutoReply: true } as never }),
+      event({
+        type: 'inbound',
+        metadata: { isAutoReply: true, acknowledgmentReply: true } as never,
+      }),
     ],
   ])('CONTROL: %s → no mark', (_name, msg) => {
     render(<ThreadMessageItem msg={msg} />);

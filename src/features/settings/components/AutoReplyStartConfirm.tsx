@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger';
 import type { AutoReplyMode } from '@/services/organization.service';
 
 /**
- * What the workspace is about to switch on:
+ * What is about to be switched on:
  * - `first`: automatic replies are enabled for the first time (no stored choice of what replies).
  *   It is saved as keyword rules only — AI-written replies are a separate, later choice.
  * - `again`: enabled again with the choice stored before (`mode`).
@@ -19,44 +19,52 @@ export type AutoReplyStart = {
   team?: { id: number; name: string };
 };
 
+type Mailbox = { label: string; offWhereLinked: boolean };
 type Mailboxes =
   | { state: 'loading' }
   | { state: 'failed' }
-  | { state: 'ready'; allowed: string[]; off: number };
+  | { state: 'ready'; sending: Mailbox[]; off: number };
 
 /**
- * The connected mailboxes automatic replies may send from: enabled email accounts whose own
- * "Automatic replies" switch (Integrations) is on for at least one team that has not switched
- * automatic replies off. A mailbox with no team link counts as allowed — the backend treats it so.
+ * The connected mailboxes automatic replies CAN send from — never fewer than the backend's rule
+ * allows (autoReplyGate `isSourceLinkAutoReplyAllowed`): a mailbox's "Automatic replies" switch is
+ * kept per team it is linked to, and a thread that belongs to a team the mailbox is NOT linked to,
+ * or to no team, is answered whatever those switches say.
+ * - The workspace: every enabled mailbox can send. One whose switches are all off is listed with
+ *   that said, not left out.
+ * - One team: every enabled mailbox except those linked to that team with the switch off.
+ * Read for the whole workspace, whatever team is selected in the header.
  */
 const readMailboxes = async (
   teamIsOff: (departmentId: number) => boolean,
   teamId: number | undefined
 ): Promise<Mailboxes> => {
-  const all = (await integrationsService.getAll()).data ?? [];
+  const all = (await integrationsService.getAll({ everyTeam: true })).data ?? [];
   const mailboxes = all.filter(
     (source) => source.enabled && (source.type === 'email' || source.type === 'gmail')
   );
   const rows = await Promise.all(
     mailboxes.map(async (source) => {
-      const links = (await integrationsService.getSourceDepartments(source.id)).data ?? [];
+      const links =
+        (await integrationsService.getSourceDepartments(source.id, { everyTeam: true })).data ?? [];
+      const label = (source.config as { user?: string } | undefined)?.user ?? source.name;
+      if (teamId !== undefined) {
+        const own = links.find((link) => link.departmentId === teamId);
+        return { label, sends: own === undefined || own.autoReplyEnabled, offWhereLinked: false };
+      }
       return {
-        label: (source.config as { user?: string } | undefined)?.user ?? source.name,
-        allowed:
-          links.length === 0 ||
-          links.some((link) =>
-            teamId === undefined
-              ? link.autoReplyEnabled && !teamIsOff(link.departmentId)
-              : // One team: the mailboxes linked to it with their switch on.
-                link.autoReplyEnabled && link.departmentId === teamId
-          ),
+        label,
+        sends: true,
+        offWhereLinked:
+          links.length > 0 &&
+          links.every((link) => !link.autoReplyEnabled || teamIsOff(link.departmentId)),
       };
     })
   );
   return {
     state: 'ready',
-    allowed: rows.filter((row) => row.allowed).map((row) => row.label),
-    off: rows.filter((row) => !row.allowed).length,
+    sending: rows.filter((row) => row.sends),
+    off: rows.filter((row) => !row.sends).length,
   };
 };
 
@@ -112,6 +120,8 @@ export function AutoReplyStartConfirm({
     );
     return () => {
       stale = true;
+      // Closed: the next opening starts from "reading", never from this opening's list.
+      setMailboxes({ state: 'loading' });
     };
     // Read once per opening: `teamIsOff` is a new function on every render of the settings card.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
@@ -119,6 +129,7 @@ export function AutoReplyStartConfirm({
 
   if (!start) return null;
   const aiStaysOff = start.kind !== 'ai' && start.mode === 'rules_only';
+  const team = start.team?.name;
   return (
     <ConfirmDialog
       open
@@ -151,35 +162,40 @@ export function AutoReplyStartConfirm({
               </Button>
             </div>
           )}
-          {mailboxes.state === 'ready' && mailboxes.allowed.length > 0 && (
+          {mailboxes.state === 'ready' && mailboxes.sending.length > 0 && (
             <div>
-              <p>
-                {start.team ? `For ${start.team.name}, they are sent from:` : 'They are sent from:'}
-              </p>
+              <p>{team ? `For ${team}, they can be sent from:` : 'They can be sent from:'}</p>
               <ul
                 className="pl-5 mt-1 list-disc"
                 aria-label="Mailboxes that send automatic replies"
               >
-                {mailboxes.allowed.map((label) => (
-                  <li key={label} className="font-mono text-[12.5px]">
-                    {label}
+                {mailboxes.sending.map((mailbox) => (
+                  <li key={mailbox.label}>
+                    <span className="font-mono text-[12.5px]">{mailbox.label}</span>
+                    {mailbox.offWhereLinked && (
+                      <span className="text-muted-foreground">
+                        {' '}
+                        — switched off for the teams it is linked to; it still replies on threads
+                        that belong to another team or to none
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
             </div>
           )}
-          {mailboxes.state === 'ready' && mailboxes.allowed.length === 0 && (
+          {mailboxes.state === 'ready' && mailboxes.sending.length === 0 && (
             <p>
-              {start.team ? `No mailbox of ${start.team.name}` : 'No connected mailbox'} has its
-              &quot;Automatic replies&quot; switch on, so nothing is sent until one is switched on
-              (Settings → Integrations).
+              {mailboxes.off === 0
+                ? 'No mailbox is connected, so nothing is sent until one is.'
+                : `Every mailbox has its "Automatic replies" switch off for ${team ?? 'this team'}, so nothing is sent for this team until one is switched on (Settings → Integrations).`}
             </p>
           )}
-          {mailboxes.state === 'ready' && mailboxes.off > 0 && (
+          {mailboxes.state === 'ready' && mailboxes.sending.length > 0 && mailboxes.off > 0 && (
             <p className="text-muted-foreground">
               {mailboxes.off === 1
-                ? '1 other mailbox has its own switch off and sends nothing.'
-                : `${mailboxes.off} other mailboxes have their own switch off and send nothing.`}
+                ? `1 other mailbox has its switch off for ${team ?? 'this team'} and sends nothing for this team.`
+                : `${mailboxes.off} other mailboxes have their switch off for ${team ?? 'this team'} and send nothing for this team.`}
             </p>
           )}
           {aiStaysOff && (

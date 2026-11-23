@@ -457,6 +457,9 @@ describe('the other saves of a team row keep its other settings and never send t
       screen.getByText("The reset keeps this team's extra restricted topics.")
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Reset all overrides for Billing' }));
+    // The team was on keyword rules only under a workspace that lets the AI reply: the reset
+    // starts the AI for it, so it is confirmed first.
+    fireEvent.click(await screen.findByRole('button', { name: 'Let the AI reply' }));
     await saved(null);
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Reset all overrides for Billing' })).toBeNull()
