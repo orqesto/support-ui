@@ -8,6 +8,10 @@ import { render, screen } from '@testing-library/react';
  */
 
 const aiDrafts = { off: true };
+// The keyword rules section asks whether an AI provider is set up; these tests are not about it.
+vi.mock('@/hooks/useAiConfigured', () => ({
+  useAiConfigured: () => ({ aiConfigured: true, isLoading: false }),
+}));
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: aiDrafts.off, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
