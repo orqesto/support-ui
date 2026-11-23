@@ -31,15 +31,44 @@ export const readRuleCheckAi = (data: {
   return aiIsConfigured(data) ? 'usable' : 'none';
 };
 
-export const useRuleCheckAi = (): RuleCheckAi => {
+/**
+ * With a usable AI, is the check itself refused for the workspace as a STANDING state (the
+ * backend's `ruleChecks`: trial ended, allowance used up, AI not in the plan, a budget or limit
+ * reached)? The reason code when it is ('' when the backend names none); null when it is not, or
+ * when that is not known — an older backend, a failed read on the server, or an AI that is not
+ * `usable` (that state has its own warning, and the two never show together).
+ *
+ * A check that fails once (a provider error, a timeout) is not a standing state: the backend
+ * reports nothing for it, and nothing is shown.
+ */
+export const readRuleCheckHeld = (data: {
+  usable?: boolean | null;
+  ruleChecks?: { held: boolean; reason: string | null } | null;
+}): string | null => {
+  if (data.usable !== true || data.ruleChecks?.held !== true) return null;
+  return data.ruleChecks.reason ?? '';
+};
+
+export type RuleCheck = {
+  ai: RuleCheckAi;
+  /** Why every rule reply is held although the AI is usable; null = not held, or not known. */
+  heldReason: string | null;
+};
+
+const UNKNOWN: RuleCheck = { ai: 'unknown', heldReason: null };
+
+export const useRuleCheckAi = (): RuleCheck => {
   const query = useQuery({
     // Under the shared `ai-providers` prefix, so whatever invalidates the providers reaches it.
     queryKey: ['ai-providers', 'rule-check'],
-    queryFn: async () => readRuleCheckAi((await aiService.getProviders()).data),
+    queryFn: async (): Promise<RuleCheck> => {
+      const { data } = await aiService.getProviders();
+      return { ai: readRuleCheckAi(data), heldReason: readRuleCheckHeld(data) };
+    },
     staleTime: 0,
     refetchOnMount: 'always',
   });
   // While a re-read is on its way the previous answer may be the stale one: unknown until it lands.
-  if (query.isFetching || query.isError) return 'unknown';
-  return query.data ?? 'unknown';
+  if (query.isFetching || query.isError) return UNKNOWN;
+  return query.data ?? UNKNOWN;
 };
