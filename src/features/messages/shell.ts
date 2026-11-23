@@ -12,7 +12,8 @@ export {
   AUTO_REPLY_REASON_FILTERS,
   WOULD_SEND,
   allowedByWords,
-  autoReplyReasonLabel,
+  anyAutoReplyReasonLabel,
+  reasonFilterQuery,
 } from './components/autoReplyReasons';
 export {
   addNoopenerHook,

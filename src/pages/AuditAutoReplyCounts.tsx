@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { auditLogService, type AutoReplyCounts } from '@/services/auditLog.service';
-import { AUTO_REPLY_CHANNEL_LABEL, autoReplyReasonLabel } from '@/features/messages/shell';
+import { AUTO_REPLY_CHANNEL_LABEL, anyAutoReplyReasonLabel } from '@/features/messages/shell';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 
@@ -17,7 +17,7 @@ type State =
 const reasonRows = (rows: AutoReplyCounts['heldByReason']): Array<[string, number]> => {
   const byWords = new Map<string, number>();
   for (const row of rows) {
-    const words = autoReplyReasonLabel(row.reason);
+    const words = anyAutoReplyReasonLabel(row.reason);
     byWords.set(words, (byWords.get(words) ?? 0) + row.count);
   }
   return [...byWords.entries()].sort((left, right) => right[1] - left[1]);
@@ -114,7 +114,7 @@ export function AuditAutoReplyCounts({
               <Figure
                 label="Held for a person"
                 value={state.counts.totals.held}
-                hint="Not sent: a check, a limit or a setting stopped it"
+                hint="Not sent, or not confirmed sent"
               />
               <Figure
                 label="Receipt confirmations"

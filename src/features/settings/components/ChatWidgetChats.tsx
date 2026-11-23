@@ -53,10 +53,13 @@ const SessionFacts = ({ session }: { session: ChatWidgetSession }) => (
  */
 export function ChatWidgetChats({
   widget,
+  initialSessionId = null,
   onClose,
 }: {
   /** null = closed. */
   widget: ChatWidget | null;
+  /** Open straight on this chat (a link from an audit row). */
+  initialSessionId?: number | null;
   onClose: () => void;
 }) {
   const widgetId = widget?.id;
@@ -68,15 +71,18 @@ export function ChatWidgetChats({
   const [openId, setOpenId] = useState<number | null>(null);
   const [transcript, setTranscript] = useState<ChatWidgetTranscript | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Bumped by "Try again" after a failed read (the list's, or the open chat's). */
+  const [attempt, setAttempt] = useState(0);
 
-  // Another widget (or a reopening) starts from its first page with nothing open.
+  // Another widget (or a reopening) starts from its first page — with nothing open, unless a
+  // link asked for one chat.
   useEffect(() => {
     setPage(1);
     setList(null);
-    setOpenId(null);
+    setOpenId(initialSessionId);
     setTranscript(null);
     setError(null);
-  }, [widgetId]);
+  }, [widgetId, initialSessionId]);
 
   useEffect(() => {
     if (widgetId === undefined) return;
@@ -96,7 +102,7 @@ export function ChatWidgetChats({
     return () => {
       stale = true;
     };
-  }, [widgetId, page]);
+  }, [widgetId, page, attempt]);
 
   useEffect(() => {
     if (widgetId === undefined || openId === null) return;
@@ -116,7 +122,7 @@ export function ChatWidgetChats({
     return () => {
       stale = true;
     };
-  }, [widgetId, openId]);
+  }, [widgetId, openId, attempt]);
 
   if (!widget) return null;
   const totalPages = list?.pagination.totalPages ?? 1;
@@ -132,9 +138,17 @@ export function ChatWidgetChats({
           <DialogTitle>Chats — {widget.name}</DialogTitle>
         </DialogHeader>
         {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
+          <div role="alert" className="flex flex-wrap gap-2 items-center text-sm text-destructive">
+            <span>{error}</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setAttempt((count) => count + 1)}
+            >
+              Try again
+            </Button>
+          </div>
         )}
 
         {openId === null ? (
@@ -211,6 +225,8 @@ export function ChatWidgetChats({
               onClick={() => {
                 setOpenId(null);
                 setTranscript(null);
+                // A chat that could not be loaded is not the list's problem.
+                setError(null);
               }}
             >
               <ArrowLeft className="w-4 h-4" />

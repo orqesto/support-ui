@@ -1,5 +1,5 @@
 import { safeCssColor } from '@/lib/utils';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, Code, Trash2, Edit, Power, Globe, Palette, MessageSquare, Copy, Check } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { chatWidgetService, type ChatWidget } from '@/features/settings/services/chatWidget.service';
@@ -24,6 +24,21 @@ export const ChatWidgetSettings = () => {
   const [embedCodeWidget, setEmbedCodeWidget] = useState<ChatWidget | null>(null);
   /** The widget whose chats are open (read-only list + transcript). */
   const [chatsWidget, setChatsWidget] = useState<ChatWidget | null>(null);
+  const [chatsSession, setChatsSession] = useState<number | null>(null);
+  // A link to one chat (`#integrations/chat-widgets?widget=5&chat=900`, from an audit row of a
+  // chat that is not in the inbox): once the widgets are listed, that widget's Chats open on it.
+  const linkedRef = useRef(false);
+  useEffect(() => {
+    if (linkedRef.current || widgets.length === 0) return;
+    const query = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+    const widgetId = Number(query.get('widget'));
+    const sessionId = Number(query.get('chat'));
+    const linked = widgets.find((row) => row.id === widgetId);
+    if (!linked || !Number.isInteger(sessionId) || sessionId <= 0) return;
+    linkedRef.current = true;
+    setChatsSession(sessionId);
+    setChatsWidget(linked);
+  }, [widgets]);
   const [deletingWidget, setDeletingWidget] = useState<ChatWidget | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [alertDialog, setAlertDialog] = useState<{
@@ -344,7 +359,14 @@ export const ChatWidgetSettings = () => {
         onShowAlert={setAlertDialog}
       />
 
-      <ChatWidgetChats widget={chatsWidget} onClose={() => setChatsWidget(null)} />
+      <ChatWidgetChats
+        widget={chatsWidget}
+        initialSessionId={chatsSession}
+        onClose={() => {
+          setChatsWidget(null);
+          setChatsSession(null);
+        }}
+      />
 
       <EmbedCodeModal
         widget={embedCodeWidget}

@@ -15,6 +15,10 @@ export const AUTO_REPLY_ALL = `${AUTO_REPLY_SENT},${AUTO_REPLY_WITHHELD}`;
 /** Where a website chat that never reached the inbox can be read: the widgets' "Chats". */
 export const WIDGET_CHATS_PATH = '/settings#integrations/chat-widgets';
 
+/** …opened on one widget's Chats view, on one chat (read by ChatWidgetSettings). */
+export const widgetChatPath = (widgetId: number, sessionId: number): string =>
+  `${WIDGET_CHATS_PATH}?widget=${widgetId}&chat=${sessionId}`;
+
 export const AUTO_REPLY_ACTION_LABEL: Record<string, string> = {
   [AUTO_REPLY_SENT]: 'Automatic reply → Sent',
   [AUTO_REPLY_WITHHELD]: 'Automatic reply → Held or not sent',
@@ -73,7 +77,23 @@ export function AuditAutoReplyDetail({
   const held = action === AUTO_REPLY_WITHHELD;
   const sentence = text(details, 'detail');
   const channel = AUTO_REPLY_CHANNEL_LABEL[text(details, 'channel')];
-  const allowed = held ? null : allowedByWords(details?.['allowedBy']);
+  const path = text(details, 'replyPath');
+  // A keyword rule's and a receipt confirmation's fixed text is the team's own.
+  const byTeam =
+    text(details, 'ruleName') !== '' ||
+    path === 'keyword_rule' ||
+    path === 'acknowledgment' ||
+    text(details, 'source') === 'keyword_rule';
+  const allowed = held ? null : allowedByWords(details?.['allowedBy'], byTeam);
+  // A website chat's own page: the widget's Chats, opened on this chat (when the record names
+  // both), else the widgets' list.
+  const widgetId = details?.['chatWidgetId'];
+  const sessionId =
+    details?.['chatSessionId'] ?? (entity === 'chat_session' ? entityId : undefined);
+  const chatPath =
+    typeof widgetId === 'number' && sessionId !== undefined && sessionId !== null
+      ? widgetChatPath(widgetId, Number(sessionId))
+      : WIDGET_CHATS_PATH;
   const threadId = details?.['conversationId'];
   const widgetOnly =
     entity === 'chat_session' ||
@@ -89,8 +109,8 @@ export function AuditAutoReplyDetail({
         {channel ? ` · ${channel}` : ''}
         {' · '}
         {widgetOnly ? (
-          <Link to={WIDGET_CHATS_PATH} className="text-primary hover:underline">
-            Open website chats
+          <Link to={chatPath} className="text-primary hover:underline">
+            {chatPath === WIDGET_CHATS_PATH ? 'Open website chats' : 'Open this chat'}
           </Link>
         ) : (
           <Link

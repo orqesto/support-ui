@@ -23,7 +23,11 @@ import {
   AuditAutoReplyDetail,
 } from './AuditAutoReplyDetail';
 import { AuditAutoReplyCounts } from './AuditAutoReplyCounts';
-import { AUTO_REPLY_CHANNEL_LABEL, AUTO_REPLY_REASON_FILTERS } from '@/features/messages/shell';
+import {
+  AUTO_REPLY_CHANNEL_LABEL,
+  AUTO_REPLY_REASON_FILTERS,
+  reasonFilterQuery,
+} from '@/features/messages/shell';
 
 const ACTION_OPTIONS = [
   { value: '', label: 'All Actions' },
@@ -155,7 +159,12 @@ export const AuditLogsPage = () => {
         setLoading(true);
       }
       try {
-        const result = await auditLogService.getAll({ ...filters, page: currentPage });
+        const result = await auditLogService.getAll({
+          ...filters,
+          // One reason is stored under several spellings: all of them are asked for.
+          reason: reasonFilterQuery(filters.reason),
+          page: currentPage,
+        });
         setLogs(result.logs);
         setTotalCount(result.pagination.total);
         setTotalPages(result.pagination.totalPages);
@@ -275,7 +284,12 @@ export const AuditLogsPage = () => {
               startDate={filters.startDate}
               endDate={filters.endDate}
               refreshKey={countsKey}
-              onAbsent={() => setCountsAbsent(true)}
+              onAbsent={() => {
+                // A backend without the counts has no list of several actions either: "All"
+                // would show nothing. It is taken away, and the view falls back to "Sent".
+                setCountsAbsent(true);
+                if (filters.action === AUTO_REPLY_ALL) patchFilter({ action: AUTO_REPLY_SENT });
+              }}
             />
           )}
 
@@ -289,7 +303,11 @@ export const AuditLogsPage = () => {
                 <Select
                   value={filters.action ?? ''}
                   onChange={(value) => patchFilter({ action: value || undefined })}
-                  options={ACTION_OPTIONS}
+                  options={
+                    countsAbsent
+                      ? ACTION_OPTIONS.filter((option) => option.value !== AUTO_REPLY_ALL)
+                      : ACTION_OPTIONS
+                  }
                   size="sm"
                   className="min-w-[11rem]"
                   aria-label="Filter by action"
@@ -313,6 +331,11 @@ export const AuditLogsPage = () => {
                       className="min-w-[13rem]"
                       aria-label="Filter by reason"
                     />
+                    {(filters.reason || filters.channel) && !filters.startDate && (
+                      <span className="text-xs text-muted-foreground">
+                        Showing the last 7 days — choose a date range for older entries.
+                      </span>
+                    )}
                   </>
                 )}
 

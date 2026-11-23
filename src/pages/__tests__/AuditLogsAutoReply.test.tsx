@@ -248,8 +248,13 @@ describe('Audit Logs — the automatic replies view (backend 2026-11-23)', () =>
 
   it('the reason and channel filters are sent to the backend, and leave with the view', async () => {
     await openView();
+    const BOUND = 'Showing the last 7 days — choose a date range for older entries.';
+    // CONTROL: without a reason or a channel the list is not bounded, and nothing says it is.
+    expect(screen.queryByText(BOUND)).toBeNull();
     await pick('Filter by reason', 'Would have been sent (check-only mode)');
     await waitFor(() => expect(lastAsked().reason).toBe('would_send'));
+    // The backend bounds such a list to the last 7 days when no date is given: said.
+    expect(screen.getByText(BOUND)).toBeInTheDocument();
     await pick('Filter by channel', 'Website chat');
     await waitFor(() => expect(lastAsked().channel).toBe('chat_widget'));
     expect(lastAsked().reason).toBe('would_send');
@@ -276,12 +281,49 @@ describe('Audit Logs — the automatic replies view (backend 2026-11-23)', () =>
     );
   });
 
-  it('a backend without the counts shows neither the card nor the filters that came with them', async () => {
+  it('a backend without the counts: no card, no new filters, and "All" — which would list nothing — is taken away', async () => {
     state.countsError = { status: 404, message: 'Not found' };
-    await openView();
+    await show([]);
+    await pick('Filter by action', 'Automatic reply → All');
     await waitFor(() => expect(screen.queryByTestId('auto-reply-counts')).toBeNull());
+    // The view falls back to one record the backend can list.
+    await waitFor(() => expect(lastAsked().action).toBe(SENT));
     expect(screen.queryByRole('combobox', { name: 'Filter by reason' })).toBeNull();
     expect(screen.queryByRole('combobox', { name: 'Filter by channel' })).toBeNull();
+    const options = await listOptions(screen.getByRole('combobox', { name: 'Filter by action' }));
+    expect(options).not.toContain('Automatic reply → All');
+    expect(options).toContain('Automatic reply → Sent');
+  });
+
+  it('a reason is asked for under every spelling it is stored with', async () => {
+    await openView();
+    await pick('Filter by reason', 'Reply only declined the question');
+    await waitFor(() =>
+      expect(lastAsked().reason).toBe('refusal,refusal_held,kb_refusal,blocked_gate')
+    );
+    await pick('Filter by reason', 'Reply not from the knowledge base');
+    await waitFor(() =>
+      expect(lastAsked().reason).toBe('not_from_knowledge,send_gate:not_from_knowledge')
+    );
+  });
+
+  it('the card words the older codes too, and says what "held" covers', async () => {
+    (state.counts as { heldByReason: unknown[] }).heldByReason = [
+      { reason: 'kb_no_source', count: 3 },
+      { reason: 'ai_drafts_off', count: 2 },
+      { reason: 'blocked_degraded_analysis', count: 1 },
+    ];
+    await openView();
+    const card = within(await screen.findByTestId('auto-reply-counts'));
+    const reasons =
+      (await card.findByRole('list', { name: 'Held replies by reason' })).textContent ?? '';
+    expect(reasons).toContain('3 — no knowledge base answer was sure enough');
+    expect(reasons).toContain('2 — AI drafts are off');
+    expect(reasons).toContain('1 — the AI could not read this email properly');
+    expect(reasons).not.toContain('it was held for a person');
+    expect(card.getByText('Held for a person').closest('[title]')?.getAttribute('title')).toBe(
+      'Not sent, or not confirmed sent'
+    );
   });
 });
 
@@ -396,6 +438,65 @@ describe('Audit Logs — what the newer records say in the row', () => {
     );
     expect(telegram?.textContent).toContain('the reply only declined the question');
     expect(telegram?.textContent).toContain('Written by: Telegram bot · Telegram');
+  });
+
+  it('a Telegram turn that sent a fixed line is not said to have passed the check, nor to be the team’s text', async () => {
+    await show([
+      log(1, SENT, 67, {
+        replyPath: 'telegram',
+        channel: 'telegram',
+        conversationId: 67,
+        reason: 'order_status',
+        allowedBy: { gate: 'fixed_text' },
+      }),
+    ]);
+    const [row] = await rows();
+    expect(row.textContent).toContain('Allowed because a fixed text, not written by the AI.');
+    expect(row.textContent).not.toContain('passed the check');
+    expect(row.textContent).not.toContain('written by your team');
+  });
+
+  it('a website chat that is not in the inbox opens on that very chat when the record names its widget', async () => {
+    await show([
+      {
+        ...log(1, SENT, 902, {
+          replyPath: 'widget',
+          channel: 'chat_widget',
+          conversationId: null,
+          chatSessionId: 902,
+          chatWidgetId: 5,
+          reason: 'answered',
+          allowedBy: { gate: 'passed', confidence: 0.91 },
+        }),
+        entity: 'chat_session',
+      },
+    ]);
+    const [row] = await rows();
+    expect(within(row).getByRole('link', { name: 'Open this chat' })).toHaveAttribute(
+      'href',
+      '/settings#integrations/chat-widgets?widget=5&chat=902'
+    );
+    expect(row.textContent).toContain('(confidence 91%)');
+  });
+
+  it('a reply that was sent but could not be recorded says so', async () => {
+    await show([
+      log(1, HELD, 68, {
+        source: 'ai_reply',
+        replyPath: 'ai',
+        channel: 'email',
+        conversationId: 68,
+        reason: 'send_failed',
+        sentUnrecorded: true,
+        ruleIds: [],
+        ruleNames: [],
+      }),
+    ]);
+    const [row] = await rows();
+    expect(row.textContent).toContain(
+      'The automatic reply was sent, but could not be recorded on the thread'
+    );
+    expect(row.textContent).not.toContain('could not be delivered');
   });
 
   it('a receipt confirmation reads as one, written by nobody', async () => {

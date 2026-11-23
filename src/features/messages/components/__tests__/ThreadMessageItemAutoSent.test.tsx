@@ -118,6 +118,19 @@ describe('ThreadMessageItem — a reply sent automatically', () => {
       'Allowed because a fixed text written by your team, sent as it is.'
     );
     cleanup();
+    // A bot's fixed line is fixed, but nobody said the team wrote it.
+    render(
+      <ThreadMessageItem
+        msg={event({
+          channel: 'telegram',
+          metadata: { isAutoReply: true, allowedBy: { gate: 'fixed_text' } } as never,
+        })}
+      />
+    );
+    expect(mark()?.getAttribute('title')).toContain(
+      'Allowed because a fixed text, not written by the AI.'
+    );
+    cleanup();
     render(<ThreadMessageItem msg={event({ metadata: { isAutoReply: true } as never })} />);
     expect(mark()?.getAttribute('title')).not.toContain('Allowed because');
   });

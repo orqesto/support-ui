@@ -5,7 +5,14 @@
  */
 import { holdNoteLabel, holdNoteText, isHoldNote } from '@/lib/holdNote';
 import { formatDay } from '@/lib/utils';
-import { WOULD_SEND, autoReplyReasonLabel, autoReplyReasonWords } from './autoReplyReasons';
+import {
+  ASK_CHECK_REASON,
+  ASK_WITHHELD_REASON,
+  WITHHELD_REASON,
+  WOULD_SEND,
+  autoReplyReasonLabel,
+  autoReplyReasonWords,
+} from './autoReplyReasons';
 import type { MessageActivityEntry, MessageNote } from '@/services/message.service';
 
 /**
@@ -201,39 +208,6 @@ export function autoReplySentLabel(details: Record<string, unknown> | null): str
   return `AI auto-reply sent${resolved}`;
 }
 
-/** Why a matched keyword rule's reply did not go out, in plain words (BE autoReplyOutcome). */
-const WITHHELD_REASON: Record<string, string> = {
-  send_failed: 'the email could not be sent',
-  thread_locked: 'another reply was in progress',
-  kb_error: 'the knowledge base search failed',
-  kb_no_source: 'no knowledge base answer was sure enough',
-  kb_below_threshold: 'no knowledge base answer was sure enough',
-  kb_not_grounded: 'the knowledge base answer could not be checked',
-  ai_drafts_off: 'AI drafts are off',
-  plan_not_entitled: "the plan's auto-reply limit",
-  plan_allotment_reached: "the plan's auto-reply limit",
-  workspace_blocked: 'the workspace is waiting for a plan',
-  kb_placeholder_in_plain_rule: 'the reply still holds {{kb_answer}}',
-  // The reply check held the knowledge base answer (2026-11-20).
-  kb_refusal: 'the knowledge base answer only declined the question',
-  kb_reply_unchecked: 'the knowledge base answer could not be checked',
-  kb_content_unchecked: 'the knowledge base answer could not be checked',
-  // The send gate held the reply (2026-11-20): the knowledge base answer (`kb_…`), or a plain
-  // prepared reply for what the customer asked.
-  kb_restricted_topic: 'the customer asks about a subject a person must answer',
-  kb_no_customer_request: 'the message is not a customer request',
-  kb_needs_lookup_or_action: 'answering needs a lookup or an action',
-  kb_promises_follow_up: 'the knowledge base answer promised a follow-up',
-  kb_does_not_answer: 'the knowledge base answer did not answer the question',
-  kb_unsupported_by_sources: 'the answer said more than the knowledge base does',
-  restricted_topic: 'the customer asks about a subject a person must answer',
-  question_unchecked: 'the question could not be checked for a restricted topic',
-  // Also written for the AI's own reply (`source: 'ai_reply'`): the customer wrote again before
-  // it went out (the newer message gets its own run), or the spam check has not cleared the sender.
-  newer_message: 'the customer wrote again before the reply went out',
-  spam_verdict: 'the spam check has not cleared this email',
-};
-
 /**
  * Why the AI's own reply was not sent (`source: 'ai_reply'`), where it is not a failed send: the
  * customer wrote again first, the spam check, or the send gate held it (the hold's own code).
@@ -259,41 +233,9 @@ export const WITHHELD_REASON_UNKNOWN = 'it was held for a person';
 export const MAY_BE_DELIVERED = 'check before replying — the customer may already have it';
 export const AI_REPLY_UNCERTAIN = `The automatic reply may not have been delivered: ${MAY_BE_DELIVERED}.`;
 export const AI_REPLY_FAILED = 'The automatic reply could not be delivered.';
+export const AUTO_REPLY_SENT_UNRECORDED =
+  'The automatic reply was sent, but could not be recorded on the thread — check before replying, the customer already has it';
 
-/**
- * Why the email asking the customer for missing information was not sent (BE followUpEmailHelper:
- * `source: 'missing_info'`, `reason` = the outcome). Every outcome the backend stores; one this
- * bundle does not know reads as the backend's own sentence (`detail`), or as unknown.
- */
-const ASK_WITHHELD_REASON: Record<string, string> = {
-  send_failed: WITHHELD_REASON.send_failed,
-  thread_locked: WITHHELD_REASON.thread_locked,
-  ai_drafts_off: WITHHELD_REASON.ai_drafts_off,
-  workspace_blocked: WITHHELD_REASON.workspace_blocked,
-  plan_not_entitled: 'the plan does not include automatic replies',
-  plan_allotment_reached: "this month's automatic replies are used up",
-  ai_reply_limit: 'the limit on automatic replies to this thread or this sender was reached',
-  no_thread: 'there is no customer message to answer',
-  nothing_to_ask: 'the AI had no question to ask, or could not write one',
-  pre_send_timeout: 'a step before sending took too long',
-  spam_verdict: 'the spam check did not clear this email',
-  blocked_pre_gate: 'this thread is not one that gets an automatic reply',
-  blocked_escalation_phrase: "the customer's email contains a phrase that stops automatic replies",
-  blocked_degraded_analysis: 'the AI could not read this email properly',
-  blocked_unsupported_language: 'the email is in a language the question is not written in',
-  blocked_missing_info_guard: 'the email the AI wrote did not pass the checks on its questions',
-  blocked_reply_hygiene: 'the email did not pass the checks every automatic reply passes',
-};
-
-/** `blocked_missing_info_model_check`: what the check on the email found (`checkReason`). */
-const ASK_CHECK_REASON: Record<string, string> = {
-  ask_unchecked: "the email's questions could not be checked",
-  'check failed': "the email's questions could not be checked",
-  restricted_topic:
-    'the customer asks about a subject a person must answer, so nothing was asked automatically',
-  no_customer_request: 'the message is not a customer request',
-  not_only_asking: 'a question in the email did more than ask for a detail',
-};
 const ASK_MODEL_CHECK = 'blocked_missing_info_model_check';
 const ASK_NOT_SENT = 'The email asking for missing information was not sent';
 
@@ -352,6 +294,9 @@ export function autoReplyWithheldLabel(details: Record<string, unknown> | null):
   // `uncertain` (with send_failed): the transport cut off, so the email may have gone out.
   const uncertain = reason === 'send_failed' && details?.['uncertain'] === true;
   const path = details?.['replyPath'];
+  // The mail went out; only its record on the thread could not be written (the backend counts
+  // it as sent).
+  if (details?.['sentUnrecorded'] === true) return AUTO_REPLY_SENT_UNRECORDED;
   // Check-only mode: nothing was held — the reply passed and was kept as the draft.
   if (reason === WOULD_SEND) {
     if (details?.['source'] === 'missing_info' || path === 'missing_info')

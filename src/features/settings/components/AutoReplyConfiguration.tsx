@@ -88,9 +88,19 @@ const MODE_LABEL: Record<AutoReplyMode, string> = {
 };
 const MODES: AutoReplyMode[] = ['all', 'check_only', 'rules_only'];
 const MODE_HELP =
-  'Keyword rules only: only your keyword rules reply; the AI never sends on its own.';
+  'Keyword rules only: only your keyword rules reply — a rule that adds a knowledge base answer ("Template + KB") sends that answer too. The AI never replies on its own.';
 export const CHECK_ONLY_HELP =
-  'AI replies checked, not sent: the AI writes its reply and it goes through every check, but it is never emailed. A reply that passed is kept as the thread\'s draft and recorded as "would have been sent" (Audit Logs), so you can see what the AI would do before letting it send. Keyword rules with a fixed text still send; a rule that adds a knowledge base answer is checked and not sent.';
+  'AI replies checked, not sent: the AI writes its reply and it goes through every check, but it is never emailed. A reply that passed is kept as the thread\'s draft and recorded as "would have been sent" (Audit Logs), so you can see what the AI would do before letting it send. Keyword rules with a fixed text still send; a rule that adds a knowledge base answer is checked and not sent. This covers email only: Telegram bots and website chat widgets answer for real unless their own switches are off.';
+/** The team keys the server's per-team change accepts (its list is strict: any other → 400). */
+const TEAM_CHANGE_KEYS: readonly string[] = [
+  'autoReplyEnabled',
+  'autoReplyMode',
+  'autoReplyRequestMissingInfo',
+  'autoReplySuggestSolutions',
+  'autoReplyHighConfidenceThreshold',
+  'autoReplyPartialAnswer',
+  'escalationPhrases',
+];
 const STALE_SETTINGS =
   'These settings were changed by someone else since this page was loaded. They were read again; make the change again.';
 const RULES_ONLY_NOTE = 'These AI settings do not apply in "Keyword rules only".';
@@ -101,7 +111,7 @@ const teamChange = (before: Settings, after: Settings): TeamSettingsChange['sett
   const was = before as Record<string, unknown>;
   const now = after as Record<string, unknown>;
   for (const key of new Set([...Object.keys(was), ...Object.keys(now)])) {
-    if (key === 'restrictedTopics') continue;
+    if (!TEAM_CHANGE_KEYS.includes(key)) continue;
     if (JSON.stringify(was[key]) === JSON.stringify(now[key])) continue;
     change[key] = (now[key] ?? null) as TeamSettingsChange['settings'][string];
   }
@@ -263,6 +273,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    // A confirmation still open describes the settings as they were: it does not outlive a re-read.
+    setPendingStart(null);
     void (async () => {
       try {
         await loadStored(() => cancelled);
@@ -323,6 +335,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       // the change is NOT sent a second time; the person makes it on what is stored now.
       if (getErrorStatus(err) === 409 && updatedAtRef.current !== undefined) {
         const sentence = getApiErrorMessage(err) ?? STALE_SETTINGS;
+        setPendingStart(null);
         onShowAlert({ open: true, title: 'Not saved', description: sentence, variant: 'error' });
         setLoadAttempt((count) => count + 1);
         setError(sentence);
@@ -447,6 +460,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         const own = { ...kept, ...(topics?.length ? { restrictedTopics: topics } : {}) };
         if (Object.keys(own).length > 0) local[key] = own;
         else delete local[key];
+        const delta = teamChange(current, kept ?? {});
+        // Nothing changes (a slider put back where it was, a second press of the same choice):
+        // nothing is sent — an empty change is refused by the server.
+        if (perTeam && Object.keys(delta).length === 0) return true;
         perDeptRef.current = local;
         try {
           const stored = await organizationService.updateAutoReply(
@@ -456,7 +473,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                   // the team's stored settings and leaves every other team as it is.
                   teamSettingsChange: {
                     departmentId: deptId,
-                    settings: teamChange(current, kept ?? {}),
+                    settings: delta,
                   },
                   ...(typeof updatedAtRef.current === 'string' && {
                     expectedUpdatedAt: updatedAtRef.current,
@@ -623,6 +640,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       setPendingStart({ start: { kind: first ? 'first' : 'again', mode: willMode, team }, apply });
     else if (willOn && (now.autoReplyMode ?? orgHas) !== 'all' && willMode === 'all')
       setPendingStart({ start: { kind: 'ai', mode: 'all', team }, apply });
+    // Out of "checked, not sent" into "keyword rules only": a rule's knowledge base answer,
+    // withheld until now, starts being sent.
+    else if (willOn && (now.autoReplyMode ?? orgHas) === 'check_only' && willMode === 'rules_only')
+      setPendingStart({ start: { kind: 'kb', mode: 'rules_only', team }, apply });
     else apply();
   };
   const changeTeamSending = (
@@ -688,6 +709,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
               {org.autoReplyEnabled &&
                 org.autoReplyMode === 'rules_only' &&
                 ' · keyword rules only'}
+              {org.autoReplyEnabled &&
+                org.autoReplyMode === 'check_only' &&
+                ' · keyword rules; AI replies checked, not sent (email only)'}
               . Only workspace admins and moderators can change automatic reply settings.
             </p>
             {topicsSupported && (
@@ -770,7 +794,6 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     <div className="space-y-4">
       <AutoReplyStartConfirm
         start={pendingStart?.start ?? null}
-        teamIsOff={(departmentId) => perDept[String(departmentId)]?.autoReplyEnabled === false}
         teamsWithAi={activeDepts
           .filter((dept) => {
             const own = perDept[String(dept.id)];
@@ -778,7 +801,12 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           })
           .map((dept) => dept.name)}
         onClose={() => setPendingStart(null)}
-        onConfirm={() => pendingStart?.apply()}
+        onConfirm={() => {
+          // Once: what was confirmed is taken off before it runs, so a second press finds nothing.
+          const confirmed = pendingStart;
+          setPendingStart(null);
+          confirmed?.apply();
+        }}
       />
       <Card>
         <CardHeader>
@@ -900,9 +928,17 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                             onClick={() => {
                               if (orgMode === mode) return;
                               // The AI starting to send on its own is confirmed first.
-                              if (mode === 'all')
+                              // …and so is a rule's knowledge base answer starting to send
+                              // (out of "checked, not sent" into "keyword rules only").
+                              const kind =
+                                mode === 'all'
+                                  ? 'ai'
+                                  : orgMode === 'check_only' && mode === 'rules_only'
+                                    ? 'kb'
+                                    : null;
+                              if (kind)
                                 setPendingStart({
-                                  start: { kind: 'ai', mode },
+                                  start: { kind, mode },
                                   apply: () => void saveOrg({ mode }),
                                 });
                               else void saveOrg({ mode });

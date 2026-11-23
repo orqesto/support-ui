@@ -138,6 +138,9 @@ export const ChatWidgetModal = ({
     allowedDomains: [],
   });
   const [domainsText, setDomainsText] = useState('');
+  // The switch is sent only when it was changed HERE: the form's copy is from when it opened, and
+  // re-sending it would undo a change made meanwhile on the card or by someone else.
+  const [aiAnswersTouched, setAiAnswersTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
   // Teams off ⇒ no team scope; the widget serves the whole workspace.
@@ -171,6 +174,7 @@ export const ChatWidgetModal = ({
   }, [open]);
 
   useEffect(() => {
+    setAiAnswersTouched(false);
     if (widget) {
       setFormData({
         name: widget.name,
@@ -262,6 +266,7 @@ export const ChatWidgetModal = ({
       };
       const data = {
         ...formData,
+        aiAnswersEnabled: aiAnswersTouched ? formData.aiAnswersEnabled : undefined,
         handoffMessage: orDefault(formData.handoffMessage),
         emailRequestMessage: orDefault(formData.emailRequestMessage),
         allowedDomains: domains,
@@ -434,7 +439,10 @@ export const ChatWidgetModal = ({
             <Toggle
               ariaLabel="AI answers"
               checked={formData.aiAnswersEnabled !== false}
-              onChange={(next) => setFormData({ ...formData, aiAnswersEnabled: next })}
+              onChange={(next) => {
+                setAiAnswersTouched(true);
+                setFormData({ ...formData, aiAnswersEnabled: next });
+              }}
             />
           </div>
 

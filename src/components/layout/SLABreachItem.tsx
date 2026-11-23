@@ -56,11 +56,11 @@ export const SLABreachItem = ({
   const isSlack =
     notification.type === 'slack_connection' || notification.type === 'slack_channel_route';
   // Not a breach either: no overrun, and its entity is the workspace — it links to the AI
-  // settings (the provider that checks the replies, and the automatic replies themselves).
+  // providers (Settings › Integrations), where the model that checks the replies is set.
   const isReplyCheck = (notification.type as string) === AUTO_REPLY_CHECK;
   const isNotice = isSlack || isReplyCheck;
   const href = isReplyCheck
-    ? '/settings#ai'
+    ? '/settings#integrations/ai-providers'
     : isSlack
       ? '/settings#notifications'
       : notification.type === 'message' ||
@@ -115,7 +115,7 @@ export const SLABreachItem = ({
         {isReplyCheck ? (
           <p className="mt-1 text-xs text-muted-foreground">
             Replies that could not be checked are kept as drafts for a person, not sent. Check the
-            AI provider in Settings › AI.
+            AI provider in Settings › Integrations › AI providers.
           </p>
         ) : isSlack ? (
           <p className="mt-1 text-xs text-muted-foreground">

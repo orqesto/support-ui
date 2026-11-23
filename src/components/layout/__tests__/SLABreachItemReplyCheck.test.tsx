@@ -1,7 +1,7 @@
 /**
  * `auto_reply_check_unreadable` (the reply check could not be read, so automatic replies are being
  * held) lands in the bell's fail-open list. It is not a breach: it reads as an automatic-replies
- * problem with the backend's own title, shows no "…m over", and links to the AI settings — never
+ * problem with the backend's own title, shows no "…m over", and links to the AI providers — never
  * to /tickets/<workspace id>.
  */
 import { describe, expect, it } from 'vitest';
@@ -33,7 +33,7 @@ const show = (notification: SLABreachNotification) =>
   );
 
 describe('the unreadable reply check in the bell', () => {
-  it('reads as an automatic-replies problem, with no overrun, and links to the AI settings', () => {
+  it('reads as an automatic-replies problem, with no overrun, and links to the AI providers', () => {
     show(
       row('auto_reply_check', {
         title: TITLE,
@@ -46,9 +46,11 @@ describe('the unreadable reply check in the bell', () => {
     expect(screen.getByText(TITLE)).toBeInTheDocument();
     expect(screen.getByText(/kept as drafts for a person, not sent/)).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/over|reply_unchecked/);
+    // Where the model that checks the replies is set — named, and linked.
+    expect(screen.getByText(/Settings › Integrations › AI providers/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Automatic replies' })).toHaveAttribute(
       'href',
-      '/settings#ai'
+      '/settings#integrations/ai-providers'
     );
   });
 

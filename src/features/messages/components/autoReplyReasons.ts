@@ -24,7 +24,8 @@ const REASON: Record<string, string> = {
   spam_verdict: 'the spam check has not cleared this message',
   refusal: 'the reply only declined the question',
   refusal_held: 'the reply only declined the question',
-  blocked_gate: 'a send rule held the reply',
+  // The website chat's hold of a reply that only declined (its review reason, as on email).
+  blocked_gate: 'the reply only declined the question',
   // Before the gate.
   low_confidence: 'the AI was not sure enough of its answer',
   partial_answer: 'the AI could answer only some of the questions',
@@ -34,6 +35,10 @@ const REASON: Record<string, string> = {
     'this sender already got the most automatic replies allowed in an hour or a day',
   newer_message: 'the customer wrote again before the reply went out',
   send_failed: 'the reply could not be sent',
+  // The settings are read again right before the send: switched off or narrowed meanwhile.
+  settings_changed:
+    'automatic replies were switched off or narrowed just before it would have gone out',
+  plan_limit: "the plan's limit on automatic replies was reached",
   thread_locked: 'another reply was in progress',
   several_rules: 'more than one keyword rule matched',
   // `gate:<outcome>`: the automatic-reply settings stopped it.
@@ -57,8 +62,87 @@ const REASON: Record<string, string> = {
   delayed_escalation_confirmed: 'the customer asked for a person',
   handed_off: 'the chat was handed to the team',
   order_status: 'the customer asked about an order',
+  order_status_during_handoff: 'the customer asked about an order',
+  low_relevance_hallucination: 'the answer did not match the knowledge base closely enough',
+  generation_failed: 'the AI could not write a reply',
   flood: 'too many messages arrived at once',
   error: 'the bot ran into an error',
+};
+
+/** Why a matched keyword rule's reply did not go out, in plain words (BE autoReplyOutcome). */
+export const WITHHELD_REASON: Record<string, string> = {
+  send_failed: 'the email could not be sent',
+  thread_locked: 'another reply was in progress',
+  kb_error: 'the knowledge base search failed',
+  kb_no_source: 'no knowledge base answer was sure enough',
+  kb_below_threshold: 'no knowledge base answer was sure enough',
+  kb_not_grounded: 'the knowledge base answer could not be checked',
+  ai_drafts_off: 'AI drafts are off',
+  plan_not_entitled: "the plan's auto-reply limit",
+  plan_allotment_reached: "the plan's auto-reply limit",
+  workspace_blocked: 'the workspace is waiting for a plan',
+  kb_placeholder_in_plain_rule: 'the reply still holds {{kb_answer}}',
+  // The reply check held the knowledge base answer (2026-11-20).
+  kb_refusal: 'the knowledge base answer only declined the question',
+  kb_reply_unchecked: 'the knowledge base answer could not be checked',
+  kb_content_unchecked: 'the knowledge base answer could not be checked',
+  // The send gate held the reply (2026-11-20): the knowledge base answer (`kb_…`), or a plain
+  // prepared reply for what the customer asked.
+  kb_restricted_topic: 'the customer asks about a subject a person must answer',
+  kb_no_customer_request: 'the message is not a customer request',
+  kb_needs_lookup_or_action: 'answering needs a lookup or an action',
+  kb_promises_follow_up: 'the knowledge base answer promised a follow-up',
+  kb_does_not_answer: 'the knowledge base answer did not answer the question',
+  kb_unsupported_by_sources: 'the answer said more than the knowledge base does',
+  restricted_topic: 'the customer asks about a subject a person must answer',
+  question_unchecked: 'the question could not be checked for a restricted topic',
+  // Also written for the AI's own reply (`source: 'ai_reply'`): the customer wrote again before
+  // it went out (the newer message gets its own run), or the spam check has not cleared the sender.
+  newer_message: 'the customer wrote again before the reply went out',
+  spam_verdict: 'the spam check has not cleared this email',
+};
+
+/**
+ * Why the email asking the customer for missing information was not sent (BE followUpEmailHelper:
+ * `source: 'missing_info'`, `reason` = the outcome). Every outcome the backend stores; one this
+ * bundle does not know reads as the backend's own sentence (`detail`), or as unknown.
+ */
+export const ASK_WITHHELD_REASON: Record<string, string> = {
+  send_failed: WITHHELD_REASON.send_failed,
+  thread_locked: WITHHELD_REASON.thread_locked,
+  ai_drafts_off: WITHHELD_REASON.ai_drafts_off,
+  workspace_blocked: WITHHELD_REASON.workspace_blocked,
+  plan_not_entitled: 'the plan does not include automatic replies',
+  plan_allotment_reached: "this month's automatic replies are used up",
+  ai_reply_limit: 'the limit on automatic replies to this thread or this sender was reached',
+  no_thread: 'there is no customer message to answer',
+  nothing_to_ask: 'the AI had no question to ask, or could not write one',
+  pre_send_timeout: 'a step before sending took too long',
+  spam_verdict: 'the spam check did not clear this email',
+  blocked_pre_gate: 'this thread is not one that gets an automatic reply',
+  blocked_escalation_phrase: "the customer's email contains a phrase that stops automatic replies",
+  blocked_degraded_analysis: 'the AI could not read this email properly',
+  blocked_unsupported_language: 'the email is in a language the question is not written in',
+  blocked_missing_info_guard: 'the email the AI wrote did not pass the checks on its questions',
+  blocked_reply_hygiene: 'the email did not pass the checks every automatic reply passes',
+};
+
+/** `blocked_missing_info_model_check`: what the check on the email found (`checkReason`). */
+export const ASK_CHECK_REASON: Record<string, string> = {
+  ask_unchecked: "the email's questions could not be checked",
+  'check failed': "the email's questions could not be checked",
+  restricted_topic:
+    'the customer asks about a subject a person must answer, so nothing was asked automatically',
+  no_customer_request: 'the message is not a customer request',
+  not_only_asking: 'a question in the email did more than ask for a detail',
+};
+
+/** Codes only the counts meet (a Telegram turn's, an older hold's), worded for the counts card. */
+const OTHER_REASON: Record<string, string> = {
+  blocked_missing_info_model_check: "the email's questions did not pass their check",
+  escalation_confirmed_delayed: 'the customer asked for a person',
+  greeting_rule_match: 'a greeting rule answered',
+  ai_error: 'the AI ran into an error',
 };
 
 /** The codes with words of their own (the test walks the backend contract's list against it). */
@@ -109,20 +193,67 @@ export const AUTO_REPLY_CHANNEL_LABEL: Record<string, string> = {
 };
 
 /**
+ * The words for ANY reason code an automatic reply's record can carry, whoever wrote it — for a
+ * place that meets them all at once (the counts card). The Activity line asks per writer instead,
+ * so a keyword rule's code is not borrowed for the AI's reply.
+ */
+export const anyAutoReplyReasonLabel = (reason: string | null | undefined): string => {
+  const words = autoReplyReasonWords(reason);
+  if (words) return words;
+  const code = typeof reason === 'string' ? bare(reason) : '';
+  for (const map of [WITHHELD_REASON, ASK_WITHHELD_REASON, ASK_CHECK_REASON, OTHER_REASON]) {
+    if (Object.prototype.hasOwnProperty.call(map, code)) return map[code];
+  }
+  return AUTO_REPLY_REASON_UNKNOWN;
+};
+
+/**
+ * One reason is stored under several spellings, by writer (the email AI, a keyword rule's `kb_…`,
+ * the send gate's `send_gate:…`, the Telegram bot's hyphens, the website chat). The filter asks
+ * the backend for all of them at once (`reason` takes a comma-separated list), or it would show
+ * only one writer's holds.
+ */
+const REASON_SPELLINGS: Record<string, readonly string[]> = {
+  restricted_topic: ['restricted_topic', 'kb_restricted_topic'],
+  reply_unchecked: [
+    'reply_unchecked',
+    'kb_reply_unchecked',
+    'question_unchecked',
+    'kb_content_unchecked',
+  ],
+  needs_lookup_or_action: ['needs_lookup_or_action', 'kb_needs_lookup_or_action'],
+  no_customer_request: ['no_customer_request', 'kb_no_customer_request'],
+  promises_follow_up: ['promises_follow_up', 'kb_promises_follow_up'],
+  does_not_answer: ['does_not_answer', 'kb_does_not_answer'],
+  unsupported_by_sources: ['unsupported_by_sources', 'kb_unsupported_by_sources'],
+  not_from_knowledge: ['not_from_knowledge', 'send_gate:not_from_knowledge'],
+  refusal: ['refusal', 'refusal_held', 'kb_refusal', 'blocked_gate'],
+  plan_not_entitled: ['plan_not_entitled', 'plan-not-entitled'],
+  plan_allotment_reached: ['plan_allotment_reached', 'plan-allotment-reached'],
+  low_confidence: ['low_confidence', 'low_confidence_offered_support'],
+};
+
+/** Every spelling of a filter's reason, comma-separated, as the backend's `reason` takes them. */
+export const reasonFilterQuery = (reason: string | undefined): string | undefined =>
+  reason ? (REASON_SPELLINGS[reason] ?? [reason]).join(',') : undefined;
+
+/**
  * Why a SENT reply was allowed to go (`allowedBy` on the record and on the reply's event):
- * `passed` = the check every automatic reply passes let it through (with the AI's confidence and
- * the workspace's threshold, when stored, as 0–1); `fixed_text` = a person's own text, sent as is.
+ * `passed` = the check every automatic reply passes let it through, with the confidence and the
+ * threshold when stored (both 0–1); `fixed_text` = nobody's model wrote it — a keyword rule's or a
+ * receipt confirmation's text is the team's own (`byTeam`), a bot's fixed line is just fixed.
  * Null when the record does not say.
  */
-export const allowedByWords = (allowedBy: unknown): string | null => {
+export const allowedByWords = (allowedBy: unknown, byTeam = false): string | null => {
   if (!allowedBy || typeof allowedBy !== 'object') return null;
   const { gate, confidence, threshold } = allowedBy as Record<string, unknown>;
-  if (gate === 'fixed_text') return 'a fixed text written by your team, sent as it is';
+  if (gate === 'fixed_text')
+    return byTeam
+      ? 'a fixed text written by your team, sent as it is'
+      : 'a fixed text, not written by the AI';
   if (gate !== 'passed') return null;
   const percent = (value: unknown): string | null =>
-    typeof value === 'number' && Number.isFinite(value)
-      ? `${Math.round(value <= 1 ? value * 100 : value)}%`
-      : null;
+    typeof value === 'number' && value >= 0 && value <= 1 ? `${Math.round(value * 100)}%` : null;
   const sure = percent(confidence);
   const needed = percent(threshold);
   const numbers = sure ? ` (confidence ${sure}${needed ? `, needed ${needed}` : ''})` : '';

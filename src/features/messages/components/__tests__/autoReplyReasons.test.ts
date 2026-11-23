@@ -9,8 +9,10 @@ import {
   AUTO_REPLY_REASON_FILTERS,
   AUTO_REPLY_REASON_UNKNOWN,
   allowedByWords,
+  anyAutoReplyReasonLabel,
   autoReplyReasonLabel,
   autoReplyReasonWords,
+  reasonFilterQuery,
 } from '../autoReplyReasons';
 import { autoReplySentLabel, autoReplyWithheldLabel } from '../messageActivityTimeline';
 import { NEEDS_REVIEW_REASON_LABELS } from '../aiFlagCopy';
@@ -40,9 +42,10 @@ const EMAIL_AI = [
   'sender_reply_limit',
   'newer_message',
   'send_failed',
+  'settings_changed',
 ];
 const KEYWORD_RULE = ['would_send', 'sender_reply_limit'];
-const MISSING_INFO = ['would_send'];
+const MISSING_INFO = ['would_send', 'settings_changed', 'plan_limit'];
 const TELEGRAM = [
   'plan-not-entitled',
   'restricted_topic',
@@ -50,6 +53,32 @@ const TELEGRAM = [
   'reply_unchecked',
   'rule_based_fallback',
   'no_knowledge_offered_support',
+  // The contract's closed set for a Telegram turn (`other` carries no words of its own).
+  'success',
+  'greeting_rule_match',
+  'clarification_needed',
+  'order_status',
+  'order_status_during_handoff',
+  'out_of_scope',
+  'escalation_requested',
+  'escalation_confirmed',
+  'escalation_confirmed_delayed',
+  'delayed_escalation_confirmed',
+  'low_confidence_offered_support',
+  'low_confidence',
+  'no_answer',
+  'out_of_scope_held',
+  'low_relevance_hallucination',
+  'generation_failed',
+  'send_failed',
+  'flood',
+  'error',
+  'plan-allotment-reached',
+  'needs_lookup_or_action',
+  'promises_follow_up',
+  'unsupported_by_sources',
+  'no_customer_request',
+  'does_not_answer',
 ];
 const WIDGET = [
   'answered',
@@ -71,10 +100,17 @@ const showsACode = (text: string, code: string) =>
 
 describe('every reason code of the contract has words', () => {
   it.each(ALL)('%s', (code) => {
-    const words = autoReplyReasonWords(code);
-    expect(words).not.toBeNull();
+    const words = anyAutoReplyReasonLabel(code);
+    expect(words).not.toBe(AUTO_REPLY_REASON_UNKNOWN);
     expect(words).toMatch(/ /);
-    expect(showsACode(words ?? '', code)).toBe(false);
+    expect(showsACode(words, code)).toBe(false);
+  });
+
+  it('a Telegram turn stored as `other` (its own code is in `rawReason`) reads as held for a person', () => {
+    expect(anyAutoReplyReasonLabel('other')).toBe(AUTO_REPLY_REASON_UNKNOWN);
+    expect(
+      autoReplyWithheldLabel({ replyPath: 'telegram', reason: 'other', rawReason: 'x_y' })
+    ).toBe('The Telegram bot left this chat for a person: it was held for a person');
   });
 
   it('CONTROL: a code nobody knows reads as held for a person, never as itself', () => {
@@ -164,20 +200,116 @@ describe('the review flags the fixed rules set have labels', () => {
 });
 
 describe('why a sent reply was allowed', () => {
-  it('says the check passed, with the numbers when stored, or that it was a fixed text', () => {
+  it('says the check passed, with the numbers when stored (both 0–1)', () => {
     expect(allowedByWords({ gate: 'passed', confidence: 0.93, threshold: 0.9 })).toBe(
       'it passed the check every automatic reply goes through (confidence 93%, needed 90%)'
     );
     expect(allowedByWords({ gate: 'passed' })).toBe(
       'it passed the check every automatic reply goes through'
     );
-    expect(allowedByWords({ gate: 'fixed_text' })).toBe(
+    // A number that is not on the 0–1 scale is not guessed at: no number is shown.
+    expect(allowedByWords({ gate: 'passed', confidence: 93 })).toBe(
+      'it passed the check every automatic reply goes through'
+    );
+  });
+
+  it('a fixed text is the team’s own only for a keyword rule or a receipt confirmation', () => {
+    expect(allowedByWords({ gate: 'fixed_text' }, true)).toBe(
       'a fixed text written by your team, sent as it is'
     );
+    // A bot's fixed line (Telegram, the website chat).
+    expect(allowedByWords({ gate: 'fixed_text' })).toBe('a fixed text, not written by the AI');
   });
 
   it('CONTROL: a record that does not say gives nothing', () => {
     expect(allowedByWords(undefined)).toBeNull();
     expect(allowedByWords({ gate: 'something_else' })).toBeNull();
+  });
+});
+
+describe('the counts card words every code the rows word', () => {
+  /** Codes of older holds, of a keyword rule and the missing-info email, and of a Telegram turn. */
+  const CARD_CODES = [
+    'kb_no_source',
+    'kb_below_threshold',
+    'kb_not_grounded',
+    'kb_content_unchecked',
+    'kb_placeholder_in_plain_rule',
+    'ai_drafts_off',
+    'workspace_blocked',
+    'ai_reply_limit',
+    'no_thread',
+    'nothing_to_ask',
+    'pre_send_timeout',
+    'blocked_pre_gate',
+    'blocked_degraded_analysis',
+    'blocked_unsupported_language',
+    'blocked_missing_info_guard',
+    'blocked_missing_info_model_check',
+    'escalation_confirmed_delayed',
+    'greeting_rule_match',
+    'ai_error',
+    ...ALL,
+  ];
+  it.each(CARD_CODES)('%s', (code) => {
+    const words = anyAutoReplyReasonLabel(code);
+    expect(words).not.toBe(AUTO_REPLY_REASON_UNKNOWN);
+    expect(words).toMatch(/ /);
+    expect(/[a-z]+_[a-z_]+/.test(words.replace(/\{\{kb_answer\}\}/g, ''))).toBe(false);
+  });
+
+  it('`unknown` (a Telegram turn that left no reason) and a code nobody knows read as held for a person', () => {
+    expect(anyAutoReplyReasonLabel('unknown')).toBe(AUTO_REPLY_REASON_UNKNOWN);
+    expect(anyAutoReplyReasonLabel('brand_new_code')).toBe(AUTO_REPLY_REASON_UNKNOWN);
+  });
+
+  it('CONTROL: the Activity line still does not borrow a keyword rule’s code for the AI reply', () => {
+    expect(autoReplyReasonWords('kb_no_source')).toBeNull();
+    expect(autoReplyWithheldLabel({ source: 'ai_reply', reason: 'kb_refusal' })).toBe(
+      'The automatic reply was not sent: it was held for a person'
+    );
+  });
+});
+
+describe('one reason, every spelling it is stored under', () => {
+  it.each([
+    ['not_from_knowledge', 'not_from_knowledge,send_gate:not_from_knowledge'],
+    ['plan_not_entitled', 'plan_not_entitled,plan-not-entitled'],
+    ['refusal', 'refusal,refusal_held,kb_refusal,blocked_gate'],
+    [
+      'reply_unchecked',
+      'reply_unchecked,kb_reply_unchecked,question_unchecked,kb_content_unchecked',
+    ],
+    ['restricted_topic', 'restricted_topic,kb_restricted_topic'],
+  ])('%s', (reason, query) => {
+    expect(reasonFilterQuery(reason)).toBe(query);
+  });
+
+  it('every spelling of a filter reads as the same words', () => {
+    for (const option of AUTO_REPLY_REASON_FILTERS) {
+      const words = (reasonFilterQuery(option.value) ?? '')
+        .split(',')
+        .map((code) => anyAutoReplyReasonLabel(code));
+      // `kb_…` spellings word the knowledge base answer instead of "the reply": same reason.
+      expect(
+        new Set(words.map((text) => text.replace('knowledge base answer', 'reply'))).size
+      ).toBeLessThanOrEqual(2);
+      expect(words).not.toContain(AUTO_REPLY_REASON_UNKNOWN);
+    }
+  });
+
+  it('CONTROL: a reason with one spelling is sent as it is; none is none', () => {
+    expect(reasonFilterQuery('would_send')).toBe('would_send');
+    expect(reasonFilterQuery(undefined)).toBeUndefined();
+  });
+
+  it('a reply that was sent but could not be recorded is not called a hold', () => {
+    expect(
+      autoReplyWithheldLabel({ source: 'ai_reply', reason: 'send_failed', sentUnrecorded: true })
+    ).toMatch(/^The automatic reply was sent, but could not be recorded on the thread/);
+    // CONTROL: a send that failed reads as before.
+    expect(autoReplyWithheldLabel({ source: 'ai_reply', reason: 'send_failed' })).toBe(
+      'The automatic reply could not be delivered.'
+    );
   });
 });

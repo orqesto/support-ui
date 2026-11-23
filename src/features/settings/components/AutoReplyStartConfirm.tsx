@@ -11,34 +11,34 @@ import type { AutoReplyMode } from '@/services/organization.service';
  *   It is saved as keyword rules only — AI-written replies are a separate, later choice.
  * - `again`: enabled again with the choice stored before (`mode`).
  * - `ai`: the choice is changed to keyword rules AND AI replies.
+ * - `kb`: from "AI replies checked, not sent" to "Keyword rules only" — a keyword rule's knowledge
+ *   base answer, withheld until now, starts being sent.
  */
 export type AutoReplyStart = {
-  kind: 'first' | 'again' | 'ai';
+  kind: 'first' | 'again' | 'ai' | 'kb';
   mode: AutoReplyMode;
   /** One team's own setting; absent = the workspace's. */
   team?: { id: number; name: string };
 };
 
-type Mailbox = { label: string; offWhereLinked: boolean };
 type Mailboxes =
   | { state: 'loading' }
   | { state: 'failed' }
-  | { state: 'ready'; sending: Mailbox[]; off: number };
+  | { state: 'ready'; sending: string[]; off: number };
 
 /**
- * The connected mailboxes automatic replies CAN send from — never fewer than the backend's rule
- * allows (autoReplyGate `isSourceLinkAutoReplyAllowed`): a mailbox's "Automatic replies" switch is
- * kept per team it is linked to, and a thread that belongs to a team the mailbox is NOT linked to,
- * or to no team, is answered whatever those switches say.
- * - The workspace: every enabled mailbox can send. One whose switches are all off is listed with
- *   that said, not left out.
- * - One team: every enabled mailbox except those linked to that team with the switch off.
- * Read for the whole workspace, whatever team is selected in the header.
+ * The connected mailboxes automatic replies can send from, by the backend's rule (autoReplyGate
+ * `isSourceLinkAutoReplyAllowed`, a hard stop since 2026-11-23). A mailbox's "Automatic replies"
+ * switch is kept per team it is linked to:
+ * - a thread of a team the mailbox is linked to ⇒ that link's switch decides;
+ * - a thread of another team, or of no team ⇒ sent only if the mailbox has the switch on for at
+ *   least one team; a mailbox whose switches are ALL off sends nothing;
+ * - a mailbox linked to no team at all sends (threads from before the links existed).
+ * So for the workspace a mailbox sends unless every switch it has is off; for one team, its own
+ * link decides when there is one. Read for the whole workspace, whatever team is selected in the
+ * header.
  */
-const readMailboxes = async (
-  teamIsOff: (departmentId: number) => boolean,
-  teamId: number | undefined
-): Promise<Mailboxes> => {
+const readMailboxes = async (teamId: number | undefined): Promise<Mailboxes> => {
   const all = (await integrationsService.getAll({ everyTeam: true })).data ?? [];
   const mailboxes = all.filter(
     (source) => source.enabled && (source.type === 'email' || source.type === 'gmail')
@@ -47,35 +47,38 @@ const readMailboxes = async (
     mailboxes.map(async (source) => {
       const links =
         (await integrationsService.getSourceDepartments(source.id, { everyTeam: true })).data ?? [];
-      const label = (source.config as { user?: string } | undefined)?.user ?? source.name;
-      if (teamId !== undefined) {
-        const own = links.find((link) => link.departmentId === teamId);
-        return { label, sends: own === undefined || own.autoReplyEnabled, offWhereLinked: false };
-      }
+      const own =
+        teamId === undefined ? undefined : links.find((link) => link.departmentId === teamId);
       return {
-        label,
-        sends: true,
-        offWhereLinked:
-          links.length > 0 &&
-          links.every((link) => !link.autoReplyEnabled || teamIsOff(link.departmentId)),
+        label: (source.config as { user?: string } | undefined)?.user ?? source.name,
+        sends: own
+          ? own.autoReplyEnabled
+          : links.length === 0 || links.some((link) => link.autoReplyEnabled),
       };
     })
   );
   return {
     state: 'ready',
-    sending: rows.filter((row) => row.sends),
+    sending: rows.filter((row) => row.sends).map((row) => row.label),
     off: rows.filter((row) => !row.sends).length,
   };
 };
 
+/** These settings are the EMAIL replies': a Telegram bot and a website chat have their own switches. */
+export const EMAIL_ONLY_NOTE =
+  'This covers email only: Telegram bots and website chat widgets answer for real unless their own switches are off.';
+
 const title = (start: AutoReplyStart): string => {
   const scope = start.team ? ` for ${start.team.name}` : '';
+  if (start.kind === 'kb') return `Let keyword rules send knowledge base answers${scope}?`;
   return start.kind === 'ai'
     ? `Let the AI reply on its own${scope}?`
     : `Switch on automatic email replies${scope}?`;
 };
 
 const what = (start: AutoReplyStart): string => {
+  if (start.kind === 'kb')
+    return 'In "Keyword rules only", a keyword rule that adds a knowledge base answer ("Template + KB") emails that answer to customers without a person reading it first. Until now such an answer was checked and not sent.';
   if (start.kind === 'ai')
     return 'AI-written answers from your knowledge base, and the AI’s questions for missing details, will be emailed to customers without a person reading them first — as your keyword rules already are.';
   if (start.mode === 'all')
@@ -88,15 +91,12 @@ const what = (start: AutoReplyStart): string => {
 /** The confirmation before automatic replies start sending, naming the mailboxes they send from. */
 export function AutoReplyStartConfirm({
   start,
-  teamIsOff,
   teamsWithAi,
   onConfirm,
   onClose,
 }: {
   /** null = closed. */
   start: AutoReplyStart | null;
-  /** A team that switched automatic replies off for itself. */
-  teamIsOff: (departmentId: number) => boolean;
   /** Teams whose own choice is "Keyword rules and AI replies", by name. */
   teamsWithAi: string[];
   onConfirm: (start: AutoReplyStart) => void;
@@ -111,7 +111,7 @@ export function AutoReplyStartConfirm({
     if (!open) return;
     let stale = false;
     setMailboxes({ state: 'loading' });
-    readMailboxes(teamIsOff, teamId).then(
+    readMailboxes(teamId).then(
       (read) => {
         if (!stale) setMailboxes(read);
       },
@@ -125,13 +125,13 @@ export function AutoReplyStartConfirm({
       // Closed: the next opening starts from "reading", never from this opening's list.
       setMailboxes({ state: 'loading' });
     };
-    // Read once per opening: `teamIsOff` is a new function on every render of the settings card.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
   }, [open, teamId, attempt]);
 
   if (!start) return null;
   const aiStaysOff = start.kind !== 'ai' && start.mode === 'rules_only';
   const aiChecksOnly = start.kind !== 'ai' && start.mode === 'check_only';
+  const confirmText =
+    start.kind === 'ai' ? 'Let the AI reply' : start.kind === 'kb' ? 'Let them send' : 'Switch on';
   const team = start.team?.name;
   return (
     <ConfirmDialog
@@ -144,7 +144,7 @@ export function AutoReplyStartConfirm({
       // Nothing is switched on while the mailboxes it would send from are not known.
       hideConfirm={mailboxes.state !== 'ready'}
       variant="warning"
-      confirmText={start.kind === 'ai' ? 'Let the AI reply' : 'Switch on'}
+      confirmText={confirmText}
       description={
         <div className="space-y-3" data-testid="auto-reply-start-confirm">
           <p>{what(start)}</p>
@@ -172,16 +172,9 @@ export function AutoReplyStartConfirm({
                 className="pl-5 mt-1 list-disc"
                 aria-label="Mailboxes that send automatic replies"
               >
-                {mailboxes.sending.map((mailbox) => (
-                  <li key={mailbox.label}>
-                    <span className="font-mono text-[12.5px]">{mailbox.label}</span>
-                    {mailbox.offWhereLinked && (
-                      <span className="text-muted-foreground">
-                        {' '}
-                        — switched off for the teams it is linked to; it still replies on threads
-                        that belong to another team or to none
-                      </span>
-                    )}
+                {mailboxes.sending.map((label) => (
+                  <li key={label} className="font-mono text-[12.5px]">
+                    {label}
                   </li>
                 ))}
               </ul>
@@ -191,20 +184,25 @@ export function AutoReplyStartConfirm({
             <p>
               {mailboxes.off === 0
                 ? 'No mailbox is connected, so nothing is sent until one is.'
-                : `Every mailbox has its "Automatic replies" switch off for ${team ?? 'this team'}, so nothing is sent for this team until one is switched on (Settings → Integrations).`}
+                : `Every mailbox has its "Automatic replies" switch off${team ? ` for ${team}` : ''}, so nothing is sent until one is switched on (Settings → Integrations).`}
             </p>
           )}
           {mailboxes.state === 'ready' && mailboxes.sending.length > 0 && mailboxes.off > 0 && (
             <p className="text-muted-foreground">
               {mailboxes.off === 1
-                ? `1 other mailbox has its switch off for ${team ?? 'this team'} and sends nothing for this team.`
-                : `${mailboxes.off} other mailboxes have their switch off for ${team ?? 'this team'} and send nothing for this team.`}
+                ? '1 other mailbox has'
+                : `${mailboxes.off} other mailboxes have`}{' '}
+              {team
+                ? `the "Automatic replies" switch off for ${team} and ${mailboxes.off === 1 ? 'sends' : 'send'} nothing for this team.`
+                : `the "Automatic replies" switch off for every team ${mailboxes.off === 1 ? 'it is' : 'they are'} linked to and ${mailboxes.off === 1 ? 'sends' : 'send'} nothing.`}
             </p>
           )}
           {aiStaysOff && (
             <p>
-              AI-written replies stay off. They are a separate choice: &quot;Keyword rules and AI
-              replies&quot; under &quot;What replies on its own&quot;.
+              The AI&apos;s own replies stay off. A keyword rule that adds a knowledge base answer
+              (&quot;Template + KB&quot;) does send that answer. Letting the AI reply on its own is
+              a separate choice: &quot;Keyword rules and AI replies&quot; under &quot;What replies
+              on its own&quot;.
             </p>
           )}
           {aiChecksOnly && (
@@ -221,6 +219,7 @@ export function AutoReplyStartConfirm({
               &quot;Keyword rules and AI replies&quot;.
             </p>
           )}
+          <p className="text-muted-foreground">{EMAIL_ONLY_NOTE}</p>
           <p className="text-muted-foreground">
             Every automatic reply is checked before it is sent; one that fails a check is held for a
             person.

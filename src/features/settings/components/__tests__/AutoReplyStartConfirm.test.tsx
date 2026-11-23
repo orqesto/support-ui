@@ -145,25 +145,28 @@ describe('the first time automatic replies are switched on', () => {
     await show();
     fireEvent.click(workspaceSwitch());
     const list = await mailboxList();
-    // Every enabled mailbox CAN send: a thread of a team the mailbox is not linked to, or of no
-    // team, is answered whatever the mailbox's switches say. None is left out.
-    for (const present of ['help@', 'sales@', 'noreply@', 'billing@'])
-      expect(list).toContain(present);
-    // Disabled, or not a mailbox.
-    for (const absent of ['old@', 'shop_bot']) expect(list).not.toContain(absent);
-    // Its only switch is off / its only team is off: said, with what it still does.
-    const items = dialog().getAllByRole('listitem');
-    const noteOf = (address: string) =>
-      items.find((item) => item.textContent?.includes(address))?.textContent ?? '';
-    expect(noteOf('noreply@')).toMatch(
-      /switched off for the teams it is linked to; it still replies/
-    );
-    expect(noteOf('billing@')).toMatch(/switched off for the teams it is linked to/);
-    expect(noteOf('help@')).not.toMatch(/switched off/);
-    expect(noteOf('sales@')).not.toMatch(/switched off/);
-    expect(dialog().queryByText(/sends? nothing/)).toBeNull();
+    // A switch on for at least one team, or linked to no team at all: it can send.
+    for (const present of ['help@', 'sales@', 'billing@']) expect(list).toContain(present);
+    // Every switch it has is off (it sends nothing, also for a thread of no team), disabled, or
+    // not a mailbox.
+    for (const absent of ['noreply@', 'old@', 'shop_bot']) expect(list).not.toContain(absent);
+    expect(
+      dialog().getByText(
+        '1 other mailbox has the "Automatic replies" switch off for every team it is linked to and sends nothing.'
+      )
+    ).toBeInTheDocument();
+    expect(dialog().queryByText(/still replies on threads/)).toBeNull();
     expect(dialog().getByText(/Your keyword rules will be emailed/)).toBeInTheDocument();
-    expect(dialog().getByText(/AI-written replies stay off/)).toBeInTheDocument();
+    expect(dialog().getByText(/The AI.s own replies stay off/)).toBeInTheDocument();
+    // "Keyword rules only" is not "nothing from the knowledge base".
+    expect(
+      dialog().getByText(
+        /A keyword rule that adds a knowledge base answer .* does send that answer/
+      )
+    ).toBeInTheDocument();
+    expect(
+      dialog().getByText(/This covers email only: Telegram bots and website chat widgets/)
+    ).toBeInTheDocument();
     expect(state.updates).toEqual([]);
   });
 
@@ -229,7 +232,7 @@ describe('switching on again with a stored choice', () => {
     fireEvent.click(workspaceSwitch());
     expect(await mailboxList()).toContain('help@shop.example');
     expect(dialog().getByText(/keyword rules AND AI-written answers/)).toBeInTheDocument();
-    expect(dialog().queryByText(/AI-written replies stay off/)).toBeNull();
+    expect(dialog().queryByText(/The AI.s own replies stay off/)).toBeNull();
     expect(state.updates).toEqual([]);
     fireEvent.click(dialog().getByRole('button', { name: 'Switch on' }));
     // Saved WITH the choice the dialog named, not the switch alone.
@@ -240,7 +243,7 @@ describe('switching on again with a stored choice', () => {
     state.storedMode = 'rules_only';
     await show();
     fireEvent.click(workspaceSwitch());
-    expect(await dialog().findByText(/AI-written replies stay off/)).toBeInTheDocument();
+    expect(await dialog().findByText(/The AI.s own replies stay off/)).toBeInTheDocument();
     fireEvent.click(dialog().getByRole('button', { name: 'Switch on' }));
     await waitFor(() => expect(state.updates).toEqual([{ enabled: true, mode: 'rules_only' }]));
   });
@@ -309,14 +312,14 @@ describe("a team's own setting", () => {
       dialog().getByText('Switch on automatic email replies for Billing?')
     ).toBeInTheDocument();
     const list = await mailboxList();
-    // Linked to Billing with the switch on, or not linked to Billing at all (a thread of
-    // Billing's from such a mailbox is answered).
+    // Linked to Billing with the switch on; or not linked to Billing, with a switch on somewhere
+    // or no link at all (a thread of Billing's from such a mailbox is answered).
     for (const present of ['help@', 'sales@', 'billing@']) expect(list).toContain(present);
-    // Linked to Billing with the switch off: the one case that sends nothing for this team.
+    // Linked to Billing with the switch off.
     expect(list).not.toContain('noreply@');
     expect(
       dialog().getByText(
-        '1 other mailbox has its switch off for Billing and sends nothing for this team.'
+        '1 other mailbox has the "Automatic replies" switch off for Billing and sends nothing for this team.'
       )
     ).toBeInTheDocument();
     expect(state.updates).toEqual([]);
@@ -328,7 +331,7 @@ describe("a team's own setting", () => {
     state.departmentSettings = {};
     await show();
     fireEvent.click(screen.getAllByRole('button', { name: 'Override: on' })[0]);
-    expect(await dialog().findByText(/AI-written replies stay off/)).toBeInTheDocument();
+    expect(await dialog().findByText(/The AI.s own replies stay off/)).toBeInTheDocument();
     fireEvent.click(await dialog().findByRole('button', { name: 'Switch on' }));
     await waitFor(() =>
       expect(teamUpdate()).toEqual({ '7': { autoReplyEnabled: true, autoReplyMode: 'rules_only' } })

@@ -19,6 +19,7 @@ const state = vi.hoisted(() => ({
   sessionsAsked: [] as Array<[number, number, number]>,
   sessionAsked: [] as Array<[number, number]>,
   sessionsFail: false,
+  sessionFail: false,
 }));
 
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
@@ -72,6 +73,13 @@ vi.mock('@/features/settings/services/chatWidget.service', () => ({
     },
     getSession: (id: number, sessionId: number) => {
       state.sessionAsked.push([id, sessionId]);
+      if (state.sessionFail)
+        return Promise.reject(
+          Object.assign(new Error('Chat session not found'), {
+            status: 404,
+            response: { status: 404, data: { success: false, error: 'Chat session not found' } },
+          })
+        );
       return Promise.resolve({
         session: SESSIONS.find((row) => row.id === sessionId) ?? session(sessionId),
         messages: [
@@ -159,7 +167,9 @@ beforeEach(() => {
     sessionsAsked: [],
     sessionAsked: [],
     sessionsFail: false,
+    sessionFail: false,
   });
+  window.location.hash = '';
 });
 afterEach(cleanup);
 
@@ -204,6 +214,20 @@ describe('a widget’s AI answers', () => {
     fireEvent.click(form.getByRole('button', { name: /Update|Save/ }));
     await waitFor(() => expect(state.updates).toHaveLength(1));
     expect(state.updates[0][1]).toMatchObject({ aiAnswersEnabled: false });
+    expect(screen.queryByText('AI answers are still on')).toBeNull();
+  });
+
+  it('the form does not re-send the switch it did not change (its copy is from when it opened)', async () => {
+    state.widgets = [widget({ aiAnswersEnabled: false })];
+    await show();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit widget' }));
+    const form = within(
+      (await screen.findByRole('switch', { name: 'AI answers' })).closest('form') as HTMLElement
+    );
+    fireEvent.click(form.getByRole('button', { name: /Update Widget/ }));
+    await waitFor(() => expect(state.updates).toHaveLength(1));
+    expect(state.updates[0][1].aiAnswersEnabled).toBeUndefined();
+    expect('aiAnswersEnabled' in JSON.parse(JSON.stringify(state.updates[0][1]))).toBe(false);
     expect(screen.queryByText('AI answers are still on')).toBeNull();
   });
 
@@ -275,9 +299,42 @@ describe('a widget’s chats', () => {
     expect(await view.findByRole('list', { name: 'Chats of this widget' })).toBeInTheDocument();
   });
 
-  it('a list the server refuses is said in its own words', async () => {
+  it('a list the server refuses is said in its own words, and can be tried again', async () => {
     state.sessionsFail = true;
     const view = await open();
     expect(await view.findByRole('alert')).toHaveTextContent('Chat widget not found');
+    state.sessionsFail = false;
+    fireEvent.click(view.getByRole('button', { name: 'Try again' }));
+    expect(await view.findByRole('list', { name: 'Chats of this widget' })).toBeInTheDocument();
+    expect(view.queryByRole('alert')).toBeNull();
+  });
+
+  it('a chat that could not be loaded does not leave its error on the list', async () => {
+    const view = await open();
+    state.sessionFail = true;
+    fireEvent.click(
+      await view.findByRole('button', { name: 'Open the chat with Website visitor (no email)' })
+    );
+    expect(await view.findByRole('alert')).toHaveTextContent('Chat session not found');
+    fireEvent.click(view.getByRole('button', { name: 'All chats' }));
+    expect(view.queryByRole('alert')).toBeNull();
+    expect(view.getByRole('list', { name: 'Chats of this widget' })).toBeInTheDocument();
+  });
+
+  it('a link to one chat opens that widget’s Chats on it', async () => {
+    window.location.hash = '#integrations/chat-widgets?widget=5&chat=32';
+    await show();
+    const view = within(await screen.findByRole('dialog'));
+    expect(
+      await view.findByRole('list', { name: 'What was said in this chat' })
+    ).toBeInTheDocument();
+    expect(state.sessionAsked).toEqual([[5, 32]]);
+  });
+
+  it('CONTROL: a link that names no widget of this workspace opens nothing', async () => {
+    window.location.hash = '#integrations/chat-widgets?widget=77&chat=32';
+    await show();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });

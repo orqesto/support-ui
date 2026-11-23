@@ -19,18 +19,21 @@ export const autoSentMark = (msg: Pick<MessageEvent, 'type' | 'metadata'>): Auto
   if (msg.type === 'inbound') return null;
   const meta = msg.metadata ?? {};
   // Why it was allowed to go, when the event says (`allowedBy`, backend 2026-11-23).
-  const allowed = allowedByWords(meta.allowedBy);
+  const rule = meta.keywordRule as { name?: unknown } | null | undefined;
+  const ruleName = typeof rule?.name === 'string' && rule.name ? rule.name : null;
+  const byRule = ruleName !== null || meta.source === 'keyword_rule';
+  const receipt = meta.acknowledgmentReply === true || meta.source === 'acknowledgment';
+  // A rule's and a receipt confirmation's fixed text is the team's own; a bot's is just fixed.
+  const allowed = allowedByWords(meta.allowedBy, byRule || receipt);
   const why = allowed ? ` Allowed because ${allowed}.` : '';
-  if (meta.acknowledgmentReply === true || meta.source === 'acknowledgment') {
+  if (receipt) {
     return {
       label: 'Sent automatically · receipt confirmation',
       title: `${TITLE} The mailbox's receipt confirmation.${why}`,
     };
   }
   if (meta.isAutoReply !== true && msg.type !== 'bot_reply') return null;
-  const rule = meta.keywordRule as { name?: unknown } | null | undefined;
-  const ruleName = typeof rule?.name === 'string' && rule.name ? rule.name : null;
-  if (ruleName || meta.source === 'keyword_rule') {
+  if (byRule) {
     return {
       label: 'Sent automatically · keyword rule',
       title: `${TITLE} ${ruleName ? `Keyword rule "${ruleName}"` : 'A keyword rule'}.${why}`,
