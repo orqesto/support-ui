@@ -95,7 +95,7 @@ describe('SyncedGroupsCard wire targets', () => {
     renderCard();
 
     const options = await listOptions(screen.getByLabelText('Map to'));
-    expect(options.some((label) => label.includes('Org admin'))).toBe(true);
+    expect(options.some((label) => label.includes('Workspace admin'))).toBe(true);
   });
 
   // The other half of a LAZY retirement: an existing mapping still grants access, so it
@@ -137,10 +137,10 @@ describe('SyncedGroupsCard wire targets', () => {
     renderCard();
     const options = await listOptions(screen.getByLabelText('Map to'));
     expect(options).toEqual([
-      'Org role — Org admin',
+      'Org role — Workspace admin',
       'Org role — Moderator',
-      'Org role — Support',
-      'Org role — Associate',
+      'Org role — Support Agent',
+      'Org role — Light agent',
     ]);
     // CONTROL: the mocked alliance groups are still loaded (the wired badge needs them) —
     // the 'Support US' group exists, it is just not a target.
@@ -203,8 +203,8 @@ describe('SyncedGroupsCard wire targets', () => {
     );
     renderCard();
 
-    expect(screen.getByText('Org role — Org admin')).toBeInTheDocument();
-    expect(screen.queryByText('Org role — Associate')).not.toBeInTheDocument();
+    expect(screen.getByText('Org role — Workspace admin')).toBeInTheDocument();
+    expect(screen.queryByText('Org role — Light agent')).not.toBeInTheDocument();
   });
 
   // CONTROL for the skew: an old backend still sends { mappedRole }. The pill must stay
@@ -218,8 +218,8 @@ describe('SyncedGroupsCard wire targets', () => {
     renderCard();
 
     expect(screen.queryByText(/Suggested:/)).not.toBeInTheDocument();
-    expect(screen.getByText('Org role — Associate')).toBeInTheDocument();
-    expect(screen.queryByText('Org role — Org admin')).not.toBeInTheDocument();
+    expect(screen.getByText('Org role — Light agent')).toBeInTheDocument();
+    expect(screen.queryByText('Org role — Workspace admin')).not.toBeInTheDocument();
   });
 });
 

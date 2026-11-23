@@ -19,7 +19,7 @@ describe('describeGrant — what a backing group grants, in words', () => {
   it('names the role and the workspace, not the IdP group', () => {
     expect(
       describeGrant({ name: 'SSO - Odly - Traumateam - Associate — Associate', orgRole: 'associate', orgIds: [4] }, orgs)
-    ).toBe('Associate in TraumaTeam');
+    ).toBe('Light agent in TraumaTeam');
   });
   it('lists every workspace and survives an unknown id', () => {
     expect(describeGrant({ name: 'x', orgRole: 'moderator', orgIds: [3, 4, 99] }, orgs)).toBe(

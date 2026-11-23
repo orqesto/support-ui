@@ -7,7 +7,7 @@ import { Select } from '@/components/ui/Select';
 import { departmentService, type Department } from '@/services/department.service';
 import { useAuthStore } from '@/stores/authStore';
 import { useOrganizationsStore } from '@/stores/organizationsStore';
-import type { OrganizationRole } from '@/types/roles';
+import { ORG_ROLE_OPTIONS, type OrganizationRole } from '@/types/roles';
 import { isDepartmentServed } from '@/utils/departmentReachability';
 import { deriveTeamsEnabled, pickDefaultTeam } from '@/hooks/useTeamsEnabled';
 
@@ -159,12 +159,7 @@ export const CreateUserModal = ({ isOpen, onClose, onCreate }: CreateUserModalPr
 
   if (!isOpen) return null;
 
-  const organizationRoleOptions = [
-    { value: 'org_admin', label: 'Workspace Admin' },
-    { value: 'moderator', label: 'Moderator' },
-    { value: 'support', label: 'Support' },
-    { value: 'associate', label: 'Associate' },
-  ];
+  const organizationRoleOptions = ORG_ROLE_OPTIONS;
 
   const globalRoleOptions = [
     { value: 'user', label: 'User' },

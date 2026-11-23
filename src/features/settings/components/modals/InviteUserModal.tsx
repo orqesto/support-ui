@@ -4,7 +4,10 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { usePermissions } from '@/hooks/usePermissions';
-import type { OrganizationRole } from '@/types/roles';
+import { roleDescriptions, roleDisplayNames, type OrganizationRole } from '@/types/roles';
+
+/** The invite's role order: the least rights first (the default is the first). */
+const INVITE_ROLE_ORDER: readonly OrganizationRole[] = ['associate', 'support', 'moderator', 'org_admin'];
 import { organizationService } from '@/services/organization.service';
 import { departmentService, type Department } from '@/services/department.service';
 import { integrationsService } from '@/services/integrations.service';
@@ -278,14 +281,13 @@ export const InviteUserModal = ({
             label="Role"
             value={role}
             onChange={(value) => setRole(value as OrganizationRole)}
-            options={[
-              { value: 'associate', label: 'Associate - Read-only with request permissions' },
-              { value: 'support', label: 'Support - Manage tickets and threads' },
-              { value: 'moderator', label: 'Moderator - Manage integrations, categories, AI' },
-              ...(isAdmin
-                ? [{ value: 'org_admin', label: 'Workspace Admin - Full control' }]
-                : []),
-            ]}
+            options={(isAdmin
+              ? INVITE_ROLE_ORDER
+              : INVITE_ROLE_ORDER.filter((value) => value !== 'org_admin')
+            ).map((value) => ({
+              value,
+              label: `${roleDisplayNames[value]} - ${roleDescriptions[value]}`,
+            }))}
             required
           />
           <p className="-mt-2 text-sm text-muted-foreground">

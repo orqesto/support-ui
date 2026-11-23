@@ -382,10 +382,10 @@ export const getEffectiveRole = (
 export const roleDisplayNames: Record<UserRole, string> = {
   admin: 'System Administrator',
   user: 'User',
-  org_admin: 'Workspace Administrator',
+  org_admin: 'Workspace admin',
   moderator: 'Moderator',
   support: 'Support Agent',
-  associate: 'Associate',
+  associate: 'Light agent',
 };
 
 /**
@@ -399,6 +399,14 @@ export const roleDescriptions: Record<UserRole, string> = {
   support: 'Can manage tickets and threads, view statistics',
   associate: 'View-only access with ability to request changes',
 };
+
+/**
+ * The workspace roles as picker options, most rights first. Labels only: the values are the
+ * stored role keys and never change (settings quick wins, 2026-11-23).
+ */
+export const ORG_ROLE_OPTIONS: { value: OrganizationRole; label: string }[] = (
+  ['org_admin', 'moderator', 'support', 'associate'] as const
+).map((value) => ({ value, label: roleDisplayNames[value] }));
 
 /**
  * Check if user is org admin or higher

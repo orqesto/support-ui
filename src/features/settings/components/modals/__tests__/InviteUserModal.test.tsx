@@ -285,3 +285,17 @@ describe('InviteUserModal — teams switched off', () => {
     expect(await screen.findByText('Support team')).toBeInTheDocument();
   });
 });
+
+describe('InviteUserModal — role wording (settings quick wins, Task 7)', () => {
+  it('each role shows its one-line description; "Light agent" is the default, sent as associate', async () => {
+    render(<InviteUserModal isOpen onClose={vi.fn()} onInvite={onInvite} />);
+    await screen.findByDisplayValue('Acme Support');
+    expect(
+      screen.getByText('Light agent - View-only access with ability to request changes')
+    ).toBeInTheDocument();
+    fill();
+    fireEvent.click(screen.getByRole('button', { name: /Send Invitation|Invite/ }));
+    await waitFor(() => expect(onInvite).toHaveBeenCalled());
+    expect(onInvite.mock.calls[0]).toContain('associate');
+  });
+});
