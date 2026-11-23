@@ -24,6 +24,8 @@ const REASON: Record<string, string> = {
   unsupported_by_sources: 'the reply said more than the knowledge base does',
   not_from_knowledge: 'the reply was not written from the knowledge base',
   spam_verdict: 'the spam check has not cleared this message',
+  // A thread with a team, the answer from another team's knowledge (2026-11-23).
+  source_other_team: "the reply was written from another team's knowledge",
   refusal: 'the reply only declined the question',
   refusal_held: 'the reply only declined the question',
   // The website chat's hold of a reply that only declined (its review reason, as on email).
@@ -86,6 +88,7 @@ export const WITHHELD_REASON: Record<string, string> = {
   kb_no_source: 'no knowledge base answer was sure enough',
   kb_below_threshold: 'no knowledge base answer was sure enough',
   kb_not_grounded: 'the knowledge base answer could not be checked',
+  kb_source_other_team: "the knowledge base answer came from another team's knowledge",
   ai_drafts_off: 'AI drafts are off',
   plan_not_entitled: "the plan's auto-reply limit",
   plan_allotment_reached: "the plan's auto-reply limit",
@@ -185,6 +188,7 @@ export const AUTO_REPLY_REASON_FILTERS: ReadonlyArray<{ value: string; label: st
   { value: 'does_not_answer', label: 'Reply did not answer the question' },
   { value: 'unsupported_by_sources', label: 'Reply went beyond the knowledge base' },
   { value: 'not_from_knowledge', label: 'Reply not from the knowledge base' },
+  { value: 'source_other_team', label: "Answer from another team's knowledge" },
   { value: 'rule_not_asked', label: 'Message does not ask what the rule answers' },
   { value: 'low_confidence', label: 'AI not sure enough' },
   { value: 'partial_answer', label: 'Only some questions answered' },
@@ -239,6 +243,7 @@ const REASON_SPELLINGS: Record<string, readonly string[]> = {
   does_not_answer: ['does_not_answer', 'kb_does_not_answer'],
   unsupported_by_sources: ['unsupported_by_sources', 'kb_unsupported_by_sources'],
   not_from_knowledge: ['not_from_knowledge', 'send_gate:not_from_knowledge'],
+  source_other_team: ['source_other_team', 'send_gate:source_other_team', 'kb_source_other_team'],
   refusal: ['refusal', 'refusal_held', 'kb_refusal', 'blocked_gate'],
   plan_not_entitled: ['plan_not_entitled', 'plan-not-entitled'],
   plan_allotment_reached: ['plan_allotment_reached', 'plan-allotment-reached'],

@@ -41,6 +41,8 @@ export const NEEDS_REVIEW_REASON_LABELS: Record<string, string> = {
   unsupported_by_sources: 'Reply went beyond the knowledge base',
   not_from_knowledge: 'Reply not from the knowledge base',
   spam_verdict: 'Spam check not cleared',
+  // The reply was written from another team's knowledge on a thread that has a team (2026-11-23).
+  source_other_team: "Answer from another team's knowledge",
 };
 
 /** A longer explanation where the UI has room for one (the tooltip); the label otherwise. */
@@ -66,6 +68,8 @@ export const NEEDS_REVIEW_REASON_DETAILS: Record<string, string> = {
   not_from_knowledge:
     'The reply was not written from the knowledge base (for example, it asks the customer a question), so it was not sent without a person',
   spam_verdict: 'The spam check did not clear this email, so no automatic reply was sent',
+  source_other_team:
+    "The automatic reply was written from another team's knowledge, which may follow different rules, so a person checks whether it applies – it was not sent",
 };
 
 /**
@@ -157,6 +161,7 @@ export const NAMED_REVIEW_REASONS = [
   'unsupported_by_sources',
   'not_from_knowledge',
   'spam_verdict',
+  'source_other_team',
   // A reply held because it only declined the question (email, Telegram, the chat widget), or by
   // another send rule: named like the gate's other holds, not the plain "Needs review".
   'blocked_gate',
@@ -178,6 +183,7 @@ const SEND_GATE_HOLDS: readonly string[] = [
   'unsupported_by_sources',
   'not_from_knowledge',
   'spam_verdict',
+  'source_other_team',
   'blocked_gate',
 ];
 export const DRAFT_REVIEW_AND_SEND = 'AI prepared a draft reply — review and send';

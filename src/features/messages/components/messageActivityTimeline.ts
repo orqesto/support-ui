@@ -224,6 +224,7 @@ const AI_REPLY_WITHHELD_REASON: Record<string, string> = {
   does_not_answer: 'the reply did not answer the question',
   unsupported_by_sources: 'the reply said more than the knowledge base does',
   not_from_knowledge: 'the reply was not written from the knowledge base',
+  source_other_team: "the reply was written from another team's knowledge",
 };
 
 /** A reason this bundle does not know (a newer backend): words, never the raw code. */
