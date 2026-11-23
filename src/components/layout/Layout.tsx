@@ -111,9 +111,6 @@ const allNavigation: Array<{
   hideWhenBillingOff?: boolean;
   // Alliance console entry — visible only to a global admin or an alliance_admin.
   allianceAdmin?: boolean;
-  // P3: hidden from global admins, whose equivalent lives in the platform console
-  // (e.g. Workspace → Platform › Organizations). Non-global users still see it.
-  hideForGlobalAdmin?: boolean;
 }> = [
   // ─── Work — daily inbox / triage ────────────────────────────────────────────
   { group: 'work', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -210,15 +207,14 @@ const allNavigation: Array<{
     permission: Permission.VIEW_SUBSCRIPTION,
     hideWhenBillingOff: true,
   },
-  // Global admin views audit via the platform console (Platform › Audit); hide the
-  // org-scoped audit page from the main nav to avoid the duplicate entry point.
+  // Shown to global admins too: the workspace's automatic-replies audit view lives only on
+  // this page (the platform console's audit page is the cross-workspace change log).
   {
     group: 'admin',
     name: 'Audit Logs',
     href: '/audit-logs',
     icon: ScrollText,
     permission: Permission.VIEW_AUDIT_LOGS,
-    hideForGlobalAdmin: true,
   },
   // P3: 'Admin Dashboard' (/admin) removed — its Plans + Usage tabs now live in
   // the platform console (Billing & Plans / Usage). The /admin route still
@@ -430,11 +426,6 @@ const LayoutShell = ({ children }: LayoutProps) => {
       allNavigation.filter((item) => {
         // Check if admin-only and user is global admin
         if (item.adminOnly && user?.role !== 'admin') {
-          return false;
-        }
-        // P3: hide entries a global admin now reaches via the platform console
-        // (e.g. Workspace). Org admins / moderators keep them.
-        if (item.hideForGlobalAdmin && user?.role === 'admin') {
           return false;
         }
         // Alliance console entry — non-global alliance_admins only (global admins use

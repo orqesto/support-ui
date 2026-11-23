@@ -5,7 +5,6 @@ import { loginPathFor } from '@/lib/postLoginRedirect';
 import { ReturnAfterLogin } from '@/components/auth/ProtectedRoute';
 import { Toaster } from 'sonner';
 import { AllianceConsoleRoute } from './components/auth/AllianceConsoleRoute';
-import { GlobalAdminRedirect } from './components/auth/GlobalAdminRedirect';
 import * as OrgConsole from './pages/organisationConsoleRoutes';
 import { legacyRedirectRoutes } from './routes/legacyRedirects';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
@@ -593,11 +592,10 @@ const AppRoutes = () => {
           element={
             <PrivateRoute>
               <ProtectedRoute requiredPermission={Permission.VIEW_AUDIT_LOGS}>
-                {/* P3: global admins view audit in the platform console; org admins
-                  keep this org-scoped audit page. */}
-                <GlobalAdminRedirect to="/console/platform/audit">
-                  <AuditLogsPage />
-                </GlobalAdminRedirect>
+                {/* Global admins open this workspace page too: the automatic-replies card and
+                  the sent / held / "would have been sent" entries exist only here. The platform
+                  console keeps its own cross-workspace audit page. */}
+                <AuditLogsPage />
               </ProtectedRoute>
             </PrivateRoute>
           }
