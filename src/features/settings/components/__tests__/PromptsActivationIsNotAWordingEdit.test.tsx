@@ -43,6 +43,7 @@ afterEach(cleanup);
 describe('editing a prompt', () => {
   it('saves the wording without touching activation', async () => {
     render(<PromptsSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: /^Advanced/ }));
     fireEvent.click(await screen.findByRole('button', { name: /edit/i }));
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
@@ -54,12 +55,14 @@ describe('editing a prompt', () => {
 
   it('does not offer an Active control in the edit form — it would not be submitted', async () => {
     render(<PromptsSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: /^Advanced/ }));
     fireEvent.click(await screen.findByRole('button', { name: /edit/i }));
     expect(screen.queryByLabelText('Active')).not.toBeInTheDocument();
   });
 
   it('CONTROL: the row toggle still owns activation, and sends only that', async () => {
     render(<PromptsSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: /^Advanced/ }));
     fireEvent.click(
       await screen.findByRole('button', { name: /activate or deactivate this prompt/i })
     );

@@ -4,6 +4,7 @@ import type { AlertState } from '@/features/settings/components/integrations/typ
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Disclosure } from '@/components/ui/Disclosure';
 import { Toggle } from '@/components/ui/Toggle';
 import { useAiDraftsOff } from '@/features/settings/hooks/useAiDraftsOff';
 import { useDepartments } from '@/hooks/useDepartments';
@@ -85,6 +86,29 @@ type Props = {
 };
 
 const formatThreshold = (value: number): string => `${Math.round(value * 100)}%`;
+
+/** How a team's own confidence compares with the one it inherits, in words (no number outside Advanced). */
+const comparedWithWorkspace = (own: number | undefined, inherited: number): string =>
+  own === undefined || own === inherited
+    ? 'same as the workspace'
+    : own > inherited
+      ? 'stricter than the workspace'
+      : 'less strict than the workspace';
+
+/** The closed "Advanced" header: each team whose confidence differs, or that none does. */
+const thresholdSummary = (
+  teams: readonly { id: number; name: string }[],
+  perDept: Record<string, Settings>,
+  inherited: number
+): string => {
+  const differing = teams.flatMap((dept) => {
+    const own = perDept[String(dept.id)]?.autoReplyHighConfidenceThreshold;
+    return own === undefined || own === inherited
+      ? []
+      : [`${dept.name}: ${comparedWithWorkspace(own, inherited)}`];
+  });
+  return differing.length > 0 ? differing.join('; ') : 'Same for every team';
+};
 
 const MODE_LABEL: Record<AutoReplyMode, string> = {
   all: 'Keyword rules and AI replies',
@@ -840,8 +864,14 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
             <p className="mt-1 text-xs text-muted-foreground">
               Default: <strong>{org.autoReplyEnabled ? 'Enabled' : 'Disabled'}</strong>
               {org.autoReplyEnabled &&
-                org.autoReplyHighConfidenceThreshold !== undefined &&
-                ` · threshold ${formatThreshold(org.autoReplyHighConfidenceThreshold)}`}
+                (() => {
+                  const differs = thresholdSummary(
+                    activeDepts,
+                    perDept,
+                    org.autoReplyHighConfidenceThreshold ?? DEFAULT_THRESHOLD
+                  );
+                  return differs === 'Same for every team' ? '' : ` · AI confidence: ${differs}`;
+                })()}
               {org.autoReplyEnabled &&
                 org.autoReplyMode === 'rules_only' &&
                 ' · keyword rules only'}
@@ -1000,11 +1030,6 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                   >
                     {orgEnabled ? 'On' : 'Off'}
                   </span>
-                  {orgEnabled && (
-                    <span className="text-[10px] font-medium text-muted-foreground">
-                      {formatThreshold(orgThreshold)}
-                    </span>
-                  )}
                 </div>
               </div>
               <div className="px-3 pt-1 pb-3 space-y-3 bg-background">
@@ -1130,43 +1155,51 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       />
                     </div>
                     {orgSuggest && (
-                      <div className="pt-3 space-y-2 border-t">
-                        <div className="flex justify-between items-center">
-                          <label htmlFor="org-threshold" className="text-sm font-medium">
-                            AI reply confidence
-                          </label>
-                          <span className="text-sm font-medium text-foreground">
-                            {formatThreshold(orgThreshold)}
-                          </span>
-                        </div>
-                        <input
-                          id="org-threshold"
-                          type="range"
-                          min={70}
-                          max={100}
-                          step={5}
-                          value={Math.round(orgThreshold * 100)}
-                          disabled={saving.org === true}
-                          onChange={(ev) => setTempThresholdOrg(Number(ev.target.value) / 100)}
-                          onMouseUp={() => {
-                            if (tempThresholdOrg !== null) {
-                              void saveOrg({ highConfidenceThreshold: tempThresholdOrg });
-                              setTempThresholdOrg(null);
-                            }
-                          }}
-                          onTouchEnd={() => {
-                            if (tempThresholdOrg !== null) {
-                              void saveOrg({ highConfidenceThreshold: tempThresholdOrg });
-                              setTempThresholdOrg(null);
-                            }
-                          }}
-                          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                        />
-                        <p className="text-[10px] text-muted-foreground">
-                          AI replies only. Below this, the reply is saved as a suggestion for an
-                          agent; above it, it is sent only if it passes the checks every automatic
-                          reply passes. Keyword rules and the Telegram bot do not use it.
-                        </p>
+                      <div className="pt-3 border-t">
+                        <Disclosure
+                          title="Advanced"
+                          summary={thresholdSummary(teamRows, perDept, orgThreshold)}
+                        >
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <label htmlFor="org-threshold" className="text-sm font-medium">
+                                AI reply confidence
+                              </label>
+                              <span className="text-sm font-medium text-foreground">
+                                {formatThreshold(orgThreshold)}
+                              </span>
+                            </div>
+                            <input
+                              id="org-threshold"
+                              type="range"
+                              min={70}
+                              max={100}
+                              step={5}
+                              value={Math.round(orgThreshold * 100)}
+                              disabled={saving.org === true}
+                              onChange={(ev) => setTempThresholdOrg(Number(ev.target.value) / 100)}
+                              onMouseUp={() => {
+                                if (tempThresholdOrg !== null) {
+                                  void saveOrg({ highConfidenceThreshold: tempThresholdOrg });
+                                  setTempThresholdOrg(null);
+                                }
+                              }}
+                              onTouchEnd={() => {
+                                if (tempThresholdOrg !== null) {
+                                  void saveOrg({ highConfidenceThreshold: tempThresholdOrg });
+                                  setTempThresholdOrg(null);
+                                }
+                              }}
+                              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                            />
+                            <p className="text-[10px] text-muted-foreground">
+                              AI replies only. Below this, the reply is saved as a suggestion for an
+                              agent; above it, it is sent only if it passes the checks every
+                              automatic reply passes. Keyword rules and the Telegram bot do not use
+                              it.
+                            </p>
+                          </div>
+                        </Disclosure>
                       </div>
                     )}
                   </>
@@ -1421,66 +1454,73 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         {effectiveMode === 'rules_only' && (
                           <p className="text-[10px] text-warning">{RULES_ONLY_NOTE}</p>
                         )}
-                        <div className="flex justify-between items-center">
-                          <label
-                            htmlFor={`dept-threshold-${dept.id}`}
-                            className="text-xs font-medium"
-                          >
-                            AI reply confidence
-                            {overrideThreshold === undefined && (
-                              <span className="ml-1 text-[10px] text-muted-foreground">
-                                (inheriting {formatThreshold(orgThreshold)})
+                        <Disclosure
+                          title="Advanced"
+                          summary={`AI reply confidence: ${comparedWithWorkspace(overrideThreshold, orgThreshold)}`}
+                        >
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <label
+                                htmlFor={`dept-threshold-${dept.id}`}
+                                className="text-xs font-medium"
+                              >
+                                AI reply confidence
+                                {overrideThreshold === undefined && (
+                                  <span className="ml-1 text-[10px] text-muted-foreground">
+                                    (inheriting {formatThreshold(orgThreshold)})
+                                  </span>
+                                )}
+                              </label>
+                              <span className="text-xs font-medium text-foreground">
+                                {formatThreshold(sliderThreshold)}
                               </span>
-                            )}
-                          </label>
-                          <span className="text-xs font-medium text-foreground">
-                            {formatThreshold(sliderThreshold)}
-                          </span>
-                        </div>
-                        <input
-                          id={`dept-threshold-${dept.id}`}
-                          type="range"
-                          min={Math.round(DEPT_MIN_THRESHOLD * 100)}
-                          max={Math.round(DEPT_MAX_THRESHOLD * 100)}
-                          step={1}
-                          value={Math.round(sliderThreshold * 100)}
-                          disabled={isSaving}
-                          onChange={(ev) =>
-                            setTempThresholdDept((prev) => ({
-                              ...prev,
-                              [key]: Number(ev.target.value) / 100,
-                            }))
-                          }
-                          onMouseUp={() => {
-                            const value = tempThresholdDept[key];
-                            if (value !== undefined) {
-                              setDeptKey(dept.id, 'autoReplyHighConfidenceThreshold', value);
-                              setTempThresholdDept((prev) => {
-                                const next = { ...prev };
-                                delete next[key];
-                                return next;
-                              });
-                            }
-                          }}
-                          onTouchEnd={() => {
-                            const value = tempThresholdDept[key];
-                            if (value !== undefined) {
-                              setDeptKey(dept.id, 'autoReplyHighConfidenceThreshold', value);
-                              setTempThresholdDept((prev) => {
-                                const next = { ...prev };
-                                delete next[key];
-                                return next;
-                              });
-                            }
-                          }}
-                          className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                        />
-                        <p className="text-[10px] text-muted-foreground">
-                          AI replies only. Below this, the reply is saved as a suggestion for an
-                          agent; above it, it is sent only if it passes the checks every automatic
-                          reply passes. Keyword rules and the Telegram bot do not use it. Range
-                          90–100%.
-                        </p>
+                            </div>
+                            <input
+                              id={`dept-threshold-${dept.id}`}
+                              type="range"
+                              min={Math.round(DEPT_MIN_THRESHOLD * 100)}
+                              max={Math.round(DEPT_MAX_THRESHOLD * 100)}
+                              step={1}
+                              value={Math.round(sliderThreshold * 100)}
+                              disabled={isSaving}
+                              onChange={(ev) =>
+                                setTempThresholdDept((prev) => ({
+                                  ...prev,
+                                  [key]: Number(ev.target.value) / 100,
+                                }))
+                              }
+                              onMouseUp={() => {
+                                const value = tempThresholdDept[key];
+                                if (value !== undefined) {
+                                  setDeptKey(dept.id, 'autoReplyHighConfidenceThreshold', value);
+                                  setTempThresholdDept((prev) => {
+                                    const next = { ...prev };
+                                    delete next[key];
+                                    return next;
+                                  });
+                                }
+                              }}
+                              onTouchEnd={() => {
+                                const value = tempThresholdDept[key];
+                                if (value !== undefined) {
+                                  setDeptKey(dept.id, 'autoReplyHighConfidenceThreshold', value);
+                                  setTempThresholdDept((prev) => {
+                                    const next = { ...prev };
+                                    delete next[key];
+                                    return next;
+                                  });
+                                }
+                              }}
+                              className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                            />
+                            <p className="text-[10px] text-muted-foreground">
+                              AI replies only. Below this, the reply is saved as a suggestion for an
+                              agent; above it, it is sent only if it passes the checks every
+                              automatic reply passes. Keyword rules and the Telegram bot do not use
+                              it. Range 90–100%.
+                            </p>
+                          </div>
+                        </Disclosure>
                       </div>
                     )}
 

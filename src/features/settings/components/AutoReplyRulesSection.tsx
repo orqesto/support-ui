@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Disclosure } from '@/components/ui/Disclosure';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Toggle } from '@/components/ui/Toggle';
@@ -161,8 +162,8 @@ const RuleForm = ({
             <>
               The reply text is a template: the answer goes where{' '}
               <code>{KB_ANSWER_PLACEHOLDER}</code> stands, or after the text. It is sent only when
-              the question matches the knowledge base at least as closely as the match below;
-              otherwise nothing is sent and the email stays with the team.
+              the question matches the knowledge base at least as closely as the match set under
+              Advanced; otherwise nothing is sent and the email stays with the team.
             </>
           ) : (
             'Off: the reply text is sent exactly as written.'
@@ -170,25 +171,33 @@ const RuleForm = ({
         </p>
       </div>
       {draft.useKnowledgeBase && (
-        <div className="space-y-1 max-w-xs">
-          <Input
-            label="Knowledge base match (%)"
-            type="number"
-            inputMode="numeric"
-            min={KB_MATCH_PERCENT_MIN}
-            max={KB_MATCH_PERCENT_MAX}
-            step={1}
-            value={draft.kbMatchPercent}
-            error={errors.kbMinSimilarity}
-            disabled={saving}
-            onChange={(ev) => onChange({ ...draft, kbMatchPercent: ev.target.value })}
-          />
-          <p className="text-xs text-muted-foreground">
-            How closely the question must match an answer in the knowledge base (
-            {KB_MATCH_PERCENT_MIN}–{KB_MATCH_PERCENT_MAX}%, default {KB_MATCH_PERCENT_DEFAULT}).
-            Lower answers more paraphrased questions; higher answers only close wordings.
-          </p>
-        </div>
+        <Disclosure
+          title="Advanced"
+          summary={`Match strictness: ${
+            draft.kbMatchPercent.trim() === String(KB_MATCH_PERCENT_DEFAULT) ? 'standard' : 'custom'
+          }`}
+          openOnce={!!errors.kbMinSimilarity}
+        >
+          <div className="space-y-1 max-w-xs">
+            <Input
+              label="Knowledge base match (%)"
+              type="number"
+              inputMode="numeric"
+              min={KB_MATCH_PERCENT_MIN}
+              max={KB_MATCH_PERCENT_MAX}
+              step={1}
+              value={draft.kbMatchPercent}
+              error={errors.kbMinSimilarity}
+              disabled={saving}
+              onChange={(ev) => onChange({ ...draft, kbMatchPercent: ev.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              How closely the question must match an answer in the knowledge base (
+              {KB_MATCH_PERCENT_MIN}–{KB_MATCH_PERCENT_MAX}%, default {KB_MATCH_PERCENT_DEFAULT}).
+              Lower answers more paraphrased questions; higher answers only close wordings.
+            </p>
+          </div>
+        </Disclosure>
       )}
       <Textarea
         label={draft.useKnowledgeBase ? 'Reply template' : 'Reply text'}
