@@ -31,7 +31,7 @@ export const VISITOR_NO_EMAIL_NOTICE =
 
 /** Above the reply box of a website chat that has no email account to send a reply from. */
 export const CHAT_NO_EMAIL_ACCOUNT_NOTICE =
-  'This website chat has no email account to send a reply from, so a reply cannot be sent. An admin chooses the "Email account for replies" in the chat widget\'s settings.';
+  'This website chat has no email account to send a reply from, so a reply cannot be sent. Chats started after an admin chooses the "Email account for replies" in the chat widget\'s settings can be replied to.';
 
 /** Why a ticket's reply cannot reach such a thread (after "A reply cannot reach this thread: "). */
 export const VISITOR_NO_EMAIL_UNREACHABLE = 'the visitor left no email address.';
@@ -100,7 +100,8 @@ export const resolveChatReplyBlock = (
       blocked: true,
       notice: CHAT_NO_EMAIL_ACCOUNT_NOTICE,
       remaining: null,
-      tone: 'blocked',
+      // `warning`, as for the missing address: nothing went wrong with this reply.
+      tone: 'warning',
     };
   }
   return resolveVisitorNoEmailBlock(message, mode);

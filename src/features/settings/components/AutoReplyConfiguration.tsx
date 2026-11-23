@@ -18,6 +18,7 @@ import {
 import { getApiErrorMessage, getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 import { Permission } from '@/types/roles';
 import { AutoReplyRulesSection } from './AutoReplyRulesSection';
+import { AutoReplyStartConfirm, type AutoReplyStart } from './AutoReplyStartConfirm';
 import { FeatureSuggestions } from './FeatureSuggestions';
 import {
   BUILT_IN_NOTE,
@@ -162,6 +163,12 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   const [perDept, setPerDept] = useState<Record<string, Settings>>({});
   const perDeptRef = useRef<Record<string, Settings>>({});
 
+  // Has the workspace ever stored WHAT replies on its own? The read answers `all` for an unset
+  // choice (as the backend acts), so the stored key itself is read from the workspace row.
+  const [modeStored, setModeStored] = useState(true);
+  /** What is about to be switched on, awaiting the confirmation that names the mailboxes. */
+  const [pendingStart, setPendingStart] = useState<AutoReplyStart | null>(null);
+
   const [loading, setLoading] = useState(true);
   /** Which rows have a save queued or in flight: 'org', or a team's id as text. */
   const [saving, setSaving] = useState<Record<string, boolean>>({});
@@ -202,6 +209,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     setOrg(initialOrg);
     orgRef.current = initialOrg;
     const settings: Record<string, unknown> = orgRow.settings ?? {};
+    setModeStored(settings.autoReplyMode === 'all' || settings.autoReplyMode === 'rules_only');
     const dept = (settings.departmentSettings ?? {}) as Record<string, Settings>;
     setPerDept(dept);
     perDeptRef.current = dept;
@@ -306,6 +314,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         try {
           const stored = await organizationService.updateAutoReply(patch);
           setOrg(optimistic);
+          if (patch.mode !== undefined) setModeStored(true);
           applyStored(stored);
           const field =
             patch.enabled !== undefined
@@ -594,6 +603,22 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
 
   return (
     <div className="space-y-4">
+      <AutoReplyStartConfirm
+        start={pendingStart}
+        teamIsOff={(departmentId) => perDept[String(departmentId)]?.autoReplyEnabled === false}
+        teamsWithAi={activeDepts
+          .filter((dept) => {
+            const own = perDept[String(dept.id)];
+            return own?.autoReplyMode === 'all' && own.autoReplyEnabled !== false;
+          })
+          .map((dept) => dept.name)}
+        onClose={() => setPendingStart(null)}
+        onConfirm={(start) => {
+          if (start.kind === 'ai') void saveOrg({ mode: 'all' });
+          else if (start.kind === 'first') void saveOrg({ enabled: true, mode: 'rules_only' });
+          else void saveOrg({ enabled: true });
+        }}
+      />
       <Card>
         <CardHeader>
           <CardTitle className="flex gap-2 items-center">
@@ -673,7 +698,13 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                   <Toggle
                     checked={orgEnabled}
                     disabled={saving.org === true}
-                    onChange={(next) => void saveOrg({ enabled: next })}
+                    onChange={(next) => {
+                      // Off is immediate. On is confirmed first, naming what starts sending and
+                      // from which mailboxes; the first time it is keyword rules only.
+                      if (!next) void saveOrg({ enabled: false });
+                      else if (modeStored) setPendingStart({ kind: 'again', mode: orgMode });
+                      else setPendingStart({ kind: 'first', mode: 'rules_only' });
+                    }}
                   />
                 </div>
 
@@ -697,7 +728,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                             aria-pressed={orgMode === mode}
                             disabled={saving.org === true}
                             onClick={() => {
-                              if (orgMode !== mode) void saveOrg({ mode });
+                              if (orgMode === mode) return;
+                              // The AI starting to send on its own is confirmed first.
+                              if (mode === 'all') setPendingStart({ kind: 'ai', mode });
+                              else void saveOrg({ mode });
                             }}
                           >
                             {MODE_LABEL[mode]}

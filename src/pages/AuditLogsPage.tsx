@@ -15,6 +15,12 @@ import { useAuditLogsStore } from '@/stores/auditLogsStore';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
+import {
+  AUTO_REPLY_ACTION_LABEL,
+  AUTO_REPLY_SENT,
+  AUTO_REPLY_WITHHELD,
+  AuditAutoReplyDetail,
+} from './AuditAutoReplyDetail';
 
 const ACTION_OPTIONS = [
   { value: '', label: 'All Actions' },
@@ -25,6 +31,9 @@ const ACTION_OPTIONS = [
   { value: 'user.delete', label: 'User → Delete' },
   { value: 'message.reply', label: 'Thread → Reply' },
   { value: 'message.update', label: 'Thread → Update' },
+  // What replied on its own, and what was held and why (written by the system, no user).
+  { value: AUTO_REPLY_SENT, label: AUTO_REPLY_ACTION_LABEL[AUTO_REPLY_SENT] },
+  { value: AUTO_REPLY_WITHHELD, label: AUTO_REPLY_ACTION_LABEL[AUTO_REPLY_WITHHELD] },
   { value: 'ticket.create', label: 'Ticket → Create' },
   { value: 'ticket.update', label: 'Ticket → Update' },
   { value: 'ticket.assign', label: 'Ticket → Assign' },
@@ -200,6 +209,7 @@ export const AuditLogsPage = () => {
   };
 
   const formatAction = (action: string) =>
+    AUTO_REPLY_ACTION_LABEL[action] ??
     action
       .split('.')
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -376,6 +386,13 @@ export const AuditLogsPage = () => {
                               <div className="font-mono text-xs text-muted-foreground">
                                 {formatDate(log.createdAt)}
                               </div>
+                              {log.action in AUTO_REPLY_ACTION_LABEL && (
+                                <AuditAutoReplyDetail
+                                  action={log.action}
+                                  entityId={log.entityId}
+                                  details={log.details}
+                                />
+                              )}
                               {log.details && Object.keys(log.details).length > 0 && (
                                 <details className="mt-2">
                                   <summary className="text-xs cursor-pointer text-primary">
@@ -466,6 +483,13 @@ export const AuditLogsPage = () => {
                               </td>
                               <td className="px-4 py-3 text-sm font-mono">{log.entityId}</td>
                               <td className="px-4 py-3 text-sm">
+                                {log.action in AUTO_REPLY_ACTION_LABEL && (
+                                  <AuditAutoReplyDetail
+                                    action={log.action}
+                                    entityId={log.entityId}
+                                    details={log.details}
+                                  />
+                                )}
                                 {log.details && Object.keys(log.details).length > 0 ? (
                                   <details>
                                     <summary className="cursor-pointer text-primary">View</summary>

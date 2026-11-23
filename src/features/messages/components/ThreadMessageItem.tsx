@@ -27,6 +27,7 @@ import type { Attachment } from './MessageAttachments';
 import { ReceivedAtAddresses } from './ReceivedAtAddresses';
 import { DeliveryStatus } from './DeliveryStatus';
 import { deliveryStateOf, isSendPermanent, NOT_RETRYABLE } from './deliveryState';
+import { autoSentMark } from './autoSentMark';
 
 type Props = {
   msg: MessageEvent;
@@ -134,6 +135,8 @@ function ThreadMessageItemView({
   const relayedFrom = relayedFromLabel(msg);
   // Only copied / not a recipient / a colleague's mail (metadata.envelope, from 2026-10-20).
   const envelope = msg.type === 'inbound' ? envelopeBadge(eventEnvelope(msg.metadata)) : null;
+  // A reply that went out on its own says so on the bubble, not only in Activity.
+  const autoSent = isAgent ? autoSentMark(msg) : null;
   // v3 thread row: a 21px avatar, a Grotesk meta line ("Name · via address · when") above the
   // bubble, the bubble itself, and attachments INSIDE it under a hairline. An incoming bubble
   // is a card above the canvas; a reply WE wrote sits on the soft --agent ground (it used to be
@@ -232,6 +235,16 @@ function ThreadMessageItemView({
             )}
             {when}
             {mergedFrom && <span className="text-muted-foreground">· {mergedFrom}</span>}
+            {autoSent && (
+              <Badge
+                variant="secondary"
+                size="sm"
+                title={autoSent.title}
+                data-testid="auto-sent-mark"
+              >
+                {autoSent.label}
+              </Badge>
+            )}
             {/* Admins only (renders nothing otherwise): the stored headers, read-only. */}
             <OriginalHeadersButton eventId={msg.id} />
           </div>

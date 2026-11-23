@@ -341,6 +341,10 @@ describe('a website chat with no email account to reply from', () => {
     renderDetail(noAccountChat);
     await ready();
     const notice = screen.getByText(CHAT_NO_EMAIL_ACCOUNT_NOTICE);
+    // It promises nothing for THIS chat (the account is taken when the chat is handed over),
+    // and it is a notice, not an error.
+    expect(notice.textContent).toContain('Chats started after an admin chooses');
+    expect(notice.closest('[role]')?.getAttribute('role')).toBe('status');
     expect(isOff(sendButton())).toBe(true);
     expect(sendButton().getAttribute('aria-describedby')).toBe(notice.id);
     // The visitor did leave an address: it is the account that is missing.
