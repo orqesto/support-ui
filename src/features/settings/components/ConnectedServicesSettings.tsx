@@ -12,6 +12,8 @@ import { ZendeskImportSettings } from './zendeskImport/ZendeskImportSettings';
 import { Tabs } from '@/components/ui/Tabs';
 import { usePermissions } from '@/hooks/usePermissions';
 import { Permission } from '@/types/roles';
+import { firstVisibleId, useShowAdvanced, visibleSections } from '@/features/settings/advanced';
+import { AdvancedToggle } from './AdvancedToggle';
 
 type ServiceSection =
   | 'message-sources'
@@ -41,28 +43,39 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
 
   // Fold visibility into the section list so a deep-link a user can't see falls
   // back to the default rather than selecting a tab that renders blank.
-  const visibleIds = useMemo<ServiceSection[]>(
+  // Declared before the section logic that reads them. AI providers, storage, database and custom
+  // APIs are infrastructure: behind "Show advanced settings" (settings simplification, 2026-11-23).
+  const sections: Array<{ id: ServiceSection; label: string; description: string; advanced?: boolean }> = useMemo(
     () => [
-      'message-sources',
-      'ticket-automation',
+      { id: 'message-sources', label: 'Message Sources', description: 'Configure Email, Gmail, Telegram, Slack inboxes' },
+      { id: 'ticket-automation', label: 'Ticket Automation', description: 'Configure Jira and ticket workflows' },
       ...(canManageIntegrations
-        ? ([
-            'ai-providers',
-            'object-storage',
-            'database',
-            'chat-widgets',
-            'custom-apis',
-          ] as ServiceSection[])
+        ? [
+            { id: 'ai-providers' as ServiceSection, label: 'AI Providers', description: 'Configure OpenAI, Anthropic and models', advanced: true },
+            { id: 'object-storage' as ServiceSection, label: 'Object Storage', description: 'Store attachments in your own S3 bucket', advanced: true },
+            { id: 'database' as ServiceSection, label: 'Database', description: 'Keep your data in your own Postgres', advanced: true },
+            { id: 'chat-widgets' as ServiceSection, label: 'Chat Widgets', description: 'Create embeddable AI chat widgets' },
+            { id: 'custom-apis' as ServiceSection, label: 'Custom APIs', description: 'Look up orders, shipments or bookings from your own systems', advanced: true },
+          ]
         : []),
-      ...(canImport ? (['import'] as ServiceSection[]) : []),
+      ...(canImport
+        ? [{ id: 'import' as ServiceSection, label: 'Import', description: 'Move your Zendesk tickets over as threads' }]
+        : []),
     ],
     [canManageIntegrations, canImport]
   );
+  const [showAdvanced] = useShowAdvanced();
+  // A section a link asks for stays visible even when Advanced hides it.
+  const shown = useMemo(
+    () => visibleSections(sections, showAdvanced, section),
+    [sections, showAdvanced, section]
+  );
+  const visibleIds = useMemo(() => shown.map((sect) => sect.id), [shown]);
   const initial =
     section && (visibleIds as string[]).includes(section)
       ? (section as ServiceSection)
       : 'message-sources';
-  const [active, setActive] = useState<ServiceSection>(initial);
+  const [selected, setActive] = useState<ServiceSection>(initial);
 
   useEffect(() => {
     if (!section) return;
@@ -71,30 +84,23 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
     }
   }, [section, visibleIds]);
 
+  // Clamp at render: the open section is always one that is shown.
+  const active: ServiceSection = (visibleIds as string[]).includes(selected)
+    ? selected
+    : ((firstVisibleId(shown, 'message-sources') ?? 'message-sources') as ServiceSection);
+
   const goToSection = (next: ServiceSection) => {
     setActive(next);
-    navigate(`#integrations/${next}`, { replace: true });
+    void navigate(`#integrations/${next}`, { replace: true });
   };
 
-  const sections = [
-    { id: 'message-sources' as ServiceSection, label: 'Message Sources', description: 'Configure Email, Gmail, Telegram, Slack inboxes' },
-    { id: 'ticket-automation' as ServiceSection, label: 'Ticket Automation', description: 'Configure Jira and ticket workflows' },
-    ...(canManageIntegrations
-      ? [
-          { id: 'ai-providers' as ServiceSection, label: 'AI Providers', description: 'Configure OpenAI, Anthropic and models' },
-          { id: 'object-storage' as ServiceSection, label: 'Object Storage', description: 'Store attachments in your own S3 bucket' },
-          { id: 'database' as ServiceSection, label: 'Database', description: 'Keep your data in your own Postgres' },
-          { id: 'chat-widgets' as ServiceSection, label: 'Chat Widgets', description: 'Create embeddable AI chat widgets' },
-          // CA-5: the section the whole custom-API feature was missing. Visible to everyone with
-          // MANAGE_INTEGRATIONS (a moderator owns the LOOKUPS), but only an org_admin may add or
-          // change a VENDOR — D40, enforced on the backend routes, not by hiding this tab.
-          { id: 'custom-apis' as ServiceSection, label: 'Custom APIs', description: 'Look up orders, shipments or bookings from your own systems' },
-        ]
-      : []),
-    ...(canImport
-      ? [{ id: 'import' as ServiceSection, label: 'Import', description: 'Move your Zendesk tickets over as threads' }]
-      : []),
-  ];
+  // From the toggle only: leave a section that Advanced just hid.
+  const onTurnOff = () => {
+    const target = (firstVisibleId(visibleSections(sections, false), 'message-sources') ??
+      'message-sources') as ServiceSection;
+    setActive(target);
+    void navigate(`#integrations/${target}`, { replace: true });
+  };
 
   return (
     <div className="space-y-6">
@@ -106,10 +112,11 @@ export const ConnectedServicesSettings = ({ section }: Props) => {
         <p className="mt-1 text-sm text-muted-foreground">
           Connect message channels, ticket systems, and AI providers
         </p>
+        <AdvancedToggle onTurnOff={onTurnOff} />
       </div>
 
       <Tabs<ServiceSection>
-        tabs={sections.map((sect) => ({ id: sect.id, label: sect.label, description: sect.description }))}
+        tabs={shown.map((sect) => ({ id: sect.id, label: sect.label, description: sect.description }))}
         activeTab={active}
         onTabChange={goToSection}
         variant="simple"
