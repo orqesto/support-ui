@@ -1,4 +1,5 @@
-import { apiClient, EVERY_TEAM_HEADER } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
+import { EVERY_TEAM_HEADER } from '@/lib/everyTeamHeader';
 import { logger } from '@/lib/logger';
 
 export * from './kbRangeTypes';

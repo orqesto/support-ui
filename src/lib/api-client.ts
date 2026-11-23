@@ -3,6 +3,7 @@ import axios, {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from 'axios';
+import { EVERY_TEAM_HEADER } from './everyTeamHeader';
 import { loginPathFor } from '@/lib/postLoginRedirect';
 import { API_BASE_URL } from './config';
 import { isPlanLimitBody, withFailedFields } from '@/lib/errorMessages';
@@ -81,9 +82,6 @@ apiClient.defaults.adapter = (config) => {
  * transport-only; the backend authorizes from the route param, never from these headers.
  * All other requests keep the existing org-context behavior verbatim.
  */
-/** Set on one request to keep the selected team's filter off it (see applyRequestContext). */
-export const EVERY_TEAM_HEADER = 'X-Every-Team';
-
 export const applyRequestContext = (
   config: InternalAxiosRequestConfig
 ): InternalAxiosRequestConfig => {

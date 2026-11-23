@@ -561,7 +561,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     key: 'autoReplyEnabled' | 'autoReplyMode',
     value: boolean | AutoReplyMode | undefined
   ) => {
-    if ((perDeptRef.current[String(dept.id)] ?? {})[key] === value) return;
+    if (perDeptRef.current[String(dept.id)]?.[key] === value) return;
     changeTeam(dept, (current) => {
       const { [key]: _omit, ...rest } = current;
       return value === undefined ? rest : { ...rest, [key]: value };
