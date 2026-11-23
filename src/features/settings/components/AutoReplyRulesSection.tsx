@@ -240,9 +240,9 @@ export const RULE_CHECK_NOTE =
  */
 export const NO_AI_PROVIDER_WARNING =
   'No AI provider is set up. Every keyword rule reply is checked by AI before it is sent, so until a provider is set up no rule reply is sent: each one is held for a person.';
-/** A provider is switched on, but its key or settings cannot be read: the same hold. */
+/** A provider is switched on, but its key or settings are missing or cannot be read: the same hold. */
 export const UNUSABLE_AI_PROVIDER_WARNING =
-  'The AI provider set up for this workspace cannot be used: its key or settings could not be read. Every keyword rule reply is checked by AI before it is sent, so until this is fixed no rule reply is sent: each one is held for a person.';
+  'The AI provider set up for this workspace cannot be used: its key or settings are missing or could not be read. Every keyword rule reply is checked by AI before it is sent, so until this is fixed no rule reply is sent: each one is held for a person.';
 
 export const AutoReplyRulesSection = ({
   canManage,

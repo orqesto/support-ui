@@ -275,7 +275,8 @@ export const MessageSignalBadges = ({ message, size = 'md', mode = 'full' }: Pro
           </Badge>
         </Tooltip>
       )}
-      {analysis?.needsMoreInfo && (
+      {/* Not on a finished thread, like the card's own signal (getRiskSignals). */}
+      {analysis?.needsMoreInfo && message.status !== 'resolved' && message.status !== 'closed' && (
         <Tooltip content="AI flagged as needing more information" size="sm">
           <Badge variant="warning" className={bc}>
             <AlertTriangle className={ic} />

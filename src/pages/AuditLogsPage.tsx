@@ -174,8 +174,17 @@ export const AuditLogsPage = () => {
         setLoadError(null);
       } catch (error) {
         logger.error('Failed to fetch audit logs:', error);
-        // An empty table would read as "nothing happened": say the list could not be read.
-        setLoadError(getApiErrorMessage(error) ?? 'The audit log could not be loaded.');
+        // An empty table would read as "nothing happened": say the list could not be read. The
+        // rows of the request before it are not this request's answer: they leave with it.
+        setLogs([]);
+        setTotalCount(0);
+        setTotalPages(1);
+        const reason = getApiErrorMessage(error);
+        setLoadError(
+          reason
+            ? `The audit log could not be loaded: ${reason}`
+            : 'The audit log could not be loaded.'
+        );
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -286,10 +295,13 @@ export const AuditLogsPage = () => {
           </div>
 
           {loadError && <Alert variant="danger">{loadError}</Alert>}
-          {!autoReplyView && (
+          {activeFilterCount === 0 && (
             <div>
               {/* The way into the automatic replies view, whose counts card stands above its rows:
-                without it the card is found only by someone who already knows the action filter. */}
+                without it the card is found only by someone who already knows the action filter.
+                Only on the unfiltered page: with a user or an entity chosen the view would show
+                counts above a list those filters empty. A backend without the counts has only
+                the "Sent" record to open, and the label says no more than that. */}
               <Button
                 variant="outline"
                 size="sm"
@@ -297,7 +309,9 @@ export const AuditLogsPage = () => {
                   patchFilter({ action: countsAbsent ? AUTO_REPLY_SENT : AUTO_REPLY_ALL })
                 }
               >
-                Automatic replies: sent, held and would have been sent
+                {countsAbsent
+                  ? 'Automatic replies that were sent'
+                  : 'Automatic replies: sent, held and would have been sent'}
               </Button>
             </div>
           )}

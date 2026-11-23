@@ -35,6 +35,11 @@ export const aiService = {
 
   getProviders: async () => {
     const response = await apiClient.get<{ success: boolean; data: AIProvidersResponse }>('/api/ai/providers');
-    return response.data;
+    // `usable` is new (backend 2026-11-23): this bundle is also served against a backend that
+    // does not send it. Anything but a boolean or null is read as "not sent".
+    const { usable, ...rest } = response.data.data;
+    const data: AIProvidersResponse =
+      typeof usable === 'boolean' || usable === null ? { ...rest, usable } : rest;
+    return { ...response.data, data };
   },
 };
