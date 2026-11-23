@@ -5,9 +5,9 @@
  * LiteLLM, vLLM, LM Studio, OpenRouter, Together AI, Groq, Cerebras,
  * Anyscale, self-hosted gateways, etc. — without us shipping a vendor-
  * specific card. Configuration is intentionally minimal: name + baseUrl
- * + apiKey + chosen model. The key is required: the AI client is not built
- * for a custom provider without one (a gateway that checks none takes any
- * placeholder value).
+ * + apiKey + chosen model. The key may be left empty for an endpoint that
+ * asks for none: the backend saves a custom provider that names its base URL
+ * and calls it without a key.
  *
  * Model dropdown is populated live from {baseUrl}/v1/models via the
  * useCustomProviderModels hook. When discovery fails (404, SSRF block,
@@ -98,13 +98,10 @@ export const CustomProviderCard = ({
     if (await onSave(config)) handleReset();
   };
 
-  // The key is required: no client is built for a custom provider without one, and the backend
-  // refuses to save it switched on. (An edit carries the stored key back masked, which counts.)
+  // The key is optional: an endpoint that asks for none is called without one. The base URL is
+  // what the backend needs to save it switched on.
   const canSave =
-    config.displayName.trim() &&
-    config.baseUrl.trim() &&
-    config.defaultChatModel.trim() &&
-    (config.apiKey ?? '').trim();
+    config.displayName.trim() && config.baseUrl.trim() && config.defaultChatModel.trim();
 
   return (
     <Card>
@@ -262,7 +259,7 @@ export const CustomProviderCard = ({
 
             <div>
               <label htmlFor="custom-apikey" className="text-sm font-medium">
-                API Key *
+                API Key
               </label>
               <PasswordInput
                 id="custom-apikey"
@@ -272,6 +269,9 @@ export const CustomProviderCard = ({
                 placeholder="sk-…"
                 autoComplete="off"
               />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Leave empty if the endpoint asks for no key.
+              </p>
             </div>
 
             <div>
