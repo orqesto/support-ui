@@ -6,7 +6,11 @@
  * page's bundle and in every test that renders the importer. UI comes from `@/features/messages`.
  */
 export { bareStatusLabel, hashNameToLabelColor } from './components/inboxCardHelpers';
-export { autoReplySentLabel, autoReplyWithheldLabel } from './components/messageActivityTimeline';
+export {
+  autoReplySentLabel,
+  autoReplyWithheldLabel,
+  holdWhyOf,
+} from './components/messageActivityTimeline';
 export {
   AUTO_REPLY_CHANNEL_LABEL,
   AUTO_REPLY_REASON_FILTERS,

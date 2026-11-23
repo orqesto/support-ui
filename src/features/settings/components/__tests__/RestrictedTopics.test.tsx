@@ -21,6 +21,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { restrictedTopicProblem } from '../restrictedTopics';
+import { DOSE_RULE_ADMIN_ONLY, DOSE_RULE_HELP } from '../RestrictedTopicsField';
 
 describe('restricted topics — the workspace list', () => {
   it('no locked topics: every listed topic — the defaults too — has a remove control', async () => {
@@ -512,11 +513,31 @@ describe('the dose rule — a workspace switch, off by default (owner 2026-11-23
     expect(doseSwitch()).toHaveAttribute('aria-checked', 'true');
   });
 
-  it('a moderator (not a workspace admin) cannot change it', async () => {
+  it('a moderator (not a workspace admin) cannot change it, and is told why', async () => {
     state.orgAdmin = false;
     show();
     await screen.findByText('Request missing info');
     expect(doseSwitch()).toBeInactive();
+    // The reason is beside it and read with it (aria-describedby), not only a greyed switch.
+    expect(screen.getByText(DOSE_RULE_ADMIN_ONLY)).toBeInTheDocument();
+    expect(doseSwitch()).toHaveAccessibleDescription(
+      expect.stringContaining(DOSE_RULE_ADMIN_ONLY) as unknown as string
+    );
+  });
+
+  it('CONTROL — a workspace admin can change it, and no admin-only sentence is shown', async () => {
+    show();
+    await screen.findByRole('list', { name: WORKSPACE });
+    expect(doseSwitch()).not.toBeInactive();
+    expect(screen.queryByText(DOSE_RULE_ADMIN_ONLY)).toBeNull();
+  });
+
+  it('the help says it also holds the email that asks for missing information', () => {
+    expect(DOSE_RULE_HELP).toMatch(
+      /the email the AI sends to ask the customer for missing information/
+    );
+    // …and does not claim the keyword rules' own text is checked.
+    expect(DOSE_RULE_HELP).toMatch(/keyword rule's own fixed text is not checked for doses/);
   });
 
   it('an older backend that does not send it: no switch is offered', async () => {

@@ -20,6 +20,9 @@ const state = vi.hoisted(() => ({
   sessionAsked: [] as Array<[number, number]>,
   sessionsFail: false,
   sessionFail: false,
+  /** True: a save waits until `release` is called. */
+  hold: false,
+  release: null as null | (() => void),
 }));
 
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
@@ -45,8 +48,9 @@ const SESSIONS = [
 vi.mock('@/features/settings/services/chatWidget.service', () => ({
   chatWidgetService: {
     getAll: () => Promise.resolve({ success: true, data: state.widgets }),
-    update: (id: number, data: Record<string, unknown>) => {
+    update: async (id: number, data: Record<string, unknown>) => {
       state.updates.push([id, data]);
+      if (state.hold) await new Promise<void>((release) => (state.release = release));
       state.widgets = (state.widgets as ChatWidget[]).map((row) =>
         row.id === id && 'aiAnswersEnabled' in row ? { ...row, ...data } : row
       );
@@ -168,6 +172,8 @@ beforeEach(() => {
     sessionAsked: [],
     sessionsFail: false,
     sessionFail: false,
+    hold: false,
+    release: null,
   });
   window.location.hash = '';
 });
@@ -190,6 +196,22 @@ describe('a widget’s AI answers', () => {
       ).toBe('false')
     );
     expect(screen.getByText('AI answers off')).toBeInTheDocument();
+  });
+
+  it('is out of use while its save is in flight: two quick clicks send one save', async () => {
+    state.hold = true;
+    await show();
+    const toggle = () => screen.getByRole('switch', { name: 'AI answers for Site chat' });
+    fireEvent.click(toggle());
+    await waitFor(() => expect(state.updates).toHaveLength(1));
+    expect(toggle()).toBeInactive();
+    fireEvent.click(toggle());
+    expect(state.updates).toEqual([[5, { aiAnswersEnabled: false }]]);
+    // The save lands and the widgets are read again: the switch is back in use.
+    state.release?.();
+    await waitFor(() => expect(toggle()).not.toBeInactive());
+    expect(toggle().getAttribute('aria-checked')).toBe('false');
+    expect(state.updates).toHaveLength(1);
   });
 
   it('CONTROL: a backend that does not send the field gets no switch on the card', async () => {

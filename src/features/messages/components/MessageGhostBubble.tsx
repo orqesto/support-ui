@@ -126,11 +126,13 @@ export function MessageGhostBubble({
       <div className={`flex flex-col items-end gap-1 min-w-0 max-w-[90%] ${PHONE_THREAD_COL_OUT}`}>
         <div className="flex items-center gap-1.5 font-display text-[10.5px] tracking-[0.03em] text-ai">
           <span className="inline-flex items-center h-[17px] px-1.5 rounded-[5px] border border-ai-line bg-ai-muted text-[9.5px] tracking-[0.09em] font-semibold uppercase">
-            {ghostOption.insertSource === 'knowledge_base'
-              ? 'KB'
-              : ghostOption.type === 'documentation'
-                ? 'Docs'
-                : ghostOption.type}
+            {ghostOption.ruleName !== undefined
+              ? 'Rule'
+              : ghostOption.insertSource === 'knowledge_base'
+                ? 'KB'
+                : ghostOption.type === 'documentation'
+                  ? 'Docs'
+                  : ghostOption.type}
           </span>
           {/* The pill already names the type; the caption carries what the pill cannot. */}
           <span>{ghostCaption(ghostOption)}</span>

@@ -28,6 +28,7 @@ import {
 import { FeatureSuggestions } from './FeatureSuggestions';
 import {
   DEFAULTS_NOTE,
+  DOSE_RULE_ADMIN_ONLY,
   DOSE_RULE_HELP,
   DOSE_RULE_TITLE,
   NO_TOPICS_TEXT,
@@ -91,6 +92,13 @@ const MODE_LABEL: Record<AutoReplyMode, string> = {
   rules_only: 'Keyword rules only',
 };
 const MODES: AutoReplyMode[] = ['all', 'check_only', 'rules_only'];
+/**
+ * "Same as workspace" for a team switched on by its own override, while the workspace has never
+ * stored what replies: the server stores keyword rules only for that team (it would otherwise
+ * inherit the absent choice, which the AI reads as "reply"), until the workspace chooses.
+ */
+export const SAME_AS_WORKSPACE_NO_CHOICE =
+  'Same as workspace (keyword rules only until the workspace chooses)';
 const MODE_HELP =
   'Keyword rules only: only your keyword rules reply — a rule that adds a knowledge base answer ("Template + KB") sends that answer too. The AI never replies on its own.';
 export const CHECK_ONLY_HELP =
@@ -271,6 +279,14 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
    * guard, nor the per-team change, nor "checked, not sent" — the card then works as before.
    */
   const updatedAtRef = useRef<string | null | undefined>(undefined);
+  // A save answered 409 (the page is behind): the settings are being read again. Every save
+  // still queued behind it was made on the same stale page, so it is dropped, not sent — one
+  // "Not saved", one re-read. Each save remembers the epoch it was made in (a 409 starts a new
+  // one), so a queued save is dropped also when the re-read lands before its turn: it must not go
+  // out with the fresh stamp either. A save made while the re-read is out is dropped too
+  // (`reloadPendingRef`, cleared when the read lands).
+  const staleEpochRef = useRef(0);
+  const reloadPendingRef = useRef(false);
   const [newContract, setNewContract] = useState(false);
   /** The settings could not be read: nothing here is offered until a read succeeds. */
   const [loadFailed, setLoadFailed] = useState(false);
@@ -347,7 +363,11 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     void (async () => {
       try {
         await loadStored(() => cancelled);
-        if (!cancelled) setLoadFailed(false);
+        if (!cancelled) {
+          setLoadFailed(false);
+          // The page is current again: saves made from now on are sent.
+          reloadPendingRef.current = false;
+        }
       } catch (err) {
         if (cancelled) return;
         logger.error('Failed to load auto-reply settings:', err);
@@ -370,7 +390,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   const queued = useCallback((scope: string, job: () => Promise<boolean>): Promise<boolean> => {
     savingCountRef.current[scope] = (savingCountRef.current[scope] ?? 0) + 1;
     setSaving((prev) => ({ ...prev, [scope]: true }));
-    const run = queueRef.current.then(job, job).finally(() => {
+    const epoch = staleEpochRef.current;
+    const guarded = (): Promise<boolean> =>
+      epoch !== staleEpochRef.current || reloadPendingRef.current ? Promise.resolve(false) : job();
+    const run = queueRef.current.then(guarded, guarded).finally(() => {
       savingCountRef.current[scope] -= 1;
       if (savingCountRef.current[scope] === 0) setSaving((prev) => ({ ...prev, [scope]: false }));
     });
@@ -439,6 +462,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       // the change is NOT sent a second time; the person makes it on what is stored now.
       if (getErrorStatus(err) === 409 && updatedAtRef.current !== undefined) {
         const sentence = getApiErrorMessage(err) ?? STALE_SETTINGS;
+        staleEpochRef.current += 1;
+        reloadPendingRef.current = true;
         setPendingStart(null);
         onShowAlert({ open: true, title: 'Not saved', description: sentence, variant: 'error' });
         setLoadAttempt((count) => count + 1);
@@ -607,33 +632,17 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   );
 
   /**
-   * Reads ONLY the restricted-topic lists again (the workspace's, each team's, and the teams that
-   * have any): everything else on the card stays as it is on screen.
+   * Reads the settings again after a topic change answered 404 (someone else removed the topic or
+   * the team meanwhile). The WHOLE card is replaced by the read, not only the topic lists: the
+   * read's `updatedAt` becomes the stamp the next save sends, and a stamp vouches for everything
+   * on screen — kept beside an older switch or team map, it would let a save made from them pass
+   * the server's stale-page guard (and without it, the next save answered 409).
    */
   const refreshTopics = useCallback(async () => {
-    const [auto, orgRow] = await Promise.all([
-      organizationService.getAutoReply(),
-      organizationService.getCurrent(),
-    ]);
-    const topics = readRestrictedTopics(auto.restrictedTopics);
-    if (topics) {
-      orgRef.current = { ...orgRef.current, restrictedTopics: topics };
-      setOrg((prev) => ({ ...prev, restrictedTopics: topics }));
-    }
-    const teams = readTopicTeams(auto.restrictedTopicTeams);
-    if (teams) setTopicTeams(teams);
-    const settings: Record<string, unknown> = orgRow.settings ?? {};
-    const stored = (settings.departmentSettings ?? {}) as Record<string, Settings>;
-    const next: Record<string, Settings> = {};
-    for (const key of new Set([...Object.keys(perDeptRef.current), ...Object.keys(stored)])) {
-      const { restrictedTopics: _stale, ...kept } = perDeptRef.current[key] ?? {};
-      const own = readRestrictedTopics(stored[key]?.restrictedTopics) ?? [];
-      const team = { ...kept, ...(own.length > 0 ? { restrictedTopics: own } : {}) };
-      if (Object.keys(team).length > 0) next[key] = team;
-    }
-    perDeptRef.current = next;
-    setPerDept(next);
-  }, []);
+    await loadStored();
+    // A confirmation still open described the settings as they were.
+    setPendingStart(null);
+  }, [loadStored]);
 
   /** A list's own topics as the page holds them now (the workspace's, or one team's). */
   const topicsIn = useCallback(
@@ -741,7 +750,13 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     const wasOn = now.autoReplyEnabled ?? orgOn;
     const willOn = next.autoReplyEnabled ?? orgOn;
     const first = !wasOn && willOn && !modeStored && next.autoReplyMode === undefined;
-    const willMode: AutoReplyMode = first ? 'rules_only' : (next.autoReplyMode ?? orgHas);
+    // "Same as workspace" for a team switched on by its own override, under a workspace that never
+    // stored what replies: the server stores keyword rules only (BE autoReplySettingsWrite, F10),
+    // so the AI does not start replying and nothing about it is asked.
+    const inheritsNoChoice =
+      !modeStored && next.autoReplyEnabled === true && next.autoReplyMode === undefined;
+    const willMode: AutoReplyMode =
+      first || inheritsNoChoice ? 'rules_only' : (next.autoReplyMode ?? orgHas);
     const apply = () =>
       void updateDept(dept.id, (current) => {
         const changed = change(current);
@@ -1203,11 +1218,19 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       <p id="dose-rule-help" className="text-xs text-muted-foreground">
                         {DOSE_RULE_HELP}
                       </p>
+                      {/* Out of use for anyone but a workspace admin (the backend's rule): said. */}
+                      {!canChangeTopics && (
+                        <p id="dose-rule-admin-only" className="text-xs text-muted-foreground">
+                          {DOSE_RULE_ADMIN_ONLY}
+                        </p>
+                      )}
                     </div>
                     <Toggle
                       checked={org.autoReplyDoseRule === true}
                       ariaLabel={DOSE_RULE_TITLE}
-                      ariaDescribedBy="dose-rule-help"
+                      ariaDescribedBy={
+                        canChangeTopics ? 'dose-rule-help' : 'dose-rule-help dose-rule-admin-only'
+                      }
                       disabled={saving.org === true || !canChangeTopics}
                       onChange={(next) => void saveOrg({ doseRule: next })}
                     />
@@ -1356,7 +1379,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                             onClick={() => changeTeamSending(dept, 'autoReplyMode', undefined)}
                             className={pillClass(overrideMode === undefined)}
                           >
-                            Same as workspace ({MODE_LABEL[orgMode]})
+                            {!modeStored && overrideEnabled === true
+                              ? SAME_AS_WORKSPACE_NO_CHOICE
+                              : `Same as workspace (${MODE_LABEL[orgMode]})`}
                           </Button>
                           {offeredModes.map((mode) => (
                             <Button

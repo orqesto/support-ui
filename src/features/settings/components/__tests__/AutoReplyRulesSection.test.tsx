@@ -40,7 +40,7 @@ vi.mock('@/lib/api-client', () => ({
 }));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn() } }));
 
-const { AutoReplyRulesSection } = await import('../AutoReplyRulesSection');
+const { AutoReplyRulesSection, RULE_CHECK_NOTE } = await import('../AutoReplyRulesSection');
 
 const refundRule = {
   id: 1,
@@ -193,6 +193,20 @@ describe('AutoReplyRulesSection', () => {
     expect(await screen.findByText('Refunds')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /add rule/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /delete rule/i })).toBeNull();
+  });
+
+  it("says a rule's reply is checked by the workspace's AI provider, and held when none is set up", async () => {
+    renderSection();
+    expect(
+      await screen.findByText(
+        (_text, element) =>
+          element?.tagName === 'P' && (element.textContent ?? '').includes(RULE_CHECK_NOTE)
+      )
+    ).toBeTruthy();
+    expect(RULE_CHECK_NOTE).toMatch(/your workspace's AI provider checks/);
+    expect(RULE_CHECK_NOTE).toMatch(
+      /When no AI provider is set up, or the check cannot run, the reply is held for a person and not sent\./
+    );
   });
 
   it('warns that rules send nothing while auto-reply is off', async () => {

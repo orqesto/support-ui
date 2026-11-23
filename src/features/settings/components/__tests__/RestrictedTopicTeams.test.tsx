@@ -72,20 +72,27 @@ describe('restricted topics — teams that have no row on the page', () => {
     expect(state.alerts.at(-1)?.title).toBe('Save failed');
   });
 
-  it('that re-read takes the topic lists only: the rest of the card stays as it is on screen', async () => {
+  it('that re-read replaces the whole card, and its stamp is the one the next save sends', async () => {
+    state.updatedAt = '2026-11-23T09:00:00.000Z';
     state.teams = { '5': { restrictedTopics: ['press requests'] } };
     show();
     await screen.findByRole('list', { name: OTHER });
     expect(screen.getByText('Inherits default')).toBeInTheDocument();
     // Meanwhile, elsewhere: the topic was removed, Billing got a topic and an override.
     state.teams = { '7': { autoReplyEnabled: false, restrictedTopics: ['contract changes'] } };
+    state.updatedAt = '2026-11-23T09:30:00.000Z';
     fireEvent.click(
       screen.getByRole('button', { name: 'Remove topic press requests from Deleted team #5' })
     );
     await waitFor(() => expect(topicsOf(TEAM)).toEqual(['contract changes']));
     expect(screen.queryByRole('list', { name: OTHER })).toBeNull();
-    // Not taken from the re-read: only the topics were asked for.
-    expect(screen.getByText('Inherits default')).toBeInTheDocument();
+    // The read's stamp vouches for everything on screen, so the rest is the read's too.
+    expect(screen.queryByText('Inherits default')).toBeNull();
+    // The next save is sent with the stamp of that read — not the first one (which would be
+    // refused as stale).
+    fireEvent.click(screen.getByRole('button', { name: 'Remove topic contract changes' }));
+    await waitFor(() => expect(state.updates).toHaveLength(2));
+    expect(state.updates[1]).toMatchObject({ expectedUpdatedAt: '2026-11-23T09:30:00.000Z' });
   });
 
   it('a backend that does not list the teams yet: no such list, the rest of the card as before', async () => {

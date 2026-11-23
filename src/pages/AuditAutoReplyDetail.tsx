@@ -4,6 +4,7 @@ import {
   allowedByWords,
   autoReplySentLabel,
   autoReplyWithheldLabel,
+  holdWhyOf,
 } from '@/features/messages/shell';
 
 export const AUTO_REPLY_SENT = 'message.auto_reply_sent';
@@ -76,6 +77,10 @@ export function AuditAutoReplyDetail({
 }) {
   const held = action === AUTO_REPLY_WITHHELD;
   const sentence = text(details, 'detail');
+  // The check's own line on why it held the reply (the meaning check's, the dose rule's): shown
+  // after the backend's sentence, or alone when there is none — never twice.
+  const why = held ? holdWhyOf(details) : null;
+  const whyLine = why && !sentence.includes(why) ? why : null;
   const channel = AUTO_REPLY_CHANNEL_LABEL[text(details, 'channel')];
   const path = text(details, 'replyPath');
   // A keyword rule's and a receipt confirmation's fixed text is the team's own.
@@ -100,9 +105,12 @@ export function AuditAutoReplyDetail({
     (details !== null && 'conversationId' in details && threadId === null);
   return (
     <div className="mb-1 space-y-0.5 text-sm" data-testid="audit-auto-reply">
-      <p>{held ? autoReplyWithheldLabel(details) : autoReplySentLabel(details)}</p>
+      <p>
+        {held ? autoReplyWithheldLabel(details, { withWhy: false }) : autoReplySentLabel(details)}
+      </p>
       {/* The backend's own sentence for a hold, when it wrote one (a code alone is not shown). */}
       {held && sentence.includes(' ') && <p className="text-muted-foreground">{sentence}</p>}
+      {whyLine && <p className="text-muted-foreground">Why: {whyLine}</p>}
       {allowed && <p className="text-muted-foreground">Allowed because {allowed}.</p>}
       <p className="text-xs text-muted-foreground">
         Written by: {autoReplyWriter(details)}

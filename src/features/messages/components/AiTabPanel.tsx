@@ -25,6 +25,7 @@ import {
   insertSourceOf,
   priorityLabel,
   toGhostOption,
+  isKeywordRuleDraft,
   type GhostInsertSource,
   type SuggestedAnswerMeta,
 } from './messageDetailConstants';
@@ -224,10 +225,11 @@ export function AiTabPanel({
     A reply a model wrote BEFORE drafts were switched off is still stored on the message, and the
     backend cannot refuse it — it is already here. So it is offered only once the setting is KNOWN
     to be on; with drafts off the agent gets the past replies and KB matches, which people wrote.
+    A keyword rule's kept reply is the team's own text, not a model's: offered either way.
   */
   const storedSuggestion = message.metadata?.suggestedAnswer as SuggestedAnswer | undefined;
-  const suggestedAnswer =
-    aiDraftsKnown && !aiDraftsOff && !hideStoredDraft ? storedSuggestion : undefined;
+  const offerStored = isKeywordRuleDraft(storedSuggestion) || (aiDraftsKnown && !aiDraftsOff);
+  const suggestedAnswer = offerStored && !hideStoredDraft ? storedSuggestion : undefined;
   const autoReply = message.metadata?.autoReply as AutoReply | undefined;
   const { aiConfigured } = useAiConfigured();
   const isWorkspaceAdmin = useIsWorkspaceAdmin();
@@ -394,7 +396,8 @@ export function AiTabPanel({
     options.push({
       id: 'suggested',
       label: ghost?.label ?? 'AI',
-      // "87% · not sent": an automatic reply that did not arrive is kept as this draft.
+      // "87% · not sent": an automatic reply that did not arrive is kept as this draft. A keyword
+      // rule's kept reply names its rule first (`Keyword rule "Returns"`), never "AI".
       sublabel: suggestionSublabelOf(suggestedAnswer),
       answer: suggestedAnswer.answer,
       type: ghost?.type ?? 'similar',

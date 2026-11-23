@@ -40,6 +40,11 @@ export const ChatWidgetSettings = () => {
     setChatsWidget(linked);
   }, [widgets]);
   const [deletingWidget, setDeletingWidget] = useState<ChatWidget | null>(null);
+  // The widgets whose "AI answers" save is in flight (and the re-read after it): their switch is
+  // out of use, so two quick clicks cannot send two saves that race. The ref also stops a second
+  // click that lands before the re-render.
+  const [aiAnswersSaving, setAiAnswersSaving] = useState<ReadonlySet<number>>(() => new Set());
+  const aiAnswersSavingRef = useRef<Set<number>>(new Set());
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
@@ -78,6 +83,9 @@ export const ChatWidgetSettings = () => {
 
   /** The card's "AI answers" switch: saved at once, and shown as the server stored it. */
   const handleAiAnswers = async (widget: ChatWidget, next: boolean) => {
+    if (aiAnswersSavingRef.current.has(widget.id)) return;
+    aiAnswersSavingRef.current.add(widget.id);
+    setAiAnswersSaving(new Set(aiAnswersSavingRef.current));
     try {
       await chatWidgetService.update(widget.id, { aiAnswersEnabled: next });
     } catch (err) {
@@ -89,7 +97,12 @@ export const ChatWidgetSettings = () => {
         variant: 'error',
       });
     }
-    await fetchWidgets().catch((err: unknown) => logger.error(err));
+    try {
+      await fetchWidgets().catch((err: unknown) => logger.error(err));
+    } finally {
+      aiAnswersSavingRef.current.delete(widget.id);
+      setAiAnswersSaving(new Set(aiAnswersSavingRef.current));
+    }
   };
 
   const handleToggle = async (widget: ChatWidget) => {
@@ -277,6 +290,7 @@ export const ChatWidgetSettings = () => {
                   <Toggle
                     ariaLabel={`AI answers for ${widget.name}`}
                     checked={widget.aiAnswersEnabled}
+                    disabled={aiAnswersSaving.has(widget.id)}
                     onChange={(next) => void handleAiAnswers(widget, next)}
                   />
                 </div>

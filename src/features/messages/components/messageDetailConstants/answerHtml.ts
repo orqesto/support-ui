@@ -150,6 +150,11 @@ export type GhostOption = {
   /** The KB document the answer came from, only when the writer stored its title. */
   sourceTitle?: string;
   /**
+   * A keyword rule's kept reply: the rule's name (empty when the record has none). The text is
+   * the team's own, so the caption names the rule and never says "AI".
+   */
+  ruleName?: string;
+  /**
    * The source an insert reports (usage statistics) — from the stored source, never read off the
    * label. Absent on options built elsewhere: then the type's default.
    */
@@ -163,7 +168,16 @@ export type SuggestedAnswerMeta = {
   foundAt?: string;
   /** Lead-qualification answers carry their KB documents' titles here. */
   kbSources?: { type?: string; title?: string }[];
+  /** The keyword rule that kept this reply (BE keywordAutoReply storeWithheldDraft). */
+  keywordRule?: { id?: number; name?: string } | null;
 };
+
+/**
+ * A keyword rule's own reply, kept as the draft (`source: 'keyword_rule'`): the team's text, not a
+ * model's. A rule that adds a knowledge base answer stores that answer's source instead.
+ */
+export const isKeywordRuleDraft = (sa: { source?: unknown } | undefined | null): boolean =>
+  sa?.source === 'keyword_rule';
 
 export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): GhostOption | null {
   if (!sa?.answer) return null;
@@ -182,6 +196,16 @@ export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): Ghost
     sa.confidence <= 1
       ? sa.confidence
       : undefined;
+  if (isKeywordRuleDraft(sa)) {
+    const name = typeof sa.keywordRule?.name === 'string' ? sa.keywordRule.name.trim() : '';
+    return {
+      answer: sa.answer,
+      label: 'RULE',
+      type: 'similar',
+      ruleName: name,
+      ...(confidence !== undefined ? { confidence } : {}),
+    };
+  }
   const sourceTitle = sa.kbSources
     ?.find((ref) => ref.type === 'documentation' && ref.title?.trim())
     ?.title?.trim();
@@ -196,10 +220,19 @@ export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): Ghost
   };
 }
 
-/** The ghost's caption: "AI suggestion · 87% · Returns policy" (v3), each part only when known. */
-export const ghostCaption = (option: Pick<GhostOption, 'confidence' | 'sourceTitle'>): string =>
+/**
+ * The ghost's caption: "AI suggestion · 87% · Returns policy" (v3), each part only when known. A
+ * keyword rule's kept reply reads `Keyword rule "Returns"`: nobody's model wrote it.
+ */
+export const ghostCaption = (
+  option: Pick<GhostOption, 'confidence' | 'sourceTitle' | 'ruleName'>
+): string =>
   [
-    'AI suggestion',
+    option.ruleName !== undefined
+      ? option.ruleName
+        ? `Keyword rule "${option.ruleName}"`
+        : 'Keyword rule'
+      : 'AI suggestion',
     option.confidence !== undefined ? `${Math.round(option.confidence * 100)}%` : null,
     option.sourceTitle ?? null,
   ]

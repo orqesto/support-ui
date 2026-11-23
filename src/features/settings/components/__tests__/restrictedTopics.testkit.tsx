@@ -31,6 +31,10 @@ const state = vi.hoisted(() => ({
   /** Held answers: each save waits until the test releases it. */
   held: null as (() => void)[] | null,
   alerts: [] as { title: string; description?: string; variant?: string }[],
+  /** The settings' `updatedAt` a read answers with; undefined = a backend without the stamp. */
+  updatedAt: undefined as string | undefined,
+  /** The workspace's stored mode as a read says it (`null` = never chosen); undefined = not sent. */
+  modeStored: undefined as string | null | undefined,
 }));
 
 // As the backend compares topics: letter case and runs of spaces aside.
@@ -142,6 +146,8 @@ vi.mock('@/services/organization.service', () => ({
         ...(state.doseRule !== null && { doseRule: state.doseRule }),
         restrictedTopicTeams:
           state.supported && state.listsTeams ? structuredClone(topicTeams()) : null,
+        ...(state.updatedAt !== undefined && { updatedAt: state.updatedAt }),
+        ...(state.modeStored !== undefined && { modeStored: state.modeStored }),
       }),
     getCurrent: () =>
       Promise.resolve({ settings: { departmentSettings: structuredClone(state.teams) } }),
@@ -188,6 +194,8 @@ beforeEach(() => {
   state.failWith = null;
   state.held = null;
   state.alerts = [];
+  state.updatedAt = undefined;
+  state.modeStored = undefined;
 });
 afterEach(cleanup);
 

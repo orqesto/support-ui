@@ -278,6 +278,23 @@ const askWithheldLabel = (
     : `${ASK_NOT_SENT}: ${WITHHELD_REASON_UNKNOWN}`;
 };
 
+/** The longest `why` an Activity line or an Audit row quotes (the backend caps it at 200 too). */
+export const HOLD_WHY_MAX = 200;
+
+/**
+ * The check's own one line on why it held the reply (`details.why`: the meaning check on a keyword
+ * rule's reply, the send gate's hold — "the reply states an amount in a dose unit (fixed dose
+ * rule)"), trimmed and capped; null when the record has none or it is not a sentence (one word
+ * reads as a code, and a code is never shown).
+ */
+export const holdWhyOf = (details: Record<string, unknown> | null): string | null => {
+  const raw = details?.['why'];
+  if (typeof raw !== 'string') return null;
+  const why = raw.replace(/\s+/g, ' ').trim();
+  if (!why.includes(' ')) return null;
+  return why.length > HOLD_WHY_MAX ? `${why.slice(0, HOLD_WHY_MAX - 1).trimEnd()}…` : why;
+};
+
 /**
  * A keyword rule matched and nothing was sent (BE `message.auto_reply_withheld`): two or more rules
  * matched (`several_rules`), or the matched rule's reply could not go out; or (`source: 'missing_info'`)
@@ -285,7 +302,18 @@ const askWithheldLabel = (
  * reply was sent and did not arrive, or may not have. An unknown reason reads "held for a
  * person", never the backend's code.
  */
-export function autoReplyWithheldLabel(details: Record<string, unknown> | null): string {
+export function autoReplyWithheldLabel(
+  details: Record<string, unknown> | null,
+  { withWhy = true }: { withWhy?: boolean } = {}
+): string {
+  const label = withheldLabel(details);
+  // A hold the check explained: its own line after the reason (never on a check-only pass, a
+  // sent reply or a failed send — those carry no `why`).
+  const why = withWhy ? holdWhyOf(details) : null;
+  return why ? `${label} — ${why}` : label;
+}
+
+function withheldLabel(details: Record<string, unknown> | null): string {
   const rawNames = details?.['ruleNames'];
   const names = Array.isArray(rawNames)
     ? rawNames.filter((name): name is string => typeof name === 'string' && name.length > 0)

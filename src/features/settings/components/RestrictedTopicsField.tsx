@@ -16,7 +16,9 @@ export const NO_TOPICS_TEXT = 'No restricted topics';
 
 export const DOSE_RULE_TITLE = 'Hold replies that state a dose';
 export const DOSE_RULE_HELP =
-  'An automatic reply that gives an amount in a dose unit (mg, ml, g, IU, units…) is handed to a person instead of being sent. It also holds pack sizes and weights such as "500 mg capsules" or "a 500 g bag", so switch it on only if you sell supplements, medicines or similar products. Applies to AI email replies, keyword-rule knowledge answers, the Telegram bot and the chat widget.';
+  'An automatic reply that gives an amount in a dose unit (mg, ml, g, IU, units…) is handed to a person instead of being sent. It also holds pack sizes and weights such as "500 mg capsules" or "a 500 g bag", so switch it on only if you sell supplements, medicines or similar products. Applies to AI email replies, the email the AI sends to ask the customer for missing information, keyword-rule knowledge answers, the Telegram bot and the chat widget. A keyword rule\'s own fixed text is not checked for doses.';
+/** Why the dose switch is out of use for a moderator: the backend lets only a workspace admin change it. */
+export const DOSE_RULE_ADMIN_ONLY = 'Only a workspace admin can change this switch.';
 
 /** A list of topics as read-only chips (someone who cannot change the settings). */
 export const TopicsReadOnly = ({
