@@ -446,7 +446,7 @@ describe('messageActivityTimeline — auto-reply withheld', () => {
     ['kb_does_not_answer', 'the knowledge base answer did not answer the question'],
     ['kb_unsupported_by_sources', 'the answer said more than the knowledge base does'],
     ['kb_content_unchecked', 'the knowledge base answer could not be checked'],
-    ['question_unchecked', 'the question could not be checked for a restricted topic'],
+    ['question_unchecked', 'the question in the message could not be checked, so the reply was not sent without a person'],
   ])('send gate: %s says why in words', (reason, why) => {
     expect(withheld(reason, ['Refunds'])).toBe(
       `Keyword rule "Refunds" matched but its reply did not go out: ${why}`

@@ -104,7 +104,7 @@ export function AuditAutoReplyCounts({
               <Figure
                 label="Sent"
                 value={state.counts.totals.sent}
-                hint="Replies emailed or posted with no person behind them"
+                hint="Replies emailed or posted with no person behind them — includes replies sent but not recorded, which are listed under Held"
               />
               <Figure
                 label="Would have been sent"

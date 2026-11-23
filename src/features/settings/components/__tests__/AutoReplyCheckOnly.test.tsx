@@ -27,6 +27,10 @@ const state = vi.hoisted(() => ({
   refuse: false,
   alerts: [] as Array<{ title: string; description: string }>,
   canManage: true,
+  /** Restricted topics are offered (the backend lists them). */
+  topics: false,
+  /** Extra fields the next save's answer carries (what is stored NOW, changed by someone else). */
+  answer: {} as Record<string, unknown>,
   /** When set, a save waits until it is called. */
   release: null as null | (() => void),
   hold: false,
@@ -48,6 +52,7 @@ vi.mock('@/services/organization.service', () => ({
         highConfidenceThreshold: 0.9,
         departmentSettings: structuredClone(state.departmentSettings),
         ...(state.newContract && { modeStored: state.modeStored, updatedAt: state.updatedAt }),
+        ...(state.topics && { restrictedTopics: [] }),
       });
     },
     getCurrent: () =>
@@ -79,7 +84,11 @@ vi.mock('@/services/organization.service', () => ({
       state.updatedAt = '2026-11-23T10:05:00.000Z';
       return Promise.resolve({
         success: true,
-        data: { departmentSettings: state.departmentSettings, updatedAt: state.updatedAt },
+        data: {
+          departmentSettings: state.departmentSettings,
+          updatedAt: state.updatedAt,
+          ...state.answer,
+        },
       });
     },
   },
@@ -107,6 +116,7 @@ vi.mock('@/hooks/useDepartments', () => ({
     data: [
       { id: 7, name: 'Billing', slug: 'billing', active: true },
       { id: 9, name: 'Returns', slug: 'returns', active: true },
+      { id: 11, name: 'Legacy', slug: 'legacy', active: false },
     ],
     teamsEnabled: true,
   }),
@@ -120,7 +130,7 @@ vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn(), warn: 
 
 import { AutoReplyConfiguration, CHECK_ONLY_HELP } from '../AutoReplyConfiguration';
 
-const CHECK_ONLY = 'Keyword rules; AI replies checked, not sent';
+const CHECK_ONLY = 'Check only: nothing is emailed';
 const FIRST_STAMP = '2026-11-23T10:00:00.000Z';
 
 beforeEach(() => {
@@ -137,6 +147,8 @@ beforeEach(() => {
     refuse: false,
     alerts: [],
     canManage: true,
+    topics: false,
+    answer: {},
     release: null,
     hold: false,
   });
@@ -157,9 +169,15 @@ describe('"AI replies checked, not sent"', () => {
   it('is a third choice, explained, and saved at once: nothing new starts sending', async () => {
     await show();
     expect(screen.getAllByText(CHECK_ONLY_HELP).length).toBeGreaterThan(0);
-    expect(CHECK_ONLY_HELP).toMatch(/never emailed/);
+    // Nothing is emailed in it — keyword rules included; only the receipt confirmation goes out.
+    expect(CHECK_ONLY_HELP).toMatch(
+      /nothing automatic is emailed, except a mailbox's fixed receipt confirmation/
+    );
+    expect(CHECK_ONLY_HELP).toMatch(
+      /Keyword rule replies and AI replies are written and go through every check/
+    );
     expect(CHECK_ONLY_HELP).toMatch(/would have been sent/);
-    expect(CHECK_ONLY_HELP).toMatch(/Keyword rules with a fixed text still send/);
+    expect(CHECK_ONLY_HELP).not.toMatch(/still send/);
     fireEvent.click(choice().getByRole('button', { name: CHECK_ONLY }));
     await waitFor(() =>
       expect(state.updates).toEqual([{ mode: 'check_only', expectedUpdatedAt: FIRST_STAMP }])
@@ -187,9 +205,16 @@ describe('"AI replies checked, not sent"', () => {
     await show();
     fireEvent.click(workspaceSwitch());
     expect(
-      dialog().getByText(/keyword rules with a fixed text will be emailed/)
+      dialog().getByText(/^Nothing will be emailed\. Keyword rule replies and AI replies/)
     ).toBeInTheDocument();
-    expect(dialog().getByText(/written and checked, but never emailed/)).toBeInTheDocument();
+    expect(dialog().getByText(/receipt confirmation still goes out/)).toBeInTheDocument();
+    expect(dialog().queryByText(/will be emailed to customers/)).toBeNull();
+    // Nothing is sent from them: they are the mailboxes whose mail is checked.
+    expect(
+      await dialog().findByText('Mail arriving at these mailboxes is checked:')
+    ).toBeInTheDocument();
+    // No rule sends in this choice, so nothing is said about how rule replies are checked.
+    expect(dialog().queryByText(/Every keyword rule reply is checked first/)).toBeNull();
     fireEvent.click(await dialog().findByRole('button', { name: 'Switch on' }));
     await waitFor(() =>
       expect(state.updates).toEqual([
@@ -289,6 +314,8 @@ describe('a team is saved as that one team’s change', () => {
       })
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Reset all overrides for Billing' }));
+    // The reset lowers the confidence this team asked for: confirmed first.
+    fireEvent.click(await dialog().findByRole('button', { name: 'Reset' }));
     await waitFor(() => expect(state.updates).toHaveLength(2));
     expect(state.updates[1]).toEqual({
       teamSettingsChange: {
@@ -346,7 +373,7 @@ describe('a save from a page that is behind (409)', () => {
 });
 
 describe('out of "checked, not sent" into "Keyword rules only": knowledge base answers start sending', () => {
-  const KB_TITLE = 'Let keyword rules send knowledge base answers?';
+  const KB_TITLE = 'Let keyword rules send?';
   const lastTeam = () =>
     (state.updates.at(-1) as { teamSettingsChange?: { settings: unknown } }).teamSettingsChange
       ?.settings;
@@ -357,9 +384,13 @@ describe('out of "checked, not sent" into "Keyword rules only": knowledge base a
     await show();
     fireEvent.click(choice().getByRole('button', { name: 'Keyword rules only' }));
     expect(dialog().getByText(KB_TITLE)).toBeInTheDocument();
+    // Both kinds of rule start: a fixed text, and one that adds a knowledge base answer.
     expect(
-      dialog().getByText(/a keyword rule that adds a knowledge base answer .* emails that answer/)
+      dialog().getByText(
+        /those with a fixed text and those that add a knowledge base answer .* will be emailed to customers .* Until now they were checked and not sent\./
+      )
     ).toBeInTheDocument();
+    expect(dialog().getByText(/Every keyword rule reply is checked first/)).toBeInTheDocument();
     expect(state.updates).toEqual([]);
     fireEvent.click(await dialog().findByRole('button', { name: 'Let them send' }));
     await waitFor(() =>
@@ -401,9 +432,7 @@ describe('out of "checked, not sent" into "Keyword rules only": knowledge base a
     state.departmentSettings = teams;
     await show();
     press();
-    expect(
-      dialog().getByText('Let keyword rules send knowledge base answers for Billing?')
-    ).toBeInTheDocument();
+    expect(dialog().getByText('Let keyword rules send for Billing?')).toBeInTheDocument();
     expect(state.updates).toEqual([]);
     fireEvent.click(await dialog().findByRole('button', { name: 'Let them send' }));
     await waitFor(() => expect(lastTeam()).toEqual(saved));
@@ -482,6 +511,7 @@ describe('a team save that changes nothing', () => {
     };
     await show();
     fireEvent.click(screen.getByRole('button', { name: 'Reset all overrides for Billing' }));
+    fireEvent.click(await dialog().findByRole('button', { name: 'Reset' }));
     await waitFor(() => expect(state.updates).toHaveLength(1));
     expect(state.updates[0]).toEqual({
       teamSettingsChange: {
@@ -500,7 +530,7 @@ describe('the read-only summary (no permission to change)', () => {
     state.modeStored = 'check_only';
     render(<AutoReplyConfiguration onShowAlert={() => {}} />);
     expect(
-      await screen.findByText(/keyword rules; AI replies checked, not sent \(email only\)/)
+      await screen.findByText(/check only: nothing is emailed \(email only\)/)
     ).toBeInTheDocument();
   });
 
@@ -508,6 +538,170 @@ describe('the read-only summary (no permission to change)', () => {
     state.canManage = false;
     render(<AutoReplyConfiguration onShowAlert={() => {}} />);
     expect(await screen.findByText(/keyword rules only/)).toBeInTheDocument();
-    expect(screen.queryByText(/checked, not sent/)).toBeNull();
+    expect(screen.queryByText(/check only/)).toBeNull();
+  });
+});
+
+describe('every save’s answer is what is stored now — not only the part the save was about', () => {
+  it('a topic save that finds the choice changed by someone else: the page shows it, and the next confirmation describes it', async () => {
+    // 1. The page is read: keyword rules only; Billing has automatic replies switched off.
+    state.topics = true;
+    state.departmentSettings = { '7': { autoReplyEnabled: false } };
+    await show();
+    expect(
+      choice().getByRole('button', { name: 'Keyword rules only', pressed: true })
+    ).toBeInTheDocument();
+    // 2. Someone else lets the AI reply. 3. This page saves a topic; the answer carries what is
+    //    stored: the new choice with it.
+    state.answer = {
+      enabled: true,
+      mode: 'all',
+      modeStored: 'all',
+      restrictedTopics: ['refund disputes'],
+    };
+    const input = screen.getByRole('textbox', { name: 'Add to Workspace restricted topics' });
+    fireEvent.change(input, { target: { value: 'refund disputes' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(state.updates).toHaveLength(1));
+    // The topic save carries the stale-page stamp too.
+    expect(state.updates[0].expectedUpdatedAt).toBe(FIRST_STAMP);
+    // 4. The page now shows the stored choice.
+    expect(
+      await choice().findByRole('button', { name: 'Keyword rules and AI replies', pressed: true })
+    ).toBeInTheDocument();
+    // 5. Billing is switched back on: the confirmation says the AI will send — not that it stays off.
+    fireEvent.click(screen.getAllByRole('button', { name: /Inherit default/ })[0]);
+    expect(
+      await dialog().findByText(
+        /Your keyword rules AND AI-written answers from your knowledge base will be emailed/
+      )
+    ).toBeInTheDocument();
+    expect(dialog().queryByText(/The AI.s own replies stay off/)).toBeNull();
+  });
+});
+
+describe('teams that send more than the workspace confirmation says are named', () => {
+  it('check only for the workspace: a team on "Keyword rules only" and one on "…and AI replies" are exceptions, each with what it sends — a switched-off team too', async () => {
+    state.enabled = false;
+    state.mode = 'check_only';
+    state.modeStored = 'check_only';
+    state.departmentSettings = {
+      '7': { autoReplyMode: 'rules_only' },
+      '9': { autoReplyMode: 'all' },
+      '11': { autoReplyMode: 'all' },
+    };
+    await show();
+    fireEvent.click(workspaceSwitch());
+    const list = within(await dialog().findByRole('list', { name: 'Teams that send more' }))
+      .getAllByRole('listitem')
+      .map((item) => item.textContent);
+    expect(list).toEqual([
+      'Billing — keyword rules are emailed',
+      'Returns — keyword rules and AI replies are emailed',
+      'Legacy (switched off) — keyword rules and AI replies are emailed',
+    ]);
+  });
+
+  it('CONTROL: a team that switched itself off, or that only checks, is no exception', async () => {
+    state.enabled = false;
+    state.mode = 'check_only';
+    state.modeStored = 'check_only';
+    state.departmentSettings = {
+      '7': { autoReplyMode: 'all', autoReplyEnabled: false },
+      '9': { autoReplyMode: 'check_only' },
+    };
+    await show();
+    fireEvent.click(workspaceSwitch());
+    await dialog().findByText('Mail arriving at these mailboxes is checked:');
+    expect(dialog().queryByRole('list', { name: 'Teams that send more' })).toBeNull();
+  });
+});
+
+describe('"Reset all overrides" that widens what the team limited', () => {
+  it('is confirmed, saying what changes; cancelled, nothing is saved', async () => {
+    state.mode = 'all';
+    state.modeStored = 'all';
+    state.departmentSettings = {
+      '7': {
+        escalationPhrases: ['lawyer', 'chargeback'],
+        autoReplyHighConfidenceThreshold: 0.97,
+        autoReplyRequestMissingInfo: false,
+      },
+    };
+    await show();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset all overrides for Billing' }));
+    expect(dialog().getByText('Reset all overrides for Billing?')).toBeInTheDocument();
+    const changes = within(dialog().getByRole('list', { name: 'What this reset changes' }))
+      .getAllByRole('listitem')
+      .map((item) => item.textContent);
+    expect(changes).toEqual([
+      'Removes this team\'s 2 stop phrases ("lawyer", "chargeback"): a message containing one was never answered automatically.',
+      'Lowers the confidence the AI needs before it replies from 97% to 90%.',
+      'Lets the AI email customers to ask for missing details (off for this team until now).',
+    ]);
+    expect(state.updates).toEqual([]);
+    fireEvent.click(await dialog().findByRole('button', { name: 'Cancel' }));
+    expect(state.updates).toEqual([]);
+    fireEvent.click(screen.getByRole('button', { name: 'Reset all overrides for Billing' }));
+    fireEvent.click(await dialog().findByRole('button', { name: 'Reset' }));
+    await waitFor(() => expect(state.updates).toHaveLength(1));
+  });
+
+  it('CONTROL: a reset that widens nothing is saved at once', async () => {
+    state.mode = 'all';
+    state.modeStored = 'all';
+    state.departmentSettings = { '7': { autoReplySuggestSolutions: false } };
+    await show();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset all overrides for Billing' }));
+    await waitFor(() => expect(state.updates).toHaveLength(1));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('a team holding only a key no reset can clear has no Reset button, and is not called an override', async () => {
+    state.departmentSettings = { '7': { someOlderKey: true } };
+    await show();
+    expect(screen.queryByRole('button', { name: 'Reset all overrides for Billing' })).toBeNull();
+    expect(screen.queryByText('Partial override')).toBeNull();
+  });
+});
+
+describe('check only covers keyword rules too', () => {
+  it('entering it from "Keyword rules and AI replies" is less mail: saved at once', async () => {
+    state.mode = 'all';
+    state.modeStored = 'all';
+    await show();
+    fireEvent.click(choice().getByRole('button', { name: CHECK_ONLY }));
+    await waitFor(() =>
+      expect(state.updates).toEqual([{ mode: 'check_only', expectedUpdatedAt: FIRST_STAMP }])
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('leaving it for "Keyword rules and AI replies" says the keyword rules start too', async () => {
+    state.mode = 'check_only';
+    state.modeStored = 'check_only';
+    await show();
+    fireEvent.click(choice().getByRole('button', { name: 'Keyword rules and AI replies' }));
+    expect(
+      dialog().getByText(
+        /Your keyword rules AND AI-written answers .* Until now they were checked and not sent\./
+      )
+    ).toBeInTheDocument();
+    expect(dialog().queryByText(/as your keyword rules already are/)).toBeNull();
+  });
+
+  it('CONTROL: from "Keyword rules only" the rules were already sending, and it says so', async () => {
+    await show();
+    fireEvent.click(choice().getByRole('button', { name: 'Keyword rules and AI replies' }));
+    expect(dialog().getByText(/as your keyword rules already are/)).toBeInTheDocument();
+  });
+
+  it('the card says every rule reply is checked for meaning, and held without an AI provider', async () => {
+    await show();
+    expect(
+      screen.getAllByText(
+        /Every keyword rule reply is checked first: the AI reads whether the customer is really asking what the rule answers.* With no AI provider configured, rule replies are held\./
+      ).length
+    ).toBeGreaterThan(0);
   });
 });

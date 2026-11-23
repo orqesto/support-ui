@@ -67,6 +67,13 @@ const REASON: Record<string, string> = {
   generation_failed: 'the AI could not write a reply',
   flood: 'too many messages arrived at once',
   error: 'the bot ran into an error',
+  ai_error: 'the AI ran into an error',
+  escalation_confirmed_delayed: 'the customer asked for a person',
+  greeting_rule_match: 'a greeting rule answered',
+  // A Telegram turn whose own reason is not one of the listed ones (it is kept in `rawReason`).
+  other: 'the bot left the chat for a person, for a reason that has no name here',
+  // The meaning check on a keyword rule's reply (2026-11-23).
+  rule_not_asked: "the customer's message does not ask what this rule answers",
 };
 
 /** Why a matched keyword rule's reply did not go out, in plain words (BE autoReplyOutcome). */
@@ -95,7 +102,8 @@ export const WITHHELD_REASON: Record<string, string> = {
   kb_does_not_answer: 'the knowledge base answer did not answer the question',
   kb_unsupported_by_sources: 'the answer said more than the knowledge base does',
   restricted_topic: 'the customer asks about a subject a person must answer',
-  question_unchecked: 'the question could not be checked for a restricted topic',
+  question_unchecked:
+    'the question in the message could not be checked, so the reply was not sent without a person',
   // Also written for the AI's own reply (`source: 'ai_reply'`): the customer wrote again before
   // it went out (the newer message gets its own run), or the spam check has not cleared the sender.
   newer_message: 'the customer wrote again before the reply went out',
@@ -137,12 +145,9 @@ export const ASK_CHECK_REASON: Record<string, string> = {
   not_only_asking: 'a question in the email did more than ask for a detail',
 };
 
-/** Codes only the counts meet (a Telegram turn's, an older hold's), worded for the counts card. */
+/** Codes only the counts meet (an older hold's), worded for the counts card. */
 const OTHER_REASON: Record<string, string> = {
   blocked_missing_info_model_check: "the email's questions did not pass their check",
-  escalation_confirmed_delayed: 'the customer asked for a person',
-  greeting_rule_match: 'a greeting rule answered',
-  ai_error: 'the AI ran into an error',
 };
 
 /** The codes with words of their own (the test walks the backend contract's list against it). */
@@ -174,6 +179,7 @@ export const AUTO_REPLY_REASON_FILTERS: ReadonlyArray<{ value: string; label: st
   { value: 'does_not_answer', label: 'Reply did not answer the question' },
   { value: 'unsupported_by_sources', label: 'Reply went beyond the knowledge base' },
   { value: 'not_from_knowledge', label: 'Reply not from the knowledge base' },
+  { value: 'rule_not_asked', label: 'Message does not ask what the rule answers' },
   { value: 'low_confidence', label: 'AI not sure enough' },
   { value: 'partial_answer', label: 'Only some questions answered' },
   { value: 'refusal', label: 'Reply only declined the question' },

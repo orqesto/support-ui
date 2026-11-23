@@ -16,6 +16,9 @@ const state = vi.hoisted(() => ({
   /** What the counts endpoint answers: the counts, or an error to throw. */
   counts: null as unknown,
   countsError: null as null | { status: number; message: string },
+  /** When true, the counts answer waits until `countsRelease` is called. */
+  countsHold: false,
+  countsRelease: null as null | (() => void),
 }));
 vi.mock('@/services/auditLog.service', () => ({
   auditLogService: {
@@ -28,6 +31,15 @@ vi.mock('@/services/auditLog.service', () => ({
     },
     getAutoReplyCounts: (range: unknown) => {
       state.countsAsked.push(range);
+      if (state.countsHold) {
+        const refusal = Object.assign(new Error('Not found'), {
+          status: 404,
+          response: { status: 404, data: { success: false, error: 'Not found' } },
+        });
+        return new Promise((_resolve, reject) => {
+          state.countsRelease = () => reject(refusal);
+        });
+      }
       if (state.countsError)
         return Promise.reject(
           Object.assign(new Error(state.countsError.message), {
@@ -90,6 +102,8 @@ beforeEach(() => {
   state.asked = [];
   state.countsAsked = [];
   state.countsError = null;
+  state.countsHold = false;
+  state.countsRelease = null;
   state.counts = {
     range: { startDate: '2026-11-16T00:00:00Z', endDate: '2026-11-23T00:00:00Z' },
     totals: { sent: 14, wouldSend: 6, held: 9, acknowledgments: 30 },
@@ -293,6 +307,33 @@ describe('Audit Logs — the automatic replies view (backend 2026-11-23)', () =>
     const options = await listOptions(screen.getByRole('combobox', { name: 'Filter by action' }));
     expect(options).not.toContain('Automatic reply → All');
     expect(options).toContain('Automatic reply → Sent');
+  });
+
+  it('…also when "All" was chosen while the counts were still on their way', async () => {
+    state.countsHold = true;
+    await show([]);
+    // The view is entered on "Sent"; the counts are asked for and do not answer yet.
+    await pick('Filter by action', 'Automatic reply → Sent');
+    await waitFor(() => expect(state.countsAsked).toHaveLength(1));
+    await pick('Filter by action', 'Automatic reply → All');
+    await waitFor(() => expect(lastAsked().action).toBe(`${SENT},${HELD}`));
+    // Now the backend answers that it has no counts: "All" is what is chosen NOW.
+    state.countsRelease?.();
+    await waitFor(() => expect(lastAsked().action).toBe(SENT));
+  });
+
+  it('"Sent" says it includes replies sent but not recorded, which are listed under Held', async () => {
+    await openView();
+    const card = within(await screen.findByTestId('auto-reply-counts'));
+    expect((await card.findByText('Sent')).closest('[title]')?.getAttribute('title')).toBe(
+      'Replies emailed or posted with no person behind them — includes replies sent but not recorded, which are listed under Held'
+    );
+  });
+
+  it('the meaning check of a keyword rule is a reason to filter by', async () => {
+    await openView();
+    await pick('Filter by reason', 'Message does not ask what the rule answers');
+    await waitFor(() => expect(lastAsked().reason).toBe('rule_not_asked'));
   });
 
   it('a reason is asked for under every spelling it is stored with', async () => {

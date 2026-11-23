@@ -69,7 +69,7 @@ describe('the mailboxes the confirmation names', () => {
     render(
       <AutoReplyStartConfirm
         start={{ kind: 'first', mode: 'rules_only' }}
-        teamsWithAi={[]}
+        exceptions={[]}
         onConfirm={() => {}}
         onClose={() => {}}
       />

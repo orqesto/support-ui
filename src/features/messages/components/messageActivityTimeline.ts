@@ -301,8 +301,14 @@ export function autoReplyWithheldLabel(details: Record<string, unknown> | null):
   if (reason === WOULD_SEND) {
     if (details?.['source'] === 'missing_info' || path === 'missing_info')
       return 'The email asking for missing information passed every check and would have been sent — check-only mode, so it was not sent';
-    if (names.length > 0 || path === 'keyword_rule')
-      return `${names.length > 0 ? `Keyword rule ${joinRuleNames(names)}` : 'A keyword rule'}: its knowledge base answer passed every check and would have been sent — check-only mode, so it was not sent`;
+    if (names.length > 0 || path === 'keyword_rule') {
+      const rule = names.length > 0 ? `Keyword rule ${joinRuleNames(names)}` : 'A keyword rule';
+      // A rule that adds a knowledge base answer says where it came from; a plain rule's reply
+      // is the team's own text.
+      const reply =
+        typeof details?.['knowledgeSource'] === 'string' ? 'knowledge base answer' : 'reply';
+      return `${rule}: its ${reply} passed every check and would have been sent — check-only mode, so it was not sent`;
+    }
     return 'The AI reply passed every check and would have been sent — check-only mode, so it was kept as the draft';
   }
   if (path === 'telegram')

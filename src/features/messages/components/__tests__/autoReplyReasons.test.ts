@@ -106,11 +106,44 @@ describe('every reason code of the contract has words', () => {
     expect(showsACode(words, code)).toBe(false);
   });
 
-  it('a Telegram turn stored as `other` (its own code is in `rawReason`) reads as held for a person', () => {
-    expect(anyAutoReplyReasonLabel('other')).toBe(AUTO_REPLY_REASON_UNKNOWN);
+  it('a Telegram turn stored as `other` (its own code is in `rawReason`) has words, and the raw code is never shown', () => {
+    const line = autoReplyWithheldLabel({
+      replyPath: 'telegram',
+      reason: 'other',
+      rawReason: 'x_y',
+    });
+    expect(line).toBe(
+      'The Telegram bot left this chat for a person: the bot left the chat for a person, for a reason that has no name here'
+    );
+    expect(line).not.toContain('x_y');
+  });
+
+  it('codes that had words only on the counts card read the same in the Activity line', () => {
+    expect(autoReplyWithheldLabel({ source: 'ai_reply', reason: 'ai_error' })).toBe(
+      'The automatic reply was not sent: the AI ran into an error'
+    );
     expect(
-      autoReplyWithheldLabel({ replyPath: 'telegram', reason: 'other', rawReason: 'x_y' })
-    ).toBe('The Telegram bot left this chat for a person: it was held for a person');
+      autoReplyWithheldLabel({ replyPath: 'telegram', reason: 'escalation_confirmed_delayed' })
+    ).toBe('The Telegram bot left this chat for a person: the customer asked for a person');
+    expect(autoReplyReasonWords('greeting_rule_match')).toBe('a greeting rule answered');
+  });
+
+  it('the meaning check on a keyword rule: words, a filter option, and the Activity line', () => {
+    expect(autoReplyReasonWords('rule_not_asked')).toBe(
+      "the customer's message does not ask what this rule answers"
+    );
+    expect(AUTO_REPLY_REASON_FILTERS.map((option) => option.value)).toContain('rule_not_asked');
+    expect(
+      autoReplyWithheldLabel({ reason: 'rule_not_asked', ruleNames: ['Refunds'], ruleIds: [3] })
+    ).toBe(
+      'Keyword rule "Refunds" matched but its reply did not go out: the customer\'s message does not ask what this rule answers'
+    );
+    // A rule's reply that could not be checked reads in words too.
+    expect(
+      autoReplyWithheldLabel({ reason: 'reply_unchecked', ruleNames: ['Refunds'], ruleIds: [3] })
+    ).toBe(
+      'Keyword rule "Refunds" matched but its reply did not go out: the reply could not be checked'
+    );
   });
 
   it('CONTROL: a code nobody knows reads as held for a person, never as itself', () => {
@@ -166,8 +199,19 @@ describe('the Activity line (also the Audit Logs row) never prints a code', () =
     expect(autoReplyWithheldLabel({ source: 'ai_reply', reason: 'would_send' })).toBe(
       'The AI reply passed every check and would have been sent — check-only mode, so it was kept as the draft'
     );
+    // A plain rule's reply is the team's own text; one that adds a knowledge base answer says so.
     expect(
       autoReplyWithheldLabel({ reason: 'would_send', ruleNames: ['Refunds'], ruleIds: [3] })
+    ).toBe(
+      'Keyword rule "Refunds": its reply passed every check and would have been sent — check-only mode, so it was not sent'
+    );
+    expect(
+      autoReplyWithheldLabel({
+        reason: 'would_send',
+        ruleNames: ['Refunds'],
+        ruleIds: [3],
+        knowledgeSource: 'documentation',
+      })
     ).toMatch(
       /^Keyword rule "Refunds": its knowledge base answer passed every check and would have been sent/
     );

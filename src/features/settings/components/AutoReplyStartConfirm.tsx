@@ -10,15 +10,20 @@ import type { AutoReplyMode } from '@/services/organization.service';
  * - `first`: automatic replies are enabled for the first time (no stored choice of what replies).
  *   It is saved as keyword rules only — AI-written replies are a separate, later choice.
  * - `again`: enabled again with the choice stored before (`mode`).
- * - `ai`: the choice is changed to keyword rules AND AI replies.
- * - `kb`: from "AI replies checked, not sent" to "Keyword rules only" — a keyword rule's knowledge
- *   base answer, withheld until now, starts being sent.
+ * - `ai`: the choice is changed to keyword rules AND AI replies (`from` = the choice before).
+ * - `kb`: from "Check only" to "Keyword rules only" — the keyword rules, checked and not sent
+ *   until now, start being sent.
+ * - `wider`: a team's overrides are reset and something it limited gets wider (`changes`).
  */
 export type AutoReplyStart = {
-  kind: 'first' | 'again' | 'ai' | 'kb';
+  kind: 'first' | 'again' | 'ai' | 'kb' | 'wider';
   mode: AutoReplyMode;
+  /** The choice before a change of choice. */
+  from?: AutoReplyMode;
   /** One team's own setting; absent = the workspace's. */
   team?: { id: number; name: string };
+  /** What a reset of the team's overrides widens, each as a sentence. */
+  changes?: string[];
 };
 
 type Mailboxes =
@@ -64,41 +69,57 @@ const readMailboxes = async (teamId: number | undefined): Promise<Mailboxes> => 
   };
 };
 
+/** Said wherever keyword rules are about to send (the settings card says the same). */
+export const RULE_MEANING_NOTE =
+  'Every keyword rule reply is checked first: the AI reads whether the customer is really asking what the rule answers, and holds the reply for a person if not. With no AI provider configured, rule replies are held.';
+
 /** These settings are the EMAIL replies': a Telegram bot and a website chat have their own switches. */
 export const EMAIL_ONLY_NOTE =
   'This covers email only: Telegram bots and website chat widgets answer for real unless their own switches are off.';
 
 const title = (start: AutoReplyStart): string => {
   const scope = start.team ? ` for ${start.team.name}` : '';
-  if (start.kind === 'kb') return `Let keyword rules send knowledge base answers${scope}?`;
+  if (start.kind === 'wider') return `Reset all overrides${scope}?`;
+  if (start.kind === 'kb') return `Let keyword rules send${scope}?`;
   return start.kind === 'ai'
     ? `Let the AI reply on its own${scope}?`
     : `Switch on automatic email replies${scope}?`;
 };
 
+const UNREAD = 'without a person reading them first';
 const what = (start: AutoReplyStart): string => {
+  if (start.kind === 'wider')
+    return 'This team goes back to the workspace settings. That changes what is sent for it:';
   if (start.kind === 'kb')
-    return 'In "Keyword rules only", a keyword rule that adds a knowledge base answer ("Template + KB") emails that answer to customers without a person reading it first. Until now such an answer was checked and not sent.';
+    return `Your keyword rules — those with a fixed text and those that add a knowledge base answer ("Template + KB") — will be emailed to customers ${UNREAD}. Until now they were checked and not sent.`;
   if (start.kind === 'ai')
-    return 'AI-written answers from your knowledge base, and the AI’s questions for missing details, will be emailed to customers without a person reading them first — as your keyword rules already are.';
+    return start.from === 'check_only'
+      ? `Your keyword rules AND AI-written answers from your knowledge base, with the AI's questions for missing details, will be emailed to customers ${UNREAD}. Until now they were checked and not sent.`
+      : `AI-written answers from your knowledge base, and the AI’s questions for missing details, will be emailed to customers ${UNREAD} — as your keyword rules already are.`;
   if (start.mode === 'all')
-    return 'Your keyword rules AND AI-written answers from your knowledge base will be emailed to customers without a person reading them first.';
+    return `Your keyword rules AND AI-written answers from your knowledge base will be emailed to customers ${UNREAD}.`;
   return start.mode === 'check_only'
-    ? 'Your keyword rules with a fixed text will be emailed to customers without a person reading them first.'
-    : 'Your keyword rules will be emailed to customers without a person reading them first.';
+    ? 'Nothing will be emailed. Keyword rule replies and AI replies are written and checked; one that passed every check is kept as the thread’s draft and recorded as "would have been sent". A mailbox’s fixed receipt confirmation still goes out.'
+    : `Your keyword rules will be emailed to customers ${UNREAD}.`;
+};
+
+/** What a team with its own, wider choice sends. */
+const EXCEPTION_SENDS: Record<'all' | 'rules_only', string> = {
+  all: 'keyword rules and AI replies are emailed',
+  rules_only: 'keyword rules are emailed',
 };
 
 /** The confirmation before automatic replies start sending, naming the mailboxes they send from. */
 export function AutoReplyStartConfirm({
   start,
-  teamsWithAi,
+  exceptions,
   onConfirm,
   onClose,
 }: {
   /** null = closed. */
   start: AutoReplyStart | null;
-  /** Teams whose own choice is "Keyword rules and AI replies", by name. */
-  teamsWithAi: string[];
+  /** Teams whose own choice sends more than this confirmation says, with what they send. */
+  exceptions: Array<{ team: string; mode: 'all' | 'rules_only' }>;
   onConfirm: (start: AutoReplyStart) => void;
   onClose: () => void;
 }) {
@@ -130,8 +151,16 @@ export function AutoReplyStartConfirm({
   if (!start) return null;
   const aiStaysOff = start.kind !== 'ai' && start.mode === 'rules_only';
   const aiChecksOnly = start.kind !== 'ai' && start.mode === 'check_only';
-  const confirmText =
-    start.kind === 'ai' ? 'Let the AI reply' : start.kind === 'kb' ? 'Let them send' : 'Switch on';
+  const checkOnly = start.mode === 'check_only' && start.kind !== 'wider';
+  // Keyword rules send in every choice but "check only": their reply is checked for meaning.
+  const rulesSend = start.mode !== 'check_only';
+  const confirmText = {
+    first: 'Switch on',
+    again: 'Switch on',
+    ai: 'Let the AI reply',
+    kb: 'Let them send',
+    wider: 'Reset',
+  }[start.kind];
   const team = start.team?.name;
   return (
     <ConfirmDialog
@@ -148,6 +177,13 @@ export function AutoReplyStartConfirm({
       description={
         <div className="space-y-3" data-testid="auto-reply-start-confirm">
           <p>{what(start)}</p>
+          {start.changes && start.changes.length > 0 && (
+            <ul className="pl-5 list-disc" aria-label="What this reset changes">
+              {start.changes.map((change) => (
+                <li key={change}>{change}</li>
+              ))}
+            </ul>
+          )}
           {mailboxes.state === 'loading' && <p role="status">Reading your mailboxes…</p>}
           {mailboxes.state === 'failed' && (
             <div role="alert" className="space-y-2">
@@ -167,7 +203,13 @@ export function AutoReplyStartConfirm({
           )}
           {mailboxes.state === 'ready' && mailboxes.sending.length > 0 && (
             <div>
-              <p>{team ? `For ${team}, they can be sent from:` : 'They can be sent from:'}</p>
+              <p>
+                {checkOnly
+                  ? `Mail arriving at these mailboxes${team ? ` for ${team}` : ''} is checked:`
+                  : team
+                    ? `For ${team}, they can be sent from:`
+                    : 'They can be sent from:'}
+              </p>
               <ul
                 className="pl-5 mt-1 list-disc"
                 aria-label="Mailboxes that send automatic replies"
@@ -197,7 +239,7 @@ export function AutoReplyStartConfirm({
                 : `the "Automatic replies" switch off for every team ${mailboxes.off === 1 ? 'it is' : 'they are'} linked to and ${mailboxes.off === 1 ? 'sends' : 'send'} nothing.`}
             </p>
           )}
-          {aiStaysOff && (
+          {aiStaysOff && start.kind !== 'wider' && (
             <p>
               The AI&apos;s own replies stay off. A keyword rule that adds a knowledge base answer
               (&quot;Template + KB&quot;) does send that answer. Letting the AI reply on its own is
@@ -207,18 +249,23 @@ export function AutoReplyStartConfirm({
           )}
           {aiChecksOnly && (
             <p>
-              AI replies are written and checked, but never emailed: one that passed every check is
-              kept as the thread&apos;s draft and recorded as &quot;would have been sent&quot;.
-              Letting the AI send is a separate choice: &quot;Keyword rules and AI replies&quot;.
+              Letting them be sent is a separate choice under &quot;What replies on its own&quot;:
+              &quot;Keyword rules only&quot; or &quot;Keyword rules and AI replies&quot;.
             </p>
           )}
-          {(aiStaysOff || aiChecksOnly) && !start.team && teamsWithAi.length > 0 && (
-            <p>
-              Except for {teamsWithAi.join(', ')}:{' '}
-              {teamsWithAi.length === 1 ? 'this team has' : 'these teams have'} their own choice,
-              &quot;Keyword rules and AI replies&quot;.
-            </p>
+          {!start.team && exceptions.length > 0 && (
+            <div>
+              <p>Except for these teams, which have their own choice:</p>
+              <ul className="pl-5 mt-1 list-disc" aria-label="Teams that send more">
+                {exceptions.map((exception) => (
+                  <li key={exception.team}>
+                    {exception.team} — {EXCEPTION_SENDS[exception.mode]}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
+          {rulesSend && <p className="text-muted-foreground">{RULE_MEANING_NOTE}</p>}
           <p className="text-muted-foreground">{EMAIL_ONLY_NOTE}</p>
           <p className="text-muted-foreground">
             Every automatic reply is checked before it is sent; one that fails a check is held for a

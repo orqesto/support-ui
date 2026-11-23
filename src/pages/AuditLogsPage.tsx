@@ -288,7 +288,12 @@ export const AuditLogsPage = () => {
                 // A backend without the counts has no list of several actions either: "All"
                 // would show nothing. It is taken away, and the view falls back to "Sent".
                 setCountsAbsent(true);
-                if (filters.action === AUTO_REPLY_ALL) patchFilter({ action: AUTO_REPLY_SENT });
+                // The action as it is NOW (this callback was made when the card first rendered).
+                const current = useAuditLogsStore.getState().filters;
+                if (current.action === AUTO_REPLY_ALL) {
+                  setFilters({ ...current, action: AUTO_REPLY_SENT });
+                  setCurrentPage(1);
+                }
               }}
             />
           )}
@@ -331,7 +336,7 @@ export const AuditLogsPage = () => {
                       className="min-w-[13rem]"
                       aria-label="Filter by reason"
                     />
-                    {(filters.reason || filters.channel) && !filters.startDate && (
+                    {(filters.reason ?? filters.channel) && !filters.startDate && (
                       <span className="text-xs text-muted-foreground">
                         Showing the last 7 days — choose a date range for older entries.
                       </span>

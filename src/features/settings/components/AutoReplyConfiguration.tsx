@@ -20,7 +20,11 @@ import {
 import { getApiErrorMessage, getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 import { Permission } from '@/types/roles';
 import { AutoReplyRulesSection } from './AutoReplyRulesSection';
-import { AutoReplyStartConfirm, type AutoReplyStart } from './AutoReplyStartConfirm';
+import {
+  AutoReplyStartConfirm,
+  RULE_MEANING_NOTE,
+  type AutoReplyStart,
+} from './AutoReplyStartConfirm';
 import { FeatureSuggestions } from './FeatureSuggestions';
 import {
   BUILT_IN_NOTE,
@@ -83,14 +87,14 @@ const formatThreshold = (value: number): string => `${Math.round(value * 100)}%`
 
 const MODE_LABEL: Record<AutoReplyMode, string> = {
   all: 'Keyword rules and AI replies',
-  check_only: 'Keyword rules; AI replies checked, not sent',
+  check_only: 'Check only: nothing is emailed',
   rules_only: 'Keyword rules only',
 };
 const MODES: AutoReplyMode[] = ['all', 'check_only', 'rules_only'];
 const MODE_HELP =
   'Keyword rules only: only your keyword rules reply — a rule that adds a knowledge base answer ("Template + KB") sends that answer too. The AI never replies on its own.';
 export const CHECK_ONLY_HELP =
-  'AI replies checked, not sent: the AI writes its reply and it goes through every check, but it is never emailed. A reply that passed is kept as the thread\'s draft and recorded as "would have been sent" (Audit Logs), so you can see what the AI would do before letting it send. Keyword rules with a fixed text still send; a rule that adds a knowledge base answer is checked and not sent. This covers email only: Telegram bots and website chat widgets answer for real unless their own switches are off.';
+  'Check only: nothing automatic is emailed, except a mailbox\'s fixed receipt confirmation. Keyword rule replies and AI replies are written and go through every check; one that passed is kept as the thread\'s draft and recorded as "would have been sent" (Audit Logs), so you can see what would go out before you let it. This covers email only: Telegram bots and website chat widgets answer for real unless their own switches are off.';
 /** The team keys the server's per-team change accepts (its list is strict: any other → 400). */
 const TEAM_CHANGE_KEYS: readonly string[] = [
   'autoReplyEnabled',
@@ -118,11 +122,79 @@ const teamChange = (before: Settings, after: Settings): TeamSettingsChange['sett
   return change;
 };
 
-/** Does a team change anything of the default? Its extra restricted topics alone do not. */
-const overridesDefault = (settings: Settings | undefined): boolean => {
-  const { restrictedTopics: _topics, ...overrides } = settings ?? {};
-  return hasOtherOverrides(overrides);
+/**
+ * Teams that will send MORE than a workspace confirmation says, because of their own choice: the
+ * AI too (own "Keyword rules and AI replies"), or keyword rules under a check-only workspace (own
+ * "Keyword rules only"). A switched-off team with such a stored choice is named too — the
+ * backend applies it to threads that still carry that team.
+ */
+const teamExceptions = (
+  mode: AutoReplyMode | undefined,
+  perDept: Record<string, Settings>,
+  departments: ReadonlyArray<{ id: number; name: string; active?: boolean }>
+): Array<{ team: string; mode: 'all' | 'rules_only' }> => {
+  if (mode === undefined || mode === 'all') return [];
+  const found: Array<{ team: string; mode: 'all' | 'rules_only' }> = [];
+  for (const [id, own] of Object.entries(perDept)) {
+    if (own?.autoReplyEnabled === false) continue;
+    const wider =
+      own?.autoReplyMode === 'all' ||
+      (own?.autoReplyMode === 'rules_only' && mode === 'check_only');
+    if (!wider) continue;
+    const dept = departments.find((row) => String(row.id) === id);
+    const name = dept ? dept.name : 'a team that no longer exists';
+    found.push({
+      team: dept?.active === false ? `${name} (switched off)` : name,
+      mode: own.autoReplyMode as 'all' | 'rules_only',
+    });
+  }
+  return found;
 };
+
+const isMode = (value: unknown): value is AutoReplyMode =>
+  value === 'all' || value === 'rules_only' || value === 'check_only';
+
+/**
+ * What a reset of a team's overrides makes WIDER than the team had: its stop phrases go, the AI
+ * needs less confidence, partial answers or the missing-info email start. Each as a sentence for
+ * the confirmation; nothing = the reset only narrows or changes nothing of these.
+ */
+const widenedByReset = (team: Settings, workspace: Settings): string[] => {
+  const changes: string[] = [];
+  const phrases = team.escalationPhrases ?? [];
+  if (phrases.length > 0)
+    changes.push(
+      `Removes this team's ${phrases.length === 1 ? 'stop phrase' : `${phrases.length} stop phrases`} (${phrases.map((phrase) => `"${phrase}"`).join(', ')}): a message containing one was never answered automatically.`
+    );
+  const own = team.autoReplyHighConfidenceThreshold;
+  const inherited = workspace.autoReplyHighConfidenceThreshold ?? DEFAULT_THRESHOLD;
+  if (own !== undefined && inherited < own)
+    changes.push(
+      `Lowers the confidence the AI needs before it replies from ${formatThreshold(own)} to ${formatThreshold(inherited)}.`
+    );
+  if (
+    team.autoReplyPartialAnswer === 'hand_to_agent' &&
+    workspace.autoReplyPartialAnswer === 'send_and_follow_up'
+  )
+    changes.push(
+      'Lets the AI send an answer to only some of the questions and follow up (this team handed those to an agent).'
+    );
+  if (team.autoReplyRequestMissingInfo === false && (workspace.autoReplyRequestMissingInfo ?? true))
+    changes.push(
+      'Lets the AI email customers to ask for missing details (off for this team until now).'
+    );
+  return changes;
+};
+
+/** Does a team change anything of the default? Its extra restricted topics alone do not. */
+const overridesDefault = (settings: Settings | undefined): boolean =>
+  // Only what a reset can clear: a key the server's per-team change does not know is not an
+  // override the page can act on (it would leave a Reset button that changes nothing).
+  hasOtherOverrides(
+    Object.fromEntries(
+      Object.entries(settings ?? {}).filter(([key]) => TEAM_CHANGE_KEYS.includes(key))
+    )
+  );
 
 const TEAM_GONE =
   'This team is switched off or no longer exists, so its restricted topics cannot be changed.';
@@ -314,6 +386,33 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     const data = (stored as { data?: Record<string, unknown> } | undefined)?.data;
     if (!data || typeof data !== 'object') return false;
     if (typeof data.updatedAt === 'string') updatedAtRef.current = data.updatedAt;
+    // EVERYTHING the answer carries is what is stored now — also when this save was about
+    // something else (a topic): the switch and the choice may have been changed by someone else,
+    // and the next confirmation must describe what is stored, not what this page read earlier.
+    const before = JSON.stringify([orgRef.current.autoReplyEnabled, orgRef.current.autoReplyMode]);
+    const fresh: Settings = {
+      ...(typeof data.enabled === 'boolean' && { autoReplyEnabled: data.enabled }),
+      ...(isMode(data.mode) && { autoReplyMode: data.mode }),
+      ...(typeof data.requestMissingInfo === 'boolean' && {
+        autoReplyRequestMissingInfo: data.requestMissingInfo,
+      }),
+      ...(typeof data.suggestSolutions === 'boolean' && {
+        autoReplySuggestSolutions: data.suggestSolutions,
+      }),
+      ...(typeof data.highConfidenceThreshold === 'number' && {
+        autoReplyHighConfidenceThreshold: data.highConfidenceThreshold,
+      }),
+      ...((data.partialAnswer === 'hand_to_agent' ||
+        data.partialAnswer === 'send_and_follow_up') && {
+        autoReplyPartialAnswer: data.partialAnswer,
+      }),
+    };
+    if (Object.keys(fresh).length > 0) {
+      orgRef.current = { ...orgRef.current, ...fresh };
+      setOrg((prev) => ({ ...prev, ...fresh }));
+    }
+    if ('modeStored' in data) setModeStored(data.modeStored !== null && isMode(data.modeStored));
+    const teamsBefore = JSON.stringify(perDeptRef.current);
     const topics = readRestrictedTopics(data.restrictedTopics);
     if (topics) {
       orgRef.current = { ...orgRef.current, restrictedTopics: topics };
@@ -322,10 +421,18 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     const topicTeamsNow = readTopicTeams(data.restrictedTopicTeams);
     if (topicTeamsNow) setTopicTeams(topicTeamsNow);
     const teams = data.departmentSettings;
-    if (!teams || typeof teams !== 'object') return false;
-    perDeptRef.current = teams as Record<string, Settings>;
-    setPerDept(perDeptRef.current);
-    return true;
+    const hasTeams = Boolean(teams) && typeof teams === 'object';
+    if (hasTeams) {
+      perDeptRef.current = teams as Record<string, Settings>;
+      setPerDept(perDeptRef.current);
+    }
+    // A confirmation still open described the switch, the choice and the teams as they were.
+    if (
+      before !== JSON.stringify([orgRef.current.autoReplyEnabled, orgRef.current.autoReplyMode]) ||
+      teamsBefore !== JSON.stringify(perDeptRef.current)
+    )
+      setPendingStart(null);
+    return hasTeams;
   }, []);
 
   const saveFailed = useCallback(
@@ -553,6 +660,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                 : { scope: 'team' as const, departmentId: deptId }),
               ...('add' in change ? { add: [change.add] } : { remove: [change.remove] }),
             },
+            // The stale-page stamp, as on every other save of this card.
+            ...(typeof updatedAtRef.current === 'string' && {
+              expectedUpdatedAt: updatedAtRef.current,
+            }),
           });
           applyStored(stored);
           // The server keeps a topic it already stores under another spelling: answered 200, and
@@ -636,14 +747,23 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         return first ? { ...changed, autoReplyMode: 'rules_only' as const } : changed;
       });
     const team = { id: dept.id, name: dept.name };
+    const wasMode: AutoReplyMode = now.autoReplyMode ?? orgHas;
+    // A reset also drops the team's own limits: what gets wider than what the team inherits is
+    // said, and asked, before it happens.
+    const changes = change(now) === null && willOn ? widenedByReset(now, org) : [];
     if (!wasOn && willOn)
-      setPendingStart({ start: { kind: first ? 'first' : 'again', mode: willMode, team }, apply });
-    else if (willOn && (now.autoReplyMode ?? orgHas) !== 'all' && willMode === 'all')
-      setPendingStart({ start: { kind: 'ai', mode: 'all', team }, apply });
-    // Out of "checked, not sent" into "keyword rules only": a rule's knowledge base answer,
-    // withheld until now, starts being sent.
-    else if (willOn && (now.autoReplyMode ?? orgHas) === 'check_only' && willMode === 'rules_only')
-      setPendingStart({ start: { kind: 'kb', mode: 'rules_only', team }, apply });
+      setPendingStart({
+        start: { kind: first ? 'first' : 'again', mode: willMode, team, changes },
+        apply,
+      });
+    else if (willOn && wasMode !== 'all' && willMode === 'all')
+      setPendingStart({ start: { kind: 'ai', mode: 'all', from: wasMode, team, changes }, apply });
+    // Out of "check only" into "keyword rules only": the keyword rules, checked and not sent
+    // until now, start being sent.
+    else if (willOn && wasMode === 'check_only' && willMode === 'rules_only')
+      setPendingStart({ start: { kind: 'kb', mode: 'rules_only', team, changes }, apply });
+    else if (changes.length > 0)
+      setPendingStart({ start: { kind: 'wider', mode: willMode, team, changes }, apply });
     else apply();
   };
   const changeTeamSending = (
@@ -711,7 +831,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                 ' · keyword rules only'}
               {org.autoReplyEnabled &&
                 org.autoReplyMode === 'check_only' &&
-                ' · keyword rules; AI replies checked, not sent (email only)'}
+                ' · check only: nothing is emailed (email only)'}
               . Only workspace admins and moderators can change automatic reply settings.
             </p>
             {topicsSupported && (
@@ -794,12 +914,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     <div className="space-y-4">
       <AutoReplyStartConfirm
         start={pendingStart?.start ?? null}
-        teamsWithAi={activeDepts
-          .filter((dept) => {
-            const own = perDept[String(dept.id)];
-            return own?.autoReplyMode === 'all' && own.autoReplyEnabled !== false;
-          })
-          .map((dept) => dept.name)}
+        exceptions={teamExceptions(pendingStart?.start.mode, perDept, departments)}
         onClose={() => setPendingStart(null)}
         onConfirm={() => {
           // Once: what was confirmed is taken off before it runs, so a second press finds nothing.
@@ -938,7 +1053,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                                     : null;
                               if (kind)
                                 setPendingStart({
-                                  start: { kind, mode },
+                                  start: { kind, mode, from: orgMode },
                                   apply: () => void saveOrg({ mode }),
                                 });
                               else void saveOrg({ mode });
@@ -949,6 +1064,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         ))}
                       </div>
                       <p className="text-xs text-muted-foreground">{MODE_HELP}</p>
+                      {newContract && (
+                        <p className="text-xs text-muted-foreground">{RULE_MEANING_NOTE}</p>
+                      )}
                       {newContract && (
                         <p className="text-xs text-muted-foreground">{CHECK_ONLY_HELP}</p>
                       )}

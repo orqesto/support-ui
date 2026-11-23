@@ -196,7 +196,8 @@ describe('the first time automatic replies are switched on', () => {
     state.departmentSettings = { '7': { autoReplyMode: 'all' } };
     await show();
     fireEvent.click(workspaceSwitch());
-    expect(await dialog().findByText(/Except for Billing/)).toBeInTheDocument();
+    const exceptions = await dialog().findByRole('list', { name: 'Teams that send more' });
+    expect(exceptions.textContent).toBe('Billing — keyword rules and AI replies are emailed');
   });
 
   it('a mailbox list that cannot be read blocks the switch; "Try again" reads it and unblocks', async () => {
@@ -421,7 +422,7 @@ describe('"Reset all overrides" for a team', () => {
   it('CONTROL: a reset that starts nothing is saved at once', async () => {
     state.enabled = true;
     state.storedMode = 'all';
-    state.departmentSettings = { '7': { autoReplyHighConfidenceThreshold: 0.95 } };
+    state.departmentSettings = { '7': { autoReplySuggestSolutions: false } };
     await show();
     fireEvent.click(reset());
     await waitFor(() => expect(lastTeams()).toEqual({}));
