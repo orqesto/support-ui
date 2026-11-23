@@ -7,25 +7,80 @@
  * off it. Keeping the rule pure makes it testable without mounting the wizard.
  */
 
-// Knowledge is intentionally LAST of the core steps: get the setup working
-// (AI, storage, channels, team) first, then add KB.
-//
-// There is deliberately NO standalone "departments" step: a department only
-// becomes reachable once a message source serves it (message_source_departments),
-// so departments are set up in the Channels step / Settings routing, never picked
-// in the abstract here.
-// Database sits right after AI and BEFORE Channels on purpose: once a channel is connected
-// mail starts landing, and it must land in the database the workspace will keep (BYODB §4).
-export const STEP_LABELS = [
-  'AI setup',
-  'Database',
-  'Storage',
-  'Channels',
-  'People',
-  'Knowledge',
-] as const;
+/**
+ * The wizard's steps, by id (settings quick wins, owner 11-23: "humans are lazy").
+ *
+ * Mailbox and People come first. The AI step is asked only while the AI choice is open, Database
+ * only where the managed database is not allowed, Payment only where billing is configured.
+ * Storage and Knowledge are no longer wizard steps (Settings has both).
+ *
+ * There is deliberately NO standalone "departments" step: a department only becomes reachable
+ * once a message source serves it, so departments are set up with the mailbox / Settings routing.
+ * Database sits before the mailbox on purpose: once a channel is connected mail starts landing,
+ * and it must land in the database the workspace will keep (BYODB §4).
+ */
+export type StepId = 'ai' | 'database' | 'channels' | 'people' | 'payment';
 
-export const PAYMENT_STEP_LABEL = 'Payment';
+/** The SAVED step numbers (`onboarding.currentStep`), unchanged: 3 and 6 were Storage and Knowledge. */
+export const STEP_NUMBER: Record<StepId, 1 | 2 | 4 | 5 | 7> = {
+  ai: 1,
+  database: 2,
+  channels: 4,
+  people: 5,
+  payment: 7,
+};
+
+export const STEP_LABEL: Record<StepId, string> = {
+  ai: 'AI setup',
+  database: 'Database',
+  channels: 'Mailbox',
+  people: 'People',
+  payment: 'Payment',
+};
+
+export const STEP_TITLE: Record<StepId, string> = {
+  ai: 'How should AI features work?',
+  database: 'Where should your data live?',
+  channels: 'Connect your mailbox',
+  people: 'Who answers your mail?',
+  payment: 'Choose your plan',
+};
+
+/**
+ * Which steps this workspace is asked. The AI step stays unless our AI was chosen where it can be
+ * used: self-hosted and billing-off installs keep the choice; a workspace with no saved choice (made
+ * by a global admin) is asked rather than guessed; a saved own key keeps it, because the key form
+ * lives only there and a reload before the key is saved must not leave the workspace with no AI.
+ */
+export const buildWizardSteps = ({
+  billingEnabled,
+  managedAiAvailable,
+  managedDbAllowed,
+  savedAiChoice,
+}: {
+  billingEnabled: boolean;
+  managedAiAvailable: boolean;
+  managedDbAllowed: boolean;
+  savedAiChoice: 'managed' | 'byo' | undefined;
+}): StepId[] => {
+  const steps: StepId[] = [];
+  if (!billingEnabled || !managedAiAvailable || savedAiChoice !== 'managed') steps.push('ai');
+  if (!managedDbAllowed) steps.push('database');
+  steps.push('channels', 'people');
+  if (shouldShowPaymentStep(billingEnabled)) steps.push('payment');
+  return steps;
+};
+
+/**
+ * Where a saved step number resumes: the first step at or after it (a saved 3, the old Storage
+ * step, resumes on the mailbox), else the last. 0 with nothing saved — and for an empty list, which
+ * is what the wizard has until the step list is taken.
+ */
+export const resumeIndex = (steps: readonly StepId[], saved: number | undefined): number => {
+  if (saved === undefined || steps.length === 0) return 0;
+  const found = steps.findIndex((id) => STEP_NUMBER[id] >= saved);
+  return found === -1 ? steps.length - 1 : found;
+};
 
 /**
  * Plans that get the optional payment step. Mirrors the BE's paid self-serve
@@ -119,6 +174,3 @@ export const channelRequiredToFinish = ({
   if (cardAdded) return true;
   return plan !== null && isOnPaidPlan(plan);
 };
-
-export const buildStepLabels = (includePayment: boolean): readonly string[] =>
-  includePayment ? [...STEP_LABELS, PAYMENT_STEP_LABEL] : STEP_LABELS;

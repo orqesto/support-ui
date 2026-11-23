@@ -1,13 +1,12 @@
 import { Check } from 'lucide-react';
-import { STEP_LABELS } from './wizardSteps';
 import { cn } from '@/lib/utils';
 
 type Props = {
   activeStep: number; // 1-based
-  labels?: readonly string[];
+  labels: readonly string[];
 };
 
-export const StepIndicator = ({ activeStep, labels = STEP_LABELS }: Props) => (
+export const StepIndicator = ({ activeStep, labels }: Props) => (
   <div className="space-y-2">
     <ol className="flex items-center justify-center gap-2 sm:gap-3">
       {labels.map((label, index) => {

@@ -12,15 +12,14 @@ import { render, screen, cleanup } from '@testing-library/react';
  * The steps are stubbed: each has its own tests, and this is about the footer gate only.
  */
 
-vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
+const navigate = vi.hoisted(() => vi.fn());
+vi.mock('react-router-dom', () => ({ useNavigate: () => navigate }));
 
 vi.mock('../steps/AiChoiceStep', () => ({ AiChoiceStep: () => null }));
 vi.mock('../steps/ChannelsStep', () => ({ ChannelsStep: () => null }));
 vi.mock('../steps/DatabaseStep', () => ({ DatabaseStep: () => null }));
 vi.mock('../steps/InviteTeamStep', () => ({ InviteTeamStep: () => null }));
-vi.mock('../steps/KbStep', () => ({ KbStep: () => null }));
 vi.mock('../steps/PaymentStep', () => ({ PaymentStep: () => null }));
-vi.mock('../steps/StorageStep', () => ({ StorageStep: () => null }));
 vi.mock('../SetupReconcileNotice', () => ({ SetupReconcileNotice: () => null }));
 vi.mock('@/components/layout/ThemeToggle', () => ({ ThemeToggle: () => null }));
 
