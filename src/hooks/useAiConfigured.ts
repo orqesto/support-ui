@@ -2,17 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { aiService } from '@/services/ai.service';
 
 /**
- * Whether the current org has at least one AI provider enabled.
+ * Whether the workspace has AI at all (a provider of its own, or platform AI): what the app's AI
+ * buttons and the message-processing widget ask. `aiConfigured` is `true` while the answer is
+ * loading or could not be read, so nothing flickers or hides on an unknown.
  *
- * Used by the message-processing widget to suppress the "Missing AI" gap
- * indicator when no provider is configured — in that mode every batch
- * trivially has zero analysis, which is the *expected* state, not a gap.
- *
- * Returns:
- *   - `data`:    `true` if any provider is enabled (default to `true` while
- *                loading to avoid a flicker that hides the gap badge on a
- *                healthy-but-still-fetching first render)
- *   - `isLoading` for callers that want to wait
+ * It does NOT say whether that AI can actually be used right now: the keyword-rules screen asks
+ * that through `useRuleCheckAi` (settings feature), which reads the backend's own `usable` answer.
  */
 /**
  * Does this org have AI at all — from either source?

@@ -220,13 +220,35 @@ describe('Audit Logs — automatic replies', () => {
 
 describe('Audit Logs — a list that cannot be read', () => {
   it('says so, where an empty table would read as "nothing happened"', async () => {
+    // The shape the api-client's interceptor hands on (`status` and `data` on the error itself).
     state.listError = Object.assign(new Error('Request failed'), {
-      response: { status: 400, data: { success: false, error: 'Organization context required' } },
+      status: 400,
+      data: { success: false, error: 'Organization context required' },
     });
     await show([]);
-    expect((await screen.findByRole('alert')).textContent).toContain(
-      'Organization context required'
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'The audit log could not be loaded: Organization context required'
     );
+  });
+
+  it('a server failure gets the plain sentence, with no technical text', async () => {
+    state.listError = Object.assign(new Error('Request failed with status code 500'), {
+      status: 500,
+      data: { success: false, error: 'relation "audit_logs" does not exist' },
+    });
+    await show([]);
+    expect((await screen.findByRole('alert')).textContent).toBe(
+      'The audit log could not be loaded.'
+    );
+  });
+
+  it('the rows of the request before it leave: they are not the failed request\'s answer', async () => {
+    await show([log(1, SENT, 41, { source: 'keyword_rule', ruleName: 'Refunds', keyword: 'refund' })]);
+    await waitFor(() => expect(screen.getAllByText(/Refunds/).length).toBeGreaterThan(0));
+    state.listError = Object.assign(new Error('Request failed'), { status: 503, data: {} });
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh the audit log' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText(/Refunds/)).toBeNull());
   });
 
   it('CONTROL: a list that loads shows no error', async () => {
@@ -292,6 +314,17 @@ describe('Audit Logs — the automatic replies view (backend 2026-11-23)', () =>
     ).toBeNull();
   });
 
+  it('the button is for the unfiltered page: with another filter chosen it is not offered', async () => {
+    await show([]);
+    await pick('Filter by action', 'User → Create');
+    await waitFor(() => expect(lastAsked().action).toBe('user.create'));
+    expect(
+      screen.queryByRole('button', {
+        name: 'Automatic replies: sent, held and would have been sent',
+      })
+    ).toBeNull();
+  });
+
   it('CONTROL: outside the view there is no counts card and no reason or channel filter', async () => {
     await show([]);
     expect(screen.queryByTestId('auto-reply-counts')).toBeNull();
@@ -347,6 +380,22 @@ describe('Audit Logs — the automatic replies view (backend 2026-11-23)', () =>
     const options = await listOptions(screen.getByRole('combobox', { name: 'Filter by action' }));
     expect(options).not.toContain('Automatic reply → All');
     expect(options).toContain('Automatic reply → Sent');
+  });
+
+  it('…and the button back on the unfiltered page then promises only what it opens: the sent ones', async () => {
+    state.countsError = { status: 404, message: 'Not found' };
+    await show([]);
+    await pick('Filter by action', 'Automatic reply → All');
+    await waitFor(() => expect(lastAsked().action).toBe(SENT));
+    fireEvent.click(screen.getByRole('button', { name: /Clear all/ }));
+    await waitFor(() => expect(lastAsked().action).toBeUndefined());
+    expect(
+      screen.queryByRole('button', {
+        name: 'Automatic replies: sent, held and would have been sent',
+      })
+    ).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Automatic replies that were sent' }));
+    await waitFor(() => expect(lastAsked().action).toBe(SENT));
   });
 
   it('…also when "All" was chosen while the counts were still on their way', async () => {

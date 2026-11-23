@@ -469,7 +469,11 @@ describe('Keyword rules: the backend says whether its AI can be used (`usable`)'
   });
 
   it('coming back to the screen asks again: a provider added meanwhile removes the warning', async () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    // The app's own default (lib/queryClient): with a client that has no stale time every query
+    // re-reads on mount anyway, and the hook's own "always ask again" would not be under test.
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+    });
     const mount = () =>
       render(
         <QueryClientProvider client={client}>
@@ -489,6 +493,35 @@ describe('Keyword rules: the backend says whether its AI can be used (`usable`)'
     mount();
     await settled();
     expect(api.providerReads).toBe(readsBefore + 1);
+    expect(held()).toBeNull();
+  });
+});
+
+describe('Keyword rules: nothing is claimed while the answer is being asked again', () => {
+  const held = () => screen.queryByRole('status', { name: 'Keyword rule replies are held' });
+
+  it('on return the old "none is set up" does not flash while the new answer is on its way', async () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+    });
+    const mount = () =>
+      render(
+        <QueryClientProvider client={client}>
+          <MemoryRouter>
+            <AutoReplyRulesSection canManage autoReplyEnabled onShowAlert={() => undefined} />
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+    api.rules = [refundRule];
+    api.ai = 'none';
+    const first = mount();
+    await waitFor(() => expect(held()).toBeTruthy());
+    first.unmount();
+    // The re-read never settles: all the screen has is the previous answer, which may be stale.
+    api.ai = 'pending';
+    mount();
+    await screen.findByText('Refunds');
+    await new Promise((resolve) => setTimeout(resolve, 20));
     expect(held()).toBeNull();
   });
 });
