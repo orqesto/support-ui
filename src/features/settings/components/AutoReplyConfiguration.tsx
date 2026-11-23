@@ -167,7 +167,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   // choice (as the backend acts), so the stored key itself is read from the workspace row.
   const [modeStored, setModeStored] = useState(true);
   /** What is about to be switched on, awaiting the confirmation that names the mailboxes. */
-  const [pendingStart, setPendingStart] = useState<AutoReplyStart | null>(null);
+  const [pendingStart, setPendingStart] = useState<{
+    start: AutoReplyStart;
+    apply: () => void;
+  } | null>(null);
 
   const [loading, setLoading] = useState(true);
   /** Which rows have a save queued or in flight: 'org', or a team's id as text. */
@@ -496,11 +499,41 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       return value === undefined ? rest : { ...rest, [key]: value };
     });
 
-  /** A team's mode; `undefined` = same as the workspace (the key is dropped). */
-  const setDeptMode = (deptId: number, mode: AutoReplyMode | undefined) => {
-    if (mode === undefined && perDeptRef.current[String(deptId)]?.autoReplyMode === undefined)
-      return;
-    setDeptKey(deptId, 'autoReplyMode', mode);
+  /**
+   * A team's enable or mode change. One that makes the team START sending — replies at all, or
+   * the AI's — is confirmed first, naming that team's mailboxes; anything else is saved at once.
+   * A team switched on while the workspace never stored what replies gets keyword rules only,
+   * as the workspace's first enable does.
+   */
+  const changeTeamSending = (
+    dept: { id: number; name: string },
+    key: 'autoReplyEnabled' | 'autoReplyMode',
+    value: boolean | AutoReplyMode | undefined
+  ) => {
+    const now = perDeptRef.current[String(dept.id)] ?? {};
+    if (now[key] === value) return;
+    const next: Settings = { ...now, [key]: value };
+    const orgOn = orgRef.current.autoReplyEnabled ?? false;
+    const orgHas: AutoReplyMode = orgRef.current.autoReplyMode ?? 'all';
+    const wasOn = now.autoReplyEnabled ?? orgOn;
+    const willOn = next.autoReplyEnabled ?? orgOn;
+    const first = !wasOn && willOn && !modeStored && next.autoReplyMode === undefined;
+    const willMode: AutoReplyMode = first ? 'rules_only' : (next.autoReplyMode ?? orgHas);
+    const apply = () =>
+      void updateDept(dept.id, (current) => {
+        const { [key]: _omit, ...rest } = current;
+        return {
+          ...rest,
+          ...(value !== undefined && { [key]: value }),
+          ...(first && { autoReplyMode: 'rules_only' as const }),
+        };
+      });
+    const team = { id: dept.id, name: dept.name };
+    if (!wasOn && willOn)
+      setPendingStart({ start: { kind: first ? 'first' : 'again', mode: willMode, team }, apply });
+    else if (willOn && (now.autoReplyMode ?? orgHas) !== 'all' && willMode === 'all')
+      setPendingStart({ start: { kind: 'ai', mode: 'all', team }, apply });
+    else apply();
   };
 
   /** A team's partial-answer choice; `undefined` = same as the workspace (the key is dropped). */
@@ -604,7 +637,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   return (
     <div className="space-y-4">
       <AutoReplyStartConfirm
-        start={pendingStart}
+        start={pendingStart?.start ?? null}
         teamIsOff={(departmentId) => perDept[String(departmentId)]?.autoReplyEnabled === false}
         teamsWithAi={activeDepts
           .filter((dept) => {
@@ -613,11 +646,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           })
           .map((dept) => dept.name)}
         onClose={() => setPendingStart(null)}
-        onConfirm={(start) => {
-          if (start.kind === 'ai') void saveOrg({ mode: 'all' });
-          else if (start.kind === 'first') void saveOrg({ enabled: true, mode: 'rules_only' });
-          else void saveOrg({ enabled: true });
-        }}
+        onConfirm={() => pendingStart?.apply()}
       />
       <Card>
         <CardHeader>
@@ -702,8 +731,16 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       // Off is immediate. On is confirmed first, naming what starts sending and
                       // from which mailboxes; the first time it is keyword rules only.
                       if (!next) void saveOrg({ enabled: false });
-                      else if (modeStored) setPendingStart({ kind: 'again', mode: orgMode });
-                      else setPendingStart({ kind: 'first', mode: 'rules_only' });
+                      else if (modeStored)
+                        setPendingStart({
+                          start: { kind: 'again', mode: orgMode },
+                          apply: () => void saveOrg({ enabled: true }),
+                        });
+                      else
+                        setPendingStart({
+                          start: { kind: 'first', mode: 'rules_only' },
+                          apply: () => void saveOrg({ enabled: true, mode: 'rules_only' }),
+                        });
                     }}
                   />
                 </div>
@@ -730,7 +767,11 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                             onClick={() => {
                               if (orgMode === mode) return;
                               // The AI starting to send on its own is confirmed first.
-                              if (mode === 'all') setPendingStart({ kind: 'ai', mode });
+                              if (mode === 'all')
+                                setPendingStart({
+                                  start: { kind: 'ai', mode },
+                                  apply: () => void saveOrg({ mode }),
+                                });
                               else void saveOrg({ mode });
                             }}
                           >
@@ -945,7 +986,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         variant="outline"
                         size="sm"
                         disabled={isSaving}
-                        onClick={() => setDeptKey(dept.id, 'autoReplyEnabled', undefined)}
+                        onClick={() => changeTeamSending(dept, 'autoReplyEnabled', undefined)}
                         className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
                           !hasOverride
                             ? 'bg-primary text-primary-foreground border-primary'
@@ -959,7 +1000,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         variant="outline"
                         size="sm"
                         disabled={isSaving}
-                        onClick={() => setDeptKey(dept.id, 'autoReplyEnabled', true)}
+                        onClick={() => changeTeamSending(dept, 'autoReplyEnabled', true)}
                         className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
                           overrideEnabled === true
                             ? 'bg-success/15 text-success border-success/40'
@@ -973,7 +1014,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         variant="outline"
                         size="sm"
                         disabled={isSaving}
-                        onClick={() => setDeptKey(dept.id, 'autoReplyEnabled', false)}
+                        onClick={() => changeTeamSending(dept, 'autoReplyEnabled', false)}
                         className={`px-2 py-0.5 h-auto text-[10px] rounded-full ${
                           overrideEnabled === false
                             ? 'bg-destructive/15 text-destructive border-destructive/40'
@@ -1001,7 +1042,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                             size="sm"
                             aria-pressed={overrideMode === undefined}
                             disabled={isSaving}
-                            onClick={() => setDeptMode(dept.id, undefined)}
+                            onClick={() => changeTeamSending(dept, 'autoReplyMode', undefined)}
                             className={pillClass(overrideMode === undefined)}
                           >
                             Same as workspace ({MODE_LABEL[orgMode]})
@@ -1015,7 +1056,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                               aria-pressed={overrideMode === mode}
                               disabled={isSaving}
                               onClick={() => {
-                                if (overrideMode !== mode) setDeptMode(dept.id, mode);
+                                changeTeamSending(dept, 'autoReplyMode', mode);
                               }}
                               className={pillClass(overrideMode === mode)}
                             >

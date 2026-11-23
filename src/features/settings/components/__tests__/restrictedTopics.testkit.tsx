@@ -117,6 +117,13 @@ const serverSave = (body: Record<string, unknown>) => {
 
 // (A hoisted value cannot be exported where it is declared.)
 export { state };
+// The confirmation before something starts sending reads the mailboxes (none here).
+vi.mock('@/services/integrations.service', () => ({
+  integrationsService: {
+    getAll: () => Promise.resolve({ success: true, data: [] }),
+    getSourceDepartments: () => Promise.resolve({ success: true, data: [] }),
+  },
+}));
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,

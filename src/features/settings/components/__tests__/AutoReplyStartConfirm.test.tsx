@@ -169,13 +169,29 @@ describe('the first time automatic replies are switched on', () => {
     expect(await dialog().findByText(/Except for Billing/)).toBeInTheDocument();
   });
 
-  it('a mailbox list that cannot be read is said so, and the switch can still be confirmed', async () => {
+  it('a mailbox list that cannot be read blocks the switch; "Try again" reads it and unblocks', async () => {
     state.mailboxesFail = true;
     await show();
     fireEvent.click(workspaceSwitch());
-    expect(await dialog().findByRole('alert')).toHaveTextContent(/could not be read/);
+    expect(await dialog().findByRole('alert')).toHaveTextContent(
+      /could not be read, so nothing is/
+    );
+    expect(dialog().queryByRole('button', { name: 'Switch on' })).toBeNull();
+    expect(state.updates).toEqual([]);
+    state.mailboxesFail = false;
+    fireEvent.click(dialog().getByRole('button', { name: 'Try again' }));
+    expect(await mailboxList()).toContain('help@shop.example');
     fireEvent.click(dialog().getByRole('button', { name: 'Switch on' }));
     await waitFor(() => expect(state.updates).toEqual([{ enabled: true, mode: 'rules_only' }]));
+  });
+
+  it('nothing can be confirmed while the mailboxes are still being read', async () => {
+    await show();
+    fireEvent.click(workspaceSwitch());
+    // Synchronously after the press: the read has not answered yet.
+    expect(dialog().getByRole('status')).toHaveTextContent('Reading your mailboxes');
+    expect(dialog().queryByRole('button', { name: 'Switch on' })).toBeNull();
+    expect(await mailboxList()).toContain('help@shop.example');
   });
 });
 
@@ -245,6 +261,93 @@ describe('CONTROL: switching off, and back to keyword rules only, ask nothing', 
     await show();
     fireEvent.click(choice().getByRole('button', { name: 'Keyword rules only' }));
     await waitFor(() => expect(state.updates).toEqual([{ mode: 'rules_only' }]));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe("a team's own setting", () => {
+  const team = () =>
+    within(screen.getByRole('group', { name: 'What replies on its own for Billing' }));
+  const teamUpdate = () =>
+    (state.updates.at(-1) as { departmentSettings?: Record<string, unknown> } | undefined)
+      ?.departmentSettings;
+
+  it('"Override: on" while the workspace is off: asks first, naming that team’s mailboxes only', async () => {
+    state.storedMode = 'rules_only';
+    state.departmentSettings = {};
+    await show();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Override: on' })[0]);
+    expect(
+      dialog().getByText('Switch on automatic email replies for Billing?')
+    ).toBeInTheDocument();
+    const list = await mailboxList();
+    // Linked to Billing with the switch on, or linked to no team at all.
+    expect(list).toContain('help@shop.example');
+    expect(list).toContain('sales@shop.example');
+    // Billing's link is off; the other is another team's mailbox.
+    expect(list).not.toContain('noreply@');
+    expect(list).not.toContain('billing@');
+    expect(state.updates).toEqual([]);
+    fireEvent.click(dialog().getByRole('button', { name: 'Switch on' }));
+    await waitFor(() => expect(teamUpdate()).toEqual({ '7': { autoReplyEnabled: true } }));
+  });
+
+  it('switched on before the workspace ever chose what replies: saved as keyword rules only', async () => {
+    state.departmentSettings = {};
+    await show();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Override: on' })[0]);
+    expect(await dialog().findByText(/AI-written replies stay off/)).toBeInTheDocument();
+    fireEvent.click(await dialog().findByRole('button', { name: 'Switch on' }));
+    await waitFor(() =>
+      expect(teamUpdate()).toEqual({ '7': { autoReplyEnabled: true, autoReplyMode: 'rules_only' } })
+    );
+  });
+
+  it('cancelled: the team stays as it was', async () => {
+    state.storedMode = 'rules_only';
+    state.departmentSettings = {};
+    await show();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Override: on' })[0]);
+    fireEvent.click(await dialog().findByRole('button', { name: 'Cancel' }));
+    expect(state.updates).toEqual([]);
+  });
+
+  it('"Keyword rules and AI replies" for the team: asks first; confirmed saves the team’s choice', async () => {
+    state.enabled = true;
+    state.storedMode = 'rules_only';
+    state.departmentSettings = {};
+    await show();
+    fireEvent.click(team().getByRole('button', { name: 'Keyword rules and AI replies' }));
+    expect(dialog().getByText('Let the AI reply on its own for Billing?')).toBeInTheDocument();
+    expect(await mailboxList()).toContain('help@shop.example');
+    expect(state.updates).toEqual([]);
+    fireEvent.click(dialog().getByRole('button', { name: 'Let the AI reply' }));
+    await waitFor(() => expect(teamUpdate()).toEqual({ '7': { autoReplyMode: 'all' } }));
+  });
+
+  it('CONTROL: switching a team off, or to keyword rules only, asks nothing', async () => {
+    state.enabled = true;
+    state.storedMode = 'all';
+    state.departmentSettings = {};
+    await show();
+    fireEvent.click(team().getByRole('button', { name: 'Keyword rules only' }));
+    await waitFor(() => expect(teamUpdate()).toEqual({ '7': { autoReplyMode: 'rules_only' } }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Override: off' })[0]);
+    await waitFor(() =>
+      expect(teamUpdate()).toEqual({
+        '7': { autoReplyMode: 'rules_only', autoReplyEnabled: false },
+      })
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('CONTROL: "Override: on" for a team that already sends (workspace on) asks nothing', async () => {
+    state.enabled = true;
+    state.storedMode = 'rules_only';
+    state.departmentSettings = {};
+    await show();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Override: on' })[0]);
+    await waitFor(() => expect(teamUpdate()).toEqual({ '7': { autoReplyEnabled: true } }));
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 });

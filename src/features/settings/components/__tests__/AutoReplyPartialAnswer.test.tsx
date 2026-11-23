@@ -13,6 +13,13 @@ const state = vi.hoisted(() => ({
   updates: [] as unknown[],
 }));
 
+// The confirmation before something starts sending reads the mailboxes (none here).
+vi.mock('@/services/integrations.service', () => ({
+  integrationsService: {
+    getAll: () => Promise.resolve({ success: true, data: [] }),
+    getSourceDepartments: () => Promise.resolve({ success: true, data: [] }),
+  },
+}));
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false, resolved: true }),
   useRefreshAiDrafts: () => () => undefined,
@@ -109,6 +116,8 @@ describe('AutoReplyConfiguration — partial answers', () => {
       await screen.findByRole('group', { name: 'What replies on its own for Billing' })
     );
     fireEvent.click(mode.getByRole('button', { name: /Same as workspace/ }));
+    // The AI starts replying for this team: confirmed first.
+    fireEvent.click(await screen.findByRole('button', { name: 'Let the AI reply' }));
     await waitFor(() =>
       expect(state.updates).toEqual([
         { departmentSettings: { 7: { autoReplyPartialAnswer: 'send_and_follow_up' } } },

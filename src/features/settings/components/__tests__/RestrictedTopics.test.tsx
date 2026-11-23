@@ -424,6 +424,8 @@ describe('the other saves of a team row keep its other settings and never send t
       screen.getByRole('group', { name: 'What replies on its own for Billing' })
     );
     fireEvent.click(choice.getByRole('button', { name: 'Keyword rules and AI replies' }));
+    // The AI starts replying for this team: confirmed first.
+    fireEvent.click(await screen.findByRole('button', { name: 'Let the AI reply' }));
     await saved({ ...MINE, autoReplyMode: 'all' });
   });
 

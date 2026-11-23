@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog/ConfirmDialog';
 import { integrationsService } from '@/services/integrations.service';
 import { logger } from '@/lib/logger';
@@ -11,7 +12,12 @@ import type { AutoReplyMode } from '@/services/organization.service';
  * - `again`: enabled again with the choice stored before (`mode`).
  * - `ai`: the choice is changed to keyword rules AND AI replies.
  */
-export type AutoReplyStart = { kind: 'first' | 'again' | 'ai'; mode: AutoReplyMode };
+export type AutoReplyStart = {
+  kind: 'first' | 'again' | 'ai';
+  mode: AutoReplyMode;
+  /** One team's own setting; absent = the workspace's. */
+  team?: { id: number; name: string };
+};
 
 type Mailboxes =
   | { state: 'loading' }
@@ -23,7 +29,10 @@ type Mailboxes =
  * "Automatic replies" switch (Integrations) is on for at least one team that has not switched
  * automatic replies off. A mailbox with no team link counts as allowed — the backend treats it so.
  */
-const readMailboxes = async (teamIsOff: (departmentId: number) => boolean): Promise<Mailboxes> => {
+const readMailboxes = async (
+  teamIsOff: (departmentId: number) => boolean,
+  teamId: number | undefined
+): Promise<Mailboxes> => {
   const all = (await integrationsService.getAll()).data ?? [];
   const mailboxes = all.filter(
     (source) => source.enabled && (source.type === 'email' || source.type === 'gmail')
@@ -35,7 +44,12 @@ const readMailboxes = async (teamIsOff: (departmentId: number) => boolean): Prom
         label: (source.config as { user?: string } | undefined)?.user ?? source.name,
         allowed:
           links.length === 0 ||
-          links.some((link) => link.autoReplyEnabled && !teamIsOff(link.departmentId)),
+          links.some((link) =>
+            teamId === undefined
+              ? link.autoReplyEnabled && !teamIsOff(link.departmentId)
+              : // One team: the mailboxes linked to it with their switch on.
+                link.autoReplyEnabled && link.departmentId === teamId
+          ),
       };
     })
   );
@@ -46,10 +60,11 @@ const readMailboxes = async (teamIsOff: (departmentId: number) => boolean): Prom
   };
 };
 
-const TITLE: Record<AutoReplyStart['kind'], string> = {
-  first: 'Switch on automatic email replies?',
-  again: 'Switch on automatic email replies?',
-  ai: 'Let the AI reply on its own?',
+const title = (start: AutoReplyStart): string => {
+  const scope = start.team ? ` for ${start.team.name}` : '';
+  return start.kind === 'ai'
+    ? `Let the AI reply on its own${scope}?`
+    : `Switch on automatic email replies${scope}?`;
 };
 
 const what = (start: AutoReplyStart): string => {
@@ -78,12 +93,15 @@ export function AutoReplyStartConfirm({
   onClose: () => void;
 }) {
   const [mailboxes, setMailboxes] = useState<Mailboxes>({ state: 'loading' });
+  /** Bumped by "Try again" after a failed read. */
+  const [attempt, setAttempt] = useState(0);
   const open = start !== null;
+  const teamId = start?.team?.id;
   useEffect(() => {
     if (!open) return;
     let stale = false;
     setMailboxes({ state: 'loading' });
-    readMailboxes(teamIsOff).then(
+    readMailboxes(teamIsOff, teamId).then(
       (read) => {
         if (!stale) setMailboxes(read);
       },
@@ -97,7 +115,7 @@ export function AutoReplyStartConfirm({
     };
     // Read once per opening: `teamIsOff` is a new function on every render of the settings card.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
-  }, [open]);
+  }, [open, teamId, attempt]);
 
   if (!start) return null;
   const aiStaysOff = start.kind !== 'ai' && start.mode === 'rules_only';
@@ -108,7 +126,9 @@ export function AutoReplyStartConfirm({
         if (!next) onClose();
       }}
       onConfirm={() => onConfirm(start)}
-      title={TITLE[start.kind]}
+      title={title(start)}
+      // Nothing is switched on while the mailboxes it would send from are not known.
+      hideConfirm={mailboxes.state !== 'ready'}
       variant="warning"
       confirmText={start.kind === 'ai' ? 'Let the AI reply' : 'Switch on'}
       description={
@@ -116,14 +136,26 @@ export function AutoReplyStartConfirm({
           <p>{what(start)}</p>
           {mailboxes.state === 'loading' && <p role="status">Reading your mailboxes…</p>}
           {mailboxes.state === 'failed' && (
-            <p role="alert">
-              The list of mailboxes could not be read. Replies are sent from every connected mailbox
-              whose &quot;Automatic replies&quot; switch is on (Settings → Integrations).
-            </p>
+            <div role="alert" className="space-y-2">
+              <p>
+                The mailboxes these replies would be sent from could not be read, so nothing is
+                switched on.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setAttempt((count) => count + 1)}
+              >
+                Try again
+              </Button>
+            </div>
           )}
           {mailboxes.state === 'ready' && mailboxes.allowed.length > 0 && (
             <div>
-              <p>They are sent from:</p>
+              <p>
+                {start.team ? `For ${start.team.name}, they are sent from:` : 'They are sent from:'}
+              </p>
               <ul
                 className="pl-5 mt-1 list-disc"
                 aria-label="Mailboxes that send automatic replies"
@@ -138,8 +170,9 @@ export function AutoReplyStartConfirm({
           )}
           {mailboxes.state === 'ready' && mailboxes.allowed.length === 0 && (
             <p>
-              No connected mailbox has its &quot;Automatic replies&quot; switch on, so nothing is
-              sent until one is switched on (Settings → Integrations).
+              {start.team ? `No mailbox of ${start.team.name}` : 'No connected mailbox'} has its
+              &quot;Automatic replies&quot; switch on, so nothing is sent until one is switched on
+              (Settings → Integrations).
             </p>
           )}
           {mailboxes.state === 'ready' && mailboxes.off > 0 && (
@@ -155,7 +188,7 @@ export function AutoReplyStartConfirm({
               replies&quot; under &quot;What replies on its own&quot;.
             </p>
           )}
-          {aiStaysOff && teamsWithAi.length > 0 && (
+          {aiStaysOff && !start.team && teamsWithAi.length > 0 && (
             <p>
               Except for {teamsWithAi.join(', ')}:{' '}
               {teamsWithAi.length === 1 ? 'this team has' : 'these teams have'} their own choice,
