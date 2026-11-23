@@ -44,9 +44,13 @@ const useWayOut = (reason: string): ReactNode => {
   const { data: backendVersion } = useBackendVersion();
   const canAddKey = hasPermission(Permission.MANAGE_INTEGRATIONS);
   const canOpenSubscription = hasPermission(Permission.VIEW_SUBSCRIPTION);
+  // Plans and messages are bought only where the deployment sells them: the pricing and
+  // subscription pages send everyone else back to the dashboard. Unknown = not offered.
+  const sells = backendVersion?.billingEnabled === true;
   switch (reason) {
     case 'trial_ended':
     case 'plan_lapsed':
+      if (!sells) return null;
       return canOpenSubscription ? (
         <Link to="/pricing" className={linkClass}>
           Choose a plan
@@ -56,8 +60,11 @@ const useWayOut = (reason: string): ReactNode => {
       );
     case 'free_allowance_used':
     case 'not_in_plan':
-      if (!canAddKey && !canOpenSubscription)
-        return 'Ask a workspace admin to add an AI key or upgrade.';
+      if (!canAddKey && !(sells && canOpenSubscription)) {
+        return sells
+          ? 'Ask a workspace admin to add an AI key or upgrade.'
+          : 'Ask a workspace admin to add an AI key.';
+      }
       return (
         <>
           {canAddKey && (
@@ -65,8 +72,8 @@ const useWayOut = (reason: string): ReactNode => {
               Add your own AI key
             </Link>
           )}
-          {canAddKey && canOpenSubscription && ' · '}
-          {canOpenSubscription && (
+          {canAddKey && sells && canOpenSubscription && ' · '}
+          {sells && canOpenSubscription && (
             <Link to="/pricing" className={linkClass}>
               Upgrade
             </Link>
@@ -74,8 +81,7 @@ const useWayOut = (reason: string): ReactNode => {
         </>
       );
     case 'budget_used':
-      // Messages and plans are bought only where the deployment sells them; unknown = not shown.
-      if (backendVersion?.billingEnabled !== true) return null;
+      if (!sells) return null;
       return canOpenSubscription ? (
         <Link to="/subscription" className={linkClass}>
           Buy more messages or upgrade
@@ -90,7 +96,8 @@ const useWayOut = (reason: string): ReactNode => {
 
 export const RuleRepliesPausedNotice = ({ reason }: { reason: string }) => {
   const wayOut = useWayOut(reason);
-  const why = WHY[reason];
+  // Only a reason this bundle lists: a server string is never looked up on the prototype.
+  const why = Object.hasOwn(WHY, reason) ? WHY[reason] : undefined;
   return (
     // A notice that stays, with a link in it: a labelled status, not an interrupting alert.
     <Alert variant="warning" role="status" label="Keyword rule replies are held">

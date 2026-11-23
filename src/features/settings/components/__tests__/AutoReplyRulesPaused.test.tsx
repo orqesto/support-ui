@@ -139,7 +139,8 @@ describe('Keyword rules: AI is paused for the workspace, so every rule reply is 
     renderSection();
     await waitFor(() => expect(held()).toBeTruthy());
     expect(held()?.textContent).toContain(`${AI_PAUSED_FOR_RULES} ${why}`);
-    expect(linkTo('Choose a plan')).toBe('/pricing');
+    // The link waits for the deployment's answer on whether plans are sold here.
+    await waitFor(() => expect(linkTo('Choose a plan')).toBe('/pricing'));
     expect(screen.queryByRole('link', { name: 'Add your own AI key' })).toBeNull();
   });
 
@@ -152,7 +153,7 @@ describe('Keyword rules: AI is paused for the workspace, so every rule reply is 
     await waitFor(() => expect(held()).toBeTruthy());
     expect(held()?.textContent).toContain(`${AI_PAUSED_FOR_RULES} ${why}`);
     expect(linkTo('Add your own AI key')).toBe('/settings#integrations/ai-providers');
-    expect(linkTo('Upgrade')).toBe('/pricing');
+    await waitFor(() => expect(linkTo('Upgrade')).toBe('/pricing'));
   });
 
   it('free_allowance_used, only one of the two doors open to the viewer: only that link', async () => {
@@ -167,8 +168,7 @@ describe('Keyword rules: AI is paused for the workspace, so every rule reply is 
     api.canViewSubscription = true;
     api.canManageIntegrations = false;
     renderSection();
-    await waitFor(() => expect(held()).toBeTruthy());
-    expect(linkTo('Upgrade')).toBe('/pricing');
+    await waitFor(() => expect(linkTo('Upgrade')).toBe('/pricing'));
     expect(screen.queryByRole('link', { name: 'Add your own AI key' })).toBeNull();
   });
 
@@ -181,6 +181,33 @@ describe('Keyword rules: AI is paused for the workspace, so every rule reply is 
     );
     // The link waits for the deployment's answer (GET /api/health/version).
     await waitFor(() => expect(linkTo('Buy more messages or upgrade')).toBe('/subscription'));
+  });
+
+  it.each(['plan_lapsed', 'not_in_plan'])(
+    '%s on a deployment without billing: no link to a pricing page that sends everyone away',
+    async (reason) => {
+      paused(reason);
+      api.billingEnabled = false;
+      renderSection();
+      await waitFor(() => expect(held()).toBeTruthy());
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      const links = within(held() as HTMLElement)
+        .queryAllByRole('link')
+        .map((link) => link.getAttribute('href'));
+      expect(links).not.toContain('/pricing');
+      expect(links).not.toContain('/subscription');
+      // An own key is still a way out where there is nothing to buy.
+      expect(links).toEqual(
+        reason === 'not_in_plan' ? ['/settings#integrations/ai-providers'] : []
+      );
+    }
+  );
+
+  it('CONTROL: where plans are sold, not_in_plan offers both ways out', async () => {
+    paused('not_in_plan');
+    renderSection();
+    await waitFor(() => expect(linkTo('Upgrade')).toBe('/pricing'));
+    expect(linkTo('Add your own AI key')).toBe('/settings#integrations/ai-providers');
   });
 
   it('budget_used on a deployment without billing: no link, nothing to buy', async () => {

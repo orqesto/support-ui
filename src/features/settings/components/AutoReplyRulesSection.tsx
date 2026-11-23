@@ -266,7 +266,8 @@ export const AutoReplyRulesSection = ({
   // The AI is usable, but the workspace's AI is paused (a standing state the backend names): the
   // check of every rule reply is refused. Never together with the warning above — `heldReason`
   // is only set for a usable AI.
-  const aiPausedForRules = rulesCouldSend && heldReason !== null;
+  // A positive test: anything but a reason in words (an unknown shape included) is not a hold.
+  const aiPausedForRules = rulesCouldSend && typeof heldReason === 'string';
 
   useEffect(() => {
     let cancelled = false;

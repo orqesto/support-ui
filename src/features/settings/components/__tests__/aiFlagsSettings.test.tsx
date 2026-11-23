@@ -16,7 +16,7 @@ const api = vi.hoisted(() => ({
 }));
 // The keyword rules section asks whether an AI provider is set up; these tests are not about it.
 vi.mock('@/features/settings/hooks/useRuleCheckAi', () => ({
-  useRuleCheckAi: () => 'usable',
+  useRuleCheckAi: () => ({ ai: 'usable', heldReason: null }),
 }));
 vi.mock('@/lib/api-client', () => ({
   apiClient: {

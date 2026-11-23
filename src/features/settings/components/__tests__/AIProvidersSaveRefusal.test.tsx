@@ -104,8 +104,22 @@ describe('AI providers: switching on a provider the backend refuses', () => {
   beforeEach(() => {
     api.rows = [
       { id: 7, organizationId: 5, name: 'Our OpenAI', type: 'openai', enabled: false, config: {} },
+      {
+        id: 8,
+        organizationId: 5,
+        name: 'Our Anthropic',
+        type: 'anthropic',
+        enabled: true,
+        config: {},
+      },
     ];
   });
+  const isOn = (label: string) => {
+    // The name sits on the <label>; the state is its checkbox's.
+    const named = screen.getByLabelText(label);
+    const box = named instanceof HTMLInputElement ? named : named.querySelector('input');
+    return box?.checked === true;
+  };
 
   it("shows the backend's own sentence and leaves the switch off", async () => {
     api.update.mockRejectedValue(refusal('An API key is required for OpenAI.'));
@@ -115,6 +129,10 @@ describe('AI providers: switching on a provider the backend refuses', () => {
     expect(await screen.findByText('An API key is required for OpenAI.')).toBeInTheDocument();
     await waitFor(() => expect(api.update).toHaveBeenCalledTimes(1));
     expect(screen.queryByText('Failed to enable Our OpenAI')).toBeNull();
+    // The refused one is off again, and the provider that was working is still shown as on: the
+    // click had drawn it as off, and the server changed nothing.
+    await waitFor(() => expect(isOn('Toggle Our Anthropic')).toBe(true));
+    expect(isOn('Toggle Our OpenAI')).toBe(false);
   });
 
   it('CONTROL: a server failure keeps the plain sentence', async () => {

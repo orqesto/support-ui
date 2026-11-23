@@ -10,7 +10,7 @@ import { render, screen } from '@testing-library/react';
 const aiDrafts = { off: true };
 // The keyword rules section asks whether an AI provider is set up; these tests are not about it.
 vi.mock('@/features/settings/hooks/useRuleCheckAi', () => ({
-  useRuleCheckAi: () => 'usable',
+  useRuleCheckAi: () => ({ ai: 'usable', heldReason: null }),
 }));
 vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: aiDrafts.off, resolved: true }),

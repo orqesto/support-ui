@@ -342,6 +342,8 @@ export const AIProvidersSettings = ({
             response.error ?? `Failed to ${!currentEnabled ? 'enable' : 'disable'} ${name}`,
           variant: 'error',
         });
+        // Switching one on had shown every other provider as off: the server changed none.
+        await fetchIntegrations();
       }
     } catch (error) {
       setIntegrations((prevIntegrations) =>
@@ -357,6 +359,8 @@ export const AIProvidersSettings = ({
           getApiErrorMessage(error) ?? `Failed to ${!currentEnabled ? 'enable' : 'disable'} ${name}`,
         variant: 'error',
       });
+      // Switching one on had shown every other provider as off: a refusal changed none of them.
+      await fetchIntegrations().catch(() => undefined);
     } finally {
       setToggling(null);
     }
