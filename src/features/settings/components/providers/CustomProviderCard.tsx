@@ -37,7 +37,8 @@ type Props = {
   onTest: (id: number, name: string, type: string) => void;
   onDelete: (id: number, name: string, type: string) => void;
   onToggleEnabled: (id: number, currentEnabled: boolean, name: string, type: string) => void;
-  onSave: (config: CustomConfig) => void;
+  /** Resolves true once the save went through; the form stays open, as typed, when it did not. */
+  onSave: (config: CustomConfig) => Promise<boolean>;
   onCancel: () => void;
 };
 
@@ -93,9 +94,8 @@ export const CustomProviderCard = ({
     onCancel();
   };
 
-  const handleSave = () => {
-    onSave(config);
-    handleReset();
+  const handleSave = async () => {
+    if (await onSave(config)) handleReset();
   };
 
   // The key is required: no client is built for a custom provider without one, and the backend

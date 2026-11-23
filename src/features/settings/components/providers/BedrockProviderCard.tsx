@@ -46,7 +46,8 @@ type Props = {
   onEdit: (integration: Integration) => void;
   onDelete: (id: number, name: string, type: string) => void;
   onToggleEnabled: (id: number, currentEnabled: boolean, name: string, type: string) => void;
-  onSave: (config: BedrockConfig) => void;
+  /** Resolves true once the save went through; the form stays open, as typed, when it did not. */
+  onSave: (config: BedrockConfig) => Promise<boolean>;
   onCancel: () => void;
 };
 
@@ -213,7 +214,7 @@ export const BedrockProviderCard = ({
     onCancel();
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!canSubmit) {
       return;
     }
@@ -232,8 +233,7 @@ export const BedrockProviderCard = ({
               useInstanceProfile: true,
             }
           : { ...config, roleArn: '', externalId: '', useInstanceProfile: false };
-    onSave(payload);
-    handleReset();
+    if (await onSave(payload)) handleReset();
   };
 
   const testBody = () => ({

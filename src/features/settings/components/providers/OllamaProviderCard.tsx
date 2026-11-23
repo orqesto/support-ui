@@ -20,7 +20,8 @@ type OllamaProviderCardProps = {
   onTest: (id: number, name: string, type: string) => void;
   onDelete: (id: number, name: string, type: string) => void;
   onToggleEnabled: (id: number, currentEnabled: boolean, name: string, type: string) => void;
-  onSave: (config: OllamaConfig) => void;
+  /** Resolves true once the save went through; the form stays open, as typed, when it did not. */
+  onSave: (config: OllamaConfig) => Promise<boolean>;
   onCancel: () => void;
 };
 
@@ -67,9 +68,8 @@ export const OllamaProviderCard = ({
     onCancel();
   };
 
-  const handleSave = () => {
-    onSave(config);
-    handleReset();
+  const handleSave = async () => {
+    if (await onSave(config)) handleReset();
   };
 
   return (
