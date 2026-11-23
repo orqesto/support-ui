@@ -496,7 +496,8 @@ export const organizationService = {
       // settings page reads them, and it checks their shape itself (restrictedTopics.ts,
       // OtherTeamTopics.tsx) — kept out of this file, which every page loads.
       restrictedTopics: response.data.data?.restrictedTopics as unknown,
-      builtInRestrictedTopics: response.data.data?.builtInRestrictedTopics as unknown,
+      // The dose rule switch (a boolean; absent on an older backend, which then offers no switch).
+      doseRule: (response.data.data as { doseRule?: unknown } | undefined)?.doseRule,
       restrictedTopicTeams: response.data.data?.restrictedTopicTeams as unknown,
       // Each team's overrides as stored now (the settings page builds a team save on them).
       departmentSettings: (response.data.data as { departmentSettings?: unknown } | undefined)
@@ -507,7 +508,7 @@ export const organizationService = {
   /**
    * The contract's AutoReplySettingsUpdate. `departmentSettings` (keyed by the team's id as text)
    * REPLACES the stored map, so a caller sends every team's settings; a team's `restrictedTopics`
-   * are ADDED to the workspace's. The built-in topics are not part of a save. Restricted topics
+   * are ADDED to the workspace's. There are no locked topics; `doseRule` switches the dose rule. Restricted topics
    * change ONLY through `restrictedTopicsChange` (one list, topics to add or to remove, applied
    * by the server to the stored list); a list of topics in the body is ignored by the server.
    * The answer is the full settings as they are stored after the save.

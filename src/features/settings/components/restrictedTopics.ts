@@ -2,12 +2,11 @@
  * Restricted topics (send gate, 2026-11-20): subjects an automatic reply is never sent on. The
  * limits mirror the backend's schema for PATCH /api/organizations/auto-reply (each list — the
  * workspace's, and every team's own — holds 50 entries of 200 characters, trimmed, not empty, no
- * repeat whatever the letter case); the server checks again. The built-in topics are the
- * backend's (`builtInRestrictedTopics` in the response): this app keeps no copy of their names.
+ * repeat whatever the letter case); the server checks again. There are no locked topics: a
+ * workspace that never saved a list gets the server's defaults as ordinary, removable entries.
  */
 
 import { getErrorBody } from '@/lib/errorMessages';
-import type { BuiltInRestrictedTopic } from '@/types/api';
 
 export const RESTRICTED_TOPICS_MAX = 50;
 export const RESTRICTED_TOPIC_MAX_CHARS = 200;
@@ -17,16 +16,6 @@ export const readRestrictedTopics = (value: unknown): string[] | null =>
   Array.isArray(value)
     ? value.filter((topic): topic is string => typeof topic === 'string' && topic.trim() !== '')
     : null;
-
-/**
- * The topics every workspace has, named by the backend ({ key, label }); read-only. Empty when
- * the backend does not send them: the page then names none of its own.
- */
-export const readBuiltInTopics = (value: unknown): BuiltInRestrictedTopic[] =>
-  (Array.isArray(value) ? (value as (Partial<BuiltInRestrictedTopic> | null)[]) : []).filter(
-    (topic): topic is BuiltInRestrictedTopic =>
-      typeof topic?.key === 'string' && typeof topic.label === 'string' && topic.label !== ''
-  );
 
 const sameTopic = (left: string, right: string): boolean =>
   left.trim().toLowerCase() === right.trim().toLowerCase();
@@ -38,16 +27,13 @@ const sameTopic = (left: string, right: string): boolean =>
 export const restrictedTopicProblem = (
   draft: string,
   own: readonly string[],
-  alsoApplies: readonly string[] = [],
-  builtIn: readonly string[] = []
+  alsoApplies: readonly string[] = []
 ): string | null => {
   const topic = draft.trim();
   if (!topic) return 'Type a topic first.';
   if (topic.length > RESTRICTED_TOPIC_MAX_CHARS) {
     return `A topic can be up to ${RESTRICTED_TOPIC_MAX_CHARS} characters (this one has ${topic.length}).`;
   }
-  if (builtIn.some((entry) => sameTopic(entry, topic)))
-    return 'This is one of the built-in topics.';
   if (own.some((entry) => sameTopic(entry, topic))) return 'This topic is already on the list.';
   if (alsoApplies.some((entry) => sameTopic(entry, topic))) {
     return 'This is already a workspace topic, so it applies to this team.';

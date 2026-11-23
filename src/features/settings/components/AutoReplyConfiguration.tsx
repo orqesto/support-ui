@@ -27,21 +27,19 @@ import {
 } from './AutoReplyStartConfirm';
 import { FeatureSuggestions } from './FeatureSuggestions';
 import {
-  BUILT_IN_NOTE,
-  BuiltInTopics,
+  DEFAULTS_NOTE,
+  DOSE_RULE_HELP,
+  DOSE_RULE_TITLE,
+  NO_TOPICS_TEXT,
   RESTRICTED_TOPICS_ALSO,
   RESTRICTED_TOPICS_HELP,
   RESTRICTED_TOPICS_TITLE,
   RestrictedTopicsField,
   TopicsReadOnly,
 } from './RestrictedTopicsField';
-import {
-  readBuiltInTopics,
-  readRestrictedTopics,
-  restrictedTopicsRefusal,
-} from './restrictedTopics';
+import { readRestrictedTopics, restrictedTopicsRefusal } from './restrictedTopics';
 import { OtherTeamTopics, TOPICS_ADMIN_ONLY, readTopicTeams } from './OtherTeamTopics';
-import type { BuiltInRestrictedTopic, RestrictedTopicTeam } from '@/types/api';
+import type { RestrictedTopicTeam } from '@/types/api';
 import {
   PARTIAL_ANSWER_LABEL,
   PARTIAL_ANSWER_TITLE,
@@ -63,6 +61,8 @@ type Settings = {
   autoReplyHighConfidenceThreshold?: number;
   /** Workspace: always set once loaded. Team: absent = same as the workspace. */
   autoReplyPartialAnswer?: AutoReplyPartialAnswer;
+  /** Workspace only: the dose rule (off unless switched on). */
+  autoReplyDoseRule?: boolean;
   escalationPhrases?: string[];
   /** Workspace: its own topics. Team: topics ADDED to the workspace's (never instead of them). */
   restrictedTopics?: string[];
@@ -226,14 +226,10 @@ const extraTopics = (own: string[] | undefined, workspace: string[]): string[] =
 };
 
 /** What a team row says about the topics it cannot change. */
-const teamAlsoApplies = (builtInCount: number, workspaceCount: number): string => {
-  const workspace =
-    workspaceCount === 0
-      ? ''
-      : ` and the workspace's ${workspaceCount} ${workspaceCount === 1 ? 'topic' : 'topics'}`;
-  const builtIn = builtInCount > 0 ? `${builtInCount} built-in topics` : 'built-in topics';
-  return `Added to the ${builtIn}${workspace}, which always apply to this team and can only be changed in the Default row.`;
-};
+const teamAlsoApplies = (workspaceCount: number): string =>
+  workspaceCount === 0
+    ? 'The workspace has no restricted topics; topics added here apply to this team only.'
+    : `Added to the workspace's ${workspaceCount} ${workspaceCount === 1 ? 'topic' : 'topics'}, which always apply to this team and can only be changed in the Default row.`;
 
 /** The pill look of the per-team choices, selected or not. */
 const pillClass = (selected: boolean): string =>
@@ -293,8 +289,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   // False until the backend returns the list: an older one does not know the setting, and a save
   // to it would be dropped without a word — so the section is not offered at all.
   const [topicsSupported, setTopicsSupported] = useState(false);
-  /** The topics every workspace has, as the backend names them; never part of a save. */
-  const [builtInTopics, setBuiltInTopics] = useState<BuiltInRestrictedTopic[]>([]);
+  // False until the backend returns the switch: an older one does not know it.
+  const [doseRuleSupported, setDoseRuleSupported] = useState(false);
   /** Every team that has stored topics — also a switched-off or deleted one — as the server lists them. */
   const [topicTeams, setTopicTeams] = useState<RestrictedTopicTeam[]>([]);
 
@@ -317,10 +313,11 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       autoReplySuggestSolutions: auto.suggestSolutions,
       autoReplyHighConfidenceThreshold: auto.highConfidenceThreshold,
       autoReplyPartialAnswer: auto.partialAnswer,
+      autoReplyDoseRule: auto.doseRule === true,
       restrictedTopics: readRestrictedTopics(auto.restrictedTopics) ?? [],
     };
     setTopicsSupported(readRestrictedTopics(auto.restrictedTopics) !== null);
-    setBuiltInTopics(readBuiltInTopics(auto.builtInRestrictedTopics));
+    setDoseRuleSupported(typeof auto.doseRule === 'boolean');
     setTopicTeams(readTopicTeams(auto.restrictedTopicTeams) ?? []);
     setOrg(initialOrg);
     orgRef.current = initialOrg;
@@ -468,6 +465,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         suggestSolutions: boolean;
         highConfidenceThreshold: number;
         partialAnswer: AutoReplyPartialAnswer;
+        doseRule: boolean;
       }>
     ): Promise<boolean> =>
       queued('org', async () => {
@@ -487,6 +485,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
             autoReplyHighConfidenceThreshold: patch.highConfidenceThreshold,
           }),
           ...(patch.partialAnswer !== undefined && { autoReplyPartialAnswer: patch.partialAnswer }),
+          ...(patch.doseRule !== undefined && { autoReplyDoseRule: patch.doseRule }),
         };
         orgRef.current = optimistic;
         try {
@@ -512,7 +511,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       ? `AI reply confidence set to ${Math.round(patch.highConfidenceThreshold * 100)}%`
                       : patch.partialAnswer !== undefined
                         ? `${PARTIAL_ANSWER_TITLE}: ${PARTIAL_ANSWER_LABEL[patch.partialAnswer]}`
-                        : 'Default updated';
+                        : patch.doseRule !== undefined
+                          ? `${DOSE_RULE_TITLE}: ${patch.doseRule ? 'on' : 'off'}`
+                          : 'Default updated';
           onShowAlert({ open: true, title: 'Saved', description: field, variant: 'success' });
           return true;
         } catch (err) {
@@ -840,7 +841,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                 <p className="text-xs text-muted-foreground">{RESTRICTED_TOPICS_HELP}</p>
                 <TopicsReadOnly
                   label={RESTRICTED_TOPICS_TITLE}
-                  topics={[...builtInTopics.map((topic) => topic.label), ...orgTopics]}
+                  topics={orgTopics}
+                  emptyText={NO_TOPICS_TEXT}
                 />
                 {activeDepts.map((dept) => {
                   const own = extraTopics(perDept[String(dept.id)]?.restrictedTopics, orgTopics);
@@ -1161,17 +1163,15 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                     <p className="text-xs text-muted-foreground">
                       {RESTRICTED_TOPICS_HELP} {RESTRICTED_TOPICS_ALSO}
                     </p>
-                    <BuiltInTopics topics={builtInTopics} />
-                    <p className="text-[10px] text-muted-foreground">{BUILT_IN_NOTE}</p>
+                    <p className="text-[10px] text-muted-foreground">{DEFAULTS_NOTE}</p>
                     <p className="text-xs font-medium">Your workspace&apos;s topics</p>
                     {canChangeTopics ? (
                       <RestrictedTopicsField
                         label="Workspace restricted topics"
                         topics={orgTopics}
-                        emptyText="No topics of your own yet"
+                        emptyText={NO_TOPICS_TEXT}
                         placeholder='e.g. "refund disputes", "requests from journalists"'
                         disabled={saving.org === true}
-                        builtIn={builtInTopics.map((topic) => topic.label)}
                         onAdd={(topic) => changeTopics(null, { add: topic })}
                         onRemove={(topic) => changeTopics(null, { remove: topic })}
                       />
@@ -1180,7 +1180,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         <TopicsReadOnly
                           label="Workspace restricted topics"
                           topics={orgTopics}
-                          emptyText="No topics of your own yet"
+                          emptyText={NO_TOPICS_TEXT}
                         />
                         <p className="text-xs text-muted-foreground">{TOPICS_ADMIN_ONLY}</p>
                       </>
@@ -1190,6 +1190,26 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                       canChange={canChangeTopics}
                       saving={saving}
                       onRemove={(deptId, topic) => void changeTopics(deptId, { remove: topic })}
+                    />
+                  </div>
+                )}
+                {/* The dose rule: a workspace switch, off by default (owner 2026-11-23). */}
+                {doseRuleSupported && (
+                  <div className="flex justify-between items-center pt-3 border-t">
+                    <div>
+                      <p id="dose-rule-title" className="text-sm font-medium">
+                        {DOSE_RULE_TITLE}
+                      </p>
+                      <p id="dose-rule-help" className="text-xs text-muted-foreground">
+                        {DOSE_RULE_HELP}
+                      </p>
+                    </div>
+                    <Toggle
+                      checked={org.autoReplyDoseRule === true}
+                      ariaLabel={DOSE_RULE_TITLE}
+                      ariaDescribedBy="dose-rule-help"
+                      disabled={saving.org === true || !canChangeTopics}
+                      onChange={(next) => void saveOrg({ doseRule: next })}
                     />
                   </div>
                 )}
@@ -1561,7 +1581,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                           )}
                         </p>
                         <p className="text-[10px] text-muted-foreground">
-                          {teamAlsoApplies(builtInTopics.length, orgTopics.length)}
+                          {teamAlsoApplies(orgTopics.length)}
                         </p>
                         {canChangeTopics ? (
                           <RestrictedTopicsField
@@ -1571,7 +1591,6 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                             emptyText="No extra topics"
                             placeholder='e.g. "contract changes"'
                             disabled={isSaving}
-                            builtIn={builtInTopics.map((topic) => topic.label)}
                             onAdd={(topic) => changeTopics(dept.id, { add: topic })}
                             onRemove={(topic) => changeTopics(dept.id, { remove: topic })}
                           />

@@ -21,7 +21,8 @@ const state = vi.hoisted(() => ({
   supported: true,
   /** False: a backend that knows restricted topics but does not list the teams that have them. */
   listsTeams: true,
-  builtIn: [] as { key: string; label: string }[],
+  /** The workspace's dose-rule switch; null = an older backend that does not send it. */
+  doseRule: false as boolean | null,
   topics: [] as string[],
   teams: {} as Record<string, Record<string, unknown>>,
   departments: [] as { id: number; name: string; slug: string; active: boolean }[],
@@ -107,7 +108,6 @@ const serverSave = (body: Record<string, unknown>) => {
       partialAnswer: 'hand_to_agent',
       ...(state.supported && {
         restrictedTopics: state.topics,
-        builtInRestrictedTopics: state.builtIn,
         ...(state.listsTeams && { restrictedTopicTeams: topicTeams() }),
       }),
       departmentSettings: state.teams,
@@ -139,13 +139,14 @@ vi.mock('@/services/organization.service', () => ({
         highConfidenceThreshold: 0.9,
         partialAnswer: 'hand_to_agent',
         restrictedTopics: state.supported ? [...state.topics] : null,
-        builtInRestrictedTopics: state.supported ? state.builtIn : [],
+        ...(state.doseRule !== null && { doseRule: state.doseRule }),
         restrictedTopicTeams:
           state.supported && state.listsTeams ? structuredClone(topicTeams()) : null,
       }),
     getCurrent: () =>
       Promise.resolve({ settings: { departmentSettings: structuredClone(state.teams) } }),
     updateAutoReply: async (data: Record<string, unknown>) => {
+      if (typeof data.doseRule === 'boolean') state.doseRule = data.doseRule;
       state.updates.push(structuredClone(data));
       if (state.held) await new Promise<void>((release) => state.held?.push(release));
       if (state.failWith) throw Object.assign(new Error('Request failed'), state.failWith);
@@ -168,14 +169,6 @@ vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), info: vi.fn() } }));
 
 import { AutoReplyConfiguration } from '../AutoReplyConfiguration';
 
-/** What the backend returns as `builtInRestrictedTopics`; the labels are the backend's. */
-export const BUILT_IN_FROM_API = [
-  { key: 'dosing', label: 'Dosing' },
-  { key: 'medical_advice', label: 'Medical or health advice' },
-  { key: 'diagnosis', label: 'Diagnosis' },
-  { key: 'legal_tax_advice', label: 'Legal or tax advice' },
-];
-export const BUILT_IN = BUILT_IN_FROM_API.map((topic) => topic.label);
 export const WORKSPACE = 'Workspace restricted topics';
 export const TEAM = 'Billing restricted topics';
 export const BILLING = { id: 7, name: 'Billing', slug: 'billing', active: true };
@@ -187,7 +180,7 @@ beforeEach(() => {
   state.teamsMode = true;
   state.supported = true;
   state.listsTeams = true;
-  state.builtIn = BUILT_IN_FROM_API;
+  state.doseRule = false;
   state.topics = [];
   state.teams = {};
   state.departments = [BILLING];
@@ -217,7 +210,6 @@ export const sentTopicLists = () =>
   state.updates.filter(
     (update) =>
       'restrictedTopics' in update ||
-      'builtInRestrictedTopics' in update ||
       Object.values((update.departmentSettings ?? {}) as Record<string, Team>).some(
         (team) => 'restrictedTopics' in team
       )

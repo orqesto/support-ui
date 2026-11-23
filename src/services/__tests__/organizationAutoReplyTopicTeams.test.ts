@@ -37,7 +37,7 @@ describe('organizationService.getAutoReply — restrictedTopicTeams', () => {
     get.mockResolvedValue(reply(SETTINGS));
     const settings = await organizationService.getAutoReply();
     expect(settings.restrictedTopicTeams).toBeUndefined();
-    expect(settings.builtInRestrictedTopics).toBeUndefined();
+    expect(settings.doseRule).toBeUndefined();
     expect(settings.restrictedTopics).toEqual(['refund disputes']);
   });
 
