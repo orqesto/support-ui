@@ -15,7 +15,7 @@ import {
 import type { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Tabs, type Tab } from '@/components/ui/Tabs';
-import { AIConfigSettings, ConnectedServicesSettings, OrganizationSettings, ProfileSettings, NotificationPreferencesSettings, RulesSettings, SlackNotificationsSettings, SystemSettings, SSOConfigSettings, SCIMConfigSettings, TeamsSettings } from '@/features/settings';
+import { AIConfigSettings, ConnectedServicesSettings, OrganizationSettings, ProfileSettings, NotificationPreferencesSettings, RulesSettings, SlackNotificationsSettings, SystemSettings, SSOConfigSettings, SCIMConfigSettings, TeamsSettings, AdvancedToggle, useShowAdvanced } from '@/features/settings';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthStore } from '@/stores/authStore';
 import { Permission } from '@/types/roles';
@@ -43,6 +43,8 @@ type SettingsTabDef = {
   render: (ctx: SettingsTabContext) => ReactNode;
   /** When false (or undefined returning false), the tab is excluded from nav + render. */
   visible?: (ctx: SettingsTabContext) => boolean;
+  /** Behind "Show advanced settings" unless the URL asks for it (settings simplification, 2026-11-23). */
+  advanced?: boolean;
 };
 
 const SETTINGS_TABS: SettingsTabDef[] = [
@@ -133,6 +135,7 @@ const SETTINGS_TABS: SettingsTabDef[] = [
     description: 'Configure single sign-on (OIDC) for your workspace',
     render: () => <SSOConfigSettings />,
     visible: (ctx) => ctx.isGlobalAdmin || ctx.isOrgAdmin,
+    advanced: true,
   },
   {
     id: 'scim',
@@ -141,6 +144,7 @@ const SETTINGS_TABS: SettingsTabDef[] = [
     description: 'Provision members and map groups from your identity provider',
     render: () => <SCIMConfigSettings />,
     visible: (ctx) => ctx.isGlobalAdmin || ctx.isOrgAdmin,
+    advanced: true,
   },
 ];
 
@@ -159,6 +163,7 @@ export const SettingsPage = () => {
   // deep-link copy/paste embedded a focus param inside the hash (browsers
   // treat everything after `#` as opaque — react-router's location.search
   // is empty in that case). Split on the first `/` for the section.
+  const [showAdvanced] = useShowAdvanced();
   const rawHash = location.hash.replace('#', '');
   const hashWithoutQuery = rawHash.split('?')[0];
   // `?tab=<id>` is the shape people reach for (and the one the docs and several
@@ -177,7 +182,9 @@ export const SettingsPage = () => {
     can: hasPermission,
   };
 
-  const visibleTabs = SETTINGS_TABS.filter((tab) => (tab.visible ? tab.visible(ctx) : true));
+  const visibleTabs = SETTINGS_TABS.filter((tab) => (tab.visible ? tab.visible(ctx) : true)).filter(
+    (tab) => !tab.advanced || showAdvanced || tab.id === hashTab
+  );
   const validIds = visibleTabs.map((tab) => tab.id);
 
   const activeTabId = validIds.includes(hashTab) ? hashTab : DEFAULT_TAB_ID;
@@ -222,6 +229,10 @@ export const SettingsPage = () => {
           size="md"
           fullWidth
         >
+          {activeTab?.advanced && (
+            // On SSO / SCIM: switching Advanced off leaves the tab it just hid.
+            <AdvancedToggle onTurnOff={() => void navigate('#profile', { replace: true })} />
+          )}
           {activeTab?.render(ctx)}
         </Tabs>
       </div>
