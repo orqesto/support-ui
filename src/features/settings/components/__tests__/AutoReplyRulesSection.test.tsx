@@ -18,6 +18,12 @@ const api = vi.hoisted(() => ({
   patchError: null as Error | null,
   /** GET /api/ai/providers: the answer, 'pending' (never settles) or 'error' (rejects). */
   ai: 'configured' as 'configured' | 'none' | 'pending' | 'error',
+  /** The backend's own `usable` answer; `undefined` = a backend that does not send it yet. */
+  usable: undefined as boolean | null | undefined,
+  /** Platform AI is on for the workspace (no provider row of its own). */
+  platformActive: false,
+  /** How many times GET /api/ai/providers was asked. */
+  providerReads: 0,
   canManageIntegrations: true,
 }));
 
@@ -27,11 +33,20 @@ vi.mock('@/lib/api-client', () => ({
       if (url !== '/api/ai/providers') {
         return Promise.resolve({ data: { success: true, data: api.rules } });
       }
+      api.providerReads += 1;
       if (api.ai === 'pending') return new Promise(() => undefined);
       if (api.ai === 'error') return Promise.reject(new Error('providers request failed'));
       const enabled = api.ai === 'configured' ? [{ provider: 'openai' }] : [];
       return Promise.resolve({
-        data: { success: true, data: { enabled, available: [], platform: { active: false } } },
+        data: {
+          success: true,
+          data: {
+            enabled,
+            available: [],
+            platform: { active: api.platformActive },
+            ...(api.usable === undefined ? {} : { usable: api.usable }),
+          },
+        },
       });
     },
     post: (_url: string, body: Record<string, unknown>) => {
@@ -62,7 +77,8 @@ vi.mock('@/hooks/usePermissions', () => ({
   }),
 }));
 
-const { AutoReplyRulesSection, NO_AI_PROVIDER_WARNING, RULE_CHECK_NOTE } = await import(
+const { AutoReplyRulesSection, NO_AI_PROVIDER_WARNING,
+  UNUSABLE_AI_PROVIDER_WARNING, RULE_CHECK_NOTE } = await import(
   '../AutoReplyRulesSection'
 );
 
@@ -82,6 +98,9 @@ beforeEach(() => {
   api.postError = null;
   api.patchError = null;
   api.ai = 'configured';
+  api.usable = undefined;
+  api.platformActive = false;
+  api.providerReads = 0;
   api.canManageIntegrations = true;
 });
 afterEach(cleanup);
@@ -92,7 +111,7 @@ const renderSection = (
   onShowAlert: (alert: AlertState) => void = () => undefined
 ) =>
   render(
-    // The real useAiConfigured over the fake apiClient; a client per render, so no answer is reused.
+    // The real useRuleCheckAi over the fake apiClient; a client per render unless one is passed.
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
@@ -391,6 +410,86 @@ describe('Keyword rules: no AI provider to check the replies', () => {
     await waitFor(() => expect(warning()).toBeTruthy());
     fireEvent.click(screen.getByRole('switch', { name: 'Turn off rule Refunds' }));
     await waitFor(() => expect(warning()).toBeNull());
+  });
+});
+
+describe('Keyword rules: the backend says whether its AI can be used (`usable`)', () => {
+  const held = () => screen.queryByRole('status', { name: 'Keyword rule replies are held' });
+  const settled = async () => {
+    await screen.findByText('Refunds');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  };
+
+  it('a provider row that cannot be used: its own warning and link, not "none is set up"', async () => {
+    api.rules = [refundRule];
+    api.ai = 'configured';
+    api.usable = false;
+    renderSection();
+    await waitFor(() => expect(held()).toBeTruthy());
+    expect(held()?.textContent).toContain(UNUSABLE_AI_PROVIDER_WARNING);
+    expect(held()?.textContent).not.toContain(NO_AI_PROVIDER_WARNING);
+    expect(
+      screen.getByRole('link', { name: 'Check the AI provider' }).getAttribute('href')
+    ).toBe('/settings#integrations/ai-providers');
+  });
+
+  it('the backend could not tell (null): no warning, although no provider row came back', async () => {
+    api.rules = [refundRule];
+    api.ai = 'none';
+    api.usable = null;
+    renderSection();
+    await settled();
+    expect(held()).toBeNull();
+  });
+
+  it('usable: no warning, whatever the rows say', async () => {
+    api.rules = [refundRule];
+    api.ai = 'none';
+    api.usable = true;
+    renderSection();
+    await settled();
+    expect(held()).toBeNull();
+  });
+
+  it('no provider and not usable: the "none is set up" warning', async () => {
+    api.rules = [refundRule];
+    api.ai = 'none';
+    api.usable = false;
+    renderSection();
+    await waitFor(() => expect(held()?.textContent).toContain(NO_AI_PROVIDER_WARNING));
+  });
+
+  it('a backend without the answer, workspace on platform AI: no warning', async () => {
+    api.rules = [refundRule];
+    api.ai = 'none';
+    api.platformActive = true;
+    renderSection();
+    await settled();
+    expect(held()).toBeNull();
+  });
+
+  it('coming back to the screen asks again: a provider added meanwhile removes the warning', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const mount = () =>
+      render(
+        <QueryClientProvider client={client}>
+          <MemoryRouter>
+            <AutoReplyRulesSection canManage autoReplyEnabled onShowAlert={() => undefined} />
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+    api.rules = [refundRule];
+    api.ai = 'none';
+    const first = mount();
+    await waitFor(() => expect(held()).toBeTruthy());
+    first.unmount();
+    // The admin adds a provider on another screen, then returns: same cache, the answer is new.
+    api.ai = 'configured';
+    const readsBefore = api.providerReads;
+    mount();
+    await settled();
+    expect(api.providerReads).toBe(readsBefore + 1);
+    expect(held()).toBeNull();
   });
 });
 

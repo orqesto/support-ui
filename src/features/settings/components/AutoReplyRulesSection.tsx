@@ -10,8 +10,8 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Toggle } from '@/components/ui/Toggle';
-import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useRuleCheckAi } from '@/features/settings/hooks/useRuleCheckAi';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { AI_KEY_SETTINGS_PATH } from '@/lib/starterAllowance';
@@ -240,6 +240,9 @@ export const RULE_CHECK_NOTE =
  */
 export const NO_AI_PROVIDER_WARNING =
   'No AI provider is set up. Every keyword rule reply is checked by AI before it is sent, so until a provider is set up no rule reply is sent: each one is held for a person.';
+/** A provider is switched on, but its key or settings cannot be read: the same hold. */
+export const UNUSABLE_AI_PROVIDER_WARNING =
+  'The AI provider set up for this workspace cannot be used: its key or settings could not be read. Every keyword rule reply is checked by AI before it is sent, so until this is fixed no rule reply is sent: each one is held for a person.';
 
 export const AutoReplyRulesSection = ({
   canManage,
@@ -254,11 +257,13 @@ export const AutoReplyRulesSection = ({
   const [saving, setSaving] = useState(false);
   const [busyRuleId, setBusyRuleId] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<AutoReplyRule | null>(null);
-  // `aiConfigured` is false only on a loaded answer: while the request runs, or after it failed,
-  // the hook reports true, so the warning never shows on an unknown.
-  const { aiConfigured } = useAiConfigured();
+  // Nothing is claimed on an unknown (loading, a failed request, a backend that could not tell).
+  const ruleCheckAi = useRuleCheckAi();
   const { hasPermission } = usePermissions();
-  const noAiForRules = autoReplyEnabled && !aiConfigured && rules.some((rule) => rule.enabled);
+  const noAiForRules =
+    autoReplyEnabled &&
+    (ruleCheckAi === 'none' || ruleCheckAi === 'unusable') &&
+    rules.some((rule) => rule.enabled);
 
   useEffect(() => {
     let cancelled = false;
@@ -421,12 +426,15 @@ export const AutoReplyRulesSection = ({
           </Alert>
         )}
         {noAiForRules && (
-          <Alert variant="warning">
-            {NO_AI_PROVIDER_WARNING}{' '}
+          // A notice that stays, with a link in it: a labelled status, not an interrupting alert.
+          <Alert variant="warning" role="status" label="Keyword rule replies are held">
+            {ruleCheckAi === 'unusable' ? UNUSABLE_AI_PROVIDER_WARNING : NO_AI_PROVIDER_WARNING}{' '}
             {hasPermission(Permission.MANAGE_INTEGRATIONS) ? (
               <Link to={AI_KEY_SETTINGS_PATH} className="font-medium underline">
-                Set up an AI provider
+                {ruleCheckAi === 'unusable' ? 'Check the AI provider' : 'Set up an AI provider'}
               </Link>
+            ) : ruleCheckAi === 'unusable' ? (
+              'Ask a workspace admin to check it.'
             ) : (
               'Ask a workspace admin to set one up.'
             )}

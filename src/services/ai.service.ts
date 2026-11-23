@@ -18,6 +18,11 @@ type AIProvidersResponse = {
   enabled: AIProvider[];
   available: AIProvider[];
   platform?: PlatformAI;
+  /**
+   * Whether the workspace's AI can actually be used (what the automatic-reply checks resolve):
+   * `null` when the backend could not tell. Absent on a backend that does not send it yet.
+   */
+  usable?: boolean | null;
 };
 
 export const aiService = {
