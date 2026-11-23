@@ -15,7 +15,11 @@ export type AuditLog = {
 };
 
 export type AuditLogFilters = {
+  /** One action, or several separated by commas (the automatic replies view asks for two). */
   action?: string;
+  /** Automatic replies only: `details.reason` / `details.channel`, exact (backend 2026-11-23). */
+  reason?: string;
+  channel?: string;
   entity?: string;
   userId?: number;
   startDate?: string;
@@ -41,7 +45,55 @@ export type AuditLogsResponse = {
   };
 };
 
+/** One row of the automatic replies' counts: what went out, what would have, what was held. */
+export type AutoReplyTally = {
+  sent: number;
+  wouldSend: number;
+  held: number;
+  acknowledgments: number;
+};
+export type AutoReplyCounts = {
+  range: { startDate: string; endDate: string };
+  totals: AutoReplyTally;
+  byChannel: Array<AutoReplyTally & { channel: string }>;
+  heldByReason: Array<{ reason: string; count: number }>;
+};
+
 export const auditLogService = {
+  /**
+   * Automatic replies counted from their audit records: sent, would have been sent (check-only
+   * mode), held — in all, by channel, and the holds by reason. No dates = the last 7 days; the
+   * backend refuses a range over 92 days (400, its own sentence).
+   */
+  async getAutoReplyCounts(range?: {
+    startDate?: string;
+    endDate?: string;
+  }): Promise<AutoReplyCounts> {
+    const params = new URLSearchParams();
+    if (range?.startDate)
+      params.append('startDate', startOfDayIso(range.startDate) ?? range.startDate);
+    if (range?.endDate) params.append('endDate', endOfDayIso(range.endDate) ?? range.endDate);
+    const queryString = params.toString();
+    const { data } = await apiClient.get<{ success: boolean; data: AutoReplyCounts }>(
+      `/api/audit-logs/auto-replies/counts${queryString ? `?${queryString}` : ''}`
+    );
+    const tally = (row: Partial<AutoReplyTally> | undefined): AutoReplyTally => ({
+      sent: row?.sent ?? 0,
+      wouldSend: row?.wouldSend ?? 0,
+      held: row?.held ?? 0,
+      acknowledgments: row?.acknowledgments ?? 0,
+    });
+    return {
+      range: data.data.range,
+      totals: tally(data.data.totals),
+      byChannel: (data.data.byChannel ?? []).map((row) => ({
+        ...tally(row),
+        channel: row.channel,
+      })),
+      heldByReason: data.data.heldByReason ?? [],
+    };
+  },
+
   async getAll(filters?: AuditLogFilters): Promise<AuditLogsResponse> {
     const params = new URLSearchParams();
 
@@ -51,6 +103,8 @@ export const auditLogService = {
     if (filters?.entity) {
       params.append('entity', filters.entity);
     }
+    if (filters?.reason) params.append('reason', filters.reason);
+    if (filters?.channel) params.append('channel', filters.channel);
     if (filters?.userId) {
       params.append('userId', filters.userId.toString());
     }

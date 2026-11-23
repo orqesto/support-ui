@@ -78,6 +78,50 @@ describe('ThreadMessageItem — a reply sent automatically', () => {
     expect(mark()?.textContent).toBe('Sent automatically · receipt confirmation');
   });
 
+  it('the receipt confirmation is also known by `source: acknowledgment` alone', () => {
+    render(<ThreadMessageItem msg={event({ metadata: { source: 'acknowledgment' } as never })} />);
+    expect(mark()?.textContent).toBe('Sent automatically · receipt confirmation');
+  });
+
+  it('says why the reply was allowed to go, in its description, when the event says', () => {
+    render(
+      <ThreadMessageItem
+        msg={event({
+          metadata: {
+            isAutoReply: true,
+            repliedByAI: true,
+            source: 'documentation',
+            allowedBy: { gate: 'passed', confidence: 0.93, threshold: 0.9 },
+          } as never,
+        })}
+      />
+    );
+    expect(mark()?.getAttribute('title')).toContain(
+      'Allowed because it passed the check every automatic reply goes through (confidence 93%, needed 90%).'
+    );
+  });
+
+  it('a keyword rule’s fixed text says so; CONTROL: an event that does not say gives no reason', () => {
+    render(
+      <ThreadMessageItem
+        msg={event({
+          metadata: {
+            isAutoReply: true,
+            source: 'keyword_rule',
+            keywordRule: { id: 3, name: 'Refunds' },
+            allowedBy: { gate: 'fixed_text' },
+          } as never,
+        })}
+      />
+    );
+    expect(mark()?.getAttribute('title')).toContain(
+      'Allowed because a fixed text written by your team, sent as it is.'
+    );
+    cleanup();
+    render(<ThreadMessageItem msg={event({ metadata: { isAutoReply: true } as never })} />);
+    expect(mark()?.getAttribute('title')).not.toContain('Allowed because');
+  });
+
   it('templated mail the backend’s email service recorded is not called AI-written', () => {
     render(
       <ThreadMessageItem

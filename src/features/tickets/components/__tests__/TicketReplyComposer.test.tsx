@@ -467,6 +467,25 @@ describe('a website chat whose visitor left no email, on a ticket', () => {
     expect(visitorBox()).toBeInactive();
   });
 
+  it('a chat with no email account to reply from (the backend lists it) cannot be ticked and says why', async () => {
+    const user = userEvent.setup();
+    ready([thread(11), thread(13, { channel: 'chat' })]);
+    replies({
+      unreachable: [{ conversationId: 13, reason: 'No email account is connected for this chat' }],
+    });
+    renderTicket();
+    await waitFor(() => expect(box(11)).toBeChecked());
+    expect(box(13)).not.toBeChecked();
+    expect(box(13)).toBeInactive();
+    await user.click(box(13));
+    expect(box(13)).not.toBeChecked();
+    expect(
+      screen.getByText(
+        'A reply cannot reach this thread: No email account is connected for this chat'
+      )
+    ).toBeInTheDocument();
+  });
+
   it('CONTROL: a chat whose visitor left an email is ticked like any thread', async () => {
     ready([thread(11), thread(13, { channel: 'chat' })]);
     renderTicket();

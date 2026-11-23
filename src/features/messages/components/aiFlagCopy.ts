@@ -82,14 +82,34 @@ export const suggestionNotSentNote = (mark: unknown): string | null =>
     ? SUGGESTION_NOT_SENT[mark]
     : null;
 
+/**
+ * The stored draft of a reply that passed every check and was NOT sent because the workspace (or
+ * the team) only checks the AI's replies (`suggestedAnswer.wouldSend`, 2026-11-23): said on the
+ * draft, so an agent knows the AI would have sent exactly this.
+ */
+export const SUGGESTION_WOULD_SEND =
+  'Checked and would have been sent automatically — check-only mode';
+
 /** The stored draft's pill beside "AI": "87%", "87% · not sent", "not sent", or nothing. */
-export const suggestionSublabel = (confidence: unknown, notSent: unknown): string | undefined =>
+export const suggestionSublabel = (
+  confidence: unknown,
+  notSent: unknown,
+  wouldSend?: unknown
+): string | undefined =>
   [
     typeof confidence === 'number' && confidence ? `${Math.round(confidence * 100)}%` : null,
     suggestionNotSentNote(notSent),
+    wouldSend === true ? SUGGESTION_WOULD_SEND : null,
   ]
     .filter(Boolean)
     .join(' · ') || undefined;
+
+/** The same, from the stored draft itself. */
+export const suggestionSublabelOf = (draft: {
+  confidence?: unknown;
+  notSent?: unknown;
+  wouldSend?: unknown;
+}): string | undefined => suggestionSublabel(draft.confidence, draft.notSent, draft.wouldSend);
 
 export const NEEDS_REVIEW_LABEL = 'Needs review';
 

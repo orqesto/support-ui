@@ -78,8 +78,10 @@ const title = (start: AutoReplyStart): string => {
 const what = (start: AutoReplyStart): string => {
   if (start.kind === 'ai')
     return 'AI-written answers from your knowledge base, and the AI’s questions for missing details, will be emailed to customers without a person reading them first — as your keyword rules already are.';
-  return start.mode === 'all'
-    ? 'Your keyword rules AND AI-written answers from your knowledge base will be emailed to customers without a person reading them first.'
+  if (start.mode === 'all')
+    return 'Your keyword rules AND AI-written answers from your knowledge base will be emailed to customers without a person reading them first.';
+  return start.mode === 'check_only'
+    ? 'Your keyword rules with a fixed text will be emailed to customers without a person reading them first.'
     : 'Your keyword rules will be emailed to customers without a person reading them first.';
 };
 
@@ -129,6 +131,7 @@ export function AutoReplyStartConfirm({
 
   if (!start) return null;
   const aiStaysOff = start.kind !== 'ai' && start.mode === 'rules_only';
+  const aiChecksOnly = start.kind !== 'ai' && start.mode === 'check_only';
   const team = start.team?.name;
   return (
     <ConfirmDialog
@@ -204,7 +207,14 @@ export function AutoReplyStartConfirm({
               replies&quot; under &quot;What replies on its own&quot;.
             </p>
           )}
-          {aiStaysOff && !start.team && teamsWithAi.length > 0 && (
+          {aiChecksOnly && (
+            <p>
+              AI replies are written and checked, but never emailed: one that passed every check is
+              kept as the thread&apos;s draft and recorded as &quot;would have been sent&quot;.
+              Letting the AI send is a separate choice: &quot;Keyword rules and AI replies&quot;.
+            </p>
+          )}
+          {(aiStaysOff || aiChecksOnly) && !start.team && teamsWithAi.length > 0 && (
             <p>
               Except for {teamsWithAi.join(', ')}:{' '}
               {teamsWithAi.length === 1 ? 'this team has' : 'these teams have'} their own choice,

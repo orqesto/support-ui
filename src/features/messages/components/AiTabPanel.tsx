@@ -29,7 +29,7 @@ import {
   type SuggestedAnswerMeta,
 } from './messageDetailConstants';
 import { AnalysisDegradedHint, analysisInfoValue } from './AnalysisDegradedHint';
-import { suggestionSublabel } from './aiFlagCopy';
+import { suggestionSublabelOf } from './aiFlagCopy';
 import { useIsWorkspaceAdmin } from '@/hooks/useIsWorkspaceAdmin';
 import { isNoEmailVisitor, senderLabel } from '@/lib/visitorEmail';
 
@@ -72,6 +72,8 @@ type SuggestedAnswer = {
   similarMessageId?: number;
   /** An automatic reply that did not arrive, kept as the draft: `failed` or `uncertain`. */
   notSent?: string;
+  /** Check-only mode: this reply passed every check and was kept as the draft, not sent. */
+  wouldSend?: boolean;
   /** Documentation-CHUNK ids — never a document id (see the DOCS option below). */
   referencedChunks?: number[];
   /** The uploaded document the DOCS answer came from (`documentation.id`); absent on older data. */
@@ -393,7 +395,7 @@ export function AiTabPanel({
       id: 'suggested',
       label: ghost?.label ?? 'AI',
       // "87% · not sent": an automatic reply that did not arrive is kept as this draft.
-      sublabel: suggestionSublabel(suggestedAnswer.confidence, suggestedAnswer.notSent),
+      sublabel: suggestionSublabelOf(suggestedAnswer),
       answer: suggestedAnswer.answer,
       type: ghost?.type ?? 'similar',
       ...(ghost?.insertSource ? { insertSource: ghost.insertSource } : {}),

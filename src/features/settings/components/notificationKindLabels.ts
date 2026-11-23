@@ -35,6 +35,7 @@ export const NOTIFICATION_KIND_LABELS: Record<string, string> = {
   ingestion_dark: 'Mailbox stopped receiving mail',
   ingestion_gap: 'Gap in imported mail',
   ai_provider_down: "Workspace's own AI key failing",
+  auto_reply_check_unreadable: 'Automatic replies held: the reply check could not be read',
   ai_token_limit_reached: 'AI token limit reached',
   mailbox_address_undeclared: 'Mailbox address not declared',
   slack_connection_broken: 'Slack connection broken',

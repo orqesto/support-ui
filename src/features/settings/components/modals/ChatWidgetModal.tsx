@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
+import { Toggle } from '@/components/ui/Toggle';
 import { useAiDraftsOff } from '@/features/settings/hooks/useAiDraftsOff';
 import { departmentService, type Department } from '@/services/department.service';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
@@ -114,6 +115,11 @@ interface ChatWidgetModalProps {
   }) => void;
 }
 
+export const AI_ANSWERS_HELP =
+  'Off: the widget asks for an address and hands every chat to your team; no AI answers.';
+export const AI_ANSWERS_NOT_SWITCHED =
+  'The widget was saved, but this server could not switch its AI answers off: it still answers visitors with AI.';
+
 export const ChatWidgetModal = ({
   open,
   widget,
@@ -180,6 +186,7 @@ export const ChatWidgetModal = ({
         escalationSourceId: widget.escalationSourceId,
         handoffMessage: widget.handoffMessage,
         emailRequestMessage: widget.emailRequestMessage,
+        aiAnswersEnabled: widget.aiAnswersEnabled,
       });
       setDomainsText(widget.allowedDomains.join('\n'));
       setVerifyTexts((widget.metadata?.emailVerification as VerificationTexts | undefined) ?? {});
@@ -262,8 +269,22 @@ export const ChatWidgetModal = ({
         metadata: { ...(widget?.metadata ?? {}), theme, emailVerification },
       };
 
+      const saved = widget
+        ? await chatWidgetService.update(widget.id, data)
+        : await chatWidgetService.create(data);
+      // AI answers were switched off, and the server did not confirm it (one that does not know
+      // the switch drops it): said plainly — the widget still answers with AI.
+      if (data.aiAnswersEnabled === false && saved.data?.aiAnswersEnabled !== false) {
+        onShowAlert({
+          open: true,
+          title: 'AI answers are still on',
+          description: AI_ANSWERS_NOT_SWITCHED,
+          variant: 'error',
+        });
+        onSuccess();
+        return;
+      }
       if (widget) {
-        await chatWidgetService.update(widget.id, data);
         onShowAlert({
           open: true,
           title: 'Success',
@@ -271,7 +292,6 @@ export const ChatWidgetModal = ({
           variant: 'success',
         });
       } else {
-        await chatWidgetService.create(data);
         onShowAlert({
           open: true,
           title: 'Success',
@@ -404,11 +424,27 @@ export const ChatWidgetModal = ({
             </p>
           </div>
 
-          {aiDraftsOff && (
+          <div className="flex gap-3 justify-between items-start p-3 rounded-md border">
+            <div>
+              <p className="text-sm font-medium">
+                AI answers
+              </p>
+              <p className="text-[11px] text-muted-foreground">{AI_ANSWERS_HELP}</p>
+            </div>
+            <Toggle
+              ariaLabel="AI answers"
+              checked={formData.aiAnswersEnabled !== false}
+              onChange={(next) => setFormData({ ...formData, aiAnswersEnabled: next })}
+            />
+          </div>
+
+          {(aiDraftsOff || formData.aiAnswersEnabled === false) && (
             <div className="space-y-3 p-3 rounded-md border">
               <p className="text-xs text-muted-foreground">
-                AI drafts are switched off for this workspace, so the widget does not answer with
-                AI: it asks the visitor for an email address and hands the chat to your people. These
+                {aiDraftsOff
+                  ? 'AI drafts are switched off for this workspace, so the widget does not answer with AI'
+                  : 'AI answers are off for this widget'}
+                : it asks the visitor for an email address and hands the chat to your people. These
                 are the two things it says — leave a box empty to use the default.
               </p>
               {!hasEmailAccount && (

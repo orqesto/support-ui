@@ -1,4 +1,5 @@
 import type { MessageEvent } from '@/types';
+import { allowedByWords } from './autoReplyReasons';
 
 export type AutoSentMark = { label: string; title: string };
 
@@ -17,10 +18,13 @@ const TITLE = 'Nobody on the team wrote or sent this reply: it went out on its o
 export const autoSentMark = (msg: Pick<MessageEvent, 'type' | 'metadata'>): AutoSentMark | null => {
   if (msg.type === 'inbound') return null;
   const meta = msg.metadata ?? {};
-  if (meta.acknowledgmentReply === true) {
+  // Why it was allowed to go, when the event says (`allowedBy`, backend 2026-11-23).
+  const allowed = allowedByWords(meta.allowedBy);
+  const why = allowed ? ` Allowed because ${allowed}.` : '';
+  if (meta.acknowledgmentReply === true || meta.source === 'acknowledgment') {
     return {
       label: 'Sent automatically · receipt confirmation',
-      title: `${TITLE} The mailbox's receipt confirmation.`,
+      title: `${TITLE} The mailbox's receipt confirmation.${why}`,
     };
   }
   if (meta.isAutoReply !== true && msg.type !== 'bot_reply') return null;
@@ -29,11 +33,11 @@ export const autoSentMark = (msg: Pick<MessageEvent, 'type' | 'metadata'>): Auto
   if (ruleName || meta.source === 'keyword_rule') {
     return {
       label: 'Sent automatically · keyword rule',
-      title: ruleName ? `${TITLE} Keyword rule "${ruleName}".` : `${TITLE} A keyword rule.`,
+      title: `${TITLE} ${ruleName ? `Keyword rule "${ruleName}"` : 'A keyword rule'}.${why}`,
     };
   }
   if (meta.repliedByAI === true && meta.source !== 'email_service') {
-    return { label: 'Sent automatically · AI-written', title: `${TITLE} Written by the AI.` };
+    return { label: 'Sent automatically · AI-written', title: `${TITLE} Written by the AI.${why}` };
   }
-  return { label: 'Sent automatically', title: TITLE };
+  return { label: 'Sent automatically', title: `${TITLE}${why}` };
 };

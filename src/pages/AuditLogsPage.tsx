@@ -17,10 +17,13 @@ import { logger } from '@/lib/logger';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import {
   AUTO_REPLY_ACTION_LABEL,
+  AUTO_REPLY_ALL,
   AUTO_REPLY_SENT,
   AUTO_REPLY_WITHHELD,
   AuditAutoReplyDetail,
 } from './AuditAutoReplyDetail';
+import { AuditAutoReplyCounts } from './AuditAutoReplyCounts';
+import { AUTO_REPLY_CHANNEL_LABEL, AUTO_REPLY_REASON_FILTERS } from '@/features/messages/shell';
 
 const ACTION_OPTIONS = [
   { value: '', label: 'All Actions' },
@@ -32,6 +35,7 @@ const ACTION_OPTIONS = [
   { value: 'message.reply', label: 'Thread → Reply' },
   { value: 'message.update', label: 'Thread → Update' },
   // What replied on its own, and what was held and why (written by the system, no user).
+  { value: AUTO_REPLY_ALL, label: 'Automatic reply → All' },
   { value: AUTO_REPLY_SENT, label: AUTO_REPLY_ACTION_LABEL[AUTO_REPLY_SENT] },
   { value: AUTO_REPLY_WITHHELD, label: AUTO_REPLY_ACTION_LABEL[AUTO_REPLY_WITHHELD] },
   { value: 'ticket.create', label: 'Ticket → Create' },
@@ -70,6 +74,18 @@ const ACTION_OPTIONS = [
   { value: 'ai.auto_reply_disable', label: 'AI → Auto-reply Disable' },
 ];
 
+/** The automatic replies view: one of its three action choices is picked. */
+const AUTO_REPLY_VIEW: readonly (string | undefined)[] = [
+  AUTO_REPLY_ALL,
+  AUTO_REPLY_SENT,
+  AUTO_REPLY_WITHHELD,
+];
+const CHANNEL_OPTIONS = [
+  { value: '', label: 'All channels' },
+  ...Object.entries(AUTO_REPLY_CHANNEL_LABEL).map(([value, label]) => ({ value, label })),
+];
+const REASON_OPTIONS = [{ value: '', label: 'All reasons' }, ...AUTO_REPLY_REASON_FILTERS];
+
 const ENTITY_OPTIONS = [
   { value: '', label: 'All Entities' },
   { value: 'user', label: 'User' },
@@ -100,6 +116,10 @@ export const AuditLogsPage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [userSearch, setUserSearch] = useState('');
+  // The counts card re-reads with the page's Refresh; a backend without the counts has none of
+  // the filters that came with them either (it would silently ignore them).
+  const [countsKey, setCountsKey] = useState(0);
+  const [countsAbsent, setCountsAbsent] = useState(false);
 
   const logs = useAuditLogsStore((state) => state.logs);
   const filters = useAuditLogsStore((state) => state.filters);
@@ -108,9 +128,16 @@ export const AuditLogsPage = () => {
   const resetFilters = useAuditLogsStore((state) => state.resetFilters);
 
   const patchFilter = (patch: Partial<AuditLogFilters>) => {
-    setFilters({ ...filters, ...patch });
+    const next = { ...filters, ...patch };
+    // Reason and channel belong to the automatic replies view: they leave with it.
+    if (!AUTO_REPLY_VIEW.includes(next.action)) {
+      next.reason = undefined;
+      next.channel = undefined;
+    }
+    setFilters(next);
     setCurrentPage(1);
   };
+  const autoReplyView = AUTO_REPLY_VIEW.includes(filters.action);
 
   const activeFilterCount = [
     filters.action,
@@ -173,6 +200,7 @@ export const AuditLogsPage = () => {
   };
 
   const handleRefresh = () => {
+    setCountsKey((key) => key + 1);
     fetchLogs(true).catch((error) => logger.error('Failed to refresh logs:', error));
   };
 
@@ -242,6 +270,15 @@ export const AuditLogsPage = () => {
             </Button>
           </div>
 
+          {autoReplyView && (
+            <AuditAutoReplyCounts
+              startDate={filters.startDate}
+              endDate={filters.endDate}
+              refreshKey={countsKey}
+              onAbsent={() => setCountsAbsent(true)}
+            />
+          )}
+
           {/* Table card */}
           <Card className="flex-1 flex flex-col overflow-hidden">
             <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
@@ -257,6 +294,27 @@ export const AuditLogsPage = () => {
                   className="min-w-[11rem]"
                   aria-label="Filter by action"
                 />
+
+                {autoReplyView && !countsAbsent && (
+                  <>
+                    <Select
+                      value={filters.channel ?? ''}
+                      onChange={(value) => patchFilter({ channel: value || undefined })}
+                      options={CHANNEL_OPTIONS}
+                      size="sm"
+                      className="min-w-[9rem]"
+                      aria-label="Filter by channel"
+                    />
+                    <Select
+                      value={filters.reason ?? ''}
+                      onChange={(value) => patchFilter({ reason: value || undefined })}
+                      options={REASON_OPTIONS}
+                      size="sm"
+                      className="min-w-[13rem]"
+                      aria-label="Filter by reason"
+                    />
+                  </>
+                )}
 
                 {/* Entity */}
                 <Select
@@ -389,6 +447,7 @@ export const AuditLogsPage = () => {
                               {log.action in AUTO_REPLY_ACTION_LABEL && (
                                 <AuditAutoReplyDetail
                                   action={log.action}
+                                  entity={log.entity}
                                   entityId={log.entityId}
                                   details={log.details}
                                 />
@@ -486,6 +545,7 @@ export const AuditLogsPage = () => {
                                 {log.action in AUTO_REPLY_ACTION_LABEL && (
                                   <AuditAutoReplyDetail
                                     action={log.action}
+                                    entity={log.entity}
                                     entityId={log.entityId}
                                     details={log.details}
                                   />

@@ -5,11 +5,18 @@
  * The real page; only its data is supplied. Invented data.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { chooseOption, listOptions } from '@/test/chooseOption';
 
-const state = vi.hoisted(() => ({ logs: [] as unknown[], asked: [] as unknown[] }));
+const state = vi.hoisted(() => ({
+  logs: [] as unknown[],
+  asked: [] as unknown[],
+  countsAsked: [] as unknown[],
+  /** What the counts endpoint answers: the counts, or an error to throw. */
+  counts: null as unknown,
+  countsError: null as null | { status: number; message: string },
+}));
 vi.mock('@/services/auditLog.service', () => ({
   auditLogService: {
     getAll: (filters: unknown) => {
@@ -18,6 +25,20 @@ vi.mock('@/services/auditLog.service', () => ({
         logs: state.logs,
         pagination: { page: 1, limit: 50, total: state.logs.length, totalPages: 1 },
       });
+    },
+    getAutoReplyCounts: (range: unknown) => {
+      state.countsAsked.push(range);
+      if (state.countsError)
+        return Promise.reject(
+          Object.assign(new Error(state.countsError.message), {
+            status: state.countsError.status,
+            response: {
+              status: state.countsError.status,
+              data: { success: false, error: state.countsError.message },
+            },
+          })
+        );
+      return Promise.resolve(state.counts);
     },
   },
 }));
@@ -67,6 +88,22 @@ const rows = () => screen.findAllByTestId('audit-auto-reply');
 beforeEach(() => {
   state.logs = [];
   state.asked = [];
+  state.countsAsked = [];
+  state.countsError = null;
+  state.counts = {
+    range: { startDate: '2026-11-16T00:00:00Z', endDate: '2026-11-23T00:00:00Z' },
+    totals: { sent: 14, wouldSend: 6, held: 9, acknowledgments: 30 },
+    byChannel: [
+      { channel: 'email', sent: 10, wouldSend: 6, held: 7, acknowledgments: 30 },
+      { channel: 'chat_widget', sent: 4, wouldSend: 0, held: 2, acknowledgments: 0 },
+    ],
+    heldByReason: [
+      { reason: 'restricted_topic', count: 4 },
+      { reason: 'refusal', count: 2 },
+      { reason: 'refusal_held', count: 1 },
+      { reason: 'brand_new_code', count: 2 },
+    ],
+  };
   useAuditLogsStore.getState().resetFilters();
   useAuditLogsStore.getState().setLogs([]);
 });
@@ -160,5 +197,221 @@ describe('Audit Logs — automatic replies', () => {
     expect((await screen.findAllByText('Message → Update')).length).toBeGreaterThan(0);
     expect(screen.queryByTestId('audit-auto-reply')).toBeNull();
     expect(screen.queryByRole('link', { name: 'Open thread' })).toBeNull();
+  });
+});
+
+describe('Audit Logs — the automatic replies view (backend 2026-11-23)', () => {
+  const lastAsked = () => state.asked.at(-1) as Record<string, unknown>;
+  const pick = async (name: string, option: string) =>
+    chooseOption(screen.getByRole('combobox', { name }), option);
+  const openView = async () => {
+    await show([]);
+    await pick('Filter by action', 'Automatic reply → All');
+    await waitFor(() => expect(lastAsked().action).toBe(`${SENT},${HELD}`));
+  };
+
+  it('"All" asks for both records at once, and the counts stand above the rows', async () => {
+    await openView();
+    const card = within(await screen.findByTestId('auto-reply-counts'));
+    expect(await card.findByText('14')).toBeInTheDocument();
+    expect(card.getByText('Sent')).toBeInTheDocument();
+    expect(card.getByText('6')).toBeInTheDocument();
+    expect(card.getByText('Would have been sent')).toBeInTheDocument();
+    expect(card.getByText('9')).toBeInTheDocument();
+    expect(card.getByText('Held for a person')).toBeInTheDocument();
+    // Receipt confirmations are counted apart from Sent.
+    expect(card.getByText('30')).toBeInTheDocument();
+    expect(card.getByText('Receipt confirmations')).toBeInTheDocument();
+    expect(card.getByText('Last 7 days')).toBeInTheDocument();
+    const channels = card.getByRole('list', { name: 'Automatic replies by channel' }).textContent;
+    expect(channels).toContain(
+      'Email: 10 sent · 6 would have been sent · 7 held · 30 receipt confirmations'
+    );
+    expect(channels).toContain('Website chat: 4 sent · 0 would have been sent · 2 held');
+    // Reasons in words; two codes with the same words are one line; an unknown code is no code.
+    const reasons = card.getByRole('list', { name: 'Held replies by reason' }).textContent ?? '';
+    expect(reasons).toContain('4 — the customer asks about a subject a person must answer');
+    expect(reasons).toContain('3 — the reply only declined the question');
+    expect(reasons).toContain('2 — it was held for a person');
+    expect(reasons).not.toMatch(/restricted_topic|refusal_held|brand_new_code/);
+    // No date filter: the backend's own default period.
+    expect(state.countsAsked).toEqual([undefined]);
+  });
+
+  it('CONTROL: outside the view there is no counts card and no reason or channel filter', async () => {
+    await show([]);
+    expect(screen.queryByTestId('auto-reply-counts')).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Filter by reason' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Filter by channel' })).toBeNull();
+    expect(state.countsAsked).toEqual([]);
+  });
+
+  it('the reason and channel filters are sent to the backend, and leave with the view', async () => {
+    await openView();
+    await pick('Filter by reason', 'Would have been sent (check-only mode)');
+    await waitFor(() => expect(lastAsked().reason).toBe('would_send'));
+    await pick('Filter by channel', 'Website chat');
+    await waitFor(() => expect(lastAsked().channel).toBe('chat_widget'));
+    expect(lastAsked().reason).toBe('would_send');
+    await pick('Filter by action', 'Thread → Reply');
+    await waitFor(() => expect(lastAsked().action).toBe('message.reply'));
+    expect(lastAsked().reason).toBeUndefined();
+    expect(lastAsked().channel).toBeUndefined();
+  });
+
+  it('Refresh counts again', async () => {
+    await openView();
+    await screen.findByText('14');
+    fireEvent.click(
+      document.querySelector('button svg.lucide-refresh-cw')?.closest('button') as HTMLElement
+    );
+    await waitFor(() => expect(state.countsAsked).toHaveLength(2));
+  });
+
+  it('a period the backend refuses is said in its own words', async () => {
+    state.countsError = { status: 400, message: 'The period cannot be longer than 92 days' };
+    await openView();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The period cannot be longer than 92 days'
+    );
+  });
+
+  it('a backend without the counts shows neither the card nor the filters that came with them', async () => {
+    state.countsError = { status: 404, message: 'Not found' };
+    await openView();
+    await waitFor(() => expect(screen.queryByTestId('auto-reply-counts')).toBeNull());
+    expect(screen.queryByRole('combobox', { name: 'Filter by reason' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Filter by channel' })).toBeNull();
+  });
+});
+
+describe('Audit Logs — what the newer records say in the row', () => {
+  it('a would-send entry reads as passed and not sent — never as a hold', async () => {
+    await show([
+      log(1, HELD, 61, {
+        source: 'ai_reply',
+        replyPath: 'ai',
+        channel: 'email',
+        conversationId: 61,
+        reason: 'would_send',
+        checkOnly: true,
+        ruleIds: [],
+        ruleNames: [],
+      }),
+    ]);
+    const [row] = await rows();
+    expect(row.textContent).toContain(
+      'The AI reply passed every check and would have been sent — check-only mode, so it was kept as the draft'
+    );
+    expect(row.textContent).toContain('Written by: AI · Email');
+    expect(row.textContent).not.toContain('would_send');
+  });
+
+  it('a sent reply says why it was allowed', async () => {
+    await show([
+      log(1, SENT, 62, {
+        source: 'documentation',
+        replyPath: 'ai',
+        channel: 'email',
+        conversationId: 62,
+        toStatus: 'resolved',
+        allowedBy: { gate: 'passed', confidence: 0.93, threshold: 0.9 },
+      }),
+      log(2, SENT, 63, {
+        source: 'keyword_rule',
+        replyPath: 'keyword_rule',
+        channel: 'email',
+        conversationId: 63,
+        toStatus: 'resolved',
+        ruleName: 'Refunds',
+        allowedBy: { gate: 'fixed_text' },
+      }),
+    ]);
+    const texts = (await rows()).map((row) => row.textContent ?? '');
+    expect(
+      texts.some((text) =>
+        text.includes(
+          'Allowed because it passed the check every automatic reply goes through (confidence 93%, needed 90%).'
+        )
+      )
+    ).toBe(true);
+    expect(
+      texts.some((text) =>
+        text.includes('Allowed because a fixed text written by your team, sent as it is.')
+      )
+    ).toBe(true);
+  });
+
+  it('a website chat that is not in the inbox links to the widgets’ chats, not to a thread', async () => {
+    await show([
+      {
+        ...log(1, HELD, 900, {
+          replyPath: 'widget',
+          channel: 'chat_widget',
+          conversationId: null,
+          chatSessionId: 900,
+          reason: 'restricted_topic',
+        }),
+        entity: 'chat_session',
+      },
+    ]);
+    const [row] = await rows();
+    expect(row.textContent).toContain(
+      "The website chat's reply was held for a person: the customer asks about a subject a person must answer"
+    );
+    expect(row.textContent).toContain('Written by: Website chat bot · Website chat');
+    expect(within(row).getByRole('link', { name: 'Open website chats' })).toHaveAttribute(
+      'href',
+      '/settings#integrations/chat-widgets'
+    );
+    expect(within(row).queryByRole('link', { name: 'Open thread' })).toBeNull();
+  });
+
+  it('CONTROL: a website chat that IS in the inbox, and a Telegram turn, link to their thread', async () => {
+    await show([
+      log(1, SENT, 64, {
+        replyPath: 'widget',
+        channel: 'chat_widget',
+        conversationId: 640,
+        chatSessionId: 901,
+        reason: 'answered',
+        allowedBy: { gate: 'passed' },
+      }),
+      log(2, HELD, 65, {
+        replyPath: 'telegram',
+        channel: 'telegram',
+        conversationId: 65,
+        reason: 'refusal_held',
+      }),
+    ]);
+    const all = await rows();
+    const widget = all.find((row) =>
+      row.textContent?.includes('The website chat answered on its own')
+    );
+    expect(
+      within(widget as HTMLElement).getByRole('link', { name: 'Open thread' })
+    ).toHaveAttribute('href', '/threads/640');
+    const telegram = all.find((row) =>
+      row.textContent?.includes('The Telegram bot left this chat')
+    );
+    expect(telegram?.textContent).toContain('the reply only declined the question');
+    expect(telegram?.textContent).toContain('Written by: Telegram bot · Telegram');
+  });
+
+  it('a receipt confirmation reads as one, written by nobody', async () => {
+    await show([
+      log(1, SENT, 66, {
+        source: 'acknowledgment',
+        replyPath: 'acknowledgment',
+        channel: 'email',
+        conversationId: 66,
+        allowedBy: { gate: 'fixed_text' },
+      }),
+    ]);
+    const [row] = await rows();
+    expect(row.textContent).toContain('Receipt confirmation sent automatically');
+    expect(row.textContent).toContain(
+      'Written by: Nobody — the mailbox’s fixed receipt confirmation'
+    );
   });
 });

@@ -14,6 +14,8 @@ import {
   organizationService,
   type AutoReplyMode,
   type AutoReplyPartialAnswer,
+  type AutoReplySave,
+  type TeamSettingsChange,
 } from '@/services/organization.service';
 import { getApiErrorMessage, getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 import { Permission } from '@/types/roles';
@@ -81,12 +83,30 @@ const formatThreshold = (value: number): string => `${Math.round(value * 100)}%`
 
 const MODE_LABEL: Record<AutoReplyMode, string> = {
   all: 'Keyword rules and AI replies',
+  check_only: 'Keyword rules; AI replies checked, not sent',
   rules_only: 'Keyword rules only',
 };
-const MODES: AutoReplyMode[] = ['all', 'rules_only'];
+const MODES: AutoReplyMode[] = ['all', 'check_only', 'rules_only'];
 const MODE_HELP =
   'Keyword rules only: only your keyword rules reply; the AI never sends on its own.';
+export const CHECK_ONLY_HELP =
+  'AI replies checked, not sent: the AI writes its reply and it goes through every check, but it is never emailed. A reply that passed is kept as the thread\'s draft and recorded as "would have been sent" (Audit Logs), so you can see what the AI would do before letting it send. Keyword rules with a fixed text still send; a rule that adds a knowledge base answer is checked and not sent.';
+const STALE_SETTINGS =
+  'These settings were changed by someone else since this page was loaded. They were read again; make the change again.';
 const RULES_ONLY_NOTE = 'These AI settings do not apply in "Keyword rules only".';
+
+/** What changes between a team's settings: a new or changed key with its value, a dropped one as null. */
+const teamChange = (before: Settings, after: Settings): TeamSettingsChange['settings'] => {
+  const change: TeamSettingsChange['settings'] = {};
+  const was = before as Record<string, unknown>;
+  const now = after as Record<string, unknown>;
+  for (const key of new Set([...Object.keys(was), ...Object.keys(now)])) {
+    if (key === 'restrictedTopics') continue;
+    if (JSON.stringify(was[key]) === JSON.stringify(now[key])) continue;
+    change[key] = (now[key] ?? null) as TeamSettingsChange['settings'][string];
+  }
+  return change;
+};
 
 /** Does a team change anything of the default? Its extra restricted topics alone do not. */
 const overridesDefault = (settings: Settings | undefined): boolean => {
@@ -167,6 +187,13 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   // choice (as the backend acts), so the stored key itself is read from the workspace row.
   // Not known until the settings are read: nothing can be switched on before that.
   const [modeStored, setModeStored] = useState(false);
+  /**
+   * The settings' `updatedAt` as last read or saved, sent back with every save: the server
+   * refuses a save from a page that is behind (409). `undefined` = this backend has neither the
+   * guard, nor the per-team change, nor "checked, not sent" — the card then works as before.
+   */
+  const updatedAtRef = useRef<string | null | undefined>(undefined);
+  const [newContract, setNewContract] = useState(false);
   /** The settings could not be read: nothing here is offered until a read succeeds. */
   const [loadFailed, setLoadFailed] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
@@ -216,8 +243,19 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
     setOrg(initialOrg);
     orgRef.current = initialOrg;
     const settings: Record<string, unknown> = orgRow.settings ?? {};
-    setModeStored(settings.autoReplyMode === 'all' || settings.autoReplyMode === 'rules_only');
-    const dept = (settings.departmentSettings ?? {}) as Record<string, Settings>;
+    updatedAtRef.current = auto.updatedAt;
+    setNewContract(auto.updatedAt !== undefined);
+    // The backend says what is stored; one that does not is read from the workspace row.
+    setModeStored(
+      auto.modeStored !== undefined
+        ? auto.modeStored !== null
+        : settings.autoReplyMode === 'all' || settings.autoReplyMode === 'rules_only'
+    );
+    const dept = (
+      auto.departmentSettings && typeof auto.departmentSettings === 'object'
+        ? auto.departmentSettings
+        : (settings.departmentSettings ?? {})
+    ) as Record<string, Settings>;
     setPerDept(dept);
     perDeptRef.current = dept;
   }, []);
@@ -263,6 +301,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   const applyStored = useCallback((stored: unknown): boolean => {
     const data = (stored as { data?: Record<string, unknown> } | undefined)?.data;
     if (!data || typeof data !== 'object') return false;
+    if (typeof data.updatedAt === 'string') updatedAtRef.current = data.updatedAt;
     const topics = readRestrictedTopics(data.restrictedTopics);
     if (topics) {
       orgRef.current = { ...orgRef.current, restrictedTopics: topics };
@@ -279,6 +318,16 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
 
   const saveFailed = useCallback(
     (err: unknown, fallback: string, description: string, plain?: string) => {
+      // Someone else saved since this page read the settings (409 to `expectedUpdatedAt`):
+      // nothing was written. The server's sentence is shown and the settings are read again —
+      // the change is NOT sent a second time; the person makes it on what is stored now.
+      if (getErrorStatus(err) === 409 && updatedAtRef.current !== undefined) {
+        const sentence = getApiErrorMessage(err) ?? STALE_SETTINGS;
+        onShowAlert({ open: true, title: 'Not saved', description: sentence, variant: 'error' });
+        setLoadAttempt((count) => count + 1);
+        setError(sentence);
+        return;
+      }
       setError(plain ?? restrictedTopicsRefusal(err) ?? getApiErrorMessage(err) ?? fallback);
       onShowAlert({
         open: true,
@@ -321,7 +370,12 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         };
         orgRef.current = optimistic;
         try {
-          const stored = await organizationService.updateAutoReply(patch);
+          const stored = await organizationService.updateAutoReply({
+            ...patch,
+            ...(typeof updatedAtRef.current === 'string' && {
+              expectedUpdatedAt: updatedAtRef.current,
+            }),
+          });
           setOrg(optimistic);
           if (patch.mode !== undefined) setModeStored(true);
           applyStored(stored);
@@ -366,22 +420,25 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       queued(String(deptId), async () => {
         const key = String(deptId);
         setError(null);
-        // The PATCH replaces the whole team map, so it is built on what is stored NOW, not on
-        // this page's copy: a page opened a while ago would otherwise write back a team another
-        // admin has since switched off. A read that fails saves nothing.
         let previous = perDeptRef.current;
-        try {
-          const fresh = (await organizationService.getAutoReply()).departmentSettings;
-          // Absent on a backend that does not send it: the page's copy, as before.
-          if (fresh && typeof fresh === 'object') previous = fresh as Record<string, Settings>;
-        } catch (err) {
-          logger.error(`Failed to read the settings before saving dept ${deptId}:`, err);
-          saveFailed(
-            err,
-            'The current settings could not be read, so nothing was saved. Please try again.',
-            'Could not save the override for this team.'
-          );
-          return false;
+        const perTeam = updatedAtRef.current !== undefined;
+        if (!perTeam) {
+          // An older backend takes only the whole team map, which REPLACES what is stored: it is
+          // built on what is stored now, not on this page's copy (a page opened a while ago would
+          // write back a team another admin has since switched off). A read that fails saves
+          // nothing. The per-team change below needs neither.
+          try {
+            const fresh = (await organizationService.getAutoReply()).departmentSettings;
+            if (fresh && typeof fresh === 'object') previous = fresh as Record<string, Settings>;
+          } catch (err) {
+            logger.error(`Failed to read the settings before saving dept ${deptId}:`, err);
+            saveFailed(
+              err,
+              'The current settings could not be read, so nothing was saved. Please try again.',
+              'Could not save the override for this team.'
+            );
+            return false;
+          }
         }
         const { restrictedTopics: topics, ...current } = previous[key] ?? {};
         const changed = change(current);
@@ -392,9 +449,21 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         else delete local[key];
         perDeptRef.current = local;
         try {
-          const stored = await organizationService.updateAutoReply({
-            departmentSettings: withoutTopics(local),
-          });
+          const stored = await organizationService.updateAutoReply(
+            perTeam
+              ? {
+                  // ONLY this team, and only the keys that change: the server applies them onto
+                  // the team's stored settings and leaves every other team as it is.
+                  teamSettingsChange: {
+                    departmentId: deptId,
+                    settings: teamChange(current, kept ?? {}),
+                  },
+                  ...(typeof updatedAtRef.current === 'string' && {
+                    expectedUpdatedAt: updatedAtRef.current,
+                  }),
+                }
+              : ({ departmentSettings: withoutTopics(local) } as AutoReplySave)
+          );
           if (!applyStored(stored)) setPerDept(local);
           return true;
         } catch (err) {
@@ -691,6 +760,11 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   const orgRequestMissing = org.autoReplyRequestMissingInfo ?? true;
   const orgSuggest = org.autoReplySuggestSolutions ?? true;
   const orgMode: AutoReplyMode = org.autoReplyMode ?? 'all';
+  // "Checked, not sent" exists only on a backend that knows it (one that does not would refuse
+  // the save); a stored one is always shown.
+  const offeredModes = MODES.filter(
+    (mode) => mode !== 'check_only' || newContract || orgMode === 'check_only'
+  );
 
   return (
     <div className="space-y-4">
@@ -815,7 +889,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         aria-labelledby="org-auto-reply-mode"
                         className="flex flex-wrap gap-2"
                       >
-                        {MODES.map((mode) => (
+                        {offeredModes.map((mode) => (
                           <Button
                             key={mode}
                             type="button"
@@ -839,6 +913,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         ))}
                       </div>
                       <p className="text-xs text-muted-foreground">{MODE_HELP}</p>
+                      {newContract && (
+                        <p className="text-xs text-muted-foreground">{CHECK_ONLY_HELP}</p>
+                      )}
                     </div>
                     <div className="pt-3 space-y-2 border-t">
                       <p className="text-sm font-medium">{PARTIAL_ANSWER_TITLE}</p>
@@ -1107,7 +1184,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                           >
                             Same as workspace ({MODE_LABEL[orgMode]})
                           </Button>
-                          {MODES.map((mode) => (
+                          {offeredModes.map((mode) => (
                             <Button
                               key={mode}
                               type="button"
@@ -1125,6 +1202,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                           ))}
                         </div>
                         <p className="text-[10px] text-muted-foreground">{MODE_HELP}</p>
+                        {newContract && (
+                          <p className="text-[10px] text-muted-foreground">{CHECK_ONLY_HELP}</p>
+                        )}
                         <PartialAnswerChoice
                           groupLabel={`${PARTIAL_ANSWER_TITLE} for ${dept.name}`}
                           value={settings?.autoReplyPartialAnswer}

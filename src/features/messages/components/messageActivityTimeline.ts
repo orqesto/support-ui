@@ -5,6 +5,7 @@
  */
 import { holdNoteLabel, holdNoteText, isHoldNote } from '@/lib/holdNote';
 import { formatDay } from '@/lib/utils';
+import { WOULD_SEND, autoReplyReasonLabel, autoReplyReasonWords } from './autoReplyReasons';
 import type { MessageActivityEntry, MessageNote } from '@/services/message.service';
 
 /**
@@ -181,6 +182,13 @@ export function autoReplySentLabel(details: Record<string, unknown> | null): str
   const ruleName = details?.['ruleName'];
   const keyword = details?.['keyword'];
   const resolved = details?.['toStatus'] === 'resolved' ? ' — resolved' : '';
+  // Where it went out, when the record says (backend 2026-11-23): a mailbox's fixed receipt
+  // confirmation, the Telegram bot, the website chat.
+  const path = details?.['replyPath'];
+  if (path === 'acknowledgment' || details?.['source'] === 'acknowledgment')
+    return 'Receipt confirmation sent automatically';
+  if (path === 'telegram') return 'The Telegram bot answered';
+  if (path === 'widget') return 'The website chat answered on its own';
   if (typeof ruleName === 'string' && ruleName) {
     const matched = typeof keyword === 'string' && keyword ? ` (keyword "${keyword}")` : '';
     const withKb =
@@ -319,7 +327,7 @@ const askWithheldLabel = (
   const why =
     reason === ASK_MODEL_CHECK
       ? known(ASK_CHECK_REASON, textOf(details, ['checkReason', 'detail']))
-      : known(ASK_WITHHELD_REASON, reason);
+      : (known(ASK_WITHHELD_REASON, reason) ?? autoReplyReasonWords(reason));
   if (why) return `${ASK_NOT_SENT}: ${why}`;
   // A newer backend's outcome: its own sentence when it sent one, never a bare code.
   const sentence = reason === ASK_MODEL_CHECK ? '' : textOf(details, ['detail']);
@@ -343,9 +351,22 @@ export function autoReplyWithheldLabel(details: Record<string, unknown> | null):
   const reason = typeof details?.['reason'] === 'string' ? details['reason'] : '';
   // `uncertain` (with send_failed): the transport cut off, so the email may have gone out.
   const uncertain = reason === 'send_failed' && details?.['uncertain'] === true;
+  const path = details?.['replyPath'];
+  // Check-only mode: nothing was held — the reply passed and was kept as the draft.
+  if (reason === WOULD_SEND) {
+    if (details?.['source'] === 'missing_info' || path === 'missing_info')
+      return 'The email asking for missing information passed every check and would have been sent — check-only mode, so it was not sent';
+    if (names.length > 0 || path === 'keyword_rule')
+      return `${names.length > 0 ? `Keyword rule ${joinRuleNames(names)}` : 'A keyword rule'}: its knowledge base answer passed every check and would have been sent — check-only mode, so it was not sent`;
+    return 'The AI reply passed every check and would have been sent — check-only mode, so it was kept as the draft';
+  }
+  if (path === 'telegram')
+    return `The Telegram bot left this chat for a person: ${autoReplyReasonLabel(reason)}`;
+  if (path === 'widget')
+    return `The website chat's reply was held for a person: ${autoReplyReasonLabel(reason)}`;
   if (details?.['source'] === 'ai_reply') {
     if (reason !== 'send_failed')
-      return `The automatic reply was not sent: ${known(AI_REPLY_WITHHELD_REASON, reason) ?? WITHHELD_REASON_UNKNOWN}`;
+      return `The automatic reply was not sent: ${known(AI_REPLY_WITHHELD_REASON, reason) ?? autoReplyReasonLabel(reason)}`;
     return uncertain ? AI_REPLY_UNCERTAIN : AI_REPLY_FAILED;
   }
   if (details?.['source'] === 'missing_info') return askWithheldLabel(details, reason, uncertain);
@@ -357,7 +378,7 @@ export function autoReplyWithheldLabel(details: Record<string, unknown> | null):
   const rule = names.length > 0 ? `Keyword rule ${joinRuleNames(names)}` : 'A keyword rule';
   if (uncertain)
     return `${rule} matched but its reply may not have been delivered: ${MAY_BE_DELIVERED}`;
-  const why = known(WITHHELD_REASON, reason) ?? WITHHELD_REASON_UNKNOWN;
+  const why = known(WITHHELD_REASON, reason) ?? autoReplyReasonLabel(reason);
   return `${rule} matched but its reply did not go out: ${why}`;
 }
 

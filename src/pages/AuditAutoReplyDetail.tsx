@@ -1,10 +1,20 @@
 import { Link } from 'react-router-dom';
-import { autoReplySentLabel, autoReplyWithheldLabel } from '@/features/messages/shell';
+import {
+  AUTO_REPLY_CHANNEL_LABEL,
+  allowedByWords,
+  autoReplySentLabel,
+  autoReplyWithheldLabel,
+} from '@/features/messages/shell';
 
 export const AUTO_REPLY_SENT = 'message.auto_reply_sent';
 export const AUTO_REPLY_WITHHELD = 'message.auto_reply_withheld';
 
 /** The two records an automatic reply leaves, as the action filter and the badge name them. */
+/** Both records at once: the automatic replies view of Audit Logs. */
+export const AUTO_REPLY_ALL = `${AUTO_REPLY_SENT},${AUTO_REPLY_WITHHELD}`;
+/** Where a website chat that never reached the inbox can be read: the widgets' "Chats". */
+export const WIDGET_CHATS_PATH = '/settings#integrations/chat-widgets';
+
 export const AUTO_REPLY_ACTION_LABEL: Record<string, string> = {
   [AUTO_REPLY_SENT]: 'Automatic reply → Sent',
   [AUTO_REPLY_WITHHELD]: 'Automatic reply → Held or not sent',
@@ -33,7 +43,12 @@ export const autoReplyWriter = (details: Details): string => {
   if (names.length > 0)
     return `Keyword rule${names.length > 1 ? 's' : ''} ${names.map((name) => `"${name}"`).join(', ')}`;
   const source = text(details, 'source');
-  if (source === 'keyword_rule') return 'Keyword rule';
+  const path = text(details, 'replyPath');
+  if (path === 'acknowledgment' || source === 'acknowledgment')
+    return 'Nobody — the mailbox’s fixed receipt confirmation';
+  if (path === 'telegram') return 'Telegram bot';
+  if (path === 'widget') return 'Website chat bot';
+  if (source === 'keyword_rule' || path === 'keyword_rule') return 'Keyword rule';
   if (source === 'missing_info') return 'AI — question for missing details';
   return 'AI';
 };
@@ -45,26 +60,46 @@ export const autoReplyWriter = (details: Details): string => {
  */
 export function AuditAutoReplyDetail({
   action,
+  entity,
   entityId,
   details,
 }: {
   action: string;
+  /** `chat_session`: a website chat that is not in the inbox — there is no thread to open. */
+  entity?: string;
   entityId: string | number;
   details: Details;
 }) {
   const held = action === AUTO_REPLY_WITHHELD;
   const sentence = text(details, 'detail');
+  const channel = AUTO_REPLY_CHANNEL_LABEL[text(details, 'channel')];
+  const allowed = held ? null : allowedByWords(details?.['allowedBy']);
+  const threadId = details?.['conversationId'];
+  const widgetOnly =
+    entity === 'chat_session' ||
+    (details !== null && 'conversationId' in details && threadId === null);
   return (
     <div className="mb-1 space-y-0.5 text-sm" data-testid="audit-auto-reply">
       <p>{held ? autoReplyWithheldLabel(details) : autoReplySentLabel(details)}</p>
       {/* The backend's own sentence for a hold, when it wrote one (a code alone is not shown). */}
       {held && sentence.includes(' ') && <p className="text-muted-foreground">{sentence}</p>}
+      {allowed && <p className="text-muted-foreground">Allowed because {allowed}.</p>}
       <p className="text-xs text-muted-foreground">
         Written by: {autoReplyWriter(details)}
+        {channel ? ` · ${channel}` : ''}
         {' · '}
-        <Link to={`/threads/${entityId}`} className="text-primary hover:underline">
-          Open thread
-        </Link>
+        {widgetOnly ? (
+          <Link to={WIDGET_CHATS_PATH} className="text-primary hover:underline">
+            Open website chats
+          </Link>
+        ) : (
+          <Link
+            to={`/threads/${typeof threadId === 'number' ? threadId : entityId}`}
+            className="text-primary hover:underline"
+          >
+            Open thread
+          </Link>
+        )}
       </p>
     </div>
   );
