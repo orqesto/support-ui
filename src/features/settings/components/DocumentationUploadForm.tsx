@@ -7,6 +7,7 @@ import {
   Clock,
   Globe,
 } from 'lucide-react';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
@@ -36,6 +37,8 @@ type DocumentationUploadFormProps = {
   onSelectedDeptIdsChange: (ids: number[]) => void;
   onDocumentTypeChange: (value: DocumentType) => void;
   onUpload: () => void;
+  /** A failed upload or a skipped drop, said in words above the Upload button. */
+  notice?: string | null;
 };
 
 const formatFileSize = (bytes: number): string => {
@@ -59,6 +62,7 @@ export const DocumentationUploadForm = ({
   onSelectedDeptIdsChange,
   onDocumentTypeChange,
   onUpload,
+  notice,
 }: DocumentationUploadFormProps) => {
   const { data: departments = [], teamsEnabled: teamsMode } = useDepartments();
   // Teams off: no team scope; documentation is shared with the whole workspace.
@@ -329,6 +333,12 @@ export const DocumentationUploadForm = ({
             {documentType === 'general' && 'Standard documentation with quotable content'}
           </p>
         </div>
+
+        {notice && (
+          <Alert variant="danger" role="alert">
+            {notice}
+          </Alert>
+        )}
 
         <Button
           onClick={onUpload}

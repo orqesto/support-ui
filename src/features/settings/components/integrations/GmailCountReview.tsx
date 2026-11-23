@@ -460,15 +460,17 @@ export const GmailRowCount = ({
     );
   }
   if (integration.enabled) return null;
+  // A just-connected mailbox is saved PAUSED and waits here for its count to be reviewed.
+  // This strip was a one-line ghost link and was missed: the mailbox sat connected, imported
+  // nothing, and looked as if it had gone to another workspace. Say plainly that nothing is
+  // coming in until someone acts, and make the action a real button.
   return (
-    <Alert variant="warning" className="flex flex-wrap gap-2 items-center px-3 py-2 text-xs">
-      <span>Paused — not syncing.</span>
-      <Button
-        type="button"
-        variant="ghost"
-        className="p-0 h-auto font-medium underline hover:no-underline hover:bg-transparent"
-        onClick={onOpen}
-      >
+    <Alert variant="warning" className="flex flex-wrap gap-2 justify-between items-center px-3 py-2 text-sm">
+      <span>
+        <strong>Not syncing — waiting for review.</strong> No mail is imported until you check the
+        message count and start the sync.
+      </span>
+      <Button type="button" size="sm" onClick={onOpen}>
         Check count and start
       </Button>
     </Alert>

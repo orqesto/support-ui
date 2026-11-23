@@ -54,6 +54,50 @@ export type DocumentationProgress = {
   message?: string;
 };
 
+/**
+ * The types the upload endpoint accepts. The backend checks the multipart part's
+ * Content-Type, which the browser takes from `File.type` — and for a Markdown file that is
+ * often empty, `application/octet-stream` or `text/x-markdown` (it comes from the OS, not
+ * the file). Anything outside this list was refused by the server's type filter with a
+ * 500, so a `.md` the picker offered never reached the knowledge base.
+ */
+const ACCEPTED_UPLOAD_TYPES = new Set([
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+  'text/csv',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+]);
+
+/** The type to send for each extension the picker offers, when the browser gave another. */
+const TYPE_BY_EXTENSION: Record<string, string> = {
+  md: 'text/markdown',
+  markdown: 'text/markdown',
+  txt: 'text/plain',
+  csv: 'text/csv',
+  pdf: 'application/pdf',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
+
+/**
+ * The file as the server expects it: same bytes and name, with the type its extension names
+ * when the browser's own type is not one the server accepts. Images and accepted types pass
+ * through untouched.
+ */
+export const withUploadType = (file: File): File => {
+  if (ACCEPTED_UPLOAD_TYPES.has(file.type) || file.type.startsWith('image/')) return file;
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+  const type = TYPE_BY_EXTENSION[extension];
+  if (!type) return file;
+  return new File([file], file.name, { type, lastModified: file.lastModified });
+};
+
 const uploadDocumentation = async (
   file: File,
   title: string,
@@ -64,7 +108,7 @@ const uploadDocumentation = async (
   onUploadProgress?: (progressEvent: { loaded: number; total?: number; progress?: number }) => void
 ): Promise<Documentation> => {
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('file', withUploadType(file));
   formData.append('title', title);
   if (description) {
     formData.append('description', description);

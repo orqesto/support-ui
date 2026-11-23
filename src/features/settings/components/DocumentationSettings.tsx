@@ -52,6 +52,9 @@ export const DocumentationSettings = ({
   const [selectedDeptIds, setSelectedDeptIds] = useState<number[]>([]);
   const [documentType, setDocumentType] = useState<DocumentType>('general');
   const [isDragging, setIsDragging] = useState(false);
+  // What the last upload or drop could not take, in words. The per-file reasons sit under
+  // each file; this line says that something failed at all, and that the files are still here.
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<
     Record<
       string,
@@ -183,6 +186,7 @@ export const DocumentationSettings = ({
     const files = Array.from(event.target.files ?? []);
     if (files.length > 0) {
       setSelectedFiles((prev) => [...prev, ...files]);
+      setUploadNotice(null);
       event.target.value = '';
     }
   };
@@ -214,6 +218,13 @@ export const DocumentationSettings = ({
     if (validFiles.length > 0) {
       setSelectedFiles((prev) => [...prev, ...validFiles]);
     }
+    // A dropped file of another type used to vanish without a word.
+    const skipped = files.filter((file) => !validFiles.includes(file)).map((file) => file.name);
+    setUploadNotice(
+      skipped.length > 0
+        ? `Not added: ${skipped.join(', ')} — use PDF, DOCX, DOC, XLSX, XLS, CSV, TXT or Markdown (.md).`
+        : null
+    );
   };
 
   const handleRemoveFile = (index: number) => {
@@ -225,6 +236,7 @@ export const DocumentationSettings = ({
 
     try {
       setUploading(true);
+      setUploadNotice(null);
 
       const progress: Record<
         string,
@@ -285,14 +297,29 @@ export const DocumentationSettings = ({
         }
       });
 
-      await Promise.allSettled(uploadPromises);
+      const results = await Promise.allSettled(uploadPromises);
+      const failed = selectedFiles.filter((_, index) => results[index]?.status === 'rejected');
 
-      setTimeout(() => {
-        setSelectedFiles([]);
-        setUploadProgress({});
-        setSelectedDeptIds([]);
-        setDocumentType('general');
-      }, 2000);
+      if (failed.length === 0) {
+        setTimeout(() => {
+          setSelectedFiles([]);
+          setUploadProgress({});
+          setSelectedDeptIds([]);
+          setDocumentType('general');
+        }, 2000);
+      } else {
+        // A failed upload used to be cleared with the rest two seconds later, so a server
+        // error looked like nothing had happened. Keep the files that failed — with their
+        // reasons, team scope and type — so Upload retries exactly them.
+        setSelectedFiles(failed);
+        const failedNames = new Set(failed.map((file) => file.name));
+        setUploadProgress((prev) =>
+          Object.fromEntries(Object.entries(prev).filter(([name]) => failedNames.has(name)))
+        );
+        setUploadNotice(
+          `${failed.length} of ${selectedFiles.length} ${selectedFiles.length === 1 ? 'file' : 'files'} did not upload. The reason is under each file; press Upload to try again.`
+        );
+      }
 
       await loadDocumentation();
       onKbChange?.();
@@ -483,6 +510,7 @@ export const DocumentationSettings = ({
         onSelectedDeptIdsChange={setSelectedDeptIds}
         onDocumentTypeChange={setDocumentType}
         onUpload={handleUpload}
+        notice={uploadNotice}
       />
 
       {/* Full document manager (list + delete/viewer dialogs) — hidden in compact
