@@ -19,12 +19,19 @@ export const NO_EMAIL_VISITOR_DOMAIN = '@chat-widget.local';
 /** Shown where the customer's name or address would be, when there is neither. */
 export const WEBSITE_VISITOR_NO_EMAIL = 'Website visitor (no email)';
 
+/** The contacts list's one row for ALL such visitors: they are not one person. */
+export const WEBSITE_VISITORS_NO_EMAIL = 'Website visitors (no email)';
+
 /** Shown where the address would be, beside a visitor's name. */
 export const NO_EMAIL = 'no email';
 
 /** Above the reply box of such a thread, and the reason its Send controls are off. */
 export const VISITOR_NO_EMAIL_NOTICE =
   'This visitor left no email address, so a reply cannot be sent. The chat asks them for one; when they leave it, it appears here and you can reply.';
+
+/** Above the reply box of a website chat that has no email account to send a reply from. */
+export const CHAT_NO_EMAIL_ACCOUNT_NOTICE =
+  'This website chat has no email account to send a reply from, so a reply cannot be sent. An admin chooses the "Email account for replies" in the chat widget\'s settings.';
 
 /** Why a ticket's reply cannot reach such a thread (after "A reply cannot reach this thread: "). */
 export const VISITOR_NO_EMAIL_UNREACHABLE = 'the visitor left no email address.';
@@ -73,4 +80,28 @@ export const resolveVisitorNoEmailBlock = (
   }
   // `warning`, not `blocked`: nothing went wrong — the thread waits for the visitor's address.
   return { blocked: true, notice: VISITOR_NO_EMAIL_NOTICE, remaining: null, tone: 'warning' };
+};
+
+/**
+ * Whether a reply to a website chat can go out at all. It is delivered by email, from the email
+ * account the chat was handed over with (`messageSourceId`), to the address the visitor left.
+ * The backend refuses (409) without either, checking the account first — so does this.
+ *
+ * `messageSourceId` blocks only when it is `null`: absent means this record does not say (a list
+ * shape or a backend that does not send it), and Send stays on — the backend's refusal is then
+ * shown after Send, as before.
+ */
+export const resolveChatReplyBlock = (
+  message: { channel?: string | null; sender?: string | null; messageSourceId?: number | null },
+  mode: 'reply' | 'note'
+): ComposerWindowState => {
+  if (mode !== 'note' && message.channel === 'chat' && message.messageSourceId === null) {
+    return {
+      blocked: true,
+      notice: CHAT_NO_EMAIL_ACCOUNT_NOTICE,
+      remaining: null,
+      tone: 'blocked',
+    };
+  }
+  return resolveVisitorNoEmailBlock(message, mode);
 };

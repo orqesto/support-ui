@@ -33,7 +33,7 @@ import {
   type PaginationMeta,
 } from '@/services/message.service';
 import type { Message } from '@/types';
-import { isNoEmailVisitor, senderLabel } from '@/lib/visitorEmail';
+import { isNoEmailVisitor, senderLabel, WEBSITE_VISITORS_NO_EMAIL } from '@/lib/visitorEmail';
 
 type ContactsViewProps = {
   apiFilters: Record<string, string>;
@@ -82,9 +82,11 @@ function ContactRow({
   /** Lead qualification is not configured — no LEAD marks (see useLeadsHidden). */
   leadsHidden?: boolean;
 }) {
-  // Website visitors who left no email arrive as ONE row (they share the stored placeholder):
-  // it lists their threads, but opens no profile — notes, labels and a manager on it would be
-  // every such visitor's.
+  // Website visitors who left no email arrive as ONE row (they share the stored placeholder).
+  // They are not one person: the row is named in the plural and counts their threads, but opens
+  // no profile (notes, labels and a manager on it would be every such visitor's) and does not
+  // expand — its "topics" would be different people's chats merged by subject. The chats
+  // themselves are in the thread list.
   const shared = isNoEmailVisitor(contact.sender);
   const [expanded, setExpanded] = useState(false);
   const [subjectState, setSubjectState] = useState<SubjectState>({ loading: false, data: null });
@@ -124,24 +126,28 @@ function ContactRow({
     <div className={`group transition-colors ${active ? 'bg-primary/5' : 'hover:bg-muted/50'}`}>
       <div className="flex items-stretch">
         {/* Full-height expand column — separate hit target from the row's open action */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={(event) => {
-            event.stopPropagation();
-            void handleToggle();
-          }}
-          title={expanded ? 'Collapse topics' : `Show ${contact.subjectCount} topics`}
-          aria-label={expanded ? 'Collapse topics' : 'Show topics'}
-          className={`flex justify-center items-center self-stretch w-9 h-auto shrink-0 border-r transition-colors ${
-            expanded ? 'bg-muted/70 border-border' : 'border-transparent hover:bg-muted'
-          }`}
-        >
-          <ChevronDown
-            className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? '' : '-rotate-90'}`}
-          />
-        </Button>
+        {shared ? (
+          <span className="w-9 shrink-0" aria-hidden />
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={(event) => {
+              event.stopPropagation();
+              void handleToggle();
+            }}
+            title={expanded ? 'Collapse topics' : `Show ${contact.subjectCount} topics`}
+            aria-label={expanded ? 'Collapse topics' : 'Show topics'}
+            className={`flex justify-center items-center self-stretch w-9 h-auto shrink-0 border-r transition-colors ${
+              expanded ? 'bg-muted/70 border-border' : 'border-transparent hover:bg-muted'
+            }`}
+          >
+            <ChevronDown
+              className={`w-4 h-4 text-muted-foreground transition-transform ${expanded ? '' : '-rotate-90'}`}
+            />
+          </Button>
+        )}
 
         {/* Identity / signals — click opens the profile */}
         <div
@@ -167,7 +173,7 @@ function ContactRow({
               <span
                 className={`truncate text-sm ${contact.hasUnread ? 'font-bold' : 'font-semibold'} text-foreground`}
               >
-                {senderLabel(contact.sender)}
+                {shared ? WEBSITE_VISITORS_NO_EMAIL : senderLabel(contact.sender)}
               </span>
               <ContactNotesIndicator
                 count={shared ? 0 : contact.noteCount}
@@ -213,9 +219,10 @@ function ContactRow({
             </span>
             <span
               className="text-xs tabular-nums whitespace-nowrap w-12 text-right"
-              title={`${contact.subjectCount} topics`}
+              title={shared ? undefined : `${contact.subjectCount} topics`}
             >
-              {contact.subjectCount} {contact.subjectCount === 1 ? 'topic' : 'topics'}
+              {!shared &&
+                `${contact.subjectCount} ${contact.subjectCount === 1 ? 'topic' : 'topics'}`}
             </span>
           </div>
 

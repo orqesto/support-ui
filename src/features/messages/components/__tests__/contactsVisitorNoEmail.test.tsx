@@ -5,8 +5,9 @@ import { ContactsView } from '@/features/messages/components/ContactsView';
 
 /**
  * Website visitors who left no email share one stored requester, so the contacts list returns
- * them as ONE row. It is named "Website visitor (no email)", still lists its threads, and opens
- * no profile: notes, labels and a manager on it would be every such visitor's.
+ * them as ONE row. They are not one person: the row is named "Website visitors (no email)", opens
+ * no profile (notes, labels and a manager on it would be every such visitor's) and does not
+ * expand into one list of "topics".
  */
 const { getContacts, getContactSubjects } = vi.hoisted(() => ({
   getContacts: vi.fn(),
@@ -29,7 +30,7 @@ vi.mock('@/features/messages/hooks/useLeadsHidden', () => ({ useLeadsHidden: () 
 vi.mock('@/hooks/useDepartmentContextKey', () => ({ useDepartmentContextKey: () => 'all' }));
 
 const PLACEHOLDER = 'anonymous@chat-widget.local';
-const LABEL = 'Website visitor (no email)';
+const LABEL = 'Website visitors (no email)';
 
 const row = (sender: string, noteCount = 0) => ({
   sender,
@@ -96,10 +97,25 @@ describe('the contacts list and a website visitor with no email', () => {
     expect(marks.some((mark) => identity(LABEL).contains(mark))).toBe(false);
   });
 
-  it('still lists the visitors’ threads when the row is expanded', async () => {
+  it('does not expand: no topics control, no topics count, and the threads are never read as one list', async () => {
     await show();
     const rowEl = identity(LABEL).parentElement as HTMLElement;
-    fireEvent.click(rowEl.querySelector('button') as HTMLElement);
-    await waitFor(() => expect(getContactSubjects).toHaveBeenCalledWith(PLACEHOLDER, {}));
+    expect(rowEl.querySelector('button[aria-label="Show topics"]')).toBeNull();
+    expect(rowEl.textContent).not.toMatch(/topic/);
+    // Their threads are still counted.
+    expect(rowEl.querySelector('[title="2 threads"]')).not.toBeNull();
+    // Nothing in the row can be pressed at all.
+    expect(rowEl.querySelector('button, [role="button"]')).toBeNull();
+    fireEvent.click(rowEl.firstElementChild as HTMLElement);
+    await Promise.resolve();
+    expect(getContactSubjects).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL: a customer’s row expands into their topics', async () => {
+    await show();
+    const rowEl = identity('ada@example.com').parentElement as HTMLElement;
+    expect(rowEl.textContent).toMatch(/1 topic/);
+    fireEvent.click(rowEl.querySelector('button[aria-label="Show topics"]') as HTMLElement);
+    await waitFor(() => expect(getContactSubjects).toHaveBeenCalledWith('ada@example.com', {}));
   });
 });

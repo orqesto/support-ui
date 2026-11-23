@@ -145,6 +145,11 @@ export type Message = {
   // publicId when present, falls back to #id. See planning/public-id-design.md.
   publicId?: string | null;
   channel: ChannelType;
+  /**
+   * The connected account the thread belongs to (a mailbox, a bot…). `null` = none: a website
+   * chat then has no email account to send a reply from. Absent = this record does not say.
+   */
+  messageSourceId?: number | null;
   sender: string;
   subject: string | null;
   status: ThreadStatus;

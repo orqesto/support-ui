@@ -16,7 +16,11 @@ import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { subscribeToEvent } from '@/lib/socketManager';
-import { VISITOR_NO_EMAIL_NOTICE, WEBSITE_VISITOR_NO_EMAIL } from '@/lib/visitorEmail';
+import {
+  CHAT_NO_EMAIL_ACCOUNT_NOTICE,
+  VISITOR_NO_EMAIL_NOTICE,
+  WEBSITE_VISITOR_NO_EMAIL,
+} from '@/lib/visitorEmail';
 import type { Message } from '@/types';
 import { MessageDetail } from '../../MessageDetail';
 import { VISITOR_EMAIL_REFRESH_MS } from '../useVisitorEmailArrival';
@@ -315,5 +319,97 @@ describe("the backend's own refusal, on a client that had not caught up", () => 
     expect(screen.queryByText(/Send this reply again/)).toBeNull();
     expect((editor() as HTMLTextAreaElement).value).toBe('<p>Hello</p>');
     expect(screen.queryByText(/please try again/i)).toBeNull();
+  });
+});
+
+/**
+ * A website chat handed over with no email account to reply from (`messageSourceId: null` on the
+ * conversation): the backend refuses every reply to it, so the reply box says so before anything
+ * is written. A record that does not carry the field leaves Send on — the refusal after Send is
+ * then the fallback.
+ */
+const NO_ACCOUNT_REFUSAL =
+  'This thread was escalated from a chat widget with no connected email account, so a reply cannot be delivered. Connect an email integration to the widget to reply to escalated chats.';
+const noAccountChat = {
+  channel: 'chat',
+  sender: 'ada@example.com',
+  messageSourceId: null,
+} as Partial<Message>;
+
+describe('a website chat with no email account to reply from', () => {
+  it('says a reply cannot be sent before anything is written, and Send is off', async () => {
+    renderDetail(noAccountChat);
+    await ready();
+    const notice = screen.getByText(CHAT_NO_EMAIL_ACCOUNT_NOTICE);
+    expect(isOff(sendButton())).toBe(true);
+    expect(sendButton().getAttribute('aria-describedby')).toBe(notice.id);
+    // The visitor did leave an address: it is the account that is missing.
+    expect(screen.queryByText(VISITOR_NO_EMAIL_NOTICE)).toBeNull();
+  });
+
+  it('with a reply typed: Send, its menu and the shortcut send nothing and ask nothing', async () => {
+    renderDetail({ ...noAccountChat, assigneeId: null });
+    await ready();
+    type('<p>Hello</p>');
+    const menu = screen.getByRole('button', { name: 'Choose what happens after sending' });
+    expect(isOff(sendButton())).toBe(true);
+    expect(isOff(menu)).toBe(true);
+    fireEvent.click(sendButton());
+    fireEvent.click(menu);
+    fireEvent.click(screen.getByTestId('rte-submit'));
+    await act(async () => {});
+    expect(svc.message.reply).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Assign this thread to you\?/)).toBeNull();
+    expect((editor() as HTMLTextAreaElement).value).toBe('<p>Hello</p>');
+  });
+
+  it('with no visitor email either, the missing account is what it says', async () => {
+    renderDetail({ ...noAccountChat, sender: PLACEHOLDER });
+    await ready();
+    expect(screen.getByText(CHAT_NO_EMAIL_ACCOUNT_NOTICE)).toBeTruthy();
+    expect(screen.queryByText(VISITOR_NO_EMAIL_NOTICE)).toBeNull();
+    expect(isOff(sendButton())).toBe(true);
+  });
+
+  it('an internal note is not blocked: no notice, and it posts', async () => {
+    svc.message.addNote = vi.fn().mockResolvedValue({ id: 1, content: 'Called them.' });
+    renderDetail(noAccountChat);
+    await ready();
+    fireEvent.click(screen.getByRole('button', { name: 'Internal note' }));
+    expect(screen.queryByText(CHAT_NO_EMAIL_ACCOUNT_NOTICE)).toBeNull();
+    type('<p>Called them.</p>');
+    fireEvent.click(screen.getByRole('button', { name: 'POST NOTE' }));
+    await waitFor(() => expect(svc.message.addNote).toHaveBeenCalledTimes(1));
+  });
+
+  it.each([
+    ['a chat with an email account', { channel: 'chat', messageSourceId: 12 }],
+    ['a chat whose record does not say', { channel: 'chat' }],
+    ['a thread of another channel with no account', { channel: 'email', messageSourceId: null }],
+  ])('CONTROL: %s has no notice and sends', async (_name, thread) => {
+    renderDetail({ sender: 'ada@example.com', ...thread } as Partial<Message>);
+    await ready();
+    expect(screen.queryByText(CHAT_NO_EMAIL_ACCOUNT_NOTICE)).toBeNull();
+    type('<p>Hello</p>');
+    expect(isOff(sendButton())).toBe(false);
+    fireEvent.click(sendButton());
+    await waitFor(() => expect(svc.message.reply).toHaveBeenCalledTimes(1));
+  });
+
+  it("FALLBACK: the backend's refusal on a record that did not say — its plain sentence, no Retry", async () => {
+    svc.message.reply = vi.fn().mockRejectedValueOnce(
+      Object.assign(new Error(NO_ACCOUNT_REFUSAL), {
+        status: 409,
+        data: { error: NO_ACCOUNT_REFUSAL },
+      })
+    );
+    renderDetail({ channel: 'chat', sender: 'ada@example.com' } as Partial<Message>);
+    await ready();
+    type('<p>Hello</p>');
+    fireEvent.click(sendButton());
+    await screen.findByText(NO_ACCOUNT_REFUSAL);
+    expect(screen.queryByRole('button', { name: 'Send again' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /retry/i })).toBeNull();
+    expect((editor() as HTMLTextAreaElement).value).toBe('<p>Hello</p>');
   });
 });
