@@ -5,7 +5,9 @@
  * LiteLLM, vLLM, LM Studio, OpenRouter, Together AI, Groq, Cerebras,
  * Anyscale, self-hosted gateways, etc. — without us shipping a vendor-
  * specific card. Configuration is intentionally minimal: name + baseUrl
- * + optional apiKey + chosen model.
+ * + apiKey + chosen model. The key is required: the AI client is not built
+ * for a custom provider without one (a gateway that checks none takes any
+ * placeholder value).
  *
  * Model dropdown is populated live from {baseUrl}/v1/models via the
  * useCustomProviderModels hook. When discovery fails (404, SSRF block,
@@ -96,8 +98,13 @@ export const CustomProviderCard = ({
     handleReset();
   };
 
+  // The key is required: no client is built for a custom provider without one, and the backend
+  // refuses to save it switched on. (An edit carries the stored key back masked, which counts.)
   const canSave =
-    config.displayName.trim() && config.baseUrl.trim() && config.defaultChatModel.trim();
+    config.displayName.trim() &&
+    config.baseUrl.trim() &&
+    config.defaultChatModel.trim() &&
+    (config.apiKey ?? '').trim();
 
   return (
     <Card>
@@ -255,14 +262,14 @@ export const CustomProviderCard = ({
 
             <div>
               <label htmlFor="custom-apikey" className="text-sm font-medium">
-                API Key (optional)
+                API Key *
               </label>
               <PasswordInput
                 id="custom-apikey"
                 value={config.apiKey ?? ''}
                 onChange={(event) => setConfig({ ...config, apiKey: event.target.value })}
                 className="font-mono text-xs"
-                placeholder="sk-… (leave empty for unauthenticated endpoints)"
+                placeholder="sk-…"
                 autoComplete="off"
               />
             </div>
