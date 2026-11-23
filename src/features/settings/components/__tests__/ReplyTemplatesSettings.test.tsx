@@ -10,6 +10,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { Permission } from '@/types/roles';
 import { chooseOption } from '@/test/chooseOption';
+import { useAdvancedStore } from '@/features/settings/advanced';
 
 const list = vi.fn();
 const create = vi.fn();
@@ -254,11 +255,20 @@ describe('RulesSettings — the Reply templates tab', () => {
     expect(screen.queryByText('Refund approved')).toBeNull();
   });
 
-  it('without VIEW_MESSAGES the tab is hidden and the deep link falls back to spam', () => {
+  it('without VIEW_MESSAGES the tab is hidden and the deep link falls back to spam (Advanced on)', () => {
     perms.granted = new Set();
+    useAdvancedStore.setState({ show: true });
     renderRules('templates');
     expect(screen.queryByText('Reply templates')).toBeNull();
     expect(screen.getByText('spam rules')).toBeInTheDocument();
     expect(list).not.toHaveBeenCalled();
+  });
+
+  it('with no section the role can see and Advanced off, the tab says so instead of opening a hidden panel', () => {
+    perms.granted = new Set();
+    useAdvancedStore.setState({ show: false });
+    renderRules('templates');
+    expect(screen.getByText(/Nothing to show here/i)).toBeVisible();
+    expect(screen.queryByText('spam rules')).toBeNull();
   });
 });
