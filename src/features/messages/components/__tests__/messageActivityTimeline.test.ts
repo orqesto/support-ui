@@ -438,15 +438,21 @@ describe('messageActivityTimeline — auto-reply withheld', () => {
 
   // The send gate's reasons (2026-11-20), as the backend's keywordSendGate / keywordAutoReply name them.
   it.each([
-    ['kb_restricted_topic', 'the customer asks about a subject a person must answer'],
-    ['restricted_topic', 'the customer asks about a subject a person must answer'],
+    [
+      'kb_restricted_topic',
+      'the customer asks about a restricted topic, or the knowledge base answer stated a dose',
+    ],
+    ['restricted_topic', 'the customer asks about a restricted topic, or the reply stated a dose'],
     ['kb_no_customer_request', 'the message is not a customer request'],
     ['kb_needs_lookup_or_action', 'answering needs a lookup or an action'],
     ['kb_promises_follow_up', 'the knowledge base answer promised a follow-up'],
     ['kb_does_not_answer', 'the knowledge base answer did not answer the question'],
     ['kb_unsupported_by_sources', 'the answer said more than the knowledge base does'],
     ['kb_content_unchecked', 'the knowledge base answer could not be checked'],
-    ['question_unchecked', 'the question could not be checked for a restricted topic'],
+    [
+      'question_unchecked',
+      "the check on the customer's question could not run (for example, no AI provider is set up), so the reply was not sent without a person",
+    ],
   ])('send gate: %s says why in words', (reason, why) => {
     expect(withheld(reason, ['Refunds'])).toBe(
       `Keyword rule "Refunds" matched but its reply did not go out: ${why}`
@@ -479,7 +485,7 @@ describe('messageActivityTimeline — auto-reply withheld', () => {
     ['check failed', "the email's questions could not be checked"],
     [
       'restricted_topic',
-      'the customer asks about a subject a person must answer, so nothing was asked automatically',
+      'the customer asks about a restricted topic, or a question in the email stated a dose, so nothing was asked automatically',
     ],
     ['no_customer_request', 'the message is not a customer request'],
     ['not_only_asking', 'a question in the email did more than ask for a detail'],
@@ -578,7 +584,7 @@ describe('messageActivityTimeline — auto-reply withheld', () => {
 
   it.each([
     ['reply_unchecked', 'the reply could not be checked'],
-    ['restricted_topic', 'the customer asks about a subject a person must answer'],
+    ['restricted_topic', 'the customer asks about a restricted topic, or the reply stated a dose'],
     ['refusal', 'the reply only declined the question'],
     ['does_not_answer', 'the reply did not answer the question'],
     ['not_from_knowledge', 'the reply was not written from the knowledge base'],

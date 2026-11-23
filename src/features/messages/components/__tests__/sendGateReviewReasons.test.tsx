@@ -29,7 +29,7 @@ vi.mock('@/lib/api-client', () => ({
 
 /** The backend's NEEDS_REVIEW_REASONS entries the send gate added, with this app's words. */
 const GATE_REASONS: [string, string][] = [
-  ['restricted_topic', 'Restricted topic'],
+  ['restricted_topic', 'Restricted topic or a dose'],
   ['no_customer_request', 'Not a customer request'],
   ['needs_lookup_or_action', 'Needs a lookup or an action'],
   ['promises_follow_up', 'Reply promised a follow-up'],
@@ -126,7 +126,7 @@ describe('send gate hold reasons → words', () => {
       } as Message,
     });
     const badge = await screen.findByTestId('header-restricted-topic-review');
-    expect(badge.textContent).toContain('Restricted topic');
+    expect(badge.textContent).toContain('Restricted topic or a dose');
   });
 });
 

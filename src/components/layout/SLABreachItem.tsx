@@ -15,6 +15,9 @@ import { senderLabel } from '@/lib/visitorEmail';
  * breach with a blank label: worse than either showing it properly or not showing it,
  * because a blank row tells the reader nothing AND looks like a bug.
  */
+/** `auto_reply_check_unreadable`: the reply check could not be read, so replies are being held. */
+const AUTO_REPLY_CHECK = 'auto_reply_check';
+
 export const typeLabel = (type: SLABreachNotification['type']): string => {
   switch (type) {
     case 'message':
@@ -32,6 +35,7 @@ export const typeLabel = (type: SLABreachNotification['type']): string => {
     case 'slack_channel_route':
       return 'Slack notifications';
     default:
+      if ((type as string) === AUTO_REPLY_CHECK) return 'Automatic replies';
       return 'Notification';
   }
 };
@@ -51,13 +55,19 @@ export const SLABreachItem = ({
   // on the settings page, so it links there instead of to a thread or ticket.
   const isSlack =
     notification.type === 'slack_connection' || notification.type === 'slack_channel_route';
-  const href = isSlack
-    ? '/settings#notifications'
-    : notification.type === 'message' ||
-        notification.type === 'message_resolution' ||
-        notification.type === 'conversation'
-      ? `/threads/${notification.entityId}`
-      : `/tickets/${notification.entityId}`;
+  // Not a breach either: no overrun, and its entity is the workspace — it links to the AI
+  // providers (Settings › Integrations), where the model that checks the replies is set.
+  const isReplyCheck = (notification.type as string) === AUTO_REPLY_CHECK;
+  const isNotice = isSlack || isReplyCheck;
+  const href = isReplyCheck
+    ? '/settings#integrations/ai-providers'
+    : isSlack
+      ? '/settings#notifications'
+      : notification.type === 'message' ||
+          notification.type === 'message_resolution' ||
+          notification.type === 'conversation'
+        ? `/threads/${notification.entityId}`
+        : `/tickets/${notification.entityId}`;
   return (
     <div
       className={cn(
@@ -74,7 +84,7 @@ export const SLABreachItem = ({
         <div className="flex gap-2 justify-between items-center">
           <span className="font-medium text-foreground">{typeLabel(notification.type)}</span>
           <div className="flex gap-1 items-center shrink-0">
-            {!isSlack && (
+            {!isNotice && (
               <span
                 className={cn(
                   'text-xs font-semibold shrink-0',
@@ -102,7 +112,12 @@ export const SLABreachItem = ({
             notification.details.subject ??
             senderLabel(notification.details.sender)}
         </p>
-        {isSlack ? (
+        {isReplyCheck ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Replies that could not be checked are kept as drafts for a person, not sent. Check the
+            AI provider in Settings › Integrations › AI providers.
+          </p>
+        ) : isSlack ? (
           <p className="mt-1 text-xs text-muted-foreground">
             {notification.details.subject ??
               (notification.type === 'slack_channel_route'

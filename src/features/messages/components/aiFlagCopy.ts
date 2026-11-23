@@ -32,7 +32,8 @@ export const NEEDS_REVIEW_REASON_LABELS: Record<string, string> = {
   reply_unchecked: 'Reply not checked',
   // The send gate held an automatic reply (2026-11-20), one reason each. "Reply", not "draft": a
   // held keyword-rule or bot answer leaves no draft behind.
-  restricted_topic: 'Restricted topic',
+  // A restricted topic, or the fixed dose rule (the reply stated an amount in a dose unit).
+  restricted_topic: 'Restricted topic or a dose',
   no_customer_request: 'Not a customer request',
   needs_lookup_or_action: 'Needs a lookup or an action',
   promises_follow_up: 'Reply promised a follow-up',
@@ -50,9 +51,9 @@ export const NEEDS_REVIEW_REASON_DETAILS: Record<string, string> = {
   follow_up_needed:
     'The AI answered part and told the customer a colleague will follow up – see the note',
   reply_unchecked:
-    "A check on the automatic reply or on the customer's message could not run, so nothing was sent",
+    "A check on the automatic reply or on the customer's message could not run (for example, no AI provider is set up), so nothing was sent",
   restricted_topic:
-    'The customer asks about a subject a person must answer (a restricted topic), so no automatic reply was sent',
+    'The customer asks about a restricted topic (a subject a person must answer), or the automatic reply stated an amount in a dose unit, so no automatic reply was sent',
   no_customer_request:
     'This does not read as a customer asking for something, so no automatic reply was sent',
   needs_lookup_or_action:
@@ -82,14 +83,48 @@ export const suggestionNotSentNote = (mark: unknown): string | null =>
     ? SUGGESTION_NOT_SENT[mark]
     : null;
 
+/**
+ * The stored draft of an automatic reply that passed every check and was NOT sent because the
+ * workspace (or the team) is in check-only mode (`suggestedAnswer.wouldSend`, 2026-11-23) — the
+ * AI's reply or a keyword rule's kept reply: said on the draft, so an agent knows exactly this
+ * would have been sent.
+ */
+export const SUGGESTION_WOULD_SEND =
+  'Checked and would have been sent automatically — check-only mode';
+
 /** The stored draft's pill beside "AI": "87%", "87% · not sent", "not sent", or nothing. */
-export const suggestionSublabel = (confidence: unknown, notSent: unknown): string | undefined =>
+export const suggestionSublabel = (
+  confidence: unknown,
+  notSent: unknown,
+  wouldSend?: unknown
+): string | undefined =>
   [
     typeof confidence === 'number' && confidence ? `${Math.round(confidence * 100)}%` : null,
     suggestionNotSentNote(notSent),
+    wouldSend === true ? SUGGESTION_WOULD_SEND : null,
   ]
     .filter(Boolean)
     .join(' · ') || undefined;
+
+/**
+ * The same, from the stored draft itself. A keyword rule's kept reply (`source: 'keyword_rule'`)
+ * names its rule first — `Keyword rule "Returns"` — as the thread's ghost does: the team's own
+ * text, never called the AI's.
+ */
+export const suggestionSublabelOf = (draft: {
+  confidence?: unknown;
+  notSent?: unknown;
+  wouldSend?: unknown;
+  source?: unknown;
+  keywordRule?: unknown;
+}): string | undefined => {
+  const rest = suggestionSublabel(draft.confidence, draft.notSent, draft.wouldSend);
+  if (draft.source !== 'keyword_rule') return rest;
+  const rule = draft.keywordRule as { name?: unknown } | null | undefined;
+  const name = typeof rule?.name === 'string' ? rule.name.trim() : '';
+  const named = name ? `Keyword rule "${name}"` : 'Keyword rule';
+  return rest ? `${named} · ${rest}` : named;
+};
 
 export const NEEDS_REVIEW_LABEL = 'Needs review';
 

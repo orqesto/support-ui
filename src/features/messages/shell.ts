@@ -7,6 +7,19 @@
  */
 export { bareStatusLabel, hashNameToLabelColor } from './components/inboxCardHelpers';
 export {
+  autoReplySentLabel,
+  autoReplyWithheldLabel,
+  holdWhyOf,
+} from './components/messageActivityTimeline';
+export {
+  AUTO_REPLY_CHANNEL_LABEL,
+  AUTO_REPLY_REASON_FILTERS,
+  WOULD_SEND,
+  allowedByWords,
+  anyAutoReplyReasonLabel,
+  reasonFilterQuery,
+} from './components/autoReplyReasons';
+export {
   addNoopenerHook,
   answerToEditorHtml,
   channelName,

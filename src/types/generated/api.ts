@@ -712,7 +712,7 @@ export interface components {
         DepartmentAutoReplySettings: {
             autoReplyEnabled?: boolean;
             /** @enum {string} */
-            autoReplyMode?: "all" | "rules_only";
+            autoReplyMode?: "all" | "rules_only" | "check_only";
             autoReplyRequestMissingInfo?: boolean;
             autoReplySuggestSolutions?: boolean;
             autoReplyHighConfidenceThreshold?: number;
@@ -720,10 +720,6 @@ export interface components {
             autoReplyPartialAnswer?: "hand_to_agent" | "send_and_follow_up";
             escalationPhrases?: string[];
             restrictedTopics?: string[];
-        };
-        BuiltInRestrictedTopic: {
-            key: string;
-            label: string;
         };
         RestrictedTopicTeam: {
             departmentId: number;
@@ -734,14 +730,14 @@ export interface components {
         AutoReplySettings: {
             enabled?: boolean;
             /** @enum {string} */
-            mode: "all" | "rules_only";
+            mode: "all" | "rules_only" | "check_only";
             requestMissingInfo?: boolean;
             suggestSolutions?: boolean;
             highConfidenceThreshold?: number;
             /** @enum {string} */
             partialAnswer: "hand_to_agent" | "send_and_follow_up";
             restrictedTopics: string[];
-            builtInRestrictedTopics: components["schemas"]["BuiltInRestrictedTopic"][];
+            doseRule: boolean;
             restrictedTopicTeams: components["schemas"]["RestrictedTopicTeam"][];
             departmentSettings: {
                 [key: string]: components["schemas"]["DepartmentAutoReplySettings"];
@@ -750,12 +746,13 @@ export interface components {
         AutoReplySettingsUpdate: {
             enabled?: boolean;
             /** @enum {string} */
-            mode?: "all" | "rules_only";
+            mode?: "all" | "rules_only" | "check_only";
             requestMissingInfo?: boolean;
             suggestSolutions?: boolean;
             highConfidenceThreshold?: number;
             /** @enum {string} */
             partialAnswer?: "hand_to_agent" | "send_and_follow_up";
+            doseRule?: boolean;
             restrictedTopicsChange?: {
                 /** @enum {string} */
                 scope: "workspace" | "team";

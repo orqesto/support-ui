@@ -60,6 +60,22 @@ describe('AiTabPanel — the kept draft of an automatic reply that did not arriv
     expect(screen.getAllByText('87%', { exact: false }).length).toBeGreaterThan(0);
   });
 
+  it('a reply that passed every check in check-only mode says it would have been sent', async () => {
+    renderPanel({ wouldSend: true });
+    expect(await screen.findByText(STORED)).toBeInTheDocument();
+    expect(
+      screen.getByText('87% · Checked and would have been sent automatically — check-only mode', {
+        exact: false,
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('CONTROL — `wouldSend` that is not `true` says nothing of it', async () => {
+    renderPanel({ wouldSend: 'yes' });
+    expect(await screen.findByText(STORED)).toBeInTheDocument();
+    expect(screen.queryByText(/would have been sent/)).toBeNull();
+  });
+
   it('the words for the mark', () => {
     expect(suggestionNotSentNote('failed')).toBe('not sent');
     expect(suggestionNotSentNote('uncertain')).toBe('may not have been delivered');

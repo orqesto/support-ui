@@ -55,5 +55,4 @@ export type SlaConfigEntry = components['schemas']['SlaConfigEntry'];
 export type AutoReplySettings = components['schemas']['AutoReplySettings'];
 export type AutoReplySettingsUpdate = components['schemas']['AutoReplySettingsUpdate'];
 export type DepartmentAutoReplySettings = components['schemas']['DepartmentAutoReplySettings'];
-export type BuiltInRestrictedTopic = components['schemas']['BuiltInRestrictedTopic'];
 export type RestrictedTopicTeam = components['schemas']['RestrictedTopicTeam'];

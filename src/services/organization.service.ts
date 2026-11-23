@@ -65,7 +65,23 @@ export type { OrganizationMember };
  * Who may send on their own while Auto-Reply is on: `all` = the keyword rules AND the AI (its
  * answers, its missing-info question); `rules_only` = the keyword rules alone (audit M4).
  */
-export type AutoReplyMode = 'all' | 'rules_only';
+export type AutoReplyMode = 'all' | 'rules_only' | 'check_only';
+const AUTO_REPLY_MODES: readonly unknown[] = ['all', 'rules_only', 'check_only'];
+/**
+ * One team's change, applied by the server onto that team's STORED settings: an absent key is
+ * not touched, `null` removes it (the team inherits again), no other team is written.
+ */
+export type TeamSettingsChange = {
+  departmentId: number;
+  settings: Record<string, boolean | number | string | string[] | null>;
+};
+/** What the settings card may send beyond the generated contract (backend 2026-11-23). */
+export type AutoReplySave = Omit<AutoReplySettingsUpdate, 'mode'> & {
+  mode?: AutoReplyMode;
+  teamSettingsChange?: TeamSettingsChange;
+  /** The `updatedAt` this page read: the server refuses (409) when the settings changed since. */
+  expectedUpdatedAt?: string;
+};
 /** When the AI can answer only some of a customer's questions (backend 2026-11-16). */
 export type AutoReplyPartialAnswer = 'hand_to_agent' | 'send_and_follow_up';
 
@@ -449,8 +465,20 @@ export const organizationService = {
     );
     return {
       enabled: response.data.data?.enabled ?? false,
-      // 'all' unless the backend says 'rules_only' — an older backend does not send the field.
-      mode: (response.data.data?.mode === 'rules_only' ? 'rules_only' : 'all') as AutoReplyMode,
+      // 'all' unless the backend names another mode — an older backend does not send the field.
+      mode: (AUTO_REPLY_MODES.includes(response.data.data?.mode)
+        ? response.data.data?.mode
+        : 'all') as AutoReplyMode,
+      // What is STORED: a mode, `null` = never chosen, `undefined` = this backend does not say.
+      modeStored: ((stored: unknown) =>
+        stored === null
+          ? null
+          : AUTO_REPLY_MODES.includes(stored)
+            ? (stored as AutoReplyMode)
+            : undefined)((response.data.data as { modeStored?: unknown } | undefined)?.modeStored),
+      // The stale-page guard's stamp; `undefined` = a backend without it (and without the
+      // per-team change), `null` = it has none stored.
+      updatedAt: (response.data.data as { updatedAt?: string | null } | undefined)?.updatedAt,
       // The real value when the backend sends it; `true` (the old, never-read default) ONLY when
       // the field is absent — an older backend did not return it at all.
       requestMissingInfo:
@@ -468,20 +496,24 @@ export const organizationService = {
       // settings page reads them, and it checks their shape itself (restrictedTopics.ts,
       // OtherTeamTopics.tsx) — kept out of this file, which every page loads.
       restrictedTopics: response.data.data?.restrictedTopics as unknown,
-      builtInRestrictedTopics: response.data.data?.builtInRestrictedTopics as unknown,
+      // The dose rule switch (a boolean; absent on an older backend, which then offers no switch).
+      doseRule: (response.data.data as { doseRule?: unknown } | undefined)?.doseRule,
       restrictedTopicTeams: response.data.data?.restrictedTopicTeams as unknown,
+      // Each team's overrides as stored now (the settings page builds a team save on them).
+      departmentSettings: (response.data.data as { departmentSettings?: unknown } | undefined)
+        ?.departmentSettings,
     };
   },
 
   /**
    * The contract's AutoReplySettingsUpdate. `departmentSettings` (keyed by the team's id as text)
    * REPLACES the stored map, so a caller sends every team's settings; a team's `restrictedTopics`
-   * are ADDED to the workspace's. The built-in topics are not part of a save. Restricted topics
+   * are ADDED to the workspace's. There are no locked topics; `doseRule` switches the dose rule. Restricted topics
    * change ONLY through `restrictedTopicsChange` (one list, topics to add or to remove, applied
    * by the server to the stored list); a list of topics in the body is ignored by the server.
    * The answer is the full settings as they are stored after the save.
    */
-  updateAutoReply: async (data: AutoReplySettingsUpdate) => {
+  updateAutoReply: async (data: AutoReplySave) => {
     const response = await apiClient.patch<ApiResponse<AutoReplySettings>>(
       '/api/organizations/auto-reply',
       data

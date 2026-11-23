@@ -15,6 +15,19 @@ import { useAuditLogsStore } from '@/stores/auditLogsStore';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
+import {
+  AUTO_REPLY_ACTION_LABEL,
+  AUTO_REPLY_ALL,
+  AUTO_REPLY_SENT,
+  AUTO_REPLY_WITHHELD,
+  AuditAutoReplyDetail,
+} from './AuditAutoReplyDetail';
+import { AuditAutoReplyCounts } from './AuditAutoReplyCounts';
+import {
+  AUTO_REPLY_CHANNEL_LABEL,
+  AUTO_REPLY_REASON_FILTERS,
+  reasonFilterQuery,
+} from '@/features/messages/shell';
 
 const ACTION_OPTIONS = [
   { value: '', label: 'All Actions' },
@@ -25,6 +38,10 @@ const ACTION_OPTIONS = [
   { value: 'user.delete', label: 'User → Delete' },
   { value: 'message.reply', label: 'Thread → Reply' },
   { value: 'message.update', label: 'Thread → Update' },
+  // What replied on its own, and what was held and why (written by the system, no user).
+  { value: AUTO_REPLY_ALL, label: 'Automatic reply → All' },
+  { value: AUTO_REPLY_SENT, label: AUTO_REPLY_ACTION_LABEL[AUTO_REPLY_SENT] },
+  { value: AUTO_REPLY_WITHHELD, label: AUTO_REPLY_ACTION_LABEL[AUTO_REPLY_WITHHELD] },
   { value: 'ticket.create', label: 'Ticket → Create' },
   { value: 'ticket.update', label: 'Ticket → Update' },
   { value: 'ticket.assign', label: 'Ticket → Assign' },
@@ -61,6 +78,18 @@ const ACTION_OPTIONS = [
   { value: 'ai.auto_reply_disable', label: 'AI → Auto-reply Disable' },
 ];
 
+/** The automatic replies view: one of its three action choices is picked. */
+const AUTO_REPLY_VIEW: readonly (string | undefined)[] = [
+  AUTO_REPLY_ALL,
+  AUTO_REPLY_SENT,
+  AUTO_REPLY_WITHHELD,
+];
+const CHANNEL_OPTIONS = [
+  { value: '', label: 'All channels' },
+  ...Object.entries(AUTO_REPLY_CHANNEL_LABEL).map(([value, label]) => ({ value, label })),
+];
+const REASON_OPTIONS = [{ value: '', label: 'All reasons' }, ...AUTO_REPLY_REASON_FILTERS];
+
 const ENTITY_OPTIONS = [
   { value: '', label: 'All Entities' },
   { value: 'user', label: 'User' },
@@ -91,6 +120,10 @@ export const AuditLogsPage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [userSearch, setUserSearch] = useState('');
+  // The counts card re-reads with the page's Refresh; a backend without the counts has none of
+  // the filters that came with them either (it would silently ignore them).
+  const [countsKey, setCountsKey] = useState(0);
+  const [countsAbsent, setCountsAbsent] = useState(false);
 
   const logs = useAuditLogsStore((state) => state.logs);
   const filters = useAuditLogsStore((state) => state.filters);
@@ -99,9 +132,16 @@ export const AuditLogsPage = () => {
   const resetFilters = useAuditLogsStore((state) => state.resetFilters);
 
   const patchFilter = (patch: Partial<AuditLogFilters>) => {
-    setFilters({ ...filters, ...patch });
+    const next = { ...filters, ...patch };
+    // Reason and channel belong to the automatic replies view: they leave with it.
+    if (!AUTO_REPLY_VIEW.includes(next.action)) {
+      next.reason = undefined;
+      next.channel = undefined;
+    }
+    setFilters(next);
     setCurrentPage(1);
   };
+  const autoReplyView = AUTO_REPLY_VIEW.includes(filters.action);
 
   const activeFilterCount = [
     filters.action,
@@ -119,7 +159,12 @@ export const AuditLogsPage = () => {
         setLoading(true);
       }
       try {
-        const result = await auditLogService.getAll({ ...filters, page: currentPage });
+        const result = await auditLogService.getAll({
+          ...filters,
+          // One reason is stored under several spellings: all of them are asked for.
+          reason: reasonFilterQuery(filters.reason),
+          page: currentPage,
+        });
         setLogs(result.logs);
         setTotalCount(result.pagination.total);
         setTotalPages(result.pagination.totalPages);
@@ -164,6 +209,7 @@ export const AuditLogsPage = () => {
   };
 
   const handleRefresh = () => {
+    setCountsKey((key) => key + 1);
     fetchLogs(true).catch((error) => logger.error('Failed to refresh logs:', error));
   };
 
@@ -200,6 +246,7 @@ export const AuditLogsPage = () => {
   };
 
   const formatAction = (action: string) =>
+    AUTO_REPLY_ACTION_LABEL[action] ??
     action
       .split('.')
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -232,6 +279,25 @@ export const AuditLogsPage = () => {
             </Button>
           </div>
 
+          {autoReplyView && (
+            <AuditAutoReplyCounts
+              startDate={filters.startDate}
+              endDate={filters.endDate}
+              refreshKey={countsKey}
+              onAbsent={() => {
+                // A backend without the counts has no list of several actions either: "All"
+                // would show nothing. It is taken away, and the view falls back to "Sent".
+                setCountsAbsent(true);
+                // The action as it is NOW (this callback was made when the card first rendered).
+                const current = useAuditLogsStore.getState().filters;
+                if (current.action === AUTO_REPLY_ALL) {
+                  setFilters({ ...current, action: AUTO_REPLY_SENT });
+                  setCurrentPage(1);
+                }
+              }}
+            />
+          )}
+
           {/* Table card */}
           <Card className="flex-1 flex flex-col overflow-hidden">
             <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
@@ -242,11 +308,41 @@ export const AuditLogsPage = () => {
                 <Select
                   value={filters.action ?? ''}
                   onChange={(value) => patchFilter({ action: value || undefined })}
-                  options={ACTION_OPTIONS}
+                  options={
+                    countsAbsent
+                      ? ACTION_OPTIONS.filter((option) => option.value !== AUTO_REPLY_ALL)
+                      : ACTION_OPTIONS
+                  }
                   size="sm"
                   className="min-w-[11rem]"
                   aria-label="Filter by action"
                 />
+
+                {autoReplyView && !countsAbsent && (
+                  <>
+                    <Select
+                      value={filters.channel ?? ''}
+                      onChange={(value) => patchFilter({ channel: value || undefined })}
+                      options={CHANNEL_OPTIONS}
+                      size="sm"
+                      className="min-w-[9rem]"
+                      aria-label="Filter by channel"
+                    />
+                    <Select
+                      value={filters.reason ?? ''}
+                      onChange={(value) => patchFilter({ reason: value || undefined })}
+                      options={REASON_OPTIONS}
+                      size="sm"
+                      className="min-w-[13rem]"
+                      aria-label="Filter by reason"
+                    />
+                    {(filters.reason ?? filters.channel) && !filters.startDate && (
+                      <span className="text-xs text-muted-foreground">
+                        Showing the last 7 days — choose a date range for older entries.
+                      </span>
+                    )}
+                  </>
+                )}
 
                 {/* Entity */}
                 <Select
@@ -376,6 +472,14 @@ export const AuditLogsPage = () => {
                               <div className="font-mono text-xs text-muted-foreground">
                                 {formatDate(log.createdAt)}
                               </div>
+                              {log.action in AUTO_REPLY_ACTION_LABEL && (
+                                <AuditAutoReplyDetail
+                                  action={log.action}
+                                  entity={log.entity}
+                                  entityId={log.entityId}
+                                  details={log.details}
+                                />
+                              )}
                               {log.details && Object.keys(log.details).length > 0 && (
                                 <details className="mt-2">
                                   <summary className="text-xs cursor-pointer text-primary">
@@ -466,6 +570,14 @@ export const AuditLogsPage = () => {
                               </td>
                               <td className="px-4 py-3 text-sm font-mono">{log.entityId}</td>
                               <td className="px-4 py-3 text-sm">
+                                {log.action in AUTO_REPLY_ACTION_LABEL && (
+                                  <AuditAutoReplyDetail
+                                    action={log.action}
+                                    entity={log.entity}
+                                    entityId={log.entityId}
+                                    details={log.details}
+                                  />
+                                )}
                                 {log.details && Object.keys(log.details).length > 0 ? (
                                   <details>
                                     <summary className="cursor-pointer text-primary">View</summary>

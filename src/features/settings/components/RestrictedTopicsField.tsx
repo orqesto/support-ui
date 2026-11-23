@@ -1,35 +1,24 @@
 import { useState } from 'react';
-import { Lock, Plus, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { TOPIC_REMOVE_HIT_AREA, restrictedTopicProblem } from './restrictedTopics';
-import type { BuiltInRestrictedTopic } from '@/types/api';
 
 export const RESTRICTED_TOPICS_TITLE = 'Restricted topics';
 export const RESTRICTED_TOPICS_HELP =
   'Subjects the AI never answers on its own. A customer message about one of them is always handed to a person, even when a reply could be written. Topics are understood by their meaning, in any language; they are not matched as exact words.';
 export const RESTRICTED_TOPICS_ALSO =
   'When AI is set up for this workspace (it reads the question), keyword rules and Telegram template replies are not sent on these subjects either.';
-export const BUILT_IN_NOTE = 'Always on. The built-in topics cannot be removed.';
+export const DEFAULTS_NOTE =
+  'A new workspace starts with a few common topics. Every topic here can be removed; with none, the AI may answer any subject.';
+export const NO_TOPICS_TEXT = 'No restricted topics';
 
-/**
- * The built-in topics as the backend names them: plain chips with a lock, never a remove control.
- * Nothing when the backend sent none — the note beside it still says they are always on.
- */
-export const BuiltInTopics = ({ topics }: { topics: readonly BuiltInRestrictedTopic[] }) =>
-  topics.length === 0 ? null : (
-    <ul aria-label="Built-in restricted topics" className="flex flex-wrap gap-1">
-      {topics.map((topic) => (
-        <li key={topic.key}>
-          <Badge variant="outline" size="sm" className="gap-1 font-normal">
-            <Lock className="w-3 h-3" aria-hidden />
-            {topic.label}
-          </Badge>
-        </li>
-      ))}
-    </ul>
-  );
+export const DOSE_RULE_TITLE = 'Hold replies that state a dose';
+export const DOSE_RULE_HELP =
+  'An automatic reply that gives an amount in a dose unit (mg, ml, g, IU, units…) is handed to a person instead of being sent. It also holds pack sizes and weights such as "500 mg capsules" or "a 500 g bag", so switch it on only if you sell supplements, medicines or similar products. Applies to AI email replies, the email the AI sends to ask the customer for missing information, keyword-rule knowledge answers, the Telegram bot and the chat widget. A keyword rule\'s own fixed text is not checked for doses.';
+/** Why the dose switch is out of use for a moderator: the backend lets only a workspace admin change it. */
+export const DOSE_RULE_ADMIN_ONLY = 'Only a workspace admin can change this switch.';
 
 /** A list of topics as read-only chips (someone who cannot change the settings). */
 export const TopicsReadOnly = ({
@@ -66,8 +55,6 @@ type Props = {
   emptyText: string;
   placeholder: string;
   disabled: boolean;
-  /** The built-in topics' names: one of them is not added again. */
-  builtIn?: readonly string[];
   /** Saves ONE added topic; resolves false when it was not saved (the typed topic is then kept). */
   onAdd: (topic: string) => Promise<boolean>;
   onRemove: (topic: string) => Promise<boolean>;
@@ -81,7 +68,6 @@ export const RestrictedTopicsField = ({
   emptyText,
   placeholder,
   disabled,
-  builtIn = [],
   onAdd,
   onRemove,
 }: Props) => {
@@ -89,7 +75,7 @@ export const RestrictedTopicsField = ({
   const [problem, setProblem] = useState<string | null>(null);
 
   const add = async () => {
-    const found = restrictedTopicProblem(draft, topics, alsoApplies, builtIn);
+    const found = restrictedTopicProblem(draft, topics, alsoApplies);
     setProblem(found);
     if (found) return;
     const saved = await onAdd(draft.trim());

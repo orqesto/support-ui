@@ -48,6 +48,7 @@ const GROUPS: Array<{ title: string; hint: string; kinds: string[] }> = [
       'ingestion_dark',
       'ingestion_gap',
       'ai_provider_down',
+      'auto_reply_check_unreadable',
       'ai_token_limit_reached',
       'mailbox_address_undeclared',
       'slack_connection_broken',

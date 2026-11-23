@@ -241,11 +241,11 @@ export function useReplySend({
         aiDraft: liveAiDraft,
       };
       const isReply = composerMode !== 'note';
-      // A website visitor who left no email: no way of sending (button, Send ▾, shortcut, Retry,
+      // A website chat no reply can reach (lib/visitorEmail): no way of sending (button, Send ▾, shortcut, Retry,
       // Resend) goes out — the composer says why. A note is not delivered, so it posts.
       // Whatever the caller: a reply with no text and no file is never sent.
       const empty = isBlankRichText(composer) && selectedFiles.length === 0;
-      if (isReply && (replyState.noVisitorEmail || empty)) return;
+      if (isReply && (replyState.noChatReply || empty)) return;
       if (isReply && threadEventsFor !== message.id) {
         if (waitingRef.current !== null) return;
         // The read failed. A reply that waited for it is over (nothing sent, said so). A new
@@ -620,7 +620,7 @@ export function useReplySend({
       liveFiles,
       liveRecipients,
       notLoaded,
-      replyState.noVisitorEmail,
+      replyState.noChatReply,
       message.id,
       message.channel,
       onOptimisticMove,
@@ -736,9 +736,9 @@ export function useReplySend({
     if (sendBusyRef.current) return;
     // Require real text — blocks Ctrl+Shift+Enter attachment-only sends the disabled
     // button can't (empty, whitespace, or markup-only like `<p><br></p>`).
-    // No reply can go out either (a website visitor with no email): nothing is asked — the
+    // No reply can go out either (a website chat, lib/visitorEmail): nothing is asked — the
     // ownership prompt's answers would send nothing and leave it open.
-    if (isBlankRichText(composer) || (composerMode !== 'note' && replyState.noVisitorEmail)) return;
+    if (isBlankRichText(composer) || (composerMode !== 'note' && replyState.noChatReply)) return;
     // A reply (not a note) first asks whether the thread becomes yours — every time on an
     // unowned thread, as a take-over on a colleague's, never on your own. The answer is sent
     // with the reply; the backend applies it.
@@ -765,7 +765,7 @@ export function useReplySend({
     performSend,
     sendBusyRef,
     setAssignPrompt,
-    replyState.noVisitorEmail,
+    replyState.noChatReply,
   ]);
 
   // Resolving rides on any thread the Resolve row could resolve — an UNREVIEWED one too: its
@@ -776,7 +776,7 @@ export function useReplySend({
     resolveMode !== null ? ['send', 'resolve', 'resolve_kb', 'hold'] : ['send', 'hold'];
   const { handleSendWith, rememberSendAction, handleSendPick, sendWithHold } = useSendActions({
     composer,
-    blocked: replyState.noVisitorEmail,
+    blocked: replyState.noChatReply,
     handleSend,
     afterSendRef,
     sendBusyRef,

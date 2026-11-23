@@ -4,7 +4,7 @@ import type { Message } from '@/types';
 import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { resolveComposerWindow } from '../whatsappWindowState';
 import { resolveReplyBlock } from '../replyBlockState';
-import { resolveVisitorNoEmailBlock } from '@/lib/visitorEmail';
+import { resolveChatReplyBlock } from '@/lib/visitorEmail';
 import type { WhatsAppTemplate } from '../whatsappTemplates';
 import type { KeptSendKey } from './sendKey';
 import type { Setter } from './types';
@@ -110,11 +110,12 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
       // window: channels never overlap, and the block is unconditional, not a countdown.
       const block = resolveReplyBlock(message.replyBlock, composerMode);
       if (block.blocked) return block;
-      // A website chat whose visitor left no email: read from the thread's own requester, so the
-      // block lifts by itself once a re-read brings the address the visitor left.
-      const noEmail = resolveVisitorNoEmailBlock(message, composerMode);
-      return noEmail.blocked
-        ? noEmail
+      // A website chat with no email account to reply from, or whose visitor left no email: read
+      // from the thread's own record, so the block lifts by itself once a re-read brings the
+      // address the visitor left.
+      const noChatReply = resolveChatReplyBlock(message, composerMode);
+      return noChatReply.blocked
+        ? noChatReply
         : resolveComposerWindow(message.whatsappWindow, composerMode);
     },
     // windowTick is a deliberate dependency: it is what makes the countdown advance and
@@ -128,6 +129,7 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
       message.replyBlock,
       message.channel,
       message.sender,
+      message.messageSourceId,
       composerMode,
       windowTick,
     ]
@@ -179,6 +181,6 @@ export function useReplyComposerState(message: Message, composerMode: 'reply' | 
     templateIdempotencyKeyRef,
     composerWindow,
     // No reply can be sent, whatever the composer's mode (useReplySend's guards).
-    noVisitorEmail: resolveVisitorNoEmailBlock(message, 'reply').blocked,
+    noChatReply: resolveChatReplyBlock(message, 'reply').blocked,
   };
 }

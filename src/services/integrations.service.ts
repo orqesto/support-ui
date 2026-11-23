@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { EVERY_TEAM_HEADER } from '@/lib/everyTeamHeader';
 import { logger } from '@/lib/logger';
 
 export * from './kbRangeTypes';
@@ -419,9 +420,11 @@ export type ApiResponse<T> = {
 export type { GmailCountResult, ImapCountResult, MissingMessageSample };
 
 export const integrationsService = {
-  getAll: async (): Promise<ApiResponse<Integration[]>> => {
+  /** `everyTeam`: the whole workspace's list, whatever team is selected in the header. */
+  getAll: async (options?: { everyTeam?: boolean }): Promise<ApiResponse<Integration[]>> => {
     const response = await apiClient.get<{ success: boolean; data: Integration[] }>(
-      '/api/integrations'
+      '/api/integrations',
+      options?.everyTeam ? { headers: { [EVERY_TEAM_HEADER]: 'true' } } : undefined
     );
     // Normalised here rather than at the card, so every consumer of this list sees the
     // same shape whichever backend answered.
@@ -664,11 +667,17 @@ export const integrationsService = {
     return { success: response.data.success, data: response.data.data };
   },
 
-  getSourceDepartments: async (id: number): Promise<ApiResponse<SourceDepartmentLink[]>> => {
+  getSourceDepartments: async (
+    id: number,
+    options?: { everyTeam?: boolean }
+  ): Promise<ApiResponse<SourceDepartmentLink[]>> => {
     const response = await apiClient.get<{
       success: boolean;
       data: SourceDepartmentLink[];
-    }>(`/api/integrations/${id}/departments`);
+    }>(
+      `/api/integrations/${id}/departments`,
+      options?.everyTeam ? { headers: { [EVERY_TEAM_HEADER]: 'true' } } : undefined
+    );
     return { success: response.data.success, data: response.data.data };
   },
 

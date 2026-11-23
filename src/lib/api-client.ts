@@ -3,6 +3,7 @@ import axios, {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from 'axios';
+import { EVERY_TEAM_HEADER } from './everyTeamHeader';
 import { loginPathFor } from '@/lib/postLoginRedirect';
 import { API_BASE_URL } from './config';
 import { isPlanLimitBody, withFailedFields } from '@/lib/errorMessages';
@@ -130,9 +131,14 @@ export const applyRequestContext = (
     }
   }
 
-  // Add department context filter — attach CSV header when user has narrowed their view
+  // Add department context filter — attach CSV header when user has narrowed their view.
+  // A request that must describe the WHOLE workspace whatever team the header has selected
+  // (what automatic replies will send from) opts out with EVERY_TEAM_HEADER, which never leaves.
   const selectedDeptIds = useDepartmentContextStore.getState().getSelectedDeptIds();
-  if (selectedDeptIds.length > 0) {
+  const headers = config.headers as Record<string, unknown>;
+  if (headers[EVERY_TEAM_HEADER]) {
+    delete headers[EVERY_TEAM_HEADER];
+  } else if (selectedDeptIds.length > 0) {
     config.headers['X-Department-Context'] = selectedDeptIds.join(',');
   }
 

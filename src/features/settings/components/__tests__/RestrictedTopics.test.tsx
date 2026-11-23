@@ -1,13 +1,12 @@
 /**
- * Restricted topics (send gate, 2026-11-20). The built-in topics come from the backend and cannot
- * be removed. A topic is added or removed by sending ONLY that change (`restrictedTopicsChange`);
+ * Restricted topics (send gate, 2026-11-20). No topic is locked (owner 2026-11-23): every topic the
+ * backend lists, its defaults included, can be removed. A topic is added or removed by sending ONLY that change (`restrictedTopicsChange`);
  * no save of this card sends a list of topics, so a page opened a while ago cannot erase what
  * someone else added, and after every save the lists shown are the ones the server answered with.
  * The stand-in server below behaves as the backend's PATCH does. Invented data.
  */
 import {
   BILLING,
-  BUILT_IN,
   SALES,
   TEAM,
   WORKSPACE,
@@ -22,33 +21,34 @@ import {
 import { describe, expect, it } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { restrictedTopicProblem } from '../restrictedTopics';
+import { DOSE_RULE_ADMIN_ONLY, DOSE_RULE_HELP } from '../RestrictedTopicsField';
 
 describe('restricted topics — the workspace list', () => {
-  it('the built-in topics come first, with no remove control and an "always on" note', async () => {
-    state.topics = ['refund disputes'];
+  it('no locked topics: every listed topic — the defaults too — has a remove control', async () => {
+    state.topics = ['Medical or health advice', 'Legal advice', 'refund disputes'];
     show();
-    const builtIn = await screen.findByRole('list', { name: 'Built-in restricted topics' });
-    expect(
-      within(builtIn)
-        .getAllByRole('listitem')
-        .map((item) => item.textContent)
-    ).toEqual(BUILT_IN);
-    expect(within(builtIn).queryAllByRole('button')).toEqual([]);
-    for (const topic of BUILT_IN) {
-      expect(screen.queryByRole('button', { name: `Remove topic ${topic}` })).toBeNull();
+    await screen.findByRole('list', { name: WORKSPACE });
+    expect(screen.queryByRole('list', { name: 'Built-in restricted topics' })).toBeNull();
+    for (const topic of state.topics) {
+      expect(screen.getByRole('button', { name: `Remove topic ${topic}` })).not.toBeInactive();
     }
     expect(
-      screen.getByText('Always on. The built-in topics cannot be removed.')
+      screen.getByText(
+        'A new workspace starts with a few common topics. Every topic here can be removed; with none, the AI may answer any subject.'
+      )
     ).toBeInTheDocument();
-    // CONTROL — the workspace's own topic does have one.
-    expect(screen.getByRole('button', { name: 'Remove topic refund disputes' })).not.toBeInactive();
-    const own = screen.getByRole('list', { name: WORKSPACE });
-    expect(builtIn.compareDocumentPosition(own) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(
       screen.getByText(
         /Subjects the AI never answers on its own\. A customer message about one of them is always handed to a person, even when a reply could be written\. Topics are understood by their meaning, in any language; they are not matched as exact words\. When AI is set up for this workspace \(it reads the question\), keyword rules and Telegram template replies are not sent on these subjects either\./
       )
     ).toBeInTheDocument();
+  });
+
+  it('a workspace with no topic says so', async () => {
+    state.topics = [];
+    show();
+    await screen.findByRole('list', { name: WORKSPACE });
+    expect(topicsOf(WORKSPACE)).toEqual(['No restricted topics']);
   });
 
   it('adding sends ONLY the added topic, trimmed; removing sends ONLY the removed one', async () => {
@@ -100,7 +100,6 @@ describe('restricted topics — the workspace list', () => {
 
   it.each([
     ['a repeat in another letter case', 'Refund Disputes', 'This topic is already on the list.'],
-    ['a built-in topic by its name', 'dosing', 'This is one of the built-in topics.'],
     [
       'a topic over 200 characters',
       'x'.repeat(201),
@@ -155,29 +154,14 @@ describe('restricted topics — the workspace list', () => {
     expect(state.alerts.map((alert) => alert.title)).toEqual(['Save failed']);
   });
 
-  it("the built-in names are the backend's; a backend that sends none has none named", async () => {
-    state.builtIn = [{ key: 'dosing', label: 'How much to take' }];
-    const first = show();
-    const builtIn = await screen.findByRole('list', { name: 'Built-in restricted topics' });
-    expect(
-      within(builtIn)
-        .getAllByRole('listitem')
-        .map((item) => item.textContent)
-    ).toEqual(['How much to take']);
-    expect(screen.queryByText('Diagnosis')).toBeNull();
-    expect(
-      screen.getByText(/^Added to the 1 built-in topics, which always apply to this team/)
-    ).toBeInTheDocument();
-    first.unmount();
-    state.builtIn = [];
+  it('a team under a workspace with no topics is told its topics apply to it alone', async () => {
+    state.topics = [];
     show();
-    await screen.findByRole('list', { name: WORKSPACE });
-    expect(screen.queryByRole('list', { name: 'Built-in restricted topics' })).toBeNull();
+    await screen.findByRole('list', { name: TEAM });
     expect(
-      screen.getByText('Always on. The built-in topics cannot be removed.')
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/^Added to the built-in topics, which always apply to this team/)
+      screen.getByText(
+        'The workspace has no restricted topics; topics added here apply to this team only.'
+      )
     ).toBeInTheDocument();
   });
 
@@ -201,14 +185,14 @@ describe('restricted topics — the workspace list', () => {
 });
 
 describe('restricted topics — a team adds its own', () => {
-  it('says the built-in and workspace topics apply too, and offers no way to remove them', async () => {
+  it('says the workspace topics apply too, and offers no way to remove them', async () => {
     state.topics = ['refund disputes', 'press requests'];
     state.teams = { '7': { restrictedTopics: ['contract changes'] } };
     show();
     await screen.findByRole('list', { name: TEAM });
     expect(
       screen.getByText(
-        "Added to the 4 built-in topics and the workspace's 2 topics, which always apply to this team and can only be changed in the Default row."
+        "Added to the workspace's 2 topics, which always apply to this team and can only be changed in the Default row."
       )
     ).toBeInTheDocument();
     expect(topicsOf(TEAM)).toEqual(['contract changes']);
@@ -241,7 +225,7 @@ describe('restricted topics — a team adds its own', () => {
     });
   });
 
-  it('a workspace topic or a built-in one is not added to a team', async () => {
+  it('a workspace topic is not added to a team; a former built-in name is an ordinary topic', async () => {
     state.topics = ['refund disputes'];
     show();
     await screen.findByRole('list', { name: TEAM });
@@ -249,9 +233,9 @@ describe('restricted topics — a team adds its own', () => {
     expect(
       await screen.findByText('This is already a workspace topic, so it applies to this team.')
     ).toBeInTheDocument();
-    add(TEAM, 'Diagnosis');
-    expect(await screen.findByText('This is one of the built-in topics.')).toBeInTheDocument();
     expect(state.updates).toEqual([]);
+    add(TEAM, 'Diagnosis');
+    await waitFor(() => expect(topicsOf(TEAM)).toEqual(['Diagnosis']));
   });
 
   it('a refused team save shows the server sentence and leaves the list as it was', async () => {
@@ -424,6 +408,8 @@ describe('the other saves of a team row keep its other settings and never send t
       screen.getByRole('group', { name: 'What replies on its own for Billing' })
     );
     fireEvent.click(choice.getByRole('button', { name: 'Keyword rules and AI replies' }));
+    // The AI starts replying for this team: confirmed first.
+    fireEvent.click(await screen.findByRole('button', { name: 'Let the AI reply' }));
     await saved({ ...MINE, autoReplyMode: 'all' });
   });
 
@@ -455,6 +441,9 @@ describe('the other saves of a team row keep its other settings and never send t
       screen.getByText("The reset keeps this team's extra restricted topics.")
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Reset all overrides for Billing' }));
+    // The team was on keyword rules only under a workspace that lets the AI reply: the reset
+    // starts the AI for it, so it is confirmed first.
+    fireEvent.click(await screen.findByRole('button', { name: 'Let the AI reply' }));
     await saved(null);
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Reset all overrides for Billing' })).toBeNull()
@@ -471,9 +460,7 @@ describe('restricted topics — without the permission to change automatic reply
     state.topics = ['refund disputes'];
     state.teams = { '7': { restrictedTopics: ['contract changes'] } };
     show();
-    await waitFor(() =>
-      expect(topicsOf('Restricted topics')).toEqual([...BUILT_IN, 'refund disputes'])
-    );
+    await waitFor(() => expect(topicsOf('Restricted topics')).toEqual(['refund disputes']));
     expect(topicsOf(TEAM)).toEqual(['contract changes']);
     expect(screen.getByText('Billing also:')).toBeInTheDocument();
     expect(screen.queryAllByRole('textbox')).toEqual([]);
@@ -500,6 +487,63 @@ describe('restrictedTopicProblem — the limits of the backend schema', () => {
     expect(restrictedTopicProblem(` ${'x'.repeat(200)} `, fifty.slice(0, 49))).toBeNull();
     // A team's list is counted on its own: 49 of its own beside a full workspace list.
     expect(restrictedTopicProblem('one more', fifty.slice(0, 49), fifty)).toBeNull();
-    expect(restrictedTopicProblem('Dose', [], [], ['Dosing'])).toBeNull();
+  });
+});
+
+describe('the dose rule — a workspace switch, off by default (owner 2026-11-23)', () => {
+  const doseSwitch = () => screen.getByRole('switch', { name: 'Hold replies that state a dose' });
+
+  it('shows off, and switching it sends ONLY doseRule', async () => {
+    show();
+    await screen.findByRole('list', { name: WORKSPACE });
+    expect(doseSwitch()).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(doseSwitch());
+    await waitFor(() => expect(state.updates).toHaveLength(1));
+    expect(state.updates[0]).toMatchObject({ doseRule: true });
+    expect(Object.keys(state.updates[0]).filter((key) => key !== 'expectedUpdatedAt')).toEqual([
+      'doseRule',
+    ]);
+    await waitFor(() => expect(doseSwitch()).toHaveAttribute('aria-checked', 'true'));
+  });
+
+  it('a workspace that switched it on reads on', async () => {
+    state.doseRule = true;
+    show();
+    await screen.findByRole('list', { name: WORKSPACE });
+    expect(doseSwitch()).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('a moderator (not a workspace admin) cannot change it, and is told why', async () => {
+    state.orgAdmin = false;
+    show();
+    await screen.findByText('Request missing info');
+    expect(doseSwitch()).toBeInactive();
+    // The reason is beside it and read with it (aria-describedby), not only a greyed switch.
+    expect(screen.getByText(DOSE_RULE_ADMIN_ONLY)).toBeInTheDocument();
+    expect(doseSwitch()).toHaveAccessibleDescription(
+      expect.stringContaining(DOSE_RULE_ADMIN_ONLY) as unknown as string
+    );
+  });
+
+  it('CONTROL — a workspace admin can change it, and no admin-only sentence is shown', async () => {
+    show();
+    await screen.findByRole('list', { name: WORKSPACE });
+    expect(doseSwitch()).not.toBeInactive();
+    expect(screen.queryByText(DOSE_RULE_ADMIN_ONLY)).toBeNull();
+  });
+
+  it('the help says it also holds the email that asks for missing information', () => {
+    expect(DOSE_RULE_HELP).toMatch(
+      /the email the AI sends to ask the customer for missing information/
+    );
+    // …and does not claim the keyword rules' own text is checked.
+    expect(DOSE_RULE_HELP).toMatch(/keyword rule's own fixed text is not checked for doses/);
+  });
+
+  it('an older backend that does not send it: no switch is offered', async () => {
+    state.doseRule = null;
+    show();
+    await screen.findByRole('list', { name: WORKSPACE });
+    expect(screen.queryByRole('switch', { name: 'Hold replies that state a dose' })).toBeNull();
   });
 });

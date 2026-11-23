@@ -13,6 +13,8 @@ type AuditLogsState = {
 const initialFilters: AuditLogFilters = {
   action: undefined,
   entity: undefined,
+  reason: undefined,
+  channel: undefined,
   userId: undefined,
   startDate: undefined,
   endDate: undefined,

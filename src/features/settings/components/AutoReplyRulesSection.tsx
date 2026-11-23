@@ -221,6 +221,14 @@ const RuleForm = ({
   );
 };
 
+/**
+ * The meaning check every keyword rule's reply passes (BE ruleMeaningCheck / keywordSendGate): run
+ * by the workspace's AI provider; with none set up, or when it cannot run, the reply is held
+ * (`question_unchecked`).
+ */
+export const RULE_CHECK_NOTE =
+  "Before a rule's reply is sent, your workspace's AI provider checks that the customer asks what the rule answers and not about a restricted topic. When no AI provider is set up, or the check cannot run, the reply is held for a person and not sent.";
+
 export const AutoReplyRulesSection = ({
   canManage,
   autoReplyEnabled,
@@ -376,8 +384,8 @@ export const AutoReplyRulesSection = ({
               than one rule gets no automatic reply at all, not even from the AI, so a keyword can
               belong to only one rule. Automatic replies switched off for a mailbox
               {teamsEnabled ? ' on a team' : ''} (Integrations → the mailbox →{' '}
-              {teamsEnabled ? 'Teams and automatic replies' : 'Automatic replies'}) stop the rules for
-              that mailbox&apos;s mail too.
+              {teamsEnabled ? 'Teams and automatic replies' : 'Automatic replies'}) stop the rules
+              for that mailbox&apos;s mail too. {RULE_CHECK_NOTE}
             </p>
           </div>
           {canManage && !editing && (

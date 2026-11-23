@@ -1,5 +1,5 @@
 import { safeCssColor } from '@/lib/utils';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, Code, Trash2, Edit, Power, Globe, Palette, MessageSquare, Copy, Check } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { chatWidgetService, type ChatWidget } from '@/features/settings/services/chatWidget.service';
@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
-import { ChatWidgetModal } from './modals/ChatWidgetModal';
+import { AI_ANSWERS_HELP, ChatWidgetModal } from './modals/ChatWidgetModal';
+import { ChatWidgetChats } from './ChatWidgetChats';
+import { Toggle } from '@/components/ui/Toggle';
 import { EmbedCodeModal } from './modals/EmbedCodeModal';
 import { logger } from '@/lib/logger';
 import { useAiDraftsOff } from '@/features/settings/hooks/useAiDraftsOff';
@@ -20,7 +22,29 @@ export const ChatWidgetSettings = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingWidget, setEditingWidget] = useState<ChatWidget | null>(null);
   const [embedCodeWidget, setEmbedCodeWidget] = useState<ChatWidget | null>(null);
+  /** The widget whose chats are open (read-only list + transcript). */
+  const [chatsWidget, setChatsWidget] = useState<ChatWidget | null>(null);
+  const [chatsSession, setChatsSession] = useState<number | null>(null);
+  // A link to one chat (`#integrations/chat-widgets?widget=5&chat=900`, from an audit row of a
+  // chat that is not in the inbox): once the widgets are listed, that widget's Chats open on it.
+  const linkedRef = useRef(false);
+  useEffect(() => {
+    if (linkedRef.current || widgets.length === 0) return;
+    const query = new URLSearchParams(window.location.hash.split('?')[1] ?? '');
+    const widgetId = Number(query.get('widget'));
+    const sessionId = Number(query.get('chat'));
+    const linked = widgets.find((row) => row.id === widgetId);
+    if (!linked || !Number.isInteger(sessionId) || sessionId <= 0) return;
+    linkedRef.current = true;
+    setChatsSession(sessionId);
+    setChatsWidget(linked);
+  }, [widgets]);
   const [deletingWidget, setDeletingWidget] = useState<ChatWidget | null>(null);
+  // The widgets whose "AI answers" save is in flight (and the re-read after it): their switch is
+  // out of use, so two quick clicks cannot send two saves that race. The ref also stops a second
+  // click that lands before the re-render.
+  const [aiAnswersSaving, setAiAnswersSaving] = useState<ReadonlySet<number>>(() => new Set());
+  const aiAnswersSavingRef = useRef<Set<number>>(new Set());
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
@@ -54,6 +78,30 @@ export const ChatWidgetSettings = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  /** The card's "AI answers" switch: saved at once, and shown as the server stored it. */
+  const handleAiAnswers = async (widget: ChatWidget, next: boolean) => {
+    if (aiAnswersSavingRef.current.has(widget.id)) return;
+    aiAnswersSavingRef.current.add(widget.id);
+    setAiAnswersSaving(new Set(aiAnswersSavingRef.current));
+    try {
+      await chatWidgetService.update(widget.id, { aiAnswersEnabled: next });
+    } catch (err) {
+      logger.error('Failed to switch AI answers:', err);
+      setAlertDialog({
+        open: true,
+        title: 'Error',
+        description: 'The AI answers switch could not be saved.',
+        variant: 'error',
+      });
+    }
+    try {
+      await fetchWidgets().catch((err: unknown) => logger.error(err));
+    } finally {
+      aiAnswersSavingRef.current.delete(widget.id);
+      setAiAnswersSaving(new Set(aiAnswersSavingRef.current));
     }
   };
 
@@ -167,6 +215,11 @@ export const ChatWidgetSettings = () => {
                     >
                       {widget.enabled ? 'Active' : 'Disabled'}
                     </span>
+                    {widget.aiAnswersEnabled === false && (
+                      <Badge variant="secondary" title={AI_ANSWERS_HELP}>
+                        AI answers off
+                      </Badge>
+                    )}
                     {/* Strictly null: an older backend omits the field, and "unknown" is not
                         "missing". With drafts off the widget only hands chats over, and without
                         an account nobody can answer the visitor by email. */}
@@ -225,6 +278,24 @@ export const ChatWidgetSettings = () => {
                 )}
               </div>
 
+              {/* Only on a backend that has the switch (it sends the field). */}
+              {widget.aiAnswersEnabled !== undefined && (
+                <div className="mt-4 flex gap-3 justify-between items-start">
+                  <div>
+                    <p className="text-sm font-medium">
+                      AI answers
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">{AI_ANSWERS_HELP}</p>
+                  </div>
+                  <Toggle
+                    ariaLabel={`AI answers for ${widget.name}`}
+                    checked={widget.aiAnswersEnabled}
+                    disabled={aiAnswersSaving.has(widget.id)}
+                    onChange={(next) => void handleAiAnswers(widget, next)}
+                  />
+                </div>
+              )}
+
               <div className="mt-4 flex items-center gap-2 rounded bg-muted p-2">
                 <Code className="h-4 w-4 text-muted-foreground" />
                 <code className="flex-1 truncate text-xs font-mono">{widget.widgetKey}</code>
@@ -244,6 +315,15 @@ export const ChatWidgetSettings = () => {
               </div>
 
               <div className="mt-4 flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setChatsWidget(widget)}
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Chats
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -291,6 +371,15 @@ export const ChatWidgetSettings = () => {
           fetchWidgets().catch((err) => { logger.error(err); });
         }}
         onShowAlert={setAlertDialog}
+      />
+
+      <ChatWidgetChats
+        widget={chatsWidget}
+        initialSessionId={chatsSession}
+        onClose={() => {
+          setChatsWidget(null);
+          setChatsSession(null);
+        }}
       />
 
       <EmbedCodeModal

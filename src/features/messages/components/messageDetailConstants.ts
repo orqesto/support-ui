@@ -39,6 +39,7 @@ export {
   renderMarkdown,
   suggestedAnswerToHtml,
   toGhostOption,
+  isKeywordRuleDraft,
   insertSourceOf,
   ghostCaption,
   answerToEditorHtml,

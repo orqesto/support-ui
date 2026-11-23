@@ -11,6 +11,7 @@ import { messagesCacheKey, useMessagesStore } from '@/features/messages/stores/m
 import { useAuthStore } from '@/stores/authStore';
 import { threadApiFilters } from './threadApiFilters';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
+import { useVisitorAddressOnRows } from './useVisitorAddressOnRows';
 
 type MessagesDataReturn = {
   threads: MessageThread[];
@@ -400,6 +401,9 @@ export const useMessagesData = ({
     },
     [clearCache]
   );
+
+  // A website visitor's address, left after the row was read, reaches the row (see the hook).
+  useVisitorAddressOnRows(threads, patchThread);
 
   const handleRefresh = async () => {
     setRefreshing(true);
