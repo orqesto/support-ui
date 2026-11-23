@@ -23,7 +23,7 @@ beforeEach(() => {
 
 describe('useNotificationSettings workspace switch', () => {
   it('re-fetches on a switch and does not show the previous workspace lines', async () => {
-    fetchSettings.mockResolvedValueOnce({ role: 'support', legacy: false, lines: [{ key: 'a' }] });
+    fetchSettings.mockResolvedValueOnce({ role: 'support', lines: [{ key: 'a' }] });
     const hook = renderHook(() => useNotificationSettings());
     await waitFor(() => expect(hook.result.current.settings?.lines).toHaveLength(1));
 
@@ -35,7 +35,7 @@ describe('useNotificationSettings workspace switch', () => {
     expect(hook.result.current.settings).toBeNull();
     expect(hook.result.current.loading).toBe(true);
     await act(() => {
-      release({ role: 'moderator', legacy: false, lines: [] });
+      release({ role: 'moderator', lines: [] });
       return Promise.resolve();
     });
     await waitFor(() => expect(hook.result.current.settings?.role).toBe('moderator'));
@@ -44,7 +44,6 @@ describe('useNotificationSettings workspace switch', () => {
   it('a save that answers after a switch does not show the old workspace lines in the new one', async () => {
     fetchSettings.mockResolvedValueOnce({
       role: 'support',
-      legacy: false,
       lines: [{ key: 'a', value: false }],
     });
     const hook = renderHook(() => useNotificationSettings());
@@ -61,14 +60,13 @@ describe('useNotificationSettings workspace switch', () => {
     });
     fetchSettings.mockResolvedValueOnce({
       role: 'moderator',
-      legacy: false,
       lines: [{ key: 'z', value: 1 }],
     });
     org = 2;
     hook.rerender();
     await waitFor(() => expect(hook.result.current.settings?.role).toBe('moderator'));
     await act(async () => {
-      release({ role: 'support', legacy: false, lines: [{ key: 'a', value: true }] });
+      release({ role: 'support', lines: [{ key: 'a', value: true }] });
       await saving;
     });
     expect(hook.result.current.settings?.role).toBe('moderator');
@@ -80,7 +78,7 @@ describe('useNotificationSettings workspace switch', () => {
       key: 'a', value, default: null, source: 'own', locked: false, alwaysOn: false,
     });
     const snap = (value: unknown, bValue: unknown) => ({
-      role: 'support', legacy: false,
+      role: 'support',
       lines: [lineA(value), { ...lineA(bValue), key: 'b' }],
     });
     fetchSettings.mockResolvedValueOnce(snap(0, 0));

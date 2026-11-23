@@ -13,15 +13,12 @@ export type SettingsLine = {
 export type NotificationSettings = {
   role: string | null;
   lines: SettingsLine[];
-  /** True when the server only has the old preferences endpoint. */
-  legacy: boolean;
 };
 
 /** Mirrors the backend `workingHours` line value. */
 export type WorkingHours = { days: number[]; start: string; end: string; timeZone: string };
 
 const SETTINGS_URL = '/api/users/me/notification-settings';
-const LEGACY_URL = '/api/users/me/notification-preferences';
 
 const SOURCES = ['always_on', 'locked', 'own', 'role_default', 'code_default'] as const;
 
@@ -42,44 +39,13 @@ export const normaliseSettings = (raw: unknown): NotificationSettings => {
       alwaysOn: row.alwaysOn === true,
     });
   }
-  return { role: typeof body.role === 'string' ? body.role : null, lines, legacy: false };
+  return { role: typeof body.role === 'string' ? body.role : null, lines };
 };
-
-// Which legacy column drives which line(s). `notifyMessages` stands for both message lines.
-export const LEGACY_LINES: Array<[field: string, keys: string[]]> = [
-  ['notifyMessages', ['kind:sla_message_breach', 'kind:customer_message_on_assigned']],
-  ['notifyTicketFirstResponse', ['kind:sla_ticket_first_response']],
-  ['notifyTicketResolution', ['kind:sla_ticket_resolution']],
-  ['notifyNewUnassigned', ['kind:new_unassigned_message']],
-  ['onlyAssignedToMe', ['onlyAssignedToMe']],
-  ['minSeverity', ['slaMinSeverity']],
-];
-
-const legacyToSettings = (raw: unknown): NotificationSettings => {
-  const body = isRecord(raw) ? raw : {};
-  const lines: SettingsLine[] = [];
-  for (const [field, keys] of LEGACY_LINES) {
-    if (!(field in body)) continue;
-    for (const key of keys) {
-      lines.push({ key, value: body[field], default: null, source: 'own', locked: false, alwaysOn: false });
-    }
-  }
-  return { role: null, lines, legacy: true };
-};
-
-/**
- * Remembered once an old server answered 404 on the new endpoint: from then on the legacy GET is
- * asked directly (one wasted 404 per session, not per 60 s window). Re-probed after
- * LEGACY_REPROBE_MS so a backend upgrade is picked up without a reload.
- */
-const LEGACY_REPROBE_MS = 10 * 60_000;
-let legacyMode = false;
-let legacySince = 0;
 
 const unwrap = (res: unknown): unknown => (isRecord(res) && isRecord(res.data) ? res.data.data : undefined);
 
 /** The api-client interceptor rethrows an Error with `status`/`data`; accept the axios shape too. */
-const errorStatus = (err: unknown): number | undefined => {
+export const httpStatusOf = (err: unknown): number | undefined => {
   if (!isRecord(err)) return undefined;
   if (typeof err.status === 'number') return err.status;
   return isRecord(err.response) && typeof err.response.status === 'number' ? err.response.status : undefined;
@@ -91,50 +57,19 @@ const errorBody = (err: unknown): Record<string, unknown> => {
 };
 
 const lockedKeysOf = (err: unknown): string[] | null => {
-  if (errorStatus(err) !== 409) return null;
+  if (httpStatusOf(err) !== 409) return null;
   const body = errorBody(err);
   if (body.code !== 'LINE_LOCKED') return null;
   return Array.isArray(body.keys) ? body.keys.filter((key): key is string => typeof key === 'string') : [];
 };
 
-export const fetchNotificationSettings = async (): Promise<NotificationSettings> => {
-  if (legacyMode && Date.now() - legacySince < LEGACY_REPROBE_MS) {
-    return legacyToSettings(unwrap(await apiClient.get(LEGACY_URL)));
-  }
-  try {
-    const res = await apiClient.get(SETTINGS_URL);
-    legacyMode = false;
-    return normaliseSettings(unwrap(res));
-  } catch (err) {
-    if (errorStatus(err) !== 404) throw err;
-  }
-  const res = await apiClient.get(LEGACY_URL);
-  legacyMode = true;
-  legacySince = Date.now();
-  return legacyToSettings(unwrap(res));
-};
-
-const saveLegacy = async (lines: Record<string, unknown>): Promise<NotificationSettings | { lockedKeys: string[] }> => {
-  // Read-modify-write so emailEnabled / digestEnabled (not lines) are sent back untouched.
-  const current = unwrap(await apiClient.get(LEGACY_URL));
-  const next: Record<string, unknown> = { ...(isRecord(current) ? current : {}) };
-  for (const [field, keys] of LEGACY_LINES) {
-    const hit = keys.find((key) => key in lines);
-    if (hit) next[field] = lines[hit];
-  }
-  try {
-    return legacyToSettings(unwrap(await apiClient.put(LEGACY_URL, next)));
-  } catch (err) {
-    const locked = lockedKeysOf(err);
-    if (locked) return { lockedKeys: locked };
-    throw err;
-  }
-};
+/** Every deployment has this endpoint (BE 1.1.328+); a failure is thrown with its HTTP status. */
+export const fetchNotificationSettings = async (): Promise<NotificationSettings> =>
+  normaliseSettings(unwrap(await apiClient.get(SETTINGS_URL)));
 
 export const saveNotificationSettings = async (
   lines: Record<string, unknown>
 ): Promise<NotificationSettings | { lockedKeys: string[] }> => {
-  if (legacyMode) return saveLegacy(lines);
   try {
     return normaliseSettings(unwrap(await apiClient.put(SETTINGS_URL, { lines })));
   } catch (err) {
@@ -144,16 +79,8 @@ export const saveNotificationSettings = async (
   }
 };
 
-export const resetNotificationSettings = async (keys?: string[]): Promise<NotificationSettings> => {
-  if (legacyMode) return fetchNotificationSettings();
-  return normaliseSettings(unwrap(await apiClient.post(`${SETTINGS_URL}/reset`, keys ? { keys } : {})));
-};
-
-/** Test-only: forget the remembered legacy mode. */
-export const resetNotificationSettingsModeForTests = (): void => {
-  legacyMode = false;
-  legacySince = 0;
-};
+export const resetNotificationSettings = async (keys?: string[]): Promise<NotificationSettings> =>
+  normaliseSettings(unwrap(await apiClient.post(`${SETTINGS_URL}/reset`, keys ? { keys } : {})));
 
 export type RoleDefaultsLine = {
   key: string;
@@ -207,7 +134,7 @@ export const fetchRoleDefaults = async (): Promise<RoleDefaults | null> => {
   try {
     return normaliseRoleDefaults(unwrap(await apiClient.get(ROLES_URL)));
   } catch (err) {
-    const status = errorStatus(err);
+    const status = httpStatusOf(err);
     if (status === 400 || status === 403 || status === 404) return null;
     throw err;
   }

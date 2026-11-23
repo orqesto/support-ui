@@ -76,16 +76,14 @@ describe('bell honours effective lines', () => {
     expect(result.current.notifications.filter((row) => row.id === 9)).toHaveLength(1);
   });
 
-  it('old backend (404 then legacy) keeps today behaviour and asks once each', async () => {
+  it('a server without the settings (404) keeps the defaults and never asks the old preferences', async () => {
     const calls: string[] = [];
     setup(async () => {
-      const url = calls[calls.length - 1];
-      if (url === '/api/users/me/notification-settings') throw await apiError(404, {});
-      return { data: { data: { notifyMessages: true, minSeverity: 'warning' } } };
+      throw await apiError(404, {});
     }, calls);
-    const { result } = await deliver('/api/users/me/notification-preferences');
+    const { result } = await deliver();
     expect(result.current.notifications.filter((row) => row.id === 9)).toHaveLength(1);
     expect(calls.filter((url) => url.includes('notification-settings'))).toHaveLength(1);
-    expect(calls.filter((url) => url.includes('notification-preferences'))).toHaveLength(1);
+    expect(calls.filter((url) => url.includes('notification-preferences'))).toHaveLength(0);
   });
 });
