@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FileText, RefreshCw, X } from 'lucide-react';
 import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Select } from '@/components/ui/Select';
 import { Button } from '@/components/ui/Button';
@@ -14,6 +15,7 @@ import type { OrganizationMember } from '@/services/organization.service';
 import { useAuditLogsStore } from '@/stores/auditLogsStore';
 import { Permission } from '@/types/roles';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import {
   AUTO_REPLY_ACTION_LABEL,
@@ -124,6 +126,7 @@ export const AuditLogsPage = () => {
   // the filters that came with them either (it would silently ignore them).
   const [countsKey, setCountsKey] = useState(0);
   const [countsAbsent, setCountsAbsent] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const logs = useAuditLogsStore((state) => state.logs);
   const filters = useAuditLogsStore((state) => state.filters);
@@ -168,8 +171,11 @@ export const AuditLogsPage = () => {
         setLogs(result.logs);
         setTotalCount(result.pagination.total);
         setTotalPages(result.pagination.totalPages);
+        setLoadError(null);
       } catch (error) {
         logger.error('Failed to fetch audit logs:', error);
+        // An empty table would read as "nothing happened": say the list could not be read.
+        setLoadError(getApiErrorMessage(error) ?? 'The audit log could not be loaded.');
       } finally {
         setLoading(false);
         setRefreshing(false);
@@ -279,6 +285,22 @@ export const AuditLogsPage = () => {
             </Button>
           </div>
 
+          {loadError && <Alert variant="danger">{loadError}</Alert>}
+          {!autoReplyView && (
+            <div>
+              {/* The way into the automatic replies view, whose counts card stands above its rows:
+                without it the card is found only by someone who already knows the action filter. */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  patchFilter({ action: countsAbsent ? AUTO_REPLY_SENT : AUTO_REPLY_ALL })
+                }
+              >
+                Automatic replies: sent, held and would have been sent
+              </Button>
+            </div>
+          )}
           {autoReplyView && (
             <AuditAutoReplyCounts
               startDate={filters.startDate}

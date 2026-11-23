@@ -19,11 +19,14 @@ const state = vi.hoisted(() => ({
   /** When true, the counts answer waits until `countsRelease` is called. */
   countsHold: false,
   countsRelease: null as null | (() => void),
+  /** When set, the list request is refused with it. */
+  listError: null as null | Error,
 }));
 vi.mock('@/services/auditLog.service', () => ({
   auditLogService: {
     getAll: (filters: unknown) => {
       state.asked.push(filters);
+      if (state.listError) return Promise.reject(state.listError);
       return Promise.resolve({
         logs: state.logs,
         pagination: { page: 1, limit: 50, total: state.logs.length, totalPages: 1 },
@@ -104,6 +107,7 @@ beforeEach(() => {
   state.countsError = null;
   state.countsHold = false;
   state.countsRelease = null;
+  state.listError = null;
   state.counts = {
     range: { startDate: '2026-11-16T00:00:00Z', endDate: '2026-11-23T00:00:00Z' },
     totals: { sent: 14, wouldSend: 6, held: 9, acknowledgments: 30 },
@@ -214,6 +218,23 @@ describe('Audit Logs — automatic replies', () => {
   });
 });
 
+describe('Audit Logs — a list that cannot be read', () => {
+  it('says so, where an empty table would read as "nothing happened"', async () => {
+    state.listError = Object.assign(new Error('Request failed'), {
+      response: { status: 400, data: { success: false, error: 'Organization context required' } },
+    });
+    await show([]);
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'Organization context required'
+    );
+  });
+
+  it('CONTROL: a list that loads shows no error', async () => {
+    await show([]);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
 describe('Audit Logs — the automatic replies view (backend 2026-11-23)', () => {
   const lastAsked = () => state.asked.at(-1) as Record<string, unknown>;
   const pick = async (name: string, option: string) =>
@@ -252,6 +273,23 @@ describe('Audit Logs — the automatic replies view (backend 2026-11-23)', () =>
     expect(reasons).not.toMatch(/restricted_topic|refusal_held|brand_new_code/);
     // No date filter: the backend's own default period.
     expect(state.countsAsked).toEqual([undefined]);
+  });
+
+  it('outside the view a button opens it: both records, and the counts card above the rows', async () => {
+    await show([]);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Automatic replies: sent, held and would have been sent',
+      })
+    );
+    await waitFor(() => expect(lastAsked().action).toBe(`${SENT},${HELD}`));
+    expect(await screen.findByTestId('auto-reply-counts')).toBeInTheDocument();
+    // Inside the view the button has done its work and is gone.
+    expect(
+      screen.queryByRole('button', {
+        name: 'Automatic replies: sent, held and would have been sent',
+      })
+    ).toBeNull();
   });
 
   it('CONTROL: outside the view there is no counts card and no reason or channel filter', async () => {

@@ -714,7 +714,9 @@ export const getRiskSignals = (message: Message): RiskSignal[] => {
   }
 
   const analysis = message.metadata?.analysis as { needsMoreInfo?: boolean } | undefined;
-  if (analysis?.needsMoreInfo) {
+  // A finished thread asks nobody for anything: an automatic reply that resolved it left the
+  // analysis flag behind, and the card went on saying "Needs info" in the risk tone.
+  if (analysis?.needsMoreInfo && !isFinishedStatus(message.status)) {
     signals.push({
       key: 'needs-info',
       label: 'Needs info',
