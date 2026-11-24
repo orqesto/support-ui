@@ -16,10 +16,14 @@
  * URL may hold one level of balanced parens: `[t](https://x.example/a_(b))`. Linear: one count,
  * one backwards trim, one running underscore count per line.
  */
-// A run that may be a URL; its end is trimmed by urlEnd. The sentinel is never part of one.
-const URL_RUN = /https?:\/\/[^\s<>"'`*[\]\uE000]+/g;
+// A run that may be a URL; its end is trimmed by urlEnd. Our sentinel (U+E000) is never part of
+// one, nor U+E001: the documentation renderer's code-span token, which a URL swallowed into its
+// href (review of #1023: `https://x.example/\`code\``).
+const URL_RUN = /https?:\/\/[^\s<>"'`*[\]\uE000\uE001]+/g;
+// The label holds no `[`: with `[^\]\n]+` a line of 50k `[` was scanned from every `[` to its
+// end (quadratic, seconds). A label with a nested `[` links from the innermost one.
 const MARKDOWN_LINK =
-  /\[([^\]\n]+)\]\((https?:\/\/(?:[^\s"'<>()\uE000]|\([^\s"'<>()\uE000]*\))+)\)/g;
+  /\[([^[\]\n]+)\]\((https?:\/\/(?:[^\s"'<>()\uE000\uE001]|\([^\s"'<>()\uE000\uE001]*\))+)\)/g;
 const TOKEN = /(\d+)/g;
 
 /**

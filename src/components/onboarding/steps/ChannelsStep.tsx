@@ -69,7 +69,13 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
   const fetchIntegrations = useCallback(async () => {
     try {
       const response = await integrationsService.getAll();
-      const list = response.success && response.data ? response.data : [];
+      // An unsuccessful read keeps the rows on screen and REJECTS, like the Settings page's read:
+      // this is the Gmail row's `onRefresh`, and a start whose re-read failed must know it, or the
+      // stale row keeps saying "waiting for review" for a mailbox that has started.
+      if (!response.success || !response.data) {
+        throw new Error(response.error ?? 'Failed to fetch integrations');
+      }
+      const list = response.data;
       setIntegrations(list);
       // ⛔ Deliberately NOT `&& !item.isKnowledgeBase`. A mailbox marked as a Knowledge
       // Base source is still a connected channel: everything arriving AFTER its cutoff is
@@ -84,13 +90,15 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
       onConnectedChange(list.some(isConnectedChannel));
     } catch (error) {
       logger.error('Failed to fetch integrations:', error);
+      throw error;
     } finally {
       setLoading(false);
     }
   }, [onConnectedChange]);
 
   useEffect(() => {
-    void fetchIntegrations();
+    // Logged in fetchIntegrations; the first read has no one else to tell.
+    fetchIntegrations().catch(() => undefined);
   }, [fetchIntegrations]);
 
   // Counts every mailbox on the channel, KB-marked or not — see the note in

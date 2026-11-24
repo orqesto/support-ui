@@ -342,7 +342,12 @@ describe('documentation preview: the shared file viewer for uploaded files', () 
         '<script>window.__docxPwned = 1</script>' +
         '<img src="x" onerror="window.__docxPwned = 2">' +
         '<img src="https://tracker.example.com/pixel.png">' +
-        '<img src="data:image/svg+xml;base64,PHN2Zz4=">' +
+        // An SVG picture that names a remote image inside: kept, as an <img> only (browsers
+        // fetch nothing an SVG-as-image references).
+        `<img alt="diagram" src="data:image/svg+xml;base64,${btoa(
+          '<svg xmlns="http://www.w3.org/2000/svg"><image href="https://tracker.example.com/i.png"/><script>alert(1)</script></svg>'
+        )}">` +
+        '<a href="data:image/svg+xml;base64,PHN2Zz4=">svg link</a>' +
         '<img alt="logo" src="data:image/png;base64,iVBORw0KGgo=">' +
         '<svg><image href="https://tracker.example.com/s.png"></image></svg>' +
         '<video poster="https://tracker.example.com/p.png"></video>' +
@@ -359,8 +364,16 @@ describe('documentation preview: the shared file viewer for uploaded files', () 
       )
     ).toBeNull();
     expect([...body.querySelectorAll('img')].map((img) => img.getAttribute('alt'))).toEqual([
+      'diagram',
       'logo',
     ]);
+    // Only an <img> carries a source, and only a data: picture.
+    expect(
+      [...body.querySelectorAll('[src], [href], [srcset], [data], [xlink\\:href]')]
+        .filter((node) => node.tagName !== 'A')
+        .map((node) => `${node.tagName} ${node.getAttribute('src')?.slice(0, 14)}`)
+    ).toEqual(['IMG data:image/svg', 'IMG data:image/png']);
+    expect(within(body).getByText('svg link')).not.toHaveAttribute('href');
     expect(body.innerHTML).not.toContain('tracker.example.com');
     expect(within(body).getByText('bad link')).not.toHaveAttribute('href');
     expect(within(body).getByRole('link', { name: 'good link' })).toHaveAttribute(

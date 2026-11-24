@@ -45,7 +45,10 @@ describe('renderDocumentHtml — formatting', () => {
 
   it('renders a pipe table (the shape the backend writes for PDF tables)', () => {
     const host = dom('| Item | Price |\n| --- | --- |\n| Box | 10 EUR |\n| Bag | 4 EUR |');
-    expect([...host.querySelectorAll('th')].map((cell) => cell.textContent)).toEqual(['Item', 'Price']);
+    expect([...host.querySelectorAll('th')].map((cell) => cell.textContent)).toEqual([
+      'Item',
+      'Price',
+    ]);
     expect(host.querySelectorAll('tbody tr')).toHaveLength(2);
     expect(host.querySelector('tbody td')?.textContent).toBe('Box');
   });
@@ -57,7 +60,9 @@ describe('renderDocumentHtml — formatting', () => {
   });
 
   it('links open in a new tab with noopener; underscores in URLs survive', () => {
-    const host = dom('See [the guide](https://docs.example.com/a_b_c) or https://shop.example/x_y_z.');
+    const host = dom(
+      'See [the guide](https://docs.example.com/a_b_c) or https://shop.example/x_y_z.'
+    );
     const links = [...host.querySelectorAll('a')];
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       'https://docs.example.com/a_b_c',
@@ -107,17 +112,25 @@ describe('renderDocumentHtml — sanitizing (payloads in a document are text, ne
 });
 
 describe('renderDocumentHtml — a large document', () => {
-  it('renders ~1 MB in reasonable time (jsdom; a browser is faster)', () => {
+  // ~1 s on a laptop, over 5 s on a loaded CI runner: no wall-clock budget. A quadratic
+  // regression shows as growth — 1 MB once against an eighth of it eight times (linear ≈ 1×,
+  // quadratic ≈ 8×) — and the test's own timeout fits the work, not vitest's 5 s default.
+  it('renders ~1 MB in linear time (jsdom; a browser is faster)', () => {
     const big = inventedDocument(1_000_000);
-    const started = performance.now();
+    const small = inventedDocument(125_000);
+    renderDocumentHtml(small);
+    let started = performance.now();
+    for (let round = 0; round < 8; round += 1) renderDocumentHtml(small);
+    const smallMs = performance.now() - started;
+    started = performance.now();
     const html = renderDocumentHtml(big);
-    const elapsed = performance.now() - started;
-    // Measured locally (jsdom, 2026-11-24): see the PR notes. The bound only catches a
-    // pathological (quadratic) regression.
-    console.info(`[doc preview] ${big.length} chars rendered in ${Math.round(elapsed)} ms`);
+    const bigMs = performance.now() - started;
+    console.info(
+      `[doc preview] ${big.length} chars in ${Math.round(bigMs)} ms; 8 × ${small.length} in ${Math.round(smallMs)} ms`
+    );
     expect(html.length).toBeGreaterThan(big.length / 2);
-    expect(elapsed).toBeLessThan(10_000);
-  });
+    expect(bigMs / smallMs).toBeLessThan(3);
+  }, 60_000);
 });
 
 describe('pipe tables: escaped pipes (1.1.330)', () => {
@@ -130,6 +143,10 @@ describe('pipe tables: escaped pipes (1.1.330)', () => {
 
   it('CONTROL: a row with no escapes still splits on every pipe', () => {
     const host = dom('| a | b | c |\n| --- | --- | --- |\n| 1 | 2 | 3 |');
-    expect([...host.querySelectorAll('td')].map((cell) => cell.textContent)).toEqual(['1', '2', '3']);
+    expect([...host.querySelectorAll('td')].map((cell) => cell.textContent)).toEqual([
+      '1',
+      '2',
+      '3',
+    ]);
   });
 });

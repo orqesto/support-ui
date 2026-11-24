@@ -524,6 +524,11 @@ export const reviewSourceOf = (integ: Integration): GmailCountReviewSource => {
 
 /** How long a row waits before re-reading a list that failed to load after a start. */
 export const LIST_REREAD_MS = 5000;
+/** Re-reads after a failed one wait longer each time (5 s, 10 s, 20 s, 40 s, then 60 s)… */
+export const listRereadDelay = (attempt: number): number =>
+  Math.min(LIST_REREAD_MS * 2 ** attempt, 60_000);
+/** …and stop after this many: a list endpoint that is down is not polled for ever. */
+export const LIST_REREAD_MAX_TRIES = 8;
 
 /** The row's slot: a "paused" notice for a source that is not syncing, or the open panel. */
 export const GmailRowCount = ({
@@ -556,17 +561,26 @@ export const GmailRowCount = ({
   }, [integration.enabled]);
   useEffect(() => {
     if (!refreshOwed) return undefined;
-    let timer: ReturnType<typeof setTimeout>;
-    const attempt = () => {
+    // `cancelled`: a re-read still in flight when the row goes away must not arm a new timer
+    // that no cleanup can clear (it re-read the list every 5 s from a page the user had left).
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const attempt = (tries: number) => {
+      if (cancelled || tries >= LIST_REREAD_MAX_TRIES) return;
       timer = setTimeout(() => {
         refreshRef.current().then(
-          () => setRefreshOwed(false),
-          () => attempt()
+          () => {
+            if (!cancelled) setRefreshOwed(false);
+          },
+          () => attempt(tries + 1)
         );
-      }, LIST_REREAD_MS);
+      }, listRereadDelay(tries));
     };
-    attempt();
-    return () => clearTimeout(timer);
+    attempt(0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [refreshOwed]);
 
   if (open) {
