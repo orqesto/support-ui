@@ -500,7 +500,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
                   ) : !isAdmin && isLastOrgAdmin ? (
                     <p className="flex gap-1 items-center mt-1 text-xs font-medium text-destructive">
                       <AlertTriangle className="w-3 h-3" />
-                      Cannot change role - you are the last Workspace Administrator
+                      Cannot change role - you are the last Workspace admin
                     </p>
                   ) : (
                     <p className="mt-1 text-xs text-muted-foreground">Permissions within the workspace</p>

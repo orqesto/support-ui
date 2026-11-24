@@ -110,7 +110,7 @@ export const ScimTelemetryCard = ({ telemetry }: { telemetry: AllianceScimTeleme
         {/*
         This warning told an alliance admin to do something impossible, and it cost a customer
         an afternoon. It read "they have no account in this alliance … provision them first".
-        The three people it named were already Workspace Administrators in two of this
+        The three people it named were already workspace admins in two of this
         alliance's workspaces AND already bound to the right groups in JumpCloud — there was
         nothing left to provision, and the admin's next question was whether to DELETE them.
 

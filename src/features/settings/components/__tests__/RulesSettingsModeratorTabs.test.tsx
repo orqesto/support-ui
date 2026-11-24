@@ -4,7 +4,7 @@
  * REAL role → permission map (usePermissions + types/roles), so a role losing the permission, or
  * the gate going back to MANAGE_ORGANIZATION, turns this red.
  */
-import { vi, describe, it, expect, afterEach } from 'vitest';
+import { vi, describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -34,6 +34,7 @@ vi.mock('@/features/settings/components/KnowledgeDetectionRulesSettings', () => 
 vi.mock('@/features/settings/components/RoutingRulesSettings', () => ({ RoutingRulesSettings: () => <div data-testid="routing-content" /> }));
 vi.mock('@/features/settings/components/PriorityRulesSettings', () => ({ PriorityRulesSettings: () => <div data-testid="priority-content" /> }));
 
+import { useAdvancedStore } from '@/features/settings/advanced';
 import { RulesSettings } from '@/features/settings/components/RulesSettings';
 
 const renderAs = (organizationRole: string, section?: string) => {
@@ -46,6 +47,8 @@ const renderAs = (organizationRole: string, section?: string) => {
 };
 
 describe('Settings › Rules — routing and priority tabs by role', () => {
+  // Routing is behind "Show advanced settings" (2026-11-23); this suite is about role gates.
+  beforeEach(() => useAdvancedStore.setState({ show: true }));
   afterEach(cleanup);
 
   it('a moderator sees the Routing and Priority tabs', () => {

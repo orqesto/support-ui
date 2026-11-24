@@ -1,6 +1,8 @@
 import { Save } from 'lucide-react';
 import { useState } from 'react';
 import type { AlertState } from '@/features/settings/components/integrations/types';
+import { rangeSavedMessage, syncRunningRefusal } from '@/features/settings/components/integrations/importRangeSave';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { DateRangePicker, formatRangeLabel, type DateRangeValue } from '@/components/ui/DateRangePicker';
 import { Label } from '@/components/ui/Label';
@@ -34,11 +36,14 @@ export const GmailSyncRangeDialog = ({ source, onClose, onRefresh, onShowAlert }
     importRangeValue({ bulkImportDays: source.currentDays, bulkImportSince: source.currentSince }, 30)
   );
   const [saving, setSaving] = useState(false);
+  // The server's "a poll is running" refusal: nothing saved, the dialog stays for a retry.
+  const [refusal, setRefusal] = useState<string | null>(null);
 
   const save = async () => {
     setSaving(true);
+    setRefusal(null);
     try {
-      await integrationsService.update(source.id, {
+      const result = await integrationsService.update(source.id, {
         type: 'gmail',
         config: { gmail: importRangePatch(range) },
       });
@@ -49,11 +54,19 @@ export const GmailSyncRangeDialog = ({ source, onClose, onRefresh, onShowAlert }
       onShowAlert({
         open: true,
         title: 'Success',
-        description: `Initial sync range updated to ${formatRangeLabel(range, RANGE_OPTIONS)}`,
+        description: rangeSavedMessage(
+          result.importRestarted,
+          formatRangeLabel(range, RANGE_OPTIONS).toLowerCase()
+        ),
         variant: 'success',
       });
     } catch (error) {
       logger.error('Failed to update initial sync range:', error);
+      const running = syncRunningRefusal(error);
+      if (running) {
+        setRefusal(running);
+        return;
+      }
       onShowAlert({
         open: true,
         title: 'Update Failed',
@@ -87,6 +100,7 @@ export const GmailSyncRangeDialog = ({ source, onClose, onRefresh, onShowAlert }
               day. Set to &quot;All Time&quot; to fetch everything (may take a while).
             </p>
           </div>
+          {refusal && <Alert variant="warning">Not saved: {refusal}</Alert>}
           <div className="flex flex-wrap gap-2 shrink-0">
             <Button onClick={() => void save()} isLoading={saving}>
               <Save className="mr-2 w-4 h-4" />

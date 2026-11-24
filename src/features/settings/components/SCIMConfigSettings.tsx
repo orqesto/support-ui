@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Select } from '@/components/ui/Select';
+import { ORG_ROLE_OPTIONS } from '@/types/roles';
 import { Toggle } from '@/components/ui/Toggle';
 import { departmentService, type Department } from '@/services/department.service';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
@@ -45,12 +46,9 @@ import { organisationConsolePath } from '@/pages/organisationConsoleRoutes';
  * authority (T-02-21).
  */
 
-const ROLE_OPTIONS: { value: OrgRole | ''; label: string }[] = [
+export const SCIM_ROLE_OPTIONS: { value: OrgRole | ''; label: string }[] = [
   { value: '', label: '— no role —' },
-  { value: 'org_admin', label: 'Org admin' },
-  { value: 'moderator', label: 'Moderator' },
-  { value: 'support', label: 'Support' },
-  { value: 'associate', label: 'Associate' },
+  ...ORG_ROLE_OPTIONS,
 ];
 
 export const SCIMConfigSettings = () => {
@@ -541,7 +539,7 @@ export const SCIMConfigSettings = () => {
                           id={`scim-role-${group.id}`}
                           value={group.mappedRole ?? ''}
                           disabled={savingGroupId === group.id}
-                          options={ROLE_OPTIONS}
+                          options={SCIM_ROLE_OPTIONS}
                           onChange={(value) => onRoleChange(group, value)}
                         />
                       </div>

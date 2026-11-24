@@ -7,6 +7,7 @@ import {
 } from '@/hooks/notificationPrefsKey';
 import {
   fetchNotificationSettings,
+  httpStatusOf,
   resetNotificationSettings,
   saveNotificationSettings,
   type NotificationSettings,
@@ -18,6 +19,8 @@ export const useNotificationSettings = () => {
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // The HTTP status of a failed read: a 404 means this server has no notification settings.
+  const [errorStatus, setErrorStatus] = useState<number | undefined>(undefined);
   // Send order, per line. A reply is a snapshot of every line, but the call only vouches for the
   // lines it saved: those are applied unless a newer call on the same line already was. The other
   // lines in the snapshot are applied only when this is the newest reply and no other call on them
@@ -84,11 +87,16 @@ export const useNotificationSettings = () => {
     inFlight.current = {};
     epoch.current += 1;
     setError(null);
+    setErrorStatus(undefined);
     setLoading(true);
     let cancelled = false;
     fetchNotificationSettings()
       .then((next) => !cancelled && show(next))
-      .catch((err: unknown) => !cancelled && setError(err instanceof Error ? err.message : 'Could not load settings'))
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : 'Could not load settings');
+        setErrorStatus(httpStatusOf(err));
+      })
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -145,5 +153,5 @@ export const useNotificationSettings = () => {
     [apply]
   );
 
-  return { settings, save, reset, loading, error };
+  return { settings, save, reset, loading, error, errorStatus };
 };

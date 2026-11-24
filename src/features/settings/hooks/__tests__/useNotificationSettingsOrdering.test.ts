@@ -13,7 +13,6 @@ const { useNotificationSettings } = await import('../useNotificationSettings');
 
 const withValue = (key: string, value: unknown) => ({
   role: 'support',
-  legacy: false,
   lines: [{ key, value, default: null, source: 'own', locked: false, alwaysOn: false }],
 });
 
@@ -25,7 +24,6 @@ beforeEach(() => {
 
 const two = (aVal: unknown, bVal: unknown) => ({
   role: 'support',
-  legacy: false,
   lines: [
     { key: 'a', value: aVal, default: null, source: 'own', locked: false, alwaysOn: false },
     { key: 'b', value: bVal, default: null, source: 'own', locked: false, alwaysOn: false },

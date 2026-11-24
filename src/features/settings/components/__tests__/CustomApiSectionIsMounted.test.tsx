@@ -8,7 +8,7 @@
  * Driven through the REAL role → permission map (usePermissions + types/roles), like the rules-tab
  * suite, so a role losing MANAGE_INTEGRATIONS turns this red rather than passing on a mock.
  */
-import { vi, describe, it, expect, afterEach } from 'vitest';
+import { vi, describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -70,6 +70,7 @@ vi.mock('@/features/custom-api/services/customApi.service', () => ({
 }));
 
 import { ConnectedServicesSettings } from '@/features/settings/components/ConnectedServicesSettings';
+import { useAdvancedStore } from '@/features/settings/advanced';
 
 const renderAs = (organizationRole: string, section?: string) => {
   mockUser = { id: 1, role: 'user', organizationRole };
@@ -81,6 +82,8 @@ const renderAs = (organizationRole: string, section?: string) => {
 };
 
 describe('Settings › Integrations › Custom APIs', () => {
+  // Custom APIs sit behind "Show advanced settings" (2026-11-23); this suite is about the tab itself.
+  beforeEach(() => useAdvancedStore.setState({ show: true }));
   afterEach(cleanup);
 
   it('is a tab an org admin can see', () => {

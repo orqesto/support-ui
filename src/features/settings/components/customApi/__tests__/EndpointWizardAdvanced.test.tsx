@@ -185,7 +185,7 @@ describe('advanced request settings (2026-09-29)', () => {
     const toggle = screen.getByRole('button', { name: /Advanced request settings/i });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     expect(toggle).toHaveTextContent(/nothing changed/i);
-    expect(screen.queryByLabelText(/How we ask/i)).toBeNull();
+    expect(screen.getByLabelText(/How we ask/i)).not.toBeVisible();
   });
 
   it('a POST body is saved BEFORE Test runs it — Test calls the saved lookup', async () => {

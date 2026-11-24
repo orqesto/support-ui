@@ -25,7 +25,9 @@ import { SourceDepartmentEditor } from '@/features/settings/components/integrati
 import { SourceRowBadges } from '@/features/settings/components/integrations/SourceRowBadges';
 import { SourceRowStrips } from '@/features/settings/components/integrations/SourceRowStrips';
 import type { IntegrationCardProps } from '@/features/settings/components/integrations/types';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { rangeSavedMessage, syncRunningRefusal } from '@/features/settings/components/integrations/importRangeSave';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { useCreateSourceDepartments } from '@/features/settings/hooks/useCreateSourceDepartments';
 import { integrationsService } from '@/services/integrations.service';
@@ -129,6 +131,7 @@ export const EmailIntegrationCard = ({
     currentDays: number;
   } | null>(null);
   const [importRange, setImportRange] = useState<DateRangeValue>({ kind: 'preset', value: '7' });
+  const [rangeRefusal, setRangeRefusal] = useState<string | null>(null);
   const [editDepts, setEditDepts] = useState<number | null>(null);
   const [editAliases, setEditAliases] = useState<number | null>(null);
   const [editAckReply, setEditAckReply] = useState<number | null>(null);
@@ -186,8 +189,9 @@ export const EmailIntegrationCard = ({
     if (!editBulkImport) return;
 
     setSaving(true);
+    setRangeRefusal(null);
     try {
-      await integrationsService.update(editBulkImport.id, {
+      const result = await integrationsService.update(editBulkImport.id, {
         type: 'email',
         config: {
           email: importRangePatch(importRange),
@@ -200,11 +204,17 @@ export const EmailIntegrationCard = ({
       onShowAlert({
         open: true,
         title: 'Sync Range Updated',
-        description: `Will sync emails from ${formatRangeLabel(importRange, IMPORT_RANGE_OPTIONS).toLowerCase()} on next polling cycle.`,
+        description: rangeSavedMessage(result.importRestarted, formatRangeLabel(importRange, IMPORT_RANGE_OPTIONS).toLowerCase()),
         variant: 'success',
       });
     } catch (error) {
       logger.error('Failed to update sync range:', error);
+      // A poll is running: nothing saved; keep the dialog and its values for a retry.
+      const running = syncRunningRefusal(error);
+      if (running) {
+        setRangeRefusal(running);
+        return;
+      }
       onShowAlert({
         open: true,
         title: 'Update Failed',
@@ -435,6 +445,7 @@ export const EmailIntegrationCard = ({
                           }
                           const emailConfig = (integration.config as { email?: EmailConfig }).email;
                           const currentDays = emailConfig?.bulkImportDays ?? 0;
+                          setRangeRefusal(null);
                           setEditBulkImport({
                             id: integration.id,
                             name: integration.name,
@@ -677,13 +688,13 @@ export const EmailIntegrationCard = ({
                 />
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                How far back to fetch emails on first connect. After the initial sync, normal
-                incremental polling resumes.
+                How far back to fetch emails. Mail already imported is kept.
               </p>
             </div>
+            {rangeRefusal && <Alert variant="warning" className="mb-4">Not saved: {rangeRefusal}</Alert>}
 
             <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={() => setEditBulkImport(null)} disabled={saving}>
+              <Button variant="outline" onClick={() => { setEditBulkImport(null); setRangeRefusal(null); }} disabled={saving}>
                 Cancel
               </Button>
               <Button onClick={handleUpdateBulkImportDays} isLoading={saving}>

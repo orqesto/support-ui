@@ -12,7 +12,7 @@ import { OrgDepartmentPicker } from '@/components/console/OrgDepartmentPicker';
 import { useAllianceGroups } from '@/hooks/useAllianceGroups';
 import { useAllianceMembers, useAllianceOrgs } from '@/hooks/useAllianceAdmin';
 import { GroupEditor } from '@/components/console/GroupEditor';
-import { ORG_ROLE_LABELS, backingGroupName } from '@/components/console/backingGroupName';
+import { backingGroupName } from '@/components/console/backingGroupName';
 import type { AllianceGroup, DepartmentIdsByOrg } from '@/services/alliance-groups.service';
 import {
   useAllianceSyncedGroups,
@@ -22,7 +22,7 @@ import {
 } from '@/hooks/useAllianceProvisioning';
 import type { AllianceOrg } from '@/services/alliance-admin.service';
 import type { SyncedGroup, WireTarget } from '@/services/alliance-scim.service';
-import { ORGANIZATION_ROLES, type OrganizationRole } from '@/types/roles';
+import { ORGANIZATION_ROLES, roleDisplayNames, type OrganizationRole } from '@/types/roles';
 
 /**
  * Synced IdP groups card — the single Approach-1 surface for the alliance Provisioning
@@ -53,7 +53,8 @@ import { ORGANIZATION_ROLES, type OrganizationRole } from '@/types/roles';
  */
 const TARGET_OPTIONS = ORGANIZATION_ROLES.map((role) => ({
   value: `orgrole:${role}`,
-  label: `Org role — ${ORG_ROLE_LABELS[role]}`,
+  // Display only: ORG_ROLE_LABELS (backingGroupName) is part of stored group names, never reworded.
+  label: `Org role — ${roleDisplayNames[role]}`,
 }));
 
 const orgRoleOf = (value: string): OrganizationRole | null => {
@@ -93,7 +94,7 @@ export const describeGrant = (
   group: { name: string; orgRole?: OrganizationRole | null; orgIds?: number[] },
   orgs: { id: number; name: string }[]
 ): string | null => {
-  const role = group.orgRole ? ORG_ROLE_LABELS[group.orgRole] : null;
+  const role = group.orgRole ? roleDisplayNames[group.orgRole] : null;
   const names = (group.orgIds ?? []).map(
     (id) => orgs.find((org) => org.id === id)?.name ?? `workspace #${id}`
   );
@@ -334,7 +335,7 @@ const SyncedGroupRow = ({
           {group.suggestion?.orgRole && (
             <p className="flex gap-1 items-center text-xs text-muted-foreground">
               <Sparkles className="w-3 h-3 shrink-0" />
-              Suggested: <strong>{ORG_ROLE_LABELS[group.suggestion.orgRole]}</strong> —{' '}
+              Suggested: <strong>{roleDisplayNames[group.suggestion.orgRole]}</strong> —{' '}
               {group.suggestion.rationale}
             </p>
           )}

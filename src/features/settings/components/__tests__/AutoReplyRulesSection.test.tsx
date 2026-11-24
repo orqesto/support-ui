@@ -77,10 +77,12 @@ vi.mock('@/hooks/usePermissions', () => ({
   }),
 }));
 
-const { AutoReplyRulesSection, NO_AI_PROVIDER_WARNING,
-  UNUSABLE_AI_PROVIDER_WARNING, RULE_CHECK_NOTE } = await import(
-  '../AutoReplyRulesSection'
-);
+const {
+  AutoReplyRulesSection,
+  NO_AI_PROVIDER_WARNING,
+  UNUSABLE_AI_PROVIDER_WARNING,
+  RULE_CHECK_NOTE,
+} = await import('../AutoReplyRulesSection');
 
 const refundRule = {
   id: 1,
@@ -311,6 +313,43 @@ describe('AutoReplyRulesSection', () => {
     expect(api.posts[0]).toMatchObject({ useKnowledgeBase: true, kbMinSimilarity: 0.82 });
   });
 
+  it('the knowledge base match sits under a closed "Advanced", summarised without a number', async () => {
+    renderSection();
+    await openNewRule();
+    fireEvent.click(screen.getByRole('switch', { name: /knowledge base/i }));
+    const field = screen.getByLabelText('Knowledge base match (%)');
+    expect(field).not.toBeVisible();
+    const header = screen.getByRole('button', { name: /^Advanced/ });
+    expect(header).toHaveTextContent('Match strictness: standard');
+    expect(screen.getByText(/as closely as the match set under Advanced/)).toBeTruthy();
+    fireEvent.click(header);
+    expect(field).toBeVisible();
+    fireEvent.change(field, { target: { value: '92' } });
+    expect(header).toHaveTextContent('Match strictness: custom');
+  });
+
+  it('a match validation error opens "Advanced"; the field stays after the next keystroke', async () => {
+    renderSection();
+    await openNewRule();
+    fireEvent.change(screen.getByLabelText('Keywords', { selector: 'input' }), {
+      target: { value: 'refund' },
+    });
+    fireEvent.click(screen.getByRole('switch', { name: /knowledge base/i }));
+    fireEvent.change(screen.getByLabelText('Reply template'), {
+      target: { value: 'Hi\n\n{{kb_answer}}' },
+    });
+    fireEvent.change(screen.getByLabelText('Knowledge base match (%)'), {
+      target: { value: '75' },
+    });
+    fireEvent.click(saveButton());
+    expect(await screen.findByText(/whole number from 80 to 99/)).toBeVisible();
+    const field = screen.getByLabelText('Knowledge base match (%)');
+    expect(field).toBeVisible();
+    fireEvent.change(field, { target: { value: '8' } });
+    expect(screen.queryByText(/whole number from 80 to 99/)).toBeNull();
+    expect(field).toBeVisible();
+  });
+
   it('CONTROL — a plain rule is saved without the knowledge base', async () => {
     renderSection();
     await openNewRule();
@@ -428,9 +467,9 @@ describe('Keyword rules: the backend says whether its AI can be used (`usable`)'
     await waitFor(() => expect(held()).toBeTruthy());
     expect(held()?.textContent).toContain(UNUSABLE_AI_PROVIDER_WARNING);
     expect(held()?.textContent).not.toContain(NO_AI_PROVIDER_WARNING);
-    expect(
-      screen.getByRole('link', { name: 'Check the AI provider' }).getAttribute('href')
-    ).toBe('/settings#integrations/ai-providers');
+    expect(screen.getByRole('link', { name: 'Check the AI provider' }).getAttribute('href')).toBe(
+      '/settings#integrations/ai-providers'
+    );
   });
 
   it('the backend could not tell (null): no warning, although no provider row came back', async () => {

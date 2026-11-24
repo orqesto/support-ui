@@ -151,6 +151,7 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
 
   /** Discard the draft: put every field back to what the server holds. */
   const resetDraft = () => {
+    update.reset?.();
     setMode(initialMode(storage));
     setText(seedText(storage));
     setForcePathStyle(storage.forcePathStyle.value ?? false);
@@ -221,7 +222,26 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
     });
 
   const isS3 = mode !== 'local';
-  const saveDisabled = isS3 && !testResult?.ok;
+  /**
+   * What an S3 target cannot do without. The console once saved "S3" with no bucket, and
+   * every attachment and KB upload through the default then failed for days. A bucket cannot
+   * be inferred from anywhere; a region can (instance profile / AWS_REGION), except for a
+   * custom endpoint, which has no ambient region to fall back on.
+   */
+  const required: Partial<Record<TextKey, string>> =
+    mode === 's3'
+      ? {
+          ...(text.bucket.trim() ? {} : { bucket: 'Required — files cannot be stored without a bucket.' }),
+          ...(text.endpoint.trim() && !text.region.trim()
+            ? { region: 'Required with a custom endpoint.' }
+            : {}),
+        }
+      : {};
+  const envMissingBucket = mode === 's3-env' && !storage.bucket.value;
+  const incomplete = Object.keys(required).length > 0 || envMissingBucket;
+  const saveDisabled = isS3 && (incomplete || !testResult?.ok);
+  // The server's refusal, in its own words, on the form — not only a toast that fades.
+  const saveError = card.isEditing && update.error instanceof Error ? update.error.message : null;
   // The console pre-selects S3 as soon as the environment carries a usable
   // bucket, but nothing moves until it's saved — say so rather than letting the
   // dropdown imply files are already going there.
@@ -288,7 +308,7 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
       saveLabel="Save storage default"
       extraActions={
         isS3 && (
-          <Button variant="outline" onClick={runTest} isLoading={test.isPending}>
+          <Button variant="outline" onClick={runTest} isLoading={test.isPending} disabled={incomplete}>
             <TestTube2 className="mr-2 w-4 h-4" />
             Test connection
           </Button>
@@ -311,7 +331,14 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
                 : `Failed: ${testResult.error ?? 'unknown error'}`}
             </p>
           )}
-          {card.isEditing && saveDisabled && (
+          {saveError && <Alert variant="danger">Not saved: {saveError}</Alert>}
+          {card.isEditing && envMissingBucket && (
+            <Alert variant="warning">
+              The environment provides no S3 bucket. Pick &ldquo;configure here&rdquo; and enter one,
+              or choose local disk.
+            </Alert>
+          )}
+          {card.isEditing && saveDisabled && !incomplete && (
             <Alert variant="info">
               Run a successful connection test before saving an S3 target — the probe writes, reads
               back, and deletes a small object, so a passing test means uploads will work.
@@ -385,6 +412,9 @@ export const DefaultStorageCard = ({ storage }: { storage: Storage }) => {
                     value={text[key]}
                     onChange={(event) => setTextField(key, event.target.value)}
                     placeholder={placeholder}
+                    aria-label={label}
+                    aria-required={key === 'bucket' || key in required ? true : undefined}
+                    error={required[key]}
                   />
                   {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
                 </div>

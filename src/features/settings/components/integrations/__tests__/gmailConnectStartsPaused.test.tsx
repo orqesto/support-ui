@@ -74,7 +74,7 @@ describe('Gmail connect — saved paused, count first', () => {
         onShowAlert={vi.fn()}
       />
     );
-    expect(screen.getByText('Paused — not syncing.')).toBeInTheDocument();
+    expect(screen.getByText('Not syncing — waiting for review.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Check count and start' }));
     expect(await screen.findByText(/Found 1,200 messages/)).toBeInTheDocument();
     expect(countGmailMessages).toHaveBeenCalledWith(
@@ -82,6 +82,26 @@ describe('Gmail connect — saved paused, count first', () => {
       { searchQuery: '', bulkImportDays: 7, isKnowledgeBase: true },
       expect.objectContaining({ signal: expect.any(AbortSignal) as AbortSignal })
     );
+  });
+
+  it('⛔ a paused row is marked on the row itself, next to the mailbox name', () => {
+    render(
+      <GmailIntegrationCard integrations={[pausedRow] as never} onRefresh={vi.fn()} onShowAlert={vi.fn()} />
+    );
+    const name = screen.getByText(pausedRow.config.user);
+    expect(name.parentElement).toHaveTextContent('Not syncing');
+  });
+
+  it('CONTROL: a syncing row carries neither the badge nor the review strip', () => {
+    render(
+      <GmailIntegrationCard
+        integrations={[{ ...pausedRow, enabled: true }] as never}
+        onRefresh={vi.fn()}
+        onShowAlert={vi.fn()}
+      />
+    );
+    expect(screen.queryByText(/not syncing/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Check count and start' })).not.toBeInTheDocument();
   });
 
   it('after connecting, the new source opens its count without another click', async () => {

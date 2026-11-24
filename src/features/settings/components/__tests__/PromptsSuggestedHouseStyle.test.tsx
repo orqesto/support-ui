@@ -78,12 +78,15 @@ describe('AI Prompts › Suggested house style', () => {
       }),
     ];
     render(<PromptsSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: /^Advanced/ }));
     fireEvent.click(await screen.findByRole('button', { name: /edit/i }));
     expect(screen.getByDisplayValue('Be formal.')).toBeTruthy();
 
     // The server now holds the accepted style, switched on.
     templates.list = [replyStyle('Be warm and brief.', true)];
-    fireEvent.click(screen.getByRole('button', { name: 'Accept this suggestion' }));
+    // The suggestions load in their own request: wait for the button, do not assume it is there
+    // once the templates are (a race that failed on a loaded CI runner, 2026-11-24).
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept this suggestion' }));
 
     await waitFor(() => expect(screen.getByText('Active')).toBeTruthy());
     expect(screen.queryByDisplayValue('Be formal.')).toBeNull();
@@ -95,9 +98,10 @@ describe('AI Prompts › Suggested house style', () => {
     templates.list = [other];
     pending.list = [suggestion(54, 'reply_style', 'reply_style.update', { currentStyle: '', proposedStyle: 'Be warm.', rationale: '', signals: {} })];
     render(<PromptsSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: /^Advanced/ }));
     fireEvent.click(await screen.findByRole('button', { name: /edit/i }));
     fireEvent.change(screen.getByDisplayValue('Spam?'), { target: { value: 'Spam? typed' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Accept this suggestion' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept this suggestion' }));
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Accept this suggestion' })).toBeNull());
     expect(screen.getByDisplayValue('Spam? typed')).toBeTruthy();
   });
@@ -106,6 +110,7 @@ describe('AI Prompts › Suggested house style', () => {
     templates.list = [replyStyle('Be formal.', false)];
     pending.list = [suggestion(55, 'reply_style', 'reply_style.update', { currentStyle: '', proposedStyle: 'Be warm.', rationale: '', signals: {} })];
     render(<PromptsSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: /^Advanced/ }));
     fireEvent.click(await screen.findByRole('button', { name: /edit/i }));
     fireEvent.change(screen.getByDisplayValue('Be formal.'), { target: { value: 'Be formal, typed' } });
     fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
@@ -120,10 +125,53 @@ describe('AI Prompts › Suggested house style', () => {
     pending.list = [suggestion(56, 'reply_style', 'reply_style.update', { currentStyle: '', proposedStyle: 'Be warm.', rationale: '', signals: {} })];
     render(<PromptsSettings />);
     fireEvent.click(await screen.findByRole('button', { name: 'Accept this suggestion' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Advanced/ }));
     fireEvent.click(screen.getByRole('button', { name: /edit/i }));
     expect(screen.getByDisplayValue('Be formal.')).toBeTruthy();
     templates.list = [replyStyle('Be warm.', true)];
     release();
     await waitFor(() => expect(screen.queryByDisplayValue('Be formal.')).toBeNull());
+  });
+});
+
+describe('AI Prompts › the templates sit under a closed "Advanced" (settings quick wins, Task 3)', () => {
+  const other = {
+    id: 8,
+    name: 'message_analysis',
+    description: 'Analysis',
+    prompt: 'Analyse.',
+    active: true,
+    departmentId: null,
+    type: 'system',
+  };
+
+  it('the list is collapsed; the summary counts the templates and says the house style is on', async () => {
+    templates.list = [replyStyle('Be warm.', true), other];
+    pending.list = [
+      suggestion(54, 'reply_style', 'reply_style.update', {
+        currentStyle: 'Be warm.', proposedStyle: 'Be brief.', rationale: 'Agents shorten drafts.', signals: {},
+      }),
+    ];
+    render(<PromptsSettings />);
+    const header = await screen.findByRole('button', { name: /^Advanced/ });
+    expect(header).toHaveTextContent('2 templates · house style on');
+    expect(header).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('message_analysis')).not.toBeVisible();
+    // The suggestion stays above it, visible.
+    expect(await screen.findByRole('button', { name: 'Accept this suggestion' })).toBeVisible();
+  });
+
+  it('CONTROL — an inactive house style is not called on', async () => {
+    templates.list = [replyStyle('Be warm.', false), other];
+    render(<PromptsSettings />);
+    const header = await screen.findByRole('button', { name: /^Advanced/ });
+    expect(header.textContent).toMatch(/2 templates$/);
+  });
+
+  it('"Add Prompt" opens the closed panel, so the new form is visible', async () => {
+    templates.list = [other];
+    render(<PromptsSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add Prompt' }));
+    expect(screen.getByText('New Prompt Template')).toBeVisible();
   });
 });

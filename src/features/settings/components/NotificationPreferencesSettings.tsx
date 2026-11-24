@@ -8,13 +8,7 @@ import { Toggle } from '@/components/ui/Toggle';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useNotificationSettings } from '@/features/settings/hooks/useNotificationSettings';
-import {
-  LEGACY_LINES,
-  type NotificationSettings,
-  type SettingsLine,
-  type WorkingHours,
-} from '@/services/notificationSettingsService';
-import { NotificationPreferencesLegacy, type Prefs } from './NotificationPreferencesLegacy';
+import { type SettingsLine, type WorkingHours } from '@/services/notificationSettingsService';
 import { isHours, lineLabel, PRIORITY_OPTIONS, severityLabel } from './notificationKindLabels';
 import { WorkingHoursEditor, validateWorkingHours } from './WorkingHoursEditor';
 
@@ -86,17 +80,7 @@ const Status = ({ each, onReset }: { each: SettingsLine; onReset: (key: string) 
   </>
 );
 
-/** The old preferences, rebuilt from the lines the hook already read (no second GET). */
-const legacyPrefs = (settings: NotificationSettings): Partial<Prefs> => {
-  const out: Record<string, unknown> = {};
-  // One column per line set: the first line of each column carries its value.
-  for (const [field, keys] of LEGACY_LINES) {
-    if (field === 'onlyAssignedToMe') continue;
-    const hit = settings.lines.find((each) => each.key === keys[0]);
-    if (hit && hit.value !== null) out[field] = hit.value;
-  }
-  return out as Partial<Prefs>;
-};
+const NOT_AVAILABLE = 'Notification settings are not available on this server version.';
 
 const DEBOUNCE_MS = 600;
 
@@ -112,7 +96,7 @@ export const NotificationPreferencesSettings = () => {
 };
 
 const NotificationPreferencesBody = () => {
-  const { settings, save, reset, loading, error } = useNotificationSettings();
+  const { settings, save, reset, loading, error, errorStatus } = useNotificationSettings();
   const sendCount = useRef(0);
   const latestFor = useRef<Record<string, number>>({});
   const hoursTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -152,10 +136,10 @@ const NotificationPreferencesBody = () => {
   const [hoursDraft, setHoursDraft] = useState<{ value: WorkingHours | null } | null>(null);
 
   if (loading) return <Spinner />;
-  // Old server (or a reply without lines): exactly today's page.
-  if (!settings || settings.legacy || settings.lines.length === 0) {
-    if (error && !settings) return <p className="text-sm text-destructive">{error}</p>;
-    return <NotificationPreferencesLegacy initial={settings?.legacy ? legacyPrefs(settings) : undefined} />;
+  // No settings on this server (404), or a reply without lines: say so. Any other failure is shown.
+  if (!settings || settings.lines.length === 0) {
+    if (error && !settings && errorStatus !== 404) return <p className="text-sm text-destructive">{error}</p>;
+    return <p className="text-sm text-muted-foreground">{NOT_AVAILABLE}</p>;
   }
 
   const byKey = new Map(settings.lines.map((each) => [each.key, each]));

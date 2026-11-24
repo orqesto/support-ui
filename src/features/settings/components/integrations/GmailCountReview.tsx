@@ -61,7 +61,41 @@ type Props = {
   onShowAlert: (alert: AlertState) => void;
   /** Google rejected the stored sign-in: offer the card's "Reconnect Google Account" right here. */
   onReconnect?: () => void | Promise<void>;
+  /** A source new from this connect: a small non-KB mailbox starts syncing by itself. */
+  autoStart?: boolean;
 };
+
+/** The most messages a new mailbox may hold to start syncing without a click (owner, 11-23). */
+export const AUTO_START_MAX_MESSAGES = 5000;
+
+/**
+ * Whether the first count of a just-connected mailbox starts the sync by itself. Only the first,
+ * automatic count, on the settings it was connected with; never a knowledge-base source (its
+ * history is mined, billed AI usage), never a count that is partial or refused. An empty mailbox
+ * starts too: new mail must still flow.
+ */
+export const shouldAutoStart = ({
+  count,
+  capped,
+  signInRejected,
+  isKnowledgeBase,
+  firstAutomaticCount,
+  settingsChanged,
+}: {
+  count: number;
+  capped: boolean;
+  signInRejected: boolean;
+  isKnowledgeBase: boolean;
+  firstAutomaticCount: boolean;
+  settingsChanged: boolean;
+}): boolean =>
+  firstAutomaticCount &&
+  !settingsChanged &&
+  !isKnowledgeBase &&
+  !capped &&
+  !signInRejected &&
+  count >= 0 &&
+  count <= AUTO_START_MAX_MESSAGES;
 
 /** The server's code for "Google rejected this mailbox's stored sign-in — reconnect it". */
 const SIGN_IN_REJECTED = 'MAILBOX_SIGN_IN';
@@ -150,6 +184,7 @@ export const GmailCountReview = ({
   onClose,
   onShowAlert,
   onReconnect,
+  autoStart = false,
 }: Props) => {
   const [searchQuery, setSearchQuery] = useState(source.searchQuery);
   const [range, setRange] = useState<DateRangeValue>(() => importRangeValue(source, 30));
@@ -164,6 +199,11 @@ export const GmailCountReview = ({
   const [starting, setStarting] = useState(false);
   /** The count being followed. Closing the panel stops following it, not the count. */
   const following = useRef<AbortController | null>(null);
+  // Auto-start: only the FIRST, automatic count may start the sync. A changed filter or range, an
+  // explicit "Check Messages Count" or a reconnect make every later count a manual one.
+  const [firstAutomaticCount, setFirstAutomaticCount] = useState(true);
+  const [autoStarted, setAutoStarted] = useState(false);
+  const autoStartedRef = useRef(false);
 
   useEffect(() => () => following.current?.abort(), []);
 
@@ -198,6 +238,7 @@ export const GmailCountReview = ({
   const reconnect = async () => {
     if (!onReconnect || reconnecting) return;
     setReconnecting(true);
+    setFirstAutomaticCount(false);
     try {
       await onReconnect();
     } finally {
@@ -208,6 +249,7 @@ export const GmailCountReview = ({
 
   /** A changed setting asks a different question: the running count is cancelled. */
   const dropCount = () => {
+    setFirstAutomaticCount(false);
     following.current?.abort(CANCEL_COUNT);
     following.current = null;
     setChecking(false);
@@ -257,6 +299,38 @@ export const GmailCountReview = ({
     }
   };
 
+  const qualifies = (counted: GmailCountResult): boolean =>
+    shouldAutoStart({
+      count: counted.count,
+      capped: counted.capped,
+      signInRejected,
+      isKnowledgeBase: source.isKnowledgeBase,
+      firstAutomaticCount,
+      settingsChanged:
+        searchQuery !== source.searchQuery ||
+        bulkImportDays !== importRangeDays(importRangeValue(source, 30)),
+    });
+
+  // A just-connected small mailbox starts by itself after its first count — once.
+  useEffect(() => {
+    if (!autoStart || source.enabled || !result || autoStartedRef.current) return;
+    if (!qualifies(result)) return;
+    autoStartedRef.current = true;
+    setAutoStarted(true);
+    void startSync();
+    // Decided on the count's arrival only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result]);
+
+  const promiseAutoStart =
+    autoStart &&
+    !source.enabled &&
+    !source.isKnowledgeBase &&
+    firstAutomaticCount &&
+    !autoStarted &&
+    !error &&
+    !(result && !qualifies(result));
+
   return (
     <div className="p-4 space-y-4 rounded-lg border bg-muted/50">
       <div>
@@ -300,6 +374,11 @@ export const GmailCountReview = ({
         )}
       </div>
 
+      {promiseAutoStart && (
+        <p className="text-sm font-medium">
+          Stay on this page; the sync starts by itself unless the mailbox is large.
+        </p>
+      )}
       {checking && (
         <div className="space-y-1" role="status">
           <p className="flex gap-2 items-center text-sm">
@@ -390,7 +469,10 @@ export const GmailCountReview = ({
           type="button"
           variant="outline"
           disabled={checking || starting}
-          onClick={() => void check({ searchQuery, bulkImportDays })}
+          onClick={() => {
+            setFirstAutomaticCount(false);
+            void check({ searchQuery, bulkImportDays });
+          }}
         >
           {checking ? 'Counting…' : 'Check Messages Count'}
         </Button>
@@ -436,6 +518,7 @@ export const GmailRowCount = ({
   onRefresh,
   onShowAlert,
   onReconnect,
+  autoStart = false,
 }: {
   integration: Integration;
   open: boolean;
@@ -444,6 +527,7 @@ export const GmailRowCount = ({
   onRefresh: () => Promise<void>;
   onShowAlert: (alert: AlertState) => void;
   onReconnect?: () => void | Promise<void>;
+  autoStart?: boolean;
 }) => {
   if (open) {
     return (
@@ -456,19 +540,22 @@ export const GmailRowCount = ({
         }}
         onShowAlert={onShowAlert}
         onReconnect={onReconnect}
+        autoStart={autoStart}
       />
     );
   }
   if (integration.enabled) return null;
+  // A just-connected mailbox is saved PAUSED and waits here for its count to be reviewed.
+  // This strip was a one-line ghost link and was missed: the mailbox sat connected, imported
+  // nothing, and looked as if it had gone to another workspace. Say plainly that nothing is
+  // coming in until someone acts, and make the action a real button.
   return (
-    <Alert variant="warning" className="flex flex-wrap gap-2 items-center px-3 py-2 text-xs">
-      <span>Paused — not syncing.</span>
-      <Button
-        type="button"
-        variant="ghost"
-        className="p-0 h-auto font-medium underline hover:no-underline hover:bg-transparent"
-        onClick={onOpen}
-      >
+    <Alert variant="warning" className="flex flex-wrap gap-2 justify-between items-center px-3 py-2 text-sm">
+      <span>
+        <strong>Not syncing — waiting for review.</strong> No mail is imported until you check the
+        message count and start the sync.
+      </span>
+      <Button type="button" size="sm" onClick={onOpen}>
         Check count and start
       </Button>
     </Alert>
