@@ -309,7 +309,11 @@ export const CustomProviderCard = ({
             </div>
 
             <div className="flex gap-2 pt-2">
-              <Button onClick={handleSave} isLoading={saving === 'custom'} disabled={!canSave}>
+              <Button
+                onClick={handleSave}
+                isLoading={saving === 'custom'}
+                disabled={!canSave || saving === 'custom'}
+              >
                 <Save className="mr-1 w-4 h-4" /> Save
               </Button>
               <Button variant="outline" onClick={handleReset}>

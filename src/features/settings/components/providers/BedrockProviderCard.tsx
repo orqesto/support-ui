@@ -672,7 +672,11 @@ export const BedrockProviderCard = ({
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={handleSave} isLoading={saving === 'bedrock'} disabled={!canSubmit}>
+              <Button
+                onClick={handleSave}
+                isLoading={saving === 'bedrock'}
+                disabled={!canSubmit || saving === 'bedrock'}
+              >
                 <Save className="mr-2 w-4 h-4" />
                 {editingId ? 'Update' : 'Save'} Bedrock
               </Button>

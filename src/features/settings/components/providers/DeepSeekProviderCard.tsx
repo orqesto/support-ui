@@ -262,7 +262,7 @@ export const DeepSeekProviderCard = ({
               <Button
                 onClick={handleSave}
                 isLoading={saving === 'deepseek'}
-                disabled={!config.apiKey}
+                disabled={!config.apiKey || saving === 'deepseek'}
               >
                 <Save className="mr-2 w-4 h-4" />
                 {editingId ? 'Update' : 'Save'} DeepSeek

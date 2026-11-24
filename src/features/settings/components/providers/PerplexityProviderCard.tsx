@@ -262,7 +262,7 @@ export const PerplexityProviderCard = ({
               <Button
                 onClick={handleSave}
                 isLoading={saving === 'perplexity'}
-                disabled={!config.apiKey}
+                disabled={!config.apiKey || saving === 'perplexity'}
               >
                 <Save className="mr-2 w-4 h-4" />
                 {editingId ? 'Update' : 'Save'} Perplexity

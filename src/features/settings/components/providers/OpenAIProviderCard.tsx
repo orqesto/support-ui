@@ -277,7 +277,7 @@ export const OpenAIProviderCard = ({
               <Button
                 onClick={handleSave}
                 isLoading={saving === 'openai'}
-                disabled={!config.apiKey}
+                disabled={!config.apiKey || saving === 'openai'}
               >
                 <Save className="mr-2 w-4 h-4" />
                 {editingId ? 'Update' : 'Save'} OpenAI

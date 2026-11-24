@@ -262,7 +262,7 @@ export const AnthropicProviderCard = ({
               <Button
                 onClick={handleSave}
                 isLoading={saving === 'anthropic'}
-                disabled={!config.apiKey}
+                disabled={!config.apiKey || saving === 'anthropic'}
               >
                 <Save className="mr-2 w-4 h-4" />
                 {editingId ? 'Update' : 'Save'} Anthropic

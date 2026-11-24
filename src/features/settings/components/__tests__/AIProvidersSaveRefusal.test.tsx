@@ -133,6 +133,29 @@ describe('AI providers: the form after a save', () => {
     expect(screen.getByPlaceholderText('sk-...')).toHaveValue('sk-test-key');
   });
 
+  it('a second click while the save is running sends nothing more', async () => {
+    // The form stays open while it saves, so the button must be out of use meanwhile. (An
+    // explicit `disabled={false}` keeps a loading Button clickable: the forms now say it outright.)
+    let finish: (value: { success: boolean }) => void = () => undefined;
+    api.upsert.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
+    renderPage();
+    fireEvent.click(await screen.findByRole('button', { name: /Add OpenAI/ }));
+    fireEvent.change(screen.getByPlaceholderText('sk-...'), { target: { value: 'sk-test-key' } });
+    // The same element throughout: while it saves, the button shows a spinner and has no name.
+    const save = screen.getByRole('button', { name: /Save OpenAI/ });
+    fireEvent.click(save);
+    await waitFor(() => expect(save).toBeInactive());
+    fireEvent.click(save);
+    fireEvent.click(save);
+    expect(api.upsert).toHaveBeenCalledTimes(1);
+    finish({ success: true });
+    await screen.findByText('OpenAI integration saved successfully!');
+  });
+
   it('CONTROL: a save that went through closes the form', async () => {
     api.upsert.mockResolvedValue({ success: true });
     renderPage();

@@ -259,7 +259,11 @@ export const QwenProviderCard = ({
               </div>
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleSave} isLoading={saving === 'qwen'} disabled={!config.apiKey}>
+              <Button
+                onClick={handleSave}
+                isLoading={saving === 'qwen'}
+                disabled={!config.apiKey || saving === 'qwen'}
+              >
                 <Save className="mr-2 w-4 h-4" />
                 {editingId ? 'Update' : 'Save'} Qwen
               </Button>
