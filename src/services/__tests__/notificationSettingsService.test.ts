@@ -10,24 +10,11 @@ const { apiError } = await import('@/test/apiError');
 const { matchesPrefs } = await import('@/hooks/useSLANotifications');
 
 beforeEach(() => {
-  svc.resetNotificationSettingsModeForTests();
   get.mockReset();
   put.mockReset();
   post.mockReset();
 });
 
-const legacyBody = {
-  emailEnabled: false,
-  digestEnabled: true,
-  minSeverity: 'critical',
-  notifyMessages: true,
-  notifyTicketFirstResponse: true,
-  notifyTicketResolution: false,
-  onlyAssignedToMe: false,
-  notifyNewUnassigned: false,
-};
-const value = (settings: { lines: { key: string; value: unknown }[] }, key: string) =>
-  settings.lines.find((row) => row.key === key)?.value;
 
 describe('fetchNotificationSettings', () => {
   it('reads the new endpoint', async () => {
@@ -43,22 +30,16 @@ describe('fetchNotificationSettings', () => {
     });
     const out = await svc.fetchNotificationSettings();
     expect(get).toHaveBeenCalledWith('/api/users/me/notification-settings');
-    expect(out).toMatchObject({ role: 'support', legacy: false });
+    expect(out).toMatchObject({ role: 'support' });
+    expect(out).not.toHaveProperty('legacy');
     expect(out.lines).toHaveLength(1);
   });
 
-  it('old BE without the new endpoint still yields lines', async () => {
+  it('a 404 is thrown with its status, and the old preferences are never asked', async () => {
     get.mockRejectedValueOnce(await apiError(404, { success: false, error: 'Not Found' }));
-    get.mockResolvedValueOnce({ data: { data: legacyBody } });
-    const out = await svc.fetchNotificationSettings();
-    expect(out.legacy).toBe(true);
-    expect(value(out, 'kind:new_unassigned_message')).toBe(false);
-    expect(value(out, 'kind:sla_message_breach')).toBe(true);
-    expect(value(out, 'kind:customer_message_on_assigned')).toBe(true);
-    expect(value(out, 'kind:sla_ticket_resolution')).toBe(false);
-    expect(value(out, 'slaMinSeverity')).toBe('critical');
-    expect(out.lines.some((row) => /email|digest/i.test(row.key))).toBe(false);
-    expect(out.lines.every((row) => !row.locked)).toBe(true);
+    const failure: unknown = await svc.fetchNotificationSettings().catch((err: unknown) => err);
+    expect(svc.httpStatusOf(failure)).toBe(404);
+    expect(get).toHaveBeenCalledTimes(1);
   });
 
   it('does not fall back on a 500', async () => {
@@ -107,30 +88,6 @@ describe('saveNotificationSettings', () => {
     put.mockRejectedValue(await apiError(400, { code: 'BAD' }));
     await expect(svc.saveNotificationSettings({ onlyAssignedToMe: true })).rejects.toBeTruthy();
   });
-
-  it('legacy mode PUTs the legacy shape, keeps email/digest, maps back', async () => {
-    get.mockRejectedValueOnce(await apiError(404, {}));
-    get.mockResolvedValueOnce({ data: { data: legacyBody } });
-    await svc.fetchNotificationSettings();
-    get.mockResolvedValueOnce({ data: { data: legacyBody } }); // read-modify-write
-    put.mockResolvedValue({ data: { data: { ...legacyBody, notifyNewUnassigned: true } } });
-    const res = await svc.saveNotificationSettings({ 'kind:new_unassigned_message': true, slaMinSeverity: 'warning' });
-    const sent = put.mock.calls[0];
-    expect(sent[0]).toBe('/api/users/me/notification-preferences');
-    expect(sent[1]).toMatchObject({ emailEnabled: false, digestEnabled: true, notifyNewUnassigned: true, minSeverity: 'warning' });
-    expect(value(res as never, 'kind:new_unassigned_message')).toBe(true);
-  });
-
-  it('legacy 409 returns lockedKeys', async () => {
-    get.mockRejectedValueOnce(await apiError(404, {}));
-    get.mockResolvedValueOnce({ data: { data: legacyBody } });
-    await svc.fetchNotificationSettings();
-    get.mockResolvedValueOnce({ data: { data: legacyBody } });
-    put.mockRejectedValue(await apiError(409, { code: 'LINE_LOCKED', keys: ['onlyAssignedToMe'], fields: ['onlyAssignedToMe'] }));
-    await expect(svc.saveNotificationSettings({ onlyAssignedToMe: true })).resolves.toEqual({
-      lockedKeys: ['onlyAssignedToMe'],
-    });
-  });
 });
 
 describe('resetNotificationSettings', () => {
@@ -164,30 +121,6 @@ describe('matchesPrefs with effective lines', () => {
     expect(matchesPrefs(breach, prefs)).toBe(true);
     expect(matchesPrefs(breach, prefs, [])).toBe(true);
     expect(matchesPrefs(breach, prefs, [line('kind:sla_message_breach', true)])).toBe(true);
-  });
-});
-
-describe('old backend costs one 404 per session', () => {
-  it('after the first 404 the next reads go straight to the legacy GET, and re-probe after 10 minutes', async () => {
-    vi.useFakeTimers();
-    try {
-      get.mockRejectedValueOnce(await apiError(404, {}));
-      get.mockResolvedValue({ data: { data: legacyBody } });
-      await svc.fetchNotificationSettings();
-      await svc.fetchNotificationSettings();
-      await svc.fetchNotificationSettings();
-      const urls = get.mock.calls.map((call) => String(call[0]));
-      expect(urls.filter((url) => url === '/api/users/me/notification-settings')).toHaveLength(1);
-      expect(urls.filter((url) => url === '/api/users/me/notification-preferences')).toHaveLength(3);
-      vi.advanceTimersByTime(10 * 60_000 + 1);
-      get.mockReset();
-      get.mockResolvedValueOnce({ data: { data: { role: 'support', lines: [] } } });
-      const upgraded = await svc.fetchNotificationSettings();
-      expect(get.mock.calls[0][0]).toBe('/api/users/me/notification-settings');
-      expect(upgraded.legacy).toBe(false);
-    } finally {
-      vi.useRealTimers();
-    }
   });
 });
 

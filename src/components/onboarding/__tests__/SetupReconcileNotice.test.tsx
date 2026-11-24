@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { SetupReconcileNotice, STEP_TO_SETUP_KEY } from '../SetupReconcileNotice';
-import { STEP_LABELS } from '../wizardSteps';
 import type { WorkspaceSetupStatus } from '@/services/onboarding.service';
 
 const status = (over: Partial<WorkspaceSetupStatus> = {}): WorkspaceSetupStatus => ({
@@ -20,7 +19,7 @@ const status = (over: Partial<WorkspaceSetupStatus> = {}): WorkspaceSetupStatus 
 
 describe('SetupReconcileNotice', () => {
   it('shows the evidence for a step that is already configured', () => {
-    render(<SetupReconcileNotice setup={status()} activeStep={4} />);
+    render(<SetupReconcileNotice setup={status()} step="channels" />);
     expect(screen.getByTestId('setup-already-configured')).toBeInTheDocument();
     expect(screen.getByText(/2 channels connected/)).toBeInTheDocument();
   });
@@ -28,39 +27,36 @@ describe('SetupReconcileNotice', () => {
   // The banner must never claim credit for work that has not been done — that
   // would talk an admin past a step they still need.
   it('renders nothing for a step that is still outstanding', () => {
-    render(<SetupReconcileNotice setup={status()} activeStep={3} />);
+    render(<SetupReconcileNotice setup={status()} step="people" />);
     expect(screen.queryByTestId('setup-already-configured')).not.toBeInTheDocument();
   });
 
   it('renders nothing while the setup check is still in flight', () => {
-    render(<SetupReconcileNotice setup={null} activeStep={4} />);
+    render(<SetupReconcileNotice setup={null} step="channels" />);
     expect(screen.queryByTestId('setup-already-configured')).not.toBeInTheDocument();
   });
 
   // Payment is about money, not workspace configuration, and the backend reports
   // no facts for it — so it must never be labelled "already set up".
   it('renders nothing on the payment step', () => {
-    render(<SetupReconcileNotice setup={status({ allSatisfied: true })} activeStep={7} />);
+    render(<SetupReconcileNotice setup={status({ allSatisfied: true })} step="payment" />);
     expect(screen.queryByTestId('setup-already-configured')).not.toBeInTheDocument();
   });
 
   it('renders nothing for a step key the backend did not report', () => {
-    render(<SetupReconcileNotice setup={status({ steps: [] })} activeStep={1} />);
+    render(<SetupReconcileNotice setup={status({ steps: [] })} step="ai" />);
     expect(screen.queryByTestId('setup-already-configured')).not.toBeInTheDocument();
   });
 });
 
 describe('STEP_TO_SETUP_KEY', () => {
-  // Asserted over STEP_LABELS rather than a hand-copied list: adding a core step
-  // to the wizard without mapping it here would otherwise silently never show
-  // its "already set up" banner.
-  it('maps every core wizard step to a setup key', () => {
-    STEP_LABELS.forEach((_label, index) => {
-      expect(STEP_TO_SETUP_KEY[index + 1]).toBeDefined();
+  it('maps each wizard step to the setup fact it configures; People is the team', () => {
+    expect(STEP_TO_SETUP_KEY).toEqual({
+      ai: 'ai',
+      database: 'database',
+      channels: 'channels',
+      people: 'team',
+      payment: undefined,
     });
-  });
-
-  it('leaves the payment step unmapped', () => {
-    expect(STEP_TO_SETUP_KEY[STEP_LABELS.length + 1]).toBeUndefined();
   });
 });

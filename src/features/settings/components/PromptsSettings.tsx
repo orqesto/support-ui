@@ -4,9 +4,21 @@ import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { Badge } from '@/components/ui/Badge';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
+import { Disclosure } from '@/components/ui/Disclosure';
 import { settingsService, type PromptTemplate } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
 import { FeatureSuggestions, type SuggestionDecision } from './FeatureSuggestions';
+
+/**
+ * The closed header: how many templates, and whether a house style is on. Factual, never a
+ * comparison — the API exposes no platform default — and never "learned" (the seeded
+ * `reply_style` row can be switched on by hand).
+ */
+const templatesSummary = (prompts: readonly PromptTemplate[]): string => {
+  const count = `${prompts.length} ${prompts.length === 1 ? 'template' : 'templates'}`;
+  const houseStyleOn = prompts.some((prompt) => prompt.name === 'reply_style' && prompt.active);
+  return houseStyleOn ? `${count} · house style on` : count;
+};
 
 export const PromptsSettings = () => {
   const [prompts, setPrompts] = useState<PromptTemplate[]>([]);
@@ -17,6 +29,8 @@ export const PromptsSettings = () => {
   const editingPromptRef = useRef<PromptTemplate | null>(null);
   editingPromptRef.current = editingPrompt;
   const [isCreating, setIsCreating] = useState(false);
+  // The templates sit under a closed "Advanced"; "Add Prompt" opens it before the form shows.
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -65,6 +79,7 @@ export const PromptsSettings = () => {
   };
 
   const handleCreate = () => {
+    setAdvancedOpen(true);
     setIsCreating(true);
     setFormData({ name: '', description: '', prompt: '', active: true });
   };
@@ -132,216 +147,231 @@ export const PromptsSettings = () => {
         onDecided={handleSuggestionDecided}
       />
 
-      {/* Info Banner */}
-      <div className="p-4 rounded-lg border bg-muted dark:bg-muted border-border">
-        <p className="text-sm text-foreground">
-          <strong>Template Variables:</strong> Use{' '}
-          <code className="px-1 rounded bg-sunken">{'{{variable}}'}</code> for dynamic content.
-          Available: <code className="px-1 rounded bg-sunken">{'{{subject}}'}</code>,{' '}
-          <code className="px-1 rounded bg-sunken">{'{{sender}}'}</code>,{' '}
-          <code className="px-1 rounded bg-sunken">{'{{content}}'}</code>,{' '}
-          <code className="px-1 rounded bg-sunken">{'{{spam_rules}}'}</code>
-        </p>
-      </div>
-
-      {/* New Prompt Form */}
-      {isCreating && (
-        <div className="p-4 space-y-4 rounded-lg border bg-success/10 border-success-line">
-          <h4 className="font-display font-semibold">New Prompt Template</h4>
-          <div className="grid gap-4">
-            <div>
-              <label htmlFor="name" className="text-sm font-medium">
-                Name (unique identifier)
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(event) => setFormData({ ...formData, name: event.target.value })}
-                className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                placeholder="e.g., message_analysis"
-              />
-            </div>
-            <div>
-              <label htmlFor="description" className="text-sm font-medium">
-                Description
-              </label>
-              <input
-                type="text"
-                value={formData.description}
-                onChange={(event) => setFormData({ ...formData, description: event.target.value })}
-                className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
-                placeholder="What this prompt is used for"
-              />
-            </div>
-            <div>
-              <label htmlFor="prompt" className="text-sm font-medium">
-                Prompt Template
-              </label>
-              <Textarea
-                value={formData.prompt}
-                onChange={(event) => setFormData({ ...formData, prompt: event.target.value })}
-                className="font-mono"
-                rows={12}
-              />
-            </div>
-            <div className="flex gap-2 items-center">
-              <input
-                type="checkbox"
-                id="active-new"
-                checked={formData.active}
-                onChange={(event) => setFormData({ ...formData, active: event.target.checked })}
-                className="rounded"
-              />
-              <label htmlFor="active-new" className="text-sm font-medium">
-                Active (use this template)
-              </label>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={handleSave} disabled={!formData.name || !formData.prompt}>
-              <Save className="mr-2 w-4 h-4" />
-              Save
-            </Button>
-            <Button variant="outline" onClick={handleCancel}>
-              <X className="mr-2 w-4 h-4" />
-              Cancel
-            </Button>
-          </div>
+      <Disclosure
+        title="Advanced"
+        summary={templatesSummary(prompts)}
+        open={advancedOpen}
+        onOpenChange={setAdvancedOpen}
+      >
+        {/* Info Banner */}
+        <div className="p-4 rounded-lg border bg-muted dark:bg-muted border-border">
+          <p className="text-sm text-foreground">
+            <strong>Template Variables:</strong> Use{' '}
+            <code className="px-1 rounded bg-sunken">{'{{variable}}'}</code> for dynamic content.
+            Available: <code className="px-1 rounded bg-sunken">{'{{subject}}'}</code>,{' '}
+            <code className="px-1 rounded bg-sunken">{'{{sender}}'}</code>,{' '}
+            <code className="px-1 rounded bg-sunken">{'{{content}}'}</code>,{' '}
+            <code className="px-1 rounded bg-sunken">{'{{spam_rules}}'}</code>
+          </p>
         </div>
-      )}
 
-      {/* Prompts List */}
-      <div className="space-y-4">
-        {prompts.map((prompt) => (
-          <div
-            key={prompt.id}
-            className={`border border-border rounded-lg p-4 ${
-              editingPrompt?.id === prompt.id ? 'bg-success/10' : 'bg-card'
-            }`}
-          >
-            {editingPrompt?.id === prompt.id ? (
-              <div className="space-y-4">
-                <h4 className="font-display font-semibold">Edit Prompt Template</h4>
-                <div className="grid gap-4">
-                  <div>
-                    <label className="text-sm font-medium">
-                      Name
-                      {editingPrompt?.type === 'system' && (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          (System template - readonly)
-                        </span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(event) => setFormData({ ...formData, name: event.target.value })}
-                      disabled={editingPrompt?.type === 'system'}
-                      className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-muted"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">
-                      Description
-                      {editingPrompt?.type === 'system' && (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          (System template - readonly)
-                        </span>
-                      )}
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.description}
-                      onChange={(event) =>
-                        setFormData({ ...formData, description: event.target.value })
-                      }
-                      disabled={editingPrompt?.type === 'system'}
-                      className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-muted"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="prompt" className="text-sm font-medium">
-                      Prompt Template
-                    </label>
-                    <Textarea
-                      value={formData.prompt}
-                      onChange={(event) => setFormData({ ...formData, prompt: event.target.value })}
-                      className="font-mono"
-                      rows={12}
-                    />
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Characters: {formData.prompt.length}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleSave}>
-                    <Save className="mr-2 w-4 h-4" />
-                    Save
-                  </Button>
-                  <Button variant="outline" onClick={handleCancel}>
-                    <X className="mr-2 w-4 h-4" />
-                    Cancel
-                  </Button>
-                </div>
+        {/* New Prompt Form */}
+        {isCreating && (
+          <div className="p-4 space-y-4 rounded-lg border bg-success/10 border-success-line">
+            <h4 className="font-display font-semibold">New Prompt Template</h4>
+            <div className="grid gap-4">
+              <div>
+                <label htmlFor="name" className="text-sm font-medium">
+                  Name (unique identifier)
+                </label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(event) => setFormData({ ...formData, name: event.target.value })}
+                  className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                  placeholder="e.g., message_analysis"
+                />
               </div>
-            ) : (
-              <>
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex-1">
-                    <div className="flex flex-col gap-2">
-                      <h4 className="font-display font-mono text-lg font-semibold">
-                        {prompt.name}
-                      </h4>
-                      <div className="flex gap-2 items-center flex-wrap">
-                        <DepartmentBadge
-                          departmentId={prompt.departmentId}
-                          size="sm"
-                          nullVariant="baseline"
-                        />
-                        {prompt.type === 'system' && <Badge variant="default">System</Badge>}
-                        <Badge variant={prompt.active ? 'success' : 'default'}>
-                          {prompt.active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </div>
+              <div>
+                <label htmlFor="description" className="text-sm font-medium">
+                  Description
+                </label>
+                <input
+                  type="text"
+                  value={formData.description}
+                  onChange={(event) =>
+                    setFormData({ ...formData, description: event.target.value })
+                  }
+                  className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                  placeholder="What this prompt is used for"
+                />
+              </div>
+              <div>
+                <label htmlFor="prompt" className="text-sm font-medium">
+                  Prompt Template
+                </label>
+                <Textarea
+                  value={formData.prompt}
+                  onChange={(event) => setFormData({ ...formData, prompt: event.target.value })}
+                  className="font-mono"
+                  rows={12}
+                />
+              </div>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="checkbox"
+                  id="active-new"
+                  checked={formData.active}
+                  onChange={(event) => setFormData({ ...formData, active: event.target.checked })}
+                  className="rounded"
+                />
+                <label htmlFor="active-new" className="text-sm font-medium">
+                  Active (use this template)
+                </label>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={handleSave} disabled={!formData.name || !formData.prompt}>
+                <Save className="mr-2 w-4 h-4" />
+                Save
+              </Button>
+              <Button variant="outline" onClick={handleCancel}>
+                <X className="mr-2 w-4 h-4" />
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Prompts List */}
+        <div className="space-y-4">
+          {prompts.map((prompt) => (
+            <div
+              key={prompt.id}
+              className={`border border-border rounded-lg p-4 ${
+                editingPrompt?.id === prompt.id ? 'bg-success/10' : 'bg-card'
+              }`}
+            >
+              {editingPrompt?.id === prompt.id ? (
+                <div className="space-y-4">
+                  <h4 className="font-display font-semibold">Edit Prompt Template</h4>
+                  <div className="grid gap-4">
+                    <div>
+                      <label className="text-sm font-medium">
+                        Name
+                        {editingPrompt?.type === 'system' && (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            (System template - readonly)
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.name}
+                        onChange={(event) => setFormData({ ...formData, name: event.target.value })}
+                        disabled={editingPrompt?.type === 'system'}
+                        className="px-3 py-2 w-full font-mono text-sm rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-muted"
+                      />
                     </div>
-                    {prompt.description && (
-                      <p className="mt-1 text-sm text-muted-foreground">{prompt.description}</p>
-                    )}
+                    <div>
+                      <label className="text-sm font-medium">
+                        Description
+                        {editingPrompt?.type === 'system' && (
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            (System template - readonly)
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.description}
+                        onChange={(event) =>
+                          setFormData({ ...formData, description: event.target.value })
+                        }
+                        disabled={editingPrompt?.type === 'system'}
+                        className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-muted"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="prompt" className="text-sm font-medium">
+                        Prompt Template
+                      </label>
+                      <Textarea
+                        value={formData.prompt}
+                        onChange={(event) =>
+                          setFormData({ ...formData, prompt: event.target.value })
+                        }
+                        className="font-mono"
+                        rows={12}
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Characters: {formData.prompt.length}
+                      </p>
+                    </div>
                   </div>
-
-                  <div className="flex gap-2 justify-end">
-                    <Button
-                      aria-label="Activate or deactivate this prompt"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => toggleActive(prompt)}
-                      title={prompt.active ? 'Deactivate' : 'Activate'}
-                    >
-                      {prompt.active ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                  <div className="flex gap-2">
+                    <Button onClick={handleSave}>
+                      <Save className="mr-2 w-4 h-4" />
+                      Save
                     </Button>
-
-                    <Button size="sm" variant="outline" onClick={() => handleEdit(prompt)}>
-                      <Edit2 className="mr-2 w-4 h-4 hidden sm:block" />
-                      Edit
+                    <Button variant="outline" onClick={handleCancel}>
+                      <X className="mr-2 w-4 h-4" />
+                      Cancel
                     </Button>
                   </div>
                 </div>
-                <details className="group">
-                  <summary className="text-sm text-primary cursor-pointer hover:text-primary/80">
-                    View Prompt Template ({prompt.prompt.length} characters)
-                  </summary>
-                  <div className="p-3 mt-3 rounded-lg border bg-muted border-border">
-                    <pre className="overflow-auto max-h-96 font-mono text-xs whitespace-pre-wrap">
-                      {prompt.prompt}
-                    </pre>
+              ) : (
+                <>
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <div className="flex flex-col gap-2">
+                        <h4 className="font-display font-mono text-lg font-semibold">
+                          {prompt.name}
+                        </h4>
+                        <div className="flex gap-2 items-center flex-wrap">
+                          <DepartmentBadge
+                            departmentId={prompt.departmentId}
+                            size="sm"
+                            nullVariant="baseline"
+                          />
+                          {prompt.type === 'system' && <Badge variant="default">System</Badge>}
+                          <Badge variant={prompt.active ? 'success' : 'default'}>
+                            {prompt.active ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </div>
+                      </div>
+                      {prompt.description && (
+                        <p className="mt-1 text-sm text-muted-foreground">{prompt.description}</p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        aria-label="Activate or deactivate this prompt"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toggleActive(prompt)}
+                        title={prompt.active ? 'Deactivate' : 'Activate'}
+                      >
+                        {prompt.active ? (
+                          <Eye className="w-3 h-3" />
+                        ) : (
+                          <EyeOff className="w-3 h-3" />
+                        )}
+                      </Button>
+
+                      <Button size="sm" variant="outline" onClick={() => handleEdit(prompt)}>
+                        <Edit2 className="mr-2 w-4 h-4 hidden sm:block" />
+                        Edit
+                      </Button>
+                    </div>
                   </div>
-                </details>
-              </>
-            )}
-          </div>
-        ))}
-      </div>
+                  <details className="group">
+                    <summary className="text-sm text-primary cursor-pointer hover:text-primary/80">
+                      View Prompt Template ({prompt.prompt.length} characters)
+                    </summary>
+                    <div className="p-3 mt-3 rounded-lg border bg-muted border-border">
+                      <pre className="overflow-auto max-h-96 font-mono text-xs whitespace-pre-wrap">
+                        {prompt.prompt}
+                      </pre>
+                    </div>
+                  </details>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      </Disclosure>
     </div>
   );
 };

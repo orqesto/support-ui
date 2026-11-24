@@ -88,3 +88,5 @@ export {
 export { useUsersStore } from './stores/usersStore';
 export { getUserRowCapabilities } from './utils/userListCapabilities';
 export { ZENDESK_AS_THREADS } from './components/zendeskImport/zendeskImportSummary';
+export { useShowAdvanced } from './advanced';
+export { AdvancedToggle } from './components/AdvancedToggle';

@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
-  buildStepLabels,
+  buildWizardSteps,
   channelRequiredToFinish,
   DEFAULT_WIZARD_PLAN,
   initialWizardPlan,
+  resumeIndex,
   shouldShowPaymentStep,
-  STEP_LABELS,
+  STEP_NUMBER,
 } from '../wizardSteps';
 
 /**
@@ -108,28 +109,84 @@ describe('channelRequiredToFinish', () => {
   });
 });
 
-describe('buildStepLabels', () => {
-  it('is the six core steps by default (no standalone departments step)', () => {
-    expect(buildStepLabels(false)).toEqual([...STEP_LABELS]);
-    expect(buildStepLabels(false)).toHaveLength(6);
-    // Departments are set up via Channels/routing, never as their own step.
-    expect(buildStepLabels(false)).not.toContain('Departments');
+describe('buildWizardSteps', () => {
+  const base = {
+    billingEnabled: true,
+    managedAiAvailable: true,
+    managedDbAllowed: true,
+    savedAiChoice: 'managed' as const,
+  };
+
+  it('a self-serve signup on our AI: Mailbox, People, Payment', () => {
+    expect(buildWizardSteps(base)).toEqual(['channels', 'people', 'payment']);
   });
 
-  // BYODB §4: the database is chosen BEFORE any channel is connected, so mail lands in the
-  // database the workspace keeps — a channel connected first would fill a database the
-  // workspace then has to leave.
-  it('puts Database right after AI and before Channels', () => {
-    const labels = buildStepLabels(false);
-    expect(labels.indexOf('Database')).toBe(labels.indexOf('AI setup') + 1);
-    expect(labels.indexOf('Database')).toBeLessThan(labels.indexOf('Channels'));
+  // Owner 11-23: a workspace with no saved AI choice (created by a global admin) is asked; an own
+  // key keeps the step, because its form lives only there.
+  it.each([[undefined], ['byo' as const]])(
+    'saved AI choice %s: the AI step is asked first',
+    (savedAiChoice) => {
+      expect(buildWizardSteps({ ...base, savedAiChoice })).toEqual([
+        'ai',
+        'channels',
+        'people',
+        'payment',
+      ]);
+    }
+  );
+
+  it('billing off (self-hosted): the AI choice stays, no Payment', () => {
+    expect(buildWizardSteps({ ...base, billingEnabled: false })).toEqual([
+      'ai',
+      'channels',
+      'people',
+    ]);
   });
 
-  it('appends Payment as the last step when included', () => {
-    const labels = buildStepLabels(true);
-    expect(labels).toHaveLength(7);
-    expect(labels[6]).toBe('Payment');
-    // Core order is untouched, so a resumed step index still means the same step.
-    expect(labels.slice(0, 6)).toEqual([...STEP_LABELS]);
+  it('no managed AI and no managed database: both steps, Database before the mailbox', () => {
+    expect(
+      buildWizardSteps({ ...base, managedAiAvailable: false, managedDbAllowed: false })
+    ).toEqual(['ai', 'database', 'channels', 'people', 'payment']);
+  });
+
+  it('never has Storage, Knowledge or a departments step', () => {
+    const all = buildWizardSteps({
+      billingEnabled: true,
+      managedAiAvailable: false,
+      managedDbAllowed: false,
+      savedAiChoice: undefined,
+    });
+    expect(all).toHaveLength(5);
+  });
+});
+
+describe('resumeIndex', () => {
+  const steps = buildWizardSteps({
+    billingEnabled: true,
+    managedAiAvailable: true,
+    managedDbAllowed: true,
+    savedAiChoice: undefined,
+  }); // ai, channels, people, payment
+
+  it('keeps the saved numbers of the steps', () => {
+    expect(STEP_NUMBER).toEqual({ ai: 1, database: 2, channels: 4, people: 5, payment: 7 });
+  });
+
+  it('a saved 3 (the old Storage step) resumes on the mailbox', () => {
+    expect(steps[resumeIndex(steps, 3)]).toBe('channels');
+  });
+
+  it('a saved 6 (the old Knowledge step) resumes on Payment', () => {
+    expect(steps[resumeIndex(steps, 6)]).toBe('payment');
+  });
+
+  it('a saved 7 with no Payment step resumes on the last step', () => {
+    const noPayment = steps.filter((id) => id !== 'payment');
+    expect(resumeIndex(noPayment, 7)).toBe(noPayment.length - 1);
+  });
+
+  it('nothing saved, or no steps yet: the first', () => {
+    expect(resumeIndex(steps, undefined)).toBe(0);
+    expect(resumeIndex([], 4)).toBe(0);
   });
 });

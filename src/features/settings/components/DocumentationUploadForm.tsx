@@ -10,6 +10,7 @@ import {
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { Disclosure } from '@/components/ui/Disclosure';
 import { Select } from '@/components/ui/Select';
 import { useDepartments } from '@/hooks/useDepartments';
 import { deriveTeamsEnabled } from '@/hooks/useTeamsEnabled';
@@ -39,6 +40,16 @@ type DocumentationUploadFormProps = {
   onUpload: () => void;
   /** A failed upload or a skipped drop, said in words above the Upload button. */
   notice?: string | null;
+};
+
+/** The closed "Advanced" header names the type in a word; the NDA/legal decline reads the value. */
+const DOCUMENT_TYPE_NAME: Record<DocumentType, string> = {
+  general: 'General',
+  technical: 'Technical',
+  nda: 'NDA',
+  legal: 'Legal',
+  policy: 'Policy',
+  template: 'Template',
 };
 
 const formatFileSize = (bytes: number): string => {
@@ -308,31 +319,36 @@ export const DocumentationUploadForm = ({
         </div>
         )}
 
-        <div>
-          <Select
-            label="Document Type"
-            value={documentType}
-            onChange={(value) => onDocumentTypeChange(value as DocumentType)}
-            options={[
-              { value: 'general', label: '📄 General - Uncategorized documentation' },
-              { value: 'technical', label: '📘 Technical - Support guides, how-tos' },
-              { value: 'nda', label: '📝 NDA - Confidential agreements (no quoting)' },
-              { value: 'legal', label: '⚖️ Legal - Terms, policies (careful references)' },
-              { value: 'policy', label: '📋 Policy - Company procedures' },
-              { value: 'template', label: '📧 Template - Email/response templates' },
-            ]}
-          />
-          <p className="mt-1 text-xs text-muted-foreground">
-            {documentType === 'nda' &&
-              '⚠️ AI will reference this document without revealing specific terms'}
-            {documentType === 'legal' &&
-              '⚠️ AI will reference carefully without providing legal advice'}
-            {documentType === 'technical' && 'AI can quote directly from this documentation'}
-            {documentType === 'policy' && 'AI can quote company policies and procedures'}
-            {documentType === 'template' && 'Used for response formatting and templates'}
-            {documentType === 'general' && 'Standard documentation with quotable content'}
-          </p>
-        </div>
+        <Disclosure
+          title="Advanced"
+          summary={`Document type: ${DOCUMENT_TYPE_NAME[documentType]}`}
+        >
+          <div>
+            <Select
+              label="Document Type"
+              value={documentType}
+              onChange={(value) => onDocumentTypeChange(value as DocumentType)}
+              options={[
+                { value: 'general', label: '📄 General - Uncategorized documentation' },
+                { value: 'technical', label: '📘 Technical - Support guides, how-tos' },
+                { value: 'nda', label: '📝 NDA - Confidential agreements (no quoting)' },
+                { value: 'legal', label: '⚖️ Legal - Terms, policies (careful references)' },
+                { value: 'policy', label: '📋 Policy - Company procedures' },
+                { value: 'template', label: '📧 Template - Email/response templates' },
+              ]}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              {documentType === 'nda' &&
+                '⚠️ AI will reference this document without revealing specific terms'}
+              {documentType === 'legal' &&
+                '⚠️ AI will reference carefully without providing legal advice'}
+              {documentType === 'technical' && 'AI can quote directly from this documentation'}
+              {documentType === 'policy' && 'AI can quote company policies and procedures'}
+              {documentType === 'template' && 'Used for response formatting and templates'}
+              {documentType === 'general' && 'Standard documentation with quotable content'}
+            </p>
+          </div>
+        </Disclosure>
 
         {notice && (
           <Alert variant="danger" role="alert">

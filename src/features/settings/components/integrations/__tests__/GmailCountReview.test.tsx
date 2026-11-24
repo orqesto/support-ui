@@ -36,8 +36,10 @@ vi.mock('@/components/ui/Select', () => ({
 }));
 
 import {
+  AUTO_START_MAX_MESSAGES,
   GmailCountReview,
   formatGmailCount,
+  shouldAutoStart,
   type GmailCountReviewSource,
 } from '@/features/settings/components/integrations/GmailCountReview';
 
@@ -262,3 +264,170 @@ describe('GmailCountReview', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('no stored sign-in');
   });
 });
+
+describe('shouldAutoStart (settings quick wins, Task 5)', () => {
+  const small = {
+    count: 1200,
+    capped: false,
+    signInRejected: false,
+    isKnowledgeBase: false,
+    firstAutomaticCount: true,
+    settingsChanged: false,
+  };
+
+  it('starts a small mailbox, and an empty one (new mail must still flow)', () => {
+    expect(shouldAutoStart(small)).toBe(true);
+    expect(shouldAutoStart({ ...small, count: 0 })).toBe(true);
+    expect(shouldAutoStart({ ...small, count: AUTO_START_MAX_MESSAGES })).toBe(true);
+  });
+
+  it.each([
+    ['over 5,000', { count: 5001 }],
+    ['a capped count', { capped: true }],
+    ['a rejected sign-in', { signInRejected: true }],
+    ['a knowledge-base source', { isKnowledgeBase: true }],
+    ['not the first automatic count', { firstAutomaticCount: false }],
+    ['changed settings', { settingsChanged: true }],
+  ])('never for %s', (_name, override) => {
+    expect(shouldAutoStart({ ...small, ...override })).toBe(false);
+  });
+});
+
+describe('GmailCountReview › auto-start', () => {
+  const fresh: GmailCountReviewSource = {
+    id: 70,
+    email: 'help@shop.example',
+    enabled: false,
+    isKnowledgeBase: false,
+    searchQuery: '',
+    bulkImportDays: 30,
+  };
+  const LINE = 'Stay on this page; the sync starts by itself unless the mailbox is large.';
+  const props = { onStarted: vi.fn(), onClose: vi.fn(), onShowAlert: vi.fn() };
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
+  /** A count that answers when told to. */
+  const heldCount = () => {
+    let answer: (value: unknown) => void = () => undefined;
+    let refuse: (reason: unknown) => void = () => undefined;
+    countGmailMessages.mockImplementationOnce(
+      () =>
+        new Promise((resolve, reject) => {
+          answer = resolve;
+          refuse = reject;
+        })
+    );
+    return {
+      answer: (value: unknown) => answer(value),
+      refuse: (reason: unknown) => refuse(reason),
+    };
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    countGmailMessages.mockResolvedValue({ count: 1200, capped: false, query: 'after:2026/09/09' });
+    update.mockResolvedValue({ success: true });
+  });
+
+  it('a new small mailbox: says it starts by itself, then starts once', async () => {
+    const held = heldCount();
+    render(<GmailCountReview source={fresh} autoStart {...props} />);
+    expect(await screen.findByText(LINE)).toBeVisible();
+    held.answer({ count: 1200, capped: false, query: 'q' });
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    expect(update.mock.calls[0][1]).toMatchObject({ enabled: true });
+    await settle();
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it('a knowledge-base source never starts by itself, and does not say so', async () => {
+    render(<GmailCountReview source={{ ...fresh, isKnowledgeBase: true }} autoStart {...props} />);
+    expect(await screen.findByText(/Found 1,200 messages/)).toBeInTheDocument();
+    await settle();
+    expect(update).not.toHaveBeenCalled();
+    expect(screen.queryByText(LINE)).toBeNull();
+  });
+
+  it('a filter changed before the count returns: no start, and the line goes', async () => {
+    heldCount();
+    render(<GmailCountReview source={fresh} autoStart {...props} />);
+    expect(await screen.findByText(LINE)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Email Filter'), {
+      target: { value: searchQueryValue() },
+    });
+    expect(screen.queryByText(LINE)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Check Messages Count' }));
+    expect(await screen.findByText(/Found 1,200 messages/)).toBeInTheDocument();
+    await settle();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      'over 5,000 messages',
+      (held: ReturnType<typeof heldCount>) =>
+        held.answer({ count: 5001, capped: false, query: 'q' }),
+    ],
+    [
+      'a rejected sign-in',
+      (held: ReturnType<typeof heldCount>) =>
+        held.refuse(Object.assign(new Error('rejected'), { data: { code: 'MAILBOX_SIGN_IN' } })),
+    ],
+    [
+      'a server error',
+      (held: ReturnType<typeof heldCount>) =>
+        held.refuse(Object.assign(new Error('boom'), { status: 500 })),
+    ],
+  ])('%s: no start, and the line goes', async (_name, finish) => {
+    const held = heldCount();
+    render(<GmailCountReview source={fresh} autoStart {...props} />);
+    expect(await screen.findByText(LINE)).toBeInTheDocument();
+    finish(held);
+    await waitFor(() => expect(screen.queryByText(LINE)).toBeNull());
+    await settle();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('after a reconnect the count that follows never starts the sync', async () => {
+    countGmailMessages.mockRejectedValueOnce(
+      Object.assign(new Error('rejected'), { data: { code: 'MAILBOX_SIGN_IN' } })
+    );
+    render(
+      <GmailCountReview source={fresh} autoStart {...props} onReconnect={() => Promise.resolve()} />
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Reconnect Google Account' }));
+    expect(await screen.findByText(/Found 1,200 messages/)).toBeInTheDocument();
+    await settle();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('"Check Messages Count" after a failed first count never starts the sync', async () => {
+    countGmailMessages.mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }));
+    render(<GmailCountReview source={fresh} autoStart {...props} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Check Messages Count' }));
+    expect(await screen.findByText(/Found 1,200 messages/)).toBeInTheDocument();
+    await settle();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('closed mid-count: nothing starts', async () => {
+    const held = heldCount();
+    const { unmount } = render(<GmailCountReview source={fresh} autoStart {...props} />);
+    await screen.findByText(LINE);
+    unmount();
+    held.answer({ count: 1200, capped: false, query: 'q' });
+    await settle();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL — without autoStart nothing starts and nothing is promised', async () => {
+    render(<GmailCountReview source={fresh} {...props} />);
+    expect(await screen.findByText(/Found 1,200 messages/)).toBeInTheDocument();
+    await settle();
+    expect(update).not.toHaveBeenCalled();
+    expect(screen.queryByText(LINE)).toBeNull();
+  });
+});
+
+/** Any filter other than the source's own (empty) one. */
+const searchQueryValue = (): string =>
+  screen.getByLabelText<HTMLSelectElement>('Email Filter').options[1].value;

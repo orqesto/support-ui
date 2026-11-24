@@ -17,6 +17,8 @@ import { WorkspaceAiUsage } from './WorkspaceAiUsage';
 import { NotificationRoleDefaults } from './NotificationRoleDefaults';
 import { loadRoleDefaults } from '@/features/settings/services/notificationRoleDefaultsShared';
 import { useAuthStore } from '@/stores/authStore';
+import { firstVisibleId, useShowAdvanced, visibleSections } from '@/features/settings/advanced';
+import { AdvancedToggle } from './AdvancedToggle';
 
 type OrgSection =
   | 'details'
@@ -31,15 +33,16 @@ type OrgSection =
   | 'ai-usage'
   | 'notification-roles';
 
-const sections = [
+// Settings simplification (2026-11-23): engine knobs behind "Show advanced settings".
+const sections: Array<{ id: OrgSection; label: string; description: string; advanced?: boolean }> = [
   { id: 'details' as OrgSection, label: 'Details', description: 'Workspace name and description' },
   { id: 'categories' as OrgSection, label: 'Categories', description: 'Ticket categories and keywords' },
   { id: 'labels' as OrgSection, label: 'Labels', description: 'Custom ticket labels' },
-  { id: 'routing-skills' as OrgSection, label: 'Routing Skills', description: 'Skill keys for auto-assignment' },
+  { id: 'routing-skills' as OrgSection, label: 'Routing Skills', description: 'Skill keys for auto-assignment', advanced: true },
   { id: 'sla-config' as OrgSection, label: 'SLA Thresholds', description: 'Response and resolution time targets' },
   { id: 'business-hours' as OrgSection, label: 'Business Hours', description: 'Working calendar used for open-hours response times' },
-  { id: 'open-conversations' as OrgSection, label: 'Open Threads', description: 'How old an email may be and still count as open work' },
-  { id: 'automatic-replies' as OrgSection, label: 'Automated email subjects', description: 'Subjects of automatic emails that do not count as your answer. This does not send anything.' },
+  { id: 'open-conversations' as OrgSection, label: 'Open Threads', description: 'How old an email may be and still count as open work', advanced: true },
+  { id: 'automatic-replies' as OrgSection, label: 'Automated email subjects', description: 'Subjects of automatic emails that do not count as your answer. This does not send anything.', advanced: true },
   { id: 'security' as OrgSection, label: 'Authentication', description: 'Workspace two-factor authentication policy' },
   { id: 'ai-usage' as OrgSection, label: 'AI usage', description: 'AI budget per billing period and bulk processing' },
   { id: 'notification-roles' as OrgSection, label: 'Notifications by role', description: 'What each role is notified about by default, and what is locked' },
@@ -113,23 +116,39 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
     (sect === 'sla-config' && !canManageSla) ||
     (sect === 'routing-skills' && !canManageRouting) ||
     (sect === 'notification-roles' && !rolesAvailable);
-  const visibleSections = sections.filter((sect) => !isHidden(sect.id));
+  const gatedSections = sections.filter((sect) => !isHidden(sect.id));
+  const [showAdvanced] = useShowAdvanced();
+  const linked = section && isOrgSection(section) ? section : undefined;
+  const shown = visibleSections(gatedSections, showAdvanced, linked);
+  // Default 'details'; a hidden link falls back to 'categories' as before, else the first shown.
+  const fallbackFor = (preferred: OrgSection): OrgSection =>
+    (firstVisibleId(shown, preferred) ?? 'details') as OrgSection;
 
-  const requested = section && isOrgSection(section) ? section : 'details';
-  // Don't let a deep link (#organization/sla-config|security|routing-skills) land on a hidden tab.
-  const initial: OrgSection = isHidden(requested) ? 'categories' : requested;
-  const [active, setActive] = useState<OrgSection>(initial);
+  const [selected, setActive] = useState<OrgSection>(
+    linked && shown.some((sect) => sect.id === linked) ? linked : fallbackFor(linked ? 'categories' : 'details')
+  );
 
   useEffect(() => {
-    if (!section || !isOrgSection(section)) return;
-    setActive(isHidden(section) ? 'categories' : section);
-    // isHidden reads only the two flags below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!linked) return;
+    setActive(shown.some((sect) => sect.id === linked) ? linked : fallbackFor('categories'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- shown derives from these flags
   }, [section, canManageOrgPolicy, canManageRouting, canManageSla, rolesAvailable]);
+
+  // Clamp at render: the open section is always one that is shown.
+  const active: OrgSection = shown.some((sect) => sect.id === selected) ? selected : fallbackFor('details');
 
   const goToSection = (next: OrgSection) => {
     setActive(next);
-    navigate(`#organization/${next}`, { replace: true });
+    void navigate(`#organization/${next}`, { replace: true });
+  };
+
+  // From the toggle only: leave a section that Advanced just hid.
+  const onTurnOff = () => {
+    // Only a section that Advanced off now hides is left; one still shown keeps your place.
+    if (visibleSections(gatedSections, false).some((sect) => sect.id === active)) return;
+    const target = (firstVisibleId(visibleSections(gatedSections, false), 'details') ?? 'details') as OrgSection;
+    setActive(target);
+    void navigate(`#organization/${target}`, { replace: true });
   };
 
   return (
@@ -142,10 +161,11 @@ export const OrganizationSettings = ({ section }: OrganizationSettingsProps = {}
         <p className="mt-1 text-sm text-muted-foreground">
           Manage your workspace details, categories, and labels
         </p>
+        <AdvancedToggle onTurnOff={onTurnOff} />
       </div>
 
       <Tabs<OrgSection>
-        tabs={visibleSections.map((sect) => ({ id: sect.id, label: sect.label, description: sect.description }))}
+        tabs={shown.map((sect) => ({ id: sect.id, label: sect.label, description: sect.description }))}
         activeTab={active}
         onTabChange={goToSection}
         variant="simple"

@@ -19,6 +19,8 @@ import { useBackendVersion } from '@/hooks/useBackendVersion';
 import { apiClient } from '@/lib/api-client';
 import { SUGGESTION_DOMAIN_PERMISSIONS } from '@/lib/learningSuggestionPermissions';
 import { Permission } from '@/types/roles';
+import { firstVisibleId, useShowAdvanced, visibleSections } from '@/features/settings/advanced';
+import { AdvancedToggle } from './AdvancedToggle';
 
 type AISection =
   | 'prompts'
@@ -41,12 +43,14 @@ type SectionDef = {
    * the Automatic actions routes exist: the FE reaches production on merge, the backend on a tag.
    */
   needsKbAutoActions?: boolean;
+  /** Behind "Show advanced settings" (settings simplification, 2026-11-23). */
+  advanced?: boolean;
 };
 
 const ALL_SECTIONS: SectionDef[] = [
   { id: 'prompts', label: 'AI Prompts', description: 'Customize AI prompt templates' },
   { id: 'auto-reply', label: 'Automatic replies', description: 'Keyword rules and AI replies sent by email without an agent — workspace default and per-team overrides' },
-  { id: 'lead-qualification', label: 'Lead Qualification', description: 'Configure AI lead qualification for any team' },
+  { id: 'lead-qualification', label: 'Lead Qualification', description: 'Configure AI lead qualification for any team', advanced: true },
   // Operational engine view: pending suggestions (need my action) stacked over
   // recent auto-actions (already fired, may want to undo). Trust stays its own
   // section because it's set-and-forget configuration, not daily activity.
@@ -55,11 +59,11 @@ const ALL_SECTIONS: SectionDef[] = [
   { id: 'learning', label: 'Learning activity', description: 'What the learning engine found and changed. Each suggestion is decided where it applies.', needsAnyLearningPermission: true },
   // Was the page /knowledge-base/automatic (and a sidebar item) until 2026-10-22; that address
   // redirects here.
-  { id: 'automatic-actions', label: 'Automatic actions', description: 'What the learning engine may change by itself — Off, Shadow or Automatic per action', needsKbAutoActions: true },
+  { id: 'automatic-actions', label: 'Automatic actions', description: 'What the learning engine may change by itself — Off, Shadow or Automatic per action', needsKbAutoActions: true, advanced: true },
   // Was the Knowledge Base page's Documentation tab until KB engine Stage 1;
   // `/knowledge-base#documentation` redirects here.
   { id: 'documentation', label: 'Documentation', description: 'Documents and Confluence pages the AI answers from' },
-  { id: 'learning-trust', label: 'Learning Trust', description: 'Control how aggressively the engine auto-acts', adminOnly: true },
+  { id: 'learning-trust', label: 'Learning Trust', description: 'Control how aggressively the engine auto-acts', adminOnly: true, advanced: true },
 ];
 
 type AIConfigSettingsProps = {
@@ -100,12 +104,22 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
   // check, someone deep-linking to `#ai/learning` without the permission for any suggestion
   // domain would render a panel whose every action they'd be refused (BE returns empty, so no
   // real data leak — just a confusing UI state).
-  const visibleIds = useMemo(() => sections.map((sect) => sect.id), [sections]);
+  const [showAdvanced] = useShowAdvanced();
+  // A section a link asks for stays visible even when Advanced hides it.
+  const shown = useMemo(
+    () => visibleSections(sections, showAdvanced, section),
+    [sections, showAdvanced, section]
+  );
+  const visibleIds = useMemo(() => shown.map((sect) => sect.id), [shown]);
   const initialSection =
     section && (visibleIds as string[]).includes(section)
       ? (section as AISection)
       : DEFAULT_AI_SECTION;
-  const [active, setActive] = useState<AISection>(initialSection);
+  const [selected, setActive] = useState<AISection>(initialSection);
+  // Clamp at render: the open section is always one that is shown.
+  const active: AISection = (visibleIds as string[]).includes(selected)
+    ? selected
+    : ((firstVisibleId(shown, DEFAULT_AI_SECTION) ?? DEFAULT_AI_SECTION) as AISection);
   const [hasLeadQualification, setHasLeadQualification] = useState<boolean | null>(null);
   const [alertDialog, setAlertDialog] = useState<{
     open: boolean;
@@ -143,7 +157,17 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
 
   const goToSection = (next: AISection) => {
     setActive(next);
-    navigate(`#ai/${next}`, { replace: true });
+    void navigate(`#ai/${next}`, { replace: true });
+  };
+
+  // From the toggle only: leave a section that Advanced just hid.
+  const onTurnOff = () => {
+    // Only a section that Advanced off now hides is left; one still shown keeps your place.
+    if (visibleSections(sections, false).some((sect) => sect.id === active)) return;
+    const target = (firstVisibleId(visibleSections(sections, false), DEFAULT_AI_SECTION) ??
+      DEFAULT_AI_SECTION) as AISection;
+    setActive(target);
+    void navigate(`#ai/${target}`, { replace: true });
   };
 
   return (
@@ -156,12 +180,13 @@ export const AIConfigSettings = ({ section }: AIConfigSettingsProps = {}) => {
         <p className="mt-1 text-sm text-muted-foreground">
           Configure AI behavior, prompt templates, and lead qualification
         </p>
+        <AdvancedToggle onTurnOff={onTurnOff} />
       </div>
 
       <AiDraftsSettings />
 
       <Tabs<AISection>
-        tabs={sections.map((sect) => ({ id: sect.id, label: sect.label, description: sect.description }))}
+        tabs={shown.map((sect) => ({ id: sect.id, label: sect.label, description: sect.description }))}
         activeTab={active}
         onTabChange={goToSection}
         variant="simple"

@@ -31,10 +31,9 @@ const line = (key: string, patch: Partial<SettingsLine> = {}): SettingsLine => (
   alwaysOn: false,
   ...patch,
 });
-const settings = (lines: SettingsLine[], legacy = false): NotificationSettings => ({
+const settings = (lines: SettingsLine[]): NotificationSettings => ({
   role: 'support',
   lines,
-  legacy,
 });
 const rowSwitch = (label: string) => {
   const row = screen.getByText(label).closest('[data-line-row]');
@@ -95,13 +94,30 @@ describe('notification preferences: lines', () => {
     );
   });
 
-  it('old BE renders today’s switches without crashing', async () => {
-    fetchSettings.mockResolvedValue(settings([line('kind:new_unassigned_message')], true));
-    get.mockResolvedValue({ data: { data: { notifyNewUnassigned: true } } });
+  it('a server without the settings (404) says they are not available; no old form', async () => {
+    fetchSettings.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }));
     render(<NotificationPreferencesSettings />);
-    expect(await screen.findByText('New unassigned threads')).toBeTruthy();
-    expect(screen.getByText('Thread SLA')).toBeTruthy();
-    // The hook already read the old preferences: the legacy form must not GET them again.
+    expect(
+      await screen.findByText('Notification settings are not available on this server version.')
+    ).toBeTruthy();
+    expect(screen.queryByText('New unassigned threads')).toBeNull();
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL — a 500 shows the error, not "not available"', async () => {
+    fetchSettings.mockRejectedValue(Object.assign(new Error('Server exploded'), { status: 500 }));
+    render(<NotificationPreferencesSettings />);
+    expect(await screen.findByText('Server exploded')).toBeTruthy();
+    expect(screen.queryByText(/not available on this server version/)).toBeNull();
+  });
+
+  it('a reply with no lines says the settings are not available; no old form', async () => {
+    fetchSettings.mockResolvedValue(settings([]));
+    render(<NotificationPreferencesSettings />);
+    expect(
+      await screen.findByText('Notification settings are not available on this server version.')
+    ).toBeTruthy();
+    expect(screen.queryByText('New unassigned threads')).toBeNull();
     expect(get).not.toHaveBeenCalled();
   });
 

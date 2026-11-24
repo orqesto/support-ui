@@ -6,6 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { useAdvancedStore } from '@/features/settings/advanced';
 
 const perms = vi.hoisted(() => ({ manageKb: true, orgAdmin: true }));
 vi.mock('@/hooks/usePermissions', () => ({
@@ -48,6 +49,8 @@ const renderAt = (section?: string) =>
   );
 
 beforeEach(() => {
+  // These sections sit behind "Show advanced settings" (2026-11-23); this suite is about their gates.
+  useAdvancedStore.setState({ show: true });
   perms.manageKb = true;
   perms.orgAdmin = true;
   resetAutoActionsAvailability();

@@ -1,20 +1,19 @@
 import { CheckCircle2 } from 'lucide-react';
 import type { SetupStepKey, WorkspaceSetupStatus } from '@/services/onboarding.service';
+import type { StepId } from './wizardSteps';
 
-/** Wizard step number → the setup step it configures. Payment (7) has no facts. */
-export const STEP_TO_SETUP_KEY: Record<number, SetupStepKey | undefined> = {
-  1: 'ai',
-  2: 'database',
-  3: 'storage',
-  4: 'channels',
-  5: 'team',
-  6: 'knowledge',
-  7: undefined,
+/** Wizard step → the setup fact it configures. Payment has no facts. */
+export const STEP_TO_SETUP_KEY: Record<StepId, SetupStepKey | undefined> = {
+  ai: 'ai',
+  database: 'database',
+  channels: 'channels',
+  people: 'team',
+  payment: undefined,
 };
 
 type Props = {
   setup: WorkspaceSetupStatus | null;
-  activeStep: number;
+  step: StepId | undefined;
 };
 
 /**
@@ -29,8 +28,8 @@ type Props = {
  * Renders nothing when the step is genuinely outstanding, so it never adds noise
  * to a real setup run.
  */
-export const SetupReconcileNotice = ({ setup, activeStep }: Props) => {
-  const key = STEP_TO_SETUP_KEY[activeStep];
+export const SetupReconcileNotice = ({ setup, step: stepId }: Props) => {
+  const key = stepId ? STEP_TO_SETUP_KEY[stepId] : undefined;
   const step = key ? setup?.steps.find((candidate) => candidate.key === key) : undefined;
   if (!step?.satisfied) return null;
 

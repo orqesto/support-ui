@@ -5,18 +5,20 @@ import { AiChoiceStep } from './steps/AiChoiceStep';
 import { ChannelsStep } from './steps/ChannelsStep';
 import { DatabaseStep } from './steps/DatabaseStep';
 import { InviteTeamStep } from './steps/InviteTeamStep';
-import { KbStep } from './steps/KbStep';
 import { PaymentStep } from './steps/PaymentStep';
-import { StorageStep } from './steps/StorageStep';
 import { isConnectedChannel } from '@/components/onboarding/connectedChannel';
 import { SetupReconcileNotice } from './SetupReconcileNotice';
 import { StepIndicator } from './StepIndicator';
 import {
-  buildStepLabels,
+  buildWizardSteps,
   initialWizardPlan,
   PAID_PLANS,
-  shouldShowPaymentStep,
+  resumeIndex,
+  STEP_LABEL,
+  STEP_NUMBER,
+  STEP_TITLE,
   channelRequiredToFinish,
+  type StepId,
   type WizardPlanState,
 } from './wizardSteps';
 import { Button } from '@/components/ui/Button';
@@ -38,21 +40,10 @@ import { subscriptionService } from '@/services/subscription.service';
 
 type StepNumber = OnboardingState['currentStep'];
 
-// Step order (KB is the last CORE step — see STEP_LABELS in StepIndicator). There
-// is no standalone departments step: a department is only reachable once a message
-// source serves it, so departments are set up in Channels / Settings routing.
-// Keyed by number (not StepNumber): the persisted `currentStep` is a bare 1-7 index.
-// Database (2) comes before Channels on purpose — mail must land in the database the
-// workspace keeps (BYODB §4).
-const STEP_TITLES: Record<number, string> = {
-  1: 'How should AI features work?',
-  2: 'Where should your data live?',
-  3: 'Where should files be stored?',
-  4: 'Connect your message channels',
-  5: 'Invite people',
-  6: 'Add knowledge for your AI',
-  7: 'Choose your plan',
-};
+const COUNT_WORD = ['No', 'One', 'Two', 'Three', 'Four', 'Five'];
+
+/** The step list and the billing flag it was built from: taken once per mount (see below). */
+type StepSnapshot = { billingEnabled: boolean; steps: StepId[] };
 
 /**
  * Wizard shell: step state + navigation. Progress persists via fire-and-forget
@@ -74,7 +65,7 @@ export const OnboardingWizard = () => {
   const currentDatabase = database?.current ?? null;
   const markComplete = useOnboardingStore((state) => state.markComplete);
   const refreshOnboarding = useOnboardingStore((state) => state.refresh);
-  const billingEnabled = useBackendVersion().data?.billingEnabled ?? false;
+  const backendVersion = useBackendVersion();
   // The payment step exists only for a signup that arrived with a paid plan
   // preselected, and only where a billing provider is actually configured — a
   // self-hosted or not-yet-activated box has no Stripe to talk to.
@@ -82,20 +73,27 @@ export const OnboardingWizard = () => {
   // A plan from the marketing site opens the step directly on that plan; anyone
   // else gets a selector defaulted to the recommended tier.
   const planWasPreselected = !!selectedPlan && PAID_PLANS.includes(selectedPlan);
-  const showPaymentStep = shouldShowPaymentStep(billingEnabled);
-  const stepLabels = buildStepLabels(showPaymentStep);
-  // Clamp a resumed step into range: the step COUNT varies (6 core, 7 with
-  // payment), and it dropped from 7 to 6 once before when the read-only Routing
-  // step was removed. Clamping means an org that persisted step 7 — either as
-  // old-Routing, or as payment before dropping out of the paid path — resumes on
-  // the last step that exists instead of a blank screen. (Persisted step is a
-  // bare index, so a reordered wizard resumes at the same NUMBER, i.e. a
-  // possibly-different step — non-destructive; onboarding is a short one-off.)
-  //
-  // The raw resume point is kept unclamped and bounded at RENDER time, because
-  // `billingEnabled` arrives from a query that may still be loading on the first
-  // render: clamping in the initializer would permanently drop a resumed step 7
-  // to 6 in the moment before the payment step is known to exist.
+  // The step list is taken ONCE, on the first render where billing is known (the version read
+  // answered, or failed: billing then counts as off, so the AI step shows and Payment does not).
+  // Within one mount it never changes: a later answer of the version read, or a store refresh
+  // ("Start on Free", the AI choice), must not add or drop a step under the user. A reload — or
+  // the Gmail redirect — takes it again, so "Our AI" picked earlier then drops the AI step.
+  const [snapshot, setSnapshot] = useState<StepSnapshot | null>(null);
+  if (snapshot === null && (backendVersion.data !== undefined || backendVersion.isError)) {
+    const snapshotBilling = backendVersion.data?.billingEnabled ?? false;
+    setSnapshot({
+      billingEnabled: snapshotBilling,
+      steps: buildWizardSteps({
+        billingEnabled: snapshotBilling,
+        managedAiAvailable,
+        managedDbAllowed,
+        savedAiChoice: persisted?.aiChoice,
+      }),
+    });
+  }
+  const billingEnabled = snapshot?.billingEnabled ?? false;
+  const steps: StepId[] = snapshot?.steps ?? [];
+  const showPaymentStep = steps.includes('payment');
   // What the workspace ALREADY has, read from the backend rather than from wizard
   // progress. null while the check is in flight; a failed check resolves to null
   // and the wizard simply renders as it always did (fail open — a broken
@@ -105,18 +103,16 @@ export const OnboardingWizard = () => {
   // bounce straight past the wizard rather than flash step 1 on its way out.
   const [checkingSetup, setCheckingSetup] = useState(true);
 
+  // The SAVED step number; which step it is is worked out at render, from the step list.
   const [rawStep, setRawStep] = useState<StepNumber>(persisted?.currentStep ?? 1);
-  const activeStep = Math.min(rawStep, stepLabels.length) as StepNumber;
+  const index = resumeIndex(steps, rawStep);
+  const currentId: StepId | undefined = steps[index];
   const [aiChoice, setAiChoice] = useState<'managed' | 'byo' | undefined>(persisted?.aiChoice);
   const [dbChoice, setDbChoice] = useState<'managed' | 'own' | undefined>(persisted?.dbChoice);
   // The BE's refusal of the managed database (402 MANAGED_DB_NOT_ENTITLED), shown in the step.
   const [dbChoiceError, setDbChoiceError] = useState<string | null>(null);
   const [channelsConnected, setChannelsConnected] = useState(false);
   const [channelsKnown, setChannelsKnown] = useState(false);
-  // Per-step "the user actually engaged" signals, so the footer button reads
-  // "Next" instead of "Skip this step" once they've added KB docs / picked storage.
-  const [kbHasDocs, setKbHasDocs] = useState(false);
-  const [storageChosen, setStorageChosen] = useState(false);
   // Whether a card was actually saved on the payment step — changes the finish-button wording,
   // and makes the plan paid at once for the channel rule (channelRequiredToFinish).
   const [cardAdded, setCardAdded] = useState(false);
@@ -164,7 +160,7 @@ export const OnboardingWizard = () => {
   // users are told the step changed instead of being stranded on the old content.
   useEffect(() => {
     stepHeadingRef.current?.focus();
-  }, [activeStep]);
+  }, [currentId]);
 
   // Seed connected-channel state up front so the Finish gate is correct even when
   // the user resumes at a later step without mounting the Channels step. The
@@ -201,10 +197,10 @@ export const OnboardingWizard = () => {
     });
   };
 
-  const goTo = (step: StepNumber) => {
+  const goTo = (id: StepId) => {
     setExitError(null);
-    setRawStep(step);
-    persistStep(step);
+    setRawStep(STEP_NUMBER[id]);
+    persistStep(STEP_NUMBER[id]);
   };
 
   const handleChooseAi = (choice: 'managed' | 'byo') => {
@@ -250,20 +246,13 @@ export const OnboardingWizard = () => {
     setChannelsKnown(true);
   };
 
-  // Stable identities so the step components' report-up effects fire only on real
-  // changes (doc count / storage choice), not on every wizard re-render.
-  const handleKbDocsCount = useCallback((count: number) => setKbHasDocs(count > 0), []);
-  const handleStorageChoice = useCallback(
-    (choice: 'managed' | 'byo' | undefined) => setStorageChosen(!!choice),
-    []
-  );
-
-  const leaveWizard = () => {
+  // Finish opens the inbox; "Finish later" keeps the dashboard its dialog promises.
+  const leaveWizard = (to: '/threads' | '/dashboard') => {
     markComplete();
     // Pull the fresh trial dates (completion restamped the clock) so the banner
     // shows the new countdown without a full reload.
     void refreshOnboarding();
-    navigate('/dashboard', { replace: true });
+    navigate(to, { replace: true });
   };
 
   const handleSkip = async () => {
@@ -277,7 +266,7 @@ export const OnboardingWizard = () => {
       setExitError("Couldn't skip setup right now. Please check your connection and try again.");
       return;
     }
-    leaveWizard();
+    leaveWizard('/dashboard');
   };
 
   const handleFinish = async () => {
@@ -289,35 +278,45 @@ export const OnboardingWizard = () => {
       logger.error('Failed to complete onboarding:', error);
       // The one refusal with a reason the user can act on: a workspace with no active plan
       // still on the managed database. Everything else reads as the connection problem it usually is.
+      // With no Database step in the list the server's sentence (which names the Database step's
+      // way out) cannot be followed here: say what can.
+      const noPlanWithoutDatabaseStep = `This workspace has no active plan. ${
+        showPaymentStep ? 'Choose one in the Payment step (Free included), or use' : 'Use'
+      } “Finish later”, then connect your own Postgres in Settings › Integrations › Database (turn on “Show advanced settings”).`;
       setExitError(
         getErrorBody(error)?.code === 'MANAGED_DB_NOT_ENTITLED'
-          ? (getApiErrorMessage(error) ??
+          ? steps.includes('database')
+            ? (getApiErrorMessage(error) ??
               'This workspace has no active plan — choose one in the Payment step (Free included), or connect your own Postgres in the Database step before finishing.')
+            : noPlanWithoutDatabaseStep
           : "Couldn't finish setup right now. Please check your connection and try again."
       );
       setFinishing(false);
       return;
     }
     setFinishing(false);
-    leaveWizard();
+    leaveWizard('/threads');
   };
 
   // BYODB §3.4: a workspace that may not use the managed database (no active plan) and
   // has not connected its own cannot go past the Database step — mail must not start landing
   // in a database it will have to leave. Every other step is optional: set up now or later.
   // "Finish later" (header) stays the escape hatch.
-  const missingDatabase = !managedDbAllowed && (currentDatabase?.mode ?? 'managed') === 'managed';
-  const nextDisabled = activeStep === 2 && missingDatabase;
+  // It reads the LIVE store ("Start on Free" works by allowing the managed database), gated on
+  // the step list: without a Database step there is nothing here to connect.
+  const missingDatabase =
+    steps.includes('database') &&
+    !managedDbAllowed &&
+    (currentDatabase?.mode ?? 'managed') === 'managed';
+  const nextDisabled = currentId === 'database' && missingDatabase;
   const optionalUnfinished =
-    (activeStep === 1 && !aiChoice) ||
-    (activeStep === 2 && !dbChoice) ||
-    (activeStep === 3 && !storageChosen) ||
-    (activeStep === 4 && !channelsConnected) ||
-    (activeStep === 6 && !kbHasDocs);
+    (currentId === 'ai' && !aiChoice) ||
+    (currentId === 'database' && !dbChoice) ||
+    (currentId === 'channels' && !channelsConnected);
   // Per-step skip (footer) is distinct from ending the whole wizard (header).
   // A gated step is not skippable — say "Next" (disabled), not "Skip this step".
   const nextLabel = optionalUnfinished && !nextDisabled ? 'Skip this step' : 'Next';
-  const isLastStep = activeStep >= stepLabels.length;
+  const isLastStep = index >= steps.length - 1;
 
   // Finishing STARTS the 14-day trial, so require the org to be minimally usable
   // first: an explicit AI choice, and — on a paid plan — at least one connected channel
@@ -329,13 +328,14 @@ export const OnboardingWizard = () => {
   // keeps its trial), so say so on the button rather than leaving the user
   // wondering whether they're about to skip something they needed.
   const finishLabel =
-    showPaymentStep && activeStep === stepLabels.length && !cardAdded
+    currentId === 'payment' && !cardAdded
       ? 'Finish without a card'
       : 'Finish setup';
 
-  const missingAiChoice = !aiChoice;
+  // Only where the AI step is asked: a self-serve signup on our AI already has its choice saved.
+  const missingAiChoice = steps.includes('ai') && !aiChoice;
   const missingChannel =
-    channelRequiredToFinish({ billingEnabled: showPaymentStep, cardAdded, plan: planState ?? null }) &&
+    channelRequiredToFinish({ billingEnabled, cardAdded, plan: planState ?? null }) &&
     channelsKnown &&
     !channelsConnected;
   const planPending = showPaymentStep && planState === undefined;
@@ -385,7 +385,7 @@ export const OnboardingWizard = () => {
     // Mount-only: re-running would re-check on every keystroke-driven rerender.
   }, [markComplete, navigate]);
 
-  if (checkingSetup) {
+  if (checkingSetup || snapshot === null) {
     return (
       <div className="mx-auto w-full max-w-2xl px-4 py-10">
         <p className="text-sm text-muted-foreground" role="status">
@@ -402,7 +402,7 @@ export const OnboardingWizard = () => {
           <div>
             <h1 className="font-display text-2xl font-semibold text-foreground">Set up your workspace</h1>
             <p className="text-sm text-muted-foreground">
-              A few quick steps. Finish setup to start your 14-day trial of everything — then Free, no card needed.
+              {COUNT_WORD[steps.length] ?? steps.length} quick steps. Finish setup to start your 14-day trial of everything — then Free, no card needed.
             </p>
           </div>
           <div className="flex items-center gap-1">
@@ -412,7 +412,7 @@ export const OnboardingWizard = () => {
             </Button>
           </div>
         </div>
-        <StepIndicator activeStep={activeStep} labels={stepLabels} />
+        <StepIndicator activeStep={index + 1} labels={steps.map((id) => STEP_LABEL[id])} />
       </div>
 
       <div className="space-y-6" style={{ minHeight: '22rem' }}>
@@ -421,20 +421,20 @@ export const OnboardingWizard = () => {
           tabIndex={-1}
           className="font-display text-lg font-medium text-foreground outline-none"
         >
-          <span className="sr-only">{`Step ${activeStep} of ${stepLabels.length}: `}</span>
-          {STEP_TITLES[activeStep]}
+          <span className="sr-only">{`Step ${index + 1} of ${steps.length}: `}</span>
+          {currentId && STEP_TITLE[currentId]}
         </h2>
 
-        <SetupReconcileNotice setup={setup} activeStep={activeStep} />
+        <SetupReconcileNotice setup={setup} step={currentId} />
 
-        {activeStep === 1 && (
+        {currentId === 'ai' && (
           <AiChoiceStep
             value={aiChoice}
             onChoose={handleChooseAi}
             managedAvailable={managedAiAvailable}
           />
         )}
-        {activeStep === 2 && (
+        {currentId === 'database' && (
           <DatabaseStep
             value={dbChoice}
             onChoose={handleChooseDb}
@@ -444,11 +444,9 @@ export const OnboardingWizard = () => {
             onConnected={handleDatabaseChanged}
           />
         )}
-        {activeStep === 3 && <StorageStep onChoiceChange={handleStorageChoice} />}
-        {activeStep === 4 && <ChannelsStep onConnectedChange={handleChannelsConnected} />}
-        {activeStep === 5 && <InviteTeamStep />}
-        {activeStep === 6 && <KbStep onDocsCountChange={handleKbDocsCount} />}
-        {activeStep === 7 && showPaymentStep && (
+        {currentId === 'channels' && <ChannelsStep onConnectedChange={handleChannelsConnected} />}
+        {currentId === 'people' && <InviteTeamStep />}
+        {currentId === 'payment' && (
           <PaymentStep
             initialPlan={initialWizardPlan(selectedPlan)}
             planWasPreselected={planWasPreselected}
@@ -466,8 +464,8 @@ export const OnboardingWizard = () => {
       <div className="flex items-center justify-between border-t border-border pt-6">
         <Button
           variant="outline"
-          disabled={activeStep === 1}
-          onClick={() => goTo((activeStep - 1) as StepNumber)}
+          disabled={index === 0}
+          onClick={() => goTo(steps[index - 1])}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
@@ -484,7 +482,7 @@ export const OnboardingWizard = () => {
                 Start on Free
               </Button>
             )}
-            <Button disabled={nextDisabled} onClick={() => goTo((activeStep + 1) as StepNumber)}>
+            <Button disabled={nextDisabled} onClick={() => goTo(steps[index + 1])}>
               {nextLabel}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -497,7 +495,7 @@ export const OnboardingWizard = () => {
                 {missingAiChoice && (
                   <button
                     type="button"
-                    onClick={() => goTo(1)}
+                    onClick={() => goTo('ai')}
                     className="font-medium text-primary underline"
                   >
                     choose how AI works
@@ -507,7 +505,7 @@ export const OnboardingWizard = () => {
                 {missingDatabase && (
                   <button
                     type="button"
-                    onClick={() => goTo(2)}
+                    onClick={() => goTo('database')}
                     className="font-medium text-primary underline"
                   >
                     connect your own database
@@ -517,7 +515,7 @@ export const OnboardingWizard = () => {
                 {missingChannel && (
                   <button
                     type="button"
-                    onClick={() => goTo(4)}
+                    onClick={() => goTo('channels')}
                     className="font-medium text-primary underline"
                   >
                     connect a channel

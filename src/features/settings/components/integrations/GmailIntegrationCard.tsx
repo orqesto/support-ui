@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { AckReplyEditor } from '@/features/settings/components/integrations/AckReplyEditor';
 import { GmailRowCount } from '@/features/settings/components/integrations/GmailCountReview';
+import { isNewSource, savePreConnectIds, takePreConnectIds } from './gmailPreConnectIds';
 import { GmailForm } from '@/features/settings/components/integrations/GmailForm';
 import { GmailSyncRangeDialog } from '@/features/settings/components/integrations/GmailSyncRangeDialog';
 import {
@@ -93,6 +94,14 @@ export const GmailIntegrationCard = ({
   const [editAckReply, setEditAckReply] = useState<number | null>(null);
   // The source whose message count is open — a just-connected PAUSED source lands here.
   const [reviewId, setReviewId] = useState<number | null>(null);
+  // One-shot: the review opened right after a NEW source was connected may start the sync by
+  // itself. Cleared when that review closes or starts, and whenever a review is opened any other way.
+  const [autoStartId, setAutoStartId] = useState<number | null>(null);
+  /** Opens (or, with null, closes) a review any way other than a new connect: never auto-start. */
+  const showReview = (id: number | null) => {
+    setReviewId(id);
+    setAutoStartId(null);
+  };
   const [config, setConfig] = useState<GmailConfig>(defaultConfig);
   const [popupBlocked, setPopupBlocked] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
@@ -121,14 +130,15 @@ export const GmailIntegrationCard = ({
 
   const handleOAuthSuccess = async (
     data: { email: string; id: number },
+    isNew: boolean,
     kbMiningDeferred?: 'plan_inactive'
   ) => {
     const newIntegrationId = data.id;
-    // Google signed in to a mailbox that is ALREADY a source here: the backend took its update
-    // branch. Its department links are left as they are — relinking "to every department" was
-    // one half of FE audit B-H3 (the other half, the settings the Add form sent over the
+    // Not new = Google signed in to a mailbox that is ALREADY a source here: the backend took its
+    // update branch. Its department links are left as they are — relinking "to every department"
+    // was one half of FE audit B-H3 (the other half, the settings the Add form sent over the
     // stored ones, is why "Reconnect" below sends none).
-    const reconnected = integrations.some((integration) => integration.id === newIntegrationId);
+    const reconnected = !isNew;
     if (newIntegrationId && !reconnected) {
       const assigned = await deptPicker.assignToNewSource(newIntegrationId);
       if (!assigned) {
@@ -154,10 +164,13 @@ export const GmailIntegrationCard = ({
     // A new source is saved PAUSED (`startPaused`): open its count so nothing is imported
     // before someone has seen how much will be. A re-auth of a live source opens it too, as a count.
     if (newIntegrationId) setReviewId(newIntegrationId);
+    // Only a new source may start by itself; the review decides (small, not a KB source).
+    setAutoStartId(newIntegrationId && !reconnected ? newIntegrationId : null);
 
+    // Neutral: whether it starts by itself is known only once counted (the review says so).
     const connected = reconnected
       ? `${data.email ?? 'This mailbox'} was already a source here and has been reconnected. Its teams were kept; the settings on this form were applied to it.`
-      : `Gmail account connected!\n\n${data.email ?? 'Account'} has been added. Check the message count, then start the sync.`;
+      : `Gmail account connected!\n\n${data.email ?? 'Account'} has been added. Counting messages.`;
     onShowAlert({
       open: true,
       title: 'Success',
@@ -219,7 +232,8 @@ export const GmailIntegrationCard = ({
       if (abortRef.current) return;
 
       if (response.success && response.data) {
-        await handleOAuthSuccess(response.data, response.kbMiningDeferred);
+        const isNew = isNewSource(response.data.id, integrations, null);
+        await handleOAuthSuccess(response.data, isNew, response.kbMiningDeferred);
       } else if (response.error === 'POPUP_BLOCKED') {
         // Surface the retry banner; don't show a generic alert.
         setPopupBlocked(true);
@@ -249,6 +263,8 @@ export const GmailIntegrationCard = ({
 
   const handleGmailRedirect = async () => {
     setRedirecting(true);
+    // Before the call: it sets location.href inside, so nothing after it is guaranteed to run.
+    savePreConnectIds(integrations.map((integration) => integration.id));
     const response = await gmailOAuthService.redirectToOAuth({
       searchQuery: config.searchQuery || '',
       maxResults: config.maxResults,
@@ -279,8 +295,11 @@ export const GmailIntegrationCard = ({
     void (async () => {
       const result = await gmailOAuthService.consumePendingRedirectResult();
       if (cancelled) return;
+      // Read (and cleared) only when a redirect came back, succeeded or not.
+      const preConnectIds = result ? takePreConnectIds() : null;
       if (result?.success && result.data) {
-        await handleOAuthSuccess(result.data, result.kbMiningDeferred);
+        const isNew = isNewSource(result.data.id, integrations, preConnectIds);
+        await handleOAuthSuccess(result.data, isNew, result.kbMiningDeferred);
       } else if (result) {
         onShowAlert({
           open: true,
@@ -481,7 +500,7 @@ export const GmailIntegrationCard = ({
                                 <SourceMenuItem
                                   icon={Hash}
                                   label="Check Message Count"
-                                  onClick={() => { setReviewId(integration.id); setShowMenu(null); }}
+                                  onClick={() => { showReview(integration.id); setShowMenu(null); }}
                                 />
                                 <SourceMenuItem
                                   icon={TestTube2}
@@ -535,8 +554,9 @@ export const GmailIntegrationCard = ({
                   <GmailRowCount
                     integration={integration}
                     open={reviewId === integration.id}
-                    onOpen={() => setReviewId(integration.id)}
-                    onClose={() => setReviewId(null)}
+                    autoStart={reviewId === integration.id && autoStartId === integration.id}
+                    onOpen={() => showReview(integration.id)}
+                    onClose={() => showReview(null)}
                     onRefresh={onRefresh}
                     onShowAlert={onShowAlert}
                     onReconnect={() => handleReconnect(integration)}
