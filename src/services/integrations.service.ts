@@ -659,12 +659,19 @@ export const integrationsService = {
       enabled: boolean;
       config: Record<string, unknown>;
     }>
-  ): Promise<ApiResponse<Integration>> => {
-    const response = await apiClient.patch<{ success: boolean; data: Integration }>(
-      `/api/integrations/${id}`,
-      data
-    );
-    return { success: response.data.success, data: response.data.data };
+  ): Promise<ApiResponse<Integration> & { importRestarted: boolean }> => {
+    const response = await apiClient.patch<{
+      success: boolean;
+      data: Integration;
+      importRestarted?: unknown;
+    }>(`/api/integrations/${id}`, data);
+    return {
+      success: response.data.success,
+      data: response.data.data,
+      // A mailbox whose import start moved earlier restarts its import. Absent on an older
+      // backend, and read strictly: only `true` means an import was started.
+      importRestarted: response.data.importRestarted === true,
+    };
   },
 
   getSourceDepartments: async (
