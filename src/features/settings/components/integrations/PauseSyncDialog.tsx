@@ -3,8 +3,9 @@
  *
  * The app could start a mailbox but not stop one: pausing took an API call by hand (staging,
  * 2026-10-30). Pausing sends exactly what Start sync sends, with `enabled: false`; the card then
- * shows its "Paused — not syncing · Check count and start" strip, which is how it resumes. Mail
- * that arrives meanwhile is fetched on the next start, from the saved checkpoint.
+ * shows its "Paused — not syncing" strip with "Check count and start", which is how it resumes
+ * (a mailbox that was never polled reads "waiting for review" instead — see pausedSourceState).
+ * Mail that arrives meanwhile is fetched on the next start, from the saved checkpoint.
  */
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { apiErrorMessage } from '@/lib/apiError';

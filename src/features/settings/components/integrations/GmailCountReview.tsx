@@ -14,6 +14,8 @@ import {
   MissingSamples,
 } from '@/features/settings/components/integrations/MailboxReconciliation';
 import { apiErrorMessage } from '@/lib/apiError';
+import { logger } from '@/lib/logger';
+import { pausedSourceState } from '@/lib/pausedSourceState';
 import {
   CANCEL_COUNT,
   CountPollStopped,
@@ -280,13 +282,6 @@ export const GmailCountReview = ({
         enabled: true,
         config: { gmail: { searchQuery, ...importRangePatch(range) } },
       });
-      await onStarted();
-      onShowAlert({
-        open: true,
-        title: 'Sync started',
-        description: `${source.email} will start importing on the next poll.`,
-        variant: 'success',
-      });
     } catch (err) {
       onShowAlert({
         open: true,
@@ -294,9 +289,27 @@ export const GmailCountReview = ({
         description: apiErrorMessage(err, 'Failed to start syncing this mailbox'),
         variant: 'error',
       });
-    } finally {
       setStarting(false);
+      return;
     }
+    // The sync IS started from here on. A failed re-read of the list afterwards used to land in
+    // the catch above and say "Could not start sync" for a mailbox that was syncing.
+    let listRead = true;
+    try {
+      await onStarted();
+    } catch (err) {
+      listRead = false;
+      logger.warn('Sync started; the source list could not be re-read', err);
+    }
+    onShowAlert({
+      open: true,
+      title: 'Sync started',
+      description: listRead
+        ? `${source.email} will start importing on the next poll.`
+        : `${source.email} will start importing on the next poll. The list could not be refreshed just now; it is read again in a few seconds.`,
+      variant: 'success',
+    });
+    setStarting(false);
   };
 
   const qualifies = (counted: GmailCountResult): boolean =>
@@ -509,6 +522,9 @@ export const reviewSourceOf = (integ: Integration): GmailCountReviewSource => {
   };
 };
 
+/** How long a row waits before re-reading a list that failed to load after a start. */
+export const LIST_REREAD_MS = 5000;
+
 /** The row's slot: a "paused" notice for a source that is not syncing, or the open panel. */
 export const GmailRowCount = ({
   integration,
@@ -529,6 +545,30 @@ export const GmailRowCount = ({
   onReconnect?: () => void | Promise<void>;
   autoStart?: boolean;
 }) => {
+  // Started here, but the list was not read back: the row on screen is still the paused one.
+  // It must not say "waiting for review" for a mailbox that is syncing; the list is read again
+  // until it catches up (the mailbox shows enabled) or the row goes away.
+  const [refreshOwed, setRefreshOwed] = useState(false);
+  const refreshRef = useRef(onRefresh);
+  refreshRef.current = onRefresh;
+  useEffect(() => {
+    if (integration.enabled) setRefreshOwed(false);
+  }, [integration.enabled]);
+  useEffect(() => {
+    if (!refreshOwed) return undefined;
+    let timer: ReturnType<typeof setTimeout>;
+    const attempt = () => {
+      timer = setTimeout(() => {
+        refreshRef.current().then(
+          () => setRefreshOwed(false),
+          () => attempt()
+        );
+      }, LIST_REREAD_MS);
+    };
+    attempt();
+    return () => clearTimeout(timer);
+  }, [refreshOwed]);
+
   if (open) {
     return (
       <GmailCountReview
@@ -536,10 +576,14 @@ export const GmailRowCount = ({
         onClose={onClose}
         // Refresh BEFORE closing: closed on the stale (paused) row, the slot would show "Not
         // syncing — waiting for review" for a mailbox that has just started, until the list
-        // came back (and for good, had that read failed).
+        // came back. Had that read failed, the row says the sync started and re-reads the list
+        // (refreshOwed); the failure goes on to startSync, which still reports "Sync started".
         onStarted={async () => {
           try {
             await onRefresh();
+          } catch (err) {
+            setRefreshOwed(true);
+            throw err;
           } finally {
             onClose();
           }
@@ -551,16 +595,37 @@ export const GmailRowCount = ({
     );
   }
   if (integration.enabled) return null;
+  if (refreshOwed) {
+    return (
+      <p className="px-3 py-2 text-sm text-muted-foreground" role="status">
+        Sync started. This list has not caught up yet — it is read again in a few seconds.
+      </p>
+    );
+  }
   // A just-connected mailbox is saved PAUSED and waits here for its count to be reviewed.
   // This strip was a one-line ghost link and was missed: the mailbox sat connected, imported
   // nothing, and looked as if it had gone to another workspace. Say plainly that nothing is
-  // coming in until someone acts, and make the action a real button.
+  // coming in until someone acts, and make the action a real button. A mailbox that has synced
+  // before (`lastCheckAt` set) was paused by a person: "waiting for review" would be untrue
+  // there. With no `lastCheckAt` on the row the wording is true for both.
+  const state = pausedSourceState(integration);
   return (
     <Alert variant="warning" className="flex flex-wrap gap-2 justify-between items-center px-3 py-2 text-sm">
-      <span>
-        <strong>Not syncing — waiting for review.</strong> No mail is imported until you check the
-        message count and start the sync.
-      </span>
+      {state === 'awaiting_review' ? (
+        <span>
+          <strong>Not syncing — waiting for review.</strong> No mail is imported until you check the
+          message count and start the sync.
+        </span>
+      ) : state === 'paused' ? (
+        <span>
+          <strong>Paused — not syncing.</strong> No new mail is imported until the sync is started
+          again.
+        </span>
+      ) : (
+        <span>
+          <strong>Not syncing.</strong> No mail is imported until the sync is started.
+        </span>
+      )}
       <Button type="button" size="sm" onClick={onOpen}>
         Check count and start
       </Button>

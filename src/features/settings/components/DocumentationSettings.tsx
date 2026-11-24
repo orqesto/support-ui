@@ -228,7 +228,11 @@ export const DocumentationSettings = ({
   };
 
   const handleRemoveFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, idx) => idx !== index));
+    const remaining = selectedFiles.filter((_, idx) => idx !== index);
+    setSelectedFiles(remaining);
+    // The notice describes the files in the list ("press Upload to try again"); with none left
+    // there is nothing to retry and Upload is off, so it goes too.
+    if (remaining.length === 0) setUploadNotice(null);
   };
 
   const handleUpload = async () => {

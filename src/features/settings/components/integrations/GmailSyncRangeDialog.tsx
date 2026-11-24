@@ -15,7 +15,14 @@ import { integrationsService } from '@/services/integrations.service';
  * in behaviour when the card reached its `max-lines` ceiling (2026-09-16).
  */
 type Props = {
-  source: { id: number; name: string; currentDays: number; currentSince?: string | null };
+  source: {
+    id: number;
+    name: string;
+    currentDays: number;
+    currentSince?: string | null;
+    /** Paused (false): a restarted import waits for the sync to be started. */
+    enabled?: boolean;
+  };
   onClose: () => void;
   onRefresh: () => Promise<void>;
   onShowAlert: (alert: AlertState) => void;
@@ -54,10 +61,11 @@ export const GmailSyncRangeDialog = ({ source, onClose, onRefresh, onShowAlert }
       onShowAlert({
         open: true,
         title: 'Success',
-        description: rangeSavedMessage(
-          result.importRestarted,
-          formatRangeLabel(range, RANGE_OPTIONS).toLowerCase()
-        ),
+        description: rangeSavedMessage({
+          importRestarted: result.importRestarted,
+          enabled: source.enabled,
+          rangeLabel: formatRangeLabel(range, RANGE_OPTIONS),
+        }),
         variant: 'success',
       });
     } catch (error) {

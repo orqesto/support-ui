@@ -273,6 +273,9 @@ export type BaseIntegration = {
   lastSyncedAt?: string | null;
   lastSyncError?: string | null;
   lastSyncedPageCount?: number | null;
+  // Message sources: when the source's last COMPLETED poll ran; null = never polled. Sent by
+  // every backend that lists message sources (a plain column of the row). See lib/pausedSourceState.
+  lastCheckAt?: string | null;
   // Why this source is not currently syncing (email/gmail only). Absent on an older
   // backend — see normalizeSyncHold. Null means "polling normally".
   syncHold?: SyncHold | null;

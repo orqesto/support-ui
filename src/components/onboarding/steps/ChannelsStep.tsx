@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { GMAIL_OAUTH_PENDING_CONFIG_KEY, useGmailOAuthAvailability } from '@/features/settings';
 import { integrationsService, type Integration } from '@/services/integrations.service';
+import { pausedSourceState } from '@/lib/pausedSourceState';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 
@@ -97,9 +98,15 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
   // is worse than no count at all.
   const countFor = (key: ChannelKey) => integrations.filter((item) => item.type === key).length;
   // A just-connected Gmail mailbox is saved paused until its message count is reviewed. A
-  // green "1 connected" over it said the opposite of the truth: nothing was syncing.
+  // green "1 connected" over it said the opposite of the truth: nothing was syncing. Only that
+  // mailbox has a review to open; a switched-off IMAP box, bot or Slack source is just not
+  // syncing. The live ones are still counted beside it.
   const notSyncingFor = (key: ChannelKey) =>
     integrations.filter((item) => item.type === key && !item.enabled).length;
+  const awaitingReviewFor = (key: ChannelKey) =>
+    integrations.filter(
+      (item) => item.type === key && pausedSourceState(item) === 'awaiting_review'
+    ).length;
 
   const cardProps = {
     integrations,
@@ -171,16 +178,18 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
                   <div className="font-medium text-foreground">{label}</div>
                   <div className="truncate text-sm text-muted-foreground">{description}</div>
                 </div>
-                {notSyncing > 0 ? (
-                  <Badge variant="warning" className="shrink-0">
-                    {notSyncing} not syncing — open to review
-                  </Badge>
-                ) : count > 0 ? (
+                {count > notSyncing && (
                   <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
                     <Check className="h-3 w-3" />
-                    {count} connected
+                    {count - notSyncing} connected
                   </span>
-                ) : (
+                )}
+                {notSyncing > 0 && (
+                  <Badge variant="warning" className="shrink-0">
+                    {notSyncing} not syncing{awaitingReviewFor(key) > 0 ? ' — open to review' : ''}
+                  </Badge>
+                )}
+                {count === 0 && (
                   <span className="shrink-0 text-xs text-muted-foreground">Not connected</span>
                 )}
                 <ChevronDown

@@ -204,7 +204,7 @@ export const EmailIntegrationCard = ({
       onShowAlert({
         open: true,
         title: 'Sync Range Updated',
-        description: rangeSavedMessage(result.importRestarted, formatRangeLabel(importRange, IMPORT_RANGE_OPTIONS).toLowerCase()),
+        description: rangeSavedMessage({ importRestarted: result.importRestarted, enabled: integrations.find((item) => item.id === editBulkImport.id)?.enabled, rangeLabel: formatRangeLabel(importRange, IMPORT_RANGE_OPTIONS) }),
         variant: 'success',
       });
     } catch (error) {

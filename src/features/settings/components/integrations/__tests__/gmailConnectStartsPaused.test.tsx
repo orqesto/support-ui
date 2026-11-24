@@ -39,6 +39,7 @@ const pausedRow = {
   name: 'Gmail-orders@militech.info',
   type: 'gmail' as const,
   enabled: false,
+  lastCheckAt: null, // never polled: a new connect waiting for its count review
   isKnowledgeBase: true,
   config: { user: 'orders@militech.info', gmail: { searchQuery: '', bulkImportDays: 7 } },
 };

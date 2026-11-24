@@ -10,6 +10,10 @@ vi.mock('@/services/settings.service', () => ({
 vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));
 vi.mock('@/hooks/useDepartments', () => ({ useDepartments: () => ({ data: [] }) }));
 
+const SUGGESTIONS_LAG_MS = 30;
+// A lagged answer still pending when a test ends is dropped: answered after the file's DOM is
+// gone, its setState threw "window is not defined" (an unhandled rejection in the full suite).
+const lagTimers = vi.hoisted(() => new Set<ReturnType<typeof setTimeout>>());
 const gate = vi.hoisted(() => ({ wait: null as Promise<void> | null }));
 const pending = vi.hoisted(() => ({ list: [] as unknown[] }));
 vi.mock('@/services/learning.service', async (importOriginal) => {
@@ -19,8 +23,17 @@ vi.mock('@/services/learning.service', async (importOriginal) => {
     learningService: {
       acceptSuggestion: () => gate.wait ?? Promise.resolve(),
       declineSuggestion: () => Promise.resolve(),
+      // The suggestions panel mounts only once the templates are in, and asks on its own; on a
+      // busy runner its answer lands a while later. Answered on a later task here, so a test that
+      // reaches for the panel before waiting for it fails every time, not 1 run in many.
       listSuggestions: (domain?: string) =>
-        Promise.resolve((pending.list as Array<{ domain: string }>).filter((item) => !domain || item.domain === domain)),
+        new Promise((resolve) => {
+          const timer = setTimeout(() => {
+            lagTimers.delete(timer);
+            resolve((pending.list as Array<{ domain: string }>).filter((item) => !domain || item.domain === domain));
+          }, SUGGESTIONS_LAG_MS);
+          lagTimers.add(timer);
+        }),
     },
   };
 });
@@ -39,7 +52,11 @@ beforeEach(() => { pending.list = []; templates.list = []; gate.wait = null; });
 const replyStyle = (prompt: string, active: boolean) => ({
   id: 7, name: 'reply_style', description: 'House style', prompt, active, departmentId: null, type: 'system',
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  lagTimers.forEach((timer) => clearTimeout(timer));
+  lagTimers.clear();
+});
 
 describe('AI Prompts › Suggested house style', () => {
   it('a pending house-style suggestion shows its diff and can be accepted or declined', async () => {
@@ -113,7 +130,8 @@ describe('AI Prompts › Suggested house style', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^Advanced/ }));
     fireEvent.click(await screen.findByRole('button', { name: /edit/i }));
     fireEvent.change(screen.getByDisplayValue('Be formal.'), { target: { value: 'Be formal, typed' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Decline' }));
+    // The suggestions load in their own request: wait for the button (the race test 3 also had).
+    fireEvent.click(await screen.findByRole('button', { name: 'Decline' }));
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Decline' })).toBeNull());
     expect(screen.getByDisplayValue('Be formal, typed')).toBeTruthy();
   });
