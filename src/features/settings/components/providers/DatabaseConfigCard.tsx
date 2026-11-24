@@ -422,7 +422,6 @@ export const DatabaseConfigCard = ({
                     id="database-url"
                     label="Connection string *"
                     revealLabel="connection string"
-                    autoComplete="off"
                     value={url}
                     onChange={(event) => {
                       setUrl(event.target.value);

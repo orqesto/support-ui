@@ -267,7 +267,6 @@ export const CustomProviderCard = ({
                 onChange={(event) => setConfig({ ...config, apiKey: event.target.value })}
                 className="font-mono text-xs"
                 placeholder="sk-…"
-                autoComplete="off"
               />
               <p className="mt-1 text-xs text-muted-foreground">
                 Leave empty if the endpoint asks for no key.
