@@ -137,6 +137,26 @@ describe('PricingPage — moving to Free over its limits', () => {
     });
   });
 
+  it('the choice is never on screen before its default is set (a click there acted on nothing)', async () => {
+    // Every state the checkbox is painted in, recorded as the DOM changes — before any effect
+    // that runs after the paint. The default used to be set in such an effect, so the dialog was
+    // first painted with nothing chosen; a test (or a person) clicking in that window toggled the
+    // empty set, and "Switch to Free" stayed off (a loaded runner, 1 in 2 full runs).
+    const seen: boolean[] = [];
+    const observer = new MutationObserver(() => {
+      const box = document.querySelector<HTMLInputElement>('input[type="checkbox"]');
+      if (box) seen.push(box.checked);
+    });
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true });
+    load(overFree);
+    render(<PricingPage />);
+    await chooseFree();
+    await screen.findByRole('heading', { name: 'Choose who stays active on Free' });
+    observer.disconnect();
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen[0]).toBe(true);
+  });
+
   it('a different choice is what gets posted', async () => {
     load(overFree);
     render(<PricingPage />);

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -40,24 +40,36 @@ export const KeepActiveDialog = ({
   onCancel,
 }: KeepActiveDialogProps) => {
   const [keep, setKeep] = useState<KeepChoice>({ memberUserIds: [], sourceIds: [] });
-
-  useEffect(() => {
-    if (open && fit) {
+  /*
+   * Seeded WHILE rendering, when the dialog opens (or its inputs change) — not in an effect. An
+   * effect runs after the paint, so the dialog was first painted with nothing chosen: a click in
+   * that window toggled the empty set and left "Switch to Free" off (a flaky test on a loaded
+   * runner showed it). React re-renders before painting when state is set during render.
+   */
+  const seed = open && fit ? { fit, mode, currentUserId } : null;
+  const [seededFor, setSeededFor] = useState<typeof seed>(null);
+  if (
+    seed?.fit !== seededFor?.fit ||
+    seed?.mode !== seededFor?.mode ||
+    seed?.currentUserId !== seededFor?.currentUserId
+  ) {
+    setSeededFor(seed);
+    if (seed) {
       // Opening on the current active set while managing; on the default choice when switching.
       setKeep(
-        mode === 'manage'
+        seed.mode === 'manage'
           ? {
-              memberUserIds: fit.members
+              memberUserIds: seed.fit.members
                 .filter((member) => member.state === 'active')
                 .map((member) => member.userId),
-              sourceIds: fit.channels
+              sourceIds: seed.fit.channels
                 .filter((channel) => channel.state === 'active')
                 .map((channel) => channel.id),
             }
-          : defaultKeep(fit, currentUserId)
+          : defaultKeep(seed.fit, seed.currentUserId)
       );
     }
-  }, [open, fit, mode, currentUserId]);
+  }
 
   if (!fit) return null;
   const problem = keepProblem(fit, keep);
