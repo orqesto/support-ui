@@ -192,4 +192,68 @@ describe('Gmail connect › which review starts by itself', () => {
     );
     await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
   });
+
+  it('an auto-started source never shows "waiting for review" while the list is re-read', async () => {
+    oauth.connectWithPopup.mockResolvedValue({
+      success: true,
+      data: { id: 70, email: 'box70@shop.example' },
+    });
+    let finishRefresh: () => void = () => undefined;
+    // The connect's own refresh answers at once; the one after the start is held open.
+    const onRefresh = vi.fn(() =>
+      update.mock.calls.length === 0
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => (finishRefresh = resolve))
+    );
+    const { rerender } = render(
+      <GmailIntegrationCard integrations={[]} onRefresh={onRefresh} onShowAlert={vi.fn()} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Add Gmail/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Connect with Google/ }));
+    await waitFor(() => expect(oauth.connectWithPopup).toHaveBeenCalled());
+    rerender(
+      <ThemeProvider>
+        <GmailIntegrationCard integrations={[row(70)] as never} onRefresh={onRefresh} onShowAlert={vi.fn()} />
+      </ThemeProvider>
+    );
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    await settle();
+    expect(onRefresh.mock.calls.length).toBeGreaterThan(0);
+    // Started, the list not read back yet: the row is still the paused one.
+    expect(screen.queryByText(/waiting for review/)).not.toBeInTheDocument();
+    rerender(
+      <ThemeProvider>
+        <GmailIntegrationCard integrations={[row(70, true)] as never} onRefresh={onRefresh} onShowAlert={vi.fn()} />
+      </ThemeProvider>
+    );
+    finishRefresh();
+    await settle();
+    expect(screen.queryByText(/waiting for review/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Not syncing')).not.toBeInTheDocument();
+  });
+
+  it('CONTROL — a paused new source closed with "Keep paused" shows "waiting for review"', async () => {
+    countGmailMessages.mockResolvedValue({ count: 9000, capped: false, query: 'q' });
+    oauth.connectWithPopup.mockResolvedValue({
+      success: true,
+      data: { id: 70, email: 'box70@shop.example' },
+    });
+    const { rerender } = render(
+      <GmailIntegrationCard integrations={[]} onRefresh={() => Promise.resolve()} onShowAlert={vi.fn()} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Add Gmail/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Connect with Google/ }));
+    await waitFor(() => expect(oauth.connectWithPopup).toHaveBeenCalled());
+    rerender(
+      <ThemeProvider>
+        <GmailIntegrationCard integrations={[row(70)] as never} onRefresh={() => Promise.resolve()} onShowAlert={vi.fn()} />
+      </ThemeProvider>
+    );
+    expect(await screen.findByText(/Found 9,000 messages/)).toBeInTheDocument();
+    await settle();
+    expect(update).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep paused' }));
+    expect(await screen.findByText(/Not syncing — waiting for review/)).toBeInTheDocument();
+    expect(screen.getByText('Not syncing')).toBeInTheDocument();
+  });
 });
