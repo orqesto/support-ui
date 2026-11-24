@@ -224,7 +224,7 @@ export function MessageComposer({
     : '';
 
   const { templateError, insertTemplate } = useComposerTemplates({
-    message,
+    sessionKey: message.id,
     selectedFiles,
     setComposer,
     richEditorRef,

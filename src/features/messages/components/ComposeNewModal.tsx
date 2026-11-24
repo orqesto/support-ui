@@ -25,6 +25,8 @@ import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff } from '@/features/settings/shell';
 import { ComposeNewAiDraft, type ComposeAiNote } from './ComposeNewAiDraft';
 import { COMPOSER_SEND, COMPOSER_TOOL, SEND_SHORTCUT } from './messageDetailConstants';
+import { TemplatePicker } from '@/components/shared/TemplatePicker';
+import { useComposerTemplates } from './composer/useComposerTemplates';
 
 // The addressing rows' names, as in a mail client: small, muted, one column wide.
 const ROW_LABEL = 'w-14 shrink-0 text-xs text-muted-foreground';
@@ -82,8 +84,23 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
   // Already only enabled email sources the agent may send from (see the loader below).
   const emailSources = sources;
 
+  /*
+    Which compose this is: a new one on every open and close, and on a discarded or sent-elsewhere
+    draft. A template's files that finish downloading after it changed are not attached — they
+    would go out with a different message (owner 2026-11-24: Templates in Compose new).
+  */
+  const [composeSession, setComposeSession] = useState(0);
+  const { templateError, insertTemplate } = useComposerTemplates({
+    sessionKey: composeSession,
+    selectedFiles: files,
+    setComposer: setContent,
+    richEditorRef: editorRef,
+    onFilesChange: setFiles,
+  });
+
   // Reset form whenever the modal opens. Avoids stale state on second open.
   useEffect(() => {
+    setComposeSession((prev) => prev + 1);
     if (!open) return;
     setTo('');
     setCc('');
@@ -137,6 +154,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
     },
   });
   function clearFields() {
+    setComposeSession((prev) => prev + 1);
     restoredSourceRef.current = null;
     setTo('');
     setCc('');
@@ -416,6 +434,13 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
                 <Paperclip className="w-3 h-3" />
                 Attach
               </Button>
+              {/* The thread box's templates: Compose new starts a thread. */}
+              <TemplatePicker
+                use="thread"
+                onPick={(template) => void insertTemplate(template)}
+                disabled={submitting || aiBusy}
+                triggerClassName={`${COMPOSER_TOOL} h-auto`}
+              />
               <ComposeNewAiDraft
                 content={content}
                 setContent={setContent}
@@ -466,6 +491,12 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
           >
             {aiNote?.text}
           </p>
+
+          {templateError && (
+            <p role="alert" className="text-xs text-destructive">
+              {templateError}
+            </p>
+          )}
 
           {files.length > 0 && (
             <ul className="space-y-1">

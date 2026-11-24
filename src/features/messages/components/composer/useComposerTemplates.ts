@@ -4,16 +4,22 @@ import type { RichTextEditorHandle } from '@/components/shared/RichTextEditor';
 import { isBlankRichText } from '@/lib/stripHtml';
 import { logger } from '@/lib/logger';
 import { replyTemplatesService, type ReplyTemplate } from '@/services/replyTemplates.service';
-import type { Message } from '@/types';
 
+/**
+ * Reply templates in a composer: the thread's reply box and Compose new message.
+ *
+ * `sessionKey` names what the open draft belongs to — the thread's message id in a reply box, the
+ * open compose session in Compose new (which has no message yet). A template's files that arrive
+ * after it changed are dropped.
+ */
 export function useComposerTemplates({
-  message,
+  sessionKey,
   selectedFiles,
   setComposer,
   richEditorRef,
   onFilesChange,
 }: {
-  message: Message;
+  sessionKey: string | number;
   selectedFiles: File[];
   setComposer: React.Dispatch<React.SetStateAction<string>>;
   richEditorRef: RefObject<RichTextEditorHandle>;
@@ -23,27 +29,28 @@ export function useComposerTemplates({
     Reply templates (2026-10-09): the body goes into the editor — in place of a blank draft, after
     the agent's own words otherwise — and the template's files are attached. Placeholders stay as
     tokens (filled at send); AI draft on a template adapts it (polish), which fills them first.
-    ⛔ The files download after the text lands: if the agent has moved to another conversation by
-    then, they are NOT attached — they would go to a different customer.
+    ⛔ The files download after the text lands: if the agent has moved to another conversation (or
+    closed / discarded the new message) by then, they are NOT attached — they would go to a
+    different customer.
   */
   const [templateError, setTemplateError] = useState<string | null>(null);
   const filesRef = useRef(selectedFiles);
   filesRef.current = selectedFiles;
-  const messageIdRef = useRef(message.id);
-  messageIdRef.current = message.id;
-  useEffect(() => setTemplateError(null), [message.id]);
+  const sessionRef = useRef(sessionKey);
+  sessionRef.current = sessionKey;
+  useEffect(() => setTemplateError(null), [sessionKey]);
   const insertTemplate = async (template: ReplyTemplate) => {
     setTemplateError(null);
     setComposer((prev) => (isBlankRichText(prev) ? template.body : `${prev}${template.body}`));
     setTimeout(() => richEditorRef.current?.focus(), 0);
     if (template.attachments.length === 0) return;
-    const startedOn = message.id;
+    const startedOn = sessionKey;
     const results = await Promise.allSettled(
       template.attachments.map((file) =>
         replyTemplatesService.downloadAttachment(template.id, file)
       )
     );
-    if (messageIdRef.current !== startedOn) return;
+    if (sessionRef.current !== startedOn) return;
     const files = results
       .filter((row): row is PromiseFulfilledResult<File> => row.status === 'fulfilled')
       .map((row) => row.value);

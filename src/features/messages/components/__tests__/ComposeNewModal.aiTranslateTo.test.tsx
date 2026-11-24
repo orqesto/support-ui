@@ -23,6 +23,14 @@ vi.mock('@/services/message.service', () => ({
     getComposeSources: svc.getComposeSources,
   },
 }));
+// The Templates menu reads the box's templates: none here (no request leaves the test).
+vi.mock('@/services/replyTemplates.service', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  replyTemplatesService: {
+    list: vi.fn().mockResolvedValue({ unavailable: false, templates: [] }),
+    downloadAttachment: vi.fn(),
+  },
+}));
 vi.mock('@/services/integrations.service', () => ({
   integrationsService: { getAll: svc.getAll },
 }));
