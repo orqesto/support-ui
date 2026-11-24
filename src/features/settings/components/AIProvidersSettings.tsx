@@ -214,7 +214,7 @@ export const AIProvidersSettings = ({
     name: string,
     type: AIProvider,
     config: Record<string, string | number | boolean>
-  ) => {
+  ): Promise<boolean> => {
     setSaving(type);
     try {
       const response = await integrationsService.upsert({
@@ -233,7 +233,9 @@ export const AIProvidersSettings = ({
           description: `${name} integration saved successfully!`,
           variant: 'success',
         });
+        return true;
       }
+      return false;
     } catch (error) {
       logger.error(`Failed to save ${name} integration:`, error);
       setAlertDialog({
@@ -244,6 +246,8 @@ export const AIProvidersSettings = ({
         description: getApiErrorMessage(error) ?? `Failed to save ${name} integration`,
         variant: 'error',
       });
+      // The card keeps its form open with what was typed: the admin corrects it and saves again.
+      return false;
     } finally {
       setSaving(null);
     }

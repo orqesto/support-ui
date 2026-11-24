@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Upload,
   FileText,
@@ -78,7 +79,19 @@ export const DocumentationUploadForm = ({
   const { data: departments = [], teamsEnabled: teamsMode } = useDepartments();
   // Teams off: no team scope; documentation is shared with the whole workspace.
   const teamsEnabled = deriveTeamsEnabled(teamsMode, departments);
-  const isOrgWide = selectedDeptIds.length === 0;
+  // "Shared with all teams" is the admin's choice, not "no team ticked yet": with the scope read
+  // off the selection alone, unticking it had nowhere to go (the list of teams only showed once a
+  // team was selected) and a document could never be given to one team from this form.
+  const [choosingTeams, setChoosingTeams] = useState(false);
+  const isOrgWide = !choosingTeams && selectedDeptIds.length === 0;
+  const toggleOrgWide = () => {
+    if (isOrgWide) {
+      setChoosingTeams(true);
+      return;
+    }
+    setChoosingTeams(false);
+    onSelectedDeptIdsChange([]);
+  };
   const toggleDept = (id: number) => {
     if (selectedDeptIds.includes(id)) {
       onSelectedDeptIdsChange(selectedDeptIds.filter((deptId) => deptId !== id));
@@ -272,7 +285,7 @@ export const DocumentationUploadForm = ({
               <input
                 type="checkbox"
                 checked={isOrgWide}
-                onChange={() => onSelectedDeptIdsChange([])}
+                onChange={toggleOrgWide}
                 className="w-4 h-4"
               />
               <Globe className="w-4 h-4" />

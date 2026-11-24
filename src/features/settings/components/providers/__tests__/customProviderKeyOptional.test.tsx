@@ -1,8 +1,8 @@
 /**
- * The custom (OpenAI-compatible) provider form called its API key optional, "for unauthenticated
- * endpoints". No AI client is built for a custom provider without a key, so such a provider was
- * saved, looked configured, and answered nothing; the backend now refuses the save. The form asks
- * for the key. Invented data.
+ * The custom (OpenAI-compatible) provider form and its API key. An endpoint that asks for no key
+ * is saved without one: the backend builds a client for a custom provider that names its base
+ * URL. (For a while the form required the key, because no client was built without one.)
+ * Invented data.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -44,28 +44,37 @@ const refused = (button: HTMLElement) =>
   (button as HTMLButtonElement).disabled || button.getAttribute('aria-disabled') === 'true';
 
 describe('Custom AI provider form', () => {
-  it('does not offer Save without an API key, and no longer calls the key optional', () => {
-    const onSave = renderCard();
+  const fillAllButKey = () => {
     fireEvent.click(screen.getByRole('button', { name: /Add Endpoint/ }));
     fill('custom-name', 'Our gateway');
     fill('custom-baseurl', 'https://llm.example.com/v1');
     fill('custom-model', 'example-model');
-    expect(refused(save())).toBe(true);
+  };
+
+  it('saves without an API key, and says the key may be left empty', () => {
+    const onSave = renderCard();
+    fillAllButKey();
+    expect(screen.getByText('Leave empty if the endpoint asks for no key.')).toBeInTheDocument();
+    expect(refused(save())).toBe(false);
     fireEvent.click(save());
-    expect(screen.queryByText(/optional/i)).toBeNull();
-    expect(screen.queryByPlaceholderText(/unauthenticated/i)).toBeNull();
-    fill('custom-apikey', '   ');
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ baseUrl: 'https://llm.example.com/v1', apiKey: '' })
+    );
+  });
+
+  it('CONTROL: without a base URL Save is not offered, key or no key', () => {
+    const onSave = renderCard();
+    fillAllButKey();
+    fill('custom-baseurl', '   ');
+    fill('custom-apikey', 'sk-example');
     expect(refused(save())).toBe(true);
     fireEvent.click(save());
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it('CONTROL: with a key it saves what was typed', () => {
+  it('with a key it saves what was typed', () => {
     const onSave = renderCard();
-    fireEvent.click(screen.getByRole('button', { name: /Add Endpoint/ }));
-    fill('custom-name', 'Our gateway');
-    fill('custom-baseurl', 'https://llm.example.com/v1');
-    fill('custom-model', 'example-model');
+    fillAllButKey();
     fill('custom-apikey', 'sk-example');
     fireEvent.click(save());
     expect(onSave).toHaveBeenCalledWith(

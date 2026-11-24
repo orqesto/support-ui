@@ -100,6 +100,40 @@ describe('AI providers: a save the backend refuses', () => {
   });
 });
 
+describe('AI providers: the form after a save', () => {
+  it('a refused save keeps the form open with what was typed', async () => {
+    api.upsert.mockRejectedValue(refusal('The base URL points to a private or reserved address.'));
+    renderPage();
+    await saveOpenAi();
+    await screen.findByText('The base URL points to a private or reserved address.');
+    await waitFor(() => expect(screen.getByRole('button', { name: /Save OpenAI/ })).not.toBeInactive());
+    expect(screen.getByPlaceholderText('sk-...')).toHaveValue('sk-test-key');
+  });
+
+  it('a server failure keeps it too; the corrected form is sent again', async () => {
+    api.upsert.mockRejectedValueOnce(serverFailure());
+    api.upsert.mockResolvedValueOnce({ success: true });
+    renderPage();
+    await saveOpenAi();
+    await screen.findByText('Failed to save OpenAI integration');
+    await waitFor(() => expect(screen.getByRole('button', { name: /Save OpenAI/ })).not.toBeInactive());
+    fireEvent.click(screen.getByRole('button', { name: /Save OpenAI/ }));
+    await waitFor(() => expect(api.upsert).toHaveBeenCalledTimes(2));
+    expect(api.upsert.mock.calls[1]?.[0]).toMatchObject({
+      type: 'openai',
+      config: { apiKey: 'sk-test-key' },
+    });
+  });
+
+  it('CONTROL: a save that went through closes the form', async () => {
+    api.upsert.mockResolvedValue({ success: true });
+    renderPage();
+    await saveOpenAi();
+    await screen.findByText('OpenAI integration saved successfully!');
+    await waitFor(() => expect(screen.queryByPlaceholderText('sk-...')).toBeNull());
+  });
+});
+
 describe('AI providers: switching on a provider the backend refuses', () => {
   beforeEach(() => {
     api.rows = [

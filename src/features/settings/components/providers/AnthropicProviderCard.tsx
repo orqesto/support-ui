@@ -21,7 +21,8 @@ type AnthropicProviderCardProps = {
   onTest: (id: number, name: string, type: string) => void;
   onDelete: (id: number, name: string, type: string) => void;
   onToggleEnabled: (id: number, currentEnabled: boolean, name: string, type: string) => void;
-  onSave: (config: AnthropicConfig) => void;
+  /** Resolves true once the save went through; the form stays open, as typed, when it did not. */
+  onSave: (config: AnthropicConfig) => Promise<boolean>;
   onCancel: () => void;
 };
 
@@ -71,7 +72,7 @@ export const AnthropicProviderCard = ({
     onCancel();
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // A masked key (the bullets the backend returns in place of the stored secret) is sent
     // AS IS: the backend puts the stored secret back for it (`restoreMaskedSecrets`). It used
     // to be blanked and the save skipped, so an edit that only changed the model did nothing
@@ -80,8 +81,7 @@ export const AnthropicProviderCard = ({
       return;
     }
 
-    onSave({ ...config });
-    handleReset();
+    if (await onSave({ ...config })) handleReset();
   };
 
   return (
