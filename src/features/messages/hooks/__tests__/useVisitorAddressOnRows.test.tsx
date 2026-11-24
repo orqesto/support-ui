@@ -3,10 +3,13 @@
  * list row, fed by the real list data hook — shows the address without a reload. The backend
  * announces it as `conversation:new`, which on the list's first page reads no row by itself.
  *
- * Fake timers: the refresh window is advanced exactly instead of slept through, so a slow runner
- * cannot make it flaky. `shouldAdvanceTime` keeps `waitFor`'s own timeout working. `show()` lets
- * pending effects run before it returns: an event fired before the hook has seen the rows is
- * ignored, which is the race a slow runner hit.
+ * Fake timers: the refresh window is advanced exactly instead of slept through. They go on only
+ * AFTER the list is shown, and WITHOUT `shouldAdvanceTime`: with it the fake clock also follows
+ * real time, so a runner stalled for a few tens of ms (GC, a busy CI box) between the event and
+ * "one millisecond short" moved the clock past the window and the read had already happened —
+ * the ~1-in-3 failure, reproduced by holding the thread 30 ms there. The list is shown, and the
+ * address awaited, on real timers so `waitFor` keeps working. `show()` lets pending effects run
+ * before it returns: an event fired before the hook has seen the rows is ignored.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
@@ -103,11 +106,14 @@ const show = async () => {
   );
   await waitFor(() => expect(screen.getAllByText(LABEL).length).toBeGreaterThan(0));
   // The hook learns the rows in an effect after the paint: let it run before any event comes.
-  await pass(0);
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  // From here the clock moves only when the test moves it.
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 };
 
 beforeEach(() => {
-  vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.clearAllMocks();
   getById.mockResolvedValue({ success: true, data: { id: 7, sender: 'ada@example.com' } });
 });
@@ -123,6 +129,8 @@ describe('the list row of a website visitor who leaves an email later', () => {
     await pass(VISITOR_ADDRESS_ROW_REFRESH_MS - 1);
     expect(getById).not.toHaveBeenCalled();
     await pass(1);
+    expect(getById).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
     await waitFor(() => expect(screen.getAllByText('ada@example.com').length).toBeGreaterThan(0));
     expect(screen.queryByText(LABEL)).toBeNull();
     expect(document.body.innerHTML).not.toContain('chat-widget.local');
