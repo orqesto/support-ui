@@ -83,7 +83,9 @@ describe('AI Prompts › Suggested house style', () => {
 
     // The server now holds the accepted style, switched on.
     templates.list = [replyStyle('Be warm and brief.', true)];
-    fireEvent.click(screen.getByRole('button', { name: 'Accept this suggestion' }));
+    // The suggestions load in their own request: wait for the button, do not assume it is there
+    // once the templates are (a race that failed on a loaded CI runner, 2026-11-24).
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept this suggestion' }));
 
     await waitFor(() => expect(screen.getByText('Active')).toBeTruthy());
     expect(screen.queryByDisplayValue('Be formal.')).toBeNull();
@@ -97,7 +99,7 @@ describe('AI Prompts › Suggested house style', () => {
     render(<PromptsSettings />);
     fireEvent.click(await screen.findByRole('button', { name: /edit/i }));
     fireEvent.change(screen.getByDisplayValue('Spam?'), { target: { value: 'Spam? typed' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Accept this suggestion' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept this suggestion' }));
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Accept this suggestion' })).toBeNull());
     expect(screen.getByDisplayValue('Spam? typed')).toBeTruthy();
   });

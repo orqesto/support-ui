@@ -201,6 +201,7 @@ describe("every review reason of the backend's contract has words", () => {
     unsupported_by_sources: true,
     not_from_knowledge: true,
     spam_verdict: true,
+    source_other_team: true,
   };
 
   it.each(Object.keys(CONTRACT_CODES))('%s', (code) => {
