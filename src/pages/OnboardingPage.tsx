@@ -17,11 +17,18 @@ export const OnboardingPage = () => {
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const status = useOnboardingStore((state) => state.status);
   const fetchOnce = useOnboardingStore((state) => state.fetchOnce);
+  const wizardLeaving = useOnboardingStore((state) => state.wizardLeaving);
+  const resetWizardLeaving = useOnboardingStore((state) => state.resetWizardLeaving);
   const gated = useSubscriptionGateStore((state) => state.gated);
 
   useEffect(() => {
     fetchOnce(selectedOrganizationId);
   }, [fetchOnce, selectedOrganizationId]);
+
+  // A new visit: an earlier Finish no longer explains a complete status.
+  useEffect(() => {
+    resetWizardLeaving();
+  }, [resetWizardLeaving]);
 
   useEffect(() => {
     if (!user?.role) return; // profile still restoring — don't bounce on unknown role
@@ -38,18 +45,16 @@ export const OnboardingPage = () => {
     // either way. Bounce instead.
     if (
       (!isOrgAdmin && !isGlobalAdmin) ||
-      status === 'complete' ||
+      // A completion the wizard made itself is not bounced: the wizard opens the inbox, and the
+      // router's navigation is a transition that can land after this effect. Setup finished
+      // elsewhere (another tab) still goes to the dashboard.
+      (status === 'complete' && !wizardLeaving) ||
       gated ||
       (isGlobalAdmin && !selectedOrganizationId)
     ) {
-      // One tick later: Finish marks the workspace complete and then opens the inbox itself,
-      // which unmounts this page and cancels the bounce. Without the wizard leaving (setup
-      // finished in another tab), the bounce still happens.
-      const bounce = setTimeout(() => navigate('/dashboard', { replace: true }), 0);
-      return () => clearTimeout(bounce);
+      navigate('/dashboard', { replace: true });
     }
-    return undefined;
-  }, [user, status, gated, navigate, selectedOrganizationId]);
+  }, [user, status, wizardLeaving, gated, navigate, selectedOrganizationId]);
 
   // Blocked-popup Gmail OAuth does a full-page redirect; this flag tells
   // OAuthCallbackPage to return to /onboarding instead of the settings page.

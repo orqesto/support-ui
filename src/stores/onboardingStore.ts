@@ -26,7 +26,14 @@ type OnboardingStoreState = {
   fetchedForOrg: number | null;
   fetchOnce: (organizationId: number | null) => void;
   refresh: () => Promise<void>;
+  /** The wizard finished (or reconciled) and is navigating away itself. */
   markComplete: () => void;
+  /**
+   * True from markComplete until the wizard page mounts again: OnboardingPage must not send a
+   * completion the wizard made itself to the dashboard, or it overrides the wizard's own exit.
+   */
+  wizardLeaving: boolean;
+  resetWizardLeaving: () => void;
   /** The Database card just connected / re-verified: reflect its response without a refetch. */
   setDatabaseCurrent: (current: DatabaseDisplay) => void;
 };
@@ -42,6 +49,7 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
   managedAiAvailable: false,
   database: null,
   fetchedForOrg: null,
+  wizardLeaving: false,
 
   fetchOnce: (organizationId: number | null) => {
     if (organizationId === null) return;
@@ -107,7 +115,9 @@ export const useOnboardingStore = create<OnboardingStoreState>((set, get) => ({
     }
   },
 
-  markComplete: () => set({ status: 'complete' }),
+  markComplete: () => set({ status: 'complete', wizardLeaving: true }),
+
+  resetWizardLeaving: () => set({ wizardLeaving: false }),
 
   setDatabaseCurrent: (current) =>
     set((state) => ({ database: { managedAllowed: state.database?.managedAllowed ?? true, current } })),
