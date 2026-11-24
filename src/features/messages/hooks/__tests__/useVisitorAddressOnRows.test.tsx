@@ -2,6 +2,11 @@
  * A website visitor with no email leaves one while the Threads list is open: the row — the real
  * list row, fed by the real list data hook — shows the address without a reload. The backend
  * announces it as `conversation:new`, which on the list's first page reads no row by itself.
+ *
+ * Fake timers: the refresh window is advanced exactly instead of slept through, so a slow runner
+ * cannot make it flaky. `shouldAdvanceTime` keeps `waitFor`'s own timeout working. `show()` lets
+ * pending effects run before it returns: an event fired before the hook has seen the rows is
+ * ignored, which is the race a slow runner hit.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
@@ -82,7 +87,7 @@ const fire = (data: unknown) => {
 };
 const pass = (ms: number) =>
   act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, ms));
+    await vi.advanceTimersByTimeAsync(ms);
   });
 
 const show = async () => {
@@ -97,19 +102,27 @@ const show = async () => {
     </MemoryRouter>
   );
   await waitFor(() => expect(screen.getAllByText(LABEL).length).toBeGreaterThan(0));
+  // The hook learns the rows in an effect after the paint: let it run before any event comes.
+  await pass(0);
 };
 
 beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
   vi.clearAllMocks();
   getById.mockResolvedValue({ success: true, data: { id: 7, sender: 'ada@example.com' } });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe('the list row of a website visitor who leaves an email later', () => {
   it('shows the address once it is announced, without the list being read again', async () => {
     await show();
     expect(fire({ conversationId: 7 })).toBeGreaterThan(0);
-    await pass(VISITOR_ADDRESS_ROW_REFRESH_MS + 50);
+    await pass(VISITOR_ADDRESS_ROW_REFRESH_MS - 1);
+    expect(getById).not.toHaveBeenCalled();
+    await pass(1);
     await waitFor(() => expect(screen.getAllByText('ada@example.com').length).toBeGreaterThan(0));
     expect(screen.queryByText(LABEL)).toBeNull();
     expect(document.body.innerHTML).not.toContain('chat-widget.local');
@@ -122,7 +135,7 @@ describe('the list row of a website visitor who leaves an email later', () => {
     await show();
     fire({ conversationId: 7 });
     fire({ conversationId: 7 });
-    await pass(VISITOR_ADDRESS_ROW_REFRESH_MS + 50);
+    await pass(VISITOR_ADDRESS_ROW_REFRESH_MS);
     expect(getById).toHaveBeenCalledTimes(1);
   });
 
@@ -130,7 +143,7 @@ describe('the list row of a website visitor who leaves an email later', () => {
     getById.mockResolvedValue({ success: true, data: { id: 7, sender: PLACEHOLDER } });
     await show();
     fire({ conversationId: 7 });
-    await pass(VISITOR_ADDRESS_ROW_REFRESH_MS + 50);
+    await pass(VISITOR_ADDRESS_ROW_REFRESH_MS);
     expect(getById).toHaveBeenCalledTimes(1);
     expect(screen.getAllByText(LABEL).length).toBeGreaterThan(0);
   });
@@ -140,7 +153,7 @@ describe('the list row of a website visitor who leaves an email later', () => {
     fire({ conversationId: 8 });
     fire({ conversationId: 99 });
     fire({});
-    await pass(VISITOR_ADDRESS_ROW_REFRESH_MS + 50);
+    await pass(VISITOR_ADDRESS_ROW_REFRESH_MS);
     expect(getById).not.toHaveBeenCalled();
     expect(screen.getAllByText(LABEL).length).toBeGreaterThan(0);
   });
