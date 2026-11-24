@@ -11,6 +11,9 @@ vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));
 vi.mock('@/hooks/useDepartments', () => ({ useDepartments: () => ({ data: [] }) }));
 
 const SUGGESTIONS_LAG_MS = 30;
+// A lagged answer still pending when a test ends is dropped: answered after the file's DOM is
+// gone, its setState threw "window is not defined" (an unhandled rejection in the full suite).
+const lagTimers = vi.hoisted(() => new Set<ReturnType<typeof setTimeout>>());
 const gate = vi.hoisted(() => ({ wait: null as Promise<void> | null }));
 const pending = vi.hoisted(() => ({ list: [] as unknown[] }));
 vi.mock('@/services/learning.service', async (importOriginal) => {
@@ -25,10 +28,11 @@ vi.mock('@/services/learning.service', async (importOriginal) => {
       // reaches for the panel before waiting for it fails every time, not 1 run in many.
       listSuggestions: (domain?: string) =>
         new Promise((resolve) => {
-          setTimeout(
-            () => resolve((pending.list as Array<{ domain: string }>).filter((item) => !domain || item.domain === domain)),
-            SUGGESTIONS_LAG_MS
-          );
+          const timer = setTimeout(() => {
+            lagTimers.delete(timer);
+            resolve((pending.list as Array<{ domain: string }>).filter((item) => !domain || item.domain === domain));
+          }, SUGGESTIONS_LAG_MS);
+          lagTimers.add(timer);
         }),
     },
   };
@@ -48,7 +52,11 @@ beforeEach(() => { pending.list = []; templates.list = []; gate.wait = null; });
 const replyStyle = (prompt: string, active: boolean) => ({
   id: 7, name: 'reply_style', description: 'House style', prompt, active, departmentId: null, type: 'system',
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  lagTimers.forEach((timer) => clearTimeout(timer));
+  lagTimers.clear();
+});
 
 describe('AI Prompts › Suggested house style', () => {
   it('a pending house-style suggestion shows its diff and can be accepted or declined', async () => {
