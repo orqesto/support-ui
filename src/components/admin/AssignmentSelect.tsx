@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Select } from '@/components/ui/Select';
-import { assignmentService, type AssignableUser } from '@/services/assignment.service';
+import {
+  assignmentService,
+  MENTORS_SECTION,
+  type AssignableUser,
+} from '@/services/assignment.service';
 import { logger } from '@/lib/logger';
 import { userFullName } from '@/lib/userName';
 
@@ -136,6 +140,8 @@ export const AssignmentSelect = ({
         value: String(user.id),
         label: ineligible ? `${base} — not in this team` : base,
         isDisabled: ineligible,
+        // Mentors (1.1.330) are never routed to but stay pickable, in their own section.
+        group: user.isMentor ? MENTORS_SECTION : undefined,
       };
     }),
   ];

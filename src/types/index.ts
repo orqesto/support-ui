@@ -75,6 +75,11 @@ export type User = {
    * says why, instead of offering an edit that silently does nothing.
    */
   provisionedDepartmentIds?: number[];
+  /**
+   * A mentor in this workspace (1.1.330): pickable by hand, never routed to. The service fills
+   * false when an older backend leaves it out.
+   */
+  isMentor?: boolean;
   permissionOverrides?: PermissionOverrides; // Wave 5 B per-user overrides on top of org role
   organizationId?: number; // Current organization ID
   organizationSlug?: string; // Slug of the current organization (present in login response)

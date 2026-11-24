@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Plus, UserMinus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Tooltip } from '@/components/ui/Tooltip';
@@ -6,10 +7,32 @@ import type { Ticket } from '@/types';
 import { Avatar } from './ticketRowBits';
 import { TicketRef, useTicketDisplayId } from '@/features/tickets/components/TicketRef';
 
+type Assignee = AssigneeCellProps['assignees'][number];
+
+/** Working agents first, then a "Mentors" section; each side keeps the server's order. */
+const AssigneeItems = ({
+  assignees,
+  renderItem,
+}: {
+  assignees: Assignee[];
+  renderItem: (user: Assignee) => ReactNode;
+}) => {
+  const working = assignees.filter((user) => !user.isMentor);
+  const mentors = assignees.filter((user) => user.isMentor);
+  return (
+    <>
+      {working.map(renderItem)}
+      {mentors.length > 0 && <MenuLabel>Mentors</MenuLabel>}
+      {mentors.map(renderItem)}
+    </>
+  );
+};
+
 export type AssigneeCellProps = {
   ticket: Ticket;
   canManage: boolean;
-  assignees: Array<{ id: number; name: string; photoKey?: string | null }>;
+  /** `isMentor` (1.1.330): listed after the working agents, under "Mentors" — still pickable. */
+  assignees: Array<{ id: number; name: string; photoKey?: string | null; isMentor?: boolean }>;
   currentUserId: number | null;
   onAssign: (ticketId: number, userId: number | null) => void;
   /** Avatar only — the narrow layouts. */
@@ -86,16 +109,19 @@ export const AssigneeCell = ({
           <MenuLabel>
             Assign <TicketRef ticket={ticket} /> to
           </MenuLabel>
-          {assignees.map((user) => (
-            <MenuItem
-              key={user.id}
-              checked={false}
-              icon={<Avatar id={user.id} name={user.name} photoKey={user.photoKey} />}
-              onSelect={() => onAssign(ticket.id, user.id)}
-            >
-              {user.name}
-            </MenuItem>
-          ))}
+          <AssigneeItems
+            assignees={assignees}
+            renderItem={(user) => (
+              <MenuItem
+                key={user.id}
+                checked={false}
+                icon={<Avatar id={user.id} name={user.name} photoKey={user.photoKey} />}
+                onSelect={() => onAssign(ticket.id, user.id)}
+              >
+                {user.name}
+              </MenuItem>
+            )}
+          />
           {assignees.length === 0 && (
             <MenuNote>Nobody in this workspace can own tickets yet.</MenuNote>
           )}
@@ -158,19 +184,22 @@ export const AssigneeCell = ({
         <MenuLabel>
           Assign <TicketRef ticket={ticket} /> to
         </MenuLabel>
-        {assignees.map((user) => (
-          <MenuItem
-            key={user.id}
-            checked={user.id === assigneeId}
-            icon={<Avatar id={user.id} name={user.name} photoKey={user.photoKey} />}
-            onSelect={() => {
-              if (user.id !== assigneeId) onAssign(ticket.id, user.id);
-            }}
-          >
-            {user.name}
-            {user.id === currentUserId && <span className="text-muted-foreground"> (you)</span>}
-          </MenuItem>
-        ))}
+        <AssigneeItems
+          assignees={assignees}
+          renderItem={(user) => (
+            <MenuItem
+              key={user.id}
+              checked={user.id === assigneeId}
+              icon={<Avatar id={user.id} name={user.name} photoKey={user.photoKey} />}
+              onSelect={() => {
+                if (user.id !== assigneeId) onAssign(ticket.id, user.id);
+              }}
+            >
+              {user.name}
+              {user.id === currentUserId && <span className="text-muted-foreground"> (you)</span>}
+            </MenuItem>
+          )}
+        />
         <MenuSeparator />
         <MenuItem
           icon={<UserMinus className="w-3.5 h-3.5" />}

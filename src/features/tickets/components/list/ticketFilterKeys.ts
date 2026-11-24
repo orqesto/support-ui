@@ -35,7 +35,8 @@ export type TicketFilterKey = {
 };
 
 export type TicketFilterSources = {
-  assignees: Array<{ id: number; name: string; photoKey?: string | null }>;
+  /** `isMentor` (1.1.330): the assign menus list mentors in their own section. */
+  assignees: Array<{ id: number; name: string; photoKey?: string | null; isMentor?: boolean }>;
   categories: Array<{ id: number; name: string }>;
   labels: Array<{ id: number; name: string; color: string }>;
   /** The Jira filter only exists where a Jira integration does. */

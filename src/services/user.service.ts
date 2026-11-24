@@ -63,7 +63,11 @@ export const userService = {
       `/api/users?${params.toString()}`
     );
     return {
-      data: response.data.data?.users ?? [],
+      // `isMentor` (1.1.330): false when an older backend leaves it out.
+      data: (response.data.data?.users ?? []).map((user) => ({
+        ...user,
+        isMentor: user.isMentor === true,
+      })),
       pagination: response.data.data?.pagination ?? {
         page,
         limit,
@@ -179,6 +183,33 @@ export const userService = {
 
   setCanEditSkills: async (userId: number, canEditSkills: boolean): Promise<void> => {
     await apiClient.patch(`/api/users/${userId}/can-edit-skills`, { canEditSkills });
+  },
+
+  /** A mentor in this workspace? (`GET /api/users/:id/mentor`; rejects on an older backend.) */
+  getMentor: async (userId: number): Promise<boolean> => {
+    const response: AxiosResponse<ApiResponse<{ isMentor?: boolean }>> = await apiClient.get(
+      `/api/users/${userId}/mentor`
+    );
+    return response.data.data?.isMentor === true;
+  },
+
+  /**
+   * Mark or unmark a member as a mentor in this workspace. Answers the mark as stored and how many
+   * open tickets they still own (marking never unassigns — an admin reassigns by hand).
+   */
+  setMentor: async (
+    userId: number,
+    isMentor: boolean
+  ): Promise<{ isMentor: boolean; openAssigned: number }> => {
+    const response: AxiosResponse<
+      ApiResponse<{ isMentor?: boolean; openAssigned?: number }>
+    > = await apiClient.patch(`/api/users/${userId}/mentor`, { isMentor });
+    const data = response.data.data;
+    const open = Number(data?.openAssigned);
+    return {
+      isMentor: typeof data?.isMentor === 'boolean' ? data.isMentor : isMentor,
+      openAssigned: Number.isFinite(open) && open > 0 ? Math.floor(open) : 0,
+    };
   },
 
   // Self-access skill routes — no elevated permission required

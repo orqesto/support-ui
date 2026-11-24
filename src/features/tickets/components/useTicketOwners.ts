@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
-import { assignmentService } from '@/services/assignment.service';
+import { assignmentService, MENTORS_SECTION } from '@/services/assignment.service';
 
-export type OwnerOption = { value: string; label: string };
+/** `group`: the "Mentors" section for a mentor (1.1.330) — pickable, listed after the agents. */
+export type OwnerOption = { value: string; label: string; group?: string };
 
 /** How long Create waits for the owner list before going ahead unassigned. */
 export const OWNERS_WAIT_MS = 10_000;
@@ -46,6 +47,7 @@ export const useTicketOwners = (departmentId: string | null) => {
           .map((row) => ({
             value: String(row.id),
             label: `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim() || row.email,
+            ...(row.isMentor ? { group: MENTORS_SECTION } : {}),
           }));
         setList({ departmentId, options });
       })

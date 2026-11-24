@@ -372,10 +372,14 @@ export const organizationService = {
   },
 
   getMembers: async () => {
-    const response = await apiClient.get<ApiResponse<OrganizationMember[]>>(
-      '/api/organizations/members'
-    );
-    return response.data.data ?? [];
+    const response = await apiClient.get<
+      ApiResponse<Array<OrganizationMember & { isMentor?: boolean }>>
+    >('/api/organizations/members');
+    // `isMentor` (1.1.330): false when an older backend leaves it out.
+    return (response.data.data ?? []).map((member) => ({
+      ...member,
+      isMentor: member.isMentor === true,
+    }));
   },
 
   /**
