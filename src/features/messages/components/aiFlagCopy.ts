@@ -32,8 +32,8 @@ export const NEEDS_REVIEW_REASON_LABELS: Record<string, string> = {
   reply_unchecked: 'Reply not checked',
   // The send gate held an automatic reply (2026-11-20), one reason each. "Reply", not "draft": a
   // held keyword-rule or bot answer leaves no draft behind.
-  // A restricted topic, or the fixed dose rule (the reply stated an amount in a dose unit).
-  restricted_topic: 'Restricted topic or a dose',
+  // A restricted topic, or the workspace's hold rules (a listed phrase, the built-in amount rule).
+  restricted_topic: 'Restricted topic or a held phrase',
   no_customer_request: 'Not a customer request',
   needs_lookup_or_action: 'Needs a lookup or an action',
   promises_follow_up: 'Reply promised a follow-up',
@@ -55,7 +55,7 @@ export const NEEDS_REVIEW_REASON_DETAILS: Record<string, string> = {
   reply_unchecked:
     "A check on the automatic reply or on the customer's message could not run (for example, no AI provider is set up), so nothing was sent",
   restricted_topic:
-    'The customer asks about a restricted topic (a subject a person must answer), or the automatic reply stated an amount in a dose unit, so no automatic reply was sent',
+    'The customer asks about a restricted topic (a subject a person must answer), or the automatic reply contained something this workspace holds for a person, so no automatic reply was sent',
   no_customer_request:
     'This does not read as a customer asking for something, so no automatic reply was sent',
   needs_lookup_or_action:

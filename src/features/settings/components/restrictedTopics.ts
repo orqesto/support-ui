@@ -44,6 +44,30 @@ export const restrictedTopicProblem = (
   return null;
 };
 
+/** "Hold automatic replies that contain…": the backend's limits (50 entries of 100 characters). */
+export const HOLD_PHRASES_MAX = 50;
+export const HOLD_PHRASE_MAX_CHARS = 100;
+
+/** Why `draft` cannot be added to the held phrases, or null when it can. */
+export const holdPhraseProblem = (draft: string, own: readonly string[]): string | null => {
+  const phrase = draft.trim().replace(/\s+/g, ' ');
+  if (!phrase || phrase.replaceAll('*', '') === '') return 'Type a word or phrase first.';
+  if (phrase.length > HOLD_PHRASE_MAX_CHARS) {
+    return `An entry can be up to ${HOLD_PHRASE_MAX_CHARS} characters (this one has ${phrase.length}).`;
+  }
+  if (own.some((entry) => sameTopic(entry, phrase))) return 'This is already on the list.';
+  if (own.length >= HOLD_PHRASES_MAX) {
+    return `The list can hold up to ${HOLD_PHRASES_MAX} entries. Remove one first.`;
+  }
+  return null;
+};
+
+/** The stored phrases: strings only, or null when the backend sent none (an older backend). */
+export const readHoldPhrases = (value: unknown): string[] | null =>
+  Array.isArray(value)
+    ? value.filter((phrase): phrase is string => typeof phrase === 'string' && phrase.trim() !== '')
+    : null;
+
 const GENERIC_VALIDATION = 'Validation error';
 
 /**

@@ -34,11 +34,13 @@ describe('Audit row of a held reply — why', () => {
       source: 'ai_reply',
       conversationId: 12,
       detail,
-      why: 'the reply states an amount in a dose unit (fixed dose rule)',
+      why: 'the reply states an amount with a unit of measure (built-in hold rule)',
     });
     expect(screen.getByText(detail)).toBeInTheDocument();
     expect(
-      screen.getByText('Why: the reply states an amount in a dose unit (fixed dose rule)')
+      screen.getByText(
+        'Why: the reply states an amount with a unit of measure (built-in hold rule)'
+      )
     ).toBeInTheDocument();
   });
 

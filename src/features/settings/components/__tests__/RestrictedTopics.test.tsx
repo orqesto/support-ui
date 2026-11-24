@@ -21,7 +21,14 @@ import {
 import { describe, expect, it } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { restrictedTopicProblem } from '../restrictedTopics';
-import { DOSE_RULE_ADMIN_ONLY, DOSE_RULE_HELP } from '../RestrictedTopicsField';
+import {
+  DOSE_RULE_ADMIN_ONLY,
+  DOSE_RULE_HELP,
+  DOSE_RULE_TITLE,
+  HOLD_PHRASES_LABEL,
+  HOLD_REPLIES_HELP,
+  HOLD_REPLIES_TITLE,
+} from '../RestrictedTopicsField';
 
 describe('restricted topics — the workspace list', () => {
   it('no locked topics: every listed topic — the defaults too — has a remove control', async () => {
@@ -490,8 +497,8 @@ describe('restrictedTopicProblem — the limits of the backend schema', () => {
   });
 });
 
-describe('the dose rule — a workspace switch, off by default (owner 2026-11-23)', () => {
-  const doseSwitch = () => screen.getByRole('switch', { name: 'Hold replies that state a dose' });
+describe('the built-in amount rule — a workspace switch, off by default (owner 2026-11-23)', () => {
+  const doseSwitch = () => screen.getByRole('switch', { name: DOSE_RULE_TITLE });
 
   it('shows off, and switching it sends ONLY doseRule', async () => {
     show();
@@ -533,17 +540,84 @@ describe('the dose rule — a workspace switch, off by default (owner 2026-11-23
   });
 
   it('the help says it also holds the email that asks for missing information', () => {
-    expect(DOSE_RULE_HELP).toMatch(
+    expect(HOLD_REPLIES_HELP).toMatch(
       /the email the AI sends to ask the customer for missing information/
     );
     // …and does not claim the keyword rules' own text is checked.
-    expect(DOSE_RULE_HELP).toMatch(/keyword rule's own fixed text is not checked for doses/);
+    expect(HOLD_REPLIES_HELP).toMatch(/keyword rule's own fixed text is not checked/);
+  });
+
+  // Owner 2026-11-24: every feature is generic — the wording names no trade or product.
+  it('the wording is neutral: no trade, product or dose named', () => {
+    for (const text of [HOLD_REPLIES_TITLE, HOLD_REPLIES_HELP, DOSE_RULE_TITLE, DOSE_RULE_HELP]) {
+      expect(text).not.toMatch(/dose|supplement|medicin|capsule|pharma|health|\bmg\b|\bIU\b/i);
+    }
   });
 
   it('an older backend that does not send it: no switch is offered', async () => {
     state.doseRule = null;
     show();
     await screen.findByRole('list', { name: WORKSPACE });
-    expect(screen.queryByRole('switch', { name: 'Hold replies that state a dose' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: DOSE_RULE_TITLE })).toBeNull();
+  });
+});
+
+/*
+  "Hold automatic replies that contain…" (owner 2026-11-24): the workspace's own words or phrases,
+  none by default; the whole list is saved on each change. An older backend without the list:
+  nothing offered.
+*/
+describe('held words and phrases', () => {
+  const add = (phrase: string) => {
+    const input = screen.getByRole('textbox', { name: `Add to ${HOLD_PHRASES_LABEL}` });
+    fireEvent.change(input, { target: { value: phrase } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+  };
+
+  it('empty by default; adding one saves the whole list, removing one saves the rest', async () => {
+    show();
+    const list = await screen.findByRole('list', { name: HOLD_PHRASES_LABEL });
+    expect(list).toHaveTextContent('No words or phrases');
+    add('refund*');
+    await waitFor(() => expect(state.updates).toHaveLength(1));
+    expect(state.updates[0]).toMatchObject({ holdPhrases: ['refund*'] });
+    await waitFor(() =>
+      expect(screen.getByRole('list', { name: HOLD_PHRASES_LABEL })).toHaveTextContent('refund*')
+    );
+    add('Contract');
+    await waitFor(() => expect(state.updates).toHaveLength(2));
+    expect(state.updates[1]).toMatchObject({ holdPhrases: ['refund*', 'Contract'] });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Remove refund*' })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Remove refund*' }));
+    await waitFor(() => expect(state.updates).toHaveLength(3));
+    expect(state.updates[2]).toMatchObject({ holdPhrases: ['Contract'] });
+  });
+
+  it('a repeat (letter case aside) is refused on the page, nothing is sent', async () => {
+    state.holdPhrases = ['refund*'];
+    show();
+    await screen.findByRole('list', { name: HOLD_PHRASES_LABEL });
+    add('REFUND*');
+    expect(await screen.findByText('This is already on the list.')).toBeInTheDocument();
+    expect(state.updates).toEqual([]);
+  });
+
+  it('a moderator sees the list read-only', async () => {
+    state.orgAdmin = false;
+    state.holdPhrases = ['refund*'];
+    show();
+    expect(await screen.findByRole('list', { name: HOLD_PHRASES_LABEL })).toHaveTextContent(
+      'refund*'
+    );
+    expect(screen.queryByRole('textbox', { name: `Add to ${HOLD_PHRASES_LABEL}` })).toBeNull();
+  });
+
+  it('an older backend without the list: no list is offered (the amount switch still is)', async () => {
+    state.holdPhrases = null;
+    show();
+    await screen.findByRole('switch', { name: DOSE_RULE_TITLE });
+    expect(screen.queryByRole('list', { name: HOLD_PHRASES_LABEL })).toBeNull();
   });
 });

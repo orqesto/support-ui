@@ -440,9 +440,12 @@ describe('messageActivityTimeline — auto-reply withheld', () => {
   it.each([
     [
       'kb_restricted_topic',
-      'the customer asks about a restricted topic, or the knowledge base answer stated a dose',
+      'the customer asks about a restricted topic, or the knowledge base answer contains something this workspace holds',
     ],
-    ['restricted_topic', 'the customer asks about a restricted topic, or the reply stated a dose'],
+    [
+      'restricted_topic',
+      'the customer asks about a restricted topic, or the reply contains something this workspace holds',
+    ],
     ['kb_no_customer_request', 'the message is not a customer request'],
     ['kb_needs_lookup_or_action', 'answering needs a lookup or an action'],
     ['kb_promises_follow_up', 'the knowledge base answer promised a follow-up'],
@@ -485,7 +488,7 @@ describe('messageActivityTimeline — auto-reply withheld', () => {
     ['check failed', "the email's questions could not be checked"],
     [
       'restricted_topic',
-      'the customer asks about a restricted topic, or a question in the email stated a dose, so nothing was asked automatically',
+      'the customer asks about a restricted topic, or a question in the email contains something this workspace holds, so nothing was asked automatically',
     ],
     ['no_customer_request', 'the message is not a customer request'],
     ['not_only_asking', 'a question in the email did more than ask for a detail'],
@@ -584,7 +587,10 @@ describe('messageActivityTimeline — auto-reply withheld', () => {
 
   it.each([
     ['reply_unchecked', 'the reply could not be checked'],
-    ['restricted_topic', 'the customer asks about a restricted topic, or the reply stated a dose'],
+    [
+      'restricted_topic',
+      'the customer asks about a restricted topic, or the reply contains something this workspace holds',
+    ],
     ['refusal', 'the reply only declined the question'],
     ['does_not_answer', 'the reply did not answer the question'],
     ['not_from_knowledge', 'the reply was not written from the knowledge base'],

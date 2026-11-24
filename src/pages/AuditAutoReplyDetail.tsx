@@ -77,7 +77,7 @@ export function AuditAutoReplyDetail({
 }) {
   const held = action === AUTO_REPLY_WITHHELD;
   const sentence = text(details, 'detail');
-  // The check's own line on why it held the reply (the meaning check's, the dose rule's): shown
+  // The check's own line on why it held the reply (the meaning check's, a hold rule's): shown
   // after the backend's sentence, or alone when there is none — never twice.
   const why = held ? holdWhyOf(details) : null;
   const whyLine = why && !sentence.includes(why) ? why : null;

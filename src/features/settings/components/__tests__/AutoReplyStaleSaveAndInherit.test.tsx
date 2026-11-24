@@ -11,11 +11,12 @@ import { BILLING, TEAM, add, show, state } from './restrictedTopics.testkit';
 import { describe, expect, it } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { SAME_AS_WORKSPACE_NO_CHOICE } from '../AutoReplyConfiguration';
+import { DOSE_RULE_TITLE } from '../RestrictedTopicsField';
 
 const STALE = 'These settings were changed by someone else. Reload and make the change again.';
 const STAMP = '2026-11-23T09:00:00.000Z';
 const NEWER = '2026-11-23T09:30:00.000Z';
-const doseSwitch = () => screen.getByRole('switch', { name: 'Hold replies that state a dose' });
+const doseSwitch = () => screen.getByRole('switch', { name: DOSE_RULE_TITLE });
 const TEAM_MODE = `What replies on its own for ${BILLING.name}`;
 const team = () => within(screen.getByRole('group', { name: TEAM_MODE }));
 

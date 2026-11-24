@@ -14,11 +14,18 @@ export const DEFAULTS_NOTE =
   'A new workspace starts with a few common topics. Every topic here can be removed; with none, the AI may answer any subject.';
 export const NO_TOPICS_TEXT = 'No restricted topics';
 
-export const DOSE_RULE_TITLE = 'Hold replies that state a dose';
+/** "Hold automatic replies that contain…" (2026-11-24): the workspace's own list, plus one built-in rule. */
+export const HOLD_REPLIES_TITLE = 'Hold automatic replies that contain…';
+export const HOLD_REPLIES_HELP =
+  'An automatic reply that contains any word or phrase on this list is handed to a person instead of being sent. Letter case does not matter, and whole words are matched; a * at the end of a word also matches longer words (for example "refund*" matches "refunded"). Applies to AI email replies, the email the AI sends to ask the customer for missing information, keyword-rule knowledge answers, the Telegram bot and the chat widget. A keyword rule\'s own fixed text is not checked.';
+export const HOLD_PHRASES_LABEL = 'Held words and phrases';
+export const NO_HOLD_PHRASES_TEXT = 'No words or phrases';
+/** The built-in rule kept from before the list: an amount with a unit of measure. */
+export const DOSE_RULE_TITLE = 'Also hold amounts with a unit of measure';
 export const DOSE_RULE_HELP =
-  'An automatic reply that gives an amount in a dose unit (mg, ml, g, IU, units…) is handed to a person instead of being sent. It also holds pack sizes and weights such as "500 mg capsules" or "a 500 g bag", so switch it on only if you sell supplements, medicines or similar products. Applies to AI email replies, the email the AI sends to ask the customer for missing information, keyword-rule knowledge answers, the Telegram bot and the chat widget. A keyword rule\'s own fixed text is not checked for doses.';
-/** Why the dose switch is out of use for a moderator: the backend lets only a workspace admin change it. */
-export const DOSE_RULE_ADMIN_ONLY = 'Only a workspace admin can change this switch.';
+  'Holds a reply that states a number with a unit of measure, such as "500 g", "2 ml" or "3 units", in several languages. It also catches sizes and weights, so switch it on only when such amounts must always be checked by a person.';
+/** Why the switch and the list are out of use for a moderator: only a workspace admin may change them. */
+export const DOSE_RULE_ADMIN_ONLY = 'Only a workspace admin can change these.';
 
 /** A list of topics as read-only chips (someone who cannot change the settings). */
 export const TopicsReadOnly = ({
@@ -55,6 +62,10 @@ type Props = {
   emptyText: string;
   placeholder: string;
   disabled: boolean;
+  /** Why the typed entry cannot be added (default: the restricted-topic rules). */
+  problemOf?: (draft: string, own: readonly string[]) => string | null;
+  /** The remove control's name, before the entry ("Remove topic"). */
+  removeLabel?: string;
   /** Saves ONE added topic; resolves false when it was not saved (the typed topic is then kept). */
   onAdd: (topic: string) => Promise<boolean>;
   onRemove: (topic: string) => Promise<boolean>;
@@ -68,6 +79,8 @@ export const RestrictedTopicsField = ({
   emptyText,
   placeholder,
   disabled,
+  problemOf,
+  removeLabel = 'Remove topic',
   onAdd,
   onRemove,
 }: Props) => {
@@ -75,7 +88,9 @@ export const RestrictedTopicsField = ({
   const [problem, setProblem] = useState<string | null>(null);
 
   const add = async () => {
-    const found = restrictedTopicProblem(draft, topics, alsoApplies);
+    const found = problemOf
+      ? problemOf(draft, topics)
+      : restrictedTopicProblem(draft, topics, alsoApplies);
     setProblem(found);
     if (found) return;
     const saved = await onAdd(draft.trim());
@@ -98,7 +113,7 @@ export const RestrictedTopicsField = ({
                 size="icon"
                 disabled={disabled}
                 onClick={() => void onRemove(topic)}
-                aria-label={`Remove topic ${topic}`}
+                aria-label={`${removeLabel} ${topic}`}
                 className={`p-0 w-auto h-auto hover:text-destructive data-[inactive]:opacity-50 ${TOPIC_REMOVE_HIT_AREA}`}
               >
                 <X className="w-3 h-3" />

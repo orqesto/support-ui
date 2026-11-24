@@ -159,6 +159,32 @@ export type GhostOption = {
    * label. Absent on options built elsewhere: then the type's default.
    */
   insertSource?: GhostInsertSource;
+  /**
+   * What became of this draft as an AUTOMATIC reply (2026-11-24), when the backend recorded it:
+   * check-only kept it instead of sending it (`wouldSend`), or a check held it (`heldReason`, the
+   * review reason; `heldThreshold` the confidence bar it was held under). Absent on any other
+   * draft, and on an older backend that does not record it.
+   */
+  autoStatus?: GhostAutoStatus;
+};
+
+export type GhostAutoStatus =
+  | { kind: 'would_send' }
+  | { kind: 'held'; reason: string; threshold?: number };
+
+/** The stored draft's automatic-reply outcome, or undefined (tolerant of any shape). */
+export const autoStatusOf = (sa: {
+  wouldSend?: unknown;
+  heldReason?: unknown;
+  heldThreshold?: unknown;
+}): GhostAutoStatus | undefined => {
+  if (sa.wouldSend === true) return { kind: 'would_send' };
+  if (typeof sa.heldReason !== 'string' || sa.heldReason === '') return undefined;
+  const threshold =
+    typeof sa.heldThreshold === 'number' && Number.isFinite(sa.heldThreshold)
+      ? sa.heldThreshold
+      : undefined;
+  return { kind: 'held', reason: sa.heldReason, ...(threshold !== undefined ? { threshold } : {}) };
 };
 
 export type SuggestedAnswerMeta = {
@@ -170,6 +196,11 @@ export type SuggestedAnswerMeta = {
   kbSources?: { type?: string; title?: string }[];
   /** The keyword rule that kept this reply (BE keywordAutoReply storeWithheldDraft). */
   keywordRule?: { id?: number; name?: string } | null;
+  /** Check-only: the reply passed every check and was kept instead of sent. */
+  wouldSend?: boolean;
+  /** A held automatic reply: the review reason it was held with, and the confidence bar. */
+  heldReason?: string;
+  heldThreshold?: number;
 };
 
 /**
@@ -196,6 +227,7 @@ export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): Ghost
     sa.confidence <= 1
       ? sa.confidence
       : undefined;
+  const autoStatus = autoStatusOf(sa);
   if (isKeywordRuleDraft(sa)) {
     const name = typeof sa.keywordRule?.name === 'string' ? sa.keywordRule.name.trim() : '';
     return {
@@ -204,6 +236,7 @@ export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): Ghost
       type: 'similar',
       ruleName: name,
       ...(confidence !== undefined ? { confidence } : {}),
+      ...(autoStatus ? { autoStatus } : {}),
     };
   }
   const sourceTitle = sa.kbSources
@@ -217,6 +250,7 @@ export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): Ghost
     ...(isKb ? { insertSource: 'knowledge_base' as const } : {}),
     ...(confidence !== undefined ? { confidence } : {}),
     ...(sourceTitle ? { sourceTitle } : {}),
+    ...(autoStatus ? { autoStatus } : {}),
   };
 }
 

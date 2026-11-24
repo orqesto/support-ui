@@ -29,9 +29,8 @@ import {
 import { FeatureSuggestions } from './FeatureSuggestions';
 import {
   DEFAULTS_NOTE,
-  DOSE_RULE_ADMIN_ONLY,
-  DOSE_RULE_HELP,
   DOSE_RULE_TITLE,
+  HOLD_PHRASES_LABEL,
   NO_TOPICS_TEXT,
   RESTRICTED_TOPICS_ALSO,
   RESTRICTED_TOPICS_HELP,
@@ -39,7 +38,8 @@ import {
   RestrictedTopicsField,
   TopicsReadOnly,
 } from './RestrictedTopicsField';
-import { readRestrictedTopics, restrictedTopicsRefusal } from './restrictedTopics';
+import { readHoldPhrases, readRestrictedTopics, restrictedTopicsRefusal } from './restrictedTopics';
+import { HoldRepliesSection } from './HoldRepliesSection';
 import { OtherTeamTopics, TOPICS_ADMIN_ONLY, readTopicTeams } from './OtherTeamTopics';
 import type { RestrictedTopicTeam } from '@/types/api';
 import {
@@ -63,8 +63,10 @@ type Settings = {
   autoReplyHighConfidenceThreshold?: number;
   /** Workspace: always set once loaded. Team: absent = same as the workspace. */
   autoReplyPartialAnswer?: AutoReplyPartialAnswer;
-  /** Workspace only: the dose rule (off unless switched on). */
+  /** Workspace only: the built-in amount rule (off unless switched on). */
   autoReplyDoseRule?: boolean;
+  /** Workspace only: "Hold automatic replies that contain…" (none by default). */
+  autoReplyHoldPhrases?: string[];
   escalationPhrases?: string[];
   /** Workspace: its own topics. Team: topics ADDED to the workspace's (never instead of them). */
   restrictedTopics?: string[];
@@ -139,6 +141,9 @@ const TEAM_CHANGE_KEYS: readonly string[] = [
 ];
 const STALE_SETTINGS =
   'These settings were changed by someone else since this page was loaded. They were read again; make the change again.';
+/** Under the workspace default switched off, while a team is switched on by its own override. */
+const INHERITED_AI_OPTIONS_NOTE =
+  'Automatic replies are off by default but on for at least one team. The AI options below apply to every team that is on, unless that team overrides them.';
 const RULES_ONLY_NOTE = 'These AI settings do not apply in "Keyword rules only".';
 
 /** What changes between a team's settings: a new or changed key with its value, a dropped one as null. */
@@ -331,6 +336,8 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   const [topicsSupported, setTopicsSupported] = useState(false);
   // False until the backend returns the switch: an older one does not know it.
   const [doseRuleSupported, setDoseRuleSupported] = useState(false);
+  // False until the backend returns the held phrases: an older one does not know the list.
+  const [holdPhrasesSupported, setHoldPhrasesSupported] = useState(false);
   /** Every team that has stored topics — also a switched-off or deleted one — as the server lists them. */
   const [topicTeams, setTopicTeams] = useState<RestrictedTopicTeam[]>([]);
 
@@ -354,10 +361,12 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       autoReplyHighConfidenceThreshold: auto.highConfidenceThreshold,
       autoReplyPartialAnswer: auto.partialAnswer,
       autoReplyDoseRule: auto.doseRule === true,
+      autoReplyHoldPhrases: readHoldPhrases(auto.holdPhrases) ?? [],
       restrictedTopics: readRestrictedTopics(auto.restrictedTopics) ?? [],
     };
     setTopicsSupported(readRestrictedTopics(auto.restrictedTopics) !== null);
     setDoseRuleSupported(typeof auto.doseRule === 'boolean');
+    setHoldPhrasesSupported(readHoldPhrases(auto.holdPhrases) !== null);
     setTopicTeams(readTopicTeams(auto.restrictedTopicTeams) ?? []);
     setOrg(initialOrg);
     orgRef.current = initialOrg;
@@ -450,6 +459,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         data.partialAnswer === 'send_and_follow_up') && {
         autoReplyPartialAnswer: data.partialAnswer,
       }),
+      ...(readHoldPhrases(data.holdPhrases) !== null && {
+        autoReplyHoldPhrases: readHoldPhrases(data.holdPhrases) ?? [],
+      }),
     };
     if (Object.keys(fresh).length > 0) {
       orgRef.current = { ...orgRef.current, ...fresh };
@@ -515,6 +527,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
         highConfidenceThreshold: number;
         partialAnswer: AutoReplyPartialAnswer;
         doseRule: boolean;
+        holdPhrases: string[];
       }>
     ): Promise<boolean> =>
       queued('org', async () => {
@@ -535,6 +548,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
           }),
           ...(patch.partialAnswer !== undefined && { autoReplyPartialAnswer: patch.partialAnswer }),
           ...(patch.doseRule !== undefined && { autoReplyDoseRule: patch.doseRule }),
+          ...(patch.holdPhrases !== undefined && { autoReplyHoldPhrases: patch.holdPhrases }),
         };
         orgRef.current = optimistic;
         try {
@@ -562,7 +576,9 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                         ? `${PARTIAL_ANSWER_TITLE}: ${PARTIAL_ANSWER_LABEL[patch.partialAnswer]}`
                         : patch.doseRule !== undefined
                           ? `${DOSE_RULE_TITLE}: ${patch.doseRule ? 'on' : 'off'}`
-                          : 'Default updated';
+                          : patch.holdPhrases !== undefined
+                            ? `${HOLD_PHRASES_LABEL} updated`
+                            : 'Default updated';
           onShowAlert({ open: true, title: 'Saved', description: field, variant: 'success' });
           return true;
         } catch (err) {
@@ -1127,6 +1143,19 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                     {orgMode === 'rules_only' && (
                       <p className="pt-3 text-xs border-t text-warning">{RULES_ONLY_NOTE}</p>
                     )}
+                  </>
+                )}
+
+                {/* The AI options below are the ones every team inherits — a team switched on by
+                  its own override included. Shown while auto-reply is on anywhere: with the
+                  workspace default off and one team on, they were hidden yet still applied. */}
+                {anyAutoReplyOn && (
+                  <>
+                    {!orgEnabled && (
+                      <p className="pt-3 text-xs border-t text-muted-foreground">
+                        {INHERITED_AI_OPTIONS_NOTE}
+                      </p>
+                    )}
                     <div className="flex justify-between items-center pt-3 border-t">
                       <div>
                         <p className="text-sm font-medium">Request missing info</p>
@@ -1241,34 +1270,15 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                     />
                   </div>
                 )}
-                {/* The dose rule: a workspace switch, off by default (owner 2026-11-23). */}
-                {doseRuleSupported && (
-                  <div className="flex justify-between items-center pt-3 border-t">
-                    <div>
-                      <p id="dose-rule-title" className="text-sm font-medium">
-                        {DOSE_RULE_TITLE}
-                      </p>
-                      <p id="dose-rule-help" className="text-xs text-muted-foreground">
-                        {DOSE_RULE_HELP}
-                      </p>
-                      {/* Out of use for anyone but a workspace admin (the backend's rule): said. */}
-                      {!canChangeTopics && (
-                        <p id="dose-rule-admin-only" className="text-xs text-muted-foreground">
-                          {DOSE_RULE_ADMIN_ONLY}
-                        </p>
-                      )}
-                    </div>
-                    <Toggle
-                      checked={org.autoReplyDoseRule === true}
-                      ariaLabel={DOSE_RULE_TITLE}
-                      ariaDescribedBy={
-                        canChangeTopics ? 'dose-rule-help' : 'dose-rule-help dose-rule-admin-only'
-                      }
-                      disabled={saving.org === true || !canChangeTopics}
-                      onChange={(next) => void saveOrg({ doseRule: next })}
-                    />
-                  </div>
-                )}
+                {/* "Hold automatic replies that contain…" and the built-in amount rule (2026-11-24). */}
+                <HoldRepliesSection
+                  phrases={holdPhrasesSupported ? (org.autoReplyHoldPhrases ?? []) : null}
+                  amountRule={doseRuleSupported ? org.autoReplyDoseRule === true : null}
+                  canChange={canChangeTopics}
+                  disabled={saving.org === true}
+                  onSavePhrases={(holdPhrases) => saveOrg({ holdPhrases })}
+                  onSaveAmountRule={(next) => void saveOrg({ doseRule: next })}
+                />
               </div>
             </div>
 
