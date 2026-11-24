@@ -33,7 +33,9 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }));
 
-const { GmailRowCount, LIST_REREAD_MS } = await import('../GmailCountReview');
+const { GmailRowCount, LIST_REREAD_MS, LIST_REREAD_MAX_TRIES, listRereadDelay } = await import(
+  '../GmailCountReview'
+);
 
 const render = (ui: ReactElement) => rtlRender(<ThemeProvider>{ui}</ThemeProvider>);
 
@@ -141,11 +143,54 @@ describe('Gmail row — a start whose list re-read fails', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Sync started.');
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(LIST_REREAD_MS);
+      await vi.advanceTimersByTimeAsync(listRereadDelay(1));
     });
     expect(onRefresh).toHaveBeenCalledTimes(3);
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(screen.queryByText(/not syncing/i)).not.toBeInTheDocument();
+  });
+
+  it('⛔ a re-read in flight when the row goes away arms no new timer (no loop after leaving)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let rejectInFlight: (error: Error) => void = () => undefined;
+    const onRefresh = vi
+      .fn<() => Promise<void>>()
+      .mockRejectedValueOnce(new Error('Network Error'))
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectInFlight = reject;
+          })
+      )
+      .mockRejectedValue(new Error('Network Error'));
+    const view = render(<Card onRefresh={onRefresh} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Start sync' }));
+    await waitFor(() => expect(onShowAlert).toHaveBeenCalled());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(LIST_REREAD_MS);
+    });
+    expect(onRefresh).toHaveBeenCalledTimes(2); // the re-read is now in flight
+    view.unmount();
+    await act(async () => {
+      rejectInFlight(new Error('Network Error'));
+      await vi.advanceTimersByTimeAsync(10 * 60_000);
+    });
+    expect(onRefresh).toHaveBeenCalledTimes(2);
+  });
+
+  it('⛔ a list that keeps failing is re-read with growing waits, then no more', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const onRefresh = vi.fn<() => Promise<void>>().mockRejectedValue(new Error('Network Error'));
+    render(<Card onRefresh={onRefresh} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Start sync' }));
+    await waitFor(() => expect(onShowAlert).toHaveBeenCalled());
+    expect(listRereadDelay(1)).toBeGreaterThan(listRereadDelay(0));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60 * 60_000);
+    });
+    // The start's own read, then LIST_REREAD_MAX_TRIES re-reads, and nothing after an hour.
+    expect(onRefresh).toHaveBeenCalledTimes(1 + LIST_REREAD_MAX_TRIES);
+    expect(LIST_REREAD_MAX_TRIES).toBeLessThan(20);
   });
 
   it('CONTROL: a start the server refused still says "Could not start sync"', async () => {
