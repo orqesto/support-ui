@@ -246,6 +246,13 @@ export const CustomProviderCard = ({
               <input
                 id="custom-baseurl"
                 type="url"
+                // The text field before a secret collects the saved USER NAME when the browser
+                // fills a login (seen live: the admin's email landed here). Named and marked so
+                // browsers and password managers leave it alone.
+                autoComplete="off"
+                name="custom-provider-base-url"
+                data-1p-ignore
+                data-lpignore="true"
                 value={config.baseUrl}
                 onChange={(event) => setConfig({ ...config, baseUrl: event.target.value })}
                 className="px-3 py-2 w-full rounded-md border bg-input text-foreground border-border focus:outline-none focus:ring-2 focus:ring-primary font-mono text-xs"

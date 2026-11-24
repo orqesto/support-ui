@@ -430,6 +430,9 @@ export const ObjectStorageConfigCard = () => {
                 id="storage-access-key"
                 type="text"
                 autoComplete="off"
+                name="storage-access-key-id"
+                data-1p-ignore
+                data-lpignore="true"
                 value={form.accessKeyId}
                 onChange={(event) => set({ accessKeyId: event.target.value })}
                 disabled={!canManage}

@@ -532,6 +532,9 @@ export const BedrockProviderCard = ({
                       id="bedrock-access-key"
                       type="text"
                       autoComplete="off"
+                      name="bedrock-access-key-id"
+                      data-1p-ignore
+                      data-lpignore="true"
                       value={config.accessKeyId ?? ''}
                       onChange={(event) =>
                         setConfig({ ...config, accessKeyId: event.target.value })
