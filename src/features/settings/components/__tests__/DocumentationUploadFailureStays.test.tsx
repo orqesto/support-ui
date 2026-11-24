@@ -98,4 +98,30 @@ describe('KB upload — a failed upload is said and kept', () => {
     expect(screen.queryByText('good.txt')).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
+
+  it('⛔ the "did not upload" notice goes once the failed file is removed', async () => {
+    uploadDocumentation.mockRejectedValue(new Error(SERVER_ERROR));
+    await pickFiles(new File(['# a'], 'faq.md', { type: 'text/markdown' }));
+    await upload();
+    await waitPastClear();
+    expect(screen.getByRole('alert')).toHaveTextContent(/did not upload/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove file' }));
+    expect(screen.queryByText('faq.md')).not.toBeInTheDocument();
+    expect(screen.queryByText(/did not upload/)).not.toBeInTheDocument();
+  });
+
+  it('CONTROL: removing one of two failed files keeps the notice for the other', async () => {
+    uploadDocumentation.mockRejectedValue(new Error(SERVER_ERROR));
+    await pickFiles(
+      new File(['# a'], 'one.md', { type: 'text/markdown' }),
+      new File(['# b'], 'two.md', { type: 'text/markdown' })
+    );
+    await upload();
+    await waitPastClear();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove file' })[0]);
+    expect(screen.getByText('two.md')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/did not upload/);
+  });
 });

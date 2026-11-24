@@ -52,10 +52,10 @@ afterEach(cleanup);
 
 const lastAlert = () => onShowAlert.mock.calls.at(-1)?.[0] ?? { title: '', description: '' };
 
-const openGmail = () =>
+const openGmail = (extra: { enabled?: boolean; currentSince?: string } = {}) =>
   render(
     <GmailSyncRangeDialog
-      source={{ id: 5, name: 'Support', currentDays: 30 }}
+      source={{ id: 5, name: 'Support', currentDays: 30, ...extra }}
       onClose={onClose}
       onRefresh={() => Promise.resolve()}
       onShowAlert={onShowAlert}
@@ -69,7 +69,34 @@ describe('Gmail range — restart and a running poll', () => {
     openGmail();
     pressGmailUpdate();
     await waitFor(() => expect(onShowAlert).toHaveBeenCalled());
-    expect(lastAlert().description).toMatch(/older mail from last 30 days is being imported now/i);
+    expect(lastAlert().description).toMatch(/older mail in that range is being imported now/i);
+    expect(lastAlert().description).toContain('Import range set: Last 30 Days.');
+  });
+
+  it('⛔ on a PAUSED mailbox a restarted import waits for the sync to be started', async () => {
+    update.mockResolvedValue({ success: true, importRestarted: true });
+    openGmail({ enabled: false });
+    pressGmailUpdate();
+    await waitFor(() => expect(onShowAlert).toHaveBeenCalled());
+    expect(lastAlert().description).toMatch(/will be imported once this mailbox's sync is started/);
+    expect(lastAlert().description).not.toMatch(/being imported now|next few polls/);
+  });
+
+  it('CONTROL: on a mailbox that syncs the same save says it is being imported now', async () => {
+    update.mockResolvedValue({ success: true, importRestarted: true });
+    openGmail({ enabled: true });
+    pressGmailUpdate();
+    await waitFor(() => expect(onShowAlert).toHaveBeenCalled());
+    expect(lastAlert().description).toMatch(/being imported now/);
+  });
+
+  it('⛔ a since-day range reads as written, not lower-cased into "from since 5 mar"', async () => {
+    update.mockResolvedValue({ success: true, importRestarted: true });
+    openGmail({ enabled: true, currentSince: '2026-03-05' });
+    pressGmailUpdate();
+    await waitFor(() => expect(onShowAlert).toHaveBeenCalled());
+    expect(lastAlert().description).toContain('Import range set: Since 5 Mar 2026.');
+    expect(lastAlert().description).not.toMatch(/since 5 mar|from since/);
   });
 
   it('CONTROL: an older backend (no flag) promises no import', async () => {
@@ -104,7 +131,7 @@ describe('Gmail range — restart and a running poll', () => {
   });
 });
 
-const imapRow = {
+const imapRow: { enabled: boolean } & Record<string, unknown> = {
   id: 7,
   name: 'help@shop.example',
   type: 'email' as const,
@@ -112,8 +139,8 @@ const imapRow = {
   isKnowledgeBase: false,
   config: { user: 'help@shop.example', email: { host: 'imap.shop.example', bulkImportDays: 30 } },
 };
-const openImap = () => {
-  render(<EmailIntegrationCard integrations={[imapRow] as never} onRefresh={() => Promise.resolve()} onShowAlert={onShowAlert} />);
+const openImap = (enabled = true) => {
+  render(<EmailIntegrationCard integrations={[{ ...imapRow, enabled }] as never} onRefresh={() => Promise.resolve()} onShowAlert={onShowAlert} />);
   fireEvent.click(screen.getByRole('button', { name: 'Bulk import historical emails' }));
 };
 const pressStartImport = () => fireEvent.click(screen.getByRole('button', { name: 'Start Import' }));
@@ -134,6 +161,15 @@ describe('IMAP range — restart and a running poll', () => {
     pressStartImport();
     await waitFor(() => expect(onShowAlert).toHaveBeenCalled());
     expect(lastAlert().description).toMatch(/is being imported now/i);
+  });
+
+  it('⛔ a PAUSED IMAP mailbox: the restarted import waits for the sync to be started', async () => {
+    update.mockResolvedValue({ success: true, importRestarted: true });
+    openImap(false);
+    pressStartImport();
+    await waitFor(() => expect(onShowAlert).toHaveBeenCalled());
+    expect(lastAlert().description).toMatch(/once this mailbox's sync is started/);
+    expect(lastAlert().description).not.toMatch(/being imported now/);
   });
 
   it('⛔ a running poll shows the server sentence and keeps the dialog', async () => {

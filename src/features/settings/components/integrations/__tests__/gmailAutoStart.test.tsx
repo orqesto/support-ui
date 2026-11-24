@@ -55,6 +55,8 @@ const row = (id: number, enabled = false) => ({
   name: `Gmail-box${id}@shop.example`,
   type: 'gmail' as const,
   enabled,
+  // Never polled: a new connect, which waits for its count review while paused.
+  lastCheckAt: null,
   isKnowledgeBase: false,
   config: { user: `box${id}@shop.example`, gmail: { searchQuery: '', bulkImportDays: 30 } },
 });

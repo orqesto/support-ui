@@ -689,7 +689,7 @@ export const GmailIntegrationCard = ({
           {/* Initial Sync Range Edit Modal */}
           {editBulkImport && (
             <GmailSyncRangeDialog
-              source={editBulkImport}
+              source={{ ...editBulkImport, enabled: integrations.find((item) => item.id === editBulkImport.id)?.enabled }}
               onClose={() => setEditBulkImport(null)}
               onRefresh={onRefresh}
               onShowAlert={onShowAlert}
