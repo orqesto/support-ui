@@ -546,7 +546,6 @@ export const BedrockProviderCard = ({
                     </label>
                     <PasswordInput
                       id="bedrock-secret-key"
-                      autoComplete="off"
                       value={config.secretAccessKey ?? ''}
                       onChange={(event) =>
                         setConfig({ ...config, secretAccessKey: event.target.value })

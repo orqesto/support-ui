@@ -59,6 +59,13 @@ describe('PasswordInput', () => {
     expect(screen.getByLabelText('API Key')).toHaveAttribute('autocomplete', 'new-password');
   });
 
+  it('turns a caller\'s autoComplete="off" into new-password too (Chrome ignores "off" on a password field)', () => {
+    // Four provider forms passed "off", which undid the default: on the custom AI provider form
+    // Chrome put the signed-in admin's saved password into the API-key box (seen live).
+    render(<PasswordInput label="API Key" autoComplete="off" onChange={() => {}} value="" />);
+    expect(screen.getByLabelText('API Key')).toHaveAttribute('autocomplete', 'new-password');
+  });
+
   it('still lets a real login field offer the stored password', () => {
     render(
       <PasswordInput

@@ -64,7 +64,10 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
             // password field. Observed on the OpenAI card — the browser autofilled a saved
             // login password into the API-key box, and it would have been SAVED as the key
             // on submit. A real login field should pass `current-password` explicitly.
-            autoComplete={autoComplete}
+            // …and for the same reason an `off` passed by a caller is turned into `new-password`:
+            // four provider forms passed it, and on the custom AI provider form Chrome put the
+            // signed-in admin's saved password into the API-key box (seen live, 2026-11-24).
+            autoComplete={autoComplete === 'off' ? 'new-password' : autoComplete}
             // Room for the button so a long value never runs underneath it.
             className={cn('pr-10', className)}
           />

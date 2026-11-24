@@ -444,7 +444,6 @@ export const ObjectStorageConfigCard = () => {
               </label>
               <PasswordInput
                 id="storage-secret-key"
-                autoComplete="off"
                 value={form.secretAccessKey}
                 onChange={(event) => set({ secretAccessKey: event.target.value })}
                 disabled={!canManage}
