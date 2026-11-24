@@ -37,6 +37,8 @@ type Props = {
    * member's real teams with the one toggled. The editor is off and says why.
    */
   teamsUnavailable?: boolean;
+  /** A mentor in this workspace (1.1.330): marked here, set in the workspace's Members page. */
+  isMentor?: boolean;
   /** Invalidate the platform-users + user-orgs caches after a mutation so the list refreshes. */
   onChanged: () => void;
 };
@@ -61,6 +63,7 @@ export const WorkspaceMembershipRow = ({
   userEmail,
   idpManaged,
   teamsUnavailable = false,
+  isMentor = false,
   onChanged,
 }: Props) => {
   const [role, setRole] = useState<string>(currentRole);
@@ -169,6 +172,7 @@ export const WorkspaceMembershipRow = ({
       <div className="flex flex-wrap gap-3 justify-between items-center">
         <span className="flex flex-wrap gap-2 items-center text-sm font-medium text-foreground">
           {orgName}
+          {isMentor && <Badge variant="secondary">Mentor</Badge>}
           {idpManaged && (
             <Tooltip content="Your identity provider owns this membership. Change the role, or remove the person, in the identity provider — this workspace will not accept the change.">
               <Badge className="flex gap-1 items-center text-xs text-warning bg-warning-muted">

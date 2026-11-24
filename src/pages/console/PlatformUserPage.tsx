@@ -482,6 +482,10 @@ export const PlatformUserPage = () => {
                     currentDepartmentIds={org.departmentIds}
                     idpManaged={org.idpManaged}
                     teamsUnavailable={org.teamsUnavailable === true}
+                    // The mark comes with the directory row (per workspace), not with this list.
+                    isMentor={user.workspaces.some(
+                      (workspace) => workspace.organizationId === org.id && workspace.isMentor
+                    )}
                     userId={user.id}
                     userEmail={user.email}
                     onChanged={refreshMemberships}

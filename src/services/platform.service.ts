@@ -13,6 +13,7 @@ import type {
   QueueStatus,
   QueueTiming,
 } from '@/services/systemStatus';
+import { normaliseWorkspaces, type PlatformUserWorkspace } from '@/services/platformUserWorkspace';
 
 /**
  * Platform (global-admin) console service. Calls hit `/api/admin/platform/*` (the new
@@ -48,16 +49,8 @@ export type PlatformOverview = {
 
 // ─── Users (global directory) ────────────────────────────────────────────────
 
-/** One workspace a directory row belongs to, with what the person holds there. */
-export type PlatformUserWorkspace = {
-  organizationId: number;
-  organizationName: string;
-  role: string;
-  /** The direct role an IdP take-over is shadowing, if any. */
-  preAllianceRole: string | null;
-  /** This membership is owned by an IdP — the role is not editable in-app here. */
-  idpManaged: boolean;
-};
+// The directory row's workspaces (and their normaliser) live beside this file.
+export type { PlatformUserWorkspace } from '@/services/platformUserWorkspace';
 
 export type PlatformUserRow = {
   id: number;
@@ -602,7 +595,7 @@ export const platformService = {
     const rows = (res.data.data ?? []).map((row) => ({
       ...row,
       position: row.position ?? null,
-      workspaces: row.workspaces ?? [],
+      workspaces: normaliseWorkspaces(row.workspaces),
       idpManaged: row.idpManaged ?? false,
     }));
     return { rows, pagination: res.data.pagination };
@@ -623,7 +616,7 @@ export const platformService = {
     return {
       ...row,
       position: row.position ?? null,
-      workspaces: row.workspaces ?? [],
+      workspaces: normaliseWorkspaces(row.workspaces),
       idpManaged: row.idpManaged ?? false,
     };
   },

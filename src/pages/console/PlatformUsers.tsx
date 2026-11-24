@@ -117,6 +117,7 @@ export const PlatformUsers = () => {
                 <span className="ml-1 opacity-70">
                   {roleDisplayNames[workspace.role as UserRole] ?? workspace.role}
                 </span>
+                {workspace.isMentor && <span className="ml-1 opacity-70">· Mentor</span>}
                 {workspace.idpManaged && <Lock className="ml-1 w-3 h-3" />}
               </Badge>
             ))}
