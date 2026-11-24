@@ -138,8 +138,7 @@ export const GmailIntegrationCard = ({
     // update branch. Its department links are left as they are — relinking "to every department"
     // was one half of FE audit B-H3 (the other half, the settings the Add form sent over the
     // stored ones, is why "Reconnect" below sends none).
-    const reconnected = !isNew;
-    if (newIntegrationId && !reconnected) {
+    if (newIntegrationId && isNew) {
       const assigned = await deptPicker.assignToNewSource(newIntegrationId);
       if (!assigned) {
         onShowAlert({
@@ -165,10 +164,10 @@ export const GmailIntegrationCard = ({
     // before someone has seen how much will be. A re-auth of a live source opens it too, as a count.
     if (newIntegrationId) setReviewId(newIntegrationId);
     // Only a new source may start by itself; the review decides (small, not a KB source).
-    setAutoStartId(newIntegrationId && !reconnected ? newIntegrationId : null);
+    setAutoStartId(newIntegrationId && isNew ? newIntegrationId : null);
 
     // Neutral: whether it starts by itself is known only once counted (the review says so).
-    const connected = reconnected
+    const connected = !isNew
       ? `${data.email ?? 'This mailbox'} was already a source here and has been reconnected. Its teams were kept; the settings on this form were applied to it.`
       : `Gmail account connected!\n\n${data.email ?? 'Account'} has been added. Counting messages.`;
     onShowAlert({

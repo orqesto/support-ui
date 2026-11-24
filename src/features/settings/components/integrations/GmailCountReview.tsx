@@ -534,9 +534,15 @@ export const GmailRowCount = ({
       <GmailCountReview
         source={reviewSourceOf(integration)}
         onClose={onClose}
+        // Refresh BEFORE closing: closed on the stale (paused) row, the slot would show "Not
+        // syncing — waiting for review" for a mailbox that has just started, until the list
+        // came back (and for good, had that read failed).
         onStarted={async () => {
-          onClose();
-          await onRefresh();
+          try {
+            await onRefresh();
+          } finally {
+            onClose();
+          }
         }}
         onShowAlert={onShowAlert}
         onReconnect={onReconnect}
