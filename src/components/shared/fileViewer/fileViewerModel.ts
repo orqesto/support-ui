@@ -1,9 +1,20 @@
 import { getErrorStatus } from '@/lib/errorMessages';
 import type { Attachment } from '@/types/ai';
 
+/** A knowledge-base document's uploaded file (Settings → AI → Documentation → eye icon). */
+export type ViewerDocument = {
+  id: number;
+  /** The file's own name (what Download saves it as). */
+  name: string;
+  mimeType: string;
+  size: number;
+};
+
 /**
- * One thing the file viewer can show: a stored attachment, or an image that sits inside a
- * message's text (its `src` is already the browser-loadable proxy url the bubble rendered).
+ * One thing the file viewer can show: a stored attachment, an image that sits inside a
+ * message's text (its `src` is already the browser-loadable proxy url the bubble rendered), or
+ * a documentation upload (bytes from `/api/documentation/:id/raw`, Word/Excel from its
+ * `/preview`, both scoped like the document itself).
  */
 export type ViewerItem =
   | {
@@ -19,6 +30,12 @@ export type ViewerItem =
       key: string;
       src: string;
       name: string;
+    }
+  | {
+      type: 'document';
+      /** `doc:<id>`. */
+      key: string;
+      document: ViewerDocument;
     };
 
 export type ViewerKind =
@@ -28,9 +45,16 @@ export type ViewerKind =
   | 'audio'
   | 'text'
   | 'csv'
+  | 'markdown'
   | 'docx'
   | 'xlsx'
   | 'other';
+
+export const documentItem = (document: ViewerDocument): ViewerItem => ({
+  type: 'document',
+  key: `doc:${document.id}`,
+  document,
+});
 
 export const attachmentItem = (attachment: Attachment, jiraHosted = false): ViewerItem => ({
   type: 'attachment',
@@ -69,6 +93,8 @@ const EXTENSION_KINDS: Record<string, ViewerKind> = {
   txt: 'text',
   log: 'text',
   csv: 'csv',
+  md: 'markdown',
+  markdown: 'markdown',
   docx: 'docx',
   xlsx: 'xlsx',
 };
@@ -93,19 +119,45 @@ export const viewerKindOf = (mimeType: string | null | undefined, filename = '')
   if (mime.startsWith('video/')) return 'video';
   if (mime.startsWith('audio/')) return 'audio';
   if (mime === 'text/csv' || mime === 'application/csv') return 'csv';
-  if (mime === 'text/plain') return extensionOf(filename) === 'csv' ? 'csv' : 'text';
+  if (mime === 'text/markdown' || mime === 'text/x-markdown') return 'markdown';
+  if (mime === 'text/plain') {
+    const extension = extensionOf(filename);
+    if (extension === 'csv') return 'csv';
+    return extension === 'md' || extension === 'markdown' ? 'markdown' : 'text';
+  }
   if (mime === DOCX_MIME) return 'docx';
   if (mime === XLSX_MIME) return 'xlsx';
   return 'other';
 };
 
-export const itemKind = (item: ViewerItem): ViewerKind =>
-  item.type === 'inline'
-    ? 'image'
-    : viewerKindOf(item.attachment.mimeType, item.attachment.originalFilename);
+export const itemKind = (item: ViewerItem): ViewerKind => {
+  if (item.type === 'inline') return 'image';
+  if (item.type === 'document') return viewerKindOf(item.document.mimeType, item.document.name);
+  return viewerKindOf(item.attachment.mimeType, item.attachment.originalFilename);
+};
 
-export const itemName = (item: ViewerItem): string =>
-  item.type === 'inline' ? item.name : item.attachment.originalFilename;
+export const itemName = (item: ViewerItem): string => {
+  if (item.type === 'inline') return item.name;
+  return item.type === 'document' ? item.document.name : item.attachment.originalFilename;
+};
+
+/** The stored file behind an item (type and size), or null for an inline image. */
+export const itemFile = (item: ViewerItem): { mimeType: string; size: number | null } | null => {
+  if (item.type === 'inline') return null;
+  if (item.type === 'document') return { mimeType: item.document.mimeType, size: item.document.size };
+  return { mimeType: item.attachment.mimeType, size: item.attachment.size ?? null };
+};
+
+/**
+ * The type of the bytes the viewer SHOWS for an item. A documentation TIFF is fetched for
+ * display as a WEBP (`/raw?display=1`: browsers other than Safari cannot draw TIFF).
+ */
+export const shownMimeType = (item: ViewerItem): string | null => {
+  const file = itemFile(item);
+  if (!file) return null;
+  const mime = file.mimeType.toLowerCase().split(';')[0].trim();
+  return item.type === 'document' && mime === 'image/tiff' ? 'image/webp' : file.mimeType;
+};
 
 /** Anything the viewer can do better than the "no preview" card for. */
 export const isViewable = (mimeType: string | null | undefined, filename = ''): boolean =>
@@ -122,7 +174,7 @@ export const safeBlobType = (mimeType: string | null | undefined, kind: ViewerKi
   if (kind === 'pdf') return 'application/pdf';
   if (kind === 'image' && mime.startsWith('image/') && mime !== 'image/svg+xml') return mime;
   if ((kind === 'video' || kind === 'audio') && /^(video|audio)\//.test(mime)) return mime;
-  if (kind === 'text' || kind === 'csv') return 'text/plain';
+  if (kind === 'text' || kind === 'csv' || kind === 'markdown') return 'text/plain';
   return 'application/octet-stream';
 };
 

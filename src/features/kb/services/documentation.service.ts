@@ -38,6 +38,32 @@ export type Documentation = {
   // older backend.
   externalUrl?: string | null;
   sourceDeleted?: boolean;
+  // A synced page's place in its source, titles top down ([space, …parents, page]). null on
+  // uploads and on a backend that does not send it (normalised by `sourcePathOf`).
+  sourcePath?: string[] | null;
+};
+
+/** `sourcePath` as the backend sent it, or null when absent or not a list of titles. */
+export const sourcePathOf = (raw: unknown): string[] | null => {
+  if (!Array.isArray(raw)) return null;
+  const parts = raw.filter((part): part is string => typeof part === 'string' && part.trim() !== '');
+  return parts.length > 0 ? parts : null;
+};
+
+/** What the text preview shows of a synced page beyond its chunks. */
+export type DocumentationFormatted = {
+  /** The page as Markdown (formatting kept); null when the backend has none or predates it. */
+  contentMarkdown: string | null;
+  sourcePath: string[] | null;
+};
+
+export const normalizeDocumentationFormatted = (raw: unknown): DocumentationFormatted => {
+  const row = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const markdown = row.contentMarkdown;
+  return {
+    contentMarkdown: typeof markdown === 'string' && markdown.trim() !== '' ? markdown : null,
+    sourcePath: sourcePathOf(row.sourcePath),
+  };
 };
 
 export type DocumentationStats = {
@@ -142,12 +168,20 @@ const uploadDocumentation = async (
 
 const listDocumentation = async (): Promise<Documentation[]> => {
   const response = await apiClient.get<Documentation[]>('/api/documentation');
-  return response.data;
+  return Array.isArray(response.data)
+    ? response.data.map((row) => ({ ...row, sourcePath: sourcePathOf(row.sourcePath) }))
+    : response.data;
 };
 
 const getDocumentation = async (id: number): Promise<Documentation> => {
   const response = await apiClient.get<Documentation>(`/api/documentation/${id}`);
   return response.data;
+};
+
+/** One document's formatted page and path (`GET /api/documentation/:id`). */
+const getDocumentationFormatted = async (id: number): Promise<DocumentationFormatted> => {
+  const response = await apiClient.get<unknown>(`/api/documentation/${id}`);
+  return normalizeDocumentationFormatted(response.data);
 };
 
 const deleteDocumentation = async (id: number): Promise<void> => {
@@ -211,6 +245,7 @@ export const documentationService = {
   listDocumentation,
   getDocumentation,
   getDocumentationContent,
+  getDocumentationFormatted,
   getProgress,
   deleteDocumentation,
   toggleEnabled,

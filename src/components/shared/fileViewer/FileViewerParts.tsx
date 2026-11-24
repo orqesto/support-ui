@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { AlertTriangle, Download, ExternalLink, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Tabs } from '@/components/ui/Tabs';
 import type { AttachmentPreview } from '@/services/attachmentFile.service';
+import { renderDocumentHtml, splitIntoSections } from './docMarkdown';
 import { CSV_MAX_ROWS, parseCsv } from './fileViewerModel';
 
 export const formatBytes = (bytes?: number | null): string | null => {
@@ -18,7 +19,8 @@ export const formatBytes = (bytes?: number | null): string | null => {
  * hooks — one of them deletes every image that is not our mail-image proxy, which would strip
  * the pictures mammoth embeds in a Word file as data urls. A fresh instance has no hooks.
  */
-const DOC_IMAGE_SRC = /^data:image\/[a-z0-9.+-]+[;,]/i;
+// Raster pictures only: an `image/svg+xml` source is a document of its own.
+const DOC_IMAGE_SRC = /^data:image\/(?:png|jpe?g|gif|webp|bmp)[;,]/i;
 const DOC_LINK_HREF = /^(?:https?:|mailto:)/i;
 let documentPurifier: ReturnType<typeof DOMPurify> | null = null;
 const purifier = () => {
@@ -46,13 +48,25 @@ const purifier = () => {
 };
 
 /**
- * A Word document's html is the CUSTOMER's content: sanitized before it touches the page. No
- * `style`, no forms, no frames — a document preview needs headings, lists, tables and pictures.
+ * A Word document's html is the CUSTOMER's content: sanitized before it touches the page, by an
+ * ALLOWLIST — headings, text, lists, tables, links and embedded pictures. A denylist let through
+ * every element that fetches a remote url on its own (an svg `<image href>`, a `poster`, a table
+ * `background`): a read receipt from inside a document.
  */
+const DOCUMENT_TAGS = [
+  'p', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'b', 'em', 'i', 'u', 's', 'sub', 'sup',
+  'ul', 'ol', 'li', 'table', 'caption', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'a', 'img',
+  'blockquote', 'pre', 'code', 'hr', 'span',
+];
 export const sanitizeDocumentHtml = (html: string): string =>
   purifier().sanitize(html, {
-    FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select', 'iframe', 'object'],
-    FORBID_ATTR: ['style', 'class', 'id'],
+    ALLOWED_TAGS: DOCUMENT_TAGS,
+    ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'colspan', 'rowspan'],
+    ALLOW_DATA_ATTR: false,
+    // Numbers are not urls: without this the url pattern below drops a `colspan="2"`.
+    ADD_URI_SAFE_ATTR: ['colspan', 'rowspan'],
+    // http(s)/mailto only; DOMPurify still passes `data:` on <img>, which the hook narrows.
+    ALLOWED_URI_REGEXP: /^(?:https?:|mailto:)/i,
   });
 
 const DOCUMENT_PROSE =
@@ -118,6 +132,59 @@ export const CsvView = ({ text }: { text: string }) => {
       )}
       <div className="flex-1 min-h-0 overflow-auto">
         <CellGrid rows={rows} />
+      </div>
+    </div>
+  );
+};
+
+/** Characters per rendered Markdown part; the rest of a long file is added on request. */
+const MARKDOWN_SECTION_CHARS = 50_000;
+
+const MARKDOWN_PROSE =
+  `${DOCUMENT_PROSE} [&_h4]:font-semibold [&_li]:my-1 [&_blockquote]:border-l-4 ` +
+  '[&_blockquote]:border-border [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground ' +
+  '[&_code]:font-mono [&_code]:text-[0.9em] [&_code]:bg-muted [&_code]:rounded [&_code]:px-1 ' +
+  '[&_pre]:p-3 [&_pre]:bg-muted [&_pre]:rounded [&_pre]:overflow-x-auto [&_hr]:my-4 ' +
+  '[&_table]:block [&_table]:overflow-x-auto [&_th]:bg-muted [&_th]:text-left';
+
+const MarkdownSection = memo(({ raw }: { raw: string }) => {
+  const html = useMemo(() => renderDocumentHtml(raw), [raw]);
+  // Escaped text + a DOMPurify allowlist (renderDocumentHtml).
+  return <div dangerouslySetInnerHTML={{ __html: html }} />;
+});
+MarkdownSection.displayName = 'MarkdownSection';
+
+/**
+ * A Markdown file, formatted (docMarkdown.ts: escaped first, then a small subset, then
+ * sanitized). A long file renders its first part and adds the rest on request.
+ */
+export const MarkdownView = ({ text }: { text: string }) => {
+  const sections = useMemo(() => splitIntoSections(text, MARKDOWN_SECTION_CHARS), [text]);
+  const [shown, setShown] = useState(1);
+  return (
+    <div className="flex flex-col min-h-0 h-full bg-card">
+      <div className="flex-1 min-h-0 overflow-auto">
+        <div data-testid="markdown-preview" className={MARKDOWN_PROSE}>
+          {text.trim() === '' ? (
+            <p className="text-center text-muted-foreground">This file is empty.</p>
+          ) : (
+            sections
+              .slice(0, shown)
+              // The parts of one text never reorder: the position is their identity.
+              // eslint-disable-next-line react/no-array-index-key
+              .map((section, index) => <MarkdownSection key={index} raw={section} />)
+          )}
+          {shown < sections.length && (
+            <div className="flex gap-3 justify-center py-4">
+              <Button variant="outline" size="sm" onClick={() => setShown((count) => count + 2)}>
+                Show more
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShown(sections.length)}>
+                Show all
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -209,6 +276,7 @@ export const FileCard = ({
   tone = 'neutral',
   onDownload,
   onOpenInTab,
+  extraAction,
 }: {
   name: string;
   size?: number | null;
@@ -216,6 +284,8 @@ export const FileCard = ({
   tone?: 'neutral' | 'error';
   onDownload: () => void;
   onOpenInTab?: () => void;
+  /** One more way to see the file (a document's text read from it). */
+  extraAction?: { label: string; onClick: () => void };
 }) => {
   const Icon = tone === 'error' ? AlertTriangle : FileText;
   const sizeLabel = formatBytes(size);
@@ -242,6 +312,12 @@ export const FileCard = ({
             <Button variant="outline" size="md" onClick={onOpenInTab}>
               <ExternalLink className="mr-1.5 w-4 h-4" />
               Open in new tab
+            </Button>
+          )}
+          {extraAction && (
+            <Button variant="outline" size="md" onClick={extraAction.onClick}>
+              <FileText className="mr-1.5 w-4 h-4" />
+              {extraAction.label}
             </Button>
           )}
         </div>

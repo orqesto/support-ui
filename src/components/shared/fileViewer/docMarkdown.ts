@@ -53,12 +53,32 @@ const TABLE_SEPARATOR = /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?$/;
 
 const isTableRow = (line: string): boolean => line.startsWith('|') && line.length > 1;
 
-const tableCells = (line: string): string[] =>
-  line
-    .replace(/^\|/, '')
-    .replace(/\|$/, '')
-    .split('|')
-    .map((cell) => cell.trim());
+/**
+ * The cells of a pipe-table row. A cell may hold a literal pipe written `\|` (the Confluence
+ * converter escapes them): the row splits on UNESCAPED pipes only, then `\|` reads as `|`.
+ */
+const tableCells = (line: string): string[] => {
+  // A scan, not a lookbehind regex: lookbehind is not in every browser this app supports.
+  const cells: string[] = [];
+  let cell = '';
+  for (let at = 0; at < line.length; at++) {
+    const char = line[at];
+    if (char === '\\' && line[at + 1] === '|') {
+      cell += '|';
+      at++;
+    } else if (char === '|') {
+      cells.push(cell);
+      cell = '';
+    } else {
+      cell += char;
+    }
+  }
+  cells.push(cell);
+  // The row's leading and trailing pipes open and close it; they hold no cell.
+  if (line.startsWith('|')) cells.shift();
+  if (cells.length > 0 && cells[cells.length - 1].trim() === '' && /(^|[^\\])\|$/.test(line)) cells.pop();
+  return cells.map((text) => text.trim());
+};
 
 /** Markdown-ish text → HTML (unsanitized; `renderDocumentHtml` sanitizes it). */
 export const documentMarkdownToHtml = (raw: string): string => {
