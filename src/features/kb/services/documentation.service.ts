@@ -34,6 +34,9 @@ export type Documentation = {
   // External-source provenance (e.g. Confluence sync). null = uploaded manually.
   externalSource?: string | null;
   externalId?: string | null;
+  // Link back to the source page (Confluence sync writes it; null on uploads). Absent on an
+  // older backend.
+  externalUrl?: string | null;
   sourceDeleted?: boolean;
 };
 
@@ -175,11 +178,27 @@ const getStats = async (): Promise<DocumentationStats> => {
   return response.data;
 };
 
-const getDocumentationContent = async (id: number): Promise<{ content: string; chunkIndex: number }[]> => {
-  const response = await apiClient.get<{ content: string; chunkIndex: number }[]>(
-    `/api/documentation/${id}/content`
-  );
-  return response.data;
+export type DocumentationChunkContent = { content: string; chunkIndex: number };
+
+/**
+ * The stored chunks, in chunk order. Normalised: a non-array answer is no chunks, a row without
+ * text is skipped, and the order is the chunk index whatever order the rows came in.
+ */
+export const normalizeDocumentationChunks = (raw: unknown): DocumentationChunkContent[] =>
+  (Array.isArray(raw) ? raw : [])
+    .filter(
+      (row): row is { content: string; chunkIndex?: unknown } =>
+        typeof row === 'object' && row !== null && typeof (row as { content?: unknown }).content === 'string'
+    )
+    .map((row, position) => ({
+      content: row.content,
+      chunkIndex: typeof row.chunkIndex === 'number' ? row.chunkIndex : position,
+    }))
+    .sort((left, right) => left.chunkIndex - right.chunkIndex);
+
+const getDocumentationContent = async (id: number): Promise<DocumentationChunkContent[]> => {
+  const response = await apiClient.get<unknown>(`/api/documentation/${id}/content`);
+  return normalizeDocumentationChunks(response.data);
 };
 
 const getProgress = async (id: number): Promise<DocumentationProgress> => {

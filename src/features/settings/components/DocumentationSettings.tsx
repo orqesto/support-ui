@@ -1,20 +1,18 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { BookOpen, FileText, CheckCircle, Clock } from 'lucide-react';
+import { BookOpen, FileText, CheckCircle } from 'lucide-react';
 import { DocumentationUploadForm } from '@/features/settings/components/DocumentationUploadForm';
 import { DocumentationList } from '@/features/settings/components/DocumentationList';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { bulkDeleteSummary } from '@/features/settings/components/bulkDeleteSummary';
-import {
-  Dialog,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-  DialogContent,
-} from '@/components/ui/Dialog/Dialog';
 import { documentationService, type Documentation, type DocumentType, type DocumentationProgress } from '@/features/kb/shell';
 import { logger } from '@/lib/logger';
+
+// The preview (renderer + sanitizer) loads only when a document is opened.
+const DocumentPreviewDialog = lazy(
+  () => import('@/features/settings/components/docPreview/DocumentPreviewDialog')
+);
 
 type DocumentationSettingsProps = {
   // Shared KB revision (from the KB page). Bumped whenever a sibling surface (the Confluence
@@ -66,17 +64,7 @@ export const DocumentationSettings = ({
     docId: null,
   });
   const [selectedDocs, setSelectedDocs] = useState<Set<number>>(new Set());
-  const [viewerDialog, setViewerDialog] = useState<{
-    open: boolean;
-    doc: Documentation | null;
-    content: string;
-    loading: boolean;
-  }>({
-    open: false,
-    doc: null,
-    content: '',
-    loading: false,
-  });
+  const [viewerDoc, setViewerDoc] = useState<Documentation | null>(null);
   const [docProgress, setDocProgress] = useState<Record<number, DocumentationProgress>>({});
   const docsRef = useRef<Documentation[]>([]);
   docsRef.current = docs;
@@ -397,20 +385,8 @@ export const DocumentationSettings = ({
     }
   };
 
-  const handleViewContent = async (doc: Documentation) => {
-    setViewerDialog({ open: true, doc, content: '', loading: true });
-    try {
-      const chunks = await documentationService.getDocumentationContent(doc.id);
-      const fullContent = chunks.map((chunk) => chunk.content).join('\n\n');
-      setViewerDialog((prev) => ({ ...prev, content: fullContent, loading: false }));
-    } catch (error) {
-      logger.error('Failed to load documentation content:', error);
-      setViewerDialog((prev) => ({
-        ...prev,
-        content: 'Failed to load content. Please try again.',
-        loading: false,
-      }));
-    }
+  const handleViewContent = (doc: Documentation) => {
+    setViewerDoc(doc);
   };
 
   const handleDeleteConfirm = async () => {
@@ -556,46 +532,15 @@ export const DocumentationSettings = ({
             variant="danger"
           />
 
-          <Dialog
-            open={viewerDialog.open}
-            onOpenChange={(open) =>
-              !open && setViewerDialog({ open: false, doc: null, content: '', loading: false })
-            }
-            size="lg"
-          >
-            <DialogHeader>
-              <div className="flex-1 min-w-0 pr-4">
-                <DialogTitle>{viewerDialog.doc?.title}</DialogTitle>
-                <p className="text-sm text-muted-foreground truncate">
-                  {viewerDialog.doc?.originalFilename} · {viewerDialog.doc?.chunkCount} chunks
-                </p>
-              </div>
-              <DialogClose
-                onClose={() =>
-                  setViewerDialog({ open: false, doc: null, content: '', loading: false })
-                }
+          {viewerDoc && (
+            <Suspense fallback={null}>
+              <DocumentPreviewDialog
+                doc={viewerDoc}
+                loadChunks={documentationService.getDocumentationContent}
+                onClose={() => setViewerDoc(null)}
               />
-            </DialogHeader>
-            <DialogContent className="overflow-auto max-h-[60vh] bg-muted">
-              {viewerDialog.loading ? (
-                <div className="flex flex-col justify-center items-center py-12 text-center">
-                  <Clock className="mb-4 w-12 h-12 text-muted-foreground animate-spin" />
-                  <p className="text-muted-foreground">Loading content...</p>
-                </div>
-              ) : (
-                <div
-                  className="p-4 bg-card rounded border font-mono text-sm leading-6"
-                  style={{
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-all',
-                    overflowWrap: 'anywhere',
-                  }}
-                >
-                  {viewerDialog.content}
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
+            </Suspense>
+          )}
         </>
       )}
     </div>
