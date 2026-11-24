@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Sparkles, BookOpen } from 'lucide-react';
+import { TranslateButton } from '@/components/shared/TranslateButton';
 import { Spinner } from '@/components/ui/Spinner';
 import { Button } from '@/components/ui/Button';
 import { stripHtml } from '@/lib/stripHtml';
@@ -11,6 +13,7 @@ import {
   PHONE_THREAD_ROW,
   type GhostOption,
 } from './messageDetailConstants';
+import { GHOST_TONE, autoStatusText, ghostToneOf } from './ghostAutoStatus';
 
 type Props = {
   aiLoading: boolean;
@@ -74,6 +77,9 @@ export function MessageGhostBubble({
   onGhostClick,
   onShowAlternatives,
 }: Props) {
+  // The draft as translated for the agent to read (the insert stays the original), and the
+  // draft it belongs to: a new draft shows its own text again.
+  const [translated, setTranslated] = useState<{ of: string; text: string } | null>(null);
   const empty = !composer || composer === '<p></p>';
   const zoneOpen = empty && composerMode === 'reply' && !resolved && !answered;
   const showZone = !autoReply?.sent && zoneOpen;
@@ -102,6 +108,10 @@ export function MessageGhostBubble({
 
   if (!ghostVisible || !ghostOption) return null;
 
+  const tone = GHOST_TONE[ghostToneOf(ghostOption)];
+  const statusText = autoStatusText(ghostOption);
+  const shownTranslation = translated?.of === ghostOption.answer ? translated.text : null;
+
   return (
     <div
       role="button"
@@ -119,13 +129,25 @@ export function MessageGhostBubble({
       className={`flex flex-row-reverse items-start gap-[9px] w-full group cursor-pointer focus-visible:outline-none ${PHONE_THREAD_ROW}`}
     >
       <div
-        className={`grid place-items-center mt-px w-[21px] h-[21px] rounded-full border border-dashed border-ai-line text-ai flex-none ${PHONE_THREAD_AVATAR}`}
+        className={`grid place-items-center mt-px w-[21px] h-[21px] rounded-full border border-dashed ${tone.line} ${tone.text} flex-none ${PHONE_THREAD_AVATAR}`}
       >
         <Sparkles className="w-3 h-3" />
       </div>
       <div className={`flex flex-col items-end gap-1 min-w-0 max-w-[90%] ${PHONE_THREAD_COL_OUT}`}>
-        <div className="flex items-center gap-1.5 font-display text-[10.5px] tracking-[0.03em] text-ai">
-          <span className="inline-flex items-center h-[17px] px-1.5 rounded-[5px] border border-ai-line bg-ai-muted text-[9.5px] tracking-[0.09em] font-semibold uppercase">
+        <div
+          className={`flex flex-wrap justify-end items-center gap-1.5 font-display text-[10.5px] tracking-[0.03em] ${tone.text}`}
+        >
+          {/* An automatic reply that was not sent: what became of it, in its own colour. */}
+          {statusText && (
+            <span
+              className={`inline-flex items-center h-[17px] px-1.5 rounded-[5px] border ${tone.badge} text-[9.5px] tracking-[0.05em] font-semibold`}
+            >
+              {statusText}
+            </span>
+          )}
+          <span
+            className={`inline-flex items-center h-[17px] px-1.5 rounded-[5px] border ${tone.badge} text-[9.5px] tracking-[0.09em] font-semibold uppercase`}
+          >
             {ghostOption.ruleName !== undefined
               ? 'Rule'
               : ghostOption.insertSource === 'knowledge_base'
@@ -149,15 +171,36 @@ export function MessageGhostBubble({
               +{alternativeCount - 1} more
             </Button>
           )}
+          {/* Translate, as on every customer message — to read it; the insert stays the original.
+            Its clicks and keys are its own, never the card's insert. */}
+          <div
+            className="flex-none"
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+          >
+            <TranslateButton
+              key={ghostOption.answer}
+              text={stripHtml(ghostOption.answer)}
+              onTranslated={(content) => setTranslated({ of: ghostOption.answer, text: content })}
+              onCleared={() => setTranslated(null)}
+            />
+          </div>
         </div>
         <div
-          className={`rounded-xl px-[13px] py-[11px] border border-dashed border-ai-line bg-transparent text-muted-foreground group-hover:bg-ai-muted group-hover:text-foreground group-focus-visible:bg-ai-muted text-[13.5px] leading-[1.62] text-left transition-colors ${PHONE_THREAD_BUBBLE}`}
+          className={`rounded-xl px-[13px] py-[11px] border border-dashed ${tone.line} bg-transparent text-muted-foreground ${tone.hover} group-hover:text-foreground text-[13.5px] leading-[1.62] text-left transition-colors ${PHONE_THREAD_BUBBLE}`}
         >
           {/* Preview only — suggestions are rich text, so the raw markup would
               otherwise show as literal "<p>Hello…</p>". The click handler above
               still passes the ORIGINAL html, which is what the composer wants. */}
-          {stripHtml(ghostOption.answer)}
-          <span className="block mt-2 font-display text-[10px] tracking-[0.09em] uppercase font-semibold text-ai">
+          {shownTranslation ?? stripHtml(ghostOption.answer)}
+          {shownTranslation !== null && (
+            <span className="block mt-1 text-[10.5px] italic">
+              Machine translation, to read — the original is inserted
+            </span>
+          )}
+          <span
+            className={`block mt-2 font-display text-[10px] tracking-[0.09em] uppercase font-semibold ${tone.text}`}
+          >
             Tap to insert into reply
           </span>
         </div>

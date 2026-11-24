@@ -13,9 +13,10 @@ const REASON: Record<string, string> = {
   // Check-only mode: the reply passed every check and was kept as the draft instead of sent.
   [WOULD_SEND]: 'it passed every check and would have been sent — check-only mode',
   // The send gate (the check every automatic reply passes). One code for a restricted topic and
-  // for the fixed dose rule (the reply stated an amount in a dose unit): the record's `why` says
-  // which.
-  restricted_topic: 'the customer asks about a restricted topic, or the reply stated a dose',
+  // for the workspace's hold rules (a listed phrase, the built-in amount rule): the record's
+  // `why` says which.
+  restricted_topic:
+    'the customer asks about a restricted topic, or the reply contains something this workspace holds',
   reply_unchecked: 'the reply could not be checked',
   needs_lookup_or_action: 'answering needs a lookup or an action',
   no_customer_request: 'the message is not a customer request',
@@ -101,13 +102,14 @@ export const WITHHELD_REASON: Record<string, string> = {
   // The send gate held the reply (2026-11-20): the knowledge base answer (`kb_…`), or a plain
   // prepared reply for what the customer asked.
   kb_restricted_topic:
-    'the customer asks about a restricted topic, or the knowledge base answer stated a dose',
+    'the customer asks about a restricted topic, or the knowledge base answer contains something this workspace holds',
   kb_no_customer_request: 'the message is not a customer request',
   kb_needs_lookup_or_action: 'answering needs a lookup or an action',
   kb_promises_follow_up: 'the knowledge base answer promised a follow-up',
   kb_does_not_answer: 'the knowledge base answer did not answer the question',
   kb_unsupported_by_sources: 'the answer said more than the knowledge base does',
-  restricted_topic: 'the customer asks about a restricted topic, or the reply stated a dose',
+  restricted_topic:
+    'the customer asks about a restricted topic, or the reply contains something this workspace holds',
   // The meaning check could not run: it failed, its answer could not be read, or the workspace
   // has no AI provider set up (BE keywordSendGate PLAIN_RULE_UNCHECKED).
   question_unchecked:
@@ -147,9 +149,9 @@ export const ASK_WITHHELD_REASON: Record<string, string> = {
 export const ASK_CHECK_REASON: Record<string, string> = {
   ask_unchecked: "the email's questions could not be checked",
   'check failed': "the email's questions could not be checked",
-  // A restricted topic, or a question the AI wrote stated an amount in a dose unit (dose rule).
+  // A restricted topic, or a question the AI wrote contains something the workspace holds.
   restricted_topic:
-    'the customer asks about a restricted topic, or a question in the email stated a dose, so nothing was asked automatically',
+    'the customer asks about a restricted topic, or a question in the email contains something this workspace holds, so nothing was asked automatically',
   no_customer_request: 'the message is not a customer request',
   not_only_asking: 'a question in the email did more than ask for a detail',
 };
@@ -180,7 +182,7 @@ export const autoReplyReasonLabel = (reason: string | null | undefined): string 
 /** The reasons the Audit Logs filter offers, most asked-for first. */
 export const AUTO_REPLY_REASON_FILTERS: ReadonlyArray<{ value: string; label: string }> = [
   { value: WOULD_SEND, label: 'Would have been sent (check-only mode)' },
-  { value: 'restricted_topic', label: 'A restricted topic, or the reply stated a dose' },
+  { value: 'restricted_topic', label: 'A restricted topic, or a held phrase' },
   { value: 'reply_unchecked', label: 'Reply could not be checked' },
   { value: 'needs_lookup_or_action', label: 'Needs a lookup or an action' },
   { value: 'no_customer_request', label: 'Not a customer request' },

@@ -738,6 +738,7 @@ export interface components {
             partialAnswer: "hand_to_agent" | "send_and_follow_up";
             restrictedTopics: string[];
             doseRule: boolean;
+            holdPhrases?: string[];
             restrictedTopicTeams: components["schemas"]["RestrictedTopicTeam"][];
             departmentSettings: {
                 [key: string]: components["schemas"]["DepartmentAutoReplySettings"];
@@ -753,6 +754,7 @@ export interface components {
             /** @enum {string} */
             partialAnswer?: "hand_to_agent" | "send_and_follow_up";
             doseRule?: boolean;
+            holdPhrases?: string[];
             restrictedTopicsChange?: {
                 /** @enum {string} */
                 scope: "workspace" | "team";

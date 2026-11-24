@@ -13,6 +13,8 @@ type Change = { scope: string; departmentId?: number; add?: string[]; remove?: s
 
 const state = vi.hoisted(() => ({
   canManage: true,
+  /** The workspace default "Automatic email replies" switch. */
+  orgEnabled: true,
   /** False with canManage: a moderator — may change the card, not the restricted topics. */
   orgAdmin: true,
   /** The workspace's teams mode (false = no team rows). */
@@ -23,6 +25,8 @@ const state = vi.hoisted(() => ({
   listsTeams: true,
   /** The workspace's dose-rule switch; null = an older backend that does not send it. */
   doseRule: false as boolean | null,
+  /** The workspace's held phrases; null = an older backend that does not send them. */
+  holdPhrases: [] as string[] | null,
   topics: [] as string[],
   teams: {} as Record<string, Record<string, unknown>>,
   departments: [] as { id: number; name: string; slug: string; active: boolean }[],
@@ -115,6 +119,7 @@ const serverSave = (body: Record<string, unknown>) => {
         ...(state.listsTeams && { restrictedTopicTeams: topicTeams() }),
       }),
       departmentSettings: state.teams,
+      ...(state.holdPhrases !== null && { holdPhrases: state.holdPhrases }),
     }),
   };
 };
@@ -136,7 +141,7 @@ vi.mock('@/services/organization.service', () => ({
   organizationService: {
     getAutoReply: () =>
       Promise.resolve({
-        enabled: true,
+        enabled: state.orgEnabled,
         mode: 'all',
         requestMissingInfo: true,
         suggestSolutions: true,
@@ -144,6 +149,7 @@ vi.mock('@/services/organization.service', () => ({
         partialAnswer: 'hand_to_agent',
         restrictedTopics: state.supported ? [...state.topics] : null,
         ...(state.doseRule !== null && { doseRule: state.doseRule }),
+        ...(state.holdPhrases !== null && { holdPhrases: [...state.holdPhrases] }),
         restrictedTopicTeams:
           state.supported && state.listsTeams ? structuredClone(topicTeams()) : null,
         ...(state.updatedAt !== undefined && { updatedAt: state.updatedAt }),
@@ -153,6 +159,7 @@ vi.mock('@/services/organization.service', () => ({
       Promise.resolve({ settings: { departmentSettings: structuredClone(state.teams) } }),
     updateAutoReply: async (data: Record<string, unknown>) => {
       if (typeof data.doseRule === 'boolean') state.doseRule = data.doseRule;
+      if (Array.isArray(data.holdPhrases)) state.holdPhrases = data.holdPhrases as string[];
       state.updates.push(structuredClone(data));
       if (state.held) await new Promise<void>((release) => state.held?.push(release));
       if (state.failWith) throw Object.assign(new Error('Request failed'), state.failWith);
@@ -182,11 +189,13 @@ export const SALES = { id: 9, name: 'Sales', slug: 'sales', active: true };
 
 beforeEach(() => {
   state.canManage = true;
+  state.orgEnabled = true;
   state.orgAdmin = true;
   state.teamsMode = true;
   state.supported = true;
   state.listsTeams = true;
   state.doseRule = false;
+  state.holdPhrases = [];
   state.topics = [];
   state.teams = {};
   state.departments = [BILLING];

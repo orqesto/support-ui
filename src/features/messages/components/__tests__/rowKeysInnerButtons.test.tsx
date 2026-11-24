@@ -23,6 +23,10 @@ import { MessageListItem } from '../MessageListItem';
 import { KanbanCard } from '../KanbanCard';
 import { MessageGhostBubble } from '../MessageGhostBubble';
 import { toGhostOption } from '../messageDetailConstants';
+// The draft card's Translate (as on every message) asks whether AI is set up; not this suite's subject.
+vi.mock('@/hooks/useAiConfigured', () => ({
+  useAiConfigured: () => ({ aiConfigured: true, isLoading: false }),
+}));
 
 const writeText = vi.fn().mockResolvedValue(undefined);
 beforeEach(() => {

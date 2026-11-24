@@ -1,7 +1,7 @@
 /**
  * A keyword rule's kept reply is the team's own text: it is labelled RULE and named by its rule,
  * never "AI", and it is offered with AI drafts off (only a model's draft is hidden then). And a
- * hold the check explained (`details.why`: the meaning check on a rule's reply, the dose rule)
+ * hold the check explained (`details.why`: the meaning check on a rule's reply, a hold rule)
  * carries that line in the Activity. Invented data.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -136,10 +136,10 @@ describe("a hold's own line (`details.why`) in the Activity", () => {
         source: 'ai_reply',
         detail:
           'The check every automatic reply passes held this reply: it was kept as a draft for a person.',
-        why: 'the reply states an amount in a dose unit (fixed dose rule)',
+        why: 'the reply states an amount with a unit of measure (built-in hold rule)',
       })
     ).toBe(
-      'The automatic reply was not sent: the customer asks about a restricted topic, or the reply stated a dose — the reply states an amount in a dose unit (fixed dose rule)'
+      'The automatic reply was not sent: the customer asks about a restricted topic, or the reply contains something this workspace holds — the reply states an amount with a unit of measure (built-in hold rule)'
     );
   });
 
@@ -160,7 +160,7 @@ describe("a hold's own line (`details.why`) in the Activity", () => {
 
   it('the Audit Logs filter names both cases of restricted_topic, under the same key', () => {
     expect(AUTO_REPLY_REASON_FILTERS.find((filter) => filter.value === 'restricted_topic')).toEqual(
-      { value: 'restricted_topic', label: 'A restricted topic, or the reply stated a dose' }
+      { value: 'restricted_topic', label: 'A restricted topic, or a held phrase' }
     );
   });
 });

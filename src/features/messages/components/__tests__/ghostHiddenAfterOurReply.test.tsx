@@ -7,6 +7,10 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MessageGhostBubble } from '../MessageGhostBubble';
 import { toGhostOption, type GhostOption } from '../messageDetailConstants';
+// The draft card's Translate (as on every message) asks whether AI is set up; not this suite's subject.
+vi.mock('@/hooks/useAiConfigured', () => ({
+  useAiConfigured: () => ({ aiConfigured: true, isLoading: false }),
+}));
 
 const noop = () => undefined;
 const option = {

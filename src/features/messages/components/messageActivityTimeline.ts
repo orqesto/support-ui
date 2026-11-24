@@ -284,8 +284,8 @@ export const HOLD_WHY_MAX = 200;
 
 /**
  * The check's own one line on why it held the reply (`details.why`: the meaning check on a keyword
- * rule's reply, the send gate's hold — "the reply states an amount in a dose unit (fixed dose
- * rule)"), trimmed and capped; null when the record has none or it is not a sentence (one word
+ * rule's reply, the send gate's hold — "the reply states an amount with a unit of measure
+ * (built-in hold rule)"), trimmed and capped; null when the record has none or it is not a sentence (one word
  * reads as a code, and a code is never shown).
  */
 export const holdWhyOf = (details: Record<string, unknown> | null): string | null => {
