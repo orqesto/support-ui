@@ -42,8 +42,13 @@ export const OnboardingPage = () => {
       gated ||
       (isGlobalAdmin && !selectedOrganizationId)
     ) {
-      navigate('/dashboard', { replace: true });
+      // One tick later: Finish marks the workspace complete and then opens the inbox itself,
+      // which unmounts this page and cancels the bounce. Without the wizard leaving (setup
+      // finished in another tab), the bounce still happens.
+      const bounce = setTimeout(() => navigate('/dashboard', { replace: true }), 0);
+      return () => clearTimeout(bounce);
     }
+    return undefined;
   }, [user, status, gated, navigate, selectedOrganizationId]);
 
   // Blocked-popup Gmail OAuth does a full-page redirect; this flag tells
