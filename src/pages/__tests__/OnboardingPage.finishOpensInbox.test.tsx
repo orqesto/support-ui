@@ -1,26 +1,26 @@
-import { vi, describe, it, expect, afterEach } from 'vitest';
+import { vi, describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom';
-import { create } from 'zustand';
 
 /**
  * Finish must open the inbox. The wizard marks the workspace complete and then navigates to
- * /threads; the page around it bounces a COMPLETE workspace to /dashboard, and that bounce must
- * not fire for the completion the wizard just made itself, or it overrides the inbox.
- * A workspace that is already complete when the page opens is still sent to the dashboard.
+ * /threads; the page around it sends a COMPLETE workspace to /dashboard, and that must not fire
+ * for the completion the wizard made itself. In the browser the router's navigation is a React
+ * transition that can commit AFTER the store update and any timer, so the page must not rely on
+ * timing: a completion marked by the wizard never bounces, however long the navigation takes.
+ * Setup finished elsewhere, or already complete on arrival, still goes to the dashboard.
+ * Uses the real onboarding store; only its HTTP service is stubbed.
  */
 
-type Status = 'unknown' | 'pending' | 'complete';
-const store = vi.hoisted(() => ({ current: null as unknown as ReturnType<typeof makeStore> }));
-const makeStore = (status: Status) =>
-  create<{ status: Status; fetchOnce: () => void; markComplete: () => void }>((set) => ({
-    status,
-    fetchOnce: () => undefined,
-    markComplete: () => set({ status: 'complete' }),
-  }));
-
-vi.mock('@/stores/onboardingStore', () => ({
-  useOnboardingStore: (pick: (state: unknown) => unknown) => store.current(pick as never),
+const service = vi.hoisted(() => ({
+  status: { isComplete: false, onboarding: { status: 'pending' }, trial: null } as {
+    isComplete: boolean;
+    onboarding: { status: string };
+    trial: null;
+  },
+}));
+vi.mock('@/services/onboarding.service', () => ({
+  onboardingService: { getStatus: () => Promise.resolve(service.status) },
 }));
 vi.mock('@/stores/authStore', () => ({
   useAuthStore: (pick: (state: unknown) => unknown) =>
@@ -29,17 +29,22 @@ vi.mock('@/stores/authStore', () => ({
 vi.mock('@/stores/subscriptionGateStore', () => ({
   useSubscriptionGateStore: (pick: (state: unknown) => unknown) => pick({ gated: false }),
 }));
-// The wizard's own leave path: mark complete, then open the inbox (OnboardingWizard.leaveWizard).
+
+const { useOnboardingStore } = await import('@/stores/onboardingStore');
+
+// The wizard's two ways out (OnboardingWizard.leaveWizard): mark complete then navigate, or (to
+// model the transition that has not committed yet) mark complete and navigate only later.
+const leave = vi.hoisted(() => ({ navigateNow: true }));
 vi.mock('@/components/onboarding/OnboardingWizard', () => ({
   OnboardingWizard: () => {
     const navigate = useNavigate();
-    const markComplete = store.current((state) => state.markComplete);
+    const markComplete = useOnboardingStore((state) => state.markComplete);
     return (
       <button
         type="button"
         onClick={() => {
           markComplete();
-          navigate('/threads', { replace: true });
+          if (leave.navigateNow) navigate('/threads', { replace: true });
         }}
       >
         Finish
@@ -61,27 +66,46 @@ const renderAt = () =>
     </MemoryRouter>
   );
 
+const resetStore = () =>
+  useOnboardingStore.setState({ status: 'unknown', onboarding: null, fetchedForOrg: null });
+
+beforeEach(() => {
+  leave.navigateNow = true;
+  service.status = { isComplete: false, onboarding: { status: 'pending' }, trial: null };
+  resetStore();
+});
 afterEach(cleanup);
 
 describe('OnboardingPage around a finishing wizard', () => {
   it('Finish lands on the inbox, not the dashboard', async () => {
-    store.current = makeStore('pending');
     renderAt();
     fireEvent.click(await screen.findByRole('button', { name: 'Finish' }));
     expect(await screen.findByText('inbox-page')).toBeInTheDocument();
     expect(screen.queryByText('dashboard-page')).not.toBeInTheDocument();
   });
 
+  it('does not bounce on its own completion while the navigation is still pending', async () => {
+    leave.navigateNow = false;
+    renderAt();
+    fireEvent.click(await screen.findByRole('button', { name: 'Finish' }));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(screen.queryByText('dashboard-page')).not.toBeInTheDocument();
+  });
+
   it('setup finished in another tab while the wizard is open still leaves for the dashboard', async () => {
-    store.current = makeStore('pending');
     renderAt();
     await screen.findByRole('button', { name: 'Finish' });
-    act(() => store.current.setState({ status: 'complete' }));
+    act(() => useOnboardingStore.setState({ status: 'complete' }));
     expect(await screen.findByText('dashboard-page')).toBeInTheDocument();
   });
 
-  it('a workspace that is already complete on arrival still goes to the dashboard', async () => {
-    store.current = makeStore('complete');
+  it('a workspace already complete on arrival goes to the dashboard, even after an earlier Finish', async () => {
+    renderAt();
+    fireEvent.click(await screen.findByRole('button', { name: 'Finish' }));
+    await screen.findByText('inbox-page');
+    cleanup();
+    resetStore();
+    service.status = { isComplete: true, onboarding: { status: 'completed' }, trial: null };
     renderAt();
     expect(await screen.findByText('dashboard-page')).toBeInTheDocument();
   });
