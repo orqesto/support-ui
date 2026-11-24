@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { renderDocumentHtml } from '../docMarkdown';
-import { inventedDocument } from './beChunker';
+import { inventedDocument } from './inventedDocument';
 
 const dom = (raw: string): HTMLElement => {
   const host = document.createElement('div');
@@ -117,5 +117,19 @@ describe('renderDocumentHtml — a large document', () => {
     console.info(`[doc preview] ${big.length} chars rendered in ${Math.round(elapsed)} ms`);
     expect(html.length).toBeGreaterThan(big.length / 2);
     expect(elapsed).toBeLessThan(10_000);
+  });
+});
+
+describe('pipe tables: escaped pipes (1.1.330)', () => {
+  it('⛔ a cell splits on unescaped | only, and \\| reads as |', () => {
+    const host = dom('| Code | Note |\n| --- | --- |\n| A\\|B | x \\| y |\n| plain | end |');
+    const cells = [...host.querySelectorAll('td')].map((cell) => cell.textContent);
+    expect(cells).toEqual(['A|B', 'x | y', 'plain', 'end']);
+    expect(host.querySelectorAll('th')).toHaveLength(2);
+  });
+
+  it('CONTROL: a row with no escapes still splits on every pipe', () => {
+    const host = dom('| a | b | c |\n| --- | --- | --- |\n| 1 | 2 | 3 |');
+    expect([...host.querySelectorAll('td')].map((cell) => cell.textContent)).toEqual(['1', '2', '3']);
   });
 });

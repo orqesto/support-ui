@@ -11,7 +11,7 @@ import { useTeamsEnabled } from '@/hooks/useTeamsEnabled';
 import { formatDate } from '@/lib/utils';
 import { logger } from '@/lib/logger';
 import { integrationsService } from '@/services/integrations.service';
-import { renderDocumentHtml, splitIntoSections } from './docMarkdown';
+import { renderDocumentHtml, splitIntoSections } from '@/components/shared/fileViewer/docMarkdown';
 import { joinChunks, seamRuleFor } from './joinChunks';
 
 /**
@@ -39,6 +39,8 @@ export type PreviewDocument = {
   updatedAt: string;
   externalSource?: string | null;
   externalUrl?: string | null;
+  /** A synced page's place in its source, titles top down (list rows carry it). */
+  sourcePath?: string[] | null;
 };
 
 type Documentation = PreviewDocument;
@@ -47,13 +49,26 @@ type DocumentPreviewDialogProps = {
   doc: PreviewDocument;
   /** The stored chunks in chunk order (`documentationService.getDocumentationContent`). */
   loadChunks: (id: number) => Promise<{ content: string }[]>;
+  /**
+   * A synced page as Markdown and its path (`GET /api/documentation/:id`). A non-empty
+   * `contentMarkdown` is shown formatted instead of the chunks; null, absent (an older backend)
+   * or a failed request shows the chunks as before.
+   */
+  loadFormatted?: (
+    id: number
+  ) => Promise<{ contentMarkdown: string | null; sourcePath: string[] | null }>;
   onClose: () => void;
 };
 
 type ContentState =
   | { status: 'loading' }
   | { status: 'error' }
-  | { status: 'ready'; text: string };
+  /** `markdown`: the text is the source's own Markdown (always rendered, never plain). */
+  | { status: 'ready'; text: string; markdown?: boolean };
+
+/** A path as the backend sent it: a non-empty list of titles, else nothing. */
+const pathParts = (path: unknown): string[] =>
+  Array.isArray(path) ? path.filter((part): part is string => typeof part === 'string' && part !== '') : [];
 
 const formatFileSize = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;
@@ -139,8 +154,8 @@ const RenderedSection = memo(({ raw }: { raw: string }) => {
 });
 RenderedSection.displayName = 'RenderedSection';
 
-const DocumentBody = ({ doc, text }: { doc: Documentation; text: string }) => {
-  const plain = isPlainText(doc);
+const DocumentBody = ({ doc, text, markdown }: { doc: Documentation; text: string; markdown: boolean }) => {
+  const plain = !markdown && isPlainText(doc);
   const sections = useMemo(() => (plain ? [] : splitIntoSections(text, SECTION_CHARS)), [plain, text]);
   const [shown, setShown] = useState(1);
   if (plain) {
@@ -175,7 +190,8 @@ const DocumentBody = ({ doc, text }: { doc: Documentation; text: string }) => {
   );
 };
 
-export const DocumentPreviewDialog = ({ doc, loadChunks, onClose }: DocumentPreviewDialogProps) => {
+export const DocumentPreviewDialog = ({ doc, loadChunks, loadFormatted, onClose }: DocumentPreviewDialogProps) => {
+  const [detailPath, setDetailPath] = useState<string[]>([]);
   const [content, setContent] = useState<ContentState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const teamsEnabled = useTeamsEnabled();
@@ -183,27 +199,48 @@ export const DocumentPreviewDialog = ({ doc, loadChunks, onClose }: DocumentPrev
   const confluence = isConfluence(doc);
   const pageUrl = confluence ? sourcePageUrl(doc) : null;
   const lastSynced = useSourceLastSynced(doc);
+  const listPath = pathParts(doc.sourcePath);
+  const sourcePath = listPath.length > 0 ? listPath : detailPath;
 
   useEffect(() => {
     let cancelled = false;
     setContent({ status: 'loading' });
-    loadChunks(doc.id)
-      .then((chunks) => {
-        if (cancelled) return;
-        const text = joinChunks(
-          chunks.map((chunk) => chunk.content),
-          seamRuleFor(doc.documentType, doc.chunkingStrategy)
-        );
-        setContent({ status: 'ready', text });
-      })
-      .catch((error: unknown) => {
-        logger.error('Failed to load documentation content:', error);
-        if (!cancelled) setContent({ status: 'error' });
-      });
+    const fromChunks = () =>
+      loadChunks(doc.id)
+        .then((chunks) => {
+          if (cancelled) return;
+          const text = joinChunks(
+            chunks.map((chunk) => chunk.content),
+            seamRuleFor(doc.documentType, doc.chunkingStrategy)
+          );
+          setContent({ status: 'ready', text });
+        })
+        .catch((error: unknown) => {
+          logger.error('Failed to load documentation content:', error);
+          if (!cancelled) setContent({ status: 'error' });
+        });
+    if (confluence && loadFormatted) {
+      loadFormatted(doc.id)
+        .then((formatted) => {
+          if (cancelled) return;
+          setDetailPath(pathParts(formatted.sourcePath));
+          if (formatted.contentMarkdown) {
+            setContent({ status: 'ready', text: formatted.contentMarkdown, markdown: true });
+            return;
+          }
+          void fromChunks();
+        })
+        .catch((error: unknown) => {
+          logger.warn('No formatted page for a synced document, showing its chunks', error);
+          if (!cancelled) void fromChunks();
+        });
+    } else {
+      void fromChunks();
+    }
     return () => {
       cancelled = true;
     };
-  }, [doc.id, doc.documentType, doc.chunkingStrategy, attempt, loadChunks]);
+  }, [doc.id, doc.documentType, doc.chunkingStrategy, attempt, loadChunks, loadFormatted, confluence]);
 
   const retry = useCallback(() => setAttempt((count) => count + 1), []);
   const departmentIds = doc.departmentIds ?? [];
@@ -213,6 +250,11 @@ export const DocumentPreviewDialog = ({ doc, loadChunks, onClose }: DocumentPrev
       <DialogHeader className="items-start gap-4 px-6 py-4">
         <div className="flex-1 min-w-0 space-y-2">
           <DialogTitle className="break-words">{doc.title}</DialogTitle>
+          {sourcePath.length > 0 && (
+            <p data-testid="doc-preview-path" className="text-sm text-muted-foreground break-words">
+              {sourcePath.join(' › ')}
+            </p>
+          )}
           <div className="flex flex-wrap gap-2 items-center">
             {confluence ? (
               <Badge variant="secondary" className="gap-1">
@@ -277,7 +319,7 @@ export const DocumentPreviewDialog = ({ doc, loadChunks, onClose }: DocumentPrev
             (content.text.trim() === '' ? (
               <Alert role="status">This document has no stored text to show.</Alert>
             ) : (
-              <DocumentBody doc={doc} text={content.text} />
+              <DocumentBody doc={doc} text={content.text} markdown={content.markdown === true} />
             ))}
         </div>
       </DialogContent>

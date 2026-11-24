@@ -4,16 +4,20 @@ import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { attachmentDownloadUrl } from '@/lib/attachmentUrl';
+import { getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { attachmentFileService, type AttachmentPreview } from '@/services/attachmentFile.service';
+import { documentFileService } from '@/services/documentFile.service';
 import { useAuthStore } from '@/stores/authStore';
-import { FileCard, CsvView, OfficePreview, TextView } from './FileViewerParts';
+import { FileCard, CsvView, MarkdownView, OfficePreview, TextView } from './FileViewerParts';
 import {
   TEXT_PREVIEW_MAX_BYTES,
+  itemFile,
   itemKind,
   itemName,
   previewErrorMessage,
   safeBlobType,
+  shownMimeType,
   type ViewerItem,
   type ViewerKind,
 } from './fileViewerModel';
@@ -39,14 +43,17 @@ const NO_PREVIEW = 'No preview is available for this file type.';
  */
 const directImageUrl = (item: ViewerItem, organizationId: number | null): string | null => {
   if (item.type === 'inline') return item.src;
-  if (item.jiraHosted) return null;
+  // A document's bytes need the workspace header and its team check: fetched, never a url.
+  if (item.type === 'document' || item.jiraHosted) return null;
   return attachmentDownloadUrl(item.attachment.id, organizationId);
 };
 
-const fetchItemBlob = async (item: ViewerItem): Promise<Blob | null> =>
-  item.type === 'inline'
-    ? attachmentFileService.getInlineImageBlob(item.src)
-    : attachmentFileService.getBlob(item.attachment.id, item.jiraHosted);
+/** `display`: the bytes to SHOW (a document's TIFF as WEBP); Download asks for the original. */
+const fetchItemBlob = async (item: ViewerItem, display = false): Promise<Blob | null> => {
+  if (item.type === 'inline') return attachmentFileService.getInlineImageBlob(item.src);
+  if (item.type === 'document') return documentFileService.getBlob(item.document.id, display);
+  return attachmentFileService.getBlob(item.attachment.id, item.jiraHosted);
+};
 
 const saveBlob = (blob: Blob, filename: string) => {
   const url = URL.createObjectURL(blob);
@@ -77,6 +84,13 @@ type FileViewerProps = {
   index: number;
   onIndexChange: (index: number) => void;
   onClose: () => void;
+  /**
+   * A documentation upload has the text the knowledge base read from it. Given this, a document
+   * the viewer cannot draw (an old .doc, a type with no preview) or whose file the backend does
+   * not have or serve (404: missing, or a backend older than the documentation file routes)
+   * goes straight to that text; any other failure offers it on the card.
+   */
+  onTextFallback?: (item: ViewerItem) => void;
 };
 
 /**
@@ -89,7 +103,13 @@ type FileViewerProps = {
  * Closing unmounts only this dialog: the page behind is never re-rendered or scrolled, and
  * focus goes back to what opened the viewer without scrolling to it.
  */
-export const FileViewer = ({ items, index, onIndexChange, onClose }: FileViewerProps) => {
+export const FileViewer = ({
+  items,
+  index,
+  onIndexChange,
+  onClose,
+  onTextFallback,
+}: FileViewerProps) => {
   const organizationId = useAuthStore((state) => state.selectedOrganizationId) ?? null;
   const count = items.length;
   const current = count > 0 ? items[Math.min(Math.max(index, 0), count - 1)] : null;
@@ -140,11 +160,17 @@ export const FileViewer = ({ items, index, onIndexChange, onClose }: FileViewerP
     if (!current || !kind) return;
     let cancelled = false;
     let createdUrl: string | null = null;
+    const textFallback = current.type === 'document' ? onTextFallback : undefined;
     const fail = (err: unknown) => {
       logger.error('Failed to load file preview:', err);
-      if (!cancelled) setLoaded({ status: 'error', message: previewErrorMessage(err) });
+      if (cancelled) return;
+      if (textFallback && getErrorStatus(err) === 404) {
+        textFallback(current);
+        return;
+      }
+      setLoaded({ status: 'error', message: previewErrorMessage(err) });
     };
-    const attachment = current.type === 'attachment' ? current.attachment : null;
+    const file = itemFile(current);
 
     if (kind === 'image') {
       const direct = directImageUrl(current, organizationId);
@@ -153,18 +179,24 @@ export const FileViewer = ({ items, index, onIndexChange, onClose }: FileViewerP
         return;
       }
     }
-    if (kind === 'other' || (!attachment && kind !== 'image')) {
+    if (kind === 'other' && textFallback) {
+      textFallback(current);
+      return;
+    }
+    if (kind === 'other' || (!file && kind !== 'image')) {
       setLoaded({ status: 'card', message: NO_PREVIEW });
       return;
     }
-    if ((kind === 'docx' || kind === 'xlsx') && current.type === 'attachment') {
-      if (current.jiraHosted) {
+    if ((kind === 'docx' || kind === 'xlsx') && current.type !== 'inline') {
+      if (current.type === 'attachment' && current.jiraHosted) {
         setLoaded({ status: 'card', message: NO_PREVIEW });
         return;
       }
       setLoaded({ status: 'loading' });
-      attachmentFileService
-        .getPreview(current.attachment.id)
+      (current.type === 'document'
+        ? documentFileService.getPreview(current.document.id)
+        : attachmentFileService.getPreview(current.attachment.id)
+      )
         .then((preview) => {
           if (!cancelled) setLoaded({ status: 'office', preview });
         })
@@ -173,7 +205,8 @@ export const FileViewer = ({ items, index, onIndexChange, onClose }: FileViewerP
         cancelled = true;
       };
     }
-    if ((kind === 'text' || kind === 'csv') && (attachment?.size ?? 0) > TEXT_PREVIEW_MAX_BYTES) {
+    const textual = kind === 'text' || kind === 'csv' || kind === 'markdown';
+    if (textual && (file?.size ?? 0) > TEXT_PREVIEW_MAX_BYTES) {
       setLoaded({
         status: 'card',
         message: 'This file is too large to preview. Download it to open it.',
@@ -182,18 +215,18 @@ export const FileViewer = ({ items, index, onIndexChange, onClose }: FileViewerP
     }
 
     setLoaded({ status: 'loading' });
-    fetchItemBlob(current)
+    fetchItemBlob(current, true)
       .then(async (blob) => {
         if (cancelled) return;
         if (!blob) throw new Error('No bytes for this item');
-        if (kind === 'text' || kind === 'csv') {
+        if (textual) {
           const text = await blobText(blob);
           if (!cancelled) setLoaded({ status: 'text', text });
           return;
         }
         // Re-typed with the file's OWN type: the endpoint serves generic bytes, and an object
         // url without `application/pdf` makes the browser download instead of render.
-        const typed = new Blob([blob], { type: safeBlobType(attachment?.mimeType, kind) });
+        const typed = new Blob([blob], { type: safeBlobType(shownMimeType(current), kind) });
         createdUrl = URL.createObjectURL(typed);
         setLoaded(
           kind === 'image'
@@ -208,7 +241,7 @@ export const FileViewer = ({ items, index, onIndexChange, onClose }: FileViewerP
     };
     // The item is identified by its key; the object itself may be re-created by the caller.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentKey, kind, organizationId]);
+  }, [currentKey, kind, organizationId, onTextFallback]);
 
   // Warm the neighbouring PICTURES only — never a document or a video.
   useEffect(() => {
@@ -222,7 +255,7 @@ export const FileViewer = ({ items, index, onIndexChange, onClose }: FileViewerP
 
   if (!current || !kind) return null;
   const name = itemName(current);
-  const mimeType = current.type === 'attachment' ? current.attachment.mimeType : null;
+  const mimeType = shownMimeType(current);
 
   const download = async () => {
     setBusy(true);
@@ -254,7 +287,7 @@ export const FileViewer = ({ items, index, onIndexChange, onClose }: FileViewerP
       if (existing.status === 'blob') {
         url = existing.url;
       } else {
-        const blob = await fetchItemBlob(current);
+        const blob = await fetchItemBlob(current, true);
         if (!blob) throw new Error('No bytes for this item');
         url = URL.createObjectURL(new Blob([blob], { type: safeBlobType(mimeType, kind) }));
         setTimeout(() => URL.revokeObjectURL(url), NEW_TAB_URL_TTL_MS);
@@ -271,11 +304,16 @@ export const FileViewer = ({ items, index, onIndexChange, onClose }: FileViewerP
   const card = (message: string, tone: 'neutral' | 'error') => (
     <FileCard
       name={name}
-      size={current.type === 'attachment' ? current.attachment.size : null}
+      size={itemFile(current)?.size ?? null}
       message={message}
       tone={tone}
       onDownload={() => void download()}
       onOpenInTab={() => void openInNewTab()}
+      extraAction={
+        current.type === 'document' && onTextFallback
+          ? { label: 'Show the text read from it', onClick: () => onTextFallback(current) }
+          : undefined
+      }
     />
   );
 
@@ -328,7 +366,12 @@ export const FileViewer = ({ items, index, onIndexChange, onClose }: FileViewerP
           </>
         );
       case 'text':
-        return kind === 'csv' ? <CsvView text={loaded.text} /> : <TextView text={loaded.text} />;
+        if (kind === 'csv') return <CsvView text={loaded.text} />;
+        return kind === 'markdown' ? (
+          <MarkdownView text={loaded.text} />
+        ) : (
+          <TextView text={loaded.text} />
+        );
       case 'office':
         return <OfficePreview preview={loaded.preview} />;
       case 'blob':

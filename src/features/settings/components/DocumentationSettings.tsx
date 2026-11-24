@@ -9,10 +9,17 @@ import { bulkDeleteSummary } from '@/features/settings/components/bulkDeleteSumm
 import { documentationService, type Documentation, type DocumentType, type DocumentationProgress } from '@/features/kb/shell';
 import { logger } from '@/lib/logger';
 
-// The preview (renderer + sanitizer) loads only when a document is opened.
+// The previews load only when a document is opened: the shared file viewer for an uploaded
+// file, the text preview (#1022) for a Confluence page and as the viewer's text fallback.
 const DocumentPreviewDialog = lazy(
   () => import('@/features/settings/components/docPreview/DocumentPreviewDialog')
 );
+const DocumentFileViewer = lazy(
+  () => import('@/features/settings/components/docPreview/DocumentFileViewer')
+);
+
+const isConfluenceDoc = (doc: Documentation): boolean =>
+  doc.externalSource?.split(':')[0] === 'confluence';
 
 type DocumentationSettingsProps = {
   // Shared KB revision (from the KB page). Bumped whenever a sibling surface (the Confluence
@@ -65,6 +72,8 @@ export const DocumentationSettings = ({
   });
   const [selectedDocs, setSelectedDocs] = useState<Set<number>>(new Set());
   const [viewerDoc, setViewerDoc] = useState<Documentation | null>(null);
+  // How the opened document is shown: its file in the shared viewer, or the text read from it.
+  const [viewerMode, setViewerMode] = useState<'file' | 'text'>('file');
   const [docProgress, setDocProgress] = useState<Record<number, DocumentationProgress>>({});
   const docsRef = useRef<Documentation[]>([]);
   docsRef.current = docs;
@@ -386,8 +395,11 @@ export const DocumentationSettings = ({
   };
 
   const handleViewContent = (doc: Documentation) => {
+    setViewerMode(isConfluenceDoc(doc) ? 'text' : 'file');
     setViewerDoc(doc);
   };
+  const closeViewer = useCallback(() => setViewerDoc(null), []);
+  const showViewerText = useCallback(() => setViewerMode('text'), []);
 
   const handleDeleteConfirm = async () => {
     if (!deleteDialog.docId) return;
@@ -534,11 +546,16 @@ export const DocumentationSettings = ({
 
           {viewerDoc && (
             <Suspense fallback={null}>
-              <DocumentPreviewDialog
-                doc={viewerDoc}
-                loadChunks={documentationService.getDocumentationContent}
-                onClose={() => setViewerDoc(null)}
-              />
+              {viewerMode === 'file' ? (
+                <DocumentFileViewer doc={viewerDoc} onClose={closeViewer} onShowText={showViewerText} />
+              ) : (
+                <DocumentPreviewDialog
+                  doc={viewerDoc}
+                  loadChunks={documentationService.getDocumentationContent}
+                  loadFormatted={documentationService.getDocumentationFormatted}
+                  onClose={closeViewer}
+                />
+              )}
             </Suspense>
           )}
         </>

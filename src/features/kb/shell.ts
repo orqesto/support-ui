@@ -11,5 +11,6 @@ export {
   type DocumentationProgress,
   documentationService,
   type DocumentType,
+  normalizeDocumentationFormatted,
 } from './services/documentation.service';
 export { type KbMiningForecast, kbService } from './services/kb.service';
