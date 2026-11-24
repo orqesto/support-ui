@@ -29,13 +29,34 @@ const timed = (run: () => unknown): number => {
   return best;
 };
 
-const SPACES = ' '.repeat(50_000);
+/**
+ * Linear time without a wall-clock budget (a CI runner is several times slower than a laptop):
+ * the small input runs GROWTH times, the input GROWTH times its size runs once. Linear work
+ * comes out near 1×, quadratic near GROWTH×, the cubic heading rule F1 fixed near GROWTH²×.
+ */
+const GROWTH = 8;
+const MAX_RATIO = 3;
+const growthRatio = (build: (size: number) => string, large: number): number => {
+  const small = build(Math.round(large / GROWTH));
+  const big = build(large);
+  documentMarkdownToHtml(small);
+  const smallMs = timed(() => {
+    for (let round = 0; round < GROWTH; round += 1) documentMarkdownToHtml(small);
+  });
+  const bigMs = timed(() => documentMarkdownToHtml(big));
+  return bigMs / Math.max(smallMs, 0.01);
+};
+
+const spaces = (size: number): string => ' '.repeat(size);
 
 describe('docMarkdown — linear time on adversarial lines (F1 + audit)', () => {
-  it('⛔ a heading with 50k spaces inside renders in under 50 ms', () => {
-    const raw = `# a${SPACES}b`;
-    expect(timed(() => documentMarkdownToHtml(raw))).toBeLessThan(50);
-    expect(dom(raw).querySelector('h1')?.textContent?.replace(/\s+/g, ' ')).toBe('a b');
+  it('⛔ a heading with 50k spaces inside renders in linear time', () => {
+    expect(growthRatio((size) => `# a${spaces(size)}b`, 50_000)).toBeLessThan(MAX_RATIO);
+    expect(
+      dom(`# a${spaces(50_000)}b`)
+        .querySelector('h1')
+        ?.textContent?.replace(/\s+/g, ' ')
+    ).toBe('a b');
   });
 
   it('CONTROL: closing #s are still dropped, a # inside a word is kept', () => {
@@ -44,25 +65,33 @@ describe('docMarkdown — linear time on adversarial lines (F1 + audit)', () => 
     expect(host.querySelector('h3')?.textContent).toBe('C# notes');
   });
 
-  const adversarial: Array<[string, string]> = [
-    ['heading with many closing-ish #s', `# a${' #'.repeat(25_000)} b`],
-    ['heading ending in spaces then a mark', `# a${SPACES}#${SPACES}x`],
-    ['bullet with a line separator after spaces', `- ${SPACES}\u2028x`],
-    ['numbered with a line separator after spaces', `1. ${SPACES}\u2028x`],
-    ['quote with a line separator after spaces', `> ${SPACES}\u2028x`],
-    ['many open brackets (markdown link label)', '['.repeat(50_000)],
-    ['open brackets then a half link', '[a'.repeat(25_000) + '](https://x.example/'],
-    ['table separator that fails at the end', `|${'--|'.repeat(20_000)}x\n| a |`],
-    ['bold with no close', `**${'a '.repeat(25_000)}`],
-    ['many bold openers on one line', '**a '.repeat(15_000)],
-    ['underscore emphasis openers', ' _a'.repeat(20_000)],
-    ['star emphasis openers', ' *a'.repeat(20_000)],
-    ['backticks with no close', '`a'.repeat(25_000)],
-    ['URL full of parens', `https://x.example/${'('.repeat(25_000)}`],
-    ['table row of pipes', `| a |\n|---|\n${'|'.repeat(50_000)}`],
+  const adversarial: Array<[string, (size: number) => string, number]> = [
+    ['heading with many closing-ish #s', (size) => `# a${' #'.repeat(size)} b`, 25_000],
+    [
+      'heading ending in spaces then a mark',
+      (size) => `# a${spaces(size)}#${spaces(size)}x`,
+      50_000,
+    ],
+    ['bullet with a line separator after spaces', (size) => `- ${spaces(size)}\u2028x`, 50_000],
+    ['numbered with a line separator after spaces', (size) => `1. ${spaces(size)}\u2028x`, 50_000],
+    ['quote with a line separator after spaces', (size) => `> ${spaces(size)}\u2028x`, 50_000],
+    ['many open brackets (markdown link label)', (size) => '['.repeat(size), 50_000],
+    [
+      'open brackets then a half link',
+      (size) => '[a'.repeat(size) + '](https://x.example/',
+      25_000,
+    ],
+    ['table separator that fails at the end', (size) => `|${'--|'.repeat(size)}x\n| a |`, 20_000],
+    ['bold with no close', (size) => `**${'a '.repeat(size)}`, 25_000],
+    ['many bold openers on one line', (size) => '**a '.repeat(size), 15_000],
+    ['underscore emphasis openers', (size) => ' _a'.repeat(size), 20_000],
+    ['star emphasis openers', (size) => ' *a'.repeat(size), 20_000],
+    ['backticks with no close', (size) => '`a'.repeat(size), 25_000],
+    ['URL full of parens', (size) => `https://x.example/${'('.repeat(size)}`, 25_000],
+    ['table row of pipes', (size) => `| a |\n|---|\n${'|'.repeat(size)}`, 50_000],
   ];
-  it.each(adversarial)('⛔ %s renders in under 150 ms', (_name, raw) => {
-    expect(timed(() => documentMarkdownToHtml(raw))).toBeLessThan(150);
+  it.each(adversarial)('⛔ %s renders in linear time', (_name, build, large) => {
+    expect(growthRatio(build, large)).toBeLessThan(MAX_RATIO);
   });
 });
 
@@ -101,15 +130,21 @@ describe('docMarkdown — long tables and blank-line-free text are split (F5)', 
     }
     // Sanitizing and building jsdom nodes costs ~350 ms a part in jsdom, so rows are counted in
     // the renderer's HTML; the first part also goes through the sanitized DOM once.
-    const bodyRows = (html: string): number => (html.split('<tbody>')[1] ?? '').split('<tr').length - 1;
+    const bodyRows = (html: string): number =>
+      (html.split('<tbody>')[1] ?? '').split('<tr').length - 1;
     const rows = parts.reduce((sum, part) => sum + bodyRows(documentMarkdownToHtml(part)), 0);
     expect(rows).toBe(20_000);
-    expect(dom(parts[0]).querySelectorAll('tbody tr').length).toBe(bodyRows(documentMarkdownToHtml(parts[0])));
+    expect(dom(parts[0]).querySelectorAll('tbody tr').length).toBe(
+      bodyRows(documentMarkdownToHtml(parts[0]))
+    );
     expect(timed(() => documentMarkdownToHtml(parts[0]))).toBeLessThan(200);
   });
 
   it('⛔ text with no blank line is cut at a line break', () => {
-    const text = Array.from({ length: 8_000 }, (_, line) => `Invented line ${line} of a long note.`).join('\n');
+    const text = Array.from(
+      { length: 8_000 },
+      (_, line) => `Invented line ${line} of a long note.`
+    ).join('\n');
     const parts = splitIntoSections(text, 50_000);
     expect(parts.length).toBeGreaterThan(1);
     expect(parts.join('\n')).toBe(text);
@@ -139,7 +174,9 @@ describe('docMarkdown — the splitter ends a code fence where the renderer does
     const code = host.querySelector('pre code')?.textContent ?? '';
     expect(code).toContain('code a');
     expect(code).toContain('code b');
-    expect([...host.querySelectorAll('p')].some((para) => para.textContent === 'after the code')).toBe(true);
+    expect(
+      [...host.querySelectorAll('p')].some((para) => para.textContent === 'after the code')
+    ).toBe(true);
   });
 });
 
