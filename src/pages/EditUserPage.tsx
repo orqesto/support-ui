@@ -4,11 +4,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, ChevronRight, Lock } from 'lucide-react';
 import { RoleInfoCard } from '@/components/admin/RoleInfoCard';
 import { PermissionOverridesSection } from '@/components/shared/PermissionOverridesSection';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Select } from '@/components/ui/Select';
 import { usePermissions } from '@/hooks/usePermissions';
+import { formatError, getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import { departmentService, type Department } from '@/services/department.service';
@@ -76,6 +78,11 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [availableDepartments, setAvailableDepartments] = useState<Department[]>([]);
+  // Switched-off (archived) teams. Not offered in the checklist, but a member can still be on
+  // one, and the server refuses any team set that names it — so the page has to know them.
+  const [archivedDepartments, setArchivedDepartments] = useState<Department[]>([]);
+  // A refused save, in the server's words, next to the Save button (a toast alone is missed).
+  const [saveError, setSaveError] = useState<string | null>(null);
   // Teams off ⇒ no team checklist: every member is in the default team.
   const [teamsMode, setTeamsMode] = useState<boolean | undefined | null>(null);
   const teamsEnabled = deriveTeamsEnabled(teamsMode, availableDepartments);
@@ -168,11 +175,13 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
   useEffect(() => {
     let mode: boolean | undefined;
     departmentService
-      .getAll(false, (value) => {
+      .getAll(true, (value) => {
         mode = value;
       })
       .then((depts) => {
-        setAvailableDepartments(depts);
+        // Only an explicit `active: false` is switched off (an older payload may omit it).
+        setAvailableDepartments(depts.filter((dept) => dept.active !== false));
+        setArchivedDepartments(depts.filter((dept) => dept.active === false));
         setTeamsMode(mode);
       })
       .catch(() => setAvailableDepartments([]));
@@ -219,6 +228,24 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
     permissionOverrides,
   ]);
 
+  /*
+   * Switched-off teams the member is still on. PUT /api/users/:id REFUSES (400 "Archived team(s)
+   * cannot be assigned") any departmentIds that names one, and the server REPLACES the manual
+   * layer with what is sent — so a team set without it takes the member off it. Keeping it is
+   * therefore impossible once teams are saved; the page says so instead of sending a set that
+   * can only fail. An untouched team field still sends nothing, which keeps the membership.
+   */
+  const archivedIds = useMemo(
+    () => new Set(archivedDepartments.map((dept) => dept.id)),
+    [archivedDepartments]
+  );
+  const heldArchived = archivedDepartments.filter(
+    (dept) =>
+      selectedDepartmentIds.includes(dept.id) && !provisionedDepartmentIds.includes(dept.id)
+  );
+  const liveSelectedIds = selectedDepartmentIds.filter((deptId) => !archivedIds.has(deptId));
+  const selectedArchivedIds = selectedDepartmentIds.filter((deptId) => archivedIds.has(deptId));
+
   const goBack = () => navigate(embedded && orgId ? `/console/workspace/${orgId}` : '/users');
 
   const handleLeave = () => {
@@ -248,16 +275,19 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
      * converted every IdP-granted department to human-owned — reintroducing, from the
      * client, exactly the provenance wipe the server-side fix removed.
      */
-    const manualSelection = selectedDepartmentIds.filter(
+    const ownedSelection = selectedDepartmentIds.filter(
       (deptId) => !provisionedDepartmentIds.includes(deptId)
     );
     const previousManual = (user?.departmentIds ?? []).filter(
       (deptId) => !provisionedDepartmentIds.includes(deptId)
     );
     // Compare like with like: the directory's rows are in neither side, so they can never
-    // make an untouched form look changed.
+    // make an untouched form look changed. Switched-off teams are in both sides here, so a
+    // member still on one does not make an untouched form look changed either.
     const deptsChanged =
-      JSON.stringify([...manualSelection].sort()) !== JSON.stringify([...previousManual].sort());
+      JSON.stringify([...ownedSelection].sort()) !== JSON.stringify([...previousManual].sort());
+    // A changed set never names a switched-off team: the server refuses it (the page says so).
+    const manualSelection = ownedSelection.filter((deptId) => !archivedIds.has(deptId));
     const overridesChanged =
       JSON.stringify(permissionOverrides) !== JSON.stringify(user?.permissionOverrides ?? {});
     return {
@@ -280,12 +310,14 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
   const performUpdate = async () => {
     if (!user) return;
     setIsSubmitting(true);
+    setSaveError(null);
     try {
       await userService.update(user.id, buildUpdatePayload());
       toast.success('Member updated');
       goBack();
     } catch (error) {
       logger.error('Failed to update user:', error);
+      setSaveError(getApiErrorMessage(error) ?? formatError('update user', error));
       toast.failure('update user', error);
     } finally {
       setIsSubmitting(false);
@@ -307,6 +339,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
   const handleOrgChangeConfirm = async (newOrgId: number) => {
     if (!user) return;
     setIsSubmitting(true);
+    setSaveError(null);
     try {
       if (user.organizationId) {
         await organizationService.removeMember(user.organizationId, user.id);
@@ -319,6 +352,7 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
       goBack();
     } catch (error) {
       logger.error('Failed to change organization:', error);
+      setSaveError(getApiErrorMessage(error) ?? formatError('change workspace', error));
       toast.failure('change workspace', error);
     } finally {
       setIsSubmitting(false);
@@ -529,14 +563,45 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
                 {teamsEnabled && (
                 <UserDepartmentsField
                   departments={availableDepartments}
-                  selectedIds={selectedDepartmentIds}
-                  onChange={setSelectedDepartmentIds}
+                  // Live teams only, so "never leave a member with no team" counts live ones;
+                  // a switched-off team stays in the state until the admin takes it off.
+                  selectedIds={liveSelectedIds}
+                  onChange={(next) => setSelectedDepartmentIds([...next, ...selectedArchivedIds])}
                   onConfirmRemoveCatchAll={(deptId) =>
                     setGeneralDeptUnlinkConfirm({ open: true, deptId })
                   }
                   provisionedIds={provisionedDepartmentIds}
                   isGlobalAdmin={globalRole === 'admin'}
                 />
+                )}
+
+                {teamsEnabled && globalRole !== 'admin' && heldArchived.length > 0 && (
+                  <Alert variant="warning" role="status" label="Switched-off teams">
+                    <p>
+                      Still on {heldArchived.length === 1 ? 'a switched-off team' : 'switched-off teams'}:{' '}
+                      <strong>{heldArchived.map((dept) => dept.name).join(', ')}</strong>. A
+                      switched-off team cannot be kept when teams are saved, so changing this
+                      member&apos;s teams takes them off it. Other changes keep it.
+                    </p>
+                    {liveSelectedIds.length > 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="mt-2"
+                        onClick={() =>
+                          setSelectedDepartmentIds(
+                            selectedDepartmentIds.filter(
+                              (deptId) =>
+                                !heldArchived.some((dept) => dept.id === deptId)
+                            )
+                          )
+                        }
+                      >
+                        Take off switched-off {heldArchived.length === 1 ? 'team' : 'teams'}
+                      </Button>
+                    )}
+                  </Alert>
                 )}
 
                 {/* Wave 5 B: per-user permission overrides */}
@@ -576,6 +641,11 @@ export const EditUserPage = ({ embedded = false }: { embedded?: boolean } = {}) 
 
         {/* Actions stay reachable without scrolling back up — the form is long by nature. */}
         <div className="sticky bottom-0 px-4 py-3 border-t bg-background/95 backdrop-blur border-border">
+          {saveError && (
+            <Alert variant="danger" role="alert" className="mb-3">
+              Not saved: {saveError}
+            </Alert>
+          )}
           <div className="flex gap-2 justify-end mx-auto w-full">
             <Button type="button" variant="outline" onClick={handleLeave} disabled={isSubmitting}>
               Cancel
