@@ -19,8 +19,11 @@ export const formatBytes = (bytes?: number | null): string | null => {
  * hooks — one of them deletes every image that is not our mail-image proxy, which would strip
  * the pictures mammoth embeds in a Word file as data urls. A fresh instance has no hooks.
  */
-// Raster pictures only: an `image/svg+xml` source is a document of its own.
-const DOC_IMAGE_SRC = /^data:image\/(?:png|jpe?g|gif|webp|bmp)[;,]/i;
+// Pictures, SVG included: an SVG loaded by an <img> runs as an IMAGE — browsers run no script
+// in it and fetch nothing it references (no remote <image>, font or stylesheet), so a Word
+// file's SVG icons and diagrams show without a read receipt. Inline `<svg>` stays stripped
+// (not in DOCUMENT_TAGS): that one WOULD fetch its <image href>.
+const DOC_IMAGE_SRC = /^data:image\/(?:png|jpe?g|gif|webp|bmp|svg\+xml)[;,]/i;
 const DOC_LINK_HREF = /^(?:https?:|mailto:)/i;
 let documentPurifier: ReturnType<typeof DOMPurify> | null = null;
 const purifier = () => {
