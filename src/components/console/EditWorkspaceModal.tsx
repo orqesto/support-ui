@@ -38,6 +38,10 @@ export const EditWorkspaceModal = ({ org, isOpen, onClose, onSaved }: Props) => 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [active, setActive] = useState(true);
+  // Whether the operator flipped the switch in THIS dialog. The status is sent only then: Save
+  // after editing a name or plan must never write the switch's seeded value back, because a
+  // seed that was wrong (a row without `active`, read as off) would switch the workspace off.
+  const [activeTouched, setActiveTouched] = useState(false);
   const [planId, setPlanId] = useState<string>('');
   const [initialPlanId, setInitialPlanId] = useState<string>('');
   const [saving, setSaving] = useState(false);
@@ -56,7 +60,9 @@ export const EditWorkspaceModal = ({ org, isOpen, onClose, onSaved }: Props) => 
     }
     setName(org.name);
     setDescription(org.description ?? '');
-    setActive(org.active);
+    // Only an explicit false is "Inactive"; a row that does not carry the field is not off.
+    setActive(org.active !== false);
+    setActiveTouched(false);
     const current = (plansQuery.data ?? []).find((plan) => plan.name === org.plan?.name);
     const currentId = current ? String(current.id) : '';
     setPlanId(currentId);
@@ -75,7 +81,7 @@ export const EditWorkspaceModal = ({ org, isOpen, onClose, onSaved }: Props) => 
       await organizationService.updateById(org.id, {
         name: name.trim(),
         description: description.trim() || null,
-        active,
+        ...(activeTouched ? { active } : {}),
       });
       if (planChanged) {
         await organizationService.switchWorkspacePlan(org.id, Number(planId));
@@ -134,7 +140,14 @@ export const EditWorkspaceModal = ({ org, isOpen, onClose, onSaved }: Props) => 
 
           <div className="flex justify-between items-center pt-1">
             <Label>Active</Label>
-            <Toggle checked={active} onChange={setActive} label={active ? 'Active' : 'Inactive'} />
+            <Toggle
+              checked={active}
+              onChange={(next) => {
+                setActive(next);
+                setActiveTouched(true);
+              }}
+              label={active ? 'Active' : 'Inactive'}
+            />
           </div>
         </div>
       </DialogContent>

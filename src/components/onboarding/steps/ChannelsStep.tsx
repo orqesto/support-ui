@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import { isConnectedChannel } from '@/components/onboarding/connectedChannel';
 import { EmailIntegrationCard, GmailIntegrationCard, SlackIntegrationCard, TelegramIntegrationCard, WhatsAppIntegrationCard, type AlertState } from '@/features/settings';
 import { AlertDialog } from '@/components/ui/AlertDialog';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { GMAIL_OAUTH_PENDING_CONFIG_KEY, useGmailOAuthAvailability } from '@/features/settings';
 import { integrationsService, type Integration } from '@/services/integrations.service';
@@ -95,6 +96,10 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
   // fetchIntegrations. A row that says "Not connected" above a mailbox the user just added
   // is worse than no count at all.
   const countFor = (key: ChannelKey) => integrations.filter((item) => item.type === key).length;
+  // A just-connected Gmail mailbox is saved paused until its message count is reviewed. A
+  // green "1 connected" over it said the opposite of the truth: nothing was syncing.
+  const notSyncingFor = (key: ChannelKey) =>
+    integrations.filter((item) => item.type === key && !item.enabled).length;
 
   const cardProps = {
     integrations,
@@ -149,6 +154,7 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
       <div className="divide-y divide-border overflow-hidden rounded-md border border-border">
         {visibleChannels.map(({ key, label, description, icon: Icon }) => {
           const count = countFor(key);
+          const notSyncing = notSyncingFor(key);
           const open = openKey === key;
           return (
             <div key={key}>
@@ -165,7 +171,11 @@ export const ChannelsStep = ({ onConnectedChange }: Props) => {
                   <div className="font-medium text-foreground">{label}</div>
                   <div className="truncate text-sm text-muted-foreground">{description}</div>
                 </div>
-                {count > 0 ? (
+                {notSyncing > 0 ? (
+                  <Badge variant="warning" className="shrink-0">
+                    {notSyncing} not syncing — open to review
+                  </Badge>
+                ) : count > 0 ? (
                   <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
                     <Check className="h-3 w-3" />
                     {count} connected

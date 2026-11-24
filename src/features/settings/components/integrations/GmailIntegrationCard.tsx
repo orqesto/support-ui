@@ -27,6 +27,7 @@ import { SourceDepartmentEditor } from '@/features/settings/components/integrati
 import { SourceRowStrips } from '@/features/settings/components/integrations/SourceRowStrips';
 import { SourceRowBadges } from '@/features/settings/components/integrations/SourceRowBadges';
 import type { IntegrationCardProps } from '@/features/settings/components/integrations/types';
+import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -405,6 +406,7 @@ export const GmailIntegrationCard = ({
                           <p className="font-medium">
                             {(integration.config as { user?: string }).user ?? integration.name}
                           </p>
+                          {!integration.enabled && <Badge variant="warning">Not syncing</Badge>}
                           <SourceRowBadges source={integration} onReconnect={() => handleReconnect(integration)} />
                         </div>
                         <p className="text-xs break-all text-muted-foreground">
