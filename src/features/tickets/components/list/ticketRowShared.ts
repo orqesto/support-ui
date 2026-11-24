@@ -4,7 +4,7 @@ import type { Ticket } from '@/types';
 export type TicketRowProps = {
   ticket: Ticket;
   canManage: boolean;
-  assignees: Array<{ id: number; name: string }>;
+  assignees: Array<{ id: number; name: string; isMentor?: boolean }>;
   currentUserId: number | null;
   /** The ticket open in the panel. */
   current: boolean;

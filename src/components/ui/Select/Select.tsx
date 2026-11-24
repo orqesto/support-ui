@@ -7,7 +7,7 @@ import { getInputErrorClasses, getInputLabelClasses } from '../Input/input.style
 import { getSelectStyles } from './select.styles';
 import { DropdownIndicator } from './DropdownIndicator';
 import { ChipDropdownIndicator } from './ChipDropdownIndicator';
-import { SEARCHABLE_FROM, type SelectProps, type Option } from './select.types';
+import { SEARCHABLE_FROM, type SelectProps, type Option, type OptionGroup } from './select.types';
 import { ColorDot, SelectPopover } from './SelectPopover';
 import { matchesLabel } from './selectFilter';
 
@@ -42,6 +42,26 @@ const SHEET_SCRIM = 'hidden max-sm:block fixed inset-0 z-[9998] bg-black/40';
 const SHEET_OPTION = 'max-sm:min-h-[46px] max-sm:text-[15px] max-sm:px-3';
 const SHEET_CHIP_CONTROL = 'max-sm:h-[26px]';
 const SHEET_VALUE_CONTROL = 'max-sm:h-9 max-sm:text-[13.5px]';
+
+/**
+ * The menu's rows: options without a `group` first, then one titled section per group (in the
+ * order the groups first appear). A list with no groups is passed through untouched.
+ */
+export const toMenuOptions = (options: Option[]): Array<Option | OptionGroup> => {
+  if (!options.some((opt) => opt.group)) return options;
+  const plain: Option[] = [];
+  const sections = new Map<string, OptionGroup>();
+  for (const opt of options) {
+    if (!opt.group) {
+      plain.push(opt);
+      continue;
+    }
+    const section = sections.get(opt.group) ?? { label: opt.group, options: [] };
+    section.options.push(opt);
+    sections.set(opt.group, section);
+  }
+  return [...plain, ...sections.values()];
+};
 
 export const Select = forwardRef<unknown, SelectProps>(
   (
@@ -104,6 +124,7 @@ export const Select = forwardRef<unknown, SelectProps>(
     const emitsMany = multi && (variant === 'default' || variant === 'popover');
     const customStyles = getSelectStyles(!!error, size, isMulti);
     const selectedValues: string[] = Array.isArray(value) ? value : value === undefined || value === null ? [] : [value];
+    const menuOptions = toMenuOptions(options);
     const selectedOption = options.find((opt) => opt.value === selectedValues[0]) ?? null;
     const selectedOptions = options.filter((opt) => selectedValues.includes(opt.value));
     /**
@@ -174,7 +195,7 @@ export const Select = forwardRef<unknown, SelectProps>(
           inputId={selectId}
           value={selectedOption}
           onChange={emit}
-          options={options}
+          options={menuOptions}
           // chip / value draw no <label>: `label` becomes the accessible name instead of vanishing.
           aria-label={props['aria-label'] ?? label}
           unstyled
@@ -261,6 +282,8 @@ export const Select = forwardRef<unknown, SelectProps>(
                 mobileSheet && SHEET_OPTION
               ),
             noOptionsMessage: () => 'text-[13px] text-muted-foreground px-2 py-1.5',
+            groupHeading: () =>
+              'px-2 pt-2 pb-1 text-[10.5px] font-semibold tracking-wider uppercase font-display text-muted-foreground',
           }}
           onMenuOpen={() =>
             trackMenu(true, () => {
@@ -338,7 +361,7 @@ export const Select = forwardRef<unknown, SelectProps>(
           inputId={selectId}
           value={isMulti ? selectedOptions : selectedOption}
           onChange={emit}
-          options={options}
+          options={menuOptions}
           isMulti={isMulti}
           formatOptionLabel={
             isMulti

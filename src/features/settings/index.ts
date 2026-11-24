@@ -54,6 +54,7 @@ export { CreateUserModal } from './components/modals/CreateUserModal';
 export { InviteUserModal } from './components/modals/InviteUserModal';
 export { UserSkillsModal } from './components/modals/UserSkillsModal';
 export { MemberSkillChips } from './components/users/MemberSkillChips';
+export { MemberMentorToggle, mentorColumn } from './components/users/MemberMentorToggle';
 export { useWorkspaceSkills } from './hooks/useWorkspaceSkills';
 export {
   DatabaseConfigCard,

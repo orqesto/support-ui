@@ -25,6 +25,7 @@ export const useTicketFilterSources = (): Sources => {
             id: user.id,
             name: userFullName(user) || user.email,
             photoKey: user.photoKey ?? null,
+            isMentor: user.isMentor === true,
           })),
         })
       )

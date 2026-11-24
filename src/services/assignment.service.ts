@@ -14,7 +14,20 @@ export type AssignableUser = {
   // org-admin). The picker shows them disabled rather than hiding them. Optional
   // for backward-compat with responses predating the flag.
   eligible?: boolean;
+  /**
+   * A mentor (1.1.330): assignable by hand, never routed to; pickers list mentors in their own
+   * "Mentors" section. Always a boolean after `getAssignableUsers` — false on a backend that does
+   * not send it.
+   */
+  isMentor?: boolean;
 };
+
+/** The heading of the assignee pickers' mentor section. */
+export const MENTORS_SECTION = 'Mentors';
+
+/** Missing `isMentor` (an older backend) reads as a working agent; the server's order is kept. */
+export const normaliseAssignable = (rows: AssignableUser[]): AssignableUser[] =>
+  rows.map((row) => ({ ...row, isMentor: row.isMentor === true }));
 
 export const assignmentService = {
   async getAssignableUsers(
@@ -38,7 +51,7 @@ export const assignmentService = {
           '/api/assignments/assignable-users',
           { params }
         );
-        return response.data.data ?? [];
+        return normaliseAssignable(response.data.data ?? []);
       },
       params.skillKey,
       params.skillValue,

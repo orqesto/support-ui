@@ -17,7 +17,11 @@ import {
 } from '@/components/ui/Dialog';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
-import { assignmentService, type AssignableUser } from '@/services/assignment.service';
+import {
+  assignmentService,
+  MENTORS_SECTION,
+  type AssignableUser,
+} from '@/services/assignment.service';
 import {
   ACTION_LABEL,
   ACTION_PHRASE,
@@ -202,6 +206,8 @@ export const BulkConfirmDialog = ({
                   ...assignable.map((user) => ({
                     value: String(user.id),
                     label: userFullName(user),
+                    // Mentors (1.1.330): pickable, in their own section after the working agents.
+                    group: user.isMentor ? MENTORS_SECTION : undefined,
                   })),
                 ]}
               />

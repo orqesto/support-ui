@@ -33,6 +33,8 @@ import {
   invitationService,
   InviteUserModal,
   UserSkillsModal,
+  MemberMentorToggle,
+  mentorColumn,
   MemberSkillChips,
   useWorkspaceSkills,
   useUsersStore,
@@ -421,6 +423,8 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
         />
       ),
     },
+    // Mentors (1.1.330): set under the can-edit-skills gate (the backend's, too).
+    mentorColumn(canManageSkills),
   ];
 
   const rowActions = (user: User) => {
@@ -498,8 +502,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
                 {user.firstName} {user.lastName}
               </h3>
               <p className="font-mono text-sm truncate text-muted-foreground">{user.email}</p>
-              <div className="mt-1">
+              <div className="mt-1 space-y-1">
                 <MemberSkillChips skills={skillsOf(user.id)} />
+                <MemberMentorToggle user={user} canEdit={canManageSkills} />
               </div>
             </div>
             <div className="flex gap-2">

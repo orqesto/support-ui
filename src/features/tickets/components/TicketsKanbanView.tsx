@@ -75,7 +75,7 @@ type TicketWithExtras = TicketType & TicketRuntimeExtras;
 /** What a card needs to show its owner and offer Claim / re-assign, as the list rows do. */
 export type AssignProps = {
   canManage: boolean;
-  assignees: Array<{ id: number; name: string }>;
+  assignees: Array<{ id: number; name: string; isMentor?: boolean }>;
   currentUserId: number | null;
   onAssign: (ticketId: number, userId: number | null) => void;
 };

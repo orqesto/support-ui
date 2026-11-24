@@ -568,3 +568,48 @@ describe('Select — one component for every dropdown', () => {
     });
   });
 });
+
+describe('Select — sections (`group`)', () => {
+  const people = [
+    { value: 'm1', label: 'Mentor One', group: 'Mentors' },
+    { value: 'a1', label: 'Agent One' },
+    { value: 'a2', label: 'Agent Two' },
+  ];
+  const headingBefore = (heading: HTMLElement, option: HTMLElement) =>
+    Boolean(heading.compareDocumentPosition(option) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+  for (const variant of ['default', 'value'] as const) {
+    it(`${variant}: ungrouped options first, then the titled section; its options stay pickable`, async () => {
+      const onChange = vi.fn();
+      renderIn(
+        <Select aria-label="Assignee" variant={variant} options={people} value="a1" onChange={onChange} />
+      );
+      const control = screen.getByRole('combobox', { name: 'Assignee' });
+      expect(await listOptions(control)).toEqual(['Agent One', 'Agent Two', 'Mentor One']);
+      const heading = screen.getByText('Mentors');
+      expect(headingBefore(heading, screen.getByRole('option', { name: 'Mentor One' }))).toBe(true);
+      expect(headingBefore(heading, screen.getByRole('option', { name: 'Agent Two' }))).toBe(false);
+      fireEvent.click(screen.getByRole('option', { name: 'Mentor One' }));
+      expect(onChange).toHaveBeenCalledWith('m1');
+    });
+  }
+
+  it('a grouped option that is the value shows as the value', () => {
+    renderIn(<Select aria-label="Assignee" options={people} value="m1" onChange={() => {}} />);
+    expect(screen.getByText('Mentor One')).toBeInTheDocument();
+  });
+
+  it('control: no `group` anywhere ⇒ no section heading, the server’s order kept', async () => {
+    renderIn(
+      <Select
+        aria-label="Assignee"
+        options={people.map(({ value, label }) => ({ value, label }))}
+        value="a1"
+        onChange={() => {}}
+      />
+    );
+    const control = screen.getByRole('combobox', { name: 'Assignee' });
+    expect(await listOptions(control)).toEqual(['Mentor One', 'Agent One', 'Agent Two']);
+    expect(screen.queryByText('Mentors')).toBeNull();
+  });
+});

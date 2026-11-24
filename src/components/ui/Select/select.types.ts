@@ -9,7 +9,16 @@ export type Option = {
   /** A stored colour (e.g. a label's hex) drawn as a dot before the text; sanitised before use. */
   color?: string;
   isDisabled?: boolean;
+  /**
+   * A named section of the menu (e.g. "Mentors" in an assignee picker). Options without one come
+   * first, then each section under its heading, in the order the sections first appear. 'default',
+   * 'chip' and 'value' variants.
+   */
+  group?: string;
 };
+
+/** A titled section of the menu, as react-select draws it. */
+export type OptionGroup = { label: string; options: Option[] };
 
 /** Same scale as `Input` — sm 32px / md 40px / lg 48px — so a Select beside an Input lines up. */
 export type SelectSize = 'sm' | 'md' | 'lg';

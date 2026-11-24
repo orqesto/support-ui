@@ -242,6 +242,34 @@ describe('holders by name (owner 2026-11-09)', () => {
     expect(screen.queryByText(/Cy Other/)).not.toBeInTheDocument();
   });
 
+  it('a mentor (1.1.330) is shown greyed, apart from the routed holders: "Mentor — not routed"', async () => {
+    getRoutingKeyValues.mockResolvedValue([row()]);
+    getWorkspaceSkillValues.mockResolvedValue({
+      7: { payment_sys: ['usdc'] },
+      8: { payment_sys: ['usdc'] },
+    });
+    getMembers.mockResolvedValue([
+      { userId: 7, firstName: 'Ann', lastName: 'Agent', email: 'ann@example.test', isMentor: false },
+      { userId: 8, firstName: 'Mia', lastName: 'Mentor', email: 'mia@example.test', isMentor: true },
+    ]);
+    render(<RoutingValueDescriptions routingKey="payment_sys" keyType="topic" />);
+    expect(await screen.findByText('Held by: Ann Agent')).toBeInTheDocument();
+    const mentors = screen.getByTestId('mentor-holders');
+    expect(mentors).toHaveTextContent('Mia Mentor (Mentor — not routed)');
+    expect(mentors).toHaveClass('text-faint-foreground');
+  });
+
+  it('CONTROL — an older backend’s members (no isMentor) are all routed holders', async () => {
+    getRoutingKeyValues.mockResolvedValue([row()]);
+    getWorkspaceSkillValues.mockResolvedValue({ 8: { payment_sys: ['usdc'] } });
+    getMembers.mockResolvedValue([
+      { userId: 8, firstName: 'Mia', lastName: 'Mentor', email: 'mia@example.test' },
+    ]);
+    render(<RoutingValueDescriptions routingKey="payment_sys" keyType="topic" />);
+    expect(await screen.findByText('Held by: Mia Mentor')).toBeInTheDocument();
+    expect(screen.queryByTestId('mentor-holders')).toBeNull();
+  });
+
   it('CONTROL — an older backend without the skills read shows only the count', async () => {
     getRoutingKeyValues.mockResolvedValue([row()]);
     getWorkspaceSkillValues.mockResolvedValue(null);
