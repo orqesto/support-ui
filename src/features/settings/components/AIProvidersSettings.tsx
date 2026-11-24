@@ -235,6 +235,13 @@ export const AIProvidersSettings = ({
         });
         return true;
       }
+      // Answered, but not saved: the form stays open, so say that nothing was stored.
+      setAlertDialog({
+        open: true,
+        title: 'Error',
+        description: `Failed to save ${name} integration`,
+        variant: 'error',
+      });
       return false;
     } catch (error) {
       logger.error(`Failed to save ${name} integration:`, error);

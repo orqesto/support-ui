@@ -125,6 +125,14 @@ describe('AI providers: the form after a save', () => {
     });
   });
 
+  it('a save answered "not successful" says so and keeps the form', async () => {
+    api.upsert.mockResolvedValue({ success: false });
+    renderPage();
+    await saveOpenAi();
+    expect(await screen.findByText('Failed to save OpenAI integration')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('sk-...')).toHaveValue('sk-test-key');
+  });
+
   it('CONTROL: a save that went through closes the form', async () => {
     api.upsert.mockResolvedValue({ success: true });
     renderPage();

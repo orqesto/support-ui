@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Upload,
   FileText,
@@ -83,7 +83,15 @@ export const DocumentationUploadForm = ({
   // off the selection alone, unticking it had nowhere to go (the list of teams only showed once a
   // team was selected) and a document could never be given to one team from this form.
   const [choosingTeams, setChoosingTeams] = useState(false);
-  const isOrgWide = !choosingTeams && selectedDeptIds.length === 0;
+  // Teams off: there is no scope to choose, whatever was ticked before they were switched off —
+  // else the hidden choice kept Upload disabled with nothing on screen to explain it.
+  const isOrgWide = !teamsEnabled || (!choosingTeams && selectedDeptIds.length === 0);
+  // After an upload the page clears the files and the teams: back to "shared with all", so the
+  // next upload does not start on an unticked box with no team under it.
+  const fileCount = selectedFiles.length;
+  useEffect(() => {
+    if (fileCount === 0) setChoosingTeams(false);
+  }, [fileCount]);
   const toggleOrgWide = () => {
     if (isOrgWide) {
       setChoosingTeams(true);
