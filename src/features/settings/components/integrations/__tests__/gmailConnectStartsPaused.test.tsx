@@ -66,6 +66,15 @@ describe('Gmail connect — saved paused, count first', () => {
     expect(connectWithPopup.mock.calls[0][0]).toMatchObject({ startPaused: true });
   });
 
+  it('a new Gmail source imports the last 30 days unless the admin picks another range', async () => {
+    render(<GmailIntegrationCard integrations={[]} onRefresh={vi.fn()} onShowAlert={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /Add Gmail/ }));
+    expect(screen.getByText('Last 30 Days')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Connect with Google/ }));
+    await waitFor(() => expect(connectWithPopup).toHaveBeenCalled());
+    expect(connectWithPopup.mock.calls[0][0]).toMatchObject({ bulkImportDays: 30 });
+  });
+
   it('a paused row says it is not syncing and opens its count', async () => {
     render(
       <GmailIntegrationCard

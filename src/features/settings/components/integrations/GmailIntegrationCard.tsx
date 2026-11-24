@@ -59,7 +59,7 @@ const defaultConfig: GmailConfig = {
   searchQuery: '',
   maxResults: 500,
   pollingMaxPages: 50,
-  bulkImportDays: 0,
+  bulkImportDays: 30,
 };
 
 export const GmailIntegrationCard = ({
