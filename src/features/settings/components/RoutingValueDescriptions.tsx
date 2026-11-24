@@ -19,6 +19,9 @@ import type { RoutingKeyType, RoutingValue } from '@/types/skillRouting';
  * AI matching — workspace admins only (this page is admin-only). `null` from the service means the
  * backend predates descriptions: nothing is rendered.
  */
+/** Who holds a value: routed agents, and mentors (held, never routed to). */
+type Holders = { routed: string[]; mentors: string[] };
+
 export const RoutingValueDescriptions = ({
   routingKey,
   keyType,
@@ -47,41 +50,53 @@ export const RoutingValueDescriptions = ({
     enabled: workspaceSkills !== undefined && workspaceSkills !== null,
   });
   // Built once per data change, not per value per keystroke (review 2026-11-09).
+  // Mentors (1.1.330) hold skills but are never routed to: kept apart and shown greyed.
   const holdersByValue = useMemo(() => {
     if (!workspaceSkills || !members.data) return null;
-    const nameOf = new Map(
+    const personOf = new Map(
       (
         members.data as Array<{
           userId: number;
           firstName?: string | null;
           lastName?: string | null;
           email?: string;
+          isMentor?: boolean;
         }>
       ).map((member) => [
         String(member.userId),
-        [member.firstName, member.lastName].filter(Boolean).join(' ') ||
-          member.email ||
-          `#${member.userId}`,
+        {
+          name:
+            [member.firstName, member.lastName].filter(Boolean).join(' ') ||
+            member.email ||
+            `#${member.userId}`,
+          mentor: member.isMentor === true,
+        },
       ])
     );
-    const byValue = new Map<string, string[]>();
+    const byValue = new Map<string, Holders>();
     for (const [userId, byKey] of Object.entries(workspaceSkills)) {
       for (const [key, held] of Object.entries(byKey)) {
         if (!sameSkillKey(key, routingKey)) continue;
         for (const value of held) {
           const norm = value.trim().toLowerCase();
-          const names = byValue.get(norm) ?? [];
-          const name = nameOf.get(userId) ?? `#${userId}`;
-          if (!names.includes(name)) names.push(name);
-          byValue.set(norm, names);
+          const holders = byValue.get(norm) ?? { routed: [], mentors: [] };
+          const person = personOf.get(userId) ?? { name: `#${userId}`, mentor: false };
+          const side = person.mentor ? holders.mentors : holders.routed;
+          if (!side.includes(person.name)) side.push(person.name);
+          byValue.set(norm, holders);
         }
       }
     }
-    for (const names of byValue.values()) names.sort((left, right) => left.localeCompare(right));
+    for (const holders of byValue.values()) {
+      holders.routed.sort((left, right) => left.localeCompare(right));
+      holders.mentors.sort((left, right) => left.localeCompare(right));
+    }
     return byValue;
   }, [workspaceSkills, members.data, routingKey]);
-  const holderNames = (value: string): string[] | null =>
-    holdersByValue ? (holdersByValue.get(value.trim().toLowerCase()) ?? []) : null;
+  const holdersOf = (value: string): Holders | null =>
+    holdersByValue
+      ? (holdersByValue.get(value.trim().toLowerCase()) ?? { routed: [], mentors: [] })
+      : null;
 
   const load = async () => {
     const rows = await organizationService
@@ -165,10 +180,22 @@ export const RoutingValueDescriptions = ({
             )}
           </div>
           {(() => {
-            const names = holderNames(row.value);
-            return names && names.length > 0 ? (
-              <p className="text-xs text-muted-foreground">Held by: {names.join(', ')}</p>
-            ) : null;
+            const holders = holdersOf(row.value);
+            if (!holders) return null;
+            return (
+              <>
+                {holders.routed.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    Held by: {holders.routed.join(', ')}
+                  </p>
+                )}
+                {holders.mentors.length > 0 && (
+                  <p className="text-xs text-faint-foreground" data-testid="mentor-holders">
+                    {holders.mentors.map((name) => `${name} (Mentor — not routed)`).join(', ')}
+                  </p>
+                )}
+              </>
+            );
           })()}
           <Textarea
             aria-label={`Description for ${row.value}`}
