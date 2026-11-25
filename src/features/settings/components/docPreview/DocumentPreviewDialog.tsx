@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpen, FileText, Globe } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -13,6 +13,7 @@ import { logger } from '@/lib/logger';
 import { integrationsService } from '@/services/integrations.service';
 import { renderDocumentHtml, splitIntoSections } from '@/components/shared/fileViewer/docMarkdown';
 import { joinChunks, seamRuleFor } from './joinChunks';
+import { chunkFocus, findFocusBlock, findFocusRange, LARGE_BLOCK_CHARS, markLineStart, sectionsToShow, type ChunkFocus } from './focusSection';
 
 /**
  * Settings → AI → Documentation → eye icon: the document as one readable page.
@@ -48,7 +49,13 @@ type Documentation = PreviewDocument;
 type DocumentPreviewDialogProps = {
   doc: PreviewDocument;
   /** The stored chunks in chunk order (`documentationService.getDocumentationContent`). */
-  loadChunks: (id: number) => Promise<{ content: string }[]>;
+  loadChunks: (id: number) => Promise<StoredChunk[]>;
+  /**
+   * The stored chunk a source link cites, by its index (0-based) or by its id: the preview opens
+   * scrolled to where that chunk starts and marks the spot. Not found: it opens at the top.
+   */
+  focusChunkIndex?: number;
+  focusChunkId?: number;
   /**
    * A synced page as Markdown and its path (`GET /api/documentation/:id`). A non-empty
    * `contentMarkdown` is shown formatted instead of the chunks; null, absent (an older backend)
@@ -64,7 +71,30 @@ type ContentState =
   | { status: 'loading' }
   | { status: 'error' }
   /** `markdown`: the text is the source's own Markdown (always rendered, never plain). */
-  | { status: 'ready'; text: string; markdown?: boolean };
+  | { status: 'ready'; text: string; markdown?: boolean; focus: ChunkFocus | null };
+
+type StoredChunk = { content: string; chunkIndex?: number; id?: number };
+type Cited = { index?: number; id?: number };
+
+/** Where the cited chunk is (see focusSection); null when no chunk is cited or it is not here. */
+const focusOf = (chunks: StoredChunk[], cited: Cited): ChunkFocus | null => {
+  let position = -1;
+  if (cited.index !== undefined) {
+    position = chunks.some((chunk) => typeof chunk.chunkIndex === 'number')
+      ? chunks.findIndex((chunk) => chunk.chunkIndex === cited.index)
+      : cited.index;
+  } else if (cited.id !== undefined) {
+    position = chunks.findIndex((chunk) => chunk.id === cited.id);
+  }
+  return chunkFocus(
+    chunks.map((chunk) => chunk.content),
+    position
+  );
+};
+
+/** The mark on the block a source link points at. Written out in full for the CSS build. */
+const LINE_FOCUS_CLASSES = ['rounded', 'bg-primary/20', 'text-foreground'];
+const FOCUS_CLASSES = ['rounded', 'bg-primary/10', 'outline', 'outline-2', 'outline-offset-4', 'outline-primary/40'];
 
 /** A path as the backend sent it: a non-empty list of titles, else nothing. */
 const pathParts = (path: unknown): string[] =>
@@ -154,20 +184,68 @@ const RenderedSection = memo(({ raw }: { raw: string }) => {
 });
 RenderedSection.displayName = 'RenderedSection';
 
-const DocumentBody = ({ doc, text, markdown }: { doc: Documentation; text: string; markdown: boolean }) => {
+type DocumentBodyProps = { doc: Documentation; text: string; markdown: boolean; focus: ChunkFocus | null };
+
+const DocumentBody = ({ doc, text, markdown, focus }: DocumentBodyProps) => {
   const plain = !markdown && isPlainText(doc);
   const sections = useMemo(() => (plain ? [] : splitIntoSections(text, SECTION_CHARS)), [plain, text]);
-  const [shown, setShown] = useState(1);
+  // A cited chunk far down a long document: its part is rendered from the start.
+  const [shown, setShown] = useState(() => sectionsToShow(sections, focus));
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const plainFocus = useMemo(() => (plain && focus ? findFocusRange(text, focus) : null), [plain, text, focus]);
+
+  // Once, when the text is on the page: go to the cited chunk and mark where it starts.
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!body || !focus) return;
+    if (plain) {
+      body.querySelector<HTMLElement>('[data-doc-focus]')?.scrollIntoView?.({ block: 'start' });
+      return;
+    }
+    const found = findFocusBlock(body, focus);
+    if (!found) return;
+    // Marked only when the chunk's own line was found; a block at its place is just scrolled to.
+    let target = found.element;
+    if (found.exact) {
+      // A paragraph pages long (text extracted without blank lines): the line inside it.
+      const large = (target.textContent ?? '').length > LARGE_BLOCK_CHARS;
+      const mark = large && found.line ? markLineStart(target, found.line) : null;
+      if (mark) {
+        mark.classList.add(...LINE_FOCUS_CLASSES);
+        target = mark;
+      } else {
+        target.classList.add(...FOCUS_CLASSES);
+      }
+      target.setAttribute('data-doc-focus', '');
+    }
+    target.classList.add('scroll-mt-6');
+    target.scrollIntoView?.({ block: 'start' });
+  }, [plain, focus]);
+
   if (plain) {
     return (
-      <div data-testid="doc-preview-body" className="text-[15px] leading-7 whitespace-pre-wrap break-words">
-        {text}
+      <div
+        ref={bodyRef}
+        data-testid="doc-preview-body"
+        className="text-[15px] leading-7 whitespace-pre-wrap break-words"
+      >
+        {plainFocus ? (
+          <>
+            {text.slice(0, plainFocus.start)}
+            <mark data-doc-focus="" className="rounded bg-primary/20 text-foreground scroll-mt-6">
+              {text.slice(plainFocus.start, plainFocus.end)}
+            </mark>
+            {text.slice(plainFocus.end)}
+          </>
+        ) : (
+          text
+        )}
       </div>
     );
   }
   const shownChars = sections.slice(0, shown).reduce((sum, section) => sum + section.length, 0);
   return (
-    <div data-testid="doc-preview-body">
+    <div ref={bodyRef} data-testid="doc-preview-body">
       {sections.slice(0, shown).map((section, index) => (
         // The parts of one text never reorder: the position is their identity.
         // eslint-disable-next-line react/no-array-index-key
@@ -190,7 +268,7 @@ const DocumentBody = ({ doc, text, markdown }: { doc: Documentation; text: strin
   );
 };
 
-export const DocumentPreviewDialog = ({ doc, loadChunks, loadFormatted, onClose }: DocumentPreviewDialogProps) => {
+export const DocumentPreviewDialog = ({ doc, loadChunks, loadFormatted, focusChunkIndex, focusChunkId, onClose }: DocumentPreviewDialogProps) => {
   const [detailPath, setDetailPath] = useState<string[]>([]);
   const [content, setContent] = useState<ContentState>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
@@ -204,16 +282,21 @@ export const DocumentPreviewDialog = ({ doc, loadChunks, loadFormatted, onClose 
 
   useEffect(() => {
     let cancelled = false;
+    const cited: Cited = { index: focusChunkIndex, id: focusChunkId };
+    const isCited = focusChunkIndex !== undefined || focusChunkId !== undefined;
     setContent({ status: 'loading' });
+    // One request, whoever asks: the text itself, or only the cited chunk of a formatted page.
+    let chunksRequest: Promise<StoredChunk[]> | null = null;
+    const chunksOnce = () => (chunksRequest ??= loadChunks(doc.id));
     const fromChunks = () =>
-      loadChunks(doc.id)
+      chunksOnce()
         .then((chunks) => {
           if (cancelled) return;
           const text = joinChunks(
             chunks.map((chunk) => chunk.content),
             seamRuleFor(doc.documentType, doc.chunkingStrategy)
           );
-          setContent({ status: 'ready', text });
+          setContent({ status: 'ready', text, focus: focusOf(chunks, cited) });
         })
         .catch((error: unknown) => {
           logger.error('Failed to load documentation content:', error);
@@ -224,11 +307,22 @@ export const DocumentPreviewDialog = ({ doc, loadChunks, loadFormatted, onClose 
         .then((formatted) => {
           if (cancelled) return;
           setDetailPath(pathParts(formatted.sourcePath));
-          if (formatted.contentMarkdown) {
-            setContent({ status: 'ready', text: formatted.contentMarkdown, markdown: true });
+          const markdown = formatted.contentMarkdown;
+          if (!markdown) {
+            void fromChunks();
             return;
           }
-          void fromChunks();
+          const show = (focus: ChunkFocus | null) => {
+            if (!cancelled) setContent({ status: 'ready', text: markdown, markdown: true, focus });
+          };
+          if (!isCited) {
+            show(null);
+            return;
+          }
+          // The formatted page has no chunks in it: the cited one is read only to find its place.
+          chunksOnce()
+            .then((chunks) => show(focusOf(chunks, cited)))
+            .catch(() => show(null));
         })
         .catch((error: unknown) => {
           logger.warn('No formatted page for a synced document, showing its chunks', error);
@@ -240,7 +334,7 @@ export const DocumentPreviewDialog = ({ doc, loadChunks, loadFormatted, onClose 
     return () => {
       cancelled = true;
     };
-  }, [doc.id, doc.documentType, doc.chunkingStrategy, attempt, loadChunks, loadFormatted, confluence]);
+  }, [doc.id, doc.documentType, doc.chunkingStrategy, attempt, loadChunks, loadFormatted, confluence, focusChunkIndex, focusChunkId]);
 
   const retry = useCallback(() => setAttempt((count) => count + 1), []);
   const departmentIds = doc.departmentIds ?? [];
@@ -319,7 +413,7 @@ export const DocumentPreviewDialog = ({ doc, loadChunks, loadFormatted, onClose 
             (content.text.trim() === '' ? (
               <Alert role="status">This document has no stored text to show.</Alert>
             ) : (
-              <DocumentBody doc={doc} text={content.text} markdown={content.markdown === true} />
+              <DocumentBody doc={doc} text={content.text} markdown={content.markdown === true} focus={content.focus} />
             ))}
         </div>
       </DialogContent>

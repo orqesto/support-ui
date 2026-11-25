@@ -10,6 +10,7 @@ export { AIConfigSettings } from './components/AIConfigSettings';
 export { AIProvidersSettings } from './components/AIProvidersSettings';
 export { ConnectedServicesSettings } from './components/ConnectedServicesSettings';
 export { DocumentationSettings } from './components/DocumentationSettings';
+export { LinkedDocumentPreview } from './components/docPreview/LinkedDocumentPreview';
 export { NotificationPreferencesSettings } from './components/NotificationPreferencesSettings';
 export { OrganizationSettings } from './components/OrganizationSettings';
 export { ProfileSettings } from './components/ProfileSettings';

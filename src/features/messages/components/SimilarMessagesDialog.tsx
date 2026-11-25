@@ -3,6 +3,7 @@
 // renderer out is the natural follow-up refactor.
 /* eslint-disable max-lines */
 import { useState, useEffect, type KeyboardEvent, type MouseEvent } from 'react';
+import { documentationHref } from '@/lib/documentationLink';
 import { BookOpen, Check, ChevronDown, ChevronUp, Clock, ExternalLink, FileText, Globe, Languages, Loader2, MessageCircle, Quote, Search, Sparkles, TrendingUp, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/Alert';
@@ -704,7 +705,10 @@ export const SimilarMessagesDialog = ({
                           <FileText className="w-3 h-3" />
                           {msg.parentDocId ? (
                             <Link
-                              to={`/knowledge-base?docId=${msg.parentDocId}#documentation`}
+                              to={documentationHref(
+                                msg.parentDocId,
+                                { chunkIndex: msg.references?.[0]?.chunkIndex ?? msg.chunkIndex }
+                              )}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="font-medium underline transition-colors hover:text-primary"

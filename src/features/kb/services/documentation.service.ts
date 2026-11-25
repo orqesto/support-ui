@@ -212,7 +212,7 @@ const getStats = async (): Promise<DocumentationStats> => {
   return response.data;
 };
 
-export type DocumentationChunkContent = { content: string; chunkIndex: number };
+export type DocumentationChunkContent = { content: string; chunkIndex: number; id?: number };
 
 /**
  * The stored chunks, in chunk order. Normalised: a non-array answer is no chunks, a row without
@@ -221,12 +221,13 @@ export type DocumentationChunkContent = { content: string; chunkIndex: number };
 export const normalizeDocumentationChunks = (raw: unknown): DocumentationChunkContent[] =>
   (Array.isArray(raw) ? raw : [])
     .filter(
-      (row): row is { content: string; chunkIndex?: unknown } =>
+      (row): row is { content: string; chunkIndex?: unknown; id?: unknown } =>
         typeof row === 'object' && row !== null && typeof (row as { content?: unknown }).content === 'string'
     )
     .map((row, position) => ({
       content: row.content,
       chunkIndex: typeof row.chunkIndex === 'number' ? row.chunkIndex : position,
+      ...(typeof row.id === 'number' ? { id: row.id } : {}),
     }))
     .sort((left, right) => left.chunkIndex - right.chunkIndex);
 

@@ -77,7 +77,9 @@ const findOffences = (file: string): Offence[] => {
 };
 
 describe('no JSX attribute is rendered as visible text', () => {
-  it('finds no attribute-shaped text child anywhere in src', () => {
+  // Parses every .tsx under src: about a second on a laptop, past the default 5 s on a busy CI
+  // runner (it failed a pull request that way, 2026-11-25). The limit is for the scan, not a wait.
+  it('finds no attribute-shaped text child anywhere in src', { timeout: 60_000 }, () => {
     const offences = tsxFiles(SRC).flatMap(findOffences);
     const report = offences
       .map((off) => `${off.file.replace(process.cwd() + '/', '')}:${off.line} renders "${off.text}"`)

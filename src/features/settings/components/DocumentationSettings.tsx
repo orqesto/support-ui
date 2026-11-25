@@ -3,11 +3,13 @@ import { useSearchParams } from 'react-router-dom';
 import { BookOpen, FileText, CheckCircle } from 'lucide-react';
 import { DocumentationUploadForm } from '@/features/settings/components/DocumentationUploadForm';
 import { DocumentationList } from '@/features/settings/components/DocumentationList';
+import { Alert } from '@/components/ui/Alert';
 import { Card } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { bulkDeleteSummary } from '@/features/settings/components/bulkDeleteSummary';
 import { documentationService, type Documentation, type DocumentType, type DocumentationProgress } from '@/features/kb/shell';
 import { logger } from '@/lib/logger';
+import { readDocumentationLink } from '@/lib/documentationLink';
 
 // The previews load only when a document is opened: the shared file viewer for an uploaded
 // file, the text preview (#1022) for a Confluence page and as the viewer's text fallback.
@@ -74,6 +76,10 @@ export const DocumentationSettings = ({
   const [viewerDoc, setViewerDoc] = useState<Documentation | null>(null);
   // How the opened document is shown: its file in the shared viewer, or the text read from it.
   const [viewerMode, setViewerMode] = useState<'file' | 'text'>('file');
+  // The chunk a source link cites (`&chunk=`): the text preview opens at it.
+  const [viewerChunk, setViewerChunk] = useState<{ index?: number; id?: number }>({});
+  // The linked document is opened once: closing its preview must not open it again.
+  const openedLinkRef = useRef<number | null>(null);
   const [docProgress, setDocProgress] = useState<Record<number, DocumentationProgress>>({});
   const docsRef = useRef<Documentation[]>([]);
   docsRef.current = docs;
@@ -81,13 +87,13 @@ export const DocumentationSettings = ({
   const loadingRef = useRef(false);
 
   const [searchParams] = useSearchParams();
-  const rawDocId = searchParams.get('docId');
-  const highlightDocId =
-    rawDocId !== null
-      ? isNaN(parseInt(rawDocId, 10))
-        ? undefined
-        : parseInt(rawDocId, 10)
-      : undefined;
+  // A source link: the document, and the cited chunk by index or (all some sources carry) by id.
+  const {
+    docId: highlightDocId,
+    open: linkAsksToOpen,
+    chunkIndex: linkedChunk,
+    chunkId: linkedChunkId,
+  } = readDocumentationLink(searchParams);
 
   const loadDocumentation = useCallback(async (isInitialLoad = false) => {
     if (loadingRef.current) return;
@@ -124,6 +130,21 @@ export const DocumentationSettings = ({
       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [highlightDocId, loading, docs.length]);
+
+  // A source link (`?docId=`, from a thread's AI sources) opens the document itself, not only
+  // the list around it. With a cited chunk it opens as text: the original file has no chunks.
+  const linkedDoc = highlightDocId ? docs.find((doc) => doc.id === highlightDocId) : undefined;
+  useEffect(() => {
+    // Only a link that asks for it (a notification names the row), and only a document that has
+    // text to show: the eye icon is offered for a ready document alone.
+    if (compact || loading || !linkAsksToOpen || linkedDoc?.status !== 'ready') return;
+    if (openedLinkRef.current === linkedDoc.id) return;
+    openedLinkRef.current = linkedDoc.id;
+    const cited = linkedChunk !== undefined || linkedChunkId !== undefined;
+    setViewerMode(cited || isConfluenceDoc(linkedDoc) ? 'text' : 'file');
+    setViewerChunk({ index: linkedChunk, id: linkedChunkId });
+    setViewerDoc(linkedDoc);
+  }, [compact, loading, linkAsksToOpen, linkedDoc, linkedChunk, linkedChunkId]);
 
   const processingDocIds = docs
     .filter((doc) => doc.status === 'processing')
@@ -396,6 +417,7 @@ export const DocumentationSettings = ({
 
   const handleViewContent = (doc: Documentation) => {
     setViewerMode(isConfluenceDoc(doc) ? 'text' : 'file');
+    setViewerChunk({});
     setViewerDoc(doc);
   };
   const closeViewer = useCallback(() => setViewerDoc(null), []);
@@ -509,6 +531,9 @@ export const DocumentationSettings = ({
           (onboarding) mode; available later in Settings → Knowledge base. */}
       {!compact && (
         <>
+          {highlightDocId !== undefined && !loading && !linkedDoc && (
+            <Alert role="status">The linked document was not found in this list.</Alert>
+          )}
           <DocumentationList
             docs={docs}
             selectedDocs={selectedDocs}
@@ -553,6 +578,8 @@ export const DocumentationSettings = ({
                   doc={viewerDoc}
                   loadChunks={documentationService.getDocumentationContent}
                   loadFormatted={documentationService.getDocumentationFormatted}
+                  focusChunkIndex={viewerChunk.index}
+                  focusChunkId={viewerChunk.id}
                   onClose={closeViewer}
                 />
               )}
