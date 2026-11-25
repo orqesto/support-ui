@@ -4,7 +4,7 @@ import { MemoryRouter, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type * as KbShell from '@/features/kb/shell';
 import { documentationHref } from '@/lib/documentationLink';
-import { findFocusBlock, focusLines, sectionsToShow } from '../focusSection';
+import { chunkFocus, findFocusBlock, findFocusRange, focusLines, markLineStart, sectionsToShow } from '../focusSection';
 
 type Documentation = KbShell.Documentation;
 
@@ -187,18 +187,24 @@ describe('a source link opens its document at the cited section', () => {
   });
 
   it('⛔ ?docId= without open=1 (a notification about a document) shows the row, not the text', async () => {
-    openAt('/settings?docId=7#ai/documentation');
+    // A synced page: its preview is the text dialog, with no file viewer to wait for first.
+    openAt('/settings?docId=7#ai/documentation', makeDoc({ externalSource: 'confluence:3' }));
     await screen.findByRole('button', { name: 'View content' });
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    await new Promise((resolve) => setTimeout(resolve, 150));
     expect(screen.queryByRole('dialog')).toBeNull();
+    expect(getDocumentationContent).not.toHaveBeenCalled();
     expect(document.getElementById('doc-7')?.className).toContain('ring-2');
   });
 
   it('a document still being processed is not opened (it has no text yet)', async () => {
-    openAt('/settings?open=1&docId=7#ai/documentation', makeDoc({ status: 'processing' }));
+    openAt(
+      '/settings?open=1&docId=7#ai/documentation',
+      makeDoc({ status: 'processing', externalSource: 'confluence:3' })
+    );
     await waitFor(() => expect(document.getElementById('doc-7')).not.toBeNull());
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    await new Promise((resolve) => setTimeout(resolve, 150));
     expect(screen.queryByRole('dialog')).toBeNull();
+    expect(getDocumentationContent).not.toHaveBeenCalled();
   });
 
   it('no ?docId= opens nothing', async () => {
@@ -273,18 +279,85 @@ describe('placing a chunk in the page', () => {
     const root = document.createElement('div');
     root.innerHTML =
       '<ul><li><p>Plan A: PPO and Open Access Plus.</p></li></ul><table><tr><td>Monday</td><td>nine to five</td></tr></table>';
-    expect(findFocusBlock(root, ['- Plan A: PPO and Open Access Plus.'])?.tagName).toBe('P');
-    expect(findFocusBlock(root, ['| Monday | nine to five |'])?.tagName).toBe('TR');
-    expect(findFocusBlock(root, ['A line that is nowhere here.'])).toBeNull();
+    const find = (line: string) => findFocusBlock(root, { lines: [line], at: 0 });
+    expect(find('- Plan A: PPO and Open Access Plus.')).toMatchObject({ exact: true, element: { tagName: 'P' } });
+    expect(find('| Monday | nine to five |')).toMatchObject({ exact: true, element: { tagName: 'TR' } });
   });
 
-  it('a long document renders as far as the part holding the chunk', () => {
+  it('⛔ a line that repeats (the same heading in every section) is taken where the chunk is', () => {
+    const root = document.createElement('div');
+    root.innerHTML = Array.from(
+      { length: 4 },
+      (_, part) => `<h2>How to return it</h2><p>Details of part ${part}, long enough to take room on the page.</p>`
+    ).join('');
+    const headings = Array.from(root.querySelectorAll('h2'));
+    expect(findFocusBlock(root, { lines: ['## How to return it'], at: 0 })?.element).toBe(headings[0]);
+    expect(findFocusBlock(root, { lines: ['## How to return it'], at: 0.75 })?.element).toBe(headings[3]);
+    const text = 'Returns\nfirst part\nReturns\nsecond part';
+    expect(findFocusRange(text, { lines: ['Returns'], at: 0.6 })).toEqual({ start: 19, end: 26 });
+  });
+
+  it('⛔ a line of the chunk that is on the page once decides which repeat of its heading it is', () => {
+    const root = document.createElement('div');
+    root.innerHTML =
+      '<h2>How to return it</h2><p>Parcels go back by courier.</p>' +
+      '<h2>How to return it</h2><p>Letters go back by post office.</p>' +
+      '<h2>How to return it</h2><p>Pallets go back by freight truck.</p>';
+    const headings = Array.from(root.querySelectorAll('h2'));
+    // The place alone (0.9) would say the third; the chunk's own second line says the second.
+    const found = findFocusBlock(root, {
+      lines: ['## How to return it', 'Letters go back by post office.'],
+      at: 0.9,
+    });
+    expect(found?.element).toBe(headings[1]);
+  });
+
+  it('⛔ inside a paragraph pages long, the line itself is marked (through bold, across line breaks)', () => {
+    const root = document.createElement('div');
+    root.innerHTML = `<p>${'Filler sentence of the page. '.repeat(40)}<br>Refunds are paid <strong>within ten days</strong> of receipt.<br>More text after it.</p>`;
+    const block = root.querySelector('p') as HTMLElement;
+    const mark = markLineStart(block, 'Refunds are paid **within ten days** of receipt.');
+    expect(mark?.tagName).toBe('MARK');
+    expect(mark?.textContent).toBe('Refunds are paid ');
+    expect(block.textContent).toContain('Refunds are paid within ten days of receipt.');
+    expect(markLineStart(block, 'A line that is not in this block.')).toBeNull();
+  });
+
+  it('⛔ a document that renders as one long paragraph is opened at the chunk, not at its top', async () => {
+    const long = Array.from({ length: 30 }, (_, row) => `Row ${row} of a long extracted page with words.`).join('\n');
+    getDocumentationContent.mockResolvedValue(chunkRows([long, 'The warranty lasts two full years.\nSecond line of it.']));
+    openAt('/settings?open=1&docId=7&chunk=1');
+    await waitFor(() => expect(marked()).not.toBeNull());
+    expect(marked()?.tagName).toBe('MARK');
+    expect(marked()?.textContent).toBe('The warranty lasts two full years.');
+  });
+
+  it('a chunk with no findable line is scrolled to at its place, and not marked as found', () => {
+    const root = document.createElement('div');
+    root.innerHTML = '<p>First paragraph of the page.</p><p>Second paragraph of the page.</p>';
+    const found = findFocusBlock(root, { lines: ['A line that is nowhere here.'], at: 0.9 });
+    expect(found).toMatchObject({ exact: false });
+    expect(found?.element.textContent).toBe('Second paragraph of the page.');
+  });
+
+  it('the place of a chunk is the share of the document before it', () => {
+    expect(chunkFocus(['aaaa', 'bbbb the second chunk', 'cc'], 1)).toEqual({
+      lines: ['bbbb the second chunk'],
+      at: 4 / 27,
+    });
+    expect(chunkFocus(['aaaa'], 3)).toBeNull();
+    expect(chunkFocus(['aaaa'], -1)).toBeNull();
+  });
+
+  it('a long document renders as far as the part holding the chunk, never whole on a miss', () => {
     const parts = ['first part text', 'second part with the wanted line', 'third part'];
-    expect(sectionsToShow(parts, ['the wanted line'])).toBe(2);
-    expect(sectionsToShow(parts, [])).toBe(1);
+    expect(sectionsToShow(parts, { lines: ['the wanted line'], at: 0.4 })).toBe(2);
+    expect(sectionsToShow(parts, null)).toBe(1);
     // Found through Markdown marks the chunk does not have.
-    expect(sectionsToShow(['intro', 'the **wanted** line here'], ['- the wanted line'])).toBe(2);
-    // ⛔ In no part: the first part only, never the whole of a long document at once.
-    expect(sectionsToShow(parts, ['written differently in the page'])).toBe(1);
+    expect(sectionsToShow(['intro', 'the **wanted** line here'], { lines: ['- the wanted line'], at: 0.5 })).toBe(2);
+    // A repeated line: the part at the chunk's place.
+    expect(sectionsToShow(['same line here', 'filler text', 'same line here'], { lines: ['same line here'], at: 0.9 })).toBe(3);
+    // ⛔ In no part: the part at its place only, not everything.
+    expect(sectionsToShow(parts, { lines: ['written differently in the page'], at: 0 })).toBe(1);
   });
 });
