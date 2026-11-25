@@ -37,7 +37,7 @@ export const KnowledgeBasePage = () => {
   if (location.hash === '#documentation') {
     const linked = readDocumentationLink(new URLSearchParams(location.search));
     // Someone who cannot open Settings › AI (an agent) still reads the document a source names.
-    if (linked.docId !== undefined && !hasPermission(Permission.VIEW_AI_SETTINGS)) {
+    if (linked.docId !== undefined && linked.open && !hasPermission(Permission.VIEW_AI_SETTINGS)) {
       return (
         <Suspense fallback={null}>
           <LinkedDocumentPreview

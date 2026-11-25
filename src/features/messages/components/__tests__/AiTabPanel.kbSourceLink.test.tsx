@@ -187,7 +187,7 @@ describe('AiTabPanel — the DOCS answer links to its document, not a chunk id',
     renderWithSuggestion({ ...base, referencedChunks: [501, 502], sourceDocumentId: 7 });
     const link = await screen.findByRole('link', { name: 'View in Knowledge Base' });
     // The document, and the first chunk the answer used (where in it the preview opens).
-    expect(link.getAttribute('href')).toBe('/knowledge-base?docId=7&chunkId=501#documentation');
+    expect(link.getAttribute('href')).toBe('/knowledge-base?docId=7&open=1&chunkId=501#documentation');
   });
 
   it('🔴 an older answer with chunk ids only opens Documentation without a wrong highlight', async () => {

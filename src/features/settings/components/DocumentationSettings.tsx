@@ -90,6 +90,7 @@ export const DocumentationSettings = ({
   // A source link: the document, and the cited chunk by index or (all some sources carry) by id.
   const {
     docId: highlightDocId,
+    open: linkAsksToOpen,
     chunkIndex: linkedChunk,
     chunkId: linkedChunkId,
   } = readDocumentationLink(searchParams);
@@ -134,13 +135,16 @@ export const DocumentationSettings = ({
   // the list around it. With a cited chunk it opens as text: the original file has no chunks.
   const linkedDoc = highlightDocId ? docs.find((doc) => doc.id === highlightDocId) : undefined;
   useEffect(() => {
-    if (compact || loading || !linkedDoc || openedLinkRef.current === linkedDoc.id) return;
+    // Only a link that asks for it (a notification names the row), and only a document that has
+    // text to show: the eye icon is offered for a ready document alone.
+    if (compact || loading || !linkAsksToOpen || linkedDoc?.status !== 'ready') return;
+    if (openedLinkRef.current === linkedDoc.id) return;
     openedLinkRef.current = linkedDoc.id;
     const cited = linkedChunk !== undefined || linkedChunkId !== undefined;
     setViewerMode(cited || isConfluenceDoc(linkedDoc) ? 'text' : 'file');
     setViewerChunk({ index: linkedChunk, id: linkedChunkId });
     setViewerDoc(linkedDoc);
-  }, [compact, loading, linkedDoc, linkedChunk, linkedChunkId]);
+  }, [compact, loading, linkAsksToOpen, linkedDoc, linkedChunk, linkedChunkId]);
 
   const processingDocIds = docs
     .filter((doc) => doc.status === 'processing')

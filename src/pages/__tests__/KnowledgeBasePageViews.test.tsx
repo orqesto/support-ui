@@ -483,16 +483,16 @@ describe('Knowledge Base page: three views', () => {
 
   it('⛔ without access to Settings › AI (an agent) the source link shows the document itself', async () => {
     state.canManageKb = false;
-    renderAt('/knowledge-base?docId=7606&chunkId=412#documentation');
+    renderAt('/knowledge-base?docId=7606&open=1&chunkId=412#documentation');
     expect(await screen.findByTestId('linked-document')).toHaveTextContent('{"docId":7606,"chunkId":412}');
-    expect(screen.getByTestId('where')).toHaveTextContent('/knowledge-base?docId=7606&chunkId=412#documentation');
+    expect(screen.getByTestId('where')).toHaveTextContent('/knowledge-base?docId=7606&open=1&chunkId=412#documentation');
   });
 
   it('⛔ the old Documentation address keeps the document a source link names', async () => {
-    renderAt('/knowledge-base?docId=7606&chunk=0#documentation');
+    renderAt('/knowledge-base?docId=7606&open=1&chunk=0#documentation');
     await waitFor(() =>
       expect(screen.getByTestId('where')).toHaveTextContent(
-        '/settings?docId=7606&chunk=0#ai/documentation'
+        '/settings?docId=7606&open=1&chunk=0#ai/documentation'
       )
     );
   });

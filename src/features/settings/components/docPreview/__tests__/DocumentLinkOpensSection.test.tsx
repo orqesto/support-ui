@@ -108,15 +108,15 @@ afterEach(() => {
 
 describe('a source link opens its document at the cited section', () => {
   it('the link carries the document and the chunk', () => {
-    expect(documentationHref(7606, { chunkIndex: 0 })).toBe('/knowledge-base?docId=7606&chunk=0#documentation');
-    expect(documentationHref(7606, { chunkId: 412 })).toBe('/knowledge-base?docId=7606&chunkId=412#documentation');
-    expect(documentationHref(7606)).toBe('/knowledge-base?docId=7606#documentation');
-    expect(documentationHref(7606, { chunkIndex: null })).toBe('/knowledge-base?docId=7606#documentation');
+    expect(documentationHref(7606, { chunkIndex: 0 })).toBe('/knowledge-base?docId=7606&open=1&chunk=0#documentation');
+    expect(documentationHref(7606, { chunkId: 412 })).toBe('/knowledge-base?docId=7606&open=1&chunkId=412#documentation');
+    expect(documentationHref(7606)).toBe('/knowledge-base?docId=7606&open=1#documentation');
+    expect(documentationHref(7606, { chunkIndex: null })).toBe('/knowledge-base?docId=7606&open=1#documentation');
     expect(documentationHref(undefined, { chunkIndex: 3 })).toBe('/knowledge-base#documentation');
   });
 
   it('⛔ ?docId=&chunk= opens the preview with no click and marks where that chunk starts', async () => {
-    openAt('/settings?docId=7&chunk=1#ai/documentation');
+    openAt('/settings?open=1&docId=7&chunk=1#ai/documentation');
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Clinic handbook')).toBeInTheDocument();
     await waitFor(() => expect(marked()).not.toBeNull());
@@ -130,19 +130,19 @@ describe('a source link opens its document at the cited section', () => {
     getDocumentationContent.mockResolvedValue(
       CHUNKS.map((content, chunkIndex) => ({ id: 410 + chunkIndex, content, chunkIndex }))
     );
-    openAt('/settings?docId=7&chunkId=411#ai/documentation');
+    openAt('/settings?open=1&docId=7&chunkId=411#ai/documentation');
     await waitFor(() => expect(marked()).not.toBeNull());
     expect(marked()?.textContent).toBe('Send the parcel back within thirty days of delivery.');
   });
 
   it('a chunk id that is not in the document opens it at the top', async () => {
-    openAt('/settings?docId=7&chunkId=999#ai/documentation');
+    openAt('/settings?open=1&docId=7&chunkId=999#ai/documentation');
     await screen.findByTestId('doc-preview-body');
     expect(marked()).toBeNull();
   });
 
   it('⛔ closing the opened document does not open it again', async () => {
-    openAt('/settings?docId=7&chunk=1#ai/documentation');
+    openAt('/settings?open=1&docId=7&chunk=1#ai/documentation');
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: /close/i }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -151,7 +151,7 @@ describe('a source link opens its document at the cited section', () => {
   });
 
   it('?docId= alone opens the document and marks nothing', async () => {
-    openAt('/settings?docId=7#ai/documentation', makeDoc({ externalSource: 'confluence:3' }));
+    openAt('/settings?open=1&docId=7#ai/documentation', makeDoc({ externalSource: 'confluence:3' }));
     await screen.findByTestId('doc-preview-body');
     expect(marked()).toBeNull();
   });
@@ -161,7 +161,7 @@ describe('a source link opens its document at the cited section', () => {
       contentMarkdown: '# Handbook\n\nIntro.\n\n## Insurance\n\nWe are in network with *these* plans.',
       sourcePath: null,
     });
-    openAt('/settings?docId=7&chunk=2', makeDoc({ externalSource: 'confluence:3' }));
+    openAt('/settings?open=1&docId=7&chunk=2', makeDoc({ externalSource: 'confluence:3' }));
     await waitFor(() => expect(marked()).not.toBeNull());
     // The chunk's own heading is long enough to place it: the section is marked at its title.
     expect(marked()?.tagName).toBe('H2');
@@ -173,7 +173,7 @@ describe('a source link opens its document at the cited section', () => {
     getDocumentationContent.mockResolvedValue(
       chunkRows(['Opening hours are nine to five.', 'Returns are accepted for thirty days.'])
     );
-    openAt('/settings?docId=7&chunk=1', makeDoc({ mimeType: 'text/plain' }));
+    openAt('/settings?open=1&docId=7&chunk=1', makeDoc({ mimeType: 'text/plain' }));
     await waitFor(() => expect(marked()).not.toBeNull());
     expect(marked()?.tagName).toBe('MARK');
     expect(marked()?.textContent).toBe('Returns are accepted for thirty days.');
@@ -183,6 +183,21 @@ describe('a source link opens its document at the cited section', () => {
   it('⛔ a document that is not in the list says so instead of showing an unmarked list', async () => {
     openAt('/settings?docId=99#ai/documentation');
     expect(await screen.findByText('The linked document was not found in this list.')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('⛔ ?docId= without open=1 (a notification about a document) shows the row, not the text', async () => {
+    openAt('/settings?docId=7#ai/documentation');
+    await screen.findByRole('button', { name: 'View content' });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.getElementById('doc-7')?.className).toContain('ring-2');
+  });
+
+  it('a document still being processed is not opened (it has no text yet)', async () => {
+    openAt('/settings?open=1&docId=7#ai/documentation', makeDoc({ status: 'processing' }));
+    await waitFor(() => expect(document.getElementById('doc-7')).not.toBeNull());
+    await new Promise((resolve) => setTimeout(resolve, 30));
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
@@ -267,6 +282,9 @@ describe('placing a chunk in the page', () => {
     const parts = ['first part text', 'second part with the wanted line', 'third part'];
     expect(sectionsToShow(parts, ['the wanted line'])).toBe(2);
     expect(sectionsToShow(parts, [])).toBe(1);
-    expect(sectionsToShow(parts, ['written differently in the page'])).toBe(3);
+    // Found through Markdown marks the chunk does not have.
+    expect(sectionsToShow(['intro', 'the **wanted** line here'], ['- the wanted line'])).toBe(2);
+    // ⛔ In no part: the first part only, never the whole of a long document at once.
+    expect(sectionsToShow(parts, ['written differently in the page'])).toBe(1);
   });
 });

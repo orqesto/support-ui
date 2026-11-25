@@ -34,6 +34,9 @@ export const focusLines = (chunk: string | undefined, previous?: string): string
   return long.length > 0 ? long : atLeast(MIN_LETTERS_SHORT);
 };
 
+/** A line as it is compared: its first letters and digits, list marker dropped. */
+const keyOf = (line: string): string => letters(line.replace(LIST_MARKER, '')).slice(0, KEY_LETTERS);
+
 /** The first rendered block holding one of the lines; the innermost one when blocks nest. */
 export const findFocusBlock = (root: HTMLElement, lines: string[]): HTMLElement | null => {
   const blocks = Array.from(root.querySelectorAll<HTMLElement>(BLOCKS)).map((element) => ({
@@ -41,7 +44,7 @@ export const findFocusBlock = (root: HTMLElement, lines: string[]): HTMLElement 
     key: letters(element.textContent ?? ''),
   }));
   for (const line of lines) {
-    const key = letters(line.replace(LIST_MARKER, '')).slice(0, KEY_LETTERS);
+    const key = keyOf(line);
     const matches = blocks.filter((block) => block.key.includes(key));
     const innermost = matches.find(
       (block) => !matches.some((other) => other !== block && block.element.contains(other.element))
@@ -63,10 +66,14 @@ export const findFocusRange = (text: string, lines: string[]): { start: number; 
 /** How many parts of a long document must be rendered for the chunk to be on the page. */
 export const sectionsToShow = (sections: string[], lines: string[]): number => {
   if (lines.length === 0 || sections.length <= 1) return 1;
+  // Compared as the page will be (letters and digits): a synced page's Markdown is not written
+  // as its chunks are. A chunk found in no part is not on the page either, so the document
+  // opens at the top with its first part, never rendered whole (a long freeze).
+  const keys = sections.map(letters);
   for (const line of lines) {
-    const index = sections.findIndex((section) => section.includes(line));
+    const key = keyOf(line);
+    const index = keys.findIndex((section) => section.includes(key));
     if (index >= 0) return index + 1;
   }
-  // Not found as written (a synced page's Markdown differs from its chunks): render it all.
-  return sections.length;
+  return 1;
 };
