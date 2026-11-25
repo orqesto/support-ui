@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Paperclip } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { attachmentDownloadUrl } from '@/lib/attachmentUrl';
+import { attachmentDisplayUrl } from '@/lib/attachmentUrl';
 import { useAuthStore } from '@/stores/authStore';
 import type { Attachment } from '@/types/ai';
 
@@ -73,7 +73,8 @@ export const ThreadAttachmentChip = ({
       <img
         // The workspace rides IN the url: the browser loads this itself, so the
         // `X-Organization-Context` header never goes with it — see `attachmentDownloadUrl`.
-        src={attachmentDownloadUrl(attachment.id, selectedOrganizationId)}
+        // A TIFF gets the display copy (`attachmentDisplayUrl`); its onError fallback still holds.
+        src={attachmentDisplayUrl(attachment.id, selectedOrganizationId, attachment.mimeType)}
         alt={attachment.originalFilename}
         // The viewer reads the loaded size here to leave tiny signature pictures out of
         // next/previous (useThreadFileViewer).

@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Download, ExternalLink, X } from 'lucide-rea
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { Spinner } from '@/components/ui/Spinner';
-import { attachmentDownloadUrl } from '@/lib/attachmentUrl';
+import { attachmentDisplayUrl, isTiffMime } from '@/lib/attachmentUrl';
 import { getErrorStatus } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { attachmentFileService, type AttachmentPreview } from '@/services/attachmentFile.service';
@@ -45,22 +45,23 @@ const directImageUrl = (item: ViewerItem, organizationId: number | null): string
   if (item.type === 'inline') return item.src;
   // A document's bytes need the workspace header and its team check: fetched, never a url.
   if (item.type === 'document' || item.jiraHosted) return null;
-  const url = attachmentDownloadUrl(item.attachment.id, organizationId);
-  /*
-    A TIFF is asked for as the bytes to SHOW (review 1.1.330 GAP-TIFF): the backend answers its
-    first page as a WEBP, which every browser draws. An older backend ignores `display` and sends
-    the TIFF — the picture then fails to load and the card offers Download, as before.
-  */
-  const stored: string | null | undefined = item.attachment.mimeType;
-  const mime = (stored ?? '').toLowerCase().split(';')[0].trim();
-  return mime === 'image/tiff' ? `${url}?display=1` : url;
+  // A TIFF: the display copy; an older backend's TIFF fails to load and the card offers Download.
+  return attachmentDisplayUrl(item.attachment.id, organizationId, item.attachment.mimeType);
 };
+
+/** A mail attachment TIFF, shown from the backend's display copy (review 1.1.330 GAP-TIFF). */
+const isTiffAttachment = (item: ViewerItem): boolean =>
+  item.type === 'attachment' && !item.jiraHosted && isTiffMime(item.attachment.mimeType);
 
 /** `display`: the bytes to SHOW (a document's TIFF as WEBP); Download asks for the original. */
 const fetchItemBlob = async (item: ViewerItem, display = false): Promise<Blob | null> => {
   if (item.type === 'inline') return attachmentFileService.getInlineImageBlob(item.src);
   if (item.type === 'document') return documentFileService.getBlob(item.document.id, display);
-  return attachmentFileService.getBlob(item.attachment.id, item.jiraHosted);
+  return attachmentFileService.getBlob(
+    item.attachment.id,
+    item.jiraHosted,
+    display && isTiffAttachment(item)
+  );
 };
 
 const saveBlob = (blob: Blob, filename: string) => {
@@ -297,7 +298,10 @@ export const FileViewer = ({
       } else {
         const blob = await fetchItemBlob(current, true);
         if (!blob) throw new Error('No bytes for this item');
-        url = URL.createObjectURL(new Blob([blob], { type: safeBlobType(mimeType, kind) }));
+        // A TIFF's display copy is typed as what arrived: WEBP, or an older backend's TIFF.
+        const type =
+          isTiffAttachment(current) && blob.type.startsWith('image/') ? blob.type : mimeType;
+        url = URL.createObjectURL(new Blob([blob], { type: safeBlobType(type, kind) }));
         setTimeout(() => URL.revokeObjectURL(url), NEW_TAB_URL_TTL_MS);
       }
       if (tab) tab.location.href = url;

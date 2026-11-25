@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { FileViewer } from '@/components/shared/fileViewer/FileViewer';
 import { attachmentItem, isViewable } from '@/components/shared/fileViewer/fileViewerModel';
 import { apiClient } from '@/lib/api-client';
-import { attachmentDownloadUrl } from '@/lib/attachmentUrl';
+import { attachmentDisplayUrl } from '@/lib/attachmentUrl';
 import { useAuthStore } from '@/stores/authStore';
 import type { Attachment } from '@/types/ai';
 import type { Message, MessageEvent } from '@/types';
@@ -38,9 +38,9 @@ const FILE_ACTION =
   'w-[30px] h-[30px] flex-shrink-0 rounded-[7px] border border-border text-muted-foreground hover:text-foreground hover:bg-muted max-sm:w-10 max-sm:h-10';
 
 // Browser-loaded thumbnail: the workspace goes in the path, not a header. One builder,
-// shared with ThreadAttachmentChip — see `attachmentDownloadUrl`.
+// shared with ThreadAttachmentChip — see `attachmentDownloadUrl`. A TIFF gets the display copy.
 const getDownloadUrl = (att: Attachment, organizationId?: number | null) =>
-  attachmentDownloadUrl(att.id, organizationId);
+  attachmentDisplayUrl(att.id, organizationId, att.mimeType);
 
 const FileIcon = ({ mimeType }: { mimeType: string }) => {
   const cls = 'w-3.5 h-3.5 text-muted-foreground';
