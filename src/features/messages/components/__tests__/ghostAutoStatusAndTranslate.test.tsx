@@ -104,6 +104,45 @@ describe('the draft card says what became of an automatic reply', () => {
     expect(screen.getByText('Held · held for a person')).toBeInTheDocument();
   });
 
+  // 2026-11-25: a phrase of the workspace's own hold list is its own reason, named on the card.
+  it('held by a listed phrase: "contains" and the phrase, in the warning colour', () => {
+    show({
+      answer: 'Delivery takes 3 to 5 working days.',
+      source: 'documentation',
+      heldReason: 'hold_phrase',
+      heldPhrase: 'working day*',
+    });
+    const badge = screen.getByText('Held · contains "working day*"');
+    expect(badge.className).toMatch(/border-warning-line/);
+    expect(screen.queryByText(/restricted topic/)).toBeNull();
+  });
+
+  it("a phrase hold whose phrase was not stored reads in the reason's own words", () => {
+    show({ answer: ANSWER, heldReason: 'hold_phrase' });
+    expect(
+      screen.getByText('Held · the reply contains a phrase this workspace holds')
+    ).toBeInTheDocument();
+  });
+
+  it("CONTROL: older data (restricted_topic, no phrase) keeps today's text", () => {
+    show({ answer: ANSWER, heldReason: 'restricted_topic' });
+    expect(
+      screen.getByText(
+        'Held · the customer asks about a restricted topic, or the reply contains something this workspace holds'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('CONTROL: a phrase stored beside another reason is not shown as the hold', () => {
+    show({ answer: ANSWER, heldReason: 'promises_follow_up', heldPhrase: 'working day*' });
+    expect(screen.getByText('Held · the reply promised a follow-up')).toBeInTheDocument();
+  });
+
+  it('an unknown reason with a phrase still falls back to the generic held text', () => {
+    show({ answer: ANSWER, heldReason: 'a_reason_added_later', heldPhrase: 'working day*' });
+    expect(screen.getByText('Held · held for a person')).toBeInTheDocument();
+  });
+
   it('CONTROL: an ordinary draft (or an older backend with no record) shows no status, AI colour', () => {
     show({ answer: ANSWER, source: 'documentation', confidence: 0.93 });
     expect(screen.queryByText(/Check only|Held ·/)).toBeNull();
@@ -178,6 +217,18 @@ describe('the missing-info question that was not sent shows on the card', () => 
     expect(badge.className).toMatch(/border-warning-line/);
     expect(card().className).toMatch(/border-warning-line/);
     expect(screen.queryByText(/blocked_missing_info_model_check/)).toBeNull();
+  });
+
+  it('held by a listed phrase in its questions: "contains" and the phrase', () => {
+    show({
+      answer: QUESTION,
+      source: 'missing_info',
+      kind: 'missing_info_question',
+      heldReason: 'blocked_missing_info_model_check',
+      checkReason: 'hold_phrase',
+      heldPhrase: 'order number',
+    });
+    expect(screen.getByText('Held · contains "order number"')).toBeInTheDocument();
   });
 
   it('held for another reason: the outcome in words (the sender limit, a failed send)', () => {

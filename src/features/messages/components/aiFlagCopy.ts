@@ -34,6 +34,8 @@ export const NEEDS_REVIEW_REASON_LABELS: Record<string, string> = {
   // held keyword-rule or bot answer leaves no draft behind.
   // A restricted topic, or the workspace's hold rules (a listed phrase, the built-in amount rule).
   restricted_topic: 'Restricted topic or a held phrase',
+  // A phrase of the workspace's own hold list (its own reason since 2026-11-25).
+  hold_phrase: 'Held phrase',
   no_customer_request: 'Not a customer request',
   needs_lookup_or_action: 'Needs a lookup or an action',
   promises_follow_up: 'Reply promised a follow-up',
@@ -56,6 +58,8 @@ export const NEEDS_REVIEW_REASON_DETAILS: Record<string, string> = {
     "A check on the automatic reply or on the customer's message could not run (for example, no AI provider is set up), so nothing was sent",
   restricted_topic:
     'The customer asks about a restricted topic (a subject a person must answer), or the automatic reply contained something this workspace holds for a person, so no automatic reply was sent',
+  hold_phrase:
+    'The automatic reply contained a phrase this workspace holds for a person, so it was not sent',
   no_customer_request:
     'This does not read as a customer asking for something, so no automatic reply was sent',
   needs_lookup_or_action:
@@ -154,6 +158,7 @@ export const NAMED_REVIEW_REASONS = [
   'reply_unchecked',
   // The send gate's holds (2026-11-20): the agent sees which check stopped the reply.
   'restricted_topic',
+  'hold_phrase',
   'no_customer_request',
   'needs_lookup_or_action',
   'promises_follow_up',
@@ -176,6 +181,7 @@ const SEND_GATE_HOLDS: readonly string[] = [
   // Held because the check on the reply could not run: the same — a person answers.
   'reply_unchecked',
   'restricted_topic',
+  'hold_phrase',
   'no_customer_request',
   'needs_lookup_or_action',
   'promises_follow_up',

@@ -21,6 +21,8 @@ import { NEEDS_REVIEW_REASON_LABELS } from '../aiFlagCopy';
 const EMAIL_AI = [
   'would_send',
   'restricted_topic',
+  // A phrase of the workspace's own hold list: its own code since 2026-11-25.
+  'hold_phrase',
   'reply_unchecked',
   'needs_lookup_or_action',
   'no_customer_request',
@@ -44,11 +46,12 @@ const EMAIL_AI = [
   'send_failed',
   'settings_changed',
 ];
-const KEYWORD_RULE = ['would_send', 'sender_reply_limit'];
+const KEYWORD_RULE = ['would_send', 'sender_reply_limit', 'kb_hold_phrase'];
 const MISSING_INFO = ['would_send', 'settings_changed', 'plan_limit'];
 const TELEGRAM = [
   'plan-not-entitled',
   'restricted_topic',
+  'hold_phrase',
   'refusal_held',
   'reply_unchecked',
   'rule_based_fallback',
@@ -84,13 +87,20 @@ const WIDGET = [
   'answered',
   'reply_unchecked',
   'restricted_topic',
+  'hold_phrase',
   'needs_lookup_or_action',
   'blocked_gate',
   'promises_follow_up',
   'unsupported_by_sources',
 ];
 /** The review-flag codes the contract's fixed rules set (no new code was added in the wave). */
-const REVIEW_FLAGS = ['ai_reply_limit', 'restricted_topic', 'does_not_answer', 'reply_unchecked'];
+const REVIEW_FLAGS = [
+  'ai_reply_limit',
+  'restricted_topic',
+  'hold_phrase',
+  'does_not_answer',
+  'reply_unchecked',
+];
 
 const ALL = [...new Set([...EMAIL_AI, ...KEYWORD_RULE, ...MISSING_INFO, ...TELEGRAM, ...WIDGET])];
 /** A code on screen: the code itself, or anything shaped like one. */
@@ -325,6 +335,7 @@ describe('one reason, every spelling it is stored under', () => {
       'reply_unchecked,kb_reply_unchecked,question_unchecked,kb_content_unchecked',
     ],
     ['restricted_topic', 'restricted_topic,kb_restricted_topic'],
+    ['hold_phrase', 'hold_phrase,kb_hold_phrase'],
   ])('%s', (reason, query) => {
     expect(reasonFilterQuery(reason)).toBe(query);
   });

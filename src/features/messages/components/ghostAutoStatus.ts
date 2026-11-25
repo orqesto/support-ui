@@ -17,6 +17,19 @@ const own = (table: Record<string, string>, code: string | undefined): string | 
 const askHeldWords = (reason: string, checkReason: string | undefined): string | null =>
   own(ASK_CHECK_REASON, checkReason) ?? own(ASK_WITHHELD_REASON, reason) ?? autoReplyReasonWords(reason);
 
+/** The reason code of a hold by the workspace's own phrase list (BE, 2026-11-25). */
+const HOLD_PHRASE = 'hold_phrase';
+
+/**
+ * A hold by a listed phrase names it: `contains "working day*"`. Older data (`restricted_topic`,
+ * no phrase) and a phrase hold whose phrase was not stored read in the reason's own words.
+ */
+const phraseWords = (status: { reason: string; checkReason?: string; phrase?: string }) =>
+  status.phrase !== undefined &&
+  (status.reason === HOLD_PHRASE || status.checkReason === HOLD_PHRASE)
+    ? `contains "${status.phrase}"`
+    : null;
+
 /** The badge text, or null for an ordinary suggestion. */
 export const autoStatusText = (
   option: Pick<GhostOption, 'autoStatus' | 'confidence'>
@@ -25,7 +38,8 @@ export const autoStatusText = (
   if (!status) return null;
   if (status.question) {
     if (status.kind === 'would_send') return 'Check only · question that would have been sent';
-    return `Held · ${askHeldWords(status.reason, status.checkReason) ?? 'held for a person'}`;
+    const words = phraseWords(status) ?? askHeldWords(status.reason, status.checkReason);
+    return `Held · ${words ?? 'held for a person'}`;
   }
   if (status.kind === 'would_send') return 'Check only · would have been sent';
   if (
@@ -35,7 +49,7 @@ export const autoStatusText = (
   ) {
     return `Held · confidence ${percent(option.confidence)} below ${percent(status.threshold)}`;
   }
-  return `Held · ${autoReplyReasonWords(status.reason) ?? 'held for a person'}`;
+  return `Held · ${phraseWords(status) ?? autoReplyReasonWords(status.reason) ?? 'held for a person'}`;
 };
 
 export const ghostToneOf = (option: Pick<GhostOption, 'autoStatus'>): GhostTone =>

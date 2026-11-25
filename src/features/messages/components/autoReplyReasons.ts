@@ -17,6 +17,9 @@ const REASON: Record<string, string> = {
   // `why` says which.
   restricted_topic:
     'the customer asks about a restricted topic, or the reply contains something this workspace holds',
+  // A phrase of the workspace's own "Hold automatic replies that contain…" list: its own code since
+  // 2026-11-25 (older records carry `restricted_topic`). The record's `heldPhrase` names it.
+  hold_phrase: 'the reply contains a phrase this workspace holds',
   reply_unchecked: 'the reply could not be checked',
   needs_lookup_or_action: 'answering needs a lookup or an action',
   no_customer_request: 'the message is not a customer request',
@@ -103,6 +106,7 @@ export const WITHHELD_REASON: Record<string, string> = {
   // prepared reply for what the customer asked.
   kb_restricted_topic:
     'the customer asks about a restricted topic, or the knowledge base answer contains something this workspace holds',
+  kb_hold_phrase: 'the knowledge base answer contains a phrase this workspace holds',
   kb_no_customer_request: 'the message is not a customer request',
   kb_needs_lookup_or_action: 'answering needs a lookup or an action',
   kb_promises_follow_up: 'the knowledge base answer promised a follow-up',
@@ -152,6 +156,8 @@ export const ASK_CHECK_REASON: Record<string, string> = {
   // A restricted topic, or a question the AI wrote contains something the workspace holds.
   restricted_topic:
     'the customer asks about a restricted topic, or a question in the email contains something this workspace holds, so nothing was asked automatically',
+  hold_phrase:
+    'a question in the email contains a phrase this workspace holds, so nothing was asked automatically',
   no_customer_request: 'the message is not a customer request',
   not_only_asking: 'a question in the email did more than ask for a detail',
 };
@@ -183,6 +189,7 @@ export const autoReplyReasonLabel = (reason: string | null | undefined): string 
 export const AUTO_REPLY_REASON_FILTERS: ReadonlyArray<{ value: string; label: string }> = [
   { value: WOULD_SEND, label: 'Would have been sent (check-only mode)' },
   { value: 'restricted_topic', label: 'A restricted topic, or a held phrase' },
+  { value: 'hold_phrase', label: 'A phrase this workspace holds' },
   { value: 'reply_unchecked', label: 'Reply could not be checked' },
   { value: 'needs_lookup_or_action', label: 'Needs a lookup or an action' },
   { value: 'no_customer_request', label: 'Not a customer request' },
@@ -233,6 +240,7 @@ export const anyAutoReplyReasonLabel = (reason: string | null | undefined): stri
  */
 const REASON_SPELLINGS: Record<string, readonly string[]> = {
   restricted_topic: ['restricted_topic', 'kb_restricted_topic'],
+  hold_phrase: ['hold_phrase', 'kb_hold_phrase'],
   reply_unchecked: [
     'reply_unchecked',
     'kb_reply_unchecked',
