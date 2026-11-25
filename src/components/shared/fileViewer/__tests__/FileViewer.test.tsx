@@ -330,3 +330,58 @@ describe('FileViewer — text and csv', () => {
     expect(truncated).toBe(true);
   });
 });
+
+describe('FileViewer — a mail attachment TIFF (review 1.1.330 GAP-TIFF)', () => {
+  const tiff = att(21, 'image/tiff', 'scan.tif');
+
+  it('asks for the bytes to SHOW (`display=1`: the backend sends the first page as WEBP)', () => {
+    render(<Harness items={[attachmentItem(tiff)]} />);
+    expect(screen.getByAltText('scan.tif').getAttribute('src')).toMatch(
+      /\/api\/organizations\/5\/attachments\/21\/download\?display=1$/
+    );
+  });
+
+  it('control: any other picture is shown from its plain download url', () => {
+    render(<Harness items={[attachmentItem(photo)]} />);
+    expect(screen.getByAltText('label.jpg').getAttribute('src')).toMatch(
+      /\/api\/organizations\/5\/attachments\/1\/download$/
+    );
+  });
+
+  it('Open in new tab opens the display copy, typed as what arrived (WEBP)', async () => {
+    const tab = { location: { href: '' }, close: vi.fn() };
+    vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+    apiGet.mockImplementation(() =>
+      Promise.resolve({ data: new Blob(['webp'], { type: 'image/webp' }) })
+    );
+    render(<Harness items={[attachmentItem(tiff)]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open in new tab' }));
+    await waitFor(() => expect(tab.location.href).toMatch(/^blob:/));
+    expect(apiGet).toHaveBeenCalledWith('/api/attachments/21/download?display=1', expect.anything());
+    expect(created.at(-1)?.type).toBe('image/webp');
+  });
+
+  it('control: an older backend sends the TIFF to the new tab — typed as the TIFF it is', async () => {
+    const tab = { location: { href: '' }, close: vi.fn() };
+    vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window);
+    apiGet.mockImplementation(() =>
+      Promise.resolve({ data: new Blob(['tiff'], { type: 'image/tiff' }) })
+    );
+    render(<Harness items={[attachmentItem(tiff)]} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open in new tab' }));
+    await waitFor(() => expect(tab.location.href).toMatch(/^blob:/));
+    expect(created.at(-1)?.type).toBe('image/tiff');
+  });
+
+  it('an older backend answers the TIFF itself: the picture fails, the card offers the original', async () => {
+    render(<Harness items={[attachmentItem(tiff)]} />);
+    fireEvent.error(screen.getByAltText('scan.tif'));
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('could not be shown');
+    fireEvent.click(within(alert).getByRole('button', { name: /Download/ }));
+    // Download is the ORIGINAL file, never the display copy.
+    await waitFor(() =>
+      expect(apiGet).toHaveBeenCalledWith('/api/attachments/21/download', expect.anything())
+    );
+  });
+});

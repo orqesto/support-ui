@@ -61,8 +61,23 @@ describe('workspace member lists carry isMentor', () => {
     get.mockResolvedValue(
       reply({ users: [person(1, { isMentor: true }), person(2)], pagination: { totalPages: 1 } })
     );
-    const { data } = await userService.getAll();
+    const { data, mentorSupported } = await userService.getAll();
     expect(data.map((user) => user.isMentor)).toEqual([true, false]);
+    expect(mentorSupported).toBe(true);
+  });
+
+  it('/api/users from an older backend (no isMentor on any row): mentors not supported (F4)', async () => {
+    get.mockResolvedValue(reply({ users: [person(1), person(2)], pagination: { totalPages: 1 } }));
+    const { data, mentorSupported } = await userService.getAll();
+    expect(data.map((user) => user.isMentor)).toEqual([false, false]);
+    expect(mentorSupported).toBe(false);
+  });
+
+  it('control: a backend that sends isMentor:false on every row supports mentors', async () => {
+    get.mockResolvedValue(
+      reply({ users: [person(1, { isMentor: false })], pagination: { totalPages: 1 } })
+    );
+    await expect(userService.getAllPages()).resolves.toMatchObject({ mentorSupported: true });
   });
 
   it('/api/organizations/members: the mark, false when missing', async () => {
@@ -78,12 +93,6 @@ describe('workspace member lists carry isMentor', () => {
 });
 
 describe('the mentor mark', () => {
-  it('GET /api/users/:id/mentor', async () => {
-    get.mockResolvedValue(reply({ isMentor: true }));
-    await expect(userService.getMentor(7)).resolves.toBe(true);
-    expect(get).toHaveBeenCalledWith('/api/users/7/mentor');
-  });
-
   it('PATCH sends { isMentor } and answers the mark and the open tickets still owned', async () => {
     patch.mockResolvedValue(reply({ isMentor: true, openAssigned: 3 }));
     await expect(userService.setMentor(7, true)).resolves.toEqual({ isMentor: true, openAssigned: 3 });

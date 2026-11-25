@@ -33,19 +33,28 @@ vi.mock('@/features/settings/hooks/useAiDraftsOff', () => ({
   useAiDraftsOff: () => ({ off: false }),
 }));
 vi.mock('@/components/shared/RichTextEditor', () => ({
-  default: forwardRef((props: { content?: string; onChange?: (html: string) => void }, ref) => {
-    useImperativeHandle(ref, () => ({
-      focus: () => undefined,
-      insertText: (text: string) => props.onChange?.(`${props.content ?? ''}${text}`),
-    }));
-    return (
-      <textarea
-        aria-label="Reply text"
-        value={props.content ?? ''}
-        onChange={(event) => props.onChange?.(event.target.value)}
-      />
-    );
-  }),
+  default: forwardRef(
+    (
+      props: { content?: string; onChange?: (html: string) => void; onSubmit?: () => void },
+      ref
+    ) => {
+      useImperativeHandle(ref, () => ({
+        focus: () => undefined,
+        insertText: (text: string) => props.onChange?.(`${props.content ?? ''}${text}`),
+      }));
+      return (
+        <textarea
+          aria-label="Reply text"
+          value={props.content ?? ''}
+          // The real editor's ⌘⇧↵: calls onSubmit when one is given.
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' && event.metaKey && event.shiftKey) props.onSubmit?.();
+          }}
+          onChange={(event) => props.onChange?.(event.target.value)}
+        />
+      );
+    }
+  ),
   extractImageFiles: () => [],
 }));
 
@@ -66,7 +75,16 @@ const template = (over: Partial<ReplyTemplate> = {}): ReplyTemplate => ({
 const message = (id: number) => ({ id, subject: 'Order', channel: 'email' }) as unknown as Message;
 
 let latest = { composer: '', files: [] as File[] };
-const Host = ({ messageId, initial = '' }: { messageId: number; initial?: string }) => {
+const onSend = vi.fn();
+const Host = ({
+  messageId,
+  initial = '',
+  submitting = false,
+}: {
+  messageId: number;
+  initial?: string;
+  submitting?: boolean;
+}) => {
   const [composer, setComposer] = useState(initial);
   const [files, setFiles] = useState<File[]>([]);
   latest = { composer, files };
@@ -77,8 +95,8 @@ const Host = ({ messageId, initial = '' }: { messageId: number; initial?: string
       setComposer={setComposer}
       composerMode="reply"
       setComposerMode={vi.fn()}
-      submitting={false}
-      onSend={vi.fn()}
+      submitting={submitting}
+      onSend={onSend}
       richEditorRef={{ current: null }}
       noteEditorRef={{ current: null }}
       onOpenSimilarMessages={vi.fn()}
@@ -199,6 +217,78 @@ describe('MessageComposer — reply templates', () => {
     await pick('Refund approved');
     await waitFor(() => expect(downloadAttachment).toHaveBeenCalled());
     rerender(<Host messageId={2} />);
+    release(new File(['pdf'], 'policy.pdf'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(latest.files).toEqual([]);
+  });
+});
+
+describe('MessageComposer — Send waits for a template’s files (review 1.1.330 F1)', () => {
+  const attachment = { id: 7, filename: 'policy.pdf', contentType: 'application/pdf', size: 3 };
+  const pendingDownload = () => {
+    let release: (file: File) => void = () => undefined;
+    downloadAttachment.mockReturnValue(
+      new Promise<File>((resolve) => {
+        release = resolve;
+      })
+    );
+    return (file: File) => release(file);
+  };
+  const sendButton = () => screen.getByRole('button', { name: /^send$/i });
+
+  it('Send is disabled and says so while the files download; the shortcut does not send', async () => {
+    list.mockResolvedValue({
+      unavailable: false,
+      templates: [template({ attachments: [attachment] })],
+    });
+    pendingDownload();
+    renderOpen(<Host messageId={1} />);
+    await pick('Refund approved');
+    await waitFor(() => expect(downloadAttachment).toHaveBeenCalled());
+    await waitFor(() => expect(latest.composer).toContain('refund'));
+    expect(sendButton()).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByText('Attaching template files…')).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByLabelText('Reply text'), {
+      key: 'Enter',
+      metaKey: true,
+      shiftKey: true,
+    });
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it('control: once the files land Send is enabled and the shortcut sends', async () => {
+    list.mockResolvedValue({
+      unavailable: false,
+      templates: [template({ attachments: [attachment] })],
+    });
+    const release = pendingDownload();
+    renderOpen(<Host messageId={1} />);
+    await pick('Refund approved');
+    await waitFor(() => expect(downloadAttachment).toHaveBeenCalled());
+    release(new File(['pdf'], 'policy.pdf'));
+    await waitFor(() => expect(latest.files.map((file) => file.name)).toEqual(['policy.pdf']));
+    expect(sendButton()).not.toHaveAttribute('aria-disabled', 'true');
+    expect(screen.queryByText('Attaching template files…')).toBeNull();
+    fireEvent.keyDown(screen.getByLabelText('Reply text'), {
+      key: 'Enter',
+      metaKey: true,
+      shiftKey: true,
+    });
+    expect(onSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('⛔ files that land after a send started are NOT attached to the next reply of the thread', async () => {
+    list.mockResolvedValue({
+      unavailable: false,
+      templates: [template({ attachments: [attachment] })],
+    });
+    const release = pendingDownload();
+    const { rerender } = renderOpen(<Host messageId={1} />);
+    await pick('Refund approved');
+    await waitFor(() => expect(downloadAttachment).toHaveBeenCalled());
+    // A send of this thread's reply starts (and ends) while the download is still out.
+    rerender(<Host messageId={1} submitting />);
+    rerender(<Host messageId={1} />);
     release(new File(['pdf'], 'policy.pdf'));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(latest.files).toEqual([]);

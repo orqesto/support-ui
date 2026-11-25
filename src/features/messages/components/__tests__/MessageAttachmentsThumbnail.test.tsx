@@ -70,3 +70,42 @@ describe('the FILES-tab thumbnail', () => {
     expect(container.querySelector('svg')).not.toBeNull();
   });
 });
+
+describe('the FILES-tab thumbnail of a TIFF (review 1.1.330 GAP-TIFF)', () => {
+  const tiffs = [
+    {
+      id: 17001,
+      originalFilename: 'scan.tif',
+      filename: 'stored.tif',
+      mimeType: 'image/tiff',
+      fileSize: 140_000,
+    },
+  ] as never;
+
+  it('loads the display copy (`?display=1`)', () => {
+    const { container } = render(
+      <MessageAttachments message={message} preloadedAttachments={tiffs} />
+    );
+    expect(container.querySelector('img')?.getAttribute('src')).toMatch(
+      /\/api\/attachments\/17001\/download\?display=1$/
+    );
+  });
+
+  it('control: a jpeg thumbnail keeps the plain url', () => {
+    const { container } = render(
+      <MessageAttachments message={message} preloadedAttachments={attachments} />
+    );
+    expect(container.querySelector('img')?.getAttribute('src')).toMatch(
+      /\/api\/attachments\/16999\/download$/
+    );
+  });
+
+  it('an older backend sends the TIFF itself: the thumbnail fails to the file icon', () => {
+    const { container } = render(
+      <MessageAttachments message={message} preloadedAttachments={tiffs} />
+    );
+    fireEvent.error(container.querySelector('img') as Element);
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('svg')).not.toBeNull();
+  });
+});

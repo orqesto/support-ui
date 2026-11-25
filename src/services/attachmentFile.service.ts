@@ -56,16 +56,21 @@ export const apiTailOf = (url: string, apiBaseUrl: string = API_BASE_URL): strin
 export const attachmentFileService = {
   /**
    * The bytes of an attachment, through apiClient (session, refresh, workspace header). A flag,
-   * not a path, so every request path here is a literal the /api guard can read.
+   * not a path, so every request path here is a literal the /api guard can read. `display`: the
+   * bytes to SHOW (a TIFF as the backend's WEBP copy; an older backend ignores it).
    */
-  async getBlob(attachmentId: number, jiraHosted = false): Promise<Blob> {
+  async getBlob(attachmentId: number, jiraHosted = false, display = false): Promise<Blob> {
     const response = jiraHosted
       ? await apiClient.get(`/api/attachments/jira/${attachmentId}/download`, {
           responseType: 'blob',
         })
-      : await apiClient.get(`/api/attachments/${attachmentId}/download`, {
-          responseType: 'blob',
-        });
+      : display
+        ? await apiClient.get(`/api/attachments/${attachmentId}/download?display=1`, {
+            responseType: 'blob',
+          })
+        : await apiClient.get(`/api/attachments/${attachmentId}/download`, {
+            responseType: 'blob',
+          });
     return response.data as Blob;
   },
 

@@ -34,6 +34,15 @@ export function useComposerTemplates({
     different customer.
   */
   const [templateError, setTemplateError] = useState<string | null>(null);
+  /*
+    Template files still downloading for THIS draft (review 1.1.330 F1): Send waits for them —
+    a send before they land went out without them, and in a reply box they then attached to the
+    next reply. A count, so two templates picked in a row both hold Send.
+  */
+  const [pending, setPending] = useState<{ session: string | number; count: number }>({
+    session: sessionKey,
+    count: 0,
+  });
   const filesRef = useRef(selectedFiles);
   filesRef.current = selectedFiles;
   const sessionRef = useRef(sessionKey);
@@ -45,10 +54,17 @@ export function useComposerTemplates({
     setTimeout(() => richEditorRef.current?.focus(), 0);
     if (template.attachments.length === 0) return;
     const startedOn = sessionKey;
+    setPending((prev) => ({
+      session: startedOn,
+      count: (prev.session === startedOn ? prev.count : 0) + 1,
+    }));
     const results = await Promise.allSettled(
       template.attachments.map((file) =>
         replyTemplatesService.downloadAttachment(template.id, file)
       )
+    );
+    setPending((prev) =>
+      prev.session === startedOn ? { session: startedOn, count: Math.max(0, prev.count - 1) } : prev
     );
     if (sessionRef.current !== startedOn) return;
     const files = results
@@ -63,5 +79,7 @@ export function useComposerTemplates({
       );
     }
   };
-  return { templateError, insertTemplate };
+  // A download started for another draft never holds this one's Send.
+  const attachingTemplateFiles = pending.session === sessionKey && pending.count > 0;
+  return { templateError, insertTemplate, attachingTemplateFiles };
 }

@@ -284,6 +284,19 @@ export const ConsoleMembers = () => {
                 {member.heldByAdmin ? 'Deactivated by admin' : 'Deactivated'}
               </Badge>
             )}
+            {/* Never routed to by skill, still assignable by hand (1.1.330); where: on hover. */}
+            {member.isMentor === true && (
+              <Tooltip
+                content={`Mentor in ${
+                  member.effectiveRoles
+                    .filter((role) => role.isMentor === true)
+                    .map((role) => role.orgName)
+                    .join(', ') || 'a workspace'
+                } — never routed to by skill, can still be assigned by hand.`}
+              >
+                <Badge variant="secondary">Mentor</Badge>
+              </Tooltip>
+            )}
           </div>
           {member.email && <div className="font-mono text-xs text-muted-foreground">{member.email}</div>}
           {member.idpAsserted && (

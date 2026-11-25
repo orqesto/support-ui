@@ -99,3 +99,28 @@ describe('ThreadAttachmentChip', () => {
     expect(onOpen).toHaveBeenCalledWith(99);
   });
 });
+
+describe('ThreadAttachmentChip — a TIFF (review 1.1.330 GAP-TIFF)', () => {
+  const tiff = { id: 98, originalFilename: 'scan.tif', mimeType: 'image/tiff' };
+
+  it('loads the display copy (`?display=1`: the backend sends the first page as WEBP)', () => {
+    const { container } = render(<ThreadAttachmentChip attachment={attachment(tiff)} className="" />);
+    expect(container.querySelector('img')?.getAttribute('src')).toMatch(
+      /\/api\/attachments\/98\/download\?display=1$/
+    );
+  });
+
+  it('control: a jpeg keeps the plain url', () => {
+    const { container } = render(<ThreadAttachmentChip attachment={attachment({})} className="" />);
+    expect(container.querySelector('img')?.getAttribute('src')).toMatch(
+      /\/api\/attachments\/99\/download$/
+    );
+  });
+
+  it('an older backend sends the TIFF itself: the picture fails and the chip comes back', () => {
+    const { container } = render(<ThreadAttachmentChip attachment={attachment(tiff)} className="" />);
+    fireEvent.error(container.querySelector('img') as HTMLImageElement);
+    expect(container.querySelector('img')).toBeNull();
+    expect(screen.getByText('scan.tif')).toBeTruthy();
+  });
+});

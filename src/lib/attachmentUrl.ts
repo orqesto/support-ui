@@ -34,3 +34,22 @@ export function attachmentDownloadUrl(
     ? `${apiBaseUrl}/api/organizations/${organizationId}/attachments/${attachmentId}/download`
     : `${apiBaseUrl}/api/attachments/${attachmentId}/download`;
 }
+
+/** A TIFF: only Safari draws one, so the browser is given the backend's display copy. */
+export const isTiffMime = (mimeType: string | null | undefined): boolean =>
+  (mimeType ?? '').toLowerCase().split(';')[0].trim() === 'image/tiff';
+
+/**
+ * The url of the bytes to SHOW (review 1.1.330 GAP-TIFF): a TIFF is asked for with `display=1`
+ * and the backend answers its first page as a WEBP. An older backend ignores the parameter and
+ * sends the TIFF — the `<img>` then fails and its caller's fallback (file icon, chip, card) shows,
+ * as before. Every other file is its plain download url.
+ */
+export function attachmentDisplayUrl(
+  attachmentId: number,
+  organizationId: number | null | undefined,
+  mimeType: string | null | undefined
+): string {
+  const url = attachmentDownloadUrl(attachmentId, organizationId);
+  return isTiffMime(mimeType) ? `${url}?display=1` : url;
+}

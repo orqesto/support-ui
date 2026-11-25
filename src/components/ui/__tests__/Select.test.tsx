@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import { Select, SELECT_SIZES, SEARCHABLE_FROM } from '@/components/ui/Select';
 import { inputVariants } from '@/components/ui/Input/input.styles';
@@ -593,6 +593,81 @@ describe('Select — sections (`group`)', () => {
       expect(onChange).toHaveBeenCalledWith('m1');
     });
   }
+
+  for (const variant of ['default', 'value'] as const) {
+    it(`${variant}: a section is a named group, so its options are announced with it (F5)`, async () => {
+      renderIn(
+        <Select
+          aria-label="Assignee"
+          variant={variant}
+          options={people}
+          value="a1"
+          onChange={() => {}}
+        />
+      );
+      await listOptions(screen.getByRole('combobox', { name: 'Assignee' }));
+      const section = screen.getByRole('group', { name: 'Mentors' });
+      expect(within(section).getByRole('option', { name: 'Mentor One' })).toBeInTheDocument();
+      // control: an option outside the section is not in it
+      expect(within(section).queryByRole('option', { name: 'Agent One' })).toBeNull();
+    });
+  }
+
+  it('search filters inside sections; a section with no match loses its heading (F6)', async () => {
+    renderIn(
+      <Select aria-label="Assignee" searchable options={people} value="a1" onChange={() => {}} />
+    );
+    const control = screen.getByRole('combobox', { name: 'Assignee' });
+    control.focus();
+    fireEvent.change(control, { target: { value: 'Agent' } });
+    await waitFor(() =>
+      expect(screen.getAllByRole('option').map((opt) => opt.textContent)).toEqual([
+        'Agent One',
+        'Agent Two',
+      ])
+    );
+    expect(screen.queryByText('Mentors')).toBeNull();
+    // control: a match inside the section keeps its heading
+    fireEvent.change(control, { target: { value: 'Mentor' } });
+    await waitFor(() =>
+      expect(screen.getAllByRole('option').map((opt) => opt.textContent)).toEqual(['Mentor One'])
+    );
+    expect(screen.getByText('Mentors')).toBeInTheDocument();
+  });
+
+  it('keyboard: arrows move from the plain options into the section and back (F6)', async () => {
+    const onChange = vi.fn();
+    const Picker = () => {
+      const [value, setValue] = useState('');
+      return (
+        <Select
+          aria-label="Assignee"
+          options={people}
+          value={value}
+          onChange={(next: string) => {
+            setValue(next);
+            onChange(next);
+          }}
+        />
+      );
+    };
+    renderIn(<Picker />);
+    const control = screen.getByRole('combobox', { name: 'Assignee' });
+    control.focus();
+    const key = (name: string, keyCode: number) =>
+      fireEvent.keyDown(control, { key: name, keyCode });
+    key('ArrowDown', 40); // opens on the first option: Agent One
+    expect(await screen.findAllByRole('option')).toHaveLength(3);
+    key('ArrowDown', 40); // Agent Two
+    key('ArrowDown', 40); // Mentor One — across the section heading
+    key('Enter', 13);
+    expect(onChange).toHaveBeenLastCalledWith('m1');
+    key('ArrowDown', 40); // reopens on the picked option, Mentor One
+    await screen.findAllByRole('option');
+    key('ArrowUp', 38); // back out of the section
+    key('Enter', 13);
+    expect(onChange).toHaveBeenLastCalledWith('a2');
+  });
 
   it('a grouped option that is the value shows as the value', () => {
     renderIn(<Select aria-label="Assignee" options={people} value="m1" onChange={() => {}} />);

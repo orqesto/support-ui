@@ -90,7 +90,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
     would go out with a different message (owner 2026-11-24: Templates in Compose new).
   */
   const [composeSession, setComposeSession] = useState(0);
-  const { templateError, insertTemplate } = useComposerTemplates({
+  const { templateError, insertTemplate, attachingTemplateFiles } = useComposerTemplates({
     sessionKey: composeSession,
     selectedFiles: files,
     setComposer: setContent,
@@ -162,6 +162,9 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
     setShowCcBcc(false);
     setSubject('');
     setContent('');
+    // The files belonged to the discarded / already-sent message (review 1.1.330 F2).
+    setFiles([]);
+    setRestoredFiles(0);
   }
   const discardDraft = () => {
     unsentDraft.clearDraft();
@@ -219,6 +222,8 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    // ⌘⇧↵ submits the form directly: a template's files still downloading would be left out.
+    if (attachingTemplateFiles) return;
     setError(null);
 
     if (!messageSourceId) {
@@ -468,6 +473,7 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
                 disabled={
                   submitting ||
                   aiBusy ||
+                  attachingTemplateFiles ||
                   emailSources.length === 0 ||
                   !messageSourceId ||
                   parseTypedAddresses(to).length === 0 ||
@@ -492,6 +498,11 @@ export const ComposeNewModal = ({ open, onClose }: Props) => {
             {aiNote?.text}
           </p>
 
+          {attachingTemplateFiles && (
+            <p role="status" className="text-xs text-muted-foreground">
+              Attaching template files…
+            </p>
+          )}
           {templateError && (
             <p role="alert" className="text-xs text-destructive">
               {templateError}

@@ -1,6 +1,10 @@
 import { forwardRef, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import ReactSelectLib, { type SelectInstance } from 'react-select';
+import ReactSelectLib, {
+  components as rsComponents,
+  type GroupProps,
+  type SelectInstance,
+} from 'react-select';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getInputErrorClasses, getInputLabelClasses } from '../Input/input.styles';
@@ -62,6 +66,18 @@ export const toMenuOptions = (options: Option[]): Array<Option | OptionGroup> =>
   }
   return [...plain, ...sections.values()];
 };
+
+/**
+ * A section of the menu as a named group (review 1.1.330 F5): react-select draws the heading but
+ * leaves the section an unnamed <div>, so a screen reader heard a mentor's name with nothing
+ * saying they are in the Mentors section.
+ */
+const LabelledGroup = (props: GroupProps<Option, boolean>) => (
+  <rsComponents.Group
+    {...props}
+    innerProps={{ ...props.innerProps, role: 'group', 'aria-labelledby': props.headingProps.id }}
+  />
+);
 
 export const Select = forwardRef<unknown, SelectProps>(
   (
@@ -205,7 +221,7 @@ export const Select = forwardRef<unknown, SelectProps>(
           menuPortalTarget={document.body}
           menuPosition="fixed"
           menuPlacement="auto"
-          components={{ DropdownIndicator: ChipDropdownIndicator }}
+          components={{ DropdownIndicator: ChipDropdownIndicator, Group: LabelledGroup }}
           styles={{
             menuPortal: (base) => ({ ...base, zIndex: 9999 }),
             // Force the cursor via inline style (beats unstyled-mode class handling):
@@ -396,6 +412,7 @@ export const Select = forwardRef<unknown, SelectProps>(
           styles={customStyles}
           components={{
             DropdownIndicator,
+            Group: LabelledGroup,
             // Nothing to clear when the empty option ("All") is the one selected.
             ...(selectedValues[0] === '' || selectedValues.length === 0 ? { ClearIndicator: () => null } : {}),
           }}
