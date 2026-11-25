@@ -83,6 +83,26 @@ describe('the delayed agent draft appears in the open thread without a reload', 
     expect(result.current.ghostOption?.answer).toBe('We are open until 18:00 on Fridays.');
   });
 
+  // A draft the automatic reply KEPT (held, check-only, the missing-info question) is written
+  // seconds after the analysis, while the thread is open; the backend announces it as
+  // `auto_reply_draft` (2026-11-25). The open thread re-reads on it like on any other action.
+  it('conversation:updated (auto_reply_draft) → re-read → the kept draft is offered', () => {
+    let stored = false;
+    const { result } = renderHook(() => useOpenThread(() => stored));
+    stored = true;
+    act(() => {
+      handlers.get('conversation:updated')?.({
+        conversationId: THREAD,
+        publicId: 'ABC-SUP-1',
+        status: 'open',
+        action: 'auto_reply_draft',
+      });
+      vi.advanceTimersByTime(CONV_STATUS_REFRESH_MS);
+    });
+    expect(reads).toHaveBeenCalledTimes(1);
+    expect(result.current.ghostOption?.answer).toBe('We are open until 18:00 on Fridays.');
+  });
+
   it("CONTROL: another thread's draft does not touch this one", () => {
     const { result } = renderHook(() => useOpenThread(() => true));
     act(() => {
