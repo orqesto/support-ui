@@ -32,18 +32,20 @@ export const userService = {
    */
   getAllPages: async (
     search?: string
-  ): Promise<{ data: User[]; total: number }> => {
+  ): Promise<{ data: User[]; total: number; mentorSupported: boolean }> => {
     const PAGE_SIZE = 100; // the endpoint's own cap — asking for more does not help
     const MAX_PAGES = 20; // runaway backstop
     const collected: User[] = [];
     let total = 0;
+    let mentorSupported = false;
     for (let page = 1; page <= MAX_PAGES; page += 1) {
       const res = await userService.getAll(search, page, PAGE_SIZE);
       collected.push(...res.data);
+      mentorSupported ||= res.mentorSupported;
       total = res.pagination?.total ?? collected.length;
       if (page >= (res.pagination?.totalPages || 1) || res.data.length === 0) break;
     }
-    return { data: collected, total };
+    return { data: collected, total, mentorSupported };
   },
 
   // Get all users
@@ -51,7 +53,7 @@ export const userService = {
     search?: string,
     page: number = 1,
     limit: number = 10
-  ): Promise<{ data: User[]; pagination: PaginationMeta }> => {
+  ): Promise<{ data: User[]; pagination: PaginationMeta; mentorSupported: boolean }> => {
     const params = new URLSearchParams();
     if (search?.trim()) {
       params.append('search', search.trim());
@@ -62,9 +64,16 @@ export const userService = {
     const response: AxiosResponse<ApiResponse<{ users: User[]; pagination: PaginationMeta }>> = await apiClient.get(
       `/api/users?${params.toString()}`
     );
+    const users = response.data.data?.users ?? [];
     return {
+      /*
+        Whether this backend knows mentors at all (review 1.1.330 F4), read BEFORE isMentor is
+        defaulted: a backend that sends the field on its rows also has the mark's endpoint; an
+        older one has neither, and a Mentor switch there would only 404.
+      */
+      mentorSupported: users.some((user) => typeof user.isMentor === 'boolean'),
       // `isMentor` (1.1.330): false when an older backend leaves it out.
-      data: (response.data.data?.users ?? []).map((user) => ({
+      data: users.map((user) => ({
         ...user,
         isMentor: user.isMentor === true,
       })),
@@ -183,14 +192,6 @@ export const userService = {
 
   setCanEditSkills: async (userId: number, canEditSkills: boolean): Promise<void> => {
     await apiClient.patch(`/api/users/${userId}/can-edit-skills`, { canEditSkills });
-  },
-
-  /** A mentor in this workspace? (`GET /api/users/:id/mentor`; rejects on an older backend.) */
-  getMentor: async (userId: number): Promise<boolean> => {
-    const response: AxiosResponse<ApiResponse<{ isMentor?: boolean }>> = await apiClient.get(
-      `/api/users/${userId}/mentor`
-    );
-    return response.data.data?.isMentor === true;
   },
 
   /**

@@ -96,6 +96,8 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
   const searchUser = useUsersStore((state) => state.searchQuery);
   const setSearchUser = useUsersStore((state) => state.setSearchQuery);
   const setUsers = useUsersStore((state) => state.setUsers);
+  // An older backend has no mentors: no Mentor column, whose switch would only 404 (F4).
+  const mentorSupported = useUsersStore((state) => state.mentorSupported);
 
   // Local pending search state
   const [pendingSearch, setPendingSearch] = useState(searchUser || '');
@@ -113,9 +115,9 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
         // ⚠️ This asked for ONE page at the service default of 10 and then paginated the
         // result 25 to a page, so a workspace with more than ten members silently showed
         // ten and the header counted the fetched array as the workspace total.
-        const { data, total } = await userService.getAllPages(searchUser || undefined);
-        setUsers(data);
-        setUserTotal(total);
+        const list = await userService.getAllPages(searchUser || undefined);
+        setUsers(list.data, list.mentorSupported);
+        setUserTotal(list.total);
       } catch (error) {
         logger.error('Failed to fetch users:', error);
       } finally {
@@ -424,7 +426,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
       ),
     },
     // Mentors (1.1.330): set under the can-edit-skills gate (the backend's, too).
-    mentorColumn(canManageSkills),
+    ...(mentorSupported ? [mentorColumn(canManageSkills)] : []),
   ];
 
   const rowActions = (user: User) => {
@@ -504,7 +506,7 @@ export const UsersPage = ({ embedded = false }: { embedded?: boolean } = {}) => 
               <p className="font-mono text-sm truncate text-muted-foreground">{user.email}</p>
               <div className="mt-1 space-y-1">
                 <MemberSkillChips skills={skillsOf(user.id)} />
-                <MemberMentorToggle user={user} canEdit={canManageSkills} />
+                {mentorSupported && <MemberMentorToggle user={user} canEdit={canManageSkills} />}
               </div>
             </div>
             <div className="flex gap-2">

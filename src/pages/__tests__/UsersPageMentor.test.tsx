@@ -16,26 +16,45 @@ vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => perms }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn(), useParams: () => ({}) }));
 let member: { isMentor?: boolean };
 const setMentor = vi.fn();
-vi.mock('@/services/user.service', () => ({
-  userService: {
-    getAllPages: () =>
+/*
+  The REAL user service reads the list (its old-backend normalising is what is under test); only
+  the HTTP call is stood in for, with the backend's own shape. An older backend sends no isMentor.
+*/
+const usersResponse = () => ({
+  data: {
+    success: true,
+    data: {
+      users: [
+        {
+          id: 7,
+          email: 'agent@example.test',
+          firstName: 'Ann',
+          lastName: 'Agent',
+          role: 'user',
+          organizationRole: 'support',
+          departmentIds: [],
+          createdAt: '2026-11-01T00:00:00Z',
+          ...member,
+        },
+      ],
+      pagination: { page: 1, limit: 100, total: 1, totalPages: 1, hasMore: false },
+    },
+  },
+});
+vi.mock('@/lib/api-client', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  apiClient: {
+    get: (url: string) =>
+      url.startsWith('/api/users?')
+        ? Promise.resolve(usersResponse())
+        : Promise.reject(new Error(`unexpected GET ${url}`)),
+    patch: (url: string, body: { isMentor: boolean }) =>
       Promise.resolve({
-        data: [
-          {
-            id: 7,
-            email: 'agent@example.test',
-            firstName: 'Ann',
-            lastName: 'Agent',
-            role: 'user',
-            organizationRole: 'support',
-            departmentIds: [],
-            createdAt: '2026-11-01T00:00:00Z',
-            ...member,
-          },
-        ],
-        total: 1,
+        data: {
+          success: true,
+          data: setMentor(Number(url.split('/')[3]), body.isMentor) as unknown,
+        },
       }),
-    setMentor: (...args: unknown[]) => setMentor(...args) as unknown,
   },
 }));
 vi.mock('@/services/department.service', () => ({
@@ -81,7 +100,7 @@ const switches = () => screen.queryAllByRole('switch', { name: 'Mentor: Ann Agen
 
 beforeEach(() => {
   workspaceSkills = {};
-  member = {};
+  member = { isMentor: false };
   setMentor.mockReset();
   perms = manager;
 });
@@ -89,7 +108,7 @@ afterEach(cleanup);
 
 describe('Settings → Members: the mentor mark (1.1.330)', () => {
   it('an admin marks a member mentor; the row says how many open tickets they still own', async () => {
-    setMentor.mockResolvedValue({ isMentor: true, openAssigned: 3 });
+    setMentor.mockReturnValue({ isMentor: true, openAssigned: 3 });
     render(<UsersPage />);
     await screen.findAllByText('agent@example.test');
     expect(switches()[0]).toHaveAttribute('aria-checked', 'false');
@@ -100,7 +119,7 @@ describe('Settings → Members: the mentor mark (1.1.330)', () => {
   });
 
   it('control: no open tickets ⇒ no count line', async () => {
-    setMentor.mockResolvedValue({ isMentor: true, openAssigned: 0 });
+    setMentor.mockReturnValue({ isMentor: true, openAssigned: 0 });
     render(<UsersPage />);
     await screen.findAllByText('agent@example.test');
     fireEvent.click(switches()[0]);
@@ -109,7 +128,9 @@ describe('Settings → Members: the mentor mark (1.1.330)', () => {
   });
 
   it('a failed save puts the switch back and says why', async () => {
-    setMentor.mockRejectedValue(new Error('Not allowed'));
+    setMentor.mockImplementation(() => {
+      throw new Error('Not allowed');
+    });
     render(<UsersPage />);
     await screen.findAllByText('agent@example.test');
     fireEvent.click(switches()[0]);
@@ -129,7 +150,11 @@ describe('Settings → Members: the mentor mark (1.1.330)', () => {
   });
 
   it('a support agent gets no switch, and sees a mentor marked', async () => {
-    perms = { canManageUsers: false, isAdmin: false, hasPermission: (perm) => perm === 'view_users' };
+    perms = {
+      canManageUsers: false,
+      isAdmin: false,
+      hasPermission: (perm) => perm === 'view_users',
+    };
     member = { isMentor: true };
     render(<UsersPage />);
     await screen.findAllByText('agent@example.test');
@@ -137,8 +162,27 @@ describe('Settings → Members: the mentor mark (1.1.330)', () => {
     expect(screen.getAllByText('Mentor').length).toBeGreaterThan(0);
   });
 
+  it('an older backend (no isMentor on the rows) shows no Mentor column — its switch would 404 (F4)', async () => {
+    member = {};
+    render(<UsersPage />);
+    await screen.findAllByText('agent@example.test');
+    expect(switches()).toHaveLength(0);
+    expect(screen.queryByRole('columnheader', { name: 'Mentor' })).toBeNull();
+  });
+
+  it('control: a backend that sends isMentor:false shows the column and the switch', async () => {
+    render(<UsersPage />);
+    await screen.findAllByText('agent@example.test');
+    expect(switches().length).toBeGreaterThan(0);
+    expect(screen.getByRole('columnheader', { name: 'Mentor' })).toBeInTheDocument();
+  });
+
   it('control: a support agent sees no mark on a working agent', async () => {
-    perms = { canManageUsers: false, isAdmin: false, hasPermission: (perm) => perm === 'view_users' };
+    perms = {
+      canManageUsers: false,
+      isAdmin: false,
+      hasPermission: (perm) => perm === 'view_users',
+    };
     render(<UsersPage />);
     await screen.findAllByText('agent@example.test');
     // Only the column heading says Mentor.
