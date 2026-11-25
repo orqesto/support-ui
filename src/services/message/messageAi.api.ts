@@ -45,6 +45,8 @@ export const messageAiApi = {
           text: string;
           confidence: number;
           provider: string;
+          /** 'none': written from documentation of which no section answers the question. */
+          knowledgeAnswer?: 'none';
         };
         sources: Array<{
           // 'knowledge_base' = a mined KB entry (qa_pair / manual_entry / document). Until

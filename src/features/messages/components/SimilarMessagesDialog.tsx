@@ -28,6 +28,7 @@ import { useAiRefusalText } from '@/features/subscription/shell';
 import { logger } from '@/lib/logger';
 import { SEARCH_CUT_SHORT_COPY, searchCutShort } from '@/lib/searchCutShort';
 import { AnswerPreview } from '@/features/messages/components/AnswerPreview';
+import { DraftConfidence } from '@/features/messages/components/DraftConfidence';
 import { StaleAnswerConfirm } from '@/features/messages/components/StaleAnswerConfirm';
 import {
   type SimilarMessage,
@@ -111,6 +112,7 @@ export const SimilarMessagesDialog = ({
   const [noAnswerReason, setNoAnswerReason] = useState<string | null>(null);
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [aiConfidence, setAiConfidence] = useState<number>(0);
+  const [aiKnowledgeAnswer, setAiKnowledgeAnswer] = useState<'none' | undefined>();
   // Part of the knowledge search was stopped at its time limit (searchCutShort.ts).
   const [searchCut, setSearchCut] = useState(false);
   const [translatedAiResponse, setTranslatedAiResponse] = useState<string | null>(null);
@@ -160,6 +162,7 @@ export const SimilarMessagesDialog = ({
           setNoAnswerReason(response.data?.reason ?? null);
           setAiResponse(response.data?.aiResponse?.text ?? null);
           setAiConfidence(response.data?.aiResponse?.confidence ?? 0);
+          setAiKnowledgeAnswer(response.data?.aiResponse?.knowledgeAnswer);
           setSearchCut(searchCutShort(response));
           // Convert sources to similar messages format for backward compatibility
           const sources = response.data?.sources ?? [];
@@ -317,19 +320,7 @@ export const SimilarMessagesDialog = ({
                     <Sparkles className="w-5 h-5 text-ai" />
                     <h3 className="font-display text-base font-semibold">AI-Generated Response</h3>
                   </div>
-                  <div className="flex flex-col gap-1 items-end">
-                    <div className="flex gap-1 items-center text-sm font-semibold text-primary">
-                      <TrendingUp className="w-4 h-4" />
-                      {Math.round(aiConfidence * 100)}%
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {aiConfidence >= 0.9
-                        ? 'Very Confident'
-                        : aiConfidence >= 0.8
-                          ? 'Confident'
-                          : 'Moderate'}
-                    </span>
-                  </div>
+                  <DraftConfidence confidence={aiConfidence} knowledgeAnswer={aiKnowledgeAnswer} />
                 </div>
 
                 {/* Translation Controls */}
