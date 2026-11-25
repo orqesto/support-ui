@@ -167,16 +167,39 @@ export function MessageComposer({
     and the phone composer never folds away mid-request. The ref feeds the document listener.
   */
   const [aiBusy, setAiBusy] = useState(false);
+  /*
+    A new draft session for the template hook each time a send starts (review 1.1.330 F1): a
+    template's files that land after the reply went are not attached to the thread's NEXT reply.
+    Adjusted during render (React's "store info from previous renders"), not in an effect.
+  */
+  const [sendGeneration, setSendGeneration] = useState(0);
+  const [wasSubmitting, setWasSubmitting] = useState(submitting);
+  if (submitting !== wasSubmitting) {
+    setWasSubmitting(submitting);
+    if (submitting) setSendGeneration((prev) => prev + 1);
+  }
+  const { templateError, insertTemplate, attachingTemplateFiles } = useComposerTemplates({
+    sessionKey: `${message.id}:${sendGeneration}`,
+    selectedFiles,
+    setComposer,
+    richEditorRef,
+    onFilesChange,
+  });
   // One gate for both Send buttons. Text is required even with files attached (no
   // attachment-only sends); the channel block outranks the blank-text hint — if the window is
   // shut, filling the box in changes nothing and saying so would mislead.
   const sendDisabled =
-    isBlankRichText(composer) || submitting || aiBusy || Boolean(sendBlockedReason);
+    isBlankRichText(composer) ||
+    submitting ||
+    aiBusy ||
+    attachingTemplateFiles ||
+    Boolean(sendBlockedReason);
   // The notice above the box, when it shows: what the blocked Send controls are described by.
   const noticeId = useId();
   const blockDescribedBy = sendBlockedReason && windowTone !== 'info' ? noticeId : undefined;
   const sendTitle =
     sendBlockedReason ??
+    (attachingTemplateFiles ? 'Attaching template files…' : undefined) ??
     (isBlankRichText(composer) ? 'Add a message — attachments alone can’t be sent' : undefined);
   // An open tool's name on hover — the design-system tooltip, not the browser's title (repo rule);
   // none on the folded pill, where the tools are hidden.
@@ -222,14 +245,6 @@ export function MessageComposer({
   const restEditorClass = atRest
     ? 'flex-1 min-w-0 h-10 sm:h-8 py-0 px-3 text-base sm:text-sm rounded-full'
     : '';
-
-  const { templateError, insertTemplate } = useComposerTemplates({
-    sessionKey: message.id,
-    selectedFiles,
-    setComposer,
-    richEditorRef,
-    onFilesChange,
-  });
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) onFilesChange([...selectedFiles, ...Array.from(event.target.files)]);
@@ -373,7 +388,11 @@ export function MessageComposer({
             // While an AI draft is being written the editor holds the agent's NOTE, not a reply.
             // While a send waits or is out, the shortcut is not another send — nor while the
             // notice above says no reply can be sent (the buttons are off for the same reason).
-            onSubmit={aiBusy || submitting || blockDescribedBy ? undefined : onSend}
+            onSubmit={
+              aiBusy || submitting || attachingTemplateFiles || blockDescribedBy
+                ? undefined
+                : onSend
+            }
             onImageFiles={addImageFiles}
             placeholder={replyPlaceholder}
             minHeight={sizing.editorMinHeight}
@@ -404,7 +423,7 @@ export function MessageComposer({
             onCollapse={foldComposer}
             content={composer}
             onChange={setComposer}
-            onSubmit={submitting ? undefined : onSend}
+            onSubmit={submitting || attachingTemplateFiles ? undefined : onSend}
             onImageFiles={addImageFiles}
             placeholder="Internal note — only visible to your colleagues…"
             minHeight={sizing.editorMinHeight}
@@ -531,6 +550,11 @@ export function MessageComposer({
         </div>
       </div>
 
+      {attachingTemplateFiles && !atRest && (
+        <p role="status" className="mt-1.5 text-[11.5px] text-muted-foreground">
+          Attaching template files…
+        </p>
+      )}
       {templateError && !atRest && (
         <p role="alert" className="mt-1.5 text-[11.5px] text-destructive">
           {templateError}

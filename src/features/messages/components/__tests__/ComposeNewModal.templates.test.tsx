@@ -13,6 +13,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { AxiosError, AxiosHeaders } from 'axios';
 import type { ReplyTemplate } from '@/services/replyTemplates.service';
 import { handleResponseError } from '@/lib/api-client';
+import { useAuthStore } from '@/stores/authStore';
+import { unsentDraftKey, writeUnsentDraft } from '@/lib/unsentDrafts';
 
 const svc = vi.hoisted(() => ({
   composeNew: vi.fn(),
@@ -101,7 +103,10 @@ const editor = () => screen.getByLabelText<HTMLTextAreaElement>('Message');
 
 beforeEach(() => {
   svc.getComposeSources.mockResolvedValue([{ id: 3, name: 'Support', type: 'email' }]);
-  svc.composeNew.mockResolvedValue({ success: true, data: { conversationId: 9, messageEventId: 1 } });
+  svc.composeNew.mockResolvedValue({
+    success: true,
+    data: { conversationId: 9, messageEventId: 1 },
+  });
 });
 afterEach(() => {
   cleanup();
@@ -244,5 +249,117 @@ describe('Compose new — a placeholder the server cannot fill', () => {
     fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
     expect(await screen.findByText(reason)).toBeInTheDocument();
     expect(editor().value).toBe('<p>Dear {customer_name},</p>');
+  });
+});
+
+describe('Compose new — Send waits for a template’s files (review 1.1.330 F1)', () => {
+  const pendingDownload = () => {
+    let release: (file: File) => void = () => undefined;
+    svc.downloadAttachment.mockReturnValue(
+      new Promise<File>((resolve) => {
+        release = resolve;
+      })
+    );
+    return (file: File) => release(file);
+  };
+  const fillIn = () => {
+    type('To', 'someone@example.com');
+    type('Subject', 'Your order');
+  };
+
+  it('Send is disabled and says so while the files download; ⌘⇧↵ does not send either', async () => {
+    svc.list.mockResolvedValue({
+      unavailable: false,
+      templates: [template({ attachments: [attachment] })],
+    });
+    pendingDownload();
+    await renderModal();
+    await pick('Welcome');
+    await waitFor(() => expect(svc.downloadAttachment).toHaveBeenCalled());
+    fillIn();
+    // The design-system Button stays focusable: "disabled" is aria-disabled.
+    expect(screen.getByRole('button', { name: /^send$/i })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    expect(screen.getByText('Attaching template files…')).toBeInTheDocument();
+    // The editor's send shortcut submits the form directly — not through the button.
+    fireEvent.submit(
+      screen.getByRole('button', { name: /^send$/i }).closest('form') as HTMLFormElement
+    );
+    await Promise.resolve();
+    expect(svc.composeNew).not.toHaveBeenCalled();
+  });
+
+  it('control: once the files land Send is enabled and they go out with the message', async () => {
+    svc.list.mockResolvedValue({
+      unavailable: false,
+      templates: [template({ attachments: [attachment] })],
+    });
+    const release = pendingDownload();
+    await renderModal();
+    await pick('Welcome');
+    await waitFor(() => expect(svc.downloadAttachment).toHaveBeenCalled());
+    fillIn();
+    release(new File(['pdf'], 'terms.pdf'));
+    expect(await screen.findByText('terms.pdf')).toBeInTheDocument();
+    expect(screen.queryByText('Attaching template files…')).toBeNull();
+    expect(screen.getByRole('button', { name: /^send$/i })).not.toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
+    await waitFor(() => expect(svc.composeNew).toHaveBeenCalled());
+    const sent = svc.composeNew.mock.calls[0][0] as { attachments?: File[] };
+    expect(sent.attachments?.map((file) => file.name)).toEqual(['terms.pdf']);
+  });
+});
+
+describe('Compose new — Discard drops the attached files too (review 1.1.330 F2)', () => {
+  beforeEach(() => {
+    useAuthStore.setState({ selectedOrganizationId: 5, user: { id: 11 } } as never);
+    const key = unsentDraftKey(11, 5, 'compose-new');
+    if (key)
+      writeUnsentDraft(key, {
+        messageSourceId: 3,
+        to: 'someone@example.com',
+        cc: '',
+        bcc: '',
+        subject: 'Kept',
+        content: '<p>Kept text</p>',
+        files: 0,
+      });
+  });
+  afterEach(() => {
+    window.localStorage.clear();
+    useAuthStore.setState({ selectedOrganizationId: null, user: null } as never);
+  });
+
+  it('a file attached to a restored draft is gone after Discard', async () => {
+    svc.list.mockResolvedValue({
+      unavailable: false,
+      templates: [template({ attachments: [attachment] })],
+    });
+    svc.downloadAttachment.mockResolvedValue(new File(['pdf'], 'terms.pdf'));
+    await renderModal();
+    expect(await screen.findByText('Restored your unsent message')).toBeInTheDocument();
+    await pick('Welcome');
+    expect(await screen.findByText('terms.pdf')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
+    await waitFor(() => expect(editor().value).toBe(''));
+    expect(screen.queryByText('terms.pdf')).toBeNull();
+  });
+
+  it('control: without Discard the file stays attached', async () => {
+    svc.list.mockResolvedValue({
+      unavailable: false,
+      templates: [template({ attachments: [attachment] })],
+    });
+    svc.downloadAttachment.mockResolvedValue(new File(['pdf'], 'terms.pdf'));
+    await renderModal();
+    expect(await screen.findByText('Restored your unsent message')).toBeInTheDocument();
+    await pick('Welcome');
+    expect(await screen.findByText('terms.pdf')).toBeInTheDocument();
+    expect(editor().value).toContain('Kept text');
   });
 });
