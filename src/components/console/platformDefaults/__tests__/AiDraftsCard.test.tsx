@@ -32,6 +32,7 @@ const {
   AiDraftsCard,
   AI_DRAFTS_NOT_DEPLOYED,
   DRAFT_PIPELINE_NOT_DEPLOYED,
+  DOC_RERANK_NOT_DEPLOYED,
   AGENT_NOTE_FACTS_NOT_DEPLOYED,
 } = await import('../AiDraftsCard');
 const { chooseOption } = await import('@/test/chooseOption');
@@ -536,5 +537,83 @@ describe('AiDraftsCard — saves through the real mutateAsync path (fact check, 
     await waitFor(() => expect(toastFailure).toHaveBeenCalledTimes(1));
     refetch(CHECK);
     expect(wording()).toHaveValue(typed);
+  });
+});
+
+// ai.doc_rerank: the documentation re-ranking step's switch, on by default.
+describe('AiDraftsCard — the documentation re-ranking switch (ai.doc_rerank)', () => {
+  const WITH_RERANK = { ...SETTING, docRerank: { value: true, source: 'default' as const } };
+  const rerankSwitch = () => screen.getByRole('switch', { name: 'Re-rank documentation sections' });
+
+  it('shows it on, as the built-in default', () => {
+    wrap(<AiDraftsCard drafts={WITH_RERANK} />);
+    expect(rerankSwitch()).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText(/Re-rank documentation sections: on/)).toBeInTheDocument();
+  });
+
+  it('turning it off is confirmed first, then saved on its own with PUT /settings/drafts', async () => {
+    wrap(<AiDraftsCard drafts={WITH_RERANK} />);
+    fireEvent.change(similarity(), { target: { value: '0.9' } });
+    fireEvent.click(rerankSwitch());
+    expect(puts).toHaveLength(0);
+    expect(screen.getByText('Turn documentation re-ranking off?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Turn off' }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    // Only the switch: a number edited but not saved is not sent with it.
+    expect(puts[0]).toEqual({
+      url: '/api/admin/platform/settings/drafts',
+      body: { docRerank: false },
+    });
+  });
+
+  it('switched off in the console: shows off, and turning it back on is confirmed too', async () => {
+    wrap(<AiDraftsCard drafts={{ ...SETTING, docRerank: { value: false, source: 'db' } }} />);
+    expect(rerankSwitch()).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(rerankSwitch());
+    fireEvent.click(screen.getByRole('button', { name: 'Turn on' }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].body).toEqual({ docRerank: true });
+  });
+
+  it('CONTROL — cancelling the confirmation saves nothing', async () => {
+    wrap(<AiDraftsCard drafts={WITH_RERANK} />);
+    fireEvent.click(rerankSwitch());
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() =>
+      expect(screen.queryByText('Turn documentation re-ranking off?')).toBeNull()
+    );
+    expect(puts).toHaveLength(0);
+  });
+
+  it('a backend without the switch: no switch, says it arrives later', () => {
+    wrap(<AiDraftsCard drafts={SETTING} />);
+    expect(screen.queryByRole('switch', { name: 'Re-rank documentation sections' })).toBeNull();
+    expect(screen.getByText(DOC_RERANK_NOT_DEPLOYED)).toBeInTheDocument();
+  });
+});
+
+describe('normalizeDrafts — docRerank', () => {
+  it('keeps the switch the backend sends', () => {
+    expect(
+      normalizeDrafts({ ...SETTING, docRerank: { value: false, source: 'db' } })?.docRerank
+    ).toEqual({
+      value: false,
+      source: 'db',
+    });
+  });
+
+  it('a value that is not a boolean drops the switch but keeps the numbers', () => {
+    const drafts = normalizeDrafts({ ...SETTING, docRerank: { value: 'off', source: 'db' } });
+    expect(drafts?.docRerank).toBeUndefined();
+    expect(drafts?.kbOnlyDraftMinSimilarity.value).toBe(0.85);
+  });
+
+  it('an unknown source reads as default rather than being trusted', () => {
+    expect(
+      normalizeDrafts({ ...SETTING, docRerank: { value: true, source: 'nowhere' } })?.docRerank
+    ).toEqual({
+      value: true,
+      source: 'default',
+    });
   });
 });
