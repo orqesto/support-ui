@@ -183,6 +183,11 @@ export type GhostAutoStatus =
       checkReason?: string;
       /** `hold_phrase`: the workspace's listed phrase that held it (BE `heldPhrase`). */
       phrase?: string;
+      /**
+       * A reply held for low confidence that is also on a restricted topic (BE
+       * `heldRestrictedTopic`, 2026-11-25): the topic, as the workspace lists it.
+       */
+      restrictedTopic?: string;
     };
 
 /** The `kind` the backend stores on a kept missing-info question (followUpEmailHelper). */
@@ -196,6 +201,7 @@ export const autoStatusOf = (sa: {
   kind?: unknown;
   checkReason?: unknown;
   heldPhrase?: unknown;
+  heldRestrictedTopic?: unknown;
 }): GhostAutoStatus | undefined => {
   const question = sa.kind === MISSING_INFO_QUESTION_KIND ? { question: true as const } : {};
   if (sa.wouldSend === true) return { kind: 'would_send', ...question };
@@ -208,6 +214,10 @@ export const autoStatusOf = (sa: {
     typeof sa.checkReason === 'string' && sa.checkReason !== '' ? sa.checkReason : undefined;
   const phrase =
     typeof sa.heldPhrase === 'string' && sa.heldPhrase.trim() !== '' ? sa.heldPhrase : undefined;
+  const restrictedTopic =
+    typeof sa.heldRestrictedTopic === 'string' && sa.heldRestrictedTopic.trim() !== ''
+      ? sa.heldRestrictedTopic.trim()
+      : undefined;
   return {
     kind: 'held',
     reason: sa.heldReason,
@@ -215,6 +225,7 @@ export const autoStatusOf = (sa: {
     ...question,
     ...(question.question && checkReason !== undefined ? { checkReason } : {}),
     ...(phrase !== undefined ? { phrase } : {}),
+    ...(restrictedTopic !== undefined ? { restrictedTopic } : {}),
   };
 };
 
@@ -238,6 +249,8 @@ export type SuggestedAnswerMeta = {
   checkReason?: string;
   /** `hold_phrase`: the workspace's listed phrase that held the reply or the question. */
   heldPhrase?: string;
+  /** Held for low confidence and also on this restricted topic (2026-11-25). */
+  heldRestrictedTopic?: string;
 };
 
 /**

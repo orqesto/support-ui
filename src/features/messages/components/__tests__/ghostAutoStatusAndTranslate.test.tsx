@@ -94,6 +94,44 @@ describe('the draft card says what became of an automatic reply', () => {
     expect(card().className).toMatch(/border-warning-line/);
   });
 
+  // 2026-11-25: held for confidence AND on a restricted topic — both, the topic first.
+  it('held for confidence on a restricted topic: the topic, then the score and the bar', () => {
+    show({
+      answer: ANSWER,
+      source: 'documentation',
+      confidence: 0.82,
+      heldReason: 'low_confidence',
+      heldThreshold: 0.9,
+      heldRestrictedTopic: 'Medical or health advice',
+    });
+    const badge = screen.getByText(
+      'Held · restricted topic (Medical or health advice) · confidence 82% below 90%'
+    );
+    expect(badge.className).toMatch(/border-warning-line/);
+  });
+
+  it('held for confidence on a restricted topic, no score stored: the topic and the reason words', () => {
+    show({
+      answer: ANSWER,
+      heldReason: 'low_confidence',
+      heldRestrictedTopic: 'Medical or health advice',
+    });
+    expect(
+      screen.getByText(
+        'Held · restricted topic (Medical or health advice) · the AI was not sure enough of its answer'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('CONTROL: a topic stored beside another reason is not shown', () => {
+    show({
+      answer: ANSWER,
+      heldReason: 'promises_follow_up',
+      heldRestrictedTopic: 'Medical or health advice',
+    });
+    expect(screen.getByText('Held · the reply promised a follow-up')).toBeInTheDocument();
+  });
+
   it('held by a check: the reason in plain words, never the code', () => {
     show({ answer: ANSWER, source: 'documentation', heldReason: 'promises_follow_up' });
     expect(screen.getByText('Held · the reply promised a follow-up')).toBeInTheDocument();

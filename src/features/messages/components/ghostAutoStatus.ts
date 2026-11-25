@@ -15,7 +15,9 @@ const own = (table: Record<string, string>, code: string | undefined): string | 
 
 /** A held missing-info question in words: the check's own finding first, then the outcome's. */
 const askHeldWords = (reason: string, checkReason: string | undefined): string | null =>
-  own(ASK_CHECK_REASON, checkReason) ?? own(ASK_WITHHELD_REASON, reason) ?? autoReplyReasonWords(reason);
+  own(ASK_CHECK_REASON, checkReason) ??
+  own(ASK_WITHHELD_REASON, reason) ??
+  autoReplyReasonWords(reason);
 
 /** The reason code of a hold by the workspace's own phrase list (BE, 2026-11-25). */
 const HOLD_PHRASE = 'hold_phrase';
@@ -42,12 +44,14 @@ export const autoStatusText = (
     return `Held · ${words ?? 'held for a person'}`;
   }
   if (status.kind === 'would_send') return 'Check only · would have been sent';
-  if (
-    status.reason === 'low_confidence' &&
-    option.confidence !== undefined &&
-    status.threshold !== undefined
-  ) {
-    return `Held · confidence ${percent(option.confidence)} below ${percent(status.threshold)}`;
+  if (status.reason === 'low_confidence') {
+    // Also on a restricted topic (2026-11-25): the topic first — it matters more than the score.
+    const topic =
+      status.restrictedTopic !== undefined ? `restricted topic (${status.restrictedTopic}) · ` : '';
+    if (option.confidence !== undefined && status.threshold !== undefined) {
+      return `Held · ${topic}confidence ${percent(option.confidence)} below ${percent(status.threshold)}`;
+    }
+    if (topic) return `Held · ${topic}${autoReplyReasonWords(status.reason)}`;
   }
   return `Held · ${phraseWords(status) ?? autoReplyReasonWords(status.reason) ?? 'held for a person'}`;
 };
