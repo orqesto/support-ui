@@ -132,3 +132,82 @@ describe('the draft card can be translated to read', () => {
     expect(screen.queryByText('Freitags bis sechs geöffnet.')).toBeNull();
   });
 });
+
+/*
+  The automatic email asking for missing details (2026-11-25): a question check-only kept, or one a
+  check held, is stored as the thread's draft with `kind: 'missing_info_question'` and shows on the
+  same card, in the same colours. NEGATIVE CONTROL (seen to fail): without the `question` branch the
+  badge reads as an answer ("Check only · would have been sent").
+*/
+describe('the missing-info question that was not sent shows on the card', () => {
+  const QUESTION =
+    'Thanks for your message. To help with this, could you tell us:\n\nWhat is your order number?';
+
+  it('check-only: "question that would have been sent", the success colour, insert and translate', async () => {
+    translateText.mockResolvedValue({
+      translated: { content: 'Wie lautet Ihre Bestellnummer?', language: 'de' },
+    });
+    show({
+      answer: QUESTION,
+      source: 'missing_info',
+      kind: 'missing_info_question',
+      wouldSend: true,
+    });
+    const badge = screen.getByText('Check only · question that would have been sent');
+    expect(badge.className).toMatch(/border-success-line/);
+    expect(card().className).toMatch(/border-success-line/);
+    expect(screen.getByText('AI question for missing details')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Translate'));
+    fireEvent.click(await screen.findByText('German'));
+    await waitFor(() =>
+      expect(screen.getByText('Wie lautet Ihre Bestellnummer?')).toBeInTheDocument()
+    );
+    fireEvent.click(card());
+    expect(onGhostClick).toHaveBeenCalledWith(QUESTION, expect.any(String));
+  });
+
+  it("held by the check of its questions: the check's finding in words, the warning colour", () => {
+    show({
+      answer: QUESTION,
+      source: 'missing_info',
+      kind: 'missing_info_question',
+      heldReason: 'blocked_missing_info_model_check',
+      checkReason: 'no_customer_request',
+    });
+    const badge = screen.getByText('Held · the message is not a customer request');
+    expect(badge.className).toMatch(/border-warning-line/);
+    expect(card().className).toMatch(/border-warning-line/);
+    expect(screen.queryByText(/blocked_missing_info_model_check/)).toBeNull();
+  });
+
+  it('held for another reason: the outcome in words (the sender limit, a failed send)', () => {
+    show({
+      answer: QUESTION,
+      kind: 'missing_info_question',
+      heldReason: 'sender_reply_limit',
+    });
+    expect(screen.getByText(/^Held · this sender already got the most/)).toBeInTheDocument();
+    cleanup();
+    show({ answer: QUESTION, kind: 'missing_info_question', heldReason: 'send_failed' });
+    expect(screen.getByText('Held · the email could not be sent')).toBeInTheDocument();
+  });
+
+  it('CONTROL: no stored record — no card, no question badge', () => {
+    render(
+      <MessageGhostBubble
+        aiLoading={false}
+        ghostVisible
+        ghostOption={toGhostOption(undefined)}
+        autoReply={undefined}
+        composer=""
+        composerMode="reply"
+        resolved={false}
+        alternativeCount={0}
+        onGhostClick={onGhostClick}
+        onShowAlternatives={() => undefined}
+      />
+    );
+    expect(screen.queryByText('Tap to insert into reply')).toBeNull();
+    expect(screen.queryByText(/question that would have been sent|Held ·/)).toBeNull();
+  });
+});

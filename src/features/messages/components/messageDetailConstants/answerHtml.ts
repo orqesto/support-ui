@@ -168,23 +168,42 @@ export type GhostOption = {
   autoStatus?: GhostAutoStatus;
 };
 
+/**
+ * `question`: the draft is the automatic email asking the customer for missing details (BE
+ * followUpEmailHelper, `kind: 'missing_info_question'`), not an answer — the badge says so, and a
+ * hold reads in that email's words (`checkReason`: what the check of its questions found).
+ */
 export type GhostAutoStatus =
-  | { kind: 'would_send' }
-  | { kind: 'held'; reason: string; threshold?: number };
+  | { kind: 'would_send'; question?: true }
+  | { kind: 'held'; reason: string; threshold?: number; question?: true; checkReason?: string };
+
+/** The `kind` the backend stores on a kept missing-info question (followUpEmailHelper). */
+export const MISSING_INFO_QUESTION_KIND = 'missing_info_question';
 
 /** The stored draft's automatic-reply outcome, or undefined (tolerant of any shape). */
 export const autoStatusOf = (sa: {
   wouldSend?: unknown;
   heldReason?: unknown;
   heldThreshold?: unknown;
+  kind?: unknown;
+  checkReason?: unknown;
 }): GhostAutoStatus | undefined => {
-  if (sa.wouldSend === true) return { kind: 'would_send' };
+  const question = sa.kind === MISSING_INFO_QUESTION_KIND ? { question: true as const } : {};
+  if (sa.wouldSend === true) return { kind: 'would_send', ...question };
   if (typeof sa.heldReason !== 'string' || sa.heldReason === '') return undefined;
   const threshold =
     typeof sa.heldThreshold === 'number' && Number.isFinite(sa.heldThreshold)
       ? sa.heldThreshold
       : undefined;
-  return { kind: 'held', reason: sa.heldReason, ...(threshold !== undefined ? { threshold } : {}) };
+  const checkReason =
+    typeof sa.checkReason === 'string' && sa.checkReason !== '' ? sa.checkReason : undefined;
+  return {
+    kind: 'held',
+    reason: sa.heldReason,
+    ...(threshold !== undefined ? { threshold } : {}),
+    ...question,
+    ...(question.question && checkReason !== undefined ? { checkReason } : {}),
+  };
 };
 
 export type SuggestedAnswerMeta = {
@@ -201,6 +220,10 @@ export type SuggestedAnswerMeta = {
   /** A held automatic reply: the review reason it was held with, and the confidence bar. */
   heldReason?: string;
   heldThreshold?: number;
+  /** `missing_info_question`: the kept email asking the customer for missing details. */
+  kind?: string;
+  /** A held question: what the check of its questions found (BE askOnlyModelCheck reasons). */
+  checkReason?: string;
 };
 
 /**
@@ -259,14 +282,16 @@ export function toGhostOption(sa: SuggestedAnswerMeta | undefined | null): Ghost
  * keyword rule's kept reply reads `Keyword rule "Returns"`: nobody's model wrote it.
  */
 export const ghostCaption = (
-  option: Pick<GhostOption, 'confidence' | 'sourceTitle' | 'ruleName'>
+  option: Pick<GhostOption, 'confidence' | 'sourceTitle' | 'ruleName' | 'autoStatus'>
 ): string =>
   [
     option.ruleName !== undefined
       ? option.ruleName
         ? `Keyword rule "${option.ruleName}"`
         : 'Keyword rule'
-      : 'AI suggestion',
+      : option.autoStatus?.question
+        ? 'AI question for missing details'
+        : 'AI suggestion',
     option.confidence !== undefined ? `${Math.round(option.confidence * 100)}%` : null,
     option.sourceTitle ?? null,
   ]

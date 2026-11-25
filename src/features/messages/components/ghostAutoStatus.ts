@@ -1,4 +1,4 @@
-import { autoReplyReasonWords } from './autoReplyReasons';
+import { ASK_CHECK_REASON, ASK_WITHHELD_REASON, autoReplyReasonWords } from './autoReplyReasons';
 import type { GhostOption } from './messageDetailConstants';
 
 /**
@@ -10,12 +10,23 @@ export type GhostTone = 'ai' | 'would_send' | 'held';
 
 const percent = (value: number): string => `${Math.round(value * 100)}%`;
 
+const own = (table: Record<string, string>, code: string | undefined): string | null =>
+  code !== undefined && Object.prototype.hasOwnProperty.call(table, code) ? table[code] : null;
+
+/** A held missing-info question in words: the check's own finding first, then the outcome's. */
+const askHeldWords = (reason: string, checkReason: string | undefined): string | null =>
+  own(ASK_CHECK_REASON, checkReason) ?? own(ASK_WITHHELD_REASON, reason) ?? autoReplyReasonWords(reason);
+
 /** The badge text, or null for an ordinary suggestion. */
 export const autoStatusText = (
   option: Pick<GhostOption, 'autoStatus' | 'confidence'>
 ): string | null => {
   const status = option.autoStatus;
   if (!status) return null;
+  if (status.question) {
+    if (status.kind === 'would_send') return 'Check only · question that would have been sent';
+    return `Held · ${askHeldWords(status.reason, status.checkReason) ?? 'held for a person'}`;
+  }
   if (status.kind === 'would_send') return 'Check only · would have been sent';
   if (
     status.reason === 'low_confidence' &&
