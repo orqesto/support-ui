@@ -34,6 +34,7 @@ vi.mock('@/lib/toast', () => ({ toast: { error: vi.fn(), success: vi.fn(), info:
 
 import { MessageGhostBubble } from '../MessageGhostBubble';
 import { toGhostOption, type SuggestedAnswerMeta } from '../messageDetailConstants';
+import { NEEDS_REVIEW_REASON_DETAILS, NEEDS_REVIEW_REASON_LABELS } from '../aiFlagCopy';
 
 const ANSWER = 'We are open until six on Fridays.';
 const onGhostClick = vi.fn();
@@ -128,7 +129,7 @@ describe('the draft card says what became of an automatic reply', () => {
     show({ answer: ANSWER, heldReason: 'restricted_topic' });
     expect(
       screen.getByText(
-        'Held · the customer asks about a restricted topic, or the reply contains something this workspace holds'
+        'Held · the customer asks about a restricted topic, or the reply states an amount with a unit of measure'
       )
     ).toBeInTheDocument();
   });
@@ -229,6 +230,28 @@ describe('the missing-info question that was not sent shows on the card', () => 
       heldPhrase: 'order number',
     });
     expect(screen.getByText('Held · contains "order number"')).toBeInTheDocument();
+  });
+
+  // 1.1.330: a listed phrase has its own reason (`hold_phrase`), so the restricted-topic words no
+  // longer name a held phrase; they still cover the built-in amount rule, which keeps
+  // `restricted_topic` by design. The flag reads the same way.
+  it('held on a restricted topic: no held phrase in the words, the amount rule still covered', () => {
+    show({
+      answer: QUESTION,
+      source: 'missing_info',
+      kind: 'missing_info_question',
+      heldReason: 'blocked_missing_info_model_check',
+      checkReason: 'restricted_topic',
+    });
+    const badge = screen.getByText(/^Held · the customer asks about a restricted topic/);
+    expect(badge.textContent).toBe(
+      'Held · the customer asks about a restricted topic, or a question in the email states an amount with a unit of measure, so nothing was asked automatically'
+    );
+    expect(badge.textContent).not.toMatch(/phrase|this workspace holds/);
+    expect(NEEDS_REVIEW_REASON_LABELS.restricted_topic).toBe('Restricted topic or an amount');
+    expect(NEEDS_REVIEW_REASON_LABELS.restricted_topic).not.toMatch(/phrase/i);
+    expect(NEEDS_REVIEW_REASON_DETAILS.restricted_topic).not.toMatch(/phrase|this workspace holds/);
+    expect(NEEDS_REVIEW_REASON_LABELS.hold_phrase).toBe('Held phrase');
   });
 
   it('held for another reason: the outcome in words (the sender limit, a failed send)', () => {
