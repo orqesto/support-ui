@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
+import { Toggle } from '@/components/ui/Toggle';
 import { useRefetchPlatformSettings, useUpdatePlatformDrafts } from '@/hooks/usePlatformSettings';
 import { toast } from '@/lib/toast';
 import {
@@ -14,6 +15,7 @@ import {
   type AgentNoteFactsSettings,
 } from '@/services/agentNoteFacts.settings';
 import type {
+  DocRerankSetting,
   DraftPipelineMode,
   DraftPipelineSetting,
   DraftSettings,
@@ -27,6 +29,8 @@ export const AI_DRAFTS_NOT_DEPLOYED =
   'This server does not have this setting yet — it arrives with the next backend release.';
 export const DRAFT_PIPELINE_NOT_DEPLOYED =
   'The draft pipeline switch arrives with the next backend release.';
+export const DOC_RERANK_NOT_DEPLOYED =
+  'The documentation re-ranking switch arrives with the next backend release.';
 export const AGENT_NOTE_FACTS_NOT_DEPLOYED =
   'The fact-check thresholds arrive with the next backend release.';
 
@@ -109,6 +113,63 @@ const DraftPipelineSwitch = ({
           pending
             ? `Every workspace's AI drafts will be written by the ${PIPELINE_NAMES[pending]} pipeline, on each server within a minute. Auto-reply is not affected.`
             : ''
+        }
+      />
+    </div>
+  );
+};
+
+/**
+ * `ai.doc_rerank`: the step that reads the documentation sections a search found and keeps the ones
+ * that answer the question (one small model call per search). On by default. Turning it off is
+ * confirmed first, then saved on its own (PUT /settings/drafts `{ docRerank }`) — every workspace's
+ * drafts and automatic replies change within a minute.
+ */
+const DocRerankSwitch = ({
+  rerank,
+  saving,
+  onSwitch,
+}: {
+  rerank: DocRerankSetting;
+  saving: boolean;
+  onSwitch: (enabled: boolean) => void;
+}) => {
+  const [pending, setPending] = useState<boolean | null>(null);
+  return (
+    <div className="pt-3 space-y-1 border-t border-border">
+      <Toggle
+        checked={rerank.value}
+        disabled={saving}
+        ariaLabel="Re-rank documentation sections"
+        label={
+          rerank.value
+            ? 'Re-rank documentation sections: on'
+            : 'Re-rank documentation sections: off'
+        }
+        onChange={(next) => setPending(next)}
+      />
+      <SourceBadge source={rerank.source} envLabel="Server setting" />
+      <p className="text-xs text-muted-foreground" id="doc-rerank-help">
+        One small model call per documentation search picks the sections that answer the question,
+        for agent drafts and automatic replies. Off: drafts use the search's own top sections, as
+        before, and the dialog no longer says when none answers.
+      </p>
+      <ConfirmDialog
+        open={pending !== null}
+        onOpenChange={(open) => {
+          if (!open) setPending(null);
+        }}
+        onConfirm={() => {
+          if (pending !== null) onSwitch(pending);
+          setPending(null);
+        }}
+        variant="warning"
+        confirmText={pending ? 'Turn on' : 'Turn off'}
+        title={pending ? 'Turn documentation re-ranking on?' : 'Turn documentation re-ranking off?'}
+        description={
+          pending
+            ? "Every workspace's drafts and automatic replies will again be written from the sections the re-ranking step picks, on each server within a minute."
+            : "Every workspace's drafts and automatic replies will be written from the search's own top sections, on each server within a minute."
         }
       />
     </div>
@@ -329,6 +390,17 @@ export const AiDraftsCard = ({ drafts }: { drafts: DraftSettings | undefined }) 
         ) : (
           <p className="pt-3 text-sm border-t text-muted-foreground border-border">
             {DRAFT_PIPELINE_NOT_DEPLOYED}
+          </p>
+        )}
+        {drafts.docRerank ? (
+          <DocRerankSwitch
+            rerank={drafts.docRerank}
+            saving={save.isPending}
+            onSwitch={(enabled) => save.mutate({ docRerank: enabled })}
+          />
+        ) : (
+          <p className="pt-3 text-sm border-t text-muted-foreground border-border">
+            {DOC_RERANK_NOT_DEPLOYED}
           </p>
         )}
         {drafts.agentNoteFacts ? (
