@@ -45,7 +45,15 @@ const directImageUrl = (item: ViewerItem, organizationId: number | null): string
   if (item.type === 'inline') return item.src;
   // A document's bytes need the workspace header and its team check: fetched, never a url.
   if (item.type === 'document' || item.jiraHosted) return null;
-  return attachmentDownloadUrl(item.attachment.id, organizationId);
+  const url = attachmentDownloadUrl(item.attachment.id, organizationId);
+  /*
+    A TIFF is asked for as the bytes to SHOW (review 1.1.330 GAP-TIFF): the backend answers its
+    first page as a WEBP, which every browser draws. An older backend ignores `display` and sends
+    the TIFF — the picture then fails to load and the card offers Download, as before.
+  */
+  const stored: string | null | undefined = item.attachment.mimeType;
+  const mime = (stored ?? '').toLowerCase().split(';')[0].trim();
+  return mime === 'image/tiff' ? `${url}?display=1` : url;
 };
 
 /** `display`: the bytes to SHOW (a document's TIFF as WEBP); Download asks for the original. */

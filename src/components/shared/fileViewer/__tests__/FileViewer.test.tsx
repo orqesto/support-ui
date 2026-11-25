@@ -330,3 +330,33 @@ describe('FileViewer — text and csv', () => {
     expect(truncated).toBe(true);
   });
 });
+
+describe('FileViewer — a mail attachment TIFF (review 1.1.330 GAP-TIFF)', () => {
+  const tiff = att(21, 'image/tiff', 'scan.tif');
+
+  it('asks for the bytes to SHOW (`display=1`: the backend sends the first page as WEBP)', () => {
+    render(<Harness items={[attachmentItem(tiff)]} />);
+    expect(screen.getByAltText('scan.tif').getAttribute('src')).toMatch(
+      /\/api\/organizations\/5\/attachments\/21\/download\?display=1$/
+    );
+  });
+
+  it('control: any other picture is shown from its plain download url', () => {
+    render(<Harness items={[attachmentItem(photo)]} />);
+    expect(screen.getByAltText('label.jpg').getAttribute('src')).toMatch(
+      /\/api\/organizations\/5\/attachments\/1\/download$/
+    );
+  });
+
+  it('an older backend answers the TIFF itself: the picture fails, the card offers the original', async () => {
+    render(<Harness items={[attachmentItem(tiff)]} />);
+    fireEvent.error(screen.getByAltText('scan.tif'));
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toContain('could not be shown');
+    fireEvent.click(within(alert).getByRole('button', { name: /Download/ }));
+    // Download is the ORIGINAL file, never the display copy.
+    await waitFor(() =>
+      expect(apiGet).toHaveBeenCalledWith('/api/attachments/21/download', expect.anything())
+    );
+  });
+});
