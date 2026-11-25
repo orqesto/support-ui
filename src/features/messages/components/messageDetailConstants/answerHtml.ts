@@ -175,7 +175,15 @@ export type GhostOption = {
  */
 export type GhostAutoStatus =
   | { kind: 'would_send'; question?: true }
-  | { kind: 'held'; reason: string; threshold?: number; question?: true; checkReason?: string };
+  | {
+      kind: 'held';
+      reason: string;
+      threshold?: number;
+      question?: true;
+      checkReason?: string;
+      /** `hold_phrase`: the workspace's listed phrase that held it (BE `heldPhrase`). */
+      phrase?: string;
+    };
 
 /** The `kind` the backend stores on a kept missing-info question (followUpEmailHelper). */
 export const MISSING_INFO_QUESTION_KIND = 'missing_info_question';
@@ -187,6 +195,7 @@ export const autoStatusOf = (sa: {
   heldThreshold?: unknown;
   kind?: unknown;
   checkReason?: unknown;
+  heldPhrase?: unknown;
 }): GhostAutoStatus | undefined => {
   const question = sa.kind === MISSING_INFO_QUESTION_KIND ? { question: true as const } : {};
   if (sa.wouldSend === true) return { kind: 'would_send', ...question };
@@ -197,12 +206,15 @@ export const autoStatusOf = (sa: {
       : undefined;
   const checkReason =
     typeof sa.checkReason === 'string' && sa.checkReason !== '' ? sa.checkReason : undefined;
+  const phrase =
+    typeof sa.heldPhrase === 'string' && sa.heldPhrase.trim() !== '' ? sa.heldPhrase : undefined;
   return {
     kind: 'held',
     reason: sa.heldReason,
     ...(threshold !== undefined ? { threshold } : {}),
     ...question,
     ...(question.question && checkReason !== undefined ? { checkReason } : {}),
+    ...(phrase !== undefined ? { phrase } : {}),
   };
 };
 
@@ -224,6 +236,8 @@ export type SuggestedAnswerMeta = {
   kind?: string;
   /** A held question: what the check of its questions found (BE askOnlyModelCheck reasons). */
   checkReason?: string;
+  /** `hold_phrase`: the workspace's listed phrase that held the reply or the question. */
+  heldPhrase?: string;
 };
 
 /**

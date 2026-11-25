@@ -217,6 +217,7 @@ const AI_REPLY_WITHHELD_REASON: Record<string, string> = {
   spam_verdict: WITHHELD_REASON.spam_verdict,
   reply_unchecked: 'the reply could not be checked',
   restricted_topic: WITHHELD_REASON.restricted_topic,
+  hold_phrase: 'the reply contains a phrase this workspace holds',
   no_customer_request: 'the message is not a customer request',
   needs_lookup_or_action: 'answering needs a lookup or an action',
   refusal: 'the reply only declined the question',

@@ -196,7 +196,7 @@ export interface components {
             aiReplyCount: number;
             needsHumanReview: boolean;
             /** @enum {string|null} */
-            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "partial_answer" | "follow_up_needed" | "reply_unchecked" | "restricted_topic" | "no_customer_request" | "needs_lookup_or_action" | "promises_follow_up" | "does_not_answer" | "unsupported_by_sources" | "not_from_knowledge" | "spam_verdict" | "source_other_team" | "other" | null;
+            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "partial_answer" | "follow_up_needed" | "reply_unchecked" | "restricted_topic" | "no_customer_request" | "needs_lookup_or_action" | "promises_follow_up" | "does_not_answer" | "unsupported_by_sources" | "hold_phrase" | "not_from_knowledge" | "spam_verdict" | "source_other_team" | "other" | null;
             createdAt: string;
             metadata: {
                 [key: string]: unknown;
@@ -241,7 +241,7 @@ export interface components {
             aiReplyCount: number;
             needsHumanReview: boolean;
             /** @enum {string|null} */
-            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "partial_answer" | "follow_up_needed" | "reply_unchecked" | "restricted_topic" | "no_customer_request" | "needs_lookup_or_action" | "promises_follow_up" | "does_not_answer" | "unsupported_by_sources" | "not_from_knowledge" | "spam_verdict" | "source_other_team" | "other" | null;
+            needsReviewReason: "low_confidence" | "blocked_gate" | "plan_limit" | "escalation" | "ai_reply_limit" | "needs_info" | "ai_error" | "send_failed" | "reopened" | "suspicious_in_thread" | "lead_escalated" | "flood" | "partial_answer" | "follow_up_needed" | "reply_unchecked" | "restricted_topic" | "no_customer_request" | "needs_lookup_or_action" | "promises_follow_up" | "does_not_answer" | "unsupported_by_sources" | "hold_phrase" | "not_from_knowledge" | "spam_verdict" | "source_other_team" | "other" | null;
             createdAt: string;
             metadata: {
                 [key: string]: unknown;

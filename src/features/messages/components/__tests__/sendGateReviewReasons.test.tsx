@@ -30,6 +30,7 @@ vi.mock('@/lib/api-client', () => ({
 /** The backend's NEEDS_REVIEW_REASONS entries the send gate added, with this app's words. */
 const GATE_REASONS: [string, string][] = [
   ['restricted_topic', 'Restricted topic or a held phrase'],
+  ['hold_phrase', 'Held phrase'],
   ['no_customer_request', 'Not a customer request'],
   ['needs_lookup_or_action', 'Needs a lookup or an action'],
   ['promises_follow_up', 'Reply promised a follow-up'],
@@ -194,6 +195,7 @@ describe("every review reason of the backend's contract has words", () => {
     follow_up_needed: true,
     reply_unchecked: true,
     restricted_topic: true,
+    hold_phrase: true,
     no_customer_request: true,
     needs_lookup_or_action: true,
     promises_follow_up: true,
