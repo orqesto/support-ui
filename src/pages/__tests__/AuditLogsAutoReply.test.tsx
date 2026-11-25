@@ -242,8 +242,10 @@ describe('Audit Logs — a list that cannot be read', () => {
     );
   });
 
-  it('the rows of the request before it leave: they are not the failed request\'s answer', async () => {
-    await show([log(1, SENT, 41, { source: 'keyword_rule', ruleName: 'Refunds', keyword: 'refund' })]);
+  it("the rows of the request before it leave: they are not the failed request's answer", async () => {
+    await show([
+      log(1, SENT, 41, { source: 'keyword_rule', ruleName: 'Refunds', keyword: 'refund' }),
+    ]);
     await waitFor(() => expect(screen.getAllByText(/Refunds/).length).toBeGreaterThan(0));
     state.listError = Object.assign(new Error('Request failed'), { status: 503, data: {} });
     fireEvent.click(screen.getByRole('button', { name: 'Refresh the audit log' }));
@@ -288,7 +290,7 @@ describe('Audit Logs — the automatic replies view (backend 2026-11-23)', () =>
     // Reasons in words; two codes with the same words are one line; an unknown code is no code.
     const reasons = card.getByRole('list', { name: 'Held replies by reason' }).textContent ?? '';
     expect(reasons).toContain(
-      '4 — the customer asks about a restricted topic, or the reply contains something this workspace holds'
+      '4 — the customer asks about a restricted topic, or the reply states an amount with a unit of measure'
     );
     expect(reasons).toContain('3 — the reply only declined the question');
     expect(reasons).toContain('2 — it was held for a person');
@@ -529,7 +531,7 @@ describe('Audit Logs — what the newer records say in the row', () => {
     ]);
     const [row] = await rows();
     expect(row.textContent).toContain(
-      "The website chat's reply was held for a person: the customer asks about a restricted topic, or the reply contains something this workspace holds"
+      "The website chat's reply was held for a person: the customer asks about a restricted topic, or the reply states an amount with a unit of measure"
     );
     expect(row.textContent).toContain('Written by: Website chat bot · Website chat');
     expect(within(row).getByRole('link', { name: 'Open website chats' })).toHaveAttribute(

@@ -32,8 +32,9 @@ export const NEEDS_REVIEW_REASON_LABELS: Record<string, string> = {
   reply_unchecked: 'Reply not checked',
   // The send gate held an automatic reply (2026-11-20), one reason each. "Reply", not "draft": a
   // held keyword-rule or bot answer leaves no draft behind.
-  // A restricted topic, or the workspace's hold rules (a listed phrase, the built-in amount rule).
-  restricted_topic: 'Restricted topic or a held phrase',
+  // A restricted topic, or the built-in amount rule (it keeps this reason by design). A listed
+  // phrase has its own reason, `hold_phrase`, so it is not named here.
+  restricted_topic: 'Restricted topic or an amount',
   // A phrase of the workspace's own hold list (its own reason since 2026-11-25).
   hold_phrase: 'Held phrase',
   no_customer_request: 'Not a customer request',
@@ -57,7 +58,7 @@ export const NEEDS_REVIEW_REASON_DETAILS: Record<string, string> = {
   reply_unchecked:
     "A check on the automatic reply or on the customer's message could not run (for example, no AI provider is set up), so nothing was sent",
   restricted_topic:
-    'The customer asks about a restricted topic (a subject a person must answer), or the automatic reply contained something this workspace holds for a person, so no automatic reply was sent',
+    'The customer asks about a restricted topic (a subject a person must answer), or the automatic reply stated an amount with a unit of measure (the built-in amount rule), so no automatic reply was sent',
   hold_phrase:
     'The automatic reply contained a phrase this workspace holds for a person, so it was not sent',
   no_customer_request:

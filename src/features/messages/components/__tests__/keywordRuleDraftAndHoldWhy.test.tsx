@@ -139,7 +139,7 @@ describe("a hold's own line (`details.why`) in the Activity", () => {
         why: 'the reply states an amount with a unit of measure (built-in hold rule)',
       })
     ).toBe(
-      'The automatic reply was not sent: the customer asks about a restricted topic, or the reply contains something this workspace holds — the reply states an amount with a unit of measure (built-in hold rule)'
+      'The automatic reply was not sent: the customer asks about a restricted topic, or the reply states an amount with a unit of measure — the reply states an amount with a unit of measure (built-in hold rule)'
     );
   });
 
@@ -160,7 +160,7 @@ describe("a hold's own line (`details.why`) in the Activity", () => {
 
   it('the Audit Logs filter names both cases of restricted_topic, under the same key', () => {
     expect(AUTO_REPLY_REASON_FILTERS.find((filter) => filter.value === 'restricted_topic')).toEqual(
-      { value: 'restricted_topic', label: 'A restricted topic, or a held phrase' }
+      { value: 'restricted_topic', label: 'A restricted topic, or an amount with a unit' }
     );
   });
 });

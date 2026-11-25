@@ -9,14 +9,20 @@ export const AUTO_REPLY_REASON_UNKNOWN = 'it was held for a person';
 
 export const WOULD_SEND = 'would_send';
 
+/**
+ * `restricted_topic`: a restricted topic, or the built-in amount rule (it records this code by
+ * design). A listed phrase has its own code since 2026-11-25, so a held phrase is not named here.
+ */
+const RESTRICTED_OR_AMOUNT =
+  'the customer asks about a restricted topic, or the reply states an amount with a unit of measure';
+
 const REASON: Record<string, string> = {
   // Check-only mode: the reply passed every check and was kept as the draft instead of sent.
   [WOULD_SEND]: 'it passed every check and would have been sent — check-only mode',
   // The send gate (the check every automatic reply passes). One code for a restricted topic and
-  // for the workspace's hold rules (a listed phrase, the built-in amount rule): the record's
-  // `why` says which.
-  restricted_topic:
-    'the customer asks about a restricted topic, or the reply contains something this workspace holds',
+  // for the built-in amount rule (which keeps this code by design): the record's `why` says which.
+  // A listed phrase has its own code (`hold_phrase`), so it is not named here.
+  restricted_topic: RESTRICTED_OR_AMOUNT,
   // A phrase of the workspace's own "Hold automatic replies that contain…" list: its own code since
   // 2026-11-25 (older records carry `restricted_topic`). The record's `heldPhrase` names it.
   hold_phrase: 'the reply contains a phrase this workspace holds',
@@ -105,15 +111,14 @@ export const WITHHELD_REASON: Record<string, string> = {
   // The send gate held the reply (2026-11-20): the knowledge base answer (`kb_…`), or a plain
   // prepared reply for what the customer asked.
   kb_restricted_topic:
-    'the customer asks about a restricted topic, or the knowledge base answer contains something this workspace holds',
+    'the customer asks about a restricted topic, or the knowledge base answer states an amount with a unit of measure',
   kb_hold_phrase: 'the knowledge base answer contains a phrase this workspace holds',
   kb_no_customer_request: 'the message is not a customer request',
   kb_needs_lookup_or_action: 'answering needs a lookup or an action',
   kb_promises_follow_up: 'the knowledge base answer promised a follow-up',
   kb_does_not_answer: 'the knowledge base answer did not answer the question',
   kb_unsupported_by_sources: 'the answer said more than the knowledge base does',
-  restricted_topic:
-    'the customer asks about a restricted topic, or the reply contains something this workspace holds',
+  restricted_topic: RESTRICTED_OR_AMOUNT,
   // The meaning check could not run: it failed, its answer could not be read, or the workspace
   // has no AI provider set up (BE keywordSendGate PLAIN_RULE_UNCHECKED).
   question_unchecked:
@@ -153,9 +158,10 @@ export const ASK_WITHHELD_REASON: Record<string, string> = {
 export const ASK_CHECK_REASON: Record<string, string> = {
   ask_unchecked: "the email's questions could not be checked",
   'check failed': "the email's questions could not be checked",
-  // A restricted topic, or a question the AI wrote contains something the workspace holds.
+  // A restricted topic, or a question the AI wrote states an amount (the built-in amount rule
+  // keeps this code); a listed phrase is `hold_phrase`.
   restricted_topic:
-    'the customer asks about a restricted topic, or a question in the email contains something this workspace holds, so nothing was asked automatically',
+    'the customer asks about a restricted topic, or a question in the email states an amount with a unit of measure, so nothing was asked automatically',
   hold_phrase:
     'a question in the email contains a phrase this workspace holds, so nothing was asked automatically',
   no_customer_request: 'the message is not a customer request',
@@ -188,7 +194,7 @@ export const autoReplyReasonLabel = (reason: string | null | undefined): string 
 /** The reasons the Audit Logs filter offers, most asked-for first. */
 export const AUTO_REPLY_REASON_FILTERS: ReadonlyArray<{ value: string; label: string }> = [
   { value: WOULD_SEND, label: 'Would have been sent (check-only mode)' },
-  { value: 'restricted_topic', label: 'A restricted topic, or a held phrase' },
+  { value: 'restricted_topic', label: 'A restricted topic, or an amount with a unit' },
   { value: 'hold_phrase', label: 'A phrase this workspace holds' },
   { value: 'reply_unchecked', label: 'Reply could not be checked' },
   { value: 'needs_lookup_or_action', label: 'Needs a lookup or an action' },
