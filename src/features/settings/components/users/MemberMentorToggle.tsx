@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/Badge';
 import { Toggle } from '@/components/ui/Toggle';
 import { logger } from '@/lib/logger';
+import { useAuthStore } from '@/stores/authStore';
 import { userService } from '@/services/user.service';
 import type { ColumnDef } from '@/components/ui/DataTable';
 import type { User } from '@/types';
@@ -34,6 +35,14 @@ export const MemberMentorToggle = ({ user, canEdit }: Props) => {
   const [error, setError] = useState<string | null>(null);
   // A re-read list (another admin's change) wins over what this row last showed.
   useEffect(() => setChecked(isMentor), [isMentor]);
+  // Set in the effect too: StrictMode's mount, unmount, mount must end "mounted".
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   if (!canEdit) {
     return checked ? (
@@ -44,21 +53,31 @@ export const MemberMentorToggle = ({ user, canEdit }: Props) => {
   }
 
   const change = async (next: boolean) => {
+    /*
+      Review 1.1.330 F3: an answer that lands after the admin switched workspace belongs to the
+      workspace it was saved in — user ids are global, so writing it into the list now on screen
+      would mark the same person mentor THERE. Nor is a row that is gone updated.
+    */
+    const savedIn = useAuthStore.getState().selectedOrganizationId;
+    const stale = () =>
+      !mountedRef.current || useAuthStore.getState().selectedOrganizationId !== savedIn;
     setSaving(true);
     setError(null);
     setChecked(next);
     try {
       const result = await userService.setMentor(userId, next);
+      if (stale()) return;
       setChecked(result.isMentor);
       setOpenAssigned(result.isMentor ? result.openAssigned : 0);
       keepInList(userId, result.isMentor);
     } catch (err) {
       logger.error('Failed to set the mentor mark', err);
+      if (stale()) return;
       setChecked(!next);
       setOpenAssigned(0);
       setError(err instanceof Error && err.message ? err.message : 'Could not save. Try again.');
     } finally {
-      setSaving(false);
+      if (mountedRef.current) setSaving(false);
     }
   };
 
