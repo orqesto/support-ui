@@ -46,6 +46,10 @@ export type EffectiveRole = {
    * Administrator stays one even in a group mapped to Moderator.
    */
   directRole?: string | null;
+  /**
+   * A mentor in THIS workspace (1.1.330). Normalised: false when an older backend leaves it out.
+   */
+  isMentor?: boolean;
   /** Per-user permission customisation is in force. */
   hasOverrides?: boolean;
   /** Who last customised them. null = not recorded, NOT "nobody". */
@@ -91,7 +95,22 @@ export type AllianceMember = {
   active?: boolean;
   /** true ⇒ an alliance admin placed a durable in-Odly hold that survives IdP sync. */
   heldByAdmin?: boolean;
+  /**
+   * A mentor in at least one of the organisation's workspaces the member is active in (1.1.330;
+   * per workspace: `effectiveRoles[].isMentor`). Normalised: false from an older backend.
+   */
+  isMentor?: boolean;
 };
+
+/** An older backend sends no `isMentor` (review 1.1.330 GAP-ALLIANCE): missing ⇒ false. */
+export const normalizeAllianceMember = (member: AllianceMember): AllianceMember => ({
+  ...member,
+  isMentor: member.isMentor === true,
+  effectiveRoles: (member.effectiveRoles ?? []).map((role) => ({
+    ...role,
+    isMentor: role.isMentor === true,
+  })),
+});
 
 const BASE = '/api/alliances';
 
@@ -181,7 +200,7 @@ export const allianceAdminService = {
     const res = await apiClient.get<{ data: AllianceMember[] }>(`${BASE}/${allianceId}/members`, {
       params: { effective: '1' },
     });
-    return res.data.data;
+    return res.data.data.map(normalizeAllianceMember);
   },
 
   addMember: async (
