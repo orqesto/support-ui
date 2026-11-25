@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/Button';
 import { useAiConfigured } from '@/hooks/useAiConfigured';
 import { useAiDraftsOff } from '@/features/settings/shell';
 import { logger } from '@/lib/logger';
+import { documentationHref } from '@/lib/documentationLink';
 import { languageName as languageNameOf } from '@/lib/languageName';
 import { stripGreetingName } from '@/lib/depersonalise';
 import {
@@ -115,12 +116,6 @@ const sourceTitle = (raw: string | undefined): string | undefined => {
   if (!text) return undefined;
   return text;
 };
-
-/** Uploaded documentation (Settings → Documentation tab), highlighted by `?docId=` when known. */
-const documentationHref = (documentId: number | undefined): string =>
-  documentId
-    ? `/knowledge-base?docId=${documentId}#documentation`
-    : '/knowledge-base#documentation';
 
 /** A knowledge-base ENTRY (Q&A pair, document, manual entry): the KB page opens it by `?id=`. */
 const kbEntryHref = (id: number | undefined): string | undefined =>
@@ -412,7 +407,10 @@ export function AiTabPanel({
           suggestedAnswer.referencedChunks?.[0] ??
           suggestedAnswer.documentationId)
         : undefined,
-      sourceHref: isDocs ? documentationHref(suggestedAnswer.sourceDocumentId) : undefined,
+      // With the document known, the first chunk the answer used says where in it to open.
+      sourceHref: isDocs
+        ? documentationHref(suggestedAnswer.sourceDocumentId, { chunkId: suggestedAnswer.referencedChunks?.[0] })
+        : undefined,
       messageId: suggestedAnswer.similarMessageId,
       content: matchingResult?.content,
       subject: matchingResult?.subject,

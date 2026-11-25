@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { lazy, Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { KBEntryCard, KBEntryDetail, KBTableView, KbAutoActionsButton, kbSourceParam, type KBEntry, type KbFinding, type KbIdMatch, type KbSplitCase, KbSplitCaseHint, KbCaseActionConfirmText, useKbCaseOriginals, type KbPendingDecision, type PaginationMeta, isCaseRow, useKbEntryParam, useKbAutoChangedSupport, CASE_ACTION_TITLES, LEFT_PAGE, runCaseAction, useKbDecideLink, KbExportButton, type KbFilterStatus, withoutKbFinding, useKbStatusParam, KbFindingBanner, KbIdMatchHint, KbStatusIgnoredNotice, isNewStatus, useKbAutoRestore, useKbUnhide, KBDeleteDialog, confirmKbDelete, makeKbRestoreDeleted, KbDecisionDialog, KbBulkDecisionBar, bulkModeFor, useKbBulkDecisions, useKbFindingFilter, KbMoreFilters, KbPageToolbar, type KbListType, useKbTeams, KbEngineActivity, KbEngineOffNotice, KbDecideNotice, KbQuestionsView, KbStillLearning, useKbEngineSummary, useKbPageView, isOlderThan7d, entryFailureAlert, kbExportFilters, kbQuestionFromSearch, kbQuestionsTeamFromSearch, liveDefaultStatus, kbSearchForView, type KbPageView } from '@/features/kb';
-import { kbService } from '@/features/kb/shell';
+import { documentationService, kbService } from '@/features/kb/shell';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ALL_SOURCES } from '@/components/shared/MessageSourceFilter';
 import { AlertDialog, type AlertDialogProps } from '@/components/ui/AlertDialog';
@@ -12,6 +12,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { usePermissions } from '@/hooks/usePermissions';
 import { logger } from '@/lib/logger';
+import { readDocumentationLink } from '@/lib/documentationLink';
 import { Permission } from '@/types/roles';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
@@ -22,12 +23,35 @@ type FilterType = KbListType;
 
 const VALID_FILTER_TYPES: FilterType[] = ['all', 'qa_pair', 'document'];
 
+// Loaded only for a source link opened without access to Settings › AI.
+const LinkedDocumentPreview = lazy(() =>
+  import('@/features/settings').then((mod) => ({ default: mod.LinkedDocumentPreview }))
+);
+
 /** Documentation moved to Settings › AI (KB engine Stage 1); its old address lands there. */
 export const DOCUMENTATION_HREF = '/settings#ai/documentation';
 
 export const KnowledgeBasePage = () => {
   const location = useLocation();
-  if (location.hash === '#documentation') return <Navigate to={DOCUMENTATION_HREF} replace />;
+  const { hasPermission } = usePermissions();
+  if (location.hash === '#documentation') {
+    const linked = readDocumentationLink(new URLSearchParams(location.search));
+    // Someone who cannot open Settings › AI (an agent) still reads the document a source names.
+    if (linked.docId !== undefined && !hasPermission(Permission.VIEW_AI_SETTINGS)) {
+      return (
+        <Suspense fallback={null}>
+          <LinkedDocumentPreview
+            docId={linked.docId}
+            chunkIndex={linked.chunkIndex}
+            chunkId={linked.chunkId}
+            loaders={documentationService}
+          />
+        </Suspense>
+      );
+    }
+    // The query goes along: a source link names its document there (`?docId=`, `&chunk=`).
+    return <Navigate to={`/settings${location.search}#ai/documentation`} replace />;
+  }
   return <KnowledgeBaseViews />;
 };
 

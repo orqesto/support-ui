@@ -145,6 +145,13 @@ vi.mock('@/hooks/usePermissions', () => ({
     isOrgAdmin: state.canManageKb,
   }),
 }));
+vi.mock('@/features/settings/components/docPreview/LinkedDocumentPreview', () => ({
+  LinkedDocumentPreview: ({ loaders, ...props }: Record<string, unknown>) => (
+    <output data-testid="linked-document" data-loaders={String(loaders !== undefined)}>
+      {JSON.stringify(props)}
+    </output>
+  ),
+}));
 vi.mock('@/hooks/useUiFlags', () => ({ useUiFlags: () => ({ isSurfaceVisibleToMe: () => true }) }));
 vi.mock('@/features/kb/hooks/useAutoActionsAvailable', () => ({
   useAutoActionsAvailable: () => true,
@@ -472,6 +479,22 @@ describe('Knowledge Base page: three views', () => {
     expect(await screen.findByText('documentation settings')).toBeInTheDocument();
     expect(screen.getByText('confluence catalog')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Documentation/ })).toBeInTheDocument();
+  });
+
+  it('⛔ without access to Settings › AI (an agent) the source link shows the document itself', async () => {
+    state.canManageKb = false;
+    renderAt('/knowledge-base?docId=7606&chunkId=412#documentation');
+    expect(await screen.findByTestId('linked-document')).toHaveTextContent('{"docId":7606,"chunkId":412}');
+    expect(screen.getByTestId('where')).toHaveTextContent('/knowledge-base?docId=7606&chunkId=412#documentation');
+  });
+
+  it('⛔ the old Documentation address keeps the document a source link names', async () => {
+    renderAt('/knowledge-base?docId=7606&chunk=0#documentation');
+    await waitFor(() =>
+      expect(screen.getByTestId('where')).toHaveTextContent(
+        '/settings?docId=7606&chunk=0#ai/documentation'
+      )
+    );
   });
 
   it('first run: no entries shows "The engine is still learning"', async () => {
