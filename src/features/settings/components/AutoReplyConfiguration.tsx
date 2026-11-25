@@ -341,7 +341,7 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
   /** Every team that has stored topics — also a switched-off or deleted one — as the server lists them. */
   const [topicTeams, setTopicTeams] = useState<RestrictedTopicTeam[]>([]);
 
-  // Threshold is editable via a slider that triggers a save on mouse/touch up;
+  // Threshold is editable via a slider that saves when the change ends (commitOrgThreshold);
   // mid-drag we hold the value locally so the slider stays responsive.
   const [tempThresholdOrg, setTempThresholdOrg] = useState<number | null>(null);
   const [tempThresholdDept, setTempThresholdDept] = useState<Record<string, number>>({});
@@ -768,6 +768,26 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
       const { [key]: _omit, ...rest } = current;
       return value === undefined ? rest : { ...rest, [key]: value };
     });
+
+  /**
+   * The confidence sliders save the value held while it changed, once, when the change ENDS
+   * (pointer up, key up, blur); nothing is saved while dragging. No held value = nothing changed.
+   */
+  const commitOrgThreshold = () => {
+    if (tempThresholdOrg === null) return;
+    void saveOrg({ highConfidenceThreshold: tempThresholdOrg });
+    setTempThresholdOrg(null);
+  };
+  const commitDeptThreshold = (deptId: number, key: string) => {
+    const value = tempThresholdDept[key];
+    if (value === undefined) return;
+    setDeptKey(deptId, 'autoReplyHighConfidenceThreshold', value);
+    setTempThresholdDept((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
   /**
    * A team change that can make the team START sending — its enable, its mode, or a reset of all
@@ -1207,18 +1227,13 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                               value={Math.round(orgThreshold * 100)}
                               disabled={saving.org === true}
                               onChange={(ev) => setTempThresholdOrg(Number(ev.target.value) / 100)}
-                              onMouseUp={() => {
-                                if (tempThresholdOrg !== null) {
-                                  void saveOrg({ highConfidenceThreshold: tempThresholdOrg });
-                                  setTempThresholdOrg(null);
-                                }
-                              }}
-                              onTouchEnd={() => {
-                                if (tempThresholdOrg !== null) {
-                                  void saveOrg({ highConfidenceThreshold: tempThresholdOrg });
-                                  setTempThresholdOrg(null);
-                                }
-                              }}
+                              // Saved when the change ENDS, by any input: the pointer let go (mouse,
+                              // touch, pen), an arrow/Home/End key let go, or focus leaving. Only
+                              // mouse/touch saved before — a keyboard change showed the new value
+                              // and the server kept the old one.
+                              onPointerUp={commitOrgThreshold}
+                              onKeyUp={commitOrgThreshold}
+                              onBlur={commitOrgThreshold}
                               className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                             />
                             <p className="text-[10px] text-muted-foreground">
@@ -1499,28 +1514,10 @@ export const AutoReplyConfiguration = ({ onShowAlert }: Props) => {
                                   [key]: Number(ev.target.value) / 100,
                                 }))
                               }
-                              onMouseUp={() => {
-                                const value = tempThresholdDept[key];
-                                if (value !== undefined) {
-                                  setDeptKey(dept.id, 'autoReplyHighConfidenceThreshold', value);
-                                  setTempThresholdDept((prev) => {
-                                    const next = { ...prev };
-                                    delete next[key];
-                                    return next;
-                                  });
-                                }
-                              }}
-                              onTouchEnd={() => {
-                                const value = tempThresholdDept[key];
-                                if (value !== undefined) {
-                                  setDeptKey(dept.id, 'autoReplyHighConfidenceThreshold', value);
-                                  setTempThresholdDept((prev) => {
-                                    const next = { ...prev };
-                                    delete next[key];
-                                    return next;
-                                  });
-                                }
-                              }}
+                              // Saved when the change ends, by any input (as the workspace slider).
+                              onPointerUp={() => commitDeptThreshold(dept.id, key)}
+                              onKeyUp={() => commitDeptThreshold(dept.id, key)}
+                              onBlur={() => commitDeptThreshold(dept.id, key)}
                               className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
                             />
                             <p className="text-[10px] text-muted-foreground">

@@ -211,3 +211,66 @@ describe('the confidence numbers sit under "Advanced" (settings quick wins, Task
     expect(screen.getByText(/Only workspace admins and moderators/).textContent).not.toMatch(/%/);
   });
 });
+
+/*
+  The confidence sliders saved only on mouse/touch release: a keyboard change (arrows, Home/End)
+  showed the new value and the server kept the old one. Saved now when the change ends, by any
+  input, once. NEGATIVE CONTROL (seen to fail): with only onMouseUp/onTouchEnd the keyboard tests
+  save nothing.
+*/
+describe('the confidence sliders save when the change ends, by any input', () => {
+  const thresholdSaves = () =>
+    state.updates.filter((update) => JSON.stringify(update).includes('ighConfidenceThreshold'));
+
+  beforeEach(() => {
+    state.mode = 'all';
+    state.modeStored = 'all';
+    state.departmentSettings = { '7': { autoReplyEnabled: true } };
+  });
+
+  it('workspace slider, keyboard: the arrow key let go saves the new value', async () => {
+    await show();
+    const slider = document.getElementById('org-threshold') as HTMLInputElement;
+    fireEvent.keyDown(slider, { key: 'ArrowRight' });
+    fireEvent.change(slider, { target: { value: '95' } });
+    fireEvent.keyUp(slider, { key: 'ArrowRight' });
+    await vi.waitFor(() => expect(thresholdSaves()).toHaveLength(1));
+    expect(thresholdSaves()).toEqual([
+      expect.objectContaining({ highConfidenceThreshold: 0.95 }),
+    ]);
+  });
+
+  it('workspace slider, drag: one save with the last value, none while dragging', async () => {
+    await show();
+    const slider = document.getElementById('org-threshold') as HTMLInputElement;
+    fireEvent.pointerDown(slider);
+    for (const value of ['75', '80', '85']) fireEvent.change(slider, { target: { value } });
+    expect(thresholdSaves()).toEqual([]);
+    fireEvent.pointerUp(slider);
+    // The blur that follows a drag finds nothing held: still one save.
+    fireEvent.blur(slider);
+    await vi.waitFor(() => expect(thresholdSaves()).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(thresholdSaves()).toEqual([
+      expect.objectContaining({ highConfidenceThreshold: 0.85 }),
+    ]);
+  });
+
+  it('team slider, keyboard: the arrow key let go saves that team’s value', async () => {
+    await show();
+    const slider = document.getElementById('dept-threshold-7') as HTMLInputElement;
+    fireEvent.change(slider, { target: { value: '95' } });
+    fireEvent.keyUp(slider, { key: 'ArrowUp' });
+    await vi.waitFor(() => expect(thresholdSaves()).toHaveLength(1));
+    expect(JSON.stringify(thresholdSaves()[0])).toContain('"autoReplyHighConfidenceThreshold":0.95');
+  });
+
+  it('CONTROL: a key let go with no change saves nothing', async () => {
+    await show();
+    const slider = document.getElementById('org-threshold') as HTMLInputElement;
+    fireEvent.keyUp(slider, { key: 'Tab' });
+    fireEvent.pointerUp(slider);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(thresholdSaves()).toEqual([]);
+  });
+});

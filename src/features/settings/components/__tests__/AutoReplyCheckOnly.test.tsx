@@ -493,13 +493,13 @@ describe('a team save that changes nothing', () => {
     // Dragged away and put back where it was, then let go.
     fireEvent.change(slider, { target: { value: '97' } });
     fireEvent.change(slider, { target: { value: '95' } });
-    fireEvent.mouseUp(slider);
+    fireEvent.pointerUp(slider);
     await new Promise((resolve) => setTimeout(resolve, 30));
     expect(state.updates).toEqual([]);
     expect(state.alerts).toEqual([]);
     // CONTROL: a real change is sent.
     fireEvent.change(slider, { target: { value: '97' } });
-    fireEvent.mouseUp(slider);
+    fireEvent.pointerUp(slider);
     await waitFor(() => expect(state.updates).toHaveLength(1));
   });
 

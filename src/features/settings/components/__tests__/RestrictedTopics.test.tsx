@@ -424,7 +424,7 @@ describe('the other saves of a team row keep its other settings and never send t
     await open();
     const slider = document.getElementById('dept-threshold-7') as HTMLInputElement;
     fireEvent.change(slider, { target: { value: '97' } });
-    fireEvent.mouseUp(slider);
+    fireEvent.pointerUp(slider);
     await saved({ ...MINE, autoReplyHighConfidenceThreshold: 0.97 });
   });
 
