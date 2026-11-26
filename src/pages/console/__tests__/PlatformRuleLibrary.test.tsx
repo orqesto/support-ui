@@ -162,12 +162,13 @@ describe('Rule library console: the page', () => {
     list.mockResolvedValue(body({ items: [item({ payload: { pattern: 'p', category: 'c', severity: 5, extra: 1 } })] }));
     await openEditor();
     fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'New text' } });
+    fireEvent.change(screen.getByLabelText('Pattern'), { target: { value: 'p2' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(update).toHaveBeenCalled());
     const [id, sent] = update.mock.calls[0];
     expect(id).toBe(1);
     expect(sent).toMatchObject({ updatedAt: '2026-11-02T10:00:00Z', description: 'New text', active: true });
-    expect(sent.payload).toMatchObject({ pattern: 'p', category: 'c', severity: 5, extra: 1 });
+    expect(sent.payload).toMatchObject({ pattern: 'p2', category: 'c', severity: 5, extra: 1 });
     expect('flow' in sent).toBe(false);
   });
 
@@ -175,12 +176,79 @@ describe('Rule library console: the page', () => {
     ['a 409', 409, { success: false, error: 'stale', code: 'STALE_ITEM' }, 'Someone else changed this item — reload'],
     ['an unsafe pattern', 400, { success: false, error: 'x', code: 'UNSAFE_PATTERN' }, 'This pattern could hang mail processing'],
     ['a 503', 503, { success: false, error: 'x', code: 'EMBEDDING_UNAVAILABLE' }, "Could not compute the example's meaning; nothing saved"],
-    ['a validation error', 400, { success: false, error: 'pattern: Required', code: 'VALIDATION_ERROR' }, 'pattern: Required'],
+    ['a validation error', 400, { success: false, error: 'Invalid payload', code: 'VALIDATION_ERROR' }, 'Invalid payload'],
   ])('shows the right message for %s', async (_n, status, errBody, text) => {
     update.mockRejectedValue(await apiError(status, errBody));
     await openEditor();
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText(text)).toBeTruthy();
+  });
+
+  it('lists each validation issue under the error', async () => {
+    update.mockRejectedValue(
+      await apiError(400, {
+        success: false,
+        error: 'Invalid payload',
+        code: 'VALIDATION_ERROR',
+        issues: [{ path: ['severity'], message: 'Number must be less than or equal to 100' }],
+      })
+    );
+    await openEditor();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('severity: Number must be less than or equal to 100')).toBeTruthy();
+  });
+
+  it('reloads the list after a stale-item error', async () => {
+    update.mockRejectedValue(await apiError(409, { success: false, error: 'stale', code: 'STALE_ITEM' }));
+    await openEditor();
+    const before = list.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByText('Someone else changed this item — reload');
+    await waitFor(() => expect(list.mock.calls.length).toBeGreaterThan(before));
+  });
+
+  it('clears a purpose group with null, and sends no payload for an unchanged one', async () => {
+    await openEditor();
+    fireEvent.change(screen.getByLabelText('Purpose group'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    const sent = update.mock.calls[0][1];
+    expect(sent.purposeGroup).toBeNull();
+    expect('payload' in sent).toBe(false);
+  });
+
+  it('an active-only edit sends no payload', async () => {
+    await openEditor();
+    fireEvent.click(screen.getByRole('switch', { name: 'Active' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    const sent = update.mock.calls[0][1];
+    expect(sent).toMatchObject({ active: false, purposeGroup: 'general' });
+    expect('payload' in sent).toBe(false);
+  });
+
+  it('a stored null contextConditions does not become a null on an unchanged save', async () => {
+    list.mockResolvedValue(
+      body({
+        items: [
+          item({
+            flow: 'response',
+            payload: {
+              category: 'c', triggerType: 't', exampleText: 'e', responseTemplate: 'r',
+              responseType: 'x', confidenceThreshold: 1, language: 'en', priority: 1,
+              contextConditions: null,
+            },
+          }),
+        ],
+      })
+    );
+    await openEditor();
+    fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'd2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(update).toHaveBeenCalled());
+    const sent = update.mock.calls[0][1];
+    // Null and absent are the same: nothing changed in the payload, so none is sent (and no null goes out).
+    expect('payload' in sent).toBe(false);
   });
 
   it('creates a new item after picking a flow', async () => {

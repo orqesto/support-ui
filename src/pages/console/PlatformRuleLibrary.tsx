@@ -18,6 +18,7 @@ import {
   FLOW_LABELS,
   PAYLOAD_FIELDS,
   payloadFromValues,
+  sameJson,
   valuesFromPayload,
   type FieldValues,
 } from '@/features/rule-library/payloadFields';
@@ -42,7 +43,7 @@ export const UNSAFE_PATTERN_TEXT = 'This pattern could hang mail processing';
 export const EMBEDDING_TEXT = "Could not compute the example's meaning; nothing saved";
 
 /** What to tell the admin about a failed save. The server's text is shown only for a validation error. */
-export const ruleLibraryErrorText = (err: unknown): string => {
+export const describeError = (err: unknown): string => {
   const status = getErrorStatus(err);
   const body = getErrorBody(err);
   if (status === 409 || body?.code === 'STALE_ITEM') return STALE_TEXT;
@@ -51,6 +52,22 @@ export const ruleLibraryErrorText = (err: unknown): string => {
   if (body?.code === 'VALIDATION_ERROR' && typeof body.error === 'string' && body.error) return body.error;
   return getApiErrorMessage(err) ?? (err instanceof Error ? err.message : 'Could not save.');
 };
+
+/** The per-field detail of a failed validation: the BE sends zod issues `{path, message}`. */
+export const ruleLibraryIssueLines = (err: unknown): string[] => {
+  const issues = (getErrorBody(err) as { issues?: unknown } | undefined)?.issues;
+  if (!Array.isArray(issues)) return [];
+  return issues.flatMap((issue: unknown) => {
+    const { path, message } = (issue ?? {}) as { path?: unknown; message?: unknown };
+    if (typeof message !== 'string') return [];
+    const where = Array.isArray(path) ? path.join('.') : '';
+    return [where ? `${where}: ${message}` : message];
+  });
+};
+
+/** A stored null and an absent key mean the same to the backend; do not call that a change. */
+const withoutNulls = (payload: Record<string, unknown>): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== null));
 
 type Draft = {
   id: number | null;
@@ -87,7 +104,7 @@ const RuleLibraryPage = () => {
   const [archived, setArchived] = useState(false);
   const [page, setPage] = useState(1);
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ text: string; lines: string[] } | null>(null);
 
   const params = {
     flow,
@@ -115,8 +132,9 @@ const RuleLibraryPage = () => {
             updatedAt: next.updatedAt,
             name: next.name.trim(),
             description: next.description.trim(),
-            ...(next.purposeGroup.trim() ? { purposeGroup: next.purposeGroup.trim() } : {}),
-            payload,
+            purposeGroup: next.purposeGroup.trim() || null,
+            // Only a changed payload goes out, so a description or active edit never re-validates an old one.
+            ...(sameJson(withoutNulls(payload), withoutNulls(next.basePayload)) ? {} : { payload }),
             active: next.active,
           });
     },
@@ -125,7 +143,11 @@ const RuleLibraryPage = () => {
       setError(null);
       void refresh();
     },
-    onError: (err) => setError(ruleLibraryErrorText(err)),
+    onError: (err) => {
+      setError({ text: describeError(err), lines: ruleLibraryIssueLines(err) });
+      // A stale item: reload the list so re-opening Edit carries the new updatedAt.
+      if (getErrorStatus(err) === 409 || getErrorBody(err)?.code === 'STALE_ITEM') void refresh();
+    },
   });
   const locked = save.isPending;
 
@@ -178,13 +200,25 @@ const RuleLibraryPage = () => {
           </Button>
         }
       />
-      {error && <Alert variant="danger">{error}</Alert>}
+      {error && (
+        <Alert variant="danger">
+          {error.text}
+          {error.lines.length > 0 && (
+            <ul className="mt-1 list-disc pl-5">
+              {error.lines.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          )}
+        </Alert>
+      )}
       {draft && (
         <Card>
           <CardContent className="space-y-3 pt-4">
             {draft.id === null ? (
               <Select
                 label="Flow"
+                disabled={locked}
                 options={FLOW_OPTIONS}
                 value={draft.flow}
                 onChange={(next) => {
@@ -240,6 +274,7 @@ const RuleLibraryPage = () => {
                   <Select
                     key={field.key}
                     label={field.label}
+                    disabled={locked}
                     isClearable={!field.required}
                     options={(field.options ?? []).map((option) => ({ value: option, label: option }))}
                     value={str}

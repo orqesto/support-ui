@@ -71,7 +71,8 @@ export interface RuleLibraryUpdateBody {
   updatedAt: string;
   name?: string;
   description?: string;
-  purposeGroup?: string;
+  /** null clears the group (the backend rejects an empty string). */
+  purposeGroup?: string | null;
   payload?: Record<string, unknown>;
   active?: boolean;
 }

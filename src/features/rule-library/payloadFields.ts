@@ -153,7 +153,7 @@ export const valuesFromPayload = (flow: RuleLibraryFlow, payload: Record<string,
     const raw = payload[field.key];
     if (field.kind === 'boolean') values[field.key] = raw === true;
     else if (field.kind === 'list') values[field.key] = Array.isArray(raw) ? raw.join('\n') : '';
-    else if (field.kind === 'json') values[field.key] = raw === undefined ? '' : JSON.stringify(raw, null, 2);
+    else if (field.kind === 'json') values[field.key] = raw === undefined || raw === null ? '' : JSON.stringify(raw, null, 2);
     else values[field.key] = typeof raw === 'string' || typeof raw === 'number' ? String(raw) : '';
   }
   return values;
@@ -203,4 +203,19 @@ export const payloadFromValues = (
     }
   }
   return payload;
+};
+
+/** Structural equality for JSON values (key order does not matter). */
+export const sameJson = (left: unknown, right: unknown): boolean => {
+  if (left === right) return true;
+  if (typeof left !== 'object' || typeof right !== 'object' || left === null || right === null) return false;
+  if (Array.isArray(left) !== Array.isArray(right)) return false;
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every(
+    (key) =>
+      Object.prototype.hasOwnProperty.call(right, key) &&
+      sameJson((left as Record<string, unknown>)[key], (right as Record<string, unknown>)[key])
+  );
 };
