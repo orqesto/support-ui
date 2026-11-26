@@ -55,6 +55,17 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
   const sessionRef = useRef(0);
   const savingRef = useRef(false);
   const [saving, setSaving] = useState(false);
+  /**
+   * A new editor session (open, close, or a forced close): any request still in flight belongs to
+   * the old one, so `saving` restarts here and that request's answer is ignored when it lands.
+   */
+  const startSession = useCallback(() => {
+    sessionRef.current += 1;
+    savingRef.current = false;
+    setSaving(false);
+  }, []);
+  /** The current editor session, for a page that sets its own inline state after an await. */
+  const getSession = useCallback(() => sessionRef.current, []);
   const setFormData = useCallback((next: TFormData) => {
     setSaveError(null);
     setFormDataState(next);
@@ -91,14 +102,14 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
       const fresh = data.find((rule) => rule.id === open.id);
       const toForm = getFormDataFromRuleRef.current;
       if (!fresh || JSON.stringify(toForm(fresh)) !== JSON.stringify(toForm(open))) {
-        sessionRef.current += 1;
+        startSession();
         setEditingRule(null);
         setFormData(getInitialFormDataRef.current());
       }
     } catch (error) {
       logger.error('Error reloading rules:', error);
     }
-  }, [setFormData]);
+  }, [setFormData, startSession]);
 
   // SpamRules + DetectionRules controllers honour X-Department-Context on the
   // list endpoints — refetch when the checkbox-driven dept selection changes
@@ -112,25 +123,25 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
 
   const handleEdit = useCallback(
     (rule: T) => {
-      sessionRef.current += 1;
+      startSession();
       setEditingRule(rule);
       setFormData(getFormDataFromRuleRef.current(rule));
     },
-    [setFormData]
+    [setFormData, startSession]
   );
 
   const handleCreate = useCallback(() => {
-    sessionRef.current += 1;
+    startSession();
     setIsCreating(true);
     setFormData(getInitialFormDataRef.current());
-  }, [setFormData]);
+  }, [setFormData, startSession]);
 
   const handleCancel = useCallback(() => {
-    sessionRef.current += 1;
+    startSession();
     setEditingRule(null);
     setIsCreating(false);
     setFormData(getInitialFormDataRef.current());
-  }, [setFormData]);
+  }, [setFormData, startSession]);
 
   const handleSave = useCallback(async () => {
     // One request per click-through: a second click while it is in flight is ignored.
@@ -154,8 +165,11 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
       }
       throw error;
     } finally {
-      savingRef.current = false;
-      setSaving(false);
+      // A newer session already restarted `saving`; this late answer must not touch it.
+      if (sessionRef.current === session) {
+        savingRef.current = false;
+        setSaving(false);
+      }
     }
   }, [editingRule, isCreating, formData, loadRules, handleCancel]);
 
@@ -194,6 +208,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     formData,
     saveError,
     saving,
+    getSession,
 
     // Setters
     setFormData,

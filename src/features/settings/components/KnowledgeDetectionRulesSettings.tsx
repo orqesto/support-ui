@@ -8,6 +8,9 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
 import { settingsService, type KnowledgeDetectionRule } from '@/services/settings.service';
+import { logger } from '@/lib/logger';
+import { toast } from '@/lib/toast';
+import { getApiErrorMessage, RULE_TOGGLE_FAILED_MESSAGE } from '@/lib/errorMessages';
 
 type RuleFilter = 'all' | 'manual' | 'feedback';
 
@@ -61,8 +64,14 @@ export const KnowledgeDetectionRulesSettings = () => {
   });
 
   const toggleActive = async (rule: KnowledgeDetectionRule) => {
-    await settingsService.updateKnowledgeDetectionRule(rule.id, { active: !rule.active });
-    await ruleManagement.loadRules();
+    try {
+      await settingsService.updateKnowledgeDetectionRule(rule.id, { active: !rule.active });
+      await ruleManagement.loadRules();
+    } catch (error) {
+      // Visible, never an unhandled rejection: a refusal, a network drop or a 2xx without the row.
+      logger.error('Error toggling knowledge detection rule:', error);
+      toast.error(getApiErrorMessage(error) ?? RULE_TOGGLE_FAILED_MESSAGE);
+    }
   };
 
   // Category stats — counts per category for active rules. Rendered as a banner

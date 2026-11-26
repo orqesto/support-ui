@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
+import { requireSavedRow } from '@/lib/errorMessages';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import {
   detectionRuleService,
@@ -46,13 +47,11 @@ export const DetectionRulesSettings = () => {
     },
     createRule: async (data) => {
       const response = await detectionRuleService.create(data);
-      if (!response.data) throw new Error('Create failed');
-      return response.data;
+      return requireSavedRow(response?.data);
     },
     updateRule: async (id, data) => {
       const response = await detectionRuleService.update(id, data);
-      if (!response.data) throw new Error('Update failed');
-      return response.data;
+      return requireSavedRow(response?.data);
     },
     deleteRule: async (id) => {
       await detectionRuleService.delete(id);

@@ -113,8 +113,15 @@ export const CategoriesSettings = () => {
     });
   }, []);
 
-  const handleEdit = (category: Category) => {
+  /** A form opens or closes: a request still in flight belongs to the old form. */
+  const startSession = () => {
     sessionRef.current += 1;
+    savingRef.current = false;
+    setSaving(false);
+  };
+
+  const handleEdit = (category: Category) => {
+    startSession();
     setEditingCategory(category);
     setFormData({
       name: category.name,
@@ -125,7 +132,7 @@ export const CategoriesSettings = () => {
   };
 
   const handleCreate = () => {
-    sessionRef.current += 1;
+    startSession();
     setIsCreating(true);
     setFormData({ name: '', description: '', keywords: '', departmentId: null });
   };
@@ -145,7 +152,7 @@ export const CategoriesSettings = () => {
       }
       await fetchCategories();
       if (sessionRef.current === session) {
-        sessionRef.current += 1;
+        startSession();
         setEditingCategory(null);
         setIsCreating(false);
         setFormData({ name: '', description: '', keywords: '', departmentId: null });
@@ -160,13 +167,15 @@ export const CategoriesSettings = () => {
         setSaveError({ target, message });
       }
     } finally {
-      savingRef.current = false;
-      setSaving(false);
+      if (sessionRef.current === session) {
+        savingRef.current = false;
+        setSaving(false);
+      }
     }
   };
 
   const handleCancel = () => {
-    sessionRef.current += 1;
+    startSession();
     setEditingCategory(null);
     setIsCreating(false);
     setFormData({ name: '', description: '', keywords: '', departmentId: null });

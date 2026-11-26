@@ -8,7 +8,12 @@ import { Select } from '@/components/ui/Select';
 import { RuleEditor } from '@/components/shared/RuleEditor';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
-import { getApiErrorMessage, getErrorStatus, markHandledInline } from '@/lib/errorMessages';
+import {
+  getApiErrorMessage,
+  getErrorStatus,
+  markHandledInline,
+  requireSavedRow,
+} from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import { departmentService, type Department } from '@/services/department.service';
@@ -222,8 +227,7 @@ export const RoutingRulesSettings = () => {
         enabled: data.enabled,
         ...(trimmedExample.length > 0 && { exampleText: trimmedExample }),
       });
-      if (!response.data) throw new Error('Create failed');
-      return adaptRule(response.data);
+      return adaptRule(requireSavedRow(response?.data));
     },
     updateRule: async (id, data) => {
       const shouldTrim = data.type !== 'subject_regex' && data.type !== 'header_match';
@@ -235,6 +239,8 @@ export const RoutingRulesSettings = () => {
       }
       setFormError(null);
       const trimmedExample = data.exampleText.trim();
+      // The editor this save belongs to: the inline line below lands only while it is still open.
+      const session = ruleManagement.getSession();
       try {
         const response = await routingRuleService.update(id, {
           type: data.type,
@@ -245,8 +251,7 @@ export const RoutingRulesSettings = () => {
           // The department the dialog shows is the one saved (B-H1): a move is a move.
           ...(data.departmentId !== null ? { departmentId: data.departmentId } : {}),
         });
-        if (!response.data) throw new Error('Update failed');
-        return adaptRule(response.data);
+        return adaptRule(requireSavedRow(response?.data));
       } catch (err) {
         // D5: on a dormant rule switched on, the BE saves the field edits first and then Accept
         // may answer 409 (routingRulesRoutes.ts PATCH). But the field write itself also answers
@@ -264,7 +269,9 @@ export const RoutingRulesSettings = () => {
           saved.weight === data.weight &&
           (data.departmentId === null || saved.departmentId === data.departmentId);
         if (!editsSaved) {
-          setFormError(getApiErrorMessage(err) ?? 'The rule could not be saved.');
+          if (ruleManagement.getSession() === session) {
+            setFormError(getApiErrorMessage(err) ?? 'The rule could not be saved.');
+          }
           throw markHandledInline(err);
         }
         toast.failure('switch the rule on', err);

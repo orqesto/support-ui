@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, within, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -10,6 +10,10 @@ const state = vi.hoisted(() => ({
   lists: 0,
   failNext: null as null | { status: number; message: string },
   toasts: [] as string[],
+  /** When set, the next update answers with this instead of the default success. */
+  answer: null as null | { throws: unknown } | { resolves: unknown },
+  /** When set, an update waits for it (a request still in flight). */
+  gate: null as Promise<void> | null,
 }));
 const base = {
   exampleText: null,
@@ -175,8 +179,15 @@ vi.mock('@/features/settings/services/routingRule.service', () => ({
       state.lists += 1;
       return Promise.resolve({ success: true, data: RULES });
     },
-    update: (...args: unknown[]) => {
+    update: async (...args: unknown[]) => {
       state.updates.push(args);
+      if (state.gate) await state.gate;
+      const answer = state.answer;
+      if (answer) {
+        state.answer = null;
+        if ('throws' in answer) throw answer.throws;
+        return answer.resolves;
+      }
       const fail = state.failNext;
       if (fail) {
         state.failNext = null;
@@ -237,6 +248,8 @@ afterEach(() => {
   state.lists = 0;
   state.failNext = null;
   state.toasts = [];
+  state.answer = null;
+  state.gate = null;
 });
 
 /** The desktop row (the table) that shows this pattern. */
@@ -433,5 +446,58 @@ describe('Rules page lifecycle', () => {
     expect(await screen.findByText('This rule already exists for the team.')).toBeTruthy();
     expect(screen.getAllByText('This rule already exists for the team.')).toHaveLength(1);
     expect(screen.getByDisplayValue('receipt')).toBeTruthy();
+  });
+
+  it('a throw with no status shows the generic line and keeps the dialog', async () => {
+    renderPage();
+    await screen.findAllByText('invoice');
+    fireEvent.click(rowOf('invoice').getByRole('button', { name: 'Edit rule' }));
+    fireEvent.change(await screen.findByDisplayValue('invoice'), { target: { value: 'receipt' } });
+    state.answer = { throws: new TypeError("Cannot read properties of null (reading 'data')") };
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+    expect(await screen.findByText('Could not save the rule. Try again.')).toBeTruthy();
+    expect(screen.getByDisplayValue('receipt')).toBeTruthy();
+  });
+
+  it('a 2xx with {} does not close as saved and shows the generic line', async () => {
+    renderPage();
+    await screen.findAllByText('invoice');
+    fireEvent.click(rowOf('invoice').getByRole('button', { name: 'Edit rule' }));
+    fireEvent.change(await screen.findByDisplayValue('invoice'), { target: { value: 'receipt' } });
+    state.answer = { resolves: {} };
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+    expect(await screen.findByText('Could not save the rule. Try again.')).toBeTruthy();
+    expect(screen.getByDisplayValue('receipt')).toBeTruthy();
+  });
+
+  it('a late 409 for a dormant rule does not show in the editor of another rule opened since', async () => {
+    renderPage();
+    await screen.findAllByText('pallet label');
+    fireEvent.click(rowOf('pallet label').getByRole('button', { name: 'Edit rule' }));
+    fireEvent.click(await screen.findByLabelText('Enabled'));
+    fireEvent.change(screen.getByDisplayValue('pallet label'), {
+      target: { value: 'loading dock' },
+    });
+    let release: () => void = () => undefined;
+    state.gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    state.failNext = {
+      status: 409,
+      message: 'Editing this rule would duplicate another rule in this department.',
+    };
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+    await waitFor(() => expect(state.updates).toHaveLength(1));
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+    await waitFor(() => expect(screen.queryByDisplayValue('loading dock')).toBeNull());
+    fireEvent.click(rowOf('invoice').getByRole('button', { name: 'Edit rule' }));
+    expect(await screen.findByDisplayValue('invoice')).toBeTruthy();
+    await act(async () => {
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 30));
+    });
+    await waitFor(() => expect(state.lists).toBeGreaterThan(1));
+    expect(screen.queryByText(/would duplicate another rule/)).toBeNull();
+    expect(screen.getByDisplayValue('invoice')).toBeTruthy();
   });
 });

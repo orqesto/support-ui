@@ -8,6 +8,7 @@ import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { Toggle } from '@/components/ui/Toggle';
 import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
+import { requireSavedRow } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import {
   PRIORITY_LEVELS,
@@ -179,13 +180,11 @@ const useRuleManagementForPriority = (setUnavailable: (next: boolean) => void) =
     },
     createRule: async (data) => {
       const response = await priorityRuleService.create(data);
-      if (!response.data) throw new Error('Create failed');
-      return toView(response.data);
+      return toView(requireSavedRow(response?.data));
     },
     updateRule: async (id, data) => {
       const response = await priorityRuleService.update(id, data);
-      if (!response.data) throw new Error('Update failed');
-      return toView(response.data);
+      return toView(requireSavedRow(response?.data));
     },
     deleteRule: async (id) => {
       await priorityRuleService.delete(id);
