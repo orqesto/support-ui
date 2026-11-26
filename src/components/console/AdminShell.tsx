@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { sidebarWidthPx, useSidebarStore } from '@/stores/sidebarStore';
 import { NavTip, SidebarCollapseToggle, useSidebarShell } from '@/components/layout/SidebarNav';
 import { ConsoleLoading } from './ConsoleLoading';
+import { useUiFlags } from '@/hooks/useUiFlags';
 import { CONSOLE_SECTIONS, PLATFORM_SECTIONS, type ConsoleScopeCtx } from './consoleSections';
 import { AllianceSwitcher } from './AllianceSwitcher';
 import { organisationConsolePath } from '@/pages/organisationConsoleRoutes';
@@ -44,6 +45,9 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
   const clearScope = useScopeStore((state) => state.clearScope);
   const { isAdmin } = usePermissions();
   const { data: alliances = [], isLoading: alliancesLoading } = useMyAlliances();
+  // Strict flags (no staff preview): `uiFlags` is in the memo deps below so the nav re-filters
+  // when the flags arrive.
+  const { flags: uiFlags } = useUiFlags();
   const selfHostedDeployment = useBackendVersion().data?.selfHostedDeployment ?? false;
 
   useEffect(() => {
@@ -59,8 +63,12 @@ export const AdminShell = ({ scope = 'alliance' }: AdminShellProps = {}) => {
       allianceId: numericId,
       selfHostedDeployment,
     };
-    return registry.filter((section) => (section.visible ? section.visible(ctx) : true));
-  }, [registry, scope, isAdmin, numericId, selfHostedDeployment]);
+    return registry.filter(
+      (section) =>
+        (section.visible ? section.visible(ctx) : true) &&
+        (section.flag ? uiFlags[section.flag] === true : true)
+    );
+  }, [registry, scope, isAdmin, numericId, selfHostedDeployment, uiFlags]);
 
   // Access. Platform: global admin only. Alliance: a global admin may view any VALID
   // alliance; everyone else must administer THIS specific alliance. Render an explicit
