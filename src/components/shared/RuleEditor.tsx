@@ -56,6 +56,8 @@ export type RuleEditorProps<
   formData: TForm;
   /** Why the last save was refused; rendered in the open dialog as plain text. */
   saveError?: string | null;
+  /** A save request is in flight: Save is disabled so a double click sends one request. */
+  saving?: boolean;
   setFormData: (data: TForm) => void;
   handleEdit: (rule: TRule) => void;
   handleCreate: () => void;
@@ -127,6 +129,7 @@ export function RuleEditor<
   ruleToDelete,
   formData,
   saveError,
+  saving = false,
   setFormData,
   handleEdit,
   handleCreate,
@@ -593,7 +596,7 @@ export function RuleEditor<
             <Button
               // handleSave already logs; a refused save keeps the dialog open, not an unhandled rejection
               onClick={() => void Promise.resolve(handleSave()).catch(() => undefined)}
-              disabled={isSaveDisabled?.(formData) ?? false}
+              disabled={saving || (isSaveDisabled?.(formData) ?? false)}
               className="gap-1"
             >
               <Save className="w-4 h-4" />
