@@ -88,6 +88,8 @@ export const useUiFlags = () => {
   const canPreviewUnfinished = user?.role === 'admin';
 
   return {
+    /** The raw resolved flags, for a memo that must re-run when they arrive. */
+    flags: state.flags,
     isSurfaceEnabled,
     canPreviewUnfinished,
     isSurfaceVisibleToMe: (key: string) => isSurfaceEnabled(key) || canPreviewUnfinished,
