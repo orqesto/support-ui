@@ -300,13 +300,17 @@ export const RoutingRulesSettings = () => {
 
   const switchRule = async (rule: RoutingRuleView, enabled: boolean, scope: string) => {
     try {
-      await routingRuleService.update(rule.id, { enabled });
+      await ruleManagement.runRowWrite(rule.id, async () => {
+        const response = await routingRuleService.update(rule.id, { enabled });
+        return adaptRule(requireSavedRow(response?.data));
+      });
     } catch (err) {
       // A 409 names why (another department routes the pattern, the group was decided, …).
       logger.error('Failed to toggle routing rule:', err);
       toast.failure(scope, err);
+      // A refused Accept can still have changed the rule: show what the server holds now.
+      await ruleManagement.loadRules();
     }
-    await ruleManagement.loadRules();
   };
 
   const toggleActive = (rule: RoutingRuleView) => {

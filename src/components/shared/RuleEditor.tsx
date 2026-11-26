@@ -80,6 +80,8 @@ export type RuleEditorProps<
   // Row action guards
   onToggleActive: (rule: TRule) => void;
   isToggleDisabled?: (rule: TRule) => boolean;
+  /** Rules with a write in flight: their on/off switch waits for it. */
+  busyRowIds?: ReadonlySet<number>;
   toggleTitle?: (rule: TRule) => string | undefined;
   isEditDisabled?: (rule: TRule) => boolean;
   editTitle?: (rule: TRule) => string | undefined;
@@ -147,6 +149,7 @@ export function RuleEditor<
   isSaveDisabled,
   onToggleActive,
   isToggleDisabled,
+  busyRowIds,
   toggleTitle,
   isEditDisabled,
   editTitle,
@@ -384,7 +387,8 @@ export function RuleEditor<
               </thead>
               <tbody className="divide-y bg-background divide-border">
                 {filteredRules.map((rule) => {
-                  const toggleDisabled = isToggleDisabled?.(rule) ?? false;
+                  const toggleDisabled =
+                    (busyRowIds?.has(rule.id) ?? false) || (isToggleDisabled?.(rule) ?? false);
                   const editDisabled = isEditDisabled?.(rule) ?? false;
                   const deleteDisabled = isDeleteDisabled?.(rule) ?? false;
                   return (
@@ -504,7 +508,8 @@ export function RuleEditor<
             {filteredRules.map((rule) => {
               const editDisabled = isEditDisabled?.(rule) ?? false;
               const deleteDisabled = isDeleteDisabled?.(rule) ?? false;
-              const toggleDisabled = isToggleDisabled?.(rule) ?? false;
+              const toggleDisabled =
+                    (busyRowIds?.has(rule.id) ?? false) || (isToggleDisabled?.(rule) ?? false);
               return (
                 <div key={rule.id} className="p-4 rounded-lg border bg-card space-y-3">
                   <div className="flex justify-between items-start gap-2">

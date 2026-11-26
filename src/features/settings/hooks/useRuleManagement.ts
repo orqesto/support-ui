@@ -3,10 +3,14 @@ import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { logger } from '@/lib/logger';
 import {
   EARLIER_SAVE_PENDING_NOTICE,
+  earlierSaveFailedNotice,
+  getApiErrorMessage,
   getRuleSaveErrorMessage,
   RULE_CHANGED_UNDERNEATH_NOTICE,
+  RULES_RELOAD_FAILED_MESSAGE,
   shouldShowSaveError,
 } from '@/lib/errorMessages';
+import { toast } from '@/lib/toast';
 import { sameFormValues } from '@/lib/sameFormValues';
 
 type UseRuleManagementOptions<T, TFormData> = {
@@ -67,11 +71,18 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
    */
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   /**
-   * Rule ids with an update still in flight. An editor reopened on such a rule waits for it before
-   * it may save: two writes of one rule in flight could land in either order and the older could
-   * win. Only that rule waits; any other editor saves at once.
+   * Rule ids with a write still in flight: an editor save or a list on/off switch. Two writes of
+   * one rule in flight could land in either order and the older could win, so while one runs an
+   * editor reopened on that rule waits and that rule's switch is disabled. Only that rule waits.
+   * `busyRowIds` is the same set as state, for rendering.
    */
   const pendingRowsRef = useRef(new Map<number, number>());
+  const [busyRowIds, setBusyRowIds] = useState<ReadonlySet<number>>(() => new Set());
+  const syncBusyRows = useCallback(() => {
+    setBusyRowIds(new Set(pendingRowsRef.current.keys()));
+  }, []);
+  /** True when the list did not reload after a write: it may show old values. */
+  const listStaleRef = useRef(false);
   /**
    * A new editor session (open, close, or a forced close): any request still in flight belongs to
    * the old one, so `saving` restarts here and that request's answer is ignored when it lands.
@@ -95,13 +106,25 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
   const formDataRef = useRef(formData);
   formDataRef.current = formData;
 
-  const loadRules = useCallback(async () => {
+  /**
+   * (Re)load the list. A failure is shown, and the list is marked stale: an editor is then not
+   * opened from it (its values may be old, and saving them would write them back) until a reload
+   * succeeds. Resolves to the rows, or null when the load failed.
+   */
+  const loadRules = useCallback(async (): Promise<T[] | null> => {
     try {
       setLoading(true);
       const data = await fetchRulesRef.current();
       setRules(data);
+      listStaleRef.current = false;
+      return data;
     } catch (error) {
       logger.error('Error fetching rules:', error);
+      listStaleRef.current = true;
+      // A refusal's own reason (a 4xx the backend wrote for a person) follows the line.
+      const reason = getApiErrorMessage(error);
+      toast.error(reason ? `${RULES_RELOAD_FAILED_MESSAGE} ${reason}` : RULES_RELOAD_FAILED_MESSAGE);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -141,19 +164,35 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     });
   }, [loadRules, selectedDeptKey]);
 
-  const handleEdit = useCallback(
+  const openEditor = useCallback(
     (rule: T) => {
       startSession();
       setEditingRule(rule);
       setFormData(getFormDataFromRuleRef.current(rule));
       if (pendingRowsRef.current.has(rule.id)) {
-        // An earlier save of this rule is still in flight: wait for it, and say why.
+        // An earlier write of this rule is still in flight: wait for it, and say why.
         savingRef.current = true;
         setSaving(true);
         setSaveNotice(EARLIER_SAVE_PENDING_NOTICE);
       }
     },
     [setFormData, startSession]
+  );
+
+  const handleEdit = useCallback(
+    (rule: T) => {
+      if (!listStaleRef.current) {
+        openEditor(rule);
+        return;
+      }
+      // The list may hold old values: reload first and open the fresh row (or nothing, if the
+      // reload fails again — loadRules says so).
+      void loadRules().then((data) => {
+        const fresh = data?.find((row) => row.id === rule.id);
+        if (fresh) openEditor(fresh);
+      });
+    },
+    [openEditor, loadRules]
   );
 
   const handleCreate = useCallback(() => {
@@ -188,6 +227,59 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     }
   }, []);
 
+  const holdRow = useCallback(
+    (rowId: number) => {
+      pendingRowsRef.current.set(rowId, (pendingRowsRef.current.get(rowId) ?? 0) + 1);
+      syncBusyRows();
+    },
+    [syncBusyRows]
+  );
+  /**
+   * A write of `rowId` answered. When the editor open on that rule belongs to a NEWER session it
+   * was only waiting for this write (it could not send its own): it may save now. Another
+   * editor's `saving` is its own and untouched.
+   */
+  const releaseRow = useCallback(
+    (rowId: number, writerSession: number | null) => {
+      const left = (pendingRowsRef.current.get(rowId) ?? 1) - 1;
+      if (left > 0) pendingRowsRef.current.set(rowId, left);
+      else pendingRowsRef.current.delete(rowId);
+      syncBusyRows();
+      if (
+        sessionRef.current !== writerSession &&
+        editingRuleRef.current?.id === rowId &&
+        !pendingRowsRef.current.has(rowId)
+      ) {
+        savingRef.current = false;
+        setSaving(false);
+        setSaveNotice((notice) => (notice === EARLIER_SAVE_PENDING_NOTICE ? null : notice));
+      }
+    },
+    [syncBusyRows]
+  );
+
+  /**
+   * A write of one rule from outside the editor (the list's on/off switch). It waits its turn
+   * like an editor save: while another write of that rule is in flight it is not sent and this
+   * resolves false. An editor open on that rule takes the saved row like a late save. Then the
+   * list reloads. A failure is thrown to the caller, which shows it.
+   */
+  const runRowWrite = useCallback(
+    async (rowId: number, write: () => Promise<T>): Promise<boolean> => {
+      if (pendingRowsRef.current.has(rowId)) return false;
+      holdRow(rowId);
+      try {
+        const saved = await write();
+        applyLateSave(rowId, saved);
+      } finally {
+        releaseRow(rowId, null);
+      }
+      await loadRules();
+      return true;
+    },
+    [holdRow, releaseRow, applyLateSave, loadRules]
+  );
+
   const handleSave = useCallback(async () => {
     // One request per click-through: a second click while it is in flight is ignored.
     if (savingRef.current) return;
@@ -197,9 +289,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     const rowId = editingRule ? editingRule.id : null;
     setSaveError(null);
     setSaveNotice(null);
-    if (rowId !== null) {
-      pendingRowsRef.current.set(rowId, (pendingRowsRef.current.get(rowId) ?? 0) + 1);
-    }
+    if (rowId !== null) holdRow(rowId);
     try {
       if (editingRule) {
         const saved = await updateRuleRef.current(editingRule.id, formData);
@@ -211,28 +301,23 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
       if (sessionRef.current === session) handleCancel();
     } catch (error) {
       logger.error('Error saving rule:', error);
-      if (sessionRef.current === session && shouldShowSaveError(error)) {
-        setSaveError(getRuleSaveErrorMessage(error));
+      if (shouldShowSaveError(error)) {
+        if (sessionRef.current === session) {
+          setSaveError(getRuleSaveErrorMessage(error));
+        } else if (rowId !== null && editingRuleRef.current?.id === rowId) {
+          // The person reopened this rule while the save ran: the first edit is lost — say so.
+          setSaveNotice(earlierSaveFailedNotice(getRuleSaveErrorMessage(error)));
+        }
       }
       throw error;
     } finally {
-      if (rowId !== null) {
-        const left = (pendingRowsRef.current.get(rowId) ?? 1) - 1;
-        if (left > 0) pendingRowsRef.current.set(rowId, left);
-        else pendingRowsRef.current.delete(rowId);
-      }
+      if (rowId !== null) releaseRow(rowId, session);
       if (sessionRef.current === session) {
         savingRef.current = false;
         setSaving(false);
-      } else if (rowId !== null && editingRuleRef.current?.id === rowId && !pendingRowsRef.current.has(rowId)) {
-        // The newer editor is on this same rule and was only waiting for this write (it could not
-        // send its own): it may save now. Any other editor's `saving` is its own and untouched.
-        savingRef.current = false;
-        setSaving(false);
-        setSaveNotice((notice) => (notice === EARLIER_SAVE_PENDING_NOTICE ? null : notice));
       }
     }
-  }, [editingRule, isCreating, formData, loadRules, handleCancel, applyLateSave]);
+  }, [editingRule, isCreating, formData, loadRules, handleCancel, applyLateSave, holdRow, releaseRow]);
 
   const handleDeleteClick = useCallback((rule: T) => {
     setRuleToDelete(rule);
@@ -270,6 +355,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     saveError,
     saveNotice,
     saving,
+    busyRowIds,
     getSession,
 
     // Setters
@@ -285,5 +371,6 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     handleDeleteCancel,
     loadRules,
     reloadAfterOutsideChange,
+    runRowWrite,
   };
 };

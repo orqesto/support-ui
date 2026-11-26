@@ -326,6 +326,14 @@ export const EARLIER_SAVE_PENDING_NOTICE =
 /** Shown when an earlier save of the open rule landed after the person had typed in it. */
 export const RULE_CHANGED_UNDERNEATH_NOTICE =
   'This rule was just saved with other values. Saving now replaces them.';
+/** Shown in a reopened editor when the earlier save it waited for was refused or failed. */
+export const earlierSaveFailedNotice = (reason: string): string =>
+  `Your earlier change was not saved. ${reason}`;
+/** A list reload after a write failed: what is shown may be old. */
+export const RULES_RELOAD_FAILED_MESSAGE =
+  'Could not reload the rules, so the list may be out of date. Editing reloads it first.';
+export const CATEGORIES_RELOAD_FAILED_MESSAGE =
+  'Could not reload the categories, so the list may be out of date. Editing reloads it first.';
 export const CATEGORY_SAVE_PENDING_NOTICE =
   'Saving your earlier change to this category… If this takes long, reload the page.';
 export const CATEGORY_CHANGED_UNDERNEATH_NOTICE =

@@ -79,10 +79,11 @@ export const DetectionRulesSettings = () => {
 
   const toggleActive = async (rule: DetectionRule) => {
     try {
-      const response = await detectionRuleService.update(rule.id, { active: !rule.active });
       // A 2xx without the row proves nothing was switched: treat it as the failure it is.
-      requireSavedRow(response?.data);
-      await ruleManagement.loadRules();
+      await ruleManagement.runRowWrite(rule.id, async () => {
+        const response = await detectionRuleService.update(rule.id, { active: !rule.active });
+        return requireSavedRow(response?.data);
+      });
     } catch (error) {
       logger.error('Error toggling rule:', error);
       toast.error(getApiErrorMessage(error) ?? RULE_TOGGLE_FAILED_MESSAGE);
