@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
-import { requireSavedRow } from '@/lib/errorMessages';
+import { getApiErrorMessage, requireSavedRow, RULE_TOGGLE_FAILED_MESSAGE } from '@/lib/errorMessages';
+import { toast } from '@/lib/toast';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import {
   detectionRuleService,
@@ -78,10 +79,13 @@ export const DetectionRulesSettings = () => {
 
   const toggleActive = async (rule: DetectionRule) => {
     try {
-      await detectionRuleService.update(rule.id, { active: !rule.active });
+      const response = await detectionRuleService.update(rule.id, { active: !rule.active });
+      // A 2xx without the row proves nothing was switched: treat it as the failure it is.
+      requireSavedRow(response?.data);
       await ruleManagement.loadRules();
     } catch (error) {
       logger.error('Error toggling rule:', error);
+      toast.error(getApiErrorMessage(error) ?? RULE_TOGGLE_FAILED_MESSAGE);
     }
   };
 

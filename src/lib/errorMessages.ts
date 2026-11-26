@@ -320,6 +320,27 @@ export const getRuleSaveErrorMessage = (err: unknown): string =>
  */
 export const RULE_TOGGLE_FAILED_MESSAGE = 'Could not update the rule. Try again.';
 
+/** Shown in an editor reopened on a rule whose earlier save has not answered yet. */
+export const EARLIER_SAVE_PENDING_NOTICE =
+  'Saving your earlier change to this rule… If this takes long, reload the page.';
+/** Shown when an earlier save of the open rule landed after the person had typed in it. */
+export const RULE_CHANGED_UNDERNEATH_NOTICE =
+  'This rule was just saved with other values. Saving now replaces them.';
+export const CATEGORY_SAVE_PENDING_NOTICE =
+  'Saving your earlier change to this category… If this takes long, reload the page.';
+export const CATEGORY_CHANGED_UNDERNEATH_NOTICE =
+  'This category was just saved with other values. Saving now replaces them.';
+
+/**
+ * Why a category save was refused, in category words: the backend's duplicate-name text says
+ * "rule" (categories share its rule writer). Undefined when there is no reason to show (a 5xx, a
+ * network drop); the caller adds its own fallback line.
+ */
+export const getCategorySaveErrorMessage = (err: unknown): string | undefined =>
+  getErrorBody(err)?.code === 'DUPLICATE_RULE'
+    ? 'A category with this name already exists here'
+    : getApiErrorMessage(err);
+
 /** Errors a page has already put in front of the person itself (an inline form line). */
 const shownInline = new WeakSet<object>();
 

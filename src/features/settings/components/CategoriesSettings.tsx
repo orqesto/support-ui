@@ -16,7 +16,20 @@ import {
 import { settingsService, type Category } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
 import { Alert } from '@/components/ui/Alert';
-import { getApiErrorMessage, getErrorBody, shouldShowSaveError } from '@/lib/errorMessages';
+import {
+  CATEGORY_CHANGED_UNDERNEATH_NOTICE,
+  CATEGORY_SAVE_PENDING_NOTICE,
+  getCategorySaveErrorMessage,
+  shouldShowSaveError,
+} from '@/lib/errorMessages';
+import { sameFormValues } from '@/lib/sameFormValues';
+
+const formFromCategory = (category: Category) => ({
+  name: category.name,
+  description: category.description ?? '',
+  keywords: category.keywords ?? '',
+  departmentId: category.departmentId,
+});
 
 export const CategoriesSettings = () => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -113,22 +126,55 @@ export const CategoriesSettings = () => {
     });
   }, []);
 
+  /**
+   * Category ids with an update in flight. An edit form reopened on such a category waits for it
+   * before it may save (two writes of one category could land in either order); only that form
+   * waits — the create form and other categories save at once.
+   */
+  const pendingRowsRef = useRef(new Map<number, number>());
+  const [waitingRow, setWaitingRow] = useState<number | null>(null);
+  // A non-error line for the open edit form (an earlier save still running, or just landed).
+  const [saveNotice, setSaveNotice] = useState<{ target: number; message: string } | null>(null);
+  // Latest edit row and form for answers that land after an await.
+  const editingCategoryRef = useRef<Category | null>(null);
+  editingCategoryRef.current = editingCategory;
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
+
   /** A form opens or closes: a request still in flight belongs to the old form. */
   const startSession = () => {
     sessionRef.current += 1;
     savingRef.current = false;
     setSaving(false);
+    setWaitingRow(null);
+    setSaveNotice(null);
   };
 
   const handleEdit = (category: Category) => {
     startSession();
     setEditingCategory(category);
-    setFormData({
-      name: category.name,
-      description: category.description ?? '',
-      keywords: category.keywords ?? '',
-      departmentId: category.departmentId,
-    });
+    setFormData(formFromCategory(category));
+    if (pendingRowsRef.current.has(category.id)) {
+      setWaitingRow(category.id);
+      setSaveNotice({ target: category.id, message: CATEGORY_SAVE_PENDING_NOTICE });
+    }
+  };
+
+  /**
+   * An earlier form's update of category `rowId` succeeded after the person reopened it. An
+   * untouched form takes the saved values (saving it would write the old ones back); a form they
+   * typed in keeps their text and says the category changed underneath.
+   */
+  const applyLateSave = (rowId: number, saved: Category) => {
+    const open = editingCategoryRef.current;
+    if (open?.id !== rowId) return;
+    const untouched = sameFormValues(formDataRef.current, formFromCategory(open));
+    setEditingCategory(saved);
+    if (untouched) {
+      setFormDataState(formFromCategory(saved));
+    } else {
+      setSaveNotice({ target: rowId, message: CATEGORY_CHANGED_UNDERNEATH_NOTICE });
+    }
   };
 
   const handleCreate = () => {
@@ -143,10 +189,16 @@ export const CategoriesSettings = () => {
     setSaving(true);
     const session = sessionRef.current;
     const target: 'new' | number = editingCategory ? editingCategory.id : 'new';
+    const rowId = editingCategory ? editingCategory.id : null;
     setSaveError(null);
+    setSaveNotice(null);
+    if (rowId !== null) {
+      pendingRowsRef.current.set(rowId, (pendingRowsRef.current.get(rowId) ?? 0) + 1);
+    }
     try {
       if (editingCategory) {
-        await settingsService.updateCategory(editingCategory.id, formData);
+        const saved = await settingsService.updateCategory(editingCategory.id, formData);
+        if (sessionRef.current !== session) applyLateSave(editingCategory.id, saved);
       } else if (isCreating) {
         await settingsService.createCategory(formData);
       }
@@ -161,15 +213,28 @@ export const CategoriesSettings = () => {
       logger.error('Error saving category:', error);
       if (sessionRef.current === session && shouldShowSaveError(error)) {
         const message =
-          getErrorBody(error)?.code === 'DUPLICATE_RULE'
-            ? 'A category with this name already exists here'
-            : (getApiErrorMessage(error) ?? 'Could not save the category. Try again.');
+          getCategorySaveErrorMessage(error) ?? 'Could not save the category. Try again.';
         setSaveError({ target, message });
       }
     } finally {
+      if (rowId !== null) {
+        const left = (pendingRowsRef.current.get(rowId) ?? 1) - 1;
+        if (left > 0) pendingRowsRef.current.set(rowId, left);
+        else pendingRowsRef.current.delete(rowId);
+      }
       if (sessionRef.current === session) {
         savingRef.current = false;
         setSaving(false);
+      } else if (
+        rowId !== null &&
+        editingCategoryRef.current?.id === rowId &&
+        !pendingRowsRef.current.has(rowId)
+      ) {
+        // The reopened form on this category was only waiting for this write: it may save now.
+        setWaitingRow(null);
+        setSaveNotice((notice) =>
+          notice?.message === CATEGORY_SAVE_PENDING_NOTICE ? null : notice
+        );
       }
     }
   };
@@ -328,12 +393,15 @@ export const CategoriesSettings = () => {
                   </div>
                   {departmentPicker}
                 </div>
+                {saveNotice?.target === category.id && (
+                  <Alert variant="warning">{saveNotice.message}</Alert>
+                )}
                 {saveError?.target === category.id && (
                   <Alert variant="danger">{saveError.message}</Alert>
                 )}
                 <div className="flex flex-col sm:flex-row gap-2">
 
-                  <Button onClick={handleSave} disabled={saving}>
+                  <Button onClick={handleSave} disabled={saving || waitingRow === category.id}>
                     <Save className="mr-2 w-4 h-4" />
                     Save
                   </Button>
