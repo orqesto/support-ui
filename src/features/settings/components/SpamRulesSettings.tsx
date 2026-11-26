@@ -10,6 +10,8 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
 import { settingsService, type SpamRule } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
+import { toast } from '@/lib/toast';
+import { getApiErrorMessage, RULE_TOGGLE_FAILED_MESSAGE } from '@/lib/errorMessages';
 import { prettifyRulePattern } from '@/lib/prettifyRulePattern';
 import { FeatureSuggestions } from './FeatureSuggestions';
 import {
@@ -53,6 +55,7 @@ export const SpamRulesSettings = () => {
       await ruleManagement.loadRules();
     } catch (error) {
       logger.error('Error toggling rule:', error);
+      toast.error(getApiErrorMessage(error) ?? RULE_TOGGLE_FAILED_MESSAGE);
     }
   };
 

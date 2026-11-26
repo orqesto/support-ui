@@ -314,6 +314,12 @@ export const RULE_SAVE_FAILED_MESSAGE = 'Could not save the rule. Try again.';
 export const getRuleSaveErrorMessage = (err: unknown): string =>
   getApiErrorMessage(err) ?? RULE_SAVE_FAILED_MESSAGE;
 
+/**
+ * Toast line for a rule on/off switch that failed with nothing safe to show from the server
+ * (5xx, network, a 2xx without the saved row). A 4xx shows `getApiErrorMessage` instead.
+ */
+export const RULE_TOGGLE_FAILED_MESSAGE = 'Could not update the rule. Try again.';
+
 /** Errors a page has already put in front of the person itself (an inline form line). */
 const shownInline = new WeakSet<object>();
 

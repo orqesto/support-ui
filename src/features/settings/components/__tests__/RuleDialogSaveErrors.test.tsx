@@ -26,6 +26,8 @@ const next = vi.hoisted(() => ({
    */
   viaApi: false,
   body: undefined as unknown,
+  kb: [] as unknown[],
+  toasts: [] as string[],
 }));
 const attempt = <T,>(value: T): Promise<T> => {
   next.saves += 1;
@@ -50,7 +52,8 @@ vi.mock('@/services/settings.service', async (importOriginal) => {
         next.viaApi
           ? actual.settingsService.createSpamRule(...args)
           : attempt(args[0] as unknown as Awaited<ReturnType<typeof actual.settingsService.createSpamRule>>),
-      getKnowledgeDetectionRules: () => Promise.resolve([]),
+      getKnowledgeDetectionRules: () =>
+        Promise.resolve(next.kb as SettingsServiceModule.KnowledgeDetectionRule[]),
       createKnowledgeDetectionRule: (
         ...args: Parameters<typeof actual.settingsService.createKnowledgeDetectionRule>
       ) =>
@@ -108,6 +111,15 @@ vi.mock('@/features/settings/services/priorityRule.service', async (importOrigin
   };
 });
 
+vi.mock('@/lib/toast', () => ({
+  toast: {
+    error: (message: string) => next.toasts.push(message),
+    failure: (scope: string) => next.toasts.push(scope),
+    success: () => undefined,
+    info: () => undefined,
+    warning: () => undefined,
+  },
+}));
 vi.mock('@/hooks/usePermissions', () => ({ usePermissions: () => ({ isAdmin: true }) }));
 vi.mock('../FeatureSuggestions', () => ({ FeatureSuggestions: () => null }));
 vi.mock('@/components/admin/DepartmentBadge', () => ({ default: () => null }));
@@ -219,6 +231,8 @@ beforeEach(() => {
   next.categories = [];
   next.viaApi = false;
   next.body = undefined;
+  next.kb = [];
+  next.toasts = [];
   // The real api-client answering 2xx with `next.body` (used only when `next.viaApi`).
   const answer = () => attempt({ data: next.body, status: 200 } as never);
   vi.spyOn(apiClient, 'post').mockImplementation(answer);
@@ -548,5 +562,75 @@ describe('categories: the create and edit forms open together', () => {
     expect(shown).toHaveLength(1);
     const editForm = screen.getByText('Edit Category').parentElement as HTMLElement;
     expect(within(editForm).getByText('Name is too long')).toBeTruthy();
+  });
+});
+
+describe.each([
+  {
+    label: 'spam rules',
+    page: () => <SpamRulesSettings />,
+    seed: () => {
+      next.spam = [SPAM_RULE(1, 'rule_a')];
+    },
+  },
+  {
+    label: 'knowledge detection rules',
+    page: () => <KnowledgeDetectionRulesSettings />,
+    seed: () => {
+      next.kb = [
+        {
+          id: 1,
+          organizationId: 1,
+          name: 'pricing_info',
+          description: 'Asks about price',
+          category: 'pricing',
+          pattern: null,
+          exampleText: 'How much?',
+          confidence: 30,
+          active: true,
+          createdAt: '',
+          updatedAt: '',
+        },
+      ];
+    },
+  },
+])('$label: a failed on/off switch', (toggle) => {
+  const unhandled: unknown[] = [];
+  const onUnhandled = (reason: unknown) => unhandled.push(reason);
+  beforeEach(() => {
+    unhandled.length = 0;
+    process.on('unhandledRejection', onUnhandled);
+  });
+  afterEach(() => {
+    process.off('unhandledRejection', onUnhandled);
+  });
+
+  const flip = async () => {
+    render(toggle.page());
+    const [button] = await screen.findAllByRole('button', { name: /^active$/i });
+    fireEvent.click(button);
+    await waitFor(() => expect(next.saves).toBe(1));
+    await settle();
+  };
+
+  it('a 2xx without the saved row shows the generic error and rejects nothing unhandled', async () => {
+    toggle.seed();
+    next.viaApi = true;
+    next.body = { success: true };
+    await flip();
+    await waitFor(() => expect(next.toasts).toEqual(['Could not update the rule. Try again.']));
+    expect(unhandled).toEqual([]);
+  });
+
+  it('a 500 shows the generic error, never the server text, and rejects nothing unhandled', async () => {
+    toggle.seed();
+    next.viaApi = true;
+    const failing = () => attempt(null);
+    next.error = axiosError(500, { success: false, error: 'SELECT * FROM rules failed' });
+    vi.spyOn(apiClient, 'put').mockImplementation(failing as never);
+    vi.spyOn(apiClient, 'patch').mockImplementation(failing as never);
+    await flip();
+    await waitFor(() => expect(next.toasts).toEqual(['Could not update the rule. Try again.']));
+    expect(unhandled).toEqual([]);
   });
 });
