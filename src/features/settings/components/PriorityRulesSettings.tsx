@@ -8,7 +8,8 @@ import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { Toggle } from '@/components/ui/Toggle';
 import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
-import { requireSavedRow } from '@/lib/errorMessages';
+import { getApiErrorMessage, requireSavedRow, RULE_TOGGLE_FAILED_MESSAGE } from '@/lib/errorMessages';
+import { toast } from '@/lib/toast';
 import { logger } from '@/lib/logger';
 import {
   PRIORITY_LEVELS,
@@ -56,10 +57,13 @@ export const PriorityRulesSettings = () => {
 
   const toggleActive = async (rule: PriorityRuleView) => {
     try {
-      await priorityRuleService.update(rule.id, { active: !rule.active });
+      const response = await priorityRuleService.update(rule.id, { active: !rule.active });
+      // A 2xx without the row proves nothing was switched: treat it as the failure it is.
+      requireSavedRow(response?.data);
       await ruleManagement.loadRules();
     } catch (error) {
       logger.error('Error toggling priority rule:', error);
+      toast.error(getApiErrorMessage(error) ?? RULE_TOGGLE_FAILED_MESSAGE);
     }
   };
 

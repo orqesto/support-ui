@@ -27,6 +27,8 @@ const next = vi.hoisted(() => ({
   viaApi: false,
   body: undefined as unknown,
   kb: [] as unknown[],
+  detection: [] as unknown[],
+  priority: [] as unknown[],
   toasts: [] as string[],
 }));
 const attempt = <T,>(value: T): Promise<T> => {
@@ -82,7 +84,11 @@ vi.mock('@/features/settings/services/detectionRule.service', async (importOrigi
     ...actual,
     detectionRuleService: {
       ...actual.detectionRuleService,
-      getAll: () => Promise.resolve({ success: true, data: [] }),
+      getAll: () =>
+        Promise.resolve({
+          success: true,
+          data: next.detection as DetectionServiceModule.DetectionRule[],
+        }),
       create: (...args: Parameters<typeof actual.detectionRuleService.create>) =>
         next.viaApi
           ? actual.detectionRuleService.create(...args)
@@ -99,7 +105,7 @@ vi.mock('@/features/settings/services/priorityRule.service', async (importOrigin
     ...actual,
     priorityRuleService: {
       ...actual.priorityRuleService,
-      list: () => Promise.resolve([]),
+      list: () => Promise.resolve(next.priority as PriorityServiceModule.PriorityRule[]),
       create: (...args: Parameters<typeof actual.priorityRuleService.create>) =>
         next.viaApi
           ? actual.priorityRuleService.create(...args)
@@ -232,6 +238,8 @@ beforeEach(() => {
   next.viaApi = false;
   next.body = undefined;
   next.kb = [];
+  next.detection = [];
+  next.priority = [];
   next.toasts = [];
   // The real api-client answering 2xx with `next.body` (used only when `next.viaApi`).
   const answer = () => attempt({ data: next.body, status: 200 } as never);
@@ -425,6 +433,29 @@ describe.each(PAGES)('$label: saving belongs to one editor session', (page) => {
     expect(page.editorOpen()).not.toBeNull();
     expect(screen.getByRole('button', { name: /^save$/i }).getAttribute('aria-disabled')).not.toBe('true');
   });
+
+  it("a late answer of the old request does not end the NEWER editor's own save", async () => {
+    const releaseOld = await pendingSave();
+    let releaseNew: () => void = () => undefined;
+    next.gate = new Promise<void>((resolve) => {
+      releaseNew = resolve;
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    await waitFor(() => expect(next.saves).toBe(2));
+    act(() => {
+      releaseOld();
+    });
+    await settle();
+    // The newer save is still in flight: Save stays disabled and a click sends nothing.
+    expect(screen.getByRole('button', { name: /^save$/i }).getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    await settle();
+    expect(next.saves).toBe(2);
+    act(() => {
+      releaseNew();
+    });
+    await settle();
+  });
 });
 
 const SPAM_RULE = (id: number, name: string): SettingsServiceModule.SpamRule => ({
@@ -590,6 +621,44 @@ describe.each([
           active: true,
           createdAt: '',
           updatedAt: '',
+        },
+      ];
+    },
+  },
+  {
+    label: 'detection rules',
+    page: () => <DetectionRulesSettings />,
+    seed: () => {
+      next.detection = [
+        {
+          id: 1,
+          organizationId: 1,
+          departmentId: null,
+          name: 'urgent_issue',
+          description: 'Urgent issue',
+          pattern: 'urgent',
+          exampleText: null,
+          category: 'issue',
+          confidence: 20,
+          active: true,
+          createdAt: '',
+          updatedAt: '',
+        },
+      ];
+    },
+  },
+  {
+    label: 'priority rules',
+    page: () => <PriorityRulesSettings />,
+    seed: () => {
+      next.priority = [
+        {
+          id: 1,
+          priority: 'critical',
+          name: 'priority_critical',
+          description: 'Outage reports',
+          exampleText: 'Everything is down.',
+          active: true,
         },
       ];
     },

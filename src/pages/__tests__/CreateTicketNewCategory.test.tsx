@@ -145,4 +145,27 @@ describe('creating the AI-suggested category fails', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(unhandled).toEqual([]);
   });
+
+  it('a duplicate name shows why, in category words', async () => {
+    const { apiError } = await import('@/test/apiError');
+    categoryRefusal = (await apiError(409, {
+      success: false,
+      code: 'DUPLICATE_RULE',
+      error: 'A rule with this name already exists here',
+    })) as Error;
+    render(
+      <ThemeProvider>
+        <MemoryRouter initialEntries={['/tickets/create?messageId=11']}>
+          <Routes>
+            <Route path="/tickets/create" element={<CreateTicketPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ThemeProvider>
+    );
+    await chooseOption(await screen.findByRole('combobox', { name: 'Category' }), /Create "Freight"/);
+    expect(
+      await screen.findByText('A category with this name already exists here')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Failed to create category.')).toBeNull();
+  });
 });

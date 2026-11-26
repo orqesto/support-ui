@@ -1,7 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { logger } from '@/lib/logger';
-import { getRuleSaveErrorMessage, shouldShowSaveError } from '@/lib/errorMessages';
+import {
+  EARLIER_SAVE_PENDING_NOTICE,
+  getRuleSaveErrorMessage,
+  RULE_CHANGED_UNDERNEATH_NOTICE,
+  shouldShowSaveError,
+} from '@/lib/errorMessages';
+import { sameFormValues } from '@/lib/sameFormValues';
 
 type UseRuleManagementOptions<T, TFormData> = {
   fetchRules: () => Promise<T[]>;
@@ -56,6 +62,17 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
   const savingRef = useRef(false);
   const [saving, setSaving] = useState(false);
   /**
+   * A non-error line for the open editor: its rule was just saved by an earlier editor session
+   * (the person cancelled and reopened while that save was in flight). Cleared with the session.
+   */
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  /**
+   * Rule ids with an update still in flight. An editor reopened on such a rule waits for it before
+   * it may save: two writes of one rule in flight could land in either order and the older could
+   * win. Only that rule waits; any other editor saves at once.
+   */
+  const pendingRowsRef = useRef(new Map<number, number>());
+  /**
    * A new editor session (open, close, or a forced close): any request still in flight belongs to
    * the old one, so `saving` restarts here and that request's answer is ignored when it lands.
    */
@@ -63,6 +80,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     sessionRef.current += 1;
     savingRef.current = false;
     setSaving(false);
+    setSaveNotice(null);
   }, []);
   /** The current editor session, for a page that sets its own inline state after an await. */
   const getSession = useCallback(() => sessionRef.current, []);
@@ -74,6 +92,8 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
   // editor opened while the request was in flight).
   const editingRuleRef = useRef<T | null>(null);
   editingRuleRef.current = editingRule;
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
 
   const loadRules = useCallback(async () => {
     try {
@@ -126,6 +146,12 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
       startSession();
       setEditingRule(rule);
       setFormData(getFormDataFromRuleRef.current(rule));
+      if (pendingRowsRef.current.has(rule.id)) {
+        // An earlier save of this rule is still in flight: wait for it, and say why.
+        savingRef.current = true;
+        setSaving(true);
+        setSaveNotice(EARLIER_SAVE_PENDING_NOTICE);
+      }
     },
     [setFormData, startSession]
   );
@@ -143,16 +169,41 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     setFormData(getInitialFormDataRef.current());
   }, [setFormData, startSession]);
 
+  /**
+   * An earlier session's update of rule `rowId` succeeded after the person reopened that same
+   * rule. An untouched form takes the saved values (else saving it would write the old ones
+   * back); a form they typed in keeps their text and says the rule changed underneath. The open
+   * session and its `saving` are left alone.
+   */
+  const applyLateSave = useCallback((rowId: number, saved: T) => {
+    const open = editingRuleRef.current;
+    if (open?.id !== rowId) return;
+    const toForm = getFormDataFromRuleRef.current;
+    const untouched = sameFormValues(formDataRef.current as object, toForm(open) as object);
+    setEditingRule(saved);
+    if (untouched) {
+      setFormDataState(toForm(saved));
+    } else {
+      setSaveNotice(RULE_CHANGED_UNDERNEATH_NOTICE);
+    }
+  }, []);
+
   const handleSave = useCallback(async () => {
     // One request per click-through: a second click while it is in flight is ignored.
     if (savingRef.current) return;
     savingRef.current = true;
     setSaving(true);
     const session = sessionRef.current;
+    const rowId = editingRule ? editingRule.id : null;
     setSaveError(null);
+    setSaveNotice(null);
+    if (rowId !== null) {
+      pendingRowsRef.current.set(rowId, (pendingRowsRef.current.get(rowId) ?? 0) + 1);
+    }
     try {
       if (editingRule) {
-        await updateRuleRef.current(editingRule.id, formData);
+        const saved = await updateRuleRef.current(editingRule.id, formData);
+        if (sessionRef.current !== session) applyLateSave(editingRule.id, saved);
       } else if (isCreating) {
         await createRuleRef.current(formData);
       }
@@ -165,13 +216,23 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
       }
       throw error;
     } finally {
-      // A newer session already restarted `saving`; this late answer must not touch it.
+      if (rowId !== null) {
+        const left = (pendingRowsRef.current.get(rowId) ?? 1) - 1;
+        if (left > 0) pendingRowsRef.current.set(rowId, left);
+        else pendingRowsRef.current.delete(rowId);
+      }
       if (sessionRef.current === session) {
         savingRef.current = false;
         setSaving(false);
+      } else if (rowId !== null && editingRuleRef.current?.id === rowId && !pendingRowsRef.current.has(rowId)) {
+        // The newer editor is on this same rule and was only waiting for this write (it could not
+        // send its own): it may save now. Any other editor's `saving` is its own and untouched.
+        savingRef.current = false;
+        setSaving(false);
+        setSaveNotice((notice) => (notice === EARLIER_SAVE_PENDING_NOTICE ? null : notice));
       }
     }
-  }, [editingRule, isCreating, formData, loadRules, handleCancel]);
+  }, [editingRule, isCreating, formData, loadRules, handleCancel, applyLateSave]);
 
   const handleDeleteClick = useCallback((rule: T) => {
     setRuleToDelete(rule);
@@ -207,6 +268,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     ruleToDelete,
     formData,
     saveError,
+    saveNotice,
     saving,
     getSession,
 

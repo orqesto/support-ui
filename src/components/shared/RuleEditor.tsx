@@ -56,6 +56,8 @@ export type RuleEditorProps<
   formData: TForm;
   /** Why the last save was refused; rendered in the open dialog as plain text. */
   saveError?: string | null;
+  /** A non-error line about the open rule (an earlier save still running, or just landed). */
+  saveNotice?: string | null;
   /** A save request is in flight: Save is disabled so a double click sends one request. */
   saving?: boolean;
   setFormData: (data: TForm) => void;
@@ -129,6 +131,7 @@ export function RuleEditor<
   ruleToDelete,
   formData,
   saveError,
+  saveNotice,
   saving = false,
   setFormData,
   handleEdit,
@@ -587,6 +590,7 @@ export function RuleEditor<
             <DialogClose onClose={handleCancel} />
           </DialogHeader>
           <div className="space-y-4">{renderFormFields(formData, setFormData)}</div>
+          {saveNotice && <Alert variant="warning">{saveNotice}</Alert>}
           {saveError && <Alert variant="danger">{saveError}</Alert>}
           <DialogFooter>
             <Button variant="outline" onClick={handleCancel}>

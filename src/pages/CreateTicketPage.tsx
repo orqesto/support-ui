@@ -13,7 +13,7 @@ import { Select } from '@/components/ui/Select';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { useNewTicketTeams } from '@/hooks/useTeamsEnabled';
 import { apiClient } from '@/lib/api-client';
-import { getApiErrorMessage } from '@/lib/errorMessages';
+import { getApiErrorMessage, getCategorySaveErrorMessage } from '@/lib/errorMessages';
 import { integrationsService } from '@/services/integrations.service';
 import { settingsService } from '@/services/settings.service';
 import { messageService } from '@/services/message.service';
@@ -671,11 +671,12 @@ export const CreateTicketPage = () => {
                               setCategories((prev) => [...prev, newCat]);
                               setFormData((prev) => ({ ...prev, categoryId: String(newCat.id) }));
                               setSuggestedNewCategory(null);
-                            } catch {
+                            } catch (err) {
                               setAlertDialog({
                                 open: true,
                                 title: 'Error',
-                                description: 'Failed to create category.',
+                                description:
+                                  getCategorySaveErrorMessage(err) ?? 'Failed to create category.',
                                 variant: 'error',
                               });
                             } finally {
