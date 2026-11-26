@@ -15,15 +15,18 @@ import {
 } from '@/components/ui/Dialog';
 import { settingsService, type Category } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
+import { Alert } from '@/components/ui/Alert';
+import { getRuleSaveErrorMessage } from '@/lib/errorMessages';
 
 export const CategoriesSettings = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
-  const [formData, setFormData] = useState<{
+  const [formData, setFormDataState] = useState<{
     name: string;
     description: string;
     keywords: string;
@@ -35,6 +38,10 @@ export const CategoriesSettings = () => {
     keywords: '',
     departmentId: null,
   });
+  const setFormData: typeof setFormDataState = (next) => {
+    setSaveError(null);
+    setFormDataState(next);
+  };
   const { data: allDepts = [], teamsEnabled: teamsMode } = useDepartments();
   // Teams off: no team scope to pick; a category applies everywhere.
   const teamsEnabled = deriveTeamsEnabled(teamsMode, allDepts);
@@ -100,6 +107,7 @@ export const CategoriesSettings = () => {
   }, []);
 
   const handleEdit = (category: Category) => {
+    setSaveError(null);
     setEditingCategory(category);
     setFormData({
       name: category.name,
@@ -110,11 +118,13 @@ export const CategoriesSettings = () => {
   };
 
   const handleCreate = () => {
+    setSaveError(null);
     setIsCreating(true);
     setFormData({ name: '', description: '', keywords: '', departmentId: null });
   };
 
   const handleSave = async () => {
+    setSaveError(null);
     try {
       if (editingCategory) {
         await settingsService.updateCategory(editingCategory.id, formData);
@@ -127,10 +137,12 @@ export const CategoriesSettings = () => {
       setFormData({ name: '', description: '', keywords: '', departmentId: null });
     } catch (error) {
       logger.error('Error saving category:', error);
+      setSaveError(getRuleSaveErrorMessage(error));
     }
   };
 
   const handleCancel = () => {
+    setSaveError(null);
     setEditingCategory(null);
     setIsCreating(false);
     setFormData({ name: '', description: '', keywords: '', departmentId: null });
@@ -221,6 +233,7 @@ export const CategoriesSettings = () => {
             </div>
             {departmentPicker}
           </div>
+          {saveError && <Alert variant="danger">{saveError}</Alert>}
           <div className="flex flex-col sm:flex-row gap-2 items-center sm:items-start justify-center sm:justify-start"
           >
             <Button onClick={handleSave} disabled={!formData.name}>
@@ -282,6 +295,7 @@ export const CategoriesSettings = () => {
                   </div>
                   {departmentPicker}
                 </div>
+                {saveError && <Alert variant="danger">{saveError}</Alert>}
                 <div className="flex flex-col sm:flex-row gap-2">
 
                   <Button onClick={handleSave}>

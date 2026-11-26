@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Edit2, Eye, EyeOff, Filter, Plus, Save, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Alert } from '@/components/ui/Alert';
 import {
   Dialog,
   DialogClose,
@@ -53,6 +54,8 @@ export type RuleEditorProps<
   deleteDialogOpen: boolean;
   ruleToDelete: TRule | null;
   formData: TForm;
+  /** Why the last save was refused; rendered in the open dialog as plain text. */
+  saveError?: string | null;
   setFormData: (data: TForm) => void;
   handleEdit: (rule: TRule) => void;
   handleCreate: () => void;
@@ -123,6 +126,7 @@ export function RuleEditor<
   deleteDialogOpen,
   ruleToDelete,
   formData,
+  saveError,
   setFormData,
   handleEdit,
   handleCreate,
@@ -580,6 +584,7 @@ export function RuleEditor<
             <DialogClose onClose={handleCancel} />
           </DialogHeader>
           <div className="space-y-4">{renderFormFields(formData, setFormData)}</div>
+          {saveError && <Alert variant="danger">{saveError}</Alert>}
           <DialogFooter>
             <Button variant="outline" onClick={handleCancel}>
               <X className="mr-1 w-4 h-4" />

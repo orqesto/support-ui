@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { logger } from '@/lib/logger';
+import { getRuleSaveErrorMessage } from '@/lib/errorMessages';
 
 type UseRuleManagementOptions<T, TFormData> = {
   fetchRules: () => Promise<T[]>;
@@ -45,7 +46,14 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
   const [isCreating, setIsCreating] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ruleToDelete, setRuleToDelete] = useState<T | null>(null);
-  const [formData, setFormData] = useState<TFormData>(() => getInitialFormDataRef.current());
+  const [formData, setFormDataState] = useState<TFormData>(() => getInitialFormDataRef.current());
+  // Why the last create/update was refused; shown inside the open dialog. Cleared on edit, close
+  // and the next save.
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const setFormData = useCallback((next: TFormData) => {
+    setSaveError(null);
+    setFormDataState(next);
+  }, []);
   // Latest editor row for callbacks that resolve after an await (a stale closure would miss an
   // editor opened while the request was in flight).
   const editingRuleRef = useRef<T | null>(null);
@@ -97,22 +105,26 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
   }, [loadRules, selectedDeptKey]);
 
   const handleEdit = useCallback((rule: T) => {
+    setSaveError(null);
     setEditingRule(rule);
     setFormData(getFormDataFromRuleRef.current(rule));
   }, []);
 
   const handleCreate = useCallback(() => {
+    setSaveError(null);
     setIsCreating(true);
     setFormData(getInitialFormDataRef.current());
   }, []);
 
   const handleCancel = useCallback(() => {
+    setSaveError(null);
     setEditingRule(null);
     setIsCreating(false);
     setFormData(getInitialFormDataRef.current());
   }, []);
 
   const handleSave = useCallback(async () => {
+    setSaveError(null);
     try {
       if (editingRule) {
         await updateRuleRef.current(editingRule.id, formData);
@@ -123,6 +135,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
       handleCancel();
     } catch (error) {
       logger.error('Error saving rule:', error);
+      setSaveError(getRuleSaveErrorMessage(error));
       throw error;
     }
   }, [editingRule, isCreating, formData, loadRules, handleCancel]);
@@ -160,6 +173,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     deleteDialogOpen,
     ruleToDelete,
     formData,
+    saveError,
 
     // Setters
     setFormData,

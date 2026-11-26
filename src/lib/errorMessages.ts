@@ -303,3 +303,13 @@ export const formatError = (scope: string, err: unknown): string => {
   }
   return `Couldn't ${scope}. The error has been logged.`;
 };
+
+/** Shown in a rule dialog when a save fails and there is no server copy that is safe to display. */
+export const RULE_SAVE_FAILED_MESSAGE = 'Could not save the rule. Try again.';
+
+/**
+ * Plain-text line for a refused rule save: the server's own message for a 4xx (409 duplicate,
+ * 400 validation), the generic line for a 5xx, a network failure or an empty body.
+ */
+export const getRuleSaveErrorMessage = (err: unknown): string =>
+  getApiErrorMessage(err) ?? RULE_SAVE_FAILED_MESSAGE;
