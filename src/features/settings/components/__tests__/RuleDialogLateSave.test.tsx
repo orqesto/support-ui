@@ -208,13 +208,13 @@ describe.each(EDIT_PAGES)('$label: a row reopened while its save is in flight', 
     // The form now shows what the earlier save stored; no message, nothing for the person to do.
     expect(edit.nameShown('renamed_row')).toBe(true);
     expect(edit.nameShown(edit.names[0])).toBe(false);
-    expect(screen.queryByText(/just saved with other values/)).toBeNull();
+    expect(screen.queryByText(/just saved by your earlier change/)).toBeNull();
     fireEvent.click(saveButton());
     await waitFor(() => expect(writes()).toHaveLength(2));
     expect(writes()[1].name).toBe('renamed_row');
     await settle();
     // End state: the editor closed and the list shows the rename.
-    expect(screen.queryByText(/just saved with other values/)).toBeNull();
+    expect(screen.queryByText(/just saved by your earlier change/)).toBeNull();
     expect(screen.queryByRole('button', { name: /^save$/i })).toBeNull();
     expect(screen.getAllByText('renamed_row').length).toBeGreaterThan(0);
   });
@@ -225,7 +225,7 @@ describe.each(EDIT_PAGES)('$label: a row reopened while its save is in flight', 
     release();
     await settle();
     expect(edit.nameShown('typed_name')).toBe(true);
-    expect(screen.getByText(/was just saved with other values\. Saving now replaces them\./)).toBeTruthy();
+    expect(screen.getByText(/was just saved by your earlier change\. Fields you edited here keep your text/)).toBeTruthy();
     expect(isDisabled(saveButton())).toBe(false);
     // The last write the person asked for is the one sent last; no two writes of the row overlap.
     net.body = { success: true, data: row('typed_name') };
@@ -248,7 +248,7 @@ describe.each(EDIT_PAGES)('$label: a row reopened while its save is in flight', 
     await settle();
     // The other row's form is not touched by row 1's late answer.
     expect(edit.nameShown(edit.names[1])).toBe(true);
-    expect(screen.queryByText(/just saved with other values/)).toBeNull();
+    expect(screen.queryByText(/just saved by your earlier change/)).toBeNull();
   });
 
   it("row 1's late answer does not end ANOTHER row's own save in flight", async () => {
@@ -282,7 +282,7 @@ describe.each(EDIT_PAGES)('$label: a row reopened while its save is in flight', 
     expect(screen.queryByText(/Saving your earlier change/)).toBeNull();
     release();
     await settle();
-    expect(screen.queryByText(/just saved with other values/)).toBeNull();
+    expect(screen.queryByText(/just saved by your earlier change/)).toBeNull();
     // Reopened after the earlier save answered: nothing to wait for, no leftover line.
     fireEvent.click(edit.editButtons()[0]);
     expect(screen.queryByText(/Saving your earlier change/)).toBeNull();
@@ -326,6 +326,39 @@ describe.each(EDIT_PAGES)('$label: a row reopened while its save is in flight', 
     expect(isDisabled(saveButton())).toBe(false);
     // Nothing stale was written: the only write is the failed one.
     expect(net.sent).toHaveLength(1);
+  });
+
+  it('field by field: a field the person did not touch takes the saved value, a typed one stays', async () => {
+    const release = await reopenWhileSaving();
+    // The earlier save stored a description the reopened form does not show yet.
+    net.body = { success: true, data: { ...row('renamed_row'), description: 'server description' } };
+    fireEvent.change(screen.getByDisplayValue(edit.names[0]), { target: { value: 'typed_name' } });
+    release();
+    await settle();
+    expect(edit.nameShown('typed_name')).toBe(true);
+    expect(screen.getByDisplayValue('server description')).toBeTruthy();
+    expect(screen.getByText(/Fields you edited here keep your text/)).toBeTruthy();
+  });
+
+  it('the "not saved" line clears when the person types', async () => {
+    const error = await apiError(500, { success: false, error: 'boom' });
+    const release = await reopenWhileSaving();
+    release(error);
+    await settle();
+    expect(screen.getByText(/Your earlier change was not saved\./)).toBeTruthy();
+    fireEvent.change(screen.getByDisplayValue(edit.names[0]), { target: { value: 'typed_again' } });
+    expect(screen.queryByText(/Your earlier change was not saved\./)).toBeNull();
+  });
+
+  it("row 1's failed earlier save never shows in row 2's editor", async () => {
+    const error = await apiError(500, { success: false, error: 'boom' });
+    const release = await reopenWhileSaving();
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+    fireEvent.click(edit.editButtons()[1]);
+    release(error);
+    await settle();
+    expect(edit.nameShown(edit.names[1])).toBe(true);
+    expect(screen.queryByText(/Your earlier change was not saved/)).toBeNull();
   });
 
   it('a failed list reload is shown, and Edit reloads before it opens a form', async () => {
@@ -489,8 +522,85 @@ describe('categories: the create and edit forms are independent', () => {
   });
 });
 
+describe('categories: each form shows only its own refusal', () => {
+  const nameIn = (form: HTMLElement) => within(form).getAllByRole('textbox')[0] as HTMLInputElement;
+  const createForm = () => screen.getByText('New Category').parentElement as HTMLElement;
+  const editForm = () => screen.getByText('Edit Category').parentElement as HTMLElement;
+  const openBoth = async () => {
+    net.categories = [CATEGORY(1, 'Alpha'), CATEGORY(2, 'Beta')];
+    render(<CategoriesSettings />);
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /^edit$/i }).length).toBe(2));
+    fireEvent.click(screen.getAllByRole('button', { name: /^edit$/i })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /add category/i }));
+    fireEvent.change(nameIn(createForm()), { target: { value: 'Shipping' } });
+  };
+  const refuse = async (message: string) => {
+    net.error = await apiError(400, { success: false, error: message });
+  };
+
+  it('a create refusal shows in the create form only; an edit refusal does not remove it', async () => {
+    await openBoth();
+    await refuse('Create refused');
+    fireEvent.click(within(createForm()).getByRole('button', { name: /^save$/i }));
+    await settle();
+    expect(within(createForm()).getByText('Create refused')).toBeTruthy();
+    expect(within(editForm()).queryByText('Create refused')).toBeNull();
+    await refuse('Edit refused');
+    fireEvent.click(within(editForm()).getByRole('button', { name: /^save$/i }));
+    await settle();
+    expect(within(editForm()).getByText('Edit refused')).toBeTruthy();
+    expect(within(createForm()).getByText('Create refused')).toBeTruthy();
+    expect(within(createForm()).queryByText('Edit refused')).toBeNull();
+  });
+
+  it("typing in the edit form keeps the create form's refusal", async () => {
+    await openBoth();
+    await refuse('Create refused');
+    fireEvent.click(within(createForm()).getByRole('button', { name: /^save$/i }));
+    await settle();
+    fireEvent.change(nameIn(editForm()), { target: { value: 'Alpha typed' } });
+    expect(within(createForm()).getByText('Create refused')).toBeTruthy();
+  });
+
+  it('a create refusal that lands after the create form was closed and reopened is not shown', async () => {
+    net.categories = [CATEGORY(1, 'Alpha')];
+    render(<CategoriesSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: /add category/i }));
+    fireEvent.change(nameIn(createForm()), { target: { value: 'Shipping' } });
+    let release: () => void = () => undefined;
+    net.gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await refuse('Create refused');
+    fireEvent.click(within(createForm()).getByRole('button', { name: /^save$/i }));
+    await waitFor(() => expect(net.sent).toHaveLength(1));
+    fireEvent.click(within(createForm()).getByRole('button', { name: /^cancel$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /add category/i }));
+    net.gate = null;
+    act(() => {
+      release();
+    });
+    await settle();
+    expect(screen.queryByText('Create refused')).toBeNull();
+    // The new form's Save is its own: the old request's answer neither blocks nor ends it.
+    fireEvent.change(nameIn(createForm()), { target: { value: 'Returns' } });
+    expect(isEnabledSave(createForm())).toBe(true);
+  });
+
+  it('a first load that fails says the categories could not be loaded', async () => {
+    net.listFails = true;
+    render(<CategoriesSettings />);
+    await settle();
+    expect(net.toasts).toEqual(['Could not load the categories. Reload the page to try again.']);
+  });
+});
+const isEnabledSave = (form: HTMLElement) => {
+  const button = within(form).getByRole('button', { name: /^save$/i });
+  return button.getAttribute('aria-disabled') !== 'true' && !(button as HTMLButtonElement).disabled;
+};
+
 describe('spam rules: the on/off switch and the editor never write one rule at once', () => {
-  const switches = () => screen.getAllByRole('button', { name: /^active$/i });
+  const switches = () => screen.getAllByRole('button', { name: /^active/i });
   const isDisabled = (button: HTMLElement) =>
     button.getAttribute('aria-disabled') === 'true' || (button as HTMLButtonElement).disabled;
   const hold = () => {

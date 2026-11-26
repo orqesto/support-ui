@@ -387,8 +387,8 @@ export function RuleEditor<
               </thead>
               <tbody className="divide-y bg-background divide-border">
                 {filteredRules.map((rule) => {
-                  const toggleDisabled =
-                    (busyRowIds?.has(rule.id) ?? false) || (isToggleDisabled?.(rule) ?? false);
+                  const busy = busyRowIds?.has(rule.id) ?? false;
+                  const toggleDisabled = busy || (isToggleDisabled?.(rule) ?? false);
                   const editDisabled = isEditDisabled?.(rule) ?? false;
                   const deleteDisabled = isDeleteDisabled?.(rule) ?? false;
                   return (
@@ -447,6 +447,7 @@ export function RuleEditor<
                               <span className="text-xs text-muted-foreground">Inactive</span>
                             </>
                           )}
+                          {busy && <span className="text-xs text-muted-foreground">Saving…</span>}
                         </Button>
                       </td>
                       <td className="px-4 py-3 text-sm text-right whitespace-nowrap">
@@ -508,8 +509,8 @@ export function RuleEditor<
             {filteredRules.map((rule) => {
               const editDisabled = isEditDisabled?.(rule) ?? false;
               const deleteDisabled = isDeleteDisabled?.(rule) ?? false;
-              const toggleDisabled =
-                    (busyRowIds?.has(rule.id) ?? false) || (isToggleDisabled?.(rule) ?? false);
+              const busy = busyRowIds?.has(rule.id) ?? false;
+                  const toggleDisabled = busy || (isToggleDisabled?.(rule) ?? false);
               return (
                 <div key={rule.id} className="p-4 rounded-lg border bg-card space-y-3">
                   <div className="flex justify-between items-start gap-2">
@@ -576,6 +577,7 @@ export function RuleEditor<
                           <span className="text-xs text-muted-foreground">Inactive</span>
                         </>
                       )}
+                      {busy && <span className="text-xs text-muted-foreground">Saving…</span>}
                     </Button>
                   </div>
                 </div>

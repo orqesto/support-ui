@@ -325,19 +325,23 @@ export const EARLIER_SAVE_PENDING_NOTICE =
   'Saving your earlier change to this rule… If this takes long, reload the page.';
 /** Shown when an earlier save of the open rule landed after the person had typed in it. */
 export const RULE_CHANGED_UNDERNEATH_NOTICE =
-  'This rule was just saved with other values. Saving now replaces them.';
+  'This rule was just saved by your earlier change. Fields you edited here keep your text; the others now show the saved values.';
 /** Shown in a reopened editor when the earlier save it waited for was refused or failed. */
 export const earlierSaveFailedNotice = (reason: string): string =>
   `Your earlier change was not saved. ${reason}`;
 /** A list reload after a write failed: what is shown may be old. */
 export const RULES_RELOAD_FAILED_MESSAGE =
   'Could not reload the rules, so the list may be out of date. Editing reloads it first.';
+/** The page's first load failed: there is no list to be out of date yet. */
+export const RULES_LOAD_FAILED_MESSAGE = 'Could not load the rules. Reload the page to try again.';
+export const CATEGORIES_LOAD_FAILED_MESSAGE =
+  'Could not load the categories. Reload the page to try again.';
 export const CATEGORIES_RELOAD_FAILED_MESSAGE =
   'Could not reload the categories, so the list may be out of date. Editing reloads it first.';
 export const CATEGORY_SAVE_PENDING_NOTICE =
   'Saving your earlier change to this category… If this takes long, reload the page.';
 export const CATEGORY_CHANGED_UNDERNEATH_NOTICE =
-  'This category was just saved with other values. Saving now replaces them.';
+  'This category was just saved by your earlier change. Fields you edited here keep your text; the others now show the saved values.';
 
 /**
  * Why a category save was refused, in category words: the backend's duplicate-name text says

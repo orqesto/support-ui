@@ -7,11 +7,12 @@ import {
   getApiErrorMessage,
   getRuleSaveErrorMessage,
   RULE_CHANGED_UNDERNEATH_NOTICE,
+  RULES_LOAD_FAILED_MESSAGE,
   RULES_RELOAD_FAILED_MESSAGE,
   shouldShowSaveError,
 } from '@/lib/errorMessages';
 import { toast } from '@/lib/toast';
-import { sameFormValues } from '@/lib/sameFormValues';
+import { mergeUntouchedFields } from '@/lib/sameFormValues';
 
 type UseRuleManagementOptions<T, TFormData> = {
   fetchRules: () => Promise<T[]>;
@@ -69,7 +70,12 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
    * A non-error line for the open editor: its rule was just saved by an earlier editor session
    * (the person cancelled and reopened while that save was in flight). Cleared with the session.
    */
-  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{
+    /** pending: an earlier write still runs; changed: it landed; failed: it was refused. */
+    kind: 'pending' | 'changed' | 'failed';
+    text: string;
+  } | null>(null);
+  const saveNotice = notice?.text ?? null;
   /**
    * Rule ids with a write still in flight: an editor save or a list on/off switch. Two writes of
    * one rule in flight could land in either order and the older could win, so while one runs an
@@ -83,6 +89,21 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
   }, []);
   /** True when the list did not reload after a write: it may show old values. */
   const listStaleRef = useRef(false);
+  /** False until a load succeeds: before that a failure is "could not load", not "out of date". */
+  const loadedOnceRef = useRef(false);
+  /** A load (or quiet reload) answered: the list is current again. */
+  const markLoaded = useCallback(() => {
+    listStaleRef.current = false;
+    loadedOnceRef.current = true;
+  }, []);
+  /** A load failed: say so, and do not open an editor from the list until a reload succeeds. */
+  const markLoadFailed = useCallback((error: unknown) => {
+    listStaleRef.current = true;
+    const line = loadedOnceRef.current ? RULES_RELOAD_FAILED_MESSAGE : RULES_LOAD_FAILED_MESSAGE;
+    // A refusal's own reason (a 4xx the backend wrote for a person) follows the line.
+    const reason = getApiErrorMessage(error);
+    toast.error(reason ? `${line} ${reason}` : line);
+  }, []);
   /**
    * A new editor session (open, close, or a forced close): any request still in flight belongs to
    * the old one, so `saving` restarts here and that request's answer is ignored when it lands.
@@ -91,12 +112,14 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     sessionRef.current += 1;
     savingRef.current = false;
     setSaving(false);
-    setSaveNotice(null);
+    setNotice(null);
   }, []);
   /** The current editor session, for a page that sets its own inline state after an await. */
   const getSession = useCallback(() => sessionRef.current, []);
   const setFormData = useCallback((next: TFormData) => {
+    // Typing answers a refusal — this save's, or the earlier one's — but not the other notices.
     setSaveError(null);
+    setNotice((current) => (current?.kind === 'failed' ? null : current));
     setFormDataState(next);
   }, []);
   // Latest editor row for callbacks that resolve after an await (a stale closure would miss an
@@ -116,19 +139,16 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
       setLoading(true);
       const data = await fetchRulesRef.current();
       setRules(data);
-      listStaleRef.current = false;
+      markLoaded();
       return data;
     } catch (error) {
       logger.error('Error fetching rules:', error);
-      listStaleRef.current = true;
-      // A refusal's own reason (a 4xx the backend wrote for a person) follows the line.
-      const reason = getApiErrorMessage(error);
-      toast.error(reason ? `${RULES_RELOAD_FAILED_MESSAGE} ${reason}` : RULES_RELOAD_FAILED_MESSAGE);
+      markLoadFailed(error);
       return null;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [markLoaded, markLoadFailed]);
 
   /**
    * Reload after something OUTSIDE this page changed rules (an accepted engine suggestion can add,
@@ -140,6 +160,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     try {
       const data = await fetchRulesRef.current();
       setRules(data);
+      markLoaded();
       const open = editingRuleRef.current;
       if (!open) return;
       const fresh = data.find((rule) => rule.id === open.id);
@@ -150,9 +171,11 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
         setFormData(getInitialFormDataRef.current());
       }
     } catch (error) {
+      // The outside change (an accepted suggestion) did happen; the list just could not show it.
       logger.error('Error reloading rules:', error);
+      markLoadFailed(error);
     }
-  }, [setFormData, startSession]);
+  }, [setFormData, startSession, markLoaded, markLoadFailed]);
 
   // SpamRules + DetectionRules controllers honour X-Department-Context on the
   // list endpoints — refetch when the checkbox-driven dept selection changes
@@ -173,7 +196,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
         // An earlier write of this rule is still in flight: wait for it, and say why.
         savingRef.current = true;
         setSaving(true);
-        setSaveNotice(EARLIER_SAVE_PENDING_NOTICE);
+        setNotice({ kind: 'pending', text: EARLIER_SAVE_PENDING_NOTICE });
       }
     },
     [setFormData, startSession]
@@ -209,22 +232,23 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
   }, [setFormData, startSession]);
 
   /**
-   * An earlier session's update of rule `rowId` succeeded after the person reopened that same
-   * rule. An untouched form takes the saved values (else saving it would write the old ones
-   * back); a form they typed in keeps their text and says the rule changed underneath. The open
-   * session and its `saving` are left alone.
+   * An earlier write of rule `rowId` (an editor save or the list's switch) succeeded while the
+   * person has that rule open. Field by field: a field they did not change takes the saved value
+   * (else saving would write the old one back — the on/off flag included); a field they changed
+   * keeps their text, and then a line says so. The open session and its `saving` are left alone.
    */
   const applyLateSave = useCallback((rowId: number, saved: T) => {
     const open = editingRuleRef.current;
     if (open?.id !== rowId) return;
     const toForm = getFormDataFromRuleRef.current;
-    const untouched = sameFormValues(formDataRef.current as object, toForm(open) as object);
+    const { merged, kept } = mergeUntouchedFields(
+      formDataRef.current as object,
+      toForm(open) as object,
+      toForm(saved) as object
+    );
     setEditingRule(saved);
-    if (untouched) {
-      setFormDataState(toForm(saved));
-    } else {
-      setSaveNotice(RULE_CHANGED_UNDERNEATH_NOTICE);
-    }
+    setFormDataState(merged as TFormData);
+    if (kept.length > 0) setNotice({ kind: 'changed', text: RULE_CHANGED_UNDERNEATH_NOTICE });
   }, []);
 
   const holdRow = useCallback(
@@ -252,7 +276,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
       ) {
         savingRef.current = false;
         setSaving(false);
-        setSaveNotice((notice) => (notice === EARLIER_SAVE_PENDING_NOTICE ? null : notice));
+        setNotice((current) => (current?.kind === 'pending' ? null : current));
       }
     },
     [syncBusyRows]
@@ -288,7 +312,7 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     const session = sessionRef.current;
     const rowId = editingRule ? editingRule.id : null;
     setSaveError(null);
-    setSaveNotice(null);
+    setNotice(null);
     if (rowId !== null) holdRow(rowId);
     try {
       if (editingRule) {
@@ -306,7 +330,10 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
           setSaveError(getRuleSaveErrorMessage(error));
         } else if (rowId !== null && editingRuleRef.current?.id === rowId) {
           // The person reopened this rule while the save ran: the first edit is lost — say so.
-          setSaveNotice(earlierSaveFailedNotice(getRuleSaveErrorMessage(error)));
+          setNotice({
+            kind: 'failed',
+            text: earlierSaveFailedNotice(getRuleSaveErrorMessage(error)),
+          });
         }
       }
       throw error;

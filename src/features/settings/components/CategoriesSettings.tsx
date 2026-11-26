@@ -17,6 +17,7 @@ import { settingsService, type Category } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
 import { Alert } from '@/components/ui/Alert';
 import {
+  CATEGORIES_LOAD_FAILED_MESSAGE,
   CATEGORIES_RELOAD_FAILED_MESSAGE,
   CATEGORY_CHANGED_UNDERNEATH_NOTICE,
   CATEGORY_SAVE_PENDING_NOTICE,
@@ -26,7 +27,7 @@ import {
   shouldShowSaveError,
 } from '@/lib/errorMessages';
 import { toast } from '@/lib/toast';
-import { sameFormValues } from '@/lib/sameFormValues';
+import { mergeUntouchedFields } from '@/lib/sameFormValues';
 
 type CategoryForm = {
   name: string;
@@ -79,9 +80,9 @@ export const CategoriesSettings = () => {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   // Which form the refusal belongs to ('new' = the create form), so two forms never both show it.
-  const [saveError, setSaveError] = useState<{ target: 'new' | number; message: string } | null>(
-    null
-  );
+  // Why each form's last save was refused, shown in that form only. Typing in it clears it.
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
   const createSession = useFormSession();
   const editSession = useFormSession();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -90,11 +91,13 @@ export const CategoriesSettings = () => {
   const [editForm, setEditFormState] = useState<CategoryForm>(EMPTY_FORM);
   /** Typing in a form clears that form's refusal only. */
   const setCreateForm = (next: CategoryForm) => {
-    setSaveError((error) => (error?.target === 'new' ? null : error));
+    setCreateError(null);
     setCreateFormState(next);
   };
   const setEditForm = (next: CategoryForm) => {
-    setSaveError((error) => (error && error.target !== 'new' ? null : error));
+    // Typing answers a refusal — this save's, or the earlier one's — but not the other notices.
+    setEditError(null);
+    setSaveNotice((current) => (current?.kind === 'failed' ? null : current));
     setEditFormState(next);
   };
   const { data: allDepts = [], teamsEnabled: teamsMode } = useDepartments();
@@ -147,6 +150,8 @@ export const CategoriesSettings = () => {
 
   /** True when the list did not reload after a write: it may show old values. */
   const listStaleRef = useRef(false);
+  /** False until a load succeeds: before that a failure is "could not load", not "out of date". */
+  const loadedOnceRef = useRef(false);
   /**
    * (Re)load the list. A failure is shown and marks the list stale: an edit form is then not
    * opened from it until a reload succeeds. Resolves to the rows, or null when the load failed.
@@ -157,15 +162,17 @@ export const CategoriesSettings = () => {
       const data = await settingsService.getCategories();
       setCategories(data);
       listStaleRef.current = false;
+      loadedOnceRef.current = true;
       return data;
     } catch (error) {
       logger.error('Error fetching categories:', error);
       listStaleRef.current = true;
       // A refusal's own reason (a 4xx the backend wrote for a person) follows the line.
+      const line = loadedOnceRef.current
+        ? CATEGORIES_RELOAD_FAILED_MESSAGE
+        : CATEGORIES_LOAD_FAILED_MESSAGE;
       const reason = getApiErrorMessage(error);
-      toast.error(
-        reason ? `${CATEGORIES_RELOAD_FAILED_MESSAGE} ${reason}` : CATEGORIES_RELOAD_FAILED_MESSAGE
-      );
+      toast.error(reason ? `${line} ${reason}` : line);
       return null;
     } finally {
       setLoading(false);
@@ -186,7 +193,12 @@ export const CategoriesSettings = () => {
   const pendingRowsRef = useRef(new Map<number, number>());
   const [waitingRow, setWaitingRow] = useState<number | null>(null);
   // A non-error line for the open edit form (an earlier save still running, or just landed).
-  const [saveNotice, setSaveNotice] = useState<{ target: number; message: string } | null>(null);
+  const [saveNotice, setSaveNotice] = useState<{
+    target: number;
+    /** pending: an earlier write still runs; changed: it landed; failed: it was refused. */
+    kind: 'pending' | 'changed' | 'failed';
+    message: string;
+  } | null>(null);
   // Latest edit row and form for answers that land after an await.
   const editingCategoryRef = useRef<Category | null>(null);
   editingCategoryRef.current = editingCategory;
@@ -198,7 +210,7 @@ export const CategoriesSettings = () => {
     editSession.restart();
     setWaitingRow(null);
     setSaveNotice(null);
-    setSaveError((error) => (error && error.target !== 'new' ? null : error));
+    setEditError(null);
   };
 
   const handleEdit = (category: Category) => {
@@ -220,7 +232,7 @@ export const CategoriesSettings = () => {
     setEditFormState(formFromCategory(category));
     if (pendingRowsRef.current.has(category.id)) {
       setWaitingRow(category.id);
-      setSaveNotice({ target: category.id, message: CATEGORY_SAVE_PENDING_NOTICE });
+      setSaveNotice({ target: category.id, kind: 'pending', message: CATEGORY_SAVE_PENDING_NOTICE });
     }
   };
 
@@ -238,25 +250,28 @@ export const CategoriesSettings = () => {
   const applyLateSave = (rowId: number, saved: Category) => {
     const open = editingCategoryRef.current;
     if (open?.id !== rowId) return;
-    const untouched = sameFormValues(editFormRef.current, formFromCategory(open));
+    const { merged, kept } = mergeUntouchedFields(
+      editFormRef.current,
+      formFromCategory(open),
+      formFromCategory(saved)
+    );
     setEditingCategory(saved);
-    if (untouched) {
-      setEditFormState(formFromCategory(saved));
-    } else {
-      setSaveNotice({ target: rowId, message: CATEGORY_CHANGED_UNDERNEATH_NOTICE });
+    setEditFormState(merged);
+    if (kept.length > 0) {
+      setSaveNotice({ target: rowId, kind: 'changed', message: CATEGORY_CHANGED_UNDERNEATH_NOTICE });
     }
   };
 
   const handleCreate = () => {
     createSession.restart();
-    setSaveError((error) => (error?.target === 'new' ? null : error));
+    setCreateError(null);
     setIsCreating(true);
     setCreateFormState(EMPTY_FORM);
   };
 
   const cancelCreate = () => {
     createSession.restart();
-    setSaveError((error) => (error?.target === 'new' ? null : error));
+    setCreateError(null);
     setIsCreating(false);
     setCreateFormState(EMPTY_FORM);
   };
@@ -268,7 +283,7 @@ export const CategoriesSettings = () => {
   const saveCreate = async () => {
     const session = createSession.begin();
     if (session === null) return;
-    setSaveError((error) => (error?.target === 'new' ? null : error));
+    setCreateError(null);
     try {
       await settingsService.createCategory(createForm);
       await fetchCategories();
@@ -276,7 +291,7 @@ export const CategoriesSettings = () => {
     } catch (error) {
       logger.error('Error saving category:', error);
       if (createSession.isCurrent(session) && shouldShowSaveError(error)) {
-        setSaveError({ target: 'new', message: saveErrorText(error) });
+        setCreateError(saveErrorText(error));
       }
     } finally {
       createSession.end(session);
@@ -291,7 +306,7 @@ export const CategoriesSettings = () => {
     const session = editSession.begin();
     if (session === null) return;
     const rowId = category.id;
-    setSaveError((error) => (error && error.target !== 'new' ? null : error));
+    setEditError(null);
     setSaveNotice(null);
     pendingRowsRef.current.set(rowId, (pendingRowsRef.current.get(rowId) ?? 0) + 1);
     try {
@@ -304,10 +319,11 @@ export const CategoriesSettings = () => {
       if (shouldShowSaveError(error)) {
         const message = saveErrorText(error);
         if (editSession.isCurrent(session)) {
-          setSaveError({ target: rowId, message });
-        } else if (editingCategoryRef.current?.id === rowId) {
+          setEditError(message);
+        } else {
           // The person reopened this category while the save ran: the first edit is lost — say so.
-          setSaveNotice({ target: rowId, message: earlierSaveFailedNotice(message) });
+          // The line is for this category's form only (`target`); another form never shows it.
+          setSaveNotice({ target: rowId, kind: 'failed', message: earlierSaveFailedNotice(message) });
         }
       }
     } finally {
@@ -319,9 +335,7 @@ export const CategoriesSettings = () => {
       } else if (editingCategoryRef.current?.id === rowId && !pendingRowsRef.current.has(rowId)) {
         // The reopened form on this category was only waiting for this write: it may save now.
         setWaitingRow(null);
-        setSaveNotice((notice) =>
-          notice?.message === CATEGORY_SAVE_PENDING_NOTICE ? null : notice
-        );
+        setSaveNotice((notice) => (notice?.kind === 'pending' ? null : notice));
       }
     }
   };
@@ -411,7 +425,7 @@ export const CategoriesSettings = () => {
             </div>
             {departmentPicker(createForm, setCreateForm)}
           </div>
-          {saveError?.target === 'new' && <Alert variant="danger">{saveError.message}</Alert>}
+          {createError && <Alert variant="danger">{createError}</Alert>}
           <div className="flex flex-col sm:flex-row gap-2 items-center sm:items-start justify-center sm:justify-start"
           >
             <Button onClick={() => void saveCreate()} disabled={!createForm.name || createSession.saving}>
@@ -476,9 +490,7 @@ export const CategoriesSettings = () => {
                 {saveNotice?.target === category.id && (
                   <Alert variant="warning">{saveNotice.message}</Alert>
                 )}
-                {saveError?.target === category.id && (
-                  <Alert variant="danger">{saveError.message}</Alert>
-                )}
+                {editError && <Alert variant="danger">{editError}</Alert>}
                 <div className="flex flex-col sm:flex-row gap-2">
 
                   <Button
