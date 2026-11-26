@@ -324,19 +324,34 @@ export const markHandledInline = <E,>(err: E): E => {
 };
 
 /**
- * True when a failed save should put a line in the dialog: the server answered (it has a status)
- * or the request never got an answer (network drop / timeout). A plain local throw — a check the
- * page ran before sending anything — is neither, and the page shows its own message for it.
+ * True when a failed save should put a line in the dialog. ANY failure of the save call does —
+ * a refusal, a network drop, a 2xx that did not carry the saved row, a throw while reading the
+ * answer — because an open dialog with a re-enabled Save and no message reads as "nothing
+ * happened". The only exceptions: an error the page already showed itself (`markHandledInline`)
+ * and a request that was deliberately cancelled.
  */
 export const shouldShowSaveError = (err: unknown): boolean => {
-  if (typeof err !== 'object' || err === null) return false;
+  if (typeof err !== 'object' || err === null) return true;
   if (shownInline.has(err)) return false;
-  if (getErrorStatus(err) !== undefined) return true;
-  const shape = err as { isAxiosError?: boolean; code?: string; message?: string };
-  return (
-    shape.isAxiosError === true ||
-    shape.code === 'ERR_NETWORK' ||
-    shape.code === 'ECONNABORTED' ||
-    shape.message === 'Network Error'
-  );
+  const shape = err as { code?: unknown; name?: unknown };
+  return shape.code !== 'ERR_CANCELED' && shape.name !== 'CanceledError';
+};
+
+/** A save answered 2xx but without the row it saved: nothing proves the rule was written. */
+export class SaveNotConfirmedError extends Error {
+  constructor() {
+    super('The server did not return the saved row');
+    this.name = 'SaveNotConfirmedError';
+  }
+}
+
+/**
+ * The saved row from a 2xx answer, or a throw when there is none (`{}`, `{ success: false }`, an
+ * empty or null body). Without it the dialog would close "as saved" with nothing saved.
+ */
+export const requireSavedRow = <T,>(row: T | null | undefined): T => {
+  if (typeof row !== 'object' || row === null || typeof (row as { id?: unknown }).id !== 'number') {
+    throw new SaveNotConfirmedError();
+  }
+  return row;
 };

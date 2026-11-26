@@ -1,6 +1,7 @@
 import type { AxiosResponse } from 'axios';
 import { apiClient } from '@/lib/api-client';
 import { scopedLookup } from '@/lib/scopedLookup';
+import { requireSavedRow } from '@/lib/errorMessages';
 import type { ApiResponse } from '@/types';
 
 // Types
@@ -92,7 +93,8 @@ const createCategory = async (data: {
     '/api/settings/categories',
     data
   );
-  return response.data.data as Category;
+  // A 2xx without the row (null/empty body, `{}`) is a failed save, not a silent success.
+  return requireSavedRow(response.data?.data);
 };
 
 const updateCategory = async (
@@ -109,7 +111,8 @@ const updateCategory = async (
     `/api/settings/categories/${id}`,
     data
   );
-  return response.data.data as Category;
+  // A 2xx without the row (null/empty body, `{}`) is a failed save, not a silent success.
+  return requireSavedRow(response.data?.data);
 };
 
 const deleteCategory = async (id: number): Promise<void> => {
@@ -201,7 +204,8 @@ const createSpamRule = async (data: {
     '/api/settings/spam-rules',
     data
   );
-  return response.data.data as SpamRule;
+  // A 2xx without the row (null/empty body, `{}`) is a failed save, not a silent success.
+  return requireSavedRow(response.data?.data);
 };
 
 const updateSpamRule = async (
@@ -221,7 +225,8 @@ const updateSpamRule = async (
     `/api/settings/spam-rules/${id}`,
     data
   );
-  return response.data.data as SpamRule;
+  // A 2xx without the row (null/empty body, `{}`) is a failed save, not a silent success.
+  return requireSavedRow(response.data?.data);
 };
 
 const deleteSpamRule = async (id: number): Promise<void> => {
@@ -257,7 +262,8 @@ const createKnowledgeDetectionRule = async (data: {
     '/api/settings/knowledge-detection-rules',
     data
   );
-  return response.data.data as KnowledgeDetectionRule;
+  // A 2xx without the row (null/empty body, `{}`) is a failed save, not a silent success.
+  return requireSavedRow(response.data?.data);
 };
 
 const updateKnowledgeDetectionRule = async (
@@ -276,7 +282,8 @@ const updateKnowledgeDetectionRule = async (
     `/api/settings/knowledge-detection-rules/${id}`,
     data
   );
-  return response.data.data as KnowledgeDetectionRule;
+  // A 2xx without the row (null/empty body, `{}`) is a failed save, not a silent success.
+  return requireSavedRow(response.data?.data);
 };
 
 const deleteKnowledgeDetectionRule = async (id: number): Promise<void> => {

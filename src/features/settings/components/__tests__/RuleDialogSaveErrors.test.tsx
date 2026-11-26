@@ -7,7 +7,7 @@
  * service objects so their signatures cannot drift.
  */
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor, act, within } from '@testing-library/react';
 import type * as SettingsServiceModule from '@/services/settings.service';
 import type * as DetectionServiceModule from '@/features/settings/services/detectionRule.service';
 import type * as PriorityServiceModule from '@/features/settings/services/priorityRule.service';
@@ -20,6 +20,12 @@ const next = vi.hoisted(() => ({
   gate: null as Promise<void> | null,
   spam: [] as unknown[],
   categories: [] as unknown[],
+  /**
+   * When true, a save goes through the REAL service function and the real api-client answers 2xx
+   * with `body` — so the service's own "no saved row" check is what is under test.
+   */
+  viaApi: false,
+  body: undefined as unknown,
 }));
 const attempt = <T,>(value: T): Promise<T> => {
   next.saves += 1;
@@ -37,23 +43,33 @@ vi.mock('@/services/settings.service', async (importOriginal) => {
       ...actual.settingsService,
       getSpamRules: () => Promise.resolve(next.spam as SettingsServiceModule.SpamRule[]),
       updateSpamRule: (...args: Parameters<typeof actual.settingsService.updateSpamRule>) =>
-        attempt(args[1] as unknown as Awaited<ReturnType<typeof actual.settingsService.updateSpamRule>>),
+        next.viaApi
+          ? actual.settingsService.updateSpamRule(...args)
+          : attempt(args[1] as unknown as Awaited<ReturnType<typeof actual.settingsService.updateSpamRule>>),
       createSpamRule: (...args: Parameters<typeof actual.settingsService.createSpamRule>) =>
-        attempt(args[0] as unknown as Awaited<ReturnType<typeof actual.settingsService.createSpamRule>>),
+        next.viaApi
+          ? actual.settingsService.createSpamRule(...args)
+          : attempt(args[0] as unknown as Awaited<ReturnType<typeof actual.settingsService.createSpamRule>>),
       getKnowledgeDetectionRules: () => Promise.resolve([]),
       createKnowledgeDetectionRule: (
         ...args: Parameters<typeof actual.settingsService.createKnowledgeDetectionRule>
       ) =>
-        attempt(
-          args[0] as unknown as Awaited<
-            ReturnType<typeof actual.settingsService.createKnowledgeDetectionRule>
-          >
-        ),
+        next.viaApi
+          ? actual.settingsService.createKnowledgeDetectionRule(...args)
+          : attempt(
+              args[0] as unknown as Awaited<
+                ReturnType<typeof actual.settingsService.createKnowledgeDetectionRule>
+              >
+            ),
       getCategories: () => Promise.resolve(next.categories as SettingsServiceModule.Category[]),
       updateCategory: (...args: Parameters<typeof actual.settingsService.updateCategory>) =>
-        attempt(args[1] as unknown as Awaited<ReturnType<typeof actual.settingsService.updateCategory>>),
+        next.viaApi
+          ? actual.settingsService.updateCategory(...args)
+          : attempt(args[1] as unknown as Awaited<ReturnType<typeof actual.settingsService.updateCategory>>),
       createCategory: (...args: Parameters<typeof actual.settingsService.createCategory>) =>
-        attempt(args[0] as unknown as Awaited<ReturnType<typeof actual.settingsService.createCategory>>),
+        next.viaApi
+          ? actual.settingsService.createCategory(...args)
+          : attempt(args[0] as unknown as Awaited<ReturnType<typeof actual.settingsService.createCategory>>),
     },
   };
 });
@@ -65,7 +81,12 @@ vi.mock('@/features/settings/services/detectionRule.service', async (importOrigi
       ...actual.detectionRuleService,
       getAll: () => Promise.resolve({ success: true, data: [] }),
       create: (...args: Parameters<typeof actual.detectionRuleService.create>) =>
-        attempt({ success: true, data: args[0] as unknown as DetectionServiceModule.DetectionRule }),
+        next.viaApi
+          ? actual.detectionRuleService.create(...args)
+          : attempt({
+              success: true,
+              data: { ...args[0], id: 101 } as unknown as DetectionServiceModule.DetectionRule,
+            }),
     },
   };
 });
@@ -77,7 +98,12 @@ vi.mock('@/features/settings/services/priorityRule.service', async (importOrigin
       ...actual.priorityRuleService,
       list: () => Promise.resolve([]),
       create: (...args: Parameters<typeof actual.priorityRuleService.create>) =>
-        attempt({ success: true, data: args[0] as unknown as PriorityServiceModule.PriorityRule }),
+        next.viaApi
+          ? actual.priorityRuleService.create(...args)
+          : attempt({
+              success: true,
+              data: { ...args[0], id: 101 } as unknown as PriorityServiceModule.PriorityRule,
+            }),
     },
   };
 });
@@ -96,6 +122,7 @@ import { DetectionRulesSettings } from '@/features/settings/components/Detection
 import { KnowledgeDetectionRulesSettings } from '@/features/settings/components/KnowledgeDetectionRulesSettings';
 import { PriorityRulesSettings } from '@/features/settings/components/PriorityRulesSettings';
 import { CategoriesSettings } from '@/features/settings/components/CategoriesSettings';
+import { apiClient } from '@/lib/api-client';
 
 const DUPLICATE = 'A rule with this name already exists here';
 // The shape the real api-client interceptor throws when the server sent a body: an Error carrying
@@ -190,8 +217,23 @@ beforeEach(() => {
   next.gate = null;
   next.spam = [];
   next.categories = [];
+  next.viaApi = false;
+  next.body = undefined;
+  // The real api-client answering 2xx with `next.body` (used only when `next.viaApi`).
+  const answer = () => attempt({ data: next.body, status: 200 } as never);
+  vi.spyOn(apiClient, 'post').mockImplementation(answer);
+  vi.spyOn(apiClient, 'put').mockImplementation(answer);
+  vi.spyOn(apiClient, 'patch').mockImplementation(answer);
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+/** Let a released request and its follow-up renders settle. */
+const settle = () =>
+  act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
 
 const openAndFill = async (page: Page) => {
   render(page.page());
@@ -302,6 +344,75 @@ describe.each(PAGES)('$label: a refused save', (page) => {
   });
 });
 
+describe.each(PAGES)('$label: a failure without a status is never silent', (page) => {
+  it('a throw with no status (reading a null answer) shows the generic line and keeps the editor', async () => {
+    next.error = new TypeError("Cannot read properties of null (reading 'data')");
+    const typed = await openAndFill(page);
+    await save();
+    expect(await screen.findByText(GENERIC(page))).toBeTruthy();
+    expect(page.editorOpen()).not.toBeNull();
+    expect(screen.getByDisplayValue(typed)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^save$/i }).getAttribute('aria-disabled')).not.toBe('true');
+  });
+
+  it.each([
+    ['{}', {}],
+    ['{ success: false }', { success: false }],
+    ['an empty body', ''],
+    ['a null body', null],
+  ])('a 2xx with %s does not close as saved and shows the generic line', async (_label, body) => {
+    next.viaApi = true;
+    next.body = body;
+    await openAndFill(page);
+    await save();
+    expect(await screen.findByText(GENERIC(page))).toBeTruthy();
+    expect(page.editorOpen()).not.toBeNull();
+  });
+
+  it('a cancelled request shows nothing and keeps the editor', async () => {
+    next.error = Object.assign(new Error('canceled'), { code: 'ERR_CANCELED', name: 'CanceledError' });
+    await openAndFill(page);
+    await save();
+    await settle();
+    expect(screen.queryByText(GENERIC(page))).toBeNull();
+    expect(page.editorOpen()).not.toBeNull();
+  });
+});
+
+describe.each(PAGES)('$label: saving belongs to one editor session', (page) => {
+  const pendingSave = async () => {
+    let release: () => void = () => undefined;
+    next.gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await openAndFill(page);
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    await waitFor(() => expect(next.saves).toBe(1));
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+    await waitFor(() => expect(page.editorOpen()).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: page.addButton }));
+    page.fill();
+    return () => release();
+  };
+
+  it('Save pending, Cancel, Add again: Save is enabled in the new editor', async () => {
+    const release = await pendingSave();
+    expect(screen.getByRole('button', { name: /^save$/i }).getAttribute('aria-disabled')).not.toBe('true');
+    release();
+    await settle();
+  });
+
+  it('a late SUCCESS of the old request does not close the newer editor', async () => {
+    const release = await pendingSave();
+    act(() => {
+      release();
+    });
+    await settle();
+    expect(page.editorOpen()).not.toBeNull();
+    expect(screen.getByRole('button', { name: /^save$/i }).getAttribute('aria-disabled')).not.toBe('true');
+  });
+});
+
 const SPAM_RULE = (id: number, name: string): SettingsServiceModule.SpamRule => ({
   id,
   organizationId: 1,
@@ -398,5 +509,44 @@ describe.each(EDIT_PAGES)('$label: the EDIT form', (edit) => {
     expect(screen.queryByText(DUPLICATE)).toBeNull();
     expect(screen.queryByText('A category with this name already exists here')).toBeNull();
     expect(edit.nameShown(edit.names[1])).toBe(true);
+  });
+  it('a refusal that arrives after Cancel and re-opening the SAME row does not show there', async () => {
+    edit.seed();
+    let release: () => void = () => undefined;
+    next.gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    next.error = axiosError(409, { success: false, error: DUPLICATE, code: 'DUPLICATE_RULE' });
+    render(edit.page());
+    await openEdit(0);
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    await waitFor(() => expect(next.saves).toBe(1));
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+    await openEdit(0);
+    act(() => {
+      release();
+    });
+    await settle();
+    expect(screen.queryByText(DUPLICATE)).toBeNull();
+    expect(screen.queryByText('A category with this name already exists here')).toBeNull();
+    expect(edit.nameShown(edit.names[0])).toBe(true);
+  });
+});
+
+describe('categories: the create and edit forms open together', () => {
+  it('a refused EDIT shows only in the edit form, never in the create form', async () => {
+    next.categories = [CATEGORY(1, 'Alpha'), CATEGORY(2, 'Beta')];
+    next.error = axiosError(400, { success: false, error: 'Name is too long' });
+    render(<CategoriesSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: /add category/i }));
+    await waitFor(() => expect(screen.getAllByRole('button', { name: /^edit$/i }).length).toBe(2));
+    fireEvent.click(screen.getAllByRole('button', { name: /^edit$/i })[0]);
+    expect(screen.getByText('New Category')).toBeTruthy();
+    fireEvent.click(screen.getAllByRole('button', { name: /^save$/i })[0]);
+    await waitFor(() => expect(next.saves).toBe(1));
+    const shown = await screen.findAllByText('Name is too long');
+    expect(shown).toHaveLength(1);
+    const editForm = screen.getByText('Edit Category').parentElement as HTMLElement;
+    expect(within(editForm).getByText('Name is too long')).toBeTruthy();
   });
 });
