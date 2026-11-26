@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { logger } from '@/lib/logger';
+import { getRuleSaveErrorMessage, shouldShowSaveError } from '@/lib/errorMessages';
 
 type UseRuleManagementOptions<T, TFormData> = {
   fetchRules: () => Promise<T[]>;
@@ -45,7 +46,19 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
   const [isCreating, setIsCreating] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [ruleToDelete, setRuleToDelete] = useState<T | null>(null);
-  const [formData, setFormData] = useState<TFormData>(() => getInitialFormDataRef.current());
+  const [formData, setFormDataState] = useState<TFormData>(() => getInitialFormDataRef.current());
+  // Why the last create/update was refused; shown inside the open dialog. Cleared on edit, close
+  // and the next save.
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // Bumped whenever an editor opens or closes. A save answers for the editor it was sent from; if
+  // the person has moved on (Cancel, then Edit another rule) the late answer must not touch it.
+  const sessionRef = useRef(0);
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
+  const setFormData = useCallback((next: TFormData) => {
+    setSaveError(null);
+    setFormDataState(next);
+  }, []);
   // Latest editor row for callbacks that resolve after an await (a stale closure would miss an
   // editor opened while the request was in flight).
   const editingRuleRef = useRef<T | null>(null);
@@ -78,13 +91,14 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
       const fresh = data.find((rule) => rule.id === open.id);
       const toForm = getFormDataFromRuleRef.current;
       if (!fresh || JSON.stringify(toForm(fresh)) !== JSON.stringify(toForm(open))) {
+        sessionRef.current += 1;
         setEditingRule(null);
         setFormData(getInitialFormDataRef.current());
       }
     } catch (error) {
       logger.error('Error reloading rules:', error);
     }
-  }, []);
+  }, [setFormData]);
 
   // SpamRules + DetectionRules controllers honour X-Department-Context on the
   // list endpoints — refetch when the checkbox-driven dept selection changes
@@ -96,23 +110,35 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     });
   }, [loadRules, selectedDeptKey]);
 
-  const handleEdit = useCallback((rule: T) => {
-    setEditingRule(rule);
-    setFormData(getFormDataFromRuleRef.current(rule));
-  }, []);
+  const handleEdit = useCallback(
+    (rule: T) => {
+      sessionRef.current += 1;
+      setEditingRule(rule);
+      setFormData(getFormDataFromRuleRef.current(rule));
+    },
+    [setFormData]
+  );
 
   const handleCreate = useCallback(() => {
+    sessionRef.current += 1;
     setIsCreating(true);
     setFormData(getInitialFormDataRef.current());
-  }, []);
+  }, [setFormData]);
 
   const handleCancel = useCallback(() => {
+    sessionRef.current += 1;
     setEditingRule(null);
     setIsCreating(false);
     setFormData(getInitialFormDataRef.current());
-  }, []);
+  }, [setFormData]);
 
   const handleSave = useCallback(async () => {
+    // One request per click-through: a second click while it is in flight is ignored.
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    const session = sessionRef.current;
+    setSaveError(null);
     try {
       if (editingRule) {
         await updateRuleRef.current(editingRule.id, formData);
@@ -120,10 +146,16 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
         await createRuleRef.current(formData);
       }
       await loadRules();
-      handleCancel();
+      if (sessionRef.current === session) handleCancel();
     } catch (error) {
       logger.error('Error saving rule:', error);
+      if (sessionRef.current === session && shouldShowSaveError(error)) {
+        setSaveError(getRuleSaveErrorMessage(error));
+      }
       throw error;
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   }, [editingRule, isCreating, formData, loadRules, handleCancel]);
 
@@ -160,6 +192,8 @@ export const useRuleManagement = <T extends { id: number }, TFormData>({
     deleteDialogOpen,
     ruleToDelete,
     formData,
+    saveError,
+    saving,
 
     // Setters
     setFormData,

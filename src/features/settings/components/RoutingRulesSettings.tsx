@@ -8,7 +8,7 @@ import { Select } from '@/components/ui/Select';
 import { RuleEditor } from '@/components/shared/RuleEditor';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
-import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
+import { getApiErrorMessage, getErrorStatus, markHandledInline } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
 import { departmentService, type Department } from '@/services/department.service';
@@ -203,14 +203,14 @@ export const RoutingRulesSettings = () => {
     createRule: async (data) => {
       if (data.departmentId === null) {
         setFormError('Pick a team for the rule');
-        throw new Error('Missing department');
+        throw markHandledInline(new Error('Missing department'));
       }
       const shouldTrim = data.type !== 'subject_regex' && data.type !== 'header_match';
       const normalizedValue = shouldTrim ? data.value.trim() : data.value;
       const validationError = validateValue(data.type, normalizedValue);
       if (validationError) {
         setFormError(validationError);
-        throw new Error(validationError);
+        throw markHandledInline(new Error(validationError));
       }
       setFormError(null);
       const trimmedExample = data.exampleText.trim();
@@ -231,7 +231,7 @@ export const RoutingRulesSettings = () => {
       const validationError = validateValue(data.type, normalizedValue);
       if (validationError) {
         setFormError(validationError);
-        throw new Error(validationError);
+        throw markHandledInline(new Error(validationError));
       }
       setFormError(null);
       const trimmedExample = data.exampleText.trim();
@@ -265,7 +265,7 @@ export const RoutingRulesSettings = () => {
           (data.departmentId === null || saved.departmentId === data.departmentId);
         if (!editsSaved) {
           setFormError(getApiErrorMessage(err) ?? 'The rule could not be saved.');
-          throw err;
+          throw markHandledInline(err);
         }
         toast.failure('switch the rule on', err);
         return adaptRule(saved);

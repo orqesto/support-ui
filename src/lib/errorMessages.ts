@@ -303,3 +303,40 @@ export const formatError = (scope: string, err: unknown): string => {
   }
   return `Couldn't ${scope}. The error has been logged.`;
 };
+
+/** Shown in a rule dialog when a save fails and there is no server copy that is safe to display. */
+export const RULE_SAVE_FAILED_MESSAGE = 'Could not save the rule. Try again.';
+
+/**
+ * Plain-text line for a refused rule save: the server's own message for a 4xx (409 duplicate,
+ * 400 validation), the generic line for a 5xx, a network failure or an empty body.
+ */
+export const getRuleSaveErrorMessage = (err: unknown): string =>
+  getApiErrorMessage(err) ?? RULE_SAVE_FAILED_MESSAGE;
+
+/** Errors a page has already put in front of the person itself (an inline form line). */
+const shownInline = new WeakSet<object>();
+
+/** Mark `err` as already shown by the page, so the shared dialog error does not repeat it. */
+export const markHandledInline = <E,>(err: E): E => {
+  if (typeof err === 'object' && err !== null) shownInline.add(err);
+  return err;
+};
+
+/**
+ * True when a failed save should put a line in the dialog: the server answered (it has a status)
+ * or the request never got an answer (network drop / timeout). A plain local throw — a check the
+ * page ran before sending anything — is neither, and the page shows its own message for it.
+ */
+export const shouldShowSaveError = (err: unknown): boolean => {
+  if (typeof err !== 'object' || err === null) return false;
+  if (shownInline.has(err)) return false;
+  if (getErrorStatus(err) !== undefined) return true;
+  const shape = err as { isAxiosError?: boolean; code?: string; message?: string };
+  return (
+    shape.isAxiosError === true ||
+    shape.code === 'ERR_NETWORK' ||
+    shape.code === 'ECONNABORTED' ||
+    shape.message === 'Network Error'
+  );
+};

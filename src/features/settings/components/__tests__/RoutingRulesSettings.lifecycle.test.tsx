@@ -402,8 +402,36 @@ describe('Rules page lifecycle', () => {
     };
     fireEvent.click(screen.getByRole('button', { name: /Save/ }));
     expect(await screen.findByText(/would duplicate another rule/)).toBeTruthy();
+    // Shown once (the inline line), not a second time by the shared dialog error.
+    expect(screen.getAllByText(/would duplicate another rule/)).toHaveLength(1);
+    expect(screen.queryByText('Could not save the rule. Try again.')).toBeNull();
     expect(screen.getByDisplayValue('loading dock')).toBeTruthy();
     expect(screen.getByRole('button', { name: /Save/ })).toBeTruthy();
     expect(state.toasts).toEqual([]);
+  });
+
+  it('a check the page runs before sending shows only its own inline line, with no request', async () => {
+    renderPage();
+    await screen.findAllByText('invoice');
+    fireEvent.click(rowOf('invoice').getByRole('button', { name: 'Edit rule' }));
+    fireEvent.change(await screen.findByDisplayValue('invoice'), {
+      target: { value: 'x'.repeat(501) },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+    expect(await screen.findByText('Value must be 500 characters or less')).toBeTruthy();
+    expect(screen.queryByText('Could not save the rule. Try again.')).toBeNull();
+    expect(state.updates).toEqual([]);
+  });
+
+  it('a refused edit of an ordinary rule shows the server message once, in the dialog', async () => {
+    renderPage();
+    await screen.findAllByText('invoice');
+    fireEvent.click(rowOf('invoice').getByRole('button', { name: 'Edit rule' }));
+    fireEvent.change(await screen.findByDisplayValue('invoice'), { target: { value: 'receipt' } });
+    state.failNext = { status: 409, message: 'This rule already exists for the team.' };
+    fireEvent.click(screen.getByRole('button', { name: /Save/ }));
+    expect(await screen.findByText('This rule already exists for the team.')).toBeTruthy();
+    expect(screen.getAllByText('This rule already exists for the team.')).toHaveLength(1);
+    expect(screen.getByDisplayValue('receipt')).toBeTruthy();
   });
 });

@@ -168,11 +168,8 @@ describe('AutoReplyRulesSection', () => {
 
   it('a 400 naming a field shows it inline', async () => {
     api.postError = Object.assign(new Error('Validation error'), {
-      isAxiosError: true,
-      response: {
-        status: 400,
-        data: { success: false, error: 'Validation error', fields: ['replyText'] },
-      },
+      status: 400,
+      data: { success: false, error: 'Validation error', fields: ['replyText'] },
     });
     renderSection();
     await openNewRule();
@@ -188,11 +185,8 @@ describe('AutoReplyRulesSection', () => {
     const clash =
       '"refund" is already a keyword of the rule "Refunds". An email with it would match both rules and get no auto-reply — keep it in one rule only.';
     api.postError = Object.assign(new Error(clash), {
-      isAxiosError: true,
-      response: {
-        status: 400,
-        data: { success: false, error: clash, code: 'VALIDATION_FAILED', fields: ['keywords'] },
-      },
+      status: 400,
+      data: { success: false, error: clash, code: 'VALIDATION_FAILED', fields: ['keywords'] },
     });
     renderSection();
     await openNewRule();
@@ -205,16 +199,36 @@ describe('AutoReplyRulesSection', () => {
     expect(screen.queryByText('Check the keywords: at least one is needed.')).toBeNull();
   });
 
+  it.each([
+    [409, { success: false, error: 'A rule with this name already exists here', code: 'DUPLICATE_RULE' }, 'A rule with this name already exists here'],
+    [500, { success: false, error: 'SELECT * FROM rules failed at db.ts:41' }, 'Could not save the rule.'],
+  ])('a %i on save alerts with the right text and keeps the editor open', async (status, data, shown) => {
+    api.postError = Object.assign(new Error(`Request failed with status code ${status}`), {
+      status,
+      data,
+    });
+    const alerts: { variant?: string; description?: string }[] = [];
+    renderSection(true, true, (alert) => alerts.push(alert));
+    await openNewRule();
+    fireEvent.change(screen.getByLabelText('Keywords', { selector: 'input' }), {
+      target: { value: 'refund' },
+    });
+    fireEvent.change(screen.getByLabelText('Reply text'), { target: { value: 'x' } });
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(alerts).toHaveLength(1));
+    expect(alerts[0].variant).toBe('error');
+    expect(alerts[0].description).toBe(shown);
+    expect(screen.getByLabelText('Reply text')).toBeTruthy();
+    expect(screen.getByLabelText<HTMLTextAreaElement>('Reply text').value).toBe('x');
+  });
+
   it('switching on a rule whose keyword clashes shows the server message in an alert', async () => {
     const clash =
       '"refund" is already a keyword of the rule "Refunds". An email with it would match both rules and get no auto-reply — keep it in one rule only.';
     api.rules = [{ ...refundRule, id: 2, name: 'Money', enabled: false }];
     api.patchError = Object.assign(new Error(clash), {
-      isAxiosError: true,
-      response: {
-        status: 400,
-        data: { success: false, error: clash, code: 'VALIDATION_FAILED', fields: ['keywords'] },
-      },
+      status: 400,
+      data: { success: false, error: clash, code: 'VALIDATION_FAILED', fields: ['keywords'] },
     });
     const alerts: { variant?: string; description?: string }[] = [];
     renderSection(true, true, (alert) => alerts.push(alert));

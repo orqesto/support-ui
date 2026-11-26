@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import { useDepartments } from '@/hooks/useDepartments';
@@ -15,15 +15,25 @@ import {
 } from '@/components/ui/Dialog';
 import { settingsService, type Category } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
+import { Alert } from '@/components/ui/Alert';
+import { getApiErrorMessage, getErrorBody, shouldShowSaveError } from '@/lib/errorMessages';
 
 export const CategoriesSettings = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  // Which form the refusal belongs to ('new' = the create form), so two forms never both show it.
+  const [saveError, setSaveError] = useState<{ target: 'new' | number; message: string } | null>(
+    null
+  );
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  // Bumped when a form opens or closes: a late answer must not land on a different form.
+  const sessionRef = useRef(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
-  const [formData, setFormData] = useState<{
+  const [formData, setFormDataState] = useState<{
     name: string;
     description: string;
     keywords: string;
@@ -35,6 +45,10 @@ export const CategoriesSettings = () => {
     keywords: '',
     departmentId: null,
   });
+  const setFormData: typeof setFormDataState = (next) => {
+    setSaveError(null);
+    setFormDataState(next);
+  };
   const { data: allDepts = [], teamsEnabled: teamsMode } = useDepartments();
   // Teams off: no team scope to pick; a category applies everywhere.
   const teamsEnabled = deriveTeamsEnabled(teamsMode, allDepts);
@@ -100,6 +114,7 @@ export const CategoriesSettings = () => {
   }, []);
 
   const handleEdit = (category: Category) => {
+    sessionRef.current += 1;
     setEditingCategory(category);
     setFormData({
       name: category.name,
@@ -110,11 +125,18 @@ export const CategoriesSettings = () => {
   };
 
   const handleCreate = () => {
+    sessionRef.current += 1;
     setIsCreating(true);
     setFormData({ name: '', description: '', keywords: '', departmentId: null });
   };
 
   const handleSave = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    const session = sessionRef.current;
+    const target: 'new' | number = editingCategory ? editingCategory.id : 'new';
+    setSaveError(null);
     try {
       if (editingCategory) {
         await settingsService.updateCategory(editingCategory.id, formData);
@@ -122,15 +144,29 @@ export const CategoriesSettings = () => {
         await settingsService.createCategory(formData);
       }
       await fetchCategories();
-      setEditingCategory(null);
-      setIsCreating(false);
-      setFormData({ name: '', description: '', keywords: '', departmentId: null });
+      if (sessionRef.current === session) {
+        sessionRef.current += 1;
+        setEditingCategory(null);
+        setIsCreating(false);
+        setFormData({ name: '', description: '', keywords: '', departmentId: null });
+      }
     } catch (error) {
       logger.error('Error saving category:', error);
+      if (sessionRef.current === session && shouldShowSaveError(error)) {
+        const message =
+          getErrorBody(error)?.code === 'DUPLICATE_RULE'
+            ? 'A category with this name already exists here'
+            : (getApiErrorMessage(error) ?? 'Could not save the category. Try again.');
+        setSaveError({ target, message });
+      }
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   };
 
   const handleCancel = () => {
+    sessionRef.current += 1;
     setEditingCategory(null);
     setIsCreating(false);
     setFormData({ name: '', description: '', keywords: '', departmentId: null });
@@ -221,9 +257,10 @@ export const CategoriesSettings = () => {
             </div>
             {departmentPicker}
           </div>
+          {saveError?.target === 'new' && <Alert variant="danger">{saveError.message}</Alert>}
           <div className="flex flex-col sm:flex-row gap-2 items-center sm:items-start justify-center sm:justify-start"
           >
-            <Button onClick={handleSave} disabled={!formData.name}>
+            <Button onClick={handleSave} disabled={!formData.name || saving}>
               <Save className="mr-2 w-4 h-4" />
               Save
             </Button>
@@ -282,9 +319,12 @@ export const CategoriesSettings = () => {
                   </div>
                   {departmentPicker}
                 </div>
+                {saveError?.target === category.id && (
+                  <Alert variant="danger">{saveError.message}</Alert>
+                )}
                 <div className="flex flex-col sm:flex-row gap-2">
 
-                  <Button onClick={handleSave}>
+                  <Button onClick={handleSave} disabled={saving}>
                     <Save className="mr-2 w-4 h-4" />
                     Save
                   </Button>
