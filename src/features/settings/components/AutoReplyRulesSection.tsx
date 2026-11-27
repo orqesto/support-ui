@@ -35,6 +35,10 @@ import {
   FIRST_NAME_PLACEHOLDER,
   hasErrors,
   hasNamePlaceholder,
+  HOLDING_REPLY_HELP_OFF,
+  HOLDING_REPLY_HELP_ON,
+  HOLDING_REPLY_LABEL,
+  holdingReplyPayload,
   insertKbPlaceholder,
   insertNamePlaceholder,
   KB_ANSWER_PLACEHOLDER,
@@ -64,6 +68,8 @@ type Editing = {
   errors: RuleDraftErrors;
   /** The rule's stored "After the reply": an update sends the field only when it changed. */
   savedAfterReply?: AfterReply;
+  /** The rule's stored "Holding reply": an update sends the field only when it changed. */
+  savedHoldingReply?: boolean;
 };
 
 const RuleForm = ({
@@ -274,6 +280,23 @@ const RuleForm = ({
           }
         />
       </div>
+      <div className="space-y-1">
+        <Toggle
+          checked={draft.holdingReply}
+          disabled={saving}
+          label={HOLDING_REPLY_LABEL}
+          ariaDescribedBy="auto-reply-rule-holding-help"
+          onChange={(next) => onChange({ ...draft, holdingReply: next })}
+        />
+        <p id="auto-reply-rule-holding-help" className="text-xs text-muted-foreground">
+          {draft.holdingReply ? HOLDING_REPLY_HELP_ON : HOLDING_REPLY_HELP_OFF}
+        </p>
+        {errors.holdingReply && (
+          <p className="text-xs text-destructive" role="alert">
+            {errors.holdingReply}
+          </p>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2 justify-end">
         <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={onCancel}>
           Cancel
@@ -360,9 +383,11 @@ export const AutoReplyRulesSection = ({
         useKnowledgeBase: rule.useKnowledgeBase,
         kbMatchPercent: String(Math.round(rule.kbMinSimilarity * 100)),
         afterReply: rule.afterReply,
+        holdingReply: rule.holdingReply,
       },
       errors: {},
       savedAfterReply: rule.afterReply,
+      savedHoldingReply: rule.holdingReply,
     });
 
   const save = useCallback(async () => {
@@ -386,6 +411,10 @@ export const AutoReplyRulesSection = ({
       ...((editing.ruleId === null || editing.draft.afterReply !== editing.savedAfterReply) && {
         afterReply: editing.draft.afterReply,
       }),
+      ...holdingReplyPayload(
+        editing.draft.holdingReply,
+        editing.ruleId === null ? undefined : editing.savedHoldingReply
+      ),
     };
     setSaving(true);
     try {
@@ -564,6 +593,7 @@ export const AutoReplyRulesSection = ({
                       {rule.afterReply === 'pending' && (
                         <Badge variant="secondary">Waits for customer</Badge>
                       )}
+                      {rule.holdingReply && <Badge variant="secondary">Holding reply</Badge>}
                       {!rule.enabled && <Badge variant="secondary">Off</Badge>}
                     </div>
                     <div className="flex flex-wrap gap-1">

@@ -31,6 +31,13 @@ export type AutoReplyRule = {
    * to the team when they write. Absent or unknown (an older backend) → 'resolve' (what it always did).
    */
   afterReply: AfterReply;
+  /**
+   * A holding reply (owner 2026-11-27): the reply tells the customer the team will still answer, so
+   * the rule check sends it whenever the customer writes about the rule's topic, their own order
+   * included. Off: sent only when it fully answers what the customer asks. Absent or not `true` (an
+   * older backend) → false.
+   */
+  holdingReply: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -47,6 +54,8 @@ export type AutoReplyRuleInput = {
   kbMinSimilarity?: number | null;
   /** Omitted on create → 'resolve'; omitted on update → unchanged. */
   afterReply?: AfterReply;
+  /** Omitted on create → false; omitted on update → unchanged. */
+  holdingReply?: boolean;
 };
 
 /** The backend's default knowledge base match (autoReplyRulesService KB_MATCH_DEFAULT). */
@@ -74,6 +83,7 @@ const normalizeRule = (raw: Partial<AutoReplyRule> | null | undefined): AutoRepl
       ? raw.ignoredKeywords.filter((kw): kw is string => typeof kw === 'string')
       : [],
     afterReply: raw.afterReply === 'pending' ? 'pending' : 'resolve',
+    holdingReply: raw.holdingReply === true,
     createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : '',
     updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : '',
   };
