@@ -17,15 +17,17 @@ import { settingsService, type Category } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
 import { Alert } from '@/components/ui/Alert';
 import {
+  getApiErrorMessage,
+  getCategorySaveErrorMessage,
+  shouldShowSaveError,
+} from '@/lib/errorMessages';
+import {
   CATEGORIES_LOAD_FAILED_MESSAGE,
   CATEGORIES_RELOAD_FAILED_MESSAGE,
   CATEGORY_CHANGED_UNDERNEATH_NOTICE,
   CATEGORY_SAVE_PENDING_NOTICE,
   earlierSaveFailedNotice,
-  getApiErrorMessage,
-  getCategorySaveErrorMessage,
-  shouldShowSaveError,
-} from '@/lib/errorMessages';
+} from '@/features/settings/ruleMessages';
 import { toast } from '@/lib/toast';
 import { mergeUntouchedFields } from '@/lib/sameFormValues';
 

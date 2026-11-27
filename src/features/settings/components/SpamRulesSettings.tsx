@@ -11,7 +11,8 @@ import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
 import { settingsService, type SpamRule } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
-import { getApiErrorMessage, RULE_TOGGLE_FAILED_MESSAGE } from '@/lib/errorMessages';
+import { getApiErrorMessage } from '@/lib/errorMessages';
+import { RULE_TOGGLE_FAILED_MESSAGE } from '@/features/settings/ruleMessages';
 import { prettifyRulePattern } from '@/lib/prettifyRulePattern';
 import { FeatureSuggestions } from './FeatureSuggestions';
 import {

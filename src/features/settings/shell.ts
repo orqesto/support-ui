@@ -9,6 +9,7 @@ export {
   CUSTOM_API_LOOKUP_ROUTE,
   CUSTOM_API_TEMPLATE_ROUTE,
 } from './components/customApi/lookupPaths';
+export { TEAM_NEW_ROUTE, TEAM_PAGE_ROUTE, teamPagePath } from './components/teams/teamPaths';
 export {
   kbFullHeldLine,
   kbFullHoldLine,

@@ -37,6 +37,9 @@ export {
   CUSTOM_APIS_SETTINGS_PATH,
   customApiLookupPath,
 } from './components/customApi/lookupPaths';
+export { NewTeamBuilder } from './components/teams/NewTeamBuilder';
+export { TeamNotFound, TeamPage } from './components/teams/TeamPage';
+export { TEAM_NEW_ROUTE, TEAM_PAGE_ROUTE, teamPagePath } from './components/teams/teamPaths';
 export { EmailIntegrationCard } from './components/integrations/EmailIntegrationCard';
 export { GmailIntegrationCard } from './components/integrations/GmailIntegrationCard';
 export { SlackIntegrationCard } from './components/integrations/SlackIntegrationCard';

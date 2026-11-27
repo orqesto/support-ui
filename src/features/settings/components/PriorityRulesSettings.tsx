@@ -8,7 +8,8 @@ import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { Toggle } from '@/components/ui/Toggle';
 import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
-import { getApiErrorMessage, requireSavedRow, RULE_TOGGLE_FAILED_MESSAGE } from '@/lib/errorMessages';
+import { getApiErrorMessage, requireSavedRow } from '@/lib/errorMessages';
+import { RULE_TOGGLE_FAILED_MESSAGE } from '@/features/settings/ruleMessages';
 import { toast } from '@/lib/toast';
 import { logger } from '@/lib/logger';
 import {

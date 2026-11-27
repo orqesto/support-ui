@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Users } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
 import { Badge } from '@/components/ui/Badge';
@@ -18,6 +19,7 @@ import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Toggle } from '@/components/ui/Toggle';
 import { useDepartments } from '@/hooks/useDepartments';
+import { useUiFlags } from '@/hooks/useUiFlags';
 import { deriveTeamsEnabled, pickDefaultTeam } from '@/hooks/useTeamsEnabled';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import { logger } from '@/lib/logger';
@@ -28,6 +30,7 @@ import {
   type Department,
 } from '@/services/department.service';
 import { TeamsOffDialog } from './TeamsOffDialog';
+import { TEAM_NEW_ROUTE, teamPagePath } from './teams/teamPaths';
 
 /**
  * Settings › Teams (admins). Lists every team with an on/off switch, a rename field and a
@@ -63,6 +66,8 @@ const describeError = (err: unknown, fallback: string): string =>
 
 export const TeamsSettings = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { isSurfaceEnabled } = useUiFlags();
   const {
     data: teams = [],
     isLoading,
@@ -297,6 +302,14 @@ export const TeamsSettings = () => {
               </Alert>
             )}
 
+            {teamsEnabled && isSurfaceEnabled('ui.team_builder') && (
+              <div>
+                <Button size="sm" onClick={() => navigate(TEAM_NEW_ROUTE)}>
+                  New team
+                </Button>
+              </div>
+            )}
+
             <ul className="space-y-2" aria-label="Teams">
               {(teamsEnabled ? teams : teams.filter((team) => team.isDefault || team.active)).map(
                 (team) => (
@@ -365,6 +378,7 @@ const TeamRow = ({
   onTurnOn: () => void;
   onTurnOff: () => void;
 }) => {
+  const { isSurfaceEnabled } = useUiFlags();
   const [name, setName] = useState(team.name);
   useEffect(() => setName(team.name), [team.name]);
   const color = team.color && HEX_COLOR.test(team.color) ? team.color : FALLBACK_COLOR;
@@ -387,6 +401,15 @@ const TeamRow = ({
         }}
         className="p-1 w-10 h-9"
       />
+      {team.active && isSurfaceEnabled('ui.team_builder') && (
+        <Link
+          to={teamPagePath(team.id)}
+          aria-label={`Open ${team.name} page`}
+          className="text-sm font-medium text-primary underline"
+        >
+          Open
+        </Link>
+      )}
       <form
         className="flex flex-1 gap-2 items-center min-w-[12rem]"
         onSubmit={(event) => {

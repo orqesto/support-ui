@@ -1,16 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { logger } from '@/lib/logger';
+import { getApiErrorMessage, shouldShowSaveError } from '@/lib/errorMessages';
 import {
   EARLIER_SAVE_PENDING_NOTICE,
   earlierSaveFailedNotice,
-  getApiErrorMessage,
   getRuleSaveErrorMessage,
   RULE_CHANGED_UNDERNEATH_NOTICE,
   RULES_LOAD_FAILED_MESSAGE,
   RULES_RELOAD_FAILED_MESSAGE,
-  shouldShowSaveError,
-} from '@/lib/errorMessages';
+} from '@/features/settings/ruleMessages';
 import { toast } from '@/lib/toast';
 import { mergeUntouchedFields } from '@/lib/sameFormValues';
 
