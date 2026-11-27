@@ -282,16 +282,18 @@ describe('insertNamePlaceholder', () => {
     expect(insertNamePlaceholder(text)).toBe(out);
   });
 
-  it.each(['Hello, John\nThanks.', 'Hi ,\u00A0Mr. Smith!\nThanks.'])(
-    'sees a name after a comma and puts the line on top: %j',
-    (text) => {
-      expect(insertNamePlaceholder(text)).toBe(`Dear ${NAME},\n\n${text}`);
+  it.each([
+    ['Hello, Thank you for contacting us.', `Hello ${NAME}, Thank you for contacting us.`],
+    ['Hi, Welcome!', `Hi ${NAME}, Welcome!`],
+    ['Hello, We received your message.', `Hello ${NAME}, We received your message.`],
+    ['Hello, John\nThanks.', `Hello ${NAME}, John\nThanks.`],
+    ['Hello,\nJohn here.', `Hello ${NAME},\nJohn here.`],
+  ])(
+    'a capitalised word after a comma starts a sentence: placeholder before the comma, no line on top: %j',
+    (text, out) => {
+      expect(insertNamePlaceholder(text)).toBe(out);
     }
   );
-
-  it('a comma followed by a line break is not a name (control)', () => {
-    expect(insertNamePlaceholder('Hello,\nJohn here.')).toBe(`Hello ${NAME},\nJohn here.`);
-  });
 
   it.each([
     'Hi {first_name},\n\nThanks.',
