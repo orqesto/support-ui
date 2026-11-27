@@ -676,7 +676,7 @@ describe("Keyword rules: after the reply, and the customer's name (2026-11-27)",
     expect(reply()).toHaveProperty('value', 'Dear {{customer_name}},\n\nThanks for writing.');
   });
 
-  it.each(['{{customer_name}}', '{{customer_name|there}}', '{customer_name}', '{customer_name|x}'])(
+  it.each(['{{customer_name}}', '{customer_name|x}', '{first_name}', '{{first_name|there}}'])(
     'hides Insert {{customer_name}} when the text already holds %s',
     async (token) => {
       renderSection();

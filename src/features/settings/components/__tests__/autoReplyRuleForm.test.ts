@@ -5,6 +5,8 @@ import {
   emptyDraft,
   errorsFromFields,
   hasErrors,
+  hasNamePlaceholder,
+  insertNamePlaceholder,
   insertKbPlaceholder,
   KB_ANSWER_PLACEHOLDER,
   KEYWORD_MAX_LENGTH,
@@ -151,5 +153,59 @@ describe('validateDraft — two-letter acronyms in capitals (owner 2026-11-17)',
     expect(validateDraft({ ...draft, keywords: ['tv', 'c#'] }).keywords).toBe(
       'A keyword needs at least 3 characters: "tv", "c#".'
     );
+  });
+});
+
+describe('insertNamePlaceholder', () => {
+  it.each([
+    ['Dear customer,\n\nThanks.', 'Dear {{customer_name}},\n\nThanks.'],
+    ['Hi there!\n\nThanks.', 'Hi {{customer_name}}!\n\nThanks.'],
+    ['Dear Sir or Madam,\n\nThanks.', 'Dear {{customer_name}},\n\nThanks.'],
+    ['Hello friend,\n\nThanks.', 'Hello {{customer_name}},\n\nThanks.'],
+    ['Hello,\n\nThanks.', 'Hello {{customer_name}},\n\nThanks.'],
+    ['Good morning team.\nThanks.', 'Good morning {{customer_name}}.\nThanks.'],
+  ])('replaces the greeting addressee: %j', (before, after) => {
+    expect(insertNamePlaceholder(before)).toBe(after);
+  });
+
+  it('puts a "Dear {{customer_name}}," line on top when the text has no greeting', () => {
+    expect(insertNamePlaceholder('  Thanks for writing.')).toBe(
+      'Dear {{customer_name}},\n\nThanks for writing.'
+    );
+  });
+
+  it('changes only the first line, up to its first punctuation', () => {
+    const before = 'Hi there, and welcome!\nDear customer, we are here.\nHello, again.';
+    expect(insertNamePlaceholder(before)).toBe(
+      'Hi {{customer_name}}, and welcome!\nDear customer, we are here.\nHello, again.'
+    );
+  });
+
+  it.each([
+    'Hi {first_name},\n\nThanks.',
+    'Hi {{first_name|there}},\n\nThanks.',
+    'Dear {{customer_name}},\n\nThanks.',
+    'Dear {customer_name|customer},\n\nThanks.',
+  ])('leaves a first line that already names the customer: %j', (text) => {
+    expect(insertNamePlaceholder(text)).toBe(text);
+  });
+});
+
+describe('hasNamePlaceholder', () => {
+  it.each([
+    '{{customer_name}}',
+    '{{customer_name|there}}',
+    '{customer_name}',
+    '{customer_name|x}',
+    '{first_name}',
+    '{first_name|there}',
+    '{{first_name}}',
+  ])('sees %s', (placeholder) => {
+    expect(hasNamePlaceholder(`Hi ${placeholder},\n\nThanks.`)).toBe(true);
+  });
+
+  it('does not see a plain greeting or a look-alike', () => {
+    expect(hasNamePlaceholder('Dear customer,\n\nThanks.')).toBe(false);
+    expect(hasNamePlaceholder('Hi {first_names},')).toBe(false);
   });
 });

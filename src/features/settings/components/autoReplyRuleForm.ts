@@ -78,25 +78,35 @@ export const AFTER_REPLY_OPTIONS: { value: AfterReply; label: string; help: stri
 export const CUSTOMER_NAME_PLACEHOLDER = '{{customer_name}}';
 export const FIRST_NAME_PLACEHOLDER = '{first_name}';
 
-/** A greeting word the reply opens with ("Hello,", "Dear team"). */
-const OPENING_GREETING =
-  /^(\s*)(dear|hi|hello|hey|greetings|good (?:morning|afternoon|evening))\b/i;
+/**
+ * A name placeholder the backend fills: `{{customer_name}}`, `{customer_name}`, `{{first_name}}` or
+ * `{first_name}`, with or without a fallback (`{{customer_name|there}}`).
+ */
+const NAME_PLACEHOLDER = /\{(?:customer_name|first_name)[|}]/;
 
 /**
- * The text with the customer's name added as the greeting: after the greeting word the reply
- * already opens with ("Hello," → "Hello {{customer_name}},"), else a "Dear {{customer_name}}," line
- * on top.
+ * The greeting the reply opens with: the greeting word ("Hello", "Dear") and its addressee up to
+ * the first ",", "!", "." or line end ("Dear customer", "Hi there", "Dear Sir or Madam").
  */
-export const insertNamePlaceholder = (text: string): string =>
-  OPENING_GREETING.test(text)
+const OPENING_GREETING =
+  /^(\s*)(dear|hi|hello|hey|greetings|good (?:morning|afternoon|evening))\b[^\r\n,!.]*/i;
+
+/**
+ * The text with the customer's name as the greeting's addressee, on the first line only: the
+ * greeting's addressee is replaced ("Dear customer," → "Dear {{customer_name}},", "Hello," →
+ * "Hello {{customer_name}},"), else a "Dear {{customer_name}}," line goes on top. A first line that
+ * already holds a name placeholder is left as it is.
+ */
+export const insertNamePlaceholder = (text: string): string => {
+  const firstLine = text.trimStart().split('\n', 1)[0] ?? '';
+  if (NAME_PLACEHOLDER.test(firstLine)) return text;
+  return OPENING_GREETING.test(text)
     ? text.replace(OPENING_GREETING, `$1$2 ${CUSTOMER_NAME_PLACEHOLDER}`)
     : `Dear ${CUSTOMER_NAME_PLACEHOLDER},\n\n${text.trimStart()}`;
+};
 
-/**
- * The text already names the customer: `{{customer_name}}` or `{customer_name}`, with or without a
- * fallback (`{{customer_name|there}}`) — the spellings the backend fills.
- */
-export const hasNamePlaceholder = (text: string): boolean => /\{customer_name[|}]/.test(text);
+/** The text already names the customer: any name placeholder the backend fills (see above). */
+export const hasNamePlaceholder = (text: string): boolean => NAME_PLACEHOLDER.test(text);
 
 /** Where a template rule puts the knowledge base answer (the backend's placeholder). */
 export const KB_ANSWER_PLACEHOLDER = '{{kb_answer}}';
