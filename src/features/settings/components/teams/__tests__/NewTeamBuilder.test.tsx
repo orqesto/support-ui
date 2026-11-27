@@ -11,6 +11,7 @@ const svc = vi.hoisted(() => ({
   applyPreset: vi.fn(),
   applyItems: vi.fn(),
   listLibrary: vi.fn(),
+  archivePreset: vi.fn(),
 }));
 const dept = vi.hoisted(() => ({ create: vi.fn() }));
 vi.mock('../../../services/teamBuilder.service', async (orig) => ({
@@ -262,6 +263,69 @@ describe('NewTeamBuilder', () => {
       color: expect.any(String) as string,
     });
     expect(svc.applyItems).toHaveBeenCalledWith(7, [1, 2]);
+    // A new team says it routes on rules only until it sees mail, from scratch too.
+    expect(screen.getByText(/This team starts with rules only/)).toBeTruthy();
+  });
+
+  it('a workspace preset can be removed after a confirm; a built-in one has no Remove; Cancel sends nothing', async () => {
+    const own = { ...PRESET, scope: 'workspace', id: 41, key: 'own', name: 'Our desk', source: 'workspace' };
+    svc.listPresets.mockResolvedValue([PRESET, own]);
+    svc.archivePreset.mockResolvedValue(undefined);
+    renderBuilder();
+    await screen.findByText('Our desk');
+    expect(screen.queryByRole('button', { name: 'Remove preset Support desk' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove preset Our desk' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+    expect(svc.archivePreset).not.toHaveBeenCalled();
+    svc.listPresets.mockResolvedValue([PRESET]);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove preset Our desk' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+    await waitFor(() => expect(svc.archivePreset).toHaveBeenCalledWith(41));
+    await waitFor(() => expect(screen.queryByText('Our desk')).toBeNull());
+  });
+
+  it('removing the chosen workspace preset takes away its confirm step; another preset can be picked', async () => {
+    const own = { ...PRESET, scope: 'workspace', id: 41, key: 'own', name: 'Our desk', source: 'workspace' };
+    svc.listPresets.mockResolvedValue([PRESET, own]);
+    svc.archivePreset.mockResolvedValue(undefined);
+    renderBuilder();
+    fireEvent.click(await screen.findByText('Our desk'));
+    fireEvent.change(screen.getByLabelText('Team name'), { target: { value: 'Desk' } });
+    expect(screen.getByRole('button', { name: 'Create team' })).toBeTruthy();
+    svc.listPresets.mockResolvedValue([PRESET]);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove preset Our desk' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+    await waitFor(() => expect(screen.queryByText('Our desk')).toBeNull());
+    // CONTROL: picking the built-in again brings the confirm step back.
+    expect(screen.queryByRole('button', { name: 'Create team' })).toBeNull();
+    fireEvent.click(screen.getByText('Support desk'));
+    expect(screen.getByRole('button', { name: 'Create team' })).toBeTruthy();
+  });
+
+  it('a failed preset removal shows the backend reason and keeps the preset', async () => {
+    const own = { ...PRESET, scope: 'workspace', id: 41, key: 'own', name: 'Our desk', source: 'workspace' };
+    svc.listPresets.mockResolvedValue([own]);
+    svc.archivePreset.mockRejectedValue(
+      Object.assign(new Error('Preset not found'), { status: 404, data: { message: 'Preset not found' } })
+    );
+    renderBuilder();
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove preset Our desk' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+    expect(await screen.findByText('Preset not found')).toBeTruthy();
+    expect(screen.getByText('Our desk')).toBeTruthy();
+  });
+
+  it('from scratch with no picks: the team is created and the new-team notice still shows', async () => {
+    dept.create.mockResolvedValue({ id: 8, name: 'Empty Team' });
+    renderBuilder();
+    fireEvent.click(await screen.findByText('From scratch'));
+    fireEvent.change(screen.getByLabelText('Team name'), { target: { value: 'Empty Team' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create team' }));
+    expect(await screen.findByText('The team was created.')).toBeTruthy();
+    // It has no rules, so it does not claim to start with rules.
+    expect(screen.getByText(/This team has no rules yet/)).toBeTruthy();
+    expect(screen.queryByText(/This team starts with rules only/)).toBeNull();
+    expect(svc.applyItems).not.toHaveBeenCalled();
   });
 
   it('the picker pages and searches; an item with no description shows its preview; no capability tab', async () => {

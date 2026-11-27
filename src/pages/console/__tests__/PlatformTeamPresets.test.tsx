@@ -157,9 +157,12 @@ describe('Team presets console', () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
     await screen.findByLabelText('Name');
-    listPresets.mockResolvedValue([preset({ updatedAt: '2026-11-03T09:00:00.000Z' })]);
+    expect(screen.getByText(/keep the current 4,/)).toBeTruthy();
+    listPresets.mockResolvedValue([preset({ updatedAt: '2026-11-03T09:00:00.000Z', itemCount: 7 })]);
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('Preset changed since it was loaded')).toBeTruthy();
+    // The reloaded row's item count reaches the open dialog too.
+    expect(await screen.findByText(/keep the current 7,/)).toBeTruthy();
     await waitFor(() => expect(listPresets.mock.calls.length).toBeGreaterThan(1));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).not.toBeInactive());
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));

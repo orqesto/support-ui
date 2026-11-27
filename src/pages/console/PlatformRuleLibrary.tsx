@@ -32,8 +32,7 @@ import {
 } from '@/features/rule-library/services/ruleLibrary.service';
 import { getApiErrorMessage, getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 
-/** The `ui.*` flag the backend serves; absent or off hides the nav entry and shows "unavailable". */
-export const RULE_LIBRARY_FLAG = 'ui.rule_library_console';
+import { RULE_LIBRARY_CONSOLE_FLAG } from './ruleLibraryConsoleFlag';
 
 const PAGE_SIZE = 25;
 const KEY = ['platform', 'rule-library'];
@@ -394,7 +393,7 @@ const RuleLibraryPage = () => {
 };
 
 export const PlatformRuleLibrary = () => (
-  <StrictFeatureGate flag={RULE_LIBRARY_FLAG} title="Rule library">
+  <StrictFeatureGate flag={RULE_LIBRARY_CONSOLE_FLAG} title="Rule library">
     <RuleLibraryPage />
   </StrictFeatureGate>
 );

@@ -27,8 +27,7 @@ import {
 } from '@/features/rule-library/services/teamPresets.service';
 import { getApiErrorMessage, getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 
-/** Same flag as the rule library: the presets are built from its items. */
-export const TEAM_PRESETS_FLAG = 'ui.rule_library_console';
+import { RULE_LIBRARY_CONSOLE_FLAG } from './ruleLibraryConsoleFlag';
 
 const KEY = ['platform', 'team-presets'];
 const PICK_PAGE_SIZE = 100;
@@ -95,7 +94,8 @@ const TeamPresetsPage = () => {
       try {
         const fresh = await queryClient.fetchQuery({ queryKey: KEY, queryFn: listTeamPresets, staleTime: 0 });
         const row = fresh.find((preset) => preset.id === sent.id);
-        if (row) setDraft((prev) => (prev && prev.id === row.id ? { ...prev, updatedAt: row.updatedAt } : prev));
+        // The item count may have changed too: the dialog's "keep the current N" must say the new N.
+        if (row) setDraft((prev) => (prev && prev.id === row.id ? { ...prev, updatedAt: row.updatedAt, currentCount: row.itemCount } : prev));
       } catch {
         void refresh();
       }
@@ -300,7 +300,7 @@ const TeamPresetsPage = () => {
 };
 
 export const PlatformTeamPresets = () => (
-  <StrictFeatureGate flag={TEAM_PRESETS_FLAG} title="Team presets">
+  <StrictFeatureGate flag={RULE_LIBRARY_CONSOLE_FLAG} title="Team presets">
     <TeamPresetsPage />
   </StrictFeatureGate>
 );
