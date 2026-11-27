@@ -587,11 +587,12 @@ describe('categories: the create and edit forms open together', () => {
     await waitFor(() => expect(screen.getAllByRole('button', { name: /^edit$/i }).length).toBe(2));
     fireEvent.click(screen.getAllByRole('button', { name: /^edit$/i })[0]);
     expect(screen.getByText('New Category')).toBeTruthy();
-    fireEvent.click(screen.getAllByRole('button', { name: /^save$/i })[0]);
+    // The edit form's own Save (each form's Save saves that form).
+    const editForm = screen.getByText('Edit Category').parentElement as HTMLElement;
+    fireEvent.click(within(editForm).getByRole('button', { name: /^save$/i }));
     await waitFor(() => expect(next.saves).toBe(1));
     const shown = await screen.findAllByText('Name is too long');
     expect(shown).toHaveLength(1);
-    const editForm = screen.getByText('Edit Category').parentElement as HTMLElement;
     expect(within(editForm).getByText('Name is too long')).toBeTruthy();
   });
 });

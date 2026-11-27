@@ -57,10 +57,11 @@ export const PriorityRulesSettings = () => {
 
   const toggleActive = async (rule: PriorityRuleView) => {
     try {
-      const response = await priorityRuleService.update(rule.id, { active: !rule.active });
       // A 2xx without the row proves nothing was switched: treat it as the failure it is.
-      requireSavedRow(response?.data);
-      await ruleManagement.loadRules();
+      await ruleManagement.runRowWrite(rule.id, async () => {
+        const response = await priorityRuleService.update(rule.id, { active: !rule.active });
+        return toView(requireSavedRow(response?.data));
+      });
     } catch (error) {
       logger.error('Error toggling priority rule:', error);
       toast.error(getApiErrorMessage(error) ?? RULE_TOGGLE_FAILED_MESSAGE);

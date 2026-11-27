@@ -65,8 +65,9 @@ export const KnowledgeDetectionRulesSettings = () => {
 
   const toggleActive = async (rule: KnowledgeDetectionRule) => {
     try {
-      await settingsService.updateKnowledgeDetectionRule(rule.id, { active: !rule.active });
-      await ruleManagement.loadRules();
+      await ruleManagement.runRowWrite(rule.id, () =>
+        settingsService.updateKnowledgeDetectionRule(rule.id, { active: !rule.active })
+      );
     } catch (error) {
       // Visible, never an unhandled rejection: a refusal, a network drop or a 2xx without the row.
       logger.error('Error toggling knowledge detection rule:', error);

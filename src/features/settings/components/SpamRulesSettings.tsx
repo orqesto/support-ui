@@ -43,16 +43,10 @@ export const SpamRulesSettings = () => {
 
   const toggleActive = async (rule: SpamRule) => {
     try {
-      await settingsService.updateSpamRule(rule.id, {
-        name: rule.name,
-        description: rule.description,
-        pattern: rule.pattern ?? undefined,
-        exampleText: rule.exampleText ?? undefined,
-        category: rule.category,
-        severity: rule.severity,
-        active: !rule.active,
-      });
-      await ruleManagement.loadRules();
+      // Only the flag: the list's copy of the other fields may be older than the server's.
+      await ruleManagement.runRowWrite(rule.id, () =>
+        settingsService.updateSpamRule(rule.id, { active: !rule.active })
+      );
     } catch (error) {
       logger.error('Error toggling rule:', error);
       toast.error(getApiErrorMessage(error) ?? RULE_TOGGLE_FAILED_MESSAGE);

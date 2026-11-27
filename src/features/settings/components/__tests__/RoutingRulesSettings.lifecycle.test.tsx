@@ -365,6 +365,40 @@ describe('Rules page lifecycle', () => {
     expect(screen.queryByText(/This accepts the proposal/)).toBeNull();
   });
 
+  it("a rule's switch in flight says Saving…, sends nothing more, and the rule's editor waits", async () => {
+    renderPage();
+    await screen.findAllByText('invoice');
+    let release: () => void = () => undefined;
+    state.gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    state.answer = { resolves: { success: true, data: { ...RULES[3], enabled: false } } };
+    fireEvent.click(rowOf('invoice').getByRole('button', { name: /Active/ }));
+    await waitFor(() => expect(state.updates).toHaveLength(1));
+    const held = rowOf('invoice').getByRole('button', { name: /Active/ });
+    expect(held.textContent).toContain('Saving…');
+    fireEvent.click(held);
+    fireEvent.click(rowOf('invoice').getByRole('button', { name: 'Edit rule' }));
+    expect(screen.getByText(/Saving your earlier change to this rule/)).toBeTruthy();
+    expect(state.updates).toHaveLength(1);
+    state.gate = null;
+    await act(async () => {
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(screen.queryByText(/Saving your earlier change/)).toBeNull();
+  });
+
+  it('a switch answered 2xx without the saved row is shown as a failure', async () => {
+    renderPage();
+    await screen.findAllByText('invoice');
+    state.answer = { resolves: { success: true } };
+    fireEvent.click(rowOf('invoice').getByRole('button', { name: /Active/ }));
+    await waitFor(() =>
+      expect(state.toasts).toEqual(['update the routing rule: The server did not return the saved row'])
+    );
+  });
+
   it('a 409 from Accept is shown and the list is re-read', async () => {
     renderPage();
     fireEvent.click(await screen.findByRole('button', { name: /Archived \(1\)/ }));
