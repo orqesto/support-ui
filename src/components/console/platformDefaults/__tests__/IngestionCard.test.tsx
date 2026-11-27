@@ -241,6 +241,10 @@ const GMAIL = {
   pollFetchMax: { value: 8, source: 'default' as const, min: 1, max: 30 },
   pollMailboxesAtOnce: { value: 2, source: 'default' as const, min: 1, max: 10 },
 };
+const BACKGROUND = {
+  backgroundWorkspacesAtOnce: { value: 1, source: 'default' as const, min: 1, max: 4 },
+  bellFullPassMinutes: { value: 30, source: 'default' as const, min: 5, max: 120 },
+};
 const GMAIL_LABELS = [
   'Attachment refetch per check (Gmail and IMAP)',
   'Gmail units per minute',
@@ -485,5 +489,33 @@ describe('IngestionCard — Telegram quiet hours, flood and hang limits', () => 
     expect(
       normalizeIngestion({ ...TURN_LIMITS, telegramTurnHangSeconds: 90 })?.telegramTurnHangSeconds
     ).toBeUndefined();
+  });
+});
+
+describe('IngestionCard — background jobs', () => {
+  it('shows the two fields under a Background jobs heading, not under Gmail', () => {
+    wrap(<IngestionCard ingestion={{ ...SETTING, ...GMAIL, ...BACKGROUND }} />);
+    expect(screen.getByRole('heading', { name: 'Background jobs' })).toBeTruthy();
+    expect(screen.getByLabelText('Workspaces a background job works on at once')).toBeTruthy();
+    expect(screen.getByLabelText('Full bell re-check (minutes)')).toBeTruthy();
+  });
+
+  it('an older backend without them shows no Background jobs heading', () => {
+    wrap(<IngestionCard ingestion={{ ...SETTING, ...GMAIL }} />);
+    expect(screen.queryByRole('heading', { name: 'Background jobs' })).toBeNull();
+  });
+
+  it('saving the full bell re-check sends that field alone', async () => {
+    wrap(<IngestionCard ingestion={{ ...SETTING, ...BACKGROUND }} />);
+    fireEvent.change(screen.getByLabelText('Full bell re-check (minutes)'), {
+      target: { value: '60' },
+    });
+    fireEvent.click(save());
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].body).toEqual({ bellFullPassMinutes: 60 });
+  });
+
+  it('the normaliser keeps both fields', () => {
+    expect(normalizeIngestion(BACKGROUND)).toEqual(BACKGROUND);
   });
 });
