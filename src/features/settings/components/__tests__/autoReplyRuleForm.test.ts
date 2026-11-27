@@ -210,7 +210,7 @@ describe('insertNamePlaceholder', () => {
   );
 
   it.each([
-    ['  Thanks for writing.', `Dear ${NAME},\n\nThanks for writing.`],
+    ['  Thanks for writing.', `Dear ${NAME},\n\n  Thanks for writing.`],
     ['Hi-five to you, friend', `Dear ${NAME},\n\nHi-five to you, friend`],
     ['Highlights: friend', `Dear ${NAME},\n\nHighlights: friend`],
     ['', `Dear ${NAME},\n\n`],
@@ -241,6 +241,33 @@ describe('insertNamePlaceholder', () => {
     for (const word of kept) if (word === expected[matched]) matched += 1;
     expect(matched).toBe(expected.length);
   });
+
+  it.each([
+    ['   Thanks for writing\nBye', `Dear ${NAME},\n\n   Thanks for writing\nBye`],
+    ['\r\nLine two\r\n', `Dear ${NAME},\n\n\r\nLine two\r\n`],
+    ['\n\n  Thanks.', `Dear ${NAME},\n\n\n\n  Thanks.`],
+    ['\u00a0Dear Mr Smith,\nThanks.', `Dear ${NAME},\n\n\u00a0Dear Mr Smith,\nThanks.`],
+  ])('keeps leading spaces and blank lines when it puts a line on top: %j', (before, after) => {
+    expect(insertNamePlaceholder(before)).toBe(after);
+  });
+
+  it.each([
+    ['Dear\u00a0customer,\nThanks.', `Dear\u00a0${NAME},\nThanks.`],
+    ['Hi\u202fthere!', `Hi\u202f${NAME}!`],
+    ['Dear\u3000Sir\u00a0or\u2009Madam,', `Dear\u3000${NAME},`],
+    ['Good\u00a0morning\u2002team.', `Good\u00a0morning\u2002${NAME}.`],
+    ['Dear valued\u00a0customer,', `Dear ${NAME},`],
+    ['Hi there\u00a0\nThanks.', `Hi ${NAME}\u00a0\nThanks.`],
+  ])('treats no-break and other Unicode spaces as spaces: %j', (before, after) => {
+    expect(insertNamePlaceholder(before)).toBe(after);
+  });
+
+  it.each(['Dear\u00a0Mr Smith,\nThanks.', 'Hi\u2003John and welcome!'])(
+    'sees a name after a no-break or Unicode space: %j',
+    (before) => {
+      expect(insertNamePlaceholder(before)).toBe(`Dear ${NAME},\n\n${before}`);
+    }
+  );
 
   it('changes only the first line', () => {
     const before = 'Hi there, and welcome!\nDear customer, we are here.\nHello, again.';

@@ -85,21 +85,32 @@ export const FIRST_NAME_PLACEHOLDER = '{first_name}';
 const NAME_PLACEHOLDER = /\{(?:customer_name|first_name)[|}]/;
 
 /**
+ * A space between words on one line: space, tab, and the no-break and other Unicode spaces that
+ * text pasted from mail clients and word processors carries (U+00A0, U+1680, U+2000–U+200A,
+ * U+202F, U+205F, U+3000). Matching only: the admin's own characters stay in the result.
+ */
+const SPACE = '[ \\t\\u00A0\\u1680\\u2000-\\u200A\\u202F\\u205F\\u3000]';
+
+/**
  * The greeting word the reply opens with, as a whole word ("Hi" in "Hi there", not in "Hi-five").
  */
-const OPENING_GREETING =
-  /^(?:dear|hi|hello|hey|greetings|good[ \t]+(?:morning|afternoon|evening))(?![\p{L}\p{N}_'’-])/iu;
+const OPENING_GREETING = new RegExp(
+  `^(?:dear|hi|hello|hey|greetings|good${SPACE}+(?:morning|afternoon|evening))(?![\\p{L}\\p{N}_'’-])`,
+  'iu'
+);
 
 /**
  * A generic addressee right after the greeting word ("customer", "there", "Sir or Madam"), as whole
  * words and ending the phrase: followed by , ! . : ; or the line end. Only these words are ever
  * replaced; "there and thanks…" is not one (the phrase goes on).
  */
-const GENERIC_ADDRESSEE =
-  /^[ \t]+(?:(?:dear|valued)[ \t]+)?(?:customers?|clients?|there|friends?|all|everyone|team|sir[ \t]+or[ \t]+madam|sir\/madam|sir|madam|colleagues?|users?)(?=[,!.:;]|[ \t]*(?:\r?\n|$))/iu;
+const GENERIC_ADDRESSEE = new RegExp(
+  `^(${SPACE}+)(?:(?:dear|valued)${SPACE}+)?(?:customers?|clients?|there|friends?|all|everyone|team|sir${SPACE}+or${SPACE}+madam|sir\\/madam|sir|madam|colleagues?|users?)(?=[,!.:;]|${SPACE}*(?:\\r?\\n|$))`,
+  'iu'
+);
 
 /** A capitalised word right after the greeting word: a name or title the admin wrote ("Mr. Smith"). */
-const NAMED_ADDRESSEE = /^[ \t]*\p{Lu}/u;
+const NAMED_ADDRESSEE = new RegExp(`^${SPACE}*\\p{Lu}`, 'u');
 
 /**
  * The text with the customer's name in the opening greeting. It never deletes or moves the admin's
@@ -114,21 +125,25 @@ const NAMED_ADDRESSEE = /^[ \t]*\p{Lu}/u;
  *   ("Hello," → "Hello {{customer_name}},", "Hello and thank you" → "Hello {{customer_name}} and
  *   thank you");
  * - no greeting: a "Dear {{customer_name}}," line goes on top.
+ * A line put on top goes before the whole text, which follows unchanged, leading spaces and blank
+ * lines included (they may be the admin's layout; dropping them would delete their characters).
  * Only the first non-blank line is looked at; one that already holds a name placeholder is left as
- * it is.
+ * it is. Words may be separated by no-break and other Unicode spaces (see SPACE); the replaced
+ * addressee keeps the admin's space in front of it.
  */
 export const insertNamePlaceholder = (text: string): string => {
   const body = text.trimStart();
   const firstLine = body.split('\n', 1)[0] ?? '';
   if (NAME_PLACEHOLDER.test(firstLine)) return text;
-  const prependLine = `Dear ${CUSTOMER_NAME_PLACEHOLDER},\n\n${body}`;
+  const prependLine = `Dear ${CUSTOMER_NAME_PLACEHOLDER},\n\n${text}`;
   const greeting = OPENING_GREETING.exec(body)?.[0];
   if (greeting === undefined) return prependLine;
   const lead = text.slice(0, text.length - body.length);
   const after = body.slice(greeting.length);
-  const generic = GENERIC_ADDRESSEE.exec(after)?.[0];
-  if (generic !== undefined) {
-    return `${lead}${greeting} ${CUSTOMER_NAME_PLACEHOLDER}${after.slice(generic.length)}`;
+  const generic = GENERIC_ADDRESSEE.exec(after);
+  if (generic !== null) {
+    const [phrase, space = ' '] = generic;
+    return `${lead}${greeting}${space}${CUSTOMER_NAME_PLACEHOLDER}${after.slice(phrase.length)}`;
   }
   if (NAMED_ADDRESSEE.test(after)) return prependLine;
   return `${lead}${greeting} ${CUSTOMER_NAME_PLACEHOLDER}${after}`;
