@@ -26,15 +26,16 @@ export type AutoReplyRule = {
    */
   ignoredKeywords: string[];
   /**
-   * What the rule does to the thread once its reply is sent (BE 2026-11-27): resolve it, or leave
-   * it open in the queue for an agent. Absent on an older backend → 'resolve' (what it always did).
+   * What the rule does to the thread once its reply is sent (BE 2026-11-27): resolve it, or
+   * `pending` — the reply counts as the first response and the thread waits on the customer, back
+   * to the team when they write. Absent or unknown (an older backend) → 'resolve' (what it always did).
    */
   afterReply: AfterReply;
   createdAt: string;
   updatedAt: string;
 };
 
-export type AfterReply = 'resolve' | 'leave_open';
+export type AfterReply = 'resolve' | 'pending';
 
 export type AutoReplyRuleInput = {
   name?: string;
@@ -72,7 +73,7 @@ const normalizeRule = (raw: Partial<AutoReplyRule> | null | undefined): AutoRepl
     ignoredKeywords: Array.isArray(raw.ignoredKeywords)
       ? raw.ignoredKeywords.filter((kw): kw is string => typeof kw === 'string')
       : [],
-    afterReply: raw.afterReply === 'leave_open' ? 'leave_open' : 'resolve',
+    afterReply: raw.afterReply === 'pending' ? 'pending' : 'resolve',
     createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : '',
     updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : '',
   };

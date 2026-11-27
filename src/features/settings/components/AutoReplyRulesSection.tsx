@@ -34,6 +34,7 @@ import {
   errorsFromFields,
   FIRST_NAME_PLACEHOLDER,
   hasErrors,
+  hasNamePlaceholder,
   insertKbPlaceholder,
   insertNamePlaceholder,
   KB_ANSWER_PLACEHOLDER,
@@ -227,11 +228,13 @@ const RuleForm = ({
       <p className="text-xs text-muted-foreground" data-testid="auto-reply-rule-placeholders">
         To greet the customer by name, use <code>{CUSTOMER_NAME_PLACEHOLDER}</code>{' '}
         (&quot;customer&quot; when the name is unknown; <code>{'{{customer_name|there}}'}</code>{' '}
-        uses your own word) or <code>{FIRST_NAME_PLACEHOLDER}</code> for the first name. A
-        rule&apos;s reply is not sent by an agent, so agent placeholders cannot be used.
+        uses your own word) or <code>{FIRST_NAME_PLACEHOLDER}</code> for the first name, and{' '}
+        <code>{'{thread_id}'}</code> for the thread&apos;s number. A rule&apos;s reply is not sent
+        by an agent, so agent placeholders cannot be used, nor <code>{'{ticket_id}'}</code> (the
+        first email has no ticket yet).
       </p>
       <div className="flex flex-wrap gap-2">
-        {!draft.replyText.includes('{{customer_name') && (
+        {!hasNamePlaceholder(draft.replyText) && (
           <Button
             type="button"
             variant="outline"
@@ -267,7 +270,7 @@ const RuleForm = ({
           hint={AFTER_REPLY_OPTIONS.find((option) => option.value === draft.afterReply)?.help}
           disabled={saving}
           onChange={(next) =>
-            onChange({ ...draft, afterReply: next === 'leave_open' ? 'leave_open' : 'resolve' })
+            onChange({ ...draft, afterReply: next === 'pending' ? 'pending' : 'resolve' })
           }
         />
       </div>
@@ -473,7 +476,7 @@ export const AutoReplyRulesSection = ({
             </CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
               Sends a prepared reply when a new email contains one of a rule&apos;s keywords, then
-              resolves it (or leaves it open for an agent, if the rule says so) and labels it{' '}
+              resolves it (or, if the rule says so, sets it to wait for the customer) and labels it{' '}
               <strong>autoReplied</strong>. A message that matches more than one rule gets no
               automatic reply at all, not even from the AI, so a keyword can belong to only one
               rule. Automatic replies switched off for a mailbox
@@ -493,8 +496,8 @@ export const AutoReplyRulesSection = ({
       <CardContent className="space-y-3">
         {!autoReplyEnabled && (
           <Alert variant="warning">
-            Automatic email replies are off, so no rule sends anything. Turn on &quot;Automatic email replies&quot;
-            above (or for a team) and the rules apply.
+            Automatic email replies are off, so no rule sends anything. Turn on &quot;Automatic
+            email replies&quot; above (or for a team) and the rules apply.
           </Alert>
         )}
         {noAiForRules && (
@@ -558,8 +561,8 @@ export const AutoReplyRulesSection = ({
                           Template + KB · {Math.round(rule.kbMinSimilarity * 100)}%
                         </Badge>
                       )}
-                      {rule.afterReply === 'leave_open' && (
-                        <Badge variant="secondary">Leaves thread open</Badge>
+                      {rule.afterReply === 'pending' && (
+                        <Badge variant="secondary">Waits for customer</Badge>
                       )}
                       {!rule.enabled && <Badge variant="secondary">Off</Badge>}
                     </div>

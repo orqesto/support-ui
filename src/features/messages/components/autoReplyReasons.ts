@@ -9,6 +9,9 @@ export const AUTO_REPLY_REASON_UNKNOWN = 'it was held for a person';
 
 export const WOULD_SEND = 'would_send';
 
+/** A keyword rule's reply held a placeholder the backend could not fill. */
+export const RULE_PLACEHOLDER_UNFILLED = 'rule_placeholder_unfilled';
+
 /**
  * `restricted_topic`: a restricted topic, or the built-in amount rule (it records this code by
  * design). A listed phrase has its own code since 2026-11-25, so a held phrase is not named here.
@@ -104,6 +107,10 @@ export const WITHHELD_REASON: Record<string, string> = {
   plan_allotment_reached: "the plan's auto-reply limit",
   workspace_blocked: 'the workspace is waiting for a plan',
   kb_placeholder_in_plain_rule: 'the reply still holds {{kb_answer}}',
+  // A placeholder the reply cannot fill (an agent's name), kept by a rule saved before the save
+  // check refused it (2026-11-27). The record's `detail` is the backend's own sentence.
+  [RULE_PLACEHOLDER_UNFILLED]:
+    'its reply holds a placeholder that cannot be filled automatically — edit the rule',
   // The reply check held the knowledge base answer (2026-11-20).
   kb_refusal: 'the knowledge base answer only declined the question',
   kb_reply_unchecked: 'the knowledge base answer could not be checked',

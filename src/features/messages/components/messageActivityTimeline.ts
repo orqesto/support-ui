@@ -8,6 +8,7 @@ import { formatDay } from '@/lib/utils';
 import {
   ASK_CHECK_REASON,
   ASK_WITHHELD_REASON,
+  RULE_PLACEHOLDER_UNFILLED,
   WITHHELD_REASON,
   WOULD_SEND,
   autoReplyReasonLabel,
@@ -359,8 +360,13 @@ function withheldLabel(details: Record<string, unknown> | null): string {
   const rule = names.length > 0 ? `Keyword rule ${joinRuleNames(names)}` : 'A keyword rule';
   if (uncertain)
     return `${rule} matched but its reply may not have been delivered: ${MAY_BE_DELIVERED}`;
-  const why = known(WITHHELD_REASON, reason) ?? autoReplyReasonLabel(reason);
-  return `${rule} matched but its reply did not go out: ${why}`;
+  const why = known(WITHHELD_REASON, reason) ?? autoReplyReasonWords(reason);
+  // The backend's own sentence: for an unfillable placeholder (it says what to do), and for an
+  // outcome this bundle does not know — never a bare code.
+  const sentence = textOf(details ?? {}, ['detail']);
+  if (sentence.includes(' ') && (reason === RULE_PLACEHOLDER_UNFILLED || !why))
+    return `${rule} matched but its reply did not go out. ${sentence}`;
+  return `${rule} matched but its reply did not go out: ${why ?? WITHHELD_REASON_UNKNOWN}`;
 }
 
 export function auditEntryLabel(action: string, details: Record<string, unknown> | null): string {

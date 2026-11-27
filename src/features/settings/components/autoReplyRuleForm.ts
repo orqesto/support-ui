@@ -25,7 +25,7 @@ export type RuleDraft = {
   useKnowledgeBase: boolean;
   /** Template + KB: the knowledge base match, in whole percent as typed (80–99). */
   kbMatchPercent: string;
-  /** After the reply is sent: resolve the thread (the default) or leave it open for an agent. */
+  /** After the reply is sent: resolve the thread (the default) or wait for the customer. */
   afterReply: AfterReply;
 };
 
@@ -68,9 +68,9 @@ export const AFTER_REPLY_OPTIONS: { value: AfterReply; label: string; help: stri
     help: 'The reply is sent and the thread is resolved.',
   },
   {
-    value: 'leave_open',
-    label: 'Leave the thread open',
-    help: 'The reply is sent and the thread stays in the queue for an agent.',
+    value: 'pending',
+    label: 'Wait for the customer',
+    help: 'The reply is sent and the thread waits for the customer; it returns to the team when they write back.',
   },
 ];
 
@@ -78,11 +78,25 @@ export const AFTER_REPLY_OPTIONS: { value: AfterReply; label: string; help: stri
 export const CUSTOMER_NAME_PLACEHOLDER = '{{customer_name}}';
 export const FIRST_NAME_PLACEHOLDER = '{first_name}';
 
-/** The text with the customer's name added at the end (a space before it when needed). */
+/** A greeting word the reply opens with ("Hello,", "Dear team"). */
+const OPENING_GREETING =
+  /^(\s*)(dear|hi|hello|hey|greetings|good (?:morning|afternoon|evening))\b/i;
+
+/**
+ * The text with the customer's name added as the greeting: after the greeting word the reply
+ * already opens with ("Hello," → "Hello {{customer_name}},"), else a "Dear {{customer_name}}," line
+ * on top.
+ */
 export const insertNamePlaceholder = (text: string): string =>
-  !text || /\s$/.test(text)
-    ? `${text}${CUSTOMER_NAME_PLACEHOLDER}`
-    : `${text} ${CUSTOMER_NAME_PLACEHOLDER}`;
+  OPENING_GREETING.test(text)
+    ? text.replace(OPENING_GREETING, `$1$2 ${CUSTOMER_NAME_PLACEHOLDER}`)
+    : `Dear ${CUSTOMER_NAME_PLACEHOLDER},\n\n${text.trimStart()}`;
+
+/**
+ * The text already names the customer: `{{customer_name}}` or `{customer_name}`, with or without a
+ * fallback (`{{customer_name|there}}`) — the spellings the backend fills.
+ */
+export const hasNamePlaceholder = (text: string): boolean => /\{customer_name[|}]/.test(text);
 
 /** Where a template rule puts the knowledge base answer (the backend's placeholder). */
 export const KB_ANSWER_PLACEHOLDER = '{{kb_answer}}';
