@@ -1,3 +1,5 @@
+import type { AfterReply } from '@/services/autoReplyRules.service';
+
 /**
  * Keyword auto-reply rule form — the pure half: adding keywords from what was typed, and the inline
  * validation the backend repeats (a rule needs at least one keyword and a reply text).
@@ -23,6 +25,8 @@ export type RuleDraft = {
   useKnowledgeBase: boolean;
   /** Template + KB: the knowledge base match, in whole percent as typed (80–99). */
   kbMatchPercent: string;
+  /** After the reply is sent: resolve the thread (the default) or wait for the customer. */
+  afterReply: AfterReply;
 };
 
 export type RuleDraftErrors = {
@@ -30,6 +34,7 @@ export type RuleDraftErrors = {
   replyText?: string;
   name?: string;
   kbMinSimilarity?: string;
+  afterReply?: string;
 };
 
 export const KB_MATCH_PERCENT_MIN = 80;
@@ -52,7 +57,104 @@ export const emptyDraft = (): RuleDraft => ({
   replyText: '',
   useKnowledgeBase: false,
   kbMatchPercent: String(KB_MATCH_PERCENT_DEFAULT),
+  afterReply: 'resolve',
 });
+
+/** The "After the reply" choices; the helper text says what the customer and the team see. */
+export const AFTER_REPLY_OPTIONS: { value: AfterReply; label: string; help: string }[] = [
+  {
+    value: 'resolve',
+    label: 'Resolve the thread',
+    help: 'The reply is sent and the thread is resolved.',
+  },
+  {
+    value: 'pending',
+    label: 'Wait for the customer',
+    help: 'The reply is sent and the thread waits for the customer; it returns to the team when they write back.',
+  },
+];
+
+/** The customer's name in a reply ("customer" when unknown; `{{customer_name|there}}` sets your own). */
+export const CUSTOMER_NAME_PLACEHOLDER = '{{customer_name}}';
+export const FIRST_NAME_PLACEHOLDER = '{first_name}';
+
+/**
+ * A name placeholder the backend fills: `{{customer_name}}`, `{customer_name}`, `{{first_name}}` or
+ * `{first_name}`, with or without a fallback (`{{customer_name|there}}`).
+ */
+const NAME_PLACEHOLDER = /\{(?:customer_name|first_name)[|}]/;
+
+/**
+ * A space between words on one line: space, tab, and the no-break and other Unicode spaces that
+ * text pasted from mail clients and word processors carries (U+00A0, U+1680, U+2000–U+200A,
+ * U+202F, U+205F, U+3000). Matching only: the admin's own characters stay in the result.
+ */
+const SPACE = '[ \\t\\u00A0\\u1680\\u2000-\\u200A\\u202F\\u205F\\u3000]';
+
+/**
+ * The greeting word the reply opens with, as a whole word ("Hi" in "Hi there", not in "Hi-five").
+ */
+const OPENING_GREETING = new RegExp(
+  `^(?:dear|hi|hello|hey|greetings|good${SPACE}+(?:morning|afternoon|evening))(?![\\p{L}\\p{N}_'’-])`,
+  'iu'
+);
+
+/**
+ * A generic addressee right after the greeting word ("customer", "there", "Sir or Madam"), as whole
+ * words and ending the phrase: followed (spaces allowed) by , ! . : ; or the line end. Only these
+ * words are ever replaced; "there and thanks…" is not one (the phrase goes on).
+ */
+const GENERIC_ADDRESSEE = new RegExp(
+  `^(${SPACE}+)(?:(?:dear|valued)${SPACE}+)?(?:customers?|clients?|there|friends?|all|everyone|team|sir${SPACE}+or${SPACE}+madam|sir\\/madam|sir|madam|colleagues?|users?)(?=${SPACE}*(?:[,!.:;]|\\r?\\n|$))`,
+  'iu'
+);
+
+/**
+ * A capitalised word right after the greeting word: a name or title the admin wrote ("Mr. Smith").
+ * Not after a comma: there it mostly starts a sentence ("Hello, Thank you for…", "Hi, Welcome!"),
+ * so "Hello, John" gets the placeholder before the comma ("Hello {{customer_name}}, John").
+ */
+const NAMED_ADDRESSEE = new RegExp(`^${SPACE}*\\p{Lu}`, 'u');
+
+/**
+ * The text with the customer's name in the opening greeting. It never deletes or moves the admin's
+ * words, except a generic addressee, which it replaces:
+ * - a generic addressee is replaced ("Dear customer," → "Dear {{customer_name}},", "Hi there!" →
+ *   "Hi {{customer_name}}!");
+ * - a greeting followed by a capitalised word ("Dear Mr. Smith,", "Hi John and welcome") already
+ *   names someone: the placeholder can go neither in its place (that deletes the name) nor next to
+ *   it ("Dear {{customer_name}} Mr. Smith"), so a "Dear {{customer_name}}," line goes on top and the
+ *   admin's greeting stays as written, for them to remove;
+ * - any other greeting gets the placeholder right after the greeting word, the rest verbatim
+ *   ("Hello," → "Hello {{customer_name}},", "Hello and thank you" → "Hello {{customer_name}} and
+ *   thank you");
+ * - no greeting: a "Dear {{customer_name}}," line goes on top.
+ * A line put on top goes before the whole text, which follows unchanged, leading spaces and blank
+ * lines included (they may be the admin's layout; dropping them would delete their characters).
+ * Only the first non-blank line is looked at; one that already holds a name placeholder is left as
+ * it is. Words may be separated by no-break and other Unicode spaces (see SPACE); the replaced
+ * addressee keeps the admin's space in front of it.
+ */
+export const insertNamePlaceholder = (text: string): string => {
+  const body = text.trimStart();
+  const firstLine = body.split('\n', 1)[0] ?? '';
+  if (NAME_PLACEHOLDER.test(firstLine)) return text;
+  const prependLine = `Dear ${CUSTOMER_NAME_PLACEHOLDER},\n\n${text}`;
+  const greeting = OPENING_GREETING.exec(body)?.[0];
+  if (greeting === undefined) return prependLine;
+  const lead = text.slice(0, text.length - body.length);
+  const after = body.slice(greeting.length);
+  const generic = GENERIC_ADDRESSEE.exec(after);
+  if (generic !== null) {
+    const [phrase, space = ' '] = generic;
+    return `${lead}${greeting}${space}${CUSTOMER_NAME_PLACEHOLDER}${after.slice(phrase.length)}`;
+  }
+  if (NAMED_ADDRESSEE.test(after)) return prependLine;
+  return `${lead}${greeting} ${CUSTOMER_NAME_PLACEHOLDER}${after}`;
+};
+
+/** The text already names the customer: any name placeholder the backend fills (see above). */
+export const hasNamePlaceholder = (text: string): boolean => NAME_PLACEHOLDER.test(text);
 
 /** Where a template rule puts the knowledge base answer (the backend's placeholder). */
 export const KB_ANSWER_PLACEHOLDER = '{{kb_answer}}';
@@ -108,7 +210,7 @@ export const validateDraft = (draft: RuleDraft): RuleDraftErrors => {
 
 export const hasErrors = (errors: RuleDraftErrors): boolean => Object.keys(errors).length > 0;
 
-const FORM_FIELDS = ['keywords', 'replyText', 'name', 'kbMinSimilarity'] as const;
+const FORM_FIELDS = ['keywords', 'replyText', 'name', 'kbMinSimilarity', 'afterReply'] as const;
 
 /**
  * Server-side field names → inline messages, for a 400 the form did not catch. When the 400 names
@@ -117,7 +219,9 @@ const FORM_FIELDS = ['keywords', 'replyText', 'name', 'kbMinSimilarity'] as cons
  */
 export const errorsFromFields = (
   fields: readonly string[],
-  serverMessage?: string
+  serverMessage?: string,
+  /** The reply text was written: a refusal of it is not "write it" (a placeholder rules cannot fill, say). */
+  replyWritten = false
 ): RuleDraftErrors => {
   const errors: RuleDraftErrors = {};
   const named = FORM_FIELDS.filter((field) => fields.includes(field));
@@ -127,8 +231,12 @@ export const errorsFromFields = (
     return errors;
   }
   if (fields.includes('keywords')) errors.keywords = 'Check the keywords: at least one is needed.';
-  if (fields.includes('replyText')) errors.replyText = 'Write the reply text.';
+  if (fields.includes('replyText'))
+    errors.replyText = replyWritten
+      ? 'The reply text was not accepted. Check its placeholders: only the ones listed under the field can be used.'
+      : 'Write the reply text.';
   if (fields.includes('name')) errors.name = 'The name is too long.';
   if (fields.includes('kbMinSimilarity')) errors.kbMinSimilarity = KB_MATCH_RANGE_MESSAGE;
+  if (fields.includes('afterReply')) errors.afterReply = 'Choose what happens after the reply.';
   return errors;
 };

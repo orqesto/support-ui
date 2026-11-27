@@ -471,6 +471,40 @@ describe('messageActivityTimeline — auto-reply withheld', () => {
     }
   );
 
+  // A rule kept a placeholder the reply cannot fill (an agent's name): held (2026-11-27).
+  const DETAIL =
+    "The rule's reply holds a placeholder an automatic reply cannot fill, so nothing was sent. Edit the rule's reply.";
+  const withheldWithDetail = (reason: string, detail: unknown) =>
+    auditEntryLabel('message.auto_reply_withheld', {
+      reason,
+      ruleIds: [1],
+      ruleNames: ['Refunds'],
+      detail,
+    });
+
+  it('rule_placeholder_unfilled: the backend sentence when present, else plain words', () => {
+    expect(withheldWithDetail('rule_placeholder_unfilled', DETAIL)).toBe(
+      `Keyword rule "Refunds" matched but its reply did not go out. ${DETAIL}`
+    );
+    expect(withheld('rule_placeholder_unfilled', ['Refunds'])).toBe(
+      'Keyword rule "Refunds" matched but its reply did not go out: its reply holds a placeholder that cannot be filled automatically — edit the rule'
+    );
+    // A one-word detail reads as a code: the words instead.
+    expect(withheldWithDetail('rule_placeholder_unfilled', 'unfilled')).toBe(
+      'Keyword rule "Refunds" matched but its reply did not go out: its reply holds a placeholder that cannot be filled automatically — edit the rule'
+    );
+  });
+
+  it("an unknown keyword outcome reads as the backend's sentence; a known one keeps its words", () => {
+    expect(withheldWithDetail('some_new_reason', 'The rule was paused by the backend.')).toBe(
+      'Keyword rule "Refunds" matched but its reply did not go out. The rule was paused by the backend.'
+    );
+    // CONTROL: a known reason with a detail keeps its own words.
+    expect(withheldWithDetail('kb_below_threshold', 'Some other sentence here.')).toBe(
+      'Keyword rule "Refunds" matched but its reply did not go out: no knowledge base answer was sure enough'
+    );
+  });
+
   // The email asking for missing information, withheld (BE followUpEmailHelper → source missing_info:
   // `reason` = the outcome, `detail` = the backend's own sentence, the facts beside them).
   const askWithheld = (reason: string, facts: Record<string, unknown> = {}) =>

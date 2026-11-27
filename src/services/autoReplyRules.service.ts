@@ -25,9 +25,17 @@ export type AutoReplyRule = {
    * check, BE 2026-11-17). Absent on an older backend → none.
    */
   ignoredKeywords: string[];
+  /**
+   * What the rule does to the thread once its reply is sent (BE 2026-11-27): resolve it, or
+   * `pending` — the reply counts as the first response and the thread waits on the customer, back
+   * to the team when they write. Absent or unknown (an older backend) → 'resolve' (what it always did).
+   */
+  afterReply: AfterReply;
   createdAt: string;
   updatedAt: string;
 };
+
+export type AfterReply = 'resolve' | 'pending';
 
 export type AutoReplyRuleInput = {
   name?: string;
@@ -37,6 +45,8 @@ export type AutoReplyRuleInput = {
   useKnowledgeBase?: boolean;
   /** null = the default. */
   kbMinSimilarity?: number | null;
+  /** Omitted on create → 'resolve'; omitted on update → unchanged. */
+  afterReply?: AfterReply;
 };
 
 /** The backend's default knowledge base match (autoReplyRulesService KB_MATCH_DEFAULT). */
@@ -63,6 +73,7 @@ const normalizeRule = (raw: Partial<AutoReplyRule> | null | undefined): AutoRepl
     ignoredKeywords: Array.isArray(raw.ignoredKeywords)
       ? raw.ignoredKeywords.filter((kw): kw is string => typeof kw === 'string')
       : [],
+    afterReply: raw.afterReply === 'pending' ? 'pending' : 'resolve',
     createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : '',
     updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : '',
   };
