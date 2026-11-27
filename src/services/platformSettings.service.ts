@@ -466,12 +466,8 @@ const readCount = (raw: unknown): ResolvedField<number> | undefined => {
   if (!isRecord(raw) || typeof raw.value !== 'number' || !Number.isInteger(raw.value)) {
     return undefined;
   }
-  return {
-    value: raw.value,
-    source: FIELD_SOURCES.includes(raw.source as FieldSource)
-      ? (raw.source as FieldSource)
-      : 'default',
-  };
+  const source = raw.source as FieldSource;
+  return { value: raw.value, source: FIELD_SOURCES.includes(source) ? source : 'default' };
 };
 
 /**
@@ -521,6 +517,10 @@ export const INGESTION_FIELDS = [
   'pollFetchMax',
   /** Mailboxes (Gmail and IMAP) the scheduled check reads at the same time (`ingestion.gmail`, 1-10). */
   'pollMailboxesAtOnce',
+  /** Workspaces the SLA monitor and the stuck-reply check go through at once (`maintenance.background`, 1-4). */
+  'backgroundWorkspacesAtOnce',
+  /** Minutes between full bell re-checks (`maintenance.background`, 5-120). */
+  'bellFullPassMinutes',
 ] as const;
 
 /**

@@ -133,6 +133,19 @@ const GMAIL_FIELDS: FieldDef[] = [
     hint: 'How many mailboxes, Gmail and IMAP, each scheduled check of all workspaces reads at once. Fewer puts less load on the database in each check; the check then takes longer to get through every mailbox. With more than 50 mailboxes for each one checked at once, the check adds more on its own.',
   },
 ];
+/** Jobs that go through every workspace (`maintenance.background`). */
+const BACKGROUND_FIELDS: FieldDef[] = [
+  {
+    key: 'backgroundWorkspacesAtOnce',
+    label: 'Workspaces a background job works on at once',
+    hint: 'How many workspaces the SLA monitor and the stuck-reply check go through at the same time. Fewer puts less load on the database at once; each check then takes a little longer.',
+  },
+  {
+    key: 'bellFullPassMinutes',
+    label: 'Full bell re-check (minutes)',
+    hint: 'Between these checks, notification bells are re-checked only for threads and tickets that changed. This is how often every bell is re-checked anyway, to catch a change nothing reported.',
+  },
+];
 /** Google's own per-minute limit for one mailbox; paced + burst must stay below it. */
 const GMAIL_UNIT_LIMIT = 15000;
 const FIELDS: FieldDef[] = [
@@ -142,6 +155,7 @@ const FIELDS: FieldDef[] = [
   ...NOTIFY_FIELDS,
   ...AUTOREPLY_FIELDS,
   ...GMAIL_FIELDS,
+  ...BACKGROUND_FIELDS,
 ];
 
 /** The text as a whole number inside the field's bounds, or null. */
@@ -300,6 +314,12 @@ export const IngestionCard = ({
                   attachments that quota made fail.
                 </p>
                 {renderGrid(GMAIL_FIELDS)}
+              </>
+            )}
+            {BACKGROUND_FIELDS.some((field) => ingestion?.[field.key] !== undefined) && (
+              <>
+                <h3 className="text-sm font-medium pt-2">Background jobs</h3>
+                {renderGrid(BACKGROUND_FIELDS)}
               </>
             )}
             {fairOrder !== undefined && (
