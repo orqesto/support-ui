@@ -519,6 +519,8 @@ export const INGESTION_FIELDS = [
   'bulkFetchMax',
   /** Parallel Gmail fetches while checking for new mail. */
   'pollFetchMax',
+  /** Mailboxes (Gmail and IMAP) the scheduled check reads at the same time (`ingestion.gmail`, 1-10). */
+  'pollMailboxesAtOnce',
 ] as const;
 
 /**
