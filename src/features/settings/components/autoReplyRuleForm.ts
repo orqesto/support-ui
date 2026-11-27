@@ -27,6 +27,8 @@ export type RuleDraft = {
   kbMatchPercent: string;
   /** After the reply is sent: resolve the thread (the default) or wait for the customer. */
   afterReply: AfterReply;
+  /** A holding reply: the team still answers, so the check sends it for any message on the topic. */
+  holdingReply: boolean;
 };
 
 export type RuleDraftErrors = {
@@ -35,6 +37,7 @@ export type RuleDraftErrors = {
   name?: string;
   kbMinSimilarity?: string;
   afterReply?: string;
+  holdingReply?: string;
 };
 
 export const KB_MATCH_PERCENT_MIN = 80;
@@ -58,7 +61,26 @@ export const emptyDraft = (): RuleDraft => ({
   useKnowledgeBase: false,
   kbMatchPercent: String(KB_MATCH_PERCENT_DEFAULT),
   afterReply: 'resolve',
+  holdingReply: false,
 });
+
+export const HOLDING_REPLY_LABEL = 'Holding reply (the team still answers)';
+export const HOLDING_REPLY_HELP_ON =
+  'On: the reply tells the customer the team will answer, so it is sent whenever they write about this topic, also about their own order.';
+export const HOLDING_REPLY_HELP_OFF =
+  'Off: the reply is sent only when it fully answers what the customer asks.';
+
+/**
+ * The `holdingReply` part of a save (FE/BE skew: this bundle can reach a backend without the field).
+ * A new rule sends it only when on; an edit only when the admin changed it. A rule that leaves it
+ * off is then the same request an older backend always got.
+ */
+export const holdingReplyPayload = (
+  holdingReply: boolean,
+  /** The rule's stored value; undefined for a new rule. */
+  saved: boolean | undefined
+): { holdingReply?: boolean } =>
+  (saved === undefined ? holdingReply : holdingReply !== saved) ? { holdingReply } : {};
 
 /** The "After the reply" choices; the helper text says what the customer and the team see. */
 export const AFTER_REPLY_OPTIONS: { value: AfterReply; label: string; help: string }[] = [
@@ -210,7 +232,14 @@ export const validateDraft = (draft: RuleDraft): RuleDraftErrors => {
 
 export const hasErrors = (errors: RuleDraftErrors): boolean => Object.keys(errors).length > 0;
 
-const FORM_FIELDS = ['keywords', 'replyText', 'name', 'kbMinSimilarity', 'afterReply'] as const;
+const FORM_FIELDS = [
+  'keywords',
+  'replyText',
+  'name',
+  'kbMinSimilarity',
+  'afterReply',
+  'holdingReply',
+] as const;
 
 /**
  * Server-side field names → inline messages, for a 400 the form did not catch. When the 400 names
@@ -238,5 +267,7 @@ export const errorsFromFields = (
   if (fields.includes('name')) errors.name = 'The name is too long.';
   if (fields.includes('kbMinSimilarity')) errors.kbMinSimilarity = KB_MATCH_RANGE_MESSAGE;
   if (fields.includes('afterReply')) errors.afterReply = 'Choose what happens after the reply.';
+  if (fields.includes('holdingReply'))
+    errors.holdingReply = 'The holding reply setting was not accepted. Try again later.';
   return errors;
 };

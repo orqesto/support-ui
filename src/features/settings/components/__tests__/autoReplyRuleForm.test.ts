@@ -6,6 +6,7 @@ import {
   errorsFromFields,
   hasErrors,
   hasNamePlaceholder,
+  holdingReplyPayload,
   insertNamePlaceholder,
   insertKbPlaceholder,
   KB_ANSWER_PLACEHOLDER,
@@ -321,5 +322,27 @@ describe('hasNamePlaceholder', () => {
   it('does not see a plain greeting or a look-alike', () => {
     expect(hasNamePlaceholder('Dear customer,\n\nThanks.')).toBe(false);
     expect(hasNamePlaceholder('Hi {first_names},')).toBe(false);
+  });
+});
+
+describe('holdingReplyPayload — the holdingReply part of a save (FE/BE skew)', () => {
+  it('a new rule starts off', () => {
+    expect(emptyDraft().holdingReply).toBe(false);
+  });
+  it('a new rule sends it only when on', () => {
+    expect(holdingReplyPayload(true, undefined)).toEqual({ holdingReply: true });
+    expect(holdingReplyPayload(false, undefined)).toEqual({});
+  });
+  it('an edit sends it only when changed', () => {
+    expect(holdingReplyPayload(true, false)).toEqual({ holdingReply: true });
+    expect(holdingReplyPayload(false, true)).toEqual({ holdingReply: false });
+    expect(holdingReplyPayload(true, true)).toEqual({});
+    expect(holdingReplyPayload(false, false)).toEqual({});
+  });
+  it('a 400 naming holdingReply goes under the switch', () => {
+    expect(errorsFromFields(['holdingReply'], 'Not allowed here.')).toEqual({
+      holdingReply: 'Not allowed here.',
+    });
+    expect(errorsFromFields(['holdingReply', 'name']).holdingReply).toMatch(/not accepted/);
   });
 });
