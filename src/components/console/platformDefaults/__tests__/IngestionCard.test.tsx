@@ -239,6 +239,7 @@ const GMAIL = {
   cooldownSeconds: { value: 30, source: 'default' as const, min: 5, max: 300 },
   bulkFetchMax: { value: 15, source: 'default' as const, min: 1, max: 30 },
   pollFetchMax: { value: 8, source: 'default' as const, min: 1, max: 30 },
+  pollMailboxesAtOnce: { value: 2, source: 'default' as const, min: 1, max: 10 },
 };
 const GMAIL_LABELS = [
   'Attachment refetch per check (Gmail and IMAP)',
@@ -247,10 +248,11 @@ const GMAIL_LABELS = [
   'Gmail cooldown after a refusal (seconds)',
   'Parallel fetches — import',
   'Parallel fetches — new mail',
+  'Mailboxes checked at the same time (Gmail and IMAP)',
 ];
 
 describe('IngestionCard — Gmail', () => {
-  it('shows the six Gmail fields under a Gmail heading', () => {
+  it('shows the seven Gmail fields under a Gmail heading', () => {
     wrap(<IngestionCard ingestion={{ ...SETTING, ...GMAIL }} />);
     expect(screen.getByRole('heading', { name: 'Gmail' })).toBeTruthy();
     for (const label of GMAIL_LABELS) expect(screen.getByLabelText(label)).toBeTruthy();
@@ -274,6 +276,16 @@ describe('IngestionCard — Gmail', () => {
     fireEvent.click(save());
     await waitFor(() => expect(puts).toHaveLength(1));
     expect(puts[0].body).toEqual({ pacedUnitsPerMinute: 1000 });
+  });
+
+  it('saving the mailboxes-at-once value sends that field alone', async () => {
+    wrap(<IngestionCard ingestion={{ ...SETTING, ...GMAIL }} />);
+    fireEvent.change(screen.getByLabelText('Mailboxes checked at the same time (Gmail and IMAP)'), {
+      target: { value: '3' },
+    });
+    fireEvent.click(save());
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].body).toEqual({ pollMailboxesAtOnce: 3 });
   });
 
   it('0 is allowed for the refetch (off)', async () => {
@@ -311,7 +323,7 @@ describe('IngestionCard — Gmail', () => {
 });
 
 describe('normalizeIngestion — Gmail', () => {
-  it('keeps the six fields, and drops one that is not a whole number', () => {
+  it('keeps the seven fields, and drops one that is not a whole number', () => {
     expect(normalizeIngestion(GMAIL)).toEqual(GMAIL);
     expect(
       normalizeIngestion({

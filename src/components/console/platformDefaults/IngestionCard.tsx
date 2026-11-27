@@ -127,6 +127,11 @@ const GMAIL_FIELDS: FieldDef[] = [
     label: 'Parallel fetches — new mail',
     hint: 'How many messages are downloaded at the same time when checking for new mail.',
   },
+  {
+    key: 'pollMailboxesAtOnce',
+    label: 'Mailboxes checked at the same time (Gmail and IMAP)',
+    hint: 'How many mailboxes, Gmail and IMAP, each scheduled check of all workspaces reads at once. Fewer puts less load on the database in each check; the check then takes longer to get through every mailbox.',
+  },
 ];
 /** Google's own per-minute limit for one mailbox; paced + burst must stay below it. */
 const GMAIL_UNIT_LIMIT = 15000;
