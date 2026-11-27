@@ -101,16 +101,19 @@ const OPENING_GREETING = new RegExp(
 
 /**
  * A generic addressee right after the greeting word ("customer", "there", "Sir or Madam"), as whole
- * words and ending the phrase: followed by , ! . : ; or the line end. Only these words are ever
+ * words and ending the phrase: followed (spaces allowed) by , ! . : ; or the line end. Only these words are ever
  * replaced; "there and thanks…" is not one (the phrase goes on).
  */
 const GENERIC_ADDRESSEE = new RegExp(
-  `^(${SPACE}+)(?:(?:dear|valued)${SPACE}+)?(?:customers?|clients?|there|friends?|all|everyone|team|sir${SPACE}+or${SPACE}+madam|sir\\/madam|sir|madam|colleagues?|users?)(?=[,!.:;]|${SPACE}*(?:\\r?\\n|$))`,
+  `^(${SPACE}+)(?:(?:dear|valued)${SPACE}+)?(?:customers?|clients?|there|friends?|all|everyone|team|sir${SPACE}+or${SPACE}+madam|sir\\/madam|sir|madam|colleagues?|users?)(?=${SPACE}*(?:[,!.:;]|\\r?\\n|$))`,
   'iu'
 );
 
-/** A capitalised word right after the greeting word: a name or title the admin wrote ("Mr. Smith"). */
-const NAMED_ADDRESSEE = new RegExp(`^${SPACE}*\\p{Lu}`, 'u');
+/**
+ * A capitalised word right after the greeting word, a comma allowed between: a name or title the
+ * admin wrote ("Mr. Smith", "Hello, John").
+ */
+const NAMED_ADDRESSEE = new RegExp(`^(?:${SPACE}*,)?${SPACE}*\\p{Lu}`, 'u');
 
 /**
  * The text with the customer's name in the opening greeting. It never deletes or moves the admin's
@@ -118,7 +121,7 @@ const NAMED_ADDRESSEE = new RegExp(`^${SPACE}*\\p{Lu}`, 'u');
  * - a generic addressee is replaced ("Dear customer," → "Dear {{customer_name}},", "Hi there!" →
  *   "Hi {{customer_name}}!");
  * - a greeting followed by a capitalised word ("Dear Mr. Smith,", "Hi John and welcome") already
- *   names someone: the placeholder can go neither in its place (that deletes the name) nor next to
+ *   names someone ("Hello, John" too): the placeholder can go neither in its place (that deletes the name) nor next to
  *   it ("Dear {{customer_name}} Mr. Smith"), so a "Dear {{customer_name}}," line goes on top and the
  *   admin's greeting stays as written, for them to remove;
  * - any other greeting gets the placeholder right after the greeting word, the rest verbatim

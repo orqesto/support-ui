@@ -182,7 +182,6 @@ describe('insertNamePlaceholder', () => {
     ['Hello\nThanks.', `Hello ${NAME}\nThanks.`],
     ['Hello\r\nThanks.', `Hello ${NAME}\r\nThanks.`],
     ['Hey!', `Hey ${NAME}!`],
-    ['Hi, John', `Hi ${NAME}, John`],
     [
       'Hello and thank you for contacting us about your refund request\nWe reply soon.',
       `Hello ${NAME} and thank you for contacting us about your refund request\nWe reply soon.`,
@@ -274,6 +273,24 @@ describe('insertNamePlaceholder', () => {
     expect(insertNamePlaceholder(before)).toBe(
       `Hi ${NAME}, and welcome!\nDear customer, we are here.\nHello, again.`
     );
+  });
+
+  it.each([
+    ['Hi there ,\nThanks.', `Hi ${NAME} ,\nThanks.`],
+    ['Dear customer\u00A0!\nThanks.', `Dear ${NAME}\u00A0!\nThanks.`],
+  ])('replaces a generic addressee followed by a space before the punctuation: %j', (text, out) => {
+    expect(insertNamePlaceholder(text)).toBe(out);
+  });
+
+  it.each(['Hello, John\nThanks.', 'Hi ,\u00A0Mr. Smith!\nThanks.'])(
+    'sees a name after a comma and puts the line on top: %j',
+    (text) => {
+      expect(insertNamePlaceholder(text)).toBe(`Dear ${NAME},\n\n${text}`);
+    }
+  );
+
+  it('a comma followed by a line break is not a name (control)', () => {
+    expect(insertNamePlaceholder('Hello,\nJohn here.')).toBe(`Hello ${NAME},\nJohn here.`);
   });
 
   it.each([
