@@ -157,27 +157,95 @@ describe('validateDraft — two-letter acronyms in capitals (owner 2026-11-17)',
 });
 
 describe('insertNamePlaceholder', () => {
+  const NAME = '{{customer_name}}';
+  const words = (text: string): string[] => text.match(/[\p{L}\p{N}'-]+/gu) ?? [];
+
   it.each([
-    ['Dear customer,\n\nThanks.', 'Dear {{customer_name}},\n\nThanks.'],
-    ['Hi there!\n\nThanks.', 'Hi {{customer_name}}!\n\nThanks.'],
-    ['Dear Sir or Madam,\n\nThanks.', 'Dear {{customer_name}},\n\nThanks.'],
-    ['Hello friend,\n\nThanks.', 'Hello {{customer_name}},\n\nThanks.'],
-    ['Hello,\n\nThanks.', 'Hello {{customer_name}},\n\nThanks.'],
-    ['Good morning team.\nThanks.', 'Good morning {{customer_name}}.\nThanks.'],
-  ])('replaces the greeting addressee: %j', (before, after) => {
+    ['Dear customer,\n\nThanks.', `Dear ${NAME},\n\nThanks.`],
+    ['Hi there!\n\nThanks.', `Hi ${NAME}!\n\nThanks.`],
+    ['Dear Sir or Madam,\n\nThanks.', `Dear ${NAME},\n\nThanks.`],
+    ['Dear sir/madam,\n\nThanks.', `Dear ${NAME},\n\nThanks.`],
+    ['Hello friend,\n\nThanks.', `Hello ${NAME},\n\nThanks.`],
+    ['Hello dear customers!\nThanks.', `Hello ${NAME}!\nThanks.`],
+    ['Dear valued customer;\nThanks.', `Dear ${NAME};\nThanks.`],
+    ['Good morning team.\nThanks.', `Good morning ${NAME}.\nThanks.`],
+    ['Dear customer: we got your mail.', `Dear ${NAME}: we got your mail.`],
+    ['Hi everyone\nThanks.', `Hi ${NAME}\nThanks.`],
+    ['Dear customer,\r\n\r\nThanks.', `Dear ${NAME},\r\n\r\nThanks.`],
+    ['Hi there\r\nThanks.', `Hi ${NAME}\r\nThanks.`],
+  ])('replaces only a generic addressee: %j', (before, after) => {
     expect(insertNamePlaceholder(before)).toBe(after);
   });
 
-  it('puts a "Dear {{customer_name}}," line on top when the text has no greeting', () => {
-    expect(insertNamePlaceholder('  Thanks for writing.')).toBe(
-      'Dear {{customer_name}},\n\nThanks for writing.'
-    );
+  it.each([
+    ['Hello,\n\nThanks.', `Hello ${NAME},\n\nThanks.`],
+    ['Hello\nThanks.', `Hello ${NAME}\nThanks.`],
+    ['Hello\r\nThanks.', `Hello ${NAME}\r\nThanks.`],
+    ['Hey!', `Hey ${NAME}!`],
+    ['Hi, John', `Hi ${NAME}, John`],
+    [
+      'Hello and thank you for contacting us about your refund request\nWe reply soon.',
+      `Hello ${NAME} and thank you for contacting us about your refund request\nWe reply soon.`,
+    ],
+    [
+      'Hi there and thanks for writing; we will reply.',
+      `Hi ${NAME} there and thanks for writing; we will reply.`,
+    ],
+    ['Hello how are you? We received it.', `Hello ${NAME} how are you? We received it.`],
+    [
+      'Greetings from the Acme team. We got your email.',
+      `Greetings ${NAME} from the Acme team. We got your email.`,
+    ],
+    ['Dear customers and partners,\nThanks.', `Dear ${NAME} customers and partners,\nThanks.`],
+    ['\n\nHello,\nThanks.', `\n\nHello ${NAME},\nThanks.`],
+  ])('inserts after the greeting word and keeps every word: %j', (before, after) => {
+    expect(insertNamePlaceholder(before)).toBe(after);
   });
 
-  it('changes only the first line, up to its first punctuation', () => {
+  it.each(['Dear Mr. Smith,\nThanks.', 'Hi John and welcome to our shop! More text.'])(
+    'puts a line on top when the greeting already names someone: %j',
+    (before) => {
+      expect(insertNamePlaceholder(before)).toBe(`Dear ${NAME},\n\n${before}`);
+    }
+  );
+
+  it.each([
+    ['  Thanks for writing.', `Dear ${NAME},\n\nThanks for writing.`],
+    ['Hi-five to you, friend', `Dear ${NAME},\n\nHi-five to you, friend`],
+    ['Highlights: friend', `Dear ${NAME},\n\nHighlights: friend`],
+    ['', `Dear ${NAME},\n\n`],
+    ['Thanks.\r\nDear customer,', `Dear ${NAME},\n\nThanks.\r\nDear customer,`],
+  ])('puts a "Dear {{customer_name}}," line on top without a greeting: %j', (before, after) => {
+    expect(insertNamePlaceholder(before)).toBe(after);
+  });
+
+  it.each([
+    'Hello and thank you for contacting us about your refund request\nWe reply…',
+    'Hi there and thanks for writing; we will…',
+    'Hello how are you? We received…',
+    'Greetings from the Acme team. We got your email.',
+    'Hi John and welcome to our shop! More text.',
+    'Dear customer: we got your mail.',
+    'Dear Mr. Smith,',
+    'Hi, John',
+    'Hi-five to you, friend',
+  ])('deletes none of the words of %j (reviewer cases)', (before) => {
+    const kept = words(insertNamePlaceholder(before));
+    for (const word of words(before)) {
+      if (before.startsWith(`Dear ${word}:`)) continue; // "customer" is the replaced addressee
+      expect(kept, word).toContain(word);
+    }
+    // Same order: the original words are a subsequence of the result's words.
+    const expected = words(before).filter((word) => !before.startsWith(`Dear ${word}:`));
+    let matched = 0;
+    for (const word of kept) if (word === expected[matched]) matched += 1;
+    expect(matched).toBe(expected.length);
+  });
+
+  it('changes only the first line', () => {
     const before = 'Hi there, and welcome!\nDear customer, we are here.\nHello, again.';
     expect(insertNamePlaceholder(before)).toBe(
-      'Hi {{customer_name}}, and welcome!\nDear customer, we are here.\nHello, again.'
+      `Hi ${NAME}, and welcome!\nDear customer, we are here.\nHello, again.`
     );
   });
 

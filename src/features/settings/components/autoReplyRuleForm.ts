@@ -85,24 +85,53 @@ export const FIRST_NAME_PLACEHOLDER = '{first_name}';
 const NAME_PLACEHOLDER = /\{(?:customer_name|first_name)[|}]/;
 
 /**
- * The greeting the reply opens with: the greeting word ("Hello", "Dear") and its addressee up to
- * the first ",", "!", "." or line end ("Dear customer", "Hi there", "Dear Sir or Madam").
+ * The greeting word the reply opens with, as a whole word ("Hi" in "Hi there", not in "Hi-five").
  */
 const OPENING_GREETING =
-  /^(\s*)(dear|hi|hello|hey|greetings|good (?:morning|afternoon|evening))\b[^\r\n,!.]*/i;
+  /^(?:dear|hi|hello|hey|greetings|good[ \t]+(?:morning|afternoon|evening))(?![\p{L}\p{N}_'’-])/iu;
 
 /**
- * The text with the customer's name as the greeting's addressee, on the first line only: the
- * greeting's addressee is replaced ("Dear customer," → "Dear {{customer_name}},", "Hello," →
- * "Hello {{customer_name}},"), else a "Dear {{customer_name}}," line goes on top. A first line that
- * already holds a name placeholder is left as it is.
+ * A generic addressee right after the greeting word ("customer", "there", "Sir or Madam"), as whole
+ * words and ending the phrase: followed by , ! . : ; or the line end. Only these words are ever
+ * replaced; "there and thanks…" is not one (the phrase goes on).
+ */
+const GENERIC_ADDRESSEE =
+  /^[ \t]+(?:(?:dear|valued)[ \t]+)?(?:customers?|clients?|there|friends?|all|everyone|team|sir[ \t]+or[ \t]+madam|sir\/madam|sir|madam|colleagues?|users?)(?=[,!.:;]|[ \t]*(?:\r?\n|$))/iu;
+
+/** A capitalised word right after the greeting word: a name or title the admin wrote ("Mr. Smith"). */
+const NAMED_ADDRESSEE = /^[ \t]*\p{Lu}/u;
+
+/**
+ * The text with the customer's name in the opening greeting. It never deletes or moves the admin's
+ * words, except a generic addressee, which it replaces:
+ * - a generic addressee is replaced ("Dear customer," → "Dear {{customer_name}},", "Hi there!" →
+ *   "Hi {{customer_name}}!");
+ * - a greeting followed by a capitalised word ("Dear Mr. Smith,", "Hi John and welcome") already
+ *   names someone: the placeholder can go neither in its place (that deletes the name) nor next to
+ *   it ("Dear {{customer_name}} Mr. Smith"), so a "Dear {{customer_name}}," line goes on top and the
+ *   admin's greeting stays as written, for them to remove;
+ * - any other greeting gets the placeholder right after the greeting word, the rest verbatim
+ *   ("Hello," → "Hello {{customer_name}},", "Hello and thank you" → "Hello {{customer_name}} and
+ *   thank you");
+ * - no greeting: a "Dear {{customer_name}}," line goes on top.
+ * Only the first non-blank line is looked at; one that already holds a name placeholder is left as
+ * it is.
  */
 export const insertNamePlaceholder = (text: string): string => {
-  const firstLine = text.trimStart().split('\n', 1)[0] ?? '';
+  const body = text.trimStart();
+  const firstLine = body.split('\n', 1)[0] ?? '';
   if (NAME_PLACEHOLDER.test(firstLine)) return text;
-  return OPENING_GREETING.test(text)
-    ? text.replace(OPENING_GREETING, `$1$2 ${CUSTOMER_NAME_PLACEHOLDER}`)
-    : `Dear ${CUSTOMER_NAME_PLACEHOLDER},\n\n${text.trimStart()}`;
+  const prependLine = `Dear ${CUSTOMER_NAME_PLACEHOLDER},\n\n${body}`;
+  const greeting = OPENING_GREETING.exec(body)?.[0];
+  if (greeting === undefined) return prependLine;
+  const lead = text.slice(0, text.length - body.length);
+  const after = body.slice(greeting.length);
+  const generic = GENERIC_ADDRESSEE.exec(after)?.[0];
+  if (generic !== undefined) {
+    return `${lead}${greeting} ${CUSTOMER_NAME_PLACEHOLDER}${after.slice(generic.length)}`;
+  }
+  if (NAMED_ADDRESSEE.test(after)) return prependLine;
+  return `${lead}${greeting} ${CUSTOMER_NAME_PLACEHOLDER}${after}`;
 };
 
 /** The text already names the customer: any name placeholder the backend fills (see above). */
