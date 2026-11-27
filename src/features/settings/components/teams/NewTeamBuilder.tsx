@@ -21,6 +21,7 @@ import {
 } from '../../services/teamBuilder.service';
 import { LibraryPicker } from './LibraryPicker';
 import { ApplyResultSummary } from './ApplyResultSummary';
+import { RemoveWorkspacePreset } from './RemoveWorkspacePreset';
 import { RolesHeldDialog } from './RolesHeldDialog';
 import { TEAM_ROLE_LABELS } from './teamLabels';
 import { teamPagePath } from './teamPaths';
@@ -28,6 +29,10 @@ import { teamPagePath } from './teamPaths';
 const NAME_MAX = 100;
 const DEFAULT_COLOR = '#6366f1';
 const SCRATCH = 'scratch';
+/** The backend's new-team notice key (ApplyResultSummary shows its text). */
+const NEW_TEAM_NOTICE = 'rules_only_until_traffic';
+const NO_RULES_YET_TEXT =
+  'This team has no rules yet. Add rules from the library on its page; it learns from real mail once threads reach it.';
 const PRESET_NOT_APPLIED_TEXT =
   'The preset was not applied because its roles are held. Apply it from this page.';
 
@@ -232,13 +237,22 @@ export const NewTeamBuilder = () => {
         {created.result && (
           <ApplyResultSummary
             result={created.result}
-            notice={created.notice}
+            // Every team made here is new: a reply without the notice (from scratch, a race) still
+            // gets it, so the admin is never left reading an idle team as "the AI doesn't work".
+            notice={created.notice ?? NEW_TEAM_NOTICE}
             warnings={created.warnings}
           />
         )}
         {!created.result && !error && !held && (
           <Alert variant="success" role="status">
             The team was created.
+          </Alert>
+        )}
+        {/* No result = the team got no rules (none picked, or a race). The error above, when
+            there is one, already says what to do; otherwise say the team is empty. */}
+        {!created.result && !error && !held && (
+          <Alert variant="info" role="status">
+            {NO_RULES_YET_TEXT}
           </Alert>
         )}
         <Button onClick={() => navigate(teamPagePath(created.teamId))}>Open the team</Button>
@@ -261,22 +275,25 @@ export const NewTeamBuilder = () => {
         )}
         <div className="grid gap-3 sm:grid-cols-2">
           {presets.map((one) => (
-            <ChoiceCard
-              key={presetKey(one)}
-              selected={choice === presetKey(one)}
-              onSelect={() => setChoice(presetKey(one))}
-            >
-              <p className="text-sm font-medium">{one.name}</p>
-              <p className="text-xs text-muted-foreground">{one.description}</p>
-              <p className="text-xs text-muted-foreground">{rulesCount(one.itemCount)}</p>
-              <div className="flex flex-wrap gap-1">
-                {one.roles.map((role) => (
-                  <Badge key={role} variant="secondary">
-                    {TEAM_ROLE_LABELS[role]}
-                  </Badge>
-                ))}
-              </div>
-            </ChoiceCard>
+            <div key={presetKey(one)} className="space-y-1">
+              <ChoiceCard
+                selected={choice === presetKey(one)}
+                onSelect={() => setChoice(presetKey(one))}
+              >
+                <p className="text-sm font-medium">{one.name}</p>
+                <p className="text-xs text-muted-foreground">{one.description}</p>
+                <p className="text-xs text-muted-foreground">{rulesCount(one.itemCount)}</p>
+                <div className="flex flex-wrap gap-1">
+                  {one.roles.map((role) => (
+                    <Badge key={role} variant="secondary">
+                      {TEAM_ROLE_LABELS[role]}
+                    </Badge>
+                  ))}
+                </div>
+              </ChoiceCard>
+              {/* Outside the card: a button inside a ChoiceCard would nest one control in another. */}
+              <RemoveWorkspacePreset preset={one} disabled={busy} />
+            </div>
           ))}
           <ChoiceCard selected={fromScratch} onSelect={() => setChoice(SCRATCH)}>
             <p className="text-sm font-medium">From scratch</p>

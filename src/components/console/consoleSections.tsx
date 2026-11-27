@@ -23,6 +23,7 @@ import {
   BellRing,
   type LucideIcon,
 } from 'lucide-react';
+import { RULE_LIBRARY_CONSOLE_FLAG } from '@/pages/console/ruleLibraryConsoleFlag';
 
 /**
  * Declarative console section registry — the single source of truth for BOTH the
@@ -141,8 +142,6 @@ const PlatformAlertsSlack = lazy(() =>
 const PlatformAudit = lazy(() =>
   import('@/pages/console/PlatformAudit').then((mod) => ({ default: mod.PlatformAudit }))
 );
-/** The `ui.*` flag that gates the rule library and team presets console pages. */
-const RULE_LIBRARY_CONSOLE_FLAG = 'ui.rule_library_console';
 const PlatformTeamPresets = lazy(() =>
   import('@/pages/console/ruleLibraryConsole').then((mod) => ({ default: mod.PlatformTeamPresets }))
 );
