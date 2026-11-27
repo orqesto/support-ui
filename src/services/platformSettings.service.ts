@@ -43,7 +43,7 @@ import type { BoundedField, FieldSource, ResolvedField } from './resolvedField';
 import { isRecord } from '@/lib/isRecord';
 import { readBounded } from './boundedFieldRead';
 import { readAgentNoteFacts } from './agentNoteFacts.settings';
-import { readDocRerank, type DocRerankSetting } from './docRerank.settings';
+import { readDraftToggles, type DraftToggles, type DraftTogglesIn } from './docRerank.settings';
 import type { AgentNoteFactsInput, AgentNoteFactsSettings } from './agentNoteFacts.settings';
 import { readNoReplyCheck } from './noReplyCheck.settings';
 import type { NoReplyCheckInput, NoReplyCheckSettings } from './noReplyCheck.settings';
@@ -185,7 +185,7 @@ export type PlatformSettings = {
 /** Which pipeline writes an agent's AI draft (`ai.draft_pipeline`, BE 2026-10-23). */
 export const DRAFT_PIPELINE_MODES = ['single', 'legacy'] as const;
 export type DraftPipelineMode = (typeof DRAFT_PIPELINE_MODES)[number];
-export type { DocRerankSetting } from './docRerank.settings';
+export type { DocRerankSetting, ShortTextLanguageSetting } from './docRerank.settings';
 /** GET `drafts.draftPipeline` — the mode in effect, where it comes from, and the modes offered. */
 export type DraftPipelineSetting = {
   value: DraftPipelineMode;
@@ -194,24 +194,21 @@ export type DraftPipelineSetting = {
   options: DraftPipelineMode[];
 };
 /** GET `drafts` — each {value, source, min, max}; the similarity is a fraction, the timeout in ms. */
-export type DraftSettings = {
+export type DraftSettings = DraftToggles & {
   kbOnlyDraftMinSimilarity: BoundedField;
   suggestionPipelineTimeoutMs: BoundedField;
   /** Absent on a backend that predates the switch — the card then says so. */
   draftPipeline?: DraftPipelineSetting;
-  /** The re-ranking step's switch; absent on a backend that predates it — the card then says so. */
-  docRerank?: DocRerankSetting;
   /** The guided-draft fact check's thresholds (`ai.agent_note_facts`); absent on an older backend. */
   agentNoteFacts?: AgentNoteFactsSettings;
   /** "No reply needed" limits and wording (`ai.no_reply_check`); absent on an older backend. */
   noReplyCheck?: NoReplyCheckSettings;
 };
 /** PUT /settings/drafts — a non-empty subset; only the fields sent are saved. */
-export type PlatformDraftsInput = {
+export type PlatformDraftsInput = DraftTogglesIn & {
   kbOnlyDraftMinSimilarity?: number;
   suggestionPipelineTimeoutMs?: number;
   draftPipeline?: DraftPipelineMode;
-  docRerank?: boolean;
   /** Any non-empty subset; the server merges it over the saved thresholds. */
   agentNoteFacts?: AgentNoteFactsInput;
   /** Any non-empty subset; the server merges it over the saved row. */
@@ -608,7 +605,6 @@ export const normalizeDrafts = (raw: unknown): DraftSettings | undefined => {
   const kbOnlyDraftMinSimilarity = readBoundedNumber(raw.kbOnlyDraftMinSimilarity);
   const suggestionPipelineTimeoutMs = readBounded(raw.suggestionPipelineTimeoutMs);
   const draftPipeline = readDraftPipeline(raw.draftPipeline);
-  const docRerank = readDocRerank(raw.docRerank);
   const agentNoteFacts = readAgentNoteFacts(raw.agentNoteFacts);
   const noReplyCheck = readNoReplyCheck(raw.noReplyCheck);
   return kbOnlyDraftMinSimilarity && suggestionPipelineTimeoutMs
@@ -616,7 +612,7 @@ export const normalizeDrafts = (raw: unknown): DraftSettings | undefined => {
         kbOnlyDraftMinSimilarity,
         suggestionPipelineTimeoutMs,
         ...(draftPipeline ? { draftPipeline } : {}),
-        ...(docRerank ? { docRerank } : {}),
+        ...readDraftToggles(raw),
         ...(agentNoteFacts ? { agentNoteFacts } : {}),
         ...(noReplyCheck ? { noReplyCheck } : {}),
       }
