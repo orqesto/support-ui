@@ -22,6 +22,7 @@ import type {
   PlatformDraftsInput,
 } from '@/services/platformSettings.service';
 import { NO_REPLY_CHECK_NOT_DEPLOYED, NoReplyCheckFields } from './NoReplyCheckFields';
+import { ShortTextLanguageSwitch } from './ShortTextLanguageSwitch';
 import { SourceBadge } from './SourceBadge';
 import { useReseededTexts } from './useReseededTexts';
 
@@ -403,6 +404,14 @@ export const AiDraftsCard = ({ drafts }: { drafts: DraftSettings | undefined }) 
             {DOC_RERANK_NOT_DEPLOYED}
           </p>
         )}
+        {/* A backend without the switch shows nothing: short lines are taken for English there. */}
+        {drafts.shortTextLanguage ? (
+          <ShortTextLanguageSwitch
+            setting={drafts.shortTextLanguage}
+            saving={save.isPending}
+            onSwitch={(enabled) => save.mutate({ shortTextLanguage: enabled })}
+          />
+        ) : null}
         {drafts.agentNoteFacts ? (
           <AgentNoteFactsFields
             facts={drafts.agentNoteFacts}

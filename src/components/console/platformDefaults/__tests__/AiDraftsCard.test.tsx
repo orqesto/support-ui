@@ -617,3 +617,76 @@ describe('normalizeDrafts — docRerank', () => {
     });
   });
 });
+
+// ai.short_text_language (2026-11-27): the short-text language reading's switch, on by default.
+describe('AiDraftsCard — the short-text language switch (ai.short_text_language)', () => {
+  const WITH_SHORT = { ...SETTING, shortTextLanguage: { value: true, source: 'default' as const } };
+  const shortSwitch = () =>
+    screen.getByRole('switch', { name: 'Read the language of short messages' });
+
+  it('shows it on, as the built-in default', () => {
+    wrap(<AiDraftsCard drafts={WITH_SHORT} />);
+    expect(shortSwitch()).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText(/Read the language of short messages: on/)).toBeInTheDocument();
+  });
+
+  it('turning it off is confirmed first, then saved on its own with PUT /settings/drafts', async () => {
+    wrap(<AiDraftsCard drafts={WITH_SHORT} />);
+    fireEvent.change(similarity(), { target: { value: '0.9' } });
+    fireEvent.click(shortSwitch());
+    expect(puts).toHaveLength(0);
+    expect(screen.getByText('Stop reading the language of short messages?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Turn off' }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toEqual({
+      url: '/api/admin/platform/settings/drafts',
+      body: { shortTextLanguage: false },
+    });
+  });
+
+  it('switched off in the console: shows off, and turning it back on is confirmed too', async () => {
+    wrap(
+      <AiDraftsCard drafts={{ ...SETTING, shortTextLanguage: { value: false, source: 'db' } }} />
+    );
+    expect(shortSwitch()).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(shortSwitch());
+    fireEvent.click(screen.getByRole('button', { name: 'Turn on' }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0].body).toEqual({ shortTextLanguage: true });
+  });
+
+  it('CONTROL — cancelling the confirmation saves nothing', async () => {
+    wrap(<AiDraftsCard drafts={WITH_SHORT} />);
+    fireEvent.click(shortSwitch());
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() =>
+      expect(screen.queryByText('Stop reading the language of short messages?')).toBeNull()
+    );
+    expect(puts).toHaveLength(0);
+  });
+
+  it('a backend without the switch: no switch', () => {
+    wrap(<AiDraftsCard drafts={SETTING} />);
+    expect(
+      screen.queryByRole('switch', { name: 'Read the language of short messages' })
+    ).toBeNull();
+  });
+});
+
+describe('normalizeDrafts — shortTextLanguage', () => {
+  it('keeps the switch the backend sends', () => {
+    expect(
+      normalizeDrafts({ ...SETTING, shortTextLanguage: { value: false, source: 'db' } })
+        ?.shortTextLanguage
+    ).toEqual({ value: false, source: 'db' });
+  });
+
+  it('a value that is not a boolean drops the switch but keeps the numbers', () => {
+    const drafts = normalizeDrafts({
+      ...SETTING,
+      shortTextLanguage: { value: 'off', source: 'db' },
+    });
+    expect(drafts?.shortTextLanguage).toBeUndefined();
+    expect(drafts?.kbOnlyDraftMinSimilarity.value).toBe(0.85);
+  });
+});
