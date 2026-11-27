@@ -1,3 +1,5 @@
+import type { AfterReply } from '@/services/autoReplyRules.service';
+
 /**
  * Keyword auto-reply rule form — the pure half: adding keywords from what was typed, and the inline
  * validation the backend repeats (a rule needs at least one keyword and a reply text).
@@ -23,6 +25,8 @@ export type RuleDraft = {
   useKnowledgeBase: boolean;
   /** Template + KB: the knowledge base match, in whole percent as typed (80–99). */
   kbMatchPercent: string;
+  /** After the reply is sent: resolve the thread (the default) or leave it open for an agent. */
+  afterReply: AfterReply;
 };
 
 export type RuleDraftErrors = {
@@ -30,6 +34,7 @@ export type RuleDraftErrors = {
   replyText?: string;
   name?: string;
   kbMinSimilarity?: string;
+  afterReply?: string;
 };
 
 export const KB_MATCH_PERCENT_MIN = 80;
@@ -52,7 +57,32 @@ export const emptyDraft = (): RuleDraft => ({
   replyText: '',
   useKnowledgeBase: false,
   kbMatchPercent: String(KB_MATCH_PERCENT_DEFAULT),
+  afterReply: 'resolve',
 });
+
+/** The "After the reply" choices; the helper text says what the customer and the team see. */
+export const AFTER_REPLY_OPTIONS: { value: AfterReply; label: string; help: string }[] = [
+  {
+    value: 'resolve',
+    label: 'Resolve the thread',
+    help: 'The reply is sent and the thread is resolved.',
+  },
+  {
+    value: 'leave_open',
+    label: 'Leave the thread open',
+    help: 'The reply is sent and the thread stays in the queue for an agent.',
+  },
+];
+
+/** The customer's name in a reply ("customer" when unknown; `{{customer_name|there}}` sets your own). */
+export const CUSTOMER_NAME_PLACEHOLDER = '{{customer_name}}';
+export const FIRST_NAME_PLACEHOLDER = '{first_name}';
+
+/** The text with the customer's name added at the end (a space before it when needed). */
+export const insertNamePlaceholder = (text: string): string =>
+  !text || /\s$/.test(text)
+    ? `${text}${CUSTOMER_NAME_PLACEHOLDER}`
+    : `${text} ${CUSTOMER_NAME_PLACEHOLDER}`;
 
 /** Where a template rule puts the knowledge base answer (the backend's placeholder). */
 export const KB_ANSWER_PLACEHOLDER = '{{kb_answer}}';
@@ -108,7 +138,7 @@ export const validateDraft = (draft: RuleDraft): RuleDraftErrors => {
 
 export const hasErrors = (errors: RuleDraftErrors): boolean => Object.keys(errors).length > 0;
 
-const FORM_FIELDS = ['keywords', 'replyText', 'name', 'kbMinSimilarity'] as const;
+const FORM_FIELDS = ['keywords', 'replyText', 'name', 'kbMinSimilarity', 'afterReply'] as const;
 
 /**
  * Server-side field names → inline messages, for a 400 the form did not catch. When the 400 names
@@ -117,7 +147,9 @@ const FORM_FIELDS = ['keywords', 'replyText', 'name', 'kbMinSimilarity'] as cons
  */
 export const errorsFromFields = (
   fields: readonly string[],
-  serverMessage?: string
+  serverMessage?: string,
+  /** The reply text was written: a refusal of it is not "write it" (a placeholder rules cannot fill, say). */
+  replyWritten = false
 ): RuleDraftErrors => {
   const errors: RuleDraftErrors = {};
   const named = FORM_FIELDS.filter((field) => fields.includes(field));
@@ -127,8 +159,12 @@ export const errorsFromFields = (
     return errors;
   }
   if (fields.includes('keywords')) errors.keywords = 'Check the keywords: at least one is needed.';
-  if (fields.includes('replyText')) errors.replyText = 'Write the reply text.';
+  if (fields.includes('replyText'))
+    errors.replyText = replyWritten
+      ? 'The reply text was not accepted. Check its placeholders: only the ones listed under the field can be used.'
+      : 'Write the reply text.';
   if (fields.includes('name')) errors.name = 'The name is too long.';
   if (fields.includes('kbMinSimilarity')) errors.kbMinSimilarity = KB_MATCH_RANGE_MESSAGE;
+  if (fields.includes('afterReply')) errors.afterReply = 'Choose what happens after the reply.';
   return errors;
 };

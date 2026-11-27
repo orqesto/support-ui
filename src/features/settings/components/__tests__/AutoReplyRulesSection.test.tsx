@@ -8,6 +8,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import type { AlertState } from '@/features/settings/components/integrations/types';
+import { chooseOption } from '@/test/chooseOption';
 
 const api = vi.hoisted(() => ({
   rules: [] as Record<string, unknown>[],
@@ -164,21 +165,6 @@ describe('AutoReplyRulesSection', () => {
       replyText: 'See example.com',
     });
     expect(await screen.findByRole('list', { name: 'Keyword rules' })).toBeTruthy();
-  });
-
-  it('a 400 naming a field shows it inline', async () => {
-    api.postError = Object.assign(new Error('Validation error'), {
-      status: 400,
-      data: { success: false, error: 'Validation error', fields: ['replyText'] },
-    });
-    renderSection();
-    await openNewRule();
-    fireEvent.change(screen.getByLabelText('Keywords', { selector: 'input' }), {
-      target: { value: 'refund' },
-    });
-    fireEvent.change(screen.getByLabelText('Reply text'), { target: { value: 'x' } });
-    fireEvent.click(saveButton());
-    expect(await screen.findByText('Write the reply text.')).toBeTruthy();
   });
 
   it("a keyword another rule has: the server's sentence shows under Keywords", async () => {
@@ -597,5 +583,118 @@ describe('Keyword rules: keywords the backend ignores (deep review 2026-11-16)',
       await screen.findByText(/Ignored, too short or too common: "order"/)
     ).toBeInTheDocument();
     expect(screen.getAllByText(/Ignored, too short or too common/)).toHaveLength(1);
+  });
+});
+
+describe("Keyword rules: after the reply, and the customer's name (2026-11-27)", () => {
+  const afterReplySelect = () => screen.getByLabelText('After the reply');
+  const fillNewRule = () => {
+    fireEvent.change(screen.getByLabelText('Keywords', { selector: 'input' }), {
+      target: { value: 'refund' },
+    });
+    fireEvent.change(screen.getByLabelText('Reply text'), { target: { value: 'See example.com' } });
+  };
+
+  it('a new rule offers "After the reply" with Resolve chosen, and sends it', async () => {
+    renderSection();
+    await openNewRule();
+    const form = screen.getByTestId('auto-reply-rule-form');
+    expect(within(form).getByText('Resolve the thread')).toBeInTheDocument();
+    expect(within(form).queryByText('Leave the thread open')).toBeNull();
+    fillNewRule();
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(api.posts).toHaveLength(1));
+    expect(api.posts[0]).toMatchObject({ afterReply: 'resolve' });
+  });
+
+  it('choosing "Leave the thread open" says what happens and sends leave_open', async () => {
+    renderSection();
+    await openNewRule();
+    fillNewRule();
+    await chooseOption(afterReplySelect(), 'Leave the thread open');
+    expect(
+      screen.getByText('The reply is sent and the thread stays in the queue for an agent.')
+    ).toBeInTheDocument();
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(api.posts).toHaveLength(1));
+    expect(api.posts[0]).toMatchObject({ afterReply: 'leave_open' });
+  });
+
+  it('an old rule without the field shows Resolve and an edit does not send it unchanged', async () => {
+    api.rules = [refundRule];
+    renderSection();
+    fireEvent.click(await screen.findByRole('button', { name: /edit rule refunds/i }));
+    const form = screen.getByTestId('auto-reply-rule-form');
+    expect(within(form).getByText('Resolve the thread')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Reply text'), { target: { value: 'New text' } });
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(api.patches).toHaveLength(1));
+    expect(api.patches[0].body).not.toHaveProperty('afterReply');
+  });
+
+  it('an edit that changes it sends the new value', async () => {
+    api.rules = [refundRule];
+    renderSection();
+    fireEvent.click(await screen.findByRole('button', { name: /edit rule refunds/i }));
+    await chooseOption(afterReplySelect(), 'Leave the thread open');
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(api.patches).toHaveLength(1));
+    expect(api.patches[0].body).toMatchObject({ afterReply: 'leave_open' });
+  });
+
+  it('the list tags a rule that leaves the thread open, and not one that resolves (control)', async () => {
+    api.rules = [
+      { ...refundRule, afterReply: 'leave_open' },
+      { ...refundRule, id: 2, name: 'Shipping', keywords: ['shipping'], afterReply: 'resolve' },
+    ];
+    renderSection();
+    const list = await screen.findByRole('list', { name: 'Keyword rules' });
+    expect(within(list).getAllByText('Leaves thread open')).toHaveLength(1);
+    const items = within(list).getAllByRole('listitem');
+    expect(within(items[0]).getByText('Leaves thread open')).toBeInTheDocument();
+  });
+
+  it('lists the name placeholders under the reply text and inserts {{customer_name}}', async () => {
+    renderSection();
+    await openNewRule();
+    const hint = screen.getByTestId('auto-reply-rule-placeholders');
+    expect(hint.textContent).toContain('{{customer_name}}');
+    expect(hint.textContent).toContain('{{customer_name|there}}');
+    expect(hint.textContent).toContain('{first_name}');
+    fireEvent.change(screen.getByLabelText('Reply text'), { target: { value: 'Hi' } });
+    fireEvent.click(screen.getByRole('button', { name: /insert \{\{customer_name\}\}/i }));
+    expect(screen.getByLabelText('Reply text')).toHaveProperty('value', 'Hi {{customer_name}}');
+    expect(screen.queryByRole('button', { name: /insert \{\{customer_name\}\}/i })).toBeNull();
+  });
+
+  it("a refused placeholder: the server's sentence shows under the reply text", async () => {
+    const refusal = '{{agent_name}} cannot be used in a keyword rule reply.';
+    api.postError = Object.assign(new Error(refusal), {
+      status: 400,
+      data: { success: false, error: refusal, code: 'VALIDATION_FAILED', fields: ['replyText'] },
+    });
+    renderSection();
+    await openNewRule();
+    fillNewRule();
+    fireEvent.click(saveButton());
+    expect(await screen.findByText(refusal)).toBeInTheDocument();
+  });
+
+  it('a 400 naming the written reply text, with no usable server message: the placeholder fallback inline', async () => {
+    api.postError = Object.assign(new Error('Validation error'), {
+      status: 400,
+      data: {
+        success: false,
+        error: 'Validation error',
+        code: 'SOMETHING_NEW',
+        fields: ['replyText'],
+      },
+    });
+    renderSection();
+    await openNewRule();
+    fillNewRule();
+    fireEvent.click(saveButton());
+    expect(await screen.findByText(/Check its placeholders/)).toBeInTheDocument();
+    expect(screen.queryByText('Write the reply text.')).toBeNull();
   });
 });

@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Disclosure } from '@/components/ui/Disclosure';
 import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { Toggle } from '@/components/ui/Toggle';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -20,16 +21,21 @@ import {
   autoReplyRulesService,
   ruleErrorFields,
   ruleErrorMessage,
+  type AfterReply,
   type AutoReplyRule,
 } from '@/services/autoReplyRules.service';
 import { Permission } from '@/types/roles';
 import {
   addKeywords,
+  AFTER_REPLY_OPTIONS,
+  CUSTOMER_NAME_PLACEHOLDER,
   draftKeywords,
   emptyDraft,
   errorsFromFields,
+  FIRST_NAME_PLACEHOLDER,
   hasErrors,
   insertKbPlaceholder,
+  insertNamePlaceholder,
   KB_ANSWER_PLACEHOLDER,
   KB_MATCH_PERCENT_DEFAULT,
   KB_MATCH_PERCENT_MAX,
@@ -51,7 +57,13 @@ type Props = {
   onShowAlert: (alert: AlertState) => void;
 };
 
-type Editing = { ruleId: number | null; draft: RuleDraft; errors: RuleDraftErrors };
+type Editing = {
+  ruleId: number | null;
+  draft: RuleDraft;
+  errors: RuleDraftErrors;
+  /** The rule's stored "After the reply": an update sends the field only when it changed. */
+  savedAfterReply?: AfterReply;
+};
 
 const RuleForm = ({
   editing,
@@ -145,8 +157,8 @@ const RuleForm = ({
           continue them (refund → refunds, возврат → возврата). A word whose ending changes (почта →
           почты) needs that form too. Add the word in each language your customers write in. A
           keyword needs at least 3 characters (an acronym in capitals, like TV, is fine) and must
-          not be a word most emails contain (order, hello, заказ): a rule replies and resolves the
-          thread. Use a specific word or a phrase ("order status").
+          not be a word most emails contain (order, hello, заказ): a rule replies on its own. Use a
+          specific word or a phrase ("order status").
         </p>
       </div>
       <div className="space-y-2">
@@ -212,18 +224,53 @@ const RuleForm = ({
         disabled={saving}
         onChange={(ev) => onChange({ ...draft, replyText: ev.target.value })}
       />
-      {draft.useKnowledgeBase && !draft.replyText.includes(KB_ANSWER_PLACEHOLDER) && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
+      <p className="text-xs text-muted-foreground" data-testid="auto-reply-rule-placeholders">
+        To greet the customer by name, use <code>{CUSTOMER_NAME_PLACEHOLDER}</code>{' '}
+        (&quot;customer&quot; when the name is unknown; <code>{'{{customer_name|there}}'}</code>{' '}
+        uses your own word) or <code>{FIRST_NAME_PLACEHOLDER}</code> for the first name. A
+        rule&apos;s reply is not sent by an agent, so agent placeholders cannot be used.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {!draft.replyText.includes('{{customer_name') && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={saving}
+            onClick={() =>
+              onChange({ ...draft, replyText: insertNamePlaceholder(draft.replyText) })
+            }
+          >
+            <Plus className="mr-1 w-3 h-3" />
+            Insert {CUSTOMER_NAME_PLACEHOLDER}
+          </Button>
+        )}
+        {draft.useKnowledgeBase && !draft.replyText.includes(KB_ANSWER_PLACEHOLDER) && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={saving}
+            onClick={() => onChange({ ...draft, replyText: insertKbPlaceholder(draft.replyText) })}
+          >
+            <Plus className="mr-1 w-3 h-3" />
+            Insert {KB_ANSWER_PLACEHOLDER}
+          </Button>
+        )}
+      </div>
+      <div className="max-w-xs">
+        <Select
+          label="After the reply"
+          options={AFTER_REPLY_OPTIONS}
+          value={draft.afterReply}
+          error={errors.afterReply}
+          hint={AFTER_REPLY_OPTIONS.find((option) => option.value === draft.afterReply)?.help}
           disabled={saving}
-          onClick={() => onChange({ ...draft, replyText: insertKbPlaceholder(draft.replyText) })}
-        >
-          <Plus className="mr-1 w-3 h-3" />
-          Insert {KB_ANSWER_PLACEHOLDER}
-        </Button>
-      )}
+          onChange={(next) =>
+            onChange({ ...draft, afterReply: next === 'leave_open' ? 'leave_open' : 'resolve' })
+          }
+        />
+      </div>
       <div className="flex flex-wrap gap-2 justify-end">
         <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={onCancel}>
           Cancel
@@ -309,8 +356,10 @@ export const AutoReplyRulesSection = ({
         replyText: rule.replyText,
         useKnowledgeBase: rule.useKnowledgeBase,
         kbMatchPercent: String(Math.round(rule.kbMinSimilarity * 100)),
+        afterReply: rule.afterReply,
       },
       errors: {},
+      savedAfterReply: rule.afterReply,
     });
 
   const save = useCallback(async () => {
@@ -328,6 +377,11 @@ export const AutoReplyRulesSection = ({
       // Sent only for a Template + KB rule: a plain rule keeps whatever it has stored.
       ...(editing.draft.useKnowledgeBase && {
         kbMinSimilarity: kbMatchFraction(editing.draft.kbMatchPercent),
+      }),
+      // A new rule says it; an edit sends it only when the admin changed it (an older backend
+      // without the field then sees the same request as before).
+      ...((editing.ruleId === null || editing.draft.afterReply !== editing.savedAfterReply) && {
+        afterReply: editing.draft.afterReply,
       }),
     };
     setSaving(true);
@@ -347,7 +401,11 @@ export const AutoReplyRulesSection = ({
         variant: 'success',
       });
     } catch (err) {
-      const fieldErrors = errorsFromFields(ruleErrorFields(err), ruleErrorMessage(err));
+      const fieldErrors = errorsFromFields(
+        ruleErrorFields(err),
+        ruleErrorMessage(err),
+        editing.draft.replyText.trim() !== ''
+      );
       if (hasErrors(fieldErrors)) {
         setEditing({ ...editing, errors: fieldErrors });
       } else {
@@ -415,9 +473,10 @@ export const AutoReplyRulesSection = ({
             </CardTitle>
             <p className="mt-1 text-xs text-muted-foreground">
               Sends a prepared reply when a new email contains one of a rule&apos;s keywords, then
-              resolves it and labels it <strong>autoReplied</strong>. A message that matches more
-              than one rule gets no automatic reply at all, not even from the AI, so a keyword can
-              belong to only one rule. Automatic replies switched off for a mailbox
+              resolves it (or leaves it open for an agent, if the rule says so) and labels it{' '}
+              <strong>autoReplied</strong>. A message that matches more than one rule gets no
+              automatic reply at all, not even from the AI, so a keyword can belong to only one
+              rule. Automatic replies switched off for a mailbox
               {teamsEnabled ? ' on a team' : ''} (Integrations → the mailbox →{' '}
               {teamsEnabled ? 'Teams and automatic replies' : 'Automatic replies'}) stop the rules
               for that mailbox&apos;s mail too. {RULE_CHECK_NOTE}
@@ -498,6 +557,9 @@ export const AutoReplyRulesSection = ({
                         <Badge variant="warning">
                           Template + KB · {Math.round(rule.kbMinSimilarity * 100)}%
                         </Badge>
+                      )}
+                      {rule.afterReply === 'leave_open' && (
+                        <Badge variant="secondary">Leaves thread open</Badge>
                       )}
                       {!rule.enabled && <Badge variant="secondary">Off</Badge>}
                     </div>
