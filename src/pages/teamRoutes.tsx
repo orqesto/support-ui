@@ -5,6 +5,7 @@
 import { lazy, Suspense } from 'react';
 import { Route } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { Permission } from '@/types/roles';
 import { RouteFallback } from './routeFallback';
 import { TEAM_NEW_ROUTE, TEAM_PAGE_ROUTE } from '@/features/settings/shell';
 
@@ -19,7 +20,9 @@ const teamRoute = (key: string, path: string, Page: typeof NewTeamPage) => (
     key={key}
     path={path}
     element={
-      <ProtectedRoute>
+      // The backend serves these pages' calls to MANAGE_ORGANIZATION only; anyone else would get a
+      // page where every request answers 403.
+      <ProtectedRoute requiredPermission={Permission.MANAGE_ORGANIZATION}>
         <Suspense fallback={<RouteFallback />}>
           <Page />
         </Suspense>

@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { RolesHeldError } from '../../../services/teamBuilder.service';
+import { RolesHeldError, TeamNotReturnedError } from '../../../services/teamBuilder.service';
 import type * as BuilderService from '../../../services/teamBuilder.service';
 
 const svc = vi.hoisted(() => ({
@@ -20,6 +20,7 @@ vi.mock('../../../services/teamBuilder.service', async (orig) => ({
 vi.mock('@/services/department.service', () => ({ departmentService: dept }));
 
 const { NewTeamBuilder, slugOf } = await import('../NewTeamBuilder');
+const { LibraryPicker, MAX_PICKS } = await import('../LibraryPicker');
 
 const TeamProbe = () => {
   const location = useLocation();
@@ -146,6 +147,56 @@ describe('NewTeamBuilder', () => {
     const dialog = await screen.findByRole('dialog');
     await waitFor(() => expect(within(dialog).getByRole('alert')).toBeTruthy());
     expect(within(dialog).getByRole('button', { name: 'Move it here' })).toBeTruthy();
+    // Only the dialog shows it: the confirm step behind the dialog does not repeat it.
+    const message = within(dialog).getByRole('alert').textContent ?? '';
+    expect(screen.getAllByText(message)).toHaveLength(1);
+  });
+
+  it('a failed presets request says so instead of showing an empty list', async () => {
+    svc.listPresets.mockRejectedValue(Object.assign(new Error('boom'), { status: 500 }));
+    renderBuilder();
+    expect(await screen.findByText('The presets could not be loaded.')).toBeTruthy();
+    // CONTROL: From scratch still works without presets.
+    expect(screen.getByText('From scratch')).toBeTruthy();
+  });
+
+  it('a preset with one item says "1 rule", on the card and in the confirm line', async () => {
+    svc.listPresets.mockResolvedValue([{ ...PRESET, itemCount: 1 }]);
+    renderBuilder();
+    expect(await screen.findByText('1 rule')).toBeTruthy();
+    await pickPresetAndName();
+    expect(screen.getByText('1 rule from Support desk')).toBeTruthy();
+  });
+
+  it('a create reply without the team says it was probably created, not that it failed', async () => {
+    svc.createFromPreset.mockRejectedValue(new TeamNotReturnedError());
+    renderBuilder();
+    await pickPresetAndName();
+    fireEvent.click(screen.getByRole('button', { name: 'Create team' }));
+    expect(await screen.findByText(/The team was probably created/)).toBeTruthy();
+    expect(screen.queryByText('The team could not be created.')).toBeNull();
+    // A second click cannot make a second team.
+    const create = screen.getByRole('button', { name: 'Create team' });
+    expect(create).toBeInactive();
+    fireEvent.click(create);
+    expect(svc.createFromPreset).toHaveBeenCalledTimes(1);
+  });
+
+  it('a backend reason without a full stop still reads as its own sentence', async () => {
+    dept.create.mockResolvedValue({ id: 7 });
+    svc.applyItems.mockRejectedValue(
+      Object.assign(new Error('refused'), {
+        status: 400,
+        response: { status: 400, data: { message: 'Too many ids' } },
+      })
+    );
+    renderBuilder();
+    fireEvent.click(await screen.findByText('From scratch'));
+    fireEvent.change(screen.getByLabelText('Team name'), { target: { value: 'Ops' } });
+    fireEvent.click(await screen.findByLabelText('Pick Rule 1'));
+    fireEvent.click(screen.getByRole('button', { name: 'Create team' }));
+    const alert = await screen.findByText(/its rules could not be added/);
+    expect(alert.textContent).not.toMatch(/ids Open/);
   });
 
   it('a library with no rules says so; a search with no match says that', async () => {
@@ -391,6 +442,29 @@ describe('NewTeamBuilder', () => {
     expect(screen.queryByText('Spam')).toBeNull();
   });
 
+  it('no "No rules match." while the replacing tab loads after a search empties the active one', async () => {
+    svc.listLibrary.mockImplementation((params: { flow?: string; q?: string }) => {
+      if (params.q && params.flow === 'detection') return new Promise(() => {});
+      return Promise.resolve({
+        items: params.q ? [] : [item(1, 'spam')],
+        total: params.q ? 0 : 1,
+        page: 1,
+        pageSize: 50,
+        countsByFlow: params.q ? { spam: 0, detection: 3 } : { spam: 5, detection: 3 },
+      });
+    });
+    renderBuilder();
+    fireEvent.click(await screen.findByText('From scratch'));
+    await screen.findByLabelText('Pick Rule 1');
+    fireEvent.change(screen.getByLabelText('Search the library'), { target: { value: 'x' } });
+    await waitFor(() =>
+      expect(svc.listLibrary).toHaveBeenLastCalledWith(
+        expect.objectContaining({ flow: 'detection', q: 'x' })
+      )
+    );
+    expect(screen.queryByText('No rules match.')).toBeNull();
+  });
+
   it('the first library request asks for the first flow', async () => {
     renderBuilder();
     fireEvent.click(await screen.findByText('From scratch'));
@@ -405,5 +479,41 @@ describe('slugOf', () => {
     expect(slugOf(`${'a'.repeat(49)} bbb`)).toBe('a'.repeat(49));
     expect(slugOf('  --Billing & Co!!  ')).toBe('billing-co');
     expect(slugOf('日本語 !!!')).toBe('team');
+  });
+});
+
+describe('LibraryPicker cap', () => {
+  const renderPicker = (selected: Set<number>, onChange = vi.fn()) => {
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <LibraryPicker selected={selected} onChange={onChange} />
+      </QueryClientProvider>
+    );
+    return onChange;
+  };
+
+  it('counts the picks against the cap', async () => {
+    renderPicker(new Set([1]));
+    expect(await screen.findByText(`1 of ${MAX_PICKS} picked`)).toBeTruthy();
+  });
+
+  it('at the cap an unpicked rule cannot be added, a picked one can still be removed', async () => {
+    // Rule 1 is not among the picks; Rule 2 (detection tab) is.
+    const full = new Set(Array.from({ length: MAX_PICKS }, (_, idx) => idx + 2));
+    const onChange = renderPicker(full);
+    expect(await screen.findByText(/the most one request takes/)).toBeTruthy();
+    const unpicked = await screen.findByLabelText('Pick Rule 1');
+    // Announced as unavailable, and why.
+    expect(unpicked).toHaveAttribute('aria-disabled', 'true');
+    expect(unpicked).toHaveAttribute('aria-describedby', 'library-picker-cap');
+    fireEvent.click(unpicked);
+    expect(onChange).not.toHaveBeenCalled();
+    // CONTROL: removing a pick still works at the cap.
+    fireEvent.click(screen.getByText('Detection'));
+    fireEvent.click(await screen.findByLabelText('Pick Rule 2'));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect((onChange.mock.calls[0][0] as Set<number>).has(2)).toBe(false);
   });
 });

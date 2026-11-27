@@ -17,6 +17,10 @@ vi.mock('@/stores/authStore', async () => {
 vi.mock('@/hooks/useCurrentWorkspace', () => ({
   useCurrentWorkspace: () => ({ id: 1, name: 'Acme Workspace', code: 'acme' }),
 }));
+let canManageOrg = true;
+vi.mock('@/hooks/usePermissions', () => ({
+  usePermissions: () => ({ hasPermission: () => canManageOrg }),
+}));
 let uiFlags: Record<string, boolean> = {};
 vi.mock('@/hooks/useUiFlags', () => ({
   useUiFlags: () => ({
@@ -103,6 +107,7 @@ const refused = (status: number, error: string, code: string) =>
 
 beforeEach(() => {
   uiFlags = {};
+  canManageOrg = true;
   svc.teams = [
     team(1, 'General team', { isDefault: true }),
     team(2, 'Support team'),
@@ -129,6 +134,15 @@ describe('TeamsSettings — teams on', () => {
     uiFlags = { 'ui.team_builder': true };
     renderPage();
     expect(await screen.findByRole('button', { name: 'New team' })).toBeTruthy();
+  });
+
+  it('without MANAGE_ORGANIZATION there is no New team button and no Open link, even with the flag on', async () => {
+    uiFlags = { 'ui.team_builder': true };
+    canManageOrg = false;
+    renderPage();
+    await screen.findByText('Use teams');
+    expect(screen.queryByRole('button', { name: 'New team' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Open Support team page' })).toBeNull();
   });
 
   it('a team name links to its page only with ui.team_builder on', async () => {

@@ -12,6 +12,7 @@ import { departmentService } from '@/services/department.service';
 import { getApiErrorMessage } from '@/lib/errorMessages';
 import {
   RolesHeldError,
+  TeamNotReturnedError,
   teamBuilderService,
   type ApplyResult,
   type HeldRole,
@@ -39,8 +40,18 @@ export const slugOf = (name: string): string =>
     .slice(0, 50)
     .replace(/-+$/g, '') || 'team';
 
+const TEAM_NOT_RETURNED_TEXT =
+  'The team was probably created, but the reply did not include it. Check the teams list before trying again.';
+const PRESETS_FAILED_TEXT = 'The presets could not be loaded.';
+
+const rulesCount = (count: number): string => `${count} ${count === 1 ? 'rule' : 'rules'}`;
+
+/** The backend reason, ended with a full stop when it has none, so the next sentence reads right. */
+const sentence = (text: string): string =>
+  /[.!?]$/.test(text.trim()) ? text.trim() : `${text.trim()}.`;
+
 const rulesNotAddedText = (reason?: string): string =>
-  `The team was created, but its rules could not be added.${reason ? ` ${reason}` : ''} Open the team to add them.`;
+  `The team was created, but its rules could not be added.${reason ? ` ${sentence(reason)}` : ''} Open the team to add them.`;
 
 type Created = {
   teamId: number;
@@ -57,7 +68,12 @@ const presetKey = (preset: PresetView): string => `${preset.scope}:${preset.id}`
 export const NewTeamBuilder = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: presets = [], isLoading } = useQuery({
+  const {
+    data: presets = [],
+    isLoading,
+    isError: presetsFailed,
+    error: presetsError,
+  } = useQuery({
     queryKey: ['team-presets'],
     queryFn: () => teamBuilderService.listPresets(),
   });
@@ -69,6 +85,8 @@ export const NewTeamBuilder = () => {
   const [error, setError] = useState<string | null>(null);
   const [held, setHeld] = useState<Held | null>(null);
   const [created, setCreated] = useState<Created | null>(null);
+  // A create answered without its team: it probably exists, so a second click must not make another.
+  const [maybeCreated, setMaybeCreated] = useState(false);
   const inFlight = useRef(false);
 
   const preset = presets.find((one) => presetKey(one) === choice) ?? null;
@@ -85,6 +103,13 @@ export const NewTeamBuilder = () => {
     try {
       await work();
     } catch (err) {
+      // A 2xx without the team: it most likely exists, so never say it could not be created.
+      if (err instanceof TeamNotReturnedError) {
+        void queryClient.invalidateQueries({ queryKey: ['departments'] });
+        setMaybeCreated(true);
+        setError(TEAM_NOT_RETURNED_TEXT);
+        return;
+      }
       setError(getApiErrorMessage(err) ?? 'The team could not be created.');
     } finally {
       inFlight.current = false;
@@ -153,7 +178,7 @@ export const NewTeamBuilder = () => {
     });
 
   const onCreate = () => {
-    if (!ready) return;
+    if (!ready || maybeCreated) return;
     if (preset) void createFromPreset(preset, false);
     else void createFromScratch();
   };
@@ -223,14 +248,17 @@ export const NewTeamBuilder = () => {
   }
 
   const summary = preset
-    ? `${preset.itemCount} rules from ${preset.name}`
-    : `${picked.size} rules picked`;
+    ? `${rulesCount(preset.itemCount)} from ${preset.name}`
+    : `${rulesCount(picked.size)} picked`;
 
   return (
     <div className="space-y-6">
       <section className="space-y-2">
         <h3 className="text-sm font-medium">Start from</h3>
         {isLoading && <Spinner />}
+        {presetsFailed && (
+          <Alert variant="danger">{getApiErrorMessage(presetsError) ?? PRESETS_FAILED_TEXT}</Alert>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           {presets.map((one) => (
             <ChoiceCard
@@ -240,7 +268,7 @@ export const NewTeamBuilder = () => {
             >
               <p className="text-sm font-medium">{one.name}</p>
               <p className="text-xs text-muted-foreground">{one.description}</p>
-              <p className="text-xs text-muted-foreground">{one.itemCount} rules</p>
+              <p className="text-xs text-muted-foreground">{rulesCount(one.itemCount)}</p>
               <div className="flex flex-wrap gap-1">
                 {one.roles.map((role) => (
                   <Badge key={role} variant="secondary">
@@ -286,12 +314,13 @@ export const NewTeamBuilder = () => {
         </section>
       )}
 
-      {(preset || fromScratch) && (
+      {(preset !== null || fromScratch) && (
         <section className="space-y-3">
           <h3 className="text-sm font-medium">Confirm</h3>
           <p className="text-sm">{summary}</p>
-          {error && <Alert variant="danger">{error}</Alert>}
-          <Button onClick={onCreate} isLoading={busy} disabled={!ready}>
+          {/* While the roles dialog is open it shows the error itself. */}
+          {error && !held && <Alert variant="danger">{error}</Alert>}
+          <Button onClick={onCreate} isLoading={busy} disabled={!ready || maybeCreated}>
             Create team
           </Button>
         </section>
