@@ -12,6 +12,9 @@ import type { WorkspaceLibraryItem } from '../../services/teamBuilder.service';
 import { TEAM_FLOW_LABELS } from './teamLabels';
 
 const PAGE_SIZE = 50;
+/** The backend refuses more than this many ids in one apply (400); the picker stops here. */
+export const MAX_PICKS = 200;
+const CAP_NOTE_ID = 'library-picker-cap';
 const OTHER_GROUP = 'Other';
 const SEARCH_DELAY_MS = 300;
 const FIRST_FLOW = 'spam';
@@ -40,15 +43,16 @@ export const LibraryPicker = ({ selected, onChange }: Props) => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setQuery((prev) => {
-        if (prev !== input) setPage(1);
-        return input;
-      });
+      // Both setters run here, not one inside the other's updater (an updater must stay pure).
+      if (input !== query) {
+        setQuery(input);
+        setPage(1);
+      }
     }, SEARCH_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [input]);
+  }, [input, query]);
 
-  const { data, isError, error, isLoading } = useQuery({
+  const { data, isError, error, isLoading, isPlaceholderData } = useQuery({
     queryKey: ['team-library', flow ?? '', query, page],
     queryFn: () =>
       teamBuilderService.listLibrary({
@@ -78,10 +82,13 @@ export const LibraryPicker = ({ selected, onChange }: Props) => {
     setPage(1);
   }, [counts, flowIsTab, firstTab]);
 
+  const full = selected.size >= MAX_PICKS;
   const toggle = (id: number, on: boolean) => {
     const next = new Set(selected);
-    if (on) next.add(id);
-    else next.delete(id);
+    if (on) {
+      if (full) return;
+      next.add(id);
+    } else next.delete(id);
     onChange(next);
   };
 
@@ -107,6 +114,14 @@ export const LibraryPicker = ({ selected, onChange }: Props) => {
           showIcons={false}
         />
       )}
+      <p
+        id={CAP_NOTE_ID}
+        className={`text-sm ${full ? 'text-warning' : 'text-muted-foreground'}`}
+        role="status"
+      >
+        {selected.size} of {MAX_PICKS} picked
+        {full && ' — the most one request takes. Add more once these are in.'}
+      </p>
       {isError && <Alert variant="danger">{getApiErrorMessage(error)}</Alert>}
       {isLoading && <Spinner />}
       {counts !== null && tabs.length === 0 && (
@@ -114,9 +129,15 @@ export const LibraryPicker = ({ selected, onChange }: Props) => {
           {query ? 'No rules match.' : 'The library has no rules.'}
         </p>
       )}
-      {data && flow !== null && data.items.length === 0 && tabs.length > 0 && (
-        <p className="text-sm text-muted-foreground">No rules match.</p>
-      )}
+      {/* Not on the previous answer kept while the new tab's request runs (keepPreviousData), and
+          not when this answer says the tab is empty: the tab is about to be replaced (the counts
+          state catches up one render later). */}
+      {data &&
+        flow !== null &&
+        flowIsTab &&
+        !isPlaceholderData &&
+        (data.countsByFlow?.[flow] ?? 0) > 0 &&
+        data.items.length === 0 && <p className="text-sm text-muted-foreground">No rules match.</p>}
       {data &&
         flow !== null &&
         groupItems(data.items).map(([group, entries]) => (
@@ -138,6 +159,8 @@ export const LibraryPicker = ({ selected, onChange }: Props) => {
                   </div>
                   <Toggle
                     checked={selected.has(entry.id)}
+                    disabled={full && !selected.has(entry.id)}
+                    ariaDescribedBy={full && !selected.has(entry.id) ? CAP_NOTE_ID : undefined}
                     ariaLabel={`Pick ${entry.name}`}
                     onChange={(next) => toggle(entry.id, next)}
                   />

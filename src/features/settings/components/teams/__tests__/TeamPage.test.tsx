@@ -241,6 +241,41 @@ describe('TeamPage', () => {
     expect(client.getQueryState(['team-presets'])?.isInvalidated).toBe(true);
   });
 
+  it('changing a role refetches the teams and marks every department list stale', async () => {
+    svc.setRole.mockResolvedValue(undefined);
+    const client = newClient();
+    client.setQueryData(['departments'], []);
+    renderPage(5, undefined, client);
+    await screen.findByText('Order mail');
+    // CONTROL: nothing refreshed before the change.
+    expect(teamsState.refetch).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText('Billing details'));
+    await waitFor(() => expect(svc.setRole).toHaveBeenCalledWith(5, 'billingExtraction', true));
+    await waitFor(() => expect(teamsState.refetch).toHaveBeenCalledTimes(1));
+    expect(client.getQueryState(['departments'])?.isInvalidated).toBe(true);
+  });
+
+  it('a rules tab says it is loading, not that it has no rules, before the first answer', async () => {
+    svc.teamRules.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    expect(await screen.findByText('Loading rules…')).toBeTruthy();
+    expect(screen.queryByText('No rules in this flow.')).toBeNull();
+  });
+
+  it('the Apply a preset dialog says when the presets failed to load, and "1 rule" for one item', async () => {
+    svc.listPresets.mockRejectedValueOnce(Object.assign(new Error('boom'), { status: 500 }));
+    renderPage();
+    await screen.findByText('Order mail');
+    fireEvent.click(screen.getByRole('button', { name: 'Apply a preset' }));
+    expect(await screen.findByText('The presets could not be loaded.')).toBeTruthy();
+    cleanup();
+    svc.listPresets.mockResolvedValue([{ ...PRESET, itemCount: 1 }]);
+    renderPage();
+    await screen.findByText('Order mail');
+    fireEvent.click(screen.getByRole('button', { name: 'Apply a preset' }));
+    expect(await screen.findByText('1 rule')).toBeTruthy();
+  });
+
   it('applying rules refreshes every department list', async () => {
     svc.applyPreset.mockResolvedValue(APPLY);
     const client = newClient();

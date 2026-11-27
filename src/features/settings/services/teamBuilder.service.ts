@@ -39,6 +39,17 @@ export type PresetView = {
   retiredCount: number;
 };
 
+/**
+ * The create answered 2xx but without the team: it most likely exists. The page must not say it
+ * could not be created, or a retry makes a second team.
+ */
+export class TeamNotReturnedError extends Error {
+  constructor() {
+    super('The team was not returned');
+    this.name = 'TeamNotReturnedError';
+  }
+}
+
 export type ApplyFailure = { name: string; flow: string; code: string };
 export type ApplyFailureCode =
   | 'MISSING_ITEM'
@@ -46,6 +57,7 @@ export type ApplyFailureCode =
   | 'WORKSPACE_WIDE_ITEM'
   | 'EMBEDDING_UNAVAILABLE'
   | 'UNSAFE_PATTERN'
+  | 'NOT_IN_EFFECT'
   | 'VALIDATION_ERROR'
   | 'WRITE_FAILED';
 
@@ -269,7 +281,7 @@ export const teamBuilderService = {
           }
         : normaliseApply(rawApply);
     const team = objectOf(body.team);
-    if (typeof team.id !== 'number') throw new Error('The team was not returned');
+    if (typeof team.id !== 'number') throw new TeamNotReturnedError();
     return {
       team: team as unknown as Department,
       apply,

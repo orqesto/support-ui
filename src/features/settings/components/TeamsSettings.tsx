@@ -30,6 +30,8 @@ import {
   type Department,
 } from '@/services/department.service';
 import { TeamsOffDialog } from './TeamsOffDialog';
+import { usePermissions } from '@/hooks/usePermissions';
+import { Permission } from '@/types/roles';
 import { TEAM_NEW_ROUTE, teamPagePath } from './teams/teamPaths';
 
 /**
@@ -68,6 +70,10 @@ export const TeamsSettings = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { isSurfaceEnabled } = useUiFlags();
+  const { hasPermission } = usePermissions();
+  // The team pages and their calls need MANAGE_ORGANIZATION (teamRoutes): no link where they would refuse.
+  const builderOn =
+    isSurfaceEnabled('ui.team_builder') && hasPermission(Permission.MANAGE_ORGANIZATION);
   const {
     data: teams = [],
     isLoading,
@@ -302,7 +308,7 @@ export const TeamsSettings = () => {
               </Alert>
             )}
 
-            {teamsEnabled && isSurfaceEnabled('ui.team_builder') && (
+            {teamsEnabled && builderOn && (
               <div>
                 <Button size="sm" onClick={() => navigate(TEAM_NEW_ROUTE)}>
                   New team
@@ -379,6 +385,10 @@ const TeamRow = ({
   onTurnOff: () => void;
 }) => {
   const { isSurfaceEnabled } = useUiFlags();
+  const { hasPermission } = usePermissions();
+  // The team pages and their calls need MANAGE_ORGANIZATION (teamRoutes): no link where they would refuse.
+  const builderOn =
+    isSurfaceEnabled('ui.team_builder') && hasPermission(Permission.MANAGE_ORGANIZATION);
   const [name, setName] = useState(team.name);
   useEffect(() => setName(team.name), [team.name]);
   const color = team.color && HEX_COLOR.test(team.color) ? team.color : FALLBACK_COLOR;
@@ -401,7 +411,7 @@ const TeamRow = ({
         }}
         className="p-1 w-10 h-9"
       />
-      {team.active && isSurfaceEnabled('ui.team_builder') && (
+      {team.active && builderOn && (
         <Link
           to={teamPagePath(team.id)}
           aria-label={`Open ${team.name} page`}

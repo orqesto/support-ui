@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { Spinner } from '@/components/ui/Spinner';
+import { getApiErrorMessage } from '@/lib/errorMessages';
 import { teamBuilderService, type PresetView } from '../../services/teamBuilder.service';
 import { TEAM_ROLE_LABELS } from './teamLabels';
 
@@ -27,7 +28,12 @@ const keyOf = (preset: PresetView): string => `${preset.scope}:${preset.id}`;
 
 /** Pick a preset to apply to the team. Stays open until the answer arrives. */
 export const ApplyPresetDialog = ({ open, busy, error, onClose, onApply }: Props) => {
-  const { data: presets = [], isLoading } = useQuery({
+  const {
+    data: presets = [],
+    isLoading,
+    isError,
+    error: loadError,
+  } = useQuery({
     queryKey: ['team-presets'],
     queryFn: () => teamBuilderService.listPresets(),
     enabled: open,
@@ -46,6 +52,11 @@ export const ApplyPresetDialog = ({ open, busy, error, onClose, onApply }: Props
           <DialogTitle>Apply a preset</DialogTitle>
         </DialogHeader>
         {isLoading && <Spinner />}
+        {isError && (
+          <Alert variant="danger">
+            {getApiErrorMessage(loadError) ?? 'The presets could not be loaded.'}
+          </Alert>
+        )}
         <div className="grid gap-3">
           {presets.map((one) => (
             <ChoiceCard
@@ -55,7 +66,9 @@ export const ApplyPresetDialog = ({ open, busy, error, onClose, onApply }: Props
             >
               <p className="text-sm font-medium">{one.name}</p>
               <p className="text-xs text-muted-foreground">{one.description}</p>
-              <p className="text-xs text-muted-foreground">{one.itemCount} rules</p>
+              <p className="text-xs text-muted-foreground">
+                {one.itemCount} {one.itemCount === 1 ? 'rule' : 'rules'}
+              </p>
               <div className="flex flex-wrap gap-1">
                 {one.roles.map((role) => (
                   <Badge key={role} variant="secondary">

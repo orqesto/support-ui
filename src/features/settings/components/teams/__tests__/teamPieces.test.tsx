@@ -33,6 +33,8 @@ describe('ApplyResultSummary', () => {
         { name: 'Refund wording', flow: 'prompts', code: 'MISSING_ITEM' },
         { name: 'Sender list', flow: 'spam', code: 'WORKSPACE_WIDE_ITEM' },
         { name: 'Odd rule', flow: 'routing', code: 'WRITE_FAILED' },
+        { name: 'Invoices', flow: 'routing', code: 'NOT_IN_EFFECT' },
+        { name: 'Unknown reason', flow: 'routing', code: 'SOMETHING_NEW' },
       ],
       rolesSet: [],
       previousHolders: [],
@@ -53,7 +55,10 @@ describe('ApplyResultSummary', () => {
     expect(
       screen.getByText('Sender list (Spam): applies to the whole workspace, not one team')
     ).toBeInTheDocument();
-    expect(screen.getByText('Odd rule (Routing): could not be added')).toBeInTheDocument();
+    expect(screen.getByText('Odd rule (Routing): could not be saved; try again')).toBeInTheDocument();
+    expect(screen.getByText(/^Invoices \(Routing\): this team already has it, but it is switched off/)).toBeInTheDocument();
+    // CONTROL: a code the page does not know still gets a reason.
+    expect(screen.getByText('Unknown reason (Routing): could not be added')).toBeInTheDocument();
     expect(screen.getByText(/starts with rules only/)).toBeInTheDocument();
     expect(screen.getByText(/No routing rules came with it/)).toBeInTheDocument();
   });
@@ -67,6 +72,29 @@ describe('ApplyResultSummary plural', () => {
       />
     );
     expect(screen.getByText('1 rule added')).toBeInTheDocument();
+  });
+
+  it('says "was" for one already present or archived item', () => {
+    render(
+      <ApplyResultSummary
+        result={{ inserted: 0, alreadyPresent: 1, retired: 1, failed: [], rolesSet: [], previousHolders: [] }}
+      />
+    );
+    expect(screen.getByText('1 was already on this team')).toBeInTheDocument();
+    expect(screen.getByText(/^1 was archived in the library/)).toBeInTheDocument();
+  });
+
+  it('lists two failures with the same name, flow and code as two items, without a duplicate-key warning', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const twin = { name: 'Twin', flow: 'spam', code: 'MISSING_ITEM' };
+    render(
+      <ApplyResultSummary
+        result={{ inserted: 0, alreadyPresent: 0, retired: 0, failed: [twin, twin], rolesSet: [], previousHolders: [] }}
+      />
+    );
+    expect(screen.getAllByText('Twin (Spam): no longer in the library')).toHaveLength(2);
+    expect(spy.mock.calls.some((call) => String(call[0]).includes('same key'))).toBe(false);
+    spy.mockRestore();
   });
 });
 

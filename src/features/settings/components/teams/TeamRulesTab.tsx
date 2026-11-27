@@ -55,7 +55,7 @@ export const TeamRulesTab = ({ teamId, flow, counted }: Props) => {
   const [neverFired, setNeverFired] = useState(false);
   const [page, setPage] = useState(1);
   const filter = counted && neverFired;
-  const { data, isError, refetch } = useQuery({
+  const { data, isError, isLoading, refetch } = useQuery({
     queryKey: ['team-rules', teamId, flow, filter, page],
     queryFn: () =>
       teamBuilderService.teamRules(teamId, {
@@ -83,7 +83,8 @@ export const TeamRulesTab = ({ teamId, flow, counted }: Props) => {
         columns={COLUMNS}
         isError={isError}
         onRetry={() => void refetch()}
-        empty={{ message: 'No rules in this flow.' }}
+        // Before the first answer there is nothing to say "no rules" about.
+        empty={{ message: isLoading ? 'Loading rules…' : 'No rules in this flow.' }}
         toolbarStart={
           counted ? (
             <Toggle
