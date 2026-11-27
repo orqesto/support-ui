@@ -5,19 +5,13 @@
  */
 import { lazy, Suspense } from 'react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { Spinner } from '@/components/ui/Spinner';
+import { RouteFallback } from './routeFallback';
 
 const CustomApiLookupPage = lazy(() =>
   import('./CustomApiLookupPage').then((mod) => ({ default: mod.CustomApiLookupPage }))
 );
 const CustomApiTemplatePage = lazy(() =>
   import('./CustomApiTemplatePage').then((mod) => ({ default: mod.CustomApiTemplatePage }))
-);
-
-const Fallback = () => (
-  <div className="flex min-h-[60vh] items-center justify-center" role="status" aria-busy="true">
-    <Spinner />
-  </div>
 );
 
 export {
@@ -27,7 +21,7 @@ export {
 
 export const CustomApiLookupRoute = () => (
   <ProtectedRoute>
-    <Suspense fallback={<Fallback />}>
+    <Suspense fallback={<RouteFallback />}>
       <CustomApiLookupPage />
     </Suspense>
   </ProtectedRoute>
@@ -35,7 +29,7 @@ export const CustomApiLookupRoute = () => (
 
 export const CustomApiTemplateRoute = () => (
   <ProtectedRoute>
-    <Suspense fallback={<Fallback />}>
+    <Suspense fallback={<RouteFallback />}>
       <CustomApiTemplatePage />
     </Suspense>
   </ProtectedRoute>

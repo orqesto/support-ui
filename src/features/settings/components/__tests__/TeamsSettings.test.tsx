@@ -6,6 +6,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import type { Department } from '@/types';
 
 vi.mock('@/stores/authStore', async () => {
@@ -15,6 +16,17 @@ vi.mock('@/stores/authStore', async () => {
 });
 vi.mock('@/hooks/useCurrentWorkspace', () => ({
   useCurrentWorkspace: () => ({ id: 1, name: 'Acme Workspace', code: 'acme' }),
+}));
+let uiFlags: Record<string, boolean> = {};
+vi.mock('@/hooks/useUiFlags', () => ({
+  useUiFlags: () => ({
+    flags: uiFlags,
+    loading: false,
+    canPreviewUnfinished: true,
+    isSurfaceEnabled: (key: string) => uiFlags[key] === true,
+    isSurfaceVisibleToMe: () => true,
+    isPreviewing: () => false,
+  }),
 }));
 vi.mock('@/lib/toast', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('@/lib/logger', () => ({ logger: { error: () => {}, info: () => {} } }));
@@ -73,11 +85,13 @@ const typeName = (dialog: HTMLElement) =>
 
 const renderPage = () =>
   render(
-    <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-    >
-      <TeamsSettings />
-    </QueryClientProvider>
+    <MemoryRouter>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <TeamsSettings />
+      </QueryClientProvider>
+    </MemoryRouter>
   );
 
 /** An axios-shaped refusal the error helpers read. */
@@ -88,6 +102,7 @@ const refused = (status: number, error: string, code: string) =>
   });
 
 beforeEach(() => {
+  uiFlags = {};
   svc.teams = [
     team(1, 'General team', { isDefault: true }),
     team(2, 'Support team'),
@@ -104,6 +119,47 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('TeamsSettings — teams on', () => {
+  it('with the flag off there is no New team button', async () => {
+    renderPage();
+    await screen.findByText('Use teams');
+    expect(screen.queryByRole('button', { name: 'New team' })).toBeNull();
+  });
+
+  it('with ui.team_builder on there is a New team button', async () => {
+    uiFlags = { 'ui.team_builder': true };
+    renderPage();
+    expect(await screen.findByRole('button', { name: 'New team' })).toBeTruthy();
+  });
+
+  it('a team name links to its page only with ui.team_builder on', async () => {
+    renderPage();
+    await screen.findByText('Use teams');
+    expect(screen.queryByRole('link', { name: 'Open Support team page' })).toBeNull();
+    cleanup();
+    uiFlags = { 'ui.team_builder': true };
+    renderPage();
+    const link = await screen.findByRole('link', { name: 'Open Support team page' });
+    expect(link.getAttribute('href')).toBe('/settings/teams/2');
+  });
+
+  it('a switched-off team has no Open link', async () => {
+    uiFlags = { 'ui.team_builder': true };
+    renderPage();
+    await screen.findByRole('link', { name: 'Open Support team page' });
+    expect(screen.queryByRole('link', { name: 'Open Sales team page' })).toBeNull();
+  });
+
+  it('rename with ui.team_builder on still sends only the new name', async () => {
+    uiFlags = { 'ui.team_builder': true };
+    svc.update.mockResolvedValue(team(2, 'Help desk'));
+    renderPage();
+    fireEvent.change(await screen.findByLabelText('Name of Support team'), {
+      target: { value: 'Help desk' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+    await waitFor(() => expect(svc.update).toHaveBeenCalledWith(2, { name: 'Help desk' }));
+  });
+
   it('lists every team, inactive ones too, with rename fields and on/off switches; the default has no switch', async () => {
     renderPage();
     expect(await screen.findByLabelText('Name of General team')).toHaveValue('General team');

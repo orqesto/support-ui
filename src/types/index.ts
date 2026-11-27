@@ -19,6 +19,15 @@ export type Department = {
   // operational (queue/ticket-move) lists. Optional for back-compat with any cached payload.
   hasMessageSource?: boolean;
   kbOnly?: boolean;
+  // Team roles (teams builder). Absent on an older backend; the single-holder roles are true for
+  // at most one team per workspace, `intentRouted` for several.
+  generalRules?: boolean;
+  billingExtraction?: boolean;
+  receivesPromotional?: boolean;
+  analysisPreferred?: boolean;
+  intentRouted?: boolean;
+  // The built-in preset the team was made from, if any.
+  presetKey?: string | null;
 };
 
 export type ChannelType = 'email' | 'telegram' | 'slack' | 'chat' | 'whatsapp' | 'other';

@@ -141,8 +141,13 @@ const PlatformAlertsSlack = lazy(() =>
 const PlatformAudit = lazy(() =>
   import('@/pages/console/PlatformAudit').then((mod) => ({ default: mod.PlatformAudit }))
 );
+/** The `ui.*` flag that gates the rule library and team presets console pages. */
+const RULE_LIBRARY_CONSOLE_FLAG = 'ui.rule_library_console';
+const PlatformTeamPresets = lazy(() =>
+  import('@/pages/console/ruleLibraryConsole').then((mod) => ({ default: mod.PlatformTeamPresets }))
+);
 const PlatformRuleLibrary = lazy(() =>
-  import('@/pages/console/PlatformRuleLibrary').then((mod) => ({ default: mod.PlatformRuleLibrary }))
+  import('@/pages/console/ruleLibraryConsole').then((mod) => ({ default: mod.PlatformRuleLibrary }))
 );
 const PlatformCustomApiTemplates = lazy(() =>
   import('@/pages/console/PlatformCustomApiTemplates').then((mod) => ({ default: mod.PlatformCustomApiTemplates }))
@@ -224,6 +229,7 @@ export const PLATFORM_SECTIONS: ConsoleSection[] = [
   { id: 'email-templates', label: 'Email Templates', icon: MailOpen, path: 'email-templates', element: PlatformEmailTemplates },
   { id: 'custom-api-templates', label: 'Custom API Templates', icon: Blocks, path: 'custom-api-templates', element: PlatformCustomApiTemplates },
   // Behind the OFF `ui.rule_library_console` flag (owner): hidden from the nav and the page for everyone.
-  { id: 'rule-library', label: 'Rule library', icon: Library, path: 'rule-library', element: PlatformRuleLibrary, flag: 'ui.rule_library_console' },
+  { id: 'rule-library', label: 'Rule library', icon: Library, path: 'rule-library', element: PlatformRuleLibrary, flag: RULE_LIBRARY_CONSOLE_FLAG },
+  { id: 'team-presets', label: 'Team presets', icon: Users, path: 'team-presets', element: PlatformTeamPresets, flag: RULE_LIBRARY_CONSOLE_FLAG },
   { id: 'audit', label: 'Audit', icon: ScrollText, path: 'audit', element: PlatformAudit },
 ];

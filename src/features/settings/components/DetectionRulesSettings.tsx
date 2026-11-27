@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
 import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
-import { getApiErrorMessage, requireSavedRow, RULE_TOGGLE_FAILED_MESSAGE } from '@/lib/errorMessages';
+import { getApiErrorMessage, requireSavedRow } from '@/lib/errorMessages';
+import { RULE_TOGGLE_FAILED_MESSAGE } from '@/features/settings/ruleMessages';
 import { toast } from '@/lib/toast';
 import DepartmentBadge from '@/components/admin/DepartmentBadge';
 import {

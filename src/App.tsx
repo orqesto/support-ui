@@ -21,6 +21,7 @@ import { userService } from './services/user.service';
 import { useAuthStore } from './stores/authStore';
 import { Permission } from './types/roles';
 import { kbSubRoutes } from './pages/kbConsolidationRoutes';
+import { teamSubRoutes } from './pages/teamRoutes';
 import {
   CUSTOM_API_LOOKUP_ROUTE,
   CUSTOM_API_TEMPLATE_ROUTE,
@@ -408,6 +409,7 @@ const AppRoutes = () => {
           MANAGE_INTEGRATIONS gate (src/pages/customApiRoutes.tsx). */}
         <Route path={CUSTOM_API_LOOKUP_ROUTE} element={<CustomApiLookupRoute />} />
         <Route path={CUSTOM_API_TEMPLATE_ROUTE} element={<CustomApiTemplateRoute />} />
+        {teamSubRoutes()}
       </Route>
       {/* Alliance admin console (Phase 5). `/console` resolves the caller's first
           administered alliance; `/console/organisation/:id` mounts the AdminShell

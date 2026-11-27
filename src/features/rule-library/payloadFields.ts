@@ -76,7 +76,7 @@ export const PAYLOAD_FIELDS: Record<RuleLibraryFlow, PayloadField[]> = {
   ],
   routing: [
     text('seedKey', 'Seed key'),
-    pick('type', 'Match type', ['subject_contains', 'subject_regex', 'sender_domain', 'body_contains']),
+    pick('type', 'Match type', ['subject_contains', 'subject_regex', 'sender_email', 'sender_domain', 'body_contains']),
     text('value', 'Value'),
     long('exampleText', 'Example text'),
     num('weight', 'Weight (1-100)'),

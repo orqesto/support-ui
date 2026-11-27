@@ -10,7 +10,8 @@ import { useRuleManagement } from '@/features/settings/hooks/useRuleManagement';
 import { settingsService, type KnowledgeDetectionRule } from '@/services/settings.service';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
-import { getApiErrorMessage, RULE_TOGGLE_FAILED_MESSAGE } from '@/lib/errorMessages';
+import { getApiErrorMessage } from '@/lib/errorMessages';
+import { RULE_TOGGLE_FAILED_MESSAGE } from '@/features/settings/ruleMessages';
 
 type RuleFilter = 'all' | 'manual' | 'feedback';
 
