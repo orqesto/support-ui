@@ -73,8 +73,6 @@ export const TeamsSettings = () => {
   const { isSurfaceEnabled } = useUiFlags();
   const { hasPermission } = usePermissions();
   // The team pages and their calls need MANAGE_ORGANIZATION (teamRoutes): no link where they would refuse.
-  // The over-limit notice ships behind the teams UI flag; flag OFF keeps the old small line.
-  const teamPlanNoticeOn = isSurfaceEnabled('ui.team_builder');
   const builderOn =
     isSurfaceEnabled('ui.team_builder') && hasPermission(Permission.MANAGE_ORGANIZATION);
   const {
@@ -84,6 +82,9 @@ export const TeamsSettings = () => {
     teamsEnabled: teamsMode,
     teamPlan,
   } = useDepartments({ includeInactive: true });
+  // The over-limit notice ships behind the teams UI flag; flag OFF keeps the old small line.
+  // A backend that sends no `teamPlan` (older) keeps the old line, flag or not.
+  const teamPlanNoticeOn = isSurfaceEnabled('ui.team_builder') && teamPlan !== undefined;
   const activeTeams = teams.filter((team) => team.active);
   const teamsEnabled = deriveTeamsEnabled(teamsMode, activeTeams);
   const defaultTeam = pickDefaultTeam(teams);

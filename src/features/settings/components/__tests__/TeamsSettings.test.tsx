@@ -604,7 +604,15 @@ describe('team plan notice (behind ui.team_builder)', () => {
     );
     expect(screen.queryByTestId('team-plan-notice')).toBeNull();
   });
-  it.each([[undefined], [null], [{ activeTeams: 1, teamLimit: 1, overLimit: false }]])(
+  it('flag ON but an older backend sends no teamPlan: the old line stays', async () => {
+    uiFlags = { 'ui.team_builder': true };
+    svc.teamPlan = undefined;
+    svc.getPlanTeamLimit.mockResolvedValue(1);
+    renderPage();
+    expect(await screen.findByTestId('teams-over-limit')).toBeInTheDocument();
+    expect(screen.queryByTestId('team-plan-notice')).toBeNull();
+  });
+  it.each([[null], [{ activeTeams: 1, teamLimit: 1, overLimit: false }]])(
     'flag ON, no notice for %j',
     async (plan) => {
       uiFlags = { 'ui.team_builder': true };

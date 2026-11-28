@@ -117,10 +117,17 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded, registerBeforeN
   };
   const latest = useRef({ offered, editable, ticked });
   latest.current = { offered, editable, ticked };
+  // The load still running, and what it found (set before the state lands): a Next pressed
+  // before the first render waits for it instead of skipping the pre-ticked teams.
+  const loading = useRef<Promise<void> | null>(null);
+  const loaded = useRef<{ offered: OfferedTeam[]; editable: boolean; ticked: string[] } | null>(
+    null
+  );
 
   const load = () => {
     setLoadFailed(false);
-    getOnboardingTeams()
+    loaded.current = null;
+    loading.current = getOnboardingTeams()
       .then((teams) => {
         if (!alive.current) return;
         if (teams === null) {
@@ -131,8 +138,12 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded, registerBeforeN
         setEditable(teams.editable);
         const initial = initialTicks(teams.offered, teams.preTicked);
         setTicked(initial);
-        // Teams already made: what is ticked IS what is saved.
-        if (teams.offered.some((team) => team.teamId !== null)) savedKeys.current = initial;
+        loaded.current = { offered: teams.offered, editable: teams.editable, ticked: initial };
+        // Teams already made: what is ticked IS what is saved, so the invite list is open.
+        if (teams.offered.some((team) => team.teamId !== null)) {
+          savedKeys.current = initial;
+          callbacks.current.onSaved([]);
+        }
         if (!teams.editable) callbacks.current.onNotNeeded?.();
       })
       .catch((error: unknown) => {
@@ -163,7 +174,9 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded, registerBeforeN
         // The new teams must show in the switcher and the lists at once.
         void queryClient?.invalidateQueries({ queryKey: ['departments'] });
         callbacks.current.onSaved(list);
-        settleWaiters(true);
+        // A Next that started this save stays on the step when a team failed: its result line
+        // must be seen. Pressing Next again goes on (nothing is left to save).
+        settleWaiters(!list.some((result) => result.outcome === 'failed'));
       })
       .catch((error: unknown) => {
         if (!alive.current) return;
@@ -209,8 +222,11 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded, registerBeforeN
 
   // The wizard's Next on this step: unsaved ticks are saved first, so the admin never leaves
   // with General only after seeing Support ticked.
-  const beforeNext = (): Promise<boolean> => {
-    const { offered: list, editable: canEdit, ticked: current } = latest.current;
+  const decide = (
+    list: OfferedTeam[] | null,
+    canEdit: boolean,
+    current: string[]
+  ): Promise<boolean> => {
     if (!list || !canEdit) return Promise.resolve(true);
     if (inFlight.current) return new Promise((resolve) => waiters.current.push(resolve));
     const keys = list.map((team) => team.presetKey).filter((key) => current.includes(key));
@@ -222,6 +238,15 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded, registerBeforeN
       setSaving(true);
       setSaveError(null);
       attempt(keys, 1);
+    });
+  };
+  const beforeNext = (): Promise<boolean> => {
+    const { offered: list, editable: canEdit, ticked: current } = latest.current;
+    if (list || !loading.current) return decide(list, canEdit, current);
+    // Still loading: wait for the answer, then apply the same rule.
+    return loading.current.then(() => {
+      const found = loaded.current;
+      return found ? decide(found.offered, found.editable, found.ticked) : true;
     });
   };
   const beforeNextRef = useRef(beforeNext);

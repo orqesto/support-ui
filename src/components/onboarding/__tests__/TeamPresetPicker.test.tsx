@@ -604,6 +604,65 @@ describe('TeamPresetPicker — the wizard Next guard', () => {
     expect(ok).toBe(false);
   });
 
+  it('a team fails in the save Next started: Next stays and shows it; a second Next goes on, no extra save', async () => {
+    teamsApi.save.mockResolvedValue([
+      { presetKey: 'support', outcome: 'created', teamId: 2 },
+      { presetKey: 'sales', outcome: 'failed', reason: 'SEED_FAILED' },
+    ]);
+    const onSaved = vi.fn();
+    let guard: (() => Promise<boolean>) | null = null;
+    render(
+      <TeamPresetPicker
+        onSaved={onSaved}
+        registerBeforeNext={(fn) => {
+          guard = fn;
+        }}
+      />
+    );
+    await screen.findByRole('heading', { name: 'Which teams answer your mail?' });
+    fireEvent.click(box('Sales'));
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await guard!();
+    });
+    expect(ok).toBe(false);
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByText("Couldn't add this team's rules. Save again to retry.")
+    ).toBeInTheDocument();
+    await act(async () => {
+      ok = await guard!();
+    });
+    expect(ok).toBe(true);
+    expect(teamsApi.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('teams already made on open: the invite list is unlocked (Back then Next, or a reload)', async () => {
+    teamsApi.get.mockResolvedValue(
+      fresh({ offered: [offer('support', 'Support', { teamId: 2, active: true })] })
+    );
+    const onSaved = vi.fn();
+    render(<TeamPresetPicker onSaved={onSaved} />);
+    await screen.findByRole('heading', { name: 'Which teams answer your mail?' });
+    expect(onSaved).toHaveBeenCalledTimes(1);
+  });
+
+  it('Next pressed while the teams are still loading waits and saves the pre-ticked ones', async () => {
+    let release: (value: OnboardingTeams) => void = () => {};
+    teamsApi.get.mockReturnValue(new Promise<OnboardingTeams>((resolve) => (release = resolve)));
+    const { next } = mountWithGuard();
+    let ok: boolean | undefined;
+    const pending = next().then((value) => {
+      ok = value;
+    });
+    await act(async () => {
+      release(fresh());
+      await pending;
+    });
+    expect(ok).toBe(true);
+    expect(teamsApi.save).toHaveBeenCalledWith(['support']);
+  });
+
   it('a save refreshes the departments cache', async () => {
     const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
     const client = new QueryClient();
