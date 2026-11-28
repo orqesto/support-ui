@@ -33,7 +33,9 @@ const failureText = (result: TeamPickResult): string => {
     case 'PLAN_TEAM_LIMIT':
       return "Your plan doesn't allow more teams.";
     case 'ITEMS_FAILED':
-      return `Some rules couldn't be added (${result.failedItems ?? 0}). Save again to retry.`;
+      return result.failedItems === undefined
+        ? "Some rules couldn't be added. Save again to retry."
+        : `Some rules couldn't be added (${result.failedItems}). Save again to retry.`;
     case 'SEED_FAILED':
       return "Couldn't add this team's rules. Save again to retry.";
     case 'TEAM_PREFIX_TAKEN':
@@ -89,6 +91,11 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded }: Props) => {
   const [saveError, setSaveError] = useState<SaveError>(null);
   const [results, setResults] = useState<{ list: TeamPickResult[]; sent: string[] } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // False once the picker is gone: an answer that lands later must not set state, start a retry
+  // timer or call the parent.
+  const alive = useRef(true);
+  // Set synchronously, so a second click before the re-render cannot start a second save.
+  const inFlight = useRef(false);
   const callbacks = useRef({ onSaved, onNotNeeded });
   callbacks.current = { onSaved, onNotNeeded };
 
@@ -96,6 +103,7 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded }: Props) => {
     setLoadFailed(false);
     getOnboardingTeams()
       .then((teams) => {
+        if (!alive.current) return;
         if (teams === null) {
           callbacks.current.onNotNeeded?.();
           return;
@@ -106,14 +114,17 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded }: Props) => {
         if (!teams.editable) callbacks.current.onNotNeeded?.();
       })
       .catch((error: unknown) => {
+        if (!alive.current) return;
         logger.error('Failed to load the onboarding teams:', error);
         setLoadFailed(true);
       });
   };
 
   useEffect(() => {
+    alive.current = true;
     load();
     return () => {
+      alive.current = false;
       if (timer.current) clearTimeout(timer.current);
     };
   }, []);
@@ -121,17 +132,21 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded }: Props) => {
   const attempt = (keys: string[], tryNumber: number) => {
     saveOnboardingTeams(keys)
       .then((list) => {
+        if (!alive.current) return;
+        inFlight.current = false;
         setWaiting(false);
         setSaving(false);
         setResults({ list, sent: keys });
         callbacks.current.onSaved(list);
       })
       .catch((error: unknown) => {
+        if (!alive.current) return;
         if (error instanceof SetupInProgressError && tryNumber < MAX_TRIES) {
           setWaiting(true);
           timer.current = setTimeout(() => attempt(keys, tryNumber + 1), RETRY_MS);
           return;
         }
+        inFlight.current = false;
         setWaiting(false);
         setSaving(false);
         if (error instanceof OnboardingCompleteError) {
@@ -153,7 +168,8 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded }: Props) => {
   };
 
   const save = () => {
-    if (!offered) return;
+    if (!offered || inFlight.current) return;
+    inFlight.current = true;
     setSaving(true);
     setSaveError(null);
     const keys = offered.map((team) => team.presetKey).filter((key) => ticked.includes(key));
@@ -209,7 +225,7 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded }: Props) => {
               disabled={!editable || saving}
               onChange={() => toggle(team.presetKey)}
             />
-            <div className="pl-6">
+            <div className="pl-6" role="status">
               <ResultLine
                 result={resultFor(team.presetKey)}
                 ticked={results?.sent.includes(team.presetKey) ?? false}
@@ -226,7 +242,9 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded }: Props) => {
       ) : (
         <>
           {waiting && (
-            <p className="text-sm text-muted-foreground">Still setting up your workspace…</p>
+            <p className="text-sm text-muted-foreground" role="status">
+              Still setting up your workspace…
+            </p>
           )}
           {errorText && (
             <Alert variant="danger">

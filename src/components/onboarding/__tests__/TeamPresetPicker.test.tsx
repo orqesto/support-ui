@@ -290,6 +290,88 @@ describe('TeamPresetPicker — saving', () => {
     expect(teamsApi.save).toHaveBeenCalledTimes(21);
   });
 
+  it('closing the picker while it waits stops the retries (no background saves)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let rejectFirst: (error: unknown) => void = () => undefined;
+    teamsApi.save.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectFirst = reject;
+        })
+    );
+    teamsApi.save.mockRejectedValue(new SetupInProgressError());
+    const onSaved = vi.fn();
+    const { unmount } = render(<TeamPresetPicker onSaved={onSaved} />);
+    await screen.findByRole('heading', { name: 'Which teams answer your mail?' });
+    fireEvent.click(saveButton());
+    // Unmount while try 1 is still in flight, then let it answer "still setting up".
+    unmount();
+    await act(async () => {
+      rejectFirst(new SetupInProgressError());
+      await vi.advanceTimersByTimeAsync(3000 * 25);
+    });
+    expect(teamsApi.save).toHaveBeenCalledTimes(1);
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  it('a double click on Save while saving saves once', async () => {
+    let resolveSave: (list: TeamPickResult[]) => void = () => undefined;
+    teamsApi.save.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve;
+        })
+    );
+    const onSaved = vi.fn();
+    render(<TeamPresetPicker onSaved={onSaved} />);
+    await screen.findByRole('heading', { name: 'Which teams answer your mail?' });
+    const button = saveButton();
+    // Two clicks before React re-renders (one batch): the Button's loading state cannot stop the
+    // second one yet, only the picker's own guard can.
+    act(() => {
+      button.click();
+      button.click();
+    });
+    expect(teamsApi.save).toHaveBeenCalledTimes(1);
+    // A later click while the save is still running (now in its loading state) adds nothing.
+    fireEvent.click(button);
+    expect(teamsApi.save).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolveSave([{ presetKey: 'support', outcome: 'created', teamId: 2 }]);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+  });
+
+  it('the waiting line and the results are announced (role=status)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    teamsApi.save
+      .mockRejectedValueOnce(new SetupInProgressError())
+      .mockResolvedValueOnce([{ presetKey: 'support', outcome: 'created', teamId: 2 }]);
+    render(<TeamPresetPicker onSaved={vi.fn()} />);
+    await screen.findByRole('heading', { name: 'Which teams answer your mail?' });
+    fireEvent.click(saveButton());
+    const waiting = await screen.findByText('Still setting up your workspace…');
+    expect(waiting).toHaveAttribute('role', 'status');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    const ready = await screen.findByText('Ready');
+    expect(ready.closest('[role="status"]')).not.toBeNull();
+  });
+
+  it('ITEMS_FAILED without a count: no "(0)"', async () => {
+    teamsApi.save.mockResolvedValue([
+      { presetKey: 'support', outcome: 'failed', reason: 'ITEMS_FAILED' },
+    ]);
+    render(<TeamPresetPicker onSaved={vi.fn()} />);
+    await screen.findByRole('heading', { name: 'Which teams answer your mail?' });
+    fireEvent.click(saveButton());
+    expect(
+      await screen.findByText("Some rules couldn't be added. Save again to retry.")
+    ).toBeInTheDocument();
+  });
+
   it('a retry that then succeeds finishes the save', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     teamsApi.save
