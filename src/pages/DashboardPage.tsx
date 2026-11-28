@@ -283,6 +283,10 @@ export const DashboardPage = () => {
 
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const userId = useAuthStore((state) => state.user?.id);
+  // The Teams tab is for org and global admins (SettingsPage): the notice points there.
+  const canSeeTeamPlan = useAuthStore(
+    (state) => state.user?.role === 'admin' || state.user?.organizationRole === 'org_admin'
+  );
 
   /**
    * `reuse`: only the read on opening the page. Moving Dashboard → Threads → Dashboard re-sent all
@@ -693,7 +697,7 @@ export const DashboardPage = () => {
           }
         />
 
-        <TeamPlanNotice teamPlan={teamPlan} showTeamsLink />
+        {canSeeTeamPlan && <TeamPlanNotice teamPlan={teamPlan} showTeamsLink />}
 
         {loading ? (
           <DashboardSkeleton />

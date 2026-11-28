@@ -17,6 +17,9 @@ vi.mock('@/stores/authStore', async () => {
 vi.mock('@/hooks/useCurrentWorkspace', () => ({
   useCurrentWorkspace: () => ({ id: 1, name: 'Acme Workspace', code: 'acme' }),
 }));
+vi.mock('@/hooks/useBackendVersion', () => ({
+  useBackendVersion: () => ({ data: { billingEnabled: true } }),
+}));
 let canManageOrg = true;
 vi.mock('@/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => canManageOrg }),

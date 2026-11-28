@@ -1,4 +1,7 @@
 import { Link } from 'react-router-dom';
+import { useBackendVersion } from '@/hooks/useBackendVersion';
+import { usePermissions } from '@/hooks/usePermissions';
+import { Permission } from '@/types/roles';
 import { Alert, AlertDescription } from '@/components/ui/Alert';
 import type { TeamPlan } from '@/services/department.service';
 
@@ -15,6 +18,11 @@ export const TeamPlanNotice = ({
   teamPlan?: TeamPlan;
   showTeamsLink?: boolean;
 }) => {
+  const { hasPermission } = usePermissions();
+  const { data: backendVersion } = useBackendVersion();
+  // /pricing is behind the billing gate and VIEW_SUBSCRIPTION (as TrialBanner): else a dead end.
+  const canUpgrade =
+    backendVersion?.billingEnabled === true && hasPermission(Permission.VIEW_SUBSCRIPTION);
   if (teamPlan?.overLimit !== true || teamPlan.teamLimit === null) return null;
   return (
     <Alert variant="warning" role="status" label="Team plan limit">
@@ -22,13 +30,18 @@ export const TeamPlanNotice = ({
         <span data-testid="team-plan-notice">
           Your plan allows {teams(teamPlan.teamLimit)}; {teamPlan.activeTeams} are on. Upgrade or
           switch some off.
-        </span>{' '}
-        <Link to="/pricing" className="font-medium underline">
-          Upgrade plan
-        </Link>
+        </span>
+        {canUpgrade && (
+          <>
+            {' '}
+            <Link to="/pricing" className="font-medium underline">
+              Upgrade plan
+            </Link>
+          </>
+        )}
         {showTeamsLink && (
           <>
-            {' · '}
+            {canUpgrade ? ' · ' : ' '}
             <Link to="/settings?tab=teams" className="font-medium underline">
               Manage teams
             </Link>

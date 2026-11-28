@@ -1,7 +1,16 @@
-import { vi, describe, it, expect, afterEach } from 'vitest';
+import { vi, describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 
 let teamPlan: unknown;
+let viewer: { role: string; organizationRole: string } | null = null;
+let billing = true;
+vi.mock('@/stores/authStore', () => ({
+  useAuthStore: (select: (state: unknown) => unknown) =>
+    select({ user: viewer && { id: 1, ...viewer }, selectedOrganizationId: 1 }),
+}));
+vi.mock('@/hooks/useBackendVersion', () => ({
+  useBackendVersion: () => ({ data: { billingEnabled: billing } }),
+}));
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
   Link: ({ to, children, ...rest }: { to: string; children: React.ReactNode }) => (
@@ -61,14 +70,40 @@ vi.mock('@/hooks/usePermissions', () => ({
 const { DashboardPage } = await import('../DashboardPage');
 afterEach(cleanup);
 
+const admin = { role: 'user', organizationRole: 'org_admin' };
+const OVER = { activeTeams: 3, teamLimit: 2, overLimit: true };
+
 describe('Dashboard team plan notice', () => {
-  it('shows with the Teams link when over the limit', () => {
-    teamPlan = { activeTeams: 3, teamLimit: 2, overLimit: true };
+  beforeEach(() => {
+    viewer = admin;
+    billing = true;
+    teamPlan = OVER;
+  });
+
+  it('admin with billing: the text, the Upgrade link and the Teams link', () => {
     render(<DashboardPage />);
     expect(screen.getByTestId('team-plan-notice')).toHaveTextContent(
       'Your plan allows 2 teams; 3 are on. Upgrade or switch some off.'
     );
+    expect(screen.getByRole('link', { name: 'Upgrade plan' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Manage teams' })).toBeInTheDocument();
+  });
+  it('global admin sees it too', () => {
+    viewer = { role: 'admin', organizationRole: 'member' };
+    render(<DashboardPage />);
+    expect(screen.getByTestId('team-plan-notice')).toBeInTheDocument();
+  });
+  it('admin without billing: the notice, no Upgrade link', () => {
+    billing = false;
+    render(<DashboardPage />);
+    expect(screen.getByTestId('team-plan-notice')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Upgrade plan' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Manage teams' })).toBeInTheDocument();
+  });
+  it('a non-admin member sees no notice', () => {
+    viewer = { role: 'user', organizationRole: 'member' };
+    render(<DashboardPage />);
+    expect(screen.queryByTestId('team-plan-notice')).toBeNull();
   });
   it.each([[undefined], [null], [{ activeTeams: 1, teamLimit: 1, overLimit: false }]])(
     'nothing for %j',

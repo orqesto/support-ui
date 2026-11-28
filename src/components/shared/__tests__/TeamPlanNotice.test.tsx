@@ -1,9 +1,22 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { TeamPlanNotice } from '../TeamPlanNotice';
 import type { TeamPlan } from '@/services/department.service';
 
+let billing = true;
+let canViewSubscription = true;
+vi.mock('@/hooks/useBackendVersion', () => ({
+  useBackendVersion: () => ({ data: { billingEnabled: billing } }),
+}));
+vi.mock('@/hooks/usePermissions', () => ({
+  usePermissions: () => ({ hasPermission: () => canViewSubscription }),
+}));
+
+beforeEach(() => {
+  billing = true;
+  canViewSubscription = true;
+});
 afterEach(cleanup);
 const renderNotice = (teamPlan?: TeamPlan | null, showTeamsLink = false) =>
   render(
@@ -30,6 +43,18 @@ describe('TeamPlanNotice', () => {
       'href',
       '/settings?tab=teams'
     );
+  });
+  it('no billing on this install: the text stays, no Upgrade link', () => {
+    billing = false;
+    renderNotice({ activeTeams: 2, teamLimit: 1, overLimit: true }, true);
+    expect(screen.getByTestId('team-plan-notice')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Upgrade plan' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Manage teams' })).toBeInTheDocument();
+  });
+  it('no VIEW_SUBSCRIPTION: no Upgrade link', () => {
+    canViewSubscription = false;
+    renderNotice({ activeTeams: 2, teamLimit: 1, overLimit: true });
+    expect(screen.queryByRole('link', { name: 'Upgrade plan' })).toBeNull();
   });
   it.each([
     ['within limit', { activeTeams: 1, teamLimit: 1, overLimit: false }],
