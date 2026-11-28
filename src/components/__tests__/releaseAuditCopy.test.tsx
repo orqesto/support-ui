@@ -53,6 +53,7 @@ const { cancelConfirmText, cancelledToast, MOVES_TO_FREE_SENTENCE } = await impo
 const { historyImportAiNote } = await import('@/features/subscription');
 const { FREE_SWITCH_DESCRIPTION } = await import('@/features/subscription');
 const { ONBOARDING_MANAGED_AI_TEXT } = await import('@/components/onboarding/steps/AiChoiceStep');
+const { TeamPlanNotice } = await import('@/components/shared/TeamPlanNotice');
 const { ZENDESK_AS_THREADS } = await import('@/features/settings');
 const { TranslateButton } = await import('@/components/shared/TranslateButton');
 
@@ -131,6 +132,36 @@ describe('Free wording', () => {
     expect(ONBOARDING_MANAGED_AI_TEXT).not.toMatch(/Included in your plan/);
     // A paid plan without our AI (managedAi false) does not keep it: no blanket "paid plans".
     expect(ONBOARDING_MANAGED_AI_TEXT).not.toMatch(/paid plans keep it/);
+  });
+});
+
+/**
+ * Decision 3 (2026-10-23): a workspace with more teams than its plan includes keeps them working,
+ * none can be added. Owner decision 2026-11-28: it gets a notice (Teams page, dashboard) and
+ * nothing is switched off.
+ */
+describe('decision 3: Free with extra teams', () => {
+  const notice = (teamPlan: Parameters<typeof TeamPlanNotice>[0]['teamPlan']) =>
+    render(
+      <MemoryRouter>
+        <TeamPlanNotice teamPlan={teamPlan} />
+      </MemoryRouter>
+    );
+
+  it('more teams on than the plan includes: the notice says so', () => {
+    notice({ activeTeams: 3, teamLimit: 1, overLimit: true });
+    expect(screen.getByTestId('team-plan-notice')).toHaveTextContent(
+      'Your plan allows 1 team; 3 are on. Upgrade or switch some off.'
+    );
+  });
+
+  it.each([
+    ['within the limit', { activeTeams: 1, teamLimit: 1, overLimit: false }],
+    ['no plan info', undefined],
+    ['null plan info', null],
+  ])('CONTROL: %s: no notice', (_name, plan) => {
+    notice(plan as never);
+    expect(screen.queryByTestId('team-plan-notice')).toBeNull();
   });
 });
 
