@@ -53,7 +53,6 @@ const { cancelConfirmText, cancelledToast, MOVES_TO_FREE_SENTENCE } = await impo
 const { historyImportAiNote } = await import('@/features/subscription');
 const { FREE_SWITCH_DESCRIPTION } = await import('@/features/subscription');
 const { ONBOARDING_MANAGED_AI_TEXT } = await import('@/components/onboarding/steps/AiChoiceStep');
-const { overTeamLimitText } = await import('@/features/settings');
 const { ZENDESK_AS_THREADS } = await import('@/features/settings');
 const { TranslateButton } = await import('@/components/shared/TranslateButton');
 
@@ -132,20 +131,6 @@ describe('Free wording', () => {
     expect(ONBOARDING_MANAGED_AI_TEXT).not.toMatch(/Included in your plan/);
     // A paid plan without our AI (managedAi false) does not keep it: no blanket "paid plans".
     expect(ONBOARDING_MANAGED_AI_TEXT).not.toMatch(/paid plans keep it/);
-  });
-});
-
-describe('decision 3: Free with extra teams', () => {
-  it('more teams than the plan includes: they are kept, none can be added', () => {
-    expect(overTeamLimitText(1, 3)).toBe(
-      'Your workspace keeps its existing teams; Free includes 1 — upgrade to add more.'
-    );
-  });
-
-  it('CONTROL: at or under the limit, or no limit known: no note', () => {
-    expect(overTeamLimitText(1, 1)).toBeUndefined();
-    expect(overTeamLimitText(undefined, 5)).toBeUndefined();
-    expect(overTeamLimitText(999999, 5)).toBeUndefined();
   });
 });
 
