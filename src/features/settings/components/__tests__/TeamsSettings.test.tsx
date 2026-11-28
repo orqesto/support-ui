@@ -118,6 +118,7 @@ beforeEach(() => {
     team(3, 'Sales team', { active: false }),
   ];
   svc.mode = true;
+  svc.teamPlan = undefined;
   Object.values(svc).forEach((value) => {
     if (typeof value === 'function' && 'mockReset' in value)
       (value as ReturnType<typeof vi.fn>).mockReset();
@@ -577,4 +578,40 @@ describe('TeamsSettings — what stops a switch-off', () => {
     ).toBeTruthy();
     expect(svc.waitForTeamsSwitch).not.toHaveBeenCalled();
   });
+});
+
+describe('team plan notice (behind ui.team_builder)', () => {
+  it('flag ON, over limit: exactly one warning, the notice; no old line', async () => {
+    uiFlags = { 'ui.team_builder': true };
+    svc.teamPlan = { activeTeams: 2, teamLimit: 1, overLimit: true };
+    svc.getPlanTeamLimit.mockResolvedValue(1);
+    renderPage();
+    expect(await screen.findByTestId('team-plan-notice')).toHaveTextContent(
+      'Your plan allows 1 team; 2 are on. Upgrade or switch some off.'
+    );
+    await waitFor(() => expect(svc.getPlanTeamLimit).toHaveBeenCalled());
+    expect(screen.getAllByRole('status', { name: 'Team plan limit' })).toHaveLength(1);
+    expect(screen.queryByTestId('teams-over-limit')).toBeNull();
+    expect(screen.queryByText(/keeps its existing teams/)).toBeNull();
+  });
+  it('flag OFF, over limit: the old line as before, no notice', async () => {
+    uiFlags = {};
+    svc.teamPlan = { activeTeams: 2, teamLimit: 1, overLimit: true };
+    svc.getPlanTeamLimit.mockResolvedValue(1);
+    renderPage();
+    expect(await screen.findByTestId('teams-over-limit')).toHaveTextContent(
+      'Your workspace keeps its existing teams; Free includes 1 — upgrade to add more.'
+    );
+    expect(screen.queryByTestId('team-plan-notice')).toBeNull();
+  });
+  it.each([[undefined], [null], [{ activeTeams: 1, teamLimit: 1, overLimit: false }]])(
+    'flag ON, no notice for %j',
+    async (plan) => {
+      uiFlags = { 'ui.team_builder': true };
+      svc.teamPlan = plan;
+      renderPage();
+      await screen.findByText('Use teams');
+      expect(screen.queryByTestId('team-plan-notice')).toBeNull();
+    }
+  );
 });

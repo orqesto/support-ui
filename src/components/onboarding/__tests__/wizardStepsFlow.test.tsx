@@ -27,7 +27,25 @@ vi.mock('../steps/DatabaseStep', () => ({
     <div>{managedAllowed ? 'managed-card-enabled' : 'managed-card-no-plan'}</div>
   ),
 }));
-vi.mock('../steps/InviteTeamStep', () => ({ InviteTeamStep: () => <div>people-step</div> }));
+// The picker's guard the People step hands the wizard (null = no picker on this workspace).
+const peopleGuard = vi.hoisted(() => ({ fn: null as null | (() => Promise<boolean>) }));
+vi.mock('../steps/InviteTeamStep', async () => {
+  const { useEffect } = await import('react');
+  return {
+    InviteTeamStep: ({
+      registerBeforeNext,
+    }: {
+      registerBeforeNext?: (fn: (() => Promise<boolean>) | null) => void;
+    }) => {
+      useEffect(() => {
+        if (!peopleGuard.fn) return undefined;
+        registerBeforeNext?.(peopleGuard.fn);
+        return () => registerBeforeNext?.(null);
+      }, [registerBeforeNext]);
+      return <div>people-step</div>;
+    },
+  };
+});
 vi.mock('../steps/PaymentStep', () => ({ PaymentStep: () => <div>payment-step</div> }));
 vi.mock('../SetupReconcileNotice', () => ({ SetupReconcileNotice: () => null }));
 vi.mock('@/components/layout/ThemeToggle', () => ({ ThemeToggle: () => null }));
@@ -91,6 +109,7 @@ const { OnboardingWizard } = await import('../OnboardingWizard');
 const indicator = (text: string) => screen.findByText(text, { selector: 'p' });
 
 beforeEach(() => {
+  peopleGuard.fn = null;
   navigate.mockReset();
   service.updateProgress.mockClear();
   service.complete.mockReset();
@@ -263,5 +282,43 @@ describe('leaving the wizard', () => {
     render(<OnboardingWizard />);
     await waitFor(() => expect(navigate).toHaveBeenCalledWith('/', { replace: true }));
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+});
+
+describe('Next on the People step saves unsaved team ticks first', () => {
+  const toPeople = async () => {
+    render(<OnboardingWizard />);
+    await indicator('Step 1 of 3 — Mailbox');
+    fireEvent.click(screen.getByRole('button', { name: /Skip this step|Next/ }));
+    await indicator('Step 2 of 3 — People');
+  };
+
+  it('the save worked: it goes on to the next step', async () => {
+    const save = vi.fn(() => Promise.resolve(true));
+    peopleGuard.fn = save;
+    await toPeople();
+    fireEvent.click(screen.getByRole('button', { name: /Next/ }));
+    expect(await indicator('Step 3 of 3 — Payment')).toBeInTheDocument();
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it('the save failed: it stays on the People step', async () => {
+    const save = vi.fn(() => Promise.resolve(false));
+    peopleGuard.fn = save;
+    await toPeople();
+    fireEvent.click(screen.getByRole('button', { name: /Next/ }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('people-step')).toBeInTheDocument();
+    expect(await indicator('Step 2 of 3 — People')).toBeInTheDocument();
+    // Next works again once the save can succeed.
+    save.mockResolvedValue(true);
+    fireEvent.click(screen.getByRole('button', { name: /Next/ }));
+    expect(await indicator('Step 3 of 3 — Payment')).toBeInTheDocument();
+  });
+
+  it('no picker on this workspace: Next goes on as before', async () => {
+    await toPeople();
+    fireEvent.click(screen.getByRole('button', { name: /Next/ }));
+    expect(await indicator('Step 3 of 3 — Payment')).toBeInTheDocument();
   });
 });

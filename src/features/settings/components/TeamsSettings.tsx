@@ -50,6 +50,20 @@ import { TEAM_NEW_ROUTE, teamPagePath } from './teams/teamPaths';
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 const FALLBACK_COLOR = '#6366f1';
 
+/**
+ * A workspace with more teams than its plan includes (a downgrade or a trial that ended — owner
+ * decision 3, 2026-10-23): the existing teams keep working, no new one can be added.
+ */
+export const overTeamLimitText = (
+  limit: number | undefined,
+  activeTeams: number
+): string | undefined => {
+  if (limit === undefined || activeTeams <= limit) return undefined;
+  return limit === 1
+    ? 'Your workspace keeps its existing teams; Free includes 1 — upgrade to add more.'
+    : `Your workspace keeps its existing teams; your plan includes ${limit.toLocaleString()} — upgrade to add more.`;
+};
+
 const describeError = (err: unknown, fallback: string): string =>
   getApiErrorMessage(err) ?? fallback;
 
@@ -59,6 +73,8 @@ export const TeamsSettings = () => {
   const { isSurfaceEnabled } = useUiFlags();
   const { hasPermission } = usePermissions();
   // The team pages and their calls need MANAGE_ORGANIZATION (teamRoutes): no link where they would refuse.
+  // The over-limit notice ships behind the teams UI flag; flag OFF keeps the old small line.
+  const teamPlanNoticeOn = isSurfaceEnabled('ui.team_builder');
   const builderOn =
     isSurfaceEnabled('ui.team_builder') && hasPermission(Permission.MANAGE_ORGANIZATION);
   const {
@@ -221,7 +237,7 @@ export const TeamsSettings = () => {
           </Alert>
         ) : (
           <>
-            <TeamPlanNotice teamPlan={teamPlan} />
+            {teamPlanNoticeOn && <TeamPlanNotice teamPlan={teamPlan} />}
             {switchState === 'interrupted' && (
               <Alert variant="warning">
                 <AlertTitle>Switching teams off didn’t finish</AlertTitle>
@@ -269,6 +285,11 @@ export const TeamsSettings = () => {
                 {!teamsEnabled && !planAllowsTeams && (
                   <p className="mt-1 text-xs text-warning" data-testid="teams-plan-limit">
                     Your plan includes one team. Upgrade to use teams.
+                  </p>
+                )}
+                {!teamPlanNoticeOn && overTeamLimitText(planTeamLimit, activeTeams.length) && (
+                  <p className="mt-1 text-xs text-warning" data-testid="teams-over-limit">
+                    {overTeamLimitText(planTeamLimit, activeTeams.length)}
                   </p>
                 )}
               </div>

@@ -23,7 +23,12 @@ type AddedMember = { email: string; kind: 'invited' | 'created' };
  * password. Remaining seats are surfaced so the admin knows the plan ceiling
  * before they hit it. Not the last step — Knowledge (and Payment, with billing) follow.
  */
-export const InviteTeamStep = () => {
+export const InviteTeamStep = ({
+  registerBeforeNext,
+}: {
+  /** The wizard's Next waits for this: it saves unsaved team ticks first. */
+  registerBeforeNext?: (beforeNext: (() => Promise<boolean>) | null) => void;
+}) => {
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -91,13 +96,17 @@ export const InviteTeamStep = () => {
   return (
     <div className="space-y-4">
       {teamsFromPresets && (
-        <TeamPresetPicker onSaved={settleTeams} onSkip={settleTeams} onNotNeeded={settleTeams} />
+        <TeamPresetPicker
+          onSaved={settleTeams}
+          onSkip={settleTeams}
+          onNotNeeded={settleTeams}
+          registerBeforeNext={registerBeforeNext}
+        />
       )}
 
       <p className="text-sm text-muted-foreground">
-        Add the people who&apos;ll handle threads. Invite them by email (they get a signup
-        link) or create an account directly with a password. You can add more anytime from the Users
-        page.
+        Add the people who&apos;ll handle threads. Invite them by email (they get a signup link) or
+        create an account directly with a password. You can add more anytime from the Users page.
       </p>
 
       {seats !== null && (
@@ -137,10 +146,7 @@ export const InviteTeamStep = () => {
       {added.length > 0 && (
         <ul className="space-y-1">
           {added.map((member) => (
-            <li
-              key={member.email}
-              className="flex items-center gap-2 text-sm text-foreground"
-            >
+            <li key={member.email} className="flex items-center gap-2 text-sm text-foreground">
               <CheckCircle className="h-4 w-4 text-muted-foreground" />
               {member.email} {member.kind === 'created' ? 'created' : 'invited'}
             </li>

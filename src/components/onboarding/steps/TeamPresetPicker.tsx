@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
+import { QueryClientContext } from '@tanstack/react-query';
 import { CheckCircle } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -24,6 +25,12 @@ type Props = {
   onSkip?: () => void;
   /** There is nothing to pick here (not a preset workspace, or setup already finished). */
   onNotNeeded?: () => void;
+  /**
+   * Hands the wizard a function for its Next button: it saves unsaved ticks first and answers
+   * whether the wizard may go on (false = the save failed, the error is shown here). Called with
+   * null when the picker goes away.
+   */
+  registerBeforeNext?: (beforeNext: (() => Promise<boolean>) | null) => void;
 };
 
 type SaveError = 'slow' | 'busy' | 'other' | null;
@@ -31,7 +38,7 @@ type SaveError = 'slow' | 'busy' | 'other' | null;
 const failureText = (result: TeamPickResult): string => {
   switch (result.reason) {
     case 'PLAN_TEAM_LIMIT':
-      return "Your plan doesn't allow more teams.";
+      return "Your plan doesn't allow more teams. General is included; upgrade to add more.";
     case 'ITEMS_FAILED':
       return result.failedItems === undefined
         ? "Some rules couldn't be added. Save again to retry."
@@ -81,7 +88,8 @@ const initialTicks = (offered: OfferedTeam[], preTicked: string[]): string[] =>
  * is always on; "Save teams" creates (or switches on/off) the ticked ones, so the invite list
  * below can name them.
  */
-export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded }: Props) => {
+export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded, registerBeforeNext }: Props) => {
+  const queryClient = useContext(QueryClientContext);
   const [offered, setOffered] = useState<OfferedTeam[] | null>(null);
   const [editable, setEditable] = useState(true);
   const [ticked, setTicked] = useState<string[]>([]);
@@ -98,6 +106,17 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded }: Props) => {
   const inFlight = useRef(false);
   const callbacks = useRef({ onSaved, onNotNeeded });
   callbacks.current = { onSaved, onNotNeeded };
+  // What the server holds (or the admin chose to skip) as of now; null = nothing saved yet.
+  const savedKeys = useRef<string[] | null>(null);
+  // Next presses waiting for a save that is running or about to run.
+  const waiters = useRef<Array<(ok: boolean) => void>>([]);
+  const settleWaiters = (ok: boolean) => {
+    const pending = waiters.current;
+    waiters.current = [];
+    pending.forEach((resolve) => resolve(ok));
+  };
+  const latest = useRef({ offered, editable, ticked });
+  latest.current = { offered, editable, ticked };
 
   const load = () => {
     setLoadFailed(false);
@@ -110,7 +129,10 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded }: Props) => {
         }
         setOffered(teams.offered);
         setEditable(teams.editable);
-        setTicked(initialTicks(teams.offered, teams.preTicked));
+        const initial = initialTicks(teams.offered, teams.preTicked);
+        setTicked(initial);
+        // Teams already made: what is ticked IS what is saved.
+        if (teams.offered.some((team) => team.teamId !== null)) savedKeys.current = initial;
         if (!teams.editable) callbacks.current.onNotNeeded?.();
       })
       .catch((error: unknown) => {
@@ -137,7 +159,11 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded }: Props) => {
         setWaiting(false);
         setSaving(false);
         setResults({ list, sent: keys });
+        savedKeys.current = keys;
+        // The new teams must show in the switcher and the lists at once.
+        void queryClient?.invalidateQueries({ queryKey: ['departments'] });
         callbacks.current.onSaved(list);
+        settleWaiters(true);
       })
       .catch((error: unknown) => {
         if (!alive.current) return;
@@ -152,8 +178,10 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded }: Props) => {
         if (error instanceof OnboardingCompleteError) {
           setEditable(false);
           callbacks.current.onNotNeeded?.();
+          settleWaiters(true);
           return;
         }
+        settleWaiters(false);
         if (error instanceof SetupInProgressError) {
           setSaveError('slow');
           return;
@@ -176,6 +204,40 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded }: Props) => {
     attempt(keys, 1);
   };
 
+  const sameKeys = (first: string[], second: string[]) =>
+    first.length === second.length && first.every((key) => second.includes(key));
+
+  // The wizard's Next on this step: unsaved ticks are saved first, so the admin never leaves
+  // with General only after seeing Support ticked.
+  const beforeNext = (): Promise<boolean> => {
+    const { offered: list, editable: canEdit, ticked: current } = latest.current;
+    if (!list || !canEdit) return Promise.resolve(true);
+    if (inFlight.current) return new Promise((resolve) => waiters.current.push(resolve));
+    const keys = list.map((team) => team.presetKey).filter((key) => current.includes(key));
+    if (savedKeys.current !== null && sameKeys(savedKeys.current, keys))
+      return Promise.resolve(true);
+    return new Promise((resolve) => {
+      waiters.current.push(resolve);
+      inFlight.current = true;
+      setSaving(true);
+      setSaveError(null);
+      attempt(keys, 1);
+    });
+  };
+  const beforeNextRef = useRef(beforeNext);
+  beforeNextRef.current = beforeNext;
+  useEffect(() => {
+    registerBeforeNext?.(() => beforeNextRef.current());
+    return () => registerBeforeNext?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Skip: nothing is saved, and Next must not save the ticks the admin chose to ignore.
+  const skip = () => {
+    savedKeys.current = latest.current.ticked;
+    onSkip?.();
+  };
+
   const toggle = (key: string) =>
     setTicked((prev) =>
       prev.includes(key) ? prev.filter((other) => other !== key) : [...prev, key]
@@ -190,7 +252,7 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded }: Props) => {
             Retry
           </Button>
           {onSkip && (
-            <Button variant="ghost" size="sm" onClick={onSkip}>
+            <Button variant="ghost" size="sm" onClick={skip}>
               Skip — just the General team
             </Button>
           )}
@@ -261,7 +323,7 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded }: Props) => {
               Save teams
             </Button>
             {onSkip && (
-              <Button variant="ghost" onClick={onSkip} disabled={saving}>
+              <Button variant="ghost" onClick={skip} disabled={saving}>
                 Skip — just the General team
               </Button>
             )}

@@ -7,6 +7,8 @@ import { AlertDialog } from '@/components/ui/AlertDialog';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
 import { TeamPlanNotice } from '@/components/shared/TeamPlanNotice';
 import { useDepartments } from '@/hooks/useDepartments';
+import { useIsWorkspaceAdmin } from '@/hooks/useIsWorkspaceAdmin';
+import { useUiFlags } from '@/hooks/useUiFlags';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import {
@@ -219,6 +221,7 @@ const kbTotal = async (
 
 export const DashboardPage = () => {
   const { teamPlan } = useDepartments();
+  const { isSurfaceEnabled } = useUiFlags();
   const navigate = useNavigate();
 
   // Onboarding entry redirect now lives in the shared app shell (Layout) so it
@@ -283,10 +286,9 @@ export const DashboardPage = () => {
 
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const userId = useAuthStore((state) => state.user?.id);
-  // The Teams tab is for org and global admins (SettingsPage): the notice points there.
-  const canSeeTeamPlan = useAuthStore(
-    (state) => state.user?.role === 'admin' || state.user?.organizationRole === 'org_admin'
-  );
+  // The Teams tab is for org and global admins of THIS workspace: the notice points there.
+  // Behind the teams UI flag, like the Teams builder.
+  const canSeeTeamPlan = useIsWorkspaceAdmin() && isSurfaceEnabled('ui.team_builder');
 
   /**
    * `reuse`: only the read on opening the page. Moving Dashboard → Threads → Dashboard re-sent all

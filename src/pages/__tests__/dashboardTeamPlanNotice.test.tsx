@@ -8,6 +8,12 @@ vi.mock('@/stores/authStore', () => ({
   useAuthStore: (select: (state: unknown) => unknown) =>
     select({ user: viewer && { id: 1, ...viewer }, selectedOrganizationId: 1 }),
 }));
+let flagOn = true;
+vi.mock('@/hooks/useUiFlags', () => ({
+  useUiFlags: () => ({ isSurfaceEnabled: (key: string) => flagOn && key === 'ui.team_builder' }),
+}));
+let workspaceAdmin = true;
+vi.mock('@/hooks/useIsWorkspaceAdmin', () => ({ useIsWorkspaceAdmin: () => workspaceAdmin }));
 vi.mock('@/hooks/useBackendVersion', () => ({
   useBackendVersion: () => ({ data: { billingEnabled: billing } }),
 }));
@@ -76,6 +82,8 @@ const OVER = { activeTeams: 3, teamLimit: 2, overLimit: true };
 describe('Dashboard team plan notice', () => {
   beforeEach(() => {
     viewer = admin;
+    flagOn = true;
+    workspaceAdmin = true;
     billing = true;
     teamPlan = OVER;
   });
@@ -87,6 +95,16 @@ describe('Dashboard team plan notice', () => {
     );
     expect(screen.getByRole('link', { name: 'Upgrade plan' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Manage teams' })).toBeInTheDocument();
+  });
+  it('flag OFF: nothing, even for an admin', () => {
+    flagOn = false;
+    render(<DashboardPage />);
+    expect(screen.queryByTestId('team-plan-notice')).toBeNull();
+  });
+  it('not an admin of THIS workspace (e.g. admin of another): nothing', () => {
+    workspaceAdmin = false;
+    render(<DashboardPage />);
+    expect(screen.queryByTestId('team-plan-notice')).toBeNull();
   });
   it('global admin sees it too', () => {
     viewer = { role: 'admin', organizationRole: 'member' };
@@ -102,6 +120,7 @@ describe('Dashboard team plan notice', () => {
   });
   it('a non-admin member sees no notice', () => {
     viewer = { role: 'user', organizationRole: 'member' };
+    workspaceAdmin = false;
     render(<DashboardPage />);
     expect(screen.queryByTestId('team-plan-notice')).toBeNull();
   });

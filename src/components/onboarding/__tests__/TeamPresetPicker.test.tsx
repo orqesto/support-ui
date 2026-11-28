@@ -234,7 +234,9 @@ describe('TeamPresetPicker — saving', () => {
     const row = (key: string) => screen.getByTestId(`team-row-${key}`);
     expect(within(row('support')).getByText('Fixed: missing rules added')).toBeInTheDocument();
     expect(
-      within(row('sales')).getByText("Your plan doesn't allow more teams.")
+      within(row('sales')).getByText(
+        "Your plan doesn't allow more teams. General is included; upgrade to add more."
+      )
     ).toBeInTheDocument();
     expect(
       within(row('billing')).getByText("Some rules couldn't be added (3). Save again to retry.")
@@ -486,5 +488,120 @@ describe('InviteTeamStep with the picker', () => {
     expect(screen.queryByRole('heading', { name: 'Which teams answer your mail?' })).toBeNull();
     expect(screen.queryByText(hint)).toBeNull();
     expect(teamsApi.get).not.toHaveBeenCalled();
+  });
+});
+
+describe('TeamPresetPicker — the wizard Next guard', () => {
+  const mountWithGuard = () => {
+    let guard: (() => Promise<boolean>) | null = null;
+    const utils = render(
+      <TeamPresetPicker
+        onSaved={vi.fn()}
+        onSkip={vi.fn()}
+        registerBeforeNext={(fn) => {
+          guard = fn;
+        }}
+      />
+    );
+    return { ...utils, next: () => guard!() };
+  };
+
+  it('unsaved ticks: saves them, then lets Next go on', async () => {
+    const { next } = mountWithGuard();
+    await screen.findByRole('heading', { name: 'Which teams answer your mail?' });
+    fireEvent.click(box('Sales'));
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await next();
+    });
+    expect(ok).toBe(true);
+    expect(teamsApi.save).toHaveBeenCalledWith(['support', 'sales']);
+  });
+
+  it('the save fails: Next is refused and the error shows', async () => {
+    teamsApi.save.mockRejectedValue(new Error('boom'));
+    const { next } = mountWithGuard();
+    await screen.findByRole('heading', { name: 'Which teams answer your mail?' });
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await next();
+    });
+    expect(ok).toBe(false);
+    expect(screen.getByText("Couldn't save your teams. Try again.")).toBeInTheDocument();
+  });
+
+  it('already saved: Next goes on with no second save', async () => {
+    const { next } = mountWithGuard();
+    await screen.findByRole('heading', { name: 'Which teams answer your mail?' });
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(teamsApi.save).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(saveButton()).not.toBeInactive());
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await next();
+    });
+    expect(ok).toBe(true);
+    expect(teamsApi.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('teams already made and unchanged: nothing to save', async () => {
+    teamsApi.get.mockResolvedValue(
+      fresh({ offered: [offer('support', 'Support', { teamId: 2, active: true })] })
+    );
+    const { next } = mountWithGuard();
+    await screen.findByRole('heading', { name: 'Which teams answer your mail?' });
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await next();
+    });
+    expect(ok).toBe(true);
+    expect(teamsApi.save).not.toHaveBeenCalled();
+  });
+
+  it('skipped: Next does not save the ticks that were skipped', async () => {
+    const { next } = mountWithGuard();
+    await screen.findByRole('heading', { name: 'Which teams answer your mail?' });
+    fireEvent.click(screen.getByRole('button', { name: 'Skip — just the General team' }));
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await next();
+    });
+    expect(ok).toBe(true);
+    expect(teamsApi.save).not.toHaveBeenCalled();
+  });
+
+  it('setup still running: Next waits for the retry that succeeds', async () => {
+    teamsApi.save
+      .mockRejectedValueOnce(new SetupInProgressError())
+      .mockResolvedValue([{ presetKey: 'support', outcome: 'created', teamId: 2 }]);
+    vi.useFakeTimers();
+    const { next } = mountWithGuard();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    let ok: boolean | undefined;
+    const pending = next().then((value) => {
+      ok = value;
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3100);
+    });
+    await pending;
+    expect(ok).toBe(true);
+    expect(teamsApi.save).toHaveBeenCalledTimes(2);
+  });
+
+  it('a save refreshes the departments cache', async () => {
+    const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
+    const client = new QueryClient();
+    const spy = vi.spyOn(client, 'invalidateQueries');
+    render(
+      <QueryClientProvider client={client}>
+        <TeamPresetPicker onSaved={vi.fn()} />
+      </QueryClientProvider>
+    );
+    await screen.findByRole('heading', { name: 'Which teams answer your mail?' });
+    fireEvent.click(saveButton());
+    await waitFor(() => expect(spy).toHaveBeenCalledWith({ queryKey: ['departments'] }));
   });
 });

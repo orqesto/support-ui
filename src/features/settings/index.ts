@@ -19,7 +19,7 @@ export { SCIMConfigSettings } from './components/SCIMConfigSettings';
 export { SSOConfigSettings } from './components/SSOConfigSettings';
 export { SlackNotificationsSettings } from './components/SlackNotificationsSettings';
 export { SystemSettings } from './components/SystemSettings';
-export { TeamsSettings } from './components/TeamsSettings';
+export { overTeamLimitText, TeamsSettings } from './components/TeamsSettings';
 export { WorkspaceDetailsSettings } from './components/WorkspaceDetailsSettings';
 export { EndpointWizard } from './components/customApi/EndpointWizard';
 export { hostOf } from './components/customApi/LookupHealthLine';
