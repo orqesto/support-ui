@@ -77,8 +77,24 @@ export type CreateTeamInput = {
   description?: string;
 };
 
-/** Called with the list response's `teamsEnabled`; `undefined` when the backend is older. */
-type TeamsModeReceiver = (teamsEnabled: boolean | undefined) => void;
+/** The list response's `teamPlan`: how many teams are on against what the plan allows. */
+export type TeamPlan = { activeTeams: number; teamLimit: number | null; overLimit: boolean };
+
+/** Called with the list response's `teamsEnabled` and `teamPlan`; `undefined` when the backend is older. */
+type TeamsModeReceiver = (teamsEnabled: boolean | undefined, teamPlan?: TeamPlan) => void;
+
+/** `teamPlan` when it has the expected shape, else undefined (an older backend: show nothing). */
+const readTeamPlan = (body: unknown): TeamPlan | undefined => {
+  const raw = body && typeof body === 'object' ? (body as { teamPlan?: unknown }).teamPlan : null;
+  if (!raw || typeof raw !== 'object') return undefined;
+  const plan = raw as Record<string, unknown>;
+  if (typeof plan.overLimit !== 'boolean' || typeof plan.activeTeams !== 'number') return undefined;
+  return {
+    activeTeams: plan.activeTeams,
+    teamLimit: typeof plan.teamLimit === 'number' ? plan.teamLimit : null,
+    overLimit: plan.overLimit,
+  };
+};
 
 const readTeamsEnabled = (body: unknown): boolean | undefined => {
   if (body && typeof body === 'object' && 'teamsEnabled' in body) {
@@ -229,7 +245,7 @@ export const departmentService = {
       data: Department[];
       teamsEnabled?: boolean;
     }>(`/api/departments${includeInactive ? '?includeInactive=true' : ''}`);
-    onTeamsMode?.(readTeamsEnabled(response.data));
+    onTeamsMode?.(readTeamsEnabled(response.data), readTeamPlan(response.data));
     return response.data.data;
   },
 

@@ -5,6 +5,8 @@ import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { AlertDialog } from '@/components/ui/AlertDialog';
 import { getApiErrorMessage, getErrorStatus } from '@/lib/errorMessages';
+import { TeamPlanNotice } from '@/components/shared/TeamPlanNotice';
+import { useDepartments } from '@/hooks/useDepartments';
 import { useDepartmentContextKey } from '@/hooks/useDepartmentContextKey';
 import { useEmailProcessing } from '@/hooks/useEmailProcessing';
 import {
@@ -216,6 +218,7 @@ const kbTotal = async (
 };
 
 export const DashboardPage = () => {
+  const { teamPlan } = useDepartments();
   const navigate = useNavigate();
 
   // Onboarding entry redirect now lives in the shared app shell (Layout) so it
@@ -689,6 +692,8 @@ export const DashboardPage = () => {
             )
           }
         />
+
+        <TeamPlanNotice teamPlan={teamPlan} showTeamsLink />
 
         {loading ? (
           <DashboardSkeleton />

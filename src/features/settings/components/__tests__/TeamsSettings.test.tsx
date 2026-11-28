@@ -38,6 +38,7 @@ vi.mock('@/lib/logger', () => ({ logger: { error: () => {}, info: () => {} } }))
 const svc = vi.hoisted(() => ({
   teams: [] as Department[],
   mode: true as boolean | undefined,
+  teamPlan: undefined as unknown,
   getAll: vi.fn(),
   create: vi.fn(),
   update: vi.fn(),
@@ -52,9 +53,9 @@ const svc = vi.hoisted(() => ({
 vi.mock('@/services/department.service', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   departmentService: {
-    getAll: (inactive?: boolean, onMode?: (on: boolean | undefined) => void) => {
+    getAll: (inactive?: boolean, onMode?: (on: boolean | undefined, plan?: unknown) => void) => {
       svc.getAll(inactive);
-      onMode?.(svc.mode);
+      onMode?.(svc.mode, svc.teamPlan);
       return Promise.resolve(svc.teams);
     },
     create: svc.create,

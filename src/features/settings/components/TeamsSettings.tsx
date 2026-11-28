@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Toggle } from '@/components/ui/Toggle';
+import { TeamPlanNotice } from '@/components/shared/TeamPlanNotice';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useUiFlags } from '@/hooks/useUiFlags';
 import { deriveTeamsEnabled, pickDefaultTeam } from '@/hooks/useTeamsEnabled';
@@ -79,6 +80,7 @@ export const TeamsSettings = () => {
     isLoading,
     isError,
     teamsEnabled: teamsMode,
+    teamPlan,
   } = useDepartments({ includeInactive: true });
   const activeTeams = teams.filter((team) => team.active);
   const teamsEnabled = deriveTeamsEnabled(teamsMode, activeTeams);
@@ -233,6 +235,7 @@ export const TeamsSettings = () => {
           </Alert>
         ) : (
           <>
+            <TeamPlanNotice teamPlan={teamPlan} />
             {switchState === 'interrupted' && (
               <Alert variant="warning">
                 <AlertTitle>Switching teams off didn’t finish</AlertTitle>
