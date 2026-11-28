@@ -203,12 +203,17 @@ export const OnboardingWizard = () => {
     peopleBeforeNext.current = fn;
   }, []);
   const [advancing, setAdvancing] = useState(false);
+  const stepNow = useRef(currentId);
+  stepNow.current = currentId;
+  // Another step (Back) ends a wait that is still running: Next must not stay disabled.
+  useEffect(() => setAdvancing(false), [currentId]);
   const handleNext = async () => {
     if (currentId === 'people' && peopleBeforeNext.current) {
       setAdvancing(true);
       const ok = await peopleBeforeNext.current();
       setAdvancing(false);
-      if (!ok) return;
+      // Left the step meanwhile: this Next is stale.
+      if (!ok || stepNow.current !== 'people') return;
     }
     goTo(steps[index + 1]);
   };

@@ -228,7 +228,11 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded, registerBeforeN
   beforeNextRef.current = beforeNext;
   useEffect(() => {
     registerBeforeNext?.(() => beforeNextRef.current());
-    return () => registerBeforeNext?.(null);
+    return () => {
+      registerBeforeNext?.(null);
+      // The picker is gone (Back): a Next still waiting on its save must not wait forever.
+      settleWaiters(false);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

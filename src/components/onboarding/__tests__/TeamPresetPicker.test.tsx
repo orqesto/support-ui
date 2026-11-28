@@ -591,6 +591,19 @@ describe('TeamPresetPicker — the wizard Next guard', () => {
     expect(teamsApi.save).toHaveBeenCalledTimes(2);
   });
 
+  it('the picker goes away while Next waits for its save: Next is released with false', async () => {
+    teamsApi.save.mockReturnValue(new Promise(() => {}));
+    const { next, unmount } = mountWithGuard();
+    await screen.findByRole('heading', { name: 'Which teams answer your mail?' });
+    let ok: boolean | undefined;
+    const pending = next().then((value) => {
+      ok = value;
+    });
+    unmount();
+    await pending;
+    expect(ok).toBe(false);
+  });
+
   it('a save refreshes the departments cache', async () => {
     const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
     const client = new QueryClient();

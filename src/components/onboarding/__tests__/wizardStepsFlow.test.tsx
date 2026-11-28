@@ -321,4 +321,21 @@ describe('Next on the People step saves unsaved team ticks first', () => {
     fireEvent.click(screen.getByRole('button', { name: /Next/ }));
     expect(await indicator('Step 3 of 3 — Payment')).toBeInTheDocument();
   });
+
+  it('Back while the save is still pending: Next is not left disabled', async () => {
+    let calls = 0;
+    peopleGuard.fn = () => {
+      calls += 1;
+      return calls === 1 ? new Promise<boolean>(() => {}) : Promise.resolve(true);
+    };
+    await toPeople();
+    fireEvent.click(screen.getByRole('button', { name: /Next/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Back/ }));
+    expect(await indicator('Step 1 of 3 — Mailbox')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Skip this step|Next/ })).not.toBeInactive();
+    fireEvent.click(screen.getByRole('button', { name: /Skip this step|Next/ }));
+    expect(await indicator('Step 2 of 3 — People')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Next/ }));
+    expect(await indicator('Step 3 of 3 — Payment')).toBeInTheDocument();
+  });
 });
