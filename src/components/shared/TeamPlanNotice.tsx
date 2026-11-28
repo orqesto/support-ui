@@ -15,7 +15,7 @@ export const TeamPlanNotice = ({
   teamPlan,
   showTeamsLink = false,
 }: {
-  teamPlan?: TeamPlan;
+  teamPlan?: TeamPlan | null;
   showTeamsLink?: boolean;
 }) => {
   const { hasPermission } = usePermissions();

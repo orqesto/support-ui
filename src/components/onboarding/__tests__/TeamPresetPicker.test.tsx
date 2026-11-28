@@ -663,6 +663,23 @@ describe('TeamPresetPicker — the wizard Next guard', () => {
     expect(teamsApi.save).toHaveBeenCalledWith(['support']);
   });
 
+  it('the picker goes away during the load wait: Next gets false when the load lands', async () => {
+    let release: (value: OnboardingTeams) => void = () => {};
+    teamsApi.get.mockReturnValue(new Promise<OnboardingTeams>((resolve) => (release = resolve)));
+    const { next, unmount } = mountWithGuard();
+    let ok: boolean | undefined;
+    const pending = next().then((value) => {
+      ok = value;
+    });
+    unmount();
+    await act(async () => {
+      release(fresh());
+      await pending;
+    });
+    expect(ok).toBe(false);
+    expect(teamsApi.save).not.toHaveBeenCalled();
+  });
+
   it('a save refreshes the departments cache', async () => {
     const { QueryClient, QueryClientProvider } = await import('@tanstack/react-query');
     const client = new QueryClient();

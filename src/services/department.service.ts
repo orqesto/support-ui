@@ -81,11 +81,17 @@ export type CreateTeamInput = {
 export type TeamPlan = { activeTeams: number; teamLimit: number | null; overLimit: boolean };
 
 /** Called with the list response's `teamsEnabled` and `teamPlan`; `undefined` when the backend is older. */
-type TeamsModeReceiver = (teamsEnabled: boolean | undefined, teamPlan?: TeamPlan) => void;
+type TeamsModeReceiver = (teamsEnabled: boolean | undefined, teamPlan?: TeamPlan | null) => void;
 
-/** `teamPlan` when it has the expected shape, else undefined (an older backend: show nothing). */
-const readTeamPlan = (body: unknown): TeamPlan | undefined => {
-  const raw = body && typeof body === 'object' ? (body as { teamPlan?: unknown }).teamPlan : null;
+/**
+ * `teamPlan` when it has the expected shape; `null` when the backend sent an explicit null (teams
+ * off, or it could not read the plan); `undefined` when the field is missing or odd (an older
+ * backend).
+ */
+const readTeamPlan = (body: unknown): TeamPlan | null | undefined => {
+  const raw =
+    body && typeof body === 'object' ? (body as { teamPlan?: unknown }).teamPlan : undefined;
+  if (raw === null) return null;
   if (!raw || typeof raw !== 'object') return undefined;
   const plan = raw as Record<string, unknown>;
   if (typeof plan.overLimit !== 'boolean' || typeof plan.activeTeams !== 'number') return undefined;

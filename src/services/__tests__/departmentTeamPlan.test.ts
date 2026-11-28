@@ -21,10 +21,18 @@ describe('getAll teamPlan', () => {
       overLimit: true,
     });
   });
-  it.each([[null], [undefined], ['x'], [{ overLimit: 'yes' }]])(
-    '%j becomes undefined',
-    async (value) => {
-      expect(await planFor(value)).toBeUndefined();
-    }
-  );
+  it('an explicit null stays null', async () => {
+    expect(await planFor(null)).toBeNull();
+  });
+  it('a missing field is undefined', async () => {
+    get.mockResolvedValueOnce({ data: { success: true, data: [], teamsEnabled: true } });
+    let got: unknown = 'unset';
+    await departmentService.getAll(false, (_on, plan) => {
+      got = plan;
+    });
+    expect(got).toBeUndefined();
+  });
+  it.each([[undefined], ['x'], [{ overLimit: 'yes' }]])('%j becomes undefined', async (value) => {
+    expect(await planFor(value)).toBeUndefined();
+  });
 });

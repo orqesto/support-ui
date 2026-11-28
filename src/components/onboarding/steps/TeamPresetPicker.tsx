@@ -246,7 +246,7 @@ export const TeamPresetPicker = ({ onSaved, onSkip, onNotNeeded, registerBeforeN
     // Still loading: wait for the answer, then apply the same rule.
     return loading.current.then(() => {
       const found = loaded.current;
-      return found ? decide(found.offered, found.editable, found.ticked) : true;
+      return found ? decide(found.offered, found.editable, found.ticked) : alive.current;
     });
   };
   const beforeNextRef = useRef(beforeNext);

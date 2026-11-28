@@ -53,25 +53,39 @@ const svc = vi.hoisted(() => ({
   getPlanTeamLimit: vi.fn(),
   getTeamsMode: vi.fn(),
 }));
-vi.mock('@/services/department.service', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  departmentService: {
-    getAll: (inactive?: boolean, onMode?: (on: boolean | undefined, plan?: unknown) => void) => {
-      svc.getAll(inactive);
-      onMode?.(svc.mode, svc.teamPlan);
-      return Promise.resolve(svc.teams);
+// For the tests that read the list through the REAL service's mapping (teamPlan null vs missing).
+const rawList = vi.hoisted(() => ({ body: null as unknown, get: vi.fn() }));
+vi.mock('@/lib/api-client', () => ({ apiClient: { get: rawList.get } }));
+vi.mock('@/services/department.service', async (importOriginal) => {
+  const actual = await importOriginal<{
+    departmentService: {
+      getAll: (
+        inactive?: boolean,
+        onMode?: (on: boolean | undefined, plan?: unknown) => void
+      ) => Promise<unknown>;
+    };
+  }>();
+  return {
+    ...actual,
+    departmentService: {
+      getAll: (inactive?: boolean, onMode?: (on: boolean | undefined, plan?: unknown) => void) => {
+        if (rawList.body !== null) return actual.departmentService.getAll(inactive, onMode);
+        svc.getAll(inactive);
+        onMode?.(svc.mode, svc.teamPlan);
+        return Promise.resolve(svc.teams);
+      },
+      create: svc.create,
+      update: svc.update,
+      reactivate: svc.reactivate,
+      deactivate: svc.deactivate,
+      setTeamsMode: svc.setTeamsMode,
+      previewTeamsOff: svc.previewTeamsOff,
+      waitForTeamsSwitch: svc.waitForTeamsSwitch,
+      getPlanTeamLimit: svc.getPlanTeamLimit,
+      getTeamsMode: svc.getTeamsMode,
     },
-    create: svc.create,
-    update: svc.update,
-    reactivate: svc.reactivate,
-    deactivate: svc.deactivate,
-    setTeamsMode: svc.setTeamsMode,
-    previewTeamsOff: svc.previewTeamsOff,
-    waitForTeamsSwitch: svc.waitForTeamsSwitch,
-    getPlanTeamLimit: svc.getPlanTeamLimit,
-    getTeamsMode: svc.getTeamsMode,
-  },
-}));
+  };
+});
 
 const { TeamsSettings } = await import('../TeamsSettings');
 
@@ -119,6 +133,7 @@ beforeEach(() => {
   ];
   svc.mode = true;
   svc.teamPlan = undefined;
+  rawList.body = null;
   Object.values(svc).forEach((value) => {
     if (typeof value === 'function' && 'mockReset' in value)
       (value as ReturnType<typeof vi.fn>).mockReset();
@@ -622,4 +637,21 @@ describe('team plan notice (behind ui.team_builder)', () => {
       expect(screen.queryByTestId('team-plan-notice')).toBeNull();
     }
   );
+
+  it.each([
+    ['null', { teamPlan: null }, false],
+    ['missing', {}, true],
+  ])('flag ON, list read through the service, teamPlan %s', async (_name, extra, oldLine) => {
+    uiFlags = { 'ui.team_builder': true };
+    svc.getPlanTeamLimit.mockResolvedValue(1);
+    rawList.body = true;
+    rawList.get.mockResolvedValue({
+      data: { success: true, data: svc.teams, teamsEnabled: true, ...extra },
+    });
+    renderPage();
+    await screen.findByText('Use teams');
+    await waitFor(() => expect(svc.getPlanTeamLimit).toHaveBeenCalled());
+    expect(screen.queryByTestId('team-plan-notice')).toBeNull();
+    await waitFor(() => expect(screen.queryByTestId('teams-over-limit') !== null).toBe(oldLine));
+  });
 });

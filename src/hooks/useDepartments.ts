@@ -16,8 +16,8 @@ type DepartmentsQueryData = {
   departments: Department[];
   /** The list response's `teamsEnabled`; undefined on a backend that does not send it yet. */
   teamsEnabled: boolean | undefined;
-  /** The list response's `teamPlan`; undefined on a backend that does not send it yet. */
-  teamPlan: TeamPlan | undefined;
+  /** The list response's `teamPlan`; null = sent as null, undefined = a backend that does not send it. */
+  teamPlan: TeamPlan | null | undefined;
 };
 
 /**
@@ -44,7 +44,7 @@ export const useDepartments = ({ includeInactive = false }: { includeInactive?: 
       // would otherwise pass its QueryFunctionContext as that argument.
       queryFn: async () => {
         let teamsEnabled: boolean | undefined;
-        let teamPlan: TeamPlan | undefined;
+        let teamPlan: TeamPlan | null | undefined;
         const departments = await departmentService.getAll(includeInactive, (value, plan) => {
           teamsEnabled = value;
           teamPlan = plan;
