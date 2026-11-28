@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Spinner } from '@/components/ui/Spinner';
 import { Toggle } from '@/components/ui/Toggle';
+import { TeamPlanNotice } from '@/components/shared/TeamPlanNotice';
 import { useDepartments } from '@/hooks/useDepartments';
 import { useUiFlags } from '@/hooks/useUiFlags';
 import { deriveTeamsEnabled, pickDefaultTeam } from '@/hooks/useTeamsEnabled';
@@ -79,7 +80,11 @@ export const TeamsSettings = () => {
     isLoading,
     isError,
     teamsEnabled: teamsMode,
+    teamPlan,
   } = useDepartments({ includeInactive: true });
+  // The over-limit notice ships behind the teams UI flag; flag OFF keeps the old small line.
+  // A backend that sends no `teamPlan` (older) keeps the old line, flag or not.
+  const teamPlanNoticeOn = isSurfaceEnabled('ui.team_builder') && teamPlan !== undefined;
   const activeTeams = teams.filter((team) => team.active);
   const teamsEnabled = deriveTeamsEnabled(teamsMode, activeTeams);
   const defaultTeam = pickDefaultTeam(teams);
@@ -233,6 +238,7 @@ export const TeamsSettings = () => {
           </Alert>
         ) : (
           <>
+            {teamPlanNoticeOn && <TeamPlanNotice teamPlan={teamPlan} />}
             {switchState === 'interrupted' && (
               <Alert variant="warning">
                 <AlertTitle>Switching teams off didn’t finish</AlertTitle>
@@ -282,7 +288,7 @@ export const TeamsSettings = () => {
                     Your plan includes one team. Upgrade to use teams.
                   </p>
                 )}
-                {overTeamLimitText(planTeamLimit, activeTeams.length) && (
+                {!teamPlanNoticeOn && overTeamLimitText(planTeamLimit, activeTeams.length) && (
                   <p className="mt-1 text-xs text-warning" data-testid="teams-over-limit">
                     {overTeamLimitText(planTeamLimit, activeTeams.length)}
                   </p>

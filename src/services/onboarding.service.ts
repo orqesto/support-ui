@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { getErrorBody, getErrorStatus } from '@/lib/errorMessages';
 import type { DatabaseDisplay } from '@/services/database.service';
 import type { ApiResponse } from '@/types';
 
@@ -24,6 +25,8 @@ export type OnboardingState = {
   completedAt?: string;
   skippedAt?: string;
   trialRestamped?: boolean;
+  /** True when the workspace was created on the team-presets path (the signup teams picker applies). */
+  teamsFromPresets?: boolean;
 };
 
 export type TrialInfo = {
@@ -74,6 +77,85 @@ export type OnboardingPatch = {
   currentStep?: OnboardingState['currentStep'];
   aiChoice?: 'managed' | 'byo';
   dbChoice?: 'managed' | 'own';
+};
+
+/** One team the signup picker offers. Mirrors BE `OfferedTeam`. */
+export type OfferedTeam = {
+  presetKey: string;
+  name: string;
+  description: string | null;
+  itemCount: number;
+  /** The existing team made from this preset, when there is one. */
+  teamId: number | null;
+  active: boolean;
+};
+
+export type OnboardingTeams = {
+  offered: OfferedTeam[];
+  /** Preset keys ticked by default. */
+  preTicked: string[];
+  editable: boolean;
+};
+
+/** Mirrors BE `TeamPickResult`. `reason` is a code, e.g. PLAN_TEAM_LIMIT, TEAM_PREFIX_TAKEN. */
+export type TeamPickResult = {
+  presetKey: string;
+  outcome: 'created' | 'activated' | 'deactivated' | 'repaired' | 'unchanged' | 'failed';
+  teamId?: number;
+  fallback?: true;
+  reason?: string;
+  failedItems?: number;
+};
+
+/** 409 SETUP_IN_PROGRESS: the workspace is still being set up, or another save is running. */
+export class SetupInProgressError extends Error {
+  constructor() {
+    super('Workspace setup is still in progress');
+    this.name = 'SetupInProgressError';
+  }
+}
+
+/** 409 ONBOARDING_COMPLETE: the wizard is already finished, so the teams can no longer be picked here. */
+export class OnboardingCompleteError extends Error {
+  constructor() {
+    super('Onboarding is already complete');
+    this.name = 'OnboardingCompleteError';
+  }
+}
+
+/** The picker's data; `null` when the workspace was not created on the preset path (404 NOT_AVAILABLE). */
+export const getOnboardingTeams = async (): Promise<OnboardingTeams | null> => {
+  try {
+    const response = await apiClient.get<ApiResponse<OnboardingTeams>>(
+      '/api/organizations/onboarding/teams'
+    );
+    if (!response.data.data) throw new Error('Onboarding teams not available');
+    return response.data.data;
+  } catch (err) {
+    if (getErrorStatus(err) === 404 && getErrorBody(err)?.code === 'NOT_AVAILABLE') return null;
+    throw err;
+  }
+};
+
+/** Applies the picked preset keys (an empty list unpicks everything). */
+export const saveOnboardingTeams = async (presetKeys: string[]): Promise<TeamPickResult[]> => {
+  try {
+    const response = await apiClient.post<ApiResponse<{ results: TeamPickResult[] }>>(
+      '/api/organizations/onboarding/teams',
+      { presetKeys }
+    );
+    if (!response.data.data) throw new Error('Saving the teams failed');
+    return response.data.data.results;
+  } catch (err) {
+    const code = getErrorBody(err)?.code;
+    const status = getErrorStatus(err);
+    if (status === 409 && code === 'SETUP_IN_PROGRESS') throw new SetupInProgressError();
+    if (status === 409 && code === 'ONBOARDING_COMPLETE') throw new OnboardingCompleteError();
+    if (status === 503 && code === 'PICK_LOCK_UNAVAILABLE') {
+      throw Object.assign(new Error('The teams save is temporarily unavailable'), { code });
+    }
+    throw err;
+  }
 };
 
 export const onboardingService = {

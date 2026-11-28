@@ -1,6 +1,6 @@
 import { useContext } from 'react';
 import { QueryClient, QueryClientContext, useQuery } from '@tanstack/react-query';
-import { departmentService, type Department } from '@/services/department.service';
+import { departmentService, type Department, type TeamPlan } from '@/services/department.service';
 import { useAuthStore } from '@/stores/authStore';
 
 /**
@@ -16,6 +16,8 @@ type DepartmentsQueryData = {
   departments: Department[];
   /** The list response's `teamsEnabled`; undefined on a backend that does not send it yet. */
   teamsEnabled: boolean | undefined;
+  /** The list response's `teamPlan`; null = sent as null, undefined = a backend that does not send it. */
+  teamPlan: TeamPlan | null | undefined;
 };
 
 /**
@@ -42,10 +44,12 @@ export const useDepartments = ({ includeInactive = false }: { includeInactive?: 
       // would otherwise pass its QueryFunctionContext as that argument.
       queryFn: async () => {
         let teamsEnabled: boolean | undefined;
-        const departments = await departmentService.getAll(includeInactive, (value) => {
+        let teamPlan: TeamPlan | null | undefined;
+        const departments = await departmentService.getAll(includeInactive, (value, plan) => {
           teamsEnabled = value;
+          teamPlan = plan;
         });
-        return { departments, teamsEnabled };
+        return { departments, teamsEnabled, teamPlan };
       },
       staleTime: 5 * 60 * 1000, // 5 min
       enabled: providedClient !== undefined,
@@ -57,6 +61,7 @@ export const useDepartments = ({ includeInactive = false }: { includeInactive?: 
     ...query,
     data: query.data?.departments,
     teamsEnabled: query.data ? query.data.teamsEnabled : null,
+    teamPlan: query.data?.teamPlan,
   };
 };
 

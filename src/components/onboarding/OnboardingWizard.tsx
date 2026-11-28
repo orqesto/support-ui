@@ -197,6 +197,27 @@ export const OnboardingWizard = () => {
     });
   };
 
+  // The People step's picker: Next saves its unsaved ticks first (null when there is no picker).
+  const peopleBeforeNext = useRef<(() => Promise<boolean>) | null>(null);
+  const registerPeopleBeforeNext = useCallback((fn: (() => Promise<boolean>) | null) => {
+    peopleBeforeNext.current = fn;
+  }, []);
+  const [advancing, setAdvancing] = useState(false);
+  const stepNow = useRef(currentId);
+  stepNow.current = currentId;
+  // Another step (Back) ends a wait that is still running: Next must not stay disabled.
+  useEffect(() => setAdvancing(false), [currentId]);
+  const handleNext = async () => {
+    if (currentId === 'people' && peopleBeforeNext.current) {
+      setAdvancing(true);
+      const ok = await peopleBeforeNext.current();
+      setAdvancing(false);
+      // Left the step meanwhile: this Next is stale.
+      if (!ok || stepNow.current !== 'people') return;
+    }
+    goTo(steps[index + 1]);
+  };
+
   const goTo = (id: StepId) => {
     setExitError(null);
     setRawStep(STEP_NUMBER[id]);
@@ -445,7 +466,7 @@ export const OnboardingWizard = () => {
           />
         )}
         {currentId === 'channels' && <ChannelsStep onConnectedChange={handleChannelsConnected} />}
-        {currentId === 'people' && <InviteTeamStep />}
+        {currentId === 'people' && <InviteTeamStep registerBeforeNext={registerPeopleBeforeNext} />}
         {currentId === 'payment' && (
           <PaymentStep
             initialPlan={initialWizardPlan(selectedPlan)}
@@ -482,7 +503,7 @@ export const OnboardingWizard = () => {
                 Start on Free
               </Button>
             )}
-            <Button disabled={nextDisabled} onClick={() => goTo(steps[index + 1])}>
+            <Button disabled={nextDisabled || advancing} onClick={() => void handleNext()}>
               {nextLabel}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>

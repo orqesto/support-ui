@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/Button';
 import { subscriptionService } from '@/services/subscription.service';
 import { userService } from '@/services/user.service';
 import { useAuthStore } from '@/stores/authStore';
+import { useOnboardingStore } from '@/stores/onboardingStore';
+import { TeamPresetPicker } from './TeamPresetPicker';
 import { logger } from '@/lib/logger';
 import type { OrganizationRole } from '@/types/roles';
 
@@ -21,12 +23,23 @@ type AddedMember = { email: string; kind: 'invited' | 'created' };
  * password. Remaining seats are surfaced so the admin knows the plan ceiling
  * before they hit it. Not the last step — Knowledge (and Payment, with billing) follow.
  */
-export const InviteTeamStep = () => {
+export const InviteTeamStep = ({
+  registerBeforeNext,
+}: {
+  /** The wizard's Next waits for this: it saves unsaved team ticks first. */
+  registerBeforeNext?: (beforeNext: (() => Promise<boolean>) | null) => void;
+}) => {
   const selectedOrganizationId = useAuthStore((state) => state.selectedOrganizationId);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [added, setAdded] = useState<AddedMember[]>([]);
   const [seats, setSeats] = useState<{ used: number; limit: number } | null>(null);
+  // A workspace made on the team-presets path picks its teams first, so an invite can name them.
+  const teamsFromPresets =
+    useOnboardingStore((state) => state.onboarding)?.teamsFromPresets === true;
+  const [teamsSettled, setTeamsSettled] = useState(false);
+  const teamsPending = teamsFromPresets && !teamsSettled;
+  const settleTeams = () => setTeamsSettled(true);
 
   const loadSeats = () => {
     subscriptionService
@@ -46,6 +59,7 @@ export const InviteTeamStep = () => {
   const unlimited = seats !== null && seats.limit >= UNLIMITED_SEATS;
   const remaining = seats === null ? null : Math.max(0, seats.limit - seats.used);
   const atLimit = !unlimited && remaining !== null && remaining <= 0;
+  const addLocked = atLimit || teamsPending;
 
   const recordAdded = (email: string, kind: AddedMember['kind']) =>
     setAdded((prev) =>
@@ -81,10 +95,18 @@ export const InviteTeamStep = () => {
 
   return (
     <div className="space-y-4">
+      {teamsFromPresets && (
+        <TeamPresetPicker
+          onSaved={settleTeams}
+          onSkip={settleTeams}
+          onNotNeeded={settleTeams}
+          registerBeforeNext={registerBeforeNext}
+        />
+      )}
+
       <p className="text-sm text-muted-foreground">
-        Add the people who&apos;ll handle threads. Invite them by email (they get a signup
-        link) or create an account directly with a password. You can add more anytime from the Users
-        page.
+        Add the people who&apos;ll handle threads. Invite them by email (they get a signup link) or
+        create an account directly with a password. You can add more anytime from the Users page.
       </p>
 
       {seats !== null && (
@@ -98,15 +120,21 @@ export const InviteTeamStep = () => {
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" disabled={atLimit} onClick={() => setInviteOpen(true)}>
+        <Button variant="outline" disabled={addLocked} onClick={() => setInviteOpen(true)}>
           <UserPlus className="mr-2 h-4 w-4" />
           Invite someone
         </Button>
-        <Button variant="outline" disabled={atLimit} onClick={() => setCreateOpen(true)}>
+        <Button variant="outline" disabled={addLocked} onClick={() => setCreateOpen(true)}>
           <UserRoundPlus className="mr-2 h-4 w-4" />
           Create a user
         </Button>
       </div>
+
+      {teamsPending && (
+        <p className="text-sm text-muted-foreground">
+          Save your teams first, so you can add people to them.
+        </p>
+      )}
 
       {atLimit && (
         <p className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm text-warning">
@@ -118,10 +146,7 @@ export const InviteTeamStep = () => {
       {added.length > 0 && (
         <ul className="space-y-1">
           {added.map((member) => (
-            <li
-              key={member.email}
-              className="flex items-center gap-2 text-sm text-foreground"
-            >
+            <li key={member.email} className="flex items-center gap-2 text-sm text-foreground">
               <CheckCircle className="h-4 w-4 text-muted-foreground" />
               {member.email} {member.kind === 'created' ? 'created' : 'invited'}
             </li>
